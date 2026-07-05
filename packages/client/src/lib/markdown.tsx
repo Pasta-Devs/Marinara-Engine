@@ -375,7 +375,10 @@ export function renderMarkdownBlocks(
   renderInline: (text: string, keyPrefix: string) => ReactNode[] = applyInlineMarkdown,
   keyBase = "md",
 ): ReactNode {
-  const lines = normalizeCardAssetImageSyntax(text).split("\n");
+  // Split on CRLF or LF — CRLF input (e.g. .md files written on Windows) must
+  // not leave a trailing \r on lines, or line-anchored patterns like
+  // HEADING_RE fail to match.
+  const lines = normalizeCardAssetImageSyntax(text).split(/\r?\n/);
   const segments: ReactNode[] = [];
   let key = 0;
 

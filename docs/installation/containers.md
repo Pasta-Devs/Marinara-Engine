@@ -12,15 +12,18 @@ docker compose up -d
 
 Then open **<http://127.0.0.1:7860>**.
 
-That Compose file tracks `ghcr.io/pasta-devs/marinara-engine:latest`. Every tagged release also publishes immutable version tags, such as `ghcr.io/pasta-devs/marinara-engine:2.0.0`, plus the matching lite tag `ghcr.io/pasta-devs/marinara-engine:2.0.0-lite`.
+That Compose file tracks `ghcr.io/pasta-devs/marinara-engine:latest`. Every tagged release also publishes immutable version tags, such as `ghcr.io/pasta-devs/marinara-engine:X.Y.Z`, plus the matching lite tag `ghcr.io/pasta-devs/marinara-engine:X.Y.Z-lite`.
 
 Compose binds to `127.0.0.1` by default. To expose the container to your LAN, change the port mapping to `${PORT:-7860}:7860`, set `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`, and `ADMIN_SECRET`, then restart. See [Access Control](../CONFIGURATION.md#access-control).
 
-Data (file-backed storage, uploads, fonts, default backgrounds) is stored in the named volume `marinara-data`. To inspect it:
+Data (file-backed storage, uploads, fonts, default backgrounds) is stored in the Compose-managed `marinara-data` volume. Compose prefixes volume names with the project name, so the actual Docker volume name follows a `<compose-project>_marinara-data` pattern. Discover the exact name before inspecting it:
 
 ```bash
-docker volume inspect marinara-data
+docker volume ls --filter name=marinara-data
+docker volume inspect <volume-name-from-the-list>
 ```
+
+The bare `marinara-data` name applies to the `docker run -v marinara-data:/app/data` examples below.
 
 On startup, the official image repairs ownership of `/app/data` for named volumes, then drops back to the non-root runtime user. This lets older Docker installs migrate to file-backed storage without manual `chown` steps. The runtime `.env` file is auto-created at `/app/data/.env`, and file-native storage is pinned to `/app/data/storage`, so both app settings and user data remain inside the mounted volume.
 
@@ -105,6 +108,7 @@ A **lite** image variant is available that trades some offline features for a si
 | Local sidecar model (llama-server / Gemma) | Native runtime libs (`libssl`, `libgomp`, `libvulkan`), large model downloads |
 | Local embedding model (all-MiniLM-L6-v2)   | `onnxruntime-node`, `onnxruntime-web`, `@huggingface/transformers`            |
 | Memory recall (semantic search)            | Depends on the local embedding model                                          |
+| Local Whisper voice input                  | Uses the sidecar speech runtime for Conversation-call speech-to-text          |
 
 All core features — chat, roleplay, game mode, agents, lorebooks, characters, connections to remote LLM APIs — work exactly the same. You just need an external API connection (OpenRouter, OpenAI, Ollama, etc.) for all LLM features instead of being able to run a model locally via ME.
 
@@ -130,7 +134,7 @@ docker build -f Dockerfile.lite -t marinara-engine:lite .
 docker run -d -p 127.0.0.1:7860:7860 -v marinara-data:/app/data marinara-engine:lite
 ```
 
-> **Note:** The lite image is published alongside each versioned release (e.g. `ghcr.io/pasta-devs/marinara-engine:2.0.0-lite`). It is **not** published on every push to `main`.
+> **Note:** The lite image is published alongside each versioned release (e.g. `ghcr.io/pasta-devs/marinara-engine:X.Y.Z-lite`). It is **not** published on every push to `main`.
 
 ## Updating
 

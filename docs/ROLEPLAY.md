@@ -20,13 +20,13 @@ Pick **Conversation** instead if you just want chat without scene chrome. Pick *
 
 ## Setting up a roleplay
 
-Roleplay uses a five-step setup wizard (distinct from Conversation Mode's single-screen quick-setup modal). Only the connection is required:
+Roleplay uses a five-step setup wizard. The connection is required; the roleplay name is optional and can be left blank if you want Marinara to use the default:
 
-1. **Connection** — which LLM provider/model the chat sends messages to.
-2. **Preset** — saved prompt-stack template. Default works for most cases.
-3. **Persona** — the character _you_ play.
-4. **Character(s)** — pick one or more characters from your library.
-5. **Lorebooks** — attach lorebooks for world facts and lore-specific context.
+1. **Name & Connection** — optionally name the roleplay and choose the required AI connection.
+2. **Pick a Preset** — saved prompt-stack template. Default works for most cases.
+3. **Persona & Characters** — choose the character you play and who joins the scene.
+4. **Attach Lorebooks** — optional world facts and lore-specific context.
+5. **Enable Agents** — optional trackers, prose polish, knowledge retrieval, and other helpers. Agents can be added or removed later.
 
 Roleplay benefits from an **image-generation connection** more than Conversation does because of the sprite and background system, but it isn't required — the mode degrades gracefully to text-only when image gen isn't available (the sprite slots stay empty, backgrounds render as solid color, the HUD still works). See [Image generation](#image-generation) below.
 
@@ -35,12 +35,12 @@ Roleplay benefits from an **image-generation connection** more than Conversation
 Roleplay's interface is significantly richer than Conversation's. Visible elements:
 
 - **Background image** — a crossfading scene background behind the message column. Selected per turn by the **Background agent** from your asset library.
-- **Sprite slots** — up to three character sprites rendered in fixed positions (left, center, right) or free-placement mode. Sprites change expression based on the message content.
+- **Sprite slots** — character sprites rendered in default positions or free-placement mode. There is no fixed three-sprite cap; every sprite-enabled character in the chat can appear.
 - **Roleplay HUD** — heads-up display widgets along the top or side showing current world state.
 - **Weather overlay** — particle effects (rain, snow, fog, etc.) when the world-state agent infers weather from narrative.
 - **Agents menu** — the sparkle / agent activity menu for agent thoughts, retries, troubleshooting tabs, and optional hidden story guidance.
 - **Echo chamber panel** — simulated chat reactions from a fictional audience, like a Twitch-style chat (optional, agent-driven).
-- **Durable info panels** — toolbar buttons opening Summary, World Info (active lorebook entries), and Author's Notes panels.
+- **Durable info panels** — toolbar buttons opening Summary, Active Context (active lorebook entries), and Author's Notes panels.
 
 If you're coming from Conversation Mode, the visible difference is the entire scene chrome: backgrounds, sprites, the HUD strip, and the weather layer.
 
@@ -70,7 +70,8 @@ Open the chat settings drawer's **Impersonate** section to configure the workflo
 - **Prompt Template** — global instructions for how impersonation should write. Empty means the chat-specific prompt or built-in default is used.
 - **Preset** — optionally use a specific prompt preset for impersonation instead of the chat's preset.
 - **Connection** — optionally route impersonation to a different model/provider.
-- **Quick button** — adds a one-click impersonate button to the input bar.
+- **Quick replies** — to get a one-click impersonate button beside Send, enable **Settings -> Advanced -> Message Tools -> Quick replies** and include the Impersonate action.
+- **Use CYOA as direction** — clicking a CYOA choice can feed it to impersonation as guidance instead of sending it as a normal user message.
 - **Agent pipeline** — skip agents during impersonation when you want a fast draft that does not update trackers, lorebook routers, or world state.
 
 You can also set a per-chat prompt with `/impersonate_prompt "your prompt"` and reset it with `/impersonate_prompt reset`.
@@ -81,12 +82,12 @@ The Agents menu is the small activity menu in the Roleplay HUD. By default it sh
 
 Some troubleshooting tools are opt-in so they don't clutter the normal roleplay view:
 
-- **Injections tab** — enable it via the toggle switch in Chat Settings -> Agents -> Writer Agents -> Injections tab.
-- **Secret Plot tab** — add Narrative Director to the chat, enable its Secret Plot option, then turn on the Secret Plot tab via the toggle on that agent's active card in Chat Settings.
+- **Injections tab** — appears while **Settings -> Advanced -> Debug mode** is on.
+- **Secret Plot editing** — lives on the Narrative Director card in **Chat Settings -> Agents**, not in the HUD menu.
 
 The **Injections tab** shows cached prompt injections saved on the latest assistant message. These are snippets that writer-style agents added before the reply was generated, such as Prose Guardian, Narrative Director, knowledge retrieval, knowledge router, or custom prompt-section agents. You can inspect, edit, save, or re-run eligible cached injections.
 
-When Narrative Director is active, the Injections tab also shows its run countdown and a compact interval stepper. That control changes how often the Director runs on future replies; it does not rewrite the cached injection already attached to the current assistant message.
+Narrative Director is one-shot for visible scene direction: arm the **Push Story** button above the chat input, and the Director generates guidance for the next reply only. When the Director is active, the Injections tab shows a note reminding you of this. Secret Plot has its own run interval on the Narrative Director card in Chat Settings.
 
 The important part: edits in the Injections tab don't change the already-visible message by themselves, nor do they carry over to the next assistant message. They're used when you regenerate that same assistant message. Re-running a cached injection also targets that same assistant message, using the transcript slice and tracker snapshot from the original generation rather than the newest chat turn. This keeps regeneration reproducible: you're changing the guidance that fed that reply, not asking the current chat state to invent a new unrelated direction.
 
@@ -98,18 +99,14 @@ Knowledge Retrieval and Knowledge Router cached injections can be viewed but not
 
 Secret Plot is an optional hidden-story mode inside Narrative Director. It maintains private plot memory for one roleplay chat: a long-term **arc memory** plus short-term **scene directions** that can be injected before replies. This is different from visible summaries or lorebook entries. It's meant to steer pacing, reveals, and long-term tension without printing the plan directly in the chat.
 
-When Narrative Director's Secret Plot option is active and the Secret Plot tab is shown, you can edit:
+Enable it under **Chat Settings -> Agents -> Narrative Director -> Secret Plot**. Set the **Run Interval** to control how many assistant messages pass between hidden-arc updates, then expand the **Secret plot** panel. Behind **Reveal spoilers**, you can edit:
 
-- **Scene direction** — short-term guidance for the next turn or near-term scene motion.
-- **Needs momentum shift** — a hint that the current scene has gone stale and should move.
-- **Arc memory** — hidden long-term plot structure, including the overall arc, protagonist arc, and whether the arc is complete.
+- **Arc description** — the hidden long-term plot structure.
+- **Protagonist arc** — where the user's character is being steered.
+- **Character arc** — where the main character's arc is being steered.
+- **Completed** — marks the hidden arc done.
 
-There are two re-run buttons with different blast radius:
-
-- **Re-run scene direction** keeps the current arc memory and only refreshes the turn-level guidance.
-- **Re-run full secret plot state** always asks for confirmation first, then may replace the hidden arc and scene directions depending on the model output. When it does, it overwrites the chat's arc memory and hidden plot plan.
-
-Saving edits writes directly to the agent memory used during generation. Hiding the Secret Plot tab only hides the editor; it doesn't disable the agent or delete memory. Removing Narrative Director from the chat DOES delete that chat's hidden plot memory for the agent, including the current arc and scene directions.
+Use **Regenerate** when you want the model to replace the hidden arc; it asks for confirmation before overwriting. Saving edits writes directly to the agent memory used during generation. Removing Narrative Director from the chat deletes that chat's hidden plot memory for the agent. A plain memory reset preserves it.
 
 ## Sprite expressions
 
@@ -140,10 +137,10 @@ The scene system enables narrative branching without losing the canonical thread
 
 ## Connected chats
 
-Roleplay sits on the **automatic-pull side** of the connected-chats asymmetry. If you connect a Roleplay chat to a Conversation chat, the Conversation context flows into the Roleplay automatically:
+Roleplay sits on the **manual-bridge side** of the connected-chats asymmetry. If you connect a Roleplay chat to a Conversation, the Conversation auto-pulls recent Roleplay context so the DM character knows what is happening in the story. The Roleplay prompt does not automatically pull ordinary DM messages.
 
-- **Pending `<influence>` tags** from the connected conversation are pulled in once and consumed (one-shot steers).
-- **Durable `<note>` tags** are pulled in on every turn until you clear them.
+- **Pending `<influence>` tags** from the connected Conversation are pulled into Roleplay once and consumed as one-shot steers.
+- **Durable `<note>` tags** from the connected Conversation are pulled into Roleplay on every turn until you clear them.
 
 In the other direction, the Roleplay character can break the fourth wall back to the connected Conversation by wrapping text in `<ooc>...</ooc>` tags — the engine extracts these and posts them to the linked DM.
 
@@ -164,7 +161,7 @@ Roleplay sits between Conversation (forgiving) and Game Mode (demanding) in mode
 
 - Mid-tier and above is comfortable: Claude Haiku / Sonnet, GPT-4 mini / GPT-4 class, Gemini Flash / Pro, GLM5, Llama 3 70B, etc.
 - Top-tier (Opus, GPT-5, Gemini Pro) helps in very long roleplays where context recall starts mattering.
-- Free-tier OpenRouter routing typically works for chat but the agents (especially World-State) may glitch — the auto-seeded `OpenRouter Free` connection is **borderline** for Roleplay. If state widgets keep going wrong, upgrade.
+- Free-tier or auto-routing OpenRouter models typically work for simple chat but the agents, especially World-State, may glitch. If state widgets keep going wrong, pin a capable model or upgrade the connection.
 
 **For the agent connections:**
 
@@ -180,7 +177,7 @@ Roleplay sits between Conversation (forgiving) and Game Mode (demanding) in mode
 
 Lorebooks attached to a Roleplay chat behave the same way as in Conversation — both **constant** entries (always injected) and **keyword-triggered** entries (injected when their keywords appear in recent messages) fire normally on each turn.
 
-In addition, Roleplay has a **World Info panel** accessible from the toolbar that shows you which lorebook entries are currently active (matched and injected). Useful when a character keeps referencing a fact you didn't expect — open the panel and check whether a lorebook entry is firing.
+In addition, Roleplay has an **Active Context** panel accessible from the toolbar. It is Marinara's equivalent of SillyTavern's World Info and shows which lorebook entries are currently active, matched, and injected. Useful when a character keeps referencing a fact you didn't expect.
 
 The lorebook editor itself has its own UI for authoring entries (keywords, position, recursion settings, folder organization). Those settings are beyond this guide's scope; the in-app editor's help covers them.
 
@@ -269,15 +266,13 @@ Long contexts compress when they hit the model's window. Things to try:
 
 ### Regenerating a reply keeps using the wrong guidance
 
-If Prose Guardian, Narrative Director, knowledge retrieval, or a custom prompt-section agent pushed the reply in a bad direction or decided to continue the RP inside its guidance, turn on the **Injections tab** in chat settings -> Agents -> Writer Agents. Open the Roleplay HUD's Agents menu, inspect the cached prompt injections, then edit or re-run the specific injection and regenerate the same assistant message.
+If Prose Guardian, Narrative Director, knowledge retrieval, or a custom prompt-section agent pushed the reply in a bad direction or decided to continue the RP inside its guidance, enable **Settings -> Advanced -> Debug mode**. Open the Roleplay HUD's Agents menu, inspect the Injections tab, then edit or re-run the specific cached injection and regenerate the same assistant message.
 
 This works because Marinara stores the prompt injections used for each assistant message. On regeneration, it reuses that message's cached guidance instead of blindly using whatever the newest chat state would produce.
 
 ### Narrative Director Secret Plot keeps steering toward the wrong arc
 
-Open chat settings -> Agents, make sure Narrative Director is active with Secret Plot enabled, and show its **Secret Plot tab**. In the Roleplay HUD's Agents menu, use the Secret Plot tab to edit or re-run the hidden state.
-
-Use **Re-run scene direction** when the current turn needs a fresher nudge but the long-term arc is still good. Use **Re-run full secret plot state** when the hidden arc itself is wrong. Removing Narrative Director from the chat wipes its hidden plot memory for that chat, so only do that if you want a clean slate.
+Open **Chat Settings -> Agents**, make sure Narrative Director is active with **Secret Plot** enabled, expand the Secret plot panel, and use **Reveal spoilers** to edit the arc fields. Use **Regenerate** if the hidden arc itself is wrong. Removing Narrative Director from the chat wipes its hidden plot memory for that chat, so only do that if you want a clean slate.
 
 ---
 

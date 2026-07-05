@@ -30,6 +30,10 @@ export function createGameSceneVideosStorage(db: DB) {
       return rows[0] ?? null;
     },
 
+    async remove(id: string) {
+      await db.delete(gameSceneVideos).where(eq(gameSceneVideos.id, id));
+    },
+
     async create(input: CreateGameSceneVideoInput) {
       const id = newId();
       const createdAt = now();

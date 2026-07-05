@@ -473,8 +473,10 @@ export function RegexScriptEditor() {
   // ── Loading / not found ──
   if (!regexDetailId || (!dbRow && !isNew)) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
-        Regex script not found.
+      <div className="mari-editor-shell flex flex-1 items-center justify-center">
+        <p className="mari-editor-empty px-4 py-3 text-sm">
+          Regex script not found.
+        </p>
       </div>
     );
   }

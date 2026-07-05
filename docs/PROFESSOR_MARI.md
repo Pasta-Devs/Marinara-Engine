@@ -4,7 +4,7 @@
   <img src="../packages/client/public/sprites/mari/Mari_explaining.png" width="320" alt="Professor Mari explaining Marinara Engine" />
 </p>
 
-Professor Mari is Marinara Engine's built-in assistant character. She lives in your character library by default, cannot be deleted, and helps you understand the app, set up core features, and create or edit basic content without learning every panel first.
+Professor Mari is Marinara Engine's built-in assistant on the Home screen. Her protected built-in character card cannot be deleted, but she no longer appears in the character library by default. Her app actions only run from the Home **Ask Professor Mari** assistant chat; legacy chats with the Mari character are personality-only.
 
 Think of Mari as an in-app guide who can also take a few safe content actions for you. She is best at explaining Marinara, helping you get unstuck, drafting new characters/personas/lorebooks from rough ideas, and making targeted edits after she has fetched the current item.
 
@@ -35,12 +35,20 @@ Implemented actions include:
 - Update existing character cards.
 - Update existing personas.
 - Create lorebooks, optionally with starter entries.
+- Update existing lorebooks.
+- Create prompt presets and review existing presets after fetching them.
 - Create new Conversation or Roleplay chats with a selected character.
 - Navigate to app panels and settings tabs.
 - Fetch existing characters, personas, lorebooks, chats, and presets so she can inspect their details before advising or editing.
 - Read public Fandom/MediaWiki pages
 
 When Mari creates something, she should ask for the important details first if your request is vague. When she updates something, she should fetch the current item first and change only the fields you asked her to change.
+
+## Home Workspace
+
+From the Home assistant chat, Mari can use the Professor Mari workspace for approval-gated local changes. This includes creating or updating themes, agents, prompt presets, lorebook entries, and local workspace files such as extensions.
+
+Writes are guarded. Database-changing actions create an in-chat review card, and workspace/file changes require explicit approval with a restore copy journaled before the change applies. Trusted/local clients can use the workspace; database-changing commands remain loopback-only unless the relevant privileged access is configured.
 
 ## How To Ask Mari
 
@@ -62,7 +70,7 @@ For edits, name the item and the field or behavior you want changed. Requests li
 Creating new content is usually safe because it does not overwrite anything. Editing existing content deserves more care.
 
 - Character edits keep a recoverable version snapshot that can be rolled back from the character history.
-- Persona edits overwrite the persona without a snapshot. Back up a persona first if you want to preserve the old version.
+- Persona edits also keep a recoverable version snapshot that can be rolled back from the persona editor's version history.
 - Mari should fetch an item before updating it so she can see the current values and avoid overwriting unrelated fields.
 - If Mari has not fetched the item yet, ask her to fetch it before making the edit.
 - Mari cannot reliably know what you meant if you ask for a broad rewrite with no constraints. Give her the specific field, tone, or behavior you want changed.

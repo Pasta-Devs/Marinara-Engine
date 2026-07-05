@@ -56,7 +56,7 @@ MARINARA_PORT=9000 ./build-apk.sh
 Build outputs:
 
 - Debug: `app/build/outputs/apk/debug/app-debug.apk`
-- Release: `app/build/outputs/apk/release/app-release-unsigned.apk`
+- Release: `app/build/outputs/apk/release/app-release.apk` (signed with your `ANDROID_SIGNING_*` keystore when set, otherwise debug-signed)
 
 ### Install
 

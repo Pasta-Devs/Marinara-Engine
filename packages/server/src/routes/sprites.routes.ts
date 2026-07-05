@@ -3,11 +3,14 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import AdmZip from "adm-zip";
+import { execFile } from "child_process";
 import { existsSync, mkdirSync, createReadStream, readdirSync, unlinkSync, statSync, readFileSync } from "fs";
 import { randomUUID } from "crypto";
-import { writeFile, mkdir, readdir, unlink, copyFile, rm } from "fs/promises";
-import { dirname, extname, isAbsolute, join, relative, resolve } from "path";
+import { writeFile, mkdir, readdir, unlink, copyFile, rm, readFile, mkdtemp } from "fs/promises";
+import { tmpdir } from "os";
+import { delimiter, dirname, extname, isAbsolute, join, relative, resolve } from "path";
 import { fileURLToPath } from "url";
+import { promisify } from "util";
 import { DATA_DIR } from "../utils/data-dir.js";
 import {
   getBackgroundRemoverStatus,
@@ -68,20 +71,35 @@ import { generateImage } from "../services/image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { generateVideo, type VideoReferenceImage } from "../services/video/video-generation.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import {
   loadPrompt,
+  SPRITES_ANIMATED_PORTRAIT,
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
   SPRITES_SINGLE_FULL_BODY,
   SPRITES_FULL_BODY_SHEET,
 } from "../services/prompt-overrides/index.js";
 import {
+  clampVideoDuration,
+  createDefaultVideoGenerationProfile,
+  inferVideoSource,
+  normalizeVideoGenerationProfile,
+  normalizeVideoGenerationUserSettings,
   normalizeSpriteExpressionLabel,
+  VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+  VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
+  VIDEO_DEFAULTS_STORAGE_KEY,
+  VIDEO_GENERATION_SETTINGS_KEY,
   type ImageGenerationDefaultsProfile,
   type ImageStyleProfileSettings,
 } from "@marinara-engine/shared";
+import { isAllowedImageBuffer } from "../utils/security.js";
+
+const execFileAsync = promisify(execFile);
 
 const SPRITES_ROOT = join(DATA_DIR, "sprites");
 const ROUTE_DIR = dirname(fileURLToPath(import.meta.url));
@@ -89,9 +107,14 @@ const CLIENT_PUBLIC_DIR = resolve(ROUTE_DIR, "../../../client/public");
 const CLIENT_DIST_DIR = resolve(ROUTE_DIR, "../../../client/dist");
 const MAX_SPRITE_GRID_DIMENSION = 8;
 const MAX_INDIVIDUAL_SPRITE_EXPRESSIONS = 8;
+const MAX_ANIMATED_SPRITE_EXPRESSIONS = 16;
 const SPRITE_FILE_RE = /\.(png|jpg|jpeg|gif|webp|avif|svg)$/i;
 const CLEANUP_INPUT_FILE_RE = /\.(png|jpg|jpeg|webp|avif)$/i;
 const SPRITE_EXPORT_NAME_RE = /[^a-z0-9._ -]+/gi;
+const ANIMATED_EXPRESSION_ASPECT_RATIO = "9:16" as const;
+const ANIMATED_EXPRESSION_GIF_WIDTH = 512;
+const ANIMATED_EXPRESSION_GIF_FPS = 12;
+const ANIMATED_EXPRESSION_FFMPEG_TIMEOUT_MS = Number(process.env.SPRITE_ANIMATED_FFMPEG_TIMEOUT_MS ?? 180_000);
 
 type SpriteCleanupEngine = "auto" | "backgroundremover" | "builtin";
 type UsedSpriteCleanupEngine = "backgroundremover" | "builtin";
@@ -136,6 +159,20 @@ type SpriteGenerateSheetBody = {
   cleanupStrength?: number;
   nativeTransparentPng?: boolean;
   promptOverrides?: SpritePromptOverride[];
+};
+
+type SpriteGenerateAnimatedBody = Omit<SpriteGenerateSheetBody, "cols" | "rows" | "spriteType" | "fullBodyExpressionMode"> & {
+  durationSeconds?: number;
+};
+
+type VideoGenerationConnection = {
+  id: string;
+  baseUrl?: string | null;
+  apiKey?: string | null;
+  model?: string | null;
+  videoGenerationSource?: string | null;
+  videoService?: string | null;
+  defaultParameters?: string | null;
 };
 
 function coerceSpriteGridDimension(raw: unknown, fallback: number): number {
@@ -201,6 +238,10 @@ function spritePromptReviewId(kind: "sheet" | "expression", spriteType: string |
     .replace(/(^-|-$)/g, "")
     .slice(0, 120);
   return `sprite:${spriteType ?? "expressions"}:${kind}:${normalizedLabel || "request"}`;
+}
+
+function animatedSpritePromptReviewId(expression: string): string {
+  return spritePromptReviewId("expression", "animated-portrait", expression);
 }
 
 function ensureDir(dir: string) {
@@ -305,6 +346,152 @@ function compileSpritePrompt(
     prompt: compiled.prompt,
     negativePrompt: compiled.negativePrompt,
   };
+}
+
+function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
+  if (!raw) return {};
+  let parsed: unknown = raw;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      return {};
+    }
+  }
+  return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+    ? { ...(parsed as Record<string, unknown>) }
+    : {};
+}
+
+function getStoredVideoDefaults(raw: unknown) {
+  const root = parseDefaultParametersRoot(raw);
+  return normalizeVideoGenerationProfile(root[VIDEO_DEFAULTS_STORAGE_KEY]).profile;
+}
+
+function resolveVideoConnection(connection: VideoGenerationConnection) {
+  const videoDefaults = connection.defaultParameters
+    ? getStoredVideoDefaults(connection.defaultParameters)
+    : createDefaultVideoGenerationProfile();
+  const explicitVideoSource = connection.videoGenerationSource || connection.videoService || "";
+  const source =
+    explicitVideoSource ||
+    (videoDefaults.service !== "gemini_omni"
+      ? videoDefaults.service
+      : inferVideoSource(connection.model || "", connection.baseUrl || ""));
+  const serviceHint = connection.videoService || source;
+  const isXaiVideo = source === "xai" || serviceHint === "xai";
+  const isGoogleVeoVideo = source === "google_veo" || serviceHint === "google_veo";
+  const isOpenRouterVideo = source === "openrouter" || serviceHint === "openrouter";
+  return {
+    source,
+    serviceHint,
+    baseUrl:
+      connection.baseUrl ||
+      (isXaiVideo
+        ? "https://api.x.ai/v1"
+        : isGoogleVeoVideo
+          ? "https://generativelanguage.googleapis.com/v1beta"
+        : isOpenRouterVideo
+          ? "https://openrouter.ai/api/v1"
+          : "https://generativelanguage.googleapis.com/v1beta"),
+    model:
+      connection.model ||
+      (isXaiVideo
+        ? "grok-imagine-video-1.5"
+        : isGoogleVeoVideo
+          ? "veo-3.1-generate-preview"
+          : isOpenRouterVideo
+            ? "google/veo-3.1"
+            : "gemini-omni-flash-preview"),
+    resolution: isXaiVideo
+      ? videoDefaults.xai.resolution
+      : isGoogleVeoVideo
+        ? videoDefaults.googleVeo.resolution
+      : isOpenRouterVideo
+        ? videoDefaults.openrouter.resolution
+        : undefined,
+  };
+}
+
+function executableExists(path: string): boolean {
+  try {
+    const stat = statSync(path, { throwIfNoEntry: false });
+    return !!stat?.isFile();
+  } catch {
+    return false;
+  }
+}
+
+function pathExecutableNames(name: string): string[] {
+  if (process.platform !== "win32") return [name];
+  const extensions = (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM")
+    .split(";")
+    .map((ext) => ext.trim())
+    .filter(Boolean);
+  return extensions.map((ext) => `${name}${ext.toLowerCase()}`);
+}
+
+function findExecutableOnPath(name: string): string | null {
+  const pathEntries = (process.env.PATH ?? "").split(delimiter).filter(Boolean);
+  for (const entry of pathEntries) {
+    for (const executableName of pathExecutableNames(name)) {
+      const candidate = join(entry, executableName);
+      if (executableExists(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function resolveFfmpegCommand(): string {
+  const configured = process.env.FFMPEG_PATH?.trim() || process.env.FFMPEG_COMMAND?.trim();
+  if (configured) return configured;
+  const found = findExecutableOnPath("ffmpeg");
+  if (found) return found;
+  throw new Error(
+    "Animated expression GIF conversion requires ffmpeg. Install ffmpeg and make it available on PATH, or set FFMPEG_PATH.",
+  );
+}
+
+async function convertMp4ToGif(input: Buffer): Promise<Buffer> {
+  const ffmpeg = resolveFfmpegCommand();
+  const tempDir = await mkdtemp(join(tmpdir(), "marinara-animated-expression-"));
+  const inputPath = join(tempDir, "input.mp4");
+  const palettePath = join(tempDir, "palette.png");
+  const outputPath = join(tempDir, "output.gif");
+  try {
+    await writeFile(inputPath, input);
+    await execFileAsync(
+      ffmpeg,
+      [
+        "-y",
+        "-i",
+        inputPath,
+        "-vf",
+        `fps=${ANIMATED_EXPRESSION_GIF_FPS},scale=${ANIMATED_EXPRESSION_GIF_WIDTH}:-1:flags=lanczos,palettegen=max_colors=96`,
+        palettePath,
+      ],
+      { timeout: ANIMATED_EXPRESSION_FFMPEG_TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
+    );
+    await execFileAsync(
+      ffmpeg,
+      [
+        "-y",
+        "-i",
+        inputPath,
+        "-i",
+        palettePath,
+        "-filter_complex",
+        `fps=${ANIMATED_EXPRESSION_GIF_FPS},scale=${ANIMATED_EXPRESSION_GIF_WIDTH}:-1:flags=lanczos[x];[x][1:v]paletteuse=dither=bayer:bayer_scale=3`,
+        "-loop",
+        "0",
+        outputPath,
+      ],
+      { timeout: ANIMATED_EXPRESSION_FFMPEG_TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024 },
+    );
+    return await readFile(outputPath);
+  } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => undefined);
+  }
 }
 
 function resolveSpritePromptOverride(override: SpriteCompiledPrompt | undefined, fallback: SpriteCompiledPrompt) {
@@ -1097,6 +1284,85 @@ function resolveReferenceImageBase64(input?: string): string | undefined {
   return undefined;
 }
 
+async function resolveVideoReferenceImage(input?: string): Promise<VideoReferenceImage | null> {
+  const base64 = resolveReferenceImageBase64(input);
+  if (!base64) return null;
+  const buffer = Buffer.from(extractBase64ImageData(base64), "base64");
+  const info = isAllowedImageBuffer(buffer);
+  if (info?.mimeType === "image/png" || info?.mimeType === "image/jpeg") {
+    return { base64: buffer.toString("base64"), mimeType: info.mimeType };
+  }
+  if (info) {
+    const sharp = await getSharp();
+    const png = await sharp(buffer, { limitInputPixels: false }).png().toBuffer();
+    return { base64: png.toString("base64"), mimeType: "image/png" };
+  }
+  return null;
+}
+
+function readSpritePromptOverrides(raw: unknown): Map<string, SpriteCompiledPrompt> {
+  return new Map(
+    (Array.isArray(raw) ? raw : []).flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const override = item as Record<string, unknown>;
+      if (typeof override.id !== "string" || typeof override.prompt !== "string") return [];
+      return [
+        [
+          override.id,
+          {
+            prompt: override.prompt.trim(),
+            negativePrompt: typeof override.negativePrompt === "string" ? override.negativePrompt.trim() : "",
+          },
+        ] as const,
+      ];
+    }),
+  );
+}
+
+function buildAnimatedExpressionList(body: SpriteGenerateAnimatedBody): string[] {
+  const seen = new Set<string>();
+  return (body.expressions ?? [])
+    .slice(0, MAX_ANIMATED_SPRITE_EXPRESSIONS)
+    .map((expression) => normalizeSpriteExpression(String(expression)))
+    .filter((expression) => {
+      if (!expression || seen.has(expression)) return false;
+      seen.add(expression);
+      return true;
+    });
+}
+
+function withVideoNegativePrompt(prompt: SpriteCompiledPrompt): string {
+  return prompt.negativePrompt ? `${prompt.prompt}\n\nAvoid: ${prompt.negativePrompt}` : prompt.prompt;
+}
+
+async function buildAnimatedExpressionPrompt(input: {
+  promptOverridesStorage: ReturnType<typeof createPromptOverridesStorage>;
+  promptOverrides: Map<string, SpriteCompiledPrompt>;
+  appearance: string;
+  expression: string;
+  durationSeconds: number;
+  noBackground: boolean;
+}) {
+  const prompt = await loadPrompt(input.promptOverridesStorage, SPRITES_ANIMATED_PORTRAIT, {
+    appearance: input.appearance,
+    expression: input.expression,
+    durationSeconds: input.durationSeconds,
+    aspectRatio: ANIMATED_EXPRESSION_ASPECT_RATIO,
+    backgroundInstruction: input.noBackground
+      ? "Use a flat clean white or transparent-looking background with no scenery, shadows, gradients, floor line, or texture behind the character."
+      : "Use a simple clean portrait background that does not distract from the character.",
+  });
+  const override = input.promptOverrides.get(animatedSpritePromptReviewId(input.expression));
+  return resolveSpritePromptOverride(
+    override,
+    {
+      prompt,
+      negativePrompt:
+        "text, captions, subtitles, speech bubbles, UI, watermark, logo, extra people, multiple faces, split panel, collage, scene cut, camera shake, identity drift, changed outfit",
+    },
+  ).value;
+}
+
 async function buildSpritePromptPlan(
   app: FastifyInstance,
   body: SpriteGenerateSheetBody,
@@ -1194,22 +1460,7 @@ async function buildSpritePromptPlan(
     sheetHeight,
     cellWidth,
     cellHeight,
-    promptOverrides: new Map(
-      (Array.isArray(body.promptOverrides) ? body.promptOverrides : []).flatMap((item) => {
-        if (!item || typeof item !== "object") return [];
-        const override = item as Record<string, unknown>;
-        if (typeof override.id !== "string" || typeof override.prompt !== "string") return [];
-        return [
-          [
-            override.id,
-            {
-              prompt: override.prompt.trim(),
-              negativePrompt: typeof override.negativePrompt === "string" ? override.negativePrompt.trim() : "",
-            },
-          ] as const,
-        ];
-      }),
-    ),
+    promptOverrides: readSpritePromptOverrides(body.promptOverrides),
     promptOverridesStorage,
   };
 }
@@ -1696,6 +1947,196 @@ export async function spritesRoutes(app: FastifyInstance) {
         },
       ],
     };
+  });
+
+  /**
+   * POST /api/sprites/generate-animated-expressions/preview
+   * Build the exact animated portrait video prompt(s) before provider requests are sent.
+   */
+  app.post("/generate-animated-expressions/preview", async (req, reply) => {
+    const body = req.body as SpriteGenerateAnimatedBody;
+
+    if (!body.connectionId) {
+      return reply.status(400).send({ error: "connectionId is required" });
+    }
+    if (!body.appearance?.trim()) {
+      return reply.status(400).send({ error: "appearance description is required" });
+    }
+    const expressions = buildAnimatedExpressionList(body);
+    if (expressions.length === 0) {
+      return reply.status(400).send({ error: "At least one expression is required" });
+    }
+
+    const connections = createConnectionsStorage(app.db);
+    const conn = await connections.getWithKey(body.connectionId);
+    if (!conn) {
+      return reply.status(404).send({ error: "Video generation connection not found or could not be decrypted" });
+    }
+    if ((conn as Record<string, unknown>).provider !== "video_generation") {
+      return reply.status(400).send({ error: "Selected connection is not a Video Generation connection" });
+    }
+
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    const durationSeconds = clampVideoDuration(
+      body.durationSeconds,
+      videoSettings.animatedExpressionClipDurationSeconds,
+      VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
+      VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+    );
+    const promptOverridesStorage = createPromptOverridesStorage(app.db);
+    const promptOverrides = readSpritePromptOverrides(body.promptOverrides);
+    const appearance = body.appearance.trim();
+    const items = await Promise.all(
+      expressions.map(async (expression) => {
+        const prompt = await buildAnimatedExpressionPrompt({
+          promptOverridesStorage,
+          promptOverrides,
+          appearance,
+          expression,
+          durationSeconds,
+          noBackground: body.noBackground === true || body.nativeTransparentPng === true,
+        });
+        return {
+          id: animatedSpritePromptReviewId(expression),
+          kind: "sprite",
+          title: `Animated expression: ${expression.replace(/_/g, " ")}`,
+          prompt: prompt.prompt,
+          negativePrompt: prompt.negativePrompt,
+          width: ANIMATED_EXPRESSION_GIF_WIDTH,
+          height: Math.round((ANIMATED_EXPRESSION_GIF_WIDTH * 16) / 9),
+        };
+      }),
+    );
+    return { items };
+  });
+
+  /**
+   * POST /api/sprites/generate-animated-expressions
+   * Generate short expression videos, convert them to GIF sprites, and return them as sprite cells.
+   */
+  app.post("/generate-animated-expressions", async (req, reply) => {
+    const body = req.body as SpriteGenerateAnimatedBody;
+
+    if (!body.connectionId) {
+      return reply.status(400).send({ error: "connectionId is required" });
+    }
+    if (!body.appearance?.trim()) {
+      return reply.status(400).send({ error: "appearance description is required" });
+    }
+    const expressions = buildAnimatedExpressionList(body);
+    if (expressions.length === 0) {
+      return reply.status(400).send({ error: "At least one expression is required" });
+    }
+
+    const connections = createConnectionsStorage(app.db);
+    const conn = await connections.getWithKey(body.connectionId);
+    if (!conn) {
+      return reply.status(404).send({ error: "Video generation connection not found or could not be decrypted" });
+    }
+    if ((conn as Record<string, unknown>).provider !== "video_generation") {
+      return reply.status(400).send({ error: "Selected connection is not a Video Generation connection" });
+    }
+    try {
+      resolveFfmpegCommand();
+    } catch (err: any) {
+      return reply.status(500).send({ error: err?.message || "Animated expression GIF conversion is unavailable" });
+    }
+
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    const durationSeconds = clampVideoDuration(
+      body.durationSeconds,
+      videoSettings.animatedExpressionClipDurationSeconds,
+      VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MIN,
+      VIDEO_ANIMATED_EXPRESSION_CLIP_DURATION_MAX,
+    );
+    const promptOverridesStorage = createPromptOverridesStorage(app.db);
+    const promptOverrides = readSpritePromptOverrides(body.promptOverrides);
+    const appearance = body.appearance.trim();
+    const rawRefs = body.referenceImages?.length
+      ? body.referenceImages
+      : body.referenceImage
+        ? [body.referenceImage]
+        : [];
+    let referenceImage: VideoReferenceImage | null = null;
+    for (const ref of rawRefs) {
+      referenceImage = await resolveVideoReferenceImage(ref);
+      if (referenceImage) break;
+    }
+    const resolved = resolveVideoConnection(conn as unknown as VideoGenerationConnection);
+
+    try {
+      return await withSpriteGenerationDeadline(
+        (async () => {
+          const cells: Array<{ expression: string; base64: string; mimeType: "image/gif" }> = [];
+          const failedExpressions: Array<{ expression: string; error: string }> = [];
+
+          for (const expression of expressions) {
+            try {
+              const prompt = await buildAnimatedExpressionPrompt({
+                promptOverridesStorage,
+                promptOverrides,
+                appearance,
+                expression,
+                durationSeconds,
+                noBackground: body.noBackground === true || body.nativeTransparentPng === true,
+              });
+              const video = await generateVideo(
+                resolved.source,
+                resolved.baseUrl,
+                (conn as VideoGenerationConnection).apiKey || "",
+                resolved.serviceHint,
+                {
+                  prompt: withVideoNegativePrompt(prompt),
+                  model: resolved.model,
+                  durationSeconds,
+                  aspectRatio: ANIMATED_EXPRESSION_ASPECT_RATIO,
+                  resolution: resolved.resolution,
+                  referenceImage,
+                },
+              );
+              const gif = await convertMp4ToGif(Buffer.from(video.base64, "base64"));
+              cells.push({
+                expression,
+                base64: gif.toString("base64"),
+                mimeType: "image/gif",
+              });
+            } catch (expressionErr: any) {
+              const msg = String(expressionErr?.message || "Generation failed")
+                .replace(/<[^>]*>/g, "")
+                .slice(0, 300);
+              logger.warn(expressionErr, 'Animated expression "%s" generation failed; skipping', expression);
+              failedExpressions.push({ expression, error: msg });
+            }
+          }
+
+          if (cells.length === 0) {
+            const allFailedError = new Error("All animated expression generations failed");
+            (allFailedError as Error & { failedExpressions?: typeof failedExpressions }).failedExpressions =
+              failedExpressions;
+            throw allFailedError;
+          }
+
+          return {
+            sheetBase64: "",
+            cells,
+            ...(failedExpressions.length > 0 ? { failedExpressions } : {}),
+          };
+        })(),
+      );
+    } catch (err: any) {
+      logger.error(err, "Animated expression generation failed");
+      const failedExpressions = Array.isArray(err?.failedExpressions)
+        ? { failedExpressions: err.failedExpressions }
+        : {};
+      return reply.status(err instanceof SpriteGenerationTimeoutError ? 504 : 500).send({
+        error: err?.message || "Animated expression generation failed",
+        ...failedExpressions,
+      });
+    }
   });
 
   /**

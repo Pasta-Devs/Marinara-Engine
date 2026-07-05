@@ -157,7 +157,7 @@ export function BotBrowserPanel() {
       {isLoading ? (
         <div className="mari-chrome-text-muted py-4 text-center text-xs">Loading...</div>
       ) : filtered.length === 0 ? (
-        <div className="py-4 text-center text-xs text-[var(--muted-foreground)]">
+        <div className="mari-chrome-text-muted py-4 text-center text-xs">
           {search ? "No matches" : "No imported characters yet"}
         </div>
       ) : (

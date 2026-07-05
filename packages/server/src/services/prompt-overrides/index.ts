@@ -6,6 +6,7 @@ export { renderTemplate, validateTemplate } from "./template.js";
 export type { TemplateValidationResult } from "./template.js";
 export {
   PROMPT_OVERRIDE_REGISTRY,
+  SPRITES_ANIMATED_PORTRAIT,
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
   SPRITES_SINGLE_FULL_BODY,
@@ -18,6 +19,11 @@ export {
   GAME_STORYBOARD_ILLUSTRATION_DIRECTOR,
   GAME_STORYBOARD_DIRECTOR,
   GAME_VIDEO,
+  CONVERSATION_CALL_VIDEO_PROMPTS,
+  CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT,
+  CONVERSATION_CALL_VIDEO_PROMPT_BY_KIND,
+  CONVERSATION_CALL_VIDEO_CLIP_INSTRUCTION_BY_KIND,
+  CONVERSATION_CALL_VIDEO_CLIP_LABEL_BY_KIND,
   CONVERSATION_SELFIE,
   getPromptOverrideDef,
   listPromptOverrideKeys,
@@ -27,6 +33,7 @@ export type {
   PromptVariable,
   SpritesExpressionSheetCtx,
   SpritesSinglePortraitCtx,
+  SpritesAnimatedPortraitCtx,
   SpritesSingleFullBodyCtx,
   SpritesFullBodySheetCtx,
   GameNpcPortraitCtx,
@@ -36,5 +43,7 @@ export type {
   GameImagePromptDirectorCtx,
   GameStoryboardDirectorCtx,
   GameVideoCtx,
+  ConversationCallCustomVideoClipCtx,
+  ConversationCallVideoClipCtx,
   ConversationSelfieCtx,
 } from "./registry.js";

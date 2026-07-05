@@ -10543,6 +10543,7 @@ function GameSurfaceComponent({
                               inline
                               draftKey={activeChatId}
                               focusToken={gameInputFocusToken}
+                              onIllustrate={handleManualSceneIllustration}
                               interruptMode={pendingInterruptMode}
                             />
                           }
@@ -10628,6 +10629,7 @@ function GameSurfaceComponent({
                           inline
                           draftKey={activeChatId}
                           focusToken={gameInputFocusToken}
+                          onIllustrate={handleManualSceneIllustration}
                           interruptMode={pendingInterruptMode}
                         />
                       }

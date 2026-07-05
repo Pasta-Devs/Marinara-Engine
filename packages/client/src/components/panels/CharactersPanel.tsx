@@ -172,7 +172,8 @@ export function CharactersPanel() {
   const setFavFilter = useUIStore((s) => s.setCharacterPanelFavoriteFilter);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
   const serverSearch = useMemo(() => parseCharacterSearchQuery(search).text, [search]);
-  const characterPages = useCharacterPages({ search: serverSearch, sort });
+  const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
+  const characterPages = useCharacterPages({ search: serverSearch, sort, favoriteFilter: serverFavoriteFilter });
   const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
   const isLoading = characterPages.isLoading;
 
@@ -1176,7 +1177,7 @@ export function CharactersPanel() {
           <div className="mari-chrome-accent-soft-tile mari-accent-animated animate-float flex h-12 w-12 items-center justify-center rounded-2xl">
             <User size="1.25rem" />
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">{search ? "No matches found" : "No characters yet"}</p>
+          <p className="mari-chrome-text-muted text-xs">{search ? "No matches found" : "No characters yet"}</p>
         </div>
       )}
 
@@ -1394,14 +1395,16 @@ export function CharactersPanel() {
       </div>
 
       {characterPages.hasNextPage && (
-        <button
-          type="button"
-          onClick={() => void characterPages.fetchNextPage()}
-          disabled={characterPages.isFetchingNextPage}
-          className="mari-chrome-control mari-chrome-control--primary justify-center text-xs"
-        >
-          {characterPages.isFetchingNextPage ? "Loading..." : `Load more (${parsedCharacters.length} loaded)`}
-        </button>
+        <div className="relative z-10 mt-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2 pb-3">
+          <button
+            type="button"
+            onClick={() => void characterPages.fetchNextPage()}
+            disabled={characterPages.isFetchingNextPage}
+            className="mari-chrome-control mari-chrome-control--primary w-full justify-center text-xs"
+          >
+            {characterPages.isFetchingNextPage ? "Loading..." : `Load more (${parsedCharacters.length} loaded)`}
+          </button>
+        </div>
       )}
 
       {selectionMode && (

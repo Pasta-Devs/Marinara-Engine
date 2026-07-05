@@ -1,16 +1,16 @@
-# Upgrading to v2.0.0
+# Upgrading From v1.6.1 Or Older
 
 This guide is for users coming from Marinara Engine v1.6.1 or older.
 
-Before updating, stop the running server and make a backup from **Settings -> Advanced -> Backups** if you can. v2.0.0 keeps the same local data model, but the release changes a lot of UI, agent, prompt, and import/export code, so a backup is the least dramatic insurance policy.
+Before updating, stop the running server and make a backup from **Settings -> Advanced -> Backups** if you can. The 2.x line keeps the same local data model, but it changes a lot of UI, agent, prompt, and import/export code, so a backup is the least dramatic insurance policy.
 
 ## Windows
 
-If you installed with the Windows installer, close Marinara Engine and launch it again from the Start Menu shortcut. The launcher runs `start.bat`, fetches the released `main` branch, aligns pnpm, reinstalls dependencies when needed, rebuilds, and starts v2.0.0.
+If you installed with the Windows installer, close Marinara Engine and launch it again from the Start Menu shortcut. The launcher runs `start.bat`, fetches the released `main` branch, aligns pnpm, reinstalls dependencies when needed, rebuilds, and starts the latest release.
 
 If the launcher says Node.js is too old, install Node.js 24 LTS or newer, then launch Marinara Engine again.
 
-You can also download and run the v2.0.0 installer from the GitHub Release. It uses the same git-based install path, so future updates still happen through the launcher.
+You can also download and run the latest installer from the GitHub Release. It uses the same git-based install path, so future updates still happen through the launcher.
 
 ## macOS and Linux
 
@@ -20,7 +20,7 @@ Close Marinara Engine and run:
 ./start.sh
 ```
 
-The launcher fetches the current update branch, fast-forwards normal clones or moves detached release checkouts to the released code, reinstalls dependencies when needed, rebuilds, and starts v2.0.0. Local `staging` branches follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
+The launcher fetches the current update branch, fast-forwards normal clones or moves detached release checkouts to the released code, reinstalls dependencies when needed, rebuilds, and starts the latest release. Local `staging` branches, and detached checkouts taken from staging, follow `origin/staging`; all other launcher checkouts follow stable `origin/main`.
 
 If it says Node.js is too old, install Node.js 24 LTS or newer, then run `./start.sh` again.
 
@@ -32,7 +32,7 @@ From the folder with your Compose file, run:
 docker compose pull && docker compose up -d
 ```
 
-Tagged images are published as `ghcr.io/pasta-devs/marinara-engine:2.0.0`, `:2.0`, `:2`, `:latest`, plus matching `-lite` tags.
+Tagged images are published as `ghcr.io/pasta-devs/marinara-engine:X.Y.Z`, `:X.Y`, `:X`, and `:latest`, plus matching `-lite` tags. Pull `:latest` or the newest version tag unless you intentionally pin an older release.
 
 ## Android
 
@@ -49,7 +49,7 @@ The Termux launcher updates the repo, upgrades Node.js through `nodejs-lts` when
 
 ### Release APK Fast Path
 
-1. Download the v2.0.0 Android APK from GitHub Releases.
+1. Download the latest Android APK from GitHub Releases.
 2. Install and open **Marinara Engine**.
 3. Tap **Install / Start Marinara**.
 4. If Termux is missing, approve Android's install prompts so Marinara can download and install the F-Droid Termux APK.
@@ -59,7 +59,7 @@ The Termux launcher updates the repo, upgrades Node.js through `nodejs-lts` when
 
 If Android blocks the Termux setup launch completely, the APK copies a full Marinara setup command. Open Termux, paste that copied command, wait for it to start the server, then return to the APK.
 
-Android does not allow an ordinary APK to silently install Termux or run Termux commands without user confirmation. The v2.0.0 APK reduces the setup to taps and Android permission prompts, but those prompts cannot be removed.
+Android does not allow an ordinary APK to silently install Termux or run Termux commands without user confirmation. The APK reduces the setup to taps and Android permission prompts, but those prompts cannot be removed.
 
 ## iPhone and iPad
 

@@ -41,6 +41,8 @@ interface GameInputProps {
   draftKey?: string;
   /** Increment to request focus on the textarea (used by the Interrupt button to jump the player into typing). */
   focusToken?: number;
+  /** Trigger the same scene illustration action exposed in the Game Gallery. */
+  onIllustrate?: () => void | Promise<void>;
   /**
    * When set, the input renders in interrupt-commit mode. `risky` paints the bar red,
    * highlights the dice button with a glow, and shows a "using dice recommended" hint.
@@ -96,6 +98,10 @@ function formatDiceResultTag(result: DiceRollResult): string {
   return `[dice: ${result.notation} = ${result.total}${rollDetail}]`;
 }
 
+function isIllustrateSlashCommand(value: string): boolean {
+  return /^\/(?:illustrate|ill)\s*$/i.test(value);
+}
+
 export function GameInput({
   onSend,
   onRollDice,
@@ -107,6 +113,7 @@ export function GameInput({
   inline,
   draftKey,
   focusToken,
+  onIllustrate,
   interruptMode,
 }: GameInputProps) {
   const enterToSend = useUIStore((s) => s.enterToSendGame);
@@ -206,6 +213,16 @@ export function GameInput({
     const commitPendingMove = !!pendingMoveLabel && addressMode === "scene";
     const hasTurnContent = trimmed.length > 0 || attachments.length > 0 || commitPendingMove || !!queuedDice;
     if (!hasTurnContent || disabled || rollingQueuedDice) return;
+
+    if (isIllustrateSlashCommand(trimmed) && onIllustrate) {
+      setText("");
+      clearDraft();
+      setAttachments([]);
+      if (inputRef.current) inputRef.current.style.height = "auto";
+      inputRef.current?.focus();
+      await onIllustrate();
+      return;
+    }
 
     let body = trimmed;
     if (commitPendingMove && pendingMoveLabel) {

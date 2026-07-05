@@ -2063,6 +2063,15 @@ export async function generateRoutes(app: FastifyInstance) {
       // Get chat messages
       const allChatMessages = await chats.listMessages(input.chatId);
       const chatMode = requestChatMode;
+      const startsNewAssistantBubble =
+        chatMode === "roleplay" &&
+        !input.autonomous &&
+        !input.regenerateMessageId &&
+        !input.continueMessageId &&
+        !input.impersonate &&
+        !input.turnGameBots &&
+        !input.userMessage?.trim() &&
+        (input.attachments?.length ?? 0) === 0;
       const lorebookGenerationTriggers = resolveLorebookGenerationTriggers(input, chatMode);
       const supportsHiddenFromAI =
         chatMode === "conversation" || chatMode === "roleplay" || chatMode === "visual_novel";
@@ -3615,7 +3624,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
             if (callCommandEnabled && chatMode === "conversation") {
               addCommandLines(
-                `- [call] or [call: reason="brief reason"] - ring ${personaName} for an audio call. Use this only when a live call naturally fits, such as when you urgently want to talk, when typing is awkward, or when ${personaName} asks you to call. The system will show an incoming call request; do not assume it was answered unless the call starts.`,
+                `- [call], [call: reason="brief reason"], or [call: reason="brief reason", greeting="first thing to say after ${personaName} answers"] - ring ${personaName} for an audio call. Use this only when a live call naturally fits, such as when you urgently want to talk, when typing is awkward, or when ${personaName} asks you to call. The system will show an incoming call request; do not assume it was answered unless the call starts. If you include greeting, it will play only after ${personaName} accepts.`,
               );
             }
 
@@ -7683,6 +7692,7 @@ export async function generateRoutes(app: FastifyInstance) {
             extraUpdate.conversationCommandContent =
               chatMode === "conversation" && !input.impersonate ? conversationCommandContent : null;
             extraUpdate.generationReplay = buildGenerationReplay(input);
+            extraUpdate.startsNewAssistantBubble = startsNewAssistantBubble;
             // Cache the final prompt (what was actually sent to the model) for Peek Prompt
             extraUpdate.cachedPrompt = finalPromptSent.map((m) => ({ role: m.role, content: m.content }));
             // Cache the lorebook scan that produced the prompt so Active Context
@@ -10363,6 +10373,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       initiatorCharacterId: characterId,
                       metadata: {
                         reason: callCmd.reason ?? null,
+                        greeting: callCmd.greeting ?? null,
                         sourceMessageId: messageId ?? null,
                       },
                     }));
@@ -10371,7 +10382,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       {
                         role: "system",
                         characterId,
-                        content: callCmd.reason ? `Incoming call: ${callCmd.reason}` : "Incoming call",
+                        content: "Incoming call",
                         extra: {
                           displayText: null,
                           isGenerated: true,
@@ -10383,6 +10394,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             mode: session.mode,
                             initiator: session.initiator,
                             reason: callCmd.reason ?? null,
+                            greeting: callCmd.greeting ?? null,
                             sourceMessageId: messageId ?? null,
                           },
                         },

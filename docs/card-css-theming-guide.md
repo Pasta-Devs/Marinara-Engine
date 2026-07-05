@@ -12,7 +12,7 @@ Paste a `<style>` block into your character's **Creator Notes** field and save. 
 
 ```html
 <style>
-  /* the visible message bubble (bubble style + roleplay) */
+  /* the visible message bubble (Bubbles layout + roleplay) */
   [data-card-css] .mari-message-bubble {
     background: linear-gradient(135deg, #2a1240, #3a1030);
     border: 1px solid #ff66cc;
@@ -124,8 +124,8 @@ The chat DOM is the same skeleton in roleplay and conversation. These are the el
 | Selector                                  | What it targets                                                                                                |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `[data-card-css]`                         | The whole message **row** (the scope element) — left/edge accents, or the chat area in Chat mode               |
-| `[data-card-css] .mari-message-bubble`    | The **visible bubble** — background, border, corners, shadow. _(Bubble style + roleplay.)_                     |
-| `[data-card-css] .mari-message-content`   | The **message text**. In bubble style this is the bubble element itself, so it also takes background/border    |
+| `[data-card-css] .mari-message-bubble`    | The **visible bubble** — background, border, corners, shadow. _(Bubbles layout + roleplay.)_                   |
+| `[data-card-css] .mari-message-content`   | In **Bubbles** layout, the bubble element itself, including background, border, and corners. In **Linear** layout, only the message text/content. |
 | `[data-card-css] .mari-message-name`      | The character's display **name**                                                                               |
 | `[data-card-css] .mari-message-meta`      | The header row holding the name + timestamp                                                                    |
 | `[data-card-css] .mari-message-timestamp` | The timestamp                                                                                                  |
@@ -135,7 +135,7 @@ The chat DOM is the same skeleton in roleplay and conversation. These are the el
 | `[data-card-css] p`, `… span`             | Paragraphs and inline spans inside the text                                                                    |
 | `[data-grouped]`                          | Continuation messages from the same character — use `[data-card-css]:not([data-grouped])` for first-in-group   |
 
-> **Bubble vs classic:** the **bubble** conversation style is what `.mari-message-bubble` targets. In the **classic** (flat) conversation style there's no bubble element — style `.mari-message-content` (text) and `[data-card-css]` (row) instead. Roleplay always has a bubble.
+> **Bubbles vs Linear:** the **Bubbles** conversation layout is what `.mari-message-bubble` targets. In the **Linear** flat-row layout, there is no bubble element — style `.mari-message-content` (text) and `[data-card-css]` (row) instead. Change it in **Settings -> Appearance -> Chat Display -> Chat Layout**. Roleplay always has a bubble.
 
 **Example — a styled conversation/roleplay bubble:**
 
@@ -157,7 +157,7 @@ The chat DOM is the same skeleton in roleplay and conversation. These are the el
 
 ### Typing Indicator
 
-While a character generates a reply, conversation mode (classic message style) shows a "_(name) is typing…_" row:
+While a character generates a reply, conversation mode in the Linear layout shows a "_(name) is typing…_" row:
 
 | Selector                                 | What it targets                                              |
 | ---------------------------------------- | ------------------------------------------------------------ |
@@ -305,7 +305,7 @@ A deliberately extravagant card that uses nearly every hook: an animated glowing
     filter: saturate(1.2) contrast(1.05);
   }
 
-  /* ── eerie typing indicator (conversation, classic style) ── */
+  /* ── eerie typing indicator (conversation, Linear layout) ── */
   [data-card-css] .mari-typing-text {
     color: #ff5c8a;
     font-style: italic;

@@ -119,6 +119,56 @@ export const SPRITES_SINGLE_PORTRAIT: PromptOverrideKeyDef<SpritesSinglePortrait
   },
 };
 
+// ── Animated portrait expression clip ──
+
+export interface SpritesAnimatedPortraitCtx extends Record<string, string | number | undefined> {
+  appearance: string;
+  expression: string;
+  durationSeconds: number;
+  aspectRatio: string;
+  backgroundInstruction: string;
+}
+
+export const SPRITES_ANIMATED_PORTRAIT: PromptOverrideKeyDef<SpritesAnimatedPortraitCtx> = {
+  key: "sprites.animatedPortrait",
+  description: "Short animated portrait clip for Expression Engine GIF sprites.",
+  variables: [
+    {
+      name: "appearance",
+      description: "Character appearance description and identity constraints.",
+      example: "Dottore wearing a mask that covers his eyes, blue hair, ornate coat",
+    },
+    { name: "expression", description: "Facial expression to animate.", example: "angry" },
+    { name: "durationSeconds", description: "Clip duration in seconds.", example: "3" },
+    { name: "aspectRatio", description: "Requested video aspect ratio.", example: "9:16" },
+    {
+      name: "backgroundInstruction",
+      description: "Background preference for the animated portrait.",
+      example: "Use a flat clean white or transparent-looking background.",
+    },
+  ],
+  defaultBuilder: (ctx) =>
+    [
+      `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} animated portrait clip for a visual novel Expression Engine sprite.`,
+      `Character appearance and constraints: ${ctx.appearance}.`,
+      `Expression to animate: ${ctx.expression}.`,
+      `Start on the neutral reference face, transition into ${ctx.expression}, hold the expression briefly, then return to the exact same neutral reference face by the final frame so the GIF loops cleanly.`,
+      `The first frame and final frame must match: same pose, expression, gaze, crop, hair, outfit, lighting, and background, with no visible jump when looped.`,
+      `Use the supplied reference image as the exact identity and art style reference. Preserve masks, covered features, hairstyle, outfit cues, proportions, and any "do not show" visual constraints in the appearance text.`,
+      `Do not invent hidden eyes, facial features, accessories, or clothing changes unless the appearance text or expression request explicitly says to reveal or change them.`,
+      `Keep a stable head-and-shoulders portrait composition, centered in frame, no camera shake, no cuts, no scene change.`,
+      ctx.backgroundInstruction,
+      `Single character only. No extra people. No text, captions, UI, logos, watermarks, speech bubbles, split panels, or collage.`,
+    ].join(" "),
+  exampleContext: {
+    appearance: "Dottore wearing a mask that covers his eyes, blue hair, ornate coat",
+    expression: "angry",
+    durationSeconds: 3,
+    aspectRatio: "9:16",
+    backgroundInstruction: "Use a flat clean white or transparent-looking background.",
+  },
+};
+
 // ── Single full-body sprite (1×1) ──
 
 export interface SpritesSingleFullBodyCtx extends Record<string, string | number | undefined> {

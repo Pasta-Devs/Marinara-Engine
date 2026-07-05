@@ -17,6 +17,17 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 const MODELS_DIR = join(DATA_DIR, "models");
 const SPEECH_CONFIG_PATH = join(MODELS_DIR, "sidecar-speech-config.json");
 const TARGET_SAMPLE_RATE = 16_000;
+const LONG_FORM_ASR_CHUNK_SECONDS = 30;
+const LONG_FORM_ASR_STRIDE_SECONDS = 5;
+const SILENCE_HALLUCINATION_MAX_RMS = 0.008;
+const SILENCE_HALLUCINATION_MAX_PEAK = 0.035;
+const SILENCE_HALLUCINATION_PHRASES = new Set([
+  "thank you",
+  "thanks",
+  "thanks for watching",
+  "thank you for watching",
+  "you",
+]);
 const require = createRequire(import.meta.url);
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 
@@ -199,6 +210,38 @@ function resampleLinear(samples: Float32Array, fromRate: number, toRate: number)
     next[index] = samples[left]! * (1 - fraction) + samples[right]! * fraction;
   }
   return next;
+}
+
+function audioStats(samples: Float32Array, sampleRate: number): { durationSeconds: number; rms: number; peak: number } {
+  if (samples.length === 0) return { durationSeconds: 0, rms: 0, peak: 0 };
+  let sumSquares = 0;
+  let peak = 0;
+  for (const sample of samples) {
+    const value = Math.abs(normalizeSample(sample));
+    sumSquares += value * value;
+    if (value > peak) peak = value;
+  }
+  return {
+    durationSeconds: samples.length / sampleRate,
+    rms: Math.sqrt(sumSquares / samples.length),
+    peak,
+  };
+}
+
+function normalizeTranscriptForSilenceFilter(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/^\[[^\]]+\]\s*/, "")
+    .replace(/[.!?,;:"“”‘’'`*_~()[\]{}<>-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isLikelySilenceHallucination(text: string, stats: { rms: number; peak: number }): boolean {
+  const normalized = normalizeTranscriptForSilenceFilter(text);
+  if (!SILENCE_HALLUCINATION_PHRASES.has(normalized)) return false;
+  return stats.rms <= SILENCE_HALLUCINATION_MAX_RMS || stats.peak <= SILENCE_HALLUCINATION_MAX_PEAK;
 }
 
 class SidecarSpeechService {
@@ -417,14 +460,33 @@ class SidecarSpeechService {
     }
     const decoded = decodePcmWav(buffer);
     const samples = resampleLinear(decoded.samples, decoded.sampleRate, TARGET_SAMPLE_RATE);
+    const stats = audioStats(samples, TARGET_SAMPLE_RATE);
     const transcriber = await this.loadPipeline(modelId, { localFilesOnly: true });
-    const output = await transcriber(samples, { chunk_length_s: 30, stride_length_s: 5, task: "transcribe" });
+    const asrOptions =
+      stats.durationSeconds > LONG_FORM_ASR_CHUNK_SECONDS
+        ? {
+            chunk_length_s: LONG_FORM_ASR_CHUNK_SECONDS,
+            stride_length_s: LONG_FORM_ASR_STRIDE_SECONDS,
+            task: "transcribe" as const,
+          }
+        : { task: "transcribe" as const };
+    const output = await transcriber(samples, asrOptions);
     const text = Array.isArray(output)
       ? output
           .map((item) => item.text ?? "")
           .join(" ")
           .trim()
       : (output.text ?? "").trim();
+    if (isLikelySilenceHallucination(text, stats)) {
+      logger.debug(
+        "[sidecar-speech] Dropped likely silence hallucination transcript=%s duration=%d rms=%d peak=%d",
+        text,
+        stats.durationSeconds,
+        stats.rms,
+        stats.peak,
+      );
+      return "";
+    }
     return text;
   }
 }

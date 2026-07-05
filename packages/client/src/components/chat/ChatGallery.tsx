@@ -17,8 +17,6 @@ import {
   Search,
   Film,
   PanelsTopLeft,
-  Eye,
-  EyeOff,
   Copy,
   Check,
 } from "lucide-react";
@@ -33,7 +31,6 @@ import {
 } from "../../hooks/use-gallery";
 import type { GeneratedSceneVideo } from "@marinara-engine/shared";
 import { useGalleryStore } from "../../stores/gallery.store";
-import type { PinnedGalleryMedia } from "../../stores/gallery.store";
 import { toast } from "sonner";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { buildCardAssetMarkdown, dispatchCardAssetInsert } from "../../lib/card-asset-links";
@@ -108,10 +105,6 @@ export function ChatGallery({
   const isGeneratingStoryboard = useGalleryStore((s) => s.storyboardGeneratingChatIds.has(chatId));
   const pinImage = useGalleryStore((s) => s.pinImage);
   const pinVideo = useGalleryStore((s) => s.pinVideo);
-  const latestViewerChatId = useGalleryStore((s) => s.latestViewerChatId);
-  const startLatestViewer = useGalleryStore((s) => s.startLatestViewer);
-  const syncLatestViewer = useGalleryStore((s) => s.syncLatestViewer);
-  const clearViewerMedia = useGalleryStore((s) => s.clearViewerMedia);
   const unpinImage = useGalleryStore((s) => s.unpinImage);
   const setChatIllustrating = useGalleryStore((s) => s.setChatIllustrating);
   const setChatGeneratingVideo = useGalleryStore((s) => s.setChatGeneratingVideo);
@@ -133,18 +126,6 @@ export function ChatGallery({
       ),
     );
   }, [assetItems, assetSearch]);
-  const latestMedia = useMemo<PinnedGalleryMedia | null>(() => {
-    const imageMedia = (images ?? []).map((image) => ({ ...image, kind: "image" as const }));
-    const videoMedia = sceneVideos.map((video) => ({ ...video, kind: "video" as const }));
-    return [...imageMedia, ...videoMedia].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0] ?? null;
-  }, [images, sceneVideos]);
-  const isFollowingLatest = latestViewerChatId === chatId;
-
-  useEffect(() => {
-    if (!isFollowingLatest || !latestMedia) return;
-    syncLatestViewer(latestMedia);
-  }, [isFollowingLatest, latestMedia, syncLatestViewer]);
-
   useEffect(() => {
     return () => {
       if (copyResetTimerRef.current !== null) {
@@ -280,15 +261,6 @@ export function ChatGallery({
     [chatId, pinVideo],
   );
 
-  const handleViewLatest = useCallback(() => {
-    if (isFollowingLatest) {
-      clearViewerMedia();
-      return;
-    }
-    if (!latestMedia) return;
-    startLatestViewer(chatId, latestMedia);
-  }, [chatId, clearViewerMedia, isFollowingLatest, latestMedia, startLatestViewer]);
-
   const handleInsertAsset = useCallback(
     (asset: ChatAssetBrowserItem) => {
       const label = asset.prompt.trim() || asset.name;
@@ -399,22 +371,6 @@ export function ChatGallery({
           >
             <Images size="1rem" />
             Browse Images
-          </button>
-        )}
-
-        {latestMedia && (
-          <button
-            type="button"
-            onClick={handleViewLatest}
-            aria-pressed={isFollowingLatest}
-            className={
-              isFollowingLatest
-                ? "flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-4 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
-                : "flex items-center justify-center gap-2 rounded-xl bg-[var(--secondary)] px-4 py-3 text-xs font-medium text-[var(--foreground)] transition-all hover:bg-[var(--accent)]"
-            }
-          >
-            {isFollowingLatest ? <EyeOff size="1rem" /> : <Eye size="1rem" />}
-            {isFollowingLatest ? "Following latest" : "View latest"}
           </button>
         )}
 

@@ -123,7 +123,9 @@ const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
+  google_veo: "veo-3.1-generate-preview",
   xai: "grok-imagine-video-1.5",
+  openrouter: "google/veo-3.1",
 };
 const VIDEO_RESOLUTION_OPTIONS: Array<{ value: VideoResolution; label: string }> = [
   { value: "480p", label: "480p" },
@@ -132,7 +134,7 @@ const VIDEO_RESOLUTION_OPTIONS: Array<{ value: VideoResolution; label: string }>
 ];
 
 function videoSourceToDefaultsService(value: string | null | undefined): VideoDefaultsService {
-  return value === "xai" ? "xai" : "gemini_omni";
+  return value === "xai" || value === "openrouter" || value === "google_veo" ? value : "gemini_omni";
 }
 
 function defaultVideoModelForService(value: string | null | undefined): string {
@@ -442,6 +444,8 @@ export function ConnectionEditor() {
   const apiKeyLink =
     localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
       ? API_KEY_LINKS.xai
+      : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
+        ? API_KEY_LINKS.openrouter
       : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
@@ -1017,8 +1021,8 @@ export function ConnectionEditor() {
 
   if (!conn) {
     return (
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-sm text-[var(--muted-foreground)]">Connection not found</p>
+      <div className="mari-editor-shell flex flex-1 items-center justify-center">
+        <p className="mari-editor-empty px-4 py-3 text-sm">Connection not found</p>
       </div>
     );
   }
@@ -1504,8 +1508,10 @@ export function ConnectionEditor() {
                         const previousDefaultModel = defaultVideoModelForService(selectedVideoService);
                         const nextDefaultModel = defaultVideoModelForService(src.id);
                         const shouldSeedModel = !localModel || localModel === previousDefaultModel;
+                        const nextDefaultsService = videoSourceToDefaultsService(src.id);
                         setLocalVideoGenerationSource(src.id);
                         setLocalVideoService(src.id);
+                        setLocalVideoDefaults(createDefaultVideoGenerationProfile(nextDefaultsService));
                         if (shouldSeedBaseUrl) {
                           setLocalBaseUrl(src.defaultBaseUrl);
                         }
@@ -1988,7 +1994,7 @@ export function ConnectionEditor() {
                   setLocalPromptPresetId(e.target.value);
                   markDirty();
                 }}
-                className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                className="mari-preset-native-select w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
               >
                 <option value="">Use chat&apos;s prompt preset</option>
                 {(allPresets ?? []).map((preset) => (
@@ -2109,7 +2115,7 @@ export function ConnectionEditor() {
               isImageGenerationProvider
                 ? "Default for Illustrator"
                 : isVideoGenerationProvider
-                  ? "Default for Scene Videos"
+                  ? "Default for Videos"
                   : "Default for Agents"
             }
             icon={<Sparkles size="0.875rem" className="text-sky-400" />}
@@ -2117,7 +2123,7 @@ export function ConnectionEditor() {
               isImageGenerationProvider
                 ? "When enabled, the Illustrator agent will use this image generation connection by default whenever it does not have a specific Image Generation Connection assigned."
                 : isVideoGenerationProvider
-                  ? "When enabled, Game Mode uses this video generation connection by default when a game has no specific Video Generation Connection assigned."
+                  ? "When enabled, Marinara uses this video generation connection by default when a chat has no specific Video Generation Connection assigned."
                   : "When enabled, all agents that don't have a specific connection override will use this connection instead of the chat's active connection."
             }
           >
@@ -2126,7 +2132,7 @@ export function ConnectionEditor() {
                 isImageGenerationProvider
                   ? "Use as default Illustrator agent connection"
                   : isVideoGenerationProvider
-                    ? "Use as default scene video connection"
+                    ? "Use as default video connection"
                     : "Use as default agent connection"
               }
               checked={localDefaultForAgents}
@@ -2143,7 +2149,7 @@ export function ConnectionEditor() {
             )}
             {isVideoGenerationProvider && (
               <p className="px-2 text-[0.625rem] text-[var(--muted-foreground)]">
-                Only one video generation connection should be marked as the default scene video connection.
+                Only one video generation connection should be marked as the default video connection.
               </p>
             )}
           </FieldGroup>
@@ -3041,11 +3047,26 @@ function VideoGenerationDefaultsPanel({
   onChange: (next: VideoGenerationDefaultsProfile) => void;
   onReset: () => void;
 }) {
-  const service = value.service === "xai" ? "xai" : "gemini_omni";
+  const service =
+    value.service === "xai" || value.service === "openrouter" || value.service === "google_veo"
+      ? value.service
+      : "gemini_omni";
   const summary =
     service === "xai"
       ? `${value.xai.durationSeconds}s, ${value.xai.aspectRatio}, ${value.xai.resolution}`
+      : service === "google_veo"
+        ? `${value.googleVeo.durationSeconds}s, ${value.googleVeo.aspectRatio}, ${value.googleVeo.resolution}`
+      : service === "openrouter"
+        ? `${value.openrouter.durationSeconds}s, ${value.openrouter.aspectRatio}, ${value.openrouter.resolution}`
       : `${value.geminiOmni.durationSeconds}s, ${value.geminiOmni.aspectRatio}`;
+  const serviceLabel =
+    service === "xai"
+      ? "xAI Imagine"
+      : service === "google_veo"
+        ? "Google AI Studio Veo"
+        : service === "openrouter"
+          ? "OpenRouter Video"
+          : "Gemini Omni";
 
   const updateGeminiOmni = (patch: Partial<VideoGenerationDefaultsProfile["geminiOmni"]>) => {
     onChange({
@@ -3061,6 +3082,20 @@ function VideoGenerationDefaultsPanel({
       xai: { ...value.xai, ...patch },
     });
   };
+  const updateGoogleVeo = (patch: Partial<VideoGenerationDefaultsProfile["googleVeo"]>) => {
+    onChange({
+      ...value,
+      service: "google_veo",
+      googleVeo: { ...value.googleVeo, ...patch },
+    });
+  };
+  const updateOpenRouter = (patch: Partial<VideoGenerationDefaultsProfile["openrouter"]>) => {
+    onChange({
+      ...value,
+      service: "openrouter",
+      openrouter: { ...value.openrouter, ...patch },
+    });
+  };
 
   return (
     <FieldGroup
@@ -3069,6 +3104,10 @@ function VideoGenerationDefaultsPanel({
       help={
         service === "xai"
           ? "Connection-scoped defaults for xAI scene video generation."
+          : service === "google_veo"
+            ? "Connection-scoped defaults for Google AI Studio Veo video generation."
+          : service === "openrouter"
+            ? "Connection-scoped defaults for OpenRouter asynchronous video generation."
           : "Connection-scoped defaults for scene video generation. Duration is rendered into the Omni prompt."
       }
     >
@@ -3080,7 +3119,7 @@ function VideoGenerationDefaultsPanel({
         >
           <div className="min-w-0">
             <div className="text-xs font-medium text-[var(--foreground)]">
-              {service === "xai" ? "xAI Imagine setup" : "Gemini Omni setup"}
+              {serviceLabel} setup
             </div>
             <div className="text-[0.625rem] text-[var(--muted-foreground)]">{summary}</div>
           </div>
@@ -3103,23 +3142,43 @@ function VideoGenerationDefaultsPanel({
               </button>
             </div>
 
-            {service === "xai" ? (
+            {service === "xai" || service === "google_veo" || service === "openrouter" ? (
               <>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <NumberSetting
                     label="Duration Seconds"
-                    value={value.xai.durationSeconds}
-                    min={1}
-                    max={15}
-                    onCommit={(durationSeconds) => updateXai({ durationSeconds })}
+                    value={
+                      service === "xai"
+                        ? value.xai.durationSeconds
+                        : service === "google_veo"
+                          ? value.googleVeo.durationSeconds
+                          : value.openrouter.durationSeconds
+                    }
+                    min={service === "google_veo" ? 4 : 1}
+                    max={service === "xai" ? 15 : service === "google_veo" ? 8 : 60}
+                    onCommit={(durationSeconds) => {
+                      if (service === "xai") updateXai({ durationSeconds });
+                      else if (service === "google_veo") {
+                        updateGoogleVeo({ durationSeconds: durationSeconds <= 5 ? 4 : durationSeconds <= 7 ? 6 : 8 });
+                      } else updateOpenRouter({ durationSeconds });
+                    }}
                   />
                   <label className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Aspect Ratio</span>
                     <select
-                      value={value.xai.aspectRatio}
-                      onChange={(event) =>
-                        updateXai({ aspectRatio: event.target.value === "9:16" ? "9:16" : "16:9" })
+                      value={
+                        service === "xai"
+                          ? value.xai.aspectRatio
+                          : service === "google_veo"
+                            ? value.googleVeo.aspectRatio
+                            : value.openrouter.aspectRatio
                       }
+                      onChange={(event) => {
+                        const aspectRatio = event.target.value === "9:16" ? "9:16" : "16:9";
+                        if (service === "xai") updateXai({ aspectRatio });
+                        else if (service === "google_veo") updateGoogleVeo({ aspectRatio });
+                        else updateOpenRouter({ aspectRatio });
+                      }}
                       className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
                     >
                       <option value="16:9">16:9</option>
@@ -3129,11 +3188,22 @@ function VideoGenerationDefaultsPanel({
                   <label className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">Resolution</span>
                     <select
-                      value={value.xai.resolution}
-                      onChange={(event) => updateXai({ resolution: event.target.value as VideoResolution })}
+                      value={
+                        service === "xai"
+                          ? value.xai.resolution
+                          : service === "google_veo"
+                            ? value.googleVeo.resolution
+                            : value.openrouter.resolution
+                      }
+                      onChange={(event) => {
+                        const resolution = event.target.value as VideoResolution;
+                        if (service === "xai") updateXai({ resolution });
+                        else if (service === "google_veo") updateGoogleVeo({ resolution });
+                        else updateOpenRouter({ resolution });
+                      }}
                       className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
                     >
-                      {VIDEO_RESOLUTION_OPTIONS.map((option) => (
+                      {VIDEO_RESOLUTION_OPTIONS.filter((option) => service !== "google_veo" || option.value !== "480p").map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -3142,7 +3212,11 @@ function VideoGenerationDefaultsPanel({
                   </label>
                 </div>
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
-                  These values are sent to the xAI Videos API. xAI accepts 1-15 seconds for generated videos.
+                  {service === "xai"
+                    ? "These values are sent to the xAI Videos API. xAI accepts 1-15 seconds for generated videos."
+                    : service === "google_veo"
+                      ? "Veo accepts 4, 6, or 8 seconds. Character loop references use the avatar as the first and last frame and run at 8 seconds."
+                      : "These values are sent to OpenRouter's asynchronous Videos API. OpenRouter model support varies, so keep the model's own limits in mind."}
                 </p>
               </>
             ) : (

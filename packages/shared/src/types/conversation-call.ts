@@ -7,6 +7,23 @@ export type ConversationCallParticipantKind = "user" | "character";
 export type ConversationCallMessageKind = "speech" | "text" | "system" | "command" | "soundboard";
 export type ConversationCallTurnMode = "voice" | "text" | "command";
 export type ConversationCallAudioInputMode = "system" | "auto" | "transcribe" | "local_whisper";
+export type ConversationCallCharacterVideoClipKind =
+  | "idle"
+  | "talking"
+  | "laughing"
+  | "angry"
+  | "crying"
+  | "sighing";
+export type ConversationCallCharacterVideoClipStatus = "missing" | "generating" | "ready" | "error";
+
+export const CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS: ConversationCallCharacterVideoClipKind[] = [
+  "idle",
+  "talking",
+  "laughing",
+  "angry",
+  "crying",
+  "sighing",
+];
 
 export interface ConversationCallSession {
   id: string;
@@ -66,6 +83,35 @@ export interface ConversationCallTurn {
   mode: ConversationCallTurnMode;
   content: string;
   tone?: string | null;
+}
+
+export interface ConversationCallCharacterVideoClip {
+  kind: ConversationCallCharacterVideoClipKind;
+  status: ConversationCallCharacterVideoClipStatus;
+  url: string | null;
+  error: string | null;
+  updatedAt: string | null;
+}
+
+export interface ConversationCallCharacterVideoCustomClip {
+  id: string;
+  label: string;
+  prompt: string;
+  status: ConversationCallCharacterVideoClipStatus;
+  url: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface ConversationCallCharacterVideoManifest {
+  characterId: string;
+  characterName: string;
+  sourceAvatarPath: string | null;
+  generating: boolean;
+  updatedAt: string | null;
+  clips: ConversationCallCharacterVideoClip[];
+  customClips: ConversationCallCharacterVideoCustomClip[];
 }
 
 export interface ConversationCallMessageResponse {

@@ -817,7 +817,7 @@ export function GameAssetsBrowserView({
         {/* Sidebar tree */}
         <div className="w-56 overflow-y-auto border-r border-[var(--border)]/40 bg-[var(--card)]/30 p-2 max-md:hidden">
           {isLoading ? (
-            <div className="p-4 text-sm text-[var(--muted-foreground)]">Loading...</div>
+            <div className="mari-chrome-text-muted p-4 text-sm">Loading...</div>
           ) : tree ? (
             <FolderTree
               node={tree}
@@ -844,7 +844,7 @@ export function GameAssetsBrowserView({
           onDragLeave={handleDragLeave}
         >
           {isLoading ? (
-            <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
+            <div className="mari-chrome-text-muted flex flex-1 items-center justify-center text-sm">
               Loading assets...
             </div>
           ) : (

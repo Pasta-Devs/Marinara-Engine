@@ -23,7 +23,8 @@ Everything happens on first startup. You never copy URLs or configure tools manu
 
 - Home Assistant 2024.1 or newer
 - [HACS](https://hacs.xyz) installed
-- [Marinara Engine](https://github.com/Pasta-Devs/Marinara-Engine) running locally (default: `localhost:3000`)
+- [Marinara Engine](https://github.com/Pasta-Devs/Marinara-Engine) running locally (default: `localhost:7860`)
+- `WEBHOOK_LOCAL_URLS_ENABLED=true` in Marinara's `.env`, because Home Assistant webhook URLs are local plain-HTTP URLs and Marinara blocks those outbound calls by default
 
 ## Installation
 
@@ -39,13 +40,13 @@ Everything happens on first startup. You never copy URLs or configure tools manu
 
 1. Go to **Settings → Devices & Services → Add Integration**
 2. Search for **Marinara Engine**
-3. Enter the host and port where Marinara Engine is running (default: `localhost` / `3000`)
+3. Enter the host and port where Marinara Engine is running (default: `localhost` / `7860`)
 4. Click **Submit**
 
 On startup, the integration automatically:
 
 - Registers a webhook inside Home Assistant
-- Creates all tool definitions in Marinara → **Settings → Custom Tools**
+- Creates all tool definitions in Marinara -> **Presets panel -> Functions**
 - Creates a **Home Assistant** agent in Marinara → **Agents** with every HA tool already enabled
 
 ### 3. Done
@@ -138,12 +139,12 @@ Start an AI generation turn in a chat.
 
 ## Re-syncing tools
 
-Press **Marinara Sync HA Tools** on the integration's device page to push any missing tools and recreate the agent if it was deleted. Tools that already exist are skipped — it's safe to press at any time.
+Press **Marinara Sync HA Tools** on the integration's device page to push tools and recreate the agent if it was deleted. Existing tools are updated in place so schema changes propagate; manual edits to HA-managed tool definitions are overwritten and re-enabled, and managed tools from deselected categories are disabled.
 
 ## Troubleshooting
 
-**Tools not appearing in Marinara's Custom Tools**
-Press **Marinara Sync HA Tools**, or restart Home Assistant. Verify under **Settings → Custom Tools** in Marinara.
+**Tools not appearing in Marinara's Functions list**
+Press **Marinara Sync HA Tools**, or restart Home Assistant. Verify under the **Functions** section of the Presets panel in Marinara.
 
 **Home Assistant agent not showing up in Marinara**
 Press **Marinara Sync HA Tools**. If it's already in the Agents list but not visible in a chat, add the Home Assistant custom agent to that chat from Chat Settings -> Agents.
@@ -152,10 +153,10 @@ Press **Marinara Sync HA Tools**. If it's already in the Agents list but not vis
 The **Home Assistant** custom agent must be synced in Marinara and added to the current chat. If it's missing entirely, press **Sync HA Tools** to recreate it, then add it from Chat Settings -> Agents and select the tools you want in the chat's Function Calling picker.
 
 **Webhook calls failing**
-Check that Home Assistant is reachable from the machine running Marinara Engine. If they run on the same machine, the internal URL (`http://localhost:8123`) is used automatically. If Marinara runs on a different device, make sure HA's local network URL is accessible from that device.
+Set `WEBHOOK_LOCAL_URLS_ENABLED=true` in Marinara's `.env` and save; this hot-reloads within a couple of seconds. Without it, tool calls can fail with messages such as `protocol 'http' is not allowed` or a private-address refusal. Also check that Home Assistant is reachable from the machine running Marinara Engine. If they run on the same machine, the internal URL (`http://localhost:8123`) is used automatically. If Marinara runs on a different device, make sure HA's local network URL is accessible from that device.
 
 **Cannot connect on setup**
-Make sure Marinara Engine is running (`pnpm dev` or the packaged app) and the host/port you entered match where it's actually listening (default: `localhost:3000`).
+Make sure Marinara Engine is running (`pnpm dev` or the packaged app) and the host/port you entered match where it's actually listening (default: `localhost:7860`).
 
 **Finding the webhook URL manually**
 Go to **Settings → Devices & Services → Marinara Engine** in HA. The webhook ID is stored in the config entry. The full URL follows the pattern:
@@ -164,4 +165,4 @@ Go to **Settings → Devices & Services → Marinara Engine** in HA. The webhook
 http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 ```
 
-Each tool in Marinara's Custom Tools list already has this URL set.
+Each tool in Marinara's Functions list already has this URL set.

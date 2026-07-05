@@ -7,9 +7,11 @@ import { writeFile } from "fs/promises";
 import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
+  VIDEO_GENERATION_SETTINGS_KEY,
   VIDEO_DEFAULTS_STORAGE_KEY,
   createDefaultVideoGenerationProfile,
   inferVideoSource,
+  normalizeVideoGenerationUserSettings,
   normalizeVideoGenerationProfile,
   type GameSceneVideoAspectRatio,
   type GeneratedSceneVideo,
@@ -22,6 +24,7 @@ import { createPersonaGalleryStorage } from "../services/storage/persona-gallery
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createGameSceneVideosStorage } from "../services/storage/game-scene-videos.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
+import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { GAME_VIDEO, loadPrompt } from "../services/prompt-overrides/index.js";
 import {
   generateVideo,
@@ -52,8 +55,12 @@ const SCENE_VIDEO_FILENAME_RE = /^[A-Za-z0-9_-]+\.mp4$/;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 31 * 60 * 1000;
 const DEFAULT_GEMINI_OMNI_MODEL = "gemini-omni-flash-preview";
 const DEFAULT_GEMINI_OMNI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_GOOGLE_VEO_MODEL = "veo-3.1-generate-preview";
+const DEFAULT_GOOGLE_VEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_XAI_VIDEO_MODEL = "grok-imagine-video-1.5";
 const DEFAULT_XAI_VIDEO_BASE_URL = "https://api.x.ai/v1";
+const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
+const DEFAULT_OPENROUTER_VIDEO_BASE_URL = "https://openrouter.ai/api/v1";
 
 type SceneVideoRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGameSceneVideosStorage>["getById"]>>>;
 type ChatGalleryImageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGalleryStorage>["getById"]>>>;
@@ -298,6 +305,11 @@ function parseDefaultParametersRoot(raw: unknown): Record<string, unknown> {
 function getStoredVideoDefaults(raw: unknown) {
   const root = parseDefaultParametersRoot(raw);
   return normalizeVideoGenerationProfile(root[VIDEO_DEFAULTS_STORAGE_KEY]).profile;
+}
+
+function hasStoredVideoDefaults(raw: unknown) {
+  const root = parseDefaultParametersRoot(raw);
+  return Object.prototype.hasOwnProperty.call(root, VIDEO_DEFAULTS_STORAGE_KEY);
 }
 
 async function resolveSceneVideoConnectionId(
@@ -685,24 +697,65 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: message });
     }
 
-    const videoDefaults = videoConn.defaultParameters
-      ? getStoredVideoDefaults(videoConn.defaultParameters)
-      : createDefaultVideoGenerationProfile();
+    const storedVideoDefaults =
+      videoConn.defaultParameters && hasStoredVideoDefaults(videoConn.defaultParameters)
+        ? getStoredVideoDefaults(videoConn.defaultParameters)
+        : null;
+    const videoDefaults = storedVideoDefaults ?? createDefaultVideoGenerationProfile();
     const explicitVideoSource = videoConn.videoGenerationSource || videoConn.videoService || "";
     const source =
       explicitVideoSource ||
-      (videoDefaults.service === "xai" ? "xai" : inferVideoSource(videoConn.model || "", videoConn.baseUrl || ""));
+      (videoDefaults.service !== "gemini_omni"
+        ? videoDefaults.service
+        : inferVideoSource(videoConn.model || "", videoConn.baseUrl || ""));
     const serviceHint = videoConn.videoService || source;
     const isXaiVideo = source === "xai" || serviceHint === "xai";
-    const activeVideoDefaults = isXaiVideo ? videoDefaults.xai : videoDefaults.geminiOmni;
+    const isGoogleVeoVideo = source === "google_veo" || serviceHint === "google_veo";
+    const isOpenRouterVideo = source === "openrouter" || serviceHint === "openrouter";
+    const activeVideoDefaults = isXaiVideo
+      ? videoDefaults.xai
+      : isGoogleVeoVideo
+        ? videoDefaults.googleVeo
+      : isOpenRouterVideo
+        ? videoDefaults.openrouter
+        : videoDefaults.geminiOmni;
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    const fallbackDurationSeconds = storedVideoDefaults
+      ? activeVideoDefaults.durationSeconds
+      : videoSettings.sceneVideoDurationSeconds;
+    const maxDurationSeconds = isXaiVideo ? 15 : isGoogleVeoVideo ? 8 : 60;
     const durationSeconds = Math.min(
-      isXaiVideo ? 15 : 60,
-      Math.max(1, Math.trunc(input.durationSeconds ?? activeVideoDefaults.durationSeconds)),
+      maxDurationSeconds,
+      Math.max(1, Math.trunc(input.durationSeconds ?? fallbackDurationSeconds)),
     );
     const aspectRatio = input.aspectRatio ?? activeVideoDefaults.aspectRatio;
-    const baseUrl = videoConn.baseUrl || (isXaiVideo ? DEFAULT_XAI_VIDEO_BASE_URL : DEFAULT_GEMINI_OMNI_BASE_URL);
-    const model = videoConn.model || (isXaiVideo ? DEFAULT_XAI_VIDEO_MODEL : DEFAULT_GEMINI_OMNI_MODEL);
-    const resolution = isXaiVideo ? videoDefaults.xai.resolution : undefined;
+    const baseUrl =
+      videoConn.baseUrl ||
+      (isXaiVideo
+        ? DEFAULT_XAI_VIDEO_BASE_URL
+        : isGoogleVeoVideo
+          ? DEFAULT_GOOGLE_VEO_BASE_URL
+        : isOpenRouterVideo
+          ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
+          : DEFAULT_GEMINI_OMNI_BASE_URL);
+    const model =
+      videoConn.model ||
+      (isXaiVideo
+        ? DEFAULT_XAI_VIDEO_MODEL
+        : isGoogleVeoVideo
+          ? DEFAULT_GOOGLE_VEO_MODEL
+        : isOpenRouterVideo
+          ? DEFAULT_OPENROUTER_VIDEO_MODEL
+          : DEFAULT_GEMINI_OMNI_MODEL);
+    const resolution = isXaiVideo
+      ? videoDefaults.xai.resolution
+      : isGoogleVeoVideo
+        ? videoDefaults.googleVeo.resolution
+      : isOpenRouterVideo
+        ? videoDefaults.openrouter.resolution
+        : undefined;
     const promptLimits = getSceneVideoPromptLimits(isXaiVideo);
 
     const messages = await chats.listMessages(input.chatId);

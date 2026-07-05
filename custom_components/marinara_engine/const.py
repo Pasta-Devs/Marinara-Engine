@@ -3,7 +3,7 @@
 DOMAIN = "marinara_engine"
 
 DEFAULT_HOST = "localhost"
-DEFAULT_PORT = 3000
+DEFAULT_PORT = 7860
 SCAN_INTERVAL = 30  # seconds
 
 CONF_HOST = "host"

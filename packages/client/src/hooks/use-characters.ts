@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
+import { useUIStore } from "../stores/ui.store";
 import {
   collectAllPaginatedItems,
   flattenPaginatedItems,
@@ -44,14 +45,16 @@ export const characterKeys = {
   all: ["characters"] as const,
   list: () => [...characterKeys.all, "list"] as const,
   listWithBuiltIns: () => [...characterKeys.all, "list", "with-built-ins"] as const,
-  page: (includeBuiltIn: boolean, search: string, sort: string) =>
-    [...characterKeys.list(), "page", includeBuiltIn, search, sort] as const,
+  page: (includeBuiltIn: boolean, search: string, sort: string, favoriteFilter: string) =>
+    [...characterKeys.list(), "page", includeBuiltIn, search, sort, favoriteFilter] as const,
   summariesRoot: () => [...characterKeys.all, "summaries"] as const,
   summaries: (idsKey: string) => [...characterKeys.all, "summaries", idsKey] as const,
   detail: (id: string) => [...characterKeys.all, "detail", id] as const,
   versions: (id: string) => [...characterKeys.detail(id), "versions"] as const,
   gallery: (id: string) => [...characterKeys.all, "gallery", id] as const,
+  galleryClips: (id: string) => [...characterKeys.all, "gallery", id, "clips"] as const,
   personaGallery: (id: string) => ["persona-gallery", id] as const,
+  personaGalleryClips: (id: string) => ["persona-gallery", id, "clips"] as const,
   personas: ["personas"] as const,
   personaActive: () => [...characterKeys.personas, "active"] as const,
   personaDetail: (id: string) => [...characterKeys.personas, "detail", id] as const,
@@ -102,14 +105,16 @@ export function useCharacterPages(options: {
   includeBuiltIn?: boolean;
   search?: string;
   sort?: string;
+  favoriteFilter?: string;
 }) {
   const enabled = options.enabled ?? true;
   const includeBuiltIn = options.includeBuiltIn === true;
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
+  const favoriteFilter = options.favoriteFilter ?? "";
 
   return useInfiniteQuery({
-    queryKey: characterKeys.page(includeBuiltIn, search, sort),
+    queryKey: characterKeys.page(includeBuiltIn, search, sort, favoriteFilter),
     initialPageParam: 0,
     queryFn: ({ pageParam }) => {
       const params = new URLSearchParams({
@@ -119,6 +124,7 @@ export function useCharacterPages(options: {
       if (includeBuiltIn) params.set("includeBuiltIn", "true");
       if (search) params.set("search", search);
       if (sort) params.set("sort", sort);
+      if (favoriteFilter) params.set("favoriteFilter", favoriteFilter);
       return api.get<PaginatedList<Record<string, unknown>>>(`/characters?${params.toString()}`);
     },
     getNextPageParam: getNextPageOffset,
@@ -365,6 +371,29 @@ export interface CharacterGalleryImage {
   url: string;
 }
 
+export interface CharacterGalleryClip {
+  id: string;
+  source: "conversation-call" | "conversation-call-custom" | "game-scene" | "scene-video";
+  label: string;
+  prompt: string;
+  status: "ready" | "generating" | "error" | "missing";
+  url: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  durationSeconds: number | null;
+  aspectRatio: string;
+  provider: string;
+  model: string;
+  chatId: string | null;
+  chatName: string | null;
+  clipKind: string | null;
+}
+
+export interface CharacterGalleryClipsResponse {
+  clips: CharacterGalleryClip[];
+  callVideoGenerating: boolean;
+}
+
 export const spriteKeys = {
   list: (characterId: string) => ["sprites", characterId] as const,
   capabilities: () => ["sprites", "capabilities"] as const,
@@ -463,6 +492,44 @@ export function useCharacterGalleryImages(characterId: string | null) {
   });
 }
 
+export function useCharacterGalleryClips(characterId: string | null) {
+  return useQuery({
+    queryKey: characterKeys.galleryClips(characterId ?? ""),
+    queryFn: () => api.get<CharacterGalleryClipsResponse>(`/characters/${characterId}/gallery/clips`),
+    enabled: !!characterId,
+    refetchInterval: (query) =>
+      query.state.data?.callVideoGenerating || query.state.data?.clips.some((clip) => clip.status === "generating")
+        ? 15_000
+        : false,
+    staleTime: 15_000,
+  });
+}
+
+export function useGenerateCharacterCallVideoClips(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.post(`/conversation-calls/character-videos/${characterId}/generate`, {
+        debugMode: useUIStore.getState().debugMode,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.galleryClips(characterId) });
+      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", characterId] });
+    },
+  });
+}
+
+export function useDeleteCharacterGalleryClip(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (clipId: string) => api.delete(`/characters/${characterId}/gallery/clips/${encodeURIComponent(clipId)}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.galleryClips(characterId) });
+      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", characterId] });
+    },
+  });
+}
+
 export function useUploadCharacterGalleryImage(characterId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -540,6 +607,26 @@ export function usePersonaGalleryImages(personaId: string | null) {
     queryFn: () => api.get<PersonaGalleryImage[]>(`/characters/personas/${personaId}/gallery`),
     enabled: !!personaId,
     staleTime: 5 * 60_000,
+  });
+}
+
+export function usePersonaGalleryClips(personaId: string | null) {
+  return useQuery({
+    queryKey: characterKeys.personaGalleryClips(personaId ?? ""),
+    queryFn: () => api.get<CharacterGalleryClipsResponse>(`/characters/personas/${personaId}/gallery/clips`),
+    enabled: !!personaId,
+    staleTime: 15_000,
+  });
+}
+
+export function useDeletePersonaGalleryClip(personaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (clipId: string) =>
+      api.delete(`/characters/personas/${personaId}/gallery/clips/${encodeURIComponent(clipId)}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
+    },
   });
 }
 

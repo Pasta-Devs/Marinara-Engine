@@ -83,7 +83,7 @@ export function ImageInfoPopover({ node, onClose }: { node: TreeNode; onClose: (
           </div>
         </div>
       ) : (
-        <div className="text-sm text-[var(--muted-foreground)]">Loading...</div>
+        <div className="mari-chrome-text-muted text-sm">Loading...</div>
       )}
     </div>
   );

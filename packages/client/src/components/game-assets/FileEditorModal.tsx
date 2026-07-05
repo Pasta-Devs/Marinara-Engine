@@ -170,12 +170,12 @@ export function FileEditorModal({ node, onClose, initialMode = "edit" }: FileEdi
         {/* Body */}
         <div className="flex-1 overflow-hidden">
           {isLoading ? (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--muted-foreground)]">
+            <div className="mari-chrome-text-muted flex h-full items-center justify-center text-sm">
               Loading...
             </div>
           ) : mode === "preview" && isMd ? (
             <div className="h-full overflow-y-auto p-6">
-              <div className="prose prose-sm max-w-none text-[var(--foreground)]">
+              <div className="mari-message-content whitespace-pre-wrap break-words text-sm text-[var(--foreground)]">
                 {renderMarkdownBlocks(content, applyInlineMarkdown, "editor-preview")}
               </div>
             </div>

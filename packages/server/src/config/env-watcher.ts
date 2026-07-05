@@ -41,6 +41,9 @@ const RESTART_REQUIRED_KEYS = new Set<string>([
   "NODE_ENV",
   "IMAGE_GEN_TIMEOUT_MS",
   "COMFYUI_GEN_TIMEOUT",
+  // Fastify reads disableRequestLogging once from the factory options at boot
+  // (app.ts), so toggling this after startup has no effect until a restart.
+  "LOG_DISABLE_REQUEST_LOGGING",
 ]);
 
 // Keys whose values must be masked when logged.

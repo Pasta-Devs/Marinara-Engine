@@ -37,8 +37,12 @@ const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
 const DEFAULT_GEMINI_OMNI_VIDEO_MODEL = "gemini-omni-flash-preview";
 const DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const DEFAULT_GOOGLE_VEO_VIDEO_MODEL = "veo-3.1-generate-preview";
+const DEFAULT_GOOGLE_VEO_VIDEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_XAI_VIDEO_MODEL = "grok-imagine-video-1.5";
 const DEFAULT_XAI_VIDEO_BASE_URL = "https://api.x.ai/v1";
+const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
+const DEFAULT_OPENROUTER_VIDEO_BASE_URL = "https://openrouter.ai/api/v1";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -917,12 +921,34 @@ export async function connectionsRoutes(app: FastifyInstance) {
       explicitVideoSource || (inferredVideoSource !== "gemini_omni" ? inferredVideoSource : defaults.service);
     const videoServiceHint = conn.videoService || videoSource;
     const isXaiVideo = videoSource === "xai" || videoServiceHint === "xai";
+    const isGoogleVeoVideo = videoSource === "google_veo" || videoServiceHint === "google_veo";
+    const isOpenRouterVideo = videoSource === "openrouter" || videoServiceHint === "openrouter";
     const baseUrl = (
       conn.baseUrl ||
-      (isXaiVideo ? DEFAULT_XAI_VIDEO_BASE_URL : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
+      (isXaiVideo
+        ? DEFAULT_XAI_VIDEO_BASE_URL
+        : isGoogleVeoVideo
+          ? DEFAULT_GOOGLE_VEO_VIDEO_BASE_URL
+        : isOpenRouterVideo
+          ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
+          : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
     ).replace(/\/+$/, "");
-    const videoModel = conn.model || (isXaiVideo ? DEFAULT_XAI_VIDEO_MODEL : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
-    const activeDefaults = isXaiVideo ? defaults.xai : defaults.geminiOmni;
+    const videoModel =
+      conn.model ||
+      (isXaiVideo
+        ? DEFAULT_XAI_VIDEO_MODEL
+        : isGoogleVeoVideo
+          ? DEFAULT_GOOGLE_VEO_VIDEO_MODEL
+        : isOpenRouterVideo
+          ? DEFAULT_OPENROUTER_VIDEO_MODEL
+          : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
+    const activeDefaults = isXaiVideo
+      ? defaults.xai
+      : isGoogleVeoVideo
+        ? defaults.googleVeo
+        : isOpenRouterVideo
+          ? defaults.openrouter
+          : defaults.geminiOmni;
 
     const prompt =
       "Create a concise cinematic 16:9 game scene video: a plate of spaghetti with marinara sauce on a table, gentle steam rising, warm kitchen light, slow push-in camera, no text or logos.";
@@ -935,7 +961,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
         model: videoModel,
         durationSeconds: activeDefaults.durationSeconds,
         aspectRatio: activeDefaults.aspectRatio,
-        resolution: isXaiVideo ? defaults.xai.resolution : undefined,
+        resolution: isXaiVideo
+          ? defaults.xai.resolution
+          : isGoogleVeoVideo
+            ? defaults.googleVeo.resolution
+            : isOpenRouterVideo
+              ? defaults.openrouter.resolution
+              : undefined,
       });
       return {
         success: true,

@@ -125,6 +125,15 @@ const STATUS_DOT_COLOR: Record<EntryStatus, string> = {
   normal: "bg-emerald-400",
 };
 
+function isHeaderInlineControlTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) return false;
+  return Boolean(
+    target.closest(
+      'button, input, select, textarea, a, [role="button"], [role="menuitem"], [role="menuitemradio"]',
+    ),
+  );
+}
+
 const SELECTIVE_LOGIC_OPTIONS: Array<{ value: SelectiveLogic; label: string }> = [
   { value: "and", label: "AND Any" },
   { value: "and_all", label: "AND All" },
@@ -366,6 +375,18 @@ export function LorebookEntryRow({
     [localUseRegex, patch],
   );
 
+  const handleHeaderClick = useCallback(
+    (e: ReactMouseEvent<HTMLDivElement>) => {
+      if (isHeaderInlineControlTarget(e.target)) return;
+      if (selectionMode) {
+        onToggleSelected?.();
+        return;
+      }
+      onToggleExpand();
+    },
+    [onToggleExpand, onToggleSelected, selectionMode],
+  );
+
   const handleNameCommit = useCallback(() => {
     if (localName.trim() && localName !== entry.name) {
       const previous = entry.name;
@@ -478,7 +499,7 @@ export function LorebookEntryRow({
       {/* ── Compact row ── */}
       <div
         className="group flex min-w-0 cursor-pointer items-center gap-0.5 px-1.5 py-1.5 sm:gap-2 sm:px-2"
-        onClick={selectionMode ? onToggleSelected : onToggleExpand}
+        onClick={handleHeaderClick}
       >
         {/* Drag handle */}
         <button

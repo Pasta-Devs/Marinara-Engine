@@ -849,7 +849,7 @@ export function AgentsPanel() {
       {isLoading && <div className="mari-chrome-text-muted py-4 text-center text-xs">Loading...</div>}
 
       {!hasVisibleAgents && (
-        <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No agents match your search.</p>
+        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">No agents match your search.</p>
       )}
 
       <div className="flex flex-col gap-0.5">
@@ -1025,7 +1025,7 @@ export function AgentsPanel() {
         return (
           <PanelSection key={section.category} title={section.title} icon={section.icon}>
             {visibleAgents.length === 0 ? (
-              <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
+              <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
                 No {section.title.toLowerCase()} yet.
               </p>
             ) : (
@@ -1081,7 +1081,7 @@ export function AgentsPanel() {
       {(visibleCustomAgents.length > 0 || !agentSearchQuery) && (
         <PanelSection title="Custom Agents" icon={<Sparkles size="0.8125rem" />}>
           {visibleCustomAgents.length === 0 ? (
-            <p className="px-1 py-2 text-[0.625rem] text-[var(--muted-foreground)]">No custom agents yet</p>
+            <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">No custom agents yet</p>
           ) : (
             visibleCustomAgents.map((agent) =>
               renderAgentCard({

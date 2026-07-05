@@ -1,14 +1,7 @@
 import { blockDurationMinutes, getAdjacentBlocks, type ScheduleBlock, type WeekSchedule } from "./schedule.service.js";
+import type { ConversationMessageIntent } from "@marinara-engine/shared";
 
-export type MessageIntent =
-  | "check_in"
-  | "long_absence_check_in"
-  | "came_back_online"
-  | "after_busy"
-  | "good_morning"
-  | "good_night"
-  | "meal_break"
-  | "transition_ping";
+export type MessageIntent = ConversationMessageIntent;
 
 const INTENT_HINTS: Record<MessageIntent, string> = {
   check_in: "You have a free moment and feel like reaching out. The user has been quiet.",

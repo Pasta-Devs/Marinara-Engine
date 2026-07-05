@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, HelpCircle, Search, Sparkles, TriangleAlert, X } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronRight, HelpCircle, Search, Sparkles, TriangleAlert, X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useDocsIndex } from "../../hooks/use-docs";
+import { useUIStore } from "../../stores/ui.store";
 
 interface HomeFaqItem {
   id: string;
@@ -8,6 +10,8 @@ interface HomeFaqItem {
   question: string;
   answer: string;
   bullets?: string[];
+  /** Renders the on-disk docs path plus an "Open Documentation" button under the answer */
+  docsAccess?: boolean;
 }
 
 const QUICK_FIXES = [
@@ -65,6 +69,18 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
       "The sidecar is there for helpers and utility tasks, not to compete with your main model for VRAM.",
       "Treat it as a problem only if the sidecar never recovers or keeps crashing instead of settling on CPU fallback.",
     ],
+  },
+  {
+    id: "find-documentation",
+    category: "Setup",
+    question: "Where can I find documentation?",
+    answer:
+      "Marinara ships full guides with every install: installation, configuration, troubleshooting, macros, extensions, Game Mode, and more. You can read them without leaving the app.",
+    bullets: [
+      "Use the Open Documentation button below, or the Documentation button at the bottom of the home page, to browse every guide in-app.",
+      "The same guides live on disk as regular markdown files, at the folder path shown below.",
+    ],
+    docsAccess: true,
   },
   {
     id: "antivirus-installer",
@@ -513,6 +529,38 @@ function getFaqSearchText(item: HomeFaqItem) {
   return [item.category, item.question, item.answer, ...(item.bullets ?? [])].join(" ").toLowerCase();
 }
 
+/** Only mounted while the docs FAQ entry is open, so the index fetch stays lazy. */
+function FaqDocsAccess({ compact }: { compact?: boolean }) {
+  const { data: index } = useDocsIndex();
+
+  return (
+    <div className="mt-2 space-y-2">
+      <div
+        className={cn(
+          "rounded-lg border border-[var(--border)]/55 bg-[var(--background)]/60 px-2.5 py-1.5",
+          compact ? "text-[0.625rem]" : "text-[0.65625rem]",
+        )}
+      >
+        <p className="text-[var(--muted-foreground)]/70">On disk at:</p>
+        <code className="block break-all text-[var(--foreground)]/85">
+          {index ? index.root : "the docs folder inside your Marinara install folder"}
+        </code>
+      </div>
+      <button
+        type="button"
+        onClick={() => useUIStore.getState().openModal("docs-viewer")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-lg border border-[var(--primary)]/30 bg-[var(--primary)]/10 font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20",
+          compact ? "px-2 py-1 text-[0.625rem]" : "px-2.5 py-1.5 text-[0.6875rem]",
+        )}
+      >
+        <BookOpen size={compact ? "0.6875rem" : "0.75rem"} />
+        Open Documentation
+      </button>
+    </div>
+  );
+}
+
 export function HomeFaq({
   defaultExpanded = false,
   className,
@@ -657,6 +705,7 @@ export function HomeFaq({
                               ))}
                             </ul>
                           ) : null}
+                          {item.docsAccess ? <FaqDocsAccess compact /> : null}
                         </div>
                       )}
                     </div>
@@ -833,6 +882,7 @@ export function HomeFaq({
                               ))}
                             </ul>
                           ) : null}
+                          {item.docsAccess ? <FaqDocsAccess /> : null}
                         </div>
                       )}
                     </div>

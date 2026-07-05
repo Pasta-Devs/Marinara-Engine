@@ -22,6 +22,7 @@ import {
   Feather,
   RotateCcw,
   Phone,
+  Dices,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
@@ -772,9 +773,14 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     setCallsEnabled(metadata.conversationCallsEnabled === true);
   }, [metadata.conversationCallsEnabled]);
 
-  const chatCharIds: string[] = useMemo(() => {
+  const persistedChatCharIds: string[] = useMemo(() => {
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
+  const [chatCharIds, setChatCharIds] = useState<string[]>(persistedChatCharIds);
+
+  useEffect(() => {
+    setChatCharIds(persistedChatCharIds);
+  }, [persistedChatCharIds]);
 
   const [search, setSearch] = useState("");
 
@@ -820,6 +826,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       const idx = current.indexOf(charId);
       if (idx >= 0) current.splice(idx, 1);
       else current.push(charId);
+      setChatCharIds(current);
 
       // Auto-rename the chat if the user hasn't manually edited the name
       if (!userEditedName) {
@@ -829,8 +836,22 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         updateChat.mutate({ id: chat.id, characterIds: current });
       }
     },
-    [chat.id, chatCharIds, updateChat, userEditedName, buildAutoName],
+    [buildAutoName, chat.id, chatCharIds, updateChat, userEditedName],
   );
+
+  const addRandomCharacter = useCallback(() => {
+    const selected = new Set(chatCharIds);
+    const query = search.trim().toLowerCase();
+    const pool = characters.filter((character) => {
+      if (selected.has(character.id)) return false;
+      if (!query) return true;
+      const info = getCharacterInfo(character);
+      const title = getCharacterTitle(info)?.toLowerCase() ?? "";
+      return info.name.toLowerCase().includes(query) || title.includes(query);
+    });
+    const character = pool[Math.floor(Math.random() * pool.length)];
+    if (character) toggleCharacter(character.id);
+  }, [characters, chatCharIds, getCharacterInfo, search, toggleCharacter]);
 
   const setConnection = useCallback(
     (connectionId: string | null) => {
@@ -1179,6 +1200,22 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
             />
           </div>
           <div className="max-h-48 overflow-y-auto border-t border-[var(--border)]">
+            {available.length > 0 && (
+              <button
+                type="button"
+                onClick={addRandomCharacter}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--primary)]/10 text-[var(--primary)] ring-1 ring-[var(--primary)]/25">
+                  <Dices size="0.875rem" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-xs">Random</span>
+                  <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">Dice pick</span>
+                </div>
+                <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+              </button>
+            )}
             {available.map((character) => {
               const info = getCharacterInfo(character);
               const title = getCharacterTitle(info);
@@ -1565,9 +1602,14 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     setCustomizeParameters(!!parseEditableGenerationParameters(metadata.chatParameters));
   }, [metadata.chatParameters]);
 
-  const chatCharIds: string[] = useMemo(() => {
+  const persistedChatCharIds: string[] = useMemo(() => {
     return typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : (chat.characterIds ?? []);
   }, [chat.characterIds]);
+  const [chatCharIds, setChatCharIds] = useState<string[]>(persistedChatCharIds);
+
+  useEffect(() => {
+    setChatCharIds(persistedChatCharIds);
+  }, [persistedChatCharIds]);
 
   const activeLorebookIds: string[] = useMemo(
     () =>
@@ -1746,6 +1788,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       const idx = current.indexOf(charId);
       if (idx >= 0) {
         current.splice(idx, 1);
+        setChatCharIds(current);
         // Auto-rename the chat if the user hasn't manually edited the name
         const updateData: { id: string; characterIds: string[]; name?: string } = {
           id: chat.id,
@@ -1755,6 +1798,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         updateChat.mutate(updateData);
       } else {
         current.push(charId);
+        setChatCharIds(current);
         const updateData: { id: string; characterIds: string[]; name?: string } = {
           id: chat.id,
           characterIds: current,
@@ -1786,7 +1830,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         });
       }
     },
-    [chat.id, chatCharIds, characters, createMessage, updateChat, queryClient, userEditedName, buildAutoName],
+    [buildAutoName, chat.id, chatCharIds, characters, createMessage, queryClient, updateChat, userEditedName],
   );
 
   const toggleLorebook = useCallback(
@@ -2066,6 +2110,18 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       const title = charTitle(c)?.toLowerCase() ?? "";
       return charName(c).toLowerCase().includes(query) || title.includes(query);
     });
+    const addRandomCharacter = () => {
+      const selected = new Set(chatCharIds);
+      const query = charSearch.trim().toLowerCase();
+      const pool = characters.filter((character) => {
+        if (selected.has(character.id)) return false;
+        if (!query) return true;
+        const title = charTitle(character)?.toLowerCase() ?? "";
+        return charName(character).toLowerCase().includes(query) || title.includes(query);
+      });
+      const character = pool[Math.floor(Math.random() * pool.length)];
+      if (character) toggleCharacter(character.id);
+    };
 
     return (
       <div className="space-y-2">
@@ -2127,6 +2183,24 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
             />
           </div>
           <div className="max-h-32 overflow-y-auto">
+            {available.length > 0 && (
+              <button
+                type="button"
+                onClick={addRandomCharacter}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
+              >
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--primary)]/10 text-[var(--primary)] ring-1 ring-[var(--primary)]/25">
+                  <Dices size="0.8125rem" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block truncate text-xs">Random</span>
+                  <span className="block truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
+                    Dice pick
+                  </span>
+                </div>
+                <Plus size="0.75rem" className="text-[var(--muted-foreground)]" />
+              </button>
+            )}
             {available.map((c) => {
               const name = charName(c);
               const title = charTitle(c);

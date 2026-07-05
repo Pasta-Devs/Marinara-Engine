@@ -4,7 +4,7 @@ Marinara Engine does not run the local server directly on iOS or iPadOS. Use one
 
 ## Wrapper Status
 
-For v2.0.0, iPhone and iPad use the Safari PWA path. A one-tap jailbroken/sideloaded iOS bootstrap wrapper is still future work because it needs a separate iOS package, a local terminal/runtime strategy, and device-specific permission handling. The Android APK bootstrap does not apply to iOS.
+iPhone and iPad currently use the Safari PWA path. A one-tap jailbroken/sideloaded iOS bootstrap wrapper is still future work because it needs a separate iOS package, a local terminal/runtime strategy, and device-specific permission handling. The Android APK bootstrap does not apply to iOS.
 
 ## Connect from Safari
 

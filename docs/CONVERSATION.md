@@ -2,9 +2,9 @@
 
 Conversation Mode is one of Marinara Engine's chat modes, alongside Roleplay, Visual Novel, and Game. Where Game Mode runs a structured RPG and Roleplay drops you into an immersive scene with sprites and backgrounds, **Conversation is Discord-style DMs** — one or more characters, an input bar, and a message history. No GM, no scene chrome, no required mechanics. It's the lightest-weight mode and the one most users will spend the most time in.
 
-This guide is a getting-started reference. It covers what Conversation Mode does, how to set up a chat, the difference between 1:1 and group chats, the Conversation-specific features (schedules, autonomous messages, character exchanges, audio calls, selfies), how connected chats work, and what models and parameters tend to fit well.
+This guide is a getting-started reference. It covers what Conversation Mode does, how to set up a chat, the difference between 1:1 and group chats, the Conversation-specific features (schedules, autonomous messages, character exchanges, audio calls, reactions, table games, selfies), how connected chats work, and what models and parameters tend to fit well.
 
-**What this guide does not cover:** deep agent customization, regex scripts, branching/swipe internals (those work the same across modes), and the lorebook authoring UI itself (covered in the lorebook editor's in-app help). Ask in the Marinara Discord (or open a GitHub issue) for help with those.
+**What this guide does not cover:** deep agent customization, regex scripts, branching/swipe internals (those work the same across modes), and the lorebook authoring UI itself. See [Agent System](AGENT_SYSTEM.md) and [Regex Scripts](REGEX_SCRIPTS.md) for those power-user systems.
 
 ## When to pick Conversation Mode
 
@@ -19,26 +19,25 @@ Pick Roleplay or Game Mode instead if you want immersive scene presentation (spr
 
 ## Setting up a chat
 
-When you start a new Conversation chat, a Discord-style **quick-setup modal** appears. Unlike Roleplay's multi-step wizard, Conversation's setup is a single-screen panel that lets you configure the essentials and start chatting in seconds. You can also dismiss the modal and configure later via the chat settings drawer.
+When you start a new Conversation chat, a four-step setup wizard appears. You can also dismiss it and configure later via the chat settings drawer.
 
-The quick setup has these controls:
+The wizard steps are:
 
-- **Connection** (required) — which LLM provider/model the chat sends messages to.
-- **Persona** (optional) — the character _you_ play, if you want to be more than a generic user.
-- **Character(s)** — tap to add one or more characters from your library. One = 1:1 chat. More than one = group chat. The chat name auto-generates from the picked characters' names unless you've renamed it.
-- **Autonomous messages toggle** — defaults to ON. When enabled, characters can message you on their own when you're idle (see [Autonomous messages](#autonomous-messages) below).
-- **Audio/Video Calls toggle** — enables the phone button for this Conversation so you can start a call with the selected character(s).
-- **Generate schedules toggle** — defaults to OFF. When enabled and you click Start chatting, the engine runs the Schedule Planner agent to generate weekly availability grids for each character.
-- **Customize generation parameters toggle** — defaults to OFF. When enabled, you can override the connection's default temperature, max tokens, etc.
+- **Name & Connection** — name the chat, choose the LLM connection, and optionally enable **Customize Parameters**.
+- **Prompt Preset** — choose the Conversation prompt preset or enable a custom Conversation prompt override.
+- **Persona & Characters** — pick your persona and one or more characters. One character creates a private DM; multiple characters create a group chat.
+- **Automation** — configure autonomous messages, schedules, calls, and the **Commands** grid.
 
-Once Connection and at least one Character are set, click **Start chatting** to apply the settings and enter the chat. Lorebooks and presets aren't part of the quick-setup modal — attach those any time via the chat settings drawer.
+Automation defaults: Autonomous Messages is on, Generate Schedules is off, Audio/Video Calls is off, and Commands is on. The Commands grid controls which command families characters may use, including Schedule Updates, Cross-Post, Selfies, Memories, Scenes, Music, Haptics, Influence, Notes, Calls, Reactions, UNO, and Chess.
+
+Once Connection and at least one Character are set, click **Start chatting** to apply the settings and enter the chat. Lorebooks are attached later via the chat settings drawer; the Conversation prompt is chosen in the wizard's Prompt Preset step.
 
 ## Single-character vs. group chats
 
 The number of characters you select determines the chat shape:
 
 - **1 character** — a 1:1 DM. The character responds to each of your messages.
-- **2 or more characters** — a group chat. By default, characters reply automatically and the Response Orchestrator agent decides who speaks. You can also tell characters to stay quiet unless you `@mention` them — see [Group chat configuration](#group-chat-configuration) below.
+- **2 or more characters** — a group chat. By default, the chat model produces one merged reply and decides which characters naturally chime in. `@mentions` focus specific characters, and characters marked offline by their schedule sit out. You can also tell characters to stay quiet unless you mention or manually trigger them — see [Group chat configuration](#group-chat-configuration) below.
 
 There's no separate "group chat mode" to enable — the engine flips into group behavior automatically when you have more than one character.
 
@@ -46,16 +45,16 @@ There's no separate "group chat mode" to enable — the engine flips into group 
 
 A few settings in the chat settings drawer shape how group chats behave. (Roleplay and Game Mode have their own, more elaborate group-chat controls — what's described here is Conversation-specific.)
 
-### Manual Replies — "Only Reply When Mentioned"
+### Reply When Mentioned
 
 A single toggle in the chat settings drawer.
 
 - **OFF** (default) — characters reply automatically to your messages. If you `@mention` a specific character, the response focuses on that character.
-- **ON** ("Only Reply When Mentioned") — characters stay quiet until you `@mention` one or trigger one from the **character picker** that appears in the input bar (visible in group chats). Useful when you want tight control over turn-taking and don't want everyone responding to every message.
+- **ON** — characters stay quiet until you `@mention` one or trigger one from the **character picker** that appears in the input bar (visible in group chats). Useful when you want tight control over turn-taking and don't want everyone responding to every message.
 
 ### Character exchanges
 
-A toggle in the chat settings drawer (visible only when you have multiple characters) that lets characters chat with **each other** rather than only with you. With this on, the response orchestrator can decide a character should address another character. With it off, all responses are directed at you.
+A toggle in the chat settings drawer (visible only when you have multiple characters) that lets characters chat with **each other** rather than only with you. Character exchanges are driven by the autonomous messaging system while you are idle, weighted by character talkativeness and schedule availability.
 
 ## Impersonating your persona
 
@@ -66,7 +65,8 @@ The chat settings drawer has an **Impersonate** section with global defaults for
 - **Prompt Template** — overrides the built-in impersonation instruction. Leave it empty to use the chat-specific prompt, or the built-in default if the chat has none.
 - **Preset** — optionally route roleplay-style impersonation through a specific prompt preset. Conversation Mode falls back to the chat default because it does not use prompt presets.
 - **Connection** — optionally send impersonation calls to a different model, such as a cheaper or faster connection.
-- **Quick button** — shows a one-click impersonate button in the input bar.
+- **Quick replies** — to get a one-click impersonate button beside Send, enable **Settings -> Advanced -> Message Tools -> Quick replies** and include the Impersonate action.
+- **Use CYOA as direction** — clicking a CYOA option feeds it to impersonation as guidance instead of sending it as a normal user message.
 - **Skip agents** — when enabled, skips agents during impersonation so drafting stays fast and does not mutate trackers or world state.
 
 For per-chat prompt tuning, use `/impersonate_prompt "your prompt"` or `/impersonate_prompt reset`.
@@ -79,7 +79,7 @@ These are features Conversation Mode has that other modes don't.
 
 Each character in a Conversation chat has a **7-day × 24-hour availability grid** showing their status (`online`, `idle`, `dnd`, `offline`) and a per-hour activity description (e.g. `Meetings`, `Free time`, `Sleeping`). The grids are:
 
-- **Auto-generated** by the Schedule Planner agent the first time a chat is started. The agent reads each character's card and infers a reasonable weekly pattern.
+- **Auto-generated** when enabled during setup or from chat settings. The schedule generator reads each character's card and infers a reasonable weekly pattern using the chat's connection.
 - **User-editable** in the chat settings drawer — open the schedule editor, drag-fill cells, type custom activity strings.
 - **Regenerable** with global guidance preferences (e.g. `no characters past midnight`, `everyone is a college student`).
 
@@ -87,7 +87,7 @@ Schedules add **routine-aware autonomous messaging timing**. When schedules are 
 
 ### Autonomous messages
 
-A toggle in the chat settings drawer (and in the quick-setup modal). When enabled, characters can send you messages **on their own** if you've been idle for a while. The Autonomous Messenger agent reads each character's personality and schedule, then triggers an unprompted message when:
+A toggle in the chat settings drawer and setup wizard. When enabled, characters can send you messages **on their own** if you've been idle for a while. The autonomous messaging service reads each character's personality and schedule, then triggers an unprompted message when:
 
 - The user has been inactive for a configured amount of time.
 - The character is available according to their schedule, if schedules are enabled.
@@ -95,7 +95,28 @@ A toggle in the chat settings drawer (and in the quick-setup modal). When enable
 
 Schedules are optional. Without schedules, chatty characters can still reach out based on talkativeness and whether your status is active or idle. If your status is DND, Marinara suppresses autonomous messages.
 
-Autonomous messages **default to ON** when you complete the quick-setup modal. Turn them off in the chat settings drawer if you want messages only when you initiate.
+Autonomous messages **default to ON** when you complete the setup wizard. Turn them off in the chat settings drawer if you want messages only when you initiate.
+
+### Reactions
+
+Conversation messages support emoji reactions. Use the per-message reaction button to add your own reaction. The note `[User reacted with ...]` becomes visible to future prompts so characters can notice it.
+
+If the **Reactions** command is enabled in the Commands grid, characters can react to your messages or each other's messages. Character-to-character reactions use the command form:
+
+```text
+[react: emoji="💙" to "Character Name"]
+```
+
+Reactions are especially useful in group chats because they let a character respond lightly without sending a full message.
+
+### Table games: UNO and Chess
+
+Conversation Mode can host built-in table games. Enable **UNO** and/or **Chess** in the Commands grid during setup or under **Chat Settings -> Commands**.
+
+- **UNO** lets characters start a table game when you agree to play, with bot/model turns and board state.
+- **Chess** lets a character accept a one-on-one chess challenge, with move validation and a board UI.
+
+These games are Conversation-only social features; they do not require Game Mode.
 
 ### Audio/video calls
 
@@ -122,14 +143,14 @@ Conversation Mode supports characters sending you **selfies** — image-generati
 To enable:
 
 1. In the chat settings drawer, set a **Selfie Connection** (an image-generation provider — Stability AI, ComfyUI, AUTOMATIC1111, etc.).
-2. Optionally set a **Selfie Resolution** (default `896x1152`).
-3. Optionally edit per-character **selfie tags** — appearance prompts the character should always include in their selfies (e.g. specific clothing, settings, art style).
+2. Optionally set a **Resolution** (default `896x1152`).
+3. Optionally set **Prompt Model**, **Image Style**, **Send Avatar References**, and **Attach Card Appearance**.
 
-Once configured, characters can send selfies as part of their messages, or you can ask them for one explicitly. Each selfie costs an image-generation API call.
+Once configured, characters can send selfies as part of their messages, or you can ask them for one explicitly. Each selfie costs an image-generation API call. If a selfie misses the character's appearance, enable **Attach Card Appearance**, enable **Send Avatar References** when your provider supports references, and check the character card's appearance fields.
 
 ## Connected chats
 
-Conversations can be **connected** to a Roleplay or Game chat — letting your DM character know what's happening in the story (or vice versa). The bridge is intentionally **asymmetric**: roleplays auto-pull conversation context, but conversations don't auto-pull roleplay context. This keeps DM prompts lean while letting story-side context flow inward.
+Conversations can be **connected** to a Roleplay or Game chat, letting your DM character know what's happening in the story. The bridge is intentionally **asymmetric**: Conversations auto-pull the connected story chat's recent messages every turn, while Roleplay/Game prompts do not automatically pull DM messages. Bridge from the DM back into the story manually with `<influence>` for one-shot guidance or `<note>` for durable guidance.
 
 The full mechanics (when context flows automatically, how to bridge it manually with `<influence>` and `<note>` tags) are documented in the FAQ:
 
@@ -141,7 +162,7 @@ Conversation Mode is the most forgiving of the chat modes. Unlike Game Mode (whi
 
 **Most modern API models work fine,** including:
 
-- **Free-tier OpenRouter routing** (like the auto-seeded `OpenRouter Free` connection) — actually usable here, in contrast to Game Mode where it typically fails.
+- **Free-tier OpenRouter routing** — usable for lightweight Conversation chats when you explicitly configure it, in contrast to Game Mode where free or auto-routing models typically fail.
 - **Mid-tier models** — Claude Haiku, GPT-4 mini, Gemini Flash, GLM5, Llama 3 70B, etc. Plenty of personality and dialogue quality.
 - **Top-tier models** — Claude Opus/Sonnet, GPT-4 class, Gemini Pro. Better at long-context recall and consistent character voice over time, especially across long chat histories.
 
@@ -153,7 +174,7 @@ Conversation Mode is the most forgiving of the chat modes. Unlike Game Mode (whi
 
 **Specific notes:**
 
-- **Autonomous messages and schedules** require structured-ish output from the Schedule Planner / Autonomous Messenger / Response Orchestrator agents. Very weak models can fail these. If schedules generate as gibberish or autonomous messages misfire, your model is too small for the agent calls — switch to a mid-tier or better model on the **agent** connection (which can be different from the main chat connection).
+- **Autonomous messages, schedules, and group replies** use the chat's own connection. Very weak models can fail these. If schedules generate as gibberish or autonomous messages misfire, switch the chat connection to a mid-tier or better model.
 - **Group chats** put more pressure on the model to keep distinct character voices apart from each other. If you notice characters bleeding together — speaking the same way, finishing each other's sentences in unintended ways — switch to a more capable model on the chat connection.
 
 ## Lorebooks in Conversation
@@ -188,14 +209,14 @@ Set it back to `warn` (the default) when you're done — debug output is high-vo
 
 ### Autonomous messages are spamming me
 
-Open the chat settings drawer and turn off **Autonomous messages**. They default to ON when you complete the quick-setup modal, so this is a common adjustment. If the character is messaging more aggressively than you'd like, you can also reshape their schedule to mark more hours `dnd` or `offline`, which suppresses autonomous reach-outs during those windows.
+Open the chat settings drawer and turn off **Autonomous messages**. They default to ON when you complete the setup wizard, so this is a common adjustment. If the character is messaging more aggressively than you'd like, you can also reshape their schedule to mark more hours `dnd` or `offline`, which suppresses autonomous reach-outs during those windows.
 
 ### Group chat: one character monopolizes responses
 
 Two options:
 
-- Turn on **Manual Replies** ("Only Reply When Mentioned") in the chat settings drawer and `@mention` characters explicitly when you want them to speak.
-- Or use the **character picker** that appears in the input bar to trigger specific characters' responses one at a time without enabling Manual Replies globally.
+- Turn on **Reply When Mentioned** in the chat settings drawer and `@mention` characters explicitly when you want them to speak.
+- Or use the **character picker** that appears in the input bar to trigger specific characters' responses one at a time without enabling Reply When Mentioned globally.
 
 ### Character forgets things from earlier in the conversation
 
@@ -209,7 +230,7 @@ Long chats fill the model's context window. The engine summarizes older messages
 
 Two common causes:
 
-- The Selfie Connection isn't producing the character correctly — check that the per-character selfie tags include the appearance details that make this character recognizable to your image model.
+- The Selfie Connection isn't producing the character correctly — enable **Attach Card Appearance**, enable **Send Avatar References** if your provider supports image references, and check that the character card's appearance fields describe the character clearly.
 - The image-gen provider returned an error — check the network tab in your browser dev tools or the server logs (`LOG_LEVEL=debug`) for the actual API response.
 
 ---

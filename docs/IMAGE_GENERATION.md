@@ -41,7 +41,7 @@ The backend-specific controls for AUTOMATIC1111/Forge, ComfyUI, NovelAI, and oth
 
 ## Prompt review
 
-When **review prompts before image generation** is enabled, Marinara shows the final compiled positive prompt and, when available, the final compiled negative prompt before generation. Editing either field changes exactly what is sent for that request; reviewed prompts are not compiled a second time after confirmation.
+When **Expose image prompts before sending** is enabled in **Settings -> Image Generation**, Marinara shows the final compiled positive prompt and, when available, the final compiled negative prompt before generation. Editing either field changes exactly what is sent for that request; reviewed prompts are not compiled a second time after confirmation.
 
 ## Scene videos
 

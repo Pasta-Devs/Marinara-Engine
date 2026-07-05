@@ -77,9 +77,11 @@ export interface SceneCommand {
 }
 
 export interface CallCommand {
-  /** Ring the user for a Conversation-mode audio call. Param-less or optional reason. */
+  /** Ring the user for a Conversation-mode audio call. Param-less or optional reason/greeting. */
   type: "call";
   reason?: string;
+  /** Optional first thing to say after the user answers. */
+  greeting?: string;
 }
 
 export interface UnoCommand {
@@ -987,8 +989,14 @@ export function parseCharacterCommands(content: string): {
   // Parse call command — ring the user for an audio call. Only one per message.
   for (const match of content.matchAll(CALL_RE)) {
     const params = match[1] ?? "";
-    const reason = parseQuotedParam(params, "reason") ?? params.replace(/^"|"$/g, "").trim();
-    commands.push({ type: "call", reason: reason || undefined });
+    const reason = parseQuotedParam(params, "reason");
+    const greeting = parseQuotedParam(params, "greeting") ?? parseQuotedParam(params, "message");
+    const legacyReason = reason || greeting ? "" : params.replace(/^"|"$/g, "").trim();
+    commands.push({
+      type: "call",
+      reason: reason || legacyReason || undefined,
+      greeting: greeting || undefined,
+    });
     break;
   }
 

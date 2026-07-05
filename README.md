@@ -66,7 +66,7 @@
 <p align="center">
   <img src="docs/screenshots/Browser_Tab.png" width="90%" alt="Bot Browser" />
   <br/>
-  <em>Bot Browser — Search and import characters from Chub.ai</em>
+  <em>Bot Browser — Search and import characters from Chub.ai, JannyAI, CharacterTavern, Pygmalion, Wyvern, and more</em>
 </p>
 
 <p align="center">
@@ -143,7 +143,7 @@ Security defaults are intentionally local-first: loopback access works out of th
 
 ### Chat & Roleplay
 
-Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersive RPG with sprites and backgrounds), and **Game** (AI Game Master with party, quests, and combat). Characters can share memory across modes. Create or import characters, search the Chub.ai bot browser, organize chats into folders, branch conversations, swipe between alternate responses, and import from SillyTavern.
+Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersive RPG with sprites and backgrounds), and **Game** (AI Game Master with party, quests, and combat). Characters can share memory across modes. Create or import characters, search the multi-site Bot Browser (Chub.ai, JannyAI, CharacterTavern, Pygmalion, Wyvern, and more), organize chats into folders, branch conversations, swipe between alternate responses, and import from SillyTavern.
 
 ### Visual & Immersive
 
@@ -159,7 +159,7 @@ Preset system with drag-and-drop prompt ordering, lorebooks with keyword trigger
 
 ### Connections & Providers
 
-OpenAI, Anthropic, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, Pollinations, Stability AI, Together AI, NovelAI, ComfyUI, SD Web UI, Draw Things (Apple Silicon, Metal + Apple Neural Engine), Gemini Omni scene video, xAI Imagine video, and custom OpenAI-compatible endpoints. API keys are encrypted at rest with AES-256. Per-chat connection overrides.
+OpenAI, OpenAI ChatGPT subscription login, Anthropic, Claude Subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, the bundled downloadable Local Model sidecar, Pollinations, Stability AI, Together AI, NovelAI, ComfyUI, SD Web UI, Draw Things (Apple Silicon, Metal + Apple Neural Engine), Gemini Omni scene video, Google AI Studio Veo video, xAI Imagine video, OpenRouter video, and custom OpenAI-compatible endpoints. API keys are encrypted at rest with AES-256. Per-chat connection overrides.
 
 ### Export & Data
 
@@ -173,10 +173,22 @@ Export individual chats or bulk transcript zips as JSONL or plain text. Fully lo
 | ---------------------------------------------------- | --------------------------------------------------------------- |
 | [docs/INSTALLATION.md](docs/INSTALLATION.md)         | Installation guide index (all platforms)                        |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md)       | Environment variables and `.env` reference                      |
+| [docs/CONVERSATION.md](docs/CONVERSATION.md)         | Conversation Mode setup, DMs, groups, calls, selfies, and table games |
+| [docs/ROLEPLAY.md](docs/ROLEPLAY.md)                 | Roleplay Mode setup, sprites, HUD, agents, and connected chats  |
+| [docs/GAME_MODE.md](docs/GAME_MODE.md)               | Game Mode setup, world-gen, party play, storyboards, and troubleshooting |
+| [docs/GENERATION_PARAMETERS.md](docs/GENERATION_PARAMETERS.md) | Sampler and output-parameter reference across providers         |
+| [docs/REMOTE_ACCESS.md](docs/REMOTE_ACCESS.md)       | Remote access, Basic Auth, IP allowlists, and admin access      |
 | [docs/CONVERSATION_CALLS.md](docs/CONVERSATION_CALLS.md) | Conversation audio-call setup, Local Whisper, TTS, and troubleshooting |
 | [docs/IMAGE_GENERATION.md](docs/IMAGE_GENERATION.md) | Image provider setup, style profiles, and prompt cleanup        |
 | [docs/SCENE_VIDEO_GENERATION.md](docs/SCENE_VIDEO_GENERATION.md) | Scene-video setup, Game Mode storyboards, Gallery animation workflow, and prompt templates |
 | [docs/STORYBOARD_ENGINE_GUIDE.md](docs/STORYBOARD_ENGINE_GUIDE.md) | Step-by-step guide to manual and automatic Game Mode storyboards |
+| [docs/AGENT_SYSTEM.md](docs/AGENT_SYSTEM.md)         | Built-in agents, custom agents, import/export, phases, and Agent Suite |
+| [docs/CUSTOM_TOOLS.md](docs/CUSTOM_TOOLS.md)         | Function calling, custom tools, webhooks, scripts, and agent tool enablement |
+| [docs/PRESETS.md](docs/PRESETS.md)                   | Preset editor, prompt sections, groups, ordering, and variables |
+| [docs/REGEX_SCRIPTS.md](docs/REGEX_SCRIPTS.md)       | Regex scripts, prompt/display scope, depth, order, and safety   |
+| [docs/KNOWLEDGE_SOURCES.md](docs/KNOWLEDGE_SOURCES.md) | Knowledge Sources, RAG, Retrieval vs Router, and embedder notes |
+| [docs/BOT_BROWSER.md](docs/BOT_BROWSER.md)           | Multi-site Bot Browser search and character import guide        |
+| [docs/CUSTOM_EMOJIS_STICKERS.md](docs/CUSTOM_EMOJIS_STICKERS.md) | Custom emoji/sticker uploads and selection modes                |
 | [docs/EXTENSIONS.md](docs/EXTENSIONS.md)             | Extension folder manifests, package format, and examples        |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)   | Common issues and fixes                                         |
 | [docs/FAQ.md](docs/FAQ.md)                           | Frequently asked questions (LAN access, etc.)                   |

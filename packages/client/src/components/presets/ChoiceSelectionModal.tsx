@@ -266,7 +266,7 @@ export function ChoiceSelectionModal({
                       setOverrides((prev) => ({ ...prev, [v.variableName]: next }));
                     }}
                     size={Math.min(8, Math.max(4, presentedOptions.length))}
-                    className="min-h-28 w-full rounded-lg bg-[var(--background)] px-2 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="mari-preset-native-select min-h-28 w-full rounded-lg bg-[var(--background)] px-2 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   >
                     {presentedOptions.map((opt) => (
                       <option key={opt.id} value={opt.value}>
@@ -278,7 +278,7 @@ export function ChoiceSelectionModal({
                   <select
                     value={typeof selections[v.variableName] === "string" ? (selections[v.variableName] as string) : ""}
                     onChange={(e) => setOverrides((prev) => ({ ...prev, [v.variableName]: e.target.value }))}
-                    className="w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                    className="mari-preset-native-select w-full rounded-lg bg-[var(--background)] px-3 py-2 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
                   >
                     {presentedOptions.map((opt) => (
                       <option key={opt.id} value={opt.value}>

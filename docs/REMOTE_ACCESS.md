@@ -10,7 +10,7 @@ By default Marinara only answers requests from three trusted sources:
 
 Anything else — your phone on the same Wi-Fi, a public-internet client, a coffee-shop laptop — gets blocked until you tell Marinara who's allowed in. If those defaults are too permissive for your setup (rare; see [Option 4](#option-4-tailscale-or-docker-bypass-interface-scoped-on-by-default)), set `BYPASS_AUTH_TAILSCALE=false` / `BYPASS_AUTH_DOCKER=false`.
 
-> **TL;DR** — If you only ever access Marinara over Tailscale, or only from Docker containers on the same host, **you don't need to do anything** — it already works. If you also want to reach it from a phone on your home Wi-Fi or another LAN device: set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`, restart, and use those credentials when the browser prompts. That covers 95% of cases.
+> **TL;DR** — If you only ever access Marinara over Tailscale, or only from Docker containers on the same host, **you don't need to do anything** — it already works. If you also want to reach it from a phone on your home Wi-Fi or another LAN device: set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`, save, wait a couple of seconds, and use those credentials when the browser prompts. That covers 95% of cases.
 
 ## Which option do I pick?
 
@@ -61,7 +61,7 @@ openssl rand -base64 24
 [Convert]::ToBase64String((1..18 | %{Get-Random -Max 256}))
 ```
 
-Restart Marinara, then open it in your browser from the remote device. You'll see your browser's native password prompt — enter the username and password you set, and the browser will remember them for the rest of the session.
+Save `.env`; the change applies within a couple of seconds, no restart needed. Then open Marinara in your browser from the remote device. You'll see your browser's native password prompt — enter the username and password you set, and the browser will remember them for the rest of the session.
 
 **What's exempt from the password:**
 
@@ -152,9 +152,9 @@ For sensitive deployments, consider Tailscale or Cloudflare Access — they avoi
 
 ## When a restart is required
 
-The server watches `.env` for changes and applies most updates within a couple of seconds — no restart needed. That includes `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` / `BASIC_AUTH_REALM`, `IP_ALLOWLIST` / `IP_ALLOWLIST_ENABLED`, `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK`, `ALLOW_UNAUTHENTICATED_REMOTE`, `TRUSTED_PRIVATE_NETWORKS`, `BYPASS_AUTH_*`, `REQUIRE_AUTH_FOR_DOCKER_PROXY`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`, `LOG_LEVEL`, `LOG_PRESET`, `LOG_DISABLE_REQUEST_LOGGING`, and the various `*_LOCAL_URLS_ENABLED` / privileged-feature flags.
+The server watches `.env` for changes and applies most updates within a couple of seconds — no restart needed. That includes `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` / `BASIC_AUTH_REALM`, `IP_ALLOWLIST` / `IP_ALLOWLIST_ENABLED`, `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK`, `ALLOW_UNAUTHENTICATED_REMOTE`, `TRUSTED_PRIVATE_NETWORKS`, `BYPASS_AUTH_*`, `REQUIRE_AUTH_FOR_DOCKER_PROXY`, `ADMIN_SECRET`, `CSRF_TRUSTED_ORIGINS`, `LOG_LEVEL`, `LOG_PRESET`, and the various `*_LOCAL_URLS_ENABLED` / privileged-feature flags.
 
-Changes to these still need a restart because they're bound at startup: `PORT`, `HOST`, `SSL_CERT`, `SSL_KEY`, `DATA_DIR`, `STORAGE_BACKEND`, `FILE_STORAGE_DIR`, `DATABASE_URL`, `ENCRYPTION_KEY`, `TZ`, `AUTO_OPEN_BROWSER`, `AUTO_CREATE_DEFAULT_CONNECTION`, `IMAGE_GEN_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`. The server logs a warning when one of these changes so you don't wonder why it didn't take effect. (Note: `CORS_ORIGINS` _is_ hot-reloadable for adding/removing origins; only switching between an explicit list and `*` still needs a restart.)
+Changes to these still need a restart because they're bound at startup: `PORT`, `HOST`, `SSL_CERT`, `SSL_KEY`, `DATA_DIR`, `STORAGE_BACKEND`, `FILE_STORAGE_DIR`, `DATABASE_URL`, `ENCRYPTION_KEY`, `TZ`, `AUTO_OPEN_BROWSER`, `AUTO_CREATE_DEFAULT_CONNECTION`, `IMAGE_GEN_TIMEOUT_MS`, `COMFYUI_GEN_TIMEOUT`, `LOG_DISABLE_REQUEST_LOGGING`. The server logs a warning when one of these changes so you don't wonder why it didn't take effect. (Note: `CORS_ORIGINS` _is_ hot-reloadable for adding/removing origins; only switching between an explicit list and `*` still needs a restart.)
 
 ## Verifying it works
 
@@ -168,7 +168,7 @@ After saving `.env` (and restarting if required), from your remote device:
 Still getting a 403? Check:
 
 - Did you save `.env`? The server picks up most security changes within a couple of seconds; the server log will show an `[env-watcher] Updated:` line. If your change is on the [restart-required list](#when-a-restart-is-required), restart Marinara.
-- Is the client IP what you expect? Marinara logs the blocked IP to the server console.
+- Is the client IP what you expect? Check on the device itself, such as Wi-Fi connection details or `tailscale ip -4` for Tailscale. IP-allowlist rejections are not logged to the console. If no Basic Auth is configured, the first refused non-loopback connection per server run is logged as `[basic-auth] Refused non-loopback connection from <ip>`, and the browser lockdown page displays the connecting IP.
 - For Docker: are you connecting to the published port, or directly to the container IP?
 - For Tailscale: is the connecting device's `100.x.y.z` address in the allowlist (if you're using Option 2)?
 
@@ -186,7 +186,7 @@ The full troubleshooting page is at [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md
 
 Some destructive features (admin cleanup, backups, profile import/export, custom-tool creation, sidecar runtime install, etc.) require an additional shared secret called `ADMIN_SECRET`, on top of whatever access method you picked above. From a remote device you'll need to:
 
-1. Set `ADMIN_SECRET=<some-strong-random-string>` in `.env` and restart.
+1. Set `ADMIN_SECRET=<some-strong-random-string>` in `.env` and save. It applies within a couple of seconds, no restart needed.
 2. Open Marinara on the remote device.
 3. Go to **Settings → Advanced → Admin Access** and paste the same secret.
 

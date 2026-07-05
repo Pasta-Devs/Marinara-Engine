@@ -78,6 +78,9 @@ COPY --from=builder /app/packages/client/dist packages/client/dist
 COPY scripts/docker-entrypoint.mjs /usr/local/bin/marinara-docker-entrypoint.mjs
 COPY scripts/install-backgroundremover.mjs scripts/install-backgroundremover.mjs
 
+# User guides served by the in-app documentation viewer (/api/docs)
+COPY docs/ docs/
+
 # Ensure /app/data exists for runtime use (file storage, uploads, generated assets)
 RUN mkdir -p /app/data && \
     chown node:node /app/data

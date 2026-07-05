@@ -22,6 +22,8 @@ interface ModalProps {
   width?: string;
   contentRef?: Ref<HTMLDivElement>;
   chatFloatingPanel?: boolean;
+  /** Below the sm breakpoint, fill the viewport edge-to-edge like a window instead of floating as a padded bubble. */
+  mobileFullscreen?: boolean;
 }
 
 export function Modal({
@@ -32,6 +34,7 @@ export function Modal({
   width = "max-w-md",
   contentRef,
   chatFloatingPanel = false,
+  mobileFullscreen = false,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
@@ -107,7 +110,11 @@ export function Modal({
       aria-label={title}
       data-chat-floating-panel={chatFloatingPanel ? "true" : undefined}
       data-component="Modal"
-      className="mari-modal fixed inset-0 z-[10000] flex items-center justify-center p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+      className={`mari-modal fixed inset-0 z-[10000] flex items-center justify-center ${
+        mobileFullscreen
+          ? "p-0 sm:p-4"
+          : "p-3 max-md:pt-[max(0.75rem,env(safe-area-inset-top))] max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+      }`}
       style={{
         opacity: isEntering ? 1 : 0,
         transition: "opacity 150ms ease-out",
@@ -128,7 +135,11 @@ export function Modal({
 
       {/* Panel */}
       <div
-        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]`}
+        className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
+          mobileFullscreen
+            ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]"
+            : ""
+        }`}
         style={{
           opacity: isEntering ? 1 : 0,
           transform: isEntering ? "scale(1) translateY(0)" : "scale(0.97) translateY(6px)",

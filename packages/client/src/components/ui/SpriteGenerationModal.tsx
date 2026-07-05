@@ -4,7 +4,7 @@
 // Generates a character expression sheet via image generation,
 // slices it into individual sprites, and lets the user label/save them.
 import { useState, useRef, useMemo, useCallback, useEffect } from "react";
-import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw } from "lucide-react";
+import { X, Loader2, Check, ImagePlus, Sparkles, ArrowLeft, Crop, RotateCcw, Film } from "lucide-react";
 import { Modal } from "./Modal";
 import { cn } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
@@ -50,7 +50,7 @@ interface SpriteGrid {
 
 interface GenerateSheetResult {
   sheetBase64: string;
-  cells: Array<{ expression: string; base64: string }>;
+  cells: Array<{ expression: string; base64: string; mimeType?: string }>;
   failedExpressions?: Array<{ expression: string; error: string }>;
 }
 
@@ -73,7 +73,7 @@ interface FailedMatchedFullBodyBatch {
   error: string;
 }
 
-type ImageConnectionOption = {
+type GenerationConnectionOption = {
   id: string;
   name: string;
   model?: string;
@@ -197,6 +197,7 @@ const DEFAULT_SPRITE_PRESET: PresetKey = "6 (2×3)";
 const MATCHED_FULL_BODY_EXPRESSION_LIMIT = 16;
 const MATCHED_FULL_BODY_BATCH_SIZE = 4;
 const SPRITE_GENERATION_REQUEST_TIMEOUT_MS = 305_000;
+const SPRITE_ANIMATED_GENERATION_REQUEST_TIMEOUT_MS = 1_830_000;
 
 const FULL_BODY_POSE_PRESETS: Record<PresetKey, string[]> = {
   "1 (1×1)": ["idle"],
@@ -358,8 +359,8 @@ function getMatchedFullBodyBatchGrid(count: number): SpriteGrid {
   return { cols: 2, rows: 2 };
 }
 
-function imageDataUrl(base64: string): string {
-  return `data:image/png;base64,${base64}`;
+function imageDataUrl(base64: string, mimeType = "image/png"): string {
+  return `data:${mimeType};base64,${base64}`;
 }
 
 function getGenerationErrorMessage(err: unknown): string {
@@ -381,11 +382,16 @@ function isAbortError(err: unknown): boolean {
   );
 }
 
-function isDefaultImageConnection(connection: ImageConnectionOption): boolean {
+function isDefaultGenerationConnection(connection: GenerationConnectionOption): boolean {
   return connection.defaultForAgents === true || connection.defaultForAgents === "true";
 }
 
-async function postSpriteGenerationRequest<T>(body: unknown, signal?: AbortSignal): Promise<T> {
+async function postSpriteGenerationRequest<T>(
+  endpoint: string,
+  body: unknown,
+  signal?: AbortSignal,
+  timeoutMs = SPRITE_GENERATION_REQUEST_TIMEOUT_MS,
+): Promise<T> {
   const controller = new AbortController();
   let timedOut = false;
   const abortFromParent = () => controller.abort(signal?.reason);
@@ -397,17 +403,19 @@ async function postSpriteGenerationRequest<T>(body: unknown, signal?: AbortSigna
   const timeout = window.setTimeout(() => {
     timedOut = true;
     controller.abort();
-  }, SPRITE_GENERATION_REQUEST_TIMEOUT_MS);
+  }, timeoutMs);
 
   try {
-    return await api.post<T>("/sprites/generate-sheet", body, { signal: controller.signal });
+    return await api.post<T>(endpoint, body, { signal: controller.signal });
   } catch (err) {
     if (isAbortError(err)) {
       if (!timedOut && signal?.aborted) {
         throw new SpriteGenerationAbortedError();
       }
       throw new Error(
-        "Sprite generation timed out after about 5 minutes. The image provider may still be busy; try again or use a faster image connection.",
+        timeoutMs > SPRITE_GENERATION_REQUEST_TIMEOUT_MS
+          ? "Animated expression generation timed out. The video provider may still be busy; try again with fewer expressions or a faster video connection."
+          : "Sprite generation timed out after about 5 minutes. The image provider may still be busy; try again or use a faster image connection.",
       );
     }
     throw err;
@@ -436,8 +444,8 @@ function createGeneratedSpritesFromResult(
     sheet,
     cells: result.cells.map((cell, index) => ({
       expression: cell.expression,
-      rawDataUrl: imageDataUrl(cell.base64),
-      dataUrl: imageDataUrl(cell.base64),
+      rawDataUrl: imageDataUrl(cell.base64, cell.mimeType),
+      dataUrl: imageDataUrl(cell.base64, cell.mimeType),
       selected: true,
       sourceSheetDataUrl,
       sourceCellIndex: sourceSheetDataUrl ? index : undefined,
@@ -553,6 +561,7 @@ export function SpriteGenerationModal({
 
   // Sprite type: expressions (portrait) or full-body
   const [spriteType, setSpriteType] = useState<SpriteType>(initialSpriteType);
+  const [animatedPortraits, setAnimatedPortraits] = useState(false);
 
   // Config state
   const [appearance, setAppearance] = useState(defaultAppearance ?? "");
@@ -567,6 +576,7 @@ export function SpriteGenerationModal({
   const [noBackground, setNoBackground] = useState(false);
   const [cleanupStrength, setCleanupStrength] = useState(35);
   const [connectionId, setConnectionId] = useState<string | null>(null);
+  const [videoConnectionId, setVideoConnectionId] = useState<string | null>(null);
 
   // Generation state
   const [generatedSheet, setGeneratedSheet] = useState<string | null>(null);
@@ -601,9 +611,15 @@ export function SpriteGenerationModal({
   const { data: spriteCapabilities } = useSpriteCapabilities();
   const imageConnections = useMemo(() => {
     if (!connectionsList) return [];
-    return (connectionsList as ImageConnectionOption[])
+    return (connectionsList as GenerationConnectionOption[])
       .filter((c) => c.provider === "image_generation")
-      .sort((a, b) => Number(isDefaultImageConnection(b)) - Number(isDefaultImageConnection(a)));
+      .sort((a, b) => Number(isDefaultGenerationConnection(b)) - Number(isDefaultGenerationConnection(a)));
+  }, [connectionsList]);
+  const videoConnections = useMemo(() => {
+    if (!connectionsList) return [];
+    return (connectionsList as GenerationConnectionOption[])
+      .filter((c) => c.provider === "video_generation")
+      .sort((a, b) => Number(isDefaultGenerationConnection(b)) - Number(isDefaultGenerationConnection(a)));
   }, [connectionsList]);
   const spriteGenerationUnavailable = spriteCapabilities?.spriteGenerationAvailable === false;
   const spriteGenerationReason = spriteCapabilities?.reason ?? "Sprite generation is unavailable on this platform.";
@@ -639,6 +655,9 @@ export function SpriteGenerationModal({
   );
   const fullBodyExpressionMode =
     spriteType === "full-body" && matchExistingExpressions && matchedFullBodyExpressions.length > 0;
+  const animatedExpressionMode = spriteType === "expressions" && animatedPortraits;
+  const generationUnavailable = !animatedExpressionMode && spriteGenerationUnavailable;
+  const generationUnavailableReason = animatedExpressionMode ? "" : spriteGenerationReason;
   const generationGrid = fullBodyExpressionMode ? matchedFullBodyGrid : EXPRESSION_PRESETS[preset];
   const sliceAdjustmentGrid = fullBodyExpressionMode ? matchedFullBodySliceGrid : generationGrid;
   const generationCapacity = generationGrid.cols * generationGrid.rows;
@@ -660,8 +679,10 @@ export function SpriteGenerationModal({
         return true;
       });
   }, [cappedSelectedExpressions, fullBodyExpressionMode, spriteType]);
-  const previewColumnCount = generationGrid.cols;
-  const canAdjustSlices = cells.some((cell) => !!cell.sourceSheetDataUrl);
+  const previewColumnCount = animatedExpressionMode
+    ? Math.min(3, Math.max(1, Math.ceil(Math.sqrt(Math.max(1, cells.length || cappedSelectedExpressions.length)))))
+    : generationGrid.cols;
+  const canAdjustSlices = !animatedExpressionMode && cells.some((cell) => !!cell.sourceSheetDataUrl);
   const activeFrameCell = activeFrameIndex === null ? null : (cells[activeFrameIndex] ?? null);
   const hasCurrentAvatarReference = !!defaultAvatarUrl;
   const maxUploadedReferenceImages = useCurrentAvatarReference && hasCurrentAvatarReference ? 3 : 4;
@@ -674,11 +695,15 @@ export function SpriteGenerationModal({
   );
 
   // Auto-select first image connection
-  const defaultImageConnectionId = imageConnections.find(isDefaultImageConnection)?.id ?? null;
-  const effectiveConnectionId = connectionId ?? defaultImageConnectionId ?? imageConnections[0]?.id ?? null;
+  const defaultImageConnectionId = imageConnections.find(isDefaultGenerationConnection)?.id ?? null;
+  const defaultVideoConnectionId = videoConnections.find(isDefaultGenerationConnection)?.id ?? null;
+  const effectiveConnectionId = animatedExpressionMode
+    ? (videoConnectionId ?? defaultVideoConnectionId ?? videoConnections[0]?.id ?? null)
+    : (connectionId ?? defaultImageConnectionId ?? imageConnections[0]?.id ?? null);
+  const activeGenerationConnections = animatedExpressionMode ? videoConnections : imageConnections;
   const selectedImageConnection = useMemo(
-    () => imageConnections.find((connection) => connection.id === effectiveConnectionId) ?? null,
-    [effectiveConnectionId, imageConnections],
+    () => (animatedExpressionMode ? null : (imageConnections.find((connection) => connection.id === effectiveConnectionId) ?? null)),
+    [animatedExpressionMode, effectiveConnectionId, imageConnections],
   );
   const selectedImageModel = selectedImageConnection?.model?.trim().toLowerCase() ?? "";
   const selectedModelIsGptImage2 = /^gpt-image-2(?:$|-)/.test(selectedImageModel);
@@ -738,6 +763,7 @@ export function SpriteGenerationModal({
         setSaving(false);
         setError(null);
         setPromptReviewSubmitting(false);
+        setAnimatedPortraits(false);
       }
       wasOpenRef.current = false;
       return;
@@ -747,6 +773,7 @@ export function SpriteGenerationModal({
     wasOpenRef.current = true;
     previousEntityIdRef.current = entityId;
     setSpriteType(initialSpriteType);
+    setAnimatedPortraits(false);
     setPreset(DEFAULT_SPRITE_PRESET);
     setSelectedExpressions(
       initialSpriteType === "full-body"
@@ -754,6 +781,7 @@ export function SpriteGenerationModal({
         : [...EXPRESSION_PRESETS[DEFAULT_SPRITE_PRESET].expressions],
     );
     setMatchExistingExpressions(false);
+    setAnimatedPortraits(false);
     setNativeTransparentPng(false);
     setNoBackground(false);
     setAppearance(defaultAppearance ?? "");
@@ -918,17 +946,21 @@ export function SpriteGenerationModal({
           if (signal?.aborted) throw new SpriteGenerationAbortedError();
           setPromptReviewSubmitting(true);
           try {
-            return await postSpriteGenerationRequest<GenerateSheetResult>({
-              ...payload,
-              promptOverrides: overrides,
-            }, signal);
+            return await postSpriteGenerationRequest<GenerateSheetResult>(
+              "/sprites/generate-sheet",
+              {
+                ...payload,
+                promptOverrides: overrides,
+              },
+              signal,
+            );
           } finally {
             setPromptReviewSubmitting(false);
           }
         }
       }
 
-      return postSpriteGenerationRequest<GenerateSheetResult>(payload, signal);
+      return postSpriteGenerationRequest<GenerateSheetResult>("/sprites/generate-sheet", payload, signal);
     },
     [
       appearance,
@@ -940,6 +972,65 @@ export function SpriteGenerationModal({
       openPromptReview,
       reviewImagePromptsBeforeSend,
       spriteType,
+    ],
+  );
+
+  const requestGeneratedAnimatedExpressions = useCallback(
+    async (expressions: string[]): Promise<GenerateSheetResult> => {
+      if (!effectiveConnectionId) throw new Error("Video generation connection is required");
+      const signal = generationControllerRef.current?.signal;
+      if (signal?.aborted) throw new SpriteGenerationAbortedError();
+
+      const payload = {
+        connectionId: effectiveConnectionId,
+        appearance,
+        referenceImages: effectiveReferenceImages.length > 0 ? effectiveReferenceImages : undefined,
+        expressions,
+        nativeTransparentPng,
+        noBackground,
+      };
+
+      if (reviewImagePromptsBeforeSend) {
+        const preview = await api.post<GenerateSheetPreviewResult>("/sprites/generate-animated-expressions/preview", payload, {
+          signal,
+        });
+        if (signal?.aborted) throw new SpriteGenerationAbortedError();
+        if (preview.items.length > 0) {
+          const overrides = await openPromptReview(preview.items);
+          if (!overrides) throw new SpritePromptReviewCancelledError();
+          if (signal?.aborted) throw new SpriteGenerationAbortedError();
+          setPromptReviewSubmitting(true);
+          try {
+            return await postSpriteGenerationRequest<GenerateSheetResult>(
+              "/sprites/generate-animated-expressions",
+              {
+                ...payload,
+                promptOverrides: overrides,
+              },
+              signal,
+              SPRITE_ANIMATED_GENERATION_REQUEST_TIMEOUT_MS,
+            );
+          } finally {
+            setPromptReviewSubmitting(false);
+          }
+        }
+      }
+
+      return postSpriteGenerationRequest<GenerateSheetResult>(
+        "/sprites/generate-animated-expressions",
+        payload,
+        signal,
+        SPRITE_ANIMATED_GENERATION_REQUEST_TIMEOUT_MS,
+      );
+    },
+    [
+      appearance,
+      effectiveConnectionId,
+      effectiveReferenceImages,
+      nativeTransparentPng,
+      noBackground,
+      openPromptReview,
+      reviewImagePromptsBeforeSend,
     ],
   );
 
@@ -1050,7 +1141,7 @@ export function SpriteGenerationModal({
   );
 
   const handleGenerate = useCallback(async () => {
-    if (spriteGenerationUnavailable || !effectiveConnectionId || cappedSelectedExpressions.length === 0) return;
+    if (generationUnavailable || !effectiveConnectionId || cappedSelectedExpressions.length === 0) return;
 
     generationControllerRef.current?.abort();
     const controller = new AbortController();
@@ -1072,6 +1163,26 @@ export function SpriteGenerationModal({
     setSliceAdjustments(createDefaultSliceAdjustments(sliceAdjustmentGrid));
 
     try {
+      if (animatedExpressionMode) {
+        const result = await requestGeneratedAnimatedExpressions(cappedSelectedExpressions);
+        if (controller.signal.aborted) throw new SpriteGenerationAbortedError();
+        const generated = createGeneratedSpritesFromResult(result, { cols: 1, rows: result.cells.length }, "Animated expressions");
+
+        setGeneratedSheet(null);
+        setGeneratedSheets([]);
+        setCells(generated.cells);
+        setCleanupApplied(false);
+        setStep(2);
+
+        if (result.failedExpressions?.length) {
+          const names = result.failedExpressions.map((f) => f.expression).join(", ");
+          setError(`Some animated expressions failed to generate: ${names}. You can save the successful GIFs.`);
+        } else {
+          setError(null);
+        }
+        return;
+      }
+
       if (fullBodyExpressionMode) {
         await runMatchedFullBodyBatches({
           batches: matchedFullBodyBatches,
@@ -1116,10 +1227,12 @@ export function SpriteGenerationModal({
       }
     }
   }, [
-    spriteGenerationUnavailable,
+    generationUnavailable,
     effectiveConnectionId,
     cappedSelectedExpressions,
     sliceAdjustmentGrid,
+    animatedExpressionMode,
+    requestGeneratedAnimatedExpressions,
     fullBodyExpressionMode,
     runMatchedFullBodyBatches,
     matchedFullBodyBatches,
@@ -1565,6 +1678,7 @@ export function SpriteGenerationModal({
                 )}
                 onClick={() => {
                   setSpriteType("full-body");
+                  setAnimatedPortraits(false);
                   setSelectedExpressions([...FULL_BODY_POSE_PRESETS[preset]]);
                 }}
               >
@@ -1576,33 +1690,59 @@ export function SpriteGenerationModal({
                 {error}
               </div>
             )}
-            {spriteGenerationUnavailable && (
+            {!animatedExpressionMode && spriteGenerationUnavailable && (
               <div className="rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--muted-foreground)]">
                 {spriteGenerationReason}
               </div>
             )}
 
-            {/* Image Generation Connection */}
+            {spriteType === "expressions" && (
+              <label className="flex items-start gap-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--foreground)] ring-1 ring-[var(--border)]/60">
+                <input
+                  type="checkbox"
+                  checked={animatedPortraits}
+                  onChange={(e) => setAnimatedPortraits(e.target.checked)}
+                  className="mt-0.5 accent-[var(--primary)]"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <Film size={13} className="text-[var(--primary)]" />
+                    Generate animated portraits
+                  </span>
+                  <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    Uses a Video Generation connection to make short expression clips, converts them to GIFs, and saves
+                    them as portrait sprites.
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {/* Generation Connection */}
             <div>
               <label className="mb-1.5 block text-xs font-medium text-[var(--foreground)]">
-                Image Generation Connection
+                {animatedExpressionMode ? "Video Generation Connection" : "Image Generation Connection"}
               </label>
-              {imageConnections.length === 0 ? (
+              {activeGenerationConnections.length === 0 ? (
                 <p className="text-xs text-[var(--destructive)]">
-                  No image generation connections found. Add one in Settings → Connections with the &quot;Image
-                  Generation&quot; provider type.
+                  No {animatedExpressionMode ? "video" : "image"} generation connections found. Add one in Settings →
+                  Connections with the &quot;{animatedExpressionMode ? "Video Generation" : "Image Generation"}&quot;
+                  provider type.
                 </p>
               ) : (
                 <select
                   value={effectiveConnectionId ?? ""}
-                  onChange={(e) => setConnectionId(e.target.value || null)}
+                  onChange={(e) =>
+                    animatedExpressionMode
+                      ? setVideoConnectionId(e.target.value || null)
+                      : setConnectionId(e.target.value || null)
+                  }
                   className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs text-[var(--foreground)] outline-none ring-1 ring-transparent transition-all focus:ring-[var(--primary)]/40"
                 >
-                  {imageConnections.map((c) => (
+                  {activeGenerationConnections.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                       {c.model ? ` — ${c.model}` : ""}
-                      {isDefaultImageConnection(c) ? " (Default)" : ""}
+                      {isDefaultGenerationConnection(c) ? " (Default)" : ""}
                     </option>
                   ))}
                 </select>
@@ -1676,8 +1816,9 @@ export function SpriteGenerationModal({
                   )}
                 </div>
                 <p className="flex-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  Upload reference images of the character to improve consistency. Multiple angles or the existing
-                  avatar work well.
+                  {animatedExpressionMode
+                    ? "Video providers use the first available reference image. Keep the avatar checked for the strongest identity anchor."
+                    : "Upload reference images of the character to improve consistency. Multiple angles or the existing avatar work well."}
                 </p>
               </div>
             </div>
@@ -1708,12 +1849,15 @@ export function SpriteGenerationModal({
                 className="mt-0.5 accent-[var(--primary)]"
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium">Prefer transparent PNG</span>
-                <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                  Adds transparent-output instructions when the selected model supports them, then applies cleanup
-                  before review when needed.
+                <span className="block font-medium">
+                  {animatedExpressionMode ? "Prefer clean transparent-style background" : "Prefer transparent PNG"}
                 </span>
-                {selectedModelIsGptImage2 && nativeTransparentPng && (
+                <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                  {animatedExpressionMode
+                    ? "Adds a flat transparent-friendly background instruction to the video prompt. GIF transparency is not guaranteed."
+                    : "Adds transparent-output instructions when the selected model supports them, then applies cleanup before review when needed."}
+                </span>
+                {!animatedExpressionMode && selectedModelIsGptImage2 && nativeTransparentPng && (
                   <span className="mt-1 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                     GPT-Image-2 does not support native transparent backgrounds right now, so cleanup is the fallback.
                   </span>
@@ -1893,16 +2037,20 @@ export function SpriteGenerationModal({
               <button
                 onClick={handleGenerate}
                 disabled={
-                  spriteGenerationUnavailable ||
+                  generationUnavailable ||
                   !effectiveConnectionId ||
                   cappedSelectedExpressions.length === 0 ||
                   !appearance.trim()
                 }
-                title={spriteGenerationUnavailable ? spriteGenerationReason : undefined}
+                title={generationUnavailable ? generationUnavailableReason : undefined}
                 className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-1.5 text-xs font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
               >
                 <Sparkles size={14} />
-                {fullBodyExpressionMode
+                {animatedExpressionMode
+                  ? singleImageMode
+                    ? "Generate Animated Portrait"
+                    : "Generate Animated Portraits"
+                  : fullBodyExpressionMode
                   ? "Generate Matched Batches"
                   : spriteType === "full-body"
                     ? singleImageMode
@@ -1922,7 +2070,9 @@ export function SpriteGenerationModal({
             <Loader2 size={32} className="animate-spin text-[var(--primary)]" />
             <div className="text-center">
               <p className="text-sm font-medium">
-                {fullBodyExpressionMode
+                {animatedExpressionMode
+                  ? "Generating animated portrait GIFs..."
+                  : fullBodyExpressionMode
                   ? "Generating matched full-body batches..."
                   : spriteType === "full-body"
                     ? singleImageMode
@@ -1934,7 +2084,9 @@ export function SpriteGenerationModal({
               </p>
               {generationProgress && <p className="mt-1 text-xs text-[var(--primary)]">{generationProgress}</p>}
               <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                {fullBodyExpressionMode
+                {animatedExpressionMode
+                  ? "Each expression becomes a short video first, then Marinara converts it to a GIF sprite."
+                  : fullBodyExpressionMode
                   ? "Each 2×2 batch gets one automatic retry before pausing for your decision."
                   : spriteType === "full-body"
                     ? singleImageMode
@@ -2128,68 +2280,75 @@ export function SpriteGenerationModal({
 
             {/* Cell grid */}
             <div>
-              <div className="mb-3 rounded-lg bg-[var(--secondary)]/60 p-2.5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
-                    <input
-                      type="checkbox"
-                      checked={noBackground}
-                      onChange={(e) => {
-                        const enabled = e.target.checked;
-                        setNoBackground(enabled);
-                        if (!enabled) {
-                          handleUseOriginal();
-                        }
-                      }}
-                      className="accent-[var(--primary)]"
-                    />
-                    Transparent background
-                  </label>
-                  {noBackground && (
-                    <>
-                      <div className="flex min-w-52 flex-1 items-center gap-2">
-                        <span className="text-[0.6875rem] text-[var(--muted-foreground)]">Soft</span>
-                        <input
-                          type="range"
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={cleanupStrength}
-                          onChange={(e) => setCleanupStrength(Number(e.target.value))}
-                          className="w-full accent-[var(--primary)]"
-                        />
-                        <span className="text-[0.6875rem] text-[var(--muted-foreground)]">Aggressive</span>
-                      </div>
-                      <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{cleanupStrength}</span>
-                      <button
-                        onClick={handleApplyCleanup}
-                        disabled={cleanupApplying || backgroundRemoverUnavailable || cells.length === 0}
-                        className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
-                        title={backgroundRemoverUnavailable ? backgroundRemoverReason : "Run local backgroundremover"}
-                      >
-                        {cleanupApplying ? "Applying..." : cleanupApplied ? "Reapply Cleanup" : "Apply Cleanup"}
-                      </button>
-                      {cleanupApplied && (
+              {animatedExpressionMode ? (
+                <div className="mb-3 rounded-lg bg-[var(--secondary)]/60 p-2.5 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60">
+                  Animated portrait sprites are saved as looping GIFs. Static background cleanup, sheet slicing, and
+                  frame cropping are skipped for GIF output.
+                </div>
+              ) : (
+                <div className="mb-3 rounded-lg bg-[var(--secondary)]/60 p-2.5">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs text-[var(--foreground)]">
+                      <input
+                        type="checkbox"
+                        checked={noBackground}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setNoBackground(enabled);
+                          if (!enabled) {
+                            handleUseOriginal();
+                          }
+                        }}
+                        className="accent-[var(--primary)]"
+                      />
+                      Transparent background
+                    </label>
+                    {noBackground && (
+                      <>
+                        <div className="flex min-w-52 flex-1 items-center gap-2">
+                          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">Soft</span>
+                          <input
+                            type="range"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={cleanupStrength}
+                            onChange={(e) => setCleanupStrength(Number(e.target.value))}
+                            className="w-full accent-[var(--primary)]"
+                          />
+                          <span className="text-[0.6875rem] text-[var(--muted-foreground)]">Aggressive</span>
+                        </div>
+                        <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{cleanupStrength}</span>
                         <button
-                          onClick={handleUseOriginal}
-                          disabled={cleanupApplying}
-                          className="rounded-lg px-2.5 py-1 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)]"
+                          onClick={handleApplyCleanup}
+                          disabled={cleanupApplying || backgroundRemoverUnavailable || cells.length === 0}
+                          className="rounded-lg bg-[var(--primary)] px-2.5 py-1 text-[0.6875rem] font-medium text-white transition-colors hover:opacity-90 disabled:opacity-50"
+                          title={backgroundRemoverUnavailable ? backgroundRemoverReason : "Run local backgroundremover"}
                         >
-                          Use Original
+                          {cleanupApplying ? "Applying..." : cleanupApplied ? "Reapply Cleanup" : "Apply Cleanup"}
                         </button>
-                      )}
-                    </>
+                        {cleanupApplied && (
+                          <button
+                            onClick={handleUseOriginal}
+                            disabled={cleanupApplying}
+                            className="rounded-lg px-2.5 py-1 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:text-[var(--foreground)]"
+                          >
+                            Use Original
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Cleanup is applied after generation when enabled. Use Apply Cleanup to rerun it on the current
+                    slices without regenerating.
+                  </p>
+                  {backgroundRemoverUnavailable && noBackground && (
+                    <p className="mt-1 text-[0.625rem] text-amber-300/80">{backgroundRemoverReason}</p>
                   )}
                 </div>
-                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  Cleanup is applied after generation when enabled. Use Apply Cleanup to rerun it on the current slices
-                  without regenerating.
-                </p>
-                {backgroundRemoverUnavailable && noBackground && (
-                  <p className="mt-1 text-[0.625rem] text-amber-300/80">{backgroundRemoverReason}</p>
-                )}
-              </div>
-              {activeFrameCell && (
+              )}
+              {!animatedExpressionMode && activeFrameCell && (
                 <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/50 p-3">
                   <div className="flex items-start gap-3 max-sm:flex-col">
                     <div className="aspect-square w-32 shrink-0 overflow-hidden rounded-lg bg-[var(--background)] ring-1 ring-[var(--border)] max-sm:w-full">
@@ -2259,7 +2418,13 @@ export function SpriteGenerationModal({
               )}
               <label className="mb-2 block text-xs font-medium text-[var(--foreground)]">
                 Review & Label{" "}
-                {fullBodyExpressionMode ? "Full-body Expressions" : spriteType === "full-body" ? "Poses" : "Sprites"} (
+                {animatedExpressionMode
+                  ? "Animated Portraits"
+                  : fullBodyExpressionMode
+                    ? "Full-body Expressions"
+                    : spriteType === "full-body"
+                      ? "Poses"
+                      : "Sprites"} (
                 {selectedCount} selected)
               </label>
               <p className="mb-3 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -2324,21 +2489,23 @@ export function SpriteGenerationModal({
                           className="w-full rounded bg-[var(--secondary)]/70 px-2 py-1 text-center text-[0.625rem] text-[var(--muted-foreground)] outline-none focus:text-[var(--foreground)] focus:ring-1 focus:ring-[var(--primary)]/40"
                           aria-label={`Sprite filename for ${cell.expression}`}
                         />
-                        <div className="flex justify-center">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenCellFrame(i)}
-                            className={cn(
-                              "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                              activeFrameIndex === i &&
-                                "bg-[var(--primary)] text-white ring-[var(--primary)] hover:bg-[var(--primary)] hover:text-white",
-                            )}
-                            aria-label={`Frame ${cell.expression}`}
-                            title="Frame sprite"
-                          >
-                            <Crop size={13} />
-                          </button>
-                        </div>
+                        {!animatedExpressionMode && (
+                          <div className="flex justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenCellFrame(i)}
+                              className={cn(
+                                "inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                                activeFrameIndex === i &&
+                                  "bg-[var(--primary)] text-white ring-[var(--primary)] hover:bg-[var(--primary)] hover:text-white",
+                              )}
+                              aria-label={`Frame ${cell.expression}`}
+                              title="Frame sprite"
+                            >
+                              <Crop size={13} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -2368,7 +2535,8 @@ export function SpriteGenerationModal({
                 ) : (
                   <>
                     <Check size={14} />
-                    Save {selectedCount} Sprites
+                    Save {selectedCount} {animatedExpressionMode ? "GIF Sprite" : "Sprite"}
+                    {selectedCount === 1 ? "" : "s"}
                   </>
                 )}
               </button>

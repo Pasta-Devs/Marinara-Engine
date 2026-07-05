@@ -1047,7 +1047,7 @@ export function LorebooksPanel() {
                 innerClassName="flex flex-col gap-0.5"
               >
                 {folderItems.length === 0 ? (
-                  <p className="py-2 text-[0.625rem] italic text-[var(--muted-foreground)]">Drop lorebooks here.</p>
+                  <p className="mari-chrome-text-muted py-2 text-[0.625rem] italic">Drop lorebooks here.</p>
                 ) : (
                   folderItems.map((lb) => renderLorebookRow(lb))
                 )}
@@ -1072,7 +1072,7 @@ export function LorebooksPanel() {
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/20 to-orange-500/20">
             <BookOpen size="1.25rem" className="text-amber-400" />
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">
+          <p className="mari-chrome-text-muted text-xs">
             {searchQuery ? "No lorebooks match your search" : "No lorebooks yet"}
           </p>
         </div>

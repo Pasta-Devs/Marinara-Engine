@@ -245,6 +245,7 @@ export function saveImageToDisk(chatId: string, base64: string, ext: string): st
 
 const MAX_IMAGE_RESPONSE_BYTES = 30 * 1024 * 1024;
 const LOCAL_IMAGE_BACKENDS = new Set(["comfyui", "automatic1111"]);
+const NANOGPT_REFERENCE_IMAGE_LIMIT = 3;
 
 class ImageGenerationDeadlineError extends Error {
   constructor(timeoutMs: number) {
@@ -801,6 +802,10 @@ function xAIReferenceImages(request: ImageGenRequest): string[] {
   return openAIReferenceImages(request).slice(0, 3);
 }
 
+function nanoGPTReferenceImages(request: ImageGenRequest): string[] {
+  return openAIReferenceImages(request).slice(0, NANOGPT_REFERENCE_IMAGE_LIMIT);
+}
+
 function xAIImageInput(reference: string): { type: "image_url"; url: string } {
   const decoded = decodeReferenceImage(reference);
   return {
@@ -868,11 +873,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   if (request.model) body.model = request.model;
   if (request.negativePrompt) body.negative_prompt = request.negativePrompt;
 
-  const references = request.referenceImages?.length
-    ? request.referenceImages
-    : request.referenceImage
-      ? [request.referenceImage]
-      : [];
+  const references = nanoGPTReferenceImages(request);
   if (request.model?.toLowerCase().includes("flux-kontext")) {
     body.kontext_max_mode = true;
   }

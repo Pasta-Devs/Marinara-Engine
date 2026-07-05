@@ -6,6 +6,7 @@ import { useChatStore } from "../stores/chat.store";
 import { useUIStore } from "../stores/ui.store";
 import { useUnoGameStore } from "../stores/uno-game.store";
 import { useChessGameStore } from "../stores/chess-game.store";
+import { useGalleryStore } from "../stores/gallery.store";
 import { toast } from "sonner";
 import {
   SUPPORTED_MACROS,
@@ -59,6 +60,8 @@ export interface SlashCommandContext {
   lastMessageRole?: string | null;
   /** Apply a manual sprite expression override */
   setSpriteExpression?: (characterId: string, expression: string) => void | Promise<void>;
+  /** Trigger the same image illustration action exposed in the chat Gallery. */
+  illustrate?: () => void | Promise<void>;
 }
 
 function quoteCommandArgument(value: string): string {
@@ -165,6 +168,17 @@ function buildMacroHelpText(): string {
 }
 
 const MACRO_HELP_TEXT = buildMacroHelpText();
+const ILLUSTRATE_SLASH_TIMEOUT_MS = 1_800_000;
+
+function withSlashCommandTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  return Promise.race([promise, deadline]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
+}
 
 function buildSlashHelpText(): string {
   return ["Available Commands:", "", ...COMMANDS.map((command) => `${command.usage} - ${command.description}`)].join(
@@ -893,6 +907,35 @@ const COMMANDS: SlashCommand[] = [
         return { handled: true, feedback: "Usage: /goto <positive message number> (e.g. /goto 27)" };
       }
       useChatStore.getState().requestGotoMessage(ctx.chatId, n);
+      return { handled: true };
+    },
+  },
+  {
+    name: "illustrate",
+    aliases: ["ill"],
+    description: "Generate a gallery illustration for the current chat",
+    usage: "/illustrate",
+    local: true,
+    async execute(_args, ctx) {
+      if (!ctx.illustrate) {
+        return { handled: true, feedback: "Illustrate is not available in this chat." };
+      }
+      if (useGalleryStore.getState().illustratingChatIds.has(ctx.chatId)) {
+        return { handled: true, feedback: "Illustration generation is already running for this chat." };
+      }
+
+      useGalleryStore.getState().setChatIllustrating(ctx.chatId, true);
+      try {
+        await withSlashCommandTimeout(
+          Promise.resolve(ctx.illustrate()),
+          ILLUSTRATE_SLASH_TIMEOUT_MS,
+          "Illustration generation timed out.",
+        );
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Image generation failed.");
+      } finally {
+        useGalleryStore.getState().setChatIllustrating(ctx.chatId, false);
+      }
       return { handled: true };
     },
   },

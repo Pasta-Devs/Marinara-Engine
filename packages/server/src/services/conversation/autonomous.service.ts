@@ -105,12 +105,15 @@ export function getAutonomousDailyBudget(
 
 function readAutonomousDailyCapOverride(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return Math.max(1, Math.floor(value));
+  return Math.max(1, Math.min(8, Math.floor(value)));
 }
 
 export function dailyCapForCharacter(schedule: WeekSchedule | undefined, chatMeta?: Record<string, unknown>): number {
-  const override = chatMeta ? readAutonomousDailyCapOverride(chatMeta.autonomousDailyCapOverride) : null;
-  if (override != null) return override;
+  const chatCap = chatMeta ? readAutonomousDailyCapOverride(chatMeta.autonomousDailyCapOverride) : null;
+  const characterCap = readAutonomousDailyCapOverride(schedule?.autonomousDailyCapOverride);
+  if (chatCap != null && characterCap != null) return Math.min(chatCap, characterCap);
+  if (characterCap != null) return characterCap;
+  if (chatCap != null) return chatCap;
 
   const talkativeness = schedule?.talkativeness ?? 50;
   if (talkativeness >= 80) return 8;

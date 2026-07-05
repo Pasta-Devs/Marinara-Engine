@@ -7,17 +7,22 @@ import { createWriteStream } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import {
+  CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
+  VIDEO_GENERATION_SETTINGS_KEY,
   conversationCallIdleSchema,
   conversationCallInterruptionSchema,
   conversationCallModelResponseSchema,
+  normalizeVideoGenerationUserSettings,
   normalizeTextForMatch,
   sendConversationCallMessageSchema,
   startConversationCallSchema,
+  type ConversationCallCharacterVideoClipKind,
   type ConversationCommandKey,
   type ConversationCallMessage,
   type ConversationCallSession,
   type ConversationCallTurn,
   type MessageAttachment,
+  type MessageReaction,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -26,6 +31,7 @@ import { createConversationCallsStorage } from "../services/storage/conversation
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
+import { createCustomEmojisStorage } from "../services/storage/custom-emojis.storage.js";
 import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
@@ -48,6 +54,7 @@ import {
   type InfluenceCommand,
   type MemoryCommand,
   type NoteCommand,
+  type ReactCommand,
   type ScheduleUpdateCommand,
   type SelfieCommand,
   type SpotifyCommand,
@@ -70,6 +77,13 @@ import {
   isSilentConversationSpotifyCommandError,
   playConversationSpotifyCommand,
 } from "../services/spotify/conversation-spotify-command.service.js";
+import {
+  getConversationCallCharacterVideoFile,
+  getConversationCallCustomVideoClipFile,
+  getConversationCallCharacterVideoManifest,
+  startConversationCallCharacterVideoGeneration,
+  startConversationCallCustomVideoClipGeneration,
+} from "../services/conversation/call-character-videos.service.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir } from "../utils/security.js";
@@ -181,19 +195,7 @@ function readCharacterContext(data: Record<string, unknown>) {
 }
 
 function characterCanSpeak(settings: Record<string, unknown>, character: { id: string; name: string }) {
-  if (settings.enabled !== true) return false;
-  const voiceMode = typeof settings.voiceMode === "string" ? settings.voiceMode : "single";
-  if (voiceMode !== "per-character") {
-    return typeof settings.voice === "string" && settings.voice.trim().length > 0;
-  }
-  const assignments = Array.isArray(settings.voiceAssignments) ? settings.voiceAssignments : [];
-  return assignments.some((assignment) => {
-    if (!assignment || typeof assignment !== "object" || Array.isArray(assignment)) return false;
-    const record = assignment as Record<string, unknown>;
-    const voice = typeof record.voice === "string" ? record.voice.trim() : "";
-    if (!voice) return false;
-    return record.characterId === character.id || record.characterName === character.name;
-  });
+  return resolveCallTTSVoice(settings, character).length > 0;
 }
 
 function formatDuration(ms: number) {
@@ -356,6 +358,11 @@ const CALL_COMMAND_ALIASES = new Map<string, string>([
   ["sound", "soundboard"],
   ["sound_board", "soundboard"],
   ["soundboard", "soundboard"],
+  ["custom_clip", "custom_clip"],
+  ["custom_video", "custom_clip"],
+  ["video_clip", "custom_clip"],
+  ["react", "react"],
+  ["reaction", "react"],
 ]);
 
 function normalizeCommandName(value: string) {
@@ -379,6 +386,17 @@ function getBracketCommandName(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
   const bracket = trimmed.match(/^\[([a-z0-9_-]+)/i);
   return normalizeCommandName(bracket?.[1] ?? trimmed);
+}
+
+function getCommandStringParam(value: string | null | undefined, name: string) {
+  const trimmed = value?.trim() ?? "";
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const quoted = new RegExp(`${escapedName}\\s*=\\s*"([^"]+)"`, "i").exec(trimmed);
+  if (quoted?.[1]) return quoted[1].trim();
+  const singleQuoted = new RegExp(`${escapedName}\\s*=\\s*'([^']+)'`, "i").exec(trimmed);
+  if (singleQuoted?.[1]) return singleQuoted[1].trim();
+  const bare = new RegExp(`${escapedName}\\s*=\\s*([^\\]\\s,]+)`, "i").exec(trimmed);
+  return bare?.[1]?.trim() ?? "";
 }
 
 function getCallConversationCommandKey(command: CharacterCommand): ConversationCommandKey | null {
@@ -408,6 +426,8 @@ function getCallConversationCommandKey(command: CharacterCommand): ConversationC
       return "influence";
     case "note":
       return "note";
+    case "react":
+      return "react";
     default:
       return null;
   }
@@ -418,8 +438,96 @@ function isCallConversationCommandEnabled(metadata: Record<string, unknown>, key
   return toggles[key] !== false;
 }
 
+function addCallMessageReactor(
+  reactions: unknown,
+  emoji: string,
+  reactor: string,
+  imageUrl: string | null,
+): MessageReaction[] {
+  const current = Array.isArray(reactions) ? (reactions as MessageReaction[]) : [];
+  const index = current.findIndex((reaction) => reaction.emoji === emoji && (reaction.segment ?? null) === null);
+  if (index === -1) {
+    const entry: MessageReaction = { emoji, by: [reactor] };
+    if (imageUrl) entry.imageUrl = imageUrl;
+    return [...current, entry];
+  }
+  const entry = current[index]!;
+  if (entry.by.includes(reactor)) return current;
+  const next = [...current];
+  next[index] = { ...entry, by: [...entry.by, reactor], ...(imageUrl && !entry.imageUrl ? { imageUrl } : {}) };
+  return next;
+}
+
+function sanitizeCallMessageReactions(value: unknown): MessageReaction[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((reaction): reaction is Record<string, unknown> => {
+      return !!reaction && typeof reaction === "object" && !Array.isArray(reaction);
+    })
+    .map((reaction): MessageReaction | null => {
+      const emoji = typeof reaction.emoji === "string" ? reaction.emoji.trim() : "";
+      if (!emoji) return null;
+      const by = Array.isArray(reaction.by)
+        ? reaction.by.filter((reactor): reactor is string => typeof reactor === "string" && reactor.trim().length > 0)
+        : [];
+      if (by.length === 0) return null;
+      const sanitized: MessageReaction = { emoji, by: Array.from(new Set(by.map((reactor) => reactor.trim()))) };
+      if (typeof reaction.imageUrl === "string" && reaction.imageUrl.trim()) {
+        sanitized.imageUrl = reaction.imageUrl.trim();
+      }
+      if (typeof reaction.segment === "number" && Number.isInteger(reaction.segment) && reaction.segment >= 0) {
+        sanitized.segment = reaction.segment;
+      } else if (reaction.segment === null) {
+        sanitized.segment = null;
+      }
+      return sanitized;
+    })
+    .filter((reaction): reaction is MessageReaction => reaction !== null);
+}
+
+function sanitizeCallMessageExtraPatch(value: unknown): Record<string, unknown> {
+  const source = parseJsonRecord(value);
+  const patch: Record<string, unknown> = {};
+  if ("reactions" in source) patch.reactions = sanitizeCallMessageReactions(source.reactions);
+  if (typeof source.conversationCallInitialGreetingPlayed === "boolean") {
+    patch.conversationCallInitialGreetingPlayed = source.conversationCallInitialGreetingPlayed;
+  }
+  if (typeof source.conversationCallAutoplay === "boolean") {
+    patch.conversationCallAutoplay = source.conversationCallAutoplay;
+  }
+  return patch;
+}
+
+function buildGlobalCustomEmojiUrl(filePath: string): string {
+  return `/api/custom-emojis/file/${encodeURIComponent(filePath)}`;
+}
+
+async function resolveCallReactionImageUrl(app: FastifyInstance, emoji: string): Promise<string | null> {
+  const customName = emoji.match(/^:([a-zA-Z0-9_]+):$/)?.[1];
+  if (!customName) return null;
+  const row = await createCustomEmojisStorage(app.db).getByName(customName);
+  return row?.filePath ? buildGlobalCustomEmojiUrl(String(row.filePath)) : null;
+}
+
 function normalizeSpeakerName(value: string) {
   return value.trim().toLowerCase();
+}
+
+function normalizeTTSCharacterName(value?: string | null): string {
+  return (value ?? "").toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function normalizeTTSCharacterBaseName(value?: string | null): string {
+  let normalized = normalizeTTSCharacterName(value);
+  let previous = "";
+  while (normalized && normalized !== previous) {
+    previous = normalized;
+    normalized = normalized.replace(/\s*(?:\([^()]*\)|\[[^\]]*\]|\{[^{}]*})\s*$/g, "").trim();
+  }
+
+  const separatedVariant = normalized.match(/^(.+?)\s+(?:[-–—:|])\s+[^-–—:|]+$/);
+  const base = separatedVariant?.[1]?.trim();
+  return base && base.length > 0 ? base : normalized;
 }
 
 function resolveTurnCharacterId(
@@ -451,6 +559,51 @@ function coalesceAdjacentChatMessages(messages: ChatMessage[]): ChatMessage[] {
     merged.push(message);
     return merged;
   }, []);
+}
+
+function readTTSVoiceAssignmentVoice(assignment: unknown): string {
+  if (!assignment || typeof assignment !== "object" || Array.isArray(assignment)) return "";
+  const voice = (assignment as Record<string, unknown>).voice;
+  return typeof voice === "string" ? voice.trim() : "";
+}
+
+function resolveCallTTSVoice(settings: Record<string, unknown>, character: { id: string; name: string }) {
+  if (settings.enabled !== true) return "";
+  const fallbackVoice = typeof settings.voice === "string" ? settings.voice.trim() : "";
+  const voiceMode = typeof settings.voiceMode === "string" ? settings.voiceMode : "single";
+  if (voiceMode !== "per-character") return fallbackVoice;
+
+  const assignments = Array.isArray(settings.voiceAssignments) ? settings.voiceAssignments : [];
+  const normalizedSpeaker = normalizeTTSCharacterName(character.name);
+  const exactAssignment = assignments.find((assignment) => {
+    const voice = readTTSVoiceAssignmentVoice(assignment);
+    if (!voice || !assignment || typeof assignment !== "object" || Array.isArray(assignment)) return false;
+    const record = assignment as Record<string, unknown>;
+    if (record.characterId === character.id) return true;
+    return (
+      normalizedSpeaker.length > 0 &&
+      typeof record.characterName === "string" &&
+      normalizeTTSCharacterName(record.characterName) === normalizedSpeaker
+    );
+  });
+  const exactVoice = readTTSVoiceAssignmentVoice(exactAssignment);
+  if (exactVoice) return exactVoice;
+
+  const normalizedSpeakerBase = normalizeTTSCharacterBaseName(character.name);
+  if (normalizedSpeakerBase) {
+    const baseMatchedVoices = new Set<string>();
+    for (const assignment of assignments) {
+      const voice = readTTSVoiceAssignmentVoice(assignment);
+      if (!voice || !assignment || typeof assignment !== "object" || Array.isArray(assignment)) continue;
+      const characterName = (assignment as Record<string, unknown>).characterName;
+      if (typeof characterName === "string" && normalizeTTSCharacterBaseName(characterName) === normalizedSpeakerBase) {
+        baseMatchedVoices.add(voice);
+      }
+    }
+    if (baseMatchedVoices.size === 1) return [...baseMatchedVoices][0] ?? "";
+  }
+
+  return fallbackVoice;
 }
 
 function formatCallCommandPromptLines(
@@ -512,6 +665,15 @@ function formatCallCommandPromptLines(
       return [
         `- [soundboard: sound=${soundTargets}] - play a soundboard sound in the call. Use it for small live-call reactions or atmosphere, not as dialogue.`,
       ];
+    case "react":
+      return [
+        '- [react: emoji="😂"] or [react: emoji=":custom_name:"] - react to the user\'s latest written call-chat message with one emoji badge. Use this for quick emotional acknowledgment instead of speaking when a small reaction is enough.',
+      ];
+    case "custom_clip":
+      return [
+        '- [custom_clip: label="short title", prompt="visual action or look"] - generate one custom video-call clip for the speaking character and save it to their call-video clip gallery. Use only when the user explicitly asks to see a special visual action, outfit, reveal, or look that standard idle/talking/laughing/angry/crying/sighing clips cannot show.',
+        "   Use this sparsely: do not create custom clips for ordinary moods, normal dialogue, or every response. Emit at most one [custom_clip] for a direct user request, and do not repeat it unless the user asks for another distinct clip.",
+      ];
     case "end_call":
       return [
         "- [end_call] - end the call for everyone. If you should say something first, emit the voice or text turn first, then emit a separate command turn with [end_call].",
@@ -528,14 +690,64 @@ function formatCallCommandPromptLines(
 function normalizeTurns(raw: unknown, fallbackSpeaker: string): ConversationCallTurn[] {
   const parsed = conversationCallModelResponseSchema.safeParse(raw);
   if (!parsed.success) return [];
-  return parsed.data.turns
+  return finalizeCallTurns(
+    parsed.data.turns.flatMap((turn) =>
+      repairPrefixedCallTurns(
+        {
+          id: turn.id,
+          speakerName: turn.speakerName || fallbackSpeaker,
+          mode: turn.mode,
+          content: turn.content.trim(),
+          tone: turn.mode === "voice" ? (turn.tone ?? null) : null,
+        },
+        fallbackSpeaker,
+      ),
+    ),
+    fallbackSpeaker,
+  );
+}
+
+function prefixedCallTurnMode(value: string): ConversationCallTurn["mode"] {
+  return value.toLowerCase() === "command" ? "command" : value.toLowerCase() === "text" ? "text" : "voice";
+}
+
+function repairPrefixedCallTurns(turn: ConversationCallTurn, fallbackSpeaker: string): ConversationCallTurn[] {
+  const text = turn.content.trim();
+  if (!text) return [turn];
+  const markerPattern = /(^|\n+)\s*([^\n:()]{1,160})\s*\((speech|voice|text|command)\)\s*:\s*/gi;
+  const matches = Array.from(text.matchAll(markerPattern));
+  if (matches.length === 0) return [turn];
+
+  const repaired: ConversationCallTurn[] = [];
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index]!;
+    const next = matches[index + 1];
+    const start = (match.index ?? 0) + match[0].length;
+    const end = next?.index ?? text.length;
+    const content = text.slice(start, end).trim();
+    if (!content) continue;
+    const mode = prefixedCallTurnMode(match[3] ?? turn.mode);
+    const speakerName = (match[2] ?? "").trim() || turn.speakerName || fallbackSpeaker;
+    repaired.push({
+      speakerName,
+      mode,
+      content,
+      tone: mode === "voice" && speakerName === turn.speakerName ? (turn.tone ?? null) : null,
+    });
+  }
+  return repaired.length > 0 ? repaired : [turn];
+}
+
+function finalizeCallTurns(turns: ConversationCallTurn[], fallbackSpeaker: string): ConversationCallTurn[] {
+  return turns
     .map((turn, index) => {
-      const command = turn.mode === "command" ? normalizeBracketCommand(turn.content) : null;
+      const content = turn.content.trim();
+      const command = turn.mode === "command" ? normalizeBracketCommand(content) : null;
       return {
         id: turn.id ?? `turn-${index}`,
         speakerName: turn.speakerName || fallbackSpeaker,
         mode: turn.mode,
-        content: turn.mode === "command" ? (command ?? turn.content.trim()) : turn.content.trim(),
+        content: turn.mode === "command" ? (command ?? content) : content,
         tone: turn.mode === "voice" ? (turn.tone ?? null) : null,
       };
     })
@@ -556,7 +768,10 @@ function parseModelTurns(text: string, fallbackSpeaker: string): ConversationCal
       /* fall back below */
     }
   }
-  return [{ id: "turn-0", speakerName: fallbackSpeaker, mode: "voice", content: trimmed }];
+  return finalizeCallTurns(
+    repairPrefixedCallTurns({ speakerName: fallbackSpeaker, mode: "voice", content: trimmed }, fallbackSpeaker),
+    fallbackSpeaker,
+  );
 }
 
 function isCallPresenceStatus(value: unknown): value is CallPresenceStatus {
@@ -672,10 +887,17 @@ async function buildCallPrompt(input: {
     : [];
   const commandToggles = parseJsonRecord(metadata.conversationCommandToggles);
   const ttsSettings = await readTTSSettings(input.app);
+  const characterVideoPresenceEnabled = ttsSettings.callCharacterVideoEnabled === true;
   const allowedCommands: string[] = [];
   const crossPostTargetNames: string[] = [];
   const memoryTargetNames = new Set(characters.map((character) => character.name));
   const hapticDeviceNames: string[] = [];
+  const customVideoClipConnection =
+    characterVideoPresenceEnabled && ttsSettings.callCustomVideoClipsEnabled === true
+      ? await createConnectionsStorage(input.app.db)
+          .getDefaultForVideoGeneration()
+          .catch(() => null)
+      : null;
   if (metadata.characterCommands !== false) {
     const schedules = getEnabledConversationSchedules(metadata) as Record<string, WeekSchedule>;
     const allChatsForCrossPost = await chats.list();
@@ -726,6 +948,7 @@ async function buildCallPrompt(input: {
       allowedCommands.push("selfie");
     }
     if (commandToggles.memory !== false) allowedCommands.push("memory");
+    if (commandToggles.react !== false) allowedCommands.push("react");
     if (commandToggles.music !== false) {
       const activeMusicSource =
         input.musicPlayerEnabled === false
@@ -741,6 +964,7 @@ async function buildCallPrompt(input: {
       }
     }
     if (hapticAvailable) allowedCommands.push("haptic");
+    if (customVideoClipConnection) allowedCommands.push("custom_clip");
     if (commandToggles.influence !== false && input.chat.connectedChatId) allowedCommands.push("influence");
     if (commandToggles.note !== false && input.chat.connectedChatId) allowedCommands.push("note");
   }
@@ -802,6 +1026,12 @@ async function buildCallPrompt(input: {
   const outputFormat = [
     "<output_format>",
     'Return ONLY valid JSON with this shape: {"turns":[{"speakerName":"Exact character name","mode":"voice|text|command","content":"message text, voice text with TTS [cues], or command text","tone":"voice-only tone tags"}]}',
+    'Use mode "voice" for characters who can speak, "text" when a character should type, and "command" for hidden actions.',
+    "One response may include several ordered turns from multiple characters. Use that when a natural live-call exchange should happen before the user speaks again.",
+    "If multiple characters respond, order the turns exactly as they should be heard or displayed.",
+    "In group calls, every speaking character must get their own turn so their assigned voice and video clips play on the correct participant.",
+    "Do not put speaker prefixes like \"Dottore (speech):\" inside content. Put the speaker in speakerName and only the spoken/typed/command text in content.",
+    "For voice turns, include natural TTS cues inside content or tone when useful, such as [soft], [sighs], [brief pause], or [laughing quietly], etc.",
     "</output_format>",
   ].join("\n");
 
@@ -811,21 +1041,20 @@ async function buildCallPrompt(input: {
     "</role>",
     "<instructions>",
     "The user's spoken audio may have been transcribed imperfectly. Deduce the likely intended meaning if a phrase looks slightly wrong.",
+    characterVideoPresenceEnabled
+      ? "Character video presence is enabled. Voice turns will be spoken aloud and paired with character video-call clips, so use natural voice cues and visual-call awareness when appropriate."
+      : "",
     nativeMedia.length > 0
       ? "The latest user input includes provider-native audio and/or video attachments. Use those attachments as the primary evidence for what the user said or showed; the written marker is only a label."
       : "",
-    "One response may include several ordered turns from multiple characters. Use that when a natural live-call exchange should happen before the user speaks again.",
-    'Use mode "voice" for characters who can speak, "text" when a character should type, and "command" for hidden actions.',
     "If the latest input is a call-silence check, do not treat it as something the user said. If the user recently said they were going away, brb, busy, sleeping, or intentionally quiet, return no turns and wait patiently. Otherwise, one character may ask if the user is still there or all right.",
     "Use [leave_call] only when the speaking character personally leaves the call. Use [end_call] only when the call should end for everyone. If a character should say something before ending the call, emit that voice or text turn first, then emit a separate command turn with content \"[end_call]\".",
-    "For voice turns, include natural TTS cues inside content or tone when useful, such as [soft], [sighs], [brief pause], or [laughing quietly], etc.",
     voiceCapableCharacters.length > 0
       ? `Characters with configured voices: ${voiceCapableCharacters.map((character) => character.name).join(", ")}.`
       : "No characters currently have configured voices; use text turns unless a command is needed.",
     textOnlyCharacters.length > 0
       ? `Characters without configured voices should use text turns: ${textOnlyCharacters.map((character) => character.name).join(", ")}.`
       : "",
-    "If multiple characters respond, order the turns exactly as they should be heard or displayed.",
     "If the call history says [User interrupted when you were speaking this.], treat that quoted speech as cut off mid-call; do not assume the user heard the rest, and respond to the interruption naturally.",
     "Characters available in this call (only those can speak, type, or run commands): " + characterNames + ".",
     "</instructions>",
@@ -1101,6 +1330,30 @@ async function applyCallMemoryCommand(input: {
   extensions.characterMemories = memories;
   await input.chars.update(target.id, { extensions } as any);
   logger.info("[conversation-call] Memory saved from %s to %s", sourceName, String(targetData.name ?? target.id));
+}
+
+async function applyCallReactCommand(input: {
+  app: FastifyInstance;
+  calls: CallsStorage;
+  session: ConversationCallSession;
+  characterId: string | null;
+  command: ReactCommand;
+}) {
+  const emoji = input.command.emoji.trim();
+  if (!input.characterId || !emoji) return;
+  const messages = await input.calls.listMessages(input.session.id);
+  const target = [...messages].reverse().find((message) => {
+    if (message.participantKind !== "user" || message.kind !== "text") return false;
+    return message.extra?.hiddenFromUser !== true;
+  });
+  if (!target) {
+    logger.debug("[conversation-call] React command skipped because no typed user call message was found");
+    return;
+  }
+  const imageUrl = await resolveCallReactionImageUrl(input.app, emoji);
+  const reactions = addCallMessageReactor(target.extra?.reactions, emoji, input.characterId, imageUrl);
+  await input.calls.updateMessageExtra(target.id, { reactions });
+  logger.info("[conversation-call] Character %s reacted to call message %s", input.characterId, target.id);
 }
 
 async function applyCallCrossPostCommand(input: {
@@ -1429,6 +1682,77 @@ async function applyCallSelfieCommand(input: {
   return message ? [message] : [];
 }
 
+function readCustomClipPrompt(commandText: string) {
+  return (
+    getCommandStringParam(commandText, "prompt") ||
+    getCommandStringParam(commandText, "description") ||
+    getCommandStringParam(commandText, "context")
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function readCustomClipLabel(commandText: string, prompt: string) {
+  const explicit = getCommandStringParam(commandText, "label") || getCommandStringParam(commandText, "title");
+  const label = (explicit || prompt).replace(/\s+/g, " ").trim();
+  return (label || "Custom clip").slice(0, 80);
+}
+
+async function applyCallCustomClipCommand(input: {
+  app: FastifyInstance;
+  session: ConversationCallSession;
+  calls: CallsStorage;
+  chars: ReturnType<typeof createCharactersStorage>;
+  characterId: string | null;
+  commandText: string;
+}): Promise<ConversationCallMessage[]> {
+  if (!input.characterId) return [];
+  const ttsSettings = await readTTSSettings(input.app);
+  if (ttsSettings.callCharacterVideoEnabled !== true || ttsSettings.callCustomVideoClipsEnabled !== true) return [];
+  const prompt = readCustomClipPrompt(input.commandText);
+  if (prompt.length < 8) return [];
+  const label = readCustomClipLabel(input.commandText, prompt);
+  const [character, connection] = await Promise.all([
+    input.chars.getById(input.characterId),
+    createConnectionsStorage(input.app.db).getDefaultForVideoGeneration(),
+  ]);
+  if (!character || !connection) return [];
+  const characterData = parseCharacterData(character);
+  const videoSettings = normalizeVideoGenerationUserSettings(
+    await createAppSettingsStorage(input.app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+  );
+  const manifest = await startConversationCallCustomVideoClipGeneration({
+    characterId: character.id,
+    characterName: readName(characterData, "Character"),
+    avatarPath: character.avatarPath ?? null,
+    connection,
+    promptOverridesStorage: createPromptOverridesStorage(input.app.db),
+    videoSettings,
+    label,
+    prompt,
+  });
+  const customClip = manifest.customClips.find((clip) => clip.label === label && clip.prompt === prompt) ?? null;
+  const message = await input.calls.createMessage({
+    callId: input.session.id,
+    chatId: input.session.chatId,
+    role: "system",
+    characterId: character.id,
+    participantKind: "character",
+    kind: "system",
+    content: `${readName(characterData, "Character")} is preparing a custom clip: ${label}.`,
+    extra: {
+      conversationCallCustomClip: {
+        characterId: character.id,
+        clipId: customClip?.id ?? null,
+        label,
+        prompt,
+      },
+    },
+  });
+  logger.info("[conversation-call] Custom video clip queued for %s during call %s", character.id, input.session.id);
+  return message ? [message] : [];
+}
+
 async function executeCallConversationCommand(input: {
   app: FastifyInstance;
   chat: NonNullable<ChatRow>;
@@ -1441,6 +1765,21 @@ async function executeCallConversationCommand(input: {
 }): Promise<ConversationCallMessage[]> {
   const commandName = getBracketCommandName(input.commandText);
   if (commandName === "end_call" || commandName === "leave_call" || commandName === "soundboard") return [];
+  if (commandName === "custom_clip") {
+    const chats = createChatsStorage(input.app.db);
+    const chars = createCharactersStorage(input.app.db);
+    const freshChat = (await chats.getById(input.chat.id)) ?? input.chat;
+    const metadata = parseJsonRecord(freshChat.metadata);
+    if (metadata.characterCommands === false) return [];
+    return applyCallCustomClipCommand({
+      app: input.app,
+      session: input.session,
+      calls: input.calls,
+      chars,
+      characterId: input.characterId,
+      commandText: input.commandText,
+    });
+  }
 
   const parsed = parseCharacterCommands(input.commandText);
   if (parsed.commands.length === 0) {
@@ -1490,6 +1829,14 @@ async function executeCallConversationCommand(input: {
       );
     } else if (command.type === "memory") {
       await applyCallMemoryCommand({ chars, characterId: input.characterId, command: command as MemoryCommand });
+    } else if (command.type === "react") {
+      await applyCallReactCommand({
+        app: input.app,
+        calls: input.calls,
+        session: input.session,
+        characterId: input.characterId,
+        command: command as ReactCommand,
+      });
     } else if (command.type === "spotify" || command.type === "youtube") {
       await applyCallMusicCommand({ app: input.app, chat: freshChat, command: command as SpotifyCommand | YouTubeCommand });
     } else if (command.type === "haptic") {
@@ -1535,13 +1882,17 @@ async function persistCallAssistantTurns(input: {
   const characters = await resolveCallCharacters(createCharactersStorage(input.app.db), availableCharacterIds, {
     metadata,
   });
+  const ttsSettings = await readTTSSettings(input.app);
   let lastVisibleAssistantContent: string | null = null;
   for (const turn of input.turns) {
     const characterId = resolveTurnCharacterId(turn, characters);
     if (!characterId) continue;
-    const turnWithResolvedCharacter = { ...turn, characterId };
+    const character = characters.find((candidate) => candidate.id === characterId);
+    const effectiveMode =
+      turn.mode === "voice" && character && !characterCanSpeak(ttsSettings, character) ? "text" : turn.mode;
+    const turnWithResolvedCharacter = { ...turn, mode: effectiveMode, characterId };
     resolvedTurns.push(turnWithResolvedCharacter);
-    if (turn.mode === "command") {
+    if (effectiveMode === "command") {
       const command = normalizeBracketCommand(turn.content) ?? "[command]";
       const commandTurn = { ...turnWithResolvedCharacter, content: command, command };
       const commandMessage = await input.calls.createMessage({
@@ -1579,7 +1930,7 @@ async function persistCallAssistantTurns(input: {
       role: "assistant",
       characterId,
       participantKind: "character",
-      kind: turn.mode === "voice" ? "speech" : "text",
+      kind: effectiveMode === "voice" ? "speech" : "text",
       content: turn.content,
       extra: { turn: turnWithResolvedCharacter },
     });
@@ -1705,6 +2056,54 @@ async function readTTSSettings(app: FastifyInstance): Promise<Record<string, unk
   }
 }
 
+function readCallGreeting(session: ConversationCallSession) {
+  const greeting = session.metadata?.greeting;
+  return typeof greeting === "string" ? greeting.trim() : "";
+}
+
+async function createInitialCallGreeting(input: {
+  calls: CallsStorage;
+  characters: ReturnType<typeof createCharactersStorage>;
+  session: ConversationCallSession;
+  ttsSettings: Record<string, unknown>;
+}) {
+  const greeting = readCallGreeting(input.session);
+  if (!greeting || input.session.initiator !== "character" || !input.session.initiatorCharacterId) return null;
+  const existingGreeting = (await input.calls.listMessages(input.session.id)).find(
+    (message) => message.extra?.conversationCallInitialGreeting === true,
+  );
+  if (existingGreeting) return existingGreeting;
+
+  const character = await input.characters.getById(input.session.initiatorCharacterId);
+  if (!character) return null;
+  const characterData = parseCharacterData(character);
+  const speakerName = readName(characterData, "Character");
+  const mode = characterCanSpeak(input.ttsSettings, { id: character.id, name: speakerName }) ? "voice" : "text";
+  const turn: ConversationCallTurn = {
+    speakerName,
+    characterId: character.id,
+    mode,
+    content: greeting,
+    tone: mode === "voice" ? "opening call greeting" : null,
+  };
+
+  return input.calls.createMessage({
+    callId: input.session.id,
+    chatId: input.session.chatId,
+    role: "assistant",
+    characterId: character.id,
+    participantKind: "character",
+    kind: mode === "voice" ? "speech" : "text",
+    content: greeting,
+    extra: {
+      turn,
+      conversationCallInitialGreeting: true,
+      conversationCallInitialGreetingPlayed: false,
+      conversationCallAutoplay: true,
+    },
+  });
+}
+
 function ensureSoundboardDir() {
   mkdirSync(SOUNDBOARD_ROOT, { recursive: true });
   return SOUNDBOARD_ROOT;
@@ -1714,6 +2113,7 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
   const chats = createChatsStorage(app.db);
   const calls = createConversationCallsStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+  const characters = createCharactersStorage(app.db);
 
   app.get<{ Params: { chatId: string } }>("/chat/:chatId/status", async (req) => {
     const [activeCall, ringingCall] = await Promise.all([
@@ -1722,6 +2122,72 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
     ]);
     return { activeCall, ringingCall };
   });
+
+  app.get<{ Params: { characterId: string } }>("/character-videos/:characterId", async (req, reply) => {
+    const character = await characters.getById(req.params.characterId);
+    if (!character) return reply.status(404).send({ error: "Character not found" });
+    const data = parseCharacterData(character);
+    return getConversationCallCharacterVideoManifest({
+      characterId: character.id,
+      characterName: readName(data, "Character"),
+      avatarPath: character.avatarPath ?? null,
+    });
+  });
+
+  app.post<{ Params: { characterId: string } }>("/character-videos/:characterId/generate", async (req, reply) => {
+    const character = await characters.getById(req.params.characterId);
+    if (!character) return reply.status(404).send({ error: "Character not found" });
+    const ttsSettings = await readTTSSettings(app);
+    if (ttsSettings.callCharacterVideoEnabled !== true) {
+      return reply.status(403).send({ error: "Character video presence is not enabled for Conversation Calls." });
+    }
+    const data = parseCharacterData(character);
+    const videoConnection = await connections.getDefaultForVideoGeneration();
+    if (!videoConnection) {
+      return reply.status(400).send({ error: "No Default for Videos connection is configured." });
+    }
+    const body = parseJsonRecord(req.body);
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    return startConversationCallCharacterVideoGeneration({
+      characterId: character.id,
+      characterName: readName(data, "Character"),
+      avatarPath: character.avatarPath ?? null,
+      connection: videoConnection,
+      promptOverridesStorage: createPromptOverridesStorage(app.db),
+      videoSettings,
+      debugMode: body.debugMode === true,
+    });
+  });
+
+  app.get<{ Params: { characterId: string; kind: string } }>(
+    "/character-videos/:characterId/file/:kind",
+    async (req, reply) => {
+      const kind = req.params.kind as ConversationCallCharacterVideoClipKind;
+      if (!CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.includes(kind)) {
+        return reply.status(400).send({ error: "Invalid call video clip kind" });
+      }
+      const file = getConversationCallCharacterVideoFile(req.params.characterId, kind);
+      if (!file) return reply.status(404).send({ error: "Call video clip not found" });
+      return reply
+        .header("Content-Type", "video/mp4")
+        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .send(createReadStream(file));
+    },
+  );
+
+  app.get<{ Params: { characterId: string; clipId: string } }>(
+    "/character-videos/:characterId/custom/:clipId/file",
+    async (req, reply) => {
+      const file = getConversationCallCustomVideoClipFile(req.params.characterId, req.params.clipId);
+      if (!file) return reply.status(404).send({ error: "Custom call video clip not found" });
+      return reply
+        .header("Content-Type", "video/mp4")
+        .header("Cache-Control", "public, max-age=31536000, immutable")
+        .send(createReadStream(file));
+    },
+  );
 
   app.post("/start", async (req, reply) => {
     const input = startConversationCallSchema.parse(req.body);
@@ -1775,6 +2241,14 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
     if (!session) return reply.status(404).send({ error: "Call not found" });
     if (session.status !== "ringing") return session;
     const activeSession = await calls.updateStatus(session.id, "active");
+    if (activeSession) {
+      await createInitialCallGreeting({
+        calls,
+        characters,
+        session: activeSession,
+        ttsSettings: await readTTSSettings(app),
+      });
+    }
     await chats.createMessagesBatch(session.chatId, [
       {
         role: "system",
@@ -1836,6 +2310,18 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
     const session = await calls.getSession(req.params.id);
     if (!session) return reply.status(404).send({ error: "Call not found" });
     return calls.listMessages(session.id);
+  });
+
+  app.patch<{ Params: { id: string; messageId: string } }>("/:id/messages/:messageId/extra", async (req, reply) => {
+    const session = await calls.getSession(req.params.id);
+    if (!session) return reply.status(404).send({ error: "Call not found" });
+    const message = await calls.getMessage(req.params.messageId);
+    if (!message || message.callId !== session.id) {
+      return reply.status(404).send({ error: "Call message not found" });
+    }
+    const updated = await calls.updateMessageExtra(message.id, sanitizeCallMessageExtraPatch(req.body));
+    if (!updated) return reply.status(404).send({ error: "Call message not found" });
+    return updated;
   });
 
   app.post<{ Params: { id: string } }>("/:id/interruption", async (req, reply) => {

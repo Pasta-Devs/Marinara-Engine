@@ -89,9 +89,9 @@ Manual fallback: follow the [Android (Termux) Installation Guide](installation/a
 <summary><strong>What can Professor Mari do?</strong></summary>
 <br>
 
-Professor Mari is Marinara Engine's built-in assistant character. She can explain the app, help with setup, create characters and personas, create lorebooks, start new Conversation or Roleplay chats, navigate panels, fetch existing items so she can review or update them, and use read-only Fandom/MediaWiki lookups. She is a guide and helper, not a replacement for the docs or release notes when something is version-specific or recently changed.
+Professor Mari is Marinara Engine's built-in Home assistant. She can explain the app, help with setup, create characters and personas, create or update lorebooks, create prompt presets, start new Conversation or Roleplay chats, navigate panels, fetch existing items so she can review or update them, use read-only Fandom/MediaWiki lookups, and use the approval-gated Home workspace for themes, agents, presets, lorebook entries, and local workspace changes. She is a guide and helper, not a replacement for the docs or release notes when something is version-specific or recently changed.
 
-Editing existing content needs more care than creating new content. Ask Mari to fetch the character, persona, lorebook, chat, or preset before editing it, and give her the specific field or behavior you want changed. Character edits keep a recoverable version snapshot, but persona edits overwrite without a snapshot, so back up personas before asking her to change one.
+Editing existing content needs more care than creating new content. Ask Mari to fetch the character, persona, lorebook, chat, or preset before editing it, and give her the specific field or behavior you want changed. Character and persona edits keep recoverable version snapshots.
 
 She cannot currently submit GitHub issues from inside the app, complete the whole Game Setup Wizard through hidden commands, or automatically ingest the latest GitHub docs into her own prompt.
 
@@ -133,8 +133,9 @@ See [Conversation Audio Calls](CONVERSATION_CALLS.md) for the full guide.
 
 Marinara Engine supports a wide range of LLM and image generation providers:
 
-- **LLM:** OpenAI, Anthropic, Anthropic via Claude Pro / Max subscription (through the local Claude Agent SDK), Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, Pollinations, Together AI, NovelAI, and any custom OpenAI-compatible endpoint (Ollama, LM Studio, KoboldCpp, etc.)
-- **Image generation:** Stability AI, ComfyUI, AUTOMATIC1111 / SD Web UI, Draw Things (Apple Silicon Macs — runs locally on Metal + Apple Neural Engine), and providers that support image output through their chat API
+- **LLM:** OpenAI, OpenAI ChatGPT subscription login, Anthropic, Anthropic via Claude Pro / Max subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, and any custom OpenAI-compatible endpoint (Ollama, LM Studio, KoboldCpp, etc.).
+- **Image generation:** OpenAI DALL-E / GPT Image, Stability AI, Together AI, NovelAI, OpenRouter Images, xAI / Grok Imagine, Pollinations, Stable Horde, AUTOMATIC1111 / SD Web UI, ComfyUI, RunPod Serverless ComfyUI, Draw Things, NanoGPT, Block Entropy, and providers that support image output through their chat API.
+- **Video generation:** Gemini Omni, Google AI Studio Veo, xAI Imagine, OpenRouter video models, and other supported Video Generation connection services.
 
 You can configure multiple connections at once and assign different providers per chat. API keys are encrypted at rest with AES-256.
 
@@ -146,11 +147,11 @@ You can configure multiple connections at once and assign different providers pe
 <summary><strong>How do Game Mode storyboard animations work?</strong></summary>
 <br>
 
-Storyboards are created after GM narration turns are created, automatically. 
+Storyboards are created after GM narration turns are created when you enable automation, or manually from the Gallery.
 
-To manually create a storyboard, open **Gallery Assets** and click **Create Storyboard** to manually create a storyboard for the latest GM narration, or to recreate the current storyboard. The Prompt Director splits the turn into manga keyframes and generates each keyframe illustration. It also creates animation clips when **Automatic Storyboard Animations** is enabled and a Video Generation connection is available. The floating storyboard viewer follows the current story section as you read, and it can be closed, dragged, resized, paused, muted, or reopened from Game Assets by clicking on **View storyboard**.
+To manually create a storyboard, open **Gallery** and click **Create storyboard** to manually create a storyboard for the latest GM narration, or to recreate the current storyboard. The Prompt Director splits the turn into manga keyframes and generates each keyframe illustration. It also creates animation clips when **Automatic Storyboard Animations** is enabled and a Video Generation connection is available. The floating storyboard viewer follows the current story section as you read, and it can be closed, dragged, resized, paused, muted, or reopened from the Gallery by clicking **View storyboard**.
 
-Automatic generation is **on** by default during game creation if image generation is enabled. Enable **Chat Settings -> Game Mode -> Storyboards -> Automatic Storyboard Illustrations** if you want Marinara to create keyframe images after each completed GM turn. Enable **Automatic Storyboard Animations** too if you also want animations.
+Automatic generation is off unless Visual Generation enables it during setup or you turn it on later. Enable **Chat Settings -> Agents -> Storyboards -> Automatic Storyboard Illustrations** if you want Marinara to create keyframe images after each completed GM turn. Enable **Automatic Storyboard Animations** too if you also want animations.
 
 See [Storyboard Engine Guide](STORYBOARD_ENGINE_GUIDE.md) for the user workflow, or [Scene Video Generation](SCENE_VIDEO_GENERATION.md#game-mode-turn-storyboards) for provider setup, prompt-template keys, and troubleshooting.
 
@@ -187,19 +188,19 @@ This is by design — pulling raw DM messages into every roleplay turn would inf
 
 Marinara has three different ways to scope a lorebook, each at a different level. Pick whichever matches your use case:
 
-**1. Bind a lorebook to one character or persona** (lorebook editor → `Linked Character` / `Linked Persona`).
+**1. Bind a lorebook to characters or personas** (lorebook editor -> **Linked Characters** / **Linked Personas**).
 
-The lorebook auto-activates in any chat that includes that character or uses that persona. Best when the lore is specifically _about_ that character (e.g., their backstory, their world). The two link types are mutually exclusive — pick one or the other, not both. Each link is single-value, so this is the right tool for one lorebook ↔ one character.
+The lorebook auto-activates in any chat that includes any linked character or uses any linked persona. Both fields are multi-select, and you can use both on the same lorebook. Best when the lore is specifically _about_ those characters or personas.
 
 **2. Attach lorebooks per-chat via the chat settings drawer** (gear icon → **Lorebooks** section → **+ Add Lorebook**).
 
-Multi-select. Use this when you want one lorebook active across multiple characters, or scoped to just one specific chat, or when you want several lorebooks layered together for a single chat. The lorebook's `Linked Character` / `Linked Persona` fields can be empty for this — chat attachment is independent of those links.
+Multi-select. Use this when you want one lorebook scoped to one specific chat, or when you want several lorebooks layered together for a single chat. The lorebook's **Linked Characters** / **Linked Personas** fields can be empty for this — chat attachment is independent of those links.
 
-**3. Filter individual entries by character** (lorebook entry editor → `Character Filters`).
+**3. Filter individual entries by character** (lorebook entry editor -> **Context filters & matching sources** -> **Characters** / **Character tags**).
 
 Inside a single shared lorebook, you can mark each entry as only firing when specific characters (or character tags) are present in the chat. Best for a "world bible" lorebook shared across many chats where some entries are character-specific.
 
-**Common scenario — "I want this lorebook for Character A _and_ Character B":** leave the lorebook's character link empty, and attach the lorebook via the chat settings drawer in any chat that includes either character. The same lorebook can be attached to as many chats as you want.
+**Common scenario — "I want this lorebook for Character A _and_ Character B":** add both under **Linked Characters**. If the scope is chat-specific instead of character-specific, attach the lorebook via the chat settings drawer.
 
 </details>
 
@@ -261,5 +262,22 @@ Common overlaps to watch for:
 For story direction, choose the tool by how persistent you want the guidance to be. Use **Narrative Director** for occasional next-beat steering. Turn on its **Secret Plot** option when you want hidden long-term arc memory and scene directions across turns. Use a preset only when the instruction should be static every turn.
 
 **One important exception:** the `agent_data` marker section, and the `{{agent::TYPE}}` macro, are the _intended_ way to thread an agent's output into a specific spot in the preset. That's wiring, not overlap — several agents (World State, Quest Tracker, Character Tracker, and others) set this up for you by default. The pattern to avoid is hand-writing preset sections that duplicate an agent's _behavior_, not using the marker section that carries the agent's _output_.
+
+</details>
+
+---
+
+<a id="how-do-i-read-the-documentation-inside-the-app"></a>
+
+<details>
+<summary><strong>How do I read the documentation inside the app?</strong></summary>
+<br>
+
+Every Marinara install ships with the full set of guides you are reading right now: installation, configuration, troubleshooting, macros, extensions, Game Mode, and more. You can read them without leaving the app:
+
+- **From the home page footer:** click the **Documentation** button next to **Replay Tutorial**.
+- **From the FAQ:** open the "Where can I find documentation?" entry and click **Open Documentation**.
+
+The in-app viewer lists every guide and renders it directly in Marinara. The same guides also live on disk as regular markdown files in the `docs` folder inside your Marinara install folder, and both the FAQ entry and the viewer show the exact folder path for your install.
 
 </details>

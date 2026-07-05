@@ -36,14 +36,14 @@ export function getChatCharacterIds(chat: { characterIds?: unknown } | null | un
 
   const raw = chat.characterIds;
   if (Array.isArray(raw)) {
-    return raw.filter((value): value is string => typeof value === "string" && value.length > 0);
+    return Array.from(new Set(raw.filter((value): value is string => typeof value === "string" && value.length > 0)));
   }
 
   if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw) as unknown;
       return Array.isArray(parsed)
-        ? parsed.filter((value): value is string => typeof value === "string" && value.length > 0)
+        ? Array.from(new Set(parsed.filter((value): value is string => typeof value === "string" && value.length > 0)))
         : [];
     } catch {
       return [];

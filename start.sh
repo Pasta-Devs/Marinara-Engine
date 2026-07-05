@@ -213,6 +213,13 @@ if [ ! -d "node_modules" ] || ! node scripts/check-workspace-install.mjs >/dev/n
     run_pnpm install --force
 fi
 
+# Load .env if present (respects user overrides)
+if [ -f .env ]; then
+  set -a
+  . ./.env
+  set +a
+fi
+
 # ── Optional AI sprite background remover ──
 BACKGROUNDREMOVER_AUTO_INSTALL_VALUE="${BACKGROUNDREMOVER_AUTO_INSTALL:-false}"
 BACKGROUNDREMOVER_AUTO_INSTALL_NORMALIZED=$(printf '%s' "$BACKGROUNDREMOVER_AUTO_INSTALL_VALUE" | tr '[:upper:]' '[:lower:]')
@@ -240,13 +247,6 @@ fi
 # Database migrations are handled automatically at server startup by runMigrations()
 
 # ── Start ──
-
-# Load .env if present (respects user overrides)
-if [ -f .env ]; then
-  set -a
-  . ./.env
-  set +a
-fi
 
 export NODE_ENV=production
 export PORT=${PORT:-7860}

@@ -28,7 +28,7 @@ Keyframe images are saved in the Gallery's **Images** tab. Keyframe clips are sa
 3. Optional: set up animated clips:
    - Create a **Video Generation** connection in **Settings -> Connections**.
    - Select it in the setup wizard's **Video Generation Connection** field, or in **Chat Settings -> Agents -> Scene Videos -> Video Connection**.
-4. Play until the GM finishes a narration turn, and it should automatically start as soon as the next turn is created (after when you enter choices after a turn)
+4. Play until the GM finishes a narration turn. If you enabled **Automatic Storyboard Illustrations**, the storyboard starts once the turn finishes streaming; otherwise create one manually in the next step.
 5. Open **Gallery** and click **Create Storyboard**.
 6. Keep reading. The floating storyboard viewer appears and changes panels/illustrations/animations as you read through the turn.
 

@@ -49,15 +49,19 @@ function resolveAvailableIntent(
   characterId: string,
   schedule: WeekSchedule | null,
   chatMeta: Record<string, unknown>,
-): { intent: MessageIntent | null; onCooldown: boolean } {
-  if (!schedule) return { intent: null, onCooldown: false };
+): { intent: MessageIntent | null; onCooldown: boolean; disabled: boolean } {
+  if (!schedule) return { intent: null, onCooldown: false, disabled: false };
 
   const state = getActivityState(chatId);
   const msSinceUserLastSpoke = state ? Date.now() - state.lastUserMessageAt : 0;
   const hadUnansweredUserMessage = state ? state.lastUserMessageAt > state.lastAssistantMessageAt : false;
   const intent = resolveIntent(schedule, msSinceUserLastSpoke, hadUnansweredUserMessage);
 
-  return { intent, onCooldown: isIntentOnCooldown(chatMeta, characterId, intent) };
+  return {
+    intent,
+    onCooldown: isIntentOnCooldown(chatMeta, characterId, intent),
+    disabled: intent !== "check_in" && (schedule.disabledAutonomousIntents?.includes(intent) ?? false),
+  };
 }
 
 function parseMetadata(raw: RawChat["metadata"]): Record<string, unknown> {
@@ -168,8 +172,8 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     chatMeta: Record<string, unknown>,
     claimedAt?: number,
   ): Promise<boolean> => {
-    const { intent, onCooldown } = resolveAvailableIntent(chatId, characterId, schedule, chatMeta);
-    if (onCooldown) {
+    const { intent, onCooldown, disabled } = resolveAvailableIntent(chatId, characterId, schedule, chatMeta);
+    if (onCooldown || disabled) {
       clearGenerationInProgress(chatId, claimedAt);
       return false;
     }

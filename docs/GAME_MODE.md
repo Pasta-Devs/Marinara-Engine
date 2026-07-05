@@ -22,7 +22,7 @@ Game Mode runs in two distinct phases.
 
 ### Phase 1: World generation (one big call)
 
-When you finish the setup wizard and click **Start**, the engine sends one large prompt to your selected GM connection and asks the model to return a structured JSON document containing:
+When you finish the setup wizard and click **Start Game**, the engine sends one large prompt to your selected GM connection and asks the model to return a structured JSON document containing:
 
 - **World overview** — 2–3 paragraphs of narrative setting, shown to you in-game
 - **Story arc** and **plot twists** — secret narrative beats the GM keeps to itself
@@ -52,7 +52,7 @@ Once the world is generated, each turn assembles a fresh prompt that includes:
 - HUD widget state
 - Content rating (SFW / NSFW)
 
-The model returns narration, dialogue, scene description, and any state changes (combat results, map updates, NPC reactions). If you have **Scene Analysis** or **Image Generation** enabled, those run on a separate sidecar connection afterward to add backgrounds, music, sprite expressions, and HUD widget updates — see [Optional toggles](#optional-toggles).
+The model returns narration, dialogue, scene description, and any state changes (combat results, map updates, NPC reactions). If you have **Enable Agents** enabled, it runs afterward to add music, sprite expressions, HUD widget updates, and other agent-driven effects. If you have **Game Illustrator** enabled, it adds visual outputs such as NPC portraits, location backgrounds, and inventory imagery — see [Optional toggles](#optional-toggles).
 
 Because the prompt assembled per turn is rich, Game Mode handles long-term coherence reasonably well. It also means you're paying for a lot of context per call, so a model that handles long context cleanly is a better fit than one that doesn't.
 
@@ -90,7 +90,17 @@ The lifecycle is designed so you can run long-running games across multiple play
 
 ## Setting up a game
 
-The setup wizard has four steps: **Genre & Setting**, **Party & GM**, **You & Model**, and **Goals**. The only field that is strictly required is the GM connection (model) — everything else has a sensible default, so if you just want to test the mode you can blow through the wizard with most fields blank and Marinara will infer reasonable values. The fields below are the ones that actually steer your game.
+The setup wizard has seven steps: **Connection**, **World**, **Party**, **Goals**, **Lorebooks**, **Features**, and **GM**. The only field that is strictly required is the GM connection on the Connection step. Everything else has a sensible default, so if you just want to test the mode you can move through the wizard with most fields blank and Marinara will infer reasonable values.
+
+- **Connection** — game name, GM connection, optional **Customize Parameters**, and optional Scene Effects connection.
+- **World** — genre, setting, tone, difficulty, rating, and language.
+- **Party** — persona, GM mode, and party members.
+- **Goals** — player goals and additional preferences.
+- **Lorebooks** — optional lorebooks for world-gen canon.
+- **Features** — visual generation, storyboards, music, Lorebook Keeper, HUD widgets, and Start Muted.
+- **GM** — game prompt preset, extra instructions, and custom GM prompt override.
+
+The fields below are the ones that most strongly steer your game.
 
 ### Genre
 
@@ -144,17 +154,35 @@ Gates whether explicit content is allowed in narration and dialogue. Setting thi
 
 ### Game Language
 
-Dropdown of 10 supported languages: English, Japanese, Korean, Chinese, Spanish, French, German, Polish, Portuguese, Russian. Default: `English`.
+Free-text field with quick-pick chips for 10 common languages: English, Japanese, Korean, Chinese, Spanish, French, German, Polish, Portuguese, and Russian. Default: `English`.
 
-All in-game text — narration, dialogue, NPC names, journal entries — is generated in the selected language.
+You can type any other language. All in-game text — narration, dialogue, NPC names, journal entries — is generated in the selected language.
+
+### Features step
+
+The Features step controls optional systems:
+
+- **Music DJ** — picks game music through Spotify source modes or Custom Music assets.
+- **Lorebook Keeper** — maintains a game lorebook as the campaign evolves.
+- **Visual Generation** — enables image generation, Automatic Storyboard Illustrations, and optional Automatic Storyboard Animations.
+- **Custom HUD Widgets** — import/export widgets or use **Build Widget Setup** for a manual widget editor.
+- **Start Muted** — begins the game with audio muted.
+
+### GM step
+
+The GM step controls the prompt that wraps the Game Master:
+
+- **Game Prompt Preset** chooses the prompt preset.
+- **Extra Instructions** adds one-off steering text.
+- **GM Prompt** overrides the built-in GM prompt when you need full control.
 
 ## Using lorebooks for richer world setup
 
-The wizard's **Party & GM** step lets you attach one or more lorebooks to your game. This is a powerful complement to the entry fields above when you want to play in a specific established setting — your own homebrew world, a fan adaptation, a setting you've built up across previous campaigns — and giving the GM a paragraph in **Setting** isn't enough.
+The wizard's **Lorebooks** step lets you attach one or more lorebooks to your game. This is a powerful complement to the entry fields above when you want to play in a specific established setting — your own homebrew world, a fan adaptation, a setting you've built up across previous campaigns — and giving the GM a paragraph in **Setting** isn't enough.
 
 ### How it works during world-gen
 
-When you click Start, the engine pulls the **constant** entries from your attached lorebooks and feeds them to the model as canonical facts. The setup prompt wraps them with the instruction `Selected constant lorebook canon that MUST be treated as true for this world`. The model uses them when generating the world overview, story arc, NPCs, plot twists, and starting map.
+When you click **Start Game**, the engine pulls the **constant** entries from your attached lorebooks and feeds them to the model as canonical facts. The setup prompt wraps them with the instruction `Selected constant lorebook canon that MUST be treated as true for this world`. The model uses them when generating the world overview, story arc, NPCs, plot twists, and starting map.
 
 Only constant entries fire during world-gen because there's no chat text yet for keyword triggers to match against. Keyword-triggered entries activate later, during gameplay turns, once player input contains their trigger words.
 
@@ -170,13 +198,13 @@ Once setup completes, you'll be in the gameplay UI. A couple of input controls a
 
 ### Address modes: who you're talking to
 
-The input bar has a small chat-bubble icon (next to the dice button) that toggles **who your message is addressed to**. Three modes:
+The input bar has a small speech-bubble button next to the attach-files button, left of the text field. It opens a menu for **who your message is addressed to**. Three modes:
 
 - **Scene** (default) — your message becomes a normal in-game action or dialogue line. The GM and party respond.
 - **Talk to Party** — prefixes your message with `[To the party]` and routes the response through the **Party Players agent**, which speaks as your party members. Useful for tactical conferences ("OK team, what should we do here?") or in-character conversation between you and your party. Only available when your party isn't empty.
 - **Talk to GM** — prefixes your message with `[To the GM]`. The GM responds out-of-character. Useful for asking clarifying questions ("does my character know about the temple?"), requesting pacing changes ("can we slow down this scene?"), or seeding something into the world.
 
-The active mode is color-coded — sky for party, amber for GM. Toggle once to enter a non-default mode; toggle again to return to Scene.
+The active mode shows an **On** marker in the menu, a highlighted button, and a mode-specific placeholder such as `Say to party...` or `Say to GM...`. Picking the active menu entry returns to Scene.
 
 ### Rolling dice
 
@@ -186,7 +214,7 @@ A picked roll is **queued** rather than sent immediately — a badge appears in 
 
 ## GM character
 
-The **Party & GM** step in the wizard lets you pick one of two **GM modes**:
+The **Party** step in the wizard lets you pick one of two **GM modes**:
 
 - **Standalone** (default): Marinara assembles a synthetic GM persona from your setup. The system prompt tells the model to act as "an excellent Game Master, fair but challenging (and a little snarky)" and lets it bring its own voice within those rails. No card required.
 - **Character**: pick one of your existing character cards as the GM. The engine wraps the card with a "you are this character, acting as a Game Master" instruction so the model adopts the character's voice while still running the game.
@@ -211,7 +239,7 @@ The engine doesn't ship a default or example GM card, and the community hasn't p
 
 ## Party characters
 
-The wizard's **Party & GM** step also lets you pick one or more characters from your library as your party — the companions who travel with you and act under the GM's narrative jurisdiction during scenes. Each party slot expects **one character per card**.
+The wizard's **Party** step also lets you pick one or more characters from your library as your party — the companions who travel with you and act under the GM's narrative jurisdiction during scenes. Each party slot expects **one character per card**.
 
 ### What works well as a party card
 
@@ -221,7 +249,15 @@ The wizard's **Party & GM** step also lets you pick one or more characters from 
 
 ### Persona cards
 
-Your **persona** — the character you yourself play, picked in the **You & Model** step — is treated as a distinct slot in the prompt. The engine separates `personaCard` (who you are) from `partyCards` (who you're with). Don't put your own character in the party slot, and don't pick a party member as your persona — they're routed differently in the prompt and you'll end up confusing the model.
+Your **persona** — the character you yourself play, picked in the **Party** step — is treated as a distinct slot in the prompt. The engine separates `personaCard` (who you are) from `partyCards` (who you're with). Don't put your own character in the party slot, and don't pick a party member as your persona — they're routed differently in the prompt and you'll end up confusing the model.
+
+## RPG Stat Pools
+
+Characters, personas, and Game character sheets can use customizable RPG stat pools. Open the card editor's **RPG Stats** tab, enable stat tracking, then add pools such as HP, MP, EP, Sanity, Stamina, or any campaign-specific resource.
+
+Each pool has a name, current value, max value, and color. These bars appear in Game/Roleplay surfaces where relevant and are included in Present Characters and agent context so trackers and game agents can reason about them. Keep names short enough to fit in compact HUD areas, and use colors that are distinct at a glance.
+
+Stat pools are optional. If you do not need resource bars, leave stat tracking off and Game Mode will rely on ordinary character-card text plus generated game sheets.
 
 ## Recommended models
 
@@ -237,8 +273,7 @@ Game Mode is more demanding than Conversation or Roleplay because of world-gen: 
 
 **Avoid for world-gen:**
 
-- **The default `OpenRouter Free` connection** that Marinara auto-seeds for new installs. It uses model `openrouter/free`, which routes among free-tier models (typically smaller / older) that cannot reliably produce world-gen JSON. If this is your only connection, world-gen will fail repeatedly. Either configure a paid connection for the GM model or pin a specific capable model on your OpenRouter connection.
-- **OpenRouter `openrouter/auto`** — same problem. Routes to whichever model OpenRouter currently designates as the default, which may not be capable of strict JSON. Pin a specific model.
+- **Free or auto-routing models** such as `openrouter/free`, `openrouter/auto`, or provider-side free pools. They can route to smaller or older models that cannot reliably produce world-gen JSON.
 - **Smaller open-weight models** (roughly 7B–13B parameters) — typically cannot complete world-gen JSON reliably.
 
 **Per-model behavior notes:**
@@ -250,15 +285,15 @@ Game Mode is more demanding than Conversation or Roleplay because of world-gen: 
 
 Game Mode uses Marinara's shared generation parameter system. See [Generation Parameters](GENERATION_PARAMETERS.md) for the full defaults table, tuning advice, and per-backend gotchas (Claude `temperature`/`topP` conflict, Claude thinking mode, OpenRouter caveats).
 
-For Game Mode specifically, raise `maxTokens` to at least `10000` if world-gen JSON gets truncated — the structured output is large.
+Game Mode manages most of its own output budget. World-gen is automatically floored at 16,384 tokens, and regular game turns force a large output budget, so tuning `maxTokens` is usually unnecessary unless you deliberately need a value above that floor.
 
 ## Optional toggles
 
-Two extras live in **Chat Settings** for an active game (open via the settings icon during play).
+Several extras live in **Chat Settings -> Agents** for an active game (open via the settings icon during play).
 
-### Scene Analysis
+### Scene Analysis And Agents
 
-Post-processes each GM turn through a separate **sidecar connection** that produces:
+The **Enable Agents** toggle runs scene analysis and attached custom agents during generation. Scene analysis can use the Local sidecar/Gemma option or an API connection selected in the Scene Effects dropdown. It post-processes each GM turn to produce:
 
 - Background image prompts (passed to the Image Generation connection)
 - Music / audio cue suggestions
@@ -269,13 +304,13 @@ The sidecar prompt is **not** seen by the main GM model, and most of what the si
 
 **One exception: HUD widget values.** Widget updates emitted by Scene Analysis are written to persistent game state, and the per-turn GM prompt re-reads each widget's current value on every turn (listed under "HUD widget state" in [Phase 2 above](#phase-2-gameplay-turn-by-turn)). So if Scene Analysis updates `Kingdom Wealth` from 50 → 47 after turn N, the GM sees 47 when its prompt is assembled for turn N+1. This is true regardless of which side wrote the update — when Scene Analysis is off, the GM emits widget commands itself, and the same state-rehydration loop carries the new values forward.
 
-If you've downloaded Marinara's local sidecar model, you can route Scene Analysis through it (the wizard exposes a "use local" toggle for the scene model), avoiding API costs entirely.
+If you've downloaded Marinara's local sidecar model, choose **Local Model (Gemma)** in the setup wizard's **Scene Effects Connection** dropdown or the existing chat's scene-connection dropdown to avoid API costs.
 
 **Known issue:** Google AI Studio has been reported to crash Scene Analysis on retry with `Cannot read properties of undefined (reading '0')`. If you hit this, switch the sidecar connection to a different provider.
 
-### Image Generation
+### Illustrator And Image Generation
 
-Generates NPC portraits, location backgrounds, and inventory imagery via your selected Image Generation connection (Stability AI, ComfyUI, AUTOMATIC1111, etc.). Uses the `artStylePrompt` from world-gen to keep visuals consistent within a game.
+The **Illustrator** card's **Game Illustrator** toggle generates NPC portraits, location backgrounds, and inventory imagery via your selected Image Generation connection (Stability AI, ComfyUI, AUTOMATIC1111, etc.). Its sub-options include Automatic Visuals, Dynamic LLM Prompt Generation, image connection, image style, Attach Card Appearance, and reference-image options. It uses the `artStylePrompt` from world-gen to keep visuals consistent within a game.
 
 **Important: Game Mode's layout is designed around having visuals.** It uses a visual-novel-style presentation with backgrounds and sprite slots. With Image Generation off, you still get the narrative, state tracking, and combat mechanics — but the visual chrome that the layout was built around stays empty or placeholder. If you can't run Image Generation (no provider that supports it, or unwilling to pay for the per-turn image calls), it's worth knowing this up front so the empty visuals aren't a surprise. See also [Is Game Mode right for you?](#is-game-mode-right-for-you) above.
 
@@ -285,11 +320,11 @@ Game Mode image generation waits up to 30 minutes by default. Slow providers can
 
 ### Scene Video Generation
 
-Scene videos animate generated Game Mode illustrations into short MP4 clips. Configure a **Video Generation** connection in Settings, then choose it in the Game setup wizard or in **Chat Settings -> Game Mode -> Scene Videos** for an existing game.
+Scene videos animate generated Game Mode illustrations into short MP4 clips. Configure a **Video Generation** connection in Settings, then choose it in the Game setup wizard or in **Chat Settings -> Agents -> Scene Videos** for an existing game.
 
 Use the Gallery **Video** action to animate the latest scene illustration, or click **Animate** on a specific Gallery illustration to use that image as the first frame/reference. Generated videos appear in the Gallery, can be previewed fullscreen with their prompt, copied, downloaded, pinned, resized, and followed through **View latest**.
 
-Game Mode can also storyboard a completed GM turn. **Storyboard turn** in Game Assets asks the Prompt Director to split the GM narration into manga keyframes and render each keyframe as a gallery illustration. When **Automatic Storyboard Animations** is enabled and a video connection is available, keyframes also become MP4 clips. The floating storyboard viewer follows the current story section while you read and can be closed, dragged, resized, muted, paused, and reopened from Game Assets. Automatic storyboard generation is controlled by **Chat Settings -> Agents -> Storyboards**.
+Game Mode can also storyboard a completed GM turn. **Create storyboard** in the Gallery asks the Prompt Director to split the GM narration into manga keyframes and render each keyframe as a gallery illustration. When **Automatic Storyboard Animations** is enabled and a video connection is available, keyframes also become MP4 clips. The floating storyboard viewer follows the current story section while you read and can be closed, dragged, resized, muted, paused, and reopened from the Gallery. Automatic storyboard generation is controlled by **Chat Settings -> Agents -> Storyboards**.
 
 See [Scene Video Generation](SCENE_VIDEO_GENERATION.md) for provider setup, defaults, storyboard behavior, prompt templates, and troubleshooting. See [Storyboard Engine Guide](STORYBOARD_ENGINE_GUIDE.md) for a step-by-step storyboard workflow.
 
@@ -305,7 +340,7 @@ The engine stores game-related media in `packages/server/data/game-assets/` rela
 
 A `manifest.json` is auto-generated on startup (and again whenever you upload). It maps tags like `backgrounds:fantasy:dark-forest` to specific files. The GM model receives a condensed tag list at generation time and references assets by tag.
 
-You can upload custom files — including custom sprites — via the Game Assets upload endpoint or its Settings UI. An uploaded sprite tagged `sprites:generic-fantasy:custom-npc` becomes available for the engine to choose. Built-in assets take precedence on tag collisions; user uploads land under a `:user:` namespace.
+You can upload custom files — including custom sprites — via the Game Assets upload endpoint or its Settings UI. Uploads are tagged by folder path, so a sprite uploaded to `sprites/generic-fantasy` becomes available as a tag such as `sprites:generic-fantasy:custom-npc`. Only background images placed in the separate `data/backgrounds` folder appear under the `backgrounds:user:` namespace. Built-in assets take precedence on tag collisions.
 
 Generated NPC portraits (when Image Generation is on) are stored separately under `data/avatars/npc/<chatId>/`, not in `game-assets/`.
 
@@ -323,7 +358,7 @@ Set it back to `warn` (the default) when you're done — debug output is high-vo
 
 Most common cause: the GM model can't produce the full structured JSON. Try in order:
 
-1. Check what connection your GM model is using. If you're using the auto-seeded `OpenRouter Free` connection (which uses model `openrouter/free`), this is almost certainly your problem — free-tier routing usually can't handle world-gen. Switch to a top-tier model on a paid connection (see [Recommended models](#recommended-models)).
+1. Check what connection your GM model is using. If it points at `openrouter/free`, `openrouter/auto`, or another free/auto-routing model, switch to a pinned capable model on a paid or reliable local connection (see [Recommended models](#recommended-models)).
 2. Retry. Some failures are transient — the same prompt works the second time.
 3. If you're on `openrouter/auto` or any auto-routing model, switch to a pinned, capable model.
 4. Shorten Setting and Additional Preferences if they are very long — large inputs leave less budget for the strict-JSON output.
@@ -351,9 +386,9 @@ Long campaigns put pressure on the model's context window. Per-turn prompts incl
 
 Known issue. Switch the sidecar connection to a different provider, or route Scene Analysis through the local sidecar model if you have it downloaded.
 
-### Game Mode shows fewer agent toggles than other modes
+### Game Mode shows different agent toggles than other modes
 
-Intentional. Game Mode exposes only **Scene Analysis** and **Image Generation** in the settings drawer to keep the game's structured turn loop intact. The agents that drive the rest of Game Mode (game-master, party-player, world-state, quest, expression, combat) run automatically and are not user-toggleable.
+Intentional. Game Mode exposes cards for scene analysis, Illustrator, Scene Videos, Storyboards, Game Session Keeper, Music DJ, Review Agent Outputs, Agent Suite, and attached custom agents. The internal agents that drive the structured game loop, such as game-master, party-player, world-state, quest, expression, and combat, run automatically and are not all individually toggleable.
 
 ---
 

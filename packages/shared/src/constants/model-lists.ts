@@ -511,10 +511,24 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "google_veo",
+    name: "Google AI Studio Veo",
+    description: "Veo 3.1 video and first/last-frame interpolation via the Gemini API.",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
+    requiresApiKey: true,
+  },
+  {
     id: "xai",
     name: "xAI Imagine",
     description: "Grok Imagine video and image-to-video via the xAI Videos API.",
     defaultBaseUrl: "https://api.x.ai/v1",
+    requiresApiKey: true,
+  },
+  {
+    id: "openrouter",
+    name: "OpenRouter Video",
+    description: "Video generation models exposed through OpenRouter's asynchronous Videos API.",
+    defaultBaseUrl: "https://openrouter.ai/api/v1",
     requiresApiKey: true,
   },
 ];
@@ -675,13 +689,23 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
 
 const VIDEO_GEN_MODELS: KnownModel[] = [
   { id: "gemini-omni-flash-preview", name: "Gemini Omni Flash Preview", context: 0, maxOutput: 0 },
+  { id: "veo-3.1-generate-preview", name: "Veo 3.1 Generate Preview", context: 0, maxOutput: 0 },
+  { id: "veo-3.1-fast-generate-preview", name: "Veo 3.1 Fast Generate Preview", context: 0, maxOutput: 0 },
+  { id: "veo-3.1-lite-generate-preview", name: "Veo 3.1 Lite Generate Preview", context: 0, maxOutput: 0 },
+  { id: "veo-3.0-generate-preview", name: "Veo 3 Generate Preview", context: 0, maxOutput: 0 },
+  { id: "veo-3.0-fast-generate-preview", name: "Veo 3 Fast Generate Preview", context: 0, maxOutput: 0 },
   { id: "grok-imagine-video-1.5", name: "Grok Imagine Video 1.5", context: 0, maxOutput: 0 },
   { id: "grok-imagine-video", name: "Grok Imagine Video", context: 0, maxOutput: 0 },
+  { id: "google/veo-3.1", name: "Google Veo 3.1 (OpenRouter)", context: 0, maxOutput: 0 },
+  { id: "alibaba/wan-2.7", name: "Alibaba WAN 2.7 (OpenRouter)", context: 0, maxOutput: 0 },
 ];
 
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
+  if (m === "openrouter" || u.includes("openrouter.ai")) return "openrouter";
+  if (m.includes("/") && (m.includes("veo") || m.includes("wan"))) return "openrouter";
+  if (m === "google_veo" || m === "veo" || /^veo-[\d.]+/.test(m)) return "google_veo";
   if (m === "xai" || u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
   if (m.includes("grok") && m.includes("imagine") && m.includes("video")) return "xai";
   if (m === "gemini_omni" || m.includes("omni") || u.includes("generativelanguage.googleapis.com")) {

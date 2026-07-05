@@ -17,9 +17,12 @@ import {
   useRestorePersonaVersion,
   useDeletePersonaVersion,
   usePersonaGalleryImages,
+  usePersonaGalleryClips,
   useUploadPersonaGalleryImage,
   useDeletePersonaGalleryImage,
+  useDeletePersonaGalleryClip,
   useTagPersonaGalleryImage,
+  type CharacterGalleryClip,
   type PersonaGalleryImage,
 } from "../../hooks/use-characters";
 import { useConnections } from "../../hooks/use-connections";
@@ -41,6 +44,7 @@ import {
   Upload,
   Download,
   FolderOpen,
+  Film,
   History,
   Loader2,
   Copy,
@@ -238,7 +242,34 @@ function formatPersonaFieldValue<K extends keyof PersonaFormData>(
 
 // ── Gallery Tab ──
 
+type PersonaGalleryMediaTab = "images" | "clips";
+
+function personaGalleryClipSourceLabel(source: CharacterGalleryClip["source"]) {
+  switch (source) {
+    case "game-scene":
+      return "Game scene";
+    case "scene-video":
+      return "Scene video";
+    case "conversation-call":
+      return "Call presence";
+    case "conversation-call-custom":
+      return "Custom call clip";
+    default:
+      return "Clip";
+  }
+}
+
+function formatPersonaClipDate(value: string | null) {
+  if (!value) return "Not generated";
+  return new Date(value).toLocaleDateString();
+}
+
+function canDeletePersonaGalleryClip(clip: CharacterGalleryClip) {
+  return clip.status !== "generating";
+}
+
 function PersonaGalleryTab({ personaId, personaName }: { personaId: string; personaName?: string }) {
+  const [mediaTab, setMediaTab] = useState<PersonaGalleryMediaTab>("images");
   const { data: images, isLoading } = usePersonaGalleryImages(personaId);
   const upload = useUploadPersonaGalleryImage(personaId);
   const remove = useDeletePersonaGalleryImage(personaId);
@@ -280,82 +311,115 @@ function PersonaGalleryTab({ personaId, personaName }: { personaId: string; pers
       <div className="mb-4">
         <h2 className="text-lg font-bold">Persona Gallery</h2>
         <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-          Keep reference art and alternate looks attached to this persona, independent of any chat.
+          Keep reference art, alternate looks, and generated clips attached to this persona.
         </p>
       </div>
 
-      <ImageUploadDropzone
-        label="Upload Persona Images"
-        pending={upload.isPending}
-        pendingLabel="Uploading…"
-        dragLabel="Drop persona images to upload"
-        onFilesSelected={handleUpload}
-        icon={<Upload size="1rem" />}
-        className="w-full"
-      />
-
-      {isLoading ? (
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="shimmer aspect-square rounded-xl" />
-          ))}
-        </div>
-      ) : images && images.length > 0 ? (
-        <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
-          {images.map((image) => (
-            <div
-              key={image.id}
-              className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
+      <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1">
+        {[
+          { id: "images" as const, label: "Images", icon: Camera, count: images?.length ?? 0 },
+          { id: "clips" as const, label: "Clips", icon: Film, count: null },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = mediaTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMediaTab(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                active
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-sm"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)]",
+              )}
             >
-              <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
-              <button
-                type="button"
-                className="block aspect-square w-full bg-[var(--secondary)]"
-                onClick={() => setLightbox(image)}
-              >
-                <img
-                  src={image.url}
-                  alt={image.prompt || personaName || "Persona image"}
-                  className="h-full w-full object-cover"
-                />
-              </button>
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85">
-                  {new Date(image.createdAt).toLocaleDateString()}
-                </span>
-                <div className="flex gap-1">
-                  <a
-                    href={image.url}
-                    download
-                    className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25"
-                    title="Download"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Download size="0.75rem" />
-                  </a>
+              <Icon size="0.8rem" />
+              <span>{tab.label}</span>
+              {typeof tab.count === "number" ? <span className="text-[0.65rem] opacity-70">{tab.count}</span> : null}
+            </button>
+          );
+        })}
+      </div>
+
+      {mediaTab === "images" ? (
+        <>
+          <ImageUploadDropzone
+            label="Upload Persona Images"
+            pending={upload.isPending}
+            pendingLabel="Uploading…"
+            dragLabel="Drop persona images to upload"
+            onFilesSelected={handleUpload}
+            icon={<Upload size="1rem" />}
+            className="w-full"
+          />
+
+          {isLoading ? (
+            <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="shimmer aspect-square rounded-xl" />
+              ))}
+            </div>
+          ) : images && images.length > 0 ? (
+            <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
+                >
+                  <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
                   <button
                     type="button"
-                    onClick={() => void handleDelete(image)}
-                    className="rounded-lg bg-red-500/35 p-1.5 text-white transition-colors hover:bg-red-500/55"
-                    title="Delete"
+                    className="block aspect-square w-full bg-[var(--secondary)]"
+                    onClick={() => setLightbox(image)}
                   >
-                    <Trash2 size="0.75rem" />
+                    <img
+                      src={image.url}
+                      alt={image.prompt || personaName || "Persona image"}
+                      className="h-full w-full object-cover"
+                    />
                   </button>
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                    <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85">
+                      {new Date(image.createdAt).toLocaleDateString()}
+                    </span>
+                    <div className="flex gap-1">
+                      <a
+                        href={image.url}
+                        download
+                        className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25"
+                        title="Download"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Download size="0.75rem" />
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(image)}
+                        className="rounded-lg bg-red-500/35 p-1.5 text-white transition-colors hover:bg-red-500/55"
+                        title="Delete"
+                      >
+                        <Trash2 size="0.75rem" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+              <Camera size="1.75rem" className="text-[var(--muted-foreground)]/40" />
+              <div>
+                <p className="text-sm font-medium text-[var(--muted-foreground)]">No persona images yet</p>
+                <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+                  Upload images here to keep them tied to {personaName || "this persona"} instead of a specific chat.
+                </p>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       ) : (
-        <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
-          <Camera size="1.75rem" className="text-[var(--muted-foreground)]/40" />
-          <div>
-            <p className="text-sm font-medium text-[var(--muted-foreground)]">No persona images yet</p>
-            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
-              Upload images here to keep them tied to {personaName || "this persona"} instead of a specific chat.
-            </p>
-          </div>
-        </div>
+        <PersonaClipsGallery personaId={personaId} personaName={personaName} />
       )}
 
       {lightbox && (
@@ -388,6 +452,160 @@ function PersonaGalleryTab({ personaId, personaName }: { personaId: string; pers
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PersonaClipsGallery({ personaId, personaName }: { personaId: string; personaName?: string }) {
+  const { data, isLoading } = usePersonaGalleryClips(personaId);
+  const deleteClip = useDeletePersonaGalleryClip(personaId);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
+  const clips = data?.clips ?? [];
+
+  const handleDeleteClip = useCallback(
+    async (clip: CharacterGalleryClip) => {
+      if (!canDeletePersonaGalleryClip(clip)) return;
+      if (
+        !(await showConfirmDialog({
+          title: "Delete Clip",
+          message: "Delete this clip everywhere it appears in Marinara? This cannot be undone.",
+          confirmLabel: "Delete",
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
+
+      setDeletingClipId(clip.id);
+      try {
+        await deleteClip.mutateAsync(clip.id);
+        toast.success("Clip deleted.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not delete clip.");
+      } finally {
+        setDeletingClipId(null);
+      }
+    },
+    [deleteClip],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="shimmer aspect-video rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return clips.length > 0 ? (
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {clips.map((clip) => (
+        <PersonaClipCard
+          key={clip.id}
+          clip={clip}
+          personaName={personaName}
+          deleting={deletingClipId === clip.id}
+          onDelete={handleDeleteClip}
+        />
+      ))}
+    </div>
+  ) : (
+    <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+      <Film size="1.75rem" className="text-[var(--muted-foreground)]/40" />
+      <div>
+        <p className="text-sm font-medium text-[var(--muted-foreground)]">No persona clips yet</p>
+        <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+          Generated game or scene videos from chats using {personaName || "this persona"} will appear here.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PersonaClipCard({
+  clip,
+  personaName,
+  deleting,
+  onDelete,
+}: {
+  clip: CharacterGalleryClip;
+  personaName?: string;
+  deleting: boolean;
+  onDelete: (clip: CharacterGalleryClip) => void | Promise<void>;
+}) {
+  const sourceLabel = personaGalleryClipSourceLabel(clip.source);
+  const dateLabel = formatPersonaClipDate(clip.updatedAt ?? clip.createdAt);
+  const isReady = clip.status === "ready" && Boolean(clip.url);
+  const canDelete = canDeletePersonaGalleryClip(clip);
+  const clipDetails = [clip.durationSeconds ? `${clip.durationSeconds}s` : null, clip.aspectRatio]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md">
+      <div className="relative aspect-video bg-[var(--secondary)]">
+        {isReady && clip.url ? (
+          <video src={clip.url} controls preload="metadata" className="h-full w-full bg-black object-contain" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
+            {clip.status === "generating" ? (
+              <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
+            ) : clip.status === "error" ? (
+              <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
+            ) : (
+              <Film size="1.25rem" className="opacity-50" />
+            )}
+            <span>{clip.status === "missing" ? "Not generated" : clip.status}</span>
+          </div>
+        )}
+        <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-black/65 px-2 py-1 text-[0.65rem] font-semibold text-white">
+          {sourceLabel}
+        </div>
+      </div>
+      <div className="space-y-2 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+              {clip.label || personaName || "Clip"}
+            </p>
+            <p className="mt-0.5 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+              {clip.chatName ? `${clip.chatName} · ${dateLabel}` : dateLabel}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            {isReady && clip.url ? (
+              <a
+                href={clip.url}
+                download
+                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                title="Download"
+              >
+                <Download size="0.75rem" />
+              </a>
+            ) : null}
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={() => void onDelete(clip)}
+                disabled={deleting}
+                className="rounded-lg border border-red-500/25 bg-red-500/10 p-1.5 text-red-400 transition-colors hover:border-red-500/45 hover:bg-red-500/20 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                title="Delete"
+                aria-label={`Delete ${clip.label || "clip"}`}
+              >
+                {deleting ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {clip.prompt ? (
+          <p className="line-clamp-2 text-xs leading-relaxed text-[var(--muted-foreground)]">{clip.prompt}</p>
+        ) : null}
+        {clipDetails ? (
+          <p className="text-[0.65rem] text-[var(--muted-foreground)]/70">{clipDetails}</p>
+        ) : null}
+      </div>
     </div>
   );
 }

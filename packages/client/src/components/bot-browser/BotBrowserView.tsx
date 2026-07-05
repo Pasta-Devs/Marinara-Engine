@@ -2459,7 +2459,7 @@ export function BotBrowserView() {
                   </button>
                 </div>
               ) : results.length === 0 ? (
-                <div className="flex flex-1 items-center justify-center py-12 text-sm text-[var(--muted-foreground)]">
+                <div className="mari-chrome-text-muted flex flex-1 items-center justify-center py-12 text-sm">
                   No characters found
                 </div>
               ) : (

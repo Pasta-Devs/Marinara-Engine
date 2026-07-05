@@ -4,6 +4,8 @@ Marinara Engine extensions are add-ons for changing how the app looks and behave
 
 Extensions are imported from **Settings -> Extensions** as a `.json`, `.css`, `.js`, `.server.js`, `.zip`, or a folder. Only install extensions from people you trust. Browser extension JavaScript runs with the same browser privileges as the app UI. Server extension JavaScript runs on the host server and can affect that server until disabled. Neither runtime directly patches Marinara's source code on disk.
 
+Installing, updating, toggling, or removing extensions is a privileged action. It works from loopback/local access, or from remote browsers when `ADMIN_SECRET` is set on the server and saved in **Settings -> Advanced -> Admin Access**. Without that, the server returns 403. See [Configuration -> Privileged APIs](CONFIGURATION.md#privileged-apis).
+
 ## Browser Extension Example
 
 Copy the example package in [`docs/examples/extensions/minimal`](examples/extensions/minimal):
@@ -105,7 +107,7 @@ Available helpers:
 | --- | --- |
 | `marinara.extensionId` | Installed extension ID. |
 | `marinara.extensionName` | Installed extension name. |
-| `marinara.addStyle(css)` | Inject CSS and automatically remove it when the extension unloads. |
+| `marinara.addStyle(css)` | Sanitize, inject, and automatically remove CSS when the extension unloads. External URLs, imports, remote/local fonts, and script-like CSS are stripped. |
 | `marinara.addElement(parent, tag, attrs)` | Append a DOM element and automatically remove it when the extension unloads. |
 | `marinara.apiFetch(path, options)` | Fetch from `/api/...` for non-sensitive app routes. Extension-management and admin routes are denied. |
 | `marinara.on(target, event, handler)` | Add an event listener with automatic cleanup. |
@@ -254,7 +256,7 @@ If there is no root package file, folder import scans for every `manifest.json` 
 - A folder with only loose `.css` or `.js` files and no manifest can still import as one browser extension named after the folder, but manifests are recommended for shared packages and SillyTavern-style extension folders.
 - A single `.server.js`, `.server.mjs`, or `.server.cjs` file imports as one disabled server extension.
 - A loose folder with `.server.js`, `.server.mjs`, or `.server.cjs` files and no manifest imports as one disabled server extension.
-- CSS is injected as a style block when the extension is enabled.
+- CSS is sanitized before injection. External `url()`, `@import`, `@namespace`, remote or `local()` web fonts, `expression()`, `javascript:`, `vbscript:`, `behavior`, and `-moz-binding` are stripped or rewritten; external URLs become `url(about:invalid)`, and `:visited` selectors are rewritten to `:link`. Embed images and fonts as safe `data:` URIs when needed.
 - Browser JavaScript is loaded by the browser client when the extension is enabled. It can change client behavior at runtime, but it is not run by the server.
 - Server JavaScript is loaded by the Marinara server when the extension is enabled. Startup status appears in Settings -> Extensions.
 - TypeScript files can be included in imported folders as package text, but Marinara does not compile TypeScript for extension execution. Point `jsPath` at JavaScript that the browser can run.

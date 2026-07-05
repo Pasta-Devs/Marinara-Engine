@@ -54,7 +54,7 @@ import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
-import { Check, HelpCircle, List, X } from "lucide-react";
+import { BookOpen, Check, HelpCircle, List, X } from "lucide-react";
 import {
   APP_VERSION,
   BUILT_IN_AGENTS,
@@ -64,6 +64,7 @@ import {
   type GeneratedSceneVideo,
   type SpritePlacement,
   type SpriteSide,
+  type WeekSchedule,
 } from "@marinara-engine/shared";
 import { resolveLiveConversationStatus } from "../../lib/conversation-presence-status";
 import { useUIStore } from "../../stores/ui.store";
@@ -245,6 +246,10 @@ function parseMessageExtraRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+function startsNewAssistantBubble(message: { extra?: unknown } | null | undefined): boolean {
+  return parseMessageExtraRecord(message?.extra).startsNewAssistantBubble === true;
+}
+
 function normalizeMessageSpriteExpressions(value: unknown): Record<string, string> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   const expressions: Record<string, string> = {};
@@ -408,6 +413,20 @@ const GameSurface = lazy(async () => {
   const module = await import("../game/GameSurface");
   return { default: module.GameSurface };
 });
+
+const loadCharacterScheduleEditorModal = async () => {
+  const module = await import("./CharacterScheduleEditorModal");
+  return { default: module.CharacterScheduleEditorModal };
+};
+
+let characterScheduleEditorModalLoadPromise: ReturnType<typeof loadCharacterScheduleEditorModal> | null = null;
+
+function preloadCharacterScheduleEditorModal() {
+  characterScheduleEditorModalLoadPromise ??= loadCharacterScheduleEditorModal();
+  return characterScheduleEditorModalLoadPromise;
+}
+
+const CharacterScheduleEditorModal = lazy(preloadCharacterScheduleEditorModal);
 
 type FloatingPanelAnchor = { right: number; top: number } | null;
 type OpenSettingsOptions = { initialSection?: ChatSettingsInitialSection };
@@ -1016,6 +1035,30 @@ export function ChatArea() {
   const groupChatMode: string | undefined = chatCharIds.length > 1 ? (chatMeta.groupChatMode ?? "merged") : undefined;
 
   const updateMeta = useUpdateChatMetadata();
+  const [scheduleModalCharacterId, setScheduleModalCharacterId] = useState<string | null>(null);
+  const [scheduleModalInitialDay, setScheduleModalInitialDay] = useState<string | null>(null);
+  const handleOpenScheduleEditor = useCallback((characterId: string, options?: { initialDay?: string | null }) => {
+    void preloadCharacterScheduleEditorModal();
+    setScheduleModalInitialDay(options?.initialDay ?? null);
+    setScheduleModalCharacterId(characterId);
+  }, []);
+  const handleCloseScheduleEditor = useCallback(() => {
+    setScheduleModalCharacterId(null);
+    setScheduleModalInitialDay(null);
+  }, []);
+  const handleSaveCharacterSchedule = useCallback(
+    (savedCharacterId: string, updated: WeekSchedule) => {
+      if (!chat?.id) return;
+      updateMeta.mutate({
+        id: chat.id,
+        characterSchedules: {
+          ...((chatMeta.characterSchedules as Record<string, WeekSchedule> | undefined) ?? {}),
+          [savedCharacterId]: updated,
+        },
+      });
+    },
+    [chat?.id, chatMeta.characterSchedules, updateMeta],
+  );
   const summaryContextSize: number = (chatMeta.summaryContextSize as number) ?? 50;
   const [roleplayBackgroundReviewItems, setRoleplayBackgroundReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const [roleplayBackgroundReviewSubmitting, setRoleplayBackgroundReviewSubmitting] = useState(false);
@@ -1580,6 +1623,8 @@ export function ChatArea() {
     setMultiSelectMode(false);
     setSelectedMessageIds(new Set());
     setSelectionAnchorIndex(null);
+    setScheduleModalCharacterId(null);
+    setScheduleModalInitialDay(null);
   }, [activeChatId]);
 
   const handleUnselectAllMessages = useCallback(() => {
@@ -2537,15 +2582,29 @@ export function ChatArea() {
                     </button>
                   </div>
 
-                  {/* Restart tutorial */}
-                  <button
-                    onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
-                    className="mari-chrome-control mari-chrome-control--small text-xs"
-                    title="Replay tutorial"
-                  >
-                    <HelpCircle size="0.875rem" />
-                    Replay Tutorial
-                  </button>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {/* In-app documentation */}
+                    <button
+                      type="button"
+                      onClick={() => useUIStore.getState().openModal("docs-viewer")}
+                      className="mari-chrome-control mari-chrome-control--small text-xs"
+                      title="Browse the documentation"
+                    >
+                      <BookOpen size="0.875rem" />
+                      Documentation
+                    </button>
+
+                    {/* Restart tutorial */}
+                    <button
+                      type="button"
+                      onClick={() => useUIStore.getState().setHasCompletedOnboarding(false)}
+                      className="mari-chrome-control mari-chrome-control--small text-xs"
+                      title="Replay tutorial"
+                    >
+                      <HelpCircle size="0.875rem" />
+                      Replay Tutorial
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -2566,6 +2625,7 @@ export function ChatArea() {
     if (i === 0 || !messages) return false;
     const prev = messages[i - 1];
     const curr = messages[i];
+    if (startsNewAssistantBubble(curr)) return false;
     if (prev.role !== curr.role || prev.characterId !== curr.characterId) return false;
     // Break grouping when persona changes between consecutive user messages
     if (prev.role === "user" && curr.role === "user") {
@@ -2609,6 +2669,22 @@ export function ChatArea() {
           }
         : undefined;
   const surfaceFallback = <div className="flex flex-1 overflow-hidden" />;
+  const scheduleModal = scheduleModalCharacterId ? (
+    <Suspense fallback={null}>
+      <CharacterScheduleEditorModal
+        open
+        chatId={activeChatId}
+        characterId={scheduleModalCharacterId}
+        characterName={characterMap.get(scheduleModalCharacterId)?.name ?? "Character"}
+        characterAvatarUrl={characterMap.get(scheduleModalCharacterId)?.avatarUrl ?? null}
+        characterAvatarCrop={characterMap.get(scheduleModalCharacterId)?.avatarCrop ?? null}
+        schedule={(chatMeta.characterSchedules as Record<string, WeekSchedule> | undefined)?.[scheduleModalCharacterId]}
+        initialDay={scheduleModalInitialDay}
+        onClose={handleCloseScheduleEditor}
+        onSave={handleSaveCharacterSchedule}
+      />
+    </Suspense>
+  ) : null;
 
   // ═══════════════════════════════════════════════
   // Game mode — RPG surface with GM narration, map, party chat
@@ -2620,6 +2696,7 @@ export function ChatArea() {
       <Suspense fallback={surfaceFallback}>
         <>
           {cardCssInjector}
+          {scheduleModal}
           <GameSurface
             activeChatId={activeChatId}
             chat={chat!}
@@ -2662,6 +2739,7 @@ export function ChatArea() {
             }}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
+            onOpenScheduleEditor={handleOpenScheduleEditor}
             onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
             onWizardFinish={() => {
               setWizardOpen(false);
@@ -2690,6 +2768,7 @@ export function ChatArea() {
     return (
       <>
         {cardCssInjector}
+        {scheduleModal}
         <Suspense fallback={surfaceFallback}>
           <ChatConversationSurface
             activeChatId={activeChatId}
@@ -2735,6 +2814,7 @@ export function ChatArea() {
             onAbandonScene={chatMeta.sceneStatus === "active" ? () => abandonScene(activeChatId) : undefined}
             onOpenSettings={handleOpenSettingsPanel}
             onOpenGallery={handleOpenGalleryPanel}
+            onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
             onWizardFinish={() => {
@@ -2776,6 +2856,7 @@ export function ChatArea() {
   return (
     <>
       {cardCssInjector}
+      {scheduleModal}
       <Suspense fallback={surfaceFallback}>
         <ChatRoleplaySurface
           activeChatId={activeChatId}
@@ -2860,6 +2941,7 @@ export function ChatArea() {
           onOpenGallery={handleOpenGalleryPanel}
           onCloseSettings={handleCloseSettingsPanel}
           onCloseGallery={handleCloseGalleryPanel}
+          onOpenScheduleEditor={handleOpenScheduleEditor}
           onIllustrate={() => retryAgents(activeChatId, ["illustrator"])}
           onGenerateBackground={handleGenerateRoleplayBackground}
           onGenerateVideo={() => handleGenerateRoleplaySceneVideo()}

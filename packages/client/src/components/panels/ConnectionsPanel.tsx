@@ -274,6 +274,21 @@ function SidecarCard() {
     : speechAvailable
       ? "Not downloaded"
       : "Unavailable on this install";
+  const localModelStatusLabel = isDownloaded
+    ? `${activeModelName ?? "Model"} • ${backendLabel}${nativeToolLabel}${modelSize ? ` • ${formatBytes(modelSize)}` : ""}${
+        status === "starting_server"
+          ? " • Starting"
+          : status === "server_error"
+            ? " • Error"
+            : status === "ready"
+              ? " • Ready"
+              : ""
+      }`
+    : speechModelDownloaded
+      ? speechStatusLabel
+      : speechDownloading
+        ? "Downloading Whisper..."
+        : "Not downloaded";
   const speechUnavailableMessage = describeSpeechRuntimeUnavailable(speechRuntime);
 
   const handleDownloadWhisper = () => {
@@ -299,19 +314,7 @@ function SidecarCard() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-sm font-medium">Local Model</div>
-          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">
-            {isDownloaded
-              ? `${activeModelName ?? "Model"} • ${backendLabel}${nativeToolLabel}${modelSize ? ` • ${formatBytes(modelSize)}` : ""}${
-                  status === "starting_server"
-                    ? " • Starting"
-                    : status === "server_error"
-                      ? " • Error"
-                      : status === "ready"
-                        ? " • Ready"
-                        : ""
-                }`
-              : "Not downloaded"}
-          </div>
+          <div className="text-[0.6875rem] text-[var(--muted-foreground)]">{localModelStatusLabel}</div>
         </div>
         <div className="flex items-center gap-1.5">
           <button
@@ -778,16 +781,16 @@ function DefaultVideoConnectionCard({ connectionsList }: { connectionsList: Conn
           <Film size="1rem" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-medium">Default for Scene Videos</div>
+          <div className="text-sm font-medium">Default for Videos</div>
           <select
             value={defaultConnection?.id ?? ""}
             onChange={handleDefaultChange}
             disabled={updateConnection.isPending || (!hasConnections && !defaultConnection)}
             className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.75rem] text-[var(--foreground)] ring-1 ring-[var(--border)] transition focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Default scene video connection"
+            aria-label="Default video connection"
           >
             <option value="">
-              {hasConnections ? "No default scene video connection" : "No video connections available"}
+              {hasConnections ? "No default video connection" : "No video connections available"}
             </option>
             {videoConnections.map((connection) => (
               <option key={connection.id} value={connection.id}>
@@ -801,7 +804,7 @@ function DefaultVideoConnectionCard({ connectionsList }: { connectionsList: Conn
             type="button"
             onClick={() => openFreshConnectionDetail(defaultConnection.id)}
             className="mari-chrome-control mari-chrome-control--small p-1.5"
-            title="Open default scene video connection"
+            title="Open default video connection"
           >
             <Settings2 size="0.8125rem" />
           </button>
@@ -1587,7 +1590,7 @@ export function ConnectionsPanel() {
           <div className="animate-float flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400/20 to-blue-500/20">
             <Link size="1.25rem" className="text-sky-400" />
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">No connections yet</p>
+          <p className="mari-chrome-text-muted text-xs">No connections yet</p>
         </div>
       )}
 
@@ -1596,7 +1599,7 @@ export function ConnectionsPanel() {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             <Search size="1.25rem" />
           </div>
-          <p className="text-xs text-[var(--muted-foreground)]">No connections match your search</p>
+          <p className="mari-chrome-text-muted text-xs">No connections match your search</p>
         </div>
       )}
 

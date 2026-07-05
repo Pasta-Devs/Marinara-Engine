@@ -7,6 +7,7 @@
 import type { PromptOverrideKeyDef } from "./types.js";
 
 import {
+  SPRITES_ANIMATED_PORTRAIT,
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
   SPRITES_SINGLE_FULL_BODY,
@@ -23,10 +24,18 @@ import {
   GAME_VIDEO,
 } from "./registry/game-assets.js";
 import { CONVERSATION_SELFIE } from "./registry/conversation.js";
+import {
+  CONVERSATION_CALL_VIDEO_CLIP_INSTRUCTION_BY_KIND,
+  CONVERSATION_CALL_VIDEO_CLIP_LABEL_BY_KIND,
+  CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT,
+  CONVERSATION_CALL_VIDEO_PROMPT_BY_KIND,
+  CONVERSATION_CALL_VIDEO_PROMPTS,
+} from "./registry/conversation-call-videos.js";
 
 export const PROMPT_OVERRIDE_REGISTRY = [
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
+  SPRITES_ANIMATED_PORTRAIT,
   SPRITES_SINGLE_FULL_BODY,
   SPRITES_FULL_BODY_SHEET,
   GAME_NPC_PORTRAIT,
@@ -37,6 +46,8 @@ export const PROMPT_OVERRIDE_REGISTRY = [
   GAME_STORYBOARD_ILLUSTRATION_DIRECTOR,
   GAME_STORYBOARD_DIRECTOR,
   GAME_VIDEO,
+  ...CONVERSATION_CALL_VIDEO_PROMPTS,
+  CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT,
   CONVERSATION_SELFIE,
 ] as const;
 
@@ -66,6 +77,7 @@ export function listPromptOverrideKeys(): string[] {
 export {
   SPRITES_EXPRESSION_SHEET,
   SPRITES_SINGLE_PORTRAIT,
+  SPRITES_ANIMATED_PORTRAIT,
   SPRITES_SINGLE_FULL_BODY,
   SPRITES_FULL_BODY_SHEET,
   GAME_NPC_PORTRAIT,
@@ -76,11 +88,17 @@ export {
   GAME_STORYBOARD_ILLUSTRATION_DIRECTOR,
   GAME_STORYBOARD_DIRECTOR,
   GAME_VIDEO,
+  CONVERSATION_CALL_VIDEO_PROMPTS,
+  CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT,
+  CONVERSATION_CALL_VIDEO_PROMPT_BY_KIND,
+  CONVERSATION_CALL_VIDEO_CLIP_INSTRUCTION_BY_KIND,
+  CONVERSATION_CALL_VIDEO_CLIP_LABEL_BY_KIND,
   CONVERSATION_SELFIE,
 };
 export type {
   SpritesExpressionSheetCtx,
   SpritesSinglePortraitCtx,
+  SpritesAnimatedPortraitCtx,
   SpritesSingleFullBodyCtx,
   SpritesFullBodySheetCtx,
 } from "./registry/sprites.js";
@@ -93,5 +111,9 @@ export type {
   GameStoryboardDirectorCtx,
   GameVideoCtx,
 } from "./registry/game-assets.js";
+export type {
+  ConversationCallCustomVideoClipCtx,
+  ConversationCallVideoClipCtx,
+} from "./registry/conversation-call-videos.js";
 export type { ConversationSelfieCtx } from "./registry/conversation.js";
 export type { PromptOverrideKeyDef, PromptVariable } from "./types.js";

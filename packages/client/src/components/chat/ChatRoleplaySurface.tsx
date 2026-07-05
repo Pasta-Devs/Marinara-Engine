@@ -1105,6 +1105,7 @@ type RoleplaySurfaceProps = {
   isForkingScene?: boolean;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>) => void;
   onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
+  onOpenScheduleEditor?: ComponentProps<typeof ChatCommonOverlays>["onOpenScheduleEditor"];
   onCloseSettings: () => void;
   onCloseGallery: () => void;
   onIllustrate?: () => void;
@@ -1216,6 +1217,7 @@ export function ChatRoleplaySurface({
   isForkingScene,
   onOpenSettings,
   onOpenGallery,
+  onOpenScheduleEditor,
   onCloseSettings,
   onCloseGallery,
   onIllustrate,
@@ -1978,6 +1980,7 @@ export function ChatRoleplaySurface({
                     })}
                   onExpressionChange={onExpressionChange}
                   onPeekPrompt={onPeekPrompt}
+                  onIllustrate={onIllustrate}
                   interactionsLocked={agentProcessing}
                 />
               </div>
@@ -2016,6 +2019,7 @@ export function ChatRoleplaySurface({
         }}
         onCloseSettings={onCloseSettings}
         onCloseGallery={onCloseGallery}
+        onOpenScheduleEditor={onOpenScheduleEditor}
         onIllustrate={onIllustrate}
         onGenerateVideo={onGenerateVideo}
         onAnimateImage={onAnimateImage}

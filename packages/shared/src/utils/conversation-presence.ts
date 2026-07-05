@@ -23,6 +23,16 @@ export interface ScheduleBlock {
 /** One day of a character's schedule */
 export type DaySchedule = ScheduleBlock[];
 
+export type ConversationMessageIntent =
+  | "check_in"
+  | "long_absence_check_in"
+  | "came_back_online"
+  | "after_busy"
+  | "good_morning"
+  | "good_night"
+  | "meal_break"
+  | "transition_ping";
+
 /** Full weekly schedule for a character */
 export interface WeekSchedule {
   /** ISO date string of the Monday this schedule starts */
@@ -35,6 +45,14 @@ export interface WeekSchedule {
   idleResponseDelayMinutes?: number;
   /** Optional exact response delay in minutes while busy / DND */
   dndResponseDelayMinutes?: number;
+  /** Optional per-character daily autonomous check-in cap. Chat caps can still lower this ceiling. */
+  autonomousDailyCapOverride?: number | null;
+  /** Optional generated profile text that summarizes this character's weekly routine. */
+  routineSummary?: string | null;
+  /** ISO timestamp for the generated routine summary. */
+  routineSummaryGeneratedAt?: string | null;
+  /** Optional special autonomous message reasons this routine should not use. */
+  disabledAutonomousIntents?: ConversationMessageIntent[];
   /** How chatty the character is — affects autonomous messaging frequency (0-100) */
   talkativeness: number;
 }

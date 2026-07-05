@@ -2,8 +2,8 @@
 
 This is the working map for organizing the codebase by shared foundations, feature systems, and mode-specific ownership.
 
-Audit date: 2026-04-30
-Scope: `packages/client/src`, `packages/server/src`, `packages/shared/src`, and `packages/server/test`. Duplicate untracked `* 2.ts` / `* 2.tsx` files were ignored.
+Audit date: 2026-07-05
+Scope: `packages/client/src`, `packages/server/src`, and `packages/shared/src`. The repo keeps no committed test suite; temporary `.test.ts` files are gitignored and removed after use.
 
 ## Section Codes
 
@@ -24,7 +24,7 @@ Use these codes when planning moves, labeling issues, or adding a short file hea
 | `FEATURE-SIDECAR`   | Local model runtime, scene analysis, downloads, process control                     | sidecar store, `/api/sidecar`, sidecar services                          |
 | `FEATURE-TTS`       | TTS config, voice routing, cache keys, audio playback                               | TTS settings/hooks/routes/services                                       |
 | `FEATURE-IMPORT`    | ST/Marinara importers and migration helpers                                         | import routes/services                                                   |
-| `TEST`              | Unit and integration tests                                                          | `packages/server/test`                                                   |
+| `TEST`              | Temporary proof tests only                                                          | Temporary `packages/server/src/**/__tests__/` files, removed after use   |
 
 Prefer making the path communicate the section. A comment like `// Section: MODE-GAME` is only useful while a file is still in a mixed directory.
 
@@ -40,6 +40,7 @@ Current contents:
 - `schemas`: Zod schemas for persisted/shared entities.
 - `constants`: providers, defaults, chat modes, model lists, agent prompts.
 - `utils`: pure helpers such as macro expansion, XML wrapping, and music scoring.
+- `features`: agent manifests/registry, function-call definitions, folder packages, and turn-game engines for UNO and Chess.
 
 Rules:
 
@@ -49,7 +50,7 @@ Rules:
 
 ### `packages/client`
 
-React 19 + Vite PWA. It currently has 199 source files.
+React 19 + Vite PWA. It currently has about 447 source files.
 
 Current top-level shape:
 
@@ -59,9 +60,11 @@ Current top-level shape:
 - `components/chat`: mixed common chat, conversation, roleplay, visual novel, scene, sprite, and encounter UI.
 - `components/game`: game-mode surface and panels.
 - `components/panels`, `components/modals`, entity editors: settings and resource management.
+- `features`: extracted feature modules, currently including chat-settings sections and tracker-panel pieces.
 - `hooks`: React Query hooks and runtime hooks for most API features.
 - `lib`: browser/client helpers. This currently mixes common helpers with mode-specific game helpers.
 - `stores`: Zustand stores for UI, chat runtime, agents, game state, game mode, assets, sidecar, translation, gallery, encounters.
+- `styles`: global stylesheet and theme-specific CSS.
 
 Important current crossovers:
 
@@ -72,12 +75,12 @@ Important current crossovers:
 
 ### `packages/server`
 
-Fastify API + file-backed storage + a temporary in-memory SQL compatibility index + provider integrations. It currently has 179 source files.
+Fastify API + file-backed storage + a temporary in-memory SQL compatibility index + provider integrations. It currently has about 326 source files.
 
 Current top-level shape:
 
 - `app.ts`, `index.ts`: app factory, bootstrap, static serving, file-storage hydration, compatibility migrations, seeders.
-- `routes`: 45 route files. Many are thin CRUD APIs, but `generate.routes.ts` and `game.routes.ts` are large orchestration files.
+- `routes`: 67 route files. Many are thin CRUD APIs, but `generate.routes.ts` and `game.routes.ts` are large orchestration files.
 - `services/storage`: storage facade layer for chats, characters, prompts, lorebooks, settings, assets, themes, game state.
 - `services/llm`: provider registry, base provider contract, OpenAI-compatible providers, local sidecar bridge.
 - `services/prompt`: shared prompt assembly for non-game generation.
@@ -85,7 +88,7 @@ Current top-level shape:
 - `services/game`: GM prompts, dice, combat, state machine, party prompts, maps, weather, time, sessions, checkpoints, reputation, assets.
 - `services/sidecar`: local runtime, model management, scene analysis, scene postprocessing.
 - `services/agents`: agent execution and knowledge routing.
-- `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`: feature foundations.
+- `services/import`, `services/lorebook`, `services/image`, `services/haptic`, `services/tools`, `services/extensions`, `services/regex`, `services/professor-mari`, `services/mari-db`, `services/turn-games`, `services/spotify`, `services/video`, `services/generation`, `services/chat-summary`, `services/achievements`, `services/prompt-overrides`, `services/setup`, `services/memory-recall`, and `discord-webhook.ts`: feature foundations.
 - `db/schema`: temporary compatibility schema for the in-memory SQL index while durable data lives in `DATA_DIR/storage`.
 - `db/file-backed-store.ts`: v1.5.7 bridge that imports legacy SQLite into JSON snapshots and autosaves runtime changes back to files. See `docs/FILE_STORAGE_MIGRATION.md`.
 
@@ -155,13 +158,13 @@ These are the files most likely to slow future work:
 
 | File                                                         | Approx lines | Section                    | Concern                                                                                   |
 | ------------------------------------------------------------ | -----------: | -------------------------- | ----------------------------------------------------------------------------------------- |
-| `packages/server/src/routes/generate.routes.ts`              |         7703 | shared generation / agents | Route, streaming, prompt, agents, storage, and side effects are in one file.              |
-| `packages/client/src/components/game/GameSurface.tsx`        |         7037 | `MODE-GAME`                | Rendering, state orchestration, assets, logs, narration, combat, and effects are coupled. |
-| `packages/server/src/routes/game.routes.ts`                  |         5338 | `MODE-GAME`                | API handlers, GM flow, scene analysis, assets, combat, and persistence are coupled.       |
-| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` |         4927 | mixed chat settings        | Conversation, roleplay, visual, and global settings share one component.                  |
-| `packages/client/src/components/game/GameNarration.tsx`      |         4256 | `MODE-GAME`                | Display rendering and command formatting are tightly coupled.                             |
-| `packages/client/src/components/chat/RoleplayHUD.tsx`        |         2031 | `MODE-ROLEPLAY`            | HUD, state display, and roleplay controls are large enough to split.                      |
-| `packages/client/src/components/game/GameCombatUI.tsx`       |         1938 | `MODE-GAME`                | Combat display, controls, and logs can become smaller panels/hooks.                       |
+| `packages/server/src/routes/generate.routes.ts`              |        12155 | shared generation / agents | Route, streaming, prompt, agents, storage, and side effects are in one file.              |
+| `packages/server/src/routes/game.routes.ts`                  |        11066 | `MODE-GAME`                | API handlers, GM flow, scene analysis, assets, combat, and persistence are coupled.       |
+| `packages/client/src/components/game/GameSurface.tsx`        |        10980 | `MODE-GAME`                | Rendering, state orchestration, assets, logs, narration, combat, and effects are coupled. |
+| `packages/client/src/components/chat/ChatSettingsDrawer.tsx` |         9083 | mixed chat settings        | Section extraction is underway in `features/chat-settings`, but the drawer is still large. |
+| `packages/client/src/components/game/GameNarration.tsx`      |         6294 | `MODE-GAME`                | Display rendering and command formatting are tightly coupled.                             |
+| `packages/client/src/components/game/GameCombatUI.tsx`       |         3288 | `MODE-GAME`                | Combat display, controls, and logs can become smaller panels/hooks.                       |
+| `packages/client/src/components/chat/RoleplayHUD.tsx`        |         1582 | `MODE-ROLEPLAY`            | Split partially done via `RoleplayHUDActionsMenu.tsx` and `RoleplayHUDPanels.tsx`.        |
 
 ## Target Structure
 
@@ -247,7 +250,7 @@ packages/shared/src/
   utils/
 ```
 
-The current flat `types`, `schemas`, and `constants` layout is fine until the contracts become hard to navigate. The first shared cleanup should be type-level, not a mass file move.
+The old flat `types`, `schemas`, and `constants` layout is no longer the whole story: `packages/shared/src/features/` now hosts agents, function calls, folder packages, and turn games. The first shared cleanup should still be type-level and incremental, not a mass file move.
 
 ## Migration Rules
 
@@ -268,7 +271,7 @@ These are good first cleanup passes because they reduce coupling without changin
 1. Split `components/chat` into common, conversation, and roleplay groups.
    - Common candidates: `ChatCommonOverlays`, `ChatBranchSelector`, `ChatGalleryDrawer`, `WeatherEffects`, shared message/input primitives.
    - Conversation candidates: `ChatConversationSurface`, `ConversationView`, `ConversationMessage`, `ConversationInput`.
-   - Roleplay candidates: `ChatRoleplaySurface`, `RoleplayHUD*`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`.
+   - Roleplay candidates: `ChatRoleplaySurface`, `SpriteOverlay`, `SceneBanner`, `CyoaChoices`, `EncounterModal`. The RoleplayHUD split is partially done in `RoleplayHUDActionsMenu.tsx` and `RoleplayHUDPanels.tsx`.
 2. Move game-only client helpers under a game module.
    - Candidates: `game-audio`, `game-tag-parser`, `game-full-body-pose`, `game-character-name-match`, `game-segment-edits`, `party-dialogue-parser`.
 3. Split `GameSurface.tsx` into runtime hooks and smaller containers.

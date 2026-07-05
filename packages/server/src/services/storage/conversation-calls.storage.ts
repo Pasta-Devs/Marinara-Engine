@@ -217,6 +217,16 @@ export function createConversationCallsStorage(db: DB) {
       return rows[0] ? toMessage(rows[0]) : null;
     },
 
+    async updateMessageExtra(id: string, partial: Record<string, unknown>) {
+      const current = await this.getMessage(id);
+      if (!current) return null;
+      await db
+        .update(conversationCallMessages)
+        .set({ extra: JSON.stringify({ ...current.extra, ...partial }) })
+        .where(eq(conversationCallMessages.id, id));
+      return this.getMessage(id);
+    },
+
     async listMessages(callId: string) {
       const rows = await db
         .select()

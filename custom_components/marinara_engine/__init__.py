@@ -64,7 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Auto-sync HA tools into Marinara on every startup (idempotent — skips existing)
+    # Auto-sync HA tools into Marinara on every startup, updating existing tools so schema changes propagate.
     enabled_categories = entry.options.get(CONF_ENABLED_CATEGORIES, DEFAULT_ENABLED_CATEGORIES)
     hass.async_create_task(
         _async_sync_tools(hass, coordinator, webhook_id, enabled_categories)

@@ -297,6 +297,7 @@ interface ConversationInputProps {
     conversationActivity?: string;
   }>;
   onPeekPrompt?: () => void;
+  onIllustrate?: () => void | Promise<void>;
 }
 
 export function ConversationInput({
@@ -306,6 +307,7 @@ export function ConversationInput({
   groupResponseOrder,
   chatCharacters,
   onPeekPrompt,
+  onIllustrate,
 }: ConversationInputProps) {
   const [hasInput, setHasInput] = useState(false);
   const [completions, setCompletions] = useState<ConversationSlashCompletion[]>([]);
@@ -868,6 +870,7 @@ export function ConversationInput({
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
         latestAssistantMessageId: latestAssistantMessage?.id ?? null,
         lastMessageRole,
+        illustrate: onIllustrate,
       };
       const submittedDraft = textareaRef.current?.value ?? "";
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
@@ -1019,6 +1022,7 @@ export function ConversationInput({
     replaceAttachments,
     updateAttachments,
     onPeekPrompt,
+    onIllustrate,
   ]);
 
   const runQuickSlashCommand = useCallback(
@@ -1046,6 +1050,7 @@ export function ConversationInput({
         characters: activeChatCharacters?.map((character) => ({ id: character.id, name: character.name })),
         latestAssistantMessageId: latestAssistantMessage?.id ?? null,
         lastMessageRole,
+        illustrate: onIllustrate,
       };
 
       const previousDraft = textareaRef.current?.value ?? "";
@@ -1109,6 +1114,7 @@ export function ConversationInput({
       createMessage,
       generate,
       latestAssistantMessage,
+      onIllustrate,
       qc,
       setInputDraft,
       syncInputState,

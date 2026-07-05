@@ -19,6 +19,11 @@ Unknown `{{name}}` macros are left unchanged unless a prompt variable with that 
 | `{{user}}` | Current user or persona name. |
 | `{{userName}}` | Alias for `{{user}}`. |
 | `{{persona}}` | Active persona description, personality, backstory, appearance, and scenario joined by new lines. |
+| `{{personaDescription}}` | Active persona description. |
+| `{{personaPersonality}}` | Active persona personality. |
+| `{{personaBackstory}}` | Active persona backstory. |
+| `{{personaAppearance}}` | Active persona appearance. |
+| `{{personaScenario}}` | Active persona scenario. |
 | `{{char}}` | Current character name. |
 | `{{charName}}` | Alias for `{{char}}`. |
 | `{{characters}}` | All active character names, comma-separated. |
@@ -106,7 +111,7 @@ Rules:
 - Invalid weight suffixes are treated as normal text. For example, `event@rare` is just the text `event@rare`.
 - Only a final top-level `@number` is treated as a weight. Other `@` symbols, such as an email address, are left alone.
 
-The selected option is resolved after it is picked, so only macros in the chosen branch run.
+After an option is picked, its remaining macros, such as dice, nested random choices, and text macros, are resolved in the chosen branch only. Exception: variable operations (`{{getvar}}`, `{{setvar}}`, `{{addvar}}`, `{{incvar}}`, `{{decvar}}`) are processed in every option before the choice is made, so avoid variable writes inside random options.
 
 ## Variables
 
@@ -132,7 +137,7 @@ Variable operations resolve left-to-right within a prompt pass, so later macros 
 | `{{trimEnd}}` | Trim whitespace at the right edge of the final output around the marker. |
 | `{{uppercase}}...{{/uppercase}}` | Uppercase a wrapped block. |
 | `{{lowercase}}...{{/lowercase}}` | Lowercase a wrapped block. |
-| `{{#if char == "Name"}}...{{else}}...{{/if}}` | Conditional block. Supports straight or typographic quotes. |
+| `{{#if char == "Name"}}...{{else if user contains "Mari"}}...{{else}}...{{/if}}` | Conditional block. Supports straight or typographic quotes. |
 | `{{noop}}` | No-op placeholder removed from output. |
 | `{{// comment}}` | Inline author comment removed from output. |
 | `{{banned "text"}}` | Accepted with straight or typographic quotes, but currently stripped from output. |
@@ -140,3 +145,17 @@ Variable operations resolve left-to-right within a prompt pass, so later macros 
 ## Literal Final `@number`
 
 If a random option really needs to end with text like `@2`, Marinara will read that as a weight. Reword the option so it does not end with a final `@number`.
+
+## Conditionals
+
+Conditionals support `{{else if condition}}` chains. The first matching branch wins.
+
+Supported operators:
+
+- Equality: `==`, `=`, `is`.
+- Inequality: `!=`, `is not`.
+- Numeric comparisons when both sides are numbers: `>`, `<`, `>=`, `<=`.
+- Text containment: `contains`, `includes`, `not contains`, `not includes`.
+- Bare truthiness: `{{#if personaScenario}}` is true when the value is non-empty and not `false`, `0`, `no`, `off`, `null`, or `undefined`.
+
+Operands can be identity or field keywords such as `char`, `user`, `persona`, `description`, `personaScenario`; quoted literals; variable names; `var:name`; or nested macros.

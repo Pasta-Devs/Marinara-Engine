@@ -46,6 +46,10 @@
      --y2k-pink, --y2k-purple, --y2k-blue,
      --y2k-mint, --y2k-peach, --y2k-lavender, --y2k-yellow
 
+   Conversation surfaces (2)
+     --marinara-conversation-gradient-from,
+     --marinara-conversation-gradient-to
+
    Pastel palette (8)
      --pastel-rose, --pastel-lilac, --pastel-sky,
      --pastel-mint, --pastel-coral, --pastel-peach,
@@ -58,7 +62,7 @@
    Font / Layout (2)
      --font-y2k, --app-font-size
 
-   Total: 65 variables
+   Total: 67 variables
 
    NOTE: Even when a theme disables certain effects
    (glass, glow, custom cursors, etc.) via CSS class
@@ -81,6 +85,8 @@
   --primary-foreground: #ffffff;
   --secondary: #16161e;
   --secondary-foreground: #c0bfcf;
+  --marinara-conversation-gradient-from: var(--secondary);
+  --marinara-conversation-gradient-to: var(--secondary);
   --muted: #1c1c28;
   --muted-foreground: #8888a0;
   --accent: #1e1e2e;
@@ -175,6 +181,8 @@
   --primary-foreground: #ffffff;
   --secondary: #d8d8e0;
   --secondary-foreground: #2a2a3e;
+  --marinara-conversation-gradient-from: var(--secondary);
+  --marinara-conversation-gradient-to: var(--secondary);
   --muted: #d0d0da;
   --muted-foreground: #606078;
   --accent: #d4d4de;

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ConversationCallIdleResponse,
+  ConversationCallCharacterVideoManifest,
   ConversationCallMessage,
   ConversationCallMessageResponse,
   ConversationCallSession,
@@ -15,6 +16,7 @@ export const conversationCallKeys = {
   status: (chatId: string) => ["conversation-calls", "status", chatId] as const,
   messages: (callId: string) => ["conversation-calls", "messages", callId] as const,
   soundboard: ["conversation-calls", "soundboard"] as const,
+  characterVideos: (characterId: string) => ["conversation-calls", "character-videos", characterId] as const,
 };
 
 function appendCallMessages(
@@ -122,6 +124,23 @@ export function useSendConversationCallMessage(callId: string | null) {
   });
 }
 
+export function useUpdateConversationCallMessageExtra(callId: string | null) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { messageId: string; extra: Record<string, unknown> }) => {
+      if (!callId) throw new Error("No active call is available for this message update.");
+      return api.patch<ConversationCallMessage>(
+        `/conversation-calls/${callId}/messages/${input.messageId}/extra`,
+        input.extra,
+      );
+    },
+    onSuccess: (message) => {
+      appendCallMessages(queryClient, message.callId, [message]);
+      queryClient.invalidateQueries({ queryKey: conversationCallKeys.messages(message.callId) });
+    },
+  });
+}
+
 export function useSendConversationCallIdle(callId: string | null) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -184,6 +203,31 @@ export function useConversationCallSoundboard() {
     queryKey: conversationCallKeys.soundboard,
     queryFn: () => api.get<ConversationCallSound[]>("/conversation-calls/soundboard"),
     staleTime: 60_000,
+  });
+}
+
+export function useConversationCallCharacterVideos(characterId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: conversationCallKeys.characterVideos(characterId ?? ""),
+    queryFn: () => api.get<ConversationCallCharacterVideoManifest>(`/conversation-calls/character-videos/${characterId}`),
+    enabled: enabled && Boolean(characterId),
+    refetchInterval: (query) => (query.state.data?.generating ? 15_000 : false),
+    staleTime: 15_000,
+  });
+}
+
+export function useGenerateConversationCallCharacterVideos() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { characterId: string }) =>
+      api.post<ConversationCallCharacterVideoManifest>(
+        `/conversation-calls/character-videos/${input.characterId}/generate`,
+        { debugMode: useUIStore.getState().debugMode },
+      ),
+    onSuccess: (manifest) => {
+      queryClient.setQueryData(conversationCallKeys.characterVideos(manifest.characterId), manifest);
+      queryClient.invalidateQueries({ queryKey: conversationCallKeys.characterVideos(manifest.characterId) });
+    },
   });
 }
 

@@ -12,6 +12,7 @@ import {
   getCurrentStatus,
   getEffectiveCurrentStatus,
   type CharacterSchedules,
+  type ConversationMessageIntent,
   type ConversationPresenceStatus,
   type ConversationStatusOverride,
   type CurrentConversationStatus,
@@ -25,11 +26,17 @@ import {
 // same way the server does. Re-export them here so existing server imports from
 // "./schedule.service.js" keep resolving unchanged.
 export { getActiveStatusOverride, getCurrentStatus, getEffectiveCurrentStatus };
-export type { CharacterSchedules, CurrentConversationStatus, DaySchedule, ScheduleBlock, WeekSchedule };
+export type { CharacterSchedules, ConversationMessageIntent, CurrentConversationStatus, DaySchedule, ScheduleBlock, WeekSchedule };
 
 // ── Constants ──
 
 const DAYS = CONVERSATION_SCHEDULE_DAYS;
+
+export type WeekScheduleDraftMode = "rewrite" | "adjust" | "vary" | "repair";
+
+export type WeekScheduleDraftOptions = {
+  draftMode?: WeekScheduleDraftMode;
+};
 
 const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
   sleep: "offline",
@@ -62,6 +69,62 @@ const STATUS_KEYWORDS: Record<string, ConversationPresenceStatus> = {
   meal: "idle",
 };
 
+function summarizeWeekForPrompt(schedule: WeekSchedule): string[] {
+  return DAYS.map((day) => {
+    const blocks = schedule.days[day] ?? [];
+    const summary = blocks.map((block) => `${block.time} ${block.status ?? "online"} ${block.activity}`).join("; ");
+    return `${day}: ${summary || "unscheduled"}`;
+  });
+}
+
+function summarizeScheduleExcept(schedule: WeekSchedule, excludedDay: string): string[] {
+  return DAYS.filter((day) => day !== excludedDay).map((day) => {
+    const blocks = schedule.days[day] ?? [];
+    const summary = blocks.map((block) => `${block.time} ${block.status ?? "online"} ${block.activity}`).join("; ");
+    return `${day}: ${summary || "unscheduled"}`;
+  });
+}
+
+function summarizeBlocks(blocks: DaySchedule): string[] {
+  return blocks.length > 0 ? blocks.map((block) => `- ${block.time} ${block.status ?? "online"} ${block.activity}`) : ["- unscheduled"];
+}
+
+function getWeekDraftModeInstructions(draftMode: WeekScheduleDraftMode): string[] {
+  if (draftMode === "adjust") {
+    return [
+      `Draft action: Adjust current week.`,
+      `Use the current draft as the base routine. Preserve most daily structure unless the user's guidance conflicts with it.`,
+      `Make targeted changes that clearly satisfy the guidance without rewriting unrelated days for novelty.`,
+    ];
+  }
+  if (draftMode === "vary") {
+    return [
+      `Draft action: Vary current week.`,
+      `Use the current draft as context, but make the new week visibly different.`,
+      `Change time ranges, activities, and status mix while keeping the routine plausible for the character.`,
+    ];
+  }
+  if (draftMode === "repair") {
+    return [
+      `Draft action: Repair current week.`,
+      `Treat the current draft as the source of truth. Minimize creative changes.`,
+      `Fix incomplete 24-hour coverage, invalid ranges, obvious status/activity mismatches, overlaps, and gaps.`,
+      `Only change activities or timing when needed to make the schedule valid and coherent.`,
+    ];
+  }
+  return [
+    `Draft action: Rewrite week.`,
+    `Create a fresh full-week schedule based on the character and any user guidance.`,
+  ];
+}
+
+function getWeekScheduleTemperature(draftMode: WeekScheduleDraftMode): number {
+  if (draftMode === "repair") return 0.45;
+  if (draftMode === "adjust") return 0.7;
+  if (draftMode === "vary") return 0.9;
+  return 0.8;
+}
+
 // ── Schedule Generation ──
 
 /**
@@ -75,13 +138,17 @@ export async function generateCharacterSchedule(
   characterPersonality: string,
   userSchedulePreferences?: string,
   recentContinuityContext?: string,
+  options: WeekScheduleDraftOptions = {},
 ): Promise<{ schedule: Omit<WeekSchedule, "weekStart">; raw: string }> {
+  const draftMode = options.draftMode ?? "rewrite";
   const systemPrompt = [
     `You are a schedule generator. Create a realistic weekly schedule for a character based on their personality and description.`,
     ``,
     `Character: ${characterName}`,
     `Description: ${characterDescription}`,
     `Personality: ${characterPersonality}`,
+    ``,
+    ...getWeekDraftModeInstructions(draftMode),
     ``,
     ...(recentContinuityContext?.trim()
       ? [
@@ -155,7 +222,7 @@ export async function generateCharacterSchedule(
       { role: "system", content: systemPrompt },
       { role: "user", content: "Generate the schedule now." },
     ],
-    { model, temperature: 0.8, maxTokens: scheduleMaxTokens },
+    { model, temperature: getWeekScheduleTemperature(draftMode), maxTokens: scheduleMaxTokens },
   );
 
   const content = result.content ?? "";
@@ -163,59 +230,100 @@ export async function generateCharacterSchedule(
   return { schedule: parsed, raw: content };
 }
 
+export async function generateCharacterDaySchedule(
+  provider: BaseLLMProvider,
+  model: string,
+  characterName: string,
+  characterDescription: string,
+  characterPersonality: string,
+  day: string,
+  currentSchedule: WeekSchedule,
+  userSchedulePreferences?: string,
+  daySchedulePreferences?: string,
+): Promise<{ blocks: DaySchedule; raw: string }> {
+  const globalGuidance = userSchedulePreferences?.trim() ?? "";
+  const dayGuidance = daySchedulePreferences?.trim() ?? "";
+  const systemPrompt = [
+    `You are a schedule editor. Replace exactly one day of a fictional character's weekly routine.`,
+    ``,
+    `Character: ${characterName}`,
+    `Description: ${characterDescription}`,
+    `Personality: ${characterPersonality}`,
+    ``,
+    `Requested day to replace: ${day}`,
+    ...(globalGuidance ? [``, `Global routine guidance:`, globalGuidance] : []),
+    ...(dayGuidance ? [``, `Specific ${day} guidance:`, dayGuidance] : []),
+    ``,
+    `Old ${day} to replace. Do not copy it:`,
+    ...summarizeBlocks(currentSchedule.days[day] ?? []),
+    ``,
+    `Other days are consistency context only. Do not regenerate them:`,
+    ...summarizeScheduleExcept(currentSchedule, day),
+    ``,
+    `Return a materially different ${day} unless the specific guidance explicitly asks for a tiny adjustment.`,
+    `Make visible changes to time ranges, activities, or status mix while keeping the day plausible for this character.`,
+    `If there is specific ${day} guidance, prioritize it over the global guidance.`,
+    `Return only JSON in this exact shape:`,
+    `{ "blocks": [ { "time": "00:00-07:00", "activity": "sleeping", "status": "offline" } ] }`,
+    `The blocks must cover the full 24 hours for ${day}.`,
+    `Valid statuses are "online", "idle", "dnd", and "offline".`,
+    `Do not include markdown, comments, explanations, or extra keys.`,
+  ].join("\n");
+
+  const result = await provider.chatComplete(
+    [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: dayGuidance ? `Apply this ${day} guidance: ${dayGuidance}` : `Create a visibly different ${day}.` },
+    ],
+    { model, temperature: 0.9, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 4096, 4096) },
+  );
+
+  const content = result.content ?? "";
+  return { blocks: parseDayScheduleResponse(content), raw: content };
+}
+
+export async function generateScheduleRoutineSummary(
+  provider: BaseLLMProvider,
+  model: string,
+  characterName: string,
+  schedule: WeekSchedule,
+  userSchedulePreferences?: string,
+): Promise<{ summary: string; raw: string }> {
+  const systemPrompt = [
+    `You summarize a fictional character's weekly autonomous conversation routine.`,
+    `Write one vivid but concise sentence, maximum 45 words.`,
+    `Focus on availability patterns, busy periods, offline periods, and when the character seems open.`,
+    `Do not explain app mechanics. Do not mention JSON, schedules, or the user.`,
+    `Do not invent lore beyond the routine. Output plain text only.`,
+    ``,
+    `Character: ${characterName}`,
+    ...(userSchedulePreferences?.trim() ? [``, `User guidance:`, userSchedulePreferences.trim()] : []),
+    ``,
+    `Routine:`,
+    ...summarizeWeekForPrompt(schedule),
+  ].join("\n");
+
+  const result = await provider.chatComplete(
+    [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: "Summarize the routine." },
+    ],
+    { model, temperature: 0.55, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 512, 512) },
+  );
+  const summary = (result.content ?? "").replace(/^```(?:text)?/i, "").replace(/```$/i, "").trim();
+  if (!summary) throw new Error("Routine summary was empty");
+  return { summary: summary.slice(0, 360), raw: result.content ?? "" };
+}
+
 /**
  * Parse the LLM's schedule response into a structured format.
  */
 function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart"> {
-  // Try to extract JSON from response (handle markdown code blocks)
-  let jsonStr = content.trim();
-  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (jsonMatch) jsonStr = jsonMatch[1]!.trim();
-
-  // Try to find raw JSON object
-  const braceStart = jsonStr.indexOf("{");
-  const braceEnd = jsonStr.lastIndexOf("}");
-  if (braceStart !== -1 && braceEnd !== -1) {
-    jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
-  }
-
-  // Repair common LLM JSON issues: trailing commas, comments, ellipsis, unquoted keys
-  jsonStr = jsonStr
-    .replace(/\/\/[^\n]*/g, "") // remove single-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, "") // remove multi-line comments
-    .replace(/,\s*([\]\}])/g, "$1") // remove trailing commas before ] or }
-    .replace(/\.{3,}[^"}\]\n]*/g, "") // remove ...etc / ... continuations (not inside strings)
-    .replace(/\n\s*\n/g, "\n"); // collapse blank lines left by removals
-
-  let data: {
+  const data = parseRepairedJson<{
     talkativeness?: number;
     inactivityThresholdMinutes?: number;
     days?: Record<string, Array<{ time: string; activity: string; status?: string }>>;
-  };
-
-  try {
-    data = JSON.parse(jsonStr);
-  } catch (firstError) {
-    // Second pass: more aggressive repair — remove any lines that aren't valid JSON structure
-    // This catches things like "// ..." or bare text the LLM added inside the JSON
-    const repairedLines = jsonStr.split("\n").filter((line) => {
-      const trimmed = line.trim();
-      // Keep lines that look like JSON structure (braces, brackets, key-value pairs, commas)
-      if (!trimmed) return false;
-      if (/^[{}\[\],]/.test(trimmed)) return true;
-      if (/^"/.test(trimmed)) return true;
-      if (/^\d/.test(trimmed)) return true;
-      if (/^[}\]]/.test(trimmed)) return true;
-      return false;
-    });
-    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]\}])/g, "$1");
-    try {
-      data = JSON.parse(repairedStr);
-    } catch {
-      // If still failing, throw the original error with context
-      throw firstError;
-    }
-  }
+  }>(content);
 
   const VALID_STATUSES = new Set(["online", "idle", "dnd", "offline"] as const);
   type ValidStatus = "online" | "idle" | "dnd" | "offline";
@@ -237,6 +345,65 @@ function parseScheduleResponse(content: string): Omit<WeekSchedule, "weekStart">
     talkativeness: Math.max(0, Math.min(100, data.talkativeness ?? 50)),
     inactivityThresholdMinutes: Math.max(15, Math.min(360, data.inactivityThresholdMinutes ?? 120)),
   };
+}
+
+function extractJsonObject(content: string): string {
+  let jsonStr = content.trim();
+  const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonMatch) jsonStr = jsonMatch[1]!.trim();
+  const braceStart = jsonStr.indexOf("{");
+  const braceEnd = jsonStr.lastIndexOf("}");
+  if (braceStart !== -1 && braceEnd !== -1) {
+    jsonStr = jsonStr.slice(braceStart, braceEnd + 1);
+  }
+  return jsonStr
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/,\s*([\]\}])/g, "$1")
+    .replace(/\.{3,}[^"}\]\n]*/g, "")
+    .replace(/\n\s*\n/g, "\n");
+}
+
+function parseRepairedJson<T>(content: string): T {
+  const jsonStr = extractJsonObject(content);
+  try {
+    return JSON.parse(jsonStr) as T;
+  } catch (firstError) {
+    const repairedLines = jsonStr.split("\n").filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^[{}\[\],]/.test(trimmed)) return true;
+      if (/^"/.test(trimmed)) return true;
+      if (/^\d/.test(trimmed)) return true;
+      if (/^[}\]]/.test(trimmed)) return true;
+      return false;
+    });
+    const repairedStr = repairedLines.join("\n").replace(/,\s*([\]\}])/g, "$1");
+    try {
+      return JSON.parse(repairedStr) as T;
+    } catch {
+      throw firstError;
+    }
+  }
+}
+
+function parseDayScheduleResponse(content: string): DaySchedule {
+  const data = parseRepairedJson<{
+    blocks?: Array<{ time?: string; activity?: string; status?: string }>;
+  }>(content);
+  const validStatuses = new Set(["online", "idle", "dnd", "offline"] as const);
+  type ValidStatus = "online" | "idle" | "dnd" | "offline";
+  return (data.blocks ?? []).map((block) => {
+    const activity = typeof block.activity === "string" && block.activity.trim() ? block.activity.trim() : "free time";
+    return {
+      time: typeof block.time === "string" ? block.time : "00:00-00:00",
+      activity,
+      status:
+        block.status && validStatuses.has(block.status as ValidStatus)
+          ? (block.status as ValidStatus)
+          : inferStatusFromActivity(activity),
+    };
+  });
 }
 
 /**

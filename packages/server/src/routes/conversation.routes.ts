@@ -10,16 +10,19 @@ import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
-import { PROVIDERS } from "@marinara-engine/shared";
+import { CONVERSATION_SCHEDULE_DAYS, PROVIDERS } from "@marinara-engine/shared";
 import type { CharacterData, ConversationStatusOverride } from "@marinara-engine/shared";
 import {
   generateCharacterSchedule,
+  generateCharacterDaySchedule,
+  generateScheduleRoutineSummary,
   getEffectiveCurrentStatus,
   scheduleNeedsRefresh,
   getMonday,
   getBusyDelay,
   type WeekSchedule,
   type CharacterSchedules,
+  type WeekScheduleDraftMode,
 } from "../services/conversation/schedule.service.js";
 import {
   checkAutonomousMessaging,
@@ -62,8 +65,16 @@ function areConversationSchedulesEnabled(meta: Record<string, unknown>): boolean
   return hasSchedules(meta.characterSchedules);
 }
 
+function parseWeekScheduleDraftMode(value: unknown): WeekScheduleDraftMode {
+  return value === "adjust" || value === "vary" || value === "repair" || value === "rewrite" ? value : "rewrite";
+}
+
 function getEnabledConversationSchedules(meta: Record<string, unknown>): CharacterSchedules {
   return areConversationSchedulesEnabled(meta) && hasSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
+}
+
+function getScheduleGenerationError(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 type AutonomousUserStatus = "active" | "idle" | "dnd";
@@ -354,6 +365,138 @@ export async function conversationRoutes(app: FastifyInstance) {
   const chars = createCharactersStorage(app.db);
   const connections = createConnectionsStorage(app.db);
 
+  async function resolveScheduleGenerationContext(chatId: string, characterId: string) {
+    const chat = await chats.getById(chatId);
+    if (!chat) return { errorStatus: 404 as const, error: "Chat not found" };
+    if (chat.mode !== "conversation") return { errorStatus: 400 as const, error: "Not a conversation chat" };
+
+    const { conn, error: connectionError } = await resolveConversationScheduleConnection(connections, chat.connectionId);
+    if (!conn) return { errorStatus: 400 as const, error: connectionError ?? "No connection configured" };
+    const baseUrl = resolveBaseUrl(conn);
+    if (!baseUrl) return { errorStatus: 400 as const, error: "No base URL" };
+
+    const charRow = await chars.getById(characterId);
+    if (!charRow) return { errorStatus: 404 as const, error: "Character not found" };
+    const charData = JSON.parse(charRow.data as string) as CharacterData;
+    const provider = createLLMProvider(
+      conn.provider,
+      baseUrl,
+      conn.apiKey,
+      conn.maxContext,
+      conn.openrouterProvider,
+      conn.maxTokensOverride,
+    );
+    return { chat, charData, provider, model: conn.model ?? "" };
+  }
+
+  function preserveDraftScheduleFields(schedule: WeekSchedule, existing?: WeekSchedule): WeekSchedule {
+    if (!existing) return schedule;
+    const merged: WeekSchedule = {
+      ...schedule,
+      inactivityThresholdMinutes: existing.inactivityThresholdMinutes,
+      talkativeness: existing.talkativeness,
+      routineSummary: null,
+      routineSummaryGeneratedAt: null,
+    };
+    if (typeof existing.idleResponseDelayMinutes === "number") merged.idleResponseDelayMinutes = existing.idleResponseDelayMinutes;
+    if (typeof existing.dndResponseDelayMinutes === "number") merged.dndResponseDelayMinutes = existing.dndResponseDelayMinutes;
+    return preserveAutonomousScheduleControls(merged, existing);
+  }
+
+  function preserveAutonomousScheduleControls(schedule: WeekSchedule, existing: WeekSchedule): WeekSchedule {
+    const merged: WeekSchedule = { ...schedule };
+    if (typeof existing.autonomousDailyCapOverride === "number") {
+      merged.autonomousDailyCapOverride = existing.autonomousDailyCapOverride;
+    } else if (existing.autonomousDailyCapOverride === null) {
+      merged.autonomousDailyCapOverride = null;
+    }
+    if (Array.isArray(existing.disabledAutonomousIntents)) {
+      merged.disabledAutonomousIntents = existing.disabledAutonomousIntents;
+    }
+    return merged;
+  }
+
+  app.post<{
+    Body: {
+      chatId: string;
+      characterId: string;
+      mode: "week" | "day";
+      day?: string;
+      schedule?: WeekSchedule;
+      guidance?: string;
+      dayGuidance?: string;
+      draftMode?: string;
+    };
+  }>("/schedule/draft", async (req, reply) => {
+    const { chatId, characterId, mode } = req.body;
+    const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
+    const dayGuidance = typeof req.body.dayGuidance === "string" ? req.body.dayGuidance.trim() : "";
+    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
+    const { charData, provider, model } = context;
+
+    try {
+      if (mode === "day") {
+        const day = typeof req.body.day === "string" ? req.body.day : "";
+        if (!CONVERSATION_SCHEDULE_DAYS.includes(day)) return reply.status(400).send({ error: "Invalid schedule day" });
+        if (!req.body.schedule) return reply.status(400).send({ error: "schedule is required for day regeneration" });
+        const { blocks } = await generateCharacterDaySchedule(
+          provider,
+          model,
+          charData.name,
+          charData.description ?? "",
+          charData.personality ?? "",
+          day,
+          req.body.schedule,
+          guidance,
+          dayGuidance,
+        );
+        return reply.send({ day, blocks });
+      }
+
+      const { schedule } = await generateCharacterSchedule(
+        provider,
+        model,
+        charData.name,
+        charData.description ?? "",
+        charData.personality ?? "",
+        guidance,
+        req.body.schedule ? `Current draft schedule:\n${summarizePreviousSchedule(req.body.schedule).join("\n")}` : undefined,
+        {
+          draftMode: parseWeekScheduleDraftMode(req.body.draftMode),
+        },
+      );
+      const fullSchedule = preserveDraftScheduleFields({ ...schedule, weekStart: getMonday().toISOString() }, req.body.schedule);
+      return reply.send({ schedule: fullSchedule });
+    } catch (error) {
+      logger.error(error instanceof Error ? error : undefined, "[schedule] Draft generation failed");
+      return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule draft generation failed") });
+    }
+  });
+
+  app.post<{
+    Body: {
+      chatId: string;
+      characterId: string;
+      schedule: WeekSchedule;
+      guidance?: string;
+    };
+  }>("/schedule/summary", async (req, reply) => {
+    const { chatId, characterId, schedule } = req.body;
+    if (!schedule) return reply.status(400).send({ error: "schedule is required" });
+    const guidance = typeof req.body.guidance === "string" ? req.body.guidance.trim() : "";
+    const context = await resolveScheduleGenerationContext(chatId, characterId);
+    if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
+    const { charData, provider, model } = context;
+    try {
+      const { summary } = await generateScheduleRoutineSummary(provider, model, charData.name, schedule, guidance);
+      return reply.send({ summary, generatedAt: new Date().toISOString() });
+    } catch (error) {
+      logger.error(error instanceof Error ? error : undefined, "[schedule] Summary generation failed");
+      return reply.status(502).send({ error: getScheduleGenerationError(error, "Schedule summary generation failed") });
+    }
+  });
+
   // ─────────────────────────────────────────────
   // POST /schedule/generate — Generate or refresh weekly schedules
   // ─────────────────────────────────────────────
@@ -422,7 +565,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       if (typeof existing.dndResponseDelayMinutes === "number") {
         merged.dndResponseDelayMinutes = existing.dndResponseDelayMinutes;
       }
-      return merged;
+      return preserveAutonomousScheduleControls(merged, existing);
     };
 
     const newSchedules: CharacterSchedules = { ...existingSchedules };

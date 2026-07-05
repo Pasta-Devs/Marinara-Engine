@@ -2,7 +2,7 @@
 
 ## Overview
 
-Marinara Engine is an AI chat application with roleplay, visual novel, and conversation modes. The frontend is a React 19 single-page application served by Vite, styled with Tailwind CSS v4, and structured as a PWA.
+Marinara Engine is an AI chat application with Conversation, Roleplay, Visual Novel, and Game modes. The frontend is a React 19 single-page application served by Vite, styled with Tailwind CSS v4, and structured as a PWA.
 
 The client lives in `packages/client` and communicates with a Fastify API server (`packages/server`) over REST and Server-Sent Events (SSE). Data contracts are defined in `packages/shared`.
 
@@ -31,7 +31,7 @@ The UI follows a Discord-inspired three-column design managed by `AppShell.tsx`:
 └─────────────┴─────────────────────────────┴──────────────┘
 ```
 
-- **Left Sidebar** (`ChatSidebar.tsx`): Chat list organized by folders, filterable by mode (Conversation / Roleplay).
+- **Left Sidebar** (`ChatSidebar.tsx`): Chat list organized by folders, filterable by mode (Conversation / Roleplay / Visual Novel / Game).
 - **Center Pane**: Either the active chat surface or a full editor (character, lorebook, preset, etc.). Only one is visible at a time; editors replace the chat area.
 - **Right Panel** (`RightPanel.tsx`): Resource browser and settings, toggled from the top bar. Once a panel is mounted, it stays in the DOM (hidden with CSS) to preserve scroll position and local state.
 - **Top Bar** (`TopBar.tsx`): Quick-switch buttons for each right panel.
@@ -61,7 +61,7 @@ All major editors and heavy components are lazy-loaded in `AppShell.tsx` using `
 
 ### Zustand Stores (Client State)
 
-Six stores manage UI and runtime state:
+Fourteen Zustand stores manage UI and runtime state. `ui.store.ts` remains the only persisted store; the others are runtime state for chats, agents, games, sidecars, translation, dialogs, backfill, and turn games.
 
 #### `ui.store.ts` — Settings & UI Chrome
 
@@ -88,6 +88,8 @@ Non-persisted. Tracks the active chat session:
 - `isStreaming`, `streamBuffer` — generation in progress
 - `inputDrafts` — per-chat draft messages
 - `currentInput` — current value of chat input
+
+Other runtime stores include `agent.store.ts`, `game-state.store.ts`, `encounter.store.ts`, `gallery.store.ts`, `game-mode.store.ts`, `game-asset.store.ts`, `chess-game.store.ts`, `uno-game.store.ts`, `sidecar.store.ts`, `translation.store.ts`, `dialog.store.ts`, and `backfill.store.ts`.
 - `perChatTyping` — typing indicator state
 - `unreadCounts`, `chatNotifications` — notification badges
 - `abortControllers` — cancel in-flight generations
@@ -191,8 +193,8 @@ All hooks live in `src/hooks/` and follow the pattern `use-{entity}.ts`.
 | `useDeletePreset()`           | Mutation | Delete preset                             |
 | `usePresetSections(presetId)` | Query    | Prompt sections for a preset              |
 | `usePresetGroups(presetId)`   | Query    | Section groups                            |
-| `useChoiceBlocks(presetId)`   | Query    | Interactive choice blocks                 |
-| `usePresetPreview(presetId)`  | Query    | Rendered preview                          |
+| `usePresetVariables(presetId)` | Query    | Preset variables, formerly choice blocks  |
+| `usePreviewPreset()`          | Mutation | Rendered prompt preview for `{ presetId, chatId, choices }` |
 
 ### Agent Hooks (`use-agents.ts`)
 
@@ -207,13 +209,13 @@ All hooks live in `src/hooks/` and follow the pattern `use-{entity}.ts`.
 
 ### Generation Hook (`use-generate.ts`)
 
-The most complex hook. Returns `{ generate, regenerateMessage }`.
+The most complex hook. Returns `{ generate, retryAgents }`.
 
-`generate(chatId, prompt, signal)` handles:
+`generate(params)` accepts one options object with fields such as `chatId`, `connectionId`, `userMessage`, `regenerateMessageId`, `continueMessageId`, `impersonate`, and `attachments`. It returns `false` if a generation is already in flight for that chat.
 
 1. Setting streaming state in `chat.store.ts`
 2. Sending generation request to `/api/generate`
-3. Parsing SSE events: `token`, `agent_update`, `game_state`, `encounter_init`, `scene_created`, `done`, `error`
+3. Parsing SSE events such as `token`, `agent_start`, `agent_result`, `agent_error`, `thinking`, `tool_call`, `game_state`, `game_state_patch`, `text_rewrite`, `scene_created`, `done`, and `error`
 4. Updating React Query cache with new messages
 5. Populating agent store with thought bubbles and debug info
 6. Error handling with toast notifications
@@ -296,19 +298,25 @@ Each resource type has a full-page editor that replaces the chat area:
 
 ### Modal System (`components/modals/`)
 
-Modals are rendered by `ModalRenderer.tsx`, which reads `ui.store.modal` and renders the matching component inside `<Suspense>`.
+Modals are rendered by `components/layout/ModalRenderer.tsx`, which reads `ui.store.modal` and renders the matching component inside `<Suspense>`. The modal components themselves live under `components/modals/`.
 
 **Available modal types:**
 
 | Type               | Component              | Purpose                                  |
 | ------------------ | ---------------------- | ---------------------------------------- |
 | `create-character` | `CreateCharacterModal` | Quick character creation (name + avatar) |
+| `create-connection` | `CreateConnectionModal` | Quick connection creation |
+| `create-persona`   | `CreatePersonaModal`   | Quick persona creation                    |
 | `create-lorebook`  | `CreateLorebookModal`  | Quick lorebook creation                  |
 | `create-preset`    | `CreatePresetModal`    | Quick preset creation                    |
 | `import-character` | `ImportCharacterModal` | Import from file (JSON/PNG)              |
+| `import-connection` | `ImportConnectionModal` | Import a connection package              |
 | `import-lorebook`  | `ImportLorebookModal`  | Import from file                         |
 | `import-preset`    | `ImportPresetModal`    | Import from file                         |
 | `import-persona`   | `ImportPersonaModal`   | Import from file                         |
+| `character-card-update` | `CharacterCardUpdateModal` | Agent-proposed card evolution review |
+| `agent-write-approval` | `AgentWriteApprovalModal` | Agent write consent and review       |
+| `docs-viewer`      | `DocsViewerModal`      | In-app documentation browser             |
 | `st-bulk-import`   | `STBulkImportModal`    | Bulk import from SillyTavern data        |
 | `edit-agent`       | `EditAgentModal`       | Edit agent configuration                 |
 
@@ -422,7 +430,7 @@ The frontend imports types, schemas, and constants from `@marinara-engine/shared
 | ------------------ | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `defaults.ts`      | `APP_VERSION`, `PROFESSOR_MARI_ID`, `DEFAULT_CONNECTION_ID`, `DEFAULT_GENERATION_PARAMS`, `MAX_FILE_SIZES`, `LIMITS` | Version source, built-in character ID, default generation settings        |
 | `providers.ts`     | `PROVIDERS`                                                                                                          | API provider configs (OpenAI, Anthropic, Google, etc.) with URLs and auth |
-| `chat-modes.ts`    | `CHAT_MODES`                                                                                                         | Mode definitions: conversation, roleplay, visual_novel                    |
+| `chat-modes.ts`    | `CHAT_MODES`                                                                                                         | Mode definitions: conversation, roleplay, visual_novel, game              |
 | `model-lists.ts`   | Model catalogs + `IMAGE_GENERATION_SOURCES`, `IMAGE_GEN_MODELS`                                                      | Static model lists per provider, image generation providers               |
 | `agent-prompts.ts` | Default prompts for 15+ built-in agents                                                                              | System prompts for world-state, prose-guardian, continuity, etc.          |
 
@@ -473,7 +481,7 @@ Type definitions for all entities in `packages/shared/src/types/`:
 
 ## API Endpoints
 
-The server (`packages/server`) exposes the following REST API at `/api`:
+The server (`packages/server`) exposes REST APIs at `/api`. This section is a high-level map, not the authoritative exhaustive list; `packages/server/src/routes/index.ts` and the individual route files are the source of truth.
 
 ### Core Resources
 
@@ -504,6 +512,10 @@ The server (`packages/server`) exposes the following REST API at `/api`:
 | `/api/scene`        | create, plan, conclude           | Scene branching             |
 | `/api/encounter`    | init, action, summary            | Combat encounters           |
 | `/api/translate`    | POST                             | Text translation            |
+| `/api/game`         | CRUD/actions                     | Game Mode sessions and state |
+| `/api/game-assets`  | CRUD/upload                      | Game assets                 |
+| `/api/turn-games`   | Chess/UNO routes                 | Conversation table games    |
+| `/api/conversation-calls` | call/session routes        | Conversation audio calls    |
 
 ### Media & Assets
 
@@ -514,6 +526,11 @@ The server (`packages/server`) exposes the following REST API at `/api`:
 | `/api/sprites/:characterId`   | Sprite expression management |
 | `/api/fonts`                  | Custom font management       |
 | `/api/gallery/:chatId`        | Per-chat gallery images      |
+| `/api/global-gallery`         | Global gallery images        |
+| `/api/tts`                    | Text-to-speech routes        |
+| `/api/youtube`                | YouTube DJ routes            |
+| `/api/custom-emojis`          | Custom emoji assets          |
+| `/api/custom-stickers`        | Custom sticker assets        |
 | `/api/gifs/search`            | GIF search (Giphy proxy)     |
 
 ### Assistant-Assisted Creation
@@ -530,6 +547,7 @@ character cards, personas, lorebooks, chats, and prompt presets, and can fetch e
 | `/api/bot-browser/janny/*`      | JannyAI search             |
 | `/api/bot-browser/pygmalion/*`  | Pygmalion search           |
 | `/api/bot-browser/wyvern/*`     | Wyvern search              |
+| `/api/bot-browser/datacat/*`    | DataCat/JanitorAI search   |
 | `/api/haptic/*`                 | Buttplug.io device control |
 | `/api/spotify/*`                | Spotify auth (PKCE)        |
 | `/api/knowledge-sources`        | RAG knowledge base         |
@@ -544,6 +562,15 @@ character cards, personas, lorebooks, chats, and prompt presets, and can fetch e
 | `/api/backup`                 | Full backup, export, import             |
 | `/api/import/*`               | SillyTavern and Marinara profile import |
 | `/api/admin/clear-all`        | Nuclear data clear                      |
+| `/api/themes`                 | Synced custom themes                    |
+| `/api/extensions`             | Installed extensions                    |
+| `/api/app-settings`           | Server-side app settings                |
+| `/api/sidecar`                | Local sidecar runtime; disabled in Lite |
+| `/api/chat-presets`           | Chat settings presets                   |
+| `/api/connection-folders`     | Connection folders                      |
+| `/api/prompt-overrides`       | Built-in prompt overrides               |
+| `/api/achievements`           | Achievement unlocks                     |
+| `/api/professor-mari/workspace` | Professor Mari workspace operations    |
 
 ---
 
@@ -573,7 +600,7 @@ The agent system processes AI responses through configurable pipelines. Agents r
 
 Retry requests go through `/api/generate/retry-agents` with an explicit `agentTypes` list. Broad UI actions such as **Re-run Trackers** pass all active tracker types; individual widget controls pass only the target tracker.
 
-Agent memory tools, such as Narrative Director's Secret Plot tab, use `/api/agents/memory/:agentType/:chatId`. The route applies to configured agents that store per-chat memory. Secret Plot memory is stored under `director` in current configs, while `secret-plot-driver` remains accepted for legacy chats. `agentType` is the agent type string and `chatId` is the target chat id.
+Agent memory tools, such as Narrative Director's Secret Plot panel, use `/api/agents/memory/:agentType/:chatId`. The route applies to configured agents that store per-chat memory. Secret Plot memory is stored under `director` in current configs, while `secret-plot-driver` remains accepted for legacy chats. `agentType` is the agent type string and `chatId` is the target chat id.
 
 | Method | Body                            | Success                         | Errors                                                                                                 | Use                                    |
 | ------ | ------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------- |
@@ -600,8 +627,8 @@ Agent memory tools, such as Narrative Director's Secret Plot tab, use `/api/agen
 | `lorebook-keeper`       | post_processing | Auto-creates/updates lorebook entries                       |
 | `card-evolution-auditor` | post_processing | Audits character cards for suggested evolution              |
 | `combat`                | parallel        | Tracks combat rounds, HP, initiative, and outcomes          |
-| `html`                  | pre_generation  | Adds immersive HTML/CSS instructions                        |
-| `spotify`               | post_processing | Controls Music DJ playback for Spotify or YouTube           |
+| `html`                  | post_processing | Rewrites finished Roleplay responses to add diegetic HTML/CSS/JS visuals |
+| `spotify`               | post_processing | Controls Music DJ playback for Spotify, YouTube, or local Custom Music |
 | `knowledge-retrieval`   | pre_generation  | RAG from knowledge sources                                  |
 | `knowledge-router`      | pre_generation  | Routes relevant lorebook and knowledge entries              |
 | `haptic`                | post_processing | Haptic device commands                                      |
@@ -611,7 +638,7 @@ Agent memory tools, such as Narrative Director's Secret Plot tab, use `/api/agen
 
 Agents produce typed results that the frontend handles:
 
-`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`
+`game_state_update`, `text_rewrite`, `sprite_change`, `echo_message`, `quest_update`, `image_prompt`, `context_injection`, `continuity_check`, `director_event`, `lorebook_update`, `character_card_update`, `background_change`, `character_tracker_update`, `persona_stats_update`, `custom_tracker_update`, `spotify_control`, `youtube_control`, `local_music_control`, `haptic_command`, `cyoa_choices`, `secret_plot`, `game_master_narration`, `party_action`, `game_map_update`, `game_state_transition`, `prompt_patch`, `frontend_theme_update`
 
 ---
 
@@ -646,6 +673,12 @@ VN-style experience with:
 - Expression changes
 
 **Commonly added agents**: World State, Expression Engine, Quest Tracker, Combat, Knowledge Retrieval, Knowledge Router, CYOA Choices, and custom agents.
+
+### Game Mode
+
+AI Game Master sessions with party members, dice, game state, assets, storyboards, journal, and structured session lifecycle. Game Mode uses dedicated stores and routes for game state, assets, turn games, scene videos, and storyboards. See [Game Mode](GAME_MODE.md) for the user-facing workflow.
+
+**Commonly added agents**: Game Master, Party Player, World State, Quest Tracker, Expression Engine, Combat, Illustrator, Lorebook Keeper, Music DJ, and custom agents.
 
 ---
 

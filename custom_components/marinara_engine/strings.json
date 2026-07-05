@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to Marinara Engine",
-        "description": "Enter the host and port where Marinara Engine is running.",
+        "description": "Enter the host and port where Marinara Engine is running (default: localhost:7860).",
         "data": {
           "host": "Host",
           "port": "Port"

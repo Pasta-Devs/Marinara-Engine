@@ -7,6 +7,7 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type KeyboardEvent,
+  type SyntheticEvent,
 } from "react";
 import {
   Mic,
@@ -30,24 +31,32 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import type {
+  ConversationCallCharacterVideoClipKind,
+  ConversationCallCharacterVideoManifest,
   ConversationCallMessage,
   ConversationCallSession,
   ConversationCallSound,
   ConversationCallTurn,
   MessageAttachment,
+  MessageReaction,
 } from "@marinara-engine/shared";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { cn, generateClientId, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import type { CharacterMap, PersonaInfo } from "./chat-area.types";
 import {
+  conversationCallKeys,
   useConversationCallMessages,
   useConversationCallSoundboard,
+  useConversationCallCharacterVideos,
   useDeleteConversationCallSound,
   useEndConversationCall,
+  useGenerateConversationCallCharacterVideos,
   useSendConversationCallMedia,
   useSendConversationCallIdle,
   useSendConversationCallMessage,
   useRecordConversationCallInterruption,
+  useUpdateConversationCallMessageExtra,
   useUploadConversationCallSound,
 } from "../../hooks/use-conversation-calls";
 import { useUIStore } from "../../stores/ui.store";
@@ -74,6 +83,9 @@ import {
   playConversationCallStartSound,
 } from "../../lib/conversation-call-sounds";
 import { useAgentStore } from "../../stores/agent.store";
+import { ReactionAddButton } from "./ReactionAddButton";
+import { MessageReactions } from "./MessageReactions";
+import { toggleReaction, USER_REACTOR } from "../../lib/reactions";
 
 interface ConversationCallSurfaceProps {
   chatId: string;
@@ -112,6 +124,12 @@ type ActiveCallVoice = {
   speakerName: string;
   spokenText: string;
 };
+type CharacterVideoPlaybackState = {
+  kind: ConversationCallCharacterVideoClipKind;
+  followKind?: ConversationCallCharacterVideoClipKind;
+  voiceKey: string;
+  nonce: number;
+};
 
 type ParticipantGridLayout = {
   columns: number;
@@ -139,6 +157,7 @@ const CALL_MIC_MIN_PEAK_RMS = 0.022;
 const CALL_TTS_INTERRUPT_VOICED_MS = 900;
 const CALL_TTS_INTERRUPT_TEXT_MAX_CHARS = 1200;
 const CALL_TTS_MAX_REQUEST_CHARS = 3_900;
+const CALL_MUTED_REMINDER_TIMEOUT_MS = 10_000;
 const DEFAULT_TEXT_TO_VOICE_PAUSE_MS = 1_800;
 const ONLINE_CHARACTER_JOIN_DELAY_MS = 1_600;
 const AWAY_CHARACTER_JOIN_DELAY_MS = 10_000;
@@ -337,12 +356,75 @@ function getCommandStringParam(value: string | null | undefined, name: string) {
   return bare?.[1]?.trim() ?? "";
 }
 
+function getReadyCallVideoUrl(
+  manifest: ConversationCallCharacterVideoManifest | undefined,
+  kind: ConversationCallCharacterVideoClipKind,
+) {
+  return manifest?.clips.find((clip) => clip.kind === kind && clip.status === "ready")?.url ?? null;
+}
+
+function detectCallVideoEmotionKind(
+  content: string,
+  tone: string | null | undefined,
+): Exclude<ConversationCallCharacterVideoClipKind, "idle" | "talking"> | null {
+  const bracketCues = content.match(/\[[^\]]+\]/g)?.join(" ") ?? "";
+  const searchable = `${bracketCues} ${tone ?? ""}`.toLowerCase();
+  if (!searchable.trim()) return null;
+  if (/\b(laugh|laughs|laughing|chuckle|chuckles|chuckling|giggle|giggles|giggling)\b/.test(searchable)) {
+    return "laughing";
+  }
+  if (/\b(cry|cries|crying|sob|sobs|sobbing|tearful|tears)\b/.test(searchable)) return "crying";
+  if (/\b(angry|anger|furious|irritated|irritation|snarl|snarls|seething)\b/.test(searchable)) return "angry";
+  if (/\b(sigh|sighs|sighing|exhale|exhales|exhaling)\b/.test(searchable)) return "sighing";
+  return null;
+}
+
 function readCallMessageAttachments(message: ConversationCallMessage): MessageAttachment[] {
   const raw = message.extra?.attachments;
   if (!Array.isArray(raw)) return [];
   return raw.filter((attachment): attachment is MessageAttachment => {
     return !!attachment && typeof attachment === "object" && typeof (attachment as MessageAttachment).type === "string";
   });
+}
+
+function readCallMessageReactions(message: ConversationCallMessage): MessageReaction[] {
+  const raw = message.extra?.reactions;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((reaction): reaction is MessageReaction => {
+    if (!reaction || typeof reaction !== "object") return false;
+    const candidate = reaction as MessageReaction;
+    return typeof candidate.emoji === "string" && Array.isArray(candidate.by);
+  });
+}
+
+type ConversationCallCustomClipExtra = {
+  characterId: string;
+  clipId: string | null;
+  label: string;
+  prompt: string;
+};
+
+function readCallCustomClipExtra(message: ConversationCallMessage): ConversationCallCustomClipExtra | null {
+  const raw = message.extra?.conversationCallCustomClip;
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const characterId = typeof record.characterId === "string" ? record.characterId : message.characterId;
+  const label = typeof record.label === "string" ? record.label : "Custom clip";
+  const prompt = typeof record.prompt === "string" ? record.prompt : "";
+  const clipId = typeof record.clipId === "string" ? record.clipId : null;
+  if (!characterId) return null;
+  return { characterId, clipId, label, prompt };
+}
+
+function forceSilentCallVideo(video: HTMLVideoElement | null) {
+  if (!video) return;
+  if (!video.defaultMuted) video.defaultMuted = true;
+  if (!video.muted) video.muted = true;
+  if (video.volume !== 0) video.volume = 0;
+}
+
+function keepCallVideoSilent(event: SyntheticEvent<HTMLVideoElement>) {
+  forceSilentCallVideo(event.currentTarget);
 }
 
 function messageLabel(message: ConversationCallMessage, participants: Participant[]) {
@@ -507,6 +589,56 @@ async function convertRecordedAudioToWavFile(blob: Blob): Promise<File> {
   }
 }
 
+function CallCustomClipPreview({ clip }: { clip: ConversationCallCustomClipExtra }) {
+  const { data: manifest } = useConversationCallCharacterVideos(clip.characterId, Boolean(clip.characterId && clip.clipId));
+  const customClip = clip.clipId ? manifest?.customClips.find((item) => item.id === clip.clipId) : null;
+  const status = customClip?.status ?? "generating";
+  const title = customClip?.label ?? clip.label;
+  const description = customClip?.prompt ?? clip.prompt;
+
+  if (customClip?.status === "ready" && customClip.url) {
+    return (
+      <div className="mt-2 max-w-xl overflow-hidden rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)]">
+        <video
+          src={customClip.url}
+          controls
+          controlsList="novolume"
+          muted
+          playsInline
+          className="max-h-80 w-full bg-black object-contain"
+          onLoadedMetadata={keepCallVideoSilent}
+          onPlay={keepCallVideoSilent}
+          onVolumeChange={keepCallVideoSilent}
+        />
+        <div className="border-t border-[var(--marinara-chat-chrome-panel-border)] px-2.5 py-2">
+          <div className="text-xs font-semibold text-[var(--marinara-chat-chrome-panel-title)]">{title}</div>
+          {description ? (
+            <div className="mt-0.5 text-[0.6875rem] leading-snug text-[var(--marinara-chat-chrome-panel-muted)]">
+              {description}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 max-w-xl rounded-lg border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] px-2.5 py-2 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
+      <div className="flex items-center gap-2 font-medium text-[var(--marinara-chat-chrome-panel-title)]">
+        {status === "error" ? (
+          <X className="h-3.5 w-3.5 text-[var(--destructive)]" />
+        ) : (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--marinara-chat-chrome-accent)]" />
+        )}
+        <span>{title}</span>
+      </div>
+      <div className="mt-1">
+        {status === "error" ? (customClip?.error ?? "Custom clip generation failed.") : "Preparing custom clip..."}
+      </div>
+    </div>
+  );
+}
+
 function CallAvatar({
   participant,
   className,
@@ -544,20 +676,74 @@ function ParticipantTile({
   active,
   cameraStream,
   density,
+  characterVideoEnabled,
+  videoPlayback,
+  onVideoEmotionEnded,
 }: {
   participant: Participant;
   active: boolean;
   cameraStream?: MediaStream | null;
   density: ParticipantTileDensity;
+  characterVideoEnabled: boolean;
+  videoPlayback?: CharacterVideoPlaybackState;
+  onVideoEmotionEnded: (participantId: string, voiceKey: string) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const requestedGenerationRef = useRef(false);
   const densityClasses = PARTICIPANT_TILE_CLASSES[density];
+  const characterId = participant.kind === "character" ? participant.characterId : null;
+  const { data: characterVideoManifest } = useConversationCallCharacterVideos(
+    characterId,
+    characterVideoEnabled && Boolean(characterId),
+  );
+  const generateCharacterVideos = useGenerateConversationCallCharacterVideos();
 
   useEffect(() => {
     if (videoRef.current && cameraStream) {
       videoRef.current.srcObject = cameraStream;
     }
   }, [cameraStream]);
+
+  useEffect(() => {
+    if (!characterVideoEnabled || !characterId || !characterVideoManifest || requestedGenerationRef.current) return;
+    if (characterVideoManifest.generating) return;
+    const hasMissingClips = characterVideoManifest.clips.some((clip) => clip.status === "missing");
+    if (!hasMissingClips) return;
+    requestedGenerationRef.current = true;
+    generateCharacterVideos.mutate(
+      { characterId },
+      {
+        onError: (error) => {
+          console.warn("[conversation-call] Failed to start character video generation", error);
+          requestedGenerationRef.current = false;
+        },
+      },
+    );
+  }, [characterId, characterVideoEnabled, characterVideoManifest, generateCharacterVideos]);
+
+  const requestedVideoKind = videoPlayback?.kind ?? "idle";
+  const preferredVideoUrl = getReadyCallVideoUrl(characterVideoManifest, requestedVideoKind);
+  const fallbackVideoUrl =
+    requestedVideoKind !== "talking" ? getReadyCallVideoUrl(characterVideoManifest, "talking") : null;
+  const idleVideoUrl = requestedVideoKind !== "idle" ? getReadyCallVideoUrl(characterVideoManifest, "idle") : null;
+  const characterVideoUrl = characterVideoEnabled
+    ? (preferredVideoUrl ?? fallbackVideoUrl ?? idleVideoUrl)
+    : null;
+  const activeVideoKind =
+    characterVideoUrl === preferredVideoUrl
+      ? requestedVideoKind
+      : characterVideoUrl === fallbackVideoUrl
+        ? "talking"
+        : characterVideoUrl
+          ? "idle"
+          : null;
+  const videoLoops = activeVideoKind === "idle" || activeVideoKind === "talking";
+  const videoKey = [
+    participant.id,
+    activeVideoKind ?? "avatar",
+    videoPlayback?.voiceKey ?? "idle",
+    videoPlayback?.nonce ?? 0,
+  ].join(":");
 
   return (
     <div
@@ -571,12 +757,36 @@ function ParticipantTile({
     >
       {cameraStream ? (
         <video ref={videoRef} autoPlay muted playsInline className="absolute inset-0 h-full w-full object-cover" />
+      ) : characterVideoUrl ? (
+        <video
+          key={videoKey}
+          src={characterVideoUrl}
+          autoPlay
+          muted
+          playsInline
+          loop={videoLoops}
+          className="absolute inset-0 h-full w-full object-cover"
+          onLoadedMetadata={keepCallVideoSilent}
+          onPlay={keepCallVideoSilent}
+          onVolumeChange={keepCallVideoSilent}
+          onEnded={() => {
+            if (videoPlayback?.followKind && videoPlayback.voiceKey) {
+              onVideoEmotionEnded(participant.id, videoPlayback.voiceKey);
+            }
+          }}
+        />
       ) : (
         <CallAvatar
           participant={participant}
           className={cn("max-h-[55%] max-w-[55%]", densityClasses.avatar)}
           fallbackClassName={densityClasses.fallback}
         />
+      )}
+      {characterVideoEnabled && participant.kind === "character" && characterVideoManifest?.generating && (
+        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-[var(--marinara-chat-chrome-panel-bg)] px-2 py-1 text-[0.6rem] font-medium text-[var(--marinara-chat-chrome-panel-muted)] shadow ring-1 ring-[var(--marinara-chat-chrome-panel-border)]">
+          <Loader2 size="0.65rem" className="animate-spin" />
+          Video
+        </div>
       )}
       <div
         className={cn(
@@ -599,13 +809,15 @@ export function ConversationCallSurface({
   onEnded,
   embedded = false,
 }: ConversationCallSurfaceProps) {
-  const { data: messages = [] } = useConversationCallMessages(session.id);
+  const queryClient = useQueryClient();
+  const { data: persistedMessages = [] } = useConversationCallMessages(session.id);
   const { data: ttsConfig } = useTTSConfig();
   const sendMessage = useSendConversationCallMessage(session.id);
   const sendIdleCheck = useSendConversationCallIdle(session.id);
   const endCall = useEndConversationCall(chatId);
   const sendMedia = useSendConversationCallMedia(session.id);
   const recordInterruption = useRecordConversationCallInterruption(session.id);
+  const updateMessageExtra = useUpdateConversationCallMessageExtra(session.id);
   const { data: sounds = [] } = useConversationCallSoundboard();
   const uploadSound = useUploadConversationCallSound();
   const deleteSound = useDeleteConversationCallSound();
@@ -621,6 +833,7 @@ export function ConversationCallSurface({
   const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
   const [soundboardOpen, setSoundboardOpen] = useState(false);
   const [voiceVolumeOpen, setVoiceVolumeOpen] = useState(false);
+  const [mutedReminderVisible, setMutedReminderVisible] = useState(false);
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
   const [mobilePickerOpen, setMobilePickerOpen] = useState(false);
   const [mobilePickerTab, setMobilePickerTab] = useState<MobileCallPickerTab>("emoji");
@@ -628,6 +841,10 @@ export function ConversationCallSurface({
   const [userSpeaking, setUserSpeaking] = useState(false);
   const [recording, setRecording] = useState(false);
   const [browserSpeechSupported, setBrowserSpeechSupported] = useState(false);
+  const [optimisticCallMessages, setOptimisticCallMessages] = useState<ConversationCallMessage[]>([]);
+  const [characterVideoPlayback, setCharacterVideoPlayback] = useState<Record<string, CharacterVideoPlaybackState>>(
+    {},
+  );
   const mobileCallLayout = useMobileCallLayout();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [joinedParticipantIds, setJoinedParticipantIds] = useState<Set<string>>(() => new Set(["user"]));
@@ -655,8 +872,16 @@ export function ConversationCallSurface({
   const participantIdsRef = useRef<Set<string>>(new Set());
   const playedStartSoundForRef = useRef<string | null>(null);
   const playedEndSoundForRef = useRef<string | null>(null);
+  const playedInitialGreetingIdsRef = useRef<Set<string>>(new Set());
   const previousSessionStatusRef = useRef(session.status);
   const [queuedCallInteractions, setQueuedCallInteractions] = useState(0);
+  const messages = useMemo(() => {
+    if (optimisticCallMessages.length === 0) return persistedMessages;
+    const byId = new Map<string, ConversationCallMessage>();
+    for (const message of persistedMessages) byId.set(message.id, message);
+    for (const message of optimisticCallMessages) byId.set(message.id, message);
+    return [...byId.values()].sort((left, right) => Date.parse(left.createdAt) - Date.parse(right.createdAt));
+  }, [optimisticCallMessages, persistedMessages]);
   const callAudioEnabled = ttsConfig?.callAudioEnabled === true;
   const audioInputMode = ttsConfig?.callAudioInputMode ?? "local_whisper";
   const systemVoiceInputMode = audioInputMode === "system";
@@ -664,6 +889,7 @@ export function ConversationCallSurface({
   const localWhisperInputMode = audioInputMode === "local_whisper";
   const browserSpeechInputMode = audioInputMode === "transcribe";
   const videoControlsEnabled = ttsConfig?.callVideoInputEnabled === true && nativeInputMode;
+  const characterVideoEnabled = ttsConfig?.callCharacterVideoEnabled === true;
   const soundboardEnabled = ttsConfig?.callSoundboardEnabled !== false;
   const characterVoicesMuted = conversationCallVoiceMuted || conversationCallVoiceVolume <= 0;
   const characterVoicePlaybackVolume = characterVoicesMuted ? 0 : conversationCallVoiceVolume / 100;
@@ -876,7 +1102,23 @@ export function ConversationCallSurface({
   }, [session.id, session.status]);
 
   useEffect(() => {
+    if (session.status !== "active" || !callAudioEnabled) {
+      setMutedReminderVisible(false);
+      return;
+    }
+    setMutedReminderVisible(true);
+    const timeout = window.setTimeout(() => setMutedReminderVisible(false), CALL_MUTED_REMINDER_TIMEOUT_MS);
+    return () => window.clearTimeout(timeout);
+  }, [callAudioEnabled, session.id, session.status]);
+
+  useEffect(() => {
+    if (recording) setMutedReminderVisible(false);
+  }, [recording]);
+
+  useEffect(() => {
     setDepartedParticipantIds(new Set());
+    setOptimisticCallMessages([]);
+    setCharacterVideoPlayback({});
   }, [session.id]);
 
   useEffect(() => {
@@ -994,6 +1236,48 @@ export function ConversationCallSurface({
     setConversationCallVoiceMuted,
     setConversationCallVoiceVolume,
   ]);
+
+  const setParticipantVideoTalking = useCallback(
+    (participantId: string, voiceKey: string, kind: ConversationCallCharacterVideoClipKind, followKind?: "talking") => {
+      setCharacterVideoPlayback((current) => ({
+        ...current,
+        [participantId]: {
+          kind,
+          followKind,
+          voiceKey,
+          nonce: Date.now(),
+        },
+      }));
+    },
+    [],
+  );
+
+  const clearParticipantVideoTalking = useCallback((participantId: string | null | undefined, voiceKey: string) => {
+    if (!participantId) return;
+    setCharacterVideoPlayback((current) => {
+      const existing = current[participantId];
+      if (!existing || existing.voiceKey !== voiceKey) return current;
+      const next = { ...current };
+      delete next[participantId];
+      return next;
+    });
+  }, []);
+
+  const handleVideoEmotionEnded = useCallback((participantId: string, voiceKey: string) => {
+    setCharacterVideoPlayback((current) => {
+      const existing = current[participantId];
+      if (!existing || existing.voiceKey !== voiceKey || !existing.followKind) return current;
+      return {
+        ...current,
+        [participantId]: {
+          ...existing,
+          kind: existing.followKind,
+          followKind: undefined,
+          nonce: Date.now(),
+        },
+      };
+    });
+  }, []);
 
   const playSoundById = useCallback(
     async (soundId: string) => {
@@ -1119,6 +1403,12 @@ export function ConversationCallSurface({
               toast(title ? `Playing ${title}${artist ? ` - ${artist}` : ""}` : "Playing Spotify track");
             } else if (commandName === "selfie") {
               toast("Selfie generated.");
+            } else if (commandName === "custom_clip") {
+              const label = getCommandStringParam(turn.content, "label") || "Custom clip";
+              toast(`Generating custom clip: ${label}`);
+              if (turn.characterId) {
+                queryClient.invalidateQueries({ queryKey: conversationCallKeys.characterVideos(turn.characterId) });
+              }
             } else if (commandName === "leave_call") {
               handleCharacterLeftCall(turn);
             } else if (commandName === "end_call") {
@@ -1167,20 +1457,34 @@ export function ConversationCallSurface({
                 spokenText,
               };
               userInterruptionVoicedMsRef.current = 0;
-              await ttsService.speakSequence(
-                spokenChunks.map((chunk) => ({
-                  text: chunk,
-                  speaker: turn.speakerName,
-                  tone: tone || undefined,
-                  voice,
-                })),
-                participant?.id ?? `${session.id}:${turn.id ?? turn.content.slice(0, 12)}`,
-                {
-                  progressive: ttsConfig.progressivePlayback,
-                  volume: characterVoicePlaybackVolume,
-                  muted: characterVoicesMuted,
-                },
-              );
+              const participantId = participant?.id ?? null;
+              if (characterVideoEnabled && participantId) {
+                const emotionKind = detectCallVideoEmotionKind(spokenText, tone);
+                setParticipantVideoTalking(
+                  participantId,
+                  voiceKey,
+                  emotionKind ?? "talking",
+                  emotionKind ? "talking" : undefined,
+                );
+              }
+              try {
+                await ttsService.speakSequence(
+                  spokenChunks.map((chunk) => ({
+                    text: chunk,
+                    speaker: turn.speakerName,
+                    tone: tone || undefined,
+                    voice,
+                  })),
+                  participant?.id ?? `${session.id}:${turn.id ?? turn.content.slice(0, 12)}`,
+                  {
+                    progressive: ttsConfig.progressivePlayback,
+                    volume: characterVoicePlaybackVolume,
+                    muted: characterVoicesMuted,
+                  },
+                );
+              } finally {
+                clearParticipantVideoTalking(participantId, voiceKey);
+              }
               if (activeCallVoiceRef.current?.key === voiceKey) {
                 activeCallVoiceRef.current = null;
                 userInterruptionVoicedMsRef.current = 0;
@@ -1205,17 +1509,70 @@ export function ConversationCallSurface({
       }
     },
     [
+      characterVideoEnabled,
       characterVoicePlaybackVolume,
       characterVoicesMuted,
+      clearParticipantVideoTalking,
       handleCallEndedByCharacter,
       handleCharacterLeftCall,
       participants,
       playSoundByName,
+      queryClient,
       session.id,
+      setParticipantVideoTalking,
       setYoutubePlay,
       ttsConfig,
     ],
   );
+
+  useEffect(() => {
+    if (session.status !== "active") return;
+    const greeting = messages.find(
+      (message) =>
+        message.extra?.conversationCallInitialGreeting === true &&
+        message.extra?.conversationCallInitialGreetingPlayed !== true &&
+        !playedInitialGreetingIdsRef.current.has(message.id),
+    );
+    if (!greeting) return;
+    if (greeting.kind === "speech" && !ttsConfig) return;
+
+    const rawTurn = greeting.extra?.turn;
+    const turnRecord = rawTurn && typeof rawTurn === "object" ? (rawTurn as Partial<ConversationCallTurn>) : {};
+    const mode =
+      turnRecord.mode === "voice" || turnRecord.mode === "text" || turnRecord.mode === "command"
+        ? turnRecord.mode
+        : greeting.kind === "speech"
+          ? "voice"
+          : "text";
+    const turn: ConversationCallTurn = {
+      id: greeting.id,
+      speakerName:
+        typeof turnRecord.speakerName === "string" && turnRecord.speakerName.trim()
+          ? turnRecord.speakerName
+          : messageLabel(greeting, participants),
+      characterId: greeting.characterId,
+      mode,
+      content:
+        typeof turnRecord.content === "string" && turnRecord.content.trim() ? turnRecord.content : greeting.content,
+      tone: typeof turnRecord.tone === "string" ? turnRecord.tone : null,
+    };
+
+    playedInitialGreetingIdsRef.current.add(greeting.id);
+    void enqueueCallInteraction(
+      async () => {
+        await playTurns([turn]);
+        await updateMessageExtra.mutateAsync({
+          messageId: greeting.id,
+          extra: {
+            conversationCallInitialGreetingPlayed: true,
+            conversationCallAutoplay: false,
+          },
+        });
+      },
+      "Could not play the call greeting.",
+      { quiet: true },
+    );
+  }, [enqueueCallInteraction, messages, participants, playTurns, session.status, ttsConfig, updateMessageExtra]);
 
   const resizeDraftTextarea = useCallback(() => {
     const textarea = textareaRef.current;
@@ -1229,19 +1586,46 @@ export function ConversationCallSurface({
       const text = content.trim();
       if (!text) return;
       markUserActivity();
+      const optimisticMessageId =
+        inputMode === "typed" ? `__optimistic_call_${session.id}_${generateClientId()}` : null;
       if (inputMode === "typed") {
+        const optimisticMessage: ConversationCallMessage = {
+          id: optimisticMessageId!,
+          callId: session.id,
+          chatId,
+          role: "user",
+          characterId: null,
+          participantKind: "user",
+          kind: "text",
+          content: text,
+          extra: { optimistic: true },
+          createdAt: new Date().toISOString(),
+        };
+        setOptimisticCallMessages((current) => [...current, optimisticMessage]);
         setDraft("");
         window.requestAnimationFrame(resizeDraftTextarea);
       }
       await enqueueCallInteraction(
         async () => {
-          const response = await sendMessage.mutateAsync({ content: text, inputMode });
-          await playTurns(response.turns);
+          try {
+            const response = await sendMessage.mutateAsync({ content: text, inputMode });
+            if (optimisticMessageId) {
+              setOptimisticCallMessages((current) => current.filter((message) => message.id !== optimisticMessageId));
+            }
+            await playTurns(response.turns);
+          } catch (error) {
+            if (optimisticMessageId) {
+              setOptimisticCallMessages((current) => current.filter((message) => message.id !== optimisticMessageId));
+              setDraft((current) => (current.trim() ? current : text));
+              window.requestAnimationFrame(resizeDraftTextarea);
+            }
+            throw error;
+          }
         },
         inputMode === "speech" ? "Call speech transcription failed." : "Call message failed.",
       );
     },
-    [enqueueCallInteraction, markUserActivity, playTurns, resizeDraftTextarea, sendMessage],
+    [chatId, enqueueCallInteraction, markUserActivity, playTurns, resizeDraftTextarea, sendMessage, session.id],
   );
 
   const handleDraftChange = useCallback(
@@ -1291,11 +1675,10 @@ export function ConversationCallSurface({
   );
 
   const submitDraft = useCallback(() => {
-    if (queuedCallInteractions > 0 || sendMessage.isPending) return;
     void submitText(draft, "typed").catch((error) =>
       toast.error(error instanceof Error ? error.message : "Call message failed."),
     );
-  }, [draft, queuedCallInteractions, sendMessage.isPending, submitText]);
+  }, [draft, submitText]);
 
   const handleDraftKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1718,6 +2101,60 @@ export function ConversationCallSurface({
     }
   }, [cleanupLiveCallMedia, endCall, onEnded, playEndSoundOnce, session.id]);
 
+  const resolveCallReactorName = useCallback(
+    (reactorId: string) => {
+      if (reactorId === USER_REACTOR) return personaInfo?.name || "You";
+      return (
+        characterMap.get(reactorId)?.name ??
+        participants.find((participant) => participant.characterId === reactorId)?.name ??
+        "Someone"
+      );
+    },
+    [characterMap, participants, personaInfo?.name],
+  );
+
+  const applyCallMessageReactions = useCallback(
+    async (
+      message: ConversationCallMessage,
+      buildNext: (current: MessageReaction[]) => MessageReaction[],
+    ) => {
+      const key = conversationCallKeys.messages(session.id);
+      const previous = queryClient.getQueryData<ConversationCallMessage[]>(key);
+      const cachedMessage = previous?.find((item) => item.id === message.id) ?? message;
+      const next = buildNext(readCallMessageReactions(cachedMessage));
+      queryClient.setQueryData<ConversationCallMessage[]>(key, (existing = []) =>
+        existing.map((item) =>
+          item.id === message.id ? { ...item, extra: { ...item.extra, reactions: next } } : item,
+        ),
+      );
+      try {
+        await updateMessageExtra.mutateAsync({ messageId: message.id, extra: { reactions: next } });
+      } catch (error) {
+        queryClient.setQueryData(key, previous);
+        toast.error(error instanceof Error ? error.message : "Failed to update reaction.");
+      } finally {
+        await queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+    [queryClient, session.id, updateMessageExtra],
+  );
+
+  const handlePickCallReaction = useCallback(
+    (message: ConversationCallMessage, emoji: string, imageUrl: string | null) => {
+      void applyCallMessageReactions(message, (current) => toggleReaction(current, emoji, USER_REACTOR, imageUrl));
+    },
+    [applyCallMessageReactions],
+  );
+
+  const handleToggleCallReactionEntry = useCallback(
+    (message: ConversationCallMessage, reaction: MessageReaction) => {
+      void applyCallMessageReactions(message, (current) =>
+        toggleReaction(current, reaction.emoji, USER_REACTOR, reaction.imageUrl ?? null),
+      );
+    },
+    [applyCallMessageReactions],
+  );
+
   const renderCallMessages = () =>
     visibleCallMessages.length === 0 ? (
       <div className="py-8 text-center text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
@@ -1731,21 +2168,32 @@ export function ConversationCallSurface({
               ? participants.find((p) => p.kind === "user")
               : participants.find((p) => p.characterId === message.characterId);
           const attachments = readCallMessageAttachments(message);
+          const customClip = readCallCustomClipExtra(message);
+          const reactions = readCallMessageReactions(message);
+          const canReact = message.extra?.optimistic !== true && (message.kind === "text" || message.kind === "system");
           return (
-            <div key={message.id} className="flex gap-2">
+            <div key={message.id} className="group/call-message flex gap-2">
               {participant ? (
                 <CallAvatar participant={participant} className="mt-0.5 h-7 w-7 shrink-0" />
               ) : (
                 <div className="mt-0.5 h-7 w-7 shrink-0 rounded-full bg-[var(--secondary)]" />
               )}
               <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-                    {messageLabel(message, participants)}
-                  </span>
-                  <span className="text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
-                    {formatTime(message.createdAt)}
-                  </span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <span className="truncate text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                      {messageLabel(message, participants)}
+                    </span>
+                    <span className="shrink-0 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+                      {formatTime(message.createdAt)}
+                    </span>
+                  </div>
+                  {canReact ? (
+                    <ReactionAddButton
+                      onPick={(emoji, imageUrl) => handlePickCallReaction(message, emoji, imageUrl)}
+                      className="shrink-0 text-[var(--marinara-chat-chrome-panel-muted)] opacity-100 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] sm:opacity-0 sm:group-hover/call-message:opacity-100"
+                    />
+                  ) : null}
                 </div>
                 <p
                   className={cn(
@@ -1755,6 +2203,7 @@ export function ConversationCallSurface({
                 >
                   {messageContent(message, participants)}
                 </p>
+                {customClip ? <CallCustomClipPreview clip={customClip} /> : null}
                 {attachments.length > 0 ? (
                   <div className="mt-2 flex flex-col items-start gap-2">
                     {attachments.map((attachment, index) =>
@@ -1785,6 +2234,15 @@ export function ConversationCallSurface({
                         </div>
                       ),
                     )}
+                  </div>
+                ) : null}
+                {reactions.length > 0 ? (
+                  <div className="mt-2">
+                    <MessageReactions
+                      reactions={reactions}
+                      resolveReactorName={resolveCallReactorName}
+                      onToggle={(reaction) => handleToggleCallReactionEntry(message, reaction)}
+                    />
                   </div>
                 ) : null}
               </div>
@@ -1899,15 +2357,11 @@ export function ConversationCallSurface({
         </div>
         <button
           type="submit"
-          disabled={!draft.trim() || queuedCallInteractions > 0 || sendMessage.isPending}
+          disabled={!draft.trim()}
           className="mari-chat-send-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all duration-200 disabled:cursor-not-allowed sm:h-8 sm:w-8"
           title="Send"
         >
-          {queuedCallInteractions > 0 || sendMessage.isPending ? (
-            <Loader2 size="1rem" className="animate-spin" />
-          ) : (
-            <Send size="0.9375rem" />
-          )}
+          <Send size="0.9375rem" />
         </button>
       </div>
     </form>
@@ -1948,6 +2402,9 @@ export function ConversationCallSurface({
                 active={speakingId === participant.id || (participant.kind === "user" && userSpeaking)}
                 cameraStream={participant.kind === "user" ? cameraStream : null}
                 density={participantGridLayout.density}
+                characterVideoEnabled={characterVideoEnabled}
+                videoPlayback={characterVideoPlayback[participant.id]}
+                onVideoEmotionEnded={handleVideoEmotionEnded}
               />
             ))}
           </div>
@@ -2055,16 +2512,33 @@ export function ConversationCallSurface({
                   callControlGridColumns,
                 )}
               >
-                <button
-	                  type="button"
-	                  onClick={recording ? stopRecording : startRecording}
-	                  disabled={!callAudioEnabled}
-	                  aria-pressed={recording}
-	                  className={cn(callControlButtonClass, recording && "mari-chrome-control--selected")}
-                  title={
-                    !callAudioEnabled
-                      ? "Enable call audio in Chat Settings"
-                      : recording
+                <div className="relative flex min-w-0 justify-center max-sm:w-full">
+                  {mutedReminderVisible && !recording ? (
+                    <div
+                      className="absolute bottom-full left-1/2 z-30 mb-3 w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] px-3 py-2.5 pr-8 text-left text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-title)] shadow-xl shadow-black/25"
+                      role="status"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setMutedReminderVisible(false)}
+                        className="absolute right-1.5 top-1.5 rounded-md p-1 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+                        aria-label="Dismiss muted reminder"
+                      >
+                        <X size="0.75rem" />
+                      </button>
+                      You are muted! Remember to unmute yourself first if you want to talk.
+                    </div>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={recording ? stopRecording : startRecording}
+                    disabled={!callAudioEnabled}
+                    aria-pressed={recording}
+                    className={cn(callControlButtonClass, recording && "mari-chrome-control--selected")}
+                    title={
+                      !callAudioEnabled
+                        ? "Enable call audio in Chat Settings"
+                        : recording
                           ? nativeInputMode
                             ? "Mute microphone"
                             : systemVoiceInputMode
@@ -2074,21 +2548,22 @@ export function ConversationCallSurface({
                             ? "Use manual system dictation"
                             : recordingWillUseLocalWhisperFallback
                               ? "Unmute microphone with Local Whisper"
-                            : nativeInputMode
-                              ? "Unmute microphone with provider-native audio"
-                              : localWhisperInputMode
-                                ? "Unmute microphone with Local Whisper"
-                                : "Speak with browser speech recognition"
-                  }
-	                >
-	                  {recording ? (
-	                    <Mic className={callControlIconClass} />
-	                  ) : systemVoiceInputMode ? (
-	                    <Mic className={callControlIconClass} />
-	                  ) : (
-                    <MicOff className={callControlIconClass} />
-                  )}
-                </button>
+                              : nativeInputMode
+                                ? "Unmute microphone with provider-native audio"
+                                : localWhisperInputMode
+                                  ? "Unmute microphone with Local Whisper"
+                                  : "Speak with browser speech recognition"
+                    }
+                  >
+                    {recording ? (
+                      <Mic className={callControlIconClass} />
+                    ) : systemVoiceInputMode ? (
+                      <Mic className={callControlIconClass} />
+                    ) : (
+                      <MicOff className={callControlIconClass} />
+                    )}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={toggleCamera}

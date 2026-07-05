@@ -167,6 +167,7 @@ interface ChatInputProps {
     options?: { immediate?: boolean },
   ) => void | Promise<void>;
   onPeekPrompt?: () => void;
+  onIllustrate?: () => void | Promise<void>;
   combatAgentEnabled?: boolean;
   onStartEncounter?: () => void;
   interactionsLocked?: boolean;
@@ -181,6 +182,7 @@ export const ChatInput = memo(function ChatInput({
   chatCharacters,
   onExpressionChange,
   onPeekPrompt,
+  onIllustrate,
   combatAgentEnabled,
   onStartEncounter,
   interactionsLocked = false,
@@ -623,6 +625,7 @@ export const ChatInput = memo(function ChatInput({
       setSpriteExpression: onExpressionChange
         ? (characterId, expression) => onExpressionChange(characterId, expression, { immediate: true })
         : undefined,
+      illustrate: onIllustrate,
     };
   }, [
     activeChatId,
@@ -634,6 +637,7 @@ export const ChatInput = memo(function ChatInput({
     latestAssistantMessage,
     lastMessageRole,
     onExpressionChange,
+    onIllustrate,
     qc,
   ]);
 

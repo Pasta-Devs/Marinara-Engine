@@ -37,7 +37,7 @@ cd Marinara-Engine
 start.bat
 ```
 
-`start.bat` handles the rest: it aligns pnpm to the repo-pinned version, installs dependencies, builds the app, prepares local file-backed storage, and opens the app in your browser.
+`start.bat` handles the rest: it aligns pnpm to the repo-pinned version, installs dependencies, builds the app, prepares local file-backed storage, and opens the app in your browser. You do not need pnpm installed globally; the launcher uses Corepack when available, falls back to an installed pnpm if present, and can download a temporary repo-pinned pnpm through `npx`.
 
 ### Manual Setup
 

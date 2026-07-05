@@ -1457,8 +1457,10 @@ export function AgentEditor() {
   // ── Loading / not found ──
   if (!agentDetailId || (!builtIn && !dbConfig && agentDetailId !== "__new__")) {
     return (
-      <div className="flex flex-1 items-center justify-center text-sm text-[var(--muted-foreground)]">
-        Agent not found.
+      <div className="mari-editor-shell flex flex-1 items-center justify-center">
+        <p className="mari-editor-empty px-4 py-3 text-sm">
+          Agent not found.
+        </p>
       </div>
     );
   }

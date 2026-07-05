@@ -92,8 +92,10 @@ interface ConversationViewProps {
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
   onPeekPrompt: () => void;
+  onIllustrate?: () => void | Promise<void>;
   lastAssistantMessageId: string | null;
   onOpenSettings: (event?: ReactMouseEvent<HTMLElement>, options?: { initialSection?: "autonomous" | null }) => void;
+  onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
   onOpenGallery: (event?: ReactMouseEvent<HTMLElement>) => void;
   onBranch?: (messageId: string) => void;
   multiSelectMode?: boolean;
@@ -295,8 +297,10 @@ export function ConversationView({
   onSetActiveSwipe,
   onToggleHiddenFromAI,
   onPeekPrompt,
+  onIllustrate,
   lastAssistantMessageId,
   onOpenSettings,
+  onOpenScheduleEditor,
   onOpenGallery,
   onBranch,
   multiSelectMode,
@@ -327,14 +331,19 @@ export function ConversationView({
   const delayedCharacterInfo = useChatStore((s) => s.delayedCharacterInfo);
   const conversationMessageStyle = useUIStore((s) => s.conversationMessageStyle);
   const hasDraftInput = useChatStore((s) => s.currentInput.trim().length > 0);
+  const isGroupConversation = chatCharIds.length > 1;
   const liveTypingName = useMemo(() => {
+    if (isGroupConversation) return "Multiple people";
     if (typingCharacterName) return typingCharacterName;
     if (streamingCharacterId) return characterMap.get(streamingCharacterId)?.name ?? "Character";
     if (chatCharIds.length === 1) return characterMap.get(chatCharIds[0]!)?.name ?? "Character";
     if (characterNames.length > 0) return characterNames.join(", ");
     return "Character";
-  }, [characterMap, characterNames, chatCharIds, streamingCharacterId, typingCharacterName]);
-  const liveTypingVerb = liveTypingName.includes(",") || liveTypingName.includes(" & ") ? "are" : "is";
+  }, [characterMap, characterNames, chatCharIds, isGroupConversation, streamingCharacterId, typingCharacterName]);
+  const liveTypingVerb =
+    isGroupConversation || liveTypingName.includes(",") || liveTypingName.includes(" & ") ? "are" : "is";
+  const liveTypingLabel = `${liveTypingName} ${liveTypingVerb} typing`;
+  const liveTypingText = `${liveTypingName} ${liveTypingVerb} typing...`;
   const delayedDisplayName = useMemo(() => {
     if (!delayedCharacterInfo) return "";
     const ids = delayedCharacterInfo.characterIds ?? [];
@@ -362,7 +371,9 @@ export function ConversationView({
   const delayedDisplayVerb = delayedDisplayName.includes(",") || delayedDisplayName.includes(" & ") ? "are" : "is";
   // Single typer → tag the typing row so exclusive-mode card CSS can target it via
   // `[data-card-css="<id>"] .mari-typing-*`. Multiple/unknown typers stay untagged.
-  const typingCardCssId = streamingCharacterId ?? (chatCharIds.length === 1 ? chatCharIds[0] : undefined);
+  const typingCardCssId = isGroupConversation
+    ? undefined
+    : (streamingCharacterId ?? (chatCharIds.length === 1 ? chatCharIds[0] : undefined));
 
   // Track whether the current generation has produced any content. When the stream
   // buffer clears (stream finished) but isStreaming hasn't cleared yet, this ref lets
@@ -391,17 +402,19 @@ export function ConversationView({
   const showTypingIndicator =
     hasLiveStream && !delayedCharacterInfo && !streamBuffer && !thinkingBuffer && conversationMessageStyle !== "bubble";
 
-  // Per-scheme conversation gradient from settings.
-  // When a scheme's values are still the defaults (user hasn't customized), use
-  // a CSS variable so custom themes can override the conversation background.
+  // Per-scheme conversation gradient from settings. When a scheme's values are
+  // still the defaults, use CSS variables so visual themes can override the
+  // default stops without collapsing Marinara's two-color background.
   const convoGradient = useUIStore((s) => s.convoGradient);
   const theme = useUIStore((s) => s.theme);
   const gradientStyle = useMemo(() => {
     const g = convoGradient[theme];
-    const isDefaultDark = convoGradient.dark.from === "#0a0a0e" && convoGradient.dark.to === "#1c2133";
-    const isDefaultLight = convoGradient.light.from === "#f2eff7" && convoGradient.light.to === "#eae6f0";
-    if ((theme === "dark" && isDefaultDark) || (theme === "light" && isDefaultLight)) {
-      return { background: "var(--secondary)" };
+    const defaults =
+      theme === "dark" ? { from: "#0a0a0e", to: "#1c2133" } : { from: "#f2eff7", to: "#eae6f0" };
+    if (g.from === defaults.from && g.to === defaults.to) {
+      return {
+        background: `linear-gradient(135deg, var(--marinara-conversation-gradient-from, ${g.from}), var(--marinara-conversation-gradient-to, ${g.to}))`,
+      };
     }
     return { background: `linear-gradient(135deg, ${g.from}, ${g.to})` };
   }, [convoGradient, theme]);
@@ -538,6 +551,7 @@ export function ConversationView({
         characterMap={characterMap}
         messages={messages}
         onOpenSettings={onOpenSettings}
+        onOpenScheduleEditor={onOpenScheduleEditor}
       />
 
       <div className="ml-2 flex min-w-0 flex-1 items-center justify-end gap-2">
@@ -877,6 +891,7 @@ export function ConversationView({
     chatCharIds,
     totalMessageCount,
     conversationMessageStyle,
+    stripTimestamps,
   ]);
 
   const liveStreamCharacterId = streamingCharacterId ?? (chatCharIds.length === 1 ? chatCharIds[0]! : null);
@@ -1441,12 +1456,10 @@ export function ConversationView({
             <PendingTypingDots
               className="mari-typing-dots gap-0.5"
               dotClassName="bg-[var(--text-secondary)]"
-              label={`${liveTypingName} ${liveTypingVerb} typing`}
+              label={liveTypingLabel}
               small
             />
-            <span className="mari-typing-text italic">
-              {liveTypingName} {liveTypingVerb} typing...
-            </span>
+            <span className="mari-typing-text italic">{liveTypingText}</span>
           </div>
         )}
 
@@ -1523,6 +1536,7 @@ export function ConversationView({
             };
           })}
         onPeekPrompt={onPeekPrompt}
+        onIllustrate={onIllustrate}
       />
     </div>
   );
