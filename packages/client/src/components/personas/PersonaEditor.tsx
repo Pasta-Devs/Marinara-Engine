@@ -271,6 +271,7 @@ function formatPersonaClipDate(value: string | null) {
 }
 
 function canDeletePersonaGalleryClip(clip: CharacterGalleryClip) {
+  if (clip.source === "conversation-call" && clip.status === "missing") return false;
   return clip.status !== "generating";
 }
 
