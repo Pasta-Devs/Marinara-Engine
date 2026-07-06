@@ -2771,38 +2771,44 @@ function CharacterClipCard({
         {isReady && clip.url ? (
           <CharacterClipPreviewVideo clip={clip} />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
-            {clip.status === "generating" ? (
-              <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
-            ) : clip.status === "error" ? (
-              <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
-            ) : (
-              <Film size="1.25rem" className="opacity-50" />
-            )}
-            <span>{clip.status === "missing" ? "Not generated" : clip.status}</span>
-            {canGenerate ? (
-              <button
-                type="button"
-                onClick={() => void onGenerate(clip)}
-                disabled={generationDisabled || generating}
-                className="mt-1 inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-[0.7rem] font-semibold text-[var(--foreground)] opacity-0 shadow-sm transition-all hover:border-[var(--primary)]/50 hover:text-[var(--primary)] focus-visible:opacity-100 disabled:cursor-not-allowed disabled:text-[var(--muted-foreground)] group-hover:opacity-100 max-md:opacity-100"
-                title={`Generate ${clip.label || "call clip"}`}
-              >
-                {generating ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wand2 size="0.75rem" />}
-                <span>Generate</span>
-              </button>
-            ) : null}
-            {canUploadSlot ? (
-              <button
-                type="button"
-                onClick={() => onUpload(clip)}
-                disabled={uploading || uploadDisabled || generationDisabled}
-                className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-[0.7rem] font-semibold text-[var(--foreground)] opacity-0 shadow-sm transition-all hover:border-[var(--primary)]/50 hover:text-[var(--primary)] focus-visible:opacity-100 disabled:cursor-not-allowed disabled:text-[var(--muted-foreground)] group-hover:opacity-100 max-md:opacity-100"
-                title={`Upload ${clip.label || "call clip"}`}
-              >
-                {uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
-                <span>Upload</span>
-              </button>
+          <div className="absolute inset-0">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
+              {clip.status === "generating" ? (
+                <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
+              ) : clip.status === "error" ? (
+                <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
+              ) : (
+                <Film size="1.25rem" className="opacity-50" />
+              )}
+              <span>{clip.status === "missing" ? "Not generated" : clip.status}</span>
+            </div>
+            {canGenerate || canUploadSlot ? (
+              <div className="absolute inset-x-2 bottom-2 flex flex-wrap items-center justify-center gap-1.5">
+                {canGenerate ? (
+                  <button
+                    type="button"
+                    onClick={() => void onGenerate(clip)}
+                    disabled={generationDisabled || generating}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-[0.7rem] font-semibold text-[var(--foreground)] opacity-0 shadow-sm transition-all hover:border-[var(--primary)]/50 hover:text-[var(--primary)] focus-visible:opacity-100 disabled:cursor-not-allowed disabled:text-[var(--muted-foreground)] group-hover:opacity-100 max-md:opacity-100"
+                    title={`Generate ${clip.label || "call clip"}`}
+                  >
+                    {generating ? <Loader2 size="0.75rem" className="animate-spin" /> : <Wand2 size="0.75rem" />}
+                    <span>Generate</span>
+                  </button>
+                ) : null}
+                {canUploadSlot ? (
+                  <button
+                    type="button"
+                    onClick={() => onUpload(clip)}
+                    disabled={uploading || uploadDisabled || generationDisabled}
+                    className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--card)] px-2.5 py-1 text-[0.7rem] font-semibold text-[var(--foreground)] opacity-0 shadow-sm transition-all hover:border-[var(--primary)]/50 hover:text-[var(--primary)] focus-visible:opacity-100 disabled:cursor-not-allowed disabled:text-[var(--muted-foreground)] group-hover:opacity-100 max-md:opacity-100"
+                    title={`Upload ${clip.label || "call clip"}`}
+                  >
+                    {uploading ? <Loader2 size="0.75rem" className="animate-spin" /> : <Upload size="0.75rem" />}
+                    <span>Upload</span>
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
         )}

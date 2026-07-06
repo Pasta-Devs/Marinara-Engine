@@ -772,7 +772,7 @@ function PersonaClipCard({
             className="h-full w-full bg-black object-contain"
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-xs text-[var(--muted-foreground)]">
             {clip.status === "generating" ? (
               <Loader2 size="1.25rem" className="animate-spin text-[var(--primary)]" />
             ) : clip.status === "error" ? (
