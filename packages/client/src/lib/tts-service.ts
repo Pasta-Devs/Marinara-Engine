@@ -26,6 +26,7 @@ export interface TTSSpeakRequest {
   voice?: string;
   cacheKey?: string;
   cacheAliases?: string[];
+  activeId?: string | null;
 }
 
 export interface TTSSpeakSequenceOptions extends Pick<TTSSpeakOptions, "signal" | "throwOnError" | "volume" | "muted"> {
@@ -352,7 +353,7 @@ class TTSService {
         };
 
         runChunkStart();
-        this.setState("playing", id ?? null);
+        this.setState("playing", request.activeId ?? id ?? null);
         void audio.play().catch((err) => fail(toError(err, "Browser blocked audio playback")));
       });
     };

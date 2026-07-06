@@ -33,13 +33,41 @@ const INLINE_MD_RE = new RegExp(
 
 /** Maximum recursion depth for nested inline markdown. */
 const MAX_INLINE_DEPTH = 6;
+const CHAT_TEXT_HTML_ENTITY_RE = /&(amp|lt|gt|quot|apos|#\d{1,7}|#x[0-9a-f]{1,6});/gi;
 
 function shouldConvertLatexSymbols(): boolean {
   return useUIStore.getState().convertLatexSymbols !== false;
 }
 
+function decodeChatTextHtmlEntities(text: string): string {
+  return text.replace(CHAT_TEXT_HTML_ENTITY_RE, (match, entity: string) => {
+    const normalized = entity.toLowerCase();
+    switch (normalized) {
+      case "amp":
+        return "&";
+      case "lt":
+        return "<";
+      case "gt":
+        return ">";
+      case "quot":
+        return '"';
+      case "apos":
+        return "'";
+      default: {
+        const isHex = normalized.startsWith("#x");
+        const rawCodePoint = isHex ? normalized.slice(2) : normalized.slice(1);
+        const codePoint = Number.parseInt(rawCodePoint, isHex ? 16 : 10);
+        return Number.isFinite(codePoint) && codePoint > 0 && codePoint <= 0x10ffff
+          ? String.fromCodePoint(codePoint)
+          : match;
+      }
+    }
+  });
+}
+
 function maybeConvertLatexSymbols(text: string, enabled = shouldConvertLatexSymbols()): string {
-  return enabled ? convertBasicLatexSymbols(text) : text;
+  const decoded = decodeChatTextHtmlEntities(text);
+  return enabled ? convertBasicLatexSymbols(decoded) : decoded;
 }
 
 /**
@@ -53,7 +81,7 @@ function maybeConvertLatexSymbols(text: string, enabled = shouldConvertLatexSymb
  */
 export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0): ReactNode[] {
   // Safety: prevent runaway recursion
-  if (_depth > MAX_INLINE_DEPTH) return [text];
+  if (_depth > MAX_INLINE_DEPTH) return [maybeConvertLatexSymbols(text)];
 
   const markdownText = normalizeCardAssetImageSyntax(text);
   const convertLatex = shouldConvertLatexSymbols();
@@ -84,7 +112,7 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
           <img
             key={`${keyPrefix}img${key++}`}
             src={resolvedUrl}
-            alt={match[3] || ""}
+            alt={decodeChatTextHtmlEntities(match[3] || "")}
             className="my-1 inline-block max-w-full rounded-lg align-bottom sm:max-w-md"
             loading="lazy"
             decoding="async"
@@ -100,7 +128,7 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
             rel="noopener noreferrer"
             className="text-blue-400 underline hover:text-blue-300"
           >
-            {match[3]}
+            {decodeChatTextHtmlEntities(match[3])}
           </a>,
         );
       }
@@ -108,7 +136,7 @@ export function applyInlineMarkdown(text: string, keyPrefix: string, _depth = 0)
       // ── Inline code: `code` (no recursion — content is literal) ──
       nodes.push(
         <code key={`${keyPrefix}c${key++}`} className="mari-md-inline-code">
-          {match[5]}
+          {decodeChatTextHtmlEntities(match[5])}
         </code>,
       );
     } else if (match[6] != null) {
