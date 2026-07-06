@@ -1246,6 +1246,7 @@ async function buildStoryboardGalleryAnimatePrompt(args: {
   meta: Record<string, unknown>;
   artStyle: string;
   promptLimits: SceneVideoPromptLimits;
+  debugMode?: boolean;
 }): Promise<string> {
   const sourceDescription = `storyboard keyframe ${args.frameIndex + 1} (${args.galleryImage.id})`;
   const narrationSummary =
@@ -1259,6 +1260,7 @@ async function buildStoryboardGalleryAnimatePrompt(args: {
   const promptDraft = await loadGameVideoPrompt({
     promptOverridesStorage: args.promptOverridesStorage,
     meta: args.meta,
+    debugMode: args.debugMode,
     ctx: {
       sceneTitle: compactVideoPromptText(
         args.plannedFrame.title || sceneTitleFromGalleryImage(args.galleryImage),
@@ -9964,6 +9966,7 @@ export async function gameRoutes(app: FastifyInstance) {
                 meta,
                 artStyle,
                 promptLimits: videoRuntime.promptLimits,
+                debugMode: requestDebug,
               });
               await storyboards.updateKeyframe(frame.id, { videoPrompt: prompt });
               if (debugLogsEnabled) {
@@ -10317,6 +10320,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const promptDraft = await loadGameVideoPrompt({
       promptOverridesStorage,
       meta,
+      debugMode: requestDebug,
       ctx: {
         sceneTitle: compactVideoPromptText(sourceTitle, promptLimits.title),
         narrationSummary: latestNarrationSummary(messages, promptLimits.narrationSummary),

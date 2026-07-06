@@ -6,7 +6,8 @@ import {
 } from "@marinara-engine/shared";
 import { GAME_VIDEO, renderTemplate, type GameVideoCtx } from "../prompt-overrides/index.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
-import { logger } from "../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 
 const GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
   GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES.map((template) => template.id),
@@ -53,6 +54,21 @@ function resolveGameVideoPromptTemplateId(args: {
   return GAME_VIDEO_PROMPT_TEMPLATE_ID;
 }
 
+function renderSelectedGameVideoPromptTemplate(args: {
+  template: AgentPromptTemplateOption | undefined;
+  ctx: GameVideoCtx;
+}) {
+  if (!args.template?.promptTemplate.trim()) return GAME_VIDEO.defaultBuilder(args.ctx);
+  const declared = GAME_VIDEO.variables.map((variable) => variable.name);
+  return renderTemplate(args.template.promptTemplate, args.ctx, declared);
+}
+
+function finalizeGameVideoPrompt(args: { prompt: string; source: string; debugMode?: boolean }) {
+  const debugOverrideEnabled = args.debugMode === true || isDebugAgentsEnabled();
+  logDebugOverride(debugOverrideEnabled, "[debug/game-video] %s prompt:\n%s", args.source, args.prompt);
+  return args.prompt;
+}
+
 async function loadStoredGameVideoPromptOverride(args: {
   promptOverridesStorage: PromptOverridesStorage;
   ctx: GameVideoCtx;
@@ -74,17 +90,15 @@ export async function loadGameVideoPrompt(args: {
   promptOverridesStorage: PromptOverridesStorage;
   meta: Record<string, unknown>;
   ctx: GameVideoCtx;
+  debugMode?: boolean;
 }): Promise<string> {
-  const storedOverride = await loadStoredGameVideoPromptOverride({
-    promptOverridesStorage: args.promptOverridesStorage,
-    ctx: args.ctx,
-  });
-  if (storedOverride) return storedOverride;
-
   const options = [
     ...GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
     ...normalizeGameVideoPromptTemplates(args.meta.gameVideoPromptTemplates),
   ];
+  const explicitTemplateId = readTrimmedString(args.meta.gameVideoPromptTemplateId);
+  const hasExplicitTemplateSelection =
+    explicitTemplateId !== null && options.some((option) => option.id === explicitTemplateId);
   const templateId = resolveGameVideoPromptTemplateId({
     meta: args.meta,
     options,
@@ -92,9 +106,30 @@ export async function loadGameVideoPrompt(args: {
   const selectedTemplate =
     options.find((template) => template.id === templateId) ??
     GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES.find((template) => template.id === GAME_VIDEO_PROMPT_TEMPLATE_ID);
-  if (!selectedTemplate?.promptTemplate.trim()) {
-    return GAME_VIDEO.defaultBuilder(args.ctx);
+
+  if (hasExplicitTemplateSelection) {
+    return finalizeGameVideoPrompt({
+      prompt: renderSelectedGameVideoPromptTemplate({ template: selectedTemplate, ctx: args.ctx }),
+      source: `selected template ${templateId}`,
+      debugMode: args.debugMode,
+    });
   }
-  const declared = GAME_VIDEO.variables.map((variable) => variable.name);
-  return renderTemplate(selectedTemplate.promptTemplate, args.ctx, declared);
+
+  const storedOverride = await loadStoredGameVideoPromptOverride({
+    promptOverridesStorage: args.promptOverridesStorage,
+    ctx: args.ctx,
+  });
+  if (storedOverride) {
+    return finalizeGameVideoPrompt({
+      prompt: storedOverride,
+      source: "stored override",
+      debugMode: args.debugMode,
+    });
+  }
+
+  return finalizeGameVideoPrompt({
+    prompt: renderSelectedGameVideoPromptTemplate({ template: selectedTemplate, ctx: args.ctx }),
+    source: `template ${templateId}`,
+    debugMode: args.debugMode,
+  });
 }

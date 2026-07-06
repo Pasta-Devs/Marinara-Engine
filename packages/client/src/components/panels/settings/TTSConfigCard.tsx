@@ -454,6 +454,7 @@ export function TTSConfigCard() {
     callCharacterVideoEnabled,
     callAutomaticVideoClipsEnabled,
     callCustomVideoClipsEnabled,
+    // Soundboard is intentionally always-on for Conversation Calls. Saving this card also migrates old false values.
     callSoundboardEnabled: true,
     ...overrides,
   });

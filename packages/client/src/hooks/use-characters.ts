@@ -55,6 +55,7 @@ export const characterKeys = {
   galleryClips: (id: string) => [...characterKeys.all, "gallery", id, "clips"] as const,
   personaGallery: (id: string) => ["persona-gallery", id] as const,
   personaGalleryClips: (id: string) => ["persona-gallery", id, "clips"] as const,
+  personaCallVideos: (id: string) => ["conversation-calls", "persona-videos", id] as const,
   personas: ["personas"] as const,
   personaActive: () => [...characterKeys.personas, "active"] as const,
   personaDetail: (id: string) => [...characterKeys.personas, "detail", id] as const,
@@ -583,7 +584,7 @@ export function useGeneratePersonaCallVideoClips(personaId: string) {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
-      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", personaId] });
+      qc.invalidateQueries({ queryKey: characterKeys.personaCallVideos(personaId) });
     },
   });
 }
@@ -605,7 +606,7 @@ export function useGeneratePersonaCustomCallVideoClip(personaId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
-      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", personaId] });
+      qc.invalidateQueries({ queryKey: characterKeys.personaCallVideos(personaId) });
     },
   });
 }
@@ -814,7 +815,7 @@ export function useUploadPersonaGalleryClip(personaId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
-      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", personaId] });
+      qc.invalidateQueries({ queryKey: characterKeys.personaCallVideos(personaId) });
     },
   });
 }

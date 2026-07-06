@@ -84,7 +84,7 @@ function buildDefaultCustomClipPrompt(ctx: ConversationCallCustomVideoClipCtx) {
   const hasReference = ctx.referenceInstruction.startsWith("Reference:");
   const startingPose = hasReference ? "the reference pose" : "a stable neutral video-call pose";
   return [
-    `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} custom animated portrait loop for an AI video call.`,
+    `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} animated portrait loop for an AI video call.`,
     ctx.referenceInstruction,
     hasReference
       ? "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face."
@@ -92,8 +92,8 @@ function buildDefaultCustomClipPrompt(ctx: ConversationCallCustomVideoClipCtx) {
     hasReference
       ? "Preserve the reference image's base background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style unless the custom request explicitly changes one visual detail."
       : "",
-    `Action from command: ${ctx.customPrompt}. Start from ${startingPose}, perform only this custom action, then return to that same pose by the final frame.`,
-    "Motion quality: one smooth, restrained, video-call-like motion throughout the clip, with natural breathing, small head or shoulder movement, and slight hair or clothing motion if present.",
+    `Action: Start from ${startingPose}, ${ctx.customPrompt}, then return to that same pose by the final frame.`,
+    "Motion quality: one smooth, natural, video-call-like motion throughout the clip, with subtle breathing, small head or shoulder movement, and slight hair or clothing motion if present.",
     hasReference
       ? "Lighting and background: keep them from the reference image unless the custom request explicitly changes them."
       : "Lighting and background: keep them stable unless the custom request explicitly changes them.",

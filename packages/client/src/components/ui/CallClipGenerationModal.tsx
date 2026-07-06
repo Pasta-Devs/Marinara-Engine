@@ -134,25 +134,31 @@ export function CallClipGenerationModal({
             </span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.map((kind) => (
-              <label
-                key={kind}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  selectedKinds.includes(kind)
-                    ? "border-[var(--primary)]/45 bg-[var(--primary)]/10 text-[var(--foreground)]"
-                    : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedKinds.includes(kind)}
-                  onChange={() => toggleKind(kind)}
-                  className="h-3.5 w-3.5 accent-[var(--primary)]"
-                />
-                {CALL_VIDEO_CLIP_LABEL_BY_KIND[kind]}
-              </label>
-            ))}
+            {CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.map((kind) => {
+              const selected = selectedKinds.includes(kind);
+              const disableClearingLastKind = selected && selectedKinds.length === 1 && !customClipEnabled;
+              return (
+                <label
+                  key={kind}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                    selected
+                      ? "border-[var(--primary)]/45 bg-[var(--primary)]/10 text-[var(--foreground)]"
+                      : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+                    disableClearingLastKind && "cursor-not-allowed opacity-70",
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    disabled={disableClearingLastKind}
+                    onChange={() => toggleKind(kind)}
+                    className="h-3.5 w-3.5 accent-[var(--primary)] disabled:cursor-not-allowed"
+                  />
+                  {CALL_VIDEO_CLIP_LABEL_BY_KIND[kind]}
+                </label>
+              );
+            })}
           </div>
         </div>
 

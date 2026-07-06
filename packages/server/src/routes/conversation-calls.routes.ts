@@ -968,6 +968,7 @@ async function buildCallPrompt(input: {
           .getDefaultForVideoGeneration()
           .catch(() => null)
       : null;
+  const soundNames = (await createConversationCallsStorage(input.app.db).listSounds()).map((sound) => sound.name);
   if (characterVideoPresenceEnabled) {
     const manifests = await Promise.all(
       characters.map((character) =>
@@ -1058,13 +1059,12 @@ async function buildCallPrompt(input: {
     if (hapticAvailable) allowedCommands.push("haptic");
     if (customVideoClipConnection) allowedCommands.push("custom_clip");
     if (playableCustomClipTargets.length > 0) allowedCommands.push("play_clip");
+    if (soundNames.length > 0) allowedCommands.push("soundboard");
     if (commandToggles.influence !== false && input.chat.connectedChatId) allowedCommands.push("influence");
     if (commandToggles.note !== false && input.chat.connectedChatId) allowedCommands.push("note");
   }
   if (!allowedCommands.includes("end_call")) allowedCommands.push("end_call");
   if (!allowedCommands.includes("leave_call")) allowedCommands.push("leave_call");
-  const soundNames = (await createConversationCallsStorage(input.app.db).listSounds()).map((sound) => sound.name);
-  allowedCommands.push("soundboard");
   const commandPromptLines = allowedCommands.flatMap((command) =>
     formatCallCommandPromptLines(command, {
       personaName: persona?.name || "User",

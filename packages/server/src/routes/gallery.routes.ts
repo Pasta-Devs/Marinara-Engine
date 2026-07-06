@@ -817,6 +817,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const promptDraft = await loadGameVideoPrompt({
       promptOverridesStorage,
       meta,
+      debugMode: requestDebug,
       ctx: {
         sceneTitle: compactVideoPromptText(sceneTitleFromGalleryImage(galleryImage), promptLimits.title),
         narrationSummary: latestNarrationSummary(messages, promptLimits.narrationSummary),
