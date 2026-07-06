@@ -182,7 +182,7 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
       const base = getCharacterCardFieldValue(nextData, u.field);
       if (typeof base !== "string") continue;
       const nextValue = base.includes(u.oldText)
-        ? base.replace(u.oldText, u.newText)
+        ? base.replace(u.oldText, () => u.newText)
         : overrideStale
           ? appendStaleCardReplacement(base, u.newText)
           : base;
