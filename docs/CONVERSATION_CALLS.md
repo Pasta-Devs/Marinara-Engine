@@ -107,6 +107,42 @@ Only characters available for the chat should join. If schedules mark a characte
 
 If you leave the Conversation while the call is active, the call minimizes into a small popout so you can keep browsing other Marinara panels or chats.
 
+## Character Video Presence And Clips
+
+Character video presence is optional. A call can include one character with video clips and other characters that stay avatar-only.
+
+To set it up:
+
+1. Create a **Video Generation** connection in **Settings -> Connections**.
+2. Mark one connection as **Default for Videos**, or select a video connection when generating clips.
+3. Open the character or persona editor.
+4. Go to **Sprites -> Clips**.
+5. Generate or upload the clips you want to use.
+
+Standard call clips are **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, and **Sighing**. Marinara uses TTS cue tags such as `[sighs]`, `[laughs]`, `[chuckles]`, `[inhales]`, or `[exhales]` to pick reaction clips during a spoken turn, then returns the participant to Idle.
+
+The **Generate Clips** dialog lets you:
+
+- choose the video generation connection,
+- include the avatar as the first/final-frame reference,
+- generate specific standard clips,
+- create a named custom clip by entering a clip name and a short action.
+
+For example, a custom clip named `Kissing` with the action `blow a kiss toward the camera` uses the same locked-camera, smooth-motion, breathing, and return-to-start loop instructions as standard clips. The user-entered text is only the action; Marinara adds the loop and identity-preservation rules.
+
+When **Character Video Presence** is enabled in **Chat Settings -> Commands -> Conversation Calls**:
+
+- existing ready clips are used automatically,
+- missing clips do not block the call,
+- provider-generated audio tracks are muted so they do not overlap with TTS,
+- clips loop inside their saved trim range if you trimmed them.
+
+**Automatic video clips generation** is off by default. When enabled, Marinara only auto-generates the two basic cached clips, **Idle** and **Talking**, for call participants that need them. Reaction clips and custom clips are generated manually from **Sprites -> Clips**.
+
+**Custom Clips** lets characters sparsely create one-off requested clips during a call with `[custom_clip: label="...", prompt="..."]`. Ready named clips are advertised back to the model as `[play_clip="name"]`, so a character can play an existing custom clip after their normal voice/text response. Use custom clips for special visual requests, not every mood or ordinary line.
+
+Gallery **Videos** are separate from **Sprites -> Clips**. Gallery Videos hold Roleplay/Game/Conversation generated or uploaded MP4 scene assets. Sprites -> Clips holds reusable video-call presence loops.
+
 ## Ending A Call
 
 You can end the call from the red hang-up button. Characters can also leave or end a call when the relevant call command is available.

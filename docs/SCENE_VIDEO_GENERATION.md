@@ -11,8 +11,7 @@ Scene videos are separate from normal image generation. They use a **Video Gener
 1. Open **Settings -> Connections**.
 2. Create or edit a connection with provider **Video Generation**.
 3. Pick a video service:
-   - **Gemini Omni** uses `gemini-omni-flash-preview` by default through Google AI Studio's Gemini API.
-   - **Google AI Studio Veo** uses `veo-3.1-generate-preview` by default through the Gemini API long-running video endpoint. Character/call loop references are sent as both the first and last frame so Veo can interpolate back to the avatar pose.
+   - **Google AI Studio** supports Gemini Omni and Veo models. Gemini Omni uses `gemini-omni-flash-preview` by default through Google AI Studio's Gemini API. Veo uses `veo-3.1-generate-preview` by default through the Gemini API long-running video endpoint, and character/call loop references are sent as both the first and last frame so Veo can interpolate back to the avatar pose.
    - **xAI Imagine** uses `grok-imagine-video-1.5` by default through the xAI Videos API.
    - **OpenRouter Video** uses `google/veo-3.1` by default through OpenRouter's asynchronous Videos API. You can type any OpenRouter video-capable model ID supported by your account.
    - **Seedance 2.0** uses `seedance-2-0` by default through the Seedance API. Seedance reference-image jobs require provider-fetchable HTTPS image URLs.
@@ -27,7 +26,7 @@ Default values:
 
 | Service | Duration | Aspect ratio | Resolution |
 | --- | --- | --- | --- |
-| Gemini Omni | 10s | 16:9 | Provider default |
+| Google AI Studio Gemini Omni | 10s | 16:9 | Provider default |
 | Google AI Studio Veo | 8s | 16:9 | 720p |
 | xAI Imagine | 10s | 16:9 | 720p |
 | OpenRouter Video | 10s | 16:9 | 720p |

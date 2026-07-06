@@ -135,7 +135,7 @@ Marinara Engine supports a wide range of LLM and image generation providers:
 
 - **LLM:** OpenAI, OpenAI ChatGPT subscription login, Anthropic, Anthropic via Claude Pro / Max subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, and any custom OpenAI-compatible endpoint (Ollama, LM Studio, KoboldCpp, etc.).
 - **Image generation:** OpenAI DALL-E / GPT Image, Stability AI, Together AI, NovelAI, OpenRouter Images, xAI / Grok Imagine, Pollinations, Stable Horde, AUTOMATIC1111 / SD Web UI, ComfyUI, RunPod Serverless ComfyUI, Draw Things, NanoGPT, Block Entropy, and providers that support image output through their chat API.
-- **Video generation:** Gemini Omni, Google AI Studio Veo, xAI Imagine, OpenRouter video models, and other supported Video Generation connection services.
+- **Video generation:** Google AI Studio Gemini Omni / Veo, xAI Imagine, OpenRouter video models, Seedance 2.0, and other supported Video Generation connection services.
 
 You can configure multiple connections at once and assign different providers per chat. API keys are encrypted at rest with AES-256.
 
