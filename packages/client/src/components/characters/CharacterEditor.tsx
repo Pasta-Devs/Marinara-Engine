@@ -2175,18 +2175,16 @@ function CharacterVideosGallery({ characterId, characterName }: { characterId: s
   const deleteClip = useDeleteCharacterGalleryClip(characterId);
   const uploadVideo = useUploadCharacterGalleryVideo(characterId);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
-  const videoUploadInputRef = useRef<HTMLInputElement | null>(null);
   const clips = (data?.clips ?? []).filter(isCharacterGalleryVideoClip);
 
-  const handleUploadClipFile = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = "";
-      if (!file) return;
-
+  const handleUploadVideos = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return;
       try {
-        await uploadVideo.mutateAsync({ file });
-        toast.success("Video uploaded.");
+        for (const file of files) {
+          await uploadVideo.mutateAsync({ file });
+        }
+        toast.success(files.length === 1 ? "Video uploaded." : "Videos uploaded.");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not upload video.");
       }
@@ -2232,31 +2230,18 @@ function CharacterVideosGallery({ characterId, characterName }: { characterId: s
   }
 
   return (
-    <div className="space-y-4">
-      <input
-        ref={videoUploadInputRef}
-        type="file"
+    <div className="space-y-6">
+      <ImageUploadDropzone
+        label="Upload Character Videos"
+        pending={uploadVideo.isPending}
+        pendingLabel="Uploading…"
+        dragLabel="Drop character videos to upload"
+        onFilesSelected={handleUploadVideos}
+        icon={<Upload size="1rem" />}
         accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
-        className="hidden"
-        onChange={handleUploadClipFile}
+        fileKind="video"
+        className="w-full"
       />
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[var(--foreground)]">Character videos</p>
-          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
-            Generated scene videos and your own uploads attached to {characterName || "this character"}.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => videoUploadInputRef.current?.click()}
-          disabled={uploadVideo.isPending}
-          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {uploadVideo.isPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Upload size="0.85rem" />}
-          Upload video
-        </button>
-      </div>
 
       {clips.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

@@ -390,7 +390,11 @@ function isClipReadyForAvatar(
   const disk = manifest.clips[kind] ?? {};
   const clipAvatar = getClipAvatarIdentity(manifest, disk);
   const diskReady = disk.status === "ready" || !disk.status;
-  return diskReady && avatarIdentityMatches(clipAvatar, avatar) && existsSync(clipPath(manifest.characterId, kind));
+  return (
+    diskReady &&
+    (disk.origin === "uploaded" || avatarIdentityMatches(clipAvatar, avatar)) &&
+    existsSync(clipPath(manifest.characterId, kind))
+  );
 }
 
 function toPublicManifest(
@@ -409,8 +413,9 @@ function toPublicManifest(
     const activeClipGenerating = activeGeneration?.clipKinds.has(kind) === true;
     const fileExists = existsSync(clipPath(manifest.characterId, kind));
     const diskReady = disk.status === "ready" || !disk.status;
+    const uploadedStandardClip = disk.origin === "uploaded";
     const status =
-      fileExists && avatarMatches && diskReady
+      fileExists && diskReady && (avatarMatches || uploadedStandardClip)
         ? "ready"
         : avatarMatches && disk.status === "generating" && activeClipGenerating
           ? "generating"

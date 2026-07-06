@@ -1891,7 +1891,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const persona = await storage.getPersona(id);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
 
-    const data = await req.file();
+    const data = await req.file({ limits: { fileSize: CALL_VIDEO_CLIP_UPLOAD_MAX_BYTES } });
     if (!data) {
       return reply.status(400).send({ error: "No file uploaded" });
     }

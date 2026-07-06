@@ -59,29 +59,23 @@ export function CallClipGenerationModal({
   const [selectedKinds, setSelectedKinds] = useState<ConversationCallCharacterVideoClipKind[]>(
     initialKind ? [initialKind] : CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   );
-  const [clipCount, setClipCount] = useState(initialKind ? 1 : CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.length);
 
   useEffect(() => {
     if (!open) return;
     const nextKinds = initialKind ? [initialKind] : CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS;
     setSelectedKinds(nextKinds);
-    setClipCount(nextKinds.length);
     setConnectionId(null);
     setIncludeAvatarReference(true);
   }, [initialKind, open]);
 
   const effectiveConnectionId = connectionId ?? defaultConnectionId;
-  const maxClipCount = Math.max(1, selectedKinds.length);
-  const safeClipCount = Math.min(Math.max(1, clipCount), maxClipCount);
-  const requestedClipKinds = selectedKinds.slice(0, safeClipCount);
-  const canGenerate = requestedClipKinds.length > 0 && Boolean(effectiveConnectionId) && !generating;
+  const canGenerate = selectedKinds.length > 0 && Boolean(effectiveConnectionId) && !generating;
 
   const toggleKind = (kind: ConversationCallCharacterVideoClipKind) => {
     setSelectedKinds((current) => {
       const exists = current.includes(kind);
       const next = exists ? current.filter((item) => item !== kind) : [...current, kind];
       if (next.length === 0) return current;
-      setClipCount((count) => Math.min(Math.max(1, count), next.length));
       return next;
     });
   };
@@ -128,17 +122,9 @@ export function CallClipGenerationModal({
         <div className="grid gap-2">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-semibold text-[var(--foreground)]">Clips to generate</span>
-            <label className="flex items-center gap-2 text-[0.6875rem] text-[var(--muted-foreground)]">
-              Count
-              <input
-                type="number"
-                min={1}
-                max={maxClipCount}
-                value={safeClipCount}
-                onChange={(event) => setClipCount(Number(event.target.value) || 1)}
-                className="w-16 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40"
-              />
-            </label>
+            <span className="rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {selectedKinds.length} selected
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.map((kind) => (
@@ -176,8 +162,8 @@ export function CallClipGenerationModal({
             type="button"
             onClick={() =>
               void onGenerate({
-                clipKinds: requestedClipKinds,
-                clipCount: requestedClipKinds.length,
+                clipKinds: selectedKinds,
+                clipCount: selectedKinds.length,
                 connectionId: effectiveConnectionId,
                 includeAvatarReference,
               })

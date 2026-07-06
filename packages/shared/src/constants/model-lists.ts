@@ -711,14 +711,6 @@ export function inferVideoSource(model: string, baseUrl: string): string {
   if (m === "google_veo" || m === "veo" || /^veo-[\d.]+/.test(m)) return "google_veo";
   if (m === "xai" || u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
   if (m.includes("grok") && m.includes("imagine") && m.includes("video")) return "xai";
-  if (
-    m === "google_ai_studio" ||
-    m === "gemini_omni" ||
-    m.includes("omni") ||
-    u.includes("generativelanguage.googleapis.com")
-  ) {
-    return "gemini_omni";
-  }
   return "gemini_omni";
 }
 

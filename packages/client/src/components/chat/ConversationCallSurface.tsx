@@ -354,7 +354,8 @@ function getSystemVoiceTypingHint() {
   const platform = `${navigator.platform ?? ""} ${navigator.userAgent ?? ""}`.toLowerCase();
   const isAppleMobile = /iphone|ipad|ipod/.test(platform) || (platform.includes("mac") && navigator.maxTouchPoints > 1);
   if (isAppleMobile) return "The call input is focused. Tap the keyboard microphone yourself, then send.";
-  if (platform.includes("android")) return "The call input is focused. Tap the keyboard microphone yourself, then send.";
+  if (platform.includes("android"))
+    return "The call input is focused. Tap the keyboard microphone yourself, then send.";
   if (platform.includes("mac")) {
     return "The call input is focused. Start macOS Dictation yourself, then send.";
   }
@@ -729,7 +730,10 @@ async function convertRecordedAudioToWavFile(blob: Blob): Promise<File> {
 }
 
 function CallCustomClipPreview({ clip }: { clip: ConversationCallCustomClipExtra }) {
-  const { data: manifest } = useConversationCallCharacterVideos(clip.characterId, Boolean(clip.characterId && clip.clipId));
+  const { data: manifest } = useConversationCallCharacterVideos(
+    clip.characterId,
+    Boolean(clip.characterId && clip.clipId),
+  );
   const customClip = clip.clipId ? manifest?.customClips.find((item) => item.id === clip.clipId) : null;
   const status = customClip?.status ?? "generating";
   const title = customClip?.label ?? clip.label;
@@ -872,9 +876,7 @@ function ParticipantTile({
   const fallbackVideoClip =
     requestedVideoKind !== "talking" ? getReadyCallVideoClip(characterVideoManifest, "talking") : null;
   const idleVideoClip = requestedVideoKind !== "idle" ? getReadyCallVideoClip(characterVideoManifest, "idle") : null;
-  const characterVideoClip = characterVideoEnabled
-    ? (preferredVideoClip ?? fallbackVideoClip ?? idleVideoClip)
-    : null;
+  const characterVideoClip = characterVideoEnabled ? (preferredVideoClip ?? fallbackVideoClip ?? idleVideoClip) : null;
   const characterVideoUrl = characterVideoClip?.url ?? null;
   const activeVideoKind =
     characterVideoClip === preferredVideoClip
@@ -885,9 +887,7 @@ function ParticipantTile({
           ? "idle"
           : null;
   const videoLoops = activeVideoKind === "idle" || activeVideoKind === "talking";
-  const videoResetKey = videoLoops
-    ? "loop"
-    : `${videoPlayback?.voiceKey ?? "one-shot"}:${videoPlayback?.nonce ?? 0}`;
+  const videoResetKey = videoLoops ? "loop" : `${videoPlayback?.voiceKey ?? "one-shot"}:${videoPlayback?.nonce ?? 0}`;
   const videoKey = [
     participant.id,
     activeVideoKind ?? "avatar",
@@ -1062,9 +1062,7 @@ export function ConversationCallSurface({
   const [recording, setRecording] = useState(false);
   const [browserSpeechSupported, setBrowserSpeechSupported] = useState(false);
   const [optimisticCallMessages, setOptimisticCallMessages] = useState<ConversationCallMessage[]>([]);
-  const [characterVideoPlayback, setCharacterVideoPlayback] = useState<Record<string, CharacterVideoPlaybackState>>(
-    {},
-  );
+  const [characterVideoPlayback, setCharacterVideoPlayback] = useState<Record<string, CharacterVideoPlaybackState>>({});
   const mobileCallLayout = useMobileCallLayout();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [joinedParticipantIds, setJoinedParticipantIds] = useState<Set<string>>(() => new Set(["user"]));
@@ -1112,8 +1110,7 @@ export function ConversationCallSurface({
     if (optimisticCallMessages.length === 0 || persistedMessages.length === 0) return;
     setOptimisticCallMessages((current) =>
       current.filter(
-        (optimistic) =>
-          !persistedMessages.some((persisted) => isSamePersistedCallMessage(optimistic, persisted)),
+        (optimistic) => !persistedMessages.some((persisted) => isSamePersistedCallMessage(optimistic, persisted)),
       ),
     );
   }, [optimisticCallMessages.length, persistedMessages]);
@@ -1190,8 +1187,7 @@ export function ConversationCallSurface({
   const visibleCallMessages = useMemo(
     () =>
       messages.filter(
-        (message) =>
-          message.kind !== "speech" && message.kind !== "command" && message.extra?.hiddenFromUser !== true,
+        (message) => message.kind !== "speech" && message.kind !== "command" && message.extra?.hiddenFromUser !== true,
       ),
     [messages],
   );
@@ -1230,7 +1226,14 @@ export function ConversationCallSurface({
       return "Responding";
     }
     return "Live";
-  }, [pendingParticipants, queuedCallInteractions, recording, sendMedia.isPending, sendMessage.isPending, userSpeaking]);
+  }, [
+    pendingParticipants,
+    queuedCallInteractions,
+    recording,
+    sendMedia.isPending,
+    sendMessage.isPending,
+    userSpeaking,
+  ]);
 
   const setUserSpeakingState = useCallback((speaking: boolean) => {
     if (userSpeakingRef.current === speaking) return;
@@ -1465,9 +1468,7 @@ export function ConversationCallSurface({
   useEffect(
     () =>
       ttsService.subscribe((state, activeId) => {
-        setSpeakingId(
-          state === "playing" && activeId && participantIdsRef.current.has(activeId) ? activeId : null,
-        );
+        setSpeakingId(state === "playing" && activeId && participantIdsRef.current.has(activeId) ? activeId : null);
       }),
     [],
   );
@@ -1714,15 +1715,23 @@ export function ConversationCallSurface({
                   participantId ?? item.turn.speakerName,
                   item.turn.id ?? item.turn.content.slice(0, 24),
                 ].join(":");
-                return chunks.map((chunk) => ({
-                  item,
-                  chunk,
-                  participantId,
-                  voiceKey,
-                  tone,
-                  spokenText: item.turn.content.trim(),
-                }));
+                return chunks
+                  .map((chunk) => ({
+                    item,
+                    chunk,
+                    text: chunk.text.trim(),
+                    participantId,
+                    voiceKey,
+                    tone,
+                    spokenText: item.turn.content.trim(),
+                  }))
+                  .filter((chunk) => chunk.text.length > 0);
               });
+              if (sequenceItems.length === 0) {
+                pauseSourceTurn = turns[batchEndIndex] ?? turn;
+                index = batchEndIndex;
+                continue;
+              }
               const speakerKeys = new Set(
                 sequenceItems.map((item) => item.participantId ?? item.item.turn.speakerName),
               );
@@ -1730,8 +1739,8 @@ export function ConversationCallSurface({
               let activeVideoVoiceKey: string | null = null;
               try {
                 await ttsService.speakSequence(
-                  sequenceItems.map(({ item, chunk, tone, participantId }) => ({
-                    text: chunk.text,
+                  sequenceItems.map(({ item, text, tone, participantId }) => ({
+                    text,
                     speaker: item.turn.speakerName,
                     tone: tone || undefined,
                     voice: item.voice,
@@ -2420,10 +2429,7 @@ export function ConversationCallSurface({
   );
 
   const applyCallMessageReactions = useCallback(
-    async (
-      message: ConversationCallMessage,
-      buildNext: (current: MessageReaction[]) => MessageReaction[],
-    ) => {
+    async (message: ConversationCallMessage, buildNext: (current: MessageReaction[]) => MessageReaction[]) => {
       const key = conversationCallKeys.messages(session.id);
       const previous = queryClient.getQueryData<ConversationCallMessage[]>(key);
       const cachedMessage = previous?.find((item) => item.id === message.id) ?? message;

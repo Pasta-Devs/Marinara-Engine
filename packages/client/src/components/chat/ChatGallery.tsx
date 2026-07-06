@@ -107,6 +107,7 @@ export function ChatGallery({
   const [selectedSelfieCharacterId, setSelectedSelfieCharacterId] = useState("");
   const copyResetTimerRef = useRef<number | null>(null);
   const isIllustrating = useGalleryStore((s) => s.illustratingChatIds.has(chatId));
+  const isGeneratingSelfie = useGalleryStore((s) => s.selfieGeneratingChatIds.has(chatId));
   const isGeneratingVideo = useGalleryStore((s) => s.videoGeneratingChatIds.has(chatId));
   const isGeneratingBackground = useGalleryStore((s) => s.backgroundGeneratingChatIds.has(chatId));
   const isGeneratingStoryboard = useGalleryStore((s) => s.storyboardGeneratingChatIds.has(chatId));
@@ -114,6 +115,7 @@ export function ChatGallery({
   const pinVideo = useGalleryStore((s) => s.pinVideo);
   const unpinImage = useGalleryStore((s) => s.unpinImage);
   const setChatIllustrating = useGalleryStore((s) => s.setChatIllustrating);
+  const setChatGeneratingSelfie = useGalleryStore((s) => s.setChatGeneratingSelfie);
   const setChatGeneratingVideo = useGalleryStore((s) => s.setChatGeneratingVideo);
   const setChatGeneratingBackground = useGalleryStore((s) => s.setChatGeneratingBackground);
   const setChatGeneratingStoryboard = useGalleryStore((s) => s.setChatGeneratingStoryboard);
@@ -146,7 +148,10 @@ export function ChatGallery({
       if (selectedSelfieCharacterId) setSelectedSelfieCharacterId("");
       return;
     }
-    if (!selectedSelfieCharacterId || !selfieCharacters.some((character) => character.id === selectedSelfieCharacterId)) {
+    if (
+      !selectedSelfieCharacterId ||
+      !selfieCharacters.some((character) => character.id === selectedSelfieCharacterId)
+    ) {
       setSelectedSelfieCharacterId(selfieCharacters[0]!.id);
     }
   }, [selectedSelfieCharacterId, selfieCharacters]);
@@ -190,17 +195,17 @@ export function ChatGallery({
   };
 
   const handleGenerateSelfie = async () => {
-    if (!onGenerateSelfie || useGalleryStore.getState().illustratingChatIds.has(chatId)) return;
+    if (!onGenerateSelfie || useGalleryStore.getState().selfieGeneratingChatIds.has(chatId)) return;
 
     const characterId = selfieCharacters.length > 1 ? selectedSelfieCharacterId : selfieCharacters[0]?.id;
-    setChatIllustrating(chatId, true);
+    setChatGeneratingSelfie(chatId, true);
     try {
       await onGenerateSelfie(characterId);
       toast.success("Selfie generated.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Selfie generation failed.");
     } finally {
-      setChatIllustrating(chatId, false);
+      setChatGeneratingSelfie(chatId, false);
     }
   };
 
@@ -353,22 +358,22 @@ export function ChatGallery({
                 <button
                   type="button"
                   onClick={() => void handleGenerateSelfie()}
-                  disabled={isIllustrating}
-                  aria-busy={isIllustrating}
+                  disabled={isGeneratingSelfie}
+                  aria-busy={isGeneratingSelfie}
                   className="flex min-w-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)]/15 px-3 py-3 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25 disabled:cursor-wait disabled:opacity-75"
                 >
-                  {isIllustrating ? (
+                  {isGeneratingSelfie ? (
                     <Loader2 size="1rem" className="shrink-0 animate-spin" />
                   ) : (
                     <Camera size="1rem" className="shrink-0" />
                   )}
-                  <span className="min-w-0 truncate">{isIllustrating ? "Generating..." : "Selfie"}</span>
+                  <span className="min-w-0 truncate">{isGeneratingSelfie ? "Generating..." : "Selfie"}</span>
                 </button>
                 {selfieCharacters.length > 1 && (
                   <select
                     value={selectedSelfieCharacterId}
                     onChange={(event) => setSelectedSelfieCharacterId(event.target.value)}
-                    disabled={isIllustrating}
+                    disabled={isGeneratingSelfie}
                     className="min-w-0 rounded-lg bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] disabled:cursor-wait disabled:opacity-70"
                     aria-label="Selfie character"
                   >
@@ -394,9 +399,7 @@ export function ChatGallery({
                 ) : (
                   <PanelsTopLeft size="1rem" className="shrink-0" />
                 )}
-                <span className="min-w-0 truncate">
-                  {isGeneratingStoryboard ? "Creating..." : "Create storyboard"}
-                </span>
+                <span className="min-w-0 truncate">{isGeneratingStoryboard ? "Creating..." : "Create storyboard"}</span>
               </button>
             )}
             {onGenerateVideo && (
@@ -520,191 +523,196 @@ export function ChatGallery({
 
         {activeTab === "images" && (
           <>
-        <ImageUploadDropzone
-          label="Upload Images"
-          pending={upload.isPending}
-          pendingLabel="Uploading…"
-          dragLabel="Drop images to upload"
-          onFilesSelected={handleUpload}
-          icon={<ImagePlus size="1rem" />}
-        />
+            <ImageUploadDropzone
+              label="Upload Images"
+              pending={upload.isPending}
+              pendingLabel="Uploading…"
+              dragLabel="Drop images to upload"
+              onFilesSelected={handleUpload}
+              icon={<ImagePlus size="1rem" />}
+            />
 
-        {/* Loading state */}
-        {isLoading && <p className="text-center text-xs text-[var(--muted-foreground)]">Loading gallery…</p>}
+            {/* Loading state */}
+            {isLoading && <p className="text-center text-xs text-[var(--muted-foreground)]">Loading gallery…</p>}
 
-        {/* Empty state */}
-        {!isLoading && !hasImages && (
-          <div className="flex flex-col items-center gap-2 py-8 text-[var(--muted-foreground)]">
-            <Sparkles size="1.5rem" className="opacity-40" />
-            <p className="text-xs">No images yet</p>
-            <p className="text-[0.625rem] opacity-60">Upload images or generate illustrations to build your gallery</p>
-          </div>
-        )}
+            {/* Empty state */}
+            {!isLoading && !hasImages && (
+              <div className="flex flex-col items-center gap-2 py-8 text-[var(--muted-foreground)]">
+                <Sparkles size="1.5rem" className="opacity-40" />
+                <p className="text-xs">No images yet</p>
+                <p className="text-[0.625rem] opacity-60">
+                  Upload images or generate illustrations to build your gallery
+                </p>
+              </div>
+            )}
 
-        {/* Image grid */}
-        {hasImages && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
-            {images!.map((img) => (
-              <div
-                key={img.id}
-                className="group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
-              >
-                <button
-                  type="button"
-                  onClick={() => setLightbox(img)}
-                  className="block w-full"
-                  aria-label="Open gallery image"
-                >
-                  <img
-                    src={img.url}
-                    alt={img.prompt || "Gallery image"}
-                    loading="lazy"
-                    decoding="async"
-                    className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
-                  />
-                </button>
-                {/* Overlay */}
-                <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
-                  <div className="flex w-full items-center justify-between p-2">
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handlePinImage(img)}
-                        aria-label="Pin image to chat"
-                        className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
-                        title="Pin to chat"
-                      >
-                        <Pin size="0.75rem" />
-                      </button>
-                      <a
-                        href={img.url}
-                        download={getChatImageDownloadName(img)}
-                        aria-label="Download gallery image"
-                        className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
-                        title="Download image"
-                      >
-                        <Download size="0.75rem" />
-                      </a>
-                      {onAnimateImage && (
-                        <button
-                          type="button"
-                          onClick={() => void handleAnimateImage(img)}
-                          disabled={isGeneratingVideo}
-                          aria-label="Animate gallery illustration"
-                          className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-60"
-                          title="Animate illustration"
-                        >
-                          {isGeneratingVideo ? <Loader2 size="0.75rem" className="animate-spin" /> : <Film size="0.75rem" />}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          event.stopPropagation();
-                          void handleCopyPrompt(img);
-                        }}
-                        disabled={!img.prompt.trim()}
-                        aria-label="Copy image prompt"
-                        className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-not-allowed disabled:opacity-45"
-                        title={img.prompt.trim() ? "Copy prompt" : "No prompt saved"}
-                      >
-                        {copiedPromptImageId === img.id ? <Check size="0.75rem" /> : <Copy size="0.75rem" />}
-                      </button>
-                    </div>
+            {/* Image grid */}
+            {hasImages && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-2">
+                {images!.map((img) => (
+                  <div
+                    key={img.id}
+                    className="group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
+                  >
                     <button
                       type="button"
-                      onClick={() => setConfirmDeleteId(img.id)}
-                      aria-label="Delete gallery image"
-                      className="pointer-events-auto rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60"
+                      onClick={() => setLightbox(img)}
+                      className="block w-full"
+                      aria-label="Open gallery image"
                     >
-                      <Trash2 size="0.75rem" />
+                      <img
+                        src={img.url}
+                        alt={img.prompt || "Gallery image"}
+                        loading="lazy"
+                        decoding="async"
+                        className="aspect-square w-full object-cover transition-transform group-hover:scale-105"
+                      />
                     </button>
+                    {/* Overlay */}
+                    <div className="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
+                      <div className="flex w-full items-center justify-between p-2">
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handlePinImage(img)}
+                            aria-label="Pin image to chat"
+                            className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
+                            title="Pin to chat"
+                          >
+                            <Pin size="0.75rem" />
+                          </button>
+                          <a
+                            href={img.url}
+                            download={getChatImageDownloadName(img)}
+                            aria-label="Download gallery image"
+                            className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
+                            title="Download image"
+                          >
+                            <Download size="0.75rem" />
+                          </a>
+                          {onAnimateImage && (
+                            <button
+                              type="button"
+                              onClick={() => void handleAnimateImage(img)}
+                              disabled={isGeneratingVideo}
+                              aria-label="Animate gallery illustration"
+                              className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-wait disabled:opacity-60"
+                              title="Animate illustration"
+                            >
+                              {isGeneratingVideo ? (
+                                <Loader2 size="0.75rem" className="animate-spin" />
+                              ) : (
+                                <Film size="0.75rem" />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              void handleCopyPrompt(img);
+                            }}
+                            disabled={!img.prompt.trim()}
+                            aria-label="Copy image prompt"
+                            className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30 disabled:cursor-not-allowed disabled:opacity-45"
+                            title={img.prompt.trim() ? "Copy prompt" : "No prompt saved"}
+                          >
+                            {copiedPromptImageId === img.id ? <Check size="0.75rem" /> : <Copy size="0.75rem" />}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(img.id)}
+                          aria-label="Delete gallery image"
+                          className="pointer-events-auto rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60"
+                        >
+                          <Trash2 size="0.75rem" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
-
+            )}
           </>
         )}
 
         {activeTab === "videos" && (
           <>
-        {sceneVideosQuery.isLoading && sceneVideosEnabled && (
-          <p className="text-center text-xs text-[var(--muted-foreground)]">Loading scene videos...</p>
-        )}
+            {sceneVideosQuery.isLoading && sceneVideosEnabled && (
+              <p className="text-center text-xs text-[var(--muted-foreground)]">Loading scene videos...</p>
+            )}
 
-        {!sceneVideosQuery.isLoading && !hasVideos && (
-          <div className="flex flex-col items-center gap-2 py-8 text-[var(--muted-foreground)]">
-            <Film size="1.5rem" className="opacity-40" />
-            <p className="text-xs">No videos yet</p>
-            <p className="text-[0.625rem] opacity-60">Generate or animate scene videos to fill this tab</p>
-          </div>
-        )}
+            {!sceneVideosQuery.isLoading && !hasVideos && (
+              <div className="flex flex-col items-center gap-2 py-8 text-[var(--muted-foreground)]">
+                <Film size="1.5rem" className="opacity-40" />
+                <p className="text-xs">No videos yet</p>
+                <p className="text-[0.625rem] opacity-60">Generate or animate scene videos to fill this tab</p>
+              </div>
+            )}
 
-        {hasVideos && (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2 text-[0.6875rem] font-medium uppercase text-[var(--muted-foreground)]">
-              <Film size="0.75rem" />
-              Scene videos
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {sceneVideos.map((video) => (
-                <div
-                  key={video.id}
-                  className="group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
-                >
-                  <button
-                    type="button"
-                    onClick={() => setVideoLightbox(video)}
-                    className="block w-full"
-                    aria-label="Open scene video"
-                  >
-                    <video
-                      src={video.url}
-                      muted
-                      playsInline
-                      preload="metadata"
-                      className="aspect-video w-full bg-black object-contain"
-                    />
-                  </button>
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
-                    <div className="flex w-full items-center justify-between gap-2 p-2">
-                      <div className="min-w-0 text-white">
-                        <div className="truncate text-[0.6875rem] font-medium">
-                          {video.durationSeconds}s scene video
+            {hasVideos && (
+              <section className="space-y-2">
+                <div className="flex items-center gap-2 text-[0.6875rem] font-medium uppercase text-[var(--muted-foreground)]">
+                  <Film size="0.75rem" />
+                  Scene videos
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {sceneVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setVideoLightbox(video)}
+                        className="block w-full"
+                        aria-label="Open scene video"
+                      >
+                        <video
+                          src={video.url}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="aspect-video w-full bg-black object-contain"
+                        />
+                      </button>
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100">
+                        <div className="flex w-full items-center justify-between gap-2 p-2">
+                          <div className="min-w-0 text-white">
+                            <div className="truncate text-[0.6875rem] font-medium">
+                              {video.durationSeconds}s scene video
+                            </div>
+                            <div className="truncate text-[0.625rem] text-white/70">{video.model}</div>
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handlePinVideo(video)}
+                              aria-label="Pin video to chat"
+                              className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
+                              title="Pin to chat"
+                            >
+                              <Pin size="0.75rem" />
+                            </button>
+                            <a
+                              href={video.url}
+                              download={getSceneVideoDownloadName(video)}
+                              aria-label="Download scene video"
+                              className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
+                              title="Download video"
+                            >
+                              <Download size="0.75rem" />
+                            </a>
+                          </div>
                         </div>
-                        <div className="truncate text-[0.625rem] text-white/70">{video.model}</div>
-                      </div>
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handlePinVideo(video)}
-                          aria-label="Pin video to chat"
-                          className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
-                          title="Pin to chat"
-                        >
-                          <Pin size="0.75rem" />
-                        </button>
-                        <a
-                          href={video.url}
-                          download={getSceneVideoDownloadName(video)}
-                          aria-label="Download scene video"
-                          className="pointer-events-auto rounded-md bg-white/20 p-1.5 text-white transition-colors hover:bg-white/30"
-                          title="Download video"
-                        >
-                          <Download size="0.75rem" />
-                        </a>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        )}
+              </section>
+            )}
           </>
         )}
       </div>

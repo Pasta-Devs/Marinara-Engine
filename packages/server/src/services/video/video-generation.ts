@@ -294,11 +294,7 @@ async function generateGoogleVeoVideo(
     request.signal,
   );
 
-  if (
-    !start.ok &&
-    request.referenceImage &&
-    shouldRetryGoogleVeoBytesPayload(start.status, start.text)
-  ) {
+  if (!start.ok && request.referenceImage && shouldRetryGoogleVeoBytesPayload(start.status, start.text)) {
     logger.info(
       "[video-gen/google-veo] Retrying model %s with bytesBase64Encoded image payload after inlineData was rejected",
       model,
@@ -538,7 +534,8 @@ async function generateOpenRouterVideo(
   }
   const startRecord = asRecord(startJson);
   const jobId = readString(startRecord.id);
-  const pollingUrl = readString(startRecord.polling_url) ?? (jobId ? buildOpenRouterVideosUrl(baseUrl, `videos/${jobId}`) : null);
+  const pollingUrl =
+    readString(startRecord.polling_url) ?? (jobId ? buildOpenRouterVideosUrl(baseUrl, `videos/${jobId}`) : null);
   if (!jobId || !pollingUrl) {
     throw new Error("OpenRouter video generation response did not include a job id");
   }
@@ -679,7 +676,7 @@ async function generateSeedanceVideo(
           logger.warn("[video-gen/seedance] completed response without video URL: %s", pollText.slice(0, 2000));
           throw new Error("Seedance response did not include a downloadable video");
         }
-        return downloadSeedanceVideo(url, apiKey, request.signal);
+        return downloadSeedanceVideo(url, baseUrl, apiKey, request.signal);
       }
       if (status && ["failed", "error", "cancelled", "canceled", "expired"].includes(status)) {
         const errorMessage = formatSeedanceOperationError(pollJson);
@@ -820,10 +817,11 @@ function buildSeedanceUrl(baseUrl: string, path: string): string {
   }
 }
 
-function isTrustedSeedanceDownloadOrigin(url: string): boolean {
+function isTrustedSeedanceDownloadOrigin(url: string, baseUrl: string): boolean {
   try {
     const parsed = new URL(url);
-    return parsed.origin === "https://api.seedance2.ai";
+    const configured = new URL(buildSeedanceUrl(baseUrl, "v1/tasks/origin-check"));
+    return parsed.origin === configured.origin;
   } catch {
     return false;
   }
@@ -914,11 +912,12 @@ async function downloadOpenRouterVideo(
 
 async function downloadSeedanceVideo(
   url: string,
+  baseUrl: string,
   apiKey: string,
   signal: AbortSignal | undefined,
 ): Promise<VideoGenerationResult> {
   const headers: Record<string, string> = { Accept: "video/mp4,video/*;q=0.9,*/*;q=0.1" };
-  if (isTrustedSeedanceDownloadOrigin(url)) {
+  if (isTrustedSeedanceDownloadOrigin(url, baseUrl)) {
     headers.Authorization = `Bearer ${apiKey}`;
   }
   const res = await safeFetch(url, {
@@ -1063,11 +1062,7 @@ async function maybeUploadSeedanceReferenceImage(
     },
   });
 
-  logger.warn(
-    "[video-gen/seedance] Uploading %s reference image to a temporary public URL for %s",
-    label,
-    expiry,
-  );
+  logger.warn("[video-gen/seedance] Uploading %s reference image to a temporary public URL for %s", label, expiry);
   const res = await safeFetch(LITTERBOX_UPLOAD_URL, {
     method: "POST",
     headers: upload.headers,
@@ -1133,7 +1128,9 @@ function escapeMultipartToken(value: string): string {
   return value.replace(/[\r\n"]/g, "_");
 }
 
-function normalizeReferenceUploadExpiry(value: VideoReferencePublicUploadOptions["expiry"]): VideoReferencePublicUploadExpiry {
+function normalizeReferenceUploadExpiry(
+  value: VideoReferencePublicUploadOptions["expiry"],
+): VideoReferencePublicUploadExpiry {
   return LITTERBOX_EXPIRY_VALUES.has(value as VideoReferencePublicUploadExpiry)
     ? (value as VideoReferencePublicUploadExpiry)
     : "12h";
@@ -1214,9 +1211,7 @@ function shouldRetryGoogleVeoBytesPayload(status: number, text: string): boolean
 function googleVeoImage(
   image: VideoReferenceImage,
   encoding: GoogleVeoImageEncoding,
-):
-  | { inlineData: { mimeType: string; data: string } }
-  | { bytesBase64Encoded: string; mimeType: string } {
+): { inlineData: { mimeType: string; data: string } } | { bytesBase64Encoded: string; mimeType: string } {
   if (encoding === "bytesBase64Encoded") {
     return {
       bytesBase64Encoded: stripDataUrl(image.base64),
@@ -1457,12 +1452,14 @@ function readSeedanceStatus(value: unknown): string | null {
   const root = asRecord(value);
   const data = asRecord(root.data);
   return (
-    readString(root.status) ??
-    readString(root.state) ??
-    readString(data.status) ??
-    readString(data.state) ??
-    readString(data.task_status)
-  )?.toLowerCase() ?? null;
+    (
+      readString(root.status) ??
+      readString(root.state) ??
+      readString(data.status) ??
+      readString(data.state) ??
+      readString(data.task_status)
+    )?.toLowerCase() ?? null
+  );
 }
 
 function formatProviderError(text: string): string {
@@ -1477,7 +1474,10 @@ function formatProviderError(text: string): string {
   } catch {
     /* use raw text */
   }
-  return trimmed.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 500);
+  return trimmed
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 500);
 }
 
 function formatOperationError(value: unknown): string {
