@@ -4,7 +4,6 @@
 import { Component, lazy, Suspense, useEffect, useMemo, type ErrorInfo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
-import { AppShell } from "./components/layout/AppShell";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
 import { ModelDownloadModal } from "./components/modals/ModelDownloadModal";
 import { AppDialogRenderer } from "./components/ui/AppDialogRenderer";
@@ -36,6 +35,9 @@ const VERSION_RECOVERY_KEY = "marinara:pwa-version-recovery";
 const VERSION_CHECK_INTERVAL_MS = 5 * 60_000;
 const LazyModalRenderer = lazy(() =>
   import("./components/layout/ModalRenderer").then((module) => ({ default: module.ModalRenderer })),
+);
+const LazyAppShell = lazy(() =>
+  import("./components/layout/AppShell").then((module) => ({ default: module.AppShell })),
 );
 
 type HealthResponse = {
@@ -137,11 +139,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
             >
               Reload
             </button>
-            <button
-              type="button"
-              onClick={this.resetLocalUiState}
-              className="mari-chrome-control px-3 py-2 text-sm"
-            >
+            <button type="button" onClick={this.resetLocalUiState} className="mari-chrome-control px-3 py-2 text-sm">
               Reset local UI state
             </button>
           </div>
@@ -612,10 +610,7 @@ export function App() {
       if (cursorRecolorFreezeTimer !== null) {
         window.clearTimeout(cursorRecolorFreezeTimer);
       }
-      cursorRecolorFreezeTimer = window.setTimeout(
-        unfreezeCursorRecolor,
-        CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS,
-      );
+      cursorRecolorFreezeTimer = window.setTimeout(unfreezeCursorRecolor, CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS);
     };
 
     const setAccentModeDataset = () => {
@@ -895,7 +890,9 @@ export function App() {
     <>
       <CustomThemeInjector />
       <ChibiProfessorMariEasterEgg />
-      <AppShell />
+      <Suspense fallback={null}>
+        <LazyAppShell />
+      </Suspense>
       {!isLite && <ModelDownloadModal open={showDownloadModal} onClose={() => setShowDownloadModal(false)} />}
       {hasModalOpen && (
         <Suspense fallback={null}>

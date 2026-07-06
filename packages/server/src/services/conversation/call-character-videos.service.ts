@@ -173,7 +173,13 @@ function nowIso() {
 }
 
 function assertSafeCharacterId(characterId: string) {
-  if (!characterId || characterId.includes("..") || characterId.includes("/") || characterId.includes("\\") || characterId.includes("\0")) {
+  if (
+    !characterId ||
+    characterId.includes("..") ||
+    characterId.includes("/") ||
+    characterId.includes("\\") ||
+    characterId.includes("\0")
+  ) {
     throw new Error("Invalid character id");
   }
   return characterId;
@@ -185,7 +191,10 @@ function assertSafeCustomClipId(clipId: string) {
 }
 
 function characterDir(characterId: string) {
-  return assertInsideDir(CALL_CHARACTER_VIDEO_ROOT, join(CALL_CHARACTER_VIDEO_ROOT, assertSafeCharacterId(characterId)));
+  return assertInsideDir(
+    CALL_CHARACTER_VIDEO_ROOT,
+    join(CALL_CHARACTER_VIDEO_ROOT, assertSafeCharacterId(characterId)),
+  );
 }
 
 function manifestPath(characterId: string) {
@@ -202,7 +211,10 @@ function clipUrl(characterId: string, kind: ConversationCallCharacterVideoClipKi
 }
 
 function customClipPath(characterId: string, clipId: string) {
-  return assertInsideDir(CALL_CHARACTER_VIDEO_ROOT, join(characterDir(characterId), `${assertSafeCustomClipId(clipId)}.mp4`));
+  return assertInsideDir(
+    CALL_CHARACTER_VIDEO_ROOT,
+    join(characterDir(characterId), `${assertSafeCustomClipId(clipId)}.mp4`),
+  );
 }
 
 function customClipUrl(characterId: string, clipId: string) {
@@ -345,10 +357,7 @@ function isMp4Buffer(buffer: Buffer): boolean {
   return buffer.length >= 12 && buffer.subarray(4, 8).toString("ascii") === "ftyp";
 }
 
-function normalizeClipTrim(input: {
-  trimStartSeconds?: unknown;
-  trimEndSeconds?: unknown;
-}): {
+function normalizeClipTrim(input: { trimStartSeconds?: unknown; trimEndSeconds?: unknown }): {
   trimStartSeconds: number | null;
   trimEndSeconds: number | null;
 } {
@@ -400,20 +409,28 @@ function toPublicManifest(
     const activeClipGenerating = activeGeneration?.clipKinds.has(kind) === true;
     const fileExists = existsSync(clipPath(manifest.characterId, kind));
     const diskReady = disk.status === "ready" || !disk.status;
-    const status = fileExists && avatarMatches && diskReady
-      ? "ready"
-      : avatarMatches && disk.status === "generating" && activeClipGenerating
-        ? "generating"
-        : avatarMatches && disk.status === "error"
-          ? "error"
-          : "missing";
+    const status =
+      fileExists && avatarMatches && diskReady
+        ? "ready"
+        : avatarMatches && disk.status === "generating" && activeClipGenerating
+          ? "generating"
+          : avatarMatches && disk.status === "error"
+            ? "error"
+            : "missing";
     return {
       kind,
       status,
       url: status === "ready" ? clipUrl(manifest.characterId, kind, clipUrlVersion(disk, clipAvatar)) : null,
       error: status === "error" ? (disk.error ?? "Video generation failed") : null,
       updatedAt: disk.updatedAt ?? null,
-      origin: status === "missing" ? undefined : disk.origin === "uploaded" ? "uploaded" : disk.updatedAt ? "generated" : undefined,
+      origin:
+        status === "missing"
+          ? undefined
+          : disk.origin === "uploaded"
+            ? "uploaded"
+            : disk.updatedAt
+              ? "generated"
+              : undefined,
       trimStartSeconds: readTrimSecond(disk.trimStartSeconds),
       trimEndSeconds: readTrimSecond(disk.trimEndSeconds),
     };
@@ -559,17 +576,28 @@ async function buildClipPrompt(input: {
   characterName: string;
   kind: ConversationCallCharacterVideoClipKind;
   durationSeconds: number;
+  usesAvatarReference: boolean;
 }) {
   const def = CONVERSATION_CALL_VIDEO_PROMPT_BY_KIND.get(input.kind);
   if (!def) {
+    const referenceLines = input.usesAvatarReference
+      ? [
+          "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
+          "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face.",
+          "Preserve the reference image's background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style.",
+        ]
+      : [
+          "No reference image is attached. Generate a clean 16:9 animated portrait loop from the prompt alone.",
+          "Keep the character design consistent for the whole clip, with no outfit, accessory, face, hair, or background changes.",
+        ];
     return [
       `Create a ${input.durationSeconds}-second 16:9 animated portrait loop for an AI video call.`,
-      "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
-      "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face.",
-      "Preserve the reference image's background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style.",
+      ...referenceLines,
       `Action: ${getClipInstruction(input.kind)}`,
       "Motion quality: one smooth, restrained, video-call-like motion throughout the clip.",
-      "Lighting and background: keep them from the reference image; do not invent a new ambience or setting.",
+      input.usesAvatarReference
+        ? "Lighting and background: keep them from the reference image; do not invent a new ambience or setting."
+        : "Lighting and background: keep them stable and simple; do not change the setting mid-clip.",
       "Camera: locked-off still camera, no zoom, pan, tilt, dolly, crop change, reframing, handheld shake, or scene cut.",
       "Looping: return to the first-frame pose by the final frame for a seamless loop.",
       "Focus: single character only, no captions, subtitles, UI, logos, extra people, new clothing, or new facial features.",
@@ -583,6 +611,9 @@ async function buildClipPrompt(input: {
     clipInstruction: getClipInstruction(input.kind),
     durationSeconds: input.durationSeconds,
     aspectRatio: "16:9",
+    referenceInstruction: input.usesAvatarReference
+      ? "Use the attached image as the character identity, crop, and first/final frame target."
+      : "No reference image is attached. Generate from the prompt alone and keep identity, framing, and styling consistent.",
   });
 }
 
@@ -633,31 +664,31 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
         ? DEFAULT_XAI_VIDEO_BASE_URL
         : isGoogleVeoVideo
           ? DEFAULT_GOOGLE_VEO_BASE_URL
-        : isOpenRouterVideo
-          ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
-        : isSeedanceVideo
-          ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
-          : DEFAULT_GEMINI_OMNI_BASE_URL),
+          : isOpenRouterVideo
+            ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
+            : isSeedanceVideo
+              ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
+              : DEFAULT_GEMINI_OMNI_BASE_URL),
     model:
       connection.model ||
       (isXaiVideo
         ? DEFAULT_XAI_VIDEO_MODEL
         : isGoogleVeoVideo
           ? DEFAULT_GOOGLE_VEO_MODEL
-        : isOpenRouterVideo
-          ? DEFAULT_OPENROUTER_VIDEO_MODEL
-        : isSeedanceVideo
-          ? DEFAULT_SEEDANCE_VIDEO_MODEL
-          : DEFAULT_GEMINI_OMNI_MODEL),
+          : isOpenRouterVideo
+            ? DEFAULT_OPENROUTER_VIDEO_MODEL
+            : isSeedanceVideo
+              ? DEFAULT_SEEDANCE_VIDEO_MODEL
+              : DEFAULT_GEMINI_OMNI_MODEL),
     resolution: isXaiVideo
       ? videoDefaults.xai.resolution
       : isGoogleVeoVideo
         ? videoDefaults.googleVeo.resolution
-      : isOpenRouterVideo
-        ? videoDefaults.openrouter.resolution
-      : isSeedanceVideo
-        ? videoDefaults.seedance.resolution
-        : undefined,
+        : isOpenRouterVideo
+          ? videoDefaults.openrouter.resolution
+          : isSeedanceVideo
+            ? videoDefaults.seedance.resolution
+            : undefined,
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };
 }
@@ -689,9 +720,12 @@ async function runGenerationJob(input: {
   promptOverridesStorage: PromptOverridesStorage;
   videoSettings: VideoGenerationUserSettings;
   debugMode?: boolean;
+  includeAvatarReference?: boolean;
 }) {
   const startedAt = nowIso();
-  const reference = await readAvatarReferenceImage(input.avatarPath);
+  const avatar = await readAvatarIdentity(input.avatarPath);
+  const reference = input.includeAvatarReference === false ? null : await readAvatarReferenceImage(input.avatarPath);
+  const clipAvatar = reference?.identity ?? avatar;
   const resolved = resolveVideoConnection(input.connection);
   logger.info(
     "[conversation-call/videos] Generating call videos for %s via connection=%s source=%s model=%s",
@@ -706,7 +740,7 @@ async function runGenerationJob(input: {
     const manifest = stampClipSourceAvatarPaths(
       await readDiskManifest(input.characterId, input.characterName, input.avatarPath),
     );
-    if (isClipReadyForAvatar(manifest, kind, reference.identity)) {
+    if (isClipReadyForAvatar(manifest, kind, clipAvatar)) {
       continue;
     }
     const queuedAt = nowIso();
@@ -718,7 +752,7 @@ async function runGenerationJob(input: {
         ...latest,
         characterName: input.characterName,
         sourceAvatarPath: input.avatarPath,
-        sourceAvatarDigest: reference.identity.digest,
+        sourceAvatarDigest: clipAvatar.digest,
         updatedAt: queuedAt,
         clips: {
           ...latest.clips,
@@ -728,7 +762,7 @@ async function runGenerationJob(input: {
             updatedAt: queuedAt,
             origin: "generated",
             sourceAvatarPath: input.avatarPath,
-            sourceAvatarDigest: reference.identity.digest,
+            sourceAvatarDigest: clipAvatar.digest,
             trimStartSeconds: null,
             trimEndSeconds: null,
           },
@@ -739,17 +773,24 @@ async function runGenerationJob(input: {
     const durationSeconds = resolveVideoRequestDuration(resolved.source, resolved.serviceHint, {
       durationSeconds: requestedDurationSeconds,
       resolution: resolved.resolution,
-      referenceImage: reference.image,
+      referenceImage: reference?.image,
     });
     const prompt = await buildClipPrompt({
       promptOverridesStorage: input.promptOverridesStorage,
       characterName: input.characterName,
       kind,
       durationSeconds,
+      usesAvatarReference: reference !== null,
     });
     try {
       if (input.debugMode) {
-        logDebugOverride(true, "[debug/conversation-call/videos] %s prompt for %s:\n%s", kind, input.characterId, prompt);
+        logDebugOverride(
+          true,
+          "[debug/conversation-call/videos] %s prompt for %s:\n%s",
+          kind,
+          input.characterId,
+          prompt,
+        );
       }
       const generated = await generateVideo(
         resolved.source,
@@ -762,8 +803,7 @@ async function runGenerationJob(input: {
           durationSeconds,
           aspectRatio: "16:9",
           resolution: resolved.resolution,
-          referenceImage: reference.image,
-          lastFrameImage: reference.image,
+          ...(reference ? { referenceImage: reference.image, lastFrameImage: reference.image } : {}),
           publicReferenceUpload: resolved.publicReferenceUpload,
         },
       );
@@ -780,7 +820,7 @@ async function runGenerationJob(input: {
           ...latest,
           characterName: input.characterName,
           sourceAvatarPath: input.avatarPath,
-          sourceAvatarDigest: reference.identity.digest,
+          sourceAvatarDigest: clipAvatar.digest,
           updatedAt,
           clips: {
             ...latest.clips,
@@ -790,7 +830,7 @@ async function runGenerationJob(input: {
               updatedAt,
               origin: "generated",
               sourceAvatarPath: input.avatarPath,
-              sourceAvatarDigest: reference.identity.digest,
+              sourceAvatarDigest: clipAvatar.digest,
               trimStartSeconds: null,
               trimEndSeconds: null,
             },
@@ -809,7 +849,7 @@ async function runGenerationJob(input: {
           ...latest,
           characterName: input.characterName,
           sourceAvatarPath: input.avatarPath,
-          sourceAvatarDigest: reference.identity.digest,
+          sourceAvatarDigest: clipAvatar.digest,
           updatedAt,
           clips: {
             ...latest.clips,
@@ -819,7 +859,7 @@ async function runGenerationJob(input: {
               updatedAt,
               origin: "generated",
               sourceAvatarPath: input.avatarPath,
-              sourceAvatarDigest: reference.identity.digest,
+              sourceAvatarDigest: clipAvatar.digest,
               trimStartSeconds: null,
               trimEndSeconds: null,
             },
@@ -962,7 +1002,12 @@ async function runCustomClipGenerationJob(input: {
         },
       }),
     });
-    logger.warn(error, "[conversation-call/videos] Failed to generate custom clip %s for %s", input.clipId, input.characterId);
+    logger.warn(
+      error,
+      "[conversation-call/videos] Failed to generate custom clip %s for %s",
+      input.clipId,
+      input.characterId,
+    );
   }
 }
 
@@ -986,6 +1031,7 @@ export async function startConversationCallCharacterVideoGeneration(input: {
   promptOverridesStorage: PromptOverridesStorage;
   videoSettings?: VideoGenerationUserSettings | null;
   debugMode?: boolean;
+  includeAvatarReference?: boolean;
 }): Promise<ConversationCallCharacterVideoManifest> {
   assertSafeCharacterId(input.characterId);
   const videoSettings = normalizeVideoGenerationUserSettings(input.videoSettings);
@@ -1113,7 +1159,9 @@ export async function uploadConversationCallCharacterVideoClip(input: {
       throw new ConversationCallVideoClipUploadError("Invalid call video clip kind.");
     }
     if (GENERATION_LOCKS.has(input.characterId)) {
-      throw new ConversationCallVideoGenerationInProgressError("Call video clips are still generating for this character");
+      throw new ConversationCallVideoGenerationInProgressError(
+        "Call video clips are still generating for this character",
+      );
     }
 
     const file = clipPath(input.characterId, input.kind);
@@ -1321,7 +1369,9 @@ export async function deleteConversationCallCharacterVideoClip(input: {
     throw new Error("Invalid call video clip kind");
   }
   if (GENERATION_LOCKS.has(input.characterId)) {
-    throw new ConversationCallVideoGenerationInProgressError("Call video clips are still generating for this character");
+    throw new ConversationCallVideoGenerationInProgressError(
+      "Call video clips are still generating for this character",
+    );
   }
 
   const file = clipPath(input.characterId, input.kind);
@@ -1418,7 +1468,10 @@ export async function deleteConversationCallCustomVideoClip(input: {
   return deleted;
 }
 
-export function getConversationCallCharacterVideoFile(characterId: string, kind: ConversationCallCharacterVideoClipKind) {
+export function getConversationCallCharacterVideoFile(
+  characterId: string,
+  kind: ConversationCallCharacterVideoClipKind,
+) {
   assertSafeCharacterId(characterId);
   if (!CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.includes(kind)) return null;
   const file = clipPath(characterId, kind);

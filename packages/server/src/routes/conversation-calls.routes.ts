@@ -66,10 +66,7 @@ import { resolveConnectionImageDefaults } from "../services/image/image-generati
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
 import { generateImage, saveImageToDisk } from "../services/image/image-generation.js";
-import {
-  isNovelAiImageConnection,
-  resolveIllustratorCharacterReferences,
-} from "./generate/illustrator-references.js";
+import { isNovelAiImageConnection, resolveIllustratorCharacterReferences } from "./generate/illustrator-references.js";
 import { getChatHapticIntifaceUrl } from "../services/generation/haptic-runtime.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../services/spotify/spotify.service.js";
 import {
@@ -138,6 +135,54 @@ function parseJsonRecord(value: unknown): Record<string, unknown> {
     }
   }
   return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function parseCallVideoClipKinds(body: Record<string, unknown>): ConversationCallCharacterVideoClipKind[] | null {
+  const requestedKinds = Array.isArray(body.clipKinds)
+    ? body.clipKinds
+    : typeof body.clipKind === "string"
+      ? [body.clipKind]
+      : typeof body.kind === "string"
+        ? [body.kind]
+        : [];
+  const clipKinds: ConversationCallCharacterVideoClipKind[] = [];
+  for (const rawKind of requestedKinds) {
+    if (typeof rawKind !== "string") continue;
+    if (!CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.includes(rawKind as ConversationCallCharacterVideoClipKind)) {
+      throw new Error("Invalid call video clip kind");
+    }
+    const kind = rawKind as ConversationCallCharacterVideoClipKind;
+    if (!clipKinds.includes(kind)) clipKinds.push(kind);
+  }
+  const requestedCount = Number(body.clipCount);
+  const clipCount =
+    Number.isFinite(requestedCount) && requestedCount > 0
+      ? Math.min(CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.length, Math.floor(requestedCount))
+      : null;
+  if (clipKinds.length > 0) return clipCount ? clipKinds.slice(0, clipCount) : clipKinds;
+  if (clipCount) return CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.slice(0, clipCount);
+  return null;
+}
+
+async function resolveRequestedVideoGenerationConnection(
+  connections: ReturnType<typeof createConnectionsStorage>,
+  body: Record<string, unknown>,
+) {
+  const requestedConnectionId = typeof body.connectionId === "string" ? body.connectionId.trim() : "";
+  const videoConnection = requestedConnectionId
+    ? await connections.getWithKey(requestedConnectionId)
+    : await connections.getDefaultForVideoGeneration();
+  if (!videoConnection) {
+    throw new Error(
+      requestedConnectionId
+        ? "Selected video generation connection was not found."
+        : "No Default for Videos connection is configured.",
+    );
+  }
+  if (videoConnection.provider !== "video_generation") {
+    throw new Error("Selected connection is not a Video Generation connection.");
+  }
+  return videoConnection;
 }
 
 function readCharacterIds(raw: unknown): string[] {
@@ -235,8 +280,7 @@ async function conversationSpotifyCommandsAvailable(storage: ReturnType<typeof c
   try {
     const spotifyCredentials = await resolveSpotifyCredentials(storage, { refreshSkewMs: 60_000 });
     return (
-      "accessToken" in spotifyCredentials &&
-      spotifyHasScope(spotifyCredentials.scopes, "user-modify-playback-state")
+      "accessToken" in spotifyCredentials && spotifyHasScope(spotifyCredentials.scopes, "user-modify-playback-state")
     );
   } catch (error) {
     logger.debug(error, "[spotify/conversation-call] Failed to check Spotify command availability");
@@ -332,7 +376,10 @@ function nativeMediaContentLabel(kind: ChatMediaAttachment["kind"], mimeType: st
 }
 
 function isBlankAudioTranscript(text: string) {
-  const normalized = text.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+  const normalized = text
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, " ");
   const unwrapped = normalized.replace(/^\[/, "").replace(/\]$/, "").trim();
   return unwrapped === "blank audio" || unwrapped === "blak audio";
 }
@@ -621,7 +668,8 @@ function formatCallCommandPromptLines(
   const crossPostTargets = formatPromptOptionList(context.crossPostTargetNames, '"chat or character name"');
   const memoryTargets = formatPromptOptionList(context.memoryTargetNames, '"Name"');
   const soundTargets = formatPromptOptionList(context.soundNames, '"Sound name"');
-  const hapticDevices = context.hapticDeviceNames.length > 0 ? context.hapticDeviceNames.join(", ") : "connected devices";
+  const hapticDevices =
+    context.hapticDeviceNames.length > 0 ? context.hapticDeviceNames.join(", ") : "connected devices";
   switch (command) {
     case "schedule_update":
       return [
@@ -1016,16 +1064,17 @@ async function buildCallPrompt(input: {
   const nativeMediaText = nativeMedia
     .map((item, index) => `${index + 1}. ${item.kind} (${item.mimeType}${item.filename ? `, ${item.filename}` : ""})`)
     .join("\n");
-  const commandInstructions = commandPromptLines.length > 0
-    ? [
-        "<commands>",
-        "Here are your optional, hidden call commands. Use them only when they genuinely fit the live call.",
-        "",
-        ...commandPromptLines,
-        "IMPORTANT: Commands are hidden actions and are not voiced. If you use a command, emit it as mode \"command\" with exactly one command in content and no prose. Do not emit commands that are not listed here.",
-        "</commands>",
-      ].join("\n")
-    : "";
+  const commandInstructions =
+    commandPromptLines.length > 0
+      ? [
+          "<commands>",
+          "Here are your optional, hidden call commands. Use them only when they genuinely fit the live call.",
+          "",
+          ...commandPromptLines,
+          'IMPORTANT: Commands are hidden actions and are not voiced. If you use a command, emit it as mode "command" with exactly one command in content and no prose. Do not emit commands that are not listed here.',
+          "</commands>",
+        ].join("\n")
+      : "";
   const outputFormat = [
     "<output_format>",
     'Return ONLY valid JSON with this shape: {"turns":[{"speakerName":"Exact character name","mode":"voice|text|command","content":"message text, voice text with TTS [cues], or command text","tone":"voice-only tone tags"}]}',
@@ -1033,7 +1082,7 @@ async function buildCallPrompt(input: {
     "One response may include several ordered turns from multiple characters. Use that when a natural live-call exchange should happen before the user speaks again.",
     "If multiple characters respond, order the turns exactly as they should be heard or displayed.",
     "In group calls, every speaking character must get their own turn so their assigned voice and video clips play on the correct participant.",
-    "Do not put speaker prefixes like \"Dottore (speech):\" inside content. Put the speaker in speakerName and only the spoken/typed/command text in content.",
+    'Do not put speaker prefixes like "Dottore (speech):" inside content. Put the speaker in speakerName and only the spoken/typed/command text in content.',
     "For voice turns, include natural TTS cues inside content or tone when useful, such as [soft], [sighs], [brief pause], or [laughing quietly], etc.",
     "</output_format>",
   ].join("\n");
@@ -1051,7 +1100,7 @@ async function buildCallPrompt(input: {
       ? "The latest user input includes provider-native audio and/or video attachments. Use those attachments as the primary evidence for what the user said or showed; the written marker is only a label."
       : "",
     "If the latest input is a call-silence check, do not treat it as something the user said. If the user recently said they were going away, brb, busy, sleeping, or intentionally quiet, return no turns and wait patiently. Otherwise, one character may ask if the user is still there or all right.",
-    "Use [leave_call] only when the speaking character personally leaves the call. Use [end_call] only when the call should end for everyone. If a character should say something before ending the call, emit that voice or text turn first, then emit a separate command turn with content \"[end_call]\".",
+    'Use [leave_call] only when the speaking character personally leaves the call. Use [end_call] only when the call should end for everyone. If a character should say something before ending the call, emit that voice or text turn first, then emit a separate command turn with content "[end_call]".',
     voiceCapableCharacters.length > 0
       ? `Characters with configured voices: ${voiceCapableCharacters.map((character) => character.name).join(", ")}.`
       : "No characters currently have configured voices; use text turns unless a command is needed.",
@@ -1111,7 +1160,9 @@ async function buildCallPrompt(input: {
   );
   const latestInputKind = input.userInputKind ?? "speech";
   const latestUserText =
-    latestInputKind === "system" ? input.userText : `${persona?.name || "User"} (${latestInputKind}): ${input.userText}`;
+    latestInputKind === "system"
+      ? input.userText
+      : `${persona?.name || "User"} (${latestInputKind}): ${input.userText}`;
   const latestUserContent = [latestUserText, outputFormat, commandInstructions].filter(Boolean).join("\n\n");
   const latestUserMessage: ChatMessage = {
     role: "user",
@@ -1437,10 +1488,7 @@ async function applyCallMusicCommand(input: {
   }
 }
 
-async function applyCallHapticCommand(input: {
-  metadata: Record<string, unknown>;
-  command: HapticCommand;
-}) {
+async function applyCallHapticCommand(input: { metadata: Record<string, unknown>; command: HapticCommand }) {
   if (input.metadata.enableHapticFeedback !== true) return;
   try {
     const { hapticService } = await import("../services/haptic/buttplug-service.js");
@@ -1476,7 +1524,8 @@ async function buildCallSelfiePrompt(input: {
 }) {
   const connections = createConnectionsStorage(input.app.db);
   const promptConnectionId =
-    typeof input.metadata.illustratorPromptConnectionId === "string" && input.metadata.illustratorPromptConnectionId.trim()
+    typeof input.metadata.illustratorPromptConnectionId === "string" &&
+    input.metadata.illustratorPromptConnectionId.trim()
       ? input.metadata.illustratorPromptConnectionId.trim()
       : input.chat.connectionId;
   const fallback = [
@@ -1564,7 +1613,10 @@ async function applyCallSelfieCommand(input: {
     typeof input.metadata.selfiePositivePrompt === "string"
       ? input.metadata.selfiePositivePrompt.trim()
       : Array.isArray(input.metadata.selfieTags)
-        ? input.metadata.selfieTags.filter((tag): tag is string => typeof tag === "string").join(", ").trim()
+        ? input.metadata.selfieTags
+            .filter((tag): tag is string => typeof tag === "string")
+            .join(", ")
+            .trim()
         : "";
   const negativePrompt =
     typeof input.metadata.selfieNegativePrompt === "string" ? input.metadata.selfieNegativePrompt.trim() : "";
@@ -1615,9 +1667,7 @@ async function applyCallSelfieCommand(input: {
   }
 
   const configuredStyleProfileId =
-    parseJsonRecord(input.metadata.gameSetupConfig).imageStyleProfileId ??
-    input.metadata.imageStyleProfileId ??
-    null;
+    parseJsonRecord(input.metadata.gameSetupConfig).imageStyleProfileId ?? input.metadata.imageStyleProfileId ?? null;
   const styleProfileId =
     typeof configuredStyleProfileId === "string" && configuredStyleProfileId.trim()
       ? configuredStyleProfileId.trim()
@@ -1843,7 +1893,11 @@ async function executeCallConversationCommand(input: {
         command: command as ReactCommand,
       });
     } else if (command.type === "spotify" || command.type === "youtube") {
-      await applyCallMusicCommand({ app: input.app, chat: freshChat, command: command as SpotifyCommand | YouTubeCommand });
+      await applyCallMusicCommand({
+        app: input.app,
+        chat: freshChat,
+        command: command as SpotifyCommand | YouTubeCommand,
+      });
     } else if (command.type === "haptic") {
       await applyCallHapticCommand({ metadata, command: command as HapticCommand });
     } else if (command.type === "influence") {
@@ -2008,10 +2062,9 @@ async function endConversationCallWithSummary(input: {
   if (input.session.status === "ended") return input.session;
   const chats = createChatsStorage(input.app.db);
   const calls = createConversationCallsStorage(input.app.db);
-  const summary = await summarizeCall(input);
   const startedAt = getSessionStartedAt(input.session);
   const durationMs = Date.now() - startedAt;
-  const ended = await calls.updateStatus(input.session.id, "ended", { summary });
+  const ended = await calls.updateStatus(input.session.id, "ended");
   const duration = formatDuration(durationMs);
   await chats.createMessagesBatch(input.session.chatId, [
     {
@@ -2027,10 +2080,31 @@ async function endConversationCallWithSummary(input: {
           callId: input.session.id,
           status: "ended",
           durationMs,
-          summary,
+          summary: null,
         },
       },
     },
+  ]);
+  if (ended) {
+    void finalizeConversationCallSummary({ app: input.app, chat: input.chat, session: ended }).catch((error) => {
+      logger.warn(error, "[conversation-call] Background summary finalization failed for call %s", input.session.id);
+    });
+  }
+  return ended;
+}
+
+async function finalizeConversationCallSummary(input: {
+  app: FastifyInstance;
+  chat: NonNullable<ChatRow>;
+  session: ConversationCallSession;
+}) {
+  const calls = createConversationCallsStorage(input.app.db);
+  const existing = await calls.getSession(input.session.id);
+  if (!existing || existing.summary) return existing;
+  const chats = createChatsStorage(input.app.db);
+  const summary = await summarizeCall(input);
+  await calls.updateSummary(input.session.id, summary);
+  await chats.createMessagesBatch(input.session.chatId, [
     {
       role: "system",
       characterId: null,
@@ -2046,7 +2120,7 @@ async function endConversationCallWithSummary(input: {
       },
     },
   ]);
-  return ended;
+  return calls.getSession(input.session.id);
 }
 
 async function readTTSSettings(app: FastifyInstance): Promise<Record<string, unknown>> {
@@ -2147,19 +2221,14 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "Character video presence is not enabled for Conversation Calls." });
     }
     const data = parseCharacterData(character);
-    const videoConnection = await connections.getDefaultForVideoGeneration();
-    if (!videoConnection) {
-      return reply.status(400).send({ error: "No Default for Videos connection is configured." });
-    }
     const body = parseJsonRecord(req.body);
-    const requestedKind =
-      typeof body.clipKind === "string" ? body.clipKind : typeof body.kind === "string" ? body.kind : "";
+    let videoConnection: Awaited<ReturnType<typeof resolveRequestedVideoGenerationConnection>>;
     let clipKinds: ConversationCallCharacterVideoClipKind[] | null = null;
-    if (requestedKind) {
-      if (!CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.includes(requestedKind as ConversationCallCharacterVideoClipKind)) {
-        return reply.status(400).send({ error: "Invalid call video clip kind" });
-      }
-      clipKinds = [requestedKind as ConversationCallCharacterVideoClipKind];
+    try {
+      videoConnection = await resolveRequestedVideoGenerationConnection(connections, body);
+      clipKinds = parseCallVideoClipKinds(body);
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Invalid call clip request." });
     }
     const videoSettings = normalizeVideoGenerationUserSettings(
       await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
@@ -2173,6 +2242,51 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
       promptOverridesStorage: createPromptOverridesStorage(app.db),
       videoSettings,
       debugMode: body.debugMode === true,
+      includeAvatarReference: body.includeAvatarReference !== false,
+    });
+  });
+
+  app.get<{ Params: { personaId: string } }>("/persona-videos/:personaId", async (req, reply) => {
+    const persona = await characters.getPersona(req.params.personaId);
+    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    const personaName = typeof persona.name === "string" && persona.name.trim() ? persona.name.trim() : "Persona";
+    return getConversationCallCharacterVideoManifest({
+      characterId: req.params.personaId,
+      characterName: personaName,
+      avatarPath: persona.avatarPath ?? null,
+    });
+  });
+
+  app.post<{ Params: { personaId: string } }>("/persona-videos/:personaId/generate", async (req, reply) => {
+    const persona = await characters.getPersona(req.params.personaId);
+    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    const ttsSettings = await readTTSSettings(app);
+    if (ttsSettings.callCharacterVideoEnabled !== true) {
+      return reply.status(403).send({ error: "Character video presence is not enabled for Conversation Calls." });
+    }
+    const body = parseJsonRecord(req.body);
+    let videoConnection: Awaited<ReturnType<typeof resolveRequestedVideoGenerationConnection>>;
+    let clipKinds: ConversationCallCharacterVideoClipKind[] | null = null;
+    try {
+      videoConnection = await resolveRequestedVideoGenerationConnection(connections, body);
+      clipKinds = parseCallVideoClipKinds(body);
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Invalid call clip request." });
+    }
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    const personaName = typeof persona.name === "string" && persona.name.trim() ? persona.name.trim() : "Persona";
+    return startConversationCallCharacterVideoGeneration({
+      characterId: req.params.personaId,
+      characterName: personaName,
+      avatarPath: persona.avatarPath ?? null,
+      clipKinds,
+      connection: videoConnection,
+      promptOverridesStorage: createPromptOverridesStorage(app.db),
+      videoSettings,
+      debugMode: body.debugMode === true,
+      includeAvatarReference: body.includeAvatarReference !== false,
     });
   });
 

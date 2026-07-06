@@ -3,15 +3,7 @@
 // Replaces the chat area when editing a character.
 // Sections: Metadata, Card, Lorebook, Advanced
 // ──────────────────────────────────────────────
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  type ChangeEvent,
-  type ReactNode,
-  type SyntheticEvent,
-} from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent, type ReactNode, type SyntheticEvent } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +23,7 @@ import {
   useDeleteCharacterGalleryClip,
   useUpdateCharacterGalleryClipTrim,
   useUploadCharacterGalleryClip,
+  useUploadCharacterGalleryVideo,
   useTagCharacterGalleryImage,
   useGenerateCharacterCallVideoClips,
   useUploadSprite,
@@ -43,6 +36,7 @@ import {
   useRestoreCharacterVersion,
   useDeleteCharacterVersion,
   spriteKeys,
+  type CharacterCallVideoGenerationInput,
   type CharacterGalleryClip,
   type CharacterGalleryImage,
   type SpriteInfo,
@@ -54,6 +48,7 @@ import { showConfirmDialog } from "../../lib/app-dialogs";
 import { SpriteGenerationModal } from "../ui/SpriteGenerationModal";
 import { AvatarGenerationModal } from "../ui/AvatarGenerationModal";
 import { AvatarCropWidget } from "../ui/AvatarCropWidget";
+import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { CharacterRegexSection } from "./CharacterRegexSection";
@@ -112,6 +107,7 @@ import {
   syncRpgHpFromPools,
   type CharacterCardVersion,
   type CharacterData,
+  type ConversationCallCharacterVideoClipKind,
   type RPGStatPool,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
@@ -1895,8 +1891,10 @@ function characterGalleryClipSourceLabel(source: CharacterGalleryClip["source"])
       return "Game scene";
     case "scene-video":
       return "Scene video";
+    case "uploaded-video":
+      return "Uploaded video";
     default:
-      return "Clip";
+      return "Video";
   }
 }
 
@@ -1920,6 +1918,10 @@ function characterGalleryClipDeleteMessage(clip: CharacterGalleryClip) {
 
 function isCharacterCallVideoClip(clip: CharacterGalleryClip) {
   return clip.source === "conversation-call" || clip.source === "conversation-call-custom";
+}
+
+function isCharacterGalleryVideoClip(clip: CharacterGalleryClip) {
+  return !isCharacterCallVideoClip(clip);
 }
 
 function forceSilentCharacterCallClipVideo(video: HTMLVideoElement | null) {
@@ -2022,14 +2024,14 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
     <div className="space-y-6">
       <SectionHeader
         title="Character Gallery"
-        subtitle="Keep character images and generated clips attached to this character even if chats get deleted."
+        subtitle="Keep character images and generated videos attached to this character even if chats get deleted."
         helpText={CHARACTER_GALLERY_HELP}
       />
 
       <div className="inline-flex rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-1">
         {[
           { id: "images" as const, label: "Images", icon: Camera, count: images?.length ?? 0 },
-          { id: "clips" as const, label: "Clips", icon: Film, count: null },
+          { id: "clips" as const, label: "Videos", icon: Film, count: null },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = mediaTab === tab.id;
@@ -2131,7 +2133,7 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
           )}
         </>
       ) : (
-        <CharacterClipsGallery characterId={characterId} characterName={characterName} />
+        <CharacterVideosGallery characterId={characterId} characterName={characterName} />
       )}
 
       {lightbox && (
@@ -2168,7 +2170,129 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
   );
 }
 
-function CharacterClipsGallery({ characterId, characterName }: { characterId: string; characterName?: string }) {
+function CharacterVideosGallery({ characterId, characterName }: { characterId: string; characterName?: string }) {
+  const { data, isLoading } = useCharacterGalleryClips(characterId);
+  const deleteClip = useDeleteCharacterGalleryClip(characterId);
+  const uploadVideo = useUploadCharacterGalleryVideo(characterId);
+  const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
+  const videoUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const clips = (data?.clips ?? []).filter(isCharacterGalleryVideoClip);
+
+  const handleUploadClipFile = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (!file) return;
+
+      try {
+        await uploadVideo.mutateAsync({ file });
+        toast.success("Video uploaded.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not upload video.");
+      }
+    },
+    [uploadVideo],
+  );
+
+  const handleDeleteClip = useCallback(
+    async (clip: CharacterGalleryClip) => {
+      if (!canDeleteCharacterGalleryClip(clip)) return;
+      if (
+        !(await showConfirmDialog({
+          title: "Delete Clip",
+          message: characterGalleryClipDeleteMessage(clip),
+          confirmLabel: "Delete",
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
+
+      setDeletingClipId(clip.id);
+      try {
+        await deleteClip.mutateAsync(clip.id);
+        toast.success("Video deleted.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not delete video.");
+      } finally {
+        setDeletingClipId(null);
+      }
+    },
+    [deleteClip],
+  );
+
+  if (isLoading) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="shimmer aspect-video rounded-xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <input
+        ref={videoUploadInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov"
+        className="hidden"
+        onChange={handleUploadClipFile}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[var(--foreground)]">Character videos</p>
+          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+            Generated scene videos and your own uploads attached to {characterName || "this character"}.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => videoUploadInputRef.current?.click()}
+          disabled={uploadVideo.isPending}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/50 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {uploadVideo.isPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Upload size="0.85rem" />}
+          Upload video
+        </button>
+      </div>
+
+      {clips.length > 0 ? (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {clips.map((clip) => (
+            <CharacterClipCard
+              key={clip.id}
+              clip={clip}
+              characterName={characterName}
+              deleting={deletingClipId === clip.id}
+              generating={false}
+              uploading={false}
+              uploadDisabled
+              generationDisabled
+              onGenerate={() => undefined}
+              onUpload={() => undefined}
+              onDelete={handleDeleteClip}
+              onEditTrim={() => undefined}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
+          <Film size="1.75rem" className="text-[var(--muted-foreground)]/40" />
+          <div>
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">No character videos yet</p>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
+              Upload videos or generate scene videos with {characterName || "this character"}.
+            </p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CharacterCallClipsGallery({ characterId, characterName }: { characterId: string; characterName?: string }) {
   const { data, isLoading } = useCharacterGalleryClips(characterId);
   const generateCallClips = useGenerateCharacterCallVideoClips(characterId);
   const deleteClip = useDeleteCharacterGalleryClip(characterId);
@@ -2178,9 +2302,13 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
   const [generatingClipId, setGeneratingClipId] = useState<string | null>(null);
   const [uploadingClipId, setUploadingClipId] = useState<string | null>(null);
   const [trimClip, setTrimClip] = useState<CharacterGalleryClip | null>(null);
+  const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
+  const [generationInitialKind, setGenerationInitialKind] = useState<ConversationCallCharacterVideoClipKind | null>(
+    null,
+  );
   const clipUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingClipUploadRef = useRef<{ kind: string | null; label: string | null; clipId: string } | null>(null);
-  const clips = data?.clips ?? [];
+  const clips = (data?.clips ?? []).filter(isCharacterCallVideoClip);
   const standardCallClips = clips.filter((clip) => clip.source === "conversation-call");
   const customCallClipCount = clips.filter((clip) => clip.source === "conversation-call-custom").length;
   const readyCallClipCount = standardCallClips.filter((clip) => clip.status === "ready").length;
@@ -2190,19 +2318,30 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
     generateCallClips.isPending;
   const batchGenerationPending = generateCallClips.isPending && generatingClipId === null;
 
-  const handleGenerateCallClips = useCallback(async (clip?: CharacterGalleryClip) => {
-    const clipKind = clip?.source === "conversation-call" ? clip.clipKind : null;
-    if (clip && !clipKind) return;
-    setGeneratingClipId(clip?.id ?? null);
-    try {
-      await generateCallClips.mutateAsync(clipKind ? { clipKind } : undefined);
-      toast.success(clipKind ? `${clip?.label || "Call clip"} generation started.` : "Call clip generation started.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not start call clip generation.");
-    } finally {
-      setGeneratingClipId(null);
-    }
-  }, [generateCallClips]);
+  const openGenerationDialog = useCallback((clip?: CharacterGalleryClip) => {
+    const kind =
+      clip?.source === "conversation-call" ? (clip.clipKind as ConversationCallCharacterVideoClipKind | null) : null;
+    if (clip && !kind) return;
+    setGenerationInitialKind(kind ?? null);
+    setGenerationDialogOpen(true);
+  }, []);
+
+  const handleGenerateCallClips = useCallback(
+    async (input: CharacterCallVideoGenerationInput) => {
+      const singleKind = input.clipKinds?.length === 1 ? input.clipKinds[0] : input.clipKind;
+      setGeneratingClipId(singleKind ? `call:${singleKind}` : null);
+      try {
+        await generateCallClips.mutateAsync(input);
+        toast.success(singleKind ? "Call clip generation started." : "Call clip generation batch started.");
+        setGenerationDialogOpen(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not start call clip generation.");
+      } finally {
+        setGeneratingClipId(null);
+      }
+    },
+    [generateCallClips],
+  );
 
   const handleUploadClipFile = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -2236,7 +2375,7 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
       if (clip && !kind) return;
       pendingClipUploadRef.current = {
         kind,
-        label: kind ? clip?.label ?? null : null,
+        label: kind ? (clip?.label ?? null) : null,
         clipId: clip?.id ?? "custom-call:upload",
       };
       clipUploadInputRef.current?.click();
@@ -2329,14 +2468,12 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
           </button>
           <button
             type="button"
-            onClick={() => void handleGenerateCallClips()}
+            onClick={() => openGenerationDialog()}
             disabled={generationLockActive}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60",
-            )}
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
           >
             {batchGenerationPending ? <Loader2 size="0.85rem" className="animate-spin" /> : <Wand2 size="0.85rem" />}
-            {batchGenerationPending ? "Generating" : "Pre-generate"}
+            {batchGenerationPending ? "Generating" : "Generate Clips"}
           </button>
         </div>
       </div>
@@ -2353,7 +2490,7 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
               uploading={uploadingClipId === clip.id}
               uploadDisabled={uploadClip.isPending}
               generationDisabled={generationLockActive}
-              onGenerate={handleGenerateCallClips}
+              onGenerate={openGenerationDialog}
               onUpload={handleUploadCallClip}
               onDelete={handleDeleteClip}
               onEditTrim={setTrimClip}
@@ -2364,9 +2501,9 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-[var(--border)] py-12 text-center">
           <Film size="1.75rem" className="text-[var(--muted-foreground)]/40" />
           <div>
-            <p className="text-sm font-medium text-[var(--muted-foreground)]">No character clips yet</p>
+            <p className="text-sm font-medium text-[var(--muted-foreground)]">No call clips yet</p>
             <p className="mt-0.5 text-xs text-[var(--muted-foreground)]/60">
-              Pre-generate call clips or generate scene videos with {characterName || "this character"}.
+              Generate or upload video-call loops for {characterName || "this character"}.
             </p>
           </div>
         </div>
@@ -2376,6 +2513,14 @@ function CharacterClipsGallery({ characterId, characterName }: { characterId: st
         saving={updateClipTrim.isPending}
         onClose={() => setTrimClip(null)}
         onSave={handleSaveTrim}
+      />
+      <CallClipGenerationModal
+        open={generationDialogOpen}
+        entityName={characterName || "this character"}
+        initialKind={generationInitialKind}
+        generating={generateCallClips.isPending}
+        onClose={() => setGenerationDialogOpen(false)}
+        onGenerate={handleGenerateCallClips}
       />
     </div>
   );
@@ -2506,7 +2651,9 @@ function CharacterClipTrimModal({
               keepCharacterCallClipVideoSilent(event);
               seekCharacterCallClipToTrimStart(event.currentTarget, previewClip);
             }}
-            onTimeUpdate={(event) => handleCharacterCallClipTimeUpdate(event.currentTarget, previewClip, { loop: true })}
+            onTimeUpdate={(event) =>
+              handleCharacterCallClipTimeUpdate(event.currentTarget, previewClip, { loop: true })
+            }
             onVolumeChange={keepCharacterCallClipVideoSilent}
           />
         </div>
@@ -2671,7 +2818,9 @@ function CharacterClipCard({
       <div className="space-y-2 p-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[var(--foreground)]">{clip.label || characterName || "Clip"}</p>
+            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+              {clip.label || characterName || "Clip"}
+            </p>
             <p className="mt-0.5 truncate text-[0.6875rem] text-[var(--muted-foreground)]">
               {clip.chatName ? `${clip.chatName} · ${dateLabel}` : dateLabel}
             </p>
@@ -2727,9 +2876,7 @@ function CharacterClipCard({
         {clip.prompt ? (
           <p className="line-clamp-2 text-xs leading-relaxed text-[var(--muted-foreground)]">{clip.prompt}</p>
         ) : null}
-        {clipDetails ? (
-          <p className="text-[0.65rem] text-[var(--muted-foreground)]/70">{clipDetails}</p>
-        ) : null}
+        {clipDetails ? <p className="text-[0.65rem] text-[var(--muted-foreground)]/70">{clipDetails}</p> : null}
       </div>
     </div>
   );
@@ -2777,7 +2924,7 @@ function SpritesTab({
   defaultAppearance?: string;
   defaultAvatarUrl?: string | null;
 }) {
-  type SpriteCategory = "expressions" | "full-body";
+  type SpriteCategory = "expressions" | "full-body" | "clips";
 
   const { data: sprites, isLoading } = useCharacterSprites(characterId);
   const { data: spriteCapabilities } = useSpriteCapabilities();
@@ -2813,7 +2960,11 @@ function SpritesTab({
     .filter((s) => !s.expression.toLowerCase().startsWith("full_"))
     .map((s) => s.expression);
   const visibleSprites = allSprites.filter((s) =>
-    category === "full-body" ? s.expression.startsWith("full_") : !s.expression.startsWith("full_"),
+    category === "clips"
+      ? false
+      : category === "full-body"
+        ? s.expression.startsWith("full_")
+        : !s.expression.startsWith("full_"),
   );
   const existingExpressions = new Set(
     visibleSprites.map((s) => (category === "full-body" ? s.expression.replace(/^full_/, "") : s.expression)),
@@ -2826,6 +2977,30 @@ function SpritesTab({
   const backgroundRemoverUnavailable = spriteCapabilities?.backgroundRemover?.installed === false;
   const backgroundRemoverReason =
     spriteCapabilities?.backgroundRemover?.reason ?? "Local backgroundremover is not installed.";
+
+  const categoryTabs = (
+    <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
+      {[
+        { id: "expressions" as const, label: "Facial Expressions" },
+        { id: "full-body" as const, label: "Full-body" },
+        { id: "clips" as const, label: "Clips" },
+      ].map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => setCategory(tab.id)}
+          className={cn(
+            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+            category === tab.id
+              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+          )}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
 
   const normalizeExpressionForCategory = (raw: string) => {
     return normalizeSpriteExpressionLabel(raw, { fullBody: category === "full-body" });
@@ -3080,6 +3255,22 @@ function SpritesTab({
     [characterId, displayExpression, uploadSprite, wandCleanupSprite],
   );
 
+  if (category === "clips") {
+    return (
+      <div className="space-y-6">
+        <SectionHeader
+          title="Character Sprites"
+          subtitle="Upload VN-style sprites and video-call clips for this character."
+          helpText={CHARACTER_SPRITES_HELP}
+        />
+
+        {categoryTabs}
+
+        <CharacterCallClipsGallery characterId={characterId} characterName={characterName} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SectionHeader
@@ -3088,32 +3279,7 @@ function SpritesTab({
         helpText={CHARACTER_SPRITES_HELP}
       />
 
-      <div className="inline-flex rounded-xl bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
-        <button
-          type="button"
-          onClick={() => setCategory("expressions")}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-            category === "expressions"
-              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-          )}
-        >
-          Facial Expressions
-        </button>
-        <button
-          type="button"
-          onClick={() => setCategory("full-body")}
-          className={cn(
-            "rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-            category === "full-body"
-              ? "bg-[var(--primary)]/15 text-[var(--primary)]"
-              : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
-          )}
-        >
-          Full-body
-        </button>
-      </div>
+      {categoryTabs}
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
       <input
