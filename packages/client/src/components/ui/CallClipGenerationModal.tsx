@@ -59,6 +59,9 @@ export function CallClipGenerationModal({
   const [selectedKinds, setSelectedKinds] = useState<ConversationCallCharacterVideoClipKind[]>(
     initialKind ? [initialKind] : CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
   );
+  const [customClipEnabled, setCustomClipEnabled] = useState(false);
+  const [customClipLabel, setCustomClipLabel] = useState("");
+  const [customClipPrompt, setCustomClipPrompt] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -66,16 +69,20 @@ export function CallClipGenerationModal({
     setSelectedKinds(nextKinds);
     setConnectionId(null);
     setIncludeAvatarReference(true);
+    setCustomClipEnabled(false);
+    setCustomClipLabel("");
+    setCustomClipPrompt("");
   }, [initialKind, open]);
 
   const effectiveConnectionId = connectionId ?? defaultConnectionId;
-  const canGenerate = selectedKinds.length > 0 && Boolean(effectiveConnectionId) && !generating;
+  const customClipReady = customClipEnabled && customClipLabel.trim().length > 0 && customClipPrompt.trim().length > 0;
+  const canGenerate = (selectedKinds.length > 0 || customClipReady) && Boolean(effectiveConnectionId) && !generating;
 
   const toggleKind = (kind: ConversationCallCharacterVideoClipKind) => {
     setSelectedKinds((current) => {
       const exists = current.includes(kind);
       const next = exists ? current.filter((item) => item !== kind) : [...current, kind];
-      if (next.length === 0) return current;
+      if (next.length === 0 && !customClipEnabled) return current;
       return next;
     });
   };
@@ -149,6 +156,55 @@ export function CallClipGenerationModal({
           </div>
         </div>
 
+        <div className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-3">
+          <label className="flex items-start justify-between gap-3">
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold text-[var(--foreground)]">Custom clip</span>
+              <span className="block text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                Add a named action clip the character can later play with [play_clip="name"].
+              </span>
+            </span>
+            <input
+              type="checkbox"
+              checked={customClipEnabled}
+              onChange={(event) => setCustomClipEnabled(event.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[var(--primary)]"
+            />
+          </label>
+
+          {customClipEnabled ? (
+            <div className="grid gap-2">
+              <label className="grid gap-1 text-xs font-semibold text-[var(--foreground)]">
+                Clip name
+                <input
+                  type="text"
+                  value={customClipLabel}
+                  onChange={(event) => setCustomClipLabel(event.target.value)}
+                  placeholder="Kissing"
+                  maxLength={80}
+                  className="rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-semibold text-[var(--foreground)]">
+                Action
+                <textarea
+                  value={customClipPrompt}
+                  onChange={(event) => setCustomClipPrompt(event.target.value)}
+                  placeholder="Blow a kiss toward the screen, then return to the starting pose."
+                  rows={3}
+                  maxLength={800}
+                  className="resize-none rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm font-medium text-[var(--foreground)] outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+                />
+              </label>
+              {selectedKinds.length === 0 ? (
+                <p className="text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
+                  Only the custom clip will be generated.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+
         <div className="flex items-center justify-end gap-2">
           <button
             type="button"
@@ -166,6 +222,12 @@ export function CallClipGenerationModal({
                 clipCount: selectedKinds.length,
                 connectionId: effectiveConnectionId,
                 includeAvatarReference,
+                customClip: customClipReady
+                  ? {
+                      label: customClipLabel.trim(),
+                      prompt: customClipPrompt.trim(),
+                    }
+                  : null,
               })
             }
             disabled={!canGenerate}

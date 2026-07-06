@@ -411,6 +411,10 @@ export type CharacterCallVideoGenerationInput = {
   clipCount?: number | null;
   connectionId?: string | null;
   includeAvatarReference?: boolean;
+  customClip?: {
+    label: string;
+    prompt: string;
+  } | null;
 };
 
 export const spriteKeys = {
@@ -543,6 +547,28 @@ export function useGenerateCharacterCallVideoClips(characterId: string) {
   });
 }
 
+export function useGenerateCharacterCustomCallVideoClip(characterId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CharacterCallVideoGenerationInput) => {
+      if (!input.customClip?.label.trim() || !input.customClip.prompt.trim()) {
+        throw new Error("Custom clips need a name and action.");
+      }
+      return api.post(`/conversation-calls/character-videos/${characterId}/custom/generate`, {
+        debugMode: useUIStore.getState().debugMode,
+        label: input.customClip.label.trim(),
+        prompt: input.customClip.prompt.trim(),
+        ...(input.connectionId ? { connectionId: input.connectionId } : {}),
+        ...(input.includeAvatarReference === false ? { includeAvatarReference: false } : {}),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.galleryClips(characterId) });
+      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", characterId] });
+    },
+  });
+}
+
 export function useGeneratePersonaCallVideoClips(personaId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -555,6 +581,28 @@ export function useGeneratePersonaCallVideoClips(personaId: string) {
         ...(input?.connectionId ? { connectionId: input.connectionId } : {}),
         ...(input?.includeAvatarReference === false ? { includeAvatarReference: false } : {}),
       }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
+      qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", personaId] });
+    },
+  });
+}
+
+export function useGeneratePersonaCustomCallVideoClip(personaId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CharacterCallVideoGenerationInput) => {
+      if (!input.customClip?.label.trim() || !input.customClip.prompt.trim()) {
+        throw new Error("Custom clips need a name and action.");
+      }
+      return api.post(`/conversation-calls/persona-videos/${personaId}/custom/generate`, {
+        debugMode: useUIStore.getState().debugMode,
+        label: input.customClip.label.trim(),
+        prompt: input.customClip.prompt.trim(),
+        ...(input.connectionId ? { connectionId: input.connectionId } : {}),
+        ...(input.includeAvatarReference === false ? { includeAvatarReference: false } : {}),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.personaGalleryClips(personaId) });
       qc.invalidateQueries({ queryKey: ["conversation-calls", "character-videos", personaId] });

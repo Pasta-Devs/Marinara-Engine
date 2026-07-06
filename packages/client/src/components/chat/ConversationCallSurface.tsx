@@ -33,6 +33,7 @@ import {
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import type {
+  ConversationCallCharacterVideoCustomClip,
   ConversationCallCharacterVideoClipKind,
   ConversationCallCharacterVideoManifest,
   ConversationCallMessage,
@@ -86,6 +87,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { ReactionAddButton } from "./ReactionAddButton";
 import { MessageReactions } from "./MessageReactions";
 import { toggleReaction, USER_REACTOR } from "../../lib/reactions";
+import { api } from "../../lib/api-client";
 
 interface ConversationCallSurfaceProps {
   chatId: string;
@@ -129,6 +131,7 @@ type CharacterVideoPlaybackState = {
   followKind?: ConversationCallCharacterVideoClipKind;
   voiceKey: string;
   nonce: number;
+  customClip?: ConversationCallCharacterVideoCustomClip | null;
 };
 type CallVideoReactionKind = Exclude<ConversationCallCharacterVideoClipKind, "idle" | "talking">;
 type CallTtsVideoChunk = {
@@ -182,6 +185,8 @@ const CALL_COMMAND_ALIASES = new Map<string, string>([
   ["sound", "soundboard"],
   ["sound_board", "soundboard"],
   ["soundboard", "soundboard"],
+  ["play_clip", "play_clip"],
+  ["clip", "play_clip"],
 ]);
 
 const PARTICIPANT_TILE_CLASSES: Record<
@@ -426,6 +431,29 @@ function getCommandStringParam(value: string | null | undefined, name: string) {
   if (singleQuoted?.[1]) return singleQuoted[1].trim();
   const bare = new RegExp(`${escapedName}\\s*=\\s*([^\\]\\s,]+)`, "i").exec(trimmed);
   return bare?.[1]?.trim() ?? "";
+}
+
+function getCommandRootStringValue(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  const quoted = /^\[[a-z0-9_-]+\s*=\s*"([^"]+)"/i.exec(trimmed);
+  if (quoted?.[1]) return quoted[1].trim();
+  const singleQuoted = /^\[[a-z0-9_-]+\s*=\s*'([^']+)'/i.exec(trimmed);
+  if (singleQuoted?.[1]) return singleQuoted[1].trim();
+  const bare = /^\[[a-z0-9_-]+\s*=\s*([^\]\s,]+)/i.exec(trimmed);
+  return bare?.[1]?.trim() ?? "";
+}
+
+function readPlayClipCommandName(value: string | null | undefined) {
+  return (
+    getCommandStringParam(value, "name") ||
+    getCommandStringParam(value, "clip") ||
+    getCommandStringParam(value, "label") ||
+    getCommandRootStringValue(value)
+  ).trim();
+}
+
+function normalizeClipLookupName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function getReadyCallVideoClip(
@@ -827,16 +855,20 @@ function ParticipantTile({
   cameraStream,
   density,
   characterVideoEnabled,
+  automaticVideoClipGenerationEnabled,
   videoPlayback,
   onVideoEmotionEnded,
+  onVideoClipReadiness,
 }: {
   participant: Participant;
   active: boolean;
   cameraStream?: MediaStream | null;
   density: ParticipantTileDensity;
   characterVideoEnabled: boolean;
+  automaticVideoClipGenerationEnabled: boolean;
   videoPlayback?: CharacterVideoPlaybackState;
   onVideoEmotionEnded: (participantId: string, voiceKey: string) => void;
+  onVideoClipReadiness: (characterId: string, hasReadyBasicClip: boolean) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const requestedGenerationRef = useRef(false);
@@ -857,11 +889,22 @@ function ParticipantTile({
   useEffect(() => {
     if (!characterVideoEnabled || !characterId || !characterVideoManifest || requestedGenerationRef.current) return;
     if (characterVideoManifest.generating) return;
-    const hasMissingClips = characterVideoManifest.clips.some((clip) => clip.status === "missing");
-    if (!hasMissingClips) return;
+    const basicClipKinds: ConversationCallCharacterVideoClipKind[] = ["idle", "talking"];
+    const hasReadyBasicClip = characterVideoManifest.clips.some(
+      (clip) => basicClipKinds.includes(clip.kind) && clip.status === "ready" && clip.url,
+    );
+    onVideoClipReadiness(characterId, hasReadyBasicClip);
+    if (!automaticVideoClipGenerationEnabled) {
+      return;
+    }
+    const missingBasicClipKinds = basicClipKinds.filter((kind) => {
+      const clip = characterVideoManifest.clips.find((item) => item.kind === kind);
+      return !clip || (clip.status !== "ready" && clip.status !== "generating");
+    });
+    if (missingBasicClipKinds.length === 0) return;
     requestedGenerationRef.current = true;
     generateCharacterVideos.mutate(
-      { characterId },
+      { characterId, clipKinds: missingBasicClipKinds, clipCount: missingBasicClipKinds.length },
       {
         onError: (error) => {
           console.warn("[conversation-call] Failed to start character video generation", error);
@@ -869,29 +912,43 @@ function ParticipantTile({
         },
       },
     );
-  }, [characterId, characterVideoEnabled, characterVideoManifest, generateCharacterVideos]);
+  }, [
+    automaticVideoClipGenerationEnabled,
+    characterId,
+    characterVideoEnabled,
+    characterVideoManifest,
+    generateCharacterVideos,
+    onVideoClipReadiness,
+  ]);
 
-  const requestedVideoKind = videoPlayback?.kind ?? "idle";
+  const customVideoClip =
+    videoPlayback?.customClip?.status === "ready" && videoPlayback.customClip.url ? videoPlayback.customClip : null;
+  const requestedVideoKind = customVideoClip ? "idle" : (videoPlayback?.kind ?? "idle");
   const preferredVideoClip = getReadyCallVideoClip(characterVideoManifest, requestedVideoKind);
   const fallbackVideoClip =
     requestedVideoKind !== "talking" ? getReadyCallVideoClip(characterVideoManifest, "talking") : null;
   const idleVideoClip = requestedVideoKind !== "idle" ? getReadyCallVideoClip(characterVideoManifest, "idle") : null;
-  const characterVideoClip = characterVideoEnabled ? (preferredVideoClip ?? fallbackVideoClip ?? idleVideoClip) : null;
+  const characterVideoClip = characterVideoEnabled
+    ? (customVideoClip ?? preferredVideoClip ?? fallbackVideoClip ?? idleVideoClip)
+    : null;
   const characterVideoUrl = characterVideoClip?.url ?? null;
   const activeVideoKind =
-    characterVideoClip === preferredVideoClip
-      ? requestedVideoKind
-      : characterVideoClip === fallbackVideoClip
-        ? "talking"
-        : characterVideoClip
-          ? "idle"
-          : null;
-  const videoLoops = activeVideoKind === "idle" || activeVideoKind === "talking";
+    characterVideoClip === customVideoClip
+      ? "custom"
+      : characterVideoClip === preferredVideoClip
+        ? requestedVideoKind
+        : characterVideoClip === fallbackVideoClip
+          ? "talking"
+          : characterVideoClip
+            ? "idle"
+            : null;
+  const videoLoops = !customVideoClip && (activeVideoKind === "idle" || activeVideoKind === "talking");
   const videoResetKey = videoLoops ? "loop" : `${videoPlayback?.voiceKey ?? "one-shot"}:${videoPlayback?.nonce ?? 0}`;
   const videoKey = [
     participant.id,
     activeVideoKind ?? "avatar",
     videoResetKey,
+    customVideoClip?.id ?? "",
     characterVideoUrl ?? "",
     characterVideoClip?.trimStartSeconds ?? 0,
     characterVideoClip?.trimEndSeconds ?? "end",
@@ -1063,6 +1120,7 @@ export function ConversationCallSurface({
   const [browserSpeechSupported, setBrowserSpeechSupported] = useState(false);
   const [optimisticCallMessages, setOptimisticCallMessages] = useState<ConversationCallMessage[]>([]);
   const [characterVideoPlayback, setCharacterVideoPlayback] = useState<Record<string, CharacterVideoPlaybackState>>({});
+  const [characterVideoReadyById, setCharacterVideoReadyById] = useState<Record<string, boolean>>({});
   const mobileCallLayout = useMobileCallLayout();
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [joinedParticipantIds, setJoinedParticipantIds] = useState<Set<string>>(() => new Set(["user"]));
@@ -1093,6 +1151,7 @@ export function ConversationCallSurface({
   const playedStartSoundForRef = useRef<string | null>(null);
   const playedEndSoundForRef = useRef<string | null>(null);
   const playedInitialGreetingIdsRef = useRef<Set<string>>(new Set());
+  const missingVideoClipsToastShownRef = useRef(false);
   const previousSessionStatusRef = useRef(session.status);
   const [queuedCallInteractions, setQueuedCallInteractions] = useState(0);
   const messages = useMemo(() => {
@@ -1114,6 +1173,10 @@ export function ConversationCallSurface({
       ),
     );
   }, [optimisticCallMessages.length, persistedMessages]);
+  useEffect(() => {
+    setCharacterVideoReadyById({});
+    missingVideoClipsToastShownRef.current = false;
+  }, [session.id]);
   const callAudioEnabled = ttsConfig?.callAudioEnabled === true;
   const audioInputMode = ttsConfig?.callAudioInputMode ?? "local_whisper";
   const systemVoiceInputMode = audioInputMode === "system";
@@ -1122,16 +1185,30 @@ export function ConversationCallSurface({
   const browserSpeechInputMode = audioInputMode === "transcribe";
   const videoControlsEnabled = ttsConfig?.callVideoInputEnabled === true && nativeInputMode;
   const characterVideoEnabled = ttsConfig?.callCharacterVideoEnabled === true;
-  const soundboardEnabled = ttsConfig?.callSoundboardEnabled !== false;
+  const automaticVideoClipGenerationEnabled = ttsConfig?.callAutomaticVideoClipsEnabled === true;
+  const soundboardEnabled = true;
   const characterVoicesMuted = conversationCallVoiceMuted || conversationCallVoiceVolume <= 0;
   const characterVoicePlaybackVolume = characterVoicesMuted ? 0 : conversationCallVoiceVolume / 100;
   const characterVoiceVolumeLabel = characterVoicesMuted ? "Muted" : `${conversationCallVoiceVolume}%`;
-  const callControlGridColumns = soundboardEnabled ? "grid-cols-7" : "grid-cols-6";
+  const callControlGridColumns = "grid-cols-7";
   const callControlButtonClass =
     "mari-chrome-control shrink-0 p-0 max-sm:aspect-square max-sm:h-auto max-sm:min-h-0 max-sm:w-full max-sm:max-w-10 max-sm:justify-self-center sm:h-11 sm:w-11";
   const callControlIconClass = "h-4 w-4";
   const browserSpeechUnavailable = browserSpeechInputMode && !browserSpeechSupported;
   const recordingWillUseLocalWhisperFallback = browserSpeechUnavailable;
+  const showMissingVideoClipsToast = useCallback(() => {
+    if (missingVideoClipsToastShownRef.current) return;
+    missingVideoClipsToastShownRef.current = true;
+    toast("No video-call clips are ready yet.", {
+      description: "Open the character editor, then Sprites > Clips, to generate idle and talking clips first.",
+      duration: 10_000,
+    });
+  }, []);
+  const updateVideoClipReadiness = useCallback((characterId: string, hasReadyBasicClip: boolean) => {
+    setCharacterVideoReadyById((current) =>
+      current[characterId] === hasReadyBasicClip ? current : { ...current, [characterId]: hasReadyBasicClip },
+    );
+  }, []);
 
   const participants = useMemo<Participant[]>(() => {
     const user: Participant = {
@@ -1184,6 +1261,28 @@ export function ConversationCallSurface({
       ),
     [departedParticipantIds, joinedParticipantIds, participants],
   );
+  const visibleCharacterIds = useMemo(
+    () =>
+      visibleParticipants
+        .filter((participant) => participant.kind === "character" && participant.characterId)
+        .map((participant) => participant.characterId!),
+    [visibleParticipants],
+  );
+  useEffect(() => {
+    if (!characterVideoEnabled || automaticVideoClipGenerationEnabled || visibleCharacterIds.length === 0) return;
+    const allReadinessKnown = visibleCharacterIds.every((characterId) =>
+      Object.prototype.hasOwnProperty.call(characterVideoReadyById, characterId),
+    );
+    if (!allReadinessKnown) return;
+    if (visibleCharacterIds.some((characterId) => characterVideoReadyById[characterId])) return;
+    showMissingVideoClipsToast();
+  }, [
+    automaticVideoClipGenerationEnabled,
+    characterVideoEnabled,
+    characterVideoReadyById,
+    showMissingVideoClipsToast,
+    visibleCharacterIds,
+  ]);
   const visibleCallMessages = useMemo(
     () =>
       messages.filter(
@@ -1506,6 +1605,22 @@ export function ConversationCallSurface({
     [],
   );
 
+  const setParticipantCustomVideoClip = useCallback(
+    (participantId: string, voiceKey: string, clip: ConversationCallCharacterVideoCustomClip) => {
+      setCharacterVideoPlayback((current) => ({
+        ...current,
+        [participantId]: {
+          kind: "idle",
+          followKind: "idle",
+          voiceKey,
+          nonce: Date.now(),
+          customClip: clip,
+        },
+      }));
+    },
+    [],
+  );
+
   const clearParticipantVideoTalking = useCallback((participantId: string | null | undefined, voiceKey: string) => {
     if (!participantId) return;
     setCharacterVideoPlayback((current) => {
@@ -1529,6 +1644,7 @@ export function ConversationCallSurface({
           ...existing,
           kind: existing.followKind,
           followKind: undefined,
+          customClip: null,
           nonce: Date.now(),
         },
       };
@@ -1561,6 +1677,43 @@ export function ConversationCallSurface({
       await playSoundById(sound.id);
     },
     [playSoundById, soundboardEnabled, sounds],
+  );
+
+  const playCustomClipByName = useCallback(
+    async (turn: ConversationCallTurn) => {
+      if (!characterVideoEnabled) return;
+      const requestedName = readPlayClipCommandName(turn.content);
+      if (!requestedName) return;
+      const participant = findParticipantForTurn(turn, participants);
+      const characterId = turn.characterId ?? participant?.characterId ?? null;
+      if (!participant || participant.kind !== "character" || !characterId) return;
+      const manifest = await queryClient.fetchQuery({
+        queryKey: conversationCallKeys.characterVideos(characterId),
+        queryFn: () =>
+          api.get<ConversationCallCharacterVideoManifest>(`/conversation-calls/character-videos/${characterId}`),
+        staleTime: 15_000,
+      });
+      const normalizedRequestedName = normalizeClipLookupName(requestedName);
+      const customClip =
+        manifest.customClips.find(
+          (clip) =>
+            clip.status === "ready" && clip.url && normalizeClipLookupName(clip.label) === normalizedRequestedName,
+        ) ?? null;
+      if (!customClip) {
+        toast(`No ready custom clip named ${requestedName} for ${participant.name}.`);
+        return;
+      }
+      setParticipantCustomVideoClip(
+        participant.id,
+        `${session.id}:${participant.id}:custom:${customClip.id}:${Date.now()}`,
+        customClip,
+      );
+      const trimStart = customClip.trimStartSeconds ?? 0;
+      const trimEnd = customClip.trimEndSeconds ?? 0;
+      const fallbackDurationMs = Math.max(1_500, Math.min(8_000, ((trimEnd || 5) - trimStart) * 1000 || 5_000));
+      await wait(fallbackDurationMs);
+    },
+    [characterVideoEnabled, participants, queryClient, session.id, setParticipantCustomVideoClip],
   );
 
   const handleCharacterLeftCall = useCallback(
@@ -1658,6 +1811,8 @@ export function ConversationCallSurface({
             const commandName = getBracketCommandName(turn.content);
             if (commandName === "soundboard") {
               await playSoundByName(getSoundboardCommandName(turn.content));
+            } else if (commandName === "play_clip") {
+              await playCustomClipByName(turn);
             } else if (commandName === "youtube") {
               const searchQuery = getCommandStringParam(turn.content, "query");
               if (searchQuery) {
@@ -1829,6 +1984,7 @@ export function ConversationCallSurface({
       handleCallEndedByCharacter,
       handleCharacterLeftCall,
       participants,
+      playCustomClipByName,
       playSoundByName,
       queryClient,
       session.id,
@@ -2715,8 +2871,10 @@ export function ConversationCallSurface({
                 cameraStream={participant.kind === "user" ? cameraStream : null}
                 density={participantGridLayout.density}
                 characterVideoEnabled={characterVideoEnabled}
+                automaticVideoClipGenerationEnabled={automaticVideoClipGenerationEnabled}
                 videoPlayback={characterVideoPlayback[participant.id]}
                 onVideoEmotionEnded={handleVideoEmotionEnded}
+                onVideoClipReadiness={updateVideoClipReadiness}
               />
             ))}
           </div>

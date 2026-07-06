@@ -24,6 +24,7 @@ import {
   useDeletePersonaGalleryImage,
   useDeletePersonaGalleryClip,
   useGeneratePersonaCallVideoClips,
+  useGeneratePersonaCustomCallVideoClip,
   useTagPersonaGalleryImage,
   type CharacterCallVideoGenerationInput,
   type CharacterGalleryClip,
@@ -572,6 +573,7 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
   const uploadClip = useUploadPersonaGalleryClip(personaId);
   const deleteClip = useDeletePersonaGalleryClip(personaId);
   const generateCallClips = useGeneratePersonaCallVideoClips(personaId);
+  const generateCustomCallClip = useGeneratePersonaCustomCallVideoClip(personaId);
   const [deletingClipId, setDeletingClipId] = useState<string | null>(null);
   const [generationDialogOpen, setGenerationDialogOpen] = useState(false);
   const clipUploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -582,7 +584,8 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
   const generationLockActive =
     data?.callVideoGenerating === true ||
     clips.some((clip) => clip.status === "generating") ||
-    generateCallClips.isPending;
+    generateCallClips.isPending ||
+    generateCustomCallClip.isPending;
 
   const handleUploadClipFile = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
@@ -602,15 +605,36 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
 
   const handleGenerateCallClips = useCallback(
     async (input: CharacterCallVideoGenerationInput) => {
+      const standardKinds = input.clipKinds?.length ? input.clipKinds : input.clipKind ? [input.clipKind] : [];
+      const customClip = input.customClip?.label.trim() && input.customClip.prompt.trim() ? input.customClip : null;
       try {
-        await generateCallClips.mutateAsync(input);
-        toast.success("Call clip generation started.");
+        if (standardKinds.length > 0) {
+          await generateCallClips.mutateAsync({
+            ...input,
+            clipKinds: standardKinds,
+            clipCount: standardKinds.length,
+            customClip: null,
+          });
+        }
+        if (customClip) {
+          await generateCustomCallClip.mutateAsync({
+            ...input,
+            customClip,
+          });
+        }
+        toast.success(
+          customClip && standardKinds.length === 0
+            ? "Custom call clip generation started."
+            : customClip
+              ? "Call clip and custom clip generation started."
+              : "Call clip generation started.",
+        );
         setGenerationDialogOpen(false);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not start call clip generation.");
       }
     },
-    [generateCallClips],
+    [generateCallClips, generateCustomCallClip],
   );
 
   const handleDeleteClip = useCallback(
@@ -682,12 +706,12 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
             disabled={generationLockActive}
             className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-3 py-2 text-xs font-semibold text-[var(--primary-foreground)] transition-all hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {generateCallClips.isPending ? (
+            {generateCallClips.isPending || generateCustomCallClip.isPending ? (
               <Loader2 size="0.85rem" className="animate-spin" />
             ) : (
               <Wand2 size="0.85rem" />
             )}
-            {generateCallClips.isPending ? "Generating" : "Generate Clips"}
+            {generateCallClips.isPending || generateCustomCallClip.isPending ? "Generating" : "Generate Clips"}
           </button>
         </div>
       </div>
@@ -718,7 +742,7 @@ function PersonaCallClipsGallery({ personaId, personaName }: { personaId: string
       <CallClipGenerationModal
         open={generationDialogOpen}
         entityName={personaName || "this persona"}
-        generating={generateCallClips.isPending}
+        generating={generateCallClips.isPending || generateCustomCallClip.isPending}
         onClose={() => setGenerationDialogOpen(false)}
         onGenerate={handleGenerateCallClips}
       />

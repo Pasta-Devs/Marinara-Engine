@@ -410,6 +410,8 @@ const CALL_COMMAND_ALIASES = new Map<string, string>([
   ["video_clip", "custom_clip"],
   ["generate", "custom_clip"],
   ["generate_clip", "custom_clip"],
+  ["play_clip", "play_clip"],
+  ["clip", "play_clip"],
   ["react", "react"],
   ["reaction", "react"],
 ]);
@@ -445,6 +447,16 @@ function getCommandStringParam(value: string | null | undefined, name: string) {
   const singleQuoted = new RegExp(`${escapedName}\\s*=\\s*'([^']+)'`, "i").exec(trimmed);
   if (singleQuoted?.[1]) return singleQuoted[1].trim();
   const bare = new RegExp(`${escapedName}\\s*=\\s*([^\\]\\s,]+)`, "i").exec(trimmed);
+  return bare?.[1]?.trim() ?? "";
+}
+
+function getCommandRootStringValue(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  const quoted = /^\[[a-z0-9_-]+\s*=\s*"([^"]+)"/i.exec(trimmed);
+  if (quoted?.[1]) return quoted[1].trim();
+  const singleQuoted = /^\[[a-z0-9_-]+\s*=\s*'([^']+)'/i.exec(trimmed);
+  if (singleQuoted?.[1]) return singleQuoted[1].trim();
+  const bare = /^\[[a-z0-9_-]+\s*=\s*([^\]\s,]+)/i.exec(trimmed);
   return bare?.[1]?.trim() ?? "";
 }
 
@@ -663,11 +675,13 @@ function formatCallCommandPromptLines(
     memoryTargetNames: string[];
     hapticDeviceNames: string[];
     soundNames: string[];
+    customClipTargets: string[];
   },
 ) {
   const crossPostTargets = formatPromptOptionList(context.crossPostTargetNames, '"chat or character name"');
   const memoryTargets = formatPromptOptionList(context.memoryTargetNames, '"Name"');
   const soundTargets = formatPromptOptionList(context.soundNames, '"Sound name"');
+  const customClipTargets = context.customClipTargets.length > 0 ? context.customClipTargets.join("; ") : "none";
   const hapticDevices =
     context.hapticDeviceNames.length > 0 ? context.hapticDeviceNames.join(", ") : "connected devices";
   switch (command) {
@@ -724,6 +738,10 @@ function formatCallCommandPromptLines(
         '- [custom_clip: label="short title", prompt="visual action or look"] - generate one custom video-call clip for the speaking character and save it to their call-video clip gallery. Use only when the user explicitly asks to see a special visual action, outfit, reveal, or look that standard idle/talking/laughing/angry/crying/sighing clips cannot show.',
         "   The prompt value is the exact visual action for the video prompt; keep it short, concrete, and focused on what the character does before returning to their starting pose.",
         "   Use this sparsely: do not create custom clips for ordinary moods, normal dialogue, or every response. Emit at most one [custom_clip] for a direct user request, and do not repeat it unless the user asks for another distinct clip.",
+      ];
+    case "play_clip":
+      return [
+        `- [play_clip="Clip name"] - play one existing custom video-call clip for the speaking character after their normal voice/text response. Available clips by character: ${customClipTargets}. Use only the clip name for your own character, for example [play_clip="Kissing"].`,
       ];
     case "end_call":
       return [
@@ -943,12 +961,35 @@ async function buildCallPrompt(input: {
   const crossPostTargetNames: string[] = [];
   const memoryTargetNames = new Set(characters.map((character) => character.name));
   const hapticDeviceNames: string[] = [];
+  const playableCustomClipTargets: string[] = [];
   const customVideoClipConnection =
     characterVideoPresenceEnabled && ttsSettings.callCustomVideoClipsEnabled === true
       ? await createConnectionsStorage(input.app.db)
           .getDefaultForVideoGeneration()
           .catch(() => null)
       : null;
+  if (characterVideoPresenceEnabled) {
+    const manifests = await Promise.all(
+      characters.map((character) =>
+        getConversationCallCharacterVideoManifest({
+          characterId: character.id,
+          characterName: character.name,
+          avatarPath: character.avatarPath ?? null,
+        }).catch((error) => {
+          logger.debug(error, "[conversation-call] Could not read call video clips for %s", character.id);
+          return null;
+        }),
+      ),
+    );
+    manifests.forEach((manifest, index) => {
+      if (!manifest) return;
+      const characterName = characters[index]?.name ?? manifest.characterName;
+      const readyClips = manifest.customClips
+        .filter((clip) => clip.status === "ready" && clip.url && clip.label.trim())
+        .map((clip) => clip.label.trim());
+      if (readyClips.length > 0) playableCustomClipTargets.push(`${characterName}: ${readyClips.join(", ")}`);
+    });
+  }
   if (metadata.characterCommands !== false) {
     const schedules = getEnabledConversationSchedules(metadata) as Record<string, WeekSchedule>;
     const allChatsForCrossPost = await chats.list();
@@ -1016,16 +1057,14 @@ async function buildCallPrompt(input: {
     }
     if (hapticAvailable) allowedCommands.push("haptic");
     if (customVideoClipConnection) allowedCommands.push("custom_clip");
+    if (playableCustomClipTargets.length > 0) allowedCommands.push("play_clip");
     if (commandToggles.influence !== false && input.chat.connectedChatId) allowedCommands.push("influence");
     if (commandToggles.note !== false && input.chat.connectedChatId) allowedCommands.push("note");
   }
   if (!allowedCommands.includes("end_call")) allowedCommands.push("end_call");
   if (!allowedCommands.includes("leave_call")) allowedCommands.push("leave_call");
-  const soundNames =
-    ttsSettings.callSoundboardEnabled !== false
-      ? (await createConversationCallsStorage(input.app.db).listSounds()).map((sound) => sound.name)
-      : [];
-  if (ttsSettings.callSoundboardEnabled !== false) allowedCommands.push("soundboard");
+  const soundNames = (await createConversationCallsStorage(input.app.db).listSounds()).map((sound) => sound.name);
+  allowedCommands.push("soundboard");
   const commandPromptLines = allowedCommands.flatMap((command) =>
     formatCallCommandPromptLines(command, {
       personaName: persona?.name || "User",
@@ -1033,6 +1072,7 @@ async function buildCallPrompt(input: {
       memoryTargetNames: [...memoryTargetNames],
       hapticDeviceNames,
       soundNames,
+      customClipTargets: playableCustomClipTargets,
     }),
   );
   const activeEntries = await lorebooks.listActiveEntries({
@@ -1741,7 +1781,8 @@ function readCustomClipPrompt(commandText: string) {
     getCommandStringParam(commandText, "clip") ||
     getCommandStringParam(commandText, "action") ||
     getCommandStringParam(commandText, "description") ||
-    getCommandStringParam(commandText, "context")
+    getCommandStringParam(commandText, "context") ||
+    getCommandRootStringValue(commandText)
   )
     .replace(/\s+/g, " ")
     .trim();
@@ -1819,7 +1860,14 @@ async function executeCallConversationCommand(input: {
   sourceContent?: string | null;
 }): Promise<ConversationCallMessage[]> {
   const commandName = getBracketCommandName(input.commandText);
-  if (commandName === "end_call" || commandName === "leave_call" || commandName === "soundboard") return [];
+  if (
+    commandName === "end_call" ||
+    commandName === "leave_call" ||
+    commandName === "soundboard" ||
+    commandName === "play_clip"
+  ) {
+    return [];
+  }
   if (commandName === "custom_clip") {
     const chats = createChatsStorage(input.app.db);
     const chars = createCharactersStorage(input.app.db);
@@ -2246,6 +2294,46 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
     });
   });
 
+  app.post<{ Params: { characterId: string } }>(
+    "/character-videos/:characterId/custom/generate",
+    async (req, reply) => {
+      const character = await characters.getById(req.params.characterId);
+      if (!character) return reply.status(404).send({ error: "Character not found" });
+      const ttsSettings = await readTTSSettings(app);
+      if (ttsSettings.callCharacterVideoEnabled !== true) {
+        return reply.status(403).send({ error: "Character video presence is not enabled for Conversation Calls." });
+      }
+      const data = parseCharacterData(character);
+      const body = parseJsonRecord(req.body);
+      const label = typeof body.label === "string" ? body.label.trim() : "";
+      const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+      if (!label || !prompt) {
+        return reply.status(400).send({ error: "Custom clips need a name and action." });
+      }
+      let videoConnection: Awaited<ReturnType<typeof resolveRequestedVideoGenerationConnection>>;
+      try {
+        videoConnection = await resolveRequestedVideoGenerationConnection(connections, body);
+      } catch (error) {
+        return reply.status(400).send({ error: error instanceof Error ? error.message : "Invalid call clip request." });
+      }
+      const videoSettings = normalizeVideoGenerationUserSettings(
+        await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+      );
+      return startConversationCallCustomVideoClipGeneration({
+        characterId: character.id,
+        characterName: readName(data, "Character"),
+        avatarPath: character.avatarPath ?? null,
+        connection: videoConnection,
+        promptOverridesStorage: createPromptOverridesStorage(app.db),
+        videoSettings,
+        label,
+        prompt,
+        debugMode: body.debugMode === true,
+        includeAvatarReference: body.includeAvatarReference !== false,
+      });
+    },
+  );
+
   app.get<{ Params: { personaId: string } }>("/persona-videos/:personaId", async (req, reply) => {
     const persona = await characters.getPersona(req.params.personaId);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
@@ -2285,6 +2373,43 @@ export async function conversationCallsRoutes(app: FastifyInstance) {
       connection: videoConnection,
       promptOverridesStorage: createPromptOverridesStorage(app.db),
       videoSettings,
+      debugMode: body.debugMode === true,
+      includeAvatarReference: body.includeAvatarReference !== false,
+    });
+  });
+
+  app.post<{ Params: { personaId: string } }>("/persona-videos/:personaId/custom/generate", async (req, reply) => {
+    const persona = await characters.getPersona(req.params.personaId);
+    if (!persona) return reply.status(404).send({ error: "Persona not found" });
+    const ttsSettings = await readTTSSettings(app);
+    if (ttsSettings.callCharacterVideoEnabled !== true) {
+      return reply.status(403).send({ error: "Character video presence is not enabled for Conversation Calls." });
+    }
+    const body = parseJsonRecord(req.body);
+    const label = typeof body.label === "string" ? body.label.trim() : "";
+    const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+    if (!label || !prompt) {
+      return reply.status(400).send({ error: "Custom clips need a name and action." });
+    }
+    let videoConnection: Awaited<ReturnType<typeof resolveRequestedVideoGenerationConnection>>;
+    try {
+      videoConnection = await resolveRequestedVideoGenerationConnection(connections, body);
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : "Invalid call clip request." });
+    }
+    const videoSettings = normalizeVideoGenerationUserSettings(
+      await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
+    );
+    const personaName = typeof persona.name === "string" && persona.name.trim() ? persona.name.trim() : "Persona";
+    return startConversationCallCustomVideoClipGeneration({
+      characterId: req.params.personaId,
+      characterName: personaName,
+      avatarPath: persona.avatarPath ?? null,
+      connection: videoConnection,
+      promptOverridesStorage: createPromptOverridesStorage(app.db),
+      videoSettings,
+      label,
+      prompt,
       debugMode: body.debugMode === true,
       includeAvatarReference: body.includeAvatarReference !== false,
     });

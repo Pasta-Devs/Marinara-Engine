@@ -15,6 +15,7 @@ export interface ConversationCallCustomVideoClipCtx extends Record<string, strin
   customPrompt: string;
   durationSeconds: number;
   aspectRatio: string;
+  referenceInstruction: string;
 }
 
 type ClipPromptSeed = {
@@ -80,14 +81,22 @@ function buildDefaultPrompt(ctx: ConversationCallVideoClipCtx) {
 }
 
 function buildDefaultCustomClipPrompt(ctx: ConversationCallCustomVideoClipCtx) {
+  const hasReference = ctx.referenceInstruction.startsWith("Reference:");
+  const startingPose = hasReference ? "the reference pose" : "a stable neutral video-call pose";
   return [
     `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} custom animated portrait loop for an AI video call.`,
-    "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
-    "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face.",
-    "Preserve the reference image's base background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style unless the custom request explicitly changes one visual detail.",
-    `Action from command: ${ctx.customPrompt}. Start from the reference pose, perform only this custom action, then return to that same pose by the final frame.`,
-    "Motion quality: one smooth, restrained, video-call-like motion throughout the clip.",
-    "Lighting and background: keep them from the reference image unless the custom request explicitly changes them.",
+    ctx.referenceInstruction,
+    hasReference
+      ? "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face."
+      : "Keep the character design, crop, lighting, background, clothing, accessories, and art style consistent throughout the clip.",
+    hasReference
+      ? "Preserve the reference image's base background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style unless the custom request explicitly changes one visual detail."
+      : "",
+    `Action from command: ${ctx.customPrompt}. Start from ${startingPose}, perform only this custom action, then return to that same pose by the final frame.`,
+    "Motion quality: one smooth, restrained, video-call-like motion throughout the clip, with natural breathing, small head or shoulder movement, and slight hair or clothing motion if present.",
+    hasReference
+      ? "Lighting and background: keep them from the reference image unless the custom request explicitly changes them."
+      : "Lighting and background: keep them stable unless the custom request explicitly changes them.",
     "Camera: locked-off still camera, no zoom, pan, tilt, dolly, crop change, reframing, handheld shake, or scene cut.",
     "Looping: return to the first-frame pose by the final frame for a seamless loop.",
     "Focus: single character only, no captions, subtitles, UI, logos, extra people, or unrelated costume/accessory changes.",
@@ -137,6 +146,11 @@ export const CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT: PromptOverrideKeyDef<Convers
     },
     { name: "durationSeconds", description: "Requested clip duration in seconds.", example: "5" },
     { name: "aspectRatio", description: "Requested video aspect ratio.", example: "16:9" },
+    {
+      name: "referenceInstruction",
+      description: "Whether a reference image is attached and how it should be used.",
+      example: "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
+    },
   ],
   defaultBuilder: buildDefaultCustomClipPrompt,
   exampleContext: {
@@ -145,6 +159,8 @@ export const CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT: PromptOverrideKeyDef<Convers
     customPrompt: "blow a kiss",
     durationSeconds: 5,
     aspectRatio: "16:9",
+    referenceInstruction:
+      "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
   },
 };
 

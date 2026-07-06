@@ -144,9 +144,11 @@ export const ttsConfigSchema = z.object({
   callVideoInputEnabled: z.boolean().default(false),
   /** Generate and play cached character presence videos during Conversation Calls. */
   callCharacterVideoEnabled: z.boolean().default(false),
+  /** Automatically generate the minimum idle/talking call-presence clips for call participants. */
+  callAutomaticVideoClipsEnabled: z.boolean().default(false),
   /** Let characters sparsely generate custom call-presence clips on explicit user request. */
   callCustomVideoClipsEnabled: z.boolean().default(false),
-  /** Enable the call soundboard panel and model soundboard command. */
+  /** Deprecated: soundboard is always available during calls. */
   callSoundboardEnabled: z.boolean().default(true),
 });
 
