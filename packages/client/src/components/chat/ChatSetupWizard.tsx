@@ -23,11 +23,12 @@ import {
   RotateCcw,
   Phone,
   Dices,
+  FolderOpen,
 } from "lucide-react";
 import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
-import { useCharacters, usePersonas } from "../../hooks/use-characters";
+import { useCharacterGroups, useCharacters, usePersonas } from "../../hooks/use-characters";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useUpdateChat, useUpdateChatMetadata, useCreateMessage, chatKeys } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -62,6 +63,7 @@ import {
   type Chat,
   type ChatMode,
   type ChatPreset,
+  type CharacterGroup,
   type ConversationCommandKey,
   type Lorebook,
 } from "@marinara-engine/shared";
@@ -195,6 +197,21 @@ type ConnectionSetupOption = {
   provider?: string;
   defaultParameters?: unknown;
 };
+
+function parseCharacterFolderIds(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  }
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 type AvailableAgent = {
   id: string;
@@ -636,6 +653,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: defaultPreset } = useDefaultPreset();
   const [selectedPromptPresetId, setSelectedPromptPresetId] = useState<string | null>(chat.promptPresetId ?? null);
   const { data: allCharacters } = useCharacters();
+  const { data: allCharacterGroups } = useCharacterGroups();
   const { data: allPersonas } = usePersonas();
   const updateChat = useUpdateChat();
   const updateMeta = useUpdateChatMetadata();
@@ -783,6 +801,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
   }, [persistedChatCharIds]);
 
   const [search, setSearch] = useState("");
+  const [selectedFolderId, setSelectedFolderId] = useState("");
 
   const charInfoMap = useMemo(() => {
     const map = new Map<string, ReturnType<typeof parseCharacterDisplayData>>();
@@ -803,6 +822,21 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
   const charName = useCallback(
     (c: { id?: string; data: string; comment?: string | null }) => getCharacterInfo(c).name,
     [getCharacterInfo],
+  );
+
+  const characterFolders = useMemo(
+    () =>
+      ((allCharacterGroups ?? []) as CharacterGroup[]).map((group) => ({
+        ...group,
+        characterIds: parseCharacterFolderIds(group.characterIds),
+      })),
+    [allCharacterGroups],
+  );
+  const validCharacterIds = useMemo(() => new Set(characters.map((character) => character.id)), [characters]);
+  const getAddableFolderCharacterIds = useCallback(
+    (folder: { characterIds: string[] }) =>
+      folder.characterIds.filter((id) => validCharacterIds.has(id) && !chatCharIds.includes(id)),
+    [chatCharIds, validCharacterIds],
   );
 
   // Build an auto-generated chat name from character IDs
@@ -837,6 +871,29 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       }
     },
     [buildAutoName, chat.id, chatCharIds, updateChat, userEditedName],
+  );
+
+  const addCharactersFromFolder = useCallback(
+    (folderId: string) => {
+      const folder = characterFolders.find((entry) => entry.id === folderId);
+      if (!folder) return;
+      const newIds = getAddableFolderCharacterIds(folder);
+      if (newIds.length === 0) {
+        toast.info("All characters from this folder are already added.");
+        setSelectedFolderId("");
+        return;
+      }
+      const nextCharacterIds = [...chatCharIds, ...newIds];
+      setChatCharIds(nextCharacterIds);
+      if (!userEditedName) {
+        updateChat.mutate({ id: chat.id, characterIds: nextCharacterIds, name: buildAutoName(nextCharacterIds) });
+      } else {
+        updateChat.mutate({ id: chat.id, characterIds: nextCharacterIds });
+      }
+      setSelectedFolderId("");
+      toast.success(`Added ${newIds.length} character${newIds.length === 1 ? "" : "s"} from ${folder.name}.`);
+    },
+    [buildAutoName, characterFolders, chat.id, chatCharIds, getAddableFolderCharacterIds, updateChat, userEditedName],
   );
 
   const addRandomCharacter = useCallback(() => {
@@ -1199,6 +1256,35 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
               className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
             />
           </div>
+          {characterFolders.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2">
+              <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              <select
+                value={selectedFolderId}
+                onChange={(event) => setSelectedFolderId(event.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none"
+                aria-label="Add characters from folder"
+              >
+                <option value="">Add from Folder</option>
+                {characterFolders.map((folder) => {
+                  const newCount = getAddableFolderCharacterIds(folder).length;
+                  return (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name} ({newCount > 0 ? `${newCount} new` : "all added"})
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => addCharactersFromFolder(selectedFolderId)}
+                disabled={!selectedFolderId}
+                className="rounded-lg bg-[var(--primary)]/15 px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          )}
           <div className="max-h-48 overflow-y-auto border-t border-[var(--border)]">
             {available.length > 0 && (
               <button
@@ -1538,6 +1624,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: defaultPreset } = useDefaultPreset();
   const { data: allPersonas } = usePersonas();
   const { data: allCharacters } = useCharacters();
+  const { data: allCharacterGroups } = useCharacterGroups();
   const { data: lorebooks } = useLorebooks();
   const { data: agentConfigs } = useAgentConfigs();
 
@@ -1566,6 +1653,15 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
     [allCharacters],
   );
+  const characterFolders = useMemo(
+    () =>
+      ((allCharacterGroups ?? []) as CharacterGroup[]).map((group) => ({
+        ...group,
+        characterIds: parseCharacterFolderIds(group.characterIds),
+      })),
+    [allCharacterGroups],
+  );
+  const validCharacterIds = useMemo(() => new Set(characters.map((character) => character.id)), [characters]);
   const connectionOptions = useMemo(
     () =>
       appendLocalSidecarConnectionOption(
@@ -1610,6 +1706,12 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   useEffect(() => {
     setChatCharIds(persistedChatCharIds);
   }, [persistedChatCharIds]);
+
+  const getAddableFolderCharacterIds = useCallback(
+    (folder: { characterIds: string[] }) =>
+      folder.characterIds.filter((id) => validCharacterIds.has(id) && !chatCharIds.includes(id)),
+    [chatCharIds, validCharacterIds],
+  );
 
   const activeLorebookIds: string[] = useMemo(
     () =>
@@ -1782,6 +1884,28 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     [chat.id, updateChat],
   );
 
+  const createInitialGreetingForCharacter = useCallback(
+    async (charId: string) => {
+      const char = characters.find((c) => c.id === charId);
+      if (!char) return;
+      try {
+        const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
+        const firstMes = (parsed as { first_mes?: string }).first_mes;
+        const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
+        if (firstMes) {
+          const msg = await createMessage.mutateAsync({ role: "assistant", content: firstMes, characterId: charId });
+          if (msg?.id && altGreetings.length > 0) {
+            await addSilentGreetingSwipes(chat.id, msg.id, altGreetings);
+            queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    },
+    [characters, chat.id, createMessage, queryClient],
+  );
+
   const toggleCharacter = useCallback(
     (charId: string) => {
       const current = [...chatCharIds];
@@ -1804,33 +1928,32 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
           characterIds: current,
         };
         if (!userEditedName) updateData.name = buildAutoName(current);
-        updateChat.mutate(updateData, {
-          onSuccess: () => {
-            const char = characters.find((c) => c.id === charId);
-            if (!char) return;
-            try {
-              const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-              const firstMes = (parsed as { first_mes?: string }).first_mes;
-              const altGreetings = (parsed as { alternate_greetings?: string[] }).alternate_greetings ?? [];
-              if (firstMes) {
-                createMessage
-                  .mutateAsync({ role: "assistant", content: firstMes, characterId: charId })
-                  .then(async (msg) => {
-                    if (msg?.id && altGreetings.length > 0) {
-                      await addSilentGreetingSwipes(chat.id, msg.id, altGreetings);
-                      queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
-                    }
-                  })
-                  .catch(() => {});
-              }
-            } catch {
-              /* ignore */
-            }
-          },
-        });
+        updateChat.mutate(updateData);
       }
     },
-    [buildAutoName, chat.id, chatCharIds, characters, createMessage, queryClient, updateChat, userEditedName],
+    [buildAutoName, chat.id, chatCharIds, updateChat, userEditedName],
+  );
+
+  const addCharactersFromFolder = useCallback(
+    (folderId: string) => {
+      const folder = characterFolders.find((entry) => entry.id === folderId);
+      if (!folder) return;
+      const newIds = getAddableFolderCharacterIds(folder);
+      if (newIds.length === 0) {
+        toast.info("All characters from this folder are already added.");
+        return;
+      }
+      const nextCharacterIds = [...chatCharIds, ...newIds];
+      setChatCharIds(nextCharacterIds);
+      const updateData: { id: string; characterIds: string[]; name?: string } = {
+        id: chat.id,
+        characterIds: nextCharacterIds,
+      };
+      if (!userEditedName) updateData.name = buildAutoName(nextCharacterIds);
+      updateChat.mutate(updateData);
+      toast.success(`Added ${newIds.length} character${newIds.length === 1 ? "" : "s"} from ${folder.name}.`);
+    },
+    [buildAutoName, characterFolders, chat.id, chatCharIds, getAddableFolderCharacterIds, updateChat, userEditedName],
   );
 
   const toggleLorebook = useCallback(
@@ -1866,11 +1989,28 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
       id: chat.id,
       chatParameters: customizeParameters ? generationParameters : null,
     });
+    for (const charId of chatCharIds) {
+      await createInitialGreetingForCharacter(charId);
+    }
     onFinish();
-  }, [chat.id, customizeParameters, generationParameters, onFinish, updateMeta]);
+  }, [chat.id, chatCharIds, createInitialGreetingForCharacter, customizeParameters, generationParameters, onFinish, updateMeta]);
+
+  const seedInitialGreetingsIfEmpty = useCallback(async () => {
+    if (chatCharIds.length === 0) return;
+    try {
+      const { count } = await api.get<{ count: number }>(`/chats/${chat.id}/message-count`);
+      if (count > 0) return;
+    } catch {
+      return;
+    }
+    for (const charId of chatCharIds) {
+      await createInitialGreetingForCharacter(charId);
+    }
+  }, [chat.id, chatCharIds, createInitialGreetingForCharacter]);
 
   const handleShortcutApply = useCallback(async () => {
     if (!shortcutPresetId) {
+      await seedInitialGreetingsIfEmpty();
       onFinish();
       return;
     }
@@ -1880,13 +2020,15 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     } catch {
       /* fall through — still close the wizard */
     } finally {
+      await seedInitialGreetingsIfEmpty();
       setShortcutApplying(false);
       onFinish();
     }
-  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish]);
+  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");
+  const [selectedRoleplayFolderId, setSelectedRoleplayFolderId] = useState("");
   const [lbSearch, setLbSearch] = useState("");
   const [agentSearch, setAgentSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
@@ -2182,6 +2324,38 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
               className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
             />
           </div>
+          {characterFolders.length > 0 && (
+            <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+              <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              <select
+                value={selectedRoleplayFolderId}
+                onChange={(event) => setSelectedRoleplayFolderId(event.target.value)}
+                className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none"
+                aria-label="Add characters from folder"
+              >
+                <option value="">Add from Folder</option>
+                {characterFolders.map((folder) => {
+                  const newCount = getAddableFolderCharacterIds(folder).length;
+                  return (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name} ({newCount > 0 ? `${newCount} new` : "all added"})
+                    </option>
+                  );
+                })}
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  addCharactersFromFolder(selectedRoleplayFolderId);
+                  setSelectedRoleplayFolderId("");
+                }}
+                disabled={!selectedRoleplayFolderId}
+                className="rounded-lg bg-[var(--primary)]/15 px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          )}
           <div className="max-h-32 overflow-y-auto">
             {available.length > 0 && (
               <button

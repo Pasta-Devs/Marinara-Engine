@@ -24,8 +24,14 @@ import {
   VolumeX,
   Feather,
   RotateCcw,
+  FolderOpen,
 } from "lucide-react";
-import { DEFAULT_GAME_SYSTEM_PROMPT, type GameSetupConfig, type GameGmMode } from "@marinara-engine/shared";
+import {
+  DEFAULT_GAME_SYSTEM_PROMPT,
+  type CharacterGroup,
+  type GameSetupConfig,
+  type GameGmMode,
+} from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
 import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../lib/utils";
@@ -50,7 +56,7 @@ import {
 } from "./GameWidgetSetupEditor";
 import { useConnections } from "../../hooks/use-connections";
 import { useDefaultPreset, usePresets } from "../../hooks/use-presets";
-import { usePersonas } from "../../hooks/use-characters";
+import { useCharacterGroups, usePersonas } from "../../hooks/use-characters";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useLorebooks } from "../../hooks/use-lorebooks";
 import { useGameAssetStore } from "../../stores/game-asset.store";
@@ -201,6 +207,21 @@ const GAME_SETUP_STEPS = [
 ] as const;
 
 type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
+
+function parseCharacterFolderIds(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+  }
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
 
 const GAME_SPOTIFY_SOURCE_OPTIONS: Array<{ id: GameSpotifySourceType; label: string; description: string }> = [
   { id: "liked", label: "Liked Songs", description: "Pick from saved tracks first." },
@@ -369,6 +390,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   );
   const [gmSearch, setGmSearch] = useState("");
   const [partySearch, setPartySearch] = useState("");
+  const [partyFolderId, setPartyFolderId] = useState("");
   const [personaId, setPersonaId] = useState<string | null>(null);
   const [gmConnectionId, setGmConnectionId] = useState<string | null>(null);
   const [customizeParameters, setCustomizeParameters] = useState(false);
@@ -437,6 +459,7 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   const { data: promptPresetsList } = usePresets();
   const { data: defaultPreset } = useDefaultPreset();
   const { data: personasList } = usePersonas();
+  const { data: characterGroupsList } = useCharacterGroups();
   const { data: lorebooksList } = useLorebooks();
   const spotifyPlaylistsQuery = useQuery({
     queryKey: ["spotify", "playlists", 50],
@@ -491,6 +514,15 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
       }>) ?? [],
     [personasList],
   );
+  const characterFolders = useMemo(
+    () =>
+      ((characterGroupsList ?? []) as CharacterGroup[]).map((group) => ({
+        ...group,
+        characterIds: parseCharacterFolderIds(group.characterIds),
+      })),
+    [characterGroupsList],
+  );
+  const validCharacterIds = useMemo(() => new Set(characters.map((character) => character.id)), [characters]);
 
   const lorebooks = useMemo(
     () => (lorebooksList as Array<{ id: string; name: string; enabled?: boolean }>) ?? [],
@@ -573,6 +605,23 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
   const togglePartyMember = (id: string) => {
     setPartyCharacterIds((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
   };
+
+  const addPartyMembersFromFolder = useCallback(
+    (folderId: string) => {
+      const folder = characterFolders.find((entry) => entry.id === folderId);
+      if (!folder) return;
+      const folderCharacterIds = folder.characterIds.filter((id) => validCharacterIds.has(id) && id !== gmCharacterId);
+      setPartyCharacterIds((prev) => {
+        const next = [...prev];
+        for (const id of folderCharacterIds) {
+          if (!next.includes(id)) next.push(id);
+        }
+        return next;
+      });
+      setPartyFolderId("");
+    },
+    [characterFolders, gmCharacterId, validCharacterIds],
+  );
 
   const filteredGmCharacters = useMemo(
     () =>
@@ -1293,6 +1342,37 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                     className="flex-1 bg-transparent text-xs outline-none placeholder:text-[var(--muted-foreground)]"
                   />
                 </div>
+                {characterFolders.length > 0 && (
+                  <div className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2">
+                    <FolderOpen size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                    <select
+                      value={partyFolderId}
+                      onChange={(event) => setPartyFolderId(event.target.value)}
+                      className="min-w-0 flex-1 bg-transparent text-xs text-[var(--foreground)] outline-none"
+                      aria-label="Add party members from folder"
+                    >
+                      <option value="">Add from Folder</option>
+                      {characterFolders.map((folder) => {
+                        const newCount = folder.characterIds.filter(
+                          (id) => validCharacterIds.has(id) && id !== gmCharacterId && !partyCharacterIds.includes(id),
+                        ).length;
+                        return (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name} ({newCount > 0 ? `${newCount} new` : "all added"})
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => addPartyMembersFromFolder(partyFolderId)}
+                      disabled={!partyFolderId}
+                      className="rounded-lg bg-[var(--primary)]/15 px-2.5 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
                 <div className="max-h-36 overflow-y-auto">
                   {filteredPartyCharacters.map((c) => {
                     const isSelected = partyCharacterIds.includes(c.id);

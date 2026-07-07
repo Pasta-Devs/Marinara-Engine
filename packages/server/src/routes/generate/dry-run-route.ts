@@ -7,8 +7,6 @@ import {
   stripMacroComments,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_GAME_SYSTEM_PROMPT,
-  wrapConversationInstructions,
-  unwrapConversationInstructions,
   type GenerationParameterSendMap,
   type LorebookEntryTimingState,
 } from "@marinara-engine/shared";
@@ -58,8 +56,10 @@ import {
   extractFileAttachmentInputs,
   extractImageAttachmentDataUrls,
   findTrackerContextInsertIndex,
+  formatConversationInstructionsForWrap,
   isMessageHiddenFromAI,
   mergeCustomParameters,
+  normalizePromptWrapFormat,
   parseExtra,
   parseStoredGenerationParameters,
   prefixGroupIndividualHistorySpeakers,
@@ -833,6 +833,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     promptMacroContext.lastInput = [...mappedMessages].reverse().find((message) => message.role === "user")?.content;
 
     const usePromptParts = !!promptParts;
+    if (!usePromptParts && chatMode === "conversation" && effectivePreset) {
+      wrapFormat = normalizePromptWrapFormat(effectivePreset.wrapFormat);
+    }
     if (usePromptParts) {
       // Pick wrap format (default xml). If not specified, fall back to the selected preset's wrapFormat (if any).
       if (
@@ -840,9 +843,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         promptParts.wrapFormat === "none" ||
         promptParts.wrapFormat === "xml"
       ) {
-        wrapFormat = promptParts.wrapFormat;
+        wrapFormat = normalizePromptWrapFormat(promptParts.wrapFormat);
       } else if (effectivePreset) {
-        wrapFormat = (effectivePreset.wrapFormat as "xml" | "markdown" | "none") || "xml";
+        wrapFormat = normalizePromptWrapFormat(effectivePreset.wrapFormat);
       }
 
       type PromptPartKey =
@@ -994,7 +997,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         if (!includeChatSummary) return "";
         const summary = activeChatSummary ?? "";
         if (!summary) return "";
-        return wrapFormat === "xml" ? `<chat_summary>\n${summary}\n</chat_summary>` : `Chat summary:\n${summary}`;
+        return wrapContent(summary, "Chat Summary", wrapFormat);
       })();
 
       const lorebookPayload = includeLorebook
@@ -1038,7 +1041,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
               .filter((content): content is string => typeof content === "string" && content.length > 0)
               .join("\n");
-            const loreBlock = loreContent ? `<lore>\n${loreContent}\n</lore>` : "";
+            const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
             return { loreBlock, depthEntries: lorebookResult.depthEntries };
           })()
         : { loreBlock: "", depthEntries: [] as any[] };
@@ -1152,7 +1155,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         }
         if (key === "lorebook") {
           if (!lorebookPayload.loreBlock) continue;
-          // Lorebook already comes as `<lore> ... </lore>`.
           const insertChunks: Array<{ role: "system"; content: string }> = [
             { role: "system", content: lorebookPayload.loreBlock },
           ];
@@ -1179,7 +1181,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       }
     } else if (effectivePresetId && effectivePreset && chatMode !== "conversation" && chatMode !== "game") {
       const preset = effectivePreset;
-      wrapFormat = (preset.wrapFormat as "xml" | "markdown" | "none") || "xml";
+      wrapFormat = normalizePromptWrapFormat(preset.wrapFormat);
       const [sections, groups, choiceBlocks] = await Promise.all([
         presets.listSections(effectivePresetId),
         presets.listGroups(effectivePresetId),
@@ -1315,7 +1317,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
           .replace(/\{\{userName\}\}/g, personaName),
       );
       finalMessages = [
-        { role: "system", content: wrapConversationInstructions(unwrapConversationInstructions(renderedConversationPrompt)) },
+        { role: "system", content: formatConversationInstructionsForWrap(renderedConversationPrompt, wrapFormat) },
         ...finalMessages,
       ];
     }
@@ -1345,8 +1347,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     if (!usePromptParts && !effectivePresetId && resolvedInjectChatSummary) {
       const summary = activeChatSummary ?? "";
       if (summary) {
-        const block =
-          wrapFormat === "xml" ? `<chat_summary>\n${summary}\n</chat_summary>` : `Chat summary:\n${summary}`;
+        const block = wrapContent(summary, "Chat Summary", wrapFormat);
         const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
         const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
         finalMessages.splice(insertAt, 0, { role: "system", content: block });
@@ -1395,7 +1396,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         .filter((content): content is string => typeof content === "string" && content.length > 0)
         .join("\n");
       if (loreContent) {
-        const loreBlock = `<lore>\n${loreContent}\n</lore>`;
+        const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
         const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
         const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
         finalMessages.splice(insertAt, 0, { role: "system", content: loreBlock });

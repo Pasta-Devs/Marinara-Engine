@@ -398,6 +398,8 @@ export interface ScanOptions {
   generationTriggers?: string[];
   /** Extra source text entries may opt into scanning. */
   additionalMatchingSourceText?: Partial<Record<LorebookMatchingSource, string>>;
+  /** Opening messages that should remain scannable even when recent-message depth trims them out. */
+  pinnedScanMessages?: ScanMessage[];
   /** Ignore sticky/cooldown/delay runtime state for preview/debug scans. */
   ignoreTiming?: boolean;
   /** True while scanning content surfaced by a prior lorebook activation. */
@@ -431,6 +433,7 @@ export function scanForActivatedEntries(
     activeCharacterTags = [],
     generationTriggers = ["chat"],
     additionalMatchingSourceText = {},
+    pinnedScanMessages = [],
     ignoreTiming = false,
     recursionPass = false,
     probabilityDecisions = new Map<string, boolean>(),
@@ -442,9 +445,18 @@ export function scanForActivatedEntries(
     generationTriggers: makeValueSet(generationTriggers.length > 0 ? generationTriggers : ["chat"]),
   };
 
+  const pinnedScanText = pinnedScanMessages
+    .map((message) => message.content.trim())
+    .filter(Boolean)
+    .join("\n");
+  const appendPinnedScanText = (baseText: string, includePinned: boolean = true) => {
+    if (!includePinned || !pinnedScanText) return baseText;
+    return baseText ? `${baseText}\n${pinnedScanText}` : pinnedScanText;
+  };
+
   // Build the text to scan from recent messages
   const messagesToScan = scanDepth > 0 ? messages.slice(-scanDepth) : messages;
-  const combinedText = messagesToScan.map((m) => m.content).join("\n");
+  const combinedText = appendPinnedScanText(messagesToScan.map((m) => m.content).join("\n"));
   const latestUserMessage = [...messages].reverse().find((message) => message.role === "user");
   const latestUserText = latestUserMessage?.content ?? "";
 
@@ -464,12 +476,14 @@ export function scanForActivatedEntries(
     //   null = inherit the bounded global default (combinedText)
     const baseEntryScanText =
       entry.scanDepth === 0
-        ? messages.map((m) => m.content).join("\n")
+        ? appendPinnedScanText(messages.map((m) => m.content).join("\n"), false)
         : entry.scanDepth !== null && entry.scanDepth > 0
-          ? messages
-              .slice(-entry.scanDepth)
-              .map((m) => m.content)
-              .join("\n")
+          ? appendPinnedScanText(
+              messages
+                .slice(-entry.scanDepth)
+                .map((m) => m.content)
+                .join("\n"),
+            )
           : combinedText;
     const extraMatchingText = getAdditionalMatchingText(entry, additionalMatchingSourceText);
     return extraMatchingText ? `${baseEntryScanText}\n${extraMatchingText}` : baseEntryScanText;
@@ -638,6 +652,7 @@ export function recursiveScan(
     const newMessages: ScanMessage[] = [{ role: "system", content: newContent }];
     const newActivated = scanForActivatedEntries(newMessages, remaining, {
       ...scanOptions,
+      pinnedScanMessages: [],
       chatEmbedding: null,
       recursionPass: true,
     });

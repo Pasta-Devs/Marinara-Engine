@@ -56,8 +56,11 @@ if not defined CURRENT_PNPM_VERSION (
     where pnpm >nul 2>&1
     if not errorlevel 1 (
         for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if defined CURRENT_PNPM_VERSION (
+        if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
             echo  [..] Using installed pnpm !CURRENT_PNPM_VERSION!
+        ) else (
+            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required %PNPM_VERSION%; trying a pinned temporary runner...
+            set "CURRENT_PNPM_VERSION="
         )
     )
 )
@@ -272,6 +275,8 @@ if not exist "packages\server\dist\index.js" set "BUILD_REQUIRED=1"
 if not exist "packages\client\dist\index.html" set "BUILD_REQUIRED=1"
 if "!BUILD_REQUIRED!"=="1" (
     echo  [..] Cleaning stale build artifacts...
+    call :run_pnpm clean:stale-client
+    if errorlevel 1 echo  [ERROR] Failed to clean stale client artifacts. & pause & exit /b 1
     call :run_pnpm --filter @marinara-engine/shared clean
     if errorlevel 1 echo  [ERROR] Failed to clean shared build artifacts. & pause & exit /b 1
     call :run_pnpm --filter @marinara-engine/server clean
@@ -279,8 +284,10 @@ if "!BUILD_REQUIRED!"=="1" (
     call :run_pnpm --filter @marinara-engine/client clean
     if errorlevel 1 echo  [ERROR] Failed to clean client build artifacts. & pause & exit /b 1
     echo  [..] Building Marinara Engine...
-    call :run_pnpm build
-    if errorlevel 1 echo  [ERROR] Failed to build Marinara Engine. & pause & exit /b 1
+    call :run_pnpm --filter @marinara-engine/shared build
+    if errorlevel 1 echo  [ERROR] Failed to build shared package. & pause & exit /b 1
+    call :run_pnpm --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build
+    if errorlevel 1 echo  [ERROR] Failed to build server or client package. & pause & exit /b 1
 )
 
 :: Database migrations are handled automatically at server startup by runMigrations()

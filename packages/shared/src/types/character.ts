@@ -48,6 +48,8 @@ export interface CharacterExtensions {
   rpgStats?: RPGStatsConfig;
   /** Marinara Engine: Conversation-mode availability status */
   conversationStatus?: import("./chat.js").ConversationPresenceStatus;
+  /** Marinara Engine: pronunciation override used when sending this character's name to TTS. */
+  phoneticName?: string;
   [key: string]: unknown;
 }
 
@@ -157,6 +159,7 @@ export interface PersonaCardSnapshot {
   creator: string;
   personaVersion: string;
   creatorNotes: string;
+  phoneticName?: string;
   description: string;
   personality: string;
   scenario: string;

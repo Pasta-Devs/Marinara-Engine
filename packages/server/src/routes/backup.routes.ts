@@ -37,6 +37,8 @@ const BACKUP_DIRS = [
   "sprites",
   "backgrounds",
   "gallery",
+  "game-scene-videos",
+  "conversation-call-character-videos",
   "fonts",
   "knowledge-sources",
   "game-assets",

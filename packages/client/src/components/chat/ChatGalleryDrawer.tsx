@@ -23,6 +23,9 @@ interface ChatGalleryDrawerProps {
   anchor?: { right: number; top: number } | null;
   /** Manually trigger the Illustrator agent */
   onIllustrate?: () => void | Promise<void>;
+  /** Generate an on-demand Conversation selfie. */
+  onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
+  selfieCharacters?: Array<{ id: string; name: string }>;
   /** Generate and apply a background for the current scene. */
   onGenerateBackground?: () => void | Promise<void>;
   /** Generate a storyboard for the latest completed Game Mode GM turn. */
@@ -41,6 +44,8 @@ export function ChatGalleryDrawer({
   onClose,
   anchor,
   onIllustrate,
+  onGenerateSelfie,
+  selfieCharacters,
   onGenerateBackground,
   onGenerateStoryboard,
   onViewStoryboard,
@@ -103,6 +108,8 @@ export function ChatGalleryDrawer({
             chatId={chat.id}
             mode={chat.mode}
             onIllustrate={onIllustrate}
+            onGenerateSelfie={onGenerateSelfie}
+            selfieCharacters={selfieCharacters}
             onGenerateStoryboard={onGenerateStoryboard}
             onViewStoryboard={onViewStoryboard}
             onGenerateVideo={onGenerateVideo}

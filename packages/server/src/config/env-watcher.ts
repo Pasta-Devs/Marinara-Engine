@@ -40,6 +40,12 @@ const RESTART_REQUIRED_KEYS = new Set<string>([
   "AUTO_CREATE_DEFAULT_CONNECTION",
   "NODE_ENV",
   "IMAGE_GEN_TIMEOUT_MS",
+  "VIDEO_GEN_TIMEOUT_MS",
+  "VIDEO_GEN_MAX_RESPONSE_BYTES",
+  "GOOGLE_VEO_VIDEO_POLL_INTERVAL_MS",
+  "XAI_VIDEO_POLL_INTERVAL_MS",
+  "OPENROUTER_VIDEO_POLL_INTERVAL_MS",
+  "SEEDANCE_VIDEO_POLL_INTERVAL_MS",
   "COMFYUI_GEN_TIMEOUT",
   // Fastify reads disableRequestLogging once from the factory options at boot
   // (app.ts), so toggling this after startup has no effect until a restart.

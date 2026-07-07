@@ -1,6 +1,6 @@
 {
   "name": "marinara-engine",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Visual Novel",
   "author": "Marianna",
@@ -34,6 +34,8 @@
     "test": "node ./scripts/check-windows-installer-layout.mjs && pnpm -r run test",
     "version:sync": "node ./scripts/sync-version.mjs",
     "version:check": "node ./scripts/check-version-drift.mjs",
+    "credits:sync": "node ./scripts/sync-credits.mjs",
+    "credits:check": "node ./scripts/sync-credits.mjs --check",
     "backgroundremover:install": "node ./scripts/install-backgroundremover.mjs",
     "backgroundremover:reinstall": "node ./scripts/install-backgroundremover.mjs --reinstall",
     "guard:installer-artifacts": "node ./scripts/check-tracked-installers.mjs",

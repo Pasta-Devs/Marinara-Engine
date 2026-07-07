@@ -176,7 +176,7 @@ export function ChoiceSelectionModal({
 
   const allSelected = variables.every((v) => {
     const sel = selections[v.variableName];
-    if (v.multiSelect) return Array.isArray(sel) && sel.length > 0;
+    if (v.multiSelect) return Array.isArray(sel);
     // Single-option variables are boolean toggles — both ON and OFF are valid
     if (v.options.length === 1) return sel !== undefined;
     return sel !== undefined && sel !== "";

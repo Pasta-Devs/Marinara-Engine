@@ -7,6 +7,7 @@ import { writeFile } from "fs/promises";
 import { basename, extname, join } from "path";
 import { z } from "zod";
 import {
+  LOCAL_SIDECAR_CONNECTION_ID,
   VIDEO_GENERATION_SETTINGS_KEY,
   VIDEO_DEFAULTS_STORAGE_KEY,
   createDefaultVideoGenerationProfile,
@@ -30,8 +31,18 @@ import {
   generateVideo,
   removeSavedVideoFromDisk,
   saveVideoToDisk,
+  resolveVideoReferencePublicUploadOptions,
   type VideoReferenceImage,
 } from "../services/video/video-generation.js";
+import { generateImage, saveImageToDisk } from "../services/image/image-generation.js";
+import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
+import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
+import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../services/llm/local-sidecar.js";
+import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
+import { isNovelAiImageConnection, resolveIllustratorCharacterReferences } from "./generate/illustrator-references.js";
+import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import {
   compactVideoPromptText,
   excerptIllustrationPromptForVideo,
@@ -61,6 +72,8 @@ const DEFAULT_XAI_VIDEO_MODEL = "grok-imagine-video-1.5";
 const DEFAULT_XAI_VIDEO_BASE_URL = "https://api.x.ai/v1";
 const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
 const DEFAULT_OPENROUTER_VIDEO_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_SEEDANCE_VIDEO_MODEL = "seedance-2-0";
+const DEFAULT_SEEDANCE_VIDEO_BASE_URL = "https://api.seedance2.ai";
 
 type SceneVideoRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGameSceneVideosStorage>["getById"]>>>;
 type ChatGalleryImageRow = NonNullable<Awaited<ReturnType<ReturnType<typeof createGalleryStorage>["getById"]>>>;
@@ -86,6 +99,12 @@ const generateSceneVideoSchema = z.object({
   galleryImageId: z.string().max(200).optional(),
   durationSeconds: z.number().int().min(1).max(60).optional(),
   aspectRatio: z.enum(["16:9", "9:16"]).optional(),
+  debugMode: z.boolean().optional().default(false),
+});
+
+const generateConversationSelfieSchema = z.object({
+  characterId: z.string().min(1),
+  context: z.string().max(2000).optional(),
   debugMode: z.boolean().optional().default(false),
 });
 
@@ -214,6 +233,24 @@ function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+}
+
+function getCharacterAppearance(data: Record<string, unknown>): string {
+  const extensions = parseJsonRecord(data.extensions);
+  const appearance =
+    typeof extensions.appearance === "string"
+      ? extensions.appearance
+      : typeof data.appearance === "string"
+        ? data.appearance
+        : typeof data.description === "string"
+          ? data.description
+          : "";
+  return appearance.trim();
+}
+
 function titleCaseSlug(value: string): string {
   return value
     .split(/[-_:\s]+/)
@@ -256,10 +293,10 @@ function imageMimeTypeForPath(path: string): VideoReferenceImage["mimeType"] | n
   return null;
 }
 
-function readSceneVideoReferenceImage(path: string): VideoReferenceImage {
+function readSceneVideoReferenceImage(path: string, url?: string | null): VideoReferenceImage {
   const mimeType = imageMimeTypeForPath(path);
   if (!mimeType) throw new Error("Scene videos require a PNG or JPEG gallery image");
-  return { base64: readFileSync(path).toString("base64"), mimeType };
+  return { base64: readFileSync(path).toString("base64"), mimeType, url };
 }
 
 function latestNarrationSummary(
@@ -691,7 +728,10 @@ export async function galleryRoutes(app: FastifyInstance) {
 
     let referenceImage: VideoReferenceImage;
     try {
-      referenceImage = readSceneVideoReferenceImage(galleryImagePath);
+      referenceImage = readSceneVideoReferenceImage(
+        galleryImagePath,
+        sourceGalleryImagePathForMetadata(galleryImage),
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "The selected gallery image cannot be used.";
       return reply.status(400).send({ error: message });
@@ -708,16 +748,23 @@ export async function galleryRoutes(app: FastifyInstance) {
       (videoDefaults.service !== "gemini_omni"
         ? videoDefaults.service
         : inferVideoSource(videoConn.model || "", videoConn.baseUrl || ""));
-    const serviceHint = videoConn.videoService || source;
+    const rawServiceHint = videoConn.videoService || source;
+    const serviceHint =
+      rawServiceHint === "google_ai_studio"
+        ? inferVideoSource(videoConn.model || "", videoConn.baseUrl || "")
+        : rawServiceHint;
     const isXaiVideo = source === "xai" || serviceHint === "xai";
     const isGoogleVeoVideo = source === "google_veo" || serviceHint === "google_veo";
     const isOpenRouterVideo = source === "openrouter" || serviceHint === "openrouter";
+    const isSeedanceVideo = source === "seedance" || serviceHint === "seedance";
     const activeVideoDefaults = isXaiVideo
       ? videoDefaults.xai
       : isGoogleVeoVideo
         ? videoDefaults.googleVeo
       : isOpenRouterVideo
         ? videoDefaults.openrouter
+      : isSeedanceVideo
+        ? videoDefaults.seedance
         : videoDefaults.geminiOmni;
     const videoSettings = normalizeVideoGenerationUserSettings(
       await createAppSettingsStorage(app.db).get(VIDEO_GENERATION_SETTINGS_KEY),
@@ -725,10 +772,11 @@ export async function galleryRoutes(app: FastifyInstance) {
     const fallbackDurationSeconds = storedVideoDefaults
       ? activeVideoDefaults.durationSeconds
       : videoSettings.sceneVideoDurationSeconds;
-    const maxDurationSeconds = isXaiVideo ? 15 : isGoogleVeoVideo ? 8 : 60;
+    const maxDurationSeconds = isXaiVideo || isSeedanceVideo ? 15 : isGoogleVeoVideo ? 8 : 60;
+    const minDurationSeconds = isGoogleVeoVideo || isSeedanceVideo ? 4 : 1;
     const durationSeconds = Math.min(
       maxDurationSeconds,
-      Math.max(1, Math.trunc(input.durationSeconds ?? fallbackDurationSeconds)),
+      Math.max(minDurationSeconds, Math.trunc(input.durationSeconds ?? fallbackDurationSeconds)),
     );
     const aspectRatio = input.aspectRatio ?? activeVideoDefaults.aspectRatio;
     const baseUrl =
@@ -739,6 +787,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           ? DEFAULT_GOOGLE_VEO_BASE_URL
         : isOpenRouterVideo
           ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
+        : isSeedanceVideo
+          ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
           : DEFAULT_GEMINI_OMNI_BASE_URL);
     const model =
       videoConn.model ||
@@ -748,6 +798,8 @@ export async function galleryRoutes(app: FastifyInstance) {
           ? DEFAULT_GOOGLE_VEO_MODEL
         : isOpenRouterVideo
           ? DEFAULT_OPENROUTER_VIDEO_MODEL
+        : isSeedanceVideo
+          ? DEFAULT_SEEDANCE_VIDEO_MODEL
           : DEFAULT_GEMINI_OMNI_MODEL);
     const resolution = isXaiVideo
       ? videoDefaults.xai.resolution
@@ -755,6 +807,8 @@ export async function galleryRoutes(app: FastifyInstance) {
         ? videoDefaults.googleVeo.resolution
       : isOpenRouterVideo
         ? videoDefaults.openrouter.resolution
+      : isSeedanceVideo
+        ? videoDefaults.seedance.resolution
         : undefined;
     const promptLimits = getSceneVideoPromptLimits(isXaiVideo);
 
@@ -763,6 +817,7 @@ export async function galleryRoutes(app: FastifyInstance) {
     const promptDraft = await loadGameVideoPrompt({
       promptOverridesStorage,
       meta,
+      debugMode: requestDebug,
       ctx: {
         sceneTitle: compactVideoPromptText(sceneTitleFromGalleryImage(galleryImage), promptLimits.title),
         narrationSummary: latestNarrationSummary(messages, promptLimits.narrationSummary),
@@ -805,6 +860,7 @@ export async function galleryRoutes(app: FastifyInstance) {
         aspectRatio,
         resolution,
         referenceImage,
+        publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
         signal: sceneVideoAbortSignal,
       });
       const filePath = await saveVideoToDisk(input.chatId, generated.base64);
@@ -838,6 +894,238 @@ export async function galleryRoutes(app: FastifyInstance) {
       }
       logger.warn(err, "[gallery/generate-scene-video] Scene video generation failed for chat %s", input.chatId);
       const message = err instanceof Error ? err.message : "Scene video generation failed";
+      return reply.status(502).send({ error: message });
+    }
+  });
+
+  app.post<{ Params: { chatId: string } }>("/:chatId/selfie", async (req, reply) => {
+    const { chatId } = req.params;
+    if (!isValidChatId(chatId)) return reply.status(400).send({ error: "Invalid chatId" });
+
+    const input = generateConversationSelfieSchema.parse(req.body);
+    const requestDebug = input.debugMode === true;
+    const debugOverrideEnabled = requestDebug || isDebugAgentsEnabled();
+    const debugLogsEnabled = debugOverrideEnabled || logger.isLevelEnabled("debug");
+    const debugLog = (message: string, ...args: unknown[]) => {
+      logDebugOverride(debugOverrideEnabled, message, ...args);
+    };
+
+    const chat = await chats.getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found" });
+    if (chat.mode !== "conversation") {
+      return reply.status(400).send({ error: "Selfies from Gallery are only available in Conversation mode." });
+    }
+
+    const chatCharacterIds = parseStringArray(chat.characterIds);
+    if (!chatCharacterIds.includes(input.characterId)) {
+      return reply.status(400).send({ error: "Selected character is not in this conversation." });
+    }
+
+    const character = await characters.getById(input.characterId);
+    if (!character) return reply.status(404).send({ error: "Character not found" });
+
+    const meta = parseChatMetadata(chat.metadata);
+    const imageConnectionId = readTrimmedString(meta.imageGenConnectionId);
+    if (!imageConnectionId) {
+      return reply.status(400).send({
+        error: "No image generation connection configured for this chat. Set one in Conversation Chat Settings.",
+      });
+    }
+    if (!chat.connectionId) {
+      return reply.status(400).send({
+        error: "No conversation connection configured for this chat. Set one before generating selfies.",
+      });
+    }
+
+    const connections = createConnectionsStorage(app.db);
+    const imageConn = await connections.getWithKey(imageConnectionId);
+    if (!imageConn) return reply.status(404).send({ error: "Image generation connection not found." });
+    if (imageConn.provider !== "image_generation") {
+      return reply.status(400).send({ error: "Selected selfie connection is not an image generation connection." });
+    }
+
+    const useLocalSidecar = chat.connectionId === LOCAL_SIDECAR_CONNECTION_ID;
+    const chatConn = useLocalSidecar ? null : await connections.getWithKey(chat.connectionId);
+    if (!useLocalSidecar && !chatConn) return reply.status(404).send({ error: "Conversation connection not found." });
+
+    const characterData = parseJsonRecord(character.data);
+    const characterName = readTrimmedString(characterData.name) ?? "character";
+    const appearance = getCharacterAppearance(characterData);
+    const selfiePromptTemplate = readTrimmedString(meta.selfiePrompt) ?? "";
+    const selfieTags = readStringArray(meta.selfieTags);
+    const selfiePositivePrompt = readTrimmedString(meta.selfiePositivePrompt) ?? selfieTags.join(", ").trim();
+    const selfieNegativePrompt = readTrimmedString(meta.selfieNegativePrompt) ?? "";
+    const promptOverridesStorage = createPromptOverridesStorage(app.db);
+    const selfieSystemPrompt = await resolveConversationSelfieSystemPrompt({
+      promptOverridesStorage,
+      chatPromptTemplate: selfiePromptTemplate,
+      appearance,
+      charName: characterName,
+    });
+
+    const selfieAbortSignal = createResponseAbortSignal(reply, SCENE_VIDEO_GENERATION_TIMEOUT_MS, "Selfie generation");
+    const promptBuilder = useLocalSidecar
+      ? getLocalSidecarProvider()
+      : createLLMProvider(
+          chatConn!.provider,
+          resolveBaseUrl(chatConn!),
+          chatConn!.apiKey,
+          chatConn!.maxContext,
+          chatConn!.openrouterProvider,
+          chatConn!.maxTokensOverride,
+          chatConn!.claudeFastMode === "true",
+          chatConn!.treatAsLocalEndpoint === "true",
+        );
+    const promptContext = input.context?.trim()
+      ? `Context for the selfie: ${input.context.trim()}`
+      : `Generate a casual selfie of ${characterName} based on the current conversation context.`;
+
+    if (debugLogsEnabled) {
+      debugLog("[debug/gallery/selfie] prompt-builder system:\n%s", selfieSystemPrompt);
+      debugLog("[debug/gallery/selfie] prompt-builder user:\n%s", promptContext);
+    }
+
+    let imagePrompt: string;
+    try {
+      const promptResult = await promptBuilder.chatComplete(
+        [
+          { role: "system", content: selfieSystemPrompt },
+          { role: "user", content: promptContext },
+        ],
+        {
+          model: useLocalSidecar ? LOCAL_SIDECAR_MODEL : chatConn!.model,
+          temperature: 0.7,
+          maxTokens: 8196,
+          signal: selfieAbortSignal,
+          enableCaching: !useLocalSidecar && chatConn!.enableCaching === "true",
+          anthropicExtendedCacheTtl: !useLocalSidecar && chatConn!.anthropicExtendedCacheTtl === "true",
+        },
+      );
+      imagePrompt = (promptResult.content ?? "").trim();
+    } catch (err) {
+      logger.warn(err, "[gallery/selfie] Failed to build selfie image prompt for chat %s", chatId);
+      const message = err instanceof Error ? err.message : "Failed to build selfie prompt";
+      return reply.status(502).send({ error: message });
+    }
+
+    if (!imagePrompt) {
+      return reply.status(502).send({ error: "The conversation model returned an empty selfie prompt." });
+    }
+
+    const suppressReferencePromptLine = isNovelAiImageConnection({
+      model: imageConn.model,
+      baseUrl: imageConn.baseUrl,
+      imageService: imageConn.imageService,
+      imageGenerationSource: imageConn.imageGenerationSource,
+    });
+    let finalPrompt = selfiePositivePrompt ? `${imagePrompt}, ${selfiePositivePrompt}` : imagePrompt;
+    let referenceImages: string[] | undefined;
+    const selfieUseAvatarReferences = meta.selfieUseAvatarReferences === true;
+    const selfieIncludeCharacterAppearance = meta.selfieIncludeCharacterAppearance === true;
+    if (selfieUseAvatarReferences || selfieIncludeCharacterAppearance) {
+      const referenceResolution = await resolveIllustratorCharacterReferences({
+        charactersStore: characters,
+        chatCharacters: [
+          {
+            id: character.id,
+            name: characterName,
+            avatarPath: character.avatarPath ?? null,
+            appearance,
+          },
+        ],
+        persona: null,
+        requestedNames: [characterName],
+        promptText: [characterName, input.context ?? "", imagePrompt].join("\n"),
+        fallbackToChatCharacters: false,
+        maxReferences: 1,
+      });
+      if (selfieIncludeCharacterAppearance && referenceResolution.appearanceBlock) {
+        finalPrompt += `\n\n${referenceResolution.appearanceBlock}`;
+        logger.debug(
+          "[gallery/selfie] Added character appearance notes for: %s",
+          referenceResolution.appearanceNames.join(", "),
+        );
+      }
+      if (selfieUseAvatarReferences && referenceResolution.referenceImages.length > 0) {
+        referenceImages = referenceResolution.referenceImages;
+        if (referenceResolution.referenceLine && !suppressReferencePromptLine) {
+          finalPrompt += `\n\n${referenceResolution.referenceLine}`;
+        }
+        logger.debug(
+          "[gallery/selfie] Sending character reference for: %s",
+          referenceResolution.referenceNames.join(", "),
+        );
+      }
+    }
+
+    const imageDefaults = resolveConnectionImageDefaults(imageConn);
+    const imageSettings = await loadImageGenerationUserSettings(app.db);
+    const configuredStyleProfileId =
+      ((meta.gameSetupConfig as Record<string, unknown> | undefined)?.imageStyleProfileId as string | undefined) ??
+      (meta.imageStyleProfileId as string | undefined) ??
+      null;
+    const styleProfileId =
+      typeof configuredStyleProfileId === "string" && configuredStyleProfileId.trim()
+        ? configuredStyleProfileId.trim()
+        : imageSettings.styleProfiles.defaultProfileId;
+    const selfieResolution = readTrimmedString(meta.selfieResolution) ?? "";
+    const [selfieWidth, selfieHeight] = selfieResolution.split("x").map(Number) as [number, number];
+    const width =
+      Number.isSafeInteger(selfieWidth) && selfieWidth > 0 ? selfieWidth : imageSettings.selfie.width;
+    const height =
+      Number.isSafeInteger(selfieHeight) && selfieHeight > 0 ? selfieHeight : imageSettings.selfie.height;
+    const compiledPrompt = compileImagePrompt({
+      kind: "selfie",
+      prompt: finalPrompt,
+      negativePrompt: selfieNegativePrompt || undefined,
+      styleProfiles: imageSettings.styleProfiles,
+      styleProfileId,
+      imageDefaults,
+    });
+    const imageModel = imageConn.model || "";
+    const imageBaseUrl = imageConn.baseUrl || "https://image.pollinations.ai";
+    const imageSource = imageConn.imageGenerationSource || imageModel;
+    const imageServiceHint = imageConn.imageService || imageSource;
+
+    if (debugLogsEnabled) {
+      debugLog("[debug/gallery/selfie] final image prompt:\n%s", compiledPrompt.prompt);
+      if (compiledPrompt.negativePrompt) {
+        debugLog("[debug/gallery/selfie] negative prompt:\n%s", compiledPrompt.negativePrompt);
+      }
+    }
+
+    try {
+      const imageResult = await generateImage(imageSource, imageBaseUrl, imageConn.apiKey || "", imageServiceHint, {
+        prompt: compiledPrompt.prompt,
+        negativePrompt: compiledPrompt.negativePrompt || undefined,
+        model: imageModel,
+        width,
+        height,
+        imageEndpointId: imageConn.imageEndpointId || undefined,
+        comfyWorkflow: imageConn.comfyuiWorkflow || undefined,
+        imageDefaults,
+        referenceImages,
+        signal: selfieAbortSignal,
+      });
+      const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext);
+      const image = await storage.create({
+        chatId,
+        filePath,
+        prompt: compiledPrompt.prompt,
+        provider: imageConn.provider ?? "image_generation",
+        model: imageModel || "unknown",
+        width,
+        height,
+      });
+      if (!image) throw new Error("Generated selfie metadata could not be saved");
+      logger.info("[gallery/selfie] Generated selfie for %s in chat %s", characterName, chatId);
+      return {
+        ...image,
+        url: buildGalleryImageUrl(image, chatId),
+      };
+    } catch (err) {
+      logger.warn(err, "[gallery/selfie] Selfie generation failed for chat %s", chatId);
+      const message = err instanceof Error ? err.message : "Selfie generation failed";
       return reply.status(502).send({ error: message });
     }
   });

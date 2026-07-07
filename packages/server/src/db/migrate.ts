@@ -103,6 +103,7 @@ const CREATE_TABLES: string[] = [
     creator TEXT NOT NULL DEFAULT '',
     persona_version TEXT NOT NULL DEFAULT '1.0',
     creator_notes TEXT NOT NULL DEFAULT '',
+    phonetic_name TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     personality TEXT NOT NULL DEFAULT '',
     scenario TEXT NOT NULL DEFAULT '',
@@ -814,6 +815,11 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   {
     table: "personas",
     column: "creator_notes",
+    definition: "TEXT NOT NULL DEFAULT ''",
+  },
+  {
+    table: "personas",
+    column: "phonetic_name",
     definition: "TEXT NOT NULL DEFAULT ''",
   },
   {

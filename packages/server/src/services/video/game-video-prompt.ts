@@ -4,13 +4,10 @@ import {
   normalizeAgentPromptTemplateOptions,
   type AgentPromptTemplateOption,
 } from "@marinara-engine/shared";
-import {
-  GAME_VIDEO,
-  loadPrompt,
-  renderTemplate,
-  type GameVideoCtx,
-} from "../prompt-overrides/index.js";
+import { GAME_VIDEO, renderTemplate, type GameVideoCtx } from "../prompt-overrides/index.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 
 const GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
   GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES.map((template) => template.id),
@@ -57,15 +54,51 @@ function resolveGameVideoPromptTemplateId(args: {
   return GAME_VIDEO_PROMPT_TEMPLATE_ID;
 }
 
+function renderSelectedGameVideoPromptTemplate(args: {
+  template: AgentPromptTemplateOption | undefined;
+  ctx: GameVideoCtx;
+}) {
+  if (!args.template?.promptTemplate.trim()) return GAME_VIDEO.defaultBuilder(args.ctx);
+  const declared = GAME_VIDEO.variables.map((variable) => variable.name);
+  return renderTemplate(args.template.promptTemplate, args.ctx, declared);
+}
+
+function finalizeGameVideoPrompt(args: { prompt: string; source: string; debugMode?: boolean }) {
+  const debugOverrideEnabled = args.debugMode === true || isDebugAgentsEnabled();
+  logDebugOverride(debugOverrideEnabled, "[debug/game-video] %s prompt:\n%s", args.source, args.prompt);
+  return args.prompt;
+}
+
+async function loadStoredGameVideoPromptOverride(args: {
+  promptOverridesStorage: PromptOverridesStorage;
+  ctx: GameVideoCtx;
+}): Promise<string | null> {
+  const declared = GAME_VIDEO.variables.map((variable) => variable.name);
+  try {
+    for (const key of [GAME_VIDEO.key, ...(GAME_VIDEO.legacyKeys ?? [])]) {
+      const row = await args.promptOverridesStorage.get(key);
+      if (!row) continue;
+      return row.enabled ? renderTemplate(row.template, args.ctx, declared) : null;
+    }
+  } catch (error) {
+    logger.warn(error, "[game-video] Failed to load stored prompt override");
+  }
+  return null;
+}
+
 export async function loadGameVideoPrompt(args: {
   promptOverridesStorage: PromptOverridesStorage;
   meta: Record<string, unknown>;
   ctx: GameVideoCtx;
+  debugMode?: boolean;
 }): Promise<string> {
   const options = [
     ...GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
     ...normalizeGameVideoPromptTemplates(args.meta.gameVideoPromptTemplates),
   ];
+  const explicitTemplateId = readTrimmedString(args.meta.gameVideoPromptTemplateId);
+  const hasExplicitTemplateSelection =
+    explicitTemplateId !== null && options.some((option) => option.id === explicitTemplateId);
   const templateId = resolveGameVideoPromptTemplateId({
     meta: args.meta,
     options,
@@ -73,9 +106,30 @@ export async function loadGameVideoPrompt(args: {
   const selectedTemplate =
     options.find((template) => template.id === templateId) ??
     GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES.find((template) => template.id === GAME_VIDEO_PROMPT_TEMPLATE_ID);
-  if (!selectedTemplate?.promptTemplate.trim()) {
-    return loadPrompt(args.promptOverridesStorage, GAME_VIDEO, args.ctx);
+
+  if (hasExplicitTemplateSelection) {
+    return finalizeGameVideoPrompt({
+      prompt: renderSelectedGameVideoPromptTemplate({ template: selectedTemplate, ctx: args.ctx }),
+      source: `selected template ${templateId}`,
+      debugMode: args.debugMode,
+    });
   }
-  const declared = GAME_VIDEO.variables.map((variable) => variable.name);
-  return renderTemplate(selectedTemplate.promptTemplate, args.ctx, declared);
+
+  const storedOverride = await loadStoredGameVideoPromptOverride({
+    promptOverridesStorage: args.promptOverridesStorage,
+    ctx: args.ctx,
+  });
+  if (storedOverride) {
+    return finalizeGameVideoPrompt({
+      prompt: storedOverride,
+      source: "stored override",
+      debugMode: args.debugMode,
+    });
+  }
+
+  return finalizeGameVideoPrompt({
+    prompt: renderSelectedGameVideoPromptTemplate({ template: selectedTemplate, ctx: args.ctx }),
+    source: `template ${templateId}`,
+    debugMode: args.debugMode,
+  });
 }

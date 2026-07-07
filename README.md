@@ -101,7 +101,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.1.0](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.1.0)**.
+Current stable release: **[v2.1.1](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.1.1)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device.
 
@@ -159,7 +159,7 @@ Preset system with drag-and-drop prompt ordering, lorebooks with keyword trigger
 
 ### Connections & Providers
 
-OpenAI, OpenAI ChatGPT subscription login, Anthropic, Claude Subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, the bundled downloadable Local Model sidecar, Pollinations, Stability AI, Together AI, NovelAI, ComfyUI, SD Web UI, Draw Things (Apple Silicon, Metal + Apple Neural Engine), Gemini Omni scene video, Google AI Studio Veo video, xAI Imagine video, OpenRouter video, and custom OpenAI-compatible endpoints. API keys are encrypted at rest with AES-256. Per-chat connection overrides.
+OpenAI, OpenAI ChatGPT subscription login, Anthropic, Claude Subscription through the local Claude Agent SDK, Google Gemini, Google Vertex AI, OpenRouter, NanoGPT, Mistral, Cohere, xAI / Grok, the bundled downloadable Local Model sidecar, Pollinations, Stability AI, Together AI, NovelAI, ComfyUI, SD Web UI, Draw Things (Apple Silicon, Metal + Apple Neural Engine), Google AI Studio video models (Gemini Omni and Veo), xAI Imagine video, OpenRouter video, Seedance 2.0 video, and custom OpenAI-compatible endpoints. API keys are encrypted at rest with AES-256. Per-chat connection overrides.
 
 ### Export & Data
 

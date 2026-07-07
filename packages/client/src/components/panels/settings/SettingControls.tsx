@@ -59,7 +59,7 @@ export function SettingsSection({
           <div
             className={cn(
               "inline-flex items-center gap-1 text-xs font-semibold",
-              tone === "danger" ? "text-[var(--destructive)]" : "text-[var(--foreground)]",
+              tone === "danger" ? "text-[var(--destructive)]" : "text-[var(--marinara-chat-chrome-panel-title)]",
             )}
           >
             {title}

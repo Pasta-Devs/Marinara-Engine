@@ -8,6 +8,14 @@ import { assertInsideDir, safeFetch } from "../../utils/security.js";
 export interface VideoReferenceImage {
   base64: string;
   mimeType: "image/png" | "image/jpeg";
+  url?: string | null;
+}
+
+export type VideoReferencePublicUploadExpiry = "1h" | "12h" | "24h" | "72h";
+
+export interface VideoReferencePublicUploadOptions {
+  enabled?: boolean;
+  expiry?: VideoReferencePublicUploadExpiry | string | null;
 }
 
 export interface VideoGenerationRequest {
@@ -18,6 +26,8 @@ export interface VideoGenerationRequest {
   aspectRatio: "16:9" | "9:16";
   resolution?: "480p" | "720p" | "1080p";
   referenceImage?: VideoReferenceImage | null;
+  lastFrameImage?: VideoReferenceImage | null;
+  publicReferenceUpload?: VideoReferencePublicUploadOptions | null;
   signal?: AbortSignal;
 }
 
@@ -34,8 +44,12 @@ const DEFAULT_GEMINI_OMNI_MODEL = "gemini-omni-flash-preview";
 const DEFAULT_GOOGLE_VEO_MODEL = "veo-3.1-generate-preview";
 const DEFAULT_XAI_VIDEO_MODEL = "grok-imagine-video-1.5";
 const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
+const DEFAULT_SEEDANCE_VIDEO_MODEL = "seedance-2-0";
 const DEFAULT_GOOGLE_VEO_RESOLUTION = "720p";
 const DEFAULT_XAI_VIDEO_RESOLUTION = "720p";
+const DEFAULT_SEEDANCE_VIDEO_RESOLUTION = "720p";
+const LITTERBOX_UPLOAD_URL = "https://litterbox.catbox.moe/resources/internals/api.php";
+const LITTERBOX_EXPIRY_VALUES = new Set<VideoReferencePublicUploadExpiry>(["1h", "12h", "24h", "72h"]);
 
 function readPositiveIntervalEnv(name: string, fallbackMs: number) {
   const raw = process.env[name]?.trim();
@@ -47,6 +61,7 @@ function readPositiveIntervalEnv(name: string, fallbackMs: number) {
 const GOOGLE_VEO_POLL_INTERVAL_MS = readPositiveIntervalEnv("GOOGLE_VEO_VIDEO_POLL_INTERVAL_MS", 10_000);
 const XAI_POLL_INTERVAL_MS = readPositiveIntervalEnv("XAI_VIDEO_POLL_INTERVAL_MS", 5_000);
 const OPENROUTER_POLL_INTERVAL_MS = readPositiveIntervalEnv("OPENROUTER_VIDEO_POLL_INTERVAL_MS", 10_000);
+const SEEDANCE_POLL_INTERVAL_MS = readPositiveIntervalEnv("SEEDANCE_VIDEO_POLL_INTERVAL_MS", 10_000);
 
 type GoogleVeoImageEncoding = "inlineData" | "bytesBase64Encoded";
 type GoogleVeoResolution = "720p" | "1080p";
@@ -87,7 +102,29 @@ export async function generateVideo(
       generateOpenRouterVideo(baseUrl, apiKey, { ...request, signal }),
     );
   }
+  if (resolvedService === "seedance") {
+    return withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+      generateSeedanceVideo(baseUrl, apiKey, { ...request, signal }),
+    );
+  }
   throw new Error(`Unsupported video generation service: ${resolvedService || serviceHint || source}`);
+}
+
+export function resolveVideoReferencePublicUploadOptions(
+  enabled: boolean,
+  seedanceDefaults:
+    | {
+        temporaryPublicReferenceUploadEnabled?: boolean | null;
+        temporaryPublicReferenceUploadExpiry?: string | null;
+      }
+    | null
+    | undefined,
+): VideoReferencePublicUploadOptions | null {
+  if (!enabled || !seedanceDefaults?.temporaryPublicReferenceUploadEnabled) return null;
+  return {
+    enabled: true,
+    expiry: normalizeReferenceUploadExpiry(seedanceDefaults.temporaryPublicReferenceUploadExpiry),
+  };
 }
 
 export function resolveVideoRequestDuration(
@@ -106,6 +143,9 @@ export function resolveVideoRequestDuration(
   }
   if (resolvedService === "xai") {
     return Math.min(15, durationSeconds);
+  }
+  if (resolvedService === "seedance") {
+    return Math.min(15, Math.max(4, durationSeconds));
   }
   return durationSeconds;
 }
@@ -137,7 +177,14 @@ export async function removeSavedVideoFromDisk(filePath: string): Promise<void> 
 
 function normalizeVideoService(value: string): string {
   const normalized = value.trim().toLowerCase();
-  if (!normalized || normalized === "omni" || normalized === "gemini" || normalized === "gemini-omni") {
+  if (
+    !normalized ||
+    normalized === "google_ai_studio" ||
+    normalized === "google-ai-studio" ||
+    normalized === "omni" ||
+    normalized === "gemini" ||
+    normalized === "gemini-omni"
+  ) {
     return "gemini_omni";
   }
   if (normalized === "google_veo" || normalized === "google-veo" || normalized === "veo") {
@@ -148,6 +195,9 @@ function normalizeVideoService(value: string): string {
   }
   if (normalized === "openrouter" || normalized === "open-router") {
     return "openrouter";
+  }
+  if (normalized === "seedance" || normalized === "seedance2" || normalized === "seedance-2") {
+    return "seedance";
   }
   return normalized;
 }
@@ -244,11 +294,7 @@ async function generateGoogleVeoVideo(
     request.signal,
   );
 
-  if (
-    !start.ok &&
-    request.referenceImage &&
-    shouldRetryGoogleVeoBytesPayload(start.status, start.text)
-  ) {
+  if (!start.ok && request.referenceImage && shouldRetryGoogleVeoBytesPayload(start.status, start.text)) {
     logger.info(
       "[video-gen/google-veo] Retrying model %s with bytesBase64Encoded image payload after inlineData was rejected",
       model,
@@ -444,13 +490,21 @@ async function generateOpenRouterVideo(
   };
   if (request.resolution) body.resolution = request.resolution;
   if (request.referenceImage) {
-    body.frame_images = [
+    const frameImages = [
       {
         type: "image_url",
         image_url: { url: referenceImageToDataUri(request.referenceImage) },
         frame_type: "first_frame",
       },
     ];
+    if (request.lastFrameImage) {
+      frameImages.push({
+        type: "image_url",
+        image_url: { url: referenceImageToDataUri(request.lastFrameImage) },
+        frame_type: "last_frame",
+      });
+    }
+    body.frame_images = frameImages;
   }
 
   const started = await safeFetch(startUrl, {
@@ -480,7 +534,8 @@ async function generateOpenRouterVideo(
   }
   const startRecord = asRecord(startJson);
   const jobId = readString(startRecord.id);
-  const pollingUrl = readString(startRecord.polling_url) ?? (jobId ? buildOpenRouterVideosUrl(baseUrl, `videos/${jobId}`) : null);
+  const pollingUrl =
+    readString(startRecord.polling_url) ?? (jobId ? buildOpenRouterVideosUrl(baseUrl, `videos/${jobId}`) : null);
   if (!jobId || !pollingUrl) {
     throw new Error("OpenRouter video generation response did not include a job id");
   }
@@ -524,6 +579,128 @@ async function generateOpenRouterVideo(
       logger.debug("[video-gen/openrouter] continuing after unknown status: %s", status);
     }
   }
+}
+
+async function generateSeedanceVideo(
+  baseUrl: string,
+  apiKey: string,
+  request: VideoGenerationRequest,
+): Promise<VideoGenerationResult> {
+  if (!apiKey.trim()) throw new Error("Seedance video generation requires a Seedance API key");
+  const model = request.model?.trim() || DEFAULT_SEEDANCE_VIDEO_MODEL;
+  const startUrl = buildSeedanceUrl(baseUrl, "v1/videos/generations");
+  const imageUrls = await seedanceReferenceImageUrls(request);
+  const duration = Math.min(15, Math.max(4, Math.trunc(request.durationSeconds)));
+  const body: Record<string, unknown> = {
+    model,
+    input: {
+      prompt: request.prompt,
+      generation_type: imageUrls.length > 0 ? "image-to-video" : "text-to-video",
+      duration,
+      aspect_ratio: request.aspectRatio,
+      resolution: request.resolution || DEFAULT_SEEDANCE_VIDEO_RESOLUTION,
+      generate_audio: false,
+      watermark: false,
+      web_search: false,
+      return_last_frame: false,
+      seed: -1,
+      ...(imageUrls.length > 0 ? { image_urls: imageUrls } : {}),
+    },
+  };
+
+  const maxAttempts = 2;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) {
+      logger.warn("[video-gen/seedance] Retrying failed generation after opaque provider task failure");
+    }
+    const started = await safeFetch(startUrl, {
+      method: "POST",
+      headers: seedanceHeaders(apiKey),
+      body: JSON.stringify(body),
+      signal: request.signal,
+      policy: {
+        allowLocal: false,
+        allowLoopback: false,
+        allowMdns: false,
+        allowedProtocols: ["https:"],
+      },
+      maxResponseBytes: 2 * 1024 * 1024,
+      decodeCompressedResponse: true,
+    });
+
+    const startText = await started.text();
+    if (!started.ok) {
+      throw new Error(`Seedance video generation returned ${started.status}: ${formatProviderError(startText)}`);
+    }
+    let startJson: unknown;
+    try {
+      startJson = JSON.parse(startText) as unknown;
+    } catch {
+      throw new Error(`Seedance video generation returned non-JSON response: ${startText.slice(0, 300)}`);
+    }
+    const taskId = readSeedanceTaskId(startJson);
+    if (!taskId) {
+      throw new Error("Seedance video generation response did not include a taskId");
+    }
+
+    const pollUrl = buildSeedanceUrl(baseUrl, `v1/tasks/${encodeURIComponent(taskId)}`);
+    while (true) {
+      await delayWithSignal(SEEDANCE_POLL_INTERVAL_MS, request.signal);
+      const polled = await safeFetch(pollUrl, {
+        method: "GET",
+        headers: seedanceHeaders(apiKey),
+        signal: request.signal,
+        policy: {
+          allowLocal: false,
+          allowLoopback: false,
+          allowMdns: false,
+          allowedProtocols: ["https:"],
+        },
+        maxResponseBytes: 2 * 1024 * 1024,
+        decodeCompressedResponse: true,
+      });
+      const pollText = await polled.text();
+      if (!polled.ok) {
+        throw new Error(`Seedance video polling returned ${polled.status}: ${formatProviderError(pollText)}`);
+      }
+      let pollJson: unknown;
+      try {
+        pollJson = JSON.parse(pollText) as unknown;
+      } catch {
+        throw new Error(`Seedance video polling returned non-JSON response: ${pollText.slice(0, 300)}`);
+      }
+      const status = readSeedanceStatus(pollJson);
+      if (status && ["completed", "succeeded", "success", "done"].includes(status)) {
+        const url = findVideoUri(pollJson);
+        if (!url) {
+          logger.warn("[video-gen/seedance] completed response without video URL: %s", pollText.slice(0, 2000));
+          throw new Error("Seedance response did not include a downloadable video");
+        }
+        return downloadSeedanceVideo(url, baseUrl, apiKey, request.signal);
+      }
+      if (status && ["failed", "error", "cancelled", "canceled", "expired"].includes(status)) {
+        const errorMessage = formatSeedanceOperationError(pollJson);
+        logger.warn(
+          "[video-gen/seedance] task %s failed attempt %d/%d status=%s reason=%s response=%s",
+          taskId,
+          attempt,
+          maxAttempts,
+          status,
+          errorMessage,
+          compactJsonForLog(pollJson, 2000),
+        );
+        if (attempt < maxAttempts && isRetryableSeedanceTaskFailure(status, errorMessage)) {
+          break;
+        }
+        throw new Error(`Seedance video generation ${status}: ${errorMessage}`);
+      }
+      if (status && !["pending", "queued", "processing", "running", "in_progress"].includes(status)) {
+        logger.debug("[video-gen/seedance] continuing after unknown status: %s", status);
+      }
+    }
+  }
+
+  throw new Error("Seedance video generation failed after retrying an opaque provider task failure");
 }
 
 function withVideoGenerationDeadline<T>(
@@ -624,6 +801,32 @@ function buildOpenRouterContentUrl(baseUrl: string, jobId: string): string {
   return url.toString();
 }
 
+function buildSeedanceUrl(baseUrl: string, path: string): string {
+  const fallback = "https://api.seedance2.ai";
+  const configured = baseUrl.trim();
+  const raw = (configured || fallback).replace(/\/+$/, "");
+  try {
+    const url = new URL(raw);
+    const root = url.pathname.replace(/\/+$/, "").replace(/\/v1(?:\/.*)?$/i, "");
+    url.pathname = `${root}/${path.replace(/^\/+/, "")}`;
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    throw new Error(`Invalid Seedance base URL: ${baseUrl}`);
+  }
+}
+
+function isTrustedSeedanceDownloadOrigin(url: string, baseUrl: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const configured = new URL(buildSeedanceUrl(baseUrl, "v1/tasks/origin-check"));
+    return parsed.origin === configured.origin;
+  } catch {
+    return false;
+  }
+}
+
 async function downloadXaiVideo(url: string, signal: AbortSignal | undefined): Promise<VideoGenerationResult> {
   const res = await safeFetch(url, {
     method: "GET",
@@ -707,7 +910,47 @@ async function downloadOpenRouterVideo(
   return { base64: buffer.toString("base64"), mimeType: "video/mp4", ext: "mp4" };
 }
 
+async function downloadSeedanceVideo(
+  url: string,
+  baseUrl: string,
+  apiKey: string,
+  signal: AbortSignal | undefined,
+): Promise<VideoGenerationResult> {
+  const headers: Record<string, string> = { Accept: "video/mp4,video/*;q=0.9,*/*;q=0.1" };
+  if (isTrustedSeedanceDownloadOrigin(url, baseUrl)) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  const res = await safeFetch(url, {
+    method: "GET",
+    headers,
+    signal,
+    policy: {
+      allowLocal: false,
+      allowLoopback: false,
+      allowMdns: false,
+      allowedProtocols: ["https:"],
+    },
+    maxResponseBytes: MAX_VIDEO_RESPONSE_BYTES,
+    decodeCompressedResponse: true,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`Failed to download Seedance video (${res.status}): ${formatProviderError(text)}`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (!isMp4Buffer(buffer)) throw new Error("Seedance returned a non-MP4 video payload");
+  return { base64: buffer.toString("base64"), mimeType: "video/mp4", ext: "mp4" };
+}
+
 function openRouterHeaders(apiKey: string): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    Authorization: `Bearer ${apiKey}`,
+  };
+}
+
+function seedanceHeaders(apiKey: string): Record<string, string> {
   return {
     "Content-Type": "application/json",
     Accept: "application/json",
@@ -727,6 +970,181 @@ function referenceImageToDataUri(image: VideoReferenceImage): string {
   return `data:${image.mimeType};base64,${stripDataUrl(image.base64)}`;
 }
 
+async function seedanceReferenceImageUrls(request: VideoGenerationRequest): Promise<string[]> {
+  if (!request.referenceImage) return [];
+  const firstFrame = await seedanceReferenceImageUrl(
+    request.referenceImage,
+    "first frame",
+    request.publicReferenceUpload,
+    request.signal,
+  );
+  if (!request.lastFrameImage) {
+    return [firstFrame];
+  }
+  if (videoReferenceImagesMatch(request.referenceImage, request.lastFrameImage)) return [firstFrame, firstFrame];
+  const lastFrame = await seedanceReferenceImageUrl(
+    request.lastFrameImage,
+    "last frame",
+    request.publicReferenceUpload,
+    request.signal,
+  );
+  return [firstFrame, lastFrame];
+}
+
+async function seedanceReferenceImageUrl(
+  image: VideoReferenceImage,
+  label: string,
+  publicUpload: VideoGenerationRequest["publicReferenceUpload"],
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  const raw = image.url?.trim();
+  if (raw) {
+    if (/^https:\/\//i.test(raw)) return raw;
+    if (/^http:\/\//i.test(raw)) {
+      let message = `Seedance ${label} reference URL must be public HTTPS.`;
+      try {
+        const parsed = new URL(raw);
+        message = `Seedance ${label} reference URL must be public HTTPS, but Marinara resolved ${parsed.protocol}//${parsed.host}.`;
+      } catch {
+        // Keep the generic message for malformed URLs.
+      }
+      throw new Error(message);
+    }
+    const publicBaseUrl = process.env.VIDEO_REFERENCE_PUBLIC_BASE_URL?.trim();
+    if (publicBaseUrl) {
+      try {
+        const resolved = new URL(raw, publicBaseUrl);
+        if (resolved.protocol === "https:") return resolved.toString();
+      } catch {
+        // Fall through to the setup error below.
+      }
+    }
+    const uploaded = await maybeUploadSeedanceReferenceImage(image, label, publicUpload, signal);
+    if (uploaded) return uploaded;
+  }
+
+  const uploaded = await maybeUploadSeedanceReferenceImage(image, label, publicUpload, signal);
+  if (uploaded) return uploaded;
+
+  throw new Error(
+    `Seedance image-to-video references require a publicly reachable HTTPS image URL for the ${label}. ` +
+      "Expose Marinara through a public HTTPS tunnel such as Cloudflare Tunnel or ngrok, then set " +
+      "VIDEO_REFERENCE_PUBLIC_BASE_URL to that origin, or turn on Upload Seedance reference frames temporarily " +
+      "in this Video Generation connection before generating first/last-frame Seedance clips.",
+  );
+}
+
+async function maybeUploadSeedanceReferenceImage(
+  image: VideoReferenceImage,
+  label: string,
+  publicUpload: VideoGenerationRequest["publicReferenceUpload"],
+  signal: AbortSignal | undefined,
+): Promise<string | null> {
+  if (!publicUpload?.enabled) return null;
+  const expiry = normalizeReferenceUploadExpiry(publicUpload.expiry);
+  const base64 = stripDataUrl(image.base64);
+  const buffer = Buffer.from(base64, "base64");
+  if (buffer.length === 0) {
+    throw new Error(`Seedance ${label} reference image could not be uploaded because it is empty.`);
+  }
+
+  const filename = `marinara-seedance-${label.replace(/\s+/g, "-")}-${Date.now()}${imageExtension(image.mimeType)}`;
+  const upload = buildMultipartFormDataBody({
+    fields: {
+      reqtype: "fileupload",
+      time: expiry,
+    },
+    file: {
+      fieldName: "fileToUpload",
+      filename,
+      contentType: image.mimeType,
+      data: buffer,
+    },
+  });
+
+  logger.warn("[video-gen/seedance] Uploading %s reference image to a temporary public URL for %s", label, expiry);
+  const res = await safeFetch(LITTERBOX_UPLOAD_URL, {
+    method: "POST",
+    headers: upload.headers,
+    body: upload.body,
+    signal,
+    policy: {
+      allowLocal: false,
+      allowLoopback: false,
+      allowMdns: false,
+      allowedProtocols: ["https:"],
+    },
+    maxResponseBytes: 4096,
+    decodeCompressedResponse: true,
+  });
+  const text = (await res.text()).trim();
+  if (!res.ok) {
+    throw new Error(`Temporary Seedance reference upload returned ${res.status}: ${formatProviderError(text)}`);
+  }
+  if (!/^https:\/\//i.test(text)) {
+    throw new Error(`Temporary Seedance reference upload did not return an HTTPS URL: ${formatProviderError(text)}`);
+  }
+  return text;
+}
+
+function buildMultipartFormDataBody(input: {
+  fields: Record<string, string>;
+  file: {
+    fieldName: string;
+    filename: string;
+    contentType: string;
+    data: Buffer;
+  };
+}): { body: Buffer; headers: Record<string, string> } {
+  const boundary = `----MarinaraEngine${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  const chunks: Buffer[] = [];
+  const appendText = (value: string) => chunks.push(Buffer.from(value, "utf8"));
+
+  for (const [name, value] of Object.entries(input.fields)) {
+    appendText(`--${boundary}\r\n`);
+    appendText(`Content-Disposition: form-data; name="${escapeMultipartToken(name)}"\r\n\r\n`);
+    appendText(`${value}\r\n`);
+  }
+
+  appendText(`--${boundary}\r\n`);
+  appendText(
+    `Content-Disposition: form-data; name="${escapeMultipartToken(input.file.fieldName)}"; filename="${escapeMultipartToken(input.file.filename)}"\r\n`,
+  );
+  appendText(`Content-Type: ${input.file.contentType}\r\n\r\n`);
+  chunks.push(input.file.data);
+  appendText(`\r\n--${boundary}--\r\n`);
+
+  const body = Buffer.concat(chunks);
+  return {
+    body,
+    headers: {
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      "Content-Length": String(body.length),
+    },
+  };
+}
+
+function escapeMultipartToken(value: string): string {
+  return value.replace(/[\r\n"]/g, "_");
+}
+
+function normalizeReferenceUploadExpiry(
+  value: VideoReferencePublicUploadOptions["expiry"],
+): VideoReferencePublicUploadExpiry {
+  return LITTERBOX_EXPIRY_VALUES.has(value as VideoReferencePublicUploadExpiry)
+    ? (value as VideoReferencePublicUploadExpiry)
+    : "12h";
+}
+
+function imageExtension(mimeType: VideoReferenceImage["mimeType"]): ".jpg" | ".png" {
+  return mimeType === "image/jpeg" ? ".jpg" : ".png";
+}
+
+function videoReferenceImagesMatch(first: VideoReferenceImage, second: VideoReferenceImage): boolean {
+  if (first.url && second.url && first.url === second.url) return true;
+  return first.mimeType === second.mimeType && stripDataUrl(first.base64) === stripDataUrl(second.base64);
+}
+
 function buildGoogleVeoStartBody(
   request: VideoGenerationRequest,
   durationSeconds: GoogleVeoDuration,
@@ -742,9 +1160,8 @@ function buildGoogleVeoStartBody(
 } {
   const instance: Record<string, unknown> = { prompt: request.prompt };
   if (request.referenceImage) {
-    const referenceImage = googleVeoImage(request.referenceImage, imageEncoding);
-    instance.image = referenceImage;
-    instance.lastFrame = referenceImage;
+    instance.image = googleVeoImage(request.referenceImage, imageEncoding);
+    instance.lastFrame = googleVeoImage(request.lastFrameImage ?? request.referenceImage, imageEncoding);
   }
   return {
     instances: [instance],
@@ -794,9 +1211,7 @@ function shouldRetryGoogleVeoBytesPayload(status: number, text: string): boolean
 function googleVeoImage(
   image: VideoReferenceImage,
   encoding: GoogleVeoImageEncoding,
-):
-  | { inlineData: { mimeType: string; data: string } }
-  | { bytesBase64Encoded: string; mimeType: string } {
+): { inlineData: { mimeType: string; data: string } } | { bytesBase64Encoded: string; mimeType: string } {
   if (encoding === "bytesBase64Encoded") {
     return {
       bytesBase64Encoded: stripDataUrl(image.base64),
@@ -862,7 +1277,21 @@ function findVideoUri(value: unknown, depth = 0): string | null {
     readString(record.fileUri) ??
     readString(record.file_uri);
   if (uri) return uri;
-  for (const key of ["response", "generateVideoResponse", "generatedSamples", "generatedVideos", "video", "file"]) {
+  for (const key of [
+    "response",
+    "data",
+    "results",
+    "output",
+    "outputs",
+    "videos",
+    "videoUrls",
+    "video_urls",
+    "generateVideoResponse",
+    "generatedSamples",
+    "generatedVideos",
+    "video",
+    "file",
+  ]) {
     const found = findVideoUri(record[key], depth + 1);
     if (found) return found;
   }
@@ -1006,6 +1435,33 @@ function readFirstString(value: unknown): string | null {
   return null;
 }
 
+function readSeedanceTaskId(value: unknown): string | null {
+  const root = asRecord(value);
+  const data = asRecord(root.data);
+  return (
+    readString(root.taskId) ??
+    readString(root.task_id) ??
+    readString(root.id) ??
+    readString(data.taskId) ??
+    readString(data.task_id) ??
+    readString(data.id)
+  );
+}
+
+function readSeedanceStatus(value: unknown): string | null {
+  const root = asRecord(value);
+  const data = asRecord(root.data);
+  return (
+    (
+      readString(root.status) ??
+      readString(root.state) ??
+      readString(data.status) ??
+      readString(data.state) ??
+      readString(data.task_status)
+    )?.toLowerCase() ?? null
+  );
+}
+
 function formatProviderError(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return "No response body";
@@ -1018,7 +1474,10 @@ function formatProviderError(text: string): string {
   } catch {
     /* use raw text */
   }
-  return trimmed.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 500);
+  return trimmed
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 500);
 }
 
 function formatOperationError(value: unknown): string {
@@ -1032,4 +1491,52 @@ function formatOperationError(value: unknown): string {
     if (message) return message;
   }
   return (JSON.stringify(value) ?? String(value)).slice(0, 500);
+}
+
+function formatSeedanceOperationError(value: unknown): string {
+  const root = asRecord(value);
+  const data = asRecord(root.data);
+  const candidates: unknown[] = [
+    root.error,
+    root.failed_reason,
+    root.failedReason,
+    root.failure_reason,
+    root.failureReason,
+    root.error_message,
+    root.errorMessage,
+    root.message,
+    root.reason,
+    root.raiMediaFilteredReasons,
+    root.rai_media_filtered_reasons,
+    data.error,
+    data.failed_reason,
+    data.failedReason,
+    data.failure_reason,
+    data.failureReason,
+    data.failed_message,
+    data.failedMessage,
+    data.error_message,
+    data.errorMessage,
+    data.message,
+    data.reason,
+    data.raiMediaFilteredReasons,
+    data.rai_media_filtered_reasons,
+  ];
+  for (const candidate of candidates) {
+    const message = formatOperationError(candidate);
+    if (message && message !== "Unknown operation error") return message;
+  }
+  return "Unknown operation error";
+}
+
+function isRetryableSeedanceTaskFailure(status: string, message: string): boolean {
+  return (status === "failed" || status === "error") && message.trim().toLowerCase() === "unknown operation error";
+}
+
+function compactJsonForLog(value: unknown, maxLength: number): string {
+  try {
+    return JSON.stringify(value).replace(/\s+/g, " ").slice(0, maxLength);
+  } catch {
+    return String(value).replace(/\s+/g, " ").slice(0, maxLength);
+  }
 }

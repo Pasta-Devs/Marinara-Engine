@@ -51,6 +51,14 @@ function setCharacterCardFieldValue(
   };
 }
 
+function appendStaleCardReplacement(base: string, replacement: string): string {
+  const trimmedReplacement = replacement.trim();
+  if (!trimmedReplacement) return base;
+  if (base.includes(trimmedReplacement)) return base;
+  const separator = base.trim().length > 0 ? "\n\n" : "";
+  return `${base.trimEnd()}${separator}${trimmedReplacement}`;
+}
+
 function bumpCharacterVersion(value: unknown): string {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw) return "1.1";
@@ -69,6 +77,10 @@ interface Props {
 }
 
 type BusyAction = "approve" | "regenerate" | null;
+type CardUpdateState = {
+  update: CharacterCardFieldUpdate;
+  stale: boolean;
+};
 
 export function CharacterCardUpdateModal({ open, onClose }: Props) {
   const pending = useAgentStore((s) => s.pendingCardUpdates);
@@ -76,7 +88,9 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
 
   const entry = pending[0] ?? null;
   const { retryAgents } = useGenerate();
-  const { data: character } = useCharacter(entry?.characterId ?? null);
+  const { data: character, isFetching: isFetchingCharacter, refetch: refetchCharacter } = useCharacter(
+    entry?.characterId ?? null,
+  );
   const updateCharacter = useUpdateCharacter();
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<BusyAction>(null);
@@ -87,6 +101,11 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     setError(null);
     setBusyAction(null);
   }, [entry?.id, entry?.updates]);
+
+  useEffect(() => {
+    if (!entry?.characterId) return;
+    void refetchCharacter();
+  }, [entry?.characterId, entry?.id, refetchCharacter]);
 
   // Character rows come back from /characters with `data` serialized as a JSON
   // string, so parse it once here and reuse below.
@@ -102,17 +121,30 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     return (raw as Record<string, unknown>) ?? {};
   }, [character]);
 
-  // Only show updates whose oldText is still present in the current field —
-  // stale suggestions (field already changed since the agent ran) are dropped.
+  // Only apply exact replacements whose oldText is still present in the current
+  // field. We force-refetch the character above before letting the user approve,
+  // because a 5-minute React Query cache can otherwise make fresh server-side
+  // auditor proposals look stale in this modal.
   // We use substring match, not equality, because oldText is a sentence-level
   // slice of a field that often contains multiple paragraphs.
-  const applicableUpdates = useMemo(() => {
+  const updateStates = useMemo<CardUpdateState[]>(() => {
     if (!entry || !character) return [];
-    return draftUpdates.filter((u) => {
+    return draftUpdates.map((u) => {
       const current = getCharacterCardFieldValue(parsedData, u.field);
-      return typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText);
+      return {
+        update: u,
+        stale: !(typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText)),
+      };
     });
   }, [entry, character, draftUpdates, parsedData]);
+  const applicableUpdates = useMemo(
+    () => updateStates.filter((state) => !state.stale).map((state) => state.update),
+    [updateStates],
+  );
+  const staleUpdates = useMemo(
+    () => updateStates.filter((state) => state.stale).map((state) => state.update),
+    [updateStates],
+  );
 
   if (!entry) return null;
 
@@ -127,21 +159,34 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     }
   };
 
-  const handleApprove = async () => {
-    if (!character || applicableUpdates.length === 0) {
+  const handleApprove = async (overrideStale = false) => {
+    if (!character || (applicableUpdates.length === 0 && (!overrideStale || staleUpdates.length === 0))) {
       closeAndAdvance();
       return;
     }
+    if (overrideStale && staleUpdates.length > 0) {
+      const ok = window.confirm(
+        "Some proposed card edits no longer match the current card text exactly. Override anyway? Stale replacements will be appended to their fields instead of replacing unknown text.",
+      );
+      if (!ok) return;
+    }
     // Apply each edit as a targeted substring replace inside the field's current
     // value, NOT by overwriting the field with newText (which would erase
-    // everything around the edited sentence).
+    // everything around the edited sentence). If the user explicitly overrides
+    // a stale proposal, append the edited replacement text to the current field
+    // so stale oldText cannot delete unrelated card content.
     setBusyAction("approve");
     setError(null);
     let nextData: Record<string, unknown> = { ...parsedData };
-    for (const u of applicableUpdates) {
+    for (const u of overrideStale ? [...applicableUpdates, ...staleUpdates] : applicableUpdates) {
       const base = getCharacterCardFieldValue(nextData, u.field);
       if (typeof base !== "string") continue;
-      nextData = setCharacterCardFieldValue(nextData, u.field, base.replace(u.oldText, u.newText));
+      const nextValue = base.includes(u.oldText)
+        ? base.replace(u.oldText, () => u.newText)
+        : overrideStale
+          ? appendStaleCardReplacement(base, u.newText)
+          : base;
+      nextData = setCharacterCardFieldValue(nextData, u.field, nextValue);
     }
     nextData.character_version = bumpCharacterVersion(nextData.character_version);
     try {
@@ -208,17 +253,24 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
           </div>
         </div>
 
-        {applicableUpdates.length === 0 && (
+        {isFetchingCharacter && (
+          <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-2.5 text-xs text-[var(--muted-foreground)]">
+            <Loader2 size="0.75rem" className="shrink-0 animate-spin" />
+            Refreshing the current character card before checking stale proposals...
+          </div>
+        )}
+
+        {applicableUpdates.length === 0 && !isFetchingCharacter && (
           <div className="flex items-center gap-2 rounded-lg bg-[var(--secondary)] p-2.5 text-xs text-[var(--muted-foreground)]">
             <AlertCircle size="0.75rem" className="shrink-0" />
-            None of these proposals still match the current card — the field was probably already edited. Reject to
-            dismiss.
+            None of these proposals still match the freshly loaded card. Regenerate, reject, or override if you still
+            want to keep the edited text.
           </div>
         )}
 
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
           {draftUpdates.map((u, idx) => {
-            const stale = !applicableUpdates.includes(u);
+            const stale = updateStates[idx]?.stale ?? true;
             return (
               <div
                 key={idx}
@@ -295,8 +347,10 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
           </button>
           <button
             type="button"
-            onClick={handleApprove}
-            disabled={busyAction !== null || updateCharacter.isPending || applicableUpdates.length === 0}
+            onClick={() => void handleApprove(false)}
+            disabled={
+              busyAction !== null || updateCharacter.isPending || isFetchingCharacter || applicableUpdates.length === 0
+            }
             className="flex items-center gap-1.5 rounded-lg bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] transition-all hover:opacity-90 disabled:opacity-50"
           >
             {busyAction === "approve" || updateCharacter.isPending ? (
@@ -306,6 +360,21 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
             )}
             Approve {applicableUpdates.length > 0 ? `(${applicableUpdates.length})` : ""}
           </button>
+          {staleUpdates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleApprove(true)}
+              disabled={busyAction !== null || updateCharacter.isPending || isFetchingCharacter}
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-4 py-2 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            >
+              {busyAction === "approve" || updateCharacter.isPending ? (
+                <Loader2 size="0.75rem" className="animate-spin" />
+              ) : (
+                <AlertCircle size="0.75rem" />
+              )}
+              Override stale ({staleUpdates.length})
+            </button>
+          )}
         </div>
       </div>
     </Modal>

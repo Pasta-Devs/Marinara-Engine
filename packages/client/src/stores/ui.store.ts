@@ -1275,7 +1275,7 @@ export const useUIStore = create<UIState>()(
       hasCompletedOnboarding: false,
       gameTutorialDisabled: false,
       linkApiBannerDismissed: false,
-      echoChamberOpen: false,
+      echoChamberOpen: true,
       echoChamberSide: "bottom-right" as EchoChamberSide,
       userStatusManual: "active" as const,
       userStatus: "active" as UserStatus,

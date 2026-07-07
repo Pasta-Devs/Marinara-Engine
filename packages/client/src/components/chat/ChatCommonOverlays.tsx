@@ -236,6 +236,9 @@ type ChatCommonOverlaysProps = {
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
   /** Manually trigger the Illustrator agent */
   onIllustrate?: () => void;
+  /** Generate an on-demand Conversation selfie. */
+  onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
+  selfieCharacters?: Array<{ id: string; name: string }>;
   /** Generate and apply a background for the current scene. */
   onGenerateBackground?: () => void | Promise<void>;
   /** Generate a storyboard for the latest completed Game Mode GM turn. */
@@ -279,6 +282,8 @@ export function ChatCommonOverlays({
   onCloseGallery,
   onOpenScheduleEditor,
   onIllustrate,
+  onGenerateSelfie,
+  selfieCharacters,
   onGenerateBackground,
   onGenerateStoryboard,
   onViewStoryboard,
@@ -325,6 +330,8 @@ export function ChatCommonOverlays({
               onClose={onCloseGallery}
               anchor={galleryAnchor}
               onIllustrate={onIllustrate}
+              onGenerateSelfie={onGenerateSelfie}
+              selfieCharacters={selfieCharacters}
               onGenerateStoryboard={onGenerateStoryboard}
               onViewStoryboard={onViewStoryboard}
               onGenerateVideo={onGenerateVideo}

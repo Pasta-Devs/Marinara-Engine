@@ -3,11 +3,7 @@
 // ──────────────────────────────────────────────
 import { and, desc, eq, inArray } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
-import {
-  conversationCallMessages,
-  conversationCallSessions,
-  conversationCallSounds,
-} from "../../db/schema/index.js";
+import { conversationCallMessages, conversationCallSessions, conversationCallSounds } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import type {
   ConversationCallMessage,
@@ -187,8 +183,23 @@ export function createConversationCallsStorage(db: DB) {
           startedAt: status === "active" ? (current.startedAt ?? timestamp) : current.startedAt,
           endedAt: status === "ended" || status === "declined" || status === "missed" ? timestamp : current.endedAt,
           summary: patch.summary !== undefined ? patch.summary : current.summary,
-          metadata: patch.metadata ? JSON.stringify({ ...current.metadata, ...patch.metadata }) : JSON.stringify(current.metadata),
+          metadata: patch.metadata
+            ? JSON.stringify({ ...current.metadata, ...patch.metadata })
+            : JSON.stringify(current.metadata),
           updatedAt: timestamp,
+        })
+        .where(eq(conversationCallSessions.id, id));
+      return this.getSession(id);
+    },
+
+    async updateSummary(id: string, summary: string | null) {
+      const current = await this.getSession(id);
+      if (!current) return null;
+      await db
+        .update(conversationCallSessions)
+        .set({
+          summary,
+          updatedAt: now(),
         })
         .where(eq(conversationCallSessions.id, id));
       return this.getSession(id);
@@ -238,7 +249,10 @@ export function createConversationCallsStorage(db: DB) {
 
     async listSounds() {
       await ensureBuiltInSounds();
-      const rows = await db.select().from(conversationCallSounds).orderBy(conversationCallSounds.builtIn, conversationCallSounds.name);
+      const rows = await db
+        .select()
+        .from(conversationCallSounds)
+        .orderBy(conversationCallSounds.builtIn, conversationCallSounds.name);
       return rows.map(toSound);
     },
 

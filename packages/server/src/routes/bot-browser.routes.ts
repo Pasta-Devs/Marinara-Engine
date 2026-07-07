@@ -2,7 +2,7 @@
 // Routes: Browser (proxy to character sources)
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
-import { isAllowedImageBuffer, safeFetch } from "../utils/security.js";
+import { resolveValidatedImage, safeFetch } from "../utils/security.js";
 
 const CHUB_API_BASE = "https://api.chub.ai";
 const CHUB_AVATARS = "https://avatars.charhub.io";
@@ -16,12 +16,9 @@ async function fetchAvatarImage(url: string, signal: AbortSignal) {
   });
   if (!res.ok) return null;
   const buf = Buffer.from(await res.arrayBuffer());
-  const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
-  const imageInfo = isAllowedImageBuffer(buf);
-  if (!contentType.startsWith("image/") || !imageInfo) {
-    throw new Error("Unsupported avatar image content");
-  }
-  return { buf, mimeType: imageInfo.mimeType };
+  const image = resolveValidatedImage(buf, res.headers.get("content-type") ?? "");
+  if (!image) throw new Error("Unsupported avatar image content");
+  return { buf, mimeType: image.mimeType };
 }
 
 /** Safely proxy-fetch an external URL, returning sanitised JSON. */

@@ -5,6 +5,7 @@ export type CharacterMap = Map<
   string,
   {
     name: string;
+    phoneticName?: string;
     description?: string;
     personality?: string;
     backstory?: string;
@@ -24,6 +25,7 @@ export type CharacterMap = Map<
 export type PersonaInfo = {
   id?: string;
   name: string;
+  phoneticName?: string;
   description?: string;
   personality?: string;
   backstory?: string;

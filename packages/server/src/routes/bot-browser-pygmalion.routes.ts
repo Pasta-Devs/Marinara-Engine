@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
-import { isAllowedImageBuffer, safeFetch } from "../utils/security.js";
+import { resolveValidatedImage, safeFetch } from "../utils/security.js";
 
 const PYGMALION_API_BASE = "https://server.pygmalion.chat/galatea.v1.PublicCharacterService";
 const PYGMALION_ORIGIN = "https://pygmalion.chat";
@@ -249,27 +249,24 @@ export async function botBrowserPygmalionRoutes(app: FastifyInstance) {
     const url = assetPath.startsWith("http") ? assetPath : `${PYGMALION_ASSETS_BASE}/${assetPath}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15_000);
+    const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
       const res = await safeFetch(url, {
         signal: controller.signal,
         policy: { allowedProtocols: ["https:"] },
-        maxResponseBytes: 10 * 1024 * 1024,
+        maxResponseBytes: 25 * 1024 * 1024,
       });
       if (!res.ok) return reply.status(404).send({ error: "Avatar not found" });
       const buf = Buffer.from(await res.arrayBuffer());
-      const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
-      const imageInfo = isAllowedImageBuffer(buf);
-      if (contentType && !contentType.startsWith("image/") && !imageInfo) {
-        logger.warn("[bot-browser] Pygmalion avatar returned unsupported content type: %s", contentType);
+      const image = resolveValidatedImage(buf, res.headers.get("content-type") ?? "");
+      if (!image) {
+        logger.warn(
+          "[bot-browser] Pygmalion avatar returned unsupported content type: %s",
+          res.headers.get("content-type") || "(missing)",
+        );
         return reply.status(415).send({ error: "Unsupported avatar content type" });
       }
-      if (!contentType && !imageInfo) {
-        logger.warn("[bot-browser] Pygmalion avatar response was missing a usable image content type");
-        return reply.status(415).send({ error: "Unsupported avatar content type" });
-      }
-      const ct = contentType || imageInfo?.mimeType || "image/webp";
-      return reply.header("Content-Type", ct).header("Cache-Control", "public, max-age=86400").send(buf);
+      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(buf);
     } finally {
       clearTimeout(timeout);
     }

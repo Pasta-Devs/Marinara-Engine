@@ -26,10 +26,13 @@ export interface TTSSpeakRequest {
   voice?: string;
   cacheKey?: string;
   cacheAliases?: string[];
+  activeId?: string | null;
 }
 
 export interface TTSSpeakSequenceOptions extends Pick<TTSSpeakOptions, "signal" | "throwOnError" | "volume" | "muted"> {
   progressive?: boolean;
+  onChunkStart?: (request: TTSSpeakRequest, index: number) => void;
+  onChunkEnd?: (request: TTSSpeakRequest, index: number) => void;
 }
 
 function clampPlaybackVolume(volume: number | undefined): number {
@@ -253,10 +256,12 @@ class TTSService {
       options.signal?.addEventListener("abort", abortFromCaller, { once: true });
     }
 
-    type ChunkResult = { ok: true; blob: Blob } | { ok: false; error: Error };
+    type ChunkResult =
+      | { ok: true; blob: Blob; request: TTSSpeakRequest; index: number }
+      | { ok: false; error: Error; request: TTSSpeakRequest; index: number };
     const toError = (err: unknown, fallback: string) => (err instanceof Error ? err : new Error(fallback));
     const isAbortError = (error: Error) => error.name === "AbortError";
-    const fetchChunk = async (request: TTSSpeakRequest): Promise<ChunkResult> => {
+    const fetchChunk = async (request: TTSSpeakRequest, index: number): Promise<ChunkResult> => {
       try {
         const blob = await this.getAudioBlob(request.text, {
           speaker: request.speaker,
@@ -266,13 +271,13 @@ class TTSService {
           cacheKey: request.cacheKey,
           cacheAliases: request.cacheAliases,
         });
-        return { ok: true, blob };
+        return { ok: true, blob, request, index };
       } catch (err) {
-        return { ok: false, error: toError(err, "TTS request failed") };
+        return { ok: false, error: toError(err, "TTS request failed"), request, index };
       }
     };
 
-    const playBlob = async (blob: Blob): Promise<void> => {
+    const playBlob = async (blob: Blob, request: TTSSpeakRequest, index: number): Promise<void> => {
       if (!this.isCurrentSequence(sequence)) return;
       this.cleanup();
 
@@ -286,6 +291,20 @@ class TTSService {
       const audio = new Audio(objectUrl);
       this.applyPlaybackOptions(audio, options);
       this.audio = audio;
+      const runChunkStart = () => {
+        try {
+          options.onChunkStart?.(request, index);
+        } catch (err) {
+          console.warn("[TTS] Chunk start callback failed:", err);
+        }
+      };
+      const runChunkEnd = () => {
+        try {
+          options.onChunkEnd?.(request, index);
+        } catch (err) {
+          console.warn("[TTS] Chunk end callback failed:", err);
+        }
+      };
 
       await new Promise<void>((resolve, reject) => {
         let settled = false;
@@ -317,13 +336,24 @@ class TTSService {
         audio.onended = () => {
           if (!this.isCurrentSequence(sequence) || this.audio !== audio) return;
           finish(() => {
-            this.cleanup();
-            resolve();
+            try {
+              runChunkEnd();
+            } finally {
+              this.cleanup();
+              resolve();
+            }
           });
         };
-        audio.onerror = () => fail(new Error("Audio playback failed"));
+        audio.onerror = () => {
+          try {
+            runChunkEnd();
+          } finally {
+            fail(new Error("Audio playback failed"));
+          }
+        };
 
-        this.setState("playing", id ?? null);
+        runChunkStart();
+        this.setState("playing", request.activeId ?? id ?? null);
         void audio.play().catch((err) => fail(toError(err, "Browser blocked audio playback")));
       });
     };
@@ -337,13 +367,13 @@ class TTSService {
     };
 
     if (options.progressive) {
-      let nextFetch: Promise<ChunkResult> | null = fetchChunk(playableRequests[0]!);
+      let nextFetch: Promise<ChunkResult> | null = fetchChunk(playableRequests[0]!, 0);
       let played = 0;
       const fetchErrors: Error[] = [];
 
       for (let index = 0; index < playableRequests.length; index += 1) {
         const result = await nextFetch!;
-        nextFetch = index + 1 < playableRequests.length ? fetchChunk(playableRequests[index + 1]!) : null;
+        nextFetch = index + 1 < playableRequests.length ? fetchChunk(playableRequests[index + 1]!, index + 1) : null;
         if (!this.isCurrentSequence(sequence)) return;
 
         if (!result.ok) {
@@ -357,7 +387,7 @@ class TTSService {
         }
 
         try {
-          await playBlob(result.blob);
+          await playBlob(result.blob, result.request, result.index);
           played += 1;
           if (nextFetch && this.isCurrentSequence(sequence)) {
             this.setState("loading", id ?? null);
@@ -384,7 +414,7 @@ class TTSService {
       return;
     }
 
-    const results = await Promise.all(playableRequests.map(fetchChunk));
+    const results = await Promise.all(playableRequests.map((request, index) => fetchChunk(request, index)));
     detachAbortSignal();
     if (!this.isCurrentSequence(sequence)) return;
     if (this.abortController === abortController) {
@@ -396,10 +426,10 @@ class TTSService {
       return;
     }
 
-    const blobs = results.flatMap((result) => (result.ok ? [result.blob] : []));
+    const playableChunks = results.flatMap((result) => (result.ok ? [result] : []));
     const fetchErrors = results.flatMap((result) => (result.ok ? [] : [result.error]));
     handleFetchFailures(fetchErrors);
-    if (blobs.length === 0) {
+    if (playableChunks.length === 0) {
       const error = fetchErrors[0] ?? new Error("TTS request failed");
       this.lastError = error.message;
       this.setState("error");
@@ -407,9 +437,9 @@ class TTSService {
       return;
     }
 
-    for (const blob of blobs) {
+    for (const chunk of playableChunks) {
       try {
-        await playBlob(blob);
+        await playBlob(chunk.blob, chunk.request, chunk.index);
       } catch (err) {
         if (options.throwOnError) throw err;
         return;

@@ -209,7 +209,8 @@ export function useConversationCallSoundboard() {
 export function useConversationCallCharacterVideos(characterId: string | null, enabled = true) {
   return useQuery({
     queryKey: conversationCallKeys.characterVideos(characterId ?? ""),
-    queryFn: () => api.get<ConversationCallCharacterVideoManifest>(`/conversation-calls/character-videos/${characterId}`),
+    queryFn: () =>
+      api.get<ConversationCallCharacterVideoManifest>(`/conversation-calls/character-videos/${characterId}`),
     enabled: enabled && Boolean(characterId),
     refetchInterval: (query) => (query.state.data?.generating ? 15_000 : false),
     staleTime: 15_000,
@@ -219,10 +220,22 @@ export function useConversationCallCharacterVideos(characterId: string | null, e
 export function useGenerateConversationCallCharacterVideos() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: { characterId: string }) =>
+    mutationFn: (input: {
+      characterId: string;
+      clipKinds?: string[] | null;
+      clipCount?: number | null;
+      connectionId?: string | null;
+      includeAvatarReference?: boolean;
+    }) =>
       api.post<ConversationCallCharacterVideoManifest>(
         `/conversation-calls/character-videos/${input.characterId}/generate`,
-        { debugMode: useUIStore.getState().debugMode },
+        {
+          debugMode: useUIStore.getState().debugMode,
+          ...(input.clipKinds?.length ? { clipKinds: input.clipKinds } : {}),
+          ...(input.clipCount ? { clipCount: input.clipCount } : {}),
+          ...(input.connectionId ? { connectionId: input.connectionId } : {}),
+          ...(input.includeAvatarReference === false ? { includeAvatarReference: false } : {}),
+        },
       ),
     onSuccess: (manifest) => {
       queryClient.setQueryData(conversationCallKeys.characterVideos(manifest.characterId), manifest);

@@ -91,6 +91,7 @@ export interface ConversationCallCharacterVideoClip {
   url: string | null;
   error: string | null;
   updatedAt: string | null;
+  origin?: "generated" | "uploaded";
   trimStartSeconds?: number | null;
   trimEndSeconds?: number | null;
 }
@@ -104,6 +105,7 @@ export interface ConversationCallCharacterVideoCustomClip {
   error: string | null;
   createdAt: string;
   updatedAt: string | null;
+  origin?: "generated" | "uploaded";
   trimStartSeconds?: number | null;
   trimEndSeconds?: number | null;
 }

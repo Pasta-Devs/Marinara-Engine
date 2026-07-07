@@ -33,6 +33,7 @@ import {
 
 import { useChatStore } from "../../stores/chat.store";
 import { useGenerate } from "../../hooks/use-generate";
+import { useGenerateGallerySelfie } from "../../hooks/use-gallery";
 import {
   characterKeys,
   spriteKeys,
@@ -344,6 +345,7 @@ function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
     const extensions = data.extensions && typeof data.extensions === "object" ? data.extensions : {};
     return {
       name: data.name ?? "Unknown",
+      phoneticName: extensions.phoneticName || undefined,
       description: data.description ?? "",
       personality: data.personality ?? "",
       backstory: extensions.backstory ?? "",
@@ -372,6 +374,7 @@ function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
 function areCharacterMapValuesEqual(a: CharacterMapValue, b: CharacterMapValue): boolean {
   return (
     a.name === b.name &&
+    a.phoneticName === b.phoneticName &&
     a.description === b.description &&
     a.personality === b.personality &&
     a.backstory === b.backstory &&
@@ -689,6 +692,7 @@ export function ChatArea() {
   const peekPrompt = usePeekPrompt();
   const branchChat = useBranchChat();
   const { generate, retryAgents } = useGenerate();
+  const generateGallerySelfie = useGenerateGallerySelfie(activeChatId ?? "");
   const setActiveSwipe = useSetActiveSwipe(activeChatId);
   const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const pendingNewChatMode = useChatStore((s) => s.pendingNewChatMode);
@@ -921,6 +925,7 @@ export function ChatArea() {
     return {
       id: persona.id,
       name: persona.name,
+      phoneticName: persona.phoneticName || undefined,
       description: persona.description ?? "",
       personality: persona.personality || undefined,
       scenario: persona.scenario || undefined,
@@ -1180,6 +1185,24 @@ export function ChatArea() {
       }
     },
     [activeChatId, chat, chatMeta.sceneVideoConnectionId, chatMode, queryClient],
+  );
+
+  const handleGenerateConversationSelfie = useCallback(
+    async (characterId?: string) => {
+      if (!activeChatId || chatMode !== "conversation") return;
+      const targetCharacterId =
+        characterId && chatCharIds.includes(characterId)
+          ? characterId
+          : (chatCharIds.find((id) => characterMap.has(id)) ?? chatCharIds[0]);
+      if (!targetCharacterId) {
+        throw new Error("Add a character to this conversation before generating a selfie.");
+      }
+      await generateGallerySelfie.mutateAsync({
+        characterId: targetCharacterId,
+        debugMode: useUIStore.getState().debugMode,
+      });
+    },
+    [activeChatId, characterMap, chatCharIds, chatMode, generateGallerySelfie],
   );
 
   // Creator-notes card CSS: resolve the per-chat mode (default "chat") and map
@@ -2817,6 +2840,7 @@ export function ChatArea() {
             onOpenScheduleEditor={handleOpenScheduleEditor}
             onCloseSettings={handleCloseSettingsPanel}
             onCloseGallery={handleCloseGalleryPanel}
+            onGenerateSelfie={handleGenerateConversationSelfie}
             onWizardFinish={() => {
               setWizardOpen(false);
               handleOpenSettingsPanel();

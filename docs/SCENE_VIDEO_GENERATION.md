@@ -11,23 +11,26 @@ Scene videos are separate from normal image generation. They use a **Video Gener
 1. Open **Settings -> Connections**.
 2. Create or edit a connection with provider **Video Generation**.
 3. Pick a video service:
-   - **Gemini Omni** uses `gemini-omni-flash-preview` by default through Google AI Studio's Gemini API.
-   - **Google AI Studio Veo** uses `veo-3.1-generate-preview` by default through the Gemini API long-running video endpoint. Character/call loop references are sent as both the first and last frame so Veo can interpolate back to the avatar pose.
+   - **Google AI Studio** supports Gemini Omni and Veo models. Gemini Omni uses `gemini-omni-flash-preview` by default through Google AI Studio's Gemini API. Veo uses `veo-3.1-generate-preview` by default through the Gemini API long-running video endpoint, and character/call loop references are sent as both the first and last frame so Veo can interpolate back to the avatar pose.
    - **xAI Imagine** uses `grok-imagine-video-1.5` by default through the xAI Videos API.
    - **OpenRouter Video** uses `google/veo-3.1` by default through OpenRouter's asynchronous Videos API. You can type any OpenRouter video-capable model ID supported by your account.
+   - **Seedance 2.0** uses `seedance-2-0` by default through the Seedance API. Seedance reference-image jobs require provider-fetchable HTTPS image URLs.
 4. Enter the provider API key and save the connection.
 5. Optional: enable **Use as default video connection** so new/manual scene-video requests can fall back to this connection when the chat has no explicit video connection selected.
 
 Video generation connections have their own defaults. Gemini Omni exposes duration and aspect ratio; duration is rendered into the prompt because Gemini Omni does not currently accept `duration_seconds` in `generation_config.video_config`. Google Veo, xAI, and OpenRouter expose duration, aspect ratio, and resolution. Veo accepts 4, 6, or 8 seconds, and Marinara uses 8 seconds when an image reference is present because Veo requires that for first/last-frame interpolation.
 
+Seedance first/last-frame references need public HTTPS URLs. If your Marinara server is publicly reachable, set `VIDEO_REFERENCE_PUBLIC_BASE_URL`. If you are running locally, edit the Seedance Video Generation connection and turn on **Upload Seedance reference frames temporarily** under **Default for Videos**. This uploads local reference frames to temporary public links so Seedance can fetch them.
+
 Default values:
 
 | Service | Duration | Aspect ratio | Resolution |
 | --- | --- | --- | --- |
-| Gemini Omni | 10s | 16:9 | Provider default |
+| Google AI Studio Gemini Omni | 10s | 16:9 | Provider default |
 | Google AI Studio Veo | 8s | 16:9 | 720p |
 | xAI Imagine | 10s | 16:9 | 720p |
 | OpenRouter Video | 10s | 16:9 | 720p |
+| Seedance 2.0 | 5s | 16:9 | 720p |
 
 ## Chat Settings
 
@@ -95,7 +98,7 @@ Storyboard and video prompt style are selected per chat:
 - **Chat Settings -> Agents -> Scene Videos -> Game Video Prompt** is used for Game scene videos and storyboard clips. The default **Cinematic Scene Video** preset turns the saved first-frame image into motion.
 - **Chat Settings -> Agents -> Scene Videos -> Edit Video Presets** copies the built-in video prompt into chat-local editable templates.
 
-Open **Settings -> Advanced -> Game Prompt Templates and Prompt Overrides** to edit the reusable global templates used by scene media.
+Open **Settings -> Generations -> Video Generation Prompt Templates** and **Prompt Overrides** to edit the reusable global templates used by scene media.
 
 The relevant keys are:
 

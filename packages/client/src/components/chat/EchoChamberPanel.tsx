@@ -5,7 +5,7 @@
 // HUD widget position (top/left/right), and the top bar.
 // ──────────────────────────────────────────────
 import { useRef, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { Trash2, RefreshCw } from "lucide-react";
+import { ChevronDown, MessageCircle, Trash2, RefreshCw } from "lucide-react";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import type { EchoChamberSide } from "../../stores/ui.store";
@@ -143,6 +143,8 @@ function CornerPicker({ current, onChange }: { current: EchoChamberSide; onChang
 export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelProps) {
   const echoChamberSide = useUIStore((s) => s.echoChamberSide);
   const setEchoChamberSide = useUIStore((s) => s.setEchoChamberSide);
+  const echoChamberOpen = useUIStore((s) => s.echoChamberOpen);
+  const toggleEchoChamber = useUIStore((s) => s.toggleEchoChamber);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -364,6 +366,35 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
 
   if (!echoEnabled || (isMobile && hiddenOnMobile)) return null;
   const visibleMessages = echoMessages.slice(0, visibleCount);
+  if (!echoChamberOpen) {
+    const collapsedStyle = { ...posStyle };
+    delete collapsedStyle.width;
+    return (
+      <button
+        type="button"
+        onClick={toggleEchoChamber}
+        className={cn(
+          ROLEPLAY_POPOVER_SHELL,
+          "absolute z-[60] pointer-events-auto inline-flex items-center gap-2 px-2.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider",
+          "text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+        )}
+        style={collapsedStyle}
+        title="Open Echo Chamber"
+      >
+        <span className="relative flex h-1.5 w-1.5 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+        </span>
+        <MessageCircle size="0.75rem" />
+        Echo
+        {visibleMessages.length > 0 && (
+          <span className="rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] px-1.5 py-0.5 text-[0.5625rem] font-normal text-[var(--marinara-chat-chrome-panel-muted)]">
+            {visibleMessages.length}
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <div
@@ -389,6 +420,13 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
           )}
         </span>
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={toggleEchoChamber}
+            className="rounded p-0.5 text-[var(--marinara-chat-chrome-button-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+            title="Collapse Echo Chamber"
+          >
+            <ChevronDown size="0.5625rem" />
+          </button>
           <button
             onClick={() => {
               if (!activeChatId || echoRetryBusy) return;

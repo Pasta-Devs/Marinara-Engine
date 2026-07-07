@@ -66,6 +66,7 @@ type ConversationSurfaceProps = {
   onCloseSettings: () => void;
   onCloseGallery: () => void;
   onIllustrate?: () => void;
+  onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
   onWizardFinish: () => void;
   onClosePeekPrompt: () => void;
   onResetSpritePlacements: () => void;
@@ -131,6 +132,7 @@ export function ChatConversationSurface({
   onCloseSettings,
   onCloseGallery,
   onIllustrate,
+  onGenerateSelfie,
   onWizardFinish,
   onClosePeekPrompt,
   onResetSpritePlacements,
@@ -215,6 +217,13 @@ export function ChatConversationSurface({
         onCloseGallery={onCloseGallery}
         onOpenScheduleEditor={onOpenScheduleEditor}
         onIllustrate={onIllustrate}
+        onGenerateSelfie={onGenerateSelfie}
+        selfieCharacters={chatCharIds
+          .map((id) => {
+            const character = characterMap.get(id);
+            return character ? { id, name: character.name } : null;
+          })
+          .filter((character): character is { id: string; name: string } => Boolean(character))}
         onWizardFinish={onWizardFinish}
         onClosePeekPrompt={onClosePeekPrompt}
         onDeleteConfirm={onDeleteConfirm}

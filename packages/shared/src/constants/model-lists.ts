@@ -386,6 +386,12 @@ export const XAI_MODELS: KnownModel[] = [
   { id: "grok-code-fast-1-0831", name: "Grok Code Fast 1 0831", context: 256000, maxOutput: 0 },
 ];
 
+// ── Grok CLI (Subscription via local Grok Build auth) ──
+// Account-tier availability is discovered from the installed CLI with
+// `grok models`. Keep this empty so Marinara does not hand the CLI stale API
+// aliases such as `grok-build-latest` that some Grok CLI installs reject.
+export const GROK_SUBSCRIPTION_MODELS: KnownModel[] = [];
+
 // ── Additional providers with static lists in SillyTavern ──
 
 // Groq (from #model_groq_select)
@@ -504,16 +510,9 @@ export interface VideoGenSource {
 
 export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
   {
-    id: "gemini_omni",
-    name: "Gemini Omni",
-    description: "Gemini Omni Flash image-to-video via the Gemini Interactions API.",
-    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
-    requiresApiKey: true,
-  },
-  {
-    id: "google_veo",
-    name: "Google AI Studio Veo",
-    description: "Veo 3.1 video and first/last-frame interpolation via the Gemini API.",
+    id: "google_ai_studio",
+    name: "Google AI Studio",
+    description: "Gemini Omni and Veo video models via the Gemini API.",
     defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
     requiresApiKey: true,
   },
@@ -529,6 +528,13 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
     name: "OpenRouter Video",
     description: "Video generation models exposed through OpenRouter's asynchronous Videos API.",
     defaultBaseUrl: "https://openrouter.ai/api/v1",
+    requiresApiKey: true,
+  },
+  {
+    id: "seedance",
+    name: "Seedance 2.0",
+    description: "Seedance 2.0 video generation with text, first-frame, and first/last-frame modes.",
+    defaultBaseUrl: "https://api.seedance2.ai",
     requiresApiKey: true,
   },
 ];
@@ -698,19 +704,19 @@ const VIDEO_GEN_MODELS: KnownModel[] = [
   { id: "grok-imagine-video", name: "Grok Imagine Video", context: 0, maxOutput: 0 },
   { id: "google/veo-3.1", name: "Google Veo 3.1 (OpenRouter)", context: 0, maxOutput: 0 },
   { id: "alibaba/wan-2.7", name: "Alibaba WAN 2.7 (OpenRouter)", context: 0, maxOutput: 0 },
+  { id: "seedance-2-0", name: "Seedance 2.0", context: 0, maxOutput: 0 },
+  { id: "seedance-2-0-fast", name: "Seedance 2.0 Fast", context: 0, maxOutput: 0 },
 ];
 
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
+  if (m === "seedance" || m.startsWith("seedance-") || u.includes("seedance2.ai")) return "seedance";
   if (m === "openrouter" || u.includes("openrouter.ai")) return "openrouter";
   if (m.includes("/") && (m.includes("veo") || m.includes("wan"))) return "openrouter";
   if (m === "google_veo" || m === "veo" || /^veo-[\d.]+/.test(m)) return "google_veo";
   if (m === "xai" || u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
   if (m.includes("grok") && m.includes("imagine") && m.includes("video")) return "xai";
-  if (m === "gemini_omni" || m.includes("omni") || u.includes("generativelanguage.googleapis.com")) {
-    return "gemini_omni";
-  }
   return "gemini_omni";
 }
 
@@ -768,6 +774,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   openai_chatgpt: OPENAI_CHATGPT_MODELS,
   anthropic: ANTHROPIC_MODELS,
   claude_subscription: CLAUDE_SUBSCRIPTION_MODELS,
+  grok_subscription: GROK_SUBSCRIPTION_MODELS,
   google: GOOGLE_MODELS,
   google_vertex: GOOGLE_MODELS,
   mistral: MISTRAL_MODELS,

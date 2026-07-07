@@ -12,6 +12,7 @@ export const apiConnections = sqliteTable("api_connections", {
       "openai_chatgpt",
       "anthropic",
       "claude_subscription",
+      "grok_subscription",
       "google",
       "google_vertex",
       "mistral",

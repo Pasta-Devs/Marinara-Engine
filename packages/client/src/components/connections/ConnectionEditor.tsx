@@ -75,6 +75,7 @@ import {
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
   inferVideoSource,
+  isLocalAuthProvider as isLocalAuthConnectionProvider,
   IMAGE_DEFAULTS_STORAGE_KEY,
   VIDEO_DEFAULTS_STORAGE_KEY,
   COMFYUI_SAMPLER_OPTIONS,
@@ -97,6 +98,7 @@ import {
   type ImageStyleProfileSettings,
   type VideoDefaultsService,
   type VideoGenerationDefaultsProfile,
+  type VideoReferenceUploadExpiry,
   type VideoResolution,
 } from "@marinara-engine/shared";
 
@@ -121,20 +123,59 @@ const DEFAULT_CACHING_AT_DEPTH = 5;
 const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
+const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
   google_veo: "veo-3.1-generate-preview",
   xai: "grok-imagine-video-1.5",
   openrouter: "google/veo-3.1",
+  seedance: "seedance-2-0",
 };
 const VIDEO_RESOLUTION_OPTIONS: Array<{ value: VideoResolution; label: string }> = [
   { value: "480p", label: "480p" },
   { value: "720p", label: "720p" },
   { value: "1080p", label: "1080p" },
 ];
+const VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS: Array<{ value: VideoReferenceUploadExpiry; label: string }> = [
+  { value: "1h", label: "1 hour" },
+  { value: "12h", label: "12 hours" },
+  { value: "24h", label: "24 hours" },
+  { value: "72h", label: "72 hours" },
+];
 
 function videoSourceToDefaultsService(value: string | null | undefined): VideoDefaultsService {
-  return value === "xai" || value === "openrouter" || value === "google_veo" ? value : "gemini_omni";
+  return value === "xai" || value === "openrouter" || value === "seedance" || value === "google_veo"
+    ? value
+    : "gemini_omni";
+}
+
+function videoSelectionToDefaultsService(
+  value: string | null | undefined,
+  model = "",
+  baseUrl = "",
+): VideoDefaultsService {
+  const normalized = value?.trim();
+  if (normalized === "google_ai_studio") {
+    return videoSourceToDefaultsService(inferVideoSource(model, baseUrl));
+  }
+  return videoSourceToDefaultsService(normalized || inferVideoSource(model, baseUrl));
+}
+
+function videoSourceToProviderOption(value: string | null | undefined): string {
+  const service = videoSourceToDefaultsService(value);
+  return service === "gemini_omni" || service === "google_veo" ? "google_ai_studio" : service;
+}
+
+function videoProviderServiceForModel(
+  provider: string | null | undefined,
+  model = "",
+  baseUrl = "",
+): VideoDefaultsService {
+  const normalized = provider?.trim();
+  if (normalized === "google_ai_studio") {
+    return videoSourceToDefaultsService(inferVideoSource(model, baseUrl));
+  }
+  return videoSourceToDefaultsService(normalized);
 }
 
 function defaultVideoModelForService(value: string | null | undefined): string {
@@ -155,12 +196,7 @@ function normalizeEndpointUrlInput(raw: string, label: string): { value: string;
 }
 
 function canProviderTreatAsLocalEndpoint(provider: APIProvider): boolean {
-  return (
-    provider !== "image_generation" &&
-    provider !== "video_generation" &&
-    provider !== "claude_subscription" &&
-    provider !== "openai_chatgpt"
-  );
+  return provider !== "image_generation" && provider !== "video_generation" && !isLocalAuthConnectionProvider(provider);
 }
 
 function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
@@ -168,9 +204,12 @@ function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
     provider !== "image_generation" &&
     provider !== "video_generation" &&
     provider !== "anthropic" &&
-    provider !== "claude_subscription" &&
-    provider !== "openai_chatgpt"
+    !isLocalAuthConnectionProvider(provider)
   );
+}
+
+function normalizeGrokCliEditorModel(provider: APIProvider, model: string): string {
+  return provider === "grok_subscription" && STALE_GROK_CLI_MODEL_IDS.has(model.trim()) ? "" : model;
 }
 
 function normalizeCachingAtDepth(value: unknown): number {
@@ -287,8 +326,11 @@ export function ConnectionEditor() {
   const [remoteModels, setRemoteModels] = useState<RemoteConnectionModel[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const baseUrlValidation = useMemo(
-    () => normalizeEndpointUrlInput(localBaseUrl, "Base URL"),
-    [localBaseUrl],
+    () =>
+      isLocalAuthConnectionProvider(localProvider)
+        ? { value: "", error: null }
+        : normalizeEndpointUrlInput(localBaseUrl, "Base URL"),
+    [localBaseUrl, localProvider],
   );
   const embeddingBaseUrlValidation = useMemo(
     () => normalizeEndpointUrlInput(localEmbeddingBaseUrl, "Embedding endpoint URL"),
@@ -304,13 +346,11 @@ export function ConnectionEditor() {
     setLocalBaseUrl((c.baseUrl as string) ?? "");
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
-    setLocalModel((c.model as string) ?? "");
+    setLocalModel(normalizeGrokCliEditorModel((c.provider as APIProvider) ?? "openai", (c.model as string) ?? ""));
     setLocalMaxContext(Number(c.maxContext) || 128000);
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalEnableCaching(c.enableCaching === "true" || c.enableCaching === true);
-    setLocalAnthropicExtendedCacheTtl(
-      c.anthropicExtendedCacheTtl === "true" || c.anthropicExtendedCacheTtl === true,
-    );
+    setLocalAnthropicExtendedCacheTtl(c.anthropicExtendedCacheTtl === "true" || c.anthropicExtendedCacheTtl === true);
     setLocalCachingAtDepth(normalizeCachingAtDepth(c.cachingAtDepth));
     setLocalDefaultForAgents(c.defaultForAgents === "true" || c.defaultForAgents === true);
     setLocalEmbeddingModel((c.embeddingModel as string) ?? "");
@@ -329,24 +369,29 @@ export function ConnectionEditor() {
     const storedImageDefaults = defaultsService
       ? getStoredImageGenerationDefaults(c.defaultParameters, defaultsService)
       : null;
+    const explicitVideoService = ((c.videoService as string | null) ?? null) || null;
     const videoGenerationSource =
       (c.provider as APIProvider) === "video_generation"
         ? ((c.videoGenerationSource as string) ??
-          (c.videoService as string) ??
+          explicitVideoService ??
           inferVideoSource((c.model as string) ?? "", (c.baseUrl as string) ?? ""))
         : "";
-    const videoService = ((c.videoService as string | null) ?? (c.videoGenerationSource as string | null)) || null;
     const storedVideoDefaults =
       (c.provider as APIProvider) === "video_generation" ? getStoredVideoGenerationDefaults(c.defaultParameters) : null;
-    const videoDefaultsService = videoSourceToDefaultsService(
-      videoService || videoGenerationSource || storedVideoDefaults?.service,
+    const videoDefaultsService = videoSelectionToDefaultsService(
+      explicitVideoService || storedVideoDefaults?.service || videoGenerationSource,
+      (c.model as string) ?? "",
+      (c.baseUrl as string) ?? "",
+    );
+    const videoProviderSource = videoSourceToProviderOption(
+      videoGenerationSource || explicitVideoService || videoDefaultsService,
     );
     setLocalImageGenerationSource(imageGenerationSource);
     setLocalComfyuiWorkflow((c.comfyuiWorkflow as string) ?? "");
     setLocalImageService(imageService);
     setLocalImageEndpointId((c.imageEndpointId as string) ?? "");
-    setLocalVideoGenerationSource(videoGenerationSource);
-    setLocalVideoService(videoService);
+    setLocalVideoGenerationSource(videoProviderSource);
+    setLocalVideoService(videoDefaultsService);
     setLocalMaxTokensOverride(typeof c.maxTokensOverride === "number" ? (c.maxTokensOverride as number) : null);
     setLocalClaudeFastMode(c.claudeFastMode === "true" || c.claudeFastMode === true);
     setLocalTreatAsLocalEndpoint(c.treatAsLocalEndpoint === "true" || c.treatAsLocalEndpoint === true);
@@ -357,9 +402,9 @@ export function ConnectionEditor() {
     );
     setLocalVideoDefaults(
       (c.provider as APIProvider) === "video_generation"
-        ? (storedVideoDefaults
-            ? sanitizeVideoGenerationProfile({ ...storedVideoDefaults, service: videoDefaultsService })
-            : createDefaultVideoGenerationProfile(videoDefaultsService))
+        ? storedVideoDefaults
+          ? sanitizeVideoGenerationProfile({ ...storedVideoDefaults, service: videoDefaultsService })
+          : createDefaultVideoGenerationProfile(videoDefaultsService)
         : null,
     );
     setImageDefaultsExpanded(!!storedImageDefaults);
@@ -428,7 +473,9 @@ export function ConnectionEditor() {
 
   const effectiveVideoGenerationSource = useMemo(() => {
     if (localProvider !== "video_generation") return "";
-    return localVideoGenerationSource || localVideoService || inferVideoSource(localModel, localBaseUrl);
+    return videoSourceToProviderOption(
+      localVideoGenerationSource || localVideoService || inferVideoSource(localModel, localBaseUrl),
+    );
   }, [localProvider, localVideoGenerationSource, localVideoService, localModel, localBaseUrl]);
 
   const selectedImageService =
@@ -440,13 +487,16 @@ export function ConnectionEditor() {
     localProvider === "video_generation"
       ? localVideoGenerationSource || localVideoService || effectiveVideoGenerationSource
       : "";
-  const selectedVideoDefaultsService = videoSourceToDefaultsService(selectedVideoService);
+  const selectedVideoProvider = videoSourceToProviderOption(selectedVideoService);
+  const selectedVideoDefaultsService = videoSelectionToDefaultsService(selectedVideoService, localModel, localBaseUrl);
   const apiKeyLink =
     localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
       ? API_KEY_LINKS.xai
       : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
         ? API_KEY_LINKS.openrouter
-      : API_KEY_LINKS[localProvider];
+        : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
+          ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
+          : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {
@@ -554,15 +604,17 @@ export function ConnectionEditor() {
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isMediaProvider = isImageProvider || isVideoProvider;
+    const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
     const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
     const existingEmbeddingModel = (conn as { embeddingModel?: string | null } | undefined)?.embeddingModel ?? "";
     const existingEmbeddingBaseUrl = (conn as { embeddingBaseUrl?: string | null } | undefined)?.embeddingBaseUrl ?? "";
+    const normalizedModel = normalizeGrokCliEditorModel(localProvider, localModel);
     const payload: Record<string, unknown> = {
       id: connectionDetailId,
       name: localName,
       provider: localProvider,
-      baseUrl: baseUrlValidation.value,
-      model: localModel,
+      baseUrl: isLocalAuthProvider ? "" : baseUrlValidation.value,
+      model: normalizedModel,
       maxContext: localMaxContext,
       maxParallelJobs: localMaxParallelJobs,
       enableCaching: localEnableCaching,
@@ -575,22 +627,21 @@ export function ConnectionEditor() {
       embeddingConnectionId: localEmbeddingConnectionId || null,
       promptPresetId: !isMediaProvider ? localPromptPresetId || null : null,
       openrouterProvider: localOpenrouterProvider || null,
-      imageGenerationSource:
-        isImageProvider ? localImageGenerationSource || localImageService || null : null,
+      imageGenerationSource: isImageProvider ? localImageGenerationSource || localImageService || null : null,
       comfyuiWorkflow: isImageProvider ? localComfyuiWorkflow || null : null,
       imageService: isImageProvider ? localImageGenerationSource || localImageService || null : null,
       imageEndpointId:
-        isImageProvider && selectedImageService === "runpod_comfyui"
-          ? localImageEndpointId || null
-          : null,
-      videoGenerationSource: isVideoProvider ? localVideoGenerationSource || localVideoService || null : null,
-      videoService: isVideoProvider ? localVideoGenerationSource || localVideoService || null : null,
+        isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
+      videoGenerationSource: isVideoProvider ? selectedVideoProvider || null : null,
+      videoService: isVideoProvider ? selectedVideoDefaultsService : null,
       maxTokensOverride: localMaxTokensOverride ?? null,
       claudeFastMode: localClaudeFastMode,
       treatAsLocalEndpoint: canTreatAsLocalEndpoint ? localTreatAsLocalEndpoint : false,
     };
     // Only send API key if user typed a new one
-    if (localApiKey.trim()) {
+    if (isLocalAuthProvider) {
+      payload.apiKey = "";
+    } else if (localApiKey.trim()) {
       payload.apiKey = localApiKey;
     } else if (clearStoredApiKeyOnSave) {
       payload.apiKey = "";
@@ -626,8 +677,13 @@ export function ConnectionEditor() {
           ),
         });
       }
-      if (baseUrlValidation.value !== localBaseUrl.trim()) {
+      if (isLocalAuthProvider && localBaseUrl) {
+        setLocalBaseUrl("");
+      } else if (baseUrlValidation.value !== localBaseUrl.trim()) {
         setLocalBaseUrl(baseUrlValidation.value);
+      }
+      if (normalizedModel !== localModel) {
+        setLocalModel(normalizedModel);
       }
       if (supportsDirectEmbeddings && embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim()) {
         setLocalEmbeddingBaseUrl(embeddingBaseUrlValidation.value);
@@ -666,8 +722,6 @@ export function ConnectionEditor() {
     localComfyuiWorkflow,
     localImageService,
     localImageEndpointId,
-    localVideoGenerationSource,
-    localVideoService,
     localMaxTokensOverride,
     localClaudeFastMode,
     localTreatAsLocalEndpoint,
@@ -675,6 +729,7 @@ export function ConnectionEditor() {
     localDefaultParameters,
     selectedImageService,
     selectedImageDefaultsService,
+    selectedVideoProvider,
     selectedVideoDefaultsService,
     localImageDefaults,
     localVideoDefaults,
@@ -712,26 +767,27 @@ export function ConnectionEditor() {
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isMediaProvider = isImageProvider || isVideoProvider;
-    const defaultParameters =
-      isImageProvider
-        ? buildImageDefaultParameters(
+    const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
+    const defaultParameters = isImageProvider
+      ? buildImageDefaultParameters(
+          currentConnection.defaultParameters,
+          selectedImageDefaultsService && localImageDefaults
+            ? sanitizeImageGenerationProfile(localImageDefaults, selectedImageDefaultsService)
+            : null,
+        )
+      : isVideoProvider
+        ? buildVideoDefaultParameters(
             currentConnection.defaultParameters,
-            selectedImageDefaultsService && localImageDefaults
-              ? sanitizeImageGenerationProfile(localImageDefaults, selectedImageDefaultsService)
+            localVideoDefaults
+              ? sanitizeVideoGenerationProfile({ ...localVideoDefaults, service: selectedVideoDefaultsService })
               : null,
           )
-        : isVideoProvider
-          ? buildVideoDefaultParameters(
-              currentConnection.defaultParameters,
-              localVideoDefaults
-                ? sanitizeVideoGenerationProfile({ ...localVideoDefaults, service: selectedVideoDefaultsService })
-                : null,
-            )
         : localDefaultParametersEnabled
           ? (localDefaultParameters as unknown as Record<string, unknown>)
           : null;
     const imageService = isImageProvider ? localImageGenerationSource || localImageService || null : null;
-    const videoService = isVideoProvider ? localVideoGenerationSource || localVideoService || null : null;
+    const videoProvider = isVideoProvider ? selectedVideoProvider || null : null;
+    const videoService = isVideoProvider ? selectedVideoDefaultsService : null;
     const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
     const supportsDirectEmbeddings = providerSupportsDirectEmbeddingConfig(localProvider);
     const existingEmbeddingModel = (conn as { embeddingModel?: string | null } | undefined)?.embeddingModel ?? "";
@@ -740,8 +796,8 @@ export function ConnectionEditor() {
       ...currentConnection,
       name: localName,
       provider: localProvider,
-      baseUrl: localBaseUrl,
-      model: localModel,
+      baseUrl: isLocalAuthProvider ? "" : localBaseUrl,
+      model: normalizeGrokCliEditorModel(localProvider, localModel),
       maxContext: localMaxContext,
       maxTokensOverride: localMaxTokensOverride ?? null,
       maxParallelJobs: localMaxParallelJobs,
@@ -757,12 +813,10 @@ export function ConnectionEditor() {
       openrouterProvider: localOpenrouterProvider || null,
       imageGenerationSource: imageService,
       imageService,
-      videoGenerationSource: videoService,
+      videoGenerationSource: videoProvider,
       videoService,
       imageEndpointId:
-        isImageProvider && selectedImageService === "runpod_comfyui"
-          ? localImageEndpointId || null
-          : null,
+        isImageProvider && selectedImageService === "runpod_comfyui" ? localImageEndpointId || null : null,
       comfyuiWorkflow: isImageProvider ? localComfyuiWorkflow || null : null,
       claudeFastMode: localClaudeFastMode,
     };
@@ -794,8 +848,7 @@ export function ConnectionEditor() {
     localOpenrouterProvider,
     localImageGenerationSource,
     localImageService,
-    localVideoGenerationSource,
-    localVideoService,
+    selectedVideoProvider,
     selectedImageService,
     localImageEndpointId,
     localComfyuiWorkflow,
@@ -969,23 +1022,40 @@ export function ConnectionEditor() {
     });
   }, [connectionDetailId, dirty, handleSave, fetchModels]);
 
-  const selectModel = useCallback((model: { id: string; context?: number; maxOutput?: number; isRemote?: boolean }) => {
-    setLocalModel(model.id);
-    if (model.context) setLocalMaxContext(Number(model.context));
-    if (model.isRemote && model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
-    setShowModelDropdown(false);
-    setModelSearch("");
-    setDirty(true);
-  }, []);
+  const selectModel = useCallback(
+    (model: { id: string; context?: number; maxOutput?: number; isRemote?: boolean }) => {
+      setLocalModel(model.id);
+      if (localProvider === "video_generation") {
+        const provider = videoSourceToProviderOption(
+          localVideoGenerationSource || localVideoService || inferVideoSource(model.id, localBaseUrl),
+        );
+        setLocalVideoGenerationSource(provider);
+        setLocalVideoService(videoProviderServiceForModel(provider, model.id, localBaseUrl));
+      }
+      if (model.context) setLocalMaxContext(Number(model.context));
+      if (model.isRemote && model.maxOutput) setLocalMaxTokensOverride(Number(model.maxOutput));
+      setShowModelDropdown(false);
+      setModelSearch("");
+      setDirty(true);
+    },
+    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService],
+  );
 
   const markDirty = useCallback(() => setDirty(true), []);
 
   const handleManualModelChange = useCallback(
     (model: string) => {
       setLocalModel(model);
+      if (localProvider === "video_generation") {
+        const provider = videoSourceToProviderOption(
+          localVideoGenerationSource || localVideoService || inferVideoSource(model, localBaseUrl),
+        );
+        setLocalVideoGenerationSource(provider);
+        setLocalVideoService(videoProviderServiceForModel(provider, model, localBaseUrl));
+      }
       markDirty();
     },
-    [markDirty],
+    [localBaseUrl, localProvider, localVideoGenerationSource, localVideoService, markDirty],
   );
 
   const handleJumpToJsonError = useCallback(() => {
@@ -1002,9 +1072,14 @@ export function ConnectionEditor() {
   const isMediaGenerationProvider = isImageGenerationProvider || isVideoGenerationProvider;
   const isClaudeSubscriptionProvider = localProvider === "claude_subscription";
   const isOpenAIChatGPTProvider = localProvider === "openai_chatgpt";
-  const isLocalAuthProvider = isClaudeSubscriptionProvider || isOpenAIChatGPTProvider;
+  const isGrokSubscriptionProvider = localProvider === "grok_subscription";
+  const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
+  const modelFetchSourceLabel = isGrokSubscriptionProvider ? "Grok CLI" : "API";
+  const modelFetchButtonLabel = isGrokSubscriptionProvider ? "Fetch Models from Grok CLI" : "Fetch Models from API";
+  const emptyModelLabel = isGrokSubscriptionProvider ? "Use Grok CLI default model" : "Select a model…";
+  const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
 
   if (!connectionDetailId) return null;
 
@@ -1165,9 +1240,13 @@ export function ConnectionEditor() {
                     setLocalProvider(key);
                     // Auto-fill base URL
                     setLocalBaseUrl(info.defaultBaseUrl);
-                    // Clear model when switching providers, except xAI where
-                    // we can seed the newest supported Grok model.
-                    setLocalModel(key === "xai" ? (defaultModel?.id ?? "grok-4.3") : "");
+                    // Leave Grok CLI blank so the local CLI can use its
+                    // account/default model until the user fetches
+                    // `grok models`. Other providers keep their usual seeded
+                    // default model when we know one.
+                    setLocalModel(
+                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.3" : "")),
+                    );
                     setLocalMaxContext(Number(defaultModel?.context) || 128000);
                     setLocalMaxTokensOverride(null);
                     setLocalDefaultParametersEnabled(false);
@@ -1192,7 +1271,7 @@ export function ConnectionEditor() {
           </FieldGroup>
 
           {/* ── Claude (Subscription) — prerequisites notice ── */}
-          {localProvider === "claude_subscription" && (
+          {isClaudeSubscriptionProvider && (
             <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
               <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
                 <AlertCircle size="0.75rem" className="mt-px shrink-0" />
@@ -1209,7 +1288,7 @@ export function ConnectionEditor() {
                 <li>
                   Sign in once: <code className="rounded bg-[var(--secondary)] px-1">claude login</code>
                 </li>
-                <li>API Key and Base URL are not required — leave them blank.</li>
+                <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Subscription auth is the same mechanism Visual Studio Code and other Anthropic-endorsed IDE integrations
@@ -1235,11 +1314,42 @@ export function ConnectionEditor() {
                 <li>
                   Sign in once: <code className="rounded bg-[var(--secondary)] px-1">codex login</code>
                 </li>
-                <li>API Key and Base URL are not required - leave them blank.</li>
+                <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are
                 not available on this provider; configure a separate connection for embedding work.
+              </p>
+            </div>
+          )}
+
+          {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
+          {isGrokSubscriptionProvider && (
+            <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>
+                  Routes chat through your local <strong>Grok CLI</strong> install so it uses your signed-in{" "}
+                  <strong>SuperGrok / X Premium+</strong> account instead of an xAI API key. Prerequisites on the
+                  Marinara host:
+                </span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  Install Grok CLI:{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">
+                    curl -fsSL https://x.ai/cli/install.sh | bash
+                  </code>
+                </li>
+                <li>
+                  Sign in once: <code className="rounded bg-[var(--secondary)] px-1">grok login</code>
+                </li>
+                <li>API Key and Base URL are not required for this provider.</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                Marinara runs <code className="rounded bg-[var(--secondary)] px-1">grok</code> headlessly with Grok-side
+                tools, memory, web search, plans, and subagents disabled. Embeddings are not available on this provider;
+                configure a separate connection for embedding work.
               </p>
             </div>
           )}
@@ -1294,143 +1404,106 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
-          {/* ── API Key ── */}
-          <FieldGroup
-            label="API Key"
-            icon={<Key size="0.875rem" className="text-sky-400" />}
-            help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
-          >
-            <input
-              value={localApiKey}
-              onChange={(e) => {
-                setLocalApiKey(e.target.value);
-                markDirty();
-              }}
-              type="password"
-              className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70"
-              placeholder={
-                isClaudeSubscriptionProvider
-                  ? "Not used — managed by the Claude Agent SDK"
-                  : isOpenAIChatGPTProvider
-                    ? "Not used - read from local Codex ChatGPT login"
-                    : "••••••••  (leave empty to keep existing key)"
-              }
-              disabled={isLocalAuthProvider}
-            />
-            {!isLocalAuthProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Your key is encrypted at rest. Leave blank when editing to keep the existing key.
-              </p>
-            )}
-            {!isLocalAuthProvider && apiKeyLink && (
-              <a
-                href={apiKeyLink.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+          {!isLocalAuthProvider && (
+            <>
+              {/* ── API Key ── */}
+              <FieldGroup
+                label="API Key"
+                icon={<Key size="0.875rem" className="text-sky-400" />}
+                help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
               >
-                <ExternalLink size="0.625rem" />
-                {apiKeyLink.label}
-              </a>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                For local models (Ollama, LM Studio, KoboldCpp, etc.) you can leave this empty — just set the Base URL
-                below.
-              </p>
-            )}
-            {localProvider === "claude_subscription" && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Authentication is read from your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">claude</code> CLI session.
-              </p>
-            )}
-            {isOpenAIChatGPTProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Authentication is read from your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">codex login</code> session.
-              </p>
-            )}
-          </FieldGroup>
+                <input
+                  value={localApiKey}
+                  onChange={(e) => {
+                    setLocalApiKey(e.target.value);
+                    markDirty();
+                  }}
+                  type="password"
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  placeholder="••••••••  (leave empty to keep existing key)"
+                />
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  Your key is encrypted at rest. Leave blank when editing to keep the existing key.
+                </p>
+                {apiKeyLink && (
+                  <a
+                    href={apiKeyLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+                  >
+                    <ExternalLink size="0.625rem" />
+                    {apiKeyLink.label}
+                  </a>
+                )}
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    For local models (Ollama, LM Studio, KoboldCpp, etc.) you can leave this empty — just set the Base
+                    URL below.
+                  </p>
+                )}
+              </FieldGroup>
 
-          {/* ── Base URL ── */}
-          <FieldGroup
-            label="Base URL"
-            icon={<Globe size="0.875rem" className="text-sky-400" />}
-            help="The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
-          >
-            <input
-              value={localBaseUrl}
-              onChange={(e) => {
-                setLocalBaseUrl(e.target.value);
-                markDirty();
-              }}
-              className={cn(
-                "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70",
-                baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
-              )}
-              placeholder={
-                isClaudeSubscriptionProvider
-                  ? "Not used — managed by the Claude Agent SDK"
-                  : isOpenAIChatGPTProvider
-                    ? "Not used - ChatGPT Codex endpoint is selected automatically"
-                    : providerDef?.defaultBaseUrl || "https://api.example.com/v1"
-              }
-              disabled={isLocalAuthProvider}
-            />
-            {providerDef?.defaultBaseUrl && !localBaseUrl && !isLocalAuthProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Default: {providerDef.defaultBaseUrl}
-              </p>
-            )}
-            {baseUrlValidation.error && (
-              <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
-            )}
-            {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Will save as {baseUrlValidation.value}
-              </p>
-            )}
-            {localProvider === "claude_subscription" && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The Claude Agent SDK selects the endpoint automatically based on your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">claude</code> CLI auth.
-              </p>
-            )}
-            {isOpenAIChatGPTProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth.
-              </p>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Local model examples: Ollama →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
-              </p>
-            )}
-            {!isLocalAuthProvider && (
-              <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
-                <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                <span>
-                  Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
-                  keys.
-                </span>
-              </p>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
-                <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                <span>
-                  <strong>Windows users:</strong> If your proxy or local server isn't detected, Windows Defender
-                  Firewall may be blocking the connection. Open{" "}
-                  <em>Windows Security → Firewall & network protection → Allow an app through firewall</em> and add
-                  Node.js or your proxy application.
-                </span>
-              </p>
-            )}
-          </FieldGroup>
+              {/* ── Base URL ── */}
+              <FieldGroup
+                label="Base URL"
+                icon={<Globe size="0.875rem" className="text-sky-400" />}
+                help="The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
+              >
+                <input
+                  value={localBaseUrl}
+                  onChange={(e) => {
+                    setLocalBaseUrl(e.target.value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+                    baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+                  )}
+                  placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
+                />
+                {providerDef?.defaultBaseUrl && !localBaseUrl && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Default: {providerDef.defaultBaseUrl}
+                  </p>
+                )}
+                {baseUrlValidation.error && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
+                )}
+                {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Will save as {baseUrlValidation.value}
+                  </p>
+                )}
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Local model examples: Ollama →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
+                  </p>
+                )}
+                <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
+                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                  <span>
+                    Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
+                    keys.
+                  </span>
+                </p>
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
+                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                    <span>
+                      <strong>Windows users:</strong> If your proxy or local server isn't detected, Windows Defender
+                      Firewall may be blocking the connection. Open{" "}
+                      <em>Windows Security → Firewall & network protection → Allow an app through firewall</em> and add
+                      Node.js or your proxy application.
+                    </span>
+                  </p>
+                )}
+              </FieldGroup>
+            </>
+          )}
 
           {/* ── Image Service (only for image_generation provider) ── */}
           {localProvider === "image_generation" && (
@@ -1496,21 +1569,25 @@ export function ConnectionEditor() {
             >
               <div className="grid grid-cols-2 gap-1.5">
                 {VIDEO_GENERATION_SOURCES.map((src) => {
-                  const isActive = selectedVideoService === src.id;
+                  const isActive = selectedVideoProvider === src.id;
                   return (
                     <button
                       key={src.id}
                       onClick={() => {
                         const previousSource = VIDEO_GENERATION_SOURCES.find(
-                          (candidate) => candidate.id === selectedVideoService,
+                          (candidate) => candidate.id === selectedVideoProvider,
                         );
                         const shouldSeedBaseUrl = !localBaseUrl || localBaseUrl === previousSource?.defaultBaseUrl;
-                        const previousDefaultModel = defaultVideoModelForService(selectedVideoService);
+                        const previousDefaultModel = defaultVideoModelForService(selectedVideoDefaultsService);
                         const nextDefaultModel = defaultVideoModelForService(src.id);
                         const shouldSeedModel = !localModel || localModel === previousDefaultModel;
-                        const nextDefaultsService = videoSourceToDefaultsService(src.id);
+                        const nextDefaultsService = videoProviderServiceForModel(
+                          src.id,
+                          nextDefaultModel,
+                          src.defaultBaseUrl,
+                        );
                         setLocalVideoGenerationSource(src.id);
-                        setLocalVideoService(src.id);
+                        setLocalVideoService(nextDefaultsService);
                         setLocalVideoDefaults(createDefaultVideoGenerationProfile(nextDefaultsService));
                         if (shouldSeedBaseUrl) {
                           setLocalBaseUrl(src.defaultBaseUrl);
@@ -1575,7 +1652,7 @@ export function ConnectionEditor() {
                       ? selectedModelInfo
                         ? `${selectedModelInfo.name} (${selectedModelInfo.id})`
                         : localModel
-                      : "Select a model…"}
+                      : emptyModelLabel}
                   </span>
                 )}
                 <ChevronDown
@@ -1604,12 +1681,13 @@ export function ConnectionEditor() {
                       ) : (
                         <Globe size="0.75rem" />
                       )}
-                      {fetchModels.isPending ? "Fetching…" : "Fetch Models from API"}
+                      {fetchModels.isPending ? "Fetching…" : modelFetchButtonLabel}
                     </button>
                     {fetchError && <p className="mt-1.5 text-[0.625rem] text-[var(--destructive)]">{fetchError}</p>}
                     {remoteModels.length > 0 && !fetchError && (
                       <p className="mt-1 text-[0.625rem] text-emerald-400">
-                        {remoteModels.length} model{remoteModels.length !== 1 ? "s" : ""} available from API
+                        {remoteModels.length} model{remoteModels.length !== 1 ? "s" : ""} available from{" "}
+                        {modelFetchSourceLabel}
                       </p>
                     )}
                   </div>
@@ -1651,7 +1729,7 @@ export function ConnectionEditor() {
                                   <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
                                 </div>
                                 <span className="shrink-0 rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                  API
+                                  {modelFetchSourceLabel}
                                 </span>
                               </button>
                             ))}
@@ -1692,7 +1770,7 @@ export function ConnectionEditor() {
                             <span className="text-sm font-medium">{m.name}</span>
                             {m.isRemote && (
                               <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                API
+                                {modelFetchSourceLabel}
                               </span>
                             )}
                             {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
@@ -1725,7 +1803,11 @@ export function ConnectionEditor() {
                     handleManualModelChange(e.target.value);
                   }}
                   className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
-                  placeholder="Or type model ID directly…"
+                  placeholder={
+                    isGrokSubscriptionProvider
+                      ? "Optional: type a Grok CLI model ID, or leave blank for CLI default"
+                      : "Or type model ID directly…"
+                  }
                 />
               </div>
             )}
@@ -2152,10 +2234,68 @@ export function ConnectionEditor() {
                 Only one video generation connection should be marked as the default video connection.
               </p>
             )}
+            {isVideoGenerationProvider && selectedVideoDefaultsService === "seedance" && localVideoDefaults && (
+              <div className="mx-2 mt-2 space-y-2 rounded-lg bg-[var(--secondary)]/35 p-2 ring-1 ring-[var(--border)]">
+                <SettingsSwitch
+                  label="Upload Seedance reference frames temporarily"
+                  checked={localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled}
+                  onChange={(checked) => {
+                    setLocalVideoDefaults(
+                      sanitizeVideoGenerationProfile({
+                        ...localVideoDefaults,
+                        service: "seedance",
+                        seedance: {
+                          ...localVideoDefaults.seedance,
+                          temporaryPublicReferenceUploadEnabled: checked,
+                        },
+                      }),
+                    );
+                    markDirty();
+                  }}
+                  description="Uses temporary public links when Seedance needs first/last-frame references and cannot fetch local Marinara URLs."
+                  className="p-1"
+                />
+                {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
+                  <label className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-[var(--card)]/70 px-2 py-1.5 ring-1 ring-[var(--border)]">
+                    <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+                      Temporary link lifetime
+                    </span>
+                    <select
+                      value={localVideoDefaults.seedance.temporaryPublicReferenceUploadExpiry}
+                      onChange={(event) => {
+                        const expiry = event.target.value as VideoReferenceUploadExpiry;
+                        setLocalVideoDefaults(
+                          sanitizeVideoGenerationProfile({
+                            ...localVideoDefaults,
+                            service: "seedance",
+                            seedance: {
+                              ...localVideoDefaults.seedance,
+                              temporaryPublicReferenceUploadExpiry: expiry,
+                            },
+                          }),
+                        );
+                        markDirty();
+                      }}
+                      className="h-8 rounded-md bg-[var(--background)] px-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+                    >
+                      {VIDEO_REFERENCE_UPLOAD_EXPIRY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
+                  Keep this off if you do not want local avatar or gallery reference frames uploaded outside this
+                  Marinara install.
+                </p>
+              </div>
+            )}
           </FieldGroup>
 
           {/* ── Claude (Subscription) — Fast Mode toggle ── */}
-          {localProvider === "claude_subscription" && (
+          {isClaudeSubscriptionProvider && (
             <FieldGroup
               label="Fast Mode"
               icon={<Zap size="0.875rem" className="text-amber-400" />}
@@ -2167,36 +2307,36 @@ export function ConnectionEditor() {
                   <>
                     <span className="mt-0.5 block text-[var(--muted-foreground)]">
                       <strong className="text-amber-400">99% of users should leave this off.</strong> Fast mode is
-                      effectively a dead feature today — Claude/Anthropic removed support for downgrading current models,
-                      and Opus 4.7 has no faster variant to route to. Turning it on does nothing useful for roleplay
-                      quality and may add overhead. The toggle exists only so we don&apos;t have to ship a new release if
-                      Anthropic re-enables it. Leave off until that happens.
+                      effectively a dead feature today — Claude/Anthropic removed support for downgrading current
+                      models, and Opus 4.7 has no faster variant to route to. Turning it on does nothing useful for
+                      roleplay quality and may add overhead. The toggle exists only so we don&apos;t have to ship a new
+                      release if Anthropic re-enables it. Leave off until that happens.
                     </span>
                     <span className="mt-1.5 flex items-start gap-1 text-[var(--muted-foreground)]">
                       <AlertCircle size="0.625rem" className="mt-px shrink-0 text-amber-400" />
                       <span>
-                        <strong className="text-amber-400">Doesn&apos;t work on Claude Opus 4.7 yet.</strong> There is no
-                        faster Opus 4.7 variant for the SDK to route to, so this toggle is a no-op when Opus 4.7 is the
-                        selected model.
+                        <strong className="text-amber-400">Doesn&apos;t work on Claude Opus 4.7 yet.</strong> There is
+                        no faster Opus 4.7 variant for the SDK to route to, so this toggle is a no-op when Opus 4.7 is
+                        the selected model.
                       </span>
                     </span>
                   </>
                 }
                 checked={localClaudeFastMode}
                 onChange={async (next) => {
-                    if (next) {
-                      const confirmed = await showConfirmDialog({
-                        title: "YOU DON'T WANT THIS SETTING ON!",
-                        message:
-                          "Fast mode is effectively a dead feature today — Claude/Anthropic removed support for downgrading current models, and Opus 4.7 has no faster variant for the SDK to route to. Turning this on does nothing useful for roleplay quality and may add overhead. The toggle exists only so we don't have to ship a new release if Anthropic re-enables it.\n\nAre you absolutely sure you want to enable it?",
-                        confirmLabel: "Enable anyway",
-                        cancelLabel: "Keep it off",
-                        tone: "destructive",
-                      });
-                      if (!confirmed) return;
-                    }
-                    setLocalClaudeFastMode(next);
-                    markDirty();
+                  if (next) {
+                    const confirmed = await showConfirmDialog({
+                      title: "YOU DON'T WANT THIS SETTING ON!",
+                      message:
+                        "Fast mode is effectively a dead feature today — Claude/Anthropic removed support for downgrading current models, and Opus 4.7 has no faster variant for the SDK to route to. Turning this on does nothing useful for roleplay quality and may add overhead. The toggle exists only so we don't have to ship a new release if Anthropic re-enables it.\n\nAre you absolutely sure you want to enable it?",
+                      confirmLabel: "Enable anyway",
+                      cancelLabel: "Keep it off",
+                      tone: "destructive",
+                    });
+                    if (!confirmed) return;
+                  }
+                  setLocalClaudeFastMode(next);
+                  markDirty();
                 }}
                 labelPosition="start"
                 className="items-start justify-between rounded-xl bg-[var(--secondary)] px-3 py-2.5 ring-1 ring-[var(--border)]"
@@ -2329,7 +2469,7 @@ export function ConnectionEditor() {
               {!isMediaGenerationProvider && (
                 <button
                   onClick={handleTestMessage}
-                  disabled={testMessage.isPending || !localModel}
+                  disabled={testMessage.isPending || !canSendTestMessage}
                   className="flex items-center gap-1.5 rounded-xl bg-emerald-400/10 px-4 py-2.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-400/20 transition-all hover:bg-emerald-400/20 active:scale-[0.98] disabled:opacity-50"
                 >
                   {testMessage.isPending ? (
@@ -2370,7 +2510,7 @@ export function ConnectionEditor() {
                   Test Video
                 </button>
               )}
-              {localProvider === "claude_subscription" && (
+              {isClaudeSubscriptionProvider && (
                 <button
                   onClick={handleDiagnoseClaudeSubscription}
                   disabled={diagnoseClaudeSubscription.isPending || !localModel}
@@ -2407,7 +2547,7 @@ export function ConnectionEditor() {
                   <strong>Test Video</strong> generates a short MP4 test clip (requires saving first).
                 </>
               )}
-              {localProvider === "claude_subscription" && (
+              {isClaudeSubscriptionProvider && (
                 <>
                   {" "}
                   <strong>Diagnose Model Routing</strong> sends a real prompt through the Claude Agent SDK and reports
@@ -3048,7 +3188,10 @@ function VideoGenerationDefaultsPanel({
   onReset: () => void;
 }) {
   const service =
-    value.service === "xai" || value.service === "openrouter" || value.service === "google_veo"
+    value.service === "xai" ||
+    value.service === "openrouter" ||
+    value.service === "seedance" ||
+    value.service === "google_veo"
       ? value.service
       : "gemini_omni";
   const summary =
@@ -3056,9 +3199,11 @@ function VideoGenerationDefaultsPanel({
       ? `${value.xai.durationSeconds}s, ${value.xai.aspectRatio}, ${value.xai.resolution}`
       : service === "google_veo"
         ? `${value.googleVeo.durationSeconds}s, ${value.googleVeo.aspectRatio}, ${value.googleVeo.resolution}`
-      : service === "openrouter"
-        ? `${value.openrouter.durationSeconds}s, ${value.openrouter.aspectRatio}, ${value.openrouter.resolution}`
-      : `${value.geminiOmni.durationSeconds}s, ${value.geminiOmni.aspectRatio}`;
+        : service === "openrouter"
+          ? `${value.openrouter.durationSeconds}s, ${value.openrouter.aspectRatio}, ${value.openrouter.resolution}`
+          : service === "seedance"
+            ? `${value.seedance.durationSeconds}s, ${value.seedance.aspectRatio}, ${value.seedance.resolution}`
+            : `${value.geminiOmni.durationSeconds}s, ${value.geminiOmni.aspectRatio}`;
   const serviceLabel =
     service === "xai"
       ? "xAI Imagine"
@@ -3066,7 +3211,9 @@ function VideoGenerationDefaultsPanel({
         ? "Google AI Studio Veo"
         : service === "openrouter"
           ? "OpenRouter Video"
-          : "Gemini Omni";
+          : service === "seedance"
+            ? "Seedance 2.0"
+            : "Google AI Studio Gemini Omni";
 
   const updateGeminiOmni = (patch: Partial<VideoGenerationDefaultsProfile["geminiOmni"]>) => {
     onChange({
@@ -3096,6 +3243,13 @@ function VideoGenerationDefaultsPanel({
       openrouter: { ...value.openrouter, ...patch },
     });
   };
+  const updateSeedance = (patch: Partial<VideoGenerationDefaultsProfile["seedance"]>) => {
+    onChange({
+      ...value,
+      service: "seedance",
+      seedance: { ...value.seedance, ...patch },
+    });
+  };
 
   return (
     <FieldGroup
@@ -3106,9 +3260,11 @@ function VideoGenerationDefaultsPanel({
           ? "Connection-scoped defaults for xAI scene video generation."
           : service === "google_veo"
             ? "Connection-scoped defaults for Google AI Studio Veo video generation."
-          : service === "openrouter"
-            ? "Connection-scoped defaults for OpenRouter asynchronous video generation."
-          : "Connection-scoped defaults for scene video generation. Duration is rendered into the Omni prompt."
+            : service === "openrouter"
+              ? "Connection-scoped defaults for OpenRouter asynchronous video generation."
+              : service === "seedance"
+                ? "Connection-scoped defaults for Seedance 2.0 asynchronous video generation."
+                : "Connection-scoped defaults for scene video generation. Duration is rendered into the Omni prompt."
       }
     >
       <div className="rounded-xl bg-[var(--secondary)]/40 ring-1 ring-[var(--border)]">
@@ -3118,9 +3274,7 @@ function VideoGenerationDefaultsPanel({
           className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--accent)]"
         >
           <div className="min-w-0">
-            <div className="text-xs font-medium text-[var(--foreground)]">
-              {serviceLabel} setup
-            </div>
+            <div className="text-xs font-medium text-[var(--foreground)]">{serviceLabel} setup</div>
             <div className="text-[0.625rem] text-[var(--muted-foreground)]">{summary}</div>
           </div>
           <ChevronDown
@@ -3142,7 +3296,7 @@ function VideoGenerationDefaultsPanel({
               </button>
             </div>
 
-            {service === "xai" || service === "google_veo" || service === "openrouter" ? (
+            {service === "xai" || service === "google_veo" || service === "openrouter" || service === "seedance" ? (
               <>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <NumberSetting
@@ -3152,14 +3306,18 @@ function VideoGenerationDefaultsPanel({
                         ? value.xai.durationSeconds
                         : service === "google_veo"
                           ? value.googleVeo.durationSeconds
-                          : value.openrouter.durationSeconds
+                          : service === "seedance"
+                            ? value.seedance.durationSeconds
+                            : value.openrouter.durationSeconds
                     }
-                    min={service === "google_veo" ? 4 : 1}
-                    max={service === "xai" ? 15 : service === "google_veo" ? 8 : 60}
+                    min={service === "google_veo" || service === "seedance" ? 4 : 1}
+                    max={service === "xai" || service === "seedance" ? 15 : service === "google_veo" ? 8 : 60}
                     onCommit={(durationSeconds) => {
                       if (service === "xai") updateXai({ durationSeconds });
                       else if (service === "google_veo") {
                         updateGoogleVeo({ durationSeconds: durationSeconds <= 5 ? 4 : durationSeconds <= 7 ? 6 : 8 });
+                      } else if (service === "seedance") {
+                        updateSeedance({ durationSeconds });
                       } else updateOpenRouter({ durationSeconds });
                     }}
                   />
@@ -3171,12 +3329,15 @@ function VideoGenerationDefaultsPanel({
                           ? value.xai.aspectRatio
                           : service === "google_veo"
                             ? value.googleVeo.aspectRatio
-                            : value.openrouter.aspectRatio
+                            : service === "seedance"
+                              ? value.seedance.aspectRatio
+                              : value.openrouter.aspectRatio
                       }
                       onChange={(event) => {
                         const aspectRatio = event.target.value === "9:16" ? "9:16" : "16:9";
                         if (service === "xai") updateXai({ aspectRatio });
                         else if (service === "google_veo") updateGoogleVeo({ aspectRatio });
+                        else if (service === "seedance") updateSeedance({ aspectRatio });
                         else updateOpenRouter({ aspectRatio });
                       }}
                       className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
@@ -3193,17 +3354,22 @@ function VideoGenerationDefaultsPanel({
                           ? value.xai.resolution
                           : service === "google_veo"
                             ? value.googleVeo.resolution
-                            : value.openrouter.resolution
+                            : service === "seedance"
+                              ? value.seedance.resolution
+                              : value.openrouter.resolution
                       }
                       onChange={(event) => {
                         const resolution = event.target.value as VideoResolution;
                         if (service === "xai") updateXai({ resolution });
                         else if (service === "google_veo") updateGoogleVeo({ resolution });
+                        else if (service === "seedance") updateSeedance({ resolution });
                         else updateOpenRouter({ resolution });
                       }}
                       className="mt-1 w-full rounded-lg bg-[var(--card)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
                     >
-                      {VIDEO_RESOLUTION_OPTIONS.filter((option) => service !== "google_veo" || option.value !== "480p").map((option) => (
+                      {VIDEO_RESOLUTION_OPTIONS.filter(
+                        (option) => service !== "google_veo" || option.value !== "480p",
+                      ).map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -3216,7 +3382,9 @@ function VideoGenerationDefaultsPanel({
                     ? "These values are sent to the xAI Videos API. xAI accepts 1-15 seconds for generated videos."
                     : service === "google_veo"
                       ? "Veo accepts 4, 6, or 8 seconds. Character loop references use the avatar as the first and last frame and run at 8 seconds."
-                      : "These values are sent to OpenRouter's asynchronous Videos API. OpenRouter model support varies, so keep the model's own limits in mind."}
+                      : service === "seedance"
+                        ? "Seedance accepts 4-15 seconds. Reference-image jobs send matching first and last frames when the provider can fetch the reference URL."
+                        : "These values are sent to OpenRouter's asynchronous Videos API. OpenRouter model support varies, so keep the model's own limits in mind."}
                 </p>
               </>
             ) : (

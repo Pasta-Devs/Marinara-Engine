@@ -103,7 +103,8 @@ function migratePromptTemplateOptions(agentType: string, settings: unknown) {
 
 export function buildLegacyDefaultAgentConfigUpdate(row: typeof agentConfigs.$inferSelect) {
   const update: Partial<typeof agentConfigs.$inferInsert> = {};
-  if (isKnownDefaultPrompt(row.type, row.promptTemplate)) {
+  const hasKnownDefaultPrompt = isKnownDefaultPrompt(row.type, row.promptTemplate);
+  if (hasKnownDefaultPrompt) {
     update.promptTemplate = "";
   }
 
@@ -112,12 +113,16 @@ export function buildLegacyDefaultAgentConfigUpdate(row: typeof agentConfigs.$in
 
   const builtIn = BUILT_IN_AGENTS.find((agent) => agent.id === row.type);
   if (builtIn) {
-    if (isKnownDefaultDescription(row.type, row.description, builtIn.description)) {
+    const hasKnownDefaultDescription = isKnownDefaultDescription(row.type, row.description, builtIn.description);
+    if (hasKnownDefaultDescription) {
       update.description = builtIn.description;
     }
 
     const normalizedStoredPhase = normalizeAgentPhaseForType(row.type, row.phase);
     if (row.phase !== normalizedStoredPhase) update.phase = normalizedStoredPhase;
+    if (row.type === "html" && hasKnownDefaultPrompt && hasKnownDefaultDescription && row.phase !== builtIn.phase) {
+      update.phase = builtIn.phase;
+    }
 
     const defaults = getDefaultBuiltInAgentSettings(builtIn.id);
     let settingsChanged = settingsMigration.changed;

@@ -14,17 +14,21 @@ interface ImageUploadDropzoneProps {
   multiple?: boolean;
   disabled?: boolean;
   ariaLabel?: string;
+  fileKind?: "image" | "video";
 }
 
 const IMAGE_EXTENSION_PATTERN = /\.(avif|gif|jpe?g|png|webp)$/i;
+const VIDEO_EXTENSION_PATTERN = /\.(mov|mp4|webm)$/i;
 
 function isFileDrag(event: DragEvent<HTMLElement>) {
   return Array.from(event.dataTransfer.types).includes("Files");
 }
 
-function getSupportedImageFiles(files: FileList | null) {
+function getSupportedFiles(files: FileList | null, fileKind: "image" | "video") {
   return Array.from(files ?? []).filter(
-    (file) => file.type.startsWith("image/") || IMAGE_EXTENSION_PATTERN.test(file.name),
+    (file) =>
+      file.type.startsWith(`${fileKind}/`) ||
+      (fileKind === "image" ? IMAGE_EXTENSION_PATTERN : VIDEO_EXTENSION_PATTERN).test(file.name),
   );
 }
 
@@ -40,6 +44,7 @@ export function ImageUploadDropzone({
   multiple = true,
   disabled = false,
   ariaLabel,
+  fileKind = "image",
 }: ImageUploadDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const dragDepthRef = useRef(0);
@@ -47,17 +52,19 @@ export function ImageUploadDropzone({
   const isDisabled = disabled || pending;
 
   const submitFiles = (files: FileList | null) => {
-    const imageFiles = getSupportedImageFiles(files);
-    if (imageFiles.length === 0) {
+    const supportedFiles = getSupportedFiles(files, fileKind);
+    if (supportedFiles.length === 0) {
       if (files && files.length > 0) {
-        toast.error("Drop image files to upload.");
+        toast.error(fileKind === "image" ? "Drop image files to upload." : "Drop video files to upload.");
       }
       return;
     }
-    if (files && imageFiles.length < files.length) {
-      toast.warning("Only image files can be uploaded here.");
+    if (files && supportedFiles.length < files.length) {
+      toast.warning(
+        fileKind === "image" ? "Only image files can be uploaded here." : "Only video files can be uploaded here.",
+      );
     }
-    onFilesSelected(imageFiles);
+    onFilesSelected(supportedFiles);
   };
 
   const resetDragState = () => {

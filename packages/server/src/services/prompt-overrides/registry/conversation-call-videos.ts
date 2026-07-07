@@ -15,6 +15,7 @@ export interface ConversationCallCustomVideoClipCtx extends Record<string, strin
   customPrompt: string;
   durationSeconds: number;
   aspectRatio: string;
+  referenceInstruction: string;
 }
 
 type ClipPromptSeed = {
@@ -34,43 +35,45 @@ const CLIP_PROMPT_SEEDS: ClipPromptSeed[] = [
     kind: "talking",
     label: "talking loop",
     instruction:
-      "The character makes subtle mouth and face movements as if speaking, then returns to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
+      "The character speaks naturally with visible mouth or mask-area motion as appropriate, subtle breathing, small head and shoulder movement, gentle expression changes, and slight hair or clothing motion if present. Keep the movement restrained and video-call-like, then return to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
   },
   {
     kind: "laughing",
     label: "laughing reaction",
     instruction:
-      "The character laughs naturally for a moment with subtle movement, then returns to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
+      "The character laughs naturally with visible mouth or mask-area motion as appropriate, subtle breathing, small head and shoulder movement, gentle expression changes, and slight hair or clothing motion if present. Keep the movement restrained and video-call-like, then return to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
   },
   {
     kind: "angry",
     label: "angry reaction",
     instruction:
-      "The character shows anger or irritation briefly with subtle movement, then returns to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
+      "The character reacts with restrained anger or irritation through subtle breathing, small head and shoulder movement, gentle expression changes, and slight hair or clothing motion if present. Keep the movement restrained and video-call-like, then return to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
   },
   {
     kind: "crying",
     label: "crying reaction",
     instruction:
-      "The character shows a restrained tearful reaction briefly with subtle movement, then returns to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
+      "The character reacts with restrained sadness or tears through subtle breathing, small head and shoulder movement, gentle expression changes, and slight hair or clothing motion if present. Keep the movement restrained and video-call-like, then return to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
   },
   {
     kind: "sighing",
     label: "sighing reaction",
     instruction:
-      "The character makes a small sigh-like expression with minimal head movement, then returns to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
+      "The character sighs naturally with visible mouth or mask-area motion as appropriate, subtle breathing, small head and shoulder movement, gentle expression changes, and slight hair or clothing motion if present. Keep the movement restrained and video-call-like, then return to the original pose. Preserve masks, visors, eye coverings, and accessories exactly as shown.",
   },
 ];
 
 function buildDefaultPrompt(ctx: ConversationCallVideoClipCtx) {
   return [
     `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} animated portrait loop for an AI video call.`,
-    "Reference: use the attached image as the character identity and first/final frame target.",
-    "Preserve the reference image's crop, background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style.",
+    "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
+    "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face.",
+    "Preserve the reference image's background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style.",
     `Action: ${ctx.clipInstruction}`,
+    "Motion quality: one smooth, restrained, video-call-like motion throughout the clip.",
     "Lighting and background: keep them from the reference image; do not invent a new ambience or setting.",
     "Camera: locked-off still camera, no zoom, pan, tilt, dolly, crop change, reframing, handheld shake, or scene cut.",
-    "Looping: begin and finish on the same pose, scale, framing, lighting, outfit, and background for a seamless loop.",
+    "Looping: return to the first-frame pose by the final frame for a seamless loop.",
     "Focus: single character only, no captions, subtitles, UI, logos, extra people, new clothing, or new facial features.",
   ]
     .filter(Boolean)
@@ -78,14 +81,24 @@ function buildDefaultPrompt(ctx: ConversationCallVideoClipCtx) {
 }
 
 function buildDefaultCustomClipPrompt(ctx: ConversationCallCustomVideoClipCtx) {
+  const hasReference = ctx.referenceInstruction.startsWith("Reference:");
+  const startingPose = hasReference ? "the reference pose" : "a stable neutral video-call pose";
   return [
-    `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} custom animated portrait loop for an AI video call.`,
-    "Reference: use the attached image as the character identity and first/final frame target.",
-    "Preserve the reference image's crop, base background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style unless the custom request explicitly changes one visual detail.",
-    `Action: ${ctx.customPrompt}.`,
-    "Lighting and background: keep them from the reference image unless the custom request explicitly changes them.",
+    `Create a ${ctx.durationSeconds}-second ${ctx.aspectRatio} animated portrait loop for an AI video call.`,
+    ctx.referenceInstruction,
+    hasReference
+      ? "Preserve the reference image's crop, especially the top/head framing. If any framing must be lost, crop lower body or lower clothing instead of hair, head, mask, or face."
+      : "Keep the character design, crop, lighting, background, clothing, accessories, and art style consistent throughout the clip.",
+    hasReference
+      ? "Preserve the reference image's base background, lighting, colors, face shape, hair, clothing, mask or eyewear, accessories, and art style unless the custom request explicitly changes one visual detail."
+      : "",
+    `Action: Start from ${startingPose}, ${ctx.customPrompt}, then return to that same pose by the final frame.`,
+    "Motion quality: one smooth, natural, video-call-like motion throughout the clip, with subtle breathing, small head or shoulder movement, and slight hair or clothing motion if present.",
+    hasReference
+      ? "Lighting and background: keep them from the reference image unless the custom request explicitly changes them."
+      : "Lighting and background: keep them stable unless the custom request explicitly changes them.",
     "Camera: locked-off still camera, no zoom, pan, tilt, dolly, crop change, reframing, handheld shake, or scene cut.",
-    "Looping: start from a reference-matching frame and return to a reference-matching frame by the final frame so the clip loops cleanly.",
+    "Looping: return to the first-frame pose by the final frame for a seamless loop.",
     "Focus: single character only, no captions, subtitles, UI, logos, extra people, or unrelated costume/accessory changes.",
   ]
     .filter(Boolean)
@@ -128,19 +141,26 @@ export const CONVERSATION_CALL_CUSTOM_VIDEO_PROMPT: PromptOverrideKeyDef<Convers
     { name: "clipLabel", description: "Short saved clip label.", example: "Mask off" },
     {
       name: "customPrompt",
-      description: "The requested custom visual action or look.",
-      example: "Dottore takes off his mask and reveals red eyes while looking into the phone camera.",
+      description: "The requested custom visual action or look from the call command.",
+      example: "blow a kiss",
     },
     { name: "durationSeconds", description: "Requested clip duration in seconds.", example: "5" },
     { name: "aspectRatio", description: "Requested video aspect ratio.", example: "16:9" },
+    {
+      name: "referenceInstruction",
+      description: "Whether a reference image is attached and how it should be used.",
+      example: "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
+    },
   ],
   defaultBuilder: buildDefaultCustomClipPrompt,
   exampleContext: {
     characterName: "Dottore",
-    clipLabel: "Mask off",
-    customPrompt: "Dottore takes off his mask and reveals red eyes while looking into the phone camera.",
+    clipLabel: "Blow kiss",
+    customPrompt: "blow a kiss",
     durationSeconds: 5,
     aspectRatio: "16:9",
+    referenceInstruction:
+      "Reference: use the attached 16:9 image as the character identity, crop, and first/final frame target.",
   },
 };
 

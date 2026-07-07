@@ -6,10 +6,13 @@ import {
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
+  localAuthProviderBaseUrl,
   normalizeTextForMatch,
   normalizeThinkingTagPairs,
   parseTrackerFieldLocks,
   resolveMacros,
+  unwrapConversationInstructions,
+  wrapConversationInstructions,
   type CharacterStat,
   type GameState,
   type GenerationParameterSendMap,
@@ -17,6 +20,7 @@ import {
   type InventoryItem,
   type MacroContext,
   type PlayerStats,
+  type WrapFormat,
 } from "@marinara-engine/shared";
 import { LOCAL_SIDECAR_MODEL } from "../../services/llm/local-sidecar.js";
 import { sidecarModelService } from "../../services/sidecar/sidecar-model.service.js";
@@ -70,6 +74,20 @@ export type LocalSidecarGenerationConnection = {
   createdAt: string;
   updatedAt: string;
 };
+
+const PROMPT_WRAP_FORMATS = new Set<WrapFormat>(["xml", "markdown", "none"]);
+
+export function normalizePromptWrapFormat(value: unknown): WrapFormat {
+  return typeof value === "string" && PROMPT_WRAP_FORMATS.has(value as WrapFormat) ? (value as WrapFormat) : "xml";
+}
+
+export function formatConversationInstructionsForWrap(prompt: string, wrapFormat: WrapFormat): string {
+  const body = unwrapConversationInstructions(prompt);
+  if (wrapFormat === "xml") return wrapConversationInstructions(body);
+  if (!body.trim()) return "";
+  if (wrapFormat === "markdown") return `## Instructions\n${body}`;
+  return body;
+}
 export type PromptAttachment = {
   type?: string | null;
   url?: string | null;
@@ -1112,8 +1130,8 @@ export function resolveBaseUrl(connection: { baseUrl: string | null; provider: s
   // Subscription/login-backed providers own their endpoint internally, but
   // downstream callers gate on a non-empty baseUrl. Return a sentinel so the
   // gate passes; the provider ignores the value.
-  if (connection.provider === "claude_subscription") return "claude-agent-sdk://local";
-  if (connection.provider === "openai_chatgpt") return "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(connection.provider);
+  if (localAuthBaseUrl) return localAuthBaseUrl;
   const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
   return providerDef?.defaultBaseUrl ?? "";
 }

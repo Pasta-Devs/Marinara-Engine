@@ -61,7 +61,9 @@ function loadPinnedImages(): PinnedGalleryMedia[] {
     const raw = window.localStorage.getItem(PINNED_GALLERY_IMAGES_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(normalizeStoredMedia).filter((item): item is PinnedGalleryMedia => !!item) : [];
+    return Array.isArray(parsed)
+      ? parsed.map(normalizeStoredMedia).filter((item): item is PinnedGalleryMedia => !!item)
+      : [];
   } catch {
     return [];
   }
@@ -85,6 +87,8 @@ interface GalleryState {
   latestViewerChatId: string | null;
   /** Chat IDs with an in-flight manual gallery illustration request. */
   illustratingChatIds: Set<string>;
+  /** Chat IDs with an in-flight manual selfie generation request. */
+  selfieGeneratingChatIds: Set<string>;
   /** Chat IDs with an in-flight manual scene video request. */
   videoGeneratingChatIds: Set<string>;
   /** Chat IDs with an in-flight manual scene background request. */
@@ -101,6 +105,7 @@ interface GalleryState {
   unpinImage: (mediaId: string) => void;
   clearPinned: () => void;
   setChatIllustrating: (chatId: string, illustrating: boolean) => void;
+  setChatGeneratingSelfie: (chatId: string, generating: boolean) => void;
   setChatGeneratingVideo: (chatId: string, generating: boolean) => void;
   setChatGeneratingBackground: (chatId: string, generating: boolean) => void;
   setChatGeneratingStoryboard: (chatId: string, generating: boolean) => void;
@@ -111,6 +116,7 @@ export const useGalleryStore = create<GalleryState>((set) => ({
   viewerMedia: null,
   latestViewerChatId: null,
   illustratingChatIds: new Set(),
+  selfieGeneratingChatIds: new Set(),
   videoGeneratingChatIds: new Set(),
   backgroundGeneratingChatIds: new Set(),
   storyboardGeneratingChatIds: new Set(),
@@ -163,6 +169,14 @@ export const useGalleryStore = create<GalleryState>((set) => ({
       if (illustrating) next.add(chatId);
       else next.delete(chatId);
       return { illustratingChatIds: next };
+    }),
+
+  setChatGeneratingSelfie: (chatId, generating) =>
+    set((s) => {
+      const next = new Set(s.selfieGeneratingChatIds);
+      if (generating) next.add(chatId);
+      else next.delete(chatId);
+      return { selfieGeneratingChatIds: next };
     }),
 
   setChatGeneratingVideo: (chatId, generating) =>

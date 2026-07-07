@@ -1,4 +1,4 @@
-import { LOCAL_SIDECAR_CONNECTION_ID, PROVIDERS } from "@marinara-engine/shared";
+import { LOCAL_SIDECAR_CONNECTION_ID, PROVIDERS, localAuthProviderBaseUrl } from "@marinara-engine/shared";
 import type { DB } from "../db/connection.js";
 import { logger } from "../lib/logger.js";
 import { isLocalEmbedderAvailable } from "./local-embedder.js";
@@ -47,8 +47,8 @@ function parseMetadata(raw: unknown): Record<string, unknown> {
 
 function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string {
   if (connection.baseUrl) return connection.baseUrl.replace(/\/+$/, "");
-  if (connection.provider === "claude_subscription") return "claude-agent-sdk://local";
-  if (connection.provider === "openai_chatgpt") return "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(connection.provider);
+  if (localAuthBaseUrl) return localAuthBaseUrl;
   const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
   return providerDef?.defaultBaseUrl ?? "";
 }

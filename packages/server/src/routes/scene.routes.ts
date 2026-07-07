@@ -18,6 +18,7 @@ import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { stripConversationPromptTimestamps } from "../services/conversation/transcript-sanitize.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import type { ChatCompletionResult, ChatMessage } from "../services/llm/base-provider.js";
+import { localAuthProviderBaseUrl } from "@marinara-engine/shared";
 import type {
   SceneCreateRequest,
   SceneCreateResponse,
@@ -68,10 +69,8 @@ async function resolveConnection(
     const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
     baseUrl = providerDef?.defaultBaseUrl ?? "";
   }
-  // Claude (Subscription) uses the local Claude Agent SDK and has no HTTP
-  // endpoint — return a sentinel so the gate passes. The provider ignores it.
-  if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
-  if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
+  if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
   if (!baseUrl) throw new Error("No base URL configured for this connection");
 
   return { conn, baseUrl };

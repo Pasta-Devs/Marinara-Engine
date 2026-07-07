@@ -620,6 +620,12 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
   throw new Error("Outbound request exceeded redirect limit");
 }
 
+export function resolveValidatedImage(buf: Buffer, contentTypeHeader: string): { mimeType: string } | null {
+  const imageInfo = isAllowedImageBuffer(buf);
+  if (!imageInfo) return null;
+  return { mimeType: imageInfo.mimeType };
+}
+
 export function sanitizePathFilename(filename: string, allowedExts?: Set<string>): string {
   const safe = safeBasename(filename);
   const ext = extname(safe).toLowerCase();

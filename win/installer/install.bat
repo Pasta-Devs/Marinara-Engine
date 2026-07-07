@@ -11,14 +11,14 @@ set "NODE_DOWNLOAD_URL=https://nodejs.org/dist/v24.15.0/node-v24.15.0-x64.msi"
 set "NODE_SHA256=feffb8e5cb5ac47f793666636d496ef3e975be82c84c4da5d20e6aa8fa4eb806"
 set "GIT_DOWNLOAD_URL=https://github.com/git-for-windows/git/releases/download/v2.54.0.windows.1/Git-2.54.0-64-bit.exe"
 set "GIT_SHA256=2b96e7854f0520f0f6b709c21041d9801b1be44d5e1a0d9fa621b2fbc40f1983"
-set "RELEASE_TAG=v2.1.0"
+set "RELEASE_TAG=v2.1.1"
 if not defined MARINARA_RELEASE_COMMIT set "MARINARA_RELEASE_COMMIT="
 set "RELEASE_COMMIT=%MARINARA_RELEASE_COMMIT%"
 
 echo.
 echo  +==========================================+
 echo  ^|   Marinara Engine - Windows Installer     ^|
-echo  ^|   v2.1.0                                  ^|
+echo  ^|   v2.1.1                                  ^|
 
 echo  +==========================================+
 echo.
@@ -189,8 +189,11 @@ if not defined CURRENT_PNPM_VERSION (
     where pnpm >nul 2>&1
     if not errorlevel 1 (
         for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if defined CURRENT_PNPM_VERSION (
+        if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
             set "PNPM_RUNNER=pnpm"
+        ) else (
+            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required %PNPM_VERSION%; trying a pinned temporary runner...
+            set "CURRENT_PNPM_VERSION="
         )
     )
 )

@@ -10,7 +10,7 @@ import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
-import { CONVERSATION_SCHEDULE_DAYS, PROVIDERS } from "@marinara-engine/shared";
+import { CONVERSATION_SCHEDULE_DAYS, PROVIDERS, localAuthProviderBaseUrl } from "@marinara-engine/shared";
 import type { CharacterData, ConversationStatusOverride } from "@marinara-engine/shared";
 import {
   generateCharacterSchedule,
@@ -50,8 +50,8 @@ function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }
   if (connection.baseUrl) return connection.baseUrl;
   // Login-backed providers own their endpoint internally; return sentinels so
   // downstream baseUrl gates pass.
-  if (connection.provider === "claude_subscription") return "claude-agent-sdk://local";
-  if (connection.provider === "openai_chatgpt") return "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(connection.provider);
+  if (localAuthBaseUrl) return localAuthBaseUrl;
   const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
   return providerDef?.defaultBaseUrl ?? "";
 }
