@@ -192,6 +192,70 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "lorebook keyword matching can pin opening messages outside recent scan depth",
+    run() {
+      const entry = {
+        id: "entry-opening",
+        lorebookId: "book-opening",
+        name: "Opening mention",
+        content: "Sandrone profile",
+        description: "",
+        keys: ["Sandrone"],
+        secondaryKeys: [],
+        enabled: true,
+        constant: false,
+        selective: false,
+        selectiveLogic: "and",
+        probability: null,
+        scanDepth: null,
+        matchWholeWords: false,
+        caseSensitive: false,
+        useRegex: false,
+        characterFilterMode: "any",
+        characterFilterIds: [],
+        characterTagFilterMode: "any",
+        characterTagFilters: [],
+        generationTriggerFilterMode: "any",
+        generationTriggerFilters: [],
+        additionalMatchingSources: [],
+        position: 0,
+        depth: 4,
+        order: 100,
+        role: "system",
+        sticky: null,
+        cooldown: null,
+        delay: null,
+        ephemeral: null,
+        group: "",
+        groupWeight: null,
+        folderId: null,
+        locked: false,
+        preventRecursion: true,
+        excludeRecursion: false,
+        delayUntilRecursion: false,
+        tag: "",
+        relationships: {},
+        dynamicState: {},
+        activationConditions: [],
+        schedule: null,
+        excludeFromVectorization: false,
+        embedding: null,
+      } as any;
+      const messages = [
+        { role: "assistant", content: "Sandrone waits in the workshop." },
+        { role: "assistant", content: "Columbina hums nearby." },
+        { role: "assistant", content: "Arlecchino closes the door." },
+        { role: "user", content: "What happens next?" },
+      ];
+
+      assert.equal(scanForActivatedEntries(messages, [entry], { scanDepth: 2 }).length, 0);
+      assert.equal(
+        scanForActivatedEntries(messages, [entry], { scanDepth: 2, pinnedScanMessages: [messages[0]!] }).length,
+        1,
+      );
+    },
+  },
+  {
     name: "save_lorebook_entry tool preserves large entry content",
     async run() {
       const longContent = `entry-start\n${"0123456789".repeat(8_000)}\nentry-end`;

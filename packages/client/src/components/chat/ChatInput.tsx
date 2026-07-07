@@ -623,6 +623,8 @@ export const ChatInput = memo(function ChatInput({
       invalidate: () => qc.invalidateQueries({ queryKey: chatKeys.all }),
       characterNames: activeCharacterNames,
       characters: activeChatCharacters,
+      requiresManualGuideTarget,
+      removeQueuedResponse: (characterId) => removeFromResponseQueue(activeChatId, characterId),
       latestAssistantMessageId: latestAssistantMessage?.id ?? null,
       lastMessageRole,
       setSpriteExpression: onExpressionChange
@@ -637,6 +639,8 @@ export const ChatInput = memo(function ChatInput({
     createMessage,
     activeCharacterNames,
     activeChatCharacters,
+    requiresManualGuideTarget,
+    removeFromResponseQueue,
     latestAssistantMessage,
     lastMessageRole,
     onExpressionChange,

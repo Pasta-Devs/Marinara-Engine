@@ -128,6 +128,28 @@ function readStringArray(value: unknown): string[] {
   return uniqueStrings(safeJsonParse<string[]>(value, []));
 }
 
+function resolveOpeningPinnedScanMessages(messages: ScanMessage[], scanDepth: number): ScanMessage[] {
+  if (scanDepth <= 0) return [];
+
+  const indexedMessages = messages
+    .map((message) => ({ message, content: message.content.trim() }))
+    .filter((item) => item.content.length > 0);
+  if (indexedMessages.length <= scanDepth) return [];
+
+  const userMessageCount = indexedMessages.filter((item) => item.message.role === "user").length;
+  if (userMessageCount > 1) return [];
+
+  const firstUserIndex = indexedMessages.findIndex((item) => item.message.role === "user");
+  const openingEndIndex = firstUserIndex >= 0 ? firstUserIndex : indexedMessages.length;
+  if (openingEndIndex <= 0) return [];
+
+  const recentStartIndex = Math.max(0, indexedMessages.length - scanDepth);
+  return indexedMessages
+    .slice(0, openingEndIndex)
+    .filter((_, index) => index < recentStartIndex)
+    .map((item) => item.message);
+}
+
 function resolveLorebookCharacterIds(book: Pick<RelevantLorebook, "characterId" | "characterIds">): string[] {
   return uniqueStrings([...(book.characterIds ?? []), book.characterId]);
 }
@@ -802,6 +824,7 @@ export function resolveBudgetAndRecursivelyActivateLorebookEntriesWithDiagnostic
 
     frontier = scanForActivatedEntries([{ role: "system", content: recursiveContent }], remaining, {
       ...scanOptions,
+      pinnedScanMessages: [],
       recursionPass: true,
     });
   }
@@ -974,6 +997,7 @@ export async function processLorebooks(
     activeCharacterTags: matchingContext.activeCharacterTags,
     generationTriggers: options?.generationTriggers ?? ["chat"],
     additionalMatchingSourceText: matchingContext.additionalMatchingSourceText,
+    pinnedScanMessages: resolveOpeningPinnedScanMessages(messages, LIMITS.LOREBOOK_DEFAULT_SCAN_DEPTH),
     timingStates,
     currentMessageIndex,
     ...(options?.random ? { random: options.random } : {}),
