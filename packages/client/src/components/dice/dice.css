@@ -88,21 +88,15 @@
 }
 
 @keyframes dice-coin-roll-profile {
-  0% {
-    opacity: 0;
-    transform: translate3d(calc(var(--dice-rest-x) - 0.8rem), calc(var(--dice-rest-y) + 0.6rem), 0) rotate(-18deg) scale(0.84);
-  }
-  22% {
-    opacity: 1;
-    transform: translate3d(calc(var(--dice-rest-x) + 0.5rem), calc(var(--dice-rest-y) - 1.2rem), 0) rotate(148deg) scale(1.06);
-  }
-  60% {
-    transform: translate3d(calc(var(--dice-rest-x) + 0.28rem), calc(var(--dice-rest-y) - 0.18rem), 0) rotate(268deg) scale(1.02);
-  }
-  100% {
-    opacity: 1;
-    transform: translate3d(var(--dice-rest-x), var(--dice-rest-y), 0) rotate(var(--dice-rest-rot)) scale(1);
-  }
+  0%  { opacity: 0;  transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.8rem), 0) rotate(0deg) scaleX(1)    scaleY(0.84); }
+  8%  { opacity: 1; }
+  14% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.5rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.08); }
+  28% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.3rem), 0) rotate(0deg) scaleX(1)    scaleY(1.06); }
+  42% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.6rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.06); }
+  56% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 1.1rem), 0) rotate(0deg) scaleX(1)    scaleY(1.04); }
+  70% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) - 0.4rem), 0) rotate(0deg) scaleX(0.04) scaleY(1.02); }
+  84% {              transform: translate3d(var(--dice-rest-x), calc(var(--dice-rest-y) + 0.06rem), 0) rotate(0deg) scaleX(1.06) scaleY(0.9); }
+  100% { opacity: 1; transform: translate3d(var(--dice-rest-x), var(--dice-rest-y), 0) rotate(var(--dice-rest-rot)) scaleX(1) scaleY(1); }
 }
 
 @keyframes dice-cube-roll-profile {
