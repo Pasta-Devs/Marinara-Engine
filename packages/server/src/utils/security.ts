@@ -621,10 +621,9 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
 }
 
 export function resolveValidatedImage(buf: Buffer, contentTypeHeader: string): { mimeType: string } | null {
-  const contentType = contentTypeHeader.toLowerCase();
   const imageInfo = isAllowedImageBuffer(buf);
-  if (!contentType.startsWith("image/") && !imageInfo) return null;
-  return { mimeType: imageInfo?.mimeType ?? contentType };
+  if (!imageInfo) return null;
+  return { mimeType: imageInfo.mimeType };
 }
 
 export function sanitizePathFilename(filename: string, allowedExts?: Set<string>): string {

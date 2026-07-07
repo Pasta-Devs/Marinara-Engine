@@ -163,16 +163,20 @@ async function getUpdateChannelForCheckout(root: string, branch: string | null |
   return UPDATE_CHANNELS.stable;
 }
 
-function getManualGitApplyCommand(channel = UPDATE_CHANNELS.stable, platform: ServerPlatform = "unknown") {
+function getManualGitApplyCommand(
+  channel = UPDATE_CHANNELS.stable,
+  platform: ServerPlatform = "unknown",
+  pnpmCommand = MANUAL_PNPM_COMMAND,
+) {
   const checkoutCommand =
     channel.id === "staging"
       ? `git show-ref --verify --quiet refs/heads/${channel.branch} && (git checkout ${channel.branch} && git merge --ff-only ${channel.targetRef}) || git checkout -b ${channel.branch} ${channel.targetRef}`
       : `(git merge --ff-only ${channel.targetRef} || git checkout --detach ${channel.targetRef})`;
   const buildCommand =
     platform === "android-termux"
-      ? `${MANUAL_PNPM_COMMAND} --filter @marinara-engine/shared build && ${MANUAL_PNPM_COMMAND} --filter @marinara-engine/server build && ${MANUAL_PNPM_COMMAND} --filter @marinara-engine/client build`
-      : `${MANUAL_PNPM_COMMAND} --filter @marinara-engine/shared build && ${MANUAL_PNPM_COMMAND} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build`;
-  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && ${MANUAL_PNPM_COMMAND} --config.trustPolicy=off --config.confirmModulesPurge=false ${PNPM_UPDATE_INSTALL_ARGS.join(" ")} && ${buildCommand}`;
+      ? `${pnpmCommand} --filter @marinara-engine/shared build && ${pnpmCommand} --filter @marinara-engine/server build && ${pnpmCommand} --filter @marinara-engine/client build`
+      : `${pnpmCommand} --filter @marinara-engine/shared build && ${pnpmCommand} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build`;
+  return `git fetch ${UPDATE_REMOTE} ${channel.fetchRef} && ${checkoutCommand} && ${pnpmCommand} --config.trustPolicy=off --config.confirmModulesPurge=false ${PNPM_UPDATE_INSTALL_ARGS.join(" ")} && ${buildCommand}`;
 }
 
 function getManualUpdateCommand(installType: InstallType, platform: ServerPlatform, channel = UPDATE_CHANNELS.stable) {
@@ -875,9 +879,10 @@ export async function updatesRoutes(app: FastifyInstance) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       const pnpmVersion = getPinnedPnpmVersion(root);
+      const manualPnpmCommand = `corepack pnpm@${pnpmVersion}`;
       return reply.status(500).send({
         error: `Update failed: ${message}`,
-        hint: `You can try running the update manually: ${getManualGitApplyCommand(channel)}. If Corepack cannot launch pnpm ${pnpmVersion}, install the pinned version with npm install -g pnpm@${pnpmVersion} and rerun the command.`,
+        hint: `You can try running the update manually: ${getManualGitApplyCommand(channel, serverPlatform, manualPnpmCommand)}. If Corepack cannot launch pnpm ${pnpmVersion}, install the pinned version with npm install -g pnpm@${pnpmVersion} and rerun the command.`,
       });
     }
   });

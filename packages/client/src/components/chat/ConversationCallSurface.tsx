@@ -326,9 +326,12 @@ function pushCallTtsVideoChunk(
   text: string,
   videoKind: ConversationCallCharacterVideoClipKind,
   followKind?: "talking",
+  participants?: Participant[],
 ) {
   const trimmed = text.trim();
-  const audioText = stripCallTtsCueText(trimmed);
+  const audioText = participants
+    ? applyCallTtsPhoneticNames(stripCallTtsCueText(trimmed), participants)
+    : stripCallTtsCueText(trimmed);
   if (!trimmed || !audioText) return;
   const chunk = { text: trimmed, audioText, videoKind, followKind };
   chunks.push(...splitCallTtsVideoChunkByLimit(chunk));
@@ -338,7 +341,7 @@ function hasNonCueSpeech(text: string) {
   return text.replace(/\[[^\]\r\n]+\]/g, "").trim().length > 0;
 }
 
-function buildCallTtsVideoChunks(lines: string[], tone: string): CallTtsVideoChunk[] {
+function buildCallTtsVideoChunks(lines: string[], tone: string, participants?: Participant[]): CallTtsVideoChunk[] {
   const chunks: CallTtsVideoChunk[] = [];
   const cuePattern = /\[[^\]\r\n]+\]/g;
   let recognizedCueCount = 0;
@@ -356,18 +359,36 @@ function buildCallTtsVideoChunks(lines: string[], tone: string): CallTtsVideoChu
 
       const beforeCue = line.slice(cursor, cueStart);
       if (hasNonCueSpeech(beforeCue)) {
-        pushCallTtsVideoChunk(chunks, beforeCue, pendingCueKind ?? "talking", pendingCueKind ? "talking" : undefined);
+        pushCallTtsVideoChunk(
+          chunks,
+          beforeCue,
+          pendingCueKind ?? "talking",
+          pendingCueKind ? "talking" : undefined,
+          participants,
+        );
       } else {
         const beforeCueAudio = stripCallTtsCueText(beforeCue);
         if (beforeCueAudio) {
-          pushCallTtsVideoChunk(chunks, beforeCue, pendingCueKind ?? "talking", pendingCueKind ? "talking" : undefined);
+          pushCallTtsVideoChunk(
+            chunks,
+            beforeCue,
+            pendingCueKind ?? "talking",
+            pendingCueKind ? "talking" : undefined,
+            participants,
+          );
         }
       }
       pendingCueKind = reactionKind;
       recognizedCueCount += 1;
       cursor = cueStart + cue.length;
     }
-    pushCallTtsVideoChunk(chunks, line.slice(cursor), pendingCueKind ?? "talking", pendingCueKind ? "talking" : undefined);
+    pushCallTtsVideoChunk(
+      chunks,
+      line.slice(cursor),
+      pendingCueKind ?? "talking",
+      pendingCueKind ? "talking" : undefined,
+      participants,
+    );
   }
 
   if (chunks.length === 0) return [];
@@ -1897,7 +1918,7 @@ export function ConversationCallSurface({
 
               const sequenceItems = voiceBatch.flatMap((item) => {
                 const tone = item.turn.tone?.trim() ?? "";
-                const chunks = buildCallTtsVideoChunks([item.turn.content], tone);
+                const chunks = buildCallTtsVideoChunks([item.turn.content], tone, participants);
                 const participantId = item.participant?.id ?? null;
                 const voiceKey = [
                   session.id,
@@ -1908,7 +1929,7 @@ export function ConversationCallSurface({
                   .map((chunk) => ({
                     item,
                     chunk,
-                    text: applyCallTtsPhoneticNames(chunk.audioText.trim(), participants),
+                    text: chunk.audioText.trim(),
                     participantId,
                     voiceKey,
                     tone,

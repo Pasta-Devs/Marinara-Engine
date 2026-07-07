@@ -29,7 +29,14 @@ async function proxyFetch(url: string, init?: RequestInit): Promise<unknown> {
   }
 }
 
-async function fetchAvatarImage(url: string, signal: AbortSignal) {
+async function fetchAvatarImage(url: string, signal: AbortSignal): Promise<
+  | {
+      status: "ok";
+      buf: Buffer;
+      mimeType: string;
+    }
+  | { status: "not_found" | "unsupported" }
+> {
   const res = await safeFetch(url, {
     signal,
     policy: { allowedProtocols: ["https:"] },
@@ -39,11 +46,11 @@ async function fetchAvatarImage(url: string, signal: AbortSignal) {
       Referer: "https://character-tavern.com/",
     },
   });
-  if (!res.ok) return null;
+  if (!res.ok) return { status: "not_found" };
   const buf = Buffer.from(await res.arrayBuffer());
   const image = resolveValidatedImage(buf, res.headers.get("content-type") ?? "");
-  if (!image) throw new Error("Unsupported avatar image content");
-  return { buf, mimeType: image.mimeType };
+  if (!image) return { status: "unsupported" };
+  return { status: "ok", buf, mimeType: image.mimeType };
 }
 
 /** Build headers for CT API — includes session cookie if stored */
@@ -286,14 +293,17 @@ export async function botBrowserChartavernRoutes(app: FastifyInstance) {
         `${CT_CARDS_CDN}/${encodeURI(path)}.png?width=320&quality=85&format=auto`,
         controller.signal,
       );
-      const image = primary ?? (await fetchAvatarImage(`${CT_CARDS_CDN}/${encodeURI(path)}.png`, controller.signal));
-      if (!image) return reply.status(404).send({ error: "Avatar not found" });
-      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(image.buf);
-    } catch (err) {
-      if ((err as Error).message.includes("Unsupported avatar image content")) {
-        return reply.status(415).send({ error: "Unsupported avatar content type" });
+      const fallback =
+        primary.status === "ok"
+          ? primary
+          : await fetchAvatarImage(`${CT_CARDS_CDN}/${encodeURI(path)}.png`, controller.signal);
+      if (fallback.status !== "ok") {
+        return fallback.status === "not_found"
+          ? reply.status(404).send({ error: "Avatar not found" })
+          : reply.status(415).send({ error: "Unsupported avatar content type" });
       }
-      throw err;
+      const image = fallback;
+      return reply.header("Content-Type", image.mimeType).header("Cache-Control", "public, max-age=86400").send(image.buf);
     } finally {
       clearTimeout(timeout);
     }

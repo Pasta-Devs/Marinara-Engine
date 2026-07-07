@@ -134,7 +134,7 @@ function splitLongMemoryText(text: string, maxChars = MAX_EMBEDDING_CHUNK_CHARS)
   return parts;
 }
 
-function splitMemoryChunksForEmbedding<T extends { content: string }>(chunks: T[]): T[] {
+function splitMemoryChunksForEmbedding<T extends { content: string; messageCount: number }>(chunks: T[]): T[] {
   const expanded: T[] = [];
   let splitCount = 0;
   for (const chunk of chunks) {
@@ -147,6 +147,7 @@ function splitMemoryChunksForEmbedding<T extends { content: string }>(chunks: T[
     for (let index = 0; index < parts.length; index += 1) {
       expanded.push({
         ...chunk,
+        messageCount: index === 0 ? chunk.messageCount : 0,
         content: `[Memory chunk part ${index + 1}/${parts.length}]\n${parts[index]}`,
       });
     }
@@ -185,7 +186,7 @@ async function pruneStaleNativeMemoryChunks(
       ? messageTimes.filter((createdAt) => createdAt >= chunk.firstMessageAt && createdAt <= chunk.lastMessageAt).length
       : 0;
 
-    if (!hasAnchors || spanMessageCount !== chunk.messageCount) {
+    if (!hasAnchors || (chunk.messageCount > 0 && spanMessageCount !== chunk.messageCount)) {
       invalidateFrom = chunk.firstMessageAt;
       break;
     }
