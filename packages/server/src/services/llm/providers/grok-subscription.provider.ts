@@ -20,7 +20,6 @@ const GROK_MODELS_TIMEOUT_MS = 30 * 1000;
 const GROK_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 const GROK_TOKENS_PER_CHAR = 4;
 const GROK_CLI_DEFAULT_CONTEXT_TOKENS = 32_000;
-const GROK_CLI_UNSAFE_INHERITED_CONTEXT_TOKENS = 128_000;
 const GROK_CLI_MAX_TURNS = 8;
 const GROK_CLI_SAFE_HEADLESS_MODEL_ID = "grok-composer-2.5-fast";
 const GROK_CLI_SYSTEM_PROMPT =
@@ -67,7 +66,7 @@ function normalizeGrokCliModelForFlag(model: string): string {
 function normalizeGrokCliContextWindow(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return GROK_CLI_DEFAULT_CONTEXT_TOKENS;
   const context = Math.floor(value);
-  return context >= GROK_CLI_UNSAFE_INHERITED_CONTEXT_TOKENS ? GROK_CLI_DEFAULT_CONTEXT_TOKENS : context;
+  return Math.min(context, GROK_CLI_DEFAULT_CONTEXT_TOKENS);
 }
 
 function titleCaseModelId(id: string): string {
@@ -87,7 +86,7 @@ function normalizeModelToken(value: string): string | null {
 }
 
 function isLikelyUnavailableModelLine(line: string): boolean {
-  return /\b(unavailable|not\s+available|no\s+access|unauthori[sz]ed|disabled|not\s+enabled|requires?|waitlist|coming\s+soon|denied)\b/i.test(
+  return /\b(no\s+access|access\s+denied|unauthori[sz]ed|forbidden|not\s+available\s+(?:to|for)\s+(?:this\s+)?(?:account|login|user|subscription|plan)|unavailable\s+(?:to|for)\s+(?:this\s+)?(?:account|login|user|subscription|plan)|not\s+enabled\s+(?:for|on)\s+(?:this\s+)?(?:account|login|user|subscription|plan))\b/i.test(
     line,
   );
 }
@@ -144,10 +143,11 @@ function preferHeadlessGrokCliModels(models: GrokCliModel[]): GrokCliModel[] {
   const safeHeadlessModel = models.find((model) => model.id === GROK_CLI_SAFE_HEADLESS_MODEL_ID);
   if (safeHeadlessModel) return [safeHeadlessModel];
 
-  const composerModels = models.filter((model) => model.id.toLowerCase().startsWith("grok-composer-"));
-  if (!composerModels.length) return models;
-
-  return [...composerModels].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  return [...models].sort((a, b) => {
+    const aComposer = a.id.toLowerCase().startsWith("grok-composer-") ? 0 : 1;
+    const bComposer = b.id.toLowerCase().startsWith("grok-composer-") ? 0 : 1;
+    return aComposer - bComposer || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  });
 }
 
 function roleLabel(role: ChatMessage["role"]): string {

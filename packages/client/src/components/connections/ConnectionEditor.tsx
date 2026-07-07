@@ -124,7 +124,6 @@ const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
 const GROK_CLI_DEFAULT_CONTEXT_TOKENS = 32_000;
-const GROK_CLI_UNSAFE_INHERITED_CONTEXT_TOKENS = 128_000;
 const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
@@ -216,11 +215,7 @@ function normalizeGrokCliEditorModel(provider: APIProvider, model: string): stri
 
 function normalizeConnectionMaxContext(provider: APIProvider, value: unknown): number {
   const numericValue = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0;
-  if (provider === "grok_subscription") {
-    return numericValue > 0 && numericValue < GROK_CLI_UNSAFE_INHERITED_CONTEXT_TOKENS
-      ? numericValue
-      : GROK_CLI_DEFAULT_CONTEXT_TOKENS;
-  }
+  if (provider === "grok_subscription") return numericValue > 0 ? numericValue : GROK_CLI_DEFAULT_CONTEXT_TOKENS;
   return numericValue || 128000;
 }
 
@@ -1996,7 +1991,7 @@ export function ConnectionEditor() {
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
                 {isGrokSubscriptionProvider
-                  ? "Grok CLI starts at a safer 32k window because very large roleplay prompts can make the local CLI hit its own turn limit. Raise it only if your local login handles larger prompts."
+                  ? "Grok CLI starts at a safer 32k window because very large roleplay prompts can make the local CLI hit its own turn limit. Larger saved values are kept in settings, but requests are capped conservatively."
                   : "This is auto-set when selecting a model from the list. Override manually if needed."}
               </p>
             </FieldGroup>
