@@ -30,7 +30,6 @@ import {
   DEFAULT_CONVERSATION_PROMPT,
   CONVERSATION_COMMAND_KEYS,
   unwrapConversationInstructions,
-  wrapConversationInstructions,
   NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT,
   findKnownModel,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -54,6 +53,7 @@ import type {
   ChatMode,
   ThinkingTagPair,
   ConversationCommandKey,
+  WrapFormat,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -211,6 +211,7 @@ import {
   dedupeLastMessageWrappers,
   findLastIndex,
   findTrackerContextInsertIndex,
+  formatConversationInstructionsForWrap,
   appendReadableAttachmentsToContent,
   extractFileAttachmentInputs,
   getAttachmentFilename,
@@ -228,6 +229,7 @@ import {
   isManualTrackerCharacterId,
   isMessageHiddenFromAI,
   mergeCustomParameters,
+  normalizePromptWrapFormat,
   parseExtra,
   parseJsonField,
   parseStoredGenerationParameters,
@@ -608,6 +610,34 @@ function formatSecretPlotSystemBlock(arcRaw: unknown, wrapFormat: "xml" | "markd
   const payload = JSON.stringify({ overarchingArc: arc }, null, 2);
   if (wrapFormat === "none") return `Secret plot\n${payload}`;
   return wrapContent(payload, "Secret plot", wrapFormat);
+}
+
+function formatConversationSummaryHistoryBlock(label: string, summary: string, wrapFormat: WrapFormat): string {
+  if (wrapFormat === "xml") return `<summary ${label}>\n${summary}\n</summary>`;
+  const displayLabel = label.replace(/="/g, ": ").replace(/"$/g, "");
+  if (wrapFormat === "markdown") return `## Summary (${displayLabel})\n${summary}`;
+  return `Summary (${displayLabel})\n${summary}`;
+}
+
+function formatConversationDateHistoryMessages(
+  messages: Array<{ role: "system" | "user" | "assistant"; author: string; content: string }>,
+  date: string,
+  wrapFormat: WrapFormat,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  if (messages.length === 0) return [];
+  if (wrapFormat === "xml") {
+    return messages.map((message, idx) => {
+      let content = `${message.author}: ${message.content}`;
+      if (idx === 0) content = `<date="${date}">\n${content}`;
+      if (idx === messages.length - 1) content = `${content}\n</date>`;
+      return { role: message.role, content };
+    });
+  }
+
+  return messages.map((message, idx) => {
+    const prefix = idx === 0 ? (wrapFormat === "markdown" ? `## Date: ${date}\n` : `Date: ${date}\n`) : "";
+    return { role: message.role, content: `${prefix}${message.author}: ${message.content}` };
+  });
 }
 
 function appendSecretPlotSystemMessage(
@@ -2419,6 +2449,9 @@ export async function generateRoutes(app: FastifyInstance) {
         let enabledParameters: GenerationParameterSendMap | undefined;
         let stopSequences: string[] = [];
         let wrapFormat: "xml" | "markdown" | "none" = "xml";
+        if (chatMode === "conversation" && resolvedPreset) {
+          wrapFormat = normalizePromptWrapFormat(resolvedPreset.wrapFormat);
+        }
         const runtimeAgentSectionTypes = new Set<RuntimeAgentSectionType>();
         const runtimeAgentSectionTokens = new Map<RuntimeAgentSectionType, RuntimeAgentSectionTokens>();
         const modelAccessPolicy = resolveModelAccessPolicy({
@@ -3365,8 +3398,8 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
-          // Flatten: consolidated weeks → single <summary week="..."> block,
-          // non-consolidated summarized days → <summary date="..."> block,
+          // Flatten: consolidated weeks/non-consolidated summarized days → one summary block
+          // in the selected preset wrapping format,
           // today → individual timestamped messages.
           // The tail block is spliced in at firstTodayIdx so it sits between
           // the last summary and today's first verbatim message.
@@ -3409,12 +3442,16 @@ export async function generateRoutes(app: FastifyInstance) {
                 const wEntry = weekSummaries[weekKey]!;
                 const monday = parseDateKey(weekKey);
                 const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
-                // Key details are surfaced separately via <important_memories> in the system prompt.
+                // Key details are surfaced separately in the system prompt.
                 return [
                   ...prefix,
                   {
                     role: "system" as const,
-                    content: `<summary week="${weekKey} – ${fmtDateKey(sunday)}">\n${wEntry.summary}\n</summary>`,
+                    content: formatConversationSummaryHistoryBlock(
+                      `week="${weekKey} – ${fmtDateKey(sunday)}"`,
+                      wEntry.summary,
+                      wrapFormat,
+                    ),
                   },
                 ];
               }
@@ -3422,22 +3459,25 @@ export async function generateRoutes(app: FastifyInstance) {
               // Non-consolidated day with a summary
               const entry = daySummaries[bucket.date];
               if (entry) {
-                // Key details are surfaced separately via <important_memories> in the system prompt.
+                // Key details are surfaced separately in the system prompt.
                 return [
                   ...prefix,
                   {
                     role: "system" as const,
-                    content: `<summary date="${bucket.date}">\n${entry.summary}\n</summary>`,
+                    content: formatConversationSummaryHistoryBlock(`date="${bucket.date}"`, entry.summary, wrapFormat),
                   },
                 ];
               }
               // Unsummarized past day — keep each message as its own turn
-              const turns = bucket.msgs.map((m, idx) => {
-                let content = `${m.author}: ${m.content}`;
-                if (idx === 0) content = `<date="${bucket.date}">\n${content}`;
-                if (idx === bucket.msgs.length - 1) content = `${content}\n</date>`;
-                return { role: m.role as "user" | "assistant" | "system", content };
-              });
+              const turns = formatConversationDateHistoryMessages(
+                bucket.msgs.map((m) => ({
+                  role: m.role as "user" | "assistant" | "system",
+                  author: m.author,
+                  content: m.content,
+                })),
+                bucket.date,
+                wrapFormat,
+              );
               return [...prefix, ...turns];
             }
             return [...prefix, b as { role: "system" | "user" | "assistant"; content: string }];
@@ -3498,8 +3538,9 @@ export async function generateRoutes(app: FastifyInstance) {
             );
           }
 
-          let conversationSystemPrompt = wrapConversationInstructions(
+          let conversationSystemPrompt = formatConversationInstructionsForWrap(
             conversationInstructionParts.filter((part) => part.trim().length > 0).join("\n\n"),
+            wrapFormat,
           );
 
           // ── Character Commands: build a commands block if any features are enabled ──
@@ -3859,8 +3900,7 @@ export async function generateRoutes(app: FastifyInstance) {
               : null;
           const intentHint = isMessageIntent(input.autonomousIntentKey) ? getIntentHint(input.autonomousIntentKey) : "";
 
-          const contextBlock = [
-            `<context>`,
+          const contextLines = [
             `Your current status: ${statusLine}.`,
             ...(shouldIncludeUserStatus ? [`${personaName}'s status: ${userStatusLine}.`] : []),
             ...(proactiveTurnLine ? [proactiveTurnLine] : []),
@@ -3871,8 +3911,8 @@ export async function generateRoutes(app: FastifyInstance) {
             ...(isGroup && earlyGroupMode !== "individual"
               ? [`- Remember to prefix messages with \`Name: message\`!`]
               : []),
-            `</context>`,
-          ].join("\n");
+          ];
+          const contextBlock = wrapContent(contextLines.join("\n"), "Context", wrapFormat);
 
           // ── Cross-chat awareness: show messages from other chats this character is in ──
           // (awarenessBlock is injected later, after persona info)
@@ -4087,13 +4127,12 @@ export async function generateRoutes(app: FastifyInstance) {
               };
               return extractDate(a.label) - extractDate(b.label);
             });
-            const memoryLines = [`<important_memories>`, `Things you must remember from past conversations:`];
+            const memoryLines = [`Things you must remember from past conversations:`];
             for (const { label, details } of allKeyDetails) {
               memoryLines.push(`[${label}]`);
               for (const d of details) memoryLines.push(`- ${d}`);
             }
-            memoryLines.push(`</important_memories>`);
-            conversationSystemPrompt += "\n\n" + memoryLines.join("\n");
+            conversationSystemPrompt += "\n\n" + wrapContent(memoryLines.join("\n"), "Important Memories", wrapFormat);
           }
 
           conversationSystemPrompt = resolvePromptMacros(conversationSystemPrompt);
@@ -4148,7 +4187,7 @@ export async function generateRoutes(app: FastifyInstance) {
               .filter(Boolean)
               .join("\n");
             if (loreContent) {
-              const loreBlock = `<lore>\n${loreContent}\n</lore>`;
+              const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
               // Inject before the awareness block (or before first user/assistant message)
               const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
               const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;

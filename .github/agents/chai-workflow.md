@@ -88,6 +88,7 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 
 - For reviews, lead with findings ordered by severity. If no issues are found, say so.
 - Before pushing or opening a PR, check the dirty tree, remotes, branch, intended files, and target branch.
+- When the PR bumps or prepares a release version, run `pnpm credits:check`; if stale, run `pnpm credits:sync` and include the Credits modal update in the same release PR.
 - New PRs should target `staging` and be draft by default unless the maintainer says otherwise.
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.

@@ -9,6 +9,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Changed
 
 - Bumped release metadata to v2.1.1 across packages, the PWA manifest, README release pointer, Windows installer sources, Android APK metadata, and the home-page-visible app version.
+- Reorganized Settings so Addons combines Themes and Extensions, Generations houses image/video generation and prompt overrides, Imports uses the plural label, generation prompt editors start collapsed, and Danger Zone uses accent-color selections with no default checked categories.
+- Refreshed the in-app Credits modal from the GitHub contributors list and added credits sync/check helpers to the release workflow.
 
 ### Fixed
 
@@ -23,6 +25,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed Conversation Call prompt macro resolution so live audio prompts, persona/character context, lorebook entries, daily history, and call transcript content resolve macros such as `{{user}}` before provider dispatch (#3326).
 - Fixed custom preset choice confirmation so edited multi-select preset variables can intentionally be saved empty instead of disabling **Confirm Choices** (#3327).
 - Fixed Conversation message avatars that were cropped in editors but appeared oversized in DMs/groups by restoring the relative avatar crop container (#3328).
+- Fixed Conversation mode prompt assembly so selected preset wrap formats (XML, Markdown, or None) are respected for instructions, daily summary/date blocks, current context, memories, and lorebook injections instead of always wrapping supplemental sections in XML.
 - Restored the Echo Chamber chat as a collapsible panel instead of making close/collapse hide the chamber permanently for the chat (#3329).
 - Fixed manual group Conversation character triggers so the prompted character receives recent visible group transcript context and does not answer from profile/lorebook content alone (#3330).
 - Fixed Text to Speech character voice assignment so users can add character voices using provider default voices, including ElevenLabs defaults, even before custom/account voices are loaded.

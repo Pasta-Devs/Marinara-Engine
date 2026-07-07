@@ -20,8 +20,6 @@ import {
   resolveMacros,
   stripMacroComments,
   summariesPatchSchema,
-  unwrapConversationInstructions,
-  wrapConversationInstructions,
   coerceGameStateTextValue,
   normalizeTrackerFieldLocks,
   parseTrackerFieldLocks,
@@ -74,6 +72,8 @@ import {
   resolveActiveCharacterIds,
   resolveVisibleGameStateAnchor,
   shouldEnableAgentsForGeneration,
+  formatConversationInstructionsForWrap,
+  normalizePromptWrapFormat,
 } from "./generate/generate-route-utils.js";
 import {
   filterGameInternalAgentIds,
@@ -2116,10 +2116,11 @@ export async function chatsRoutes(app: FastifyInstance) {
                 .replace(/\{\{userName\}\}/g, personaName),
               promptMacroContext,
             );
+            const wrapFormat = normalizePromptWrapFormat((preset as Record<string, unknown> | null)?.wrapFormat);
             const messages = [
               {
                 role: "system" as const,
-                content: wrapConversationInstructions(unwrapConversationInstructions(renderedConversationPrompt)),
+                content: formatConversationInstructionsForWrap(renderedConversationPrompt, wrapFormat),
               },
               ...mappedMessages,
             ];

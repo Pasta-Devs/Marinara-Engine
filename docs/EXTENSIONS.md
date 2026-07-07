@@ -2,7 +2,7 @@
 
 Marinara Engine extensions are add-ons for changing how the app looks and behaves. Browser extensions can include CSS or JavaScript that runs in the Marinara page, observes or edits the DOM, adds controls, registers hotkeys, calls allowed Marinara API routes, and cleans itself up when disabled. Trusted server extensions can include JavaScript that runs in the Marinara Node.js server process.
 
-Extensions are imported from **Settings -> Extensions** as a `.json`, `.css`, `.js`, `.server.js`, `.zip`, or a folder. Only install extensions from people you trust. Browser extension JavaScript runs with the same browser privileges as the app UI. Server extension JavaScript runs on the host server and can affect that server until disabled. Neither runtime directly patches Marinara's source code on disk.
+Extensions are imported from **Settings -> Addons -> Extension Library** as a `.json`, `.css`, `.js`, `.server.js`, `.zip`, or a folder. Only install extensions from people you trust. Browser extension JavaScript runs with the same browser privileges as the app UI. Server extension JavaScript runs on the host server and can affect that server until disabled. Neither runtime directly patches Marinara's source code on disk.
 
 Installing, updating, toggling, or removing extensions is a privileged action. It works from loopback/local access, or from remote browsers when `ADMIN_SECRET` is set on the server and saved in **Settings -> Advanced -> Admin Access**. Without that, the server returns 403. See [Configuration -> Privileged APIs](CONFIGURATION.md#privileged-apis).
 
@@ -258,5 +258,5 @@ If there is no root package file, folder import scans for every `manifest.json` 
 - A loose folder with `.server.js`, `.server.mjs`, or `.server.cjs` files and no manifest imports as one disabled server extension.
 - CSS is sanitized before injection. External `url()`, `@import`, `@namespace`, remote or `local()` web fonts, `expression()`, `javascript:`, `vbscript:`, `behavior`, and `-moz-binding` are stripped or rewritten; external URLs become `url(about:invalid)`, and `:visited` selectors are rewritten to `:link`. Embed images and fonts as safe `data:` URIs when needed.
 - Browser JavaScript is loaded by the browser client when the extension is enabled. It can change client behavior at runtime, but it is not run by the server.
-- Server JavaScript is loaded by the Marinara server when the extension is enabled. Startup status appears in Settings -> Extensions.
+- Server JavaScript is loaded by the Marinara server when the extension is enabled. Startup status appears in Settings -> Addons -> Extension Library.
 - TypeScript files can be included in imported folders as package text, but Marinara does not compile TypeScript for extension execution. Point `jsPath` at JavaScript that the browser can run.

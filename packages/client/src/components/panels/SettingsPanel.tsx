@@ -165,9 +165,9 @@ type CustomFontFace = {
 const TABS = [
   { id: "general", label: "General" },
   { id: "appearance", label: "Appearance" },
-  { id: "themes", label: "Themes" },
-  { id: "extensions", label: "Extensions" },
-  { id: "import", label: "Import" },
+  { id: "generations", label: "Generations" },
+  { id: "addons", label: "Addons" },
+  { id: "import", label: "Imports" },
   { id: "advanced", label: "Advanced" },
 ] as const;
 
@@ -217,11 +217,17 @@ function getNativeConsoleShortcutHelp(): string {
 const SETTINGS_COMPONENTS: Record<(typeof TABS)[number]["id"], React.FC> = {
   general: React.memo(GeneralSettings),
   appearance: React.memo(AppearanceSettings),
-  themes: React.memo(ThemesSettings),
-  extensions: React.memo(ExtensionsSettings),
+  generations: React.memo(GenerationsSettings),
+  addons: React.memo(AddonsSettings),
   import: React.memo(ImportSettings),
   advanced: React.memo(AdvancedSettings),
 };
+
+function normalizeSettingsTab(tab: string): (typeof TABS)[number]["id"] {
+  if (tab === "themes") return "addons";
+  if (tab === "extensions") return "addons";
+  return TABS.some((entry) => entry.id === tab) ? (tab as (typeof TABS)[number]["id"]) : "general";
+}
 
 type SettingsArtPreviewSize = { width: number; height: number };
 
@@ -268,7 +274,7 @@ const EXPUNGE_SCOPE_OPTIONS: Array<{ id: ExpungeScope; label: string; descriptio
   { id: "connections", label: "Connections", description: "API connections and model endpoints." },
   {
     id: "automation",
-    label: "Automation & Themes",
+    label: "Automation & Addons",
     description: "Agents, tools, regex scripts, synced themes, and automation state.",
   },
   {
@@ -429,14 +435,6 @@ const GAME_ASSET_CATEGORIES = [
     defaultFolder: "custom",
     accept: "image/*",
   },
-] as const;
-
-const GAME_IMAGE_PROMPT_TEMPLATE_KEYS = [
-  "game.npcPortrait",
-  "game.background",
-  "game.sceneIllustration",
-  "game.narrationSummarizer",
-  "game.storyboardIllustrationDirector",
 ] as const;
 
 const VIDEO_PROMPT_TEMPLATE_KEYS = [
@@ -681,7 +679,7 @@ function ImageStyleProfilesEditor({
             type="button"
             onClick={deleteSelected}
             disabled={selected.builtIn || settings.profiles.length <= 1}
-            className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--secondary)] px-2.5 text-xs text-[var(--destructive)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-8 items-center gap-1 rounded-md bg-[var(--secondary)] px-2.5 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-45"
           >
             <Trash2 size="0.75rem" />
             Delete
@@ -760,7 +758,7 @@ function ImageStyleProfilesEditor({
         </div>
       </details>
 
-      <details className="mt-2 rounded-md bg-[var(--secondary)]/55 p-2 ring-1 ring-[var(--border)]" open>
+      <details className="mt-2 rounded-md bg-[var(--secondary)]/55 p-2 ring-1 ring-[var(--border)]">
         <summary className="cursor-pointer text-xs font-medium text-[var(--foreground)]">Test bench</summary>
         <div className="mt-2 grid gap-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="space-y-2">
@@ -1161,8 +1159,16 @@ function TrackerPanelAppearanceDrawer({
 }
 
 export function SettingsPanel() {
-  const settingsTab = useUIStore((s) => s.settingsTab);
+  const rawSettingsTab = useUIStore((s) => s.settingsTab);
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
+  const settingsTab = normalizeSettingsTab(rawSettingsTab);
+
+  useEffect(() => {
+    if (rawSettingsTab !== settingsTab) {
+      setSettingsTab(settingsTab);
+    }
+  }, [rawSettingsTab, setSettingsTab, settingsTab]);
+
   mountedSettingsTabs.add(settingsTab);
 
   return (
@@ -3673,7 +3679,45 @@ function BackgroundPicker({
   );
 }
 
-function ThemesSettings() {
+function GenerationsSettings() {
+  return (
+    <div className="flex flex-col gap-3">
+      <SettingsIntro>
+        Global defaults for generated images, generated videos, and reusable prompt templates.
+      </SettingsIntro>
+
+      <ImageGenerationSettings />
+      <VideoGenerationSettings />
+      <PromptOverridesEditor
+        title="Video Generation Prompt Overrides"
+        description="Edit reusable templates for Game/Gallery scene videos, Conversation Call character clips, and animated Expression portraits."
+        help="Game scene videos use this before sending a reference-image video request. Conversation Call clips use the selected character avatar as the identity reference and return to idle at the end of each clip. Animated Expression portraits become looping GIF sprites."
+        keys={VIDEO_PROMPT_TEMPLATE_KEYS}
+        preferredKey="game.video"
+      />
+      <PromptOverridesEditor
+        title="Image Generation Prompt Overrides"
+        description="Edit the templates used by image, sprite, Game, and prompt-builder systems."
+        help="Global templates for registered prompt builders, including Conversation selfies, Game NPC portraits, scene media, storyboard prompts, and other registered builders."
+        preferredKey="game.npcPortrait"
+      />
+    </div>
+  );
+}
+
+function AddonsSettings() {
+  return (
+    <div className="flex flex-col gap-3">
+      <SettingsIntro>
+        Custom themes change Marinara's look; extensions add trusted browser or server behavior.
+      </SettingsIntro>
+      <ThemesSettings showIntro={false} />
+      <ExtensionsSettings showIntro={false} />
+    </div>
+  );
+}
+
+function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const { data: syncedThemes = [], isLoading } = useThemes();
   const createTheme = useCreateTheme();
   const updateTheme = useUpdateTheme();
@@ -3950,9 +3994,11 @@ function ThemesSettings() {
   // ── Theme List View ──
   return (
     <div className="flex flex-col gap-3">
-      <SettingsIntro>
-        Create or import custom CSS themes. Themes sync across devices connected to this Marinara server.
-      </SettingsIntro>
+      {showIntro && (
+        <SettingsIntro>
+          Create or import custom CSS themes. Themes sync across devices connected to this Marinara server.
+        </SettingsIntro>
+      )}
 
       <SettingsSection
         title="Theme Library"
@@ -4386,7 +4432,7 @@ function triggerFilePicker(options: {
   el.click();
 }
 
-function ExtensionsSettings() {
+function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const { data: extensions, isLoading } = useExtensions();
   const extensionList = extensions ?? [];
   const createExtension = useCreateExtension();
@@ -4595,7 +4641,9 @@ function ExtensionsSettings() {
 
   return (
     <div className="flex flex-col gap-3">
-      <SettingsIntro>Install browser or trusted server extensions to add custom behavior or styling.</SettingsIntro>
+      {showIntro && (
+        <SettingsIntro>Install browser or trusted server extensions to add custom behavior or styling.</SettingsIntro>
+      )}
 
       <SettingsSection
         title="Extension Library"
@@ -4741,11 +4789,11 @@ function ExtensionsSettings() {
             <code className="rounded bg-[var(--secondary)] px-1">Extensions/My Extension/manifest.json</code>
             . Browser extensions can include CSS and/or JavaScript files to modify the UI.
           </div>
-          <div className="rounded-lg bg-amber-500/10 p-2.5 text-[0.625rem] leading-relaxed text-amber-200 ring-1 ring-amber-500/20">
+          <div className="rounded-lg bg-[var(--secondary)]/50 p-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
             <strong>Server extensions:</strong> use{" "}
-            <code className="rounded bg-amber-500/10 px-1">runtime: "server"</code> with{" "}
-            <code className="rounded bg-amber-500/10 px-1">serverJsPath</code>, or import a{" "}
-            <code className="rounded bg-amber-500/10 px-1">.server.js</code> file. They run in the Node.js server
+            <code className="rounded bg-[var(--secondary)] px-1">runtime: "server"</code> with{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">serverJsPath</code>, or import a{" "}
+            <code className="rounded bg-[var(--secondary)] px-1">.server.js</code> file. They run in the Node.js server
             process and should only come from trusted sources.
           </div>
           <div className="rounded-lg bg-[var(--secondary)]/35 p-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
@@ -5514,7 +5562,7 @@ function AdvancedSettings() {
   const setDebugMode = useUIStore((s) => s.setDebugMode);
   const clearAllData = useClearAllData();
   const expungeData = useExpungeData();
-  const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>(["chats"]);
+  const [selectedScopes, setSelectedScopes] = useState<ExpungeScope[]>([]);
   const [confirmAction, setConfirmAction] = useState<"selected" | "all" | null>(null);
   const [exportingProfile, setExportingProfile] = useState(false);
   const [exportProfileDialogOpen, setExportProfileDialogOpen] = useState(false);
@@ -5875,7 +5923,7 @@ function AdvancedSettings() {
       />
 
       <SettingsIntro>
-        Server maintenance, generation tooling, message utilities, backups, and data removal.
+        Server maintenance, message utilities, backups, and data removal.
       </SettingsIntro>
 
       <SettingsSection
@@ -6109,24 +6157,6 @@ function AdvancedSettings() {
           </div>
         </div>
       </SettingsSection>
-
-      <ImageGenerationSettings />
-      <VideoGenerationSettings />
-      <PromptOverridesEditor
-        title="Video Generation Prompt Templates"
-        description="Edit reusable templates for Game/Gallery scene videos, Conversation Call character clips, and animated Expression portraits."
-        help="Game scene videos use this before sending a reference-image video request. Conversation Call clips use the selected character avatar as the identity reference and return to idle at the end of each clip. Animated Expression portraits become looping GIF sprites."
-        keys={VIDEO_PROMPT_TEMPLATE_KEYS}
-        preferredKey="game.video"
-      />
-      <PromptOverridesEditor
-        title="Game Prompt Templates"
-        description="Edit the reusable templates used for NPC portraits, scene backgrounds, scene illustrations, storyboard keyframes, and narration summarization."
-        help="These templates render before recurring Game image requests, storyboard keyframe planning, and narration-to-illustration summarization. One-off prompt review edits still only affect the current request."
-        keys={GAME_IMAGE_PROMPT_TEMPLATE_KEYS}
-        preferredKey="game.npcPortrait"
-      />
-      <PromptOverridesEditor />
 
       <SettingsSection
         title="Message Tools"
@@ -6411,7 +6441,6 @@ function AdvancedSettings() {
         title="Danger Zone"
         description="Permanently clear selected categories of local data. Professor Mari is always preserved."
         icon={<AlertTriangle size="0.875rem" />}
-        tone="danger"
       >
         <div className="flex flex-col gap-2">
           <div className="grid gap-2">
@@ -6423,7 +6452,7 @@ function AdvancedSettings() {
                   className={cn(
                     "flex cursor-pointer items-start gap-2 rounded-lg px-2.5 py-2 ring-1 transition-colors",
                     checked
-                      ? "bg-[var(--destructive)]/10 ring-[var(--destructive)]/25"
+                      ? "bg-[var(--primary)]/10 ring-[var(--primary)]/30"
                       : "bg-[var(--background)]/40 ring-[var(--border)] hover:bg-[var(--secondary)]/70",
                   )}
                 >
@@ -6432,10 +6461,12 @@ function AdvancedSettings() {
                     checked={checked}
                     disabled={isClearing}
                     onChange={() => toggleScope(scope.id)}
-                    className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--destructive)]"
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--primary)]"
                   />
                   <span className="min-w-0">
-                    <span className="block text-xs font-medium text-[var(--foreground)]">{scope.label}</span>
+                    <span className="block text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)]">
+                      {scope.label}
+                    </span>
                     <span className="block text-[0.625rem] text-[var(--muted-foreground)]">{scope.description}</span>
                   </span>
                 </label>
@@ -6470,9 +6501,9 @@ function AdvancedSettings() {
             </button>
           </div>
           {confirmAction && (
-            <div className="flex flex-col gap-2 rounded-lg bg-[var(--destructive)]/12 p-2.5">
-              <div className="flex items-start gap-2 text-[0.6875rem] font-medium text-[var(--destructive)]">
-                <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0" />
+            <div className="flex flex-col gap-2 rounded-lg bg-[var(--background)]/55 p-2.5 ring-1 ring-[var(--border)]">
+              <div className="flex items-start gap-2 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)]">
+                <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-[var(--marinara-chat-chrome-button-text-active)]" />
                 {confirmAction === "all"
                   ? "Delete all supported data categories except Professor Mari? There is no undo."
                   : `Delete ${selectedScopes.length} selected data categor${selectedScopes.length === 1 ? "y" : "ies"}? There is no undo.`}

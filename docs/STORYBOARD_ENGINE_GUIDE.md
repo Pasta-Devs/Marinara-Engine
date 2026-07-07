@@ -55,7 +55,7 @@ Find these switches in either place:
 
 Use automatic illustrations when you want every turn to get a visual panel sequence. Add automatic animations only when you are comfortable with multiple video-generation calls per completed GM turn (currently this is expensive).
 
-Built-in storyboard prompt presets are **Still Keyframes**, **Comic Page**, **Colored Manga**, and **B&W Manga**. They are separate from Roleplay Illustrator prompt presets and from the global Game Prompt Templates screen.
+Built-in storyboard prompt presets are **Still Keyframes**, **Comic Page**, **Colored Manga**, and **B&W Manga**. They are separate from Roleplay Illustrator prompt presets and from the global game prompt entries in Settings -> Generations -> Prompt Overrides.
 
 Storyboard animations combine two prompt layers. The Storyboards card chooses how Marinara plans and renders the keyframe image. The Scene Videos card's **Game Video Prompt** chooses how Marinara animates that saved image into motion.
 
@@ -107,7 +107,7 @@ For common tuning, use **Chat Settings -> Agents -> Storyboards** first:
 | **Edit Storyboard Presets** | Chat-local custom copies of built-in storyboard presets. |
 | **Scene Videos -> Game Video Prompt** | The video-template layer used to animate generated scene illustrations and storyboard keyframes. |
 
-For global media-template tuning, open **Settings -> Advanced -> Game Prompt Templates and Prompt Overrides**. The most relevant keys are:
+For global media-template tuning, open **Settings -> Generations -> Prompt Overrides**. The most relevant keys are:
 
 | Key | What it changes |
 | --- | --- |

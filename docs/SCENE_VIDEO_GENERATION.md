@@ -98,7 +98,7 @@ Storyboard and video prompt style are selected per chat:
 - **Chat Settings -> Agents -> Scene Videos -> Game Video Prompt** is used for Game scene videos and storyboard clips. The default **Cinematic Scene Video** preset turns the saved first-frame image into motion.
 - **Chat Settings -> Agents -> Scene Videos -> Edit Video Presets** copies the built-in video prompt into chat-local editable templates.
 
-Open **Settings -> Advanced -> Game Prompt Templates and Prompt Overrides** to edit the reusable global templates used by scene media.
+Open **Settings -> Generations -> Video Generation Prompt Templates** and **Prompt Overrides** to edit the reusable global templates used by scene media.
 
 The relevant keys are:
 

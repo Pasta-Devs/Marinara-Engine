@@ -414,7 +414,7 @@ The project uses Tailwind CSS v4 with the `@tailwindcss/vite` plugin (no PostCSS
 
 ### Custom Themes
 
-Users can create custom themes via the Settings > Themes panel. Theme definitions are stored on the Marinara server and sync across connected devices; the active custom theme is also shared. The CSS is injected as a `<style>` tag by `CustomThemeInjector.tsx`.
+Users can create custom themes via Settings > Addons > Theme Library. Theme definitions are stored on the Marinara server and sync across connected devices; the active custom theme is also shared. The CSS is injected as a `<style>` tag by `CustomThemeInjector.tsx`.
 
 Synced theme CSS can request the built-in Accent Pulse engine with `--marinara-theme-accent-pulse: enabled`. Add `--marinara-theme-accent-pulse-source: #a78bfa` or a gradient when the pulse should use a specific theme accent instead of the current Appearance accent/default.
 
