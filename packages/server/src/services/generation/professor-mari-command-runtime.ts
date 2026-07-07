@@ -333,7 +333,9 @@ async function updateLorebook(command: UpdateLorebookCommand, args: Parameters<t
     let createdEntryCount = 0;
 
     for (const entry of command.entries ?? []) {
-      const matchName = (entry.matchName || entry.name).trim().toLowerCase();
+      const matchName = String(entry.matchName || entry.name || "")
+        .trim()
+        .toLowerCase();
       const existingEntry = existingByName.get(matchName);
       if (existingEntry) {
         const entryUpdates: Record<string, unknown> = {};

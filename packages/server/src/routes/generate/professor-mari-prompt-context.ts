@@ -36,8 +36,12 @@ export async function resolveProfessorMariPromptContext(args: {
     const charNames = allChars
       .filter((c) => c.id !== PROFESSOR_MARI_ID)
       .map((c) => {
-        const d = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
-        return d?.name;
+        try {
+          const d = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
+          return d?.name;
+        } catch {
+          return null;
+        }
       })
       .filter(Boolean);
 

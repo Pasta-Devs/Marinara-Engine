@@ -211,7 +211,14 @@ async function resolveConversationPromptCharacters(args: {
     const charRow = await args.chars.getById(cid);
     if (!charRow) continue;
 
-    const data = typeof charRow.data === "string" ? JSON.parse(charRow.data) : charRow.data;
+    let data: unknown = charRow.data;
+    if (typeof charRow.data === "string") {
+      try {
+        data = JSON.parse(charRow.data);
+      } catch {
+        data = null;
+      }
+    }
     const override = args.statusOverrides[cid];
     const fallback = getEffectiveCurrentStatus(undefined, override, args.promptNow, "");
     let status = fallback.status;

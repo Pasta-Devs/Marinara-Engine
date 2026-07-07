@@ -90,7 +90,12 @@ async function handleMemoryCommand(
 
   const targetDisplayName =
     typeof targetData.name === "string" && targetData.name.trim() ? targetData.name : targetChar.id;
-  logger.info('[commands] Memory created: "%s" -> "%s": %s', srcCharName, targetDisplayName, command.summary);
+  logger.info(
+    '[commands] Memory created: "%s" -> "%s" (summaryLength=%d)',
+    srcCharName,
+    targetDisplayName,
+    command.summary.length,
+  );
 }
 
 async function handleInfluenceCommand(
@@ -109,9 +114,9 @@ async function handleInfluenceCommand(
 
   await args.chats.createInfluence(args.chatId, connectedId, influenceContent, args.messageId ?? undefined);
   logger.info(
-    '[commands] OOC influence queued for connected chat %s: "%s..."',
+    "[commands] OOC influence queued for connected chat %s (contentLength=%d)",
     connectedId,
-    influenceContent.slice(0, 80),
+    influenceContent.length,
   );
 }
 
@@ -131,9 +136,9 @@ async function handleNoteCommand(
 
   await args.chats.createNote(args.chatId, connectedId, noteContent, args.messageId ?? undefined);
   logger.info(
-    '[commands] Conversation note saved for connected chat %s: "%s..."',
+    "[commands] Conversation note saved for connected chat %s (contentLength=%d)",
     connectedId,
-    noteContent.slice(0, 80),
+    noteContent.length,
   );
 }
 

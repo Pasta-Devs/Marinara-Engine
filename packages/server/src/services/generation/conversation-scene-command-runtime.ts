@@ -75,6 +75,8 @@ export async function handleConversationSceneCommand(args: {
         createBody.chatId,
         args.chatId,
       );
+    } else {
+      logger.warn("[commands] Scene create returned no chatId for chat %s: %j", args.chatId, createBody);
     }
   } catch (err) {
     logger.error(err, "[commands] Scene creation failed");

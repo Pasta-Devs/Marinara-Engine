@@ -72,6 +72,7 @@ function updateCurrentScheduleBlock(
     if (!startStr || !endStr) continue;
     const [sh, sm] = startStr.split(":").map(Number);
     const [eh, em] = endStr.split(":").map(Number);
+    if (![sh, sm, eh, em].every((part) => Number.isFinite(part))) continue;
     const startMin = (sh ?? 0) * 60 + (sm ?? 0);
     const endMin = (eh ?? 0) * 60 + (em ?? 0);
     if (startMin > currentMinutes || currentMinutes >= endMin) continue;

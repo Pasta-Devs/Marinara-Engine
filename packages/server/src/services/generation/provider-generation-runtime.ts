@@ -113,15 +113,15 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     );
   };
 
+  const isLocalGemma = (args.connection.model ?? "").toLowerCase().includes("gemma");
+  applyParameterOverrides(connectionParams);
+  applyParameterOverrides(chatParams);
+
   if (args.isSceneChat) {
     runtime.maxTokens = 8192;
     runtime.reasoningEffort = "maximum";
     runtime.verbosity = "high";
   }
-
-  const isLocalGemma = (args.connection.model ?? "").toLowerCase().includes("gemma");
-  applyParameterOverrides(connectionParams);
-  applyParameterOverrides(chatParams);
 
   if (args.chatMode === "game" && !isLocalGemma) {
     runtime.temperature = 1;
