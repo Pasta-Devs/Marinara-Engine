@@ -46,6 +46,7 @@ packages/server/data/
 # Browser smoke-test artifacts
 playwright-report/
 test-results/
+pr-evidence/
 
 # Temporary tests
 *.test.ts

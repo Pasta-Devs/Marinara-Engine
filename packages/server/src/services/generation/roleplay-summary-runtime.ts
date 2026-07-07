@@ -25,7 +25,9 @@ export function appendContinuationMessageContent(existingContent: unknown, conti
   const existing = typeof existingContent === "string" ? existingContent : "";
   if (!existing) return continuation;
   if (!continuation) return existing;
-  return `${existing}${continuation}`;
+  const normalizedExisting = existing.replace(/\s+$/, "");
+  const normalizedContinuation = continuation.replace(/^\s+/, "");
+  return `${normalizedExisting}\n\n${normalizedContinuation}`;
 }
 
 export function isAutomaticRoleplaySummaryEnabled(chatMetadata: Record<string, unknown>): boolean {

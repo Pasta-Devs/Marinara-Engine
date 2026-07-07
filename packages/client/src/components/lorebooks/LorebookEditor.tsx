@@ -307,10 +307,11 @@ const CATEGORY_OPTIONS: Array<{ value: LorebookCategory; label: string; icon: ty
   { value: "uncategorized", label: "Uncategorized", icon: BookOpen },
 ];
 
-type EntrySortKey = "order" | "name-asc" | "name-desc" | "tokens" | "keys" | "newest" | "oldest";
+type EntrySortKey = "order" | "entries" | "name-asc" | "name-desc" | "tokens" | "keys" | "newest" | "oldest";
 
 const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
   { value: "order", label: "Order" },
+  { value: "entries", label: "Entries" },
   { value: "name-asc", label: "Name A→Z" },
   { value: "name-desc", label: "Name Z→A" },
   { value: "tokens", label: "Tokens ↓" },
@@ -318,6 +319,13 @@ const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
   { value: "newest", label: "Newest" },
   { value: "oldest", label: "Oldest" },
 ];
+
+function entryStatusSortRank(entry: LorebookEntry): number {
+  if (!entry.enabled) return 3;
+  if (entry.constant) return 0;
+  if (entry.selective) return 2;
+  return 1;
+}
 
 export function LorebookEditor() {
   const lorebookId = useUIStore((s) => s.lorebookDetailId);
@@ -591,6 +599,11 @@ export function LorebookEditor() {
         return [...result].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
       case "oldest":
         return [...result].sort((a, b) => (a.updatedAt ?? "").localeCompare(b.updatedAt ?? ""));
+      case "entries":
+        return [...result].sort(
+          (a, b) =>
+            entryStatusSortRank(a) - entryStatusSortRank(b) || a.order - b.order || a.name.localeCompare(b.name),
+        );
       case "order":
       default:
         return [...result].sort((a, b) => a.order - b.order);
