@@ -194,6 +194,7 @@
   --dice-border: color-mix(in oklch, var(--dice-accent) 35%, transparent);
   --dice-accent-soft: color-mix(in oklch, var(--dice-accent) 20%, transparent);
   --dice-gold: oklch(0.82 0.15 86);
+
   position: relative;
   isolation: isolate;
   display: flex;
@@ -302,6 +303,7 @@
   --dice-rest-x: 0rem;
   --dice-rest-y: 0rem;
   --dice-delay: 0ms;
+
   position: relative;
   display: inline-grid;
   width: 4.4rem;
@@ -587,6 +589,7 @@
 
 .skill-check-roll {
   --dice-accent: var(--primary);
+
   position: relative;
   isolation: isolate;
   display: flex;

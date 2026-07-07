@@ -864,11 +864,11 @@ export function createChatsStorage(db: DB) {
         content: input.content,
         activeSwipeIndex: 0,
         extra: JSON.stringify({
+          ...parseExtraRecord(input.extra),
           displayText: null,
           isGenerated: input.role !== "user",
           tokenCount: null,
           generationInfo: null,
-          ...parseExtraRecord(input.extra),
         }),
         createdAt: timestamp,
       });

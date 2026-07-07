@@ -12,7 +12,8 @@ import {
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { normalizeCardAssetImageSyntax, resolveCardAssetUrl } from "../../lib/card-asset-links";
 import { PendingTypingDots } from "./PendingTypingDots";
-import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
+import { isDiceRollResult } from "../dice/AnimatedDiceRoll";
+import { DiceMessageContent } from "./ConversationMessageShared";
 import {
   User,
   Bot,
@@ -1221,7 +1222,6 @@ export const ChatMessage = memo(function ChatMessage({
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const diceRollResult = isDiceRollResult(extra.diceRollResult) ? extra.diceRollResult : null;
-  const animateDiceRoll = diceRollResult ? shouldAnimateDiceRollMessage(message.createdAt) : false;
   const canCreateNextSwipe = Boolean(onRegenerate && !isUser);
   const proseGuardianOriginalText =
     !isUser &&
@@ -1787,7 +1787,7 @@ export const ChatMessage = memo(function ChatMessage({
           <PendingTypingDots className="mari-message-typing py-0.5" dotClassName="bg-blue-400/60" />
         ) : (
           <>
-            {diceRollResult ? <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={animateDiceRoll} /> : renderedContent}
+            {diceRollResult ? <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} /> : renderedContent}
             {isStreaming && (
               <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-blue-400" />
             )}
@@ -1910,7 +1910,7 @@ export const ChatMessage = memo(function ChatMessage({
                   className={cn("mari-message-content break-words italic", !isHtmlContent && "whitespace-pre-wrap")}
                   style={messageTextStyle}
                 >
-                  {diceRollResult ? <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={animateDiceRoll} /> : renderedContent}
+                  {diceRollResult ? <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} /> : renderedContent}
                 </div>
               )}
             </div>
@@ -2631,7 +2631,7 @@ export const ChatMessage = memo(function ChatMessage({
                     />
                   ) : (
                     <>
-                      {diceRollResult ? <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={animateDiceRoll} /> : renderedContent}
+                      {diceRollResult ? <DiceMessageContent diceRollResult={diceRollResult} createdAt={message.createdAt} /> : renderedContent}
                       {isStreaming && (
                         <span className="ml-0.5 inline-block h-4 w-[0.125rem] animate-pulse rounded-full bg-white/70" />
                       )}

@@ -76,7 +76,7 @@ export function AnimatedDiceRoll({
   const reducedMotion = useReducedMotion();
   const shouldAnimate = animate && !reducedMotion;
   const rollKey = `${notation}:${rolls.join(",")}:${modifier}:${total}`;
-  const isHero = (hero ?? rolls.length === 1) && rolls.length === 1;
+  const isHero = rolls.length === 1 && hero !== false;
   const isLargePool = rolls.length >= 10;
   const glyphSize: DiceGlyphSize = isHero ? "hero" : isLargePool || mode === "compact" ? "compact" : "standard";
   const [phase, setPhase] = useState<DiceGlyphPhase>(shouldAnimate ? "cast" : "settled");

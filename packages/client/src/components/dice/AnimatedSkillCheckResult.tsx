@@ -11,7 +11,9 @@ interface AnimatedSkillCheckResultProps {
   className?: string;
 }
 
-const TONE_ACCENT: Record<string, string> = {
+type Tone = "critical-success" | "success" | "failure" | "critical-failure";
+
+const TONE_ACCENT: Record<Tone, string> = {
   "critical-success": "oklch(0.82 0.15 86)",
   "success": "oklch(0.72 0.16 158)",
   "failure": "oklch(0.68 0.18 20)",
