@@ -22,23 +22,7 @@ export const createMessageSchema = z.object({
   role: messageRoleSchema,
   characterId: z.string().nullable().default(null),
   content: z.string(),
-  extra: z
-    .object({
-      diceRollResult: z
-        .object({
-          notation: z.string(),
-          rolls: z.array(z.number()),
-          modifier: z.number(),
-          total: z.number(),
-        })
-        .nullable()
-        .optional(),
-      isConversationStart: z.boolean().optional(),
-      hiddenFromUser: z.boolean().optional(),
-      hiddenFromAI: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
+  extra: z.unknown().optional(),
 });
 
 export const generateRequestSchema = z.object({
