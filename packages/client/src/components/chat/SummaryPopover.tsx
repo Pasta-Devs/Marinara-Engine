@@ -1287,13 +1287,14 @@ export function SummaryPopover({
                     onCancelEdit={handleCancelEditEntry}
                     onSaveEdit={handleSaveEntry}
                     onDelete={() => void handleDeleteEntry(entry)}
+                    dockedToFooter={entry.id === visibleEntries[visibleEntries.length - 1]?.id}
                   />
                 ))
               ) : allVisibleEntriesHidden ? (
                 <button
                   type="button"
                   onClick={() => setShowInactiveSummaries(true)}
-                  className="w-full rounded-lg border border-dashed border-[var(--border)] bg-[var(--secondary)]/20 p-5 text-center text-xs italic text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35"
+                  className="w-full rounded-t-lg rounded-b-none border border-b-0 border-dashed border-[var(--border)] bg-[var(--secondary)]/20 p-5 text-center text-xs italic text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35"
                 >
                   Inactive summaries are hidden. Show inactive summaries to view them.
                 </button>
@@ -1301,7 +1302,7 @@ export function SummaryPopover({
                 <button
                   type="button"
                   onClick={handleCreateManualEntry}
-                  className="w-full rounded-lg border border-dashed border-[var(--border)] bg-[var(--secondary)]/20 p-5 text-center text-xs italic text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35"
+                  className="w-full rounded-t-lg rounded-b-none border border-b-0 border-dashed border-[var(--border)] bg-[var(--secondary)]/20 p-5 text-center text-xs italic text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)]/35"
                 >
                   No summaries yet. Generate one or write your own.
                 </button>
@@ -1484,6 +1485,7 @@ interface SummaryEntryRowProps {
   onCancelEdit: () => void;
   onSaveEdit: () => void;
   onDelete: () => void;
+  dockedToFooter?: boolean;
 }
 
 function SummaryEntryRow({
@@ -1500,12 +1502,14 @@ function SummaryEntryRow({
   onCancelEdit,
   onSaveEdit,
   onDelete,
+  dockedToFooter = false,
 }: SummaryEntryRowProps) {
   const metaLine = getSummaryEntryMetaLine(entry);
   return (
     <div
       className={cn(
         "group overflow-hidden rounded-lg border shadow-sm shadow-black/10 ring-1 ring-[var(--border)]/25 transition-colors",
+        dockedToFooter && "rounded-b-none border-b-0",
         expanded
           ? "border-[var(--primary)]/45 bg-[var(--accent)]/22 ring-[var(--primary)]/20"
           : "border-[var(--border)]/80 bg-[var(--secondary)]/28 hover:border-[var(--primary)]/30 hover:bg-[var(--accent)]/30",
