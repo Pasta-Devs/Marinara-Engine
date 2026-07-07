@@ -38,6 +38,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Fixed first-turn lorebook activation so opening chat messages remain keyword-scannable during the first user generation even when the recent-message scan window would otherwise drop earlier group greetings (#3332).
 - Fixed Text to Speech character voice assignment so users can add character voices using provider default voices, including ElevenLabs defaults, even before custom/account voices are loaded.
 - Added a per-chat Conversation Calls setting to disable generated bracketed voice cues for TTS providers that do not accept `[whispering]`, `[laughing]`, `[sighs]`, and similar tags.
+- Fixed Grok CLI (Subscription) connections so they no longer seed stale `grok-build-*` model aliases, can use the local CLI default model with a blank model field, and fetch selectable model IDs from `grok models`.
 
 ## [2.1.0]
 

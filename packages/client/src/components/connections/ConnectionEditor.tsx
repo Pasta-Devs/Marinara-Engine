@@ -123,6 +123,7 @@ const DEFAULT_CACHING_AT_DEPTH = 5;
 const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
+const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
   google_veo: "veo-3.1-generate-preview",
@@ -195,11 +196,7 @@ function normalizeEndpointUrlInput(raw: string, label: string): { value: string;
 }
 
 function canProviderTreatAsLocalEndpoint(provider: APIProvider): boolean {
-  return (
-    provider !== "image_generation" &&
-    provider !== "video_generation" &&
-    !isLocalAuthConnectionProvider(provider)
-  );
+  return provider !== "image_generation" && provider !== "video_generation" && !isLocalAuthConnectionProvider(provider);
 }
 
 function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
@@ -209,6 +206,10 @@ function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
     provider !== "anthropic" &&
     !isLocalAuthConnectionProvider(provider)
   );
+}
+
+function normalizeGrokCliEditorModel(provider: APIProvider, model: string): string {
+  return provider === "grok_subscription" && STALE_GROK_CLI_MODEL_IDS.has(model.trim()) ? "" : model;
 }
 
 function normalizeCachingAtDepth(value: unknown): number {
@@ -345,7 +346,7 @@ export function ConnectionEditor() {
     setLocalBaseUrl((c.baseUrl as string) ?? "");
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
-    setLocalModel((c.model as string) ?? "");
+    setLocalModel(normalizeGrokCliEditorModel((c.provider as APIProvider) ?? "openai", (c.model as string) ?? ""));
     setLocalMaxContext(Number(c.maxContext) || 128000);
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalEnableCaching(c.enableCaching === "true" || c.enableCaching === true);
@@ -607,12 +608,13 @@ export function ConnectionEditor() {
     const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
     const existingEmbeddingModel = (conn as { embeddingModel?: string | null } | undefined)?.embeddingModel ?? "";
     const existingEmbeddingBaseUrl = (conn as { embeddingBaseUrl?: string | null } | undefined)?.embeddingBaseUrl ?? "";
+    const normalizedModel = normalizeGrokCliEditorModel(localProvider, localModel);
     const payload: Record<string, unknown> = {
       id: connectionDetailId,
       name: localName,
       provider: localProvider,
       baseUrl: isLocalAuthProvider ? "" : baseUrlValidation.value,
-      model: localModel,
+      model: normalizedModel,
       maxContext: localMaxContext,
       maxParallelJobs: localMaxParallelJobs,
       enableCaching: localEnableCaching,
@@ -679,6 +681,9 @@ export function ConnectionEditor() {
         setLocalBaseUrl("");
       } else if (baseUrlValidation.value !== localBaseUrl.trim()) {
         setLocalBaseUrl(baseUrlValidation.value);
+      }
+      if (normalizedModel !== localModel) {
+        setLocalModel(normalizedModel);
       }
       if (supportsDirectEmbeddings && embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim()) {
         setLocalEmbeddingBaseUrl(embeddingBaseUrlValidation.value);
@@ -792,7 +797,7 @@ export function ConnectionEditor() {
       name: localName,
       provider: localProvider,
       baseUrl: isLocalAuthProvider ? "" : localBaseUrl,
-      model: localModel,
+      model: normalizeGrokCliEditorModel(localProvider, localModel),
       maxContext: localMaxContext,
       maxTokensOverride: localMaxTokensOverride ?? null,
       maxParallelJobs: localMaxParallelJobs,
@@ -1071,6 +1076,10 @@ export function ConnectionEditor() {
   const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
+  const modelFetchSourceLabel = isGrokSubscriptionProvider ? "Grok CLI" : "API";
+  const modelFetchButtonLabel = isGrokSubscriptionProvider ? "Fetch Models from Grok CLI" : "Fetch Models from API";
+  const emptyModelLabel = isGrokSubscriptionProvider ? "Use Grok CLI default model" : "Select a model…";
+  const canSendTestMessage = isGrokSubscriptionProvider || Boolean(localModel.trim());
 
   if (!connectionDetailId) return null;
 
@@ -1231,14 +1240,12 @@ export function ConnectionEditor() {
                     setLocalProvider(key);
                     // Auto-fill base URL
                     setLocalBaseUrl(info.defaultBaseUrl);
-                    // Seed known Grok selectors; leave other providers blank
-                    // so users deliberately pick their preferred model.
+                    // Leave Grok CLI blank so the local CLI can use its
+                    // account/default model until the user fetches
+                    // `grok models`. Other providers keep their usual seeded
+                    // default model when we know one.
                     setLocalModel(
-                      key === "xai"
-                        ? (defaultModel?.id ?? "grok-4.3")
-                        : key === "grok_subscription"
-                          ? (defaultModel?.id ?? "grok-build-latest")
-                          : "",
+                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.3" : "")),
                     );
                     setLocalMaxContext(Number(defaultModel?.context) || 128000);
                     setLocalMaxTokensOverride(null);
@@ -1471,9 +1478,9 @@ export function ConnectionEditor() {
                 {localProvider === "custom" && (
                   <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                     Local model examples: Ollama →{" "}
-                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio
-                    → <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp
-                    → <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
                   </p>
                 )}
                 <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
@@ -1645,7 +1652,7 @@ export function ConnectionEditor() {
                       ? selectedModelInfo
                         ? `${selectedModelInfo.name} (${selectedModelInfo.id})`
                         : localModel
-                      : "Select a model…"}
+                      : emptyModelLabel}
                   </span>
                 )}
                 <ChevronDown
@@ -1674,12 +1681,13 @@ export function ConnectionEditor() {
                       ) : (
                         <Globe size="0.75rem" />
                       )}
-                      {fetchModels.isPending ? "Fetching…" : "Fetch Models from API"}
+                      {fetchModels.isPending ? "Fetching…" : modelFetchButtonLabel}
                     </button>
                     {fetchError && <p className="mt-1.5 text-[0.625rem] text-[var(--destructive)]">{fetchError}</p>}
                     {remoteModels.length > 0 && !fetchError && (
                       <p className="mt-1 text-[0.625rem] text-emerald-400">
-                        {remoteModels.length} model{remoteModels.length !== 1 ? "s" : ""} available from API
+                        {remoteModels.length} model{remoteModels.length !== 1 ? "s" : ""} available from{" "}
+                        {modelFetchSourceLabel}
                       </p>
                     )}
                   </div>
@@ -1721,7 +1729,7 @@ export function ConnectionEditor() {
                                   <span className="text-[0.625rem] text-[var(--muted-foreground)]">{m.id}</span>
                                 </div>
                                 <span className="shrink-0 rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                  API
+                                  {modelFetchSourceLabel}
                                 </span>
                               </button>
                             ))}
@@ -1762,7 +1770,7 @@ export function ConnectionEditor() {
                             <span className="text-sm font-medium">{m.name}</span>
                             {m.isRemote && (
                               <span className="rounded-md bg-sky-400/10 px-1.5 py-0.5 text-[0.5625rem] font-medium text-sky-400">
-                                API
+                                {modelFetchSourceLabel}
                               </span>
                             )}
                             {localModel === m.id && <Check size="0.75rem" className="text-sky-400" />}
@@ -1795,7 +1803,11 @@ export function ConnectionEditor() {
                     handleManualModelChange(e.target.value);
                   }}
                   className="flex-1 rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-[var(--ring)]"
-                  placeholder="Or type model ID directly…"
+                  placeholder={
+                    isGrokSubscriptionProvider
+                      ? "Optional: type a Grok CLI model ID, or leave blank for CLI default"
+                      : "Or type model ID directly…"
+                  }
                 />
               </div>
             )}
@@ -2457,7 +2469,7 @@ export function ConnectionEditor() {
               {!isMediaGenerationProvider && (
                 <button
                   onClick={handleTestMessage}
-                  disabled={testMessage.isPending || !localModel}
+                  disabled={testMessage.isPending || !canSendTestMessage}
                   className="flex items-center gap-1.5 rounded-xl bg-emerald-400/10 px-4 py-2.5 text-xs font-medium text-emerald-400 ring-1 ring-emerald-400/20 transition-all hover:bg-emerald-400/20 active:scale-[0.98] disabled:opacity-50"
                 >
                   {testMessage.isPending ? (

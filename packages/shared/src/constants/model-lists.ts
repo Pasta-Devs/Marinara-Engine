@@ -387,20 +387,10 @@ export const XAI_MODELS: KnownModel[] = [
 ];
 
 // ── Grok CLI (Subscription via local Grok Build auth) ──
-// The CLI can list account-specific availability with `grok models`, but
-// Marinara keeps this curated fallback so the selector is usable before a
-// model fetch. Grok Build is first because the local CLI is explicitly the
-// Grok Build surface.
-export const GROK_SUBSCRIPTION_MODELS: KnownModel[] = [
-  { id: "grok-build-latest", name: "Grok Build Latest", context: 256000, maxOutput: 0 },
-  { id: "grok-build-0.1", name: "Grok Build 0.1", context: 256000, maxOutput: 0 },
-  { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },
-  { id: "grok-4.3-latest", name: "Grok 4.3 Latest", context: 1000000, maxOutput: 0 },
-  { id: "grok-latest", name: "Grok Latest", context: 1000000, maxOutput: 0 },
-  { id: "grok-fast-latest", name: "Grok Fast Latest", context: 2000000, maxOutput: 0 },
-  { id: "grok-4-fast-reasoning", name: "Grok 4 Fast Reasoning", context: 2000000, maxOutput: 0 },
-  { id: "grok-4-fast-non-reasoning", name: "Grok 4 Fast Non-Reasoning", context: 2000000, maxOutput: 0 },
-];
+// Account-tier availability is discovered from the installed CLI with
+// `grok models`. Keep this empty so Marinara does not hand the CLI stale API
+// aliases such as `grok-build-latest` that some Grok CLI installs reject.
+export const GROK_SUBSCRIPTION_MODELS: KnownModel[] = [];
 
 // ── Additional providers with static lists in SillyTavern ──
 

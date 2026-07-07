@@ -22,6 +22,7 @@ import { createConnectionsStorage } from "../services/storage/connections.storag
 import { resetMemoryRecallVectorizerCache } from "../services/memory-recall-embedding.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { fetchOpenAIChatGPTModels, getOpenAIChatGPTAuth } from "../services/llm/openai-chatgpt-auth.js";
+import { fetchGrokCliModels } from "../services/llm/providers/grok-subscription.provider.js";
 import { buildGoogleVertexModelUrl, googleAuthHeadersForVertex } from "../services/llm/providers/google.provider.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
@@ -440,14 +441,6 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       if (conn.provider === "grok_subscription") {
-        if (!conn.model) {
-          return {
-            success: false,
-            message: "No model configured. Set a Grok CLI model first.",
-            latencyMs: Date.now() - start,
-            modelName: null,
-          };
-        }
         const provider = createLLMProvider(
           conn.provider,
           // Grok CLI subscription auth is local-only: the CLI reads the
@@ -461,7 +454,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         );
         let responseText = "";
         for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
-          model: conn.model,
+          model: conn.model ?? "",
           maxTokens: 32,
           stream: false,
         })) {
@@ -471,7 +464,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           success: true,
           message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
           latencyMs: Date.now() - start,
-          modelName: conn.model,
+          modelName: conn.model || "Grok CLI default",
         };
       }
 
@@ -615,7 +608,8 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       if (conn.provider === "grok_subscription") {
-        return { models: MODEL_LISTS.grok_subscription.map((m) => ({ id: m.id, name: m.name })) };
+        const models = await fetchGrokCliModels();
+        return { models };
       }
 
       if (conn.provider === "video_generation") {
@@ -979,11 +973,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
         ? DEFAULT_XAI_VIDEO_BASE_URL
         : isGoogleVeoVideo
           ? DEFAULT_GOOGLE_VEO_VIDEO_BASE_URL
-        : isOpenRouterVideo
-          ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
-        : isSeedanceVideo
-          ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
-          : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
+          : isOpenRouterVideo
+            ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
+            : isSeedanceVideo
+              ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
+              : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
     ).replace(/\/+$/, "");
     const videoModel =
       conn.model ||
@@ -991,20 +985,20 @@ export async function connectionsRoutes(app: FastifyInstance) {
         ? DEFAULT_XAI_VIDEO_MODEL
         : isGoogleVeoVideo
           ? DEFAULT_GOOGLE_VEO_VIDEO_MODEL
-        : isOpenRouterVideo
-          ? DEFAULT_OPENROUTER_VIDEO_MODEL
-        : isSeedanceVideo
-          ? DEFAULT_SEEDANCE_VIDEO_MODEL
-          : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
+          : isOpenRouterVideo
+            ? DEFAULT_OPENROUTER_VIDEO_MODEL
+            : isSeedanceVideo
+              ? DEFAULT_SEEDANCE_VIDEO_MODEL
+              : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
     const activeDefaults = isXaiVideo
       ? defaults.xai
       : isGoogleVeoVideo
         ? defaults.googleVeo
         : isOpenRouterVideo
           ? defaults.openrouter
-        : isSeedanceVideo
-          ? defaults.seedance
-          : defaults.geminiOmni;
+          : isSeedanceVideo
+            ? defaults.seedance
+            : defaults.geminiOmni;
 
     const prompt =
       "Create a concise cinematic 16:9 game scene video: a plate of spaghetti with marinara sauce on a table, gentle steam rising, warm kitchen light, slow push-in camera, no text or logos.";
@@ -1021,11 +1015,11 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ? defaults.xai.resolution
           : isGoogleVeoVideo
             ? defaults.googleVeo.resolution
-          : isOpenRouterVideo
-            ? defaults.openrouter.resolution
-          : isSeedanceVideo
-            ? defaults.seedance.resolution
-            : undefined,
+            : isOpenRouterVideo
+              ? defaults.openrouter.resolution
+              : isSeedanceVideo
+                ? defaults.seedance.resolution
+                : undefined,
       });
       return {
         success: true,
@@ -1146,7 +1140,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "This provider does not support chat test messages." });
     }
 
-    if (!conn.model) {
+    if (!conn.model && conn.provider !== "grok_subscription") {
       return reply.status(400).send({ error: "No model configured. Set a model first." });
     }
 
@@ -1163,9 +1157,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const start = Date.now();
     const requestDebug = readDebugMode(req.body);
     const debugLog = (message: string, ...args: any[]) => logDebugOverride(requestDebug, message, ...args);
-    const targetUrl = describeTestMessageTarget(conn.provider, baseUrl, conn.model);
+    const model = conn.model ?? "";
+    const targetUrl = describeTestMessageTarget(conn.provider, baseUrl, model);
     try {
-      debugLog("[connections/test-message] provider=%s model=%s url=%s", conn.provider, conn.model, targetUrl);
+      debugLog("[connections/test-message] provider=%s model=%s url=%s", conn.provider, model, targetUrl);
       const provider = createLLMProvider(
         conn.provider,
         localAuthProviderBaseUrl(conn.provider) ?? baseUrl,
@@ -1178,7 +1173,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
       let fullResponse = "";
       for await (const chunk of provider.chat([{ role: "user", content: "hi" }], {
-        model: conn.model,
+        model,
         temperature: 0.7,
         maxTokens: 200,
         stream: false,
@@ -1197,13 +1192,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
         success: true,
         response: fullResponse.slice(0, 500),
         latencyMs,
-        model: conn.model,
+        model: model || "Grok CLI default",
       };
     } catch (err) {
       debugLog(
         "[connections/test-message] provider=%s model=%s url=%s failed: %s",
         conn.provider,
-        conn.model,
+        model,
         targetUrl,
         err instanceof Error ? err.message : "Unknown error",
       );
@@ -1212,7 +1207,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         response: "",
         latencyMs: Date.now() - start,
         error: err instanceof Error ? err.message : "Unknown error",
-        model: conn.model,
+        model: model || "Grok CLI default",
       };
     }
   });
