@@ -805,7 +805,7 @@ export function CharacterEditor() {
       <ExportFormatDialog
         open={exportDialogOpen}
         title="Export Character"
-        description="Native keeps Marinara metadata. Compatible exports direct Chara Card V2 JSON for other platforms."
+        description="Native keeps Marinara metadata, sprites, gallery images, and attached lorebooks. Compatible exports direct Chara Card V2 JSON for other platforms."
         compatibleDescription="Exports direct Chara Card V2 JSON without the Marinara wrapper."
         showPngOption
         onClose={() => setExportDialogOpen(false)}

@@ -19,6 +19,7 @@ import { createPersonaGalleryStorage } from "../services/storage/persona-gallery
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createGameSceneVideosStorage } from "../services/storage/game-scene-videos.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
+import { createLorebooksStorage } from "../services/storage/lorebooks.storage.js";
 import { generateImage } from "../services/image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
@@ -372,6 +373,12 @@ async function resolveAvatarGenerationConnection(app: FastifyInstance, body: Ava
 }
 
 type ExportFormat = "native" | "compatible";
+type LorebooksStore = ReturnType<typeof createLorebooksStorage>;
+type NativeLorebookBundle = {
+  lorebook: Record<string, unknown>;
+  entries: Array<Record<string, unknown>>;
+  folders: Array<Record<string, unknown>>;
+};
 
 // Read an image file and return it as a base64 data URL, or null if the file
 // is missing, outside the expected dir, or not a recognized image type. Used
@@ -456,15 +463,50 @@ async function readGalleryForCharacter(
   return result;
 }
 
+async function readAttachedLorebooksForCharacter(
+  characterId: string,
+  lorebooksStorage: LorebooksStore,
+): Promise<NativeLorebookBundle[]> {
+  const books = (await lorebooksStorage.listByCharacter(characterId)) as Array<Record<string, unknown>>;
+  return readLorebookBundles(books, lorebooksStorage);
+}
+
+async function readAttachedLorebooksForPersona(
+  personaId: string,
+  lorebooksStorage: LorebooksStore,
+): Promise<NativeLorebookBundle[]> {
+  const books = (await lorebooksStorage.listByPersona(personaId)) as Array<Record<string, unknown>>;
+  return readLorebookBundles(books, lorebooksStorage);
+}
+
+async function readLorebookBundles(
+  books: Array<Record<string, unknown>>,
+  lorebooksStorage: LorebooksStore,
+): Promise<NativeLorebookBundle[]> {
+  const bundles: NativeLorebookBundle[] = [];
+  for (const lorebook of books) {
+    const id = typeof lorebook.id === "string" ? lorebook.id : "";
+    if (!id) continue;
+    const [entries, folders] = await Promise.all([
+      lorebooksStorage.listEntries(id) as Promise<Array<Record<string, unknown>>>,
+      lorebooksStorage.listFolders(id) as Promise<Array<Record<string, unknown>>>,
+    ]);
+    bundles.push({ lorebook, entries, folders });
+  }
+  return bundles;
+}
+
 async function buildNativeCharacterEnvelope(
   char: { id: string; createdAt: string; updatedAt: string; comment?: string | null; avatarPath?: string | null },
   data: any,
   galleryStorage: { listByCharacterId: (id: string) => Promise<any[]> },
+  lorebooksStorage: LorebooksStore,
 ) {
-  const [avatar, sprites, gallery] = await Promise.all([
+  const [avatar, sprites, gallery, lorebooks] = await Promise.all([
     readAvatarDataUrl(char.avatarPath),
     readSpritesForId(char.id),
     readGalleryForCharacter(char.id, galleryStorage),
+    readAttachedLorebooksForCharacter(char.id, lorebooksStorage),
   ]);
   return {
     type: "marinara_character",
@@ -477,6 +519,7 @@ async function buildNativeCharacterEnvelope(
       ...(avatar ? { avatar } : {}),
       ...(sprites.length > 0 ? { sprites } : {}),
       ...(gallery.length > 0 ? { gallery } : {}),
+      ...(lorebooks.length > 0 ? { lorebooks } : {}),
       metadata: {
         createdAt: char.createdAt,
         updatedAt: char.updatedAt,
@@ -494,12 +537,13 @@ function buildCompatibleCharacterExport(data: any) {
   };
 }
 
-async function buildNativePersonaEnvelope(persona: Record<string, unknown>) {
+async function buildNativePersonaEnvelope(persona: Record<string, unknown>, lorebooksStorage: LorebooksStore) {
   const { id: _id, createdAt, updatedAt, avatarPath, isActive: _isActive, ...personaData } = persona;
   const personaId = typeof _id === "string" ? _id : "";
-  const [avatar, sprites] = await Promise.all([
+  const [avatar, sprites, lorebooks] = await Promise.all([
     readAvatarDataUrl(typeof avatarPath === "string" ? avatarPath : null),
     personaId ? readSpritesForId(personaId) : Promise.resolve([] as Array<{ filename: string; data: string }>),
+    personaId ? readAttachedLorebooksForPersona(personaId, lorebooksStorage) : Promise.resolve([]),
   ]);
   return {
     type: "marinara_persona",
@@ -509,6 +553,7 @@ async function buildNativePersonaEnvelope(persona: Record<string, unknown>) {
       ...personaData,
       ...(avatar ? { avatar } : {}),
       ...(sprites.length > 0 ? { sprites } : {}),
+      ...(lorebooks.length > 0 ? { lorebooks } : {}),
       metadata: {
         createdAt,
         updatedAt,
@@ -541,6 +586,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   const storage = createCharactersStorage(app.db);
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
+  const lorebooksStorage = createLorebooksStorage(app.db);
 
   // ── Characters ──
 
@@ -1234,7 +1280,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const compatible = req.query.format === "compatible";
     const payload = compatible
       ? buildCompatibleCharacterExport(charData)
-      : await buildNativeCharacterEnvelope(char, charData, characterGallery);
+      : await buildNativeCharacterEnvelope(char, charData, characterGallery, lorebooksStorage);
     return reply
       .header(
         "Content-Disposition",
@@ -1258,7 +1304,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       const payload =
         format === "compatible"
           ? buildCompatibleCharacterExport(charData)
-          : await buildNativeCharacterEnvelope(char, charData, characterGallery);
+          : await buildNativeCharacterEnvelope(char, charData, characterGallery, lorebooksStorage);
       zip.addFile(
         `${toSafeExportName(String(charData.name ?? "character"), `character-${exportedCount + 1}`)}.${format === "compatible" ? "json" : "marinara.json"}`,
         Buffer.from(JSON.stringify(payload, null, 2), "utf-8"),
@@ -2073,7 +2119,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       const compatible = req.query.format === "compatible";
       const payload = compatible
         ? buildCompatiblePersonaExport(persona as Record<string, unknown>)
-        : await buildNativePersonaEnvelope(persona as Record<string, unknown>);
+        : await buildNativePersonaEnvelope(persona as Record<string, unknown>, lorebooksStorage);
       return reply
         .header(
           "Content-Disposition",
@@ -2097,7 +2143,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       const payload =
         format === "compatible"
           ? buildCompatiblePersonaExport(persona as Record<string, unknown>)
-          : await buildNativePersonaEnvelope(persona as Record<string, unknown>);
+          : await buildNativePersonaEnvelope(persona as Record<string, unknown>, lorebooksStorage);
       zip.addFile(
         `${toSafeExportName(String(persona.name ?? "persona"), `persona-${exportedCount + 1}`)}.${format === "compatible" ? "json" : "marinara.json"}`,
         Buffer.from(JSON.stringify(payload, null, 2), "utf-8"),
