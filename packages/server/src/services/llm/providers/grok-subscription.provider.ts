@@ -19,11 +19,17 @@ const GROK_ERROR_PREVIEW_CHARS = 2000;
 const GROK_MODELS_TIMEOUT_MS = 30 * 1000;
 const GROK_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 const GROK_TOKENS_PER_CHAR = 4;
+const GROK_CLI_DEFAULT_CONTEXT_TOKENS = 32_000;
+const GROK_CLI_MAX_TURNS = 8;
+const GROK_CLI_SAFE_HEADLESS_MODEL_ID = "grok-composer-2.5-fast";
+const GROK_CLI_SYSTEM_PROMPT =
+  "You are Marinara Engine's one-shot chat completion backend. Return exactly one assistant response for the transcript. Do not inspect files, run tools, ask clarifying questions, plan, or continue beyond the final answer.";
 const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 
 export interface GrokCliModel {
   id: string;
   name: string;
+  context?: number;
 }
 
 interface GrokCliCommandResult {
@@ -57,6 +63,12 @@ function normalizeGrokCliModelForFlag(model: string): string {
   return STALE_GROK_CLI_MODEL_IDS.has(trimmed) ? "" : trimmed;
 }
 
+function normalizeGrokCliContextWindow(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return GROK_CLI_DEFAULT_CONTEXT_TOKENS;
+  const context = Math.floor(value);
+  return Math.min(context, GROK_CLI_DEFAULT_CONTEXT_TOKENS);
+}
+
 function titleCaseModelId(id: string): string {
   return id
     .split(/[-_:/.]+/)
@@ -73,6 +85,12 @@ function normalizeModelToken(value: string): string | null {
   return /^grok[a-z0-9._:/-]*$/i.test(token) ? token : null;
 }
 
+function isLikelyUnavailableModelLine(line: string): boolean {
+  return /\b(no\s+access|access\s+denied|unauthori[sz]ed|forbidden|not\s+available\s+(?:to|for)\s+(?:this\s+)?(?:account|login|user|subscription|plan)|unavailable\s+(?:to|for)\s+(?:this\s+)?(?:account|login|user|subscription|plan)|not\s+enabled\s+(?:for|on)\s+(?:this\s+)?(?:account|login|user|subscription|plan))\b/i.test(
+    line,
+  );
+}
+
 function parseGrokCliModelsOutput(output: string): GrokCliModel[] {
   const models: GrokCliModel[] = [];
   const seen = new Set<string>();
@@ -80,12 +98,13 @@ function parseGrokCliModelsOutput(output: string): GrokCliModel[] {
     if (seen.has(id)) return;
     seen.add(id);
     const name = label?.trim() && !/^grok[a-z0-9._:/-]*$/i.test(label.trim()) ? label.trim() : titleCaseModelId(id);
-    models.push({ id, name });
+    models.push({ id, name, context: GROK_CLI_DEFAULT_CONTEXT_TOKENS });
   };
 
   for (const rawLine of stripAnsi(output).split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || /^[-|+\s]+$/.test(line) || /^(available\s+)?models?$/i.test(line)) continue;
+    if (isLikelyUnavailableModelLine(line)) continue;
 
     if (line.includes("|")) {
       const cells = line
@@ -118,6 +137,17 @@ function parseGrokCliModelsOutput(output: string): GrokCliModel[] {
   }
 
   return models;
+}
+
+function preferHeadlessGrokCliModels(models: GrokCliModel[]): GrokCliModel[] {
+  const safeHeadlessModel = models.find((model) => model.id === GROK_CLI_SAFE_HEADLESS_MODEL_ID);
+  if (safeHeadlessModel) return [safeHeadlessModel];
+
+  return [...models].sort((a, b) => {
+    const aComposer = a.id.toLowerCase().startsWith("grok-composer-") ? 0 : 1;
+    const bComposer = b.id.toLowerCase().startsWith("grok-composer-") ? 0 : 1;
+    return aComposer - bComposer || a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+  });
 }
 
 function roleLabel(role: ChatMessage["role"]): string {
@@ -268,14 +298,16 @@ export async function fetchGrokCliModels(): Promise<GrokCliModel[]> {
   if (!models.length) {
     throw new Error("Grok CLI did not return any model IDs. Run `grok models` in a terminal to inspect the output.");
   }
-  return models;
+  return preferHeadlessGrokCliModels(models);
 }
 
 export class GrokSubscriptionProvider extends BaseLLMProvider {
   async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
     const configuredMaxTokens = this.applyMaxTokensCap(options.maxTokens ?? 4096);
+    const maxContext = normalizeGrokCliContextWindow(options.maxContext ?? this.maxContextValue ?? undefined);
     const contextFit = this.fitMessagesToContext(messages, {
       ...options,
+      maxContext,
       maxTokens: configuredMaxTokens,
       tools: undefined,
       suppressModelParameters: true,
@@ -292,6 +324,8 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       prompt,
       "--output-format",
       "plain",
+      "--system-prompt-override",
+      GROK_CLI_SYSTEM_PROMPT,
       "--no-plan",
       "--no-subagents",
       "--no-memory",
@@ -299,16 +333,17 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       "--disallowed-tools",
       "run_terminal_command",
       "--max-turns",
-      "1",
+      String(GROK_CLI_MAX_TURNS),
       "--cwd",
       GROK_SCRATCH_DIR,
     ];
     if (cliModel) args.push("-m", cliModel);
 
     logger.debug(
-      "[grok-subscription] running grok CLI model=%s promptChars=%d",
+      "[grok-subscription] running grok CLI model=%s promptChars=%d maxContext=%d",
       cliModel || "(cli default)",
       prompt.length,
+      maxContext,
     );
     logDebugOverride(debugOverrideEnabled, "[debug/grok-subscription] final prompt:\n%s", prompt);
 
@@ -327,7 +362,12 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
         );
         if (cliModel && /unknown model id|couldn'?t set model|run `?grok models`?/i.test(detail)) {
           throw new Error(
-            `Selected Grok CLI model "${cliModel}" is not available to this local CLI login. Click "Fetch Models from Grok CLI" and pick one of those IDs, or clear the model field to use the CLI default. Details: ${detail}`,
+            `Selected Grok CLI model "${cliModel}" is not available to this local CLI login. Click "Fetch Models from Grok CLI" and pick ${GROK_CLI_SAFE_HEADLESS_MODEL_ID} when it appears, or clear the model field to use the CLI default. Details: ${detail}`,
+          );
+        }
+        if (/max turns reached/i.test(detail)) {
+          throw new Error(
+            `Grok CLI hit its headless turn limit after ${GROK_CLI_MAX_TURNS} turns. This usually happens when the CLI receives more context than the local subscription model can complete cleanly. Lower this connection's Max Context Window, leave the model blank, or select ${GROK_CLI_SAFE_HEADLESS_MODEL_ID}. Details: ${detail}`,
           );
         }
         throw new Error(

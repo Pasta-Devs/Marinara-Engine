@@ -123,6 +123,7 @@ const DEFAULT_CACHING_AT_DEPTH = 5;
 const MAX_CACHING_AT_DEPTH = 100;
 const DEFAULT_MAX_PARALLEL_JOBS = 1;
 const MAX_PARALLEL_JOBS = 16;
+const GROK_CLI_DEFAULT_CONTEXT_TOKENS = 32_000;
 const STALE_GROK_CLI_MODEL_IDS = new Set(["grok-build-latest", "grok-build-0.1"]);
 const DEFAULT_VIDEO_MODELS: Record<VideoDefaultsService, string> = {
   gemini_omni: "gemini-omni-flash-preview",
@@ -210,6 +211,12 @@ function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
 
 function normalizeGrokCliEditorModel(provider: APIProvider, model: string): string {
   return provider === "grok_subscription" && STALE_GROK_CLI_MODEL_IDS.has(model.trim()) ? "" : model;
+}
+
+function normalizeConnectionMaxContext(provider: APIProvider, value: unknown): number {
+  const numericValue = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : 0;
+  if (provider === "grok_subscription") return numericValue > 0 ? numericValue : GROK_CLI_DEFAULT_CONTEXT_TOKENS;
+  return numericValue || 128000;
 }
 
 function normalizeCachingAtDepth(value: unknown): number {
@@ -342,12 +349,13 @@ export function ConnectionEditor() {
     if (!conn) return;
     const c = conn as Record<string, unknown>;
     setLocalName((c.name as string) ?? "");
-    setLocalProvider((c.provider as APIProvider) ?? "openai");
+    const provider = (c.provider as APIProvider) ?? "openai";
+    setLocalProvider(provider);
     setLocalBaseUrl((c.baseUrl as string) ?? "");
     setLocalApiKey(""); // never pre-fill (it's masked)
     setClearStoredApiKeyOnSave(false);
-    setLocalModel(normalizeGrokCliEditorModel((c.provider as APIProvider) ?? "openai", (c.model as string) ?? ""));
-    setLocalMaxContext(Number(c.maxContext) || 128000);
+    setLocalModel(normalizeGrokCliEditorModel(provider, (c.model as string) ?? ""));
+    setLocalMaxContext(normalizeConnectionMaxContext(provider, c.maxContext));
     setLocalMaxParallelJobs(normalizeMaxParallelJobs(c.maxParallelJobs));
     setLocalEnableCaching(c.enableCaching === "true" || c.enableCaching === true);
     setLocalAnthropicExtendedCacheTtl(c.anthropicExtendedCacheTtl === "true" || c.anthropicExtendedCacheTtl === true);
@@ -1247,7 +1255,11 @@ export function ConnectionEditor() {
                     setLocalModel(
                       key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.3" : "")),
                     );
-                    setLocalMaxContext(Number(defaultModel?.context) || 128000);
+                    setLocalMaxContext(
+                      key === "grok_subscription"
+                        ? GROK_CLI_DEFAULT_CONTEXT_TOKENS
+                        : Number(defaultModel?.context) || 128000,
+                    );
                     setLocalMaxTokensOverride(null);
                     setLocalDefaultParametersEnabled(false);
                     setLocalDefaultParameters(CONNECTION_PARAMETER_DEFAULTS);
@@ -1349,7 +1361,9 @@ export function ConnectionEditor() {
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Marinara runs <code className="rounded bg-[var(--secondary)] px-1">grok</code> headlessly with Grok-side
                 tools, memory, web search, plans, and subagents disabled. Embeddings are not available on this provider;
-                configure a separate connection for embedding work.
+                configure a separate connection for embedding work. The safest roleplay model is usually{" "}
+                <code className="rounded bg-[var(--secondary)] px-1">grok-composer-2.5-fast</code>; leave the model
+                blank to use the CLI default when unsure.
               </p>
             </div>
           )}
@@ -1976,7 +1990,9 @@ export function ConnectionEditor() {
                 <span className="text-xs text-[var(--muted-foreground)]">{formatContext(localMaxContext)} tokens</span>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                This is auto-set when selecting a model from the list. Override manually if needed.
+                {isGrokSubscriptionProvider
+                  ? "Grok CLI starts at a safer 32k window because very large roleplay prompts can make the local CLI hit its own turn limit. Larger saved values are kept in settings, but requests are capped conservatively."
+                  : "This is auto-set when selecting a model from the list. Override manually if needed."}
               </p>
             </FieldGroup>
           )}
