@@ -126,6 +126,8 @@ export interface ChatOptions {
   reasoningEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   /** Output verbosity for GPT-5+ models */
   verbosity?: "low" | "medium" | "high";
+  /** Emit provider prompt debug logs even when normal debug logging is disabled. */
+  debugMode?: boolean;
   /** OpenRouter-only service tier. */
   serviceTier?: "flex" | "priority" | null;
   /** Abort signal — when triggered, the in-flight LLM request should be cancelled. */

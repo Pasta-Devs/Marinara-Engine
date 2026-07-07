@@ -10,11 +10,13 @@ import { spawn } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { BaseLLMProvider, type ChatMessage, type ChatOptions, type LLMUsage } from "../base-provider.js";
-import { logger } from "../../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../../lib/logger.js";
 import { DATA_DIR } from "../../../utils/data-dir.js";
 
 const GROK_SCRATCH_DIR = join(DATA_DIR, "grok-cli");
 const GROK_ERROR_PREVIEW_CHARS = 2000;
+const GROK_REQUEST_TIMEOUT_MS = 10 * 60 * 1000;
 const GROK_TOKENS_PER_CHAR = 4;
 
 function estimateTokens(text: string): number {
@@ -82,6 +84,7 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
     const prompt = buildGrokPrompt(contextFit.messages);
     await mkdir(GROK_SCRATCH_DIR, { recursive: true });
 
+    const debugOverrideEnabled = options.debugMode === true || isDebugAgentsEnabled();
     const args = [
       "--no-auto-update",
       "-p",
@@ -92,6 +95,8 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       "--no-subagents",
       "--no-memory",
       "--disable-web-search",
+      "--disallowed-tools",
+      "run_terminal_command",
       "--max-turns",
       "1",
       "--cwd",
@@ -100,6 +105,7 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
     if (options.model.trim()) args.push("-m", options.model.trim());
 
     logger.debug("[grok-subscription] running grok CLI model=%s promptChars=%d", options.model, prompt.length);
+    logDebugOverride(debugOverrideEnabled, "[debug/grok-subscription] final prompt:\n%s", prompt);
 
     const child = spawn("grok", args, {
       cwd: GROK_SCRATCH_DIR,
@@ -110,6 +116,8 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
     let stdout = "";
     let stderr = "";
     let aborted = false;
+    let timedOut = false;
+    let requestTimer: NodeJS.Timeout | null = null;
     let killTimer: NodeJS.Timeout | null = null;
 
     child.stdout?.on("data", (chunk: Buffer) => {
@@ -119,11 +127,21 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       stderr += chunk.toString("utf8");
     });
 
+    const terminateChild = () => {
+      child.kill("SIGTERM");
+      if (killTimer) return;
+      killTimer = setTimeout(() => child.kill("SIGKILL"), 2_000);
+      killTimer.unref?.();
+    };
     const onAbort = () => {
       aborted = true;
-      child.kill("SIGTERM");
-      killTimer = setTimeout(() => child.kill("SIGKILL"), 2_000);
+      terminateChild();
     };
+    requestTimer = setTimeout(() => {
+      timedOut = true;
+      terminateChild();
+    }, GROK_REQUEST_TIMEOUT_MS);
+    requestTimer.unref?.();
     if (options.signal) {
       if (options.signal.aborted) onAbort();
       else options.signal.addEventListener("abort", onAbort, { once: true });
@@ -135,6 +153,9 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
         child.once("close", (code, signal) => resolve({ code, signal }));
       });
 
+      if (timedOut) {
+        throw new Error(`Grok CLI request timed out after ${Math.round(GROK_REQUEST_TIMEOUT_MS / 1000)}s.`);
+      }
       if (aborted || options.signal?.aborted) {
         throw new Error("Grok CLI request was aborted.");
       }
@@ -169,6 +190,7 @@ export class GrokSubscriptionProvider extends BaseLLMProvider {
       }
       throw err;
     } finally {
+      if (requestTimer) clearTimeout(requestTimer);
       if (killTimer) clearTimeout(killTimer);
       if (options.signal) options.signal.removeEventListener("abort", onAbort);
     }

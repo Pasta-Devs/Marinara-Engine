@@ -450,6 +450,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
         }
         const provider = createLLMProvider(
           conn.provider,
+          // Grok CLI subscription auth is local-only: the CLI reads the
+          // cached `grok login` session, so API key/base URL are intentionally
+          // unused here and in normal generation.
           "",
           "",
           conn.maxContext,
