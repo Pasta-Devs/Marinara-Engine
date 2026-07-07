@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   applyRegexReplacement,
   buildNarratorInstructionMessage,
@@ -591,6 +592,25 @@ const cases: RegressionCase[] = [
       assert.match(instruction, /Dottore reassuring Mari/);
       assert.equal(instruction.includes("{{user}}"), false);
       assert.equal(instruction.includes("{{char}}"), false);
+    },
+  },
+  {
+    name: "manual group generation does not inject a duplicate recent transcript prompt",
+    run() {
+      const routeSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const forbiddenFragments = [
+        ["recent", "_group", "_transcript"].join(""),
+        ["Recent visible", " group transcript"].join(""),
+        ["ignore the user's latest", " visible reply"].join(""),
+        ["buildManual", "GroupRecent", "Transcript"].join(""),
+      ];
+
+      for (const fragment of forbiddenFragments) {
+        assert.equal(routeSource.includes(fragment), false, `${fragment} must not be present in generate.routes.ts`);
+      }
     },
   },
   {

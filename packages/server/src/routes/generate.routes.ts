@@ -5260,29 +5260,6 @@ export async function generateRoutes(app: FastifyInstance) {
             `You may address ${personaName} or another character if that is what the context calls for, but do not speak or act for them.`,
           ].join("\n");
         };
-        const buildManualGroupRecentTranscript = (targetCharId: string) => {
-          if (!isGroupChat || groupResponseOrder !== "manual" || !targetCharId) return null;
-          const recentLines = chatMessages
-            .filter((message: any) => message.role === "user" || message.role === "assistant")
-            .slice(-12)
-            .map((message: any) => {
-              const speaker = resolveMessageSpeakerName(message);
-              const text = stripConversationPromptTimestamps(conversationPromptHistoryContent(message, chatMode))
-                .replace(/\s+/g, " ")
-                .trim()
-                .slice(0, 1200);
-              return text ? `${speaker}: ${text}` : "";
-            })
-            .filter(Boolean);
-          if (recentLines.length === 0) return null;
-          return [
-            `Recent visible group transcript for this manual character trigger:`,
-            `<recent_group_transcript>`,
-            recentLines.join("\n"),
-            `</recent_group_transcript>`,
-            `Use this transcript as the current scene context. Do not restart the chat, ignore the user's latest visible reply, or answer from lorebook/profile content alone.`,
-          ].join("\n");
-        };
 
         if (useIndividualLoop) {
           // Individual group mode: generate one response per character
@@ -5306,10 +5283,6 @@ export async function generateRoutes(app: FastifyInstance) {
             // Append "Respond ONLY as [name]" instruction
             const charInstruction = buildCharacterInstruction(charId, charName);
             const messagesWithInstruction = [...filterManualTargetProfileBlocks(runningMessages, charId)];
-            const manualTranscript = buildManualGroupRecentTranscript(charId);
-            if (manualTranscript) {
-              messagesWithInstruction.push({ role: "system", content: manualTranscript });
-            }
             // Add as a system message at the end (just before any trailing user message)
             if (charInstruction) {
               messagesWithInstruction.push({ role: "system", content: charInstruction });
@@ -5364,12 +5337,6 @@ export async function generateRoutes(app: FastifyInstance) {
 
           if (generationGuideInstruction) {
             sentMessages.push({ role: "system", content: generationGuideInstruction });
-          }
-          if (targetCharId) {
-            const manualTranscript = buildManualGroupRecentTranscript(targetCharId);
-            if (manualTranscript) {
-              sentMessages.push({ role: "system", content: manualTranscript });
-            }
           }
 
           if (mentionedConversationCharacters.length > 0 && !regenGroupChatIndividual) {
