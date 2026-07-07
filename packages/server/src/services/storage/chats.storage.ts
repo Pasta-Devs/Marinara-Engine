@@ -868,6 +868,7 @@ export function createChatsStorage(db: DB) {
           isGenerated: input.role !== "user",
           tokenCount: null,
           generationInfo: null,
+          ...parseExtraRecord(input.extra),
         }),
         createdAt: timestamp,
       });
@@ -877,7 +878,7 @@ export function createChatsStorage(db: DB) {
         messageId: id,
         index: 0,
         content: input.content,
-        extra: JSON.stringify({}),
+        extra: JSON.stringify(parseExtraRecord(input.extra)),
         createdAt: timestamp,
       });
       await db.update(chats).set({ lastMessageAt: timestamp, updatedAt: timestamp }).where(eq(chats.id, input.chatId));

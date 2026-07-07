@@ -18,6 +18,7 @@ import { renderWithStickerBlocks } from "../../lib/sticker-render";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { ImagePromptPanel } from "./ImagePromptPanel";
 import { SwipeJumpControl } from "./SwipeJumpControl";
+import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import type { CharacterMap } from "./chat-area.types";
 
 // ── Types ────────────────────────────────────────
@@ -41,6 +42,7 @@ export interface MessageData {
     hiddenFromAI?: boolean;
     thinking?: string | null;
     generationReplay?: MessageExtra["generationReplay"];
+    diceRollResult?: MessageExtra["diceRollResult"];
     attachments?: Array<{
       type: string;
       url?: string;
@@ -52,6 +54,11 @@ export interface MessageData {
     }>;
   };
   createdAt: string;
+}
+
+export function DiceMessageContent({ diceRollResult, createdAt }: { diceRollResult: unknown; createdAt?: string | null }) {
+  if (!isDiceRollResult(diceRollResult)) return null;
+  return <AnimatedDiceRoll {...diceRollResult} mode="chat" animate={shouldAnimateDiceRollMessage(createdAt)} />;
 }
 
 /** Everything the layout sub-components (Bubble, Line, Grouped) need, pre-resolved by the shell. */

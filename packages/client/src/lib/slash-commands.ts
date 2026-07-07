@@ -46,7 +46,12 @@ export interface SlashCommandContext {
     impersonatePromptTemplate?: string;
   }) => Promise<boolean | void>;
   /** Insert a message directly into the chat (no LLM) */
-  createMessage: (data: { role: string; content: string; characterId?: string | null }) => void | Promise<void>;
+  createMessage: (data: {
+    role: string;
+    content: string;
+    characterId?: string | null;
+    extra?: Record<string, unknown>;
+  }) => void | Promise<void>;
   /** Invalidate chat queries to refresh the UI */
   invalidate: () => void;
   /** Character names in the current chat */
@@ -474,7 +479,11 @@ const COMMANDS: SlashCommand[] = [
       const modStr = parsed.modifier > 0 ? `+${parsed.modifier}` : parsed.modifier < 0 ? `${parsed.modifier}` : "";
       const detail = parsed.count > 1 ? ` [${rolls.join(", ")}]${modStr}` : modStr ? ` (${rolls[0]}${modStr})` : "";
       const text = `🎲 **${notation}** → **${sum}**${detail}`;
-      await ctx.createMessage({ role: "narrator", content: text });
+      await ctx.createMessage({
+        role: "narrator",
+        content: text,
+        extra: { diceRollResult: { notation, rolls, modifier: parsed.modifier, total: sum } },
+      });
       return { handled: true };
     },
   },

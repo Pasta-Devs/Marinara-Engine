@@ -7,6 +7,7 @@ import { cn } from "../../lib/utils";
 import { PendingTypingDots } from "./PendingTypingDots";
 import {
   HiddenFromAIConversationSummary,
+  DiceMessageContent,
   MessageContent,
   ConversationMessageEditForm,
   ConversationMessageAttachments,
@@ -243,6 +244,8 @@ export function ConversationMessageBubble({ ctx }: { ctx: MessageRenderContext }
                     );
                   })}
                 </div>
+              ) : extra.diceRollResult ? (
+                <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
               ) : (
                 <MessageContent
                   content={renderedContent}

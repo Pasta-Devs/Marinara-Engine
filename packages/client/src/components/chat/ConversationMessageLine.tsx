@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils";
 import { PendingTypingDots } from "./PendingTypingDots";
 import {
   HiddenFromAIConversationSummary,
+  DiceMessageContent,
   MessageContent,
   ConversationMessageEditForm,
   ConversationMessageAttachments,
@@ -159,6 +160,8 @@ export function ConversationMessageLine({ ctx }: { ctx: MessageRenderContext }) 
                       </div>
                     ))}
                   </div>
+                ) : extra.diceRollResult ? (
+                  <DiceMessageContent diceRollResult={extra.diceRollResult} createdAt={message.createdAt} />
                 ) : (
                   <MessageContent content={renderedContent} mentionNames={mentionNames} emojiMap={emojiMap} stickerMap={stickerMap} onImageOpen={(url) => onImageOpen(url)} />
                 )}

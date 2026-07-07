@@ -4500,25 +4500,6 @@ strong {
    23. GAME MODE
    ───────────────────────────────────────────── */
 
-/* Dice roll animation */
-@keyframes dice-tumble {
-  0% {
-    transform: rotate(0deg) scale(0.5);
-    opacity: 0;
-  }
-  50% {
-    transform: rotate(360deg) scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(720deg) scale(1);
-    opacity: 1;
-  }
-}
-.game-dice-animate {
-  animation: dice-tumble 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 /* State transition fade */
 @keyframes game-state-fade {
   from {

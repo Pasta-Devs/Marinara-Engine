@@ -975,7 +975,7 @@ export function useRollingSummaryBackfill() {
 export function useCreateMessage(chatId: string | null) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { role: string; content: string; characterId?: string | null }) =>
+    mutationFn: (data: { role: string; content: string; characterId?: string | null; extra?: Record<string, unknown> }) =>
       api.post<Message>(`/chats/${chatId}/messages`, data),
     onSuccess: () => {
       if (chatId) {

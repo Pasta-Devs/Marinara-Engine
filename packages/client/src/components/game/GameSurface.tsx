@@ -8352,6 +8352,7 @@ function GameSurfaceComponent({
         moveOnMap.mutate({ chatId: activeChatId, position: pendingMapMove.position, mapId: activeMapId });
       }
       setActiveChoices(null);
+      setDiceRollResult(null);
       sendMessage(message, attachments);
       if (options?.commitPendingMove && pendingMapMove) {
         setPendingMapMove(null);
@@ -8367,6 +8368,7 @@ function GameSurfaceComponent({
       pendingMapMove,
       sendMessage,
       sessionInteractive,
+      setDiceRollResult,
       updateMessage,
     ],
   );

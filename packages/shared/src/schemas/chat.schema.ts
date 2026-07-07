@@ -22,6 +22,7 @@ export const createMessageSchema = z.object({
   role: messageRoleSchema,
   characterId: z.string().nullable().default(null),
   content: z.string(),
+  extra: z.unknown().optional(),
 });
 
 export const generateRequestSchema = z.object({
