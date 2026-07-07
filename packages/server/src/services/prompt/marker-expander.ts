@@ -353,7 +353,7 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
       ctx.lorebookDepthEntries ??= [];
       for (const de of result.depthEntries) {
         ctx.lorebookDepthEntries.push({
-          content: sanitizePromptLeaf(de.content, ctx.wrapFormat),
+          content: de.content,
           role: de.role,
           depth: de.depth,
         });
@@ -363,14 +363,14 @@ async function expandLorebook(config: MarkerConfig, ctx: MarkerContext): Promise
 
   switch (config.type) {
     case "world_info_before":
-      return { content: sanitizePromptLeaf(result.worldInfoBefore, ctx.wrapFormat) };
+      return { content: result.worldInfoBefore };
     case "world_info_after":
-      return { content: sanitizePromptLeaf(result.worldInfoAfter, ctx.wrapFormat) };
+      return { content: result.worldInfoAfter };
     case "lorebook":
     default: {
       // Combined lorebook — all world info
       const combined = [result.worldInfoBefore, result.worldInfoAfter].filter(Boolean).join("\n\n");
-      return { content: sanitizePromptLeaf(combined, ctx.wrapFormat) };
+      return { content: combined };
     }
   }
 }

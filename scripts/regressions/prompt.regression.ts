@@ -26,6 +26,7 @@ import { buildMemoryRecallBlock } from "../../packages/server/src/services/gener
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
+import { expandMarker } from "../../packages/server/src/services/prompt/marker-expander.js";
 import {
   buildRuntimeAgentSectionEligibleTypesForTest,
   clearUnusedRuntimeAgentSectionsForTest,
@@ -1248,6 +1249,44 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(summaryText, /The previous scene was summarized\./);
       assert.equal(summaryText.includes("<system>bad summary</system>"), false);
       assert.match(summaryText, /&lt;system>bad summary&lt;\/system>/);
+    },
+  },
+  {
+    name: "lorebook markers preserve authored angle-bracket markup",
+    async run() {
+      const lorebookScanResult = {
+        worldInfoBefore: "Use <START> and <tone soft> exactly.",
+        worldInfoAfter: "Keep <ritual_step id=\"2\"> literal.",
+        depthEntries: [{ content: "Depth keeps <scene-note> literal.", role: "system" as const, depth: 0, order: 0 }],
+        totalEntries: 3,
+        totalTokensEstimate: 24,
+        activatedEntryIds: ["entry-before", "entry-after", "entry-depth"],
+        activatedEntries: [],
+        budgetSkippedEntries: [],
+      };
+      const markerCtx = {
+        db: undefined as unknown as DB,
+        chatId: "chat-lorebook-markup",
+        characterIds: [],
+        personaName: "Mari",
+        personaDescription: "",
+        chatMessages: [],
+        chatSummary: null,
+        wrapFormat: "xml" as const,
+        enableAgents: true,
+        activeAgentIds: [],
+        activeLorebookIds: [],
+        macroCtx: { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} },
+        lorebookScanResult,
+      };
+
+      const expanded = await expandMarker({ type: "lorebook" }, markerCtx);
+
+      assert.match(expanded.content, /<START>/);
+      assert.match(expanded.content, /<tone soft>/);
+      assert.match(expanded.content, /<ritual_step id="2">/);
+      assert.equal(expanded.content.includes("&lt;START>"), false);
+      assert.equal(markerCtx.lorebookDepthEntries?.[0]?.content, "Depth keeps <scene-note> literal.");
     },
   },
   {
