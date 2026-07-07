@@ -1496,6 +1496,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       creator?: string;
       personaVersion?: string;
       creatorNotes?: string;
+      phoneticName?: string;
       personality?: string;
       scenario?: string;
       backstory?: string;

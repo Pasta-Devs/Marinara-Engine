@@ -972,6 +972,7 @@ export function useCreatePersona() {
       creator?: string;
       personaVersion?: string;
       creatorNotes?: string;
+      phoneticName?: string;
       personality?: string;
       scenario?: string;
       backstory?: string;
@@ -1007,6 +1008,7 @@ export function useUpdatePersona() {
       creator?: string;
       personaVersion?: string;
       creatorNotes?: string;
+      phoneticName?: string;
       description?: string;
       personality?: string;
       scenario?: string;

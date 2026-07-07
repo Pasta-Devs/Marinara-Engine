@@ -8,6 +8,8 @@ export interface Persona {
   name: string;
   /** Short comment shown under the name (for disambiguation) */
   comment: string;
+  /** Optional pronunciation override used when this persona name is sent to TTS. */
+  phoneticName?: string;
   description: string;
   personality: string;
   scenario: string;

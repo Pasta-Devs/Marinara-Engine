@@ -136,8 +136,10 @@ export interface AssemblerInput {
   characterIds: string[];
   personaId?: string | null;
   personaName: string;
+  personaPhoneticName?: string;
   personaDescription: string;
   personaFields?: {
+    phoneticName?: string;
     personality?: string;
     scenario?: string;
     backstory?: string;
@@ -302,6 +304,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     db: input.db,
     characterIds: input.characterIds,
     personaName: input.personaName,
+    personaPhoneticName: input.personaPhoneticName,
     personaDescription: input.personaDescription,
     personaFields: input.personaFields,
     variables: variableValues,

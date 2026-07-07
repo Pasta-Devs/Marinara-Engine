@@ -227,7 +227,7 @@ export function ConversationMessageGrouped({
                   className={["animate-[fadeSlideIn_0.4s_ease-out]", i > 0 && "mt-2"].filter(Boolean).join(" ")}
                 >
                 <div className="flex items-end gap-2">
-                  <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
+                  <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full bg-[var(--accent)]">
                     {segAvatar ? (
                       <img
                         src={segAvatar}

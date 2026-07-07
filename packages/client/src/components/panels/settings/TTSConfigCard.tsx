@@ -100,6 +100,18 @@ const ELEVENLABS_TTS_MODELS = [
   "eleven_flash_v2",
 ];
 
+const ELEVENLABS_DEFAULT_VOICE_OPTIONS: VoiceOption[] = [
+  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", category: "ElevenLabs default" },
+  { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", category: "ElevenLabs default" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", category: "ElevenLabs default" },
+  { id: "ErXwobaYiN019PkySvjV", name: "Antoni", category: "ElevenLabs default" },
+  { id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", category: "ElevenLabs default" },
+  { id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", category: "ElevenLabs default" },
+  { id: "VR6AewLTigWG4xSOukaG", name: "Arnold", category: "ElevenLabs default" },
+  { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", category: "ElevenLabs default" },
+  { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", category: "ElevenLabs default" },
+];
+
 type CharacterOption = {
   id: string;
   name: string;
@@ -562,7 +574,10 @@ export function TTSConfigCard() {
   const voices = voicesData?.voices ?? [];
   const fetchedVoiceOptions = voicesData?.voiceOptions ?? voices.map((v) => ({ id: v, name: v }));
   const voiceOptions = useMemo(() => {
-    let nextOptions = fetchedVoiceOptions;
+    let nextOptions = fetchedVoiceOptions.length > 0 ? fetchedVoiceOptions : [];
+    if (source === "elevenlabs" && nextOptions.length === 0) {
+      nextOptions = ELEVENLABS_DEFAULT_VOICE_OPTIONS;
+    }
     for (const savedVoice of [
       voice,
       narratorVoice,
@@ -573,7 +588,7 @@ export function TTSConfigCard() {
       nextOptions = addSavedVoiceOption(nextOptions, savedVoice);
     }
     return nextOptions;
-  }, [fetchedVoiceOptions, narratorVoice, npcDefaultFemaleVoices, npcDefaultMaleVoices, voice, voiceAssignments]);
+  }, [fetchedVoiceOptions, narratorVoice, npcDefaultFemaleVoices, npcDefaultMaleVoices, source, voice, voiceAssignments]);
   const voicesFromProvider = voicesData?.fromProvider ?? false;
   const elevenLabsMatchedMaleVoiceOptions = useMemo(
     () =>
@@ -1094,7 +1109,7 @@ export function TTSConfigCard() {
                 <button
                   type="button"
                   onClick={handleAddVoiceAssignment}
-                  disabled={voiceOptions.length === 0 || characterOptions.length === 0 || allCharactersAssigned}
+                  disabled={characterOptions.length === 0 || allCharactersAssigned}
                   className="mari-chrome-control w-full text-xs"
                 >
                   <Plus size="0.75rem" />

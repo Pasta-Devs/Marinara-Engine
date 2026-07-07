@@ -189,8 +189,11 @@ if not defined CURRENT_PNPM_VERSION (
     where pnpm >nul 2>&1
     if not errorlevel 1 (
         for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if defined CURRENT_PNPM_VERSION (
+        if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
             set "PNPM_RUNNER=pnpm"
+        ) else (
+            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required %PNPM_VERSION%; trying a pinned temporary runner...
+            set "CURRENT_PNPM_VERSION="
         )
     )
 )

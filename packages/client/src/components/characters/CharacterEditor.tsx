@@ -1250,6 +1250,18 @@ function MetadataTab({
         </label>
         <label className="space-y-1.5">
           <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Phonetic name{" "}
+            <HelpTooltip text="Optional pronunciation override used only when this character's name is sent to text-to-speech." />
+          </span>
+          <input
+            value={typeof formData.extensions?.phoneticName === "string" ? formData.extensions.phoneticName : ""}
+            onChange={(e) => updateExtension("phoneticName", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder={formData.name}
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
             Creator{" "}
             <HelpTooltip text="The person who made this character. Useful for giving credit when sharing characters." />
           </span>

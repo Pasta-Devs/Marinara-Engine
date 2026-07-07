@@ -173,6 +173,7 @@ const PERSONA_RPG_ATTRIBUTES_HELP =
 interface PersonaFormData {
   name: string;
   comment: string;
+  phoneticName: string;
   creator: string;
   personaVersion: string;
   creatorNotes: string;
@@ -198,6 +199,7 @@ interface PersonaRow {
   id: string;
   name: string;
   comment?: string;
+  phoneticName?: string;
   creator?: string;
   personaVersion?: string;
   creatorNotes?: string;
@@ -880,6 +882,7 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
       depth_prompt: { prompt: "", depth: 4, role: "system" },
       backstory: formData.backstory ?? "",
       appearance: formData.appearance ?? "",
+      phoneticName: formData.phoneticName.trim() || undefined,
       nameColor: formData.nameColor || undefined,
       dialogueColor: formData.dialogueColor || undefined,
       boxColor: formData.boxColor || undefined,
@@ -986,6 +989,7 @@ export function PersonaEditor() {
     setFormData({
       name: rawPersona.name,
       comment: rawPersona.comment ?? "",
+      phoneticName: rawPersona.phoneticName ?? "",
       creator: rawPersona.creator ?? "",
       personaVersion: rawPersona.personaVersion ?? "1.0",
       creatorNotes: rawPersona.creatorNotes ?? "",
@@ -2752,6 +2756,18 @@ function PersonaMetadataTab({
             onChange={(e) => updateField("creator", e.target.value)}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             placeholder="Your name"
+          />
+        </label>
+        <label className="space-y-1.5">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--muted-foreground)]">
+            Phonetic name{" "}
+            <HelpTooltip text="Optional pronunciation override used only when your persona name is sent to text-to-speech." />
+          </span>
+          <input
+            value={formData.phoneticName}
+            onChange={(e) => updateField("phoneticName", e.target.value)}
+            className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            placeholder={formData.name}
           />
         </label>
         <label className="space-y-1.5">

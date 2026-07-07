@@ -74,6 +74,8 @@ import {
   isSilentConversationSpotifyCommandError,
   playConversationSpotifyCommand,
 } from "../services/spotify/conversation-spotify-command.service.js";
+import { buildPromptMacroContext, resolveCharacterMacroData, resolvePromptMessageMacros } from "../services/prompt/index.js";
+import { cardPromptText } from "../services/generation/generation-text-utils.js";
 import {
   getConversationCallCharacterVideoFile,
   getConversationCallCustomVideoClipFile,
@@ -934,16 +936,52 @@ async function buildCallPrompt(input: {
   const characterIds = getAvailableCallCharacterIds(metadata, allCharacterIds, promptNow);
   const characters = await resolveCallCharacters(chars, characterIds, { metadata, now: promptNow });
   const persona = input.chat.personaId ? await chars.getPersona(input.chat.personaId) : null;
+  const personaPhoneticName = typeof persona?.phoneticName === "string" ? persona.phoneticName : "";
+  const personaDescription = cardPromptText(persona?.description);
+  const personaFields = {
+    phoneticName: personaPhoneticName,
+    personality: cardPromptText(persona?.personality),
+    scenario: cardPromptText(persona?.scenario),
+    backstory: cardPromptText(persona?.backstory),
+    appearance: cardPromptText(persona?.appearance),
+  };
+  const promptMacroContext = await buildPromptMacroContext({
+    db: input.app.db,
+    characterIds,
+    personaName: persona?.name || "User",
+    personaPhoneticName,
+    personaDescription,
+    personaFields,
+    variables: {},
+    groupScenarioOverrideText:
+      typeof metadata.groupScenarioText === "string" && metadata.groupScenarioText.trim()
+        ? metadata.groupScenarioText.trim()
+        : null,
+    lastInput: input.userText,
+    chatId: input.chat.id,
+    lastGenerationType: "conversation_call",
+  });
+  const callMacroProfilesById = (await resolveCharacterMacroData(input.app.db, characterIds)).profilesById;
+  const resolveCallMacros = (value: string, characterId?: string | null) =>
+    resolvePromptMessageMacros([{ content: value, characterId }], promptMacroContext, callMacroProfilesById)[0]?.content ??
+    value;
   const personaParts = persona
     ? [
         `Name: ${persona.name}`,
-        persona.description ? `Description: ${persona.description}` : "",
-        persona.personality ? `Personality: ${persona.personality}` : "",
-        persona.appearance ? `Appearance: ${persona.appearance}` : "",
+        personaDescription ? `Description: ${resolveCallMacros(personaDescription)}` : "",
+        personaFields.personality ? `Personality: ${resolveCallMacros(personaFields.personality)}` : "",
+        personaFields.scenario ? `Scenario: ${resolveCallMacros(personaFields.scenario)}` : "",
+        personaFields.backstory ? `Backstory: ${resolveCallMacros(personaFields.backstory)}` : "",
+        personaFields.appearance ? `Appearance: ${resolveCallMacros(personaFields.appearance)}` : "",
       ]
         .filter(Boolean)
         .join("\n")
     : "";
+  const promptCharacters = characters.map((character) => ({
+    ...character,
+    context: resolveCallMacros(character.context, character.id),
+    appearance: character.appearance ? resolveCallMacros(character.appearance, character.id) : null,
+  }));
   const callMessages = await createConversationCallsStorage(input.app.db).listMessages(input.session.id);
   const allChatMessages = await chats.listMessages(input.chat.id);
   const todayKey = promptNow.toISOString().slice(0, 10);
@@ -1085,16 +1123,16 @@ async function buildCallPrompt(input: {
   const lorebookText = activeEntries
     .filter((entry: any) => entry.enabled !== false)
     .slice(0, 30)
-    .map((entry: any) => `- ${entry.name ?? "Entry"}: ${entry.content ?? ""}`)
+    .map((entry: any) => `- ${entry.name ?? "Entry"}: ${resolveCallMacros(String(entry.content ?? ""))}`)
     .join("\n");
-  const characterText = characters.map((character) => `<character>\n${character.context}\n</character>`).join("\n\n");
+  const characterText = promptCharacters.map((character) => `<character>\n${character.context}\n</character>`).join("\n\n");
   const mainHistoryText = todaysMessages
     .map((message) => {
       const label =
         message.role === "user"
           ? persona?.name || "User"
           : characters.find((character) => character.id === message.characterId)?.name || message.role;
-      return `${label}: ${message.content}`;
+      return `${label}: ${resolveCallMacros(message.content, message.characterId)}`;
     })
     .join("\n");
   const characterNames = characters.map((character) => character.name).join(", ") || "the character";
@@ -1115,15 +1153,20 @@ async function buildCallPrompt(input: {
           "</commands>",
         ].join("\n")
       : "";
+  const voiceCuesEnabled = metadata.conversationCallVoiceCues !== false;
   const outputFormat = [
     "<output_format>",
-    'Return ONLY valid JSON with this shape: {"turns":[{"speakerName":"Exact character name","mode":"voice|text|command","content":"message text, voice text with TTS [cues], or command text","tone":"voice-only tone tags"}]}',
+    voiceCuesEnabled
+      ? 'Return ONLY valid JSON with this shape: {"turns":[{"speakerName":"Exact character name","mode":"voice|text|command","content":"message text, voice text with TTS [cues], or command text","tone":"voice-only tone tags"}]}'
+      : 'Return ONLY valid JSON with this shape: {"turns":[{"speakerName":"Exact character name","mode":"voice|text|command","content":"message text, plain voice text without bracketed cues, or command text","tone":"voice-only tone description"}]}',
     'Use mode "voice" for characters who can speak, "text" when a character should type, and "command" for hidden actions.',
     "One response may include several ordered turns from multiple characters. Use that when a natural live-call exchange should happen before the user speaks again.",
     "If multiple characters respond, order the turns exactly as they should be heard or displayed.",
     "In group calls, every speaking character must get their own turn so their assigned voice and video clips play on the correct participant.",
     'Do not put speaker prefixes like "Dottore (speech):" inside content. Put the speaker in speakerName and only the spoken/typed/command text in content.',
-    "For voice turns, include natural TTS cues inside content or tone when useful, such as [soft], [sighs], [brief pause], or [laughing quietly], etc.",
+    voiceCuesEnabled
+      ? "For voice turns, include natural TTS cues inside content or tone when useful, such as [soft], [sighs], [brief pause], or [laughing quietly], etc."
+      : "For voice turns, do not include bracketed voice cues such as [soft], [sighs], [brief pause], or [laughing quietly]. Keep voice content plain.",
     "</output_format>",
   ].join("\n");
 
@@ -1134,7 +1177,9 @@ async function buildCallPrompt(input: {
     "<instructions>",
     "The user's spoken audio may have been transcribed imperfectly. Deduce the likely intended meaning if a phrase looks slightly wrong.",
     characterVideoPresenceEnabled
-      ? "Character video presence is enabled. Voice turns will be spoken aloud and paired with character video-call clips, so use natural voice cues and visual-call awareness when appropriate."
+      ? voiceCuesEnabled
+        ? "Character video presence is enabled. Voice turns will be spoken aloud and paired with character video-call clips, so use natural voice cues and visual-call awareness when appropriate."
+        : "Character video presence is enabled. Voice turns will be spoken aloud and paired with character video-call clips, but bracketed voice cues are disabled for this chat; keep spoken content plain and natural."
       : "",
     nativeMedia.length > 0
       ? "The latest user input includes provider-native audio and/or video attachments. Use those attachments as the primary evidence for what the user said or showed; the written marker is only a label."
@@ -1185,8 +1230,8 @@ async function buildCallPrompt(input: {
         (message.kind === "speech" || message.kind === "text");
       const messageContent =
         isAssistantSpeechOrText && message.id !== lastAssistantHistoryMessageId
-          ? stripCallTtsCuesFromHistory(message.content)
-          : message.content;
+          ? stripCallTtsCuesFromHistory(resolveCallMacros(message.content, message.characterId))
+          : resolveCallMacros(message.content, message.characterId);
       const content =
         message.kind === "system" || message.role === "system"
           ? `Call note: ${messageContent}`

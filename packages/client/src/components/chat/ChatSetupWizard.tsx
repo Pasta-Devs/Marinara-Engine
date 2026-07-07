@@ -1995,8 +1995,22 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     onFinish();
   }, [chat.id, chatCharIds, createInitialGreetingForCharacter, customizeParameters, generationParameters, onFinish, updateMeta]);
 
+  const seedInitialGreetingsIfEmpty = useCallback(async () => {
+    if (chatCharIds.length === 0) return;
+    try {
+      const { count } = await api.get<{ count: number }>(`/chats/${chat.id}/message-count`);
+      if (count > 0) return;
+    } catch {
+      return;
+    }
+    for (const charId of chatCharIds) {
+      await createInitialGreetingForCharacter(charId);
+    }
+  }, [chat.id, chatCharIds, createInitialGreetingForCharacter]);
+
   const handleShortcutApply = useCallback(async () => {
     if (!shortcutPresetId) {
+      await seedInitialGreetingsIfEmpty();
       onFinish();
       return;
     }
@@ -2006,10 +2020,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     } catch {
       /* fall through — still close the wizard */
     } finally {
+      await seedInitialGreetingsIfEmpty();
       setShortcutApplying(false);
       onFinish();
     }
-  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish]);
+  }, [shortcutPresetId, chat.id, applyChatPreset, onFinish, seedInitialGreetingsIfEmpty]);
 
   // Search state for character & lorebook pickers
   const [charSearch, setCharSearch] = useState("");

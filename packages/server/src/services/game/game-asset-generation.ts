@@ -489,16 +489,20 @@ function compileGameImagePrompt(
   req: Pick<
     NpcPortraitRequest | BackgroundGenRequest | SceneIllustrationGenRequest,
     "styleProfiles" | "styleProfileId" | "imgDefaults" | "artStyle"
-  >,
+  > & { appearance?: string | null },
   kind: "portrait" | "background" | "illustration",
   prompt: string,
   maxLength: number,
   hardNegative?: string,
   negativePrompt?: string | null,
 ) {
+  const canonicalAppearance = kind === "portrait" && typeof req.appearance === "string" ? req.appearance.trim() : "";
+  const canonicalPrefix = canonicalAppearance
+    ? `Required canonical NPC visual profile: ${canonicalAppearance.slice(0, 700)}`
+    : "";
   if (!req.styleProfiles) {
     return {
-      prompt: prompt.slice(0, maxLength),
+      prompt: [canonicalPrefix, prompt].filter(Boolean).join(". ").slice(0, maxLength),
       negativePrompt: [negativePrompt, hardNegative].filter(Boolean).join(", "),
     };
   }
@@ -512,8 +516,9 @@ function compileGameImagePrompt(
     imageDefaults: req.imgDefaults,
     generatedStyle: req.artStyle,
   });
+  const protectedPrompt = [canonicalPrefix, compiled.prompt].filter(Boolean).join(", ");
   return {
-    prompt: compiled.prompt.slice(0, maxLength),
+    prompt: protectedPrompt.slice(0, maxLength),
     negativePrompt: compiled.negativePrompt,
   };
 }

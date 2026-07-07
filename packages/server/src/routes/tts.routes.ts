@@ -19,6 +19,17 @@ import { safeFetch } from "../utils/security.js";
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
 const OPENAI_FALLBACK_VOICES = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
 const XAI_FALLBACK_VOICES = ["eve", "ara", "rex", "sal", "leo"];
+const ELEVENLABS_DEFAULT_VOICES: VoiceOption[] = [
+  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", category: "ElevenLabs default" },
+  { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", category: "ElevenLabs default" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Bella", category: "ElevenLabs default" },
+  { id: "ErXwobaYiN019PkySvjV", name: "Antoni", category: "ElevenLabs default" },
+  { id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", category: "ElevenLabs default" },
+  { id: "TxGEqnHWrfWFTfGW9XjX", name: "Josh", category: "ElevenLabs default" },
+  { id: "VR6AewLTigWG4xSOukaG", name: "Arnold", category: "ElevenLabs default" },
+  { id: "pNInz6obpgDQGcFmaJgB", name: "Adam", category: "ElevenLabs default" },
+  { id: "yoZ06aMxZJJ28mfd3POQ", name: "Sam", category: "ElevenLabs default" },
+];
 
 const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }> = {
   openai: {
@@ -149,7 +160,7 @@ function responseFromVoiceOptions(
 
 function fallbackVoices(source: TTSSource): TTSVoicesResponse {
   if (source === "elevenlabs") {
-    return responseFromVoiceOptions(source, [], false);
+    return responseFromVoiceOptions(source, ELEVENLABS_DEFAULT_VOICES, false);
   }
 
   if (source === "pockettts") {

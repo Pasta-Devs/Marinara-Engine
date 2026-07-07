@@ -44,6 +44,8 @@ export const personas = sqliteTable("personas", {
   personaVersion: text("persona_version").notNull().default("1.0"),
   /** Private notes about intended use, quirks, or recommended settings */
   creatorNotes: text("creator_notes").notNull().default(""),
+  /** Pronunciation override used when sending this persona name to TTS */
+  phoneticName: text("phonetic_name").notNull().default(""),
   description: text("description").notNull().default(""),
   personality: text("personality").notNull().default(""),
   scenario: text("scenario").notNull().default(""),

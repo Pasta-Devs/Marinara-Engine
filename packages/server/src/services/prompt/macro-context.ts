@@ -25,6 +25,7 @@ export interface BuildPromptMacroContextInput {
   db: DB;
   characterIds: string[];
   personaName: string;
+  personaPhoneticName?: string;
   personaDescription?: string;
   personaFields?: PersonaFields;
   variables?: Record<string, string>;
@@ -39,6 +40,7 @@ export interface BuildPromptMacroContextInput {
 
 export interface CharacterMacroData {
   names: string[];
+  phoneticNames: string[];
   profiles: NonNullable<MacroContext["characterProfiles"]>;
   profilesById: Map<string, CharacterMacroProfile>;
   primaryFields?: NonNullable<MacroContext["characterFields"]>;
@@ -189,10 +191,11 @@ function parseCharacterData(raw: unknown): CharacterData | null {
 }
 
 export async function resolveCharacterMacroData(db: DB, characterIds: string[]): Promise<CharacterMacroData> {
-  if (characterIds.length === 0) return { names: [], profiles: [], profilesById: new Map() };
+  if (characterIds.length === 0) return { names: [], phoneticNames: [], profiles: [], profilesById: new Map() };
 
   const chars = createCharactersStorage(db);
   const names: string[] = [];
+  const phoneticNames: string[] = [];
   const profiles: CharacterMacroData["profiles"] = [];
   const profilesById = new Map<string, CharacterMacroProfile>();
   let primaryFields: CharacterMacroData["primaryFields"] | undefined;
@@ -203,10 +206,16 @@ export async function resolveCharacterMacroData(db: DB, characterIds: string[]):
     if (!data) continue;
 
     if (data.name) names.push(data.name);
+    const phoneticName =
+      typeof data.extensions?.phoneticName === "string" && data.extensions.phoneticName.trim()
+        ? data.extensions.phoneticName.trim()
+        : "";
+    phoneticNames.push(phoneticName || data.name || "Character");
 
     const description = data.description ?? "";
     const profile = {
       name: data.name ?? "Character",
+      phoneticName,
       description,
       personality: data.personality ?? "",
       backstory: data.extensions?.backstory ?? "",
@@ -222,6 +231,7 @@ export async function resolveCharacterMacroData(db: DB, characterIds: string[]):
 
     if (!primaryFields) {
       primaryFields = {
+        phoneticName: profile.phoneticName,
         description: profile.description,
         personality: profile.personality,
         backstory: profile.backstory,
@@ -234,7 +244,7 @@ export async function resolveCharacterMacroData(db: DB, characterIds: string[]):
     }
   }
 
-  return { names, profiles, profilesById, primaryFields };
+  return { names, phoneticNames, profiles, profilesById, primaryFields };
 }
 
 export async function buildPromptMacroContext(input: BuildPromptMacroContextInput): Promise<MacroContext> {
@@ -243,7 +253,9 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
 
   return {
     user: input.personaName || "User",
+    userPhonetic: input.personaPhoneticName || input.personaFields?.phoneticName || input.personaName || "User",
     char: characterMacroData.names[0] || "Character",
+    charPhonetic: characterMacroData.phoneticNames[0] || characterMacroData.names[0] || "Character",
     characters: characterMacroData.names,
     characterProfiles: characterMacroData.profiles,
     variables,
@@ -266,6 +278,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
 
 function characterFieldsFromProfile(profile: CharacterMacroProfile): NonNullable<MacroContext["characterFields"]> {
   return {
+    phoneticName: profile.phoneticName ?? "",
     description: profile.description ?? "",
     personality: profile.personality ?? "",
     backstory: profile.backstory ?? "",
@@ -288,6 +301,7 @@ function macroContextForMessage(
   return {
     ...macroCtx,
     char: profile.name,
+    charPhonetic: profile.phoneticName || profile.name,
     characterFields: characterFieldsFromProfile(profile),
   };
 }
@@ -352,7 +366,9 @@ export async function collectCharacterDepthPromptEntries(
     const content = resolveMacros(depthPrompt.prompt, {
       ...macroCtx,
       char: data?.name ?? macroCtx.char,
+      charPhonetic: data?.extensions?.phoneticName ?? macroCtx.charPhonetic,
       characterFields: {
+        phoneticName: data?.extensions?.phoneticName ?? "",
         description: data?.description ?? "",
         personality: data?.personality ?? "",
         backstory: data?.extensions?.backstory ?? "",
@@ -393,7 +409,9 @@ export async function collectCharacterPostHistoryEntries(
     const content = resolveMacros(raw, {
       ...macroCtx,
       char: data.name ?? macroCtx.char,
+      charPhonetic: data.extensions?.phoneticName ?? macroCtx.charPhonetic,
       characterFields: {
+        phoneticName: data.extensions?.phoneticName ?? "",
         description: data.description ?? "",
         personality: data.personality ?? "",
         backstory: data.extensions?.backstory ?? "",

@@ -345,6 +345,7 @@ function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
     const extensions = data.extensions && typeof data.extensions === "object" ? data.extensions : {};
     return {
       name: data.name ?? "Unknown",
+      phoneticName: extensions.phoneticName || undefined,
       description: data.description ?? "",
       personality: data.personality ?? "",
       backstory: extensions.backstory ?? "",
@@ -373,6 +374,7 @@ function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
 function areCharacterMapValuesEqual(a: CharacterMapValue, b: CharacterMapValue): boolean {
   return (
     a.name === b.name &&
+    a.phoneticName === b.phoneticName &&
     a.description === b.description &&
     a.personality === b.personality &&
     a.backstory === b.backstory &&
@@ -923,6 +925,7 @@ export function ChatArea() {
     return {
       id: persona.id,
       name: persona.name,
+      phoneticName: persona.phoneticName || undefined,
       description: persona.description ?? "",
       personality: persona.personality || undefined,
       scenario: persona.scenario || undefined,

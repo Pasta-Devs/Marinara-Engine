@@ -398,6 +398,8 @@ export interface ChatMetadata {
   conversationCallsEnabled?: boolean;
   /** Allow characters to ring the user through the call command. Default: true when calls are enabled. */
   conversationCharactersCanCall?: boolean;
+  /** Ask call models to include TTS/video voice cues in bracket tags. Default: true. */
+  conversationCallVoiceCues?: boolean;
   /** Chat-scoped generated schedules for conversation characters. */
   characterSchedules?: Record<string, unknown>;
   /** Chat-scoped manual status overrides for conversation characters. */

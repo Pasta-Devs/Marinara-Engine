@@ -181,6 +181,7 @@ function buildPersonaSnapshot(persona: PersonaRow): PersonaCardSnapshot {
     creator: persona.creator ?? "",
     personaVersion: persona.personaVersion?.trim() ? persona.personaVersion : "1.0",
     creatorNotes: persona.creatorNotes ?? "",
+    phoneticName: persona.phoneticName ?? "",
     description: persona.description ?? "",
     personality: persona.personality ?? "",
     scenario: persona.scenario ?? "",
@@ -214,6 +215,7 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     creator: data.creator ?? "",
     personaVersion: data.personaVersion?.trim() ? data.personaVersion : "1.0",
     creatorNotes: data.creatorNotes ?? "",
+    phoneticName: data.phoneticName ?? "",
     description: data.description ?? "",
     personality: data.personality ?? "",
     scenario: data.scenario ?? "",
@@ -599,6 +601,7 @@ export function createCharactersStorage(db: DB) {
         creator?: string;
         personaVersion?: string;
         creatorNotes?: string;
+        phoneticName?: string;
         personality?: string;
         scenario?: string;
         backstory?: string;
@@ -623,6 +626,7 @@ export function createCharactersStorage(db: DB) {
         creator: extra?.creator ?? "",
         personaVersion: extra?.personaVersion?.trim() ? extra.personaVersion : "1.0",
         creatorNotes: extra?.creatorNotes ?? "",
+        phoneticName: extra?.phoneticName ?? "",
         description,
         personality: extra?.personality ?? "",
         scenario: extra?.scenario ?? "",
@@ -686,6 +690,7 @@ export function createCharactersStorage(db: DB) {
         creator: source.creator ?? "",
         personaVersion: source.personaVersion?.trim() ? source.personaVersion : "1.0",
         creatorNotes: source.creatorNotes ?? "",
+        phoneticName: source.phoneticName ?? "",
         description: source.description ?? "",
         personality: source.personality ?? "",
         scenario: source.scenario ?? "",
@@ -715,6 +720,7 @@ export function createCharactersStorage(db: DB) {
         creator?: string;
         personaVersion?: string;
         creatorNotes?: string;
+        phoneticName?: string;
         description?: string;
         personality?: string;
         scenario?: string;
@@ -744,6 +750,7 @@ export function createCharactersStorage(db: DB) {
         ...(updates.creator !== undefined && { creator: updates.creator }),
         ...(updates.personaVersion !== undefined && { personaVersion: updates.personaVersion }),
         ...(updates.creatorNotes !== undefined && { creatorNotes: updates.creatorNotes }),
+        ...(updates.phoneticName !== undefined && { phoneticName: updates.phoneticName }),
         ...(updates.description !== undefined && { description: updates.description }),
         ...(updates.personality !== undefined && { personality: updates.personality }),
         ...(updates.scenario !== undefined && { scenario: updates.scenario }),
@@ -777,6 +784,7 @@ export function createCharactersStorage(db: DB) {
       if (updates.creator !== undefined) sets.creator = updates.creator;
       if (updates.personaVersion !== undefined) sets.personaVersion = updates.personaVersion;
       if (updates.creatorNotes !== undefined) sets.creatorNotes = updates.creatorNotes;
+      if (updates.phoneticName !== undefined) sets.phoneticName = updates.phoneticName;
       if (updates.description !== undefined) sets.description = updates.description;
       if (updates.personality !== undefined) sets.personality = updates.personality;
       if (updates.scenario !== undefined) sets.scenario = updates.scenario;
@@ -809,6 +817,7 @@ export function createCharactersStorage(db: DB) {
           creator: data.creator,
           personaVersion: data.personaVersion,
           creatorNotes: data.creatorNotes,
+          phoneticName: data.phoneticName ?? "",
           description: data.description,
           personality: data.personality,
           scenario: data.scenario,

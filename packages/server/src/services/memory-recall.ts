@@ -16,6 +16,9 @@ let warnedUnavailableEmbeddingSource = false;
 /** How many messages per chunk. */
 const CHUNK_SIZE = 5;
 
+/** Keep embedding requests comfortably below common 8k-token embedding ceilings. */
+const MAX_EMBEDDING_CHUNK_CHARS = 18_000;
+
 /** Minimum similarity score to include a memory in results. */
 const SIMILARITY_THRESHOLD = 0.25;
 
@@ -107,6 +110,51 @@ export async function embedMemoryRecallTexts(
 function normalizeReadBehindMessageCount(value: number | null | undefined): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
   return Math.floor(value);
+}
+
+function splitLongMemoryText(text: string, maxChars = MAX_EMBEDDING_CHUNK_CHARS): string[] {
+  const normalized = text.trim();
+  if (!normalized) return [];
+  if (normalized.length <= maxChars) return [normalized];
+
+  const parts: string[] = [];
+  let remaining = normalized;
+
+  while (remaining.length > maxChars) {
+    const windowText = remaining.slice(0, maxChars);
+    const breakAt =
+      Math.max(windowText.lastIndexOf("\n\n"), windowText.lastIndexOf("\n"), windowText.lastIndexOf(". ")) || maxChars;
+    const sliceAt = breakAt < maxChars * 0.5 ? maxChars : breakAt;
+    const part = remaining.slice(0, sliceAt).trim();
+    if (part) parts.push(part);
+    remaining = remaining.slice(sliceAt).trim();
+  }
+
+  if (remaining) parts.push(remaining);
+  return parts;
+}
+
+function splitMemoryChunksForEmbedding<T extends { content: string }>(chunks: T[]): T[] {
+  const expanded: T[] = [];
+  let splitCount = 0;
+  for (const chunk of chunks) {
+    const parts = splitLongMemoryText(chunk.content);
+    if (parts.length <= 1) {
+      expanded.push({ ...chunk, content: parts[0] ?? chunk.content });
+      continue;
+    }
+    splitCount += parts.length - 1;
+    for (let index = 0; index < parts.length; index += 1) {
+      expanded.push({
+        ...chunk,
+        content: `[Memory chunk part ${index + 1}/${parts.length}]\n${parts[index]}`,
+      });
+    }
+  }
+  if (splitCount > 0) {
+    logger.debug("[memory-recall] Split oversized memory input into %d additional embedding chunk(s)", splitCount);
+  }
+  return expanded;
 }
 
 async function pruneStaleNativeMemoryChunks(
@@ -272,20 +320,22 @@ export async function chunkAndEmbedMessages(
   }
 
   if (chunksToCreate.length === 0) return;
+  const embeddableChunks = splitMemoryChunksForEmbedding(chunksToCreate);
+  if (embeddableChunks.length === 0) return;
 
   // Embed all chunks using local model
-  const texts = chunksToCreate.map((c) => c.content);
+  const texts = embeddableChunks.map((c) => c.content);
   const embeddings = await embedMemoryRecallTexts(texts, options);
   if (
-    embeddings.length !== chunksToCreate.length ||
+    embeddings.length !== embeddableChunks.length ||
     embeddings.some((embedding) => !Array.isArray(embedding) || embedding.length === 0)
   ) {
     logger.debug(
       "[memory-recall] Skipping %d memory chunk(s) for chat %s because embedding generation returned %d/%d usable vectors",
-      chunksToCreate.length,
+      embeddableChunks.length,
       chatId,
       embeddings.filter((embedding) => Array.isArray(embedding) && embedding.length > 0).length,
-      chunksToCreate.length,
+      embeddableChunks.length,
     );
     return;
   }
@@ -309,8 +359,8 @@ export async function chunkAndEmbedMessages(
 
   // Store chunks
   const timestamp = now();
-  for (let i = 0; i < chunksToCreate.length; i++) {
-    const chunk = chunksToCreate[i]!;
+  for (let i = 0; i < embeddableChunks.length; i++) {
+    const chunk = embeddableChunks[i]!;
     await db.insert(memoryChunks).values({
       id: newId(),
       chatId,
@@ -323,7 +373,7 @@ export async function chunkAndEmbedMessages(
     });
   }
 
-  logger.debug("[memory-recall] Created %d chunk(s) for chat %s", chunksToCreate.length, chatId);
+  logger.debug("[memory-recall] Created %d chunk(s) for chat %s", embeddableChunks.length, chatId);
 }
 
 /**

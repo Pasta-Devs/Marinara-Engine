@@ -6,7 +6,7 @@
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance } from "fastify";
 import { logger } from "../lib/logger.js";
-import { isAllowedImageBuffer, safeFetch } from "../utils/security.js";
+import { resolveValidatedImage, safeFetch } from "../utils/security.js";
 
 const DATACAT_API_BASE = "https://datacat.run";
 const DATACAT_IMAGE_BASE = "https://ella.janitorai.com/bot-avatars/";
@@ -80,15 +80,16 @@ async function fetchAvatarImage(url: string, signal: AbortSignal) {
     signal,
     policy: { allowedProtocols: ["https:"] },
     maxResponseBytes: AVATAR_PROXY_MAX_BYTES,
+    headers: {
+      "User-Agent": DC_USER_AGENT,
+      Referer: `${DATACAT_API_BASE}/`,
+    },
   });
   if (!res.ok) return null;
   const buf = Buffer.from(await res.arrayBuffer());
-  const contentType = res.headers.get("content-type")?.toLowerCase() ?? "";
-  const imageInfo = isAllowedImageBuffer(buf);
-  if (!contentType.startsWith("image/") || !imageInfo) {
-    throw new Error("Unsupported avatar image content");
-  }
-  return { buf, mimeType: imageInfo.mimeType };
+  const image = resolveValidatedImage(buf, res.headers.get("content-type") ?? "");
+  if (!image) throw new Error("Unsupported avatar image content");
+  return { buf, mimeType: image.mimeType };
 }
 
 async function dcFetch(path: string): Promise<unknown> {
@@ -234,7 +235,8 @@ export async function botBrowserDatacatRoutes(app: FastifyInstance) {
       } catch {
         return reply.status(400).send({ error: "Invalid avatar URL" });
       }
-      if (parsed.protocol !== "https:" || parsed.hostname !== "ella.janitorai.com") {
+      const allowedDataCatHosts = new Set(["ella.janitorai.com", "media.datacat.run"]);
+      if (parsed.protocol !== "https:" || !allowedDataCatHosts.has(parsed.hostname)) {
         return reply.status(400).send({ error: "Unsupported avatar host" });
       }
       url = parsed.toString();

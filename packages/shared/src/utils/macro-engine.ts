@@ -4,12 +4,15 @@
 
 export interface MacroContext {
   user: string;
+  userPhonetic?: string;
   char: string;
+  charPhonetic?: string;
   /** All characters in the chat */
   characters: string[];
   /** Full per-character card fields for grouped macro expansion */
   characterProfiles?: Array<{
     name: string;
+    phoneticName?: string;
     description?: string;
     personality?: string;
     backstory?: string;
@@ -37,6 +40,7 @@ export interface MacroContext {
   agentData?: Record<string, string>;
   /** Current character card fields used by macros like {{description}} */
   characterFields?: {
+    phoneticName?: string;
     description?: string;
     personality?: string;
     backstory?: string;
@@ -48,6 +52,7 @@ export interface MacroContext {
   };
   /** Active persona card fields used by {{persona}} */
   personaFields?: {
+    phoneticName?: string;
     description?: string;
     personality?: string;
     backstory?: string;
@@ -86,7 +91,7 @@ export interface SupportedMacroDefinition {
 }
 
 const CHARACTER_MACRO_PATTERN =
-  /\{\{(?:char|charName|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:char|charName|character|speaker|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
+  /\{\{(?:char|charName|charNamePhonetic|charPhonetic|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\}\}|\{\{\s*#if\s+[^}]*\b(?:char|charName|charNamePhonetic|charPhonetic|character|speaker|description|personality|backstory|appearance|scenario|example|charSysInfo|charPostHistory)\b/i;
 const MAX_CHARACTER_FIELD_RESOLUTION_DEPTH = 4;
 const MAX_DICE_COUNT = 1000;
 const MAX_DICE_SIDES = 1_000_000;
@@ -104,6 +109,7 @@ const DEFERRED_CHARACTER_CONDITIONAL_TOKEN_RE = new RegExp(
 const MACRO_COMMENT_PATTERN = /\{\{\/\/[^}]*\}\}/g;
 const DEFERRED_CHARACTER_MACRO_TOKENS = {
   char: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}CHAR\x1f`,
+  charPhonetic: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}CHAR_PHONETIC\x1f`,
   description: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}DESCRIPTION\x1f`,
   personality: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}PERSONALITY\x1f`,
   backstory: `${DEFERRED_CHARACTER_MACRO_TOKEN_PREFIX}BACKSTORY\x1f`,
@@ -115,7 +121,7 @@ const DEFERRED_CHARACTER_MACRO_TOKENS = {
 } as const;
 
 export type CharacterMacroProfile = NonNullable<MacroContext["characterProfiles"]>[number];
-type CharacterFieldMacroName = Exclude<keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS, "char">;
+type CharacterFieldMacroName = Exclude<keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS, "char" | "charPhonetic">;
 type ConditionalBlockPayload = {
   condition: string;
   truthy: string;
@@ -221,6 +227,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{userName}}", description: "Alias for {{user}}" },
   {
     category: "Identity",
+    syntax: "{{userNamePhonetic}}",
+    description: "Active persona phonetic name, or {{user}} when none is configured",
+  },
+  {
+    category: "Identity",
     syntax: "{{persona}}",
     description: "Active persona description, personality, backstory, appearance, and scenario joined by new lines",
   },
@@ -231,6 +242,11 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{personaScenario}}", description: "Active persona scenario" },
   { category: "Identity", syntax: "{{char}}", description: "Current character name" },
   { category: "Identity", syntax: "{{charName}}", description: "Alias for {{char}}" },
+  {
+    category: "Identity",
+    syntax: "{{charNamePhonetic}}",
+    description: "Current character phonetic name, or {{char}} when none is configured",
+  },
   { category: "Identity", syntax: "{{characters}}", description: "All character names, comma-separated" },
   { category: "Character", syntax: "{{description}}", description: "Current character description" },
   { category: "Character", syntax: "{{personality}}", description: "Current character personality" },
@@ -323,7 +339,9 @@ function resolveCharacterFieldValue(
 function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: MacroContext): MacroContext {
   return {
     user: base?.user ?? "User",
+    userPhonetic: base?.userPhonetic,
     char: profile.name,
+    charPhonetic: profile.phoneticName ?? profile.name,
     characters: base?.characters ?? [profile.name],
     characterProfiles: base?.characterProfiles ?? [profile],
     variables: base?.variables ?? {},
@@ -336,6 +354,7 @@ function macroContextForCharacterProfile(profile: CharacterMacroProfile, base?: 
     agentData: base?.agentData,
     personaFields: base?.personaFields,
     characterFields: {
+      phoneticName: profile.phoneticName ?? "",
       description: profile.description ?? "",
       personality: profile.personality ?? "",
       backstory: profile.backstory ?? "",
@@ -361,6 +380,7 @@ export function resolveCharacterScopedMacros(
   );
   return scoped
     .replace(/\{\{char(?:Name)?\}\}/gi, profile.name)
+    .replace(/\{\{char(?:Name)?Phonetic\}\}/gi, profile.phoneticName ?? profile.name)
     .replace(/\{\{description\}\}/gi, () => resolveCharacterFieldValue(profile, "description", depth, baseContext))
     .replace(/\{\{personality\}\}/gi, () => resolveCharacterFieldValue(profile, "personality", depth, baseContext))
     .replace(/\{\{backstory\}\}/gi, () => resolveCharacterFieldValue(profile, "backstory", depth, baseContext))
@@ -382,6 +402,7 @@ export function resolveDeferredCharacterMacros(
   const scopedContext = macroContextForCharacterProfile(profile, baseContext);
   let result = resolveDeferredCharacterConditionals(template, scopedContext);
   result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.char).join(profile.name);
+  result = result.split(DEFERRED_CHARACTER_MACRO_TOKENS.charPhonetic).join(profile.phoneticName ?? profile.name);
   result = result
     .split(DEFERRED_CHARACTER_MACRO_TOKENS.description)
     .join(resolveCharacterFieldValue(profile, "description", 0, baseContext));
@@ -601,9 +622,17 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
     case "character":
     case "speaker":
       return ctx.char;
+    case "charphonetic":
+    case "charnamephonetic":
+    case "characterphonetic":
+    case "speakerphonetic":
+      return ctx.charPhonetic || ctx.characterFields?.phoneticName || ctx.char;
     case "user":
     case "username":
       return ctx.user;
+    case "userphonetic":
+    case "usernamephonetic":
+      return ctx.userPhonetic || ctx.personaFields?.phoneticName || ctx.user;
     case "persona":
       return resolvePersonaText(ctx);
     case "personadescription":
@@ -651,7 +680,7 @@ function resolveConditionalOperand(raw: string, ctx: MacroContext): string {
 
 function isCharacterConditionalOperand(raw: string): boolean {
   const normalized = normalizeConditionKey(raw);
-  return /^(char|charname|character|speaker|description|personality|backstory|appearance|scenario|example|charsysinfo|charposthistory)$/.test(
+  return /^(char|charname|charphonetic|charnamephonetic|character|characterphonetic|speaker|speakerphonetic|description|personality|backstory|appearance|scenario|example|charsysinfo|charposthistory)$/.test(
     normalized,
   );
 }
@@ -1162,10 +1191,12 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   };
   const deferCharacterMacros = options.deferCharacterMacros;
   const characterReplacement = (field: keyof typeof DEFERRED_CHARACTER_MACRO_TOKENS): string => {
-    if (deferCharacterMacros === "all" || (deferCharacterMacros === "names" && field === "char")) {
+    const isNameField = field === "char" || field === "charPhonetic";
+    if (deferCharacterMacros === "all" || (deferCharacterMacros === "names" && isNameField)) {
       return DEFERRED_CHARACTER_MACRO_TOKENS[field];
     }
     if (field === "char") return ctx.char;
+    if (field === "charPhonetic") return ctx.charPhonetic || ctx.characterFields?.phoneticName || ctx.char;
     return resolveNestedFieldMacros(ctx.characterFields?.[field] ?? "");
   };
 
@@ -1203,6 +1234,10 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
 
   // ── Static substitutions ──
   result = result.replace(/\{\{user(?:Name)?\}\}/gi, ctx.user);
+  result = result.replace(
+    /\{\{user(?:Name)?Phonetic\}\}/gi,
+    ctx.userPhonetic || ctx.personaFields?.phoneticName || ctx.user,
+  );
   // The gated build above can be skipped when {{persona}} only materializes
   // mid-pipeline (e.g. substituted in by an earlier pass), so fall back to
   // building here. String form is kept so $-sequences in persona text
@@ -1226,6 +1261,7 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
     resolveNestedFieldMacros(ctx.personaFields?.scenario ?? ""),
   );
   result = result.replace(/\{\{char(?:Name)?\}\}/gi, characterReplacement("char"));
+  result = result.replace(/\{\{char(?:Name)?Phonetic\}\}/gi, characterReplacement("charPhonetic"));
   result = result.replace(/\{\{characters\}\}/gi, ctx.characters.join(", "));
   result = result.replace(/\{\{description\}\}/gi, characterReplacement("description"));
   result = result.replace(/\{\{personality\}\}/gi, characterReplacement("personality"));

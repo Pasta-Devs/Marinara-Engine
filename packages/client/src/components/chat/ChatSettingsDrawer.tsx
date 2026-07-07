@@ -5168,6 +5168,39 @@ export function ChatSettingsDrawer({
 
                     <button
                       type="button"
+                      onClick={() => {
+                        updateMeta.mutate({
+                          id: chat.id,
+                          conversationCallVoiceCues: metadata.conversationCallVoiceCues === false ? true : false,
+                        });
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg bg-[var(--background)]/35 px-2.5 py-2 text-left transition-colors hover:bg-[var(--secondary)]/50"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">
+                          Generate voice cues in [tags]
+                        </span>
+                        <p className="mt-0.5 text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
+                          Ask call models for cues like [whispering], [laughing], and [sighs] for TTS/video timing.
+                        </p>
+                      </div>
+                      <div
+                        className={cn(
+                          "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                          metadata.conversationCallVoiceCues !== false && "mari-chat-option-switch--active",
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                            metadata.conversationCallVoiceCues !== false && "translate-x-3.5",
+                          )}
+                        />
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
                       disabled={callSettingsDisabled}
                       onClick={() => {
                         patchConversationCallTtsConfig({
