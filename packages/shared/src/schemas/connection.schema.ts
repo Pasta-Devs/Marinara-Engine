@@ -8,6 +8,7 @@ export const apiProviderSchema = z.enum([
   "openai_chatgpt",
   "anthropic",
   "claude_subscription",
+  "grok_subscription",
   "google",
   "google_vertex",
   "mistral",

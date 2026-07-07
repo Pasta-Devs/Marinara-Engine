@@ -13,6 +13,7 @@ import {
   DEFAULT_AGENT_TOOLS,
   PROVIDERS,
   getDefaultBuiltInAgentSettings,
+  localAuthProviderBaseUrl,
   normalizeAgentPhaseForType,
 } from "@marinara-engine/shared";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
@@ -454,9 +455,8 @@ export async function agentsRoutes(app: FastifyInstance) {
       const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
       baseUrl = providerDef?.defaultBaseUrl ?? "";
     }
-    // Claude (Subscription) uses the local Claude Agent SDK; no HTTP endpoint.
-    if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
-    if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+    const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
+    if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
     if (!baseUrl) {
       throw Object.assign(new Error("No base URL configured for this connection"), { statusCode: 400 });
     }

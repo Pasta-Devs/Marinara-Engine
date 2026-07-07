@@ -1,5 +1,5 @@
 // DJ Mari - Spotify playlist composer
-import { PROVIDERS } from "@marinara-engine/shared";
+import { PROVIDERS, localAuthProviderBaseUrl } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -447,8 +447,8 @@ async function resolveProviderConnection(db: DB) {
     const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
     baseUrl = provider?.defaultBaseUrl ?? "";
   }
-  if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
-  if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
+  if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
   if (!baseUrl) fail(400, "The selected model connection has no base URL configured.");
 
   return { conn, baseUrl };

@@ -90,6 +90,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   openai_chatgpt: CONNECTION_ICON_COLORS,
   anthropic: CONNECTION_ICON_COLORS,
   claude_subscription: CONNECTION_ICON_COLORS,
+  grok_subscription: CONNECTION_ICON_COLORS,
   google: CONNECTION_ICON_COLORS,
   google_vertex: CONNECTION_ICON_COLORS,
   mistral: CONNECTION_ICON_COLORS,

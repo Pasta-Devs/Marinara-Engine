@@ -6,12 +6,17 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [2.1.1]
 
+### Added
+
+- Added a **Grok CLI (Subscription)** connection provider that routes chat requests through a local `grok` CLI login for SuperGrok / X Premium+ users, with in-app setup instructions and no API key or base URL fields.
+
 ### Changed
 
 - Bumped release metadata to v2.1.1 across packages, the PWA manifest, README release pointer, Windows installer sources, Android APK metadata, and the home-page-visible app version.
 - Reorganized Settings so Addons combines Themes and Extensions, Generations houses image/video generation and prompt overrides, Imports uses the plural label, generation prompt editors start collapsed, and Danger Zone uses accent-color selections with no default checked categories.
 - Refreshed the in-app Credits modal from the GitHub contributors list and added credits sync/check helpers to the release workflow.
 - Split the server generation route into focused prompt, provider, context, and command-runtime modules so Conversation commands, Professor Mari actions, turn games, provider setup, and post-processing paths are easier to review and maintain.
+- Removed unused API Key and Base URL fields from local subscription/auth providers such as Claude Subscription, ChatGPT/Codex auth, and Grok CLI.
 
 ### Fixed
 

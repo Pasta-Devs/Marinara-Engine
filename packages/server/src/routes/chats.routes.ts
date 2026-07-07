@@ -25,6 +25,7 @@ import {
   parseTrackerFieldLocks,
   normalizeTextForMatch,
   formatRpgStatsForPrompt,
+  localAuthProviderBaseUrl,
 } from "@marinara-engine/shared";
 import type {
   CharacterData,
@@ -1111,8 +1112,8 @@ export async function chatsRoutes(app: FastifyInstance) {
       const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
       baseUrl = providerDef?.defaultBaseUrl ?? "";
     }
-    if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
-    if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+    const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
+    if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
     if (!baseUrl) return reply.status(400).send({ error: "No base URL for this connection" });
 
     const characterIds: string[] = Array.isArray(chat.characterIds)

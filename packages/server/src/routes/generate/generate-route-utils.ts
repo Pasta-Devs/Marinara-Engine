@@ -6,6 +6,7 @@ import {
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
+  localAuthProviderBaseUrl,
   normalizeTextForMatch,
   normalizeThinkingTagPairs,
   parseTrackerFieldLocks,
@@ -1129,8 +1130,8 @@ export function resolveBaseUrl(connection: { baseUrl: string | null; provider: s
   // Subscription/login-backed providers own their endpoint internally, but
   // downstream callers gate on a non-empty baseUrl. Return a sentinel so the
   // gate passes; the provider ignores the value.
-  if (connection.provider === "claude_subscription") return "claude-agent-sdk://local";
-  if (connection.provider === "openai_chatgpt") return "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(connection.provider);
+  if (localAuthBaseUrl) return localAuthBaseUrl;
   const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
   return providerDef?.defaultBaseUrl ?? "";
 }

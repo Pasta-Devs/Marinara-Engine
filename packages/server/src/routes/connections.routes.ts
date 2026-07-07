@@ -14,6 +14,8 @@ import {
   generationParametersSchema,
   inferImageSource,
   inferVideoSource,
+  isLocalAuthProvider,
+  localAuthProviderBaseUrl,
   normalizeVideoGenerationProfile,
 } from "@marinara-engine/shared";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -120,6 +122,7 @@ function usesResponsesEndpointForTestMessage(provider: string, model: string): b
 function describeTestMessageTarget(provider: string, baseUrl: string, model: string): string {
   if (provider === "claude_subscription") return "Claude Agent SDK";
   if (provider === "openai_chatgpt") return "local ChatGPT session";
+  if (provider === "grok_subscription") return "local Grok CLI session";
   if (!baseUrl) return "(no base URL)";
   if (provider === "google_vertex") return buildGoogleVertexModelUrl(baseUrl, model, "generateContent");
   if (isOpenAICompatibleProvider(provider)) {
@@ -436,6 +439,39 @@ export async function connectionsRoutes(app: FastifyInstance) {
         };
       }
 
+      if (conn.provider === "grok_subscription") {
+        if (!conn.model) {
+          return {
+            success: false,
+            message: "No model configured. Set a Grok CLI model first.",
+            latencyMs: Date.now() - start,
+            modelName: null,
+          };
+        }
+        const provider = createLLMProvider(
+          conn.provider,
+          "",
+          "",
+          conn.maxContext,
+          conn.openrouterProvider,
+          conn.maxTokensOverride,
+        );
+        let responseText = "";
+        for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
+          model: conn.model,
+          maxTokens: 32,
+          stream: false,
+        })) {
+          responseText += chunk;
+        }
+        return {
+          success: true,
+          message: `Grok CLI completed a real request: ${responseText.trim().slice(0, 120) || "OK"}`,
+          latencyMs: Date.now() - start,
+          modelName: conn.model,
+        };
+      }
+
       // Simple models list fetch to verify the key works
       const { PROVIDERS } = await import("@marinara-engine/shared");
       const provider = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
@@ -573,6 +609,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
           // before the host has run `codex login`.
         }
         return { models: MODEL_LISTS.openai_chatgpt.map((m) => ({ id: m.id, name: m.name })) };
+      }
+
+      if (conn.provider === "grok_subscription") {
+        return { models: MODEL_LISTS.grok_subscription.map((m) => ({ id: m.id, name: m.name })) };
       }
 
       if (conn.provider === "video_generation") {
@@ -1113,7 +1153,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
 
     // Local subscription/session providers manage their own endpoint, so skip
     // the baseUrl precondition. Every HTTP provider still requires one.
-    if (!baseUrl && conn.provider !== "claude_subscription" && conn.provider !== "openai_chatgpt") {
+    if (!baseUrl && !isLocalAuthProvider(conn.provider)) {
       return reply.status(400).send({ error: "No base URL configured" });
     }
 
@@ -1125,7 +1165,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       debugLog("[connections/test-message] provider=%s model=%s url=%s", conn.provider, conn.model, targetUrl);
       const provider = createLLMProvider(
         conn.provider,
-        baseUrl,
+        localAuthProviderBaseUrl(conn.provider) ?? baseUrl,
         conn.apiKey,
         conn.maxContext,
         conn.openrouterProvider,

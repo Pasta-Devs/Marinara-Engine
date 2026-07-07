@@ -75,6 +75,7 @@ import {
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
   inferVideoSource,
+  isLocalAuthProvider as isLocalAuthConnectionProvider,
   IMAGE_DEFAULTS_STORAGE_KEY,
   VIDEO_DEFAULTS_STORAGE_KEY,
   COMFYUI_SAMPLER_OPTIONS,
@@ -197,8 +198,7 @@ function canProviderTreatAsLocalEndpoint(provider: APIProvider): boolean {
   return (
     provider !== "image_generation" &&
     provider !== "video_generation" &&
-    provider !== "claude_subscription" &&
-    provider !== "openai_chatgpt"
+    !isLocalAuthConnectionProvider(provider)
   );
 }
 
@@ -207,8 +207,7 @@ function providerSupportsDirectEmbeddingConfig(provider: APIProvider): boolean {
     provider !== "image_generation" &&
     provider !== "video_generation" &&
     provider !== "anthropic" &&
-    provider !== "claude_subscription" &&
-    provider !== "openai_chatgpt"
+    !isLocalAuthConnectionProvider(provider)
   );
 }
 
@@ -325,7 +324,13 @@ export function ConnectionEditor() {
   // Remote models fetched from provider API
   const [remoteModels, setRemoteModels] = useState<RemoteConnectionModel[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const baseUrlValidation = useMemo(() => normalizeEndpointUrlInput(localBaseUrl, "Base URL"), [localBaseUrl]);
+  const baseUrlValidation = useMemo(
+    () =>
+      isLocalAuthConnectionProvider(localProvider)
+        ? { value: "", error: null }
+        : normalizeEndpointUrlInput(localBaseUrl, "Base URL"),
+    [localBaseUrl, localProvider],
+  );
   const embeddingBaseUrlValidation = useMemo(
     () => normalizeEndpointUrlInput(localEmbeddingBaseUrl, "Embedding endpoint URL"),
     [localEmbeddingBaseUrl],
@@ -598,6 +603,7 @@ export function ConnectionEditor() {
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isMediaProvider = isImageProvider || isVideoProvider;
+    const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
     const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
     const existingEmbeddingModel = (conn as { embeddingModel?: string | null } | undefined)?.embeddingModel ?? "";
     const existingEmbeddingBaseUrl = (conn as { embeddingBaseUrl?: string | null } | undefined)?.embeddingBaseUrl ?? "";
@@ -605,7 +611,7 @@ export function ConnectionEditor() {
       id: connectionDetailId,
       name: localName,
       provider: localProvider,
-      baseUrl: baseUrlValidation.value,
+      baseUrl: isLocalAuthProvider ? "" : baseUrlValidation.value,
       model: localModel,
       maxContext: localMaxContext,
       maxParallelJobs: localMaxParallelJobs,
@@ -631,7 +637,9 @@ export function ConnectionEditor() {
       treatAsLocalEndpoint: canTreatAsLocalEndpoint ? localTreatAsLocalEndpoint : false,
     };
     // Only send API key if user typed a new one
-    if (localApiKey.trim()) {
+    if (isLocalAuthProvider) {
+      payload.apiKey = "";
+    } else if (localApiKey.trim()) {
       payload.apiKey = localApiKey;
     } else if (clearStoredApiKeyOnSave) {
       payload.apiKey = "";
@@ -667,7 +675,9 @@ export function ConnectionEditor() {
           ),
         });
       }
-      if (baseUrlValidation.value !== localBaseUrl.trim()) {
+      if (isLocalAuthProvider && localBaseUrl) {
+        setLocalBaseUrl("");
+      } else if (baseUrlValidation.value !== localBaseUrl.trim()) {
         setLocalBaseUrl(baseUrlValidation.value);
       }
       if (supportsDirectEmbeddings && embeddingBaseUrlValidation.value !== localEmbeddingBaseUrl.trim()) {
@@ -752,6 +762,7 @@ export function ConnectionEditor() {
     const isImageProvider = localProvider === "image_generation";
     const isVideoProvider = localProvider === "video_generation";
     const isMediaProvider = isImageProvider || isVideoProvider;
+    const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
     const defaultParameters = isImageProvider
       ? buildImageDefaultParameters(
           currentConnection.defaultParameters,
@@ -780,7 +791,7 @@ export function ConnectionEditor() {
       ...currentConnection,
       name: localName,
       provider: localProvider,
-      baseUrl: localBaseUrl,
+      baseUrl: isLocalAuthProvider ? "" : localBaseUrl,
       model: localModel,
       maxContext: localMaxContext,
       maxTokensOverride: localMaxTokensOverride ?? null,
@@ -1056,7 +1067,8 @@ export function ConnectionEditor() {
   const isMediaGenerationProvider = isImageGenerationProvider || isVideoGenerationProvider;
   const isClaudeSubscriptionProvider = localProvider === "claude_subscription";
   const isOpenAIChatGPTProvider = localProvider === "openai_chatgpt";
-  const isLocalAuthProvider = isClaudeSubscriptionProvider || isOpenAIChatGPTProvider;
+  const isGrokSubscriptionProvider = localProvider === "grok_subscription";
+  const isLocalAuthProvider = isLocalAuthConnectionProvider(localProvider);
   const supportsDirectEmbeddingConfig = providerSupportsDirectEmbeddingConfig(localProvider);
   const canTreatAsLocalEndpoint = canProviderTreatAsLocalEndpoint(localProvider);
 
@@ -1219,9 +1231,15 @@ export function ConnectionEditor() {
                     setLocalProvider(key);
                     // Auto-fill base URL
                     setLocalBaseUrl(info.defaultBaseUrl);
-                    // Clear model when switching providers, except xAI where
-                    // we can seed the newest supported Grok model.
-                    setLocalModel(key === "xai" ? (defaultModel?.id ?? "grok-4.3") : "");
+                    // Seed known Grok selectors; leave other providers blank
+                    // so users deliberately pick their preferred model.
+                    setLocalModel(
+                      key === "xai"
+                        ? (defaultModel?.id ?? "grok-4.3")
+                        : key === "grok_subscription"
+                          ? (defaultModel?.id ?? "grok-build-latest")
+                          : "",
+                    );
                     setLocalMaxContext(Number(defaultModel?.context) || 128000);
                     setLocalMaxTokensOverride(null);
                     setLocalDefaultParametersEnabled(false);
@@ -1246,7 +1264,7 @@ export function ConnectionEditor() {
           </FieldGroup>
 
           {/* ── Claude (Subscription) — prerequisites notice ── */}
-          {localProvider === "claude_subscription" && (
+          {isClaudeSubscriptionProvider && (
             <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
               <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
                 <AlertCircle size="0.75rem" className="mt-px shrink-0" />
@@ -1263,7 +1281,7 @@ export function ConnectionEditor() {
                 <li>
                   Sign in once: <code className="rounded bg-[var(--secondary)] px-1">claude login</code>
                 </li>
-                <li>API Key and Base URL are not required — leave them blank.</li>
+                <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Subscription auth is the same mechanism Visual Studio Code and other Anthropic-endorsed IDE integrations
@@ -1289,11 +1307,42 @@ export function ConnectionEditor() {
                 <li>
                   Sign in once: <code className="rounded bg-[var(--secondary)] px-1">codex login</code>
                 </li>
-                <li>API Key and Base URL are not required - leave them blank.</li>
+                <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
                 Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are
                 not available on this provider; configure a separate connection for embedding work.
+              </p>
+            </div>
+          )}
+
+          {/* ── Grok CLI (Subscription) — prerequisites notice ── */}
+          {isGrokSubscriptionProvider && (
+            <div className="rounded-xl bg-sky-400/5 px-3 py-2.5 ring-1 ring-sky-400/30">
+              <p className="flex items-start gap-1.5 text-[0.6875rem] text-sky-300">
+                <AlertCircle size="0.75rem" className="mt-px shrink-0" />
+                <span>
+                  Routes chat through your local <strong>Grok CLI</strong> install so it uses your signed-in{" "}
+                  <strong>SuperGrok / X Premium+</strong> account instead of an xAI API key. Prerequisites on the
+                  Marinara host:
+                </span>
+              </p>
+              <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                <li>
+                  Install Grok CLI:{" "}
+                  <code className="rounded bg-[var(--secondary)] px-1">
+                    curl -fsSL https://x.ai/cli/install.sh | bash
+                  </code>
+                </li>
+                <li>
+                  Sign in once: <code className="rounded bg-[var(--secondary)] px-1">grok login</code>
+                </li>
+                <li>API Key and Base URL are not required for this provider.</li>
+              </ol>
+              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                Marinara runs <code className="rounded bg-[var(--secondary)] px-1">grok</code> headlessly with Grok-side
+                tools, memory, web search, plans, and subagents disabled. Embeddings are not available on this provider;
+                configure a separate connection for embedding work.
               </p>
             </div>
           )}
@@ -1348,143 +1397,106 @@ export function ConnectionEditor() {
             </FieldGroup>
           )}
 
-          {/* ── API Key ── */}
-          <FieldGroup
-            label="API Key"
-            icon={<Key size="0.875rem" className="text-sky-400" />}
-            help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
-          >
-            <input
-              value={localApiKey}
-              onChange={(e) => {
-                setLocalApiKey(e.target.value);
-                markDirty();
-              }}
-              type="password"
-              className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70"
-              placeholder={
-                isClaudeSubscriptionProvider
-                  ? "Not used — managed by the Claude Agent SDK"
-                  : isOpenAIChatGPTProvider
-                    ? "Not used - read from local Codex ChatGPT login"
-                    : "••••••••  (leave empty to keep existing key)"
-              }
-              disabled={isLocalAuthProvider}
-            />
-            {!isLocalAuthProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Your key is encrypted at rest. Leave blank when editing to keep the existing key.
-              </p>
-            )}
-            {!isLocalAuthProvider && apiKeyLink && (
-              <a
-                href={apiKeyLink.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+          {!isLocalAuthProvider && (
+            <>
+              {/* ── API Key ── */}
+              <FieldGroup
+                label="API Key"
+                icon={<Key size="0.875rem" className="text-sky-400" />}
+                help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
               >
-                <ExternalLink size="0.625rem" />
-                {apiKeyLink.label}
-              </a>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                For local models (Ollama, LM Studio, KoboldCpp, etc.) you can leave this empty — just set the Base URL
-                below.
-              </p>
-            )}
-            {localProvider === "claude_subscription" && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Authentication is read from your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">claude</code> CLI session.
-              </p>
-            )}
-            {isOpenAIChatGPTProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Authentication is read from your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">codex login</code> session.
-              </p>
-            )}
-          </FieldGroup>
+                <input
+                  value={localApiKey}
+                  onChange={(e) => {
+                    setLocalApiKey(e.target.value);
+                    markDirty();
+                  }}
+                  type="password"
+                  className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  placeholder="••••••••  (leave empty to keep existing key)"
+                />
+                <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                  Your key is encrypted at rest. Leave blank when editing to keep the existing key.
+                </p>
+                {apiKeyLink && (
+                  <a
+                    href={apiKeyLink.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1.5 inline-flex items-center gap-1 text-[0.6875rem] font-medium text-sky-400 transition-colors hover:text-sky-300"
+                  >
+                    <ExternalLink size="0.625rem" />
+                    {apiKeyLink.label}
+                  </a>
+                )}
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    For local models (Ollama, LM Studio, KoboldCpp, etc.) you can leave this empty — just set the Base
+                    URL below.
+                  </p>
+                )}
+              </FieldGroup>
 
-          {/* ── Base URL ── */}
-          <FieldGroup
-            label="Base URL"
-            icon={<Globe size="0.875rem" className="text-sky-400" />}
-            help="The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
-          >
-            <input
-              value={localBaseUrl}
-              onChange={(e) => {
-                setLocalBaseUrl(e.target.value);
-                markDirty();
-              }}
-              className={cn(
-                "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-70",
-                baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
-              )}
-              placeholder={
-                isClaudeSubscriptionProvider
-                  ? "Not used — managed by the Claude Agent SDK"
-                  : isOpenAIChatGPTProvider
-                    ? "Not used - ChatGPT Codex endpoint is selected automatically"
-                    : providerDef?.defaultBaseUrl || "https://api.example.com/v1"
-              }
-              disabled={isLocalAuthProvider}
-            />
-            {providerDef?.defaultBaseUrl && !localBaseUrl && !isLocalAuthProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Default: {providerDef.defaultBaseUrl}
-              </p>
-            )}
-            {baseUrlValidation.error && (
-              <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
-            )}
-            {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Will save as {baseUrlValidation.value}
-              </p>
-            )}
-            {localProvider === "claude_subscription" && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                The Claude Agent SDK selects the endpoint automatically based on your local{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">claude</code> CLI auth.
-              </p>
-            )}
-            {isOpenAIChatGPTProvider && (
-              <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara sends requests to the ChatGPT Codex endpoint automatically using your local Codex auth.
-              </p>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Local model examples: Ollama →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp →{" "}
-                <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
-              </p>
-            )}
-            {!isLocalAuthProvider && (
-              <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
-                <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                <span>
-                  Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
-                  keys.
-                </span>
-              </p>
-            )}
-            {localProvider === "custom" && (
-              <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
-                <AlertCircle size="0.625rem" className="mt-px shrink-0" />
-                <span>
-                  <strong>Windows users:</strong> If your proxy or local server isn't detected, Windows Defender
-                  Firewall may be blocking the connection. Open{" "}
-                  <em>Windows Security → Firewall & network protection → Allow an app through firewall</em> and add
-                  Node.js or your proxy application.
-                </span>
-              </p>
-            )}
-          </FieldGroup>
+              {/* ── Base URL ── */}
+              <FieldGroup
+                label="Base URL"
+                icon={<Globe size="0.875rem" className="text-sky-400" />}
+                help="The API endpoint URL. Usually auto-filled for known providers. Only change this if you're using a proxy, local server, or custom endpoint."
+              >
+                <input
+                  value={localBaseUrl}
+                  onChange={(e) => {
+                    setLocalBaseUrl(e.target.value);
+                    markDirty();
+                  }}
+                  className={cn(
+                    "w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm font-mono ring-1 placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+                    baseUrlValidation.error ? "ring-[var(--destructive)]" : "ring-[var(--border)]",
+                  )}
+                  placeholder={providerDef?.defaultBaseUrl || "https://api.example.com/v1"}
+                />
+                {providerDef?.defaultBaseUrl && !localBaseUrl && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Default: {providerDef.defaultBaseUrl}
+                  </p>
+                )}
+                {baseUrlValidation.error && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--destructive)]">{baseUrlValidation.error}</p>
+                )}
+                {!baseUrlValidation.error && baseUrlValidation.value !== localBaseUrl.trim() && (
+                  <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Will save as {baseUrlValidation.value}
+                  </p>
+                )}
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    Local model examples: Ollama →{" "}
+                    <code className="rounded bg-[var(--secondary)] px-1">http://localhost:11434/v1</code> · LM Studio
+                    → <code className="rounded bg-[var(--secondary)] px-1">http://localhost:1234/v1</code> · KoboldCpp
+                    → <code className="rounded bg-[var(--secondary)] px-1">http://localhost:5001/v1</code>
+                  </p>
+                )}
+                <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-amber-400/80">
+                  <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                  <span>
+                    Only use URLs from providers you trust. A malicious endpoint could intercept your messages and API
+                    keys.
+                  </span>
+                </p>
+                {localProvider === "custom" && (
+                  <p className="mt-1.5 flex items-start gap-1 text-[0.625rem] text-sky-400/80">
+                    <AlertCircle size="0.625rem" className="mt-px shrink-0" />
+                    <span>
+                      <strong>Windows users:</strong> If your proxy or local server isn't detected, Windows Defender
+                      Firewall may be blocking the connection. Open{" "}
+                      <em>Windows Security → Firewall & network protection → Allow an app through firewall</em> and add
+                      Node.js or your proxy application.
+                    </span>
+                  </p>
+                )}
+              </FieldGroup>
+            </>
+          )}
 
           {/* ── Image Service (only for image_generation provider) ── */}
           {localProvider === "image_generation" && (
@@ -2271,7 +2283,7 @@ export function ConnectionEditor() {
           </FieldGroup>
 
           {/* ── Claude (Subscription) — Fast Mode toggle ── */}
-          {localProvider === "claude_subscription" && (
+          {isClaudeSubscriptionProvider && (
             <FieldGroup
               label="Fast Mode"
               icon={<Zap size="0.875rem" className="text-amber-400" />}
@@ -2486,7 +2498,7 @@ export function ConnectionEditor() {
                   Test Video
                 </button>
               )}
-              {localProvider === "claude_subscription" && (
+              {isClaudeSubscriptionProvider && (
                 <button
                   onClick={handleDiagnoseClaudeSubscription}
                   disabled={diagnoseClaudeSubscription.isPending || !localModel}
@@ -2523,7 +2535,7 @@ export function ConnectionEditor() {
                   <strong>Test Video</strong> generates a short MP4 test clip (requires saving first).
                 </>
               )}
-              {localProvider === "claude_subscription" && (
+              {isClaudeSubscriptionProvider && (
                 <>
                   {" "}
                   <strong>Diagnose Model Routing</strong> sends a real prompt through the Claude Agent SDK and reports

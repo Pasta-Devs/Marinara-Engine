@@ -5,7 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
-import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, PROVIDERS } from "@marinara-engine/shared";
+import { DEFAULT_TRANSLATION_SYSTEM_PROMPT, PROVIDERS, localAuthProviderBaseUrl } from "@marinara-engine/shared";
 import { isDeeplxLocalUrlsEnabled } from "../config/runtime-config.js";
 import { safeFetch, validateOutboundUrl } from "../utils/security.js";
 
@@ -71,9 +71,8 @@ async function translateWithAI(
     const providerDef = PROVIDERS[conn.provider as keyof typeof PROVIDERS];
     baseUrl = providerDef?.defaultBaseUrl ?? "";
   }
-  // Claude (Subscription) uses the local Claude Agent SDK; no HTTP endpoint.
-  if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
-  if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+  const localAuthBaseUrl = localAuthProviderBaseUrl(conn.provider);
+  if (!baseUrl && localAuthBaseUrl) baseUrl = localAuthBaseUrl;
   if (!baseUrl) {
     throw Object.assign(new Error("No base URL configured for this connection"), { statusCode: 400 });
   }
