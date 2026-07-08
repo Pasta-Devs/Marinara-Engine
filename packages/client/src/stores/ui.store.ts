@@ -415,8 +415,6 @@ interface UIState {
   trackerPanelCollapsedSections: TrackerPanelCollapsedSections;
   trackerPanelSectionOrder: TrackerPanelSectionOrder;
   settingsTab: string;
-  pinnedSettingsSections: string[];
-  pinnedSettingsItems: string[];
   modal: { type: string; props?: Record<string, unknown> } | null;
   theme: "dark" | "light";
   appBackgroundColor: string;
@@ -745,10 +743,6 @@ interface UIState {
   closeRightPanel: () => void;
   toggleRightPanel: (panel: Panel) => void;
   setSettingsTab: (tab: string) => void;
-  pinSettingsSection: (sectionId: string) => void;
-  unpinSettingsSection: (sectionId: string) => void;
-  pinSettingsItem: (itemId: string) => void;
-  unpinSettingsItem: (itemId: string) => void;
   openModal: (type: string, props?: Record<string, unknown>) => void;
   closeModal: () => void;
   setTheme: (theme: "dark" | "light") => void;
@@ -1138,8 +1132,6 @@ export const useUIStore = create<UIState>()(
       trackerPanelCollapsedSections: {},
       trackerPanelSectionOrder: [...TRACKER_DATA_PANEL_SECTIONS],
       settingsTab: "general",
-      pinnedSettingsSections: [],
-      pinnedSettingsItems: [],
       modal: null,
       theme: "dark" as const,
       appBackgroundColor: "",
@@ -1395,22 +1387,6 @@ export const useUIStore = create<UIState>()(
         }),
 
       setSettingsTab: (tab) => set({ settingsTab: tab }),
-      pinSettingsSection: (sectionId) =>
-        set((s) => ({
-          pinnedSettingsSections: s.pinnedSettingsSections.includes(sectionId)
-            ? s.pinnedSettingsSections
-            : [...s.pinnedSettingsSections, sectionId],
-        })),
-      unpinSettingsSection: (sectionId) =>
-        set((s) => ({ pinnedSettingsSections: s.pinnedSettingsSections.filter((id) => id !== sectionId) })),
-      pinSettingsItem: (itemId) =>
-        set((s) => ({
-          pinnedSettingsItems: s.pinnedSettingsItems.includes(itemId)
-            ? s.pinnedSettingsItems
-            : [...s.pinnedSettingsItems, itemId],
-        })),
-      unpinSettingsItem: (itemId) =>
-        set((s) => ({ pinnedSettingsItems: s.pinnedSettingsItems.filter((id) => id !== itemId) })),
       openModal: (type, props) => set({ modal: { type, props } }),
       closeModal: () => set({ modal: null }),
       setTheme: (theme) => set({ theme }),
@@ -2509,20 +2485,6 @@ export const useUIStore = create<UIState>()(
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
-        persisted.pinnedSettingsSections = Array.isArray(persisted.pinnedSettingsSections)
-          ? Array.from(
-              new Set(
-                persisted.pinnedSettingsSections
-                  .filter((sectionId: unknown): sectionId is string => typeof sectionId === "string")
-                  .map((sectionId: string) => (sectionId === "character-art" ? "roleplay-messages" : sectionId)),
-              ),
-            )
-          : [];
-        persisted.pinnedSettingsItems = Array.isArray(persisted.pinnedSettingsItems)
-          ? Array.from(
-              new Set(persisted.pinnedSettingsItems.filter((itemId: unknown): itemId is string => typeof itemId === "string")),
-            )
-          : [];
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
@@ -2535,8 +2497,6 @@ export const useUIStore = create<UIState>()(
         rightPanelWidth: state.rightPanelWidth,
         rightPanel: state.rightPanel,
         settingsTab: state.settingsTab,
-        pinnedSettingsSections: state.pinnedSettingsSections,
-        pinnedSettingsItems: state.pinnedSettingsItems,
         characterDetailId: state.characterDetailId,
         lorebookDetailId: state.lorebookDetailId,
         presetDetailId: state.presetDetailId,

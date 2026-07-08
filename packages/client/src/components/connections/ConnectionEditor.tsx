@@ -1158,7 +1158,7 @@ export function ConnectionEditor() {
           </button>
           <button
             onClick={handleDelete}
-            className="mari-editor-action mari-editor-action--danger inline-flex"
+            className="mari-editor-action inline-flex"
             title="Delete connection"
             aria-label="Delete connection"
           >

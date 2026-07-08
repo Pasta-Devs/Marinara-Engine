@@ -423,7 +423,7 @@ export function CharacterRegexSection({
                     </button>
                     <button
                       type="button"
-                      className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--destructive)]"
+                      className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                       title="Delete regex"
                       onClick={() => handleDelete(script)}
                     >

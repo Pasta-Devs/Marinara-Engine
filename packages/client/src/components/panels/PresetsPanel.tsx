@@ -911,11 +911,11 @@ export function PresetsPanel() {
                     deletePreset.mutate(preset.id);
                   }
                 }}
-                className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+                className="mari-chrome-control mari-chrome-control--small p-1.5"
                 title="Delete"
                 aria-label="Delete preset"
               >
-                <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+                <Trash2 size="0.75rem" />
               </button>
             </div>
           )}
@@ -1137,11 +1137,11 @@ export function PresetsPanel() {
                           if (expandedFolderId === folder.id) setExpandedFolderId(null);
                         });
                       }}
-                      className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+                      className="mari-chrome-control mari-chrome-control--small p-1"
                       title="Delete folder"
                       aria-label="Delete folder"
                     >
-                      <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                      <Trash2 size="0.6875rem" />
                     </button>
                   </div>
                 </div>
@@ -1496,7 +1496,7 @@ function RegexSection({
                   </button>
                   <button
                     type="button"
-                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger shrink-0 p-1"
+                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
                     title="Delete regex"
                     aria-label="Delete regex"
                     onClick={async () => {
@@ -1512,7 +1512,7 @@ function RegexSection({
                       }
                     }}
                   >
-                    <Trash2 size="0.8125rem" className="text-[var(--destructive)]" />
+                    <Trash2 size="0.8125rem" />
                   </button>
                 </div>
               </div>
@@ -1748,7 +1748,7 @@ function FunctionsSection({
                   </button>
                   <button
                     type="button"
-                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger shrink-0 p-1"
+                    className="mari-chrome-control mari-chrome-control--small shrink-0 p-1"
                     title="Delete function"
                     aria-label="Delete function"
                     onClick={async () => {
@@ -1764,7 +1764,7 @@ function FunctionsSection({
                       }
                     }}
                   >
-                    <Trash2 size="0.8125rem" className="text-[var(--destructive)]" />
+                    <Trash2 size="0.8125rem" />
                   </button>
                 </div>
               </div>

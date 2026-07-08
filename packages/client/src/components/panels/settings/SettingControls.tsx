@@ -136,6 +136,7 @@ export function ConversationSoundSetting() {
         <HelpTooltip text="Play a notification ping when you receive a new message while on a different chat." />
       </div>
       <ToggleSetting
+        anchorId="settings-control-notification-conversation-sound"
         label="Conversation mode"
         checked={convoNotificationSound}
         onChange={(v) => {
@@ -144,6 +145,7 @@ export function ConversationSoundSetting() {
         }}
       />
       <ToggleSetting
+        anchorId="settings-control-notification-roleplay-sound"
         label="Roleplay mode"
         checked={rpNotificationSound}
         onChange={(v) => {
@@ -152,6 +154,7 @@ export function ConversationSoundSetting() {
         }}
       />
       <ToggleSetting
+        anchorId="settings-control-notification-game-sound"
         label="Game mode"
         checked={gameNotificationSound}
         onChange={(v) => {
@@ -160,6 +163,7 @@ export function ConversationSoundSetting() {
         }}
       />
       <ToggleSetting
+        anchorId="settings-control-notification-unfocused-only"
         label="Only when Marinara is unfocused"
         checked={notificationSoundsOnlyWhenUnfocused}
         onChange={setNotificationSoundsOnlyWhenUnfocused}
@@ -170,6 +174,7 @@ export function ConversationSoundSetting() {
         <HelpTooltip text="Show an operating-system browser notification when a background Conversation reply arrives while Marinara is not focused. Message content is hidden." />
       </div>
       <ToggleSetting
+        anchorId="settings-control-browser-background-notifications"
         label="Background replies"
         checked={conversationBrowserNotifications && browserPermission === "granted"}
         onChange={handleBrowserNotificationToggle}
@@ -185,6 +190,7 @@ export function ToggleSetting({
   help,
   endAction,
   disabled = false,
+  anchorId,
   switchClassName,
 }: {
   label: ReactNode;
@@ -193,10 +199,12 @@ export function ToggleSetting({
   help?: string;
   endAction?: ReactNode;
   disabled?: boolean;
+  anchorId?: string;
   switchClassName?: string;
 }) {
   return (
     <SettingsSwitch
+      anchorId={anchorId}
       label={label}
       checked={checked}
       onChange={onChange}
@@ -220,6 +228,7 @@ export function SettingsCheckbox({
   disabled = false,
   tone = "default",
   align = "start",
+  anchorId,
   className,
   labelClassName,
 }: {
@@ -231,6 +240,7 @@ export function SettingsCheckbox({
   disabled?: boolean;
   tone?: "default" | "danger";
   align?: "start" | "between";
+  anchorId?: string;
   className?: string;
   labelClassName?: string;
 }) {
@@ -277,8 +287,9 @@ export function SettingsCheckbox({
 
   return (
     <label
+      id={anchorId}
       className={cn(
-        "flex cursor-pointer rounded-lg transition-colors hover:bg-[var(--secondary)]/50",
+        "flex scroll-mt-3 cursor-pointer rounded-lg transition-colors hover:bg-[var(--secondary)]/50",
         align === "between" ? "items-center justify-between gap-3 p-1.5" : "items-start gap-2.5 p-1.5",
         disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
         className,
@@ -310,6 +321,7 @@ type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
   endAction?: ReactNode;
   disabled?: boolean;
   labelPosition?: "start" | "end";
+  anchorId?: string;
   className?: string;
   labelClassName?: string;
   /** Appended last so callers can intentionally override checked-track visuals. */
@@ -327,6 +339,7 @@ export function SettingsSwitch({
   endAction,
   disabled = false,
   labelPosition = "end",
+  anchorId,
   className,
   labelClassName,
   switchClassName,
@@ -393,9 +406,10 @@ export function SettingsSwitch({
 
   return (
     <div
+      id={anchorId}
       title={title}
       className={cn(
-        "flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--secondary)]/50",
+        "flex scroll-mt-3 items-center gap-3 rounded-xl p-2 transition-colors hover:bg-[var(--secondary)]/50",
         disabled && "cursor-not-allowed opacity-60 hover:bg-transparent",
         className,
       )}

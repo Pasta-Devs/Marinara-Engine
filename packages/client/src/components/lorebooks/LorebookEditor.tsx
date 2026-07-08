@@ -1683,7 +1683,7 @@ export function LorebookEditor() {
           </button>
           <button
             onClick={handleDelete}
-            className="mari-editor-action mari-editor-action--danger inline-flex"
+            className="mari-editor-action inline-flex"
             title="Delete lorebook"
           >
             <Trash2 size="0.875rem" />
@@ -2312,7 +2312,7 @@ export function LorebookEditor() {
                     <button
                       onClick={() => void handleDeleteSelectedEntries()}
                       disabled={selectedEntryIds.size === 0 || transferEntries.isPending || deleteEntry.isPending}
-                      className="mari-editor-action mari-editor-action--danger mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
+                      className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                     >
                       {deleteEntry.isPending ? (
                         <Loader2 size="0.6875rem" className="animate-spin" />
@@ -2882,7 +2882,7 @@ function VectorizeSection({
             <button
               onClick={handleClearVectors}
               disabled={clearingVectors || vectorizing || storedVectorCount === 0}
-              className="flex items-center gap-1.5 rounded-xl bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 ring-1 ring-red-500/20 transition-all hover:bg-red-500/15 active:scale-[0.98] disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-xl bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] active:scale-[0.98] disabled:opacity-50"
               title="Delete all stored vectors for this lorebook"
             >
               {clearingVectors ? <Loader2 size="0.75rem" className="animate-spin" /> : <Trash2 size="0.75rem" />}

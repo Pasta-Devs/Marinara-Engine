@@ -326,7 +326,7 @@ export function GlobalGalleryPanel() {
             <button
               type="button"
               onClick={() => void handleDeleteFolder()}
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--destructive)] hover:bg-[var(--destructive)]/10"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
             >
               <Trash2 size="0.75rem" />
               Delete folder
@@ -392,7 +392,7 @@ export function GlobalGalleryPanel() {
                 <button
                   type="button"
                   onClick={() => void handleDeleteImage(image)}
-                  className="rounded-lg bg-red-500/35 p-1.5 text-white transition-colors hover:bg-red-500/55"
+                  className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25"
                   title="Delete"
                 >
                   <Trash2 size="0.75rem" />
@@ -446,7 +446,7 @@ export function GlobalGalleryPanel() {
               <button
                 type="button"
                 onClick={() => void handleDeleteImage(lightbox)}
-                className="rounded-lg bg-[var(--card)] p-2 text-[var(--destructive)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--destructive)]/10"
+                className="rounded-lg bg-[var(--card)] p-2 text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                 title="Delete"
               >
                 <Trash2 size="0.875rem" />
