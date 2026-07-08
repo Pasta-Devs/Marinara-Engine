@@ -16,7 +16,11 @@ import { generateImage, type ImageGenResult } from "../image/image-generation.js
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { loadPrompt, GAME_NPC_PORTRAIT, GAME_BACKGROUND, GAME_SCENE_ILLUSTRATION } from "../prompt-overrides/index.js";
-import { type ImageGenerationDefaultsProfile, type ImageStyleProfileSettings } from "@marinara-engine/shared";
+import {
+  inferImageSource,
+  type ImageGenerationDefaultsProfile,
+  type ImageStyleProfileSettings,
+} from "@marinara-engine/shared";
 import type { ImageGenerationSize } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 
@@ -35,6 +39,25 @@ const GAME_BACKGROUND_NEGATIVE_PROMPT =
 const GAME_ILLUSTRATION_NEGATIVE_PROMPT =
   "text, letters, captions, subtitles, UI, watermark, logo, signature, speech bubble, split screen, panel, collage, contact sheet, character sheet, grid, four images, duplicated face, extra head, unrelated character, bad anatomy, low quality";
 const MAX_GENERATED_ASSET_SLUG_BYTES = 180;
+const DEFAULT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 4;
+const OPENAI_COMPAT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 16;
+const NARROW_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 3;
+const SINGLE_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT = 1;
+const SCENE_ILLUSTRATION_IMAGE_BACKENDS = new Set([
+  "openai",
+  "nanogpt",
+  "openrouter",
+  "pollinations",
+  "stability",
+  "togetherai",
+  "novelai",
+  "horde",
+  "xai",
+  "comfyui",
+  "automatic1111",
+  "runpod_comfyui",
+  "gemini_image",
+]);
 
 // sharp is optional in the server package. Generated game backgrounds should be
 // stored at the VN canvas ratio when possible, but generation must still work on
@@ -83,6 +106,53 @@ function atomicWriteBuffer(filePath: string, buffer: Buffer): void {
 
 function atomicWriteText(filePath: string, value: string): void {
   atomicWriteBuffer(filePath, Buffer.from(value, "utf-8"));
+}
+
+function normalizeSceneIllustrationImageSource(value: string | null | undefined): string {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized === "drawthings") return "automatic1111";
+  return SCENE_ILLUSTRATION_IMAGE_BACKENDS.has(normalized) ? normalized : "";
+}
+
+function resolveSceneIllustrationImageBackend(req: Pick<
+  SceneIllustrationGenRequest,
+  "imgSource" | "imgModel" | "imgBaseUrl" | "imgService"
+>): string {
+  const inferred = inferImageSource(req.imgModel || req.imgSource || "", req.imgBaseUrl || "");
+  const explicit = normalizeSceneIllustrationImageSource(req.imgService || req.imgSource);
+  if (!explicit) return inferred;
+  if (explicit === "openai" && inferred === "gemini_image") return inferred;
+  return explicit;
+}
+
+export function resolveSceneIllustrationReferenceImageLimit(req: Pick<
+  SceneIllustrationGenRequest,
+  "imgSource" | "imgModel" | "imgBaseUrl" | "imgService"
+>): number {
+  const backend = resolveSceneIllustrationImageBackend(req);
+  const model = [req.imgModel, req.imgSource, req.imgService].filter(Boolean).join(" ").toLowerCase();
+  const isGeminiImageModel = model.includes("gemini") && model.includes("image");
+
+  if (backend === "openrouter" && (model.includes("nano-banana") || isGeminiImageModel)) return 14;
+  if (backend === "gemini_image" || isGeminiImageModel) {
+    if (model.includes("gemini-3-pro-image")) return 5;
+    return DEFAULT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT;
+  }
+
+  if (backend === "nanogpt" || backend === "xai") return NARROW_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT;
+  if (backend === "automatic1111" || backend === "stability" || backend === "pollinations") {
+    return SINGLE_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT;
+  }
+  if (backend === "openai" || backend === "openrouter" || backend === "novelai") {
+    return OPENAI_COMPAT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT;
+  }
+  return DEFAULT_SCENE_ILLUSTRATION_REFERENCE_IMAGE_LIMIT;
+}
+
+function sceneIllustrationReferenceImagesForProvider(req: SceneIllustrationGenRequest): string[] {
+  const references = req.referenceImages?.map((reference) => reference.trim()).filter(Boolean) ?? [];
+  if (references.length === 0) return [];
+  return references.slice(0, resolveSceneIllustrationReferenceImageLimit(req));
 }
 
 /** Return the extension implied by known image file signatures. */
@@ -506,6 +576,24 @@ function compileGameImagePrompt(
       negativePrompt: [negativePrompt, hardNegative].filter(Boolean).join(", "),
     };
   }
+  if (kind === "illustration" && req.preserveFullScenePrompt) {
+    const compiledPrefix = compileImagePrompt({
+      kind,
+      prompt: "",
+      negativePrompt,
+      hardNegative,
+      styleProfiles: req.styleProfiles,
+      styleProfileId: req.styleProfileId,
+      imageDefaults: req.imgDefaults,
+      generatedStyle: req.artStyle,
+      applyPromptModeToSourcePrompt: false,
+    });
+    const protectedPrompt = [canonicalPrefix, compiledPrefix.prompt, prompt.trim()].filter(Boolean).join(", ");
+    return {
+      prompt: protectedPrompt.slice(0, maxLength),
+      negativePrompt: compiledPrefix.negativePrompt,
+    };
+  }
   const compiled = compileImagePrompt({
     kind,
     prompt,
@@ -805,6 +893,7 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
   const sceneTitle = sceneIllustrationContextTitle(req);
   const narrativePurpose = cleanSceneIllustrationContext(req.reason);
   const meaningfulNarrativePurpose = isGenericSceneMomentLabel(narrativePurpose) ? "" : narrativePurpose;
+  const referenceImages = sceneIllustrationReferenceImagesForProvider(req);
   const imagePromptInstructionsLine = req.imagePromptInstructions?.trim()
     ? `User image instructions: ${req.imagePromptInstructions.trim().replace(/\s+/g, " ").slice(0, 5000)}`
     : "";
@@ -813,7 +902,7 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
     scenePrompt: req.prompt,
     narrativePurposeLine: meaningfulNarrativePurpose ? `Narrative purpose: ${meaningfulNarrativePurpose}.` : "",
     charactersLine: req.characters?.length ? `Characters: ${req.characters.join(", ")}.` : "",
-    referenceHandlingLine: req.referenceImages?.length
+    referenceHandlingLine: referenceImages.length
       ? "Reference handling: attached character reference images are available. Use them to match faces, hair, build, colors, and distinctive features for the referenced characters."
       : "",
     appearanceNotesBlock: req.characterDescriptions?.length
@@ -877,6 +966,7 @@ export async function buildSceneIllustrationProviderPrompt(
     };
   }
   const sourcePrompt = await buildSceneIllustrationRawPrompt(req);
+  const referenceImages = sceneIllustrationReferenceImagesForProvider(req);
   const prompt = await maybeGenerateDynamicGameImagePrompt(req.dynamicPromptGenerator, {
     kind: "illustration",
     title: req.title || req.reason || req.slug || "Scene illustration",
@@ -892,7 +982,7 @@ export async function buildSceneIllustrationProviderPrompt(
       req.setting ? `Setting: ${req.setting}` : "",
       req.artStyle ? `Art style: ${req.artStyle}` : "",
       req.imagePromptInstructions ? `User image instructions: ${req.imagePromptInstructions}` : "",
-      req.referenceImages?.length ? `Reference images attached: ${req.referenceImages.length}` : "",
+      referenceImages.length ? `Reference images attached: ${referenceImages.length}` : "",
     ],
   });
   return compileGameImagePrompt(req, "illustration", prompt, 7000, GAME_ILLUSTRATION_NEGATIVE_PROMPT);
@@ -1059,6 +1149,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
   const prompt = compiled.prompt;
   req.onCompiledPrompt?.(compiled);
   const size = resolvedSize(req.size, DEFAULT_GAME_BACKGROUND_SIZE);
+  const referenceImages = sceneIllustrationReferenceImagesForProvider(req);
   req.debugLog?.(
     "[debug/game/image-generation] scene illustration request slug=%s model=%s source=%s targetSize=%dx%d refs=%d prompt:\n%s",
     slug,
@@ -1066,7 +1157,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
     req.imgSource || req.imgService || "",
     size.width,
     size.height,
-    req.referenceImages?.length ?? 0,
+    referenceImages.length,
     prompt,
   );
 
@@ -1086,7 +1177,7 @@ export async function generateSceneIllustration(req: SceneIllustrationGenRequest
         comfyWorkflow: req.imgComfyWorkflow || undefined,
         imageDefaults: req.imgDefaults ?? undefined,
         signal: req.signal,
-        referenceImages: req.referenceImages?.length ? req.referenceImages.slice(0, 4) : undefined,
+        referenceImages: referenceImages.length ? referenceImages : undefined,
       },
     );
 
