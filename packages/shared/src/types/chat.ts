@@ -409,6 +409,11 @@ export interface ChatMetadata {
   conversationStatusOverrides?: Record<string, ConversationStatusOverride>;
   /** Chat-scoped derived presence status per character, updated each generation. Replaces extensions.conversationStatus to avoid cross-chat bleed. */
   conversationCharacterStatuses?: Record<string, { status: ConversationPresenceStatus; activity: string }>;
+  /** Conversation mode ONLY: per-chat "about me" overrides keyed by character id or persona id.
+   *  When set, supersedes the card/persona default about-me in the prompt and viewer. */
+  conversationAboutMeOverrides?: Record<string, string>;
+  /** Conversation mode ONLY: whether participant about-mes are auto-injected into the prompt. Default true. */
+  conversationAboutMeInject?: boolean;
   /** Week start timestamp for the current generated conversation schedules. */
   scheduleWeekStart?: string;
   /** Chat-scoped selfie prompt-builder template. Empty/null uses the global/default prompt. */

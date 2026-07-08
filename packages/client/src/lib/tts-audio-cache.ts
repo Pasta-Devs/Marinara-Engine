@@ -20,6 +20,10 @@ type CachedVoiceLine = {
 };
 
 type CachedVoiceLineMeta = Omit<CachedVoiceLine, "blob">;
+export type CachedTTSAudioMeta = CachedVoiceLineMeta;
+export type CachedTTSAudioExportEntry = CachedVoiceLineMeta & {
+  blob: Blob;
+};
 
 const memoryCache = new Map<string, Blob>();
 const inFlight = new Map<string, Promise<Blob>>();
@@ -207,6 +211,43 @@ export async function getCachedTTSAudioBlob(key: string): Promise<Blob | null> {
   const persisted = await getPersistentBlob(key);
   if (persisted) rememberInMemory(key, persisted);
   return persisted;
+}
+
+export async function listCachedTTSAudioMeta(): Promise<CachedTTSAudioMeta[]> {
+  const db = await openDb();
+  if (!db || !hasMetadataStore(db)) return [];
+
+  try {
+    const tx = db.transaction(META_STORE_NAME, "readonly");
+    const metas = await requestToPromise<CachedVoiceLineMeta[]>(tx.objectStore(META_STORE_NAME).getAll());
+    await transactionDone(tx);
+    return metas.sort((left, right) => (right.lastUsedAt || right.createdAt) - (left.lastUsedAt || left.createdAt));
+  } catch {
+    return [];
+  }
+}
+
+export async function listCachedTTSAudioEntries(): Promise<CachedTTSAudioExportEntry[]> {
+  const db = await openDb();
+  if (!db) return [];
+
+  try {
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const records = await requestToPromise<CachedVoiceLine[]>(tx.objectStore(STORE_NAME).getAll());
+    await transactionDone(tx);
+    return records
+      .filter((record) => record.blob instanceof Blob)
+      .map((record) => ({
+        key: record.key,
+        blob: record.blob,
+        createdAt: record.createdAt,
+        lastUsedAt: record.lastUsedAt,
+        size: record.size || record.blob.size,
+      }))
+      .sort((left, right) => (right.lastUsedAt || right.createdAt) - (left.lastUsedAt || left.createdAt));
+  } catch {
+    return [];
+  }
 }
 
 export async function getOrCreateCachedTTSAudioBlob(

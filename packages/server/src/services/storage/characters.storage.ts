@@ -195,6 +195,9 @@ function buildPersonaSnapshot(persona: PersonaRow): PersonaCardSnapshot {
     personaStats: persona.personaStats ?? "",
     tags: persona.tags ?? "[]",
     savedStatusOptions: persona.savedStatusOptions ?? "[]",
+    convoDisplayName: persona.convoDisplayName ?? "",
+    aboutMe: persona.aboutMe ?? "",
+    convoBehavior: persona.convoBehavior ?? "",
   };
 }
 
@@ -229,6 +232,9 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
     personaStats: data.personaStats ?? "",
     tags: data.tags ?? "[]",
     savedStatusOptions: data.savedStatusOptions ?? "[]",
+    convoDisplayName: data.convoDisplayName ?? "",
+    aboutMe: data.aboutMe ?? "",
+    convoBehavior: data.convoBehavior ?? "",
   };
 }
 
@@ -613,6 +619,9 @@ export function createCharactersStorage(db: DB) {
         personaStats?: string;
         tags?: string;
         savedStatusOptions?: string;
+        convoDisplayName?: string;
+        aboutMe?: string;
+        convoBehavior?: string;
         avatarCrop?: string;
       },
       timestampOverrides?: TimestampOverrides | null,
@@ -642,6 +651,9 @@ export function createCharactersStorage(db: DB) {
         personaStats: extra?.personaStats ?? "",
         tags: extra?.tags ?? "[]",
         savedStatusOptions: extra?.savedStatusOptions ?? "[]",
+        convoDisplayName: extra?.convoDisplayName ?? "",
+        aboutMe: extra?.aboutMe ?? "",
+        convoBehavior: extra?.convoBehavior ?? "",
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
       });
@@ -706,6 +718,9 @@ export function createCharactersStorage(db: DB) {
         personaStats: source.personaStats ?? "",
         tags: source.tags ?? "[]",
         savedStatusOptions: source.savedStatusOptions ?? "[]",
+        convoDisplayName: source.convoDisplayName ?? "",
+        aboutMe: source.aboutMe ?? "",
+        convoBehavior: source.convoBehavior ?? "",
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -735,6 +750,9 @@ export function createCharactersStorage(db: DB) {
         personaStats?: string;
         tags?: string;
         savedStatusOptions?: string;
+        convoDisplayName?: string;
+        aboutMe?: string;
+        convoBehavior?: string;
       },
       options?: {
         versionSource?: string | null;
@@ -764,6 +782,9 @@ export function createCharactersStorage(db: DB) {
         ...(updates.personaStats !== undefined && { personaStats: updates.personaStats }),
         ...(updates.tags !== undefined && { tags: updates.tags }),
         ...(updates.savedStatusOptions !== undefined && { savedStatusOptions: updates.savedStatusOptions }),
+        ...(updates.convoDisplayName !== undefined && { convoDisplayName: updates.convoDisplayName }),
+        ...(updates.aboutMe !== undefined && { aboutMe: updates.aboutMe }),
+        ...(updates.convoBehavior !== undefined && { convoBehavior: updates.convoBehavior }),
       });
       const nextComment = updates.comment !== undefined ? updates.comment : (existing.comment ?? "");
       const nextAvatarPath = updates.avatarPath !== undefined ? updates.avatarPath : existing.avatarPath;
@@ -799,6 +820,9 @@ export function createCharactersStorage(db: DB) {
       if (updates.personaStats !== undefined) sets.personaStats = updates.personaStats;
       if (updates.tags !== undefined) sets.tags = updates.tags;
       if (updates.savedStatusOptions !== undefined) sets.savedStatusOptions = updates.savedStatusOptions;
+      if (updates.convoDisplayName !== undefined) sets.convoDisplayName = updates.convoDisplayName;
+      if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
+      if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
       await db.update(personas).set(sets).where(eq(personas.id, id));
       return this.getPersona(id);
     },
@@ -832,6 +856,9 @@ export function createCharactersStorage(db: DB) {
           personaStats: data.personaStats,
           tags: data.tags,
           savedStatusOptions: data.savedStatusOptions,
+          convoDisplayName: data.convoDisplayName,
+          aboutMe: data.aboutMe,
+          convoBehavior: data.convoBehavior,
           updatedAt: now(),
         })
         .where(eq(personas.id, personaId));

@@ -1919,6 +1919,9 @@ export function ChatSettingsDrawer({
   const availableTools = useMemo(() => {
     const tools: Array<{ id: string; name: string; description: string }> = [];
     for (const t of BUILT_IN_TOOLS) {
+      // update_about_me is Conversation-only (enforced server-side); hide the
+      // toggle in other modes so it doesn't look available where it can't run.
+      if (t.name === "update_about_me" && !isConversation) continue;
       tools.push({ id: t.name, name: t.name, description: t.description });
     }
     if (customTools) {
@@ -1929,7 +1932,7 @@ export function ChatSettingsDrawer({
       }
     }
     return tools;
-  }, [customToolCapabilities, customTools]);
+  }, [customToolCapabilities, customTools, isConversation]);
 
   // ── Helpers ──
   const characters = useMemo(
@@ -7510,6 +7513,13 @@ export function ChatSettingsDrawer({
                     title="Storyboards"
                     description="Create keyframe media for completed GM turns and follow the active narration section in the floating viewer."
                   >
+                    <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/60 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                      <Image size="0.75rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                      <p>
+                        Recommended: use a strong state-of-the-art image model for storyboard images, or something
+                        equivalent to Google Nano Banana 2 Lite.
+                      </p>
+                    </div>
                     <AgentSettingsToggle
                       label="Automatic Storyboard Illustrations"
                       description="Automatically create still keyframe illustrations after completed GM turns. Requires an Illustrator image connection."

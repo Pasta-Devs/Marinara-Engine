@@ -2191,6 +2191,27 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</character_cards>`);
   }
 
+  // About Me Keeper needs each participant's current public + chat-specific
+  // about-me so it can decide whether/what to update. Populated in the
+  // conversation branch as memory._aboutMeState (Convo mode only).
+  if (agentTypes.includes("about-me-keeper")) {
+    const state = context.memory?._aboutMeState;
+    if (Array.isArray(state) && state.length > 0) {
+      parts.push(`<about_me_state>`);
+      for (const raw of state as Array<Record<string, unknown>>) {
+        const id = typeof raw.characterId === "string" ? raw.characterId : "";
+        const name = typeof raw.name === "string" ? raw.name : "";
+        const publicAbout = typeof raw.publicAboutMe === "string" ? raw.publicAboutMe : "";
+        const chatAbout = typeof raw.chatAboutMe === "string" ? raw.chatAboutMe : "";
+        parts.push(`<character id="${escapeXml(id)}" name="${escapeXml(name)}">`);
+        parts.push(`<public_about_me>${escapeXml(publicAbout)}</public_about_me>`);
+        if (chatAbout) parts.push(`<chat_about_me>${escapeXml(chatAbout)}</chat_about_me>`);
+        parts.push(`</character>`);
+      }
+      parts.push(`</about_me_state>`);
+    }
+  }
+
   if (context.gameState) {
     parts.push(`<current_game_state>`);
     parts.push(JSON.stringify(compactGameStateForAgentContext(context.gameState, agentTypes)));
@@ -2433,6 +2454,7 @@ const AGENT_RESULT_TYPE_MAP: Record<string, AgentResultType> = {
   "knowledge-retrieval": "context_injection",
   haptic: "haptic_command",
   cyoa: "cyoa_choices",
+  "about-me-keeper": "about_me_update",
 };
 
 const AGENT_RESULT_TYPES = new Set<AgentResultType>([
@@ -2463,6 +2485,7 @@ const AGENT_RESULT_TYPES = new Set<AgentResultType>([
   "game_state_transition",
   "prompt_patch",
   "frontend_theme_update",
+  "about_me_update",
 ]);
 
 const TEXT_RESULT_TYPES = new Set<AgentResultType>(["context_injection", "director_event"]);
@@ -2501,6 +2524,7 @@ const JSON_AGENTS = new Set([
   "character-tracker",
   "persona-stats",
   "custom-tracker",
+  "about-me-keeper",
   "html",
   "spotify",
   "haptic",

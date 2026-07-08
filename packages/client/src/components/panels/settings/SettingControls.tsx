@@ -20,6 +20,8 @@ export function SettingsSection({
   description,
   help,
   icon,
+  headerAction,
+  anchorId,
   children,
   className,
   contentClassName,
@@ -29,6 +31,8 @@ export function SettingsSection({
   description?: ReactNode;
   help?: string;
   icon?: ReactNode;
+  headerAction?: ReactNode;
+  anchorId?: string;
   children: ReactNode;
   className?: string;
   contentClassName?: string;
@@ -36,6 +40,7 @@ export function SettingsSection({
 }) {
   return (
     <section
+      id={anchorId}
       className={cn(
         "overflow-hidden rounded-lg border bg-[var(--background)]/35 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]",
         tone === "danger" ? "border-[var(--destructive)]/30 bg-[var(--destructive)]/5" : "border-[var(--border)]/70",
@@ -71,6 +76,7 @@ export function SettingsSection({
             </div>
           )}
         </div>
+        {headerAction && <div className="shrink-0">{headerAction}</div>}
       </div>
       <div className={cn("border-t border-[var(--border)]/60 px-3 pb-3 pt-2.5", contentClassName)}>{children}</div>
     </section>
@@ -177,6 +183,7 @@ export function ToggleSetting({
   checked,
   onChange,
   help,
+  endAction,
   disabled = false,
   switchClassName,
 }: {
@@ -184,6 +191,7 @@ export function ToggleSetting({
   checked: boolean;
   onChange: (v: boolean) => void;
   help?: string;
+  endAction?: ReactNode;
   disabled?: boolean;
   switchClassName?: string;
 }) {
@@ -198,6 +206,7 @@ export function ToggleSetting({
       className="justify-between gap-3 p-1.5"
       labelClassName="text-xs"
       switchClassName={switchClassName}
+      endAction={endAction}
     />
   );
 }
@@ -298,6 +307,7 @@ type SettingsSwitchProps = SettingsSwitchAccessibleLabel & {
   title?: string;
   description?: ReactNode;
   help?: string;
+  endAction?: ReactNode;
   disabled?: boolean;
   labelPosition?: "start" | "end";
   className?: string;
@@ -314,6 +324,7 @@ export function SettingsSwitch({
   title,
   description,
   help,
+  endAction,
   disabled = false,
   labelPosition = "end",
   className,
@@ -356,6 +367,7 @@ export function SettingsSwitch({
     <span className="inline-flex shrink-0 items-center gap-1.5">
       {help && <HelpTooltip text={help} />}
       {switchControl}
+      {endAction}
     </span>
   );
   const text = label ? (

@@ -42,6 +42,7 @@ import {
   type CharacterGalleryImage,
   type SpriteInfo,
 } from "../../hooks/use-characters";
+import { ConvoProfileFields } from "./ConvoProfileFields";
 import { useUIStore } from "../../stores/ui.store";
 import { lorebookKeys, useLorebook } from "../../hooks/use-lorebooks";
 import { useConnections } from "../../hooks/use-connections";
@@ -87,6 +88,7 @@ import {
   History,
   RotateCcw,
   Scissors,
+  MessageCircle,
 } from "lucide-react";
 import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
@@ -109,6 +111,7 @@ import {
   type CharacterCardVersion,
   type CharacterData,
   type ConversationCallCharacterVideoClipKind,
+  type ConvoBehaviorConfig,
   type RPGStatPool,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
@@ -120,6 +123,7 @@ import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSectio
 const TABS = [
   { id: "metadata", label: "Metadata", icon: User },
   { id: "card", label: "Card", icon: IdCard },
+  { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
   { id: "sprites", label: "Sprites", icon: Image },
   { id: "gallery", label: "Gallery", icon: Camera },
@@ -1041,6 +1045,9 @@ export function CharacterEditor() {
             {activeTab === "card" && (
               <CharacterCardTab formData={formData} updateField={updateField} updateExtension={updateExtension} />
             )}
+            {activeTab === "convo" && (
+              <ConvoTab formData={formData} updateExtension={updateExtension} kind="character" />
+            )}
             {activeTab === "advanced" && (
               <AdvancedTab
                 formData={formData}
@@ -1240,6 +1247,38 @@ function TextareaTab({
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">{value.length} characters</p>
     </div>
+  );
+}
+
+function ConvoTab({
+  formData,
+  updateExtension,
+  kind,
+}: {
+  formData: CharacterData;
+  updateExtension: (key: string, value: unknown) => void;
+  kind: "character" | "persona";
+}) {
+  const ext = formData.extensions;
+  return (
+    <ConvoProfileFields
+      kind={kind}
+      baseName={formData.name}
+      displayName={(ext.convoDisplayName as string) ?? ""}
+      onDisplayNameChange={(v) => updateExtension("convoDisplayName", v)}
+      aboutMe={(ext.aboutMe as string) ?? ""}
+      onAboutMeChange={(v) => updateExtension("aboutMe", v)}
+      behavior={ext.convoBehavior as ConvoBehaviorConfig | undefined}
+      onBehaviorChange={(b) => updateExtension("convoBehavior", b)}
+      aiSource={{
+        name: formData.name ?? "",
+        description: formData.description ?? "",
+        personality: formData.personality ?? "",
+        scenario: formData.scenario ?? "",
+        backstory: (ext.backstory as string) ?? "",
+        appearance: (ext.appearance as string) ?? "",
+      }}
+    />
   );
 }
 

@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import {
   LOCAL_SIDECAR_CONNECTION_ID,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isXaiAutoReasoningModel,
   supportsXhighReasoningEffort,
   resolveMacros,
   stripMacroComments,
@@ -1490,10 +1491,10 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       resolvedEffort = isNativeAnthropicAdaptiveOnly ? "max" : supportsXhigh ? "xhigh" : "high";
     }
 
-    const isXaiAutoReasoningModel =
-      (providerLower === "xai" && (modelLower.startsWith("grok-4.3") || modelLower.startsWith("grok-4-1-fast"))) ||
+    const xaiUsesAutoReasoning =
+      (providerLower === "xai" && isXaiAutoReasoningModel(modelLower)) ||
       (providerLower === "openrouter" && modelLower.startsWith("x-ai/grok-"));
-    if (isXaiAutoReasoningModel) {
+    if (xaiUsesAutoReasoning) {
       resolvedEffort = null;
     }
 

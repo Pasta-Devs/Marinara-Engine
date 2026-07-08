@@ -1,5 +1,6 @@
 import {
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isXaiAutoReasoningModel,
   normalizeThinkingTagPairs,
   supportsXhighReasoningEffort,
   type GenerationParameterSendMap,
@@ -161,10 +162,10 @@ export function resolveGenerationProviderRuntime(args: GenerationProviderRuntime
     resolvedEffort = isNativeAnthropicAdaptiveOnly ? "max" : supportsXhigh ? "xhigh" : "high";
   }
 
-  const isXaiAutoReasoningModel =
-    (providerLower === "xai" && (modelLower.startsWith("grok-4.3") || modelLower.startsWith("grok-4-1-fast"))) ||
+  const xaiUsesAutoReasoning =
+    (providerLower === "xai" && isXaiAutoReasoningModel(modelLower)) ||
     (providerLower === "openrouter" && modelLower.startsWith("x-ai/grok-"));
-  if (isXaiAutoReasoningModel) {
+  if (xaiUsesAutoReasoning) {
     resolvedEffort = null;
   }
   if (resolvedEffort && !runtime.showThoughts) {

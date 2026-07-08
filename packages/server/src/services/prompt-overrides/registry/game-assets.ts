@@ -131,7 +131,7 @@ export interface GameSceneIllustrationCtx extends Record<string, string | number
 
 export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustrationCtx> = {
   key: "game.sceneIllustration",
-  description: "Comic-page game scene illustration prompt (rare, story-defining moments only).",
+  description: "Game scene illustration prompt (rare, story-defining moments only).",
   variables: [
     {
       name: "sceneTitleLine",
@@ -179,7 +179,6 @@ export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustration
   ],
   defaultBuilder: (ctx) =>
     [
-      "Style target: colored comic page, 2-6 panels per illustration, cinematic panel flow, expressive speech bubbles, captions, and SFX lettering",
       ctx.sceneTitleLine,
       `Scene moment: ${ctx.scenePrompt}`,
       ctx.narrativePurposeLine,
@@ -188,7 +187,6 @@ export const GAME_SCENE_ILLUSTRATION: PromptOverrideKeyDef<GameSceneIllustration
       ctx.appearanceNotesBlock,
       ctx.artDirectionLine,
       ctx.imagePromptInstructionsLine,
-      "Avoid: watermark, logo, signature, UI chrome, unreadable text, broken lettering, malformed speech bubbles, blurry, low quality.",
     ]
       .filter(Boolean)
       .join("\n"),

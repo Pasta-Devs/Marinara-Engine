@@ -59,6 +59,15 @@ export interface MacroContext {
     appearance?: string;
     scenario?: string;
   };
+  /** Conversation-mode-only fields for {{convo_display}}/{{char_about}}/{{persona_about}}/{{convo_behavior}}.
+   *  Populated ONLY by the conversation prompt branch, so these macros resolve to ""
+   *  in Roleplay/Visual-Novel/Game — even if placed in a shared surface those modes render. */
+  convoFields?: {
+    charDisplayName?: string;
+    charAbout?: string;
+    personaAbout?: string;
+    convoBehavior?: string;
+  };
 }
 
 export interface ResolveMacroOptions {
@@ -259,6 +268,18 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
     category: "Character",
     syntax: "{{charPostHistory}}",
     description: "Current character post-history instructions",
+  },
+  {
+    category: "Conversation",
+    syntax: "{{convo_display}}",
+    description: "Convo display name (Conversation mode only)",
+  },
+  { category: "Conversation", syntax: "{{char_about}}", description: "Character about-me (Conversation mode only)" },
+  { category: "Conversation", syntax: "{{persona_about}}", description: "Persona about-me (Conversation mode only)" },
+  {
+    category: "Conversation",
+    syntax: "{{convo_behavior}}",
+    description: "Character convo behavior directive (Conversation mode only)",
   },
   { category: "Context", syntax: "{{input}}", description: "Most recent user message" },
   { category: "Context", syntax: "{{model}}", description: "Current model name" },
@@ -1271,6 +1292,12 @@ export function resolveMacros(template: string, ctx: MacroContext, options: Reso
   result = result.replace(/\{\{example\}\}/gi, characterReplacement("example"));
   result = result.replace(/\{\{charSysInfo\}\}/gi, characterReplacement("systemPrompt"));
   result = result.replace(/\{\{charPostHistory\}\}/gi, characterReplacement("postHistoryInstructions"));
+  // Conversation-mode-only macros. `convoFields` is set only by the convo prompt
+  // branch, so these are "" in every other mode.
+  result = result.replace(/\{\{convo_display\}\}/gi, () => ctx.convoFields?.charDisplayName ?? "");
+  result = result.replace(/\{\{char_about\}\}/gi, () => ctx.convoFields?.charAbout ?? "");
+  result = result.replace(/\{\{persona_about\}\}/gi, () => ctx.convoFields?.personaAbout ?? "");
+  result = result.replace(/\{\{convo_behavior\}\}/gi, () => ctx.convoFields?.convoBehavior ?? "");
   result = result.replace(/\{\{input\}\}/gi, ctx.lastInput ?? "");
   result = result.replace(/\{\{model\}\}/gi, ctx.model ?? "");
   result = result.replace(/\{\{chatId\}\}/gi, ctx.chatId ?? "");

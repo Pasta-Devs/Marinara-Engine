@@ -1363,6 +1363,18 @@ export function useGenerate() {
           startTypewriter();
         });
       };
+      const canRefreshCurrentMessagesNow = () => {
+        if (!streamingEnabled || !shouldDisplayRawStream) return true;
+        const streamState = useChatStore.getState();
+        return (
+          streamState.streamingChatId !== params.chatId || streamState.committedStreamChatIds.has(params.chatId)
+        );
+      };
+      const invalidateCurrentMessagesIfSafe = () => {
+        if (!canRefreshCurrentMessagesNow()) return false;
+        qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+        return true;
+      };
 
       // Safety net: guarantees the Mari work-status pill clears for this
       // chat on every termination path (done, error, abort, unexpected
@@ -1515,14 +1527,7 @@ export function useGenerate() {
                 qc.invalidateQueries({ queryKey: agentKeys.customRuns(params.chatId) });
                 if (result.resultType === "sprite_change") {
                   spriteChangeReceived = true;
-                  const streamState = useChatStore.getState();
-                  const canRefreshMessagesNow =
-                    !streamingEnabled ||
-                    streamState.streamingChatId !== params.chatId ||
-                    streamState.committedStreamChatIds.has(params.chatId);
-                  if (canRefreshMessagesNow) {
-                    qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
-                  }
+                  invalidateCurrentMessagesIfSafe();
                 }
                 if (result.resultType === "spotify_control") {
                   qc.invalidateQueries({ queryKey: ["spotify", "player"] });
@@ -1862,7 +1867,7 @@ export function useGenerate() {
               // refresh the message list so their hidden state shows in the UI.
               const summaryData = event.data as { hiddenMessageIds?: unknown };
               if (Array.isArray(summaryData.hiddenMessageIds) && summaryData.hiddenMessageIds.length > 0) {
-                qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
+                invalidateCurrentMessagesIfSafe();
               }
               break;
             }
@@ -2125,7 +2130,11 @@ export function useGenerate() {
                     : null;
 
               qc.invalidateQueries({ queryKey: conversationCallKeys.status(callChatId) });
-              qc.invalidateQueries({ queryKey: chatKeys.messages(callChatId) });
+              if (callChatId === params.chatId) {
+                invalidateCurrentMessagesIfSafe();
+              } else {
+                qc.invalidateQueries({ queryKey: chatKeys.messages(callChatId) });
+              }
               qc.invalidateQueries({ queryKey: chatKeys.list() });
 
               playConversationCallRingingSoundOnce(callId);
@@ -2282,12 +2291,20 @@ export function useGenerate() {
                 toast(`Started ${actionData.mode} chat with ${actionData.characterName}`, { icon: "💬" });
                 qc.invalidateQueries({ queryKey: ["chats"] });
                 if (typeof actionData.chatId === "string") {
-                  qc.invalidateQueries({ queryKey: chatKeys.messages(actionData.chatId) });
+                  if (actionData.chatId === params.chatId) {
+                    invalidateCurrentMessagesIfSafe();
+                  } else {
+                    qc.invalidateQueries({ queryKey: chatKeys.messages(actionData.chatId) });
+                  }
                 }
               } else if (actionData.action === "dm_posted") {
                 if (typeof actionData.chatId === "string") {
                   qc.invalidateQueries({ queryKey: ["chats"] });
-                  qc.invalidateQueries({ queryKey: chatKeys.messages(actionData.chatId) });
+                  if (actionData.chatId === params.chatId) {
+                    invalidateCurrentMessagesIfSafe();
+                  } else {
+                    qc.invalidateQueries({ queryKey: chatKeys.messages(actionData.chatId) });
+                  }
                   qc.invalidateQueries({ queryKey: lorebookKeys.active(actionData.chatId) });
                 }
               } else if (actionData.action === "data_fetched") {
@@ -2367,7 +2384,11 @@ export function useGenerate() {
               // OOC messages were posted to the connected conversation — invalidate its messages
               const oocData = event.data as { chatId: string; count: number };
               if (oocData.chatId) {
-                qc.invalidateQueries({ queryKey: chatKeys.messages(oocData.chatId) });
+                if (oocData.chatId === params.chatId) {
+                  invalidateCurrentMessagesIfSafe();
+                } else {
+                  qc.invalidateQueries({ queryKey: chatKeys.messages(oocData.chatId) });
+                }
                 qc.invalidateQueries({ queryKey: lorebookKeys.active(oocData.chatId) });
               }
               break;

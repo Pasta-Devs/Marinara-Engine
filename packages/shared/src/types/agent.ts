@@ -61,7 +61,8 @@ export type AgentResultType =
   | "game_map_update"
   | "game_state_transition"
   | "prompt_patch"
-  | "frontend_theme_update";
+  | "frontend_theme_update"
+  | "about_me_update";
 
 /** Configuration for a single agent. */
 export interface AgentConfig {
@@ -648,6 +649,7 @@ export const EDITABLE_CHARACTER_CARD_FIELDS = [
   "post_history_instructions",
   "backstory",
   "appearance",
+  "aboutMe",
 ] as const;
 
 export type EditableCharacterCardField = (typeof EDITABLE_CHARACTER_CARD_FIELDS)[number];

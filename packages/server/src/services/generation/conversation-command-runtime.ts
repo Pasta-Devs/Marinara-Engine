@@ -2,10 +2,12 @@ import {
   CONVERSATION_COMMAND_KEYS,
   type ChatMode,
   type ConversationCommandKey,
+  type WrapFormat,
 } from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
 import type { CharacterCommand } from "../conversation/character-commands.js";
+import { wrapContent } from "../prompt/format-engine.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
 import { getActiveTurnGame } from "../turn-games/turn-game-runner.service.js";
 import { getChatHapticIntifaceUrl } from "./haptic-runtime.js";
@@ -124,6 +126,7 @@ export async function buildConversationCommandsReminder(args: {
   chars: ConversationCommandsCharactersStore;
   agentsStore: Parameters<typeof resolveSpotifyCredentials>[0];
   db: Parameters<typeof getActiveTurnGame>[0];
+  wrapFormat: WrapFormat;
   resolvePromptMacros: (value: string) => string;
 }): Promise<string | null> {
   if (!args.enabled) return null;
@@ -201,7 +204,6 @@ export async function buildConversationCommandsReminder(args: {
   }
 
   const commandLines: string[] = [
-    `<commands>`,
     `Here are your optional, hidden commands you may use if you wish to, but only when they genuinely fit the conversation:`,
     ``,
   ];
@@ -264,8 +266,7 @@ export async function buildConversationCommandsReminder(args: {
     chatMode === "conversation" && isConversationCommandEnabled(chatMeta, "uno") && characterIds.length >= 1;
   const chessAdvertisable =
     chatMode === "conversation" && isConversationCommandEnabled(chatMeta, "chess") && characterIds.length >= 1;
-  const noActiveTurnGame =
-    (unoAdvertisable || chessAdvertisable) && !(await getActiveTurnGame(args.db, args.chatId));
+  const noActiveTurnGame = (unoAdvertisable || chessAdvertisable) && !(await getActiveTurnGame(args.db, args.chatId));
   if (unoAdvertisable && noActiveTurnGame) {
     addCommandLines(
       `- [uno] - start a game of UNO at the table. Include this ONLY when ${personaName} proposes playing UNO (or cards) and you are willing to play right now. The system deals the cards and runs the game — you do NOT narrate dealing or describe the hands.`,
@@ -318,8 +319,7 @@ export async function buildConversationCommandsReminder(args: {
   if (availableCommandCount === 0) return null;
   commandLines.push(
     `IMPORTANT: Commands are stripped from your message before the user sees it. The rest of your message is shown normally. You can include multiple commands in one message, but you do not need to use any of them unless it makes sense in context.`,
-    `</commands>`,
   );
 
-  return args.resolvePromptMacros(commandLines.join("\n"));
+  return wrapContent(args.resolvePromptMacros(commandLines.join("\n")), "commands", args.wrapFormat);
 }

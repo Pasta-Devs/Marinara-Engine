@@ -309,14 +309,7 @@ export function CharactersPanel() {
         toast.error("Failed to remove tag from some characters");
       }
     },
-    [
-      sort,
-      updateCharacter,
-      includedTags,
-      excludedTags,
-      setCharacterPanelIncludedTags,
-      setCharacterPanelExcludedTags,
-    ],
+    [sort, updateCharacter, includedTags, excludedTags, setCharacterPanelIncludedTags, setCharacterPanelExcludedTags],
   );
 
   const toggleIncludedTag = useCallback(
@@ -766,7 +759,11 @@ export function CharactersPanel() {
             New Folder
           </button>
         </div>
-        {parsedGroups.length > 0 && <p className="mari-folder-helper">Drag and drop characters to folders, double-click or double-tap to rename</p>}
+        {parsedGroups.length > 0 && (
+          <p className="mari-folder-helper">
+            Drag and drop characters to folders, double-click or double-tap to rename
+          </p>
+        )}
       </div>
 
       {/* Filters */}
@@ -1395,7 +1392,7 @@ export function CharactersPanel() {
       </div>
 
       {characterPages.hasNextPage && (
-        <div className="sticky bottom-0 z-20 -mx-3 mt-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--sidebar)]/95 px-3 pt-2 pb-3 backdrop-blur-md">
+        <div className="relative -mx-3 mt-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--sidebar)]/95 px-3 pt-2 pb-3 backdrop-blur-md md:sticky md:bottom-0 md:z-20">
           <button
             type="button"
             onClick={() => void characterPages.fetchNextPage()}

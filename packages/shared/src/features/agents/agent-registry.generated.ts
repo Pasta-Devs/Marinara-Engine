@@ -23,6 +23,7 @@ import { knowledgeRetrievalAgentManifest } from "./knowledge-retrieval/manifest.
 import { knowledgeRouterAgentManifest } from "./knowledge-router/manifest.js";
 import { hapticAgentManifest } from "./haptic/manifest.js";
 import { cyoaAgentManifest } from "./cyoa/manifest.js";
+import { aboutMeKeeperAgentManifest } from "./about-me-keeper/manifest.js";
 
 export const BUILT_IN_AGENT_MANIFESTS: readonly BuiltInAgentManifest[] = [
   proseGuardianAgentManifest,
@@ -46,5 +47,6 @@ export const BUILT_IN_AGENT_MANIFESTS: readonly BuiltInAgentManifest[] = [
   knowledgeRouterAgentManifest,
   hapticAgentManifest,
   cyoaAgentManifest,
+  aboutMeKeeperAgentManifest,
 ];
 

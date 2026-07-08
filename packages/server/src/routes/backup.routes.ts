@@ -2046,6 +2046,9 @@ export async function backupRoutes(app: FastifyInstance) {
                     typeof p.savedStatusOptions === "string"
                       ? p.savedStatusOptions
                       : JSON.stringify(p.savedStatusOptions ?? []),
+                  convoDisplayName: typeof p.convoDisplayName === "string" ? p.convoDisplayName : "",
+                  aboutMe: typeof p.aboutMe === "string" ? p.aboutMe : "",
+                  convoBehavior: typeof p.convoBehavior === "string" ? p.convoBehavior : "",
                   avatarCrop: typeof p.avatarCrop === "string" ? p.avatarCrop : JSON.stringify(p.avatarCrop ?? null),
                 },
                 normalizeTimestampOverrides({ createdAt: p.createdAt, updatedAt: p.updatedAt }),

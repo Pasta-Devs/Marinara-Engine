@@ -39,6 +39,41 @@ type GenerationPromptMessage = {
 };
 
 type WrapFormat = "xml" | "markdown" | "none";
+type CharacterFallbackFieldKey =
+  | "description"
+  | "personality"
+  | "scenario"
+  | "backstory"
+  | "appearance"
+  | "systemPrompt"
+  | "mesExample";
+type PersonaFallbackFieldKey = "description" | "personality" | "backstory" | "appearance" | "scenario";
+
+const CHARACTER_FALLBACK_FIELDS: Array<{
+  key: CharacterFallbackFieldKey;
+  label: string;
+  macroAliases: string[];
+}> = [
+  { key: "description", label: "description", macroAliases: ["description"] },
+  { key: "personality", label: "personality", macroAliases: ["personality"] },
+  { key: "scenario", label: "scenario", macroAliases: ["scenario"] },
+  { key: "backstory", label: "backstory", macroAliases: ["backstory"] },
+  { key: "appearance", label: "appearance", macroAliases: ["appearance"] },
+  { key: "systemPrompt", label: "system_prompt", macroAliases: ["charSysInfo"] },
+  { key: "mesExample", label: "example_dialogue", macroAliases: ["example"] },
+];
+
+const PERSONA_FALLBACK_FIELDS: Array<{
+  key: PersonaFallbackFieldKey;
+  label: string;
+  macroAliases: string[];
+}> = [
+  { key: "description", label: "description", macroAliases: ["personaDescription", "persona"] },
+  { key: "personality", label: "personality", macroAliases: ["personaPersonality", "persona"] },
+  { key: "backstory", label: "backstory", macroAliases: ["personaBackstory", "persona"] },
+  { key: "appearance", label: "appearance", macroAliases: ["personaAppearance", "persona"] },
+  { key: "scenario", label: "scenario", macroAliases: ["personaScenario", "persona"] },
+];
 
 function parseRecord(value: unknown): any {
   if (!value) return {};
@@ -114,20 +149,35 @@ export function buildCharacterMacroProfilesById(charInfo: CharacterPromptInfo[])
   );
 }
 
-function wrapFields(fields: Record<string, string>, format: WrapFormat): string[] {
-  return Object.entries(fields)
-    .filter(([, value]) => value.trim().length > 0)
-    .map(([key, value]) => wrapContent(sanitizePromptLeaf(value, format), key, format, 2));
+function wrapFieldEntries(fields: Array<{ label: string; value: string }>, format: WrapFormat): string[] {
+  return fields
+    .filter(({ value }) => value.trim().length > 0)
+    .map(({ label, value }) => wrapContent(sanitizePromptLeaf(value, format), label, format, 2));
 }
 
-function hasProfileBlock(content: string, name: string, description: string): boolean {
+function hasNamedProfileBlock(content: string, name: string): boolean {
   const xmlTag = nameToXmlTag(name);
   return (
-    (description && content.includes(description.split("\n")[0]!.trim().slice(0, 80))) ||
     content.includes(`<${xmlTag}>`) ||
     content.includes(`<${name}>`) ||
     new RegExp(`^#{1,6} ${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "m").test(content)
   );
+}
+
+function contentIncludesResolvedField(content: string, fieldValue: string): boolean {
+  const marker = fieldValue.split("\n")[0]?.trim().slice(0, 80) ?? "";
+  return marker.length > 0 && content.includes(marker);
+}
+
+function macroAliasPattern(alias: string): RegExp {
+  return new RegExp(`\\{\\{[\\s\\S]*?\\b${alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b[\\s\\S]*?\\}\\}`, "i");
+}
+
+function sourceReferencesAnyMacro(sources: readonly string[], aliases: readonly string[]): boolean {
+  return aliases.some((alias) => {
+    const pattern = macroAliasPattern(alias);
+    return sources.some((source) => pattern.test(source));
+  });
 }
 
 export function injectIdentityFallbackMessages(args: {
@@ -140,16 +190,16 @@ export function injectIdentityFallbackMessages(args: {
   personaDescription: string;
   personaFields: { personality?: string; scenario?: string; backstory?: string; appearance?: string };
   persona?: { personaStats?: unknown } | null;
+  promptTemplateSources?: readonly string[];
   resolvePromptMacros(value: string): string;
 }): void {
   const allContent = args.messages.map((message) => message.content).join("\n");
+  const promptTemplateSources = args.promptTemplateSources ?? [];
   const fallbackCharInfo = args.promptTargetCharacterId
     ? args.charInfo.filter((character) => character.id === args.promptTargetCharacterId)
     : args.charInfo;
 
   for (const character of fallbackCharInfo) {
-    if (hasProfileBlock(allContent, character.name, character.description) || !character.description) continue;
-
     const characterMacroContext = {
       ...args.promptMacroContext,
       char: character.name,
@@ -165,18 +215,26 @@ export function injectIdentityFallbackMessages(args: {
       },
     };
     const resolveCharacterMacros = (value: string) => resolveMacros(value, characterMacroContext);
-    const fieldParts = wrapFields(
-      {
-        description: resolveCharacterMacros(character.description),
-        personality: resolveCharacterMacros(character.personality),
-        scenario: resolveCharacterMacros(character.scenario),
-        backstory: resolveCharacterMacros(character.backstory),
-        appearance: resolveCharacterMacros(character.appearance),
-        system_prompt: resolveCharacterMacros(character.systemPrompt),
-        example_dialogue: resolveCharacterMacros(character.mesExample),
-      },
-      args.wrapFormat,
-    );
+    const resolvedFields: Record<CharacterFallbackFieldKey, string> = {
+      description: resolveCharacterMacros(character.description),
+      personality: resolveCharacterMacros(character.personality),
+      scenario: resolveCharacterMacros(character.scenario),
+      backstory: resolveCharacterMacros(character.backstory),
+      appearance: resolveCharacterMacros(character.appearance),
+      systemPrompt: resolveCharacterMacros(character.systemPrompt),
+      mesExample: resolveCharacterMacros(character.mesExample),
+    };
+    const namedProfilePresent = hasNamedProfileBlock(allContent, character.name);
+    if (namedProfilePresent) continue;
+
+    const fieldsToInject = CHARACTER_FALLBACK_FIELDS.flatMap((field) => {
+      const value = resolvedFields[field.key];
+      if (!value.trim()) return [];
+      if (sourceReferencesAnyMacro(promptTemplateSources, field.macroAliases)) return [];
+      if (contentIncludesResolvedField(allContent, value)) return [];
+      return [{ label: field.label, value }];
+    });
+    const fieldParts = wrapFieldEntries(fieldsToInject, args.wrapFormat);
     if (fieldParts.length === 0) continue;
 
     const block = wrapContent(fieldParts.join("\n"), character.name, args.wrapFormat, 1);
@@ -185,16 +243,24 @@ export function injectIdentityFallbackMessages(args: {
     args.messages.splice(insertAt, 0, { role: "system", content: block });
   }
 
-  if (!args.personaDescription || hasProfileBlock(allContent, args.personaName, args.personaDescription)) return;
+  const resolvedPersonaFields: Record<PersonaFallbackFieldKey, string> = {
+    description: args.resolvePromptMacros(args.personaDescription),
+    personality: args.resolvePromptMacros(args.personaFields.personality ?? ""),
+    backstory: args.resolvePromptMacros(args.personaFields.backstory ?? ""),
+    appearance: args.resolvePromptMacros(args.personaFields.appearance ?? ""),
+    scenario: args.resolvePromptMacros(args.personaFields.scenario ?? ""),
+  };
 
-  const fieldParts = wrapFields(
-    {
-      description: args.resolvePromptMacros(args.personaDescription),
-      personality: args.resolvePromptMacros(args.personaFields.personality ?? ""),
-      backstory: args.resolvePromptMacros(args.personaFields.backstory ?? ""),
-      appearance: args.resolvePromptMacros(args.personaFields.appearance ?? ""),
-      scenario: args.resolvePromptMacros(args.personaFields.scenario ?? ""),
-    },
+  if (hasNamedProfileBlock(allContent, args.personaName)) return;
+
+  const fieldParts = wrapFieldEntries(
+    PERSONA_FALLBACK_FIELDS.flatMap((field) => {
+      const value = resolvedPersonaFields[field.key];
+      if (!value.trim()) return [];
+      if (sourceReferencesAnyMacro(promptTemplateSources, field.macroAliases)) return [];
+      if (contentIncludesResolvedField(allContent, value)) return [];
+      return [{ label: field.label, value }];
+    }),
     args.wrapFormat,
   );
 
@@ -202,9 +268,7 @@ export function injectIdentityFallbackMessages(args: {
     const pStats = parseRecord(args.persona.personaStats);
     if (pStats?.rpgStats?.enabled) {
       const rpgText = formatRpgStatsForPrompt(pStats.rpgStats as RPGStatsConfig);
-      fieldParts.push(
-        wrapContent(sanitizePromptLeaf(rpgText, args.wrapFormat), "rpg_attributes", args.wrapFormat, 2),
-      );
+      fieldParts.push(wrapContent(sanitizePromptLeaf(rpgText, args.wrapFormat), "rpg_attributes", args.wrapFormat, 2));
     }
   }
 

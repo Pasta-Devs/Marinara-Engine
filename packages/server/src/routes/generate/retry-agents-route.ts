@@ -281,6 +281,9 @@ function markRetryLorebookResultForApproval(args: {
       ? (agentContext.memory._lorebookKeeperTargetLorebookId as string)
       : null;
   const writableLorebookIds = agentContext.writableLorebookIds;
+  const existingEntries = Array.isArray(agentContext.memory._existingLorebookEntries)
+    ? (agentContext.memory._existingLorebookEntries as Array<{ name?: string | null; content?: string | null }>)
+    : undefined;
   return {
     ...result,
     data: {
@@ -293,6 +296,7 @@ function markRetryLorebookResultForApproval(args: {
         updates,
         preferredTargetLorebookId,
         writableLorebookIds,
+        existingEntries,
       }),
     },
   };
@@ -1461,6 +1465,10 @@ async function attachRetryLorebookWriterToolContexts(args: {
           // proposal envelope (mirroring the structured lorebook_update gate) so the
           // user approves the write before it touches the lorebook DB.
           if (requireApproval) {
+            const existingEntries = await lorebooksStore
+              .listEntries(writableLorebookId)
+              .then((entries) => entries as Array<{ name?: string | null; content?: string | null }>)
+              .catch(() => [] as Array<{ name?: string | null; content?: string | null }>);
             return {
               requiresApproval: true,
               approval: buildLorebookWriteApprovalProposal({
@@ -1480,6 +1488,7 @@ async function attachRetryLorebookWriterToolContexts(args: {
                 ],
                 preferredTargetLorebookId: writableLorebookId,
                 writableLorebookIds: [writableLorebookId],
+                existingEntries,
               }),
             };
           }

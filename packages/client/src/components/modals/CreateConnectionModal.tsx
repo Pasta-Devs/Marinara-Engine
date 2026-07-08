@@ -96,7 +96,7 @@ export function CreateConnectionModal({ open, onClose }: Props) {
           </div>
           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
             {provider === "xai"
-              ? "Creates an xAI connection prefilled with Grok 4.3 and https://api.x.ai/v1."
+              ? "Creates an xAI connection prefilled with Grok 4.5 and https://api.x.ai/v1."
               : "You can adjust the endpoint, key, and model after creating the connection."}
           </p>
         </div>

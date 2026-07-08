@@ -4,11 +4,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { App, AppRecoveryBoundary } from "./App";
 import { startKeepAlive } from "./lib/keep-alive";
 import { installCsrfFetchShim } from "./lib/csrf-fetch";
+import { registerPreloadErrorRecovery } from "./lib/browser-runtime";
 import "./styles/globals.css";
 
 // Prevent Chrome/Edge from sleeping this tab
 startKeepAlive();
 installCsrfFetchShim();
+// Auto-recover from stale-chunk dynamic-import failures (e.g. a lazy route that
+// 404s after an update) instead of surfacing "Failed to fetch dynamically
+// imported module" to the user.
+registerPreloadErrorRecovery();
 
 const queryClient = new QueryClient({
   defaultOptions: {

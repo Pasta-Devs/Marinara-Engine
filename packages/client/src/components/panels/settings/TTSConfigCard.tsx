@@ -15,12 +15,18 @@ import {
   ChevronUp,
   Plus,
   X,
+  Download,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
 import { toast } from "sonner";
 import { useTTSConfig, useUpdateTTSConfig, useTTSVoices } from "../../../hooks/use-tts";
 import { useCharacters } from "../../../hooks/use-characters";
 import { ttsService } from "../../../lib/tts-service";
+import {
+  listCachedTTSAudioEntries,
+  listCachedTTSAudioMeta,
+  type CachedTTSAudioExportEntry,
+} from "../../../lib/tts-audio-cache";
 import { parseCharacterDisplayData } from "../../../lib/character-display";
 import type {
   TTSConfig,
@@ -135,6 +141,49 @@ function addSavedVoiceOption(options: VoiceOption[], voiceId: string): VoiceOpti
 function formatVoiceOptionLabel(option: VoiceOption): string {
   if (option.category === "saved") return `${option.id} (saved; not in current voice list)`;
   return option.name === option.id ? option.id : `${option.name} (${option.id})`;
+}
+
+function formatCacheBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  return `${value >= 10 || unitIndex === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function extensionForTTSBlob(blob: Blob): string {
+  const type = blob.type.toLowerCase();
+  if (type.includes("mpeg") || type.includes("mp3")) return "mp3";
+  if (type.includes("wav")) return "wav";
+  if (type.includes("ogg")) return "ogg";
+  if (type.includes("webm")) return "webm";
+  if (type.includes("mp4") || type.includes("m4a")) return "m4a";
+  return "audio";
+}
+
+function safeTTSFileStem(value: string): string {
+  return (
+    value
+      .replace(/[^a-z0-9._-]+/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 80) || "tts-clip"
+  );
+}
+
+function downloadTTSClip(entry: CachedTTSAudioExportEntry, index: number): void {
+  const url = URL.createObjectURL(entry.blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${String(index + 1).padStart(3, "0")}-${safeTTSFileStem(entry.key)}.${extensionForTTSBlob(entry.blob)}`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
 const ELEVENLABS_DEFAULT_MALE_VOICE_NAMES = new Set([
@@ -364,6 +413,8 @@ export function TTSConfigCard() {
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ttsState, setTTSState] = useState(ttsService.getState());
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [ttsCacheSummary, setTtsCacheSummary] = useState({ count: 0, bytes: 0 });
+  const [exportingTtsCache, setExportingTtsCache] = useState(false);
 
   // Voice fetch — keyed on the *saved* baseUrl so it only refetches when saved
   const savedSource = savedConfig?.source ?? "openai";
@@ -432,6 +483,21 @@ export function TTSConfigCard() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!expanded) return;
+    let cancelled = false;
+    void listCachedTTSAudioMeta().then((entries) => {
+      if (cancelled) return;
+      setTtsCacheSummary({
+        count: entries.length,
+        bytes: entries.reduce((total, entry) => total + Math.max(0, entry.size || 0), 0),
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, ttsState]);
 
   const buildPayload = (overrides?: Partial<TTSConfig>): TTSConfig => ({
     enabled,
@@ -571,6 +637,29 @@ export function TTSConfigCard() {
     })();
   };
 
+  const handleExportCachedClips = async () => {
+    setExportingTtsCache(true);
+    try {
+      const entries = await listCachedTTSAudioEntries();
+      if (entries.length === 0) {
+        toast.info("No cached TTS clips to export yet.");
+        setTtsCacheSummary({ count: 0, bytes: 0 });
+        return;
+      }
+
+      entries.forEach((entry, index) => downloadTTSClip(entry, index));
+      setTtsCacheSummary({
+        count: entries.length,
+        bytes: entries.reduce((total, entry) => total + Math.max(0, entry.size || entry.blob.size), 0),
+      });
+      toast.success(`Exported ${entries.length} cached TTS clip${entries.length === 1 ? "" : "s"}.`);
+    } catch {
+      toast.error("Failed to export cached TTS clips.");
+    } finally {
+      setExportingTtsCache(false);
+    }
+  };
+
   const voices = voicesData?.voices ?? [];
   const fetchedVoiceOptions = voicesData?.voiceOptions ?? voices.map((v) => ({ id: v, name: v }));
   const voiceOptions = useMemo(() => {
@@ -588,7 +677,15 @@ export function TTSConfigCard() {
       nextOptions = addSavedVoiceOption(nextOptions, savedVoice);
     }
     return nextOptions;
-  }, [fetchedVoiceOptions, narratorVoice, npcDefaultFemaleVoices, npcDefaultMaleVoices, source, voice, voiceAssignments]);
+  }, [
+    fetchedVoiceOptions,
+    narratorVoice,
+    npcDefaultFemaleVoices,
+    npcDefaultMaleVoices,
+    source,
+    voice,
+    voiceAssignments,
+  ]);
   const voicesFromProvider = voicesData?.fromProvider ?? false;
   const elevenLabsMatchedMaleVoiceOptions = useMemo(
     () =>
@@ -1371,6 +1468,25 @@ export function TTSConfigCard() {
                 mark({ dialogueOnly: v, dialogueScope: "all", dialogueCharacterName: "" });
               }}
             />
+          </div>
+
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/40 px-2.5 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-medium">Cached clips</div>
+              <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
+                {ttsCacheSummary.count} clip{ttsCacheSummary.count === 1 ? "" : "s"} ·{" "}
+                {formatCacheBytes(ttsCacheSummary.bytes)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleExportCachedClips()}
+              disabled={exportingTtsCache || ttsCacheSummary.count === 0}
+              className="mari-chrome-control mari-chrome-control--small shrink-0 text-xs"
+              title="Export cached TTS clips"
+            >
+              {exportingTtsCache ? <Loader2 size="0.75rem" className="animate-spin" /> : <Download size="0.75rem" />}
+            </button>
           </div>
 
           {/* Actions */}

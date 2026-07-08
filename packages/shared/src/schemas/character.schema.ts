@@ -27,6 +27,22 @@ const characterBookRoleSchema = z.union([
   z.literal(2),
 ]);
 
+/** Conversation-mode behavior directive insertion strategy. */
+export const convoBehaviorInsertionStrategySchema = z.enum([
+  "constant_before",
+  "constant_after",
+  "post_history_replace",
+  "post_history_before",
+  "post_history_after",
+  "macro",
+]);
+
+/** Conversation-mode-only behavior directive. */
+export const convoBehaviorConfigSchema = z.object({
+  instruction: z.string().default(""),
+  insertionStrategy: convoBehaviorInsertionStrategySchema.catch("constant_after").default("constant_after"),
+});
+
 export const characterExtensionsSchema = z
   .object({
     talkativeness: z.number().min(0).max(1).default(0.5),
@@ -35,6 +51,10 @@ export const characterExtensionsSchema = z
     depth_prompt: depthPromptSchema.default({}),
     backstory: z.string().default(""),
     appearance: z.string().default(""),
+    // Conversation-mode-only fields (optional — absent on non-convo cards).
+    convoDisplayName: z.string().optional(),
+    aboutMe: z.string().optional(),
+    convoBehavior: convoBehaviorConfigSchema.optional(),
   })
   .passthrough();
 
@@ -94,6 +114,22 @@ export const characterCardV2Schema = z.object({
   spec_version: z.literal("2.0"),
   data: characterDataSchema,
 });
+
+/** AI-write of a Convo "about me" from card/persona fields (Conversation mode). */
+export const generateAboutMeSchema = z.object({
+  connectionId: z.string().min(1),
+  kind: z.enum(["character", "persona"]).default("character"),
+  name: z.string().max(200).default(""),
+  description: z.string().max(20000).default(""),
+  personality: z.string().max(20000).default(""),
+  scenario: z.string().max(20000).default(""),
+  backstory: z.string().max(20000).default(""),
+  appearance: z.string().max(20000).default(""),
+  /** Optional freeform steer from the user (e.g. "keep it one line, chronically online"). */
+  instruction: z.string().max(2000).optional(),
+});
+
+export type GenerateAboutMeInput = z.infer<typeof generateAboutMeSchema>;
 
 export const createCharacterSchema = z.object({
   data: characterDataSchema,

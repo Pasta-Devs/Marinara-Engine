@@ -34,6 +34,16 @@ export function supportsXhighReasoningEffort(model: string): boolean {
   );
 }
 
+export function isXaiConfigurableReasoningModel(model: string): boolean {
+  const normalized = model.toLowerCase().replace(/^x-ai\//, "");
+  return normalized.startsWith("grok-4.5") || normalized.startsWith("grok-4.3");
+}
+
+export function isXaiAutoReasoningModel(model: string): boolean {
+  const normalized = model.toLowerCase().replace(/^x-ai\//, "");
+  return normalized.startsWith("grok-4-1-fast");
+}
+
 // ── OpenAI (from #model_openai_select) ──
 
 export const OPENAI_MODELS: KnownModel[] = [
@@ -364,7 +374,10 @@ export const OPENROUTER_MODELS: KnownModel[] = [];
 // ── xAI / Grok (OpenAI-compatible API) ──
 
 export const XAI_MODELS: KnownModel[] = [
-  // Official xAI docs recommend Grok 4.3 for standard chat API usage.
+  // Grok 4.5 launched July 8, 2026. The launch post gives the API ID; xAI's
+  // current Grok text family uses a 1M context window in the model docs.
+  { id: "grok-4.5", name: "Grok 4.5", context: 1000000, maxOutput: 0 },
+  { id: "grok-4.5-latest", name: "Grok 4.5 Latest", context: 1000000, maxOutput: 0 },
   { id: "grok-4.3", name: "Grok 4.3", context: 1000000, maxOutput: 0 },
   { id: "grok-4.3-latest", name: "Grok 4.3 Latest", context: 1000000, maxOutput: 0 },
   { id: "grok-latest", name: "Grok Latest", context: 1000000, maxOutput: 0 },

@@ -110,7 +110,7 @@ import { HomeAchievements } from "./HomeAchievements";
 import { NewChatConnectionGate } from "./NewChatConnectionGate";
 import { ChatCommonOverlays, preloadChatSettingsDrawer, type ChatSettingsInitialSection } from "./ChatCommonOverlays";
 import { PendingTypingDots } from "./PendingTypingDots";
-import { CreatorNotesCssInjector, type CardCssMode } from "./CreatorNotesCssInjector";
+import { CreatorNotesCssInjector, type CardCssMode, type PersonaCssRow } from "./CreatorNotesCssInjector";
 import type { ChatModeFilter } from "../../lib/card-css";
 import { ImagePromptReviewModal, type ImagePromptOverride, type ImagePromptReviewItem } from "../ui/ImagePromptReviewModal";
 
@@ -1213,10 +1213,23 @@ export function ChatArea() {
     chatMeta.cardCssMode === "exclusive" || chatMeta.cardCssMode === "chat" ? chatMeta.cardCssMode : "disabled";
   const cardCssChatMode: ChatModeFilter =
     chatMode === "conversation" ? "conversation" : chatMode === "game" ? "game" : "roleplay";
+  // Persona creator-notes CSS only reaches the Conversation about-me popout
+  // (personas have no other data-card-css hook), so only feed it in Convo mode.
+  const cardCssPersonas = useMemo<PersonaCssRow[] | undefined>(() => {
+    if (chatMode !== "conversation") return undefined;
+    const persona = (chatPersona ?? (!isGameChat ? activePersonaFallback : null)) as
+      | { id?: string; creatorNotes?: string | null }
+      | null
+      | undefined;
+    return persona?.id
+      ? [{ id: persona.id, creatorNotes: typeof persona.creatorNotes === "string" ? persona.creatorNotes : null }]
+      : undefined;
+  }, [chatMode, chatPersona, activePersonaFallback, isGameChat]);
   const cardCssInjector = (
     <CreatorNotesCssInjector
       characterIds={chatCharIds}
       allCharacters={chatCharacterRows}
+      personas={cardCssPersonas}
       mode={cardCssMode}
       chatMode={cardCssChatMode}
     />

@@ -51,6 +51,9 @@ const AgentWriteApprovalModal = lazy(() =>
 const DocsViewerModal = lazy(() =>
   import("../modals/DocsViewerModal").then((module) => ({ default: module.DocsViewerModal })),
 );
+const AboutMeViewerModal = lazy(() =>
+  import("../modals/AboutMeViewerModal").then((module) => ({ default: module.AboutMeViewerModal })),
+);
 
 export function ModalRenderer() {
   const modal = useUIStore((s) => s.modal);
@@ -115,6 +118,31 @@ export function ModalRenderer() {
     case "docs-viewer":
       content = (
         <DocsViewerModal open onClose={closeModal} initialDoc={(modal?.props?.initialDoc as string | null) ?? null} />
+      );
+      break;
+    case "about-me-viewer":
+      content = (
+        <AboutMeViewerModal
+          open
+          onClose={closeModal}
+          kind={(modal?.props?.kind as "character" | "persona") ?? "character"}
+          id={(modal?.props?.id as string) ?? ""}
+          anchorRect={
+            (modal?.props?.anchorRect as {
+              top: number;
+              left: number;
+              right: number;
+              bottom: number;
+              width: number;
+              height: number;
+            } | null) ?? null
+          }
+          avatarUrl={(modal?.props?.avatarUrl as string | null) ?? null}
+          displayName={(modal?.props?.displayName as string | null) ?? null}
+          nameColor={(modal?.props?.nameColor as string | null) ?? null}
+          status={(modal?.props?.status as "online" | "idle" | "dnd" | "offline" | null) ?? null}
+          activity={(modal?.props?.activity as string | null) ?? null}
+        />
       );
       break;
     default:

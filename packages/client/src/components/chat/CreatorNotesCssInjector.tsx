@@ -16,11 +16,19 @@ type CharacterRow = {
   data: unknown;
 };
 
+/** A persona whose creator-notes CSS should also apply (Conversation about-me popout). */
+export type PersonaCssRow = {
+  id: string;
+  creatorNotes?: string | null;
+};
+
 interface CreatorNotesCssInjectorProps {
   /** IDs of the characters active in this chat. */
   characterIds: string[];
   /** Catalog rows for resolving each character's card data. */
   allCharacters: CharacterRow[] | undefined;
+  /** Personas whose creator-notes CSS should apply (e.g. the active persona). */
+  personas?: PersonaCssRow[];
   /** Injection mode: disabled | exclusive (per-character) | chat (whole area). */
   mode: CardCssMode;
   /** Current chat surface — drives `@chat-mode` filtering. */
@@ -38,16 +46,34 @@ const SCOPE_SELECTOR = ".mari-card-css";
  * and per-card scope keep it from reaching anything outside the chat. A single
  * shared `<style>` node is reused/cleared as the active set or mode changes.
  */
-export function CreatorNotesCssInjector({ characterIds, allCharacters, mode, chatMode }: CreatorNotesCssInjectorProps) {
+export function CreatorNotesCssInjector({
+  characterIds,
+  allCharacters,
+  personas,
+  mode,
+  chatMode,
+}: CreatorNotesCssInjectorProps) {
   const scopedCss = useMemo(() => {
-    if (mode === "disabled" || !allCharacters || characterIds.length === 0) return "";
+    if (mode === "disabled") return "";
 
-    const charMap = new Map<string, CharacterRow>();
-    for (const char of allCharacters) {
-      charMap.set(char.id, char);
-    }
+    // Scope + sanitize one creator-notes CSS blob for a given id.
+    const scopeCreatorNotesCss = (id: string, creatorNotes: string | null | undefined): string | null => {
+      if (!creatorNotes) return null;
+      const { css: rawCss } = extractCreatorNotesCss(creatorNotes);
+      if (!rawCss) return null;
+      const css = filterCssByMode(rawCss, chatMode);
+      if (!css.trim()) return null;
+      const scope = mode === "exclusive" ? `${SCOPE_SELECTOR} [data-card-css="${id}"]` : SCOPE_SELECTOR;
+      const scoped = scopeChatCss(css, scope);
+      return scoped || null;
+    };
 
     const cssChunks: string[] = [];
+
+    const charMap = new Map<string, CharacterRow>();
+    for (const char of allCharacters ?? []) {
+      charMap.set(char.id, char);
+    }
     for (const charId of characterIds) {
       const row = charMap.get(charId);
       if (!row) continue;
@@ -65,19 +91,15 @@ export function CreatorNotesCssInjector({ characterIds, allCharacters, mode, cha
         continue;
       }
 
-      const creatorNotes = (parsed as { creator_notes?: string }).creator_notes;
-      if (!creatorNotes) continue;
+      const scoped = scopeCreatorNotesCss(charId, (parsed as { creator_notes?: string }).creator_notes);
+      if (scoped) cssChunks.push(scoped);
+    }
 
-      const { css: rawCss } = extractCreatorNotesCss(creatorNotes);
-      if (!rawCss) continue;
-
-      // Keep only rules that target the active surface (@chat-mode blocks).
-      const css = filterCssByMode(rawCss, chatMode);
-      if (!css.trim()) continue;
-
-      // Exclusive → scope to this character's own messages; chat → whole area.
-      const scope = mode === "exclusive" ? `${SCOPE_SELECTOR} [data-card-css="${charId}"]` : SCOPE_SELECTOR;
-      const scoped = scopeChatCss(css, scope);
+    // Personas: their creator-notes CSS themes the Conversation about-me popout
+    // (which carries data-card-css="<personaId>"). Persona message rows have no
+    // data-card-css hook, so exclusive-mode persona CSS only reaches the popout.
+    for (const persona of personas ?? []) {
+      const scoped = scopeCreatorNotesCss(persona.id, persona.creatorNotes);
       if (scoped) cssChunks.push(scoped);
     }
 
@@ -89,7 +111,7 @@ export function CreatorNotesCssInjector({ characterIds, allCharacters, mode, cha
     // enough to win on their own, while the sanitizer + per-card scope keep card
     // CSS contained to the chat.
     return cssChunks.join("\n");
-  }, [characterIds, allCharacters, mode, chatMode]);
+  }, [characterIds, allCharacters, personas, mode, chatMode]);
 
   useEffect(() => {
     let styleEl = document.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;

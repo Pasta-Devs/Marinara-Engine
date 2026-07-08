@@ -2094,7 +2094,8 @@ export async function chatsRoutes(app: FastifyInstance) {
           // Apply regex scripts to prompt context (mirrors generate.routes.ts).
           const regexStore = createRegexScriptsStorage(app.db);
           applyRegexScriptsToPromptMessages(mappedMessages, await regexStore.list(), {
-            resolveMacros: (value, randomSeed) => resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+            resolveMacros: (value, randomSeed) =>
+              resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
           });
           promptMacroContext.lastInput = [...mappedMessages]
             .reverse()
@@ -2683,7 +2684,10 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (isNumber || isLetter) break;
       offset += char.length;
     }
-    return trimmed.slice(offset).replace(/^npc\s*[:\-]\s*/i, "").trim();
+    return trimmed
+      .slice(offset)
+      .replace(/^npc\s*[:\-]\s*/i, "")
+      .trim();
   };
 
   const collectExportJournalNpcNames = (
@@ -3025,7 +3029,10 @@ export async function chatsRoutes(app: FastifyInstance) {
 
       return reply
         .header("Content-Type", serialized.contentType)
-        .header("Content-Disposition", `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`)
+        .header(
+          "Content-Disposition",
+          `attachment; filename="${encodeURIComponent(chat.name)}.${serialized.extension}"`,
+        )
         .send(serialized.content);
     },
   );
@@ -3159,16 +3166,18 @@ export async function chatsRoutes(app: FastifyInstance) {
     // updated row in its group, so the sidebar reads its folderId).
     await storage.update(newChat.id, { folderId: sourceChat.folderId ?? null });
 
-    // Copy game-state snapshots from the source chat for every copied message.
+    // Copy tracker snapshots from the source chat for every copied message.
     // Each snapshot is keyed by (chatId, messageId, swipeIndex), so we must re-associate
     // them to the new branch's message IDs. Copying all snapshots (not just the latest)
     // ensures that branching a branch at an earlier point finds the correct tracker state
     // for that specific message, not just the latest snapshot in the source chat.
-    if (sourceToBranchedMessageId.size > 0 && sourceChat.mode === "game") {
+    if (sourceToBranchedMessageId.size > 0) {
       const { createGameStateStorage } = await import("../services/storage/game-state.storage.js");
-      const { createGameEngineStateStorage } = await import("../services/storage/game-engine-state.storage.js");
       const gameStateStore = createGameStateStorage(app.db);
-      const gameEngineStore = createGameEngineStateStorage(app.db);
+      const gameEngineStore =
+        sourceChat.mode === "game"
+          ? (await import("../services/storage/game-engine-state.storage.js")).createGameEngineStateStorage(app.db)
+          : null;
 
       // Helpers to create snapshots re-keyed for the new branch.
       const copySnapshot = async (
@@ -3198,15 +3207,16 @@ export async function chatsRoutes(app: FastifyInstance) {
             overrides,
           );
         } catch (err) {
-          logger.warn(err, "Failed to copy game-state snapshot while branching chat");
+          logger.warn(err, "Failed to copy tracker snapshot while branching chat");
           // Ignore individual snapshot copy failures; branching should still succeed.
         }
       };
       const copyEngineSnapshot = async (
-        snapshot: NonNullable<Awaited<ReturnType<typeof gameEngineStore.getByChatAndMessage>>>,
+        snapshot: NonNullable<Awaited<ReturnType<NonNullable<typeof gameEngineStore>["getByChatAndMessage"]>>>,
         targetMessageId: string,
         targetSwipeIndex: number,
       ) => {
+        if (!gameEngineStore) return;
         try {
           await gameEngineStore.create({
             chatId: newChat.id,
@@ -3231,9 +3241,11 @@ export async function chatsRoutes(app: FastifyInstance) {
           if (snapshot) {
             await copySnapshot(snapshot, branchedMsgId, swipeIndex);
           }
-          const engineSnapshot = await gameEngineStore.getByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
-          if (engineSnapshot) {
-            await copyEngineSnapshot(engineSnapshot, branchedMsgId, swipeIndex);
+          if (gameEngineStore) {
+            const engineSnapshot = await gameEngineStore.getByChatAndMessage(req.params.id, srcMsg.id, swipeIndex);
+            if (engineSnapshot) {
+              await copyEngineSnapshot(engineSnapshot, branchedMsgId, swipeIndex);
+            }
           }
         }
       }
@@ -3245,9 +3257,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (bootstrap) {
         await copySnapshot(bootstrap, "", 0);
       }
-      const engineBootstrap = await gameEngineStore.getByChatAndMessage(req.params.id, "", 0);
-      if (engineBootstrap) {
-        await copyEngineSnapshot(engineBootstrap, "", 0);
+      if (gameEngineStore) {
+        const engineBootstrap = await gameEngineStore.getByChatAndMessage(req.params.id, "", 0);
+        if (engineBootstrap) {
+          await copyEngineSnapshot(engineBootstrap, "", 0);
+        }
       }
     }
 

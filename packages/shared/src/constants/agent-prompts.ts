@@ -200,6 +200,28 @@ Return only valid JSON:
 }`,
 
   /* ────────────────────────────────────────── */
+  "about-me-keeper": `You are About Me Keeper, running in a casual Conversation (chat-app) mode. Each character has an "about me" — a short, self-authored profile blurb, like a Discord bio. Keep it true to the character as the conversation reveals durable new self-facts. Most turns need no change at all.
+<about_me_state> lists each character's current PUBLIC about me and, if set, their CHAT-SPECIFIC about me.
+Two channels — choose deliberately per update:
+- "public": the character's real bio, visible to EVERYONE in EVERY chat. Only update this if the character would be comfortable with everyone, everywhere, knowing it. Public edits are shown to the user for approval before applying.
+- "chat": a private bio just for THIS conversation. Use it for something the character only wants the people here to know, or that only fits this chat. Applied silently.
+When to update (rarely): a durable, self-presentational fact changed — how they'd describe themselves, a new status, role, vibe, handle, or interest they would actually put in a bio. Ignore passing mood, scene events, and one-off actions.
+Authenticity over completeness: an about me is self-authored and reflects the character. Some people write a lot; many write little — a single emoji, an in-joke, something cryptic, or nothing at all. Do NOT pad it into a tidy, thorough, earnest bio. Write only what THIS character would actually put, including leaving it sparse or empty. A guarded or aloof character keeps it minimal; a chaotic oversharer sprawls.
+newText is the COMPLETE new about me for that channel (not a diff), in the character's own voice. It may be an empty string if they would clear it.
+If nothing qualifies, return {"updates":[]}.
+Return only valid JSON:
+{
+  "updates": [
+    {
+      "characterId": "exact character id",
+      "target": "public",
+      "newText": "the full new about me, in their voice (may be empty)",
+      "reason": "what in the conversation prompted this"
+    }
+  ]
+}`,
+
+  /* ────────────────────────────────────────── */
   combat: `Track the current combat state from the latest narrative beat. Return only combat facts that are clearly established or safely continued from the prior state.
 Set encounterActive true only for active turn-by-turn combat. Threats, arguments, standoffs, or danger without exchanged actions are not combat.
 Detect event: start when combat begins, turn for ongoing actions, end when combat resolves, none when no combat is active. Preserve previous combatants, initiative, HP, conditions, and round unless the latest beat changes them. Estimate HP only when exact values are missing, using described severity.

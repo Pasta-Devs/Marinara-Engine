@@ -34,6 +34,14 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
         defaultValue: 8,
         max: 100,
       };
+    case "about-me-keeper":
+      return {
+        label: "Run Interval",
+        unit: "assistant messages",
+        help: "How many assistant messages should pass between About Me Keeper checks.",
+        defaultValue: 8,
+        max: 100,
+      };
     default:
       if (!isBuiltIn) {
         return {

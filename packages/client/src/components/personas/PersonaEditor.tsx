@@ -60,6 +60,7 @@ import {
   RotateCcw,
   Crop,
   Library,
+  MessageCircle,
 } from "lucide-react";
 import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
 import { showConfirmDialog } from "../../lib/app-dialogs";
@@ -101,6 +102,7 @@ import {
   normalizeRpgStatPools,
   syncRpgHpFromPools,
   type CharacterData,
+  type ConvoBehaviorConfig,
   type PersonaCardSnapshot,
   type PersonaCardVersion,
   type RPGStatPool,
@@ -109,11 +111,13 @@ import {
 } from "@marinara-engine/shared";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
+import { ConvoProfileFields } from "../characters/ConvoProfileFields";
 
 // ── Tabs ──
 const TABS = [
   { id: "metadata", label: "Metadata", icon: User },
   { id: "card", label: "Card", icon: IdCard },
+  { id: "convo", label: "Convo", icon: MessageCircle },
   { id: "lorebook", label: "Lorebook", icon: Library },
   { id: "sprites", label: "Sprites", icon: Image },
   { id: "gallery", label: "Gallery", icon: Camera },
@@ -189,6 +193,10 @@ interface PersonaFormData {
   personaStats: string;
   tags: string[];
   savedStatusOptions: string;
+  /** Conversation-mode-only fields. */
+  convoDisplayName: string;
+  aboutMe: string;
+  convoBehavior: ConvoBehaviorConfig | null;
   /** Avatar crop region (parsed from the persona row's JSON-encoded `avatarCrop`).
    *  May be the current source-relative shape, the legacy zoom+offset shape (held
    *  through until the user re-edits via the cropper), or null when unset. */
@@ -219,6 +227,9 @@ interface PersonaRow {
   personaStats?: string;
   tags?: string;
   savedStatusOptions?: string;
+  convoDisplayName?: string;
+  aboutMe?: string;
+  convoBehavior?: string;
 }
 
 function appendNewTags(existingTags: string[], rawInput: string) {
@@ -887,6 +898,9 @@ function createCharacterDataFromPersona(formData: PersonaFormData): CharacterDat
       dialogueColor: formData.dialogueColor || undefined,
       boxColor: formData.boxColor || undefined,
       trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
+      convoDisplayName: formData.convoDisplayName || undefined,
+      aboutMe: formData.aboutMe || undefined,
+      ...(formData.convoBehavior?.instruction?.trim() ? { convoBehavior: formData.convoBehavior } : {}),
       ...(rpgStats ? { rpgStats } : {}),
     },
   };
@@ -1011,6 +1025,17 @@ export function PersonaEditor() {
         }
       })(),
       savedStatusOptions: rawPersona.savedStatusOptions ?? "[]",
+      convoDisplayName: rawPersona.convoDisplayName ?? "",
+      aboutMe: rawPersona.aboutMe ?? "",
+      convoBehavior: (() => {
+        if (!rawPersona.convoBehavior?.trim()) return null;
+        try {
+          const parsed = JSON.parse(rawPersona.convoBehavior) as ConvoBehaviorConfig;
+          return parsed && typeof parsed.instruction === "string" ? parsed : null;
+        } catch {
+          return null;
+        }
+      })(),
       avatarCrop: parsedAvatarCrop,
     });
     setAvatarPreview(rawPersona.avatarPath);
@@ -1030,7 +1055,7 @@ export function PersonaEditor() {
     if (!personaId || !formData) return;
     setSaving(true);
     try {
-      const { tags, avatarCrop, ...rest } = formData;
+      const { tags, avatarCrop, convoBehavior, ...rest } = formData;
       await updatePersona.mutateAsync({
         id: personaId,
         ...rest,
@@ -1039,6 +1064,8 @@ export function PersonaEditor() {
         // Persist as JSON string; empty string means "no crop" so the row keeps
         // the legacy default in render sites.
         avatarCrop: avatarCrop ? JSON.stringify(avatarCrop) : "",
+        // convoBehavior is a JSON-string column; "" means unset.
+        convoBehavior: convoBehavior && convoBehavior.instruction?.trim() ? JSON.stringify(convoBehavior) : "",
       });
       setDirty(false);
     } finally {
@@ -1419,6 +1446,7 @@ export function PersonaEditor() {
             {activeTab === "card" && (
               <PersonaCardTab formData={formData} updateField={updateField} setDirty={setDirty} />
             )}
+            {activeTab === "convo" && <PersonaConvoTab formData={formData} updateField={updateField} />}
             {activeTab === "lorebook" && personaId && (
               <PersonaLorebookTab personaId={personaId} personaName={formData.name} />
             )}
@@ -2885,6 +2913,9 @@ const PERSONA_VERSION_COMPARE_FIELDS: Array<{ key: keyof PersonaCardSnapshot; la
   { key: "personaStats", label: "Persona Stats" },
   { key: "tags", label: "Tags" },
   { key: "savedStatusOptions", label: "Saved Status Options" },
+  { key: "convoDisplayName", label: "Convo Display Name" },
+  { key: "aboutMe", label: "About Me" },
+  { key: "convoBehavior", label: "Convo Behavior" },
 ];
 
 function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnapshot {
@@ -2906,6 +2937,12 @@ function buildCurrentPersonaSnapshot(formData: PersonaFormData): PersonaCardSnap
     personaStats: formData.personaStats,
     tags: JSON.stringify(formData.tags),
     savedStatusOptions: formData.savedStatusOptions,
+    convoDisplayName: formData.convoDisplayName,
+    aboutMe: formData.aboutMe,
+    convoBehavior:
+      formData.convoBehavior && formData.convoBehavior.instruction?.trim()
+        ? JSON.stringify(formData.convoBehavior)
+        : "",
   };
 }
 
@@ -3133,6 +3170,35 @@ function PersonaVersionHistoryPanel({
         )}
       </Modal>
     </div>
+  );
+}
+
+function PersonaConvoTab({
+  formData,
+  updateField,
+}: {
+  formData: PersonaFormData;
+  updateField: <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => void;
+}) {
+  return (
+    <ConvoProfileFields
+      kind="persona"
+      baseName={formData.name}
+      displayName={formData.convoDisplayName}
+      onDisplayNameChange={(v) => updateField("convoDisplayName", v)}
+      aboutMe={formData.aboutMe}
+      onAboutMeChange={(v) => updateField("aboutMe", v)}
+      behavior={formData.convoBehavior}
+      onBehaviorChange={(b) => updateField("convoBehavior", b)}
+      aiSource={{
+        name: formData.name,
+        description: formData.description,
+        personality: formData.personality,
+        scenario: formData.scenario,
+        backstory: formData.backstory,
+        appearance: formData.appearance,
+      }}
+    />
   );
 }
 

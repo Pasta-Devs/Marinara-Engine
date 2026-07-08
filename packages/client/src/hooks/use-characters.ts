@@ -962,6 +962,22 @@ export function useActivePersona(enabled = true) {
   });
 }
 
+export function useGenerateAboutMe() {
+  return useMutation({
+    mutationFn: (body: {
+      connectionId: string;
+      kind: "character" | "persona";
+      name?: string;
+      description?: string;
+      personality?: string;
+      scenario?: string;
+      backstory?: string;
+      appearance?: string;
+      instruction?: string;
+    }) => api.post<{ aboutMe: string }>("/characters/generate-about-me", body),
+  });
+}
+
 export function useCreatePersona() {
   const qc = useQueryClient();
   return useMutation({
@@ -984,6 +1000,9 @@ export function useCreatePersona() {
       personaStats?: string;
       tags?: string;
       savedStatusOptions?: string;
+      convoDisplayName?: string;
+      aboutMe?: string;
+      convoBehavior?: string;
       avatarCrop?: string;
     }) => api.post("/characters/personas", data),
     onSuccess: () => {
@@ -1021,6 +1040,9 @@ export function useUpdatePersona() {
       personaStats?: string;
       tags?: string;
       savedStatusOptions?: string;
+      convoDisplayName?: string;
+      aboutMe?: string;
+      convoBehavior?: string;
       avatarCrop?: string;
     }) => api.patch(`/characters/personas/${id}`, data),
     onSuccess: (updatedPersona, variables) => {

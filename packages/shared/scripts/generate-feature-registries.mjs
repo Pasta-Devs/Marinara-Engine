@@ -42,6 +42,7 @@ const TOOL_ORDER = [
   "append-chat-summary",
   "read-chat-variable",
   "write-chat-variable",
+  "update-about-me",
   "spotify-get-current-playback",
   "spotify-get-playlists",
   "spotify-get-playlist-tracks",

@@ -90,67 +90,77 @@ export function LorebooksSection({
         <p className="text-[0.6875rem] text-[var(--muted-foreground)]">No lorebooks active in this chat.</p>
       ) : (
         <div className="flex flex-col gap-1">
-          {activeLorebooks.map((lorebook) => (
-            <div
-              key={lorebook.id}
-              className={
-                lorebook.isExcluded
-                  ? "flex items-center gap-2.5 rounded-lg bg-[var(--secondary)]/50 px-3 py-2 opacity-60 ring-1 ring-[var(--border)]"
-                  : "flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
-              }
-            >
-              <BookOpen
-                size="0.875rem"
-                className={lorebook.isExcluded ? "text-[var(--muted-foreground)]" : "text-[var(--primary)]"}
-              />
-              <div className="min-w-0 flex-1">
-                <span className={lorebook.isExcluded ? "block truncate text-xs line-through" : "block truncate text-xs"}>
-                  {lorebook.name}
-                </span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {lorebook.isExcluded ? (
-                    <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                      Disabled
-                    </span>
-                  ) : (
-                    lorebook.activeReasons.map((reason) => (
-                      <span
-                        key={reason}
-                        className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
-                      >
-                        {reason}
+          {activeLorebooks.map((lorebook) => {
+            const hasAutomaticReason = lorebook.activeReasons.some((reason) => reason !== "Chat");
+            return (
+              <div
+                key={lorebook.id}
+                className={
+                  lorebook.isExcluded
+                    ? "flex items-center gap-2.5 rounded-lg bg-[var(--secondary)]/50 px-3 py-2 opacity-60 ring-1 ring-[var(--border)]"
+                    : "flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                }
+              >
+                <BookOpen
+                  size="0.875rem"
+                  className={lorebook.isExcluded ? "text-[var(--muted-foreground)]" : "text-[var(--primary)]"}
+                />
+                <div className="min-w-0 flex-1">
+                  <span
+                    className={lorebook.isExcluded ? "block truncate text-xs line-through" : "block truncate text-xs"}
+                  >
+                    {lorebook.name}
+                  </span>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {lorebook.isExcluded ? (
+                      <span className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                        Disabled
                       </span>
-                    ))
-                  )}
+                    ) : (
+                      lorebook.activeReasons.map((reason) => (
+                        <span
+                          key={reason}
+                          className="rounded-full bg-[var(--background)]/70 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)]"
+                        >
+                          {reason}
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </div>
+                {lorebook.isExcluded ? (
+                  <button
+                    onClick={() => onSetLorebookExcluded(lorebook.id, false)}
+                    className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
+                    title="Enable in this chat"
+                  >
+                    <Eye size="0.6875rem" />
+                  </button>
+                ) : (
+                  <div className="flex shrink-0 items-center gap-1">
+                    {lorebook.isPinned && (
+                      <button
+                        onClick={() => onToggleLorebook(lorebook.id)}
+                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                        title="Remove from chat"
+                      >
+                        <Trash2 size="0.6875rem" />
+                      </button>
+                    )}
+                    {(!lorebook.isPinned || hasAutomaticReason) && (
+                      <button
+                        onClick={() => onSetLorebookExcluded(lorebook.id, true)}
+                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                        title="Disable in this chat"
+                      >
+                        <EyeOff size="0.6875rem" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-              {lorebook.isExcluded ? (
-                <button
-                  onClick={() => onSetLorebookExcluded(lorebook.id, false)}
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
-                  title="Enable in this chat"
-                >
-                  <Eye size="0.6875rem" />
-                </button>
-              ) : lorebook.isPinned ? (
-                <button
-                  onClick={() => onToggleLorebook(lorebook.id)}
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                  title="Remove from chat"
-                >
-                  <Trash2 size="0.6875rem" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => onSetLorebookExcluded(lorebook.id, true)}
-                  className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
-                  title="Disable in this chat"
-                >
-                  <EyeOff size="0.6875rem" />
-                </button>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

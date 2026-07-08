@@ -1253,7 +1253,7 @@ export function ConnectionEditor() {
                     // `grok models`. Other providers keep their usual seeded
                     // default model when we know one.
                     setLocalModel(
-                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.3" : "")),
+                      key === "grok_subscription" ? "" : (defaultModel?.id ?? (key === "xai" ? "grok-4.5" : "")),
                     );
                     setLocalMaxContext(
                       key === "grok_subscription"

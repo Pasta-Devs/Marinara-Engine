@@ -85,6 +85,9 @@ export const ROLEPLAY_AGENT_PICKER_HIDDEN_IDS = [] as const;
 
 export const CONVERSATION_AGENT_IDS = [] as const;
 
+// Conversation-only opt-in agents: available to add in Convo mode, but not on by default.
+export const CONVERSATION_ALLOWED_AGENT_IDS = ["about-me-keeper"] as const;
+
 export const ROLEPLAY_DEFAULT_AGENT_IDS = [
   "world-state",
   "prose-guardian",
@@ -115,7 +118,7 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
     agentPolicy: {
       kind: "allowlist",
       defaultAgentIds: CONVERSATION_AGENT_IDS,
-      allowedAgentIds: CONVERSATION_AGENT_IDS,
+      allowedAgentIds: CONVERSATION_ALLOWED_AGENT_IDS,
     },
     sharedSections: SHARED_CHAT_SETTINGS_SECTIONS,
     modeSections: [

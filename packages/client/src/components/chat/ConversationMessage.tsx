@@ -659,6 +659,35 @@ export const ConversationMessage = memo(function ConversationMessage({
           : "rounded-2xl rounded-tl-md";
 
   // ── Build shared render context ──
+  // Convo-only: clicking an avatar opens the about-me viewer for that identity.
+  // The component only mounts in conversation mode, so this never applies elsewhere.
+  const aboutMeTarget: { kind: "character" | "persona"; id: string } | null = isUser
+    ? (msgPersona?.personaId ?? personaInfo?.id)
+      ? { kind: "persona", id: (msgPersona?.personaId ?? personaInfo?.id)! }
+      : null
+    : message.characterId
+      ? { kind: "character", id: message.characterId }
+      : null;
+  const onOpenAboutMe = aboutMeTarget
+    ? (anchor: DOMRect) =>
+        useUIStore.getState().openModal("about-me-viewer", {
+          ...aboutMeTarget,
+          anchorRect: {
+            top: anchor.top,
+            left: anchor.left,
+            right: anchor.right,
+            bottom: anchor.bottom,
+            width: anchor.width,
+            height: anchor.height,
+          },
+          avatarUrl,
+          displayName,
+          nameColor: nameColor ?? null,
+          status: aboutMeTarget.kind === "character" ? (resolvedCharacterInfo?.conversationStatus ?? null) : null,
+          activity: aboutMeTarget.kind === "character" ? (resolvedCharacterInfo?.conversationActivity ?? null) : null,
+        })
+    : undefined;
+
   const ctx: MessageRenderContext = {
     message,
     extra,
@@ -668,6 +697,7 @@ export const ConversationMessage = memo(function ConversationMessage({
     avatarUrl,
     avatarCropStyle,
     nameColor,
+    onOpenAboutMe,
     mentionNames,
     charByName,
     quoteFormat,

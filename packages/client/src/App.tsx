@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // App: Root component with layout
 // ──────────────────────────────────────────────
-import { Component, lazy, Suspense, useEffect, useMemo, type ErrorInfo, type ReactNode } from "react";
+import { Component, lazy, Suspense, useEffect, useMemo, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { APP_VERSION } from "@marinara-engine/shared";
 import { CustomThemeInjector } from "./components/layout/CustomThemeInjector";
@@ -91,6 +91,16 @@ function formatRecoveryError(error: unknown) {
   }
 }
 
+function getRecoveryChromeTextStyle(): CSSProperties | undefined {
+  const { chatChromeTextColor, theme } = useUIStore.getState();
+  const textColor = chatChromeTextColor.trim();
+  if (!textColor) return undefined;
+
+  return {
+    "--marinara-chat-chrome-text": getCssColorFallback(textColor, getDefaultChatChromeTextColor(theme)),
+  } as CSSProperties;
+}
+
 export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { error: unknown; hasError: boolean }> {
   state: { error: unknown; hasError: boolean } = { error: null, hasError: false };
 
@@ -117,9 +127,13 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
   render() {
     if (!this.state.hasError) return this.props.children;
     const errorMessage = formatRecoveryError(this.state.error);
+    const recoveryChromeTextStyle = getRecoveryChromeTextStyle();
 
     return (
-      <div className="mari-chrome-token-scope flex min-h-screen items-center justify-center bg-[var(--background)] px-4 text-[var(--marinara-chat-chrome-panel-text)]">
+      <div
+        className="mari-chrome-token-scope flex min-h-screen items-center justify-center bg-[var(--background)] px-4 text-[var(--marinara-chat-chrome-panel-text)]"
+        style={recoveryChromeTextStyle}
+      >
         <div className="w-full max-w-lg rounded-xl border border-[var(--marinara-chat-chrome-accent)] bg-[var(--marinara-chat-chrome-panel-bg)] p-5 shadow-2xl ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]">
           <h1 className="text-lg font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
             Marinara hit a recoverable UI error.

@@ -9,9 +9,12 @@ import {
   updateGroupSchema,
   createPersonaGroupSchema,
   updatePersonaGroupSchema,
+  generateAboutMeSchema,
   PROFESSOR_MARI_ID,
+  PROVIDERS,
   CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS,
 } from "@marinara-engine/shared";
+import { createLLMProvider } from "../services/llm/provider-registry.js";
 import type { ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
@@ -548,6 +551,65 @@ export async function charactersRoutes(app: FastifyInstance) {
   const characterGallery = createCharacterGalleryStorage(app.db);
   const personaGallery = createPersonaGalleryStorage(app.db);
   const lorebooksStorage = createLorebooksStorage(app.db);
+  const connections = createConnectionsStorage(app.db);
+
+  /**
+   * POST /api/characters/generate-about-me
+   * AI-write a Convo-mode "about me" from card/persona fields. One-shot,
+   * non-streaming. The prompt deliberately produces an IN-CHARACTER bio, which
+   * for many characters means something short, empty, joking, or barely there.
+   */
+  app.post("/generate-about-me", async (req) => {
+    const input = generateAboutMeSchema.parse(req.body);
+    const conn = await connections.getWithKey(input.connectionId);
+    if (!conn) throw Object.assign(new Error("API connection not found"), { statusCode: 400 });
+
+    let baseUrl = conn.baseUrl;
+    if (!baseUrl) baseUrl = PROVIDERS[conn.provider as keyof typeof PROVIDERS]?.defaultBaseUrl ?? "";
+    if (!baseUrl && conn.provider === "claude_subscription") baseUrl = "claude-agent-sdk://local";
+    if (!baseUrl && conn.provider === "openai_chatgpt") baseUrl = "openai-chatgpt://codex-auth";
+    if (!baseUrl) throw Object.assign(new Error("No base URL configured for this connection"), { statusCode: 400 });
+
+    const provider = createLLMProvider(
+      conn.provider,
+      baseUrl,
+      conn.apiKey,
+      conn.maxContext,
+      conn.openrouterProvider,
+      conn.maxTokensOverride,
+    );
+
+    const who = input.kind === "persona" ? "this user persona" : "this character";
+    const systemPrompt = [
+      `You write a Conversation-mode "about me" — a short self-authored profile blurb, like a Discord bio — for ${who}, in their own voice.`,
+      "This is THEIR bio as THEY would write it, not a description of them by someone else. Write only the bio text; no quotes, labels, or preamble.",
+      "Authenticity over completeness: real people's bios are wildly uneven. Depending on who they are, the right answer might be a single line, a couple of emoji, an inside joke, something cryptic or deflecting, a wall of oversharing, or genuinely nothing at all.",
+      "Do NOT default to a tidy, thorough, earnest bio. Let their personality decide the length, tone, and effort — a guarded or aloof character writes little or nothing; a chaotic oversharer writes a mess. Match them.",
+      "If they plausibly wouldn't have a bio, it is correct to return an empty string or a bare placeholder.",
+    ].join("\n");
+
+    const cardParts = [
+      input.name && `Name: ${input.name}`,
+      input.description && `Description: ${input.description}`,
+      input.personality && `Personality: ${input.personality}`,
+      input.scenario && `Scenario: ${input.scenario}`,
+      input.backstory && `Backstory: ${input.backstory}`,
+      input.appearance && `Appearance: ${input.appearance}`,
+    ].filter(Boolean);
+    const userContent =
+      `Here is what defines them:\n${cardParts.join("\n\n")}\n\n` +
+      (input.instruction?.trim() ? `Extra direction from the user: ${input.instruction.trim()}\n\n` : "") +
+      `Write their Conversation-mode "about me" now, staying true to who they are.`;
+
+    const result = await provider.chatComplete(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+      { model: conn.model, temperature: 0.9, maxTokens: 512 },
+    );
+    return { aboutMe: (result.content ?? "").trim() };
+  });
 
   // ── Characters ──
 
@@ -1599,6 +1661,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       createdAt?: string;
       updatedAt?: string;
       savedStatusOptions?: string;
+      convoDisplayName?: string;
+      aboutMe?: string;
+      convoBehavior?: string;
     };
     return storage.createPersona(
       name,

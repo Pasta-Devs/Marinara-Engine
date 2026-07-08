@@ -294,7 +294,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   characters: ["data"],
   character_card_versions: ["data"],
   persona_card_versions: ["data"],
-  personas: ["avatarCrop", "trackerCardColors", "personaStats", "tags", "savedStatusOptions"],
+  personas: ["avatarCrop", "trackerCardColors", "personaStats", "tags", "savedStatusOptions", "convoBehavior"],
   character_groups: ["characterIds"],
   persona_groups: ["personaIds"],
   chats: ["characterIds", "metadata"],

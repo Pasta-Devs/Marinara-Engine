@@ -1750,6 +1750,10 @@ export function GameSetupWizard({ onComplete, onCancel, isLoading, characters }:
                               Attach keyframes to GM narration so the floating viewer changes with the current story
                               section.
                             </p>
+                            <p className="mt-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
+                              Recommended: use a strong state-of-the-art image model for storyboard images, or
+                              something equivalent to Google Nano Banana 2 Lite.
+                            </p>
                           </div>
                         </div>
                         <button

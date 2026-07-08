@@ -1,4 +1,5 @@
 import type { AgentWriteApprovalEnvelope, AgentWriteApprovalProposal } from "@marinara-engine/shared";
+import { mergeLorebookKeeperUpdateContent } from "./lorebook-keeper-utils.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -21,14 +22,10 @@ function readUpdateName(update: Record<string, unknown>): string {
   return raw.trim();
 }
 
-function readUpdateContent(update: Record<string, unknown>): string {
+function readUpdateReplacementContent(update: Record<string, unknown>): string {
   const nested = readNestedEntry(update);
   if (typeof update.content === "string" && update.content.trim()) return update.content.trim();
   if (typeof nested.content === "string" && nested.content.trim()) return nested.content.trim();
-  if (Array.isArray(update.newFacts)) {
-    const facts = update.newFacts.filter((fact): fact is string => typeof fact === "string" && fact.trim().length > 0);
-    if (facts.length > 0) return facts.map((fact) => `- ${fact.trim()}`).join("\n");
-  }
   return "";
 }
 
@@ -58,13 +55,37 @@ export function isAgentWriteApprovalEnvelope(value: unknown): value is AgentWrit
   return isRecord(value) && value.requiresApproval === true && isRecord(value.approval);
 }
 
-export function formatLorebookWriteApprovalText(updates: Array<Record<string, unknown>>): string {
+function normalizeEntryName(value: string): string {
+  return value.trim().toLocaleLowerCase();
+}
+
+function buildExistingContentByName(
+  entries: Array<{ name?: string | null; content?: string | null }> | undefined,
+): Map<string, string> {
+  const byName = new Map<string, string>();
+  for (const entry of entries ?? []) {
+    const name = typeof entry.name === "string" ? normalizeEntryName(entry.name) : "";
+    if (!name || typeof entry.content !== "string") continue;
+    byName.set(name, entry.content);
+  }
+  return byName;
+}
+
+export function formatLorebookWriteApprovalText(
+  updates: Array<Record<string, unknown>>,
+  options: { existingEntries?: Array<{ name?: string | null; content?: string | null }> } = {},
+): string {
+  const existingContentByName = buildExistingContentByName(options.existingEntries);
   return updates
     .map((update, index) => {
       const name = readUpdateName(update) || `Entry ${index + 1}`;
       const keys = readUpdateKeys(update);
       const tag = readUpdateTag(update);
-      const content = readUpdateContent(update);
+      const content = mergeLorebookKeeperUpdateContent({
+        existingContent: existingContentByName.get(normalizeEntryName(name)) ?? "",
+        replacementContent: readUpdateReplacementContent(update),
+        newFacts: update.newFacts,
+      });
       return [
         `### ${name}`,
         `Keys: ${keys.join(", ")}`,
@@ -150,6 +171,7 @@ export function buildLorebookWriteApprovalProposal(args: {
   updates: Array<Record<string, unknown>>;
   preferredTargetLorebookId: string | null;
   writableLorebookIds: string[] | null;
+  existingEntries?: Array<{ name?: string | null; content?: string | null }>;
 }): AgentWriteApprovalProposal {
   return {
     kind: "lorebook_update",
@@ -157,7 +179,7 @@ export function buildLorebookWriteApprovalProposal(args: {
     agentType: args.agentType,
     agentName: args.agentName,
     title: `${args.agentName} Lorebook Proposal`,
-    text: formatLorebookWriteApprovalText(args.updates),
+    text: formatLorebookWriteApprovalText(args.updates, { existingEntries: args.existingEntries }),
     payload: {
       preferredTargetLorebookId: args.preferredTargetLorebookId,
       writableLorebookIds: args.writableLorebookIds,

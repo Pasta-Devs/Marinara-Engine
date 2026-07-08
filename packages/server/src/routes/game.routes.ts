@@ -73,7 +73,10 @@ import {
 } from "../services/game/skill-check.service.js";
 import { applyAllSegmentEdits, stripGmCommandTags } from "../services/game/segment-edits.js";
 import { processLorebooks } from "../services/lorebook/index.js";
-import { GAME_LOREBOOK_KEEPER_SOURCE_ID } from "../services/lorebook/game-lorebook-scope.js";
+import {
+  GAME_LOREBOOK_KEEPER_SOURCE_ID,
+  resolveLorebookScopeExclusions,
+} from "../services/lorebook/game-lorebook-scope.js";
 import {
   applyMoraleEvent,
   getMoraleTier,
@@ -107,6 +110,7 @@ import {
   normalizeVideoGenerationProfile,
   normalizeAgentPromptTemplateOptions,
   isClaudeAdaptiveOnlyNoSamplingModel,
+  isXaiAutoReasoningModel,
   localAuthProviderBaseUrl,
   supportsXhighReasoningEffort,
   scoreMusic,
@@ -2663,9 +2667,8 @@ function resolveGameReasoningEffort(
   const isNativeAnthropicAdaptiveOnly =
     (providerLower === "anthropic" || providerLower === "claude_subscription") && isClaudeAdaptiveOnly;
   if (
-    modelLower.startsWith("grok-4.3") ||
-    modelLower.startsWith("grok-4-1-fast") ||
-    modelLower.startsWith("x-ai/grok-")
+    (providerLower === "xai" && isXaiAutoReasoningModel(modelLower)) ||
+    (providerLower === "openrouter" && modelLower.startsWith("x-ai/grok-"))
   ) {
     return undefined;
   }
@@ -2714,7 +2717,9 @@ function gameGenOptions(
   const isClaudeAdaptiveOnly = isClaudeAdaptiveOnlyNoSamplingModel(m);
   const isNativeAnthropicAdaptiveOnly =
     (providerLower === "anthropic" || providerLower === "claude_subscription") && isClaudeAdaptiveOnly;
-  const isGrokAutoReasoning = m.startsWith("grok-4.3") || m.startsWith("grok-4-1-fast") || m.startsWith("x-ai/grok-");
+  const isGrokAutoReasoning =
+    (providerLower === "xai" && isXaiAutoReasoningModel(m)) ||
+    (providerLower === "openrouter" && m.startsWith("x-ai/grok-"));
   const supportsXhigh = supportsXhighReasoningEffort(m);
   const base: ChatOptions = {
     model,
@@ -5761,10 +5766,14 @@ export async function gameRoutes(app: FastifyInstance) {
       });
       const resolveSetupLorebookMacrosForFinal = (value: string) =>
         resolveMacrosWithVariableSnapshot(value, setupPromptMacroContext);
+      const setupLorebookScopeExclusions = resolveLorebookScopeExclusions("game", meta);
       const lorebookResult = await processLorebooks(app.db, [], null, {
+        chatId,
         characterIds: setupConfig.partyCharacterIds,
         personaId: setupPersonaId,
         activeLorebookIds: setupConfig.activeLorebookIds,
+        excludedLorebookIds: setupLorebookScopeExclusions.excludedLorebookIds,
+        excludedSourceAgentIds: setupLorebookScopeExclusions.excludedSourceAgentIds,
         generationTriggers: ["game_setup", "game"],
         resolveContent: resolveSetupLorebookMacrosForFinal,
       });

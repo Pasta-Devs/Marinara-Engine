@@ -16,11 +16,15 @@ import { type CharacterCardFieldUpdate, type EditableCharacterCardField } from "
 import { useGenerate } from "../../hooks/use-generate";
 
 function getCharacterCardFieldValue(data: Record<string, unknown>, field: EditableCharacterCardField): string | null {
-  if (field === "backstory" || field === "appearance") {
+  if (field === "backstory" || field === "appearance" || field === "aboutMe") {
     const extensions = data.extensions;
-    if (!extensions || typeof extensions !== "object") return null;
-    const value = (extensions as Record<string, unknown>)[field];
-    return typeof value === "string" ? value : null;
+    const value =
+      extensions && typeof extensions === "object" ? (extensions as Record<string, unknown>)[field] : undefined;
+    if (typeof value === "string") return value;
+    // aboutMe is optional and often absent; treat missing as empty so About Me
+    // Keeper can populate a character's about-me from scratch. backstory/appearance
+    // keep returning null when absent (they always carry a "" default in practice).
+    return field === "aboutMe" ? "" : null;
   }
 
   const value = data[field];
@@ -32,7 +36,7 @@ function setCharacterCardFieldValue(
   field: EditableCharacterCardField,
   value: string,
 ): Record<string, unknown> {
-  if (field === "backstory" || field === "appearance") {
+  if (field === "backstory" || field === "appearance" || field === "aboutMe") {
     const extensions =
       data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
 
@@ -131,9 +135,12 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     if (!entry || !character) return [];
     return draftUpdates.map((u) => {
       const current = getCharacterCardFieldValue(parsedData, u.field);
+      // Populating a currently-empty field from scratch (oldText === "") is a valid
+      // insert, not a stale match — e.g. About Me Keeper filling a blank about-me.
+      const isEmptyInsert = u.oldText.length === 0 && current === "";
       return {
         update: u,
-        stale: !(typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText)),
+        stale: !isEmptyInsert && !(typeof current === "string" && u.oldText.length > 0 && current.includes(u.oldText)),
       };
     });
   }, [entry, character, draftUpdates, parsedData]);
@@ -181,11 +188,19 @@ export function CharacterCardUpdateModal({ open, onClose }: Props) {
     for (const u of overrideStale ? [...applicableUpdates, ...staleUpdates] : applicableUpdates) {
       const base = getCharacterCardFieldValue(nextData, u.field);
       if (typeof base !== "string") continue;
-      const nextValue = base.includes(u.oldText)
-        ? base.replace(u.oldText, () => u.newText)
-        : overrideStale
-          ? appendStaleCardReplacement(base, u.newText)
-          : base;
+      let nextValue: string;
+      if (u.oldText.length === 0 && base === "") {
+        // From-scratch insert into an empty field — set it directly.
+        nextValue = u.newText;
+      } else if (u.oldText.length > 0 && base.includes(u.oldText)) {
+        // Exact-match replace (guard against empty oldText, which base.includes()
+        // always matches and would prepend newText at index 0).
+        nextValue = base.replace(u.oldText, () => u.newText);
+      } else if (overrideStale) {
+        nextValue = appendStaleCardReplacement(base, u.newText);
+      } else {
+        nextValue = base;
+      }
       nextData = setCharacterCardFieldValue(nextData, u.field, nextValue);
     }
     nextData.character_version = bumpCharacterVersion(nextData.character_version);

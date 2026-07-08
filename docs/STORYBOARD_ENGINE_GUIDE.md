@@ -26,6 +26,7 @@ Keyframe images are saved in the Gallery's **Images** tab. Keyframe clips are sa
    - New game: enable **Visual Generation** in the setup wizard and select an **Image Generation Connection**.
    - Existing game: open **Chat Settings -> Agents -> Illustrator**, enable **Game Illustrator** and **Automatic Visuals**, and select an **Image Connection**.
    - Toggle Send Avatar References to get consistency between generations. This sends the avatar image of the character. 
+   - Storyboard images require a strong state-of-the-art image model, or something equivalent to Google Nano Banana 2 Lite.
 3. Optional: set up animated clips:
    - Create a **Video Generation** connection in **Settings -> Connections**.
    - Select it in the setup wizard's **Video Generation Connection** field, or in **Chat Settings -> Agents -> Scene Videos -> Video Connection**.

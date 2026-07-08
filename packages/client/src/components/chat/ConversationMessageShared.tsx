@@ -131,6 +131,8 @@ export interface MessageRenderContext {
   onTranslate: () => void;
   onStartEdit: () => void;
   onImageOpen: (url: string, prompt?: string | null) => void;
+  /** Open the Convo about-me profile popout, anchored to the clicked avatar (undefined when unresolvable). */
+  onOpenAboutMe?: (anchor: DOMRect) => void;
   onRemoveAttachment: (index: number) => void;
   onSetActiveSwipe?: (id: string, index: number) => void;
   onRegenerate?: (id: string) => void;
@@ -235,6 +237,61 @@ export function highlightMentions(nodes: ReactNode[], names: string[], keyPrefix
 // reaction-attribution segment indexes with the same code.
 
 // ── Small shared components ───────────────────────
+
+/**
+ * Message sender name. When `onOpenAboutMe` is provided (Convo, with a resolvable
+ * character/persona target) the name becomes clickable and opens the about-me
+ * popout anchored to itself — matching the clickable avatar. Kept as a `span`
+ * with `role="button"` (not a `<button>`) so it stays inline and baseline-aligned
+ * with the timestamp beside it. Falls back to a plain, non-interactive label.
+ */
+export function ConversationMessageName({
+  displayName,
+  nameColor,
+  onOpenAboutMe,
+  className,
+}: {
+  displayName: string;
+  nameColor?: string;
+  onOpenAboutMe?: (anchor: DOMRect) => void;
+  className?: string;
+}) {
+  const baseClass = "mari-message-name text-[0.9375rem] font-semibold leading-tight";
+  if (!onOpenAboutMe) {
+    return (
+      <span className={cn(baseClass, "cursor-default", className)} style={nameColorStyle(nameColor)}>
+        {displayName}
+      </span>
+    );
+  }
+  const open = (e: React.SyntheticEvent<HTMLSpanElement>) => {
+    e.stopPropagation();
+    onOpenAboutMe(e.currentTarget.getBoundingClientRect());
+  };
+  return (
+    <span
+      role="button"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open(e);
+        }
+      }}
+      aria-label={`View ${displayName}'s about me`}
+      title={`View ${displayName}'s about me`}
+      className={cn(
+        baseClass,
+        "cursor-pointer rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/50",
+        className,
+      )}
+      style={nameColorStyle(nameColor)}
+    >
+      {displayName}
+    </span>
+  );
+}
 
 export function HiddenFromAIConversationButton({
   canCollapse,

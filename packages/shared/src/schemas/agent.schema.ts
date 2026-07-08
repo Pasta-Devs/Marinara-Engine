@@ -34,6 +34,7 @@ export const agentResultTypeSchema = z.enum([
   "game_state_transition",
   "prompt_patch",
   "frontend_theme_update",
+  "about_me_update",
 ]);
 
 export const customAgentActivationSettingsSchema = z.object({

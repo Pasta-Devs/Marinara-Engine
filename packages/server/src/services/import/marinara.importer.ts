@@ -395,6 +395,10 @@ async function importPersona(data: unknown, db: DB) {
       personaStats: typeof d.personaStats === "string" ? d.personaStats : "",
       tags: stringifyJsonField(d.tags, "[]"),
       savedStatusOptions: stringifyJsonField(d.savedStatusOptions, "[]"),
+      convoDisplayName: firstStringField(d.convoDisplayName),
+      aboutMe: firstStringField(d.aboutMe),
+      // convoBehavior is stored as a JSON string; re-stringify objects on import.
+      convoBehavior: stringifyJsonField(d.convoBehavior, ""),
       // avatarCrop is stored as a JSON string in the DB; the export round-trips it
       // as either an object or the empty string. Re-stringify objects on import.
       avatarCrop:

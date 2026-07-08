@@ -69,6 +69,12 @@ export const personas = sqliteTable("personas", {
   tags: text("tags").notNull().default("[]"),
   /** Saved Conversation mode activity/status text options (JSON array of strings) */
   savedStatusOptions: text("saved_status_options").notNull().default("[]"),
+  /** Conversation mode ONLY: display name shown in Convo (empty = fall back to name) */
+  convoDisplayName: text("convo_display_name").notNull().default(""),
+  /** Conversation mode ONLY: public "about me" profile (cross-chat default) */
+  aboutMe: text("about_me").notNull().default(""),
+  /** Conversation mode ONLY: behavior directive + insertion strategy (JSON, empty = unset) */
+  convoBehavior: text("convo_behavior").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

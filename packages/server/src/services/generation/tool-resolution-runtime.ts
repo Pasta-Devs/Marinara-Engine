@@ -98,6 +98,14 @@ const AGENT_ONLY_TOOL_NAMES = new Set([
   "edit_chat_message",
 ]);
 
+// Tools only offered in Conversation mode. Enforced regardless of the per-chat
+// tool filter, so they can never be called in Roleplay/VN/Game.
+const CONVERSATION_ONLY_TOOL_NAMES = new Set(["update_about_me"]);
+
+// Tools that are off unless the user explicitly enables them via activeToolIds
+// (excluded from the "no filter set = all tools on" default).
+const DEFAULT_OFF_TOOL_NAMES = new Set(["update_about_me"]);
+
 function parseExtra(extra: unknown): Record<string, unknown> {
   if (!extra) return {};
   try {
@@ -405,7 +413,10 @@ async function loadToolDefinitions(args: {
           (toolDef) =>
             args.activeToolIds.includes(toolDef.function.name) && !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name),
         )
-      : allToolDefs.filter((toolDef) => !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name));
+      : allToolDefs.filter(
+          (toolDef) =>
+            !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name) && !DEFAULT_OFF_TOOL_NAMES.has(toolDef.function.name),
+        );
   }
 
   return { toolDefs, allToolDefs, customToolDefs };
@@ -449,6 +460,7 @@ function createLorebookEntryWriter(
     // envelope (mirroring the structured lorebook_update gate) so the user approves
     // the write before it touches the lorebook DB.
     if (options.requireApproval) {
+      const existingEntries = await lorebooksStore.listEntries(writableLorebookId).catch(() => []);
       return {
         requiresApproval: true,
         approval: buildLorebookWriteApprovalProposal({
@@ -468,6 +480,7 @@ function createLorebookEntryWriter(
           ],
           preferredTargetLorebookId: writableLorebookId,
           writableLorebookIds: [writableLorebookId],
+          existingEntries,
         }),
       };
     }
@@ -633,6 +646,12 @@ export async function resolveGenerationTools({
     activeToolIds,
   });
   let toolDefs = loadedTools.toolDefs;
+
+  // Convo-only tools are stripped in every other mode — the real enforcement of
+  // update_about_me's Conversation-only scope (the UI filter is cosmetic).
+  if (toolDefs && agentContext.chatMode !== "conversation") {
+    toolDefs = toolDefs.filter((toolDef) => !CONVERSATION_ONLY_TOOL_NAMES.has(toolDef.function.name));
+  }
 
   const resolvedToolNames = new Set(allToolDefs.map((toolDef) => toolDef.function.name));
   let chatResolvedToolNames = new Set((toolDefs ?? []).map((toolDef) => toolDef.function.name));

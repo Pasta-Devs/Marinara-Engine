@@ -13,7 +13,12 @@ import {
   type LLMUsage,
 } from "../base-provider.js";
 import { parseTextualToolCalls } from "../textual-tool-call-parser.js";
-import { isClaudeAdaptiveOnlyNoSamplingModel, shouldSuppressUnknownModelParameters } from "@marinara-engine/shared";
+import {
+  isClaudeAdaptiveOnlyNoSamplingModel,
+  isXaiAutoReasoningModel,
+  isXaiConfigurableReasoningModel,
+  shouldSuppressUnknownModelParameters,
+} from "@marinara-engine/shared";
 import { logger } from "../../../lib/logger.js";
 
 /**
@@ -574,15 +579,35 @@ export class OpenAIProvider extends BaseLLMProvider {
     return model.toLowerCase() === "grok-4.20-multi-agent";
   }
 
+  private isNativeXAIConfigurableReasoningModel(model: string): boolean {
+    return this.isXAIEndpoint() && isXaiConfigurableReasoningModel(model);
+  }
+
   private isXAIReasoningModel(model: string): boolean {
     if (!this.isXAIEndpoint() && !this.isOpenRouterXAIModel(model)) return false;
     const m = model.toLowerCase();
     return (
       m.startsWith("x-ai/grok-") ||
-      m.startsWith("grok-4.3") ||
-      m.startsWith("grok-4-1-fast") ||
+      isXaiConfigurableReasoningModel(m) ||
+      isXaiAutoReasoningModel(m) ||
       this.isXAIMultiAgentModel(model)
     );
+  }
+
+  private resolveXAIReasoningEffort(reasoningEffort?: string | null): "none" | "low" | "medium" | "high" | null {
+    switch (reasoningEffort) {
+      case "none":
+      case "low":
+      case "medium":
+      case "high":
+        return reasoningEffort;
+      case "xhigh":
+      case "max":
+      case "maximum":
+        return "high";
+      default:
+        return null;
+    }
   }
 
   private shouldSendStopSequences(model: string): boolean {
@@ -679,6 +704,12 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private applyChatCompletionsReasoning(body: Record<string, unknown>, options: ChatOptions): void {
+    if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
+      const effort = this.resolveXAIReasoningEffort(options.reasoningEffort);
+      if (effort) body.reasoning_effort = effort;
+      return;
+    }
+
     if (this.isXAIReasoningModel(options.model)) {
       return;
     }
@@ -706,6 +737,12 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
         body.reasoning = { effort: options.reasoningEffort };
       }
+      return;
+    }
+
+    if (this.isNativeXAIConfigurableReasoningModel(options.model)) {
+      const effort = this.resolveXAIReasoningEffort(options.reasoningEffort);
+      if (effort) body.reasoning = { effort };
       return;
     }
 

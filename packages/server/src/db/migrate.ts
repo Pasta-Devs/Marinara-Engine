@@ -119,6 +119,9 @@ const CREATE_TABLES: string[] = [
     persona_stats TEXT NOT NULL DEFAULT '',
     tags TEXT NOT NULL DEFAULT '[]',
     saved_status_options TEXT NOT NULL DEFAULT '[]',
+    convo_display_name TEXT NOT NULL DEFAULT '',
+    about_me TEXT NOT NULL DEFAULT '',
+    convo_behavior TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
@@ -901,6 +904,21 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
     table: "personas",
     column: "saved_status_options",
     definition: "TEXT NOT NULL DEFAULT '[]'",
+  },
+  {
+    table: "personas",
+    column: "convo_display_name",
+    definition: "TEXT NOT NULL DEFAULT ''",
+  },
+  {
+    table: "personas",
+    column: "about_me",
+    definition: "TEXT NOT NULL DEFAULT ''",
+  },
+  {
+    table: "personas",
+    column: "convo_behavior",
+    definition: "TEXT NOT NULL DEFAULT ''",
   },
   {
     table: "lorebooks",
