@@ -177,17 +177,12 @@ export function LorebookAssignmentSection({
   const unassignLorebook = async (lorebook: Lorebook) => {
     if (!ownerId) return;
     const nextOwnerIds = getOwnerIds(lorebook, ownerType).filter((id) => id !== ownerId);
-    const isEmbedded = ownerType === "character" && lorebook.id === embeddedLorebookId;
     try {
       await updateLorebook.mutateAsync({
         id: lorebook.id,
         ...(ownerType === "character" ? { characterIds: nextOwnerIds } : { personaIds: nextOwnerIds }),
       });
-      toast.success(
-        isEmbedded
-          ? `Unlinked ${lorebook.name}. It's still embedded in the card — use "Remove from card" to unbake the embedded copy.`
-          : `Removed ${lorebook.name}.`,
-      );
+      toast.success(`Removed ${lorebook.name}.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove lorebook.");
     }
