@@ -439,6 +439,24 @@ function addCharacterRowIllustrationAssets(
   }
 }
 
+function addPersonaIllustrationAssets(
+  maps: IllustrationCharacterAssetMaps,
+  persona: { id: string; name?: string | null; avatarPath?: string | null; appearance?: string | null; description?: string | null } | null | undefined,
+): string | null {
+  const name = typeof persona?.name === "string" && persona.name.trim() ? persona.name.trim() : null;
+  if (!persona || !name) return null;
+
+  const fullBodyReference = readPreferredFullBodySpriteBase64(persona.id);
+  if (fullBodyReference) addNameLookupEntry(maps.charReferenceByName, name, fullBodyReference.base64);
+  if (persona.avatarPath) addNameLookupEntry(maps.charAvatarByName, name, persona.avatarPath);
+
+  const appearance = typeof persona.appearance === "string" ? persona.appearance.trim() : "";
+  const description = typeof persona.description === "string" ? persona.description.trim() : "";
+  const appearanceText = [appearance, description].filter(Boolean).join("; ").slice(0, 500);
+  if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
+  return name;
+}
+
 function getStoryboardLibraryCharacterIds(
   meta: Record<string, unknown>,
   setupConfig: Record<string, unknown> | null,
@@ -496,7 +514,8 @@ async function buildStoryboardCharacterContext(args: {
   if (personaId) {
     try {
       const persona = await args.characters.getPersona(personaId);
-      addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, persona?.name);
+      const name = addPersonaIllustrationAssets(maps, persona);
+      addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
     } catch {
       /* skip unresolvable persona */
     }
