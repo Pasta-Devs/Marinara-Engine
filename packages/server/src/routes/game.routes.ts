@@ -364,6 +364,138 @@ function extractCharacterAppearanceText(characterData: Record<string, unknown>):
   return [appearance, description].filter(Boolean).join("; ").slice(0, 500);
 }
 
+type IllustrationCharacterAssetMaps = {
+  charReferenceByName: Map<string, string>;
+  charAvatarByName: Map<string, string>;
+  charDescriptionByName: Map<string, string>;
+};
+
+type StoryboardCharacterContext = IllustrationCharacterAssetMaps & {
+  allowedCharacterNames: string[];
+  trackedNpcs: Array<Record<string, unknown>>;
+};
+
+function emptyIllustrationCharacterAssetMaps(): IllustrationCharacterAssetMaps {
+  return {
+    charReferenceByName: new Map<string, string>(),
+    charAvatarByName: new Map<string, string>(),
+    charDescriptionByName: new Map<string, string>(),
+  };
+}
+
+function addUniqueCharacterName(target: string[], seen: Set<string>, name: unknown): void {
+  const text = typeof name === "string" ? name.trim() : "";
+  if (!text) return;
+  const normalized = normalizeAvatarLookupName(text);
+  if (!normalized || seen.has(normalized)) return;
+  seen.add(normalized);
+  target.push(text);
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean)
+    : [];
+}
+
+function addCharacterRowIllustrationAssets(
+  maps: IllustrationCharacterAssetMaps,
+  character: { id: string; data: string; avatarPath?: string | null },
+): string | null {
+  try {
+    const parsed = JSON.parse(character.data) as Record<string, unknown> & { name?: string };
+    const name = typeof parsed.name === "string" && parsed.name.trim() ? parsed.name.trim() : null;
+    if (!name) return null;
+
+    const fullBodyReference = readPreferredFullBodySpriteBase64(character.id);
+    if (fullBodyReference) addNameLookupEntry(maps.charReferenceByName, name, fullBodyReference.base64);
+    if (character.avatarPath) addNameLookupEntry(maps.charAvatarByName, name, character.avatarPath);
+
+    const appearanceText = extractCharacterAppearanceText(parsed);
+    if (appearanceText) addNameLookupEntry(maps.charDescriptionByName, name, appearanceText);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
+function getStoryboardLibraryCharacterIds(
+  meta: Record<string, unknown>,
+  setupConfig: Record<string, unknown> | null,
+  chatCharacterIds: string[],
+): string[] {
+  const storedPartyIds = readStringArray(meta.gamePartyCharacterIds);
+  const setupPartyIds = readStringArray(setupConfig?.partyCharacterIds);
+  const partyIds = storedPartyIds.length > 0 ? storedPartyIds : [...setupPartyIds, ...chatCharacterIds];
+  return Array.from(new Set(partyIds)).filter((id) => !isPartyNpcId(id));
+}
+
+function storyboardTrackedNpcsFromState(latestState: unknown): Array<Record<string, unknown>> {
+  const latest = asStoryboardRecord(latestState);
+  const presentCharacters = parseStoredJson<Array<Record<string, unknown>>>(latest.presentCharacters) ?? [];
+  const trackedNpcs: Array<Record<string, unknown>> = [];
+  for (const character of presentCharacters) {
+    const name = readTrimmedString(character.name);
+    if (!name) continue;
+    trackedNpcs.push({
+      name,
+      description: readTrimmedString(character.appearance) ?? readTrimmedString(character.description) ?? "",
+      avatarUrl: readTrimmedString(character.avatarPath) ?? readTrimmedString(character.avatarUrl),
+      gender: readTrimmedString(character.gender),
+      pronouns: readTrimmedString(character.pronouns),
+    });
+  }
+  return trackedNpcs;
+}
+
+async function buildStoryboardCharacterContext(args: {
+  characters: ReturnType<typeof createCharactersStorage>;
+  chat: { characterIds?: unknown; personaId?: string | null };
+  meta: Record<string, unknown>;
+  setupConfig: Record<string, unknown> | null;
+  latestState: unknown;
+}): Promise<StoryboardCharacterContext> {
+  const maps = emptyIllustrationCharacterAssetMaps();
+  const allowedCharacterNames: string[] = [];
+  const seenAllowedNames = new Set<string>();
+  const chatCharacterIds = parseChatCharacterIds(args.chat.characterIds);
+  const libraryCharacterIds = getStoryboardLibraryCharacterIds(args.meta, args.setupConfig, chatCharacterIds);
+
+  for (const id of libraryCharacterIds) {
+    try {
+      const character = await args.characters.getById(id);
+      if (!character) continue;
+      const name = addCharacterRowIllustrationAssets(maps, character);
+      addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
+    } catch {
+      /* skip unresolvable game character */
+    }
+  }
+
+  const personaId = args.chat.personaId || readTrimmedString(args.setupConfig?.personaId);
+  if (personaId) {
+    try {
+      const persona = await args.characters.getPersona(personaId);
+      addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, persona?.name);
+    } catch {
+      /* skip unresolvable persona */
+    }
+  }
+
+  const trackedNpcs = storyboardTrackedNpcsFromState(args.latestState);
+  for (const npc of trackedNpcs) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, npc.name);
+
+  const gameCards = Array.isArray(args.meta.gameCharacterCards)
+    ? (args.meta.gameCharacterCards as Record<string, unknown>[])
+    : [];
+  for (const card of gameCards) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, card.name);
+
+  const gameNpcs = Array.isArray(args.meta.gameNpcs) ? (args.meta.gameNpcs as GameNpc[]) : [];
+  for (const npc of gameNpcs) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, npc.name);
+
+  return { ...maps, allowedCharacterNames: allowedCharacterNames.slice(0, 40), trackedNpcs };
+}
+
 function collectIllustrationCharacterAssets(opts: {
   illustration: SceneIllustrationRequest;
   characterNames: string[];
@@ -4486,6 +4618,32 @@ function parseStoryboardCharacters(value: unknown): string[] {
   return [];
 }
 
+function storyboardSourceMentionsCharacter(sourceNarration: string, name: string): boolean {
+  const cleanName = name.trim();
+  if (!cleanName) return false;
+  const escapedName = cleanName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escapedName}([^\\p{L}\\p{N}]|$)`, "iu").test(sourceNarration);
+}
+
+function sanitizeStoryboardCharactersForRoster(
+  value: unknown,
+  allowedCharacterNames: string[] | undefined,
+  sourceNarration: string,
+): string[] {
+  const characters = parseStoryboardCharacters(value);
+  if (!allowedCharacterNames?.length) return characters;
+
+  const allowed = new Set(
+    allowedCharacterNames
+      .map((name) => normalizeAvatarLookupName(name))
+      .filter((name) => name.length > 0),
+  );
+  return characters.filter((name) => {
+    const normalized = normalizeAvatarLookupName(name);
+    return allowed.has(normalized) || storyboardSourceMentionsCharacter(sourceNarration, name);
+  });
+}
+
 function asStoryboardRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -4553,6 +4711,7 @@ function sanitizeStoryboardPlan(
     keyframeCount: number;
     durationSeconds: number;
     aspectRatio: GameSceneVideoAspectRatio;
+    allowedCharacterNames?: string[];
   },
 ): PlannedStoryboard {
   const root = asStoryboardRecord(raw);
@@ -4597,7 +4756,11 @@ function sanitizeStoryboardPlan(
         mangaPanelPrompt: mangaPanelPrompt || imagePrompt,
         imagePrompt,
         videoPrompt: "",
-        characters: parseStoryboardCharacters(frame.characters),
+        characters: sanitizeStoryboardCharactersForRoster(
+          frame.characters,
+          args.allowedCharacterNames,
+          args.sourceNarration,
+        ),
         continuityNotes: "",
         cameraMotion: "",
         transitionHint: "",
@@ -4659,6 +4822,7 @@ function buildStoryboardGameContextBlock(args: {
   meta: Record<string, unknown>;
   setupConfig: Record<string, unknown> | null;
   latestState: unknown;
+  allowedCharacterNames?: string[];
 }): string {
   const latest = asStoryboardRecord(args.latestState);
   const lines = [
@@ -4676,6 +4840,9 @@ function buildStoryboardGameContextBlock(args: {
       : "",
     readTrimmedString(args.meta.gameImagePromptInstructions)
       ? `User image instructions: ${compactStoryboardText(args.meta.gameImagePromptInstructions, 1200)}`
+      : "",
+    args.allowedCharacterNames?.length
+      ? `Allowed visible characters: ${compactStoryboardText(args.allowedCharacterNames.join(", "), 1200)}`
       : "",
   ].filter(Boolean);
   return `<game_context>\n${lines.join("\n")}\n</game_context>`;
@@ -4769,11 +4936,13 @@ async function buildStoryboardIllustratorMessages(args: {
   durationSeconds: number;
   aspectRatio: GameSceneVideoAspectRatio;
   generateVideos: boolean;
+  allowedCharacterNames?: string[];
 }): Promise<{ systemPrompt: string; messages: ChatMessage[] }> {
   const gameContextBlock = buildStoryboardGameContextBlock({
     meta: args.meta,
     setupConfig: args.setupConfig,
     latestState: args.latestState,
+    allowedCharacterNames: args.allowedCharacterNames,
   });
   const sourceSectionsBlock = buildStoryboardSectionsBlock(args.sections);
   const sourceNarrationBlock =
@@ -4813,6 +4982,7 @@ async function buildStoryboardIllustratorMessages(args: {
             `Aspect ratio: ${args.aspectRatio}.`,
             "Do not include videoPrompt, cameraMotion, transitionHint, or continuityNotes fields.",
             "Remember: storyboard only this GM narration turn, not the user's next CYOA/action.",
+            "Use only allowed visible characters from game_context; include a new NPC only if that exact name appears in this GM narration.",
           ].join("\n"),
         ].join("\n\n"),
       },
@@ -9635,6 +9805,14 @@ export async function gameRoutes(app: FastifyInstance) {
         (await createGameStateStorage(app.db)
           .getLatest(input.chatId)
           .catch(() => null));
+      const charStore = createCharactersStorage(app.db);
+      const storyboardCharacterContext = await buildStoryboardCharacterContext({
+        characters: charStore,
+        chat,
+        meta,
+        setupConfig: setupCfg,
+        latestState: fallbackState,
+      });
       const illustratorMessages = await buildStoryboardIllustratorMessages({
         promptOverridesStorage,
         meta,
@@ -9646,6 +9824,7 @@ export async function gameRoutes(app: FastifyInstance) {
         durationSeconds: storyboardDurationSeconds,
         aspectRatio: input.aspectRatio,
         generateVideos: generateStoryboardVideos,
+        allowedCharacterNames: storyboardCharacterContext.allowedCharacterNames,
       });
       if (debugLogsEnabled) {
         debugLog(
@@ -9683,6 +9862,7 @@ export async function gameRoutes(app: FastifyInstance) {
           keyframeCount: input.keyframeCount,
           durationSeconds: storyboardDurationSeconds,
           aspectRatio: input.aspectRatio,
+          allowedCharacterNames: storyboardCharacterContext.allowedCharacterNames,
         });
       } catch (err) {
         illustratorErrorMessage =
@@ -9766,24 +9946,7 @@ export async function gameRoutes(app: FastifyInstance) {
           : "";
       const useAvatarReferences = meta.gameImageUseAvatarReferences !== false;
       const includeCharacterAppearance = meta.gameImageIncludeCharacterAppearance !== false;
-      const charStore = createCharactersStorage(app.db);
-      const allChars = await charStore.list();
-      const charReferenceByName = new Map<string, string>();
-      const charAvatarByName = new Map<string, string>();
-      const charDescriptionByName = new Map<string, string>();
-      for (const ch of allChars) {
-        try {
-          const parsed = JSON.parse(ch.data) as Record<string, unknown> & { name?: string };
-          const fullBodyReference = parsed.name ? readPreferredFullBodySpriteBase64(ch.id) : null;
-          if (parsed.name && fullBodyReference)
-            addNameLookupEntry(charReferenceByName, parsed.name, fullBodyReference.base64);
-          if (parsed.name && ch.avatarPath) addNameLookupEntry(charAvatarByName, parsed.name, ch.avatarPath);
-          const appearanceText = extractCharacterAppearanceText(parsed);
-          if (parsed.name && appearanceText) addNameLookupEntry(charDescriptionByName, parsed.name, appearanceText);
-        } catch {
-          /* skip malformed character data */
-        }
-      }
+      const { charReferenceByName, charAvatarByName, charDescriptionByName } = storyboardCharacterContext;
 
       let videoRuntime: {
         source: string;
@@ -9893,7 +10056,7 @@ export async function gameRoutes(app: FastifyInstance) {
         const illustrationAssets = collectIllustrationCharacterAssets({
           illustration,
           characterNames: plannedFrame.characters,
-          trackedNpcs: [],
+          trackedNpcs: storyboardCharacterContext.trackedNpcs,
           gameNpcs: (meta.gameNpcs as GameNpc[]) ?? [],
           charReferenceByName,
           charAvatarByName,
@@ -9929,6 +10092,7 @@ export async function gameRoutes(app: FastifyInstance) {
             debugLog: debugLogsEnabled ? debugLog : undefined,
             promptOverridesStorage,
             size: backgroundSize,
+            preserveFullScenePrompt: true,
             onCompiledPrompt: (compiled) => {
               sentIllustrationPrompt = compiled.prompt;
             },

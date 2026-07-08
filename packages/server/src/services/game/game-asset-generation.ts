@@ -489,7 +489,7 @@ function compileGameImagePrompt(
   req: Pick<
     NpcPortraitRequest | BackgroundGenRequest | SceneIllustrationGenRequest,
     "styleProfiles" | "styleProfileId" | "imgDefaults" | "artStyle"
-  > & { appearance?: string | null },
+  > & { appearance?: string | null; preserveFullScenePrompt?: boolean },
   kind: "portrait" | "background" | "illustration",
   prompt: string,
   maxLength: number,
@@ -515,7 +515,7 @@ function compileGameImagePrompt(
     styleProfileId: req.styleProfileId,
     imageDefaults: req.imgDefaults,
     generatedStyle: req.artStyle,
-    applyPromptModeToSourcePrompt: kind === "background" || kind === "illustration",
+    applyPromptModeToSourcePrompt: kind === "background" || (kind === "illustration" && !req.preserveFullScenePrompt),
   });
   const protectedPrompt = [canonicalPrefix, compiled.prompt].filter(Boolean).join(", ");
   return {
@@ -711,6 +711,8 @@ export interface SceneIllustrationGenRequest {
   negativePromptOverride?: string;
   /** Receives the exact compiled prompt passed to the image provider. */
   onCompiledPrompt?: (compiled: CompiledGameImagePrompt) => void;
+  /** Preserve the full generated scene prompt instead of distilling it into the selected tagged prompt grammar. */
+  preserveFullScenePrompt?: boolean;
   /** Optional request-scoped abort signal. */
   signal?: AbortSignal;
 }

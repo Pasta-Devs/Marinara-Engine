@@ -25,6 +25,7 @@ import {
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { loadGameVideoPrompt } from "../../packages/server/src/services/video/game-video-prompt.js";
+import { buildSceneIllustrationProviderPrompt } from "../../packages/server/src/services/game/game-asset-generation.js";
 import { countUserMessagesAfterSummaryAnchor } from "../../packages/server/src/services/conversation/auto-summary.service.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
@@ -759,6 +760,7 @@ const cases: RegressionCase[] = [
 
       assert.match(illustrationPrompt, /Storyboard Illustrator/);
       assert.match(illustrationPrompt, /"imagePrompt"/);
+      assert.match(illustrationPrompt, /allowed visible characters/);
       assert.doesNotMatch(illustrationPrompt, /"videoPrompt"/);
       assert.doesNotMatch(illustrationPrompt, /"cameraMotion"/);
       assert.doesNotMatch(illustrationPrompt, /"transitionHint"/);
@@ -1138,6 +1140,43 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
       assert.match(taggedAppearance.prompt, /\(sword and shield\)/);
       assert.match(taggedAppearance.prompt, /\bcloak\b/);
+    },
+  },
+  {
+    name: "storyboard scene illustrations preserve full scene context with tagged anime styles",
+    async run() {
+      const compiled = await buildSceneIllustrationProviderPrompt({
+        chatId: "chat-scene-illustration-regression",
+        title: "Senior Incident Review",
+        prompt:
+          "16:9 mature anime fantasy guild hall, mana-lit quest board glowing with crown-shaped glyphs, Matt before the board with party clustered behind, Seraphine Oathglass at the counter in a white-and-black guild uniform",
+        reason:
+          "At the glowing quest board, Floor Two access updates trigger official scrutiny as Seraphine Oathglass summons Matt's party for mandatory incident review",
+        characters: ["Matt", "Seraphine Oathglass"],
+        characterDescriptions: [
+          "Matt: compact focused male adventurer, casual student-builder energy, determined expression.",
+          "2B: combat android, short white hair, black YoRHa blindfold, blue-gray eyes.",
+          'Morgana: Body("5\'8" + "Tall" + "Curvy") Hair("Purple")',
+        ],
+        referenceImages: ["reference://matt.png"],
+        genre: "Mature anime JRPG fantasy",
+        setting: "neon mana city, dark tower dungeons",
+        artStyle: "stylish ecchi comedy, ornate armor, expressive faces, cinematic action, glossy lighting",
+        imgModel: "regression-model",
+        imgBaseUrl: "",
+        imgApiKey: "",
+        styleProfiles: createDefaultImageStyleProfileSettings(),
+        styleProfileId: "anime",
+        preserveFullScenePrompt: true,
+      });
+
+      assert.match(compiled.prompt, /Senior Incident Review/);
+      assert.match(compiled.prompt, /mana-lit quest board/);
+      assert.match(compiled.prompt, /Seraphine Oathglass/);
+      assert.match(compiled.prompt, /Characters: Matt, Seraphine Oathglass/);
+      assert.match(compiled.prompt, /Reference handling: attached character reference images are available/);
+      assert.match(compiled.prompt, /Appearance notes for visible characters without an attached reference image/);
+      assert.match(compiled.prompt, /Morgana: Body/);
     },
   },
   {
