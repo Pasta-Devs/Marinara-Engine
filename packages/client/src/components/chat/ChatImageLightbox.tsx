@@ -58,6 +58,7 @@ export function ChatImageLightbox({
 }: ChatImageLightboxProps) {
   const pinImage = useGalleryStore((s) => s.pinImage);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const backdropPointerDownRef = useRef(false);
   const portalRoot = typeof document !== "undefined" ? document.body : null;
   const prompt = image.prompt.trim();
   const meta = formatChatImageMeta(image);
@@ -76,8 +77,15 @@ export function ChatImageLightbox({
       aria-modal="true"
       aria-label="Image preview"
       tabIndex={-1}
+      onPointerDown={(event) => {
+        backdropPointerDownRef.current = event.target === event.currentTarget;
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        // Close only on a genuine backdrop click — not when a text-selection drag
+        // that began inside the preview happens to release on the backdrop (the
+        // click target then resolves to the backdrop, which would otherwise close).
+        if (event.target === event.currentTarget && backdropPointerDownRef.current) onClose();
+        backdropPointerDownRef.current = false;
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -165,6 +173,7 @@ export function ChatVideoLightbox({
 }: ChatVideoLightboxProps) {
   const pinVideo = useGalleryStore((s) => s.pinVideo);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const backdropPointerDownRef = useRef(false);
   const portalRoot = typeof document !== "undefined" ? document.body : null;
   const prompt = video.prompt.trim();
   const meta = formatSceneVideoMeta(video);
@@ -183,8 +192,15 @@ export function ChatVideoLightbox({
       aria-modal="true"
       aria-label="Video preview"
       tabIndex={-1}
+      onPointerDown={(event) => {
+        backdropPointerDownRef.current = event.target === event.currentTarget;
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        // Close only on a genuine backdrop click — not when a text-selection drag
+        // that began inside the preview happens to release on the backdrop (the
+        // click target then resolves to the backdrop, which would otherwise close).
+        if (event.target === event.currentTarget && backdropPointerDownRef.current) onClose();
+        backdropPointerDownRef.current = false;
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
