@@ -796,10 +796,10 @@ export function PersonasPanel() {
                       e.stopPropagation();
                       void handleDeleteGroup(group);
                     }}
-	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
-	                    title="Delete folder"
-	                  >
-                    <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+		                    className="mari-chrome-control mari-chrome-control--small p-1"
+		                    title="Delete folder"
+		                  >
+                    <Trash2 size="0.6875rem" />
                   </button>
                 </div>
               </div>
@@ -1152,10 +1152,10 @@ export function PersonasPanel() {
                       }
                       deletePersona.mutate(persona.id);
                     }}
-	                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
-	                    title="Delete"
-	                  >
-                    <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+		                    className="mari-chrome-control mari-chrome-control--small p-1.5"
+		                    title="Delete"
+		                  >
+                    <Trash2 size="0.75rem" />
                   </button>
                 </div>
               )}

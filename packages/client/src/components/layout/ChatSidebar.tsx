@@ -1103,9 +1103,9 @@ export function ChatSidebar() {
                 }
               }
             }}
-            className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 max-md:opacity-100"
+            className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100"
           >
-            <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+            <Trash2 size="0.75rem" />
           </button>
         )}
       </div>
@@ -1694,9 +1694,9 @@ function FolderRow({
             e.stopPropagation();
             onDelete(folder, chatCount);
           }}
-          className="shrink-0 rounded-md p-1 opacity-0 transition-all hover:bg-[var(--destructive)]/20 group-hover:opacity-100 max-md:opacity-100"
+          className="shrink-0 rounded-md p-1 text-[var(--muted-foreground)] opacity-0 transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] group-hover:opacity-100 max-md:opacity-100"
         >
-          <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+          <Trash2 size="0.75rem" />
         </button>
       </div>
       {/* Folder contents */}

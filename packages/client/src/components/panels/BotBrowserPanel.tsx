@@ -211,7 +211,7 @@ export function BotBrowserPanel() {
                   event.stopPropagation();
                 }}
                 disabled={deletingCharacterId !== null}
-                className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger mr-1 h-8 w-8 shrink-0 p-0 text-[var(--destructive)] disabled:cursor-wait disabled:opacity-50"
+                className="mari-chrome-control mari-chrome-control--small mr-1 h-8 w-8 shrink-0 p-0 disabled:cursor-wait disabled:opacity-50"
                 title={`Delete ${char.name}`}
                 aria-label={`Delete ${char.name}`}
               >

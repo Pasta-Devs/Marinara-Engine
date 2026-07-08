@@ -551,7 +551,7 @@ export function RegexScriptEditor() {
           {dbRow && (
             <button
               onClick={handleDelete}
-              className="mari-editor-action mari-editor-action--danger inline-flex"
+              className="mari-editor-action inline-flex"
               title="Delete regex script"
               aria-label="Delete regex script"
             >

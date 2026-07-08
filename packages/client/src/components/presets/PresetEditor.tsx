@@ -516,7 +516,7 @@ export function PresetEditor() {
               <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
             </svg>
           </button>
-          <button onClick={handleDelete} className="mari-editor-action mari-editor-action--danger inline-flex">
+          <button onClick={handleDelete} className="mari-editor-action inline-flex">
             <Trash2 size="0.9375rem" />
           </button>
         </div>
@@ -1257,9 +1257,9 @@ function SectionsTab({
                         onDeleteGroup.mutate({ presetId, groupId: g.id });
                       }
                     }}
-                    className="rounded p-0.5 hover:bg-[var(--destructive)]/15"
+                    className="rounded p-0.5 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   >
-                    <Trash2 size="0.625rem" className="text-[var(--destructive)]" />
+                    <Trash2 size="0.625rem" />
                   </button>
                 </div>
               ))}
@@ -1428,10 +1428,10 @@ function SectionsTab({
                       </button>
                       <button
                         onClick={() => onDeleteSection.mutate({ presetId, sectionId: section.id })}
-                        className="rounded-lg p-1 hover:bg-[var(--destructive)]/15"
+                        className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                         title="Delete"
                       >
-                        <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+                        <Trash2 size="0.75rem" />
                       </button>
                     </div>
                   </div>
@@ -2073,10 +2073,10 @@ function VariableCard({
               onDeleteVariable.mutate({ presetId, variableId: variable.id });
             }
           }}
-          className="shrink-0 rounded-lg p-1 hover:bg-[var(--destructive)]/15"
+          className="shrink-0 rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           title="Delete variable"
         >
-          <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+          <Trash2 size="0.75rem" />
         </button>
       </div>
 

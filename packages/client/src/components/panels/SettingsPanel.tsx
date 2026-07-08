@@ -112,8 +112,6 @@ import {
   WandSparkles,
   Terminal,
   Film,
-  Pin,
-  PinOff,
   Settings2,
   Bell,
 } from "lucide-react";
@@ -214,25 +212,20 @@ type SettingsSectionMeta = {
   aliases: string[];
 };
 
-type SettingsPinnedItemId =
-  | "enable-streaming"
-  | "streaming-speed"
-  | "confirm-before-delete"
-  | "speech-to-text"
-  | "theme-mode"
-  | "visual-theme"
-  | "tracker-panel"
-  | "image-prompt-review"
-  | "queue-image-generation"
-  | "debug-mode";
+type SettingsControlKind = "Toggle" | "Slider" | "Select" | "Input" | "Picker" | "Button group";
 
-type SettingsPinnedItemMeta = {
-  id: SettingsPinnedItemId;
+type SettingsSearchableControlMeta = {
+  id: string;
   sectionId: SettingsSectionId;
   label: string;
   description: string;
   aliases: string[];
+  kind: SettingsControlKind;
 };
+
+type SettingsSearchResult =
+  | { type: "section"; section: SettingsSectionMeta }
+  | { type: "control"; control: SettingsSearchableControlMeta; section: SettingsSectionMeta };
 
 const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
@@ -435,13 +428,94 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
 
 const SETTINGS_SECTION_BY_ID = new Map(SETTINGS_SECTIONS.map((section) => [section.id, section]));
 
-const SETTINGS_PINNED_ITEMS: readonly SettingsPinnedItemMeta[] = [
+const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
+  {
+    id: "language",
+    sectionId: "application",
+    label: "Language",
+    description: "Choose the app language.",
+    aliases: ["locale", "translation"],
+    kind: "Select",
+  },
+  {
+    id: "confirm-before-delete",
+    sectionId: "application",
+    label: "Confirm before deleting",
+    description: "Ask before permanently deleting chats, characters, or other items.",
+    aliases: ["delete", "confirmation", "safety"],
+    kind: "Toggle",
+  },
+  {
+    id: "achievements",
+    sectionId: "application",
+    label: "Achievements",
+    description: "Show the Home achievements button and unlock notifications.",
+    aliases: ["home", "badges", "unlock"],
+    kind: "Toggle",
+  },
+  {
+    id: "music-player",
+    sectionId: "application",
+    label: "Music Player",
+    description: "Show the compact Music Player.",
+    aliases: ["spotify", "youtube", "music dj"],
+    kind: "Toggle",
+  },
+  {
+    id: "mini-mari",
+    sectionId: "application",
+    label: "Mini Mari surprise visits",
+    description: "Allow rare Chibi Professor Mari messages while scrolling.",
+    aliases: ["chibi", "professor", "surprise"],
+    kind: "Toggle",
+  },
+  {
+    id: "notification-conversation-sound",
+    sectionId: "notifications",
+    label: "Conversation mode notification sound",
+    description: "Play a ping for Conversation replies.",
+    aliases: ["sound", "ping", "convo"],
+    kind: "Toggle",
+  },
+  {
+    id: "notification-roleplay-sound",
+    sectionId: "notifications",
+    label: "Roleplay mode notification sound",
+    description: "Play a ping for Roleplay replies.",
+    aliases: ["sound", "ping", "rp"],
+    kind: "Toggle",
+  },
+  {
+    id: "notification-game-sound",
+    sectionId: "notifications",
+    label: "Game mode notification sound",
+    description: "Play a ping for Game replies.",
+    aliases: ["sound", "ping"],
+    kind: "Toggle",
+  },
+  {
+    id: "notification-unfocused-only",
+    sectionId: "notifications",
+    label: "Only when Marinara is unfocused",
+    description: "Play notification sounds only while Marinara is not focused.",
+    aliases: ["sound", "background", "unfocused"],
+    kind: "Toggle",
+  },
+  {
+    id: "browser-background-notifications",
+    sectionId: "notifications",
+    label: "Background replies browser notifications",
+    description: "Show browser notifications for background Conversation replies.",
+    aliases: ["browser", "notifications", "conversation"],
+    kind: "Toggle",
+  },
   {
     id: "enable-streaming",
     sectionId: "responses",
     label: "Enable streaming",
     description: "Show AI responses as they generate.",
     aliases: ["stream", "typewriter", "response"],
+    kind: "Toggle",
   },
   {
     id: "streaming-speed",
@@ -449,13 +523,23 @@ const SETTINGS_PINNED_ITEMS: readonly SettingsPinnedItemMeta[] = [
     label: "Streaming speed",
     description: "Tune how fast streamed tokens appear.",
     aliases: ["speed", "typewriter", "tokens"],
+    kind: "Slider",
   },
   {
-    id: "confirm-before-delete",
-    sectionId: "application",
-    label: "Confirm before deleting",
-    description: "Ask before deleting chats, characters, or other items.",
-    aliases: ["delete", "confirmation", "safety"],
+    id: "trim-incomplete-output",
+    sectionId: "responses",
+    label: "Trim incomplete model endings",
+    description: "Trim trailing unfinished sentences from AI responses.",
+    aliases: ["trim", "unfinished", "sentence"],
+    kind: "Toggle",
+  },
+  {
+    id: "messages-per-page",
+    sectionId: "responses",
+    label: "Messages per page",
+    description: "Control how many messages load at once.",
+    aliases: ["pagination", "load more", "history"],
+    kind: "Input",
   },
   {
     id: "speech-to-text",
@@ -463,20 +547,279 @@ const SETTINGS_PINNED_ITEMS: readonly SettingsPinnedItemMeta[] = [
     label: "Speech-to-text microphone",
     description: "Show a microphone button in chat inputs.",
     aliases: ["microphone", "dictation", "speech"],
+    kind: "Toggle",
   },
   {
-    id: "theme-mode",
-    sectionId: "app-style",
-    label: "Color scheme",
-    description: "Switch between dark and light mode.",
-    aliases: ["theme", "dark", "light", "mode"],
+    id: "intuitive-swipe-navigation",
+    sectionId: "input-editing",
+    label: "Intuitive swipe navigation",
+    description: "Use keyboard arrows or touch swipes to move between generations.",
+    aliases: ["swipes", "arrows", "alternate generations"],
+    kind: "Toggle",
+  },
+  {
+    id: "reroll-past-newest-swipe",
+    sectionId: "input-editing",
+    label: "Reroll past the newest swipe",
+    description: "Create a reroll when swiping past the newest assistant message.",
+    aliases: ["swipe", "reroll", "regenerate"],
+    kind: "Toggle",
+  },
+  {
+    id: "up-arrow-edits-last-message",
+    sectionId: "input-editing",
+    label: "Up Arrow edits last message",
+    description: "Open the most recent message for editing with Up Arrow.",
+    aliases: ["keyboard", "edit", "shortcut"],
+    kind: "Toggle",
+  },
+  {
+    id: "double-click-edits-messages",
+    sectionId: "input-editing",
+    label: "Double-click edits messages",
+    description: "Edit Roleplay messages with double-click or double-tap.",
+    aliases: ["double tap", "edit", "roleplay"],
+    kind: "Toggle",
+  },
+  {
+    id: "bold-dialogue",
+    sectionId: "text-rules",
+    label: "Bold dialogue in quotes",
+    description: "Bold quoted dialogue text in chat display.",
+    aliases: ["quotes", "dialogue", "formatting"],
+    kind: "Toggle",
+  },
+  {
+    id: "convert-latex-symbols",
+    sectionId: "text-rules",
+    label: "Convert LaTeX symbols",
+    description: "Display common LaTeX commands as regular symbols.",
+    aliases: ["math", "symbols", "formatting"],
+    kind: "Toggle",
+  },
+  {
+    id: "quote-style",
+    sectionId: "text-rules",
+    label: "Quote style",
+    description: "Choose how quotation marks are unified.",
+    aliases: ["quotes", "dialogue", "punctuation"],
+    kind: "Button group",
+  },
+  {
+    id: "game-instant-text-reveal",
+    sectionId: "game-playback",
+    label: "Instantly reveal game text",
+    description: "Skip the Game mode narration typewriter effect.",
+    aliases: ["game", "typewriter", "instant"],
+    kind: "Toggle",
+  },
+  {
+    id: "game-middle-mouse-navigation",
+    sectionId: "game-playback",
+    label: "Mouse-wheel + click navigation",
+    description: "Navigate Game mode with mouse wheel and background clicks.",
+    aliases: ["middle mouse", "scroll", "game navigation"],
+    kind: "Toggle",
+  },
+  {
+    id: "game-narration-speed",
+    sectionId: "game-playback",
+    label: "Game narration speed",
+    description: "Tune the Game mode narration typewriter speed.",
+    aliases: ["game", "typewriter", "speed"],
+    kind: "Slider",
+  },
+  {
+    id: "game-auto-play-delay",
+    sectionId: "game-playback",
+    label: "Game auto-play segment delay",
+    description: "Pause between Game mode auto-play narration segments.",
+    aliases: ["autoplay", "game", "delay"],
+    kind: "Slider",
+  },
+  {
+    id: "queue-image-generation",
+    sectionId: "image-generation",
+    label: "Queue image generation requests",
+    description: "Send image generation jobs one at a time.",
+    aliases: ["image", "queue", "generation"],
+    kind: "Toggle",
+  },
+  {
+    id: "image-prompt-review",
+    sectionId: "image-generation",
+    label: "Expose image prompts before sending",
+    description: "Review generated image prompts before sending.",
+    aliases: ["image", "prompt", "review"],
+    kind: "Toggle",
+  },
+  {
+    id: "image-background-size",
+    sectionId: "image-generation",
+    label: "Background image size",
+    description: "Set default generated background dimensions.",
+    aliases: ["image", "resolution", "canvas"],
+    kind: "Input",
+  },
+  {
+    id: "image-illustration-size",
+    sectionId: "image-generation",
+    label: "Illustration image size",
+    description: "Set default generated illustration dimensions.",
+    aliases: ["image", "resolution", "canvas", "illustrator"],
+    kind: "Input",
+  },
+  {
+    id: "image-portrait-size",
+    sectionId: "image-generation",
+    label: "Portrait image size",
+    description: "Set default generated portrait dimensions.",
+    aliases: ["image", "resolution", "canvas", "character"],
+    kind: "Input",
+  },
+  {
+    id: "image-selfie-size",
+    sectionId: "image-generation",
+    label: "Selfie image size",
+    description: "Set default generated selfie dimensions.",
+    aliases: ["image", "resolution", "canvas", "conversation"],
+    kind: "Input",
+  },
+  {
+    id: "image-style-profiles",
+    sectionId: "image-generation",
+    label: "Style Profiles",
+    description: "Tune reusable image prompt style profiles.",
+    aliases: ["image", "style", "danbooru", "anime", "realistic"],
+    kind: "Select",
+  },
+  {
+    id: "video-scene-duration",
+    sectionId: "video-generation",
+    label: "Scene video fallback length",
+    description: "Set fallback duration for generated scene videos.",
+    aliases: ["video", "duration", "length"],
+    kind: "Input",
+  },
+  {
+    id: "video-animated-expression-duration",
+    sectionId: "video-generation",
+    label: "Animated expression length",
+    description: "Set animated expression clip duration.",
+    aliases: ["video", "expression", "sprite", "duration"],
+    kind: "Input",
   },
   {
     id: "visual-theme",
     sectionId: "app-style",
-    label: "Visual style",
+    label: "Visual Style",
     description: "Switch between Marinara and SillyTavern visual themes.",
     aliases: ["theme", "style", "sillytavern", "marinara"],
+    kind: "Button group",
+  },
+  {
+    id: "theme-mode",
+    sectionId: "app-style",
+    label: "Color Scheme",
+    description: "Switch between dark and light mode.",
+    aliases: ["theme", "dark", "light", "mode"],
+    kind: "Select",
+  },
+  {
+    id: "custom-cursor",
+    sectionId: "app-style",
+    label: "Custom Mouse Pointer",
+    description: "Use Marinara's accent-colored cursor.",
+    aliases: ["cursor", "mouse", "pointer"],
+    kind: "Toggle",
+  },
+  {
+    id: "app-background-color",
+    sectionId: "app-style",
+    label: "Background Color",
+    description: "Set the main app shell background color.",
+    aliases: ["background", "theme", "gradient"],
+    kind: "Picker",
+  },
+  {
+    id: "app-accent-color",
+    sectionId: "app-style",
+    label: "Accent Color",
+    description: "Set the shared app accent color.",
+    aliases: ["primary", "theme", "highlight"],
+    kind: "Picker",
+  },
+  {
+    id: "accent-pulse",
+    sectionId: "app-style",
+    label: "Accent Pulse",
+    description: "Animate the selected accent color.",
+    aliases: ["accent", "animation", "motion"],
+    kind: "Toggle",
+  },
+  {
+    id: "rgb-mode",
+    sectionId: "app-style",
+    label: "RGB Mode",
+    description: "Cycle the app accent through Marinara's rainbow palette.",
+    aliases: ["rainbow", "accent", "color"],
+    kind: "Toggle",
+  },
+  {
+    id: "font-family",
+    sectionId: "text-scale",
+    label: "Font",
+    description: "Choose the font used across the app.",
+    aliases: ["typography", "typeface"],
+    kind: "Select",
+  },
+  {
+    id: "display-size",
+    sectionId: "text-scale",
+    label: "Display Size",
+    description: "Adjust the base font size across the app.",
+    aliases: ["font size", "scale", "readability"],
+    kind: "Select",
+  },
+  {
+    id: "chat-font-size",
+    sectionId: "text-scale",
+    label: "Chat Font Size",
+    description: "Adjust the font size of chat messages.",
+    aliases: ["text size", "message size", "readability"],
+    kind: "Slider",
+  },
+  {
+    id: "chat-text-color",
+    sectionId: "text-scale",
+    label: "Chat Text Color",
+    description: "Control the main chat message text color.",
+    aliases: ["font color", "message color"],
+    kind: "Picker",
+  },
+  {
+    id: "chat-chrome-text-color",
+    sectionId: "text-scale",
+    label: "Chat Chrome Text Color",
+    description: "Control ordinary chrome copy color in chat-adjacent UI.",
+    aliases: ["chrome", "text color", "tracker"],
+    kind: "Picker",
+  },
+  {
+    id: "text-outline-width",
+    sectionId: "text-scale",
+    label: "Text Outline / Stroke",
+    description: "Tune chat text outline width and color.",
+    aliases: ["stroke", "outline", "readability"],
+    kind: "Slider",
+  },
+  {
+    id: "conversation-layout",
+    sectionId: "chat-display",
+    label: "Chat Layout",
+    description: "Switch Conversation messages between linear rows and bubbles.",
+    aliases: ["conversation", "bubbles", "linear"],
+    kind: "Button group",
   },
   {
     id: "tracker-panel",
@@ -484,20 +827,199 @@ const SETTINGS_PINNED_ITEMS: readonly SettingsPinnedItemMeta[] = [
     label: "Tracker Panel",
     description: "Show or hide the Roleplay HUD tracker panel.",
     aliases: ["tracker", "hud", "roleplay"],
+    kind: "Toggle",
   },
   {
-    id: "image-prompt-review",
-    sectionId: "image-generation",
-    label: "Expose image prompts",
-    description: "Review generated image prompts before sending.",
-    aliases: ["image", "prompt", "review"],
+    id: "tracker-replace-hud-icons",
+    sectionId: "roleplay-tracker",
+    label: "Replace tracker HUD icons",
+    description: "Hide the old world/player tracker icon strip.",
+    aliases: ["tracker", "hud", "icons"],
+    kind: "Toggle",
   },
   {
-    id: "queue-image-generation",
-    sectionId: "image-generation",
-    label: "Queue image requests",
-    description: "Send image generation jobs one at a time.",
-    aliases: ["image", "queue", "generation"],
+    id: "tracker-expression-sprites",
+    sectionId: "roleplay-tracker",
+    label: "Use expression sprites for tracker portraits",
+    description: "Allow tracker portraits to use Expression Engine sprites.",
+    aliases: ["tracker", "sprites", "portraits"],
+    kind: "Toggle",
+  },
+  {
+    id: "tracker-panel-background",
+    sectionId: "roleplay-tracker",
+    label: "Panel background",
+    description: "Pick the Tracker panel background.",
+    aliases: ["tracker", "background", "color"],
+    kind: "Picker",
+  },
+  {
+    id: "tracker-desktop-size",
+    sectionId: "roleplay-tracker",
+    label: "Desktop size",
+    description: "Choose the Tracker panel desktop width.",
+    aliases: ["tracker", "width", "compact", "expanded"],
+    kind: "Button group",
+  },
+  {
+    id: "tracker-thought-display-mode",
+    sectionId: "roleplay-tracker",
+    label: "Thought display mode",
+    description: "Choose how featured character thoughts open.",
+    aliases: ["tracker", "thoughts", "dock", "floating"],
+    kind: "Button group",
+  },
+  {
+    id: "tracker-docked-thoughts",
+    sectionId: "roleplay-tracker",
+    label: "Always show Docked thoughts",
+    description: "Keep docked tracker thoughts visible inside character cards.",
+    aliases: ["tracker", "thoughts", "dock"],
+    kind: "Toggle",
+  },
+  {
+    id: "tracker-temperature-unit",
+    sectionId: "roleplay-tracker",
+    label: "Temperature unit",
+    description: "Switch tracker temperature displays between Celsius and Fahrenheit.",
+    aliases: ["tracker", "weather", "celsius", "fahrenheit"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-message-opacity",
+    sectionId: "roleplay-messages",
+    label: "Roleplay Messages Background Opacity",
+    description: "Adjust roleplay bubble background opacity.",
+    aliases: ["roleplay", "opacity", "messages"],
+    kind: "Slider",
+  },
+  {
+    id: "scrollable-avatars",
+    sectionId: "roleplay-messages",
+    label: "Scrollable Avatars",
+    description: "Keep roleplay avatars visible while scrolling long messages.",
+    aliases: ["roleplay", "avatars", "sticky"],
+    kind: "Toggle",
+  },
+  {
+    id: "roleplay-avatar-style",
+    sectionId: "roleplay-messages",
+    label: "Roleplay Avatars",
+    description: "Choose how avatars sit next to roleplay messages.",
+    aliases: ["avatar", "portrait", "circles", "rectangles"],
+    kind: "Button group",
+  },
+  {
+    id: "roleplay-avatar-scale",
+    sectionId: "roleplay-messages",
+    label: "Message avatar scale",
+    description: "Adjust the default roleplay message avatar scale.",
+    aliases: ["avatar", "portrait", "scale"],
+    kind: "Slider",
+  },
+  {
+    id: "roleplay-sprite-scale",
+    sectionId: "roleplay-messages",
+    label: "Default sprite scale",
+    description: "Adjust the default roleplay sprite scale.",
+    aliases: ["sprite", "scale", "roleplay"],
+    kind: "Slider",
+  },
+  {
+    id: "game-dialogue-portrait-scale",
+    sectionId: "game-presentation",
+    label: "Dialogue portrait scale",
+    description: "Adjust Game mode dialogue portrait scale.",
+    aliases: ["game", "avatar", "portrait", "scale"],
+    kind: "Slider",
+  },
+  {
+    id: "game-full-body-sprite-scale",
+    sectionId: "game-presentation",
+    label: "Full-body sprite scale",
+    description: "Adjust Game mode full-body sprite scale.",
+    aliases: ["game", "sprite", "scale"],
+    kind: "Slider",
+  },
+  {
+    id: "game-dialogue-display",
+    sectionId: "game-presentation",
+    label: "Game Dialogue Display",
+    description: "Choose classic VN box or segment history display.",
+    aliases: ["game", "vn", "history"],
+    kind: "Button group",
+  },
+  {
+    id: "weather-effects",
+    sectionId: "motion-backgrounds",
+    label: "Dynamic weather effects",
+    description: "Show animated weather particles from story context.",
+    aliases: ["weather", "rain", "snow", "fog"],
+    kind: "Toggle",
+  },
+  {
+    id: "release-channel",
+    sectionId: "updates",
+    label: "Release Channel",
+    description: "Choose which release channel update checks follow.",
+    aliases: ["updates", "branch", "version"],
+    kind: "Select",
+  },
+  {
+    id: "quick-replies",
+    sectionId: "message-tools",
+    label: "Quick replies",
+    description: "Show alternate draft actions beside Send.",
+    aliases: ["post only", "guide reply", "impersonate"],
+    kind: "Toggle",
+  },
+  {
+    id: "show-message-timestamps",
+    sectionId: "message-tools",
+    label: "Show message timestamps",
+    description: "Display date and time on chat messages.",
+    aliases: ["time", "date", "metadata"],
+    kind: "Toggle",
+  },
+  {
+    id: "show-model-name",
+    sectionId: "message-tools",
+    label: "Show model name on messages",
+    description: "Display which AI model generated each response.",
+    aliases: ["model", "metadata"],
+    kind: "Toggle",
+  },
+  {
+    id: "show-token-usage",
+    sectionId: "message-tools",
+    label: "Show token usage on messages",
+    description: "Display prompt and completion token counts.",
+    aliases: ["tokens", "context", "cost"],
+    kind: "Toggle",
+  },
+  {
+    id: "show-message-numbers",
+    sectionId: "message-tools",
+    label: "Show message numbers",
+    description: "Display message numbers in chats.",
+    aliases: ["metadata", "index"],
+    kind: "Toggle",
+  },
+  {
+    id: "guide-generations",
+    sectionId: "message-tools",
+    label: "Guide swipes/regens with chat input",
+    description: "Use the current draft as regeneration direction.",
+    aliases: ["guided", "regenerate", "swipes"],
+    kind: "Toggle",
+  },
+  {
+    id: "include-reasoning-in-exports",
+    sectionId: "message-tools",
+    label: "Include reasoning in exports",
+    description: "Include hidden thinking metadata in chat exports.",
+    aliases: ["reasoning", "thinking", "exports"],
+    kind: "Toggle",
   },
   {
     id: "debug-mode",
@@ -505,15 +1027,9 @@ const SETTINGS_PINNED_ITEMS: readonly SettingsPinnedItemMeta[] = [
     label: "Debug mode",
     description: "Log model payloads in the server console.",
     aliases: ["debug", "logs", "prompt", "console"],
+    kind: "Toggle",
   },
 ] as const;
-
-const SETTINGS_PINNED_ITEM_BY_ID = new Map(SETTINGS_PINNED_ITEMS.map((item) => [item.id, item]));
-
-function normalizeSettingsSectionId(sectionId: string): SettingsSectionId | null {
-  if (sectionId === "character-art") return "roleplay-messages";
-  return SETTINGS_SECTION_BY_ID.has(sectionId as SettingsSectionId) ? (sectionId as SettingsSectionId) : null;
-}
 
 const SETTINGS_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small text-[0.6875rem]";
 const SETTINGS_PRIMARY_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--primary text-xs";
@@ -578,205 +1094,51 @@ function getSettingsSectionAnchorId(sectionId: SettingsSectionId) {
   return `settings-section-${sectionId}`;
 }
 
-function searchSettingsSections(query: string) {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return [];
-  const parts = normalized.split(/\s+/u).filter(Boolean);
-
-  const sectionResults = SETTINGS_SECTIONS.filter((section) => {
-    const haystack = [section.label, section.description, ...section.aliases].join(" ").toLowerCase();
-    return parts.every((part) => haystack.includes(part));
-  });
-  const itemResults = SETTINGS_PINNED_ITEMS.filter((item) => {
-    const section = SETTINGS_SECTION_BY_ID.get(item.sectionId);
-    const haystack = [item.label, item.description, section?.label ?? "", ...item.aliases].join(" ").toLowerCase();
-    return parts.every((part) => haystack.includes(part));
-  });
-
-  return [
-    ...itemResults.map((item) => ({ type: "item" as const, item })),
-    ...sectionResults.map((section) => ({ type: "section" as const, section })),
-  ];
+function getSettingsControlAnchorId(controlId: string) {
+  return `settings-control-${controlId}`;
 }
 
-function getSettingsPinnedItemTarget(item: SettingsPinnedItemMeta) {
-  return SETTINGS_SECTION_BY_ID.get(item.sectionId) ?? SETTINGS_SECTIONS[0];
-}
-
-function SettingsSectionPinButton({ sectionId }: { sectionId: SettingsSectionId }) {
-  const pinnedSettingsSections = useUIStore((s) => s.pinnedSettingsSections);
-  const pinSettingsSection = useUIStore((s) => s.pinSettingsSection);
-  const unpinSettingsSection = useUIStore((s) => s.unpinSettingsSection);
-  const section = SETTINGS_SECTION_BY_ID.get(sectionId);
-  const pinned = pinnedSettingsSections.includes(sectionId);
-  if (!section) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={() => (pinned ? unpinSettingsSection(sectionId) : pinSettingsSection(sectionId))}
-      aria-pressed={pinned}
-      aria-label={pinned ? `Unpin ${section.label}` : `Pin ${section.label}`}
-      title={pinned ? `Unpin ${section.label}` : `Pin ${section.label}`}
-      className={cn(
-        "flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-all hover:bg-[var(--secondary)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-95",
-        pinned && "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/35",
-      )}
-    >
-      {pinned ? <PinOff size="0.8125rem" /> : <Pin size="0.8125rem" />}
-    </button>
-  );
-}
-
-function SettingsItemPinButton({ itemId }: { itemId: SettingsPinnedItemId }) {
-  const pinnedSettingsItems = useUIStore((s) => s.pinnedSettingsItems);
-  const pinSettingsItem = useUIStore((s) => s.pinSettingsItem);
-  const unpinSettingsItem = useUIStore((s) => s.unpinSettingsItem);
-  const item = SETTINGS_PINNED_ITEM_BY_ID.get(itemId);
-  const pinned = pinnedSettingsItems.includes(itemId);
-  if (!item) return null;
-
-  return (
-    <button
-      type="button"
-      onClick={() => (pinned ? unpinSettingsItem(itemId) : pinSettingsItem(itemId))}
-      aria-pressed={pinned}
-      aria-label={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
-      title={pinned ? `Unpin ${item.label}` : `Pin ${item.label}`}
-      className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-all hover:bg-[var(--secondary)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] active:scale-95",
-        pinned && "bg-[var(--primary)]/12 text-[var(--primary)] ring-1 ring-[var(--primary)]/35",
-      )}
-    >
-      {pinned ? <PinOff size="0.75rem" /> : <Pin size="0.75rem" />}
-    </button>
-  );
-}
-
-function PinnedSettingLiveControl({ itemId }: { itemId: SettingsPinnedItemId }) {
-  if (itemId === "enable-streaming") return <PinnedEnableStreamingControl />;
-  if (itemId === "streaming-speed") return <PinnedStreamingSpeedControl />;
-  if (itemId === "confirm-before-delete") return <PinnedConfirmBeforeDeleteControl />;
-  if (itemId === "speech-to-text") return <PinnedSpeechToTextControl />;
-  if (itemId === "theme-mode") return <PinnedThemeModeControl />;
-  if (itemId === "visual-theme") return <PinnedVisualThemeControl />;
-  if (itemId === "tracker-panel") return <PinnedTrackerPanelControl />;
-  if (itemId === "image-prompt-review") return <PinnedImagePromptReviewControl />;
-  if (itemId === "queue-image-generation") return <PinnedQueueImageGenerationControl />;
-  if (itemId === "debug-mode") return <PinnedDebugModeControl />;
-  return null;
-}
-
-function PinnedSwitchControl({
-  checked,
-  onChange,
-  ariaLabel,
+function SearchableSettingTarget({
+  controlId,
+  className,
+  children,
 }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  ariaLabel: string;
+  controlId: string;
+  className?: string;
+  children: React.ReactNode;
 }) {
-  return <SettingsSwitch checked={checked} onChange={onChange} ariaLabel={ariaLabel} className="p-0 hover:bg-transparent" />;
-}
-
-function PinnedEnableStreamingControl() {
-  const checked = useUIStore((s) => s.enableStreaming);
-  const onChange = useUIStore((s) => s.setEnableStreaming);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Enable streaming" />;
-}
-
-function PinnedConfirmBeforeDeleteControl() {
-  const checked = useUIStore((s) => s.confirmBeforeDelete);
-  const onChange = useUIStore((s) => s.setConfirmBeforeDelete);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Confirm before deleting" />;
-}
-
-function PinnedSpeechToTextControl() {
-  const checked = useUIStore((s) => s.speechToTextEnabled);
-  const onChange = useUIStore((s) => s.setSpeechToTextEnabled);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Speech-to-text microphone" />;
-}
-
-function PinnedTrackerPanelControl() {
-  const checked = useUIStore((s) => s.trackerPanelEnabled);
-  const onChange = useUIStore((s) => s.setTrackerPanelEnabled);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Tracker Panel" />;
-}
-
-function PinnedImagePromptReviewControl() {
-  const checked = useUIStore((s) => s.reviewImagePromptsBeforeSend);
-  const onChange = useUIStore((s) => s.setReviewImagePromptsBeforeSend);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Expose image prompts" />;
-}
-
-function PinnedQueueImageGenerationControl() {
-  const checked = useUIStore((s) => s.queueImageGenerationRequests);
-  const onChange = useUIStore((s) => s.setQueueImageGenerationRequests);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Queue image generation requests" />;
-}
-
-function PinnedDebugModeControl() {
-  const checked = useUIStore((s) => s.debugMode);
-  const onChange = useUIStore((s) => s.setDebugMode);
-  return <PinnedSwitchControl checked={checked} onChange={onChange} ariaLabel="Debug mode" />;
-}
-
-function PinnedStreamingSpeedControl() {
-  const value = useUIStore((s) => s.streamingSpeed);
-  const onChange = useUIStore((s) => s.setStreamingSpeed);
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <input
-        type="range"
-        min={1}
-        max={100}
-        step={1}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label="Streaming speed"
-        className="min-w-20 flex-1 accent-[var(--primary)]"
-      />
-      <span className="w-7 text-right text-[0.625rem] tabular-nums text-[var(--muted-foreground)]">{value}</span>
+    <div id={getSettingsControlAnchorId(controlId)} className={cn("scroll-mt-3", className)}>
+      {children}
     </div>
   );
 }
 
-function PinnedThemeModeControl() {
-  const value = useUIStore((s) => s.theme);
-  const onChange = useUIStore((s) => s.setTheme);
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as "dark" | "light")}
-      aria-label="Color scheme"
-      className="h-8 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"
-    >
-      <option value="dark">Dark</option>
-      <option value="light">Light</option>
-    </select>
-  );
+function searchSettings(query: string): SettingsSearchResult[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const parts = normalized.split(/\s+/u).filter(Boolean);
+
+  const controlResults = SETTINGS_SEARCHABLE_CONTROLS.flatMap((control) => {
+    const section = SETTINGS_SECTION_BY_ID.get(control.sectionId);
+    if (!section) return [];
+    const haystack = [control.label, control.description, control.kind, section.label, section.description, ...control.aliases]
+      .join(" ")
+      .toLowerCase();
+    return parts.every((part) => haystack.includes(part)) ? [{ type: "control" as const, control, section }] : [];
+  });
+
+  const sectionResults = SETTINGS_SECTIONS.filter((section) => {
+    const haystack = [section.label, section.description, ...section.aliases].join(" ").toLowerCase();
+    return parts.every((part) => haystack.includes(part));
+  }).map((section) => ({ type: "section" as const, section }));
+
+  return [...controlResults, ...sectionResults];
 }
 
-function PinnedVisualThemeControl() {
-  const value = useUIStore((s) => s.visualTheme);
-  const onChange = useUIStore((s) => s.setVisualTheme);
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as VisualTheme)}
-      aria-label="Visual style"
-      className="h-8 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 text-xs"
-    >
-      <option value="default">Marinara</option>
-      <option value="sillytavern">SillyTavern</option>
-    </select>
-  );
-}
-
-function getPinnableSettingsSectionProps(sectionId: SettingsSectionId) {
+function getSettingsSectionAnchorProps(sectionId: SettingsSectionId) {
   return {
     anchorId: getSettingsSectionAnchorId(sectionId),
-    headerAction: <SettingsSectionPinButton sectionId={sectionId} />,
   };
 }
 
@@ -1035,15 +1397,20 @@ function ImageDimensionRow({
   width,
   height,
   onCommit,
+  controlId,
 }: {
   label: string;
   help: string;
   width: number;
   height: number;
   onCommit: (width: number, height: number) => void;
+  controlId?: string;
 }) {
   return (
-    <div className="grid gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+    <div
+      id={controlId ? getSettingsControlAnchorId(controlId) : undefined}
+      className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
       <div className="min-w-0">
         <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
           {label}
@@ -1512,7 +1879,7 @@ function TrackerPanelAppearanceDrawer({
 
   return (
     <section className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/34 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-2 px-3 py-2.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--secondary)]/70 text-[var(--primary)] ring-1 ring-[var(--border)]">
             <TrackerPanelIcon size="0.9rem" strokeWidth={1.95} />
@@ -1529,6 +1896,7 @@ function TrackerPanelAppearanceDrawer({
         </div>
 
         <SettingsSwitch
+          anchorId={getSettingsControlAnchorId("tracker-panel")}
           checked={trackerPanelEnabled}
           onChange={(enabled) => {
             setTrackerPanelEnabled(enabled);
@@ -1537,10 +1905,6 @@ function TrackerPanelAppearanceDrawer({
           ariaLabel={trackerPanelEnabled ? "Disable Tracker Panel" : "Enable Tracker Panel"}
           className="p-0 hover:bg-transparent"
         />
-
-        <SettingsItemPinButton itemId="tracker-panel" />
-
-        <SettingsSectionPinButton sectionId="roleplay-tracker" />
 
         <button
           type="button"
@@ -1567,18 +1931,20 @@ function TrackerPanelAppearanceDrawer({
           )}
         >
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-replace-hud-icons")}
             label="Replace tracker HUD icons"
             checked={trackerPanelHideHudWidgets}
             onChange={setTrackerPanelHideHudWidgets}
             help="Hides the old world/player tracker icon strip so the Tracker panel can dock to the edge. The Agents button stays visible."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-expression-sprites")}
             label="Use expression sprites for tracker portraits"
             checked={trackerPanelUseExpressionSprites}
             onChange={setTrackerPanelUseExpressionSprites}
             help="When on, tracker portraits can switch to Expression Engine sprites if that agent is enabled for the chat and the character has matching sprite images."
           />
-          <div className="mt-2">
+          <div id={getSettingsControlAnchorId("tracker-panel-background")} className="mt-2 scroll-mt-3">
             <ColorPicker
               value={trackerPanelBackgroundColor}
               onChange={setTrackerPanelBackgroundColor}
@@ -1590,7 +1956,7 @@ function TrackerPanelAppearanceDrawer({
               clearLabel="Reset"
             />
           </div>
-          <div className="mt-2 grid gap-1.5">
+          <div id={getSettingsControlAnchorId("tracker-desktop-size")} className="mt-2 grid scroll-mt-3 gap-1.5">
             <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
               Desktop size
               <HelpTooltip text="Choose the designed desktop width for the Tracker panel. Compact favors quick scanning, Standard balances density, and Expanded gives character cards more room." />
@@ -1623,7 +1989,7 @@ function TrackerPanelAppearanceDrawer({
               })}
             </div>
           </div>
-          <div className="mt-2 grid gap-1.5">
+          <div id={getSettingsControlAnchorId("tracker-thought-display-mode")} className="mt-2 grid scroll-mt-3 gap-1.5">
             <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
               Thought display mode
               <HelpTooltip text="Choose whether featured character thoughts open inside the tracker card or float beside the portrait. This no longer changes automatically when the panel width changes." />
@@ -1656,12 +2022,16 @@ function TrackerPanelAppearanceDrawer({
             </div>
           </div>
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("tracker-docked-thoughts")}
             label="Always show Docked thoughts"
             checked={trackerPanelDockedThoughtsAlwaysVisible}
             onChange={setTrackerPanelDockedThoughtsAlwaysVisible}
             help="When Thought display mode is Docked, every featured character's thought stays visible inside the tracker card instead of waiting for the per-card thought button."
           />
-          <div className="mt-2 flex min-h-8 items-center justify-between gap-2">
+          <div
+            id={getSettingsControlAnchorId("tracker-temperature-unit")}
+            className="mt-2 flex scroll-mt-3 min-h-8 items-center justify-between gap-2"
+          >
             <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
               Temperature unit
               <HelpTooltip text="Changes Tracker Panel and roleplay HUD temperature displays without rewriting the saved world-state temperature." />
@@ -1716,11 +2086,9 @@ function TrackerPanelAppearanceDrawer({
 export function SettingsPanel() {
   const rawSettingsTab = useUIStore((s) => s.settingsTab);
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
-  const pinnedSettingsSections = useUIStore((s) => s.pinnedSettingsSections);
-  const pinnedSettingsItems = useUIStore((s) => s.pinnedSettingsItems);
   const settingsTab = normalizeSettingsTab(rawSettingsTab);
   const [settingsSearch, setSettingsSearch] = useState("");
-  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [quickAccessOpen, setQuickAccessOpen] = useState(false);
   const activePanelRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1732,16 +2100,7 @@ export function SettingsPanel() {
   mountedSettingsTabs.add(settingsTab);
 
   const activeSections = SETTINGS_SECTIONS.filter((section) => section.tab === settingsTab);
-  const pinnedSections = pinnedSettingsSections
-    .map((sectionId) => {
-      const normalized = normalizeSettingsSectionId(sectionId);
-      return normalized ? SETTINGS_SECTION_BY_ID.get(normalized) : undefined;
-    })
-    .filter((section): section is SettingsSectionMeta => Boolean(section));
-  const pinnedItems = pinnedSettingsItems
-    .map((itemId) => SETTINGS_PINNED_ITEM_BY_ID.get(itemId as SettingsPinnedItemId))
-    .filter((item): item is SettingsPinnedItemMeta => Boolean(item));
-  const searchResults = searchSettingsSections(settingsSearch);
+  const searchResults = searchSettings(settingsSearch);
 
   const jumpToSection = useCallback(
     (section: SettingsSectionMeta) => {
@@ -1752,6 +2111,29 @@ export function SettingsPanel() {
         const target = document.getElementById(getSettingsSectionAnchorId(section.id));
         if (!panel || !target) return;
         panel.scrollTo({ top: Math.max(0, target.offsetTop - 12), behavior: "smooth" });
+      });
+    },
+    [setSettingsTab],
+  );
+
+  const jumpToSearchResult = useCallback(
+    (result: SettingsSearchResult) => {
+      const section = result.section;
+      const targetId =
+        result.type === "control" ? getSettingsControlAnchorId(result.control.id) : getSettingsSectionAnchorId(section.id);
+      setSettingsTab(section.tab);
+      mountedSettingsTabs.add(section.tab);
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const panel = activePanelRef.current;
+          const target = document.getElementById(targetId) ?? document.getElementById(getSettingsSectionAnchorId(section.id));
+          if (!panel || !target) return;
+          panel.scrollTo({ top: Math.max(0, target.offsetTop - 12), behavior: "smooth" });
+          const focusTarget = target.querySelector<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          );
+          focusTarget?.focus({ preventScroll: true });
+        });
       });
     },
     [setSettingsTab],
@@ -1789,20 +2171,25 @@ export function SettingsPanel() {
             {searchResults.length ? (
               <div className="grid gap-1">
                 {searchResults.map((result) => {
-                  const section = result.type === "section" ? result.section : getSettingsPinnedItemTarget(result.item);
+                  const section = result.section;
                   const tab = TABS.find((entry) => entry.id === section.tab);
-                  const label = result.type === "section" ? result.section.label : result.item.label;
-                  const description = result.type === "section" ? result.section.description : result.item.description;
+                  const label = result.type === "control" ? result.control.label : section.label;
+                  const description = result.type === "control" ? result.control.description : section.description;
                   return (
                     <button
-                      key={`${result.type}-${result.type === "section" ? result.section.id : result.item.id}`}
+                      key={`${result.type}-${result.type === "control" ? result.control.id : section.id}`}
                       type="button"
-                      onClick={() => jumpToSection(section)}
+                      onClick={() => jumpToSearchResult(result)}
                       className="grid min-w-0 gap-0.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--secondary)]/70"
                     >
-                      <span className="truncate text-xs font-semibold text-[var(--foreground)]">{label}</span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-xs font-semibold text-[var(--foreground)]">{label}</span>
+                        <span className="shrink-0 rounded-full border border-[var(--border)]/70 px-1.5 py-px text-[0.5625rem] font-medium text-[var(--muted-foreground)]">
+                          {result.type === "control" ? result.control.kind : "Section"}
+                        </span>
+                      </span>
                       <span className="truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                        {tab?.label ?? "Settings"} / {description}
+                        {tab?.label ?? "Settings"} / {section.label} / {description}
                       </span>
                     </button>
                   );
@@ -1815,130 +2202,93 @@ export function SettingsPanel() {
         )}
       </div>
 
-      <div className="flex shrink-0 flex-col gap-2 border-b border-[var(--border)]/70 px-2.5 py-2">
-        {(pinnedSections.length > 0 || pinnedItems.length > 0) && (
-          <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
-            <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex shrink-0 flex-col gap-1.5 border-b border-[var(--border)]/70 px-2.5 py-1.5">
+        <div
+          role="tablist"
+          aria-label="Settings categories"
+          className="grid grid-cols-3 gap-x-1.5 gap-y-1 rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
+        >
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = settingsTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                id={`settings-tab-${tab.id}`}
+                type="button"
+                role="tab"
+                aria-selected={settingsTab === tab.id}
+                aria-controls={`settings-panel-${tab.id}`}
+                tabIndex={settingsTab === tab.id ? 0 : -1}
+                onClick={() => setSettingsTab(tab.id)}
+                className={cn(
+                  "group relative isolate flex min-h-8 min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg border px-1 py-0.5 text-center text-[0.625rem] font-semibold leading-tight transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/40",
+                  active
+                    ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
+                    : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
+                )}
+                title={tab.description}
+              >
+                {active && (
+                  <>
+                    <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
+                    <span className="pointer-events-none absolute inset-x-3 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
+                  </>
+                )}
+                <span
+                  className={cn(
+                    "flex h-4 w-4 shrink-0 items-center justify-center rounded-md border transition-colors",
+                    active
+                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
+                      : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
+                  )}
+                >
+                  <Icon size="0.6875rem" />
+                </span>
+                <span className="w-full min-w-0 break-words px-0.5">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeSections.length > 1 && (
+          <div className="min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--background)]/24 p-0.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
+            <div className="flex max-w-full flex-wrap items-center gap-1">
               <button
                 type="button"
-                onClick={() => setPinnedOpen((open) => !open)}
-                aria-expanded={pinnedOpen}
-                className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-[0.625rem] font-semibold uppercase text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]"
+                onClick={() => setQuickAccessOpen((open) => !open)}
+                aria-expanded={quickAccessOpen}
+                className={cn(
+                  "flex min-h-6 max-w-full items-center gap-1 rounded-lg border px-1.5 py-0.5 text-[0.625rem] font-semibold transition-colors",
+                  quickAccessOpen
+                    ? "border-[var(--primary)]/30 bg-[var(--primary)]/10 text-[var(--foreground)]"
+                    : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
+                )}
+                title={quickAccessOpen ? "Collapse Quick Access" : "Expand Quick Access"}
               >
+                <Tag size="0.6875rem" className="shrink-0" />
+                <span className="max-w-full truncate">Quick Access ({activeSections.length})</span>
                 <ChevronDown
-                  size="0.75rem"
-                  className={cn("transition-transform", pinnedOpen ? "rotate-180" : "-rotate-90")}
+                  size="0.625rem"
+                  className={cn("shrink-0 transition-transform", quickAccessOpen ? "rotate-180" : "")}
                 />
-                Pinned
               </button>
-              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-                {pinnedItems.slice(0, pinnedOpen ? undefined : 6).map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => jumpToSection(getSettingsPinnedItemTarget(item))}
-                    className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-[var(--border)]/55 bg-[var(--secondary)]/35 px-1.5 text-[0.625rem] font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/10"
-                    title={item.description}
-                  >
-                    <Pin size="0.625rem" className="text-[var(--primary)]" />
-                    <span className="max-w-24 truncate">{item.label}</span>
-                  </button>
-                ))}
-                {pinnedSections.slice(0, pinnedOpen ? undefined : Math.max(0, 6 - pinnedItems.length)).map((section) => (
+              {quickAccessOpen &&
+                activeSections.map((section) => (
                   <button
                     key={section.id}
                     type="button"
                     onClick={() => jumpToSection(section)}
-                    className="flex h-7 shrink-0 items-center gap-1 rounded-md border border-[var(--border)]/55 bg-[var(--secondary)]/25 px-1.5 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/10 hover:text-[var(--foreground)]"
+                    className="flex min-h-6 max-w-full min-w-0 items-center rounded-lg border border-[var(--border)]/65 bg-[var(--secondary)]/38 px-1.5 py-0.5 text-[0.625rem] font-semibold leading-tight text-[var(--muted-foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] transition-all hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/11 hover:text-[var(--foreground)]"
                     title={`${section.label}: ${section.description}`}
                   >
-                    <Pin size="0.625rem" className="text-[var(--primary)]" />
-                    <span className="max-w-24 truncate">{section.label}</span>
+                    <span className="block max-w-full break-words">{section.label}</span>
                   </button>
                 ))}
-              </div>
-              {!pinnedOpen && pinnedItems.length + pinnedSections.length > 6 && (
-                <span className="shrink-0 rounded-md bg-[var(--secondary)]/45 px-1.5 py-1 text-[0.5625rem] font-semibold text-[var(--muted-foreground)]">
-                  +{pinnedItems.length + pinnedSections.length - 6}
-                </span>
-              )}
             </div>
-            {pinnedOpen && pinnedItems.length > 0 && (
-              <div className="mt-1.5 grid gap-1.5">
-                {pinnedItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[var(--border)]/55 bg-[var(--secondary)]/24 px-2 py-1.5"
-                    title={item.description}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => jumpToSection(getSettingsPinnedItemTarget(item))}
-                      className="min-w-0 text-left"
-                    >
-                      <span className="block truncate text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                        {item.label}
-                      </span>
-                      <span className="block truncate text-[0.5625rem] text-[var(--muted-foreground)]">
-                        {item.description}
-                      </span>
-                    </button>
-                    <PinnedSettingLiveControl itemId={item.id} />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
-        <div>
-          <div
-            role="tablist"
-            className="flex gap-1.5 overflow-x-auto rounded-xl border border-[var(--border)]/70 bg-[var(--background)]/32 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)]"
-          >
-            {TABS.map((tab) => {
-              const Icon = tab.icon;
-              const active = settingsTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  id={`settings-tab-${tab.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={settingsTab === tab.id}
-                  aria-controls={`settings-panel-${tab.id}`}
-                  tabIndex={settingsTab === tab.id ? 0 : -1}
-                  onClick={() => setSettingsTab(tab.id)}
-                  className={cn(
-                    "group relative isolate flex min-h-9 shrink-0 items-center gap-1.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left text-[0.6875rem] font-semibold transition-all",
-                    active
-                      ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 text-[var(--foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_11%,transparent)]"
-                      : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)]/80 hover:bg-[var(--secondary)]/60 hover:text-[var(--foreground)]",
-                  )}
-                  title={tab.description}
-                >
-                  {active && (
-                    <>
-                      <span className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--primary)_18%,transparent),color-mix(in_srgb,var(--primary)_7%,transparent)_62%,transparent)]" />
-                      <span className="pointer-events-none absolute inset-x-2 bottom-0 h-px rounded-full bg-[var(--primary)]/60" />
-                    </>
-                  )}
-                  <span
-                    className={cn(
-                      "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                      active
-                        ? "border-[var(--primary)]/35 bg-[var(--primary)]/16 text-[var(--primary)]"
-                        : "border-[var(--border)]/55 bg-[var(--secondary)]/45 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)]",
-                    )}
-                  >
-                    <Icon size="0.75rem" />
-                  </span>
-                  <span className="truncate pr-0.5">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
       </div>
 
       <div className="relative min-h-0 flex-1">
@@ -1957,20 +2307,6 @@ export function SettingsPanel() {
               className="absolute inset-0 overflow-y-auto p-3"
               style={active ? undefined : { clipPath: "inset(100%)", pointerEvents: "none" }}
             >
-              {active && activeSections.length > 1 && (
-                <div className="mb-3 flex gap-1.5 overflow-x-auto rounded-xl border border-[var(--border)]/55 bg-[var(--background)]/22 p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_6%,transparent)]">
-                  {activeSections.map((section) => (
-                    <button
-                      key={section.id}
-                      type="button"
-                      onClick={() => jumpToSection(section)}
-                      className="shrink-0 rounded-md border border-[var(--border)]/65 bg-[var(--secondary)]/38 px-2.5 py-1 text-[0.625rem] font-semibold text-[var(--muted-foreground)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent)] transition-all hover:border-[var(--primary)]/35 hover:bg-[var(--primary)]/11 hover:text-[var(--foreground)]"
-                    >
-                      {section.label}
-                    </button>
-                  ))}
-                </div>
-              )}
               <Comp />
             </div>
           );
@@ -2037,10 +2373,10 @@ function GeneralSettings() {
         title="App Behavior"
         description="Language, safety confirmations, achievements, music, and playful extras."
         icon={<Power size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("application")}
+        {...getSettingsSectionAnchorProps("application")}
       >
         <div className="flex flex-col gap-2.5">
-          <label className="flex flex-col gap-1">
+          <label id={getSettingsControlAnchorId("language")} className="flex scroll-mt-3 flex-col gap-1">
             <span className="inline-flex items-center gap-1 text-xs font-medium">
               Language
               <HelpTooltip text="Choose the app language. Only English is available right now, but this setting is persisted so future translation PRs can extend it cleanly." />
@@ -2063,25 +2399,28 @@ function GeneralSettings() {
           </label>
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("confirm-before-delete")}
             label="Confirm before deleting"
             checked={confirmBeforeDelete}
             onChange={setConfirmBeforeDelete}
             help="Shows a confirmation dialog before permanently deleting chats, characters, or other items. Recommended to keep on."
-            endAction={<SettingsItemPinButton itemId="confirm-before-delete" />}
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("achievements")}
             label="Achievements"
             checked={achievementsEnabled}
             onChange={setAchievementsEnabled}
             help="Shows the Home achievements button and unlock notifications. Tracking stays silent in the current profile when this is off."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("music-player")}
             label="Music Player"
             checked={musicPlayerEnabled}
             onChange={setMusicPlayerEnabled}
             help="Shows the compact Music Player. Switch between Spotify and YouTube from the player itself or the Music DJ agent settings."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("mini-mari")}
             label="Mini Mari surprise visits"
             checked={chibiProfessorMariEnabled}
             onChange={setChibiProfessorMariEnabled}
@@ -2094,7 +2433,7 @@ function GeneralSettings() {
         title="Notifications"
         description="Notification sounds and browser notifications by mode."
         icon={<Bell size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("notifications")}
+        {...getSettingsSectionAnchorProps("notifications")}
       >
         <ConversationSoundSetting />
       </SettingsSection>
@@ -2103,29 +2442,29 @@ function GeneralSettings() {
         title="Responses"
         description="How replies arrive, save, and paginate."
         icon={<MessageCircle size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("responses")}
+        {...getSettingsSectionAnchorProps("responses")}
       >
         <div className="flex flex-col gap-2.5">
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("enable-streaming")}
             label="Enable streaming"
             checked={enableStreaming}
             onChange={setEnableStreaming}
             help="When on, AI responses appear word-by-word as they're generated. When off, the full response appears at once after completion."
-            endAction={<SettingsItemPinButton itemId="enable-streaming" />}
           />
 
           <label
+            id={getSettingsControlAnchorId("streaming-speed")}
             className={cn(
-              "flex flex-col gap-1.5 rounded-lg p-1 transition-colors",
+              "flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors",
               enableStreaming ? "hover:bg-[var(--secondary)]/50" : "opacity-40 pointer-events-none",
             )}
           >
             <div className="flex items-center gap-2">
-                <span className="text-xs">Streaming speed</span>
-                <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{streamingSpeed}</span>
-                <HelpTooltip text="How fast streaming tokens appear on screen. Lower values give a slower typewriter effect so you can read along. Higher values show text almost instantly." />
-                <SettingsItemPinButton itemId="streaming-speed" />
-              </div>
+              <span className="text-xs">Streaming speed</span>
+              <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{streamingSpeed}</span>
+              <HelpTooltip text="How fast streaming tokens appear on screen. Lower values give a slower typewriter effect so you can read along. Higher values show text almost instantly." />
+            </div>
             <input
               type="range"
               min={1}
@@ -2142,13 +2481,17 @@ function GeneralSettings() {
           </label>
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("trim-incomplete-output")}
             label="Trim incomplete model endings"
             checked={trimIncompleteModelOutput}
             onChange={setTrimIncompleteModelOutput}
             help="When on, Marinara trims a trailing unfinished sentence from AI responses before saving the message. It leaves complete responses and command-only endings alone."
           />
 
-          <label className="flex flex-wrap items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+          <label
+            id={getSettingsControlAnchorId("messages-per-page")}
+            className="flex scroll-mt-3 flex-wrap items-center gap-2.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50"
+          >
             <span className="text-xs">Messages per page</span>
             <HelpTooltip text="How many messages to load at a time. Click 'Load More' in the chat to see older messages. Set to 0 to load all messages at once." />
             <DraftNumberInput
@@ -2167,7 +2510,7 @@ function GeneralSettings() {
         title="Input & Editing"
         description="Message input behavior and fast edit controls."
         icon={<UserCheck size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("input-editing")}
+        {...getSettingsSectionAnchorProps("input-editing")}
       >
         <div className="flex flex-col gap-2.5">
           <div className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
@@ -2213,19 +2556,21 @@ function GeneralSettings() {
           </div>
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("speech-to-text")}
             label="Speech-to-text microphone"
             checked={speechToTextEnabled}
             onChange={setSpeechToTextEnabled}
             help="When on, chat input bars show a microphone button for browser dictation. Handy still works independently by pasting into the focused input field."
-            endAction={<SettingsItemPinButton itemId="speech-to-text" />}
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("intuitive-swipe-navigation")}
             label="Intuitive swipe navigation"
             checked={intuitiveSwipeNavigation}
             onChange={setIntuitiveSwipeNavigation}
             help="In Conversation and Roleplay modes, use Left/Right Arrow on desktop or horizontal touch swipes on mobile to move between alternate generations on the latest assistant message."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("reroll-past-newest-swipe")}
             label="Reroll past the newest swipe"
             checked={intuitiveSwipeRerollLatest}
             onChange={setIntuitiveSwipeRerollLatest}
@@ -2233,12 +2578,14 @@ function GeneralSettings() {
             help="When intuitive swipes are enabled, pressing Right Arrow or swiping left on the newest swipe of the latest assistant message creates a new reroll."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("up-arrow-edits-last-message")}
             label="Up Arrow edits last message"
             checked={editLastMessageOnArrowUp}
             onChange={setEditLastMessageOnArrowUp}
             help="In Conversation and Roleplay modes, press Up Arrow while the chat input is empty to open the most recent message in the chat for editing — whether it's yours or the AI's."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("double-click-edits-messages")}
             label="Double-click edits messages"
             checked={editMessageOnDoubleClick}
             onChange={setEditMessageOnDoubleClick}
@@ -2251,10 +2598,11 @@ function GeneralSettings() {
         title="Text Rules"
         description="Formatting applied to chat text."
         icon={<FileText size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("text-rules")}
+        {...getSettingsSectionAnchorProps("text-rules")}
       >
         <div className="flex flex-col gap-2.5">
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("bold-dialogue")}
             label="Bold dialogue in quotes"
             checked={boldDialogue ?? true}
             onChange={setBoldDialogue}
@@ -2263,13 +2611,17 @@ function GeneralSettings() {
             }
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("convert-latex-symbols")}
             label="Convert LaTeX symbols"
             checked={convertLatexSymbols}
             onChange={setConvertLatexSymbols}
             help="Turns common model-written LaTeX commands like \\rightarrow, \\neq, \\times, and \\alpha into regular symbols while leaving code snippets alone. This is display-only; saved messages keep their original text."
           />
 
-          <div className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+          <div
+            id={getSettingsControlAnchorId("quote-style")}
+            className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50"
+          >
             <div className="flex items-center gap-2">
               <span className="text-xs">Quote style</span>
               <HelpTooltip text="Choose how straight and smart quotation marks are unified in chat inputs and displayed AI output." />
@@ -2304,16 +2656,18 @@ function GeneralSettings() {
         title="Game Playback"
         description="Game mode reading and navigation."
         icon={<ScrollText size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("game-playback")}
+        {...getSettingsSectionAnchorProps("game-playback")}
       >
         <div className="flex flex-col gap-2.5">
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("game-instant-text-reveal")}
             label="Instantly reveal game text"
             checked={gameInstantTextReveal}
             onChange={setGameInstantTextReveal}
             help="When enabled, Game mode narration segments appear fully as soon as you enter them. This skips the typewriter effect and hides the narration speed control."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("game-middle-mouse-navigation")}
             label="Mouse-wheel + click navigation"
             checked={gameMiddleMouseNav}
             onChange={setGameMiddleMouseNav}
@@ -2321,7 +2675,10 @@ function GeneralSettings() {
           />
 
           {!gameInstantTextReveal && (
-            <label className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+            <label
+              id={getSettingsControlAnchorId("game-narration-speed")}
+              className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50"
+            >
               <div className="flex items-center gap-2">
                 <span className="text-xs">Game narration speed</span>
                 <span className="text-xs tabular-nums text-[var(--muted-foreground)]">{gameTextSpeed}</span>
@@ -2343,7 +2700,10 @@ function GeneralSettings() {
             </label>
           )}
 
-          <label className="flex flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50">
+          <label
+            id={getSettingsControlAnchorId("game-auto-play-delay")}
+            className="flex scroll-mt-3 flex-col gap-1.5 rounded-lg p-1 transition-colors hover:bg-[var(--secondary)]/50"
+          >
             <div className="flex items-center gap-2">
               <span className="text-xs">Game auto-play segment delay</span>
               <span className="text-xs tabular-nums text-[var(--muted-foreground)]">
@@ -2396,25 +2756,26 @@ function ImageGenerationSettings() {
       title="Image Generation"
       description="Review generated prompts, set image canvas defaults, and tune prompt style profiles."
       icon={<Image size="0.875rem" />}
-      {...getPinnableSettingsSectionProps("image-generation")}
+      {...getSettingsSectionAnchorProps("image-generation")}
     >
       <div className="flex flex-col gap-2.5">
         <ToggleSetting
+          anchorId={getSettingsControlAnchorId("queue-image-generation")}
           label="Queue image generation requests"
           checked={queueImageGenerationRequests}
           onChange={setQueueImageGenerationRequests}
           help="Sends image generation jobs one at a time. Keep this on for providers that reject simultaneous background, illustration, or portrait requests."
-          endAction={<SettingsItemPinButton itemId="queue-image-generation" />}
         />
         <ToggleSetting
+          anchorId={getSettingsControlAnchorId("image-prompt-review")}
           label="Expose image prompts before sending"
           checked={reviewImagePromptsBeforeSend}
           onChange={setReviewImagePromptsBeforeSend}
           help="Shows generated image prompts for review before sending Game assets, character or persona avatars, and sprite generations to the image provider."
-          endAction={<SettingsItemPinButton itemId="image-prompt-review" />}
         />
 
         <ImageDimensionRow
+          controlId="image-background-size"
           label="Backgrounds"
           help="Used for Roleplay and Game generated scene backgrounds."
           width={imageBackgroundWidth}
@@ -2422,6 +2783,7 @@ function ImageGenerationSettings() {
           onCommit={setImageBackgroundDimensions}
         />
         <ImageDimensionRow
+          controlId="image-illustration-size"
           label="Illustrations"
           help="Used for Illustrator agent images saved to chat galleries, including comic pages and scene illustrations."
           width={imageIllustrationWidth}
@@ -2429,6 +2791,7 @@ function ImageGenerationSettings() {
           onCommit={setImageIllustrationDimensions}
         />
         <ImageDimensionRow
+          controlId="image-portrait-size"
           label="Portraits"
           help="Used for generated character and NPC portraits."
           width={imagePortraitWidth}
@@ -2436,6 +2799,7 @@ function ImageGenerationSettings() {
           onCommit={setImagePortraitDimensions}
         />
         <ImageDimensionRow
+          controlId="image-selfie-size"
           label="Selfies"
           help="Default selfie canvas for Roleplay and Conversation image commands when a chat does not override selfie resolution."
           width={imageSelfieWidth}
@@ -2443,7 +2807,7 @@ function ImageGenerationSettings() {
           onCommit={setImageSelfieDimensions}
         />
 
-        <div className="mt-1">
+        <div id={getSettingsControlAnchorId("image-style-profiles")} className="mt-1 scroll-mt-3">
           <div className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
             Style Profiles
             <HelpTooltip text="Defines what Anime, Danbooru, Realistic, and custom styles mean when Marinara compiles image prompts. Profiles merge with per-chat and connection settings, then clean duplicate tags before sending." />
@@ -2530,7 +2894,7 @@ function VideoGenerationSettings() {
       title="Video Generation"
       description="Set default clip lengths and edit reusable video prompts for Game, Gallery, and Conversation Calls."
       icon={<Film size="0.875rem" />}
-      {...getPinnableSettingsSectionProps("video-generation")}
+      {...getSettingsSectionAnchorProps("video-generation")}
     >
       {videoSettingsQuery.isLoading ? (
         <div className="flex items-center gap-2 rounded-lg bg-[var(--background)]/55 px-3 py-2 text-xs text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
@@ -2544,7 +2908,10 @@ function VideoGenerationSettings() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="grid gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div
+            id={getSettingsControlAnchorId("video-scene-duration")}
+            className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
             <div className="min-w-0">
               <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
                 Scene video fallback length
@@ -2620,7 +2987,10 @@ function VideoGenerationSettings() {
             </div>
           </div>
 
-          <div className="grid gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div
+            id={getSettingsControlAnchorId("video-animated-expression-duration")}
+            className="grid scroll-mt-3 gap-2 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+          >
             <div className="min-w-0">
               <div className="inline-flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
                 Animated expression length
@@ -2733,7 +3103,7 @@ function GameAssetsSettings() {
       title="Game Assets"
       description="Open existing asset folders, import new files, and refresh the server manifest."
       icon={<FolderOpen size="0.875rem" />}
-      {...getPinnableSettingsSectionProps("game-assets")}
+      {...getSettingsSectionAnchorProps("game-assets")}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2">
@@ -3143,7 +3513,7 @@ function AppearanceSettings() {
         title="App Style"
         description="Theme family, color scheme, fonts, and reading scale."
         icon={<Paintbrush size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("app-style")}
+        {...getSettingsSectionAnchorProps("app-style")}
       >
         <div className="flex flex-col gap-3">
           <div className="flex justify-start">
@@ -3163,12 +3533,11 @@ function AppearanceSettings() {
             </button>
           </div>
           {/* ── Visual Style ── */}
-          <div className="flex flex-col gap-2">
+          <div id={getSettingsControlAnchorId("visual-theme")} className="flex scroll-mt-3 flex-col gap-2">
             <div className="flex items-center gap-1.5">
               <Paintbrush size="0.75rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
               <span className="text-xs font-medium">Visual Style</span>
               <HelpTooltip text="Choose how the entire app looks. 'Marinara' uses a retro Y2K aesthetic with glow effects. 'SillyTavern' uses a clean, minimal look inspired by the original SillyTavern." />
-              <SettingsItemPinButton itemId="visual-theme" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               {(
@@ -3202,11 +3571,10 @@ function AppearanceSettings() {
             </div>
           </div>
 
-          <label className="flex flex-col gap-1">
+          <label id={getSettingsControlAnchorId("theme-mode")} className="flex scroll-mt-3 flex-col gap-1">
             <span className="text-xs font-medium inline-flex items-center gap-1">
               Color Scheme{" "}
               <HelpTooltip text="Switch between dark and light mode. Dark mode is easier on the eyes in low-light environments." />
-              <SettingsItemPinButton itemId="theme-mode" />
             </span>
             <select
               value={theme}
@@ -3219,37 +3587,43 @@ function AppearanceSettings() {
           </label>
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("custom-cursor")}
             label="Custom Mouse Pointer"
             checked={customCursorEnabled}
             onChange={setCustomCursorEnabled}
             help="Uses Marinara's accent-colored cursor across the app. Turn this off to use the system cursor or let a custom CSS theme control cursor styles."
           />
 
-          <ColorPicker
-            value={displayedAppBackgroundColor}
-            onChange={handleAppBackgroundColorChange}
-            gradient
-            compact
-            label="Background Color"
-            helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
-            emptyText={`Default ${defaultAppBackgroundColor}`}
-            emptyPreviewValue={defaultAppBackgroundColor}
-            clearLabel="Reset to default"
-          />
+          <SearchableSettingTarget controlId="app-background-color">
+            <ColorPicker
+              value={displayedAppBackgroundColor}
+              onChange={handleAppBackgroundColorChange}
+              gradient
+              compact
+              label="Background Color"
+              helpText="Colors the main app shell background. Leave it on the scheme default to follow Dark and Light mode automatically. Gradients are supported for the shell paint."
+              emptyText={`Default ${defaultAppBackgroundColor}`}
+              emptyPreviewValue={defaultAppBackgroundColor}
+              clearLabel="Reset to default"
+            />
+          </SearchableSettingTarget>
 
-          <ColorPicker
-            value={displayedAppAccentColor}
-            onChange={handleAppAccentColorChange}
-            gradient
-            compact
-            label="Accent Color"
-            helpText="Colors the shared app accent layer: buttons, active icons, focus rings, highlights, panel outlines, and chat chrome. Accent Pulse animates this selected color."
-            emptyText={`Default ${defaultAppAccentColor}`}
-            emptyPreviewValue={defaultAppAccentColor}
-            clearLabel="Reset to default"
-          />
+          <SearchableSettingTarget controlId="app-accent-color">
+            <ColorPicker
+              value={displayedAppAccentColor}
+              onChange={handleAppAccentColorChange}
+              gradient
+              compact
+              label="Accent Color"
+              helpText="Colors the shared app accent layer: buttons, active icons, focus rings, highlights, panel outlines, and chat chrome. Accent Pulse animates this selected color."
+              emptyText={`Default ${defaultAppAccentColor}`}
+              emptyPreviewValue={defaultAppAccentColor}
+              clearLabel="Reset to default"
+            />
+          </SearchableSettingTarget>
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("accent-pulse")}
             label="Accent Pulse"
             checked={appAccentPulseMode}
             onChange={handleAppAccentPulseModeChange}
@@ -3257,6 +3631,7 @@ function AppearanceSettings() {
           />
 
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("rgb-mode")}
             label={
               <span className={cn(appAccentRgbMode && "mari-logo-gradient-text mari-logo-gradient-text--active")}>
                 RGB Mode
@@ -3275,10 +3650,10 @@ function AppearanceSettings() {
         title="Text & Scale"
         description="Fonts, display size, chat text colors, and legibility controls."
         icon={<FileText size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("text-scale")}
+        {...getSettingsSectionAnchorProps("text-scale")}
       >
         <div className="flex flex-col gap-3">
-          <label className="flex flex-col gap-1">
+          <label id={getSettingsControlAnchorId("font-family")} className="flex scroll-mt-3 flex-col gap-1">
             <span className="text-xs font-medium inline-flex items-center gap-1">
               Font{" "}
               <HelpTooltip text="Choose the font used across the app. 'Default (Inter)' is optimized for screen readability. Drop .ttf, .otf, .woff, or .woff2 font files into the data/fonts/ folder to add custom fonts." />
@@ -3351,7 +3726,7 @@ function AppearanceSettings() {
             </a>
           </div>
 
-          <label className="flex flex-col gap-1">
+          <label id={getSettingsControlAnchorId("display-size")} className="flex scroll-mt-3 flex-col gap-1">
             <span className="text-xs font-medium inline-flex items-center gap-1">
               Display Size{" "}
               <HelpTooltip text="Adjusts the base font size across the whole app on this device. Larger sizes improve readability. Default is 17px." />
@@ -3370,7 +3745,7 @@ function AppearanceSettings() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1">
+          <label id={getSettingsControlAnchorId("chat-font-size")} className="flex scroll-mt-3 flex-col gap-1">
             <span className="text-xs font-medium inline-flex items-center gap-1">
               Chat Font Size{" "}
               <HelpTooltip text="Adjusts the font size of chat messages on this device. Drag the slider to find your preferred reading size. Default is 16px." />
@@ -3391,31 +3766,35 @@ function AppearanceSettings() {
             </div>
           </label>
 
-          <ColorPicker
-            value={chatFontColor}
-            onChange={setChatFontColor}
-            gradient
-            compact
-            label="Chat Text Color"
-            helpText="Controls the main chat message text color. Leave it on the scheme default to keep dark and light mode readable. Gradients are accepted for layouts that support them."
-            emptyText={`Scheme default ${getDefaultChatTextColor(theme)}`}
-            emptyPreviewValue={getDefaultChatTextColor(theme)}
-            clearLabel="Reset to default"
-          />
+          <SearchableSettingTarget controlId="chat-text-color">
+            <ColorPicker
+              value={chatFontColor}
+              onChange={setChatFontColor}
+              gradient
+              compact
+              label="Chat Text Color"
+              helpText="Controls the main chat message text color. Leave it on the scheme default to keep dark and light mode readable. Gradients are accepted for layouts that support them."
+              emptyText={`Scheme default ${getDefaultChatTextColor(theme)}`}
+              emptyPreviewValue={getDefaultChatTextColor(theme)}
+              clearLabel="Reset to default"
+            />
+          </SearchableSettingTarget>
 
-          <ColorPicker
-            value={chatChromeTextColor}
-            onChange={setChatChromeTextColor}
-            gradient
-            compact
-            label="Chat Chrome Text Color"
-            helpText="Controls ordinary chrome copy in tracker widgets, folder labels, settings descriptors, and windows opened from chat buttons. Accent-colored button text and active icons follow Accent Color instead. Gradients use a compatible fallback where plain CSS color is required."
-            emptyText={`Scheme default ${getDefaultChatChromeTextColor(theme)}`}
-            emptyPreviewValue={getDefaultChatChromeTextColor(theme)}
-            clearLabel="Reset to default"
-          />
+          <SearchableSettingTarget controlId="chat-chrome-text-color">
+            <ColorPicker
+              value={chatChromeTextColor}
+              onChange={setChatChromeTextColor}
+              gradient
+              compact
+              label="Chat Chrome Text Color"
+              helpText="Controls ordinary chrome copy in tracker widgets, folder labels, settings descriptors, and windows opened from chat buttons. Accent-colored button text and active icons follow Accent Color instead. Gradients use a compatible fallback where plain CSS color is required."
+              emptyText={`Scheme default ${getDefaultChatChromeTextColor(theme)}`}
+              emptyPreviewValue={getDefaultChatChromeTextColor(theme)}
+              clearLabel="Reset to default"
+            />
+          </SearchableSettingTarget>
 
-          <div className="flex flex-col gap-1.5">
+          <div id={getSettingsControlAnchorId("text-outline-width")} className="flex scroll-mt-3 flex-col gap-1.5">
             <span className="text-[0.6875rem] font-medium inline-flex items-center gap-1">
               Text Outline / Stroke
               <HelpTooltip text="Adds an outline around chat text for better readability over backgrounds. Set width to 0 to disable." />
@@ -3463,10 +3842,13 @@ function AppearanceSettings() {
         title="Conversation Display"
         description="Conversation layout and shared message text styling."
         icon={<MessageCircle size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("chat-display")}
+        {...getSettingsSectionAnchorProps("chat-display")}
       >
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3">
+          <div
+            id={getSettingsControlAnchorId("conversation-layout")}
+            className="flex scroll-mt-3 flex-col gap-2 rounded-lg border border-[var(--border)]/70 bg-[var(--secondary)]/25 p-3"
+          >
             <div className="flex items-center gap-1.5">
               <MessageCircle size="0.75rem" className="text-[var(--muted-foreground)]" />
               <span className="text-xs font-medium">Chat Layout</span>
@@ -3531,7 +3913,7 @@ function AppearanceSettings() {
         </div>
       </SettingsSection>
 
-      <div id={getSettingsSectionAnchorId("roleplay-tracker")} className="flex flex-col gap-3">
+      <div id={getSettingsSectionAnchorId("roleplay-tracker")} className="flex scroll-mt-3 flex-col gap-3">
         <TrackerPanelAppearanceDrawer
           trackerPanelEnabled={trackerPanelEnabled}
           setTrackerPanelEnabled={setTrackerPanelEnabled}
@@ -3556,10 +3938,13 @@ function AppearanceSettings() {
           title="Roleplay Messages"
           description="Roleplay bubbles, avatars, sprite scale, and message opacity."
           icon={<Image size="0.875rem" />}
-          {...getPinnableSettingsSectionProps("roleplay-messages")}
+          {...getSettingsSectionAnchorProps("roleplay-messages")}
         >
           <div className="flex flex-col gap-3">
-            <label className="flex flex-col gap-1">
+            <label
+              id={getSettingsControlAnchorId("roleplay-message-opacity")}
+              className="flex scroll-mt-3 flex-col gap-1"
+            >
               <span className="text-[0.6875rem] font-medium">Roleplay Messages Background Opacity</span>
               <div className="flex items-center gap-3">
                 <input
@@ -3592,12 +3977,13 @@ function AppearanceSettings() {
               <HelpTooltip text="Choose how avatars sit next to roleplay messages. None hides message avatars. Small Circles keeps the current compact layout. Small Rectangles gives portraits a taller frame. Glued Side Panel embeds a larger portrait strip into the message bubble itself." />
             </div>
             <ToggleSetting
+              anchorId={getSettingsControlAnchorId("scrollable-avatars")}
               label="Scrollable Avatars"
               checked={roleplayAvatarsScrollable}
               onChange={setRoleplayAvatarsScrollable}
               help="When enabled, roleplay avatars stay visible while you scroll through long messages and stop at the bottom of their own message."
             />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div id={getSettingsControlAnchorId("roleplay-avatar-style")} className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2">
               {ROLEPLAY_AVATAR_STYLE_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -3693,7 +4079,10 @@ function AppearanceSettings() {
                   />
                 </div>
                 <div className="grid min-w-0 flex-1 gap-3">
-                  <label className="flex min-w-0 flex-col gap-1">
+                  <label
+                    id={getSettingsControlAnchorId("roleplay-avatar-scale")}
+                    className="flex scroll-mt-3 min-w-0 flex-col gap-1"
+                  >
                     <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">Message avatar scale</span>
                     <div className="flex items-center gap-2">
                       <input
@@ -3710,7 +4099,10 @@ function AppearanceSettings() {
                       </span>
                     </div>
                   </label>
-                  <label className="flex min-w-0 flex-col gap-1">
+                  <label
+                    id={getSettingsControlAnchorId("roleplay-sprite-scale")}
+                    className="flex scroll-mt-3 min-w-0 flex-col gap-1"
+                  >
                     <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">Default sprite scale</span>
                     <div className="flex items-center gap-2">
                       <input
@@ -3743,7 +4135,7 @@ function AppearanceSettings() {
         title="Game Presentation"
         description="Game VN art scale and dialogue display."
         icon={<ScrollText size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("game-presentation")}
+        {...getSettingsSectionAnchorProps("game-presentation")}
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -3771,7 +4163,10 @@ function AppearanceSettings() {
                   />
                 </div>
                 <div className="grid min-w-0 flex-1 gap-3">
-                  <label className="flex min-w-0 flex-col gap-1">
+                  <label
+                    id={getSettingsControlAnchorId("game-dialogue-portrait-scale")}
+                    className="flex scroll-mt-3 min-w-0 flex-col gap-1"
+                  >
                     <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
                       Dialogue portrait scale
                     </span>
@@ -3790,7 +4185,10 @@ function AppearanceSettings() {
                       </span>
                     </div>
                   </label>
-                  <label className="flex min-w-0 flex-col gap-1">
+                  <label
+                    id={getSettingsControlAnchorId("game-full-body-sprite-scale")}
+                    className="flex scroll-mt-3 min-w-0 flex-col gap-1"
+                  >
                     <span className="text-[0.6875rem] font-medium text-[var(--foreground)]">
                       Full-body sprite scale
                     </span>
@@ -3820,7 +4218,7 @@ function AppearanceSettings() {
               <span className="text-xs font-medium">Game Dialogue Display</span>
               <HelpTooltip text="Choose whether Game mode uses the classic VN box or shows a scrollable segment history directly above it." />
             </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div id={getSettingsControlAnchorId("game-dialogue-display")} className="grid scroll-mt-3 grid-cols-1 gap-2 sm:grid-cols-2">
               {GAME_DIALOGUE_DISPLAY_OPTIONS.map((opt) => (
                 <button
                   key={opt.id}
@@ -3846,7 +4244,7 @@ function AppearanceSettings() {
         title="Atmosphere"
         description="Roleplay weather and atmospheric effects."
         icon={<CloudRain size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("motion-backgrounds")}
+        {...getSettingsSectionAnchorProps("motion-backgrounds")}
       >
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
@@ -3856,6 +4254,7 @@ function AppearanceSettings() {
               <HelpTooltip text="Visual effects that enhance the roleplay atmosphere. Weather particles like rain, snow, and fog appear based on the story context." />
             </div>
             <ToggleSetting
+              anchorId={getSettingsControlAnchorId("weather-effects")}
               label="Dynamic weather effects (rain, snow, fog, etc.)"
               checked={weatherEffects}
               onChange={setWeatherEffects}
@@ -3873,7 +4272,7 @@ function AppearanceSettings() {
         title="Conversation Theme"
         description="Conversation-mode background gradient by color scheme."
         icon={<Palette size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("conversation-theme")}
+        {...getSettingsSectionAnchorProps("conversation-theme")}
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -3992,7 +4391,7 @@ function AppearanceSettings() {
         title="Backgrounds"
         description="Chat background images, blur, and default Roleplay background."
         icon={<Image size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("chat-backgrounds")}
+        {...getSettingsSectionAnchorProps("chat-backgrounds")}
       >
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2">
@@ -4391,7 +4790,7 @@ function BackgroundPicker({
                             if (defaultRoleplayBackground === bg.url) onDefaultChange(DEFAULT_ROLEPLAY_BACKGROUND_URL);
                             deleteBg.mutate(bg.filename);
                           }}
-                          className="ml-auto shrink-0 rounded-md p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--destructive)] group-hover:opacity-100"
+                          className="ml-auto shrink-0 rounded-md p-0.5 text-[var(--muted-foreground)] opacity-0 transition-opacity hover:text-[var(--foreground)] group-hover:opacity-100"
                         >
                           <Trash2 size="0.625rem" />
                         </button>
@@ -4509,7 +4908,6 @@ function GenerationsSettings() {
               Reusable image and video prompt templates.
             </div>
           </div>
-          <SettingsSectionPinButton sectionId="prompt-overrides" />
         </div>
         <PromptOverridesEditor
           title="Video Generation Prompt Overrides"
@@ -4828,7 +5226,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
         title="Theme Library"
         description="Create, import, activate, edit, export, or remove custom CSS themes."
         icon={<Palette size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("theme-library")}
+        {...getSettingsSectionAnchorProps("theme-library")}
       >
         <div className="flex flex-col gap-3">
           {/* Action buttons */}
@@ -4957,7 +5355,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                       }
                     })();
                   }}
-                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   title="Remove theme"
                 >
                   <Trash2 size="0.6875rem" />
@@ -5474,7 +5872,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
         title="Extension Library"
         description="Import, enable, disable, export, or remove installed extensions."
         icon={<Puzzle size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("extension-library")}
+        {...getSettingsSectionAnchorProps("extension-library")}
       >
         <div className="flex flex-col gap-3">
           {/* Import button */}
@@ -5594,7 +5992,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
                 </button>
                 <button
                   onClick={() => void handleDeleteExtension(ext)}
-                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   title="Remove extension"
                 >
                   <Trash2 size="0.6875rem" />
@@ -6125,7 +6523,7 @@ function ImportSettings() {
         title="Profile & Marinara"
         description="Restore full profiles or import individual Marinara files."
         icon={<Download size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("profile-marinara")}
+        {...getSettingsSectionAnchorProps("profile-marinara")}
       >
         <div className="flex flex-col gap-2.5">
           <label
@@ -6242,7 +6640,7 @@ function ImportSettings() {
         title="SillyTavern Import"
         description="Bring over characters, chats, presets, and lorebooks from SillyTavern files."
         icon={<FolderOpen size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("sillytavern-import")}
+        {...getSettingsSectionAnchorProps("sillytavern-import")}
       >
         <div className="flex flex-col gap-2.5">
           <button
@@ -6758,7 +7156,7 @@ function AdvancedSettings() {
         title="Admin Access"
         description="Save the browser-side admin secret for protected maintenance actions."
         icon={<Power size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("admin-access")}
+        {...getSettingsSectionAnchorProps("admin-access")}
       >
         <div className="flex min-w-0 flex-col gap-2">
           <input
@@ -6785,11 +7183,14 @@ function AdvancedSettings() {
         title="Updates"
         description="Check this install, apply supported updates, or force-refresh the web shell."
         icon={<RefreshCw size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("updates")}
+        {...getSettingsSectionAnchorProps("updates")}
       >
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2">
-            <label className="flex min-w-0 flex-col gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            <label
+              id={getSettingsControlAnchorId("release-channel")}
+              className="flex scroll-mt-3 min-w-0 flex-col gap-1 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]"
+            >
               Release Channel
               <select
                 value={selectedUpdateChannelId}
@@ -6992,12 +7393,13 @@ function AdvancedSettings() {
         title="Message Tools"
         description="Quick reply actions, message metadata, and debug visibility."
         icon={<MessageCircle size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("message-tools")}
+        {...getSettingsSectionAnchorProps("message-tools")}
       >
         <div className="flex flex-col gap-2.5">
           <div
+            id={getSettingsControlAnchorId("quick-replies")}
             className={cn(
-              "overflow-hidden rounded-xl border transition-colors",
+              "scroll-mt-3 overflow-hidden rounded-xl border transition-colors",
               showQuickRepliesMenu
                 ? "border-[var(--primary)]/30 bg-[var(--secondary)]/15"
                 : "border-transparent bg-transparent hover:bg-[var(--secondary)]/30",
@@ -7142,47 +7544,53 @@ function AdvancedSettings() {
             )}
           </div>
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-timestamps")}
             label="Show message timestamps"
             checked={showTimestamps}
             onChange={setShowTimestamps}
             help="Displays the date and time each message was sent next to it in the chat."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-model-name")}
             label="Show model name on messages"
             checked={showModelName}
             onChange={setShowModelName}
             help="Displays which AI model generated each response, shown as a small label on assistant messages."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-token-usage")}
             label="Show token usage on messages"
             checked={showTokenUsage}
             onChange={setShowTokenUsage}
             help="Displays prompt and completion token counts on each AI message. Useful for monitoring context size and cost."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("show-message-numbers")}
             label="Show message numbers"
             checked={showMessageNumbers}
             onChange={setShowMessageNumbers}
             help="Displays message numbers in roleplay and conversation chats."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("guide-generations")}
             label="Guide swipes/regens with chat input"
             checked={guideGenerations}
             onChange={setGuideGenerations}
             help="Uses the current draft as direction when regenerating a message or manually triggering a character response."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("include-reasoning-in-exports")}
             label="Include reasoning in exports"
             checked={includeReasoningInExports}
             onChange={setIncludeReasoningInExports}
             help="Includes saved hidden thinking/reasoning metadata in JSONL and text chat exports. Keep this off when sharing transcripts."
           />
           <ToggleSetting
+            anchorId={getSettingsControlAnchorId("debug-mode")}
             label="Debug mode"
             checked={debugMode}
             onChange={setDebugMode}
             help="Logs the prompt and response payloads sent to the model in the server console for debugging."
-            endAction={<SettingsItemPinButton itemId="debug-mode" />}
           />
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1" title={nativeConsoleHelp}>
@@ -7206,7 +7614,7 @@ function AdvancedSettings() {
         description="Download profile exports or full backup archives for recovery and migration."
         help="Download a full backup as a .zip archive (storage snapshots + avatars, sprites, backgrounds, gallery, fonts, knowledge sources). Import Profile can restore the zip directly. The raw folders are for manual recovery."
         icon={<Download size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("backup-export")}
+        {...getSettingsSectionAnchorProps("backup-export")}
       >
         <div className="flex flex-col gap-2">
           <button
@@ -7259,7 +7667,7 @@ function AdvancedSettings() {
                   </div>
                   <button
                     onClick={() => deleteBackupMutation.mutate(b.name)}
-                    className="ml-2 rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+                    className="ml-2 rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                   >
                     <Trash2 size="0.75rem" />
                   </button>
@@ -7274,7 +7682,7 @@ function AdvancedSettings() {
         title="Danger Zone"
         description="Permanently clear selected categories of local data. Professor Mari is always preserved."
         icon={<AlertTriangle size="0.875rem" />}
-        {...getPinnableSettingsSectionProps("danger-zone")}
+        {...getSettingsSectionAnchorProps("danger-zone")}
       >
         <div className="flex flex-col gap-2">
           <div className="grid gap-2">

@@ -191,10 +191,10 @@ export function GameCheckpoints({ chatId, onClose, onLoaded }: GameCheckpointsPr
                         {cp.triggerType === "manual" && (
                           <button
                             onClick={() => handleDelete(cp.id)}
-                            className="rounded p-1 opacity-0 transition-opacity hover:bg-destructive/20 group-hover:opacity-100"
+                            className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
                             title="Delete checkpoint"
                           >
-                            <Trash2 className="h-3 w-3 text-destructive" />
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         )}
                       </>

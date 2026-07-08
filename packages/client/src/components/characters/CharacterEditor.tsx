@@ -869,7 +869,7 @@ export function CharacterEditor() {
       <button
         type="button"
         onClick={handleDelete}
-        className="mari-editor-action mari-editor-action--danger inline-flex"
+        className="mari-editor-action inline-flex"
         title="Delete character"
       >
         <Trash2 size="1rem" />
@@ -1652,7 +1652,7 @@ function CharacterVersionHistoryPanel({
                 type="button"
                 onClick={() => handleDeleteVersion(version)}
                 disabled={restoreVersion.isPending || deleteVersion.isPending}
-                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-50"
+                className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
                 title="Delete this saved version"
               >
                 {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
@@ -1870,7 +1870,7 @@ function DialogueTab({
                   onClick={() => removeGreeting(i)}
                   className={cn(
                     greetingActionButtonClassName,
-                    "hover:border-[var(--destructive)]/40 hover:text-[var(--destructive)]",
+	                    "hover:border-[var(--border)] hover:text-[var(--foreground)]",
                   )}
                   aria-label={`Remove alternate greeting ${i + 1}`}
                   title="Remove greeting"
@@ -2244,7 +2244,7 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
                       <button
                         type="button"
                         onClick={() => void handleDelete(image)}
-                        className="rounded-lg bg-red-500/35 p-1.5 text-white transition-colors hover:bg-red-500/55"
+	                        className="rounded-lg bg-white/15 p-1.5 text-white transition-colors hover:bg-white/25"
                         title="Delete"
                       >
                         <Trash2 size="0.75rem" />
@@ -3018,7 +3018,7 @@ function CharacterClipCard({
                 type="button"
                 onClick={() => void onDelete(clip)}
                 disabled={deleting}
-                className="rounded-lg border border-red-500/25 bg-red-500/10 p-1.5 text-red-400 transition-colors hover:border-red-500/45 hover:bg-red-500/20 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                 title="Delete"
                 aria-label={`Delete ${clip.label || "clip"}`}
               >
@@ -3722,7 +3722,7 @@ function SpritesTab({
                   <button
                     type="button"
                     onClick={() => setDeleteSpriteRequest(sprite)}
-                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                    className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                     title="Delete"
                   >
                     <Trash2 size="0.6875rem" />
@@ -3765,7 +3765,7 @@ function SpritesTab({
                   type="button"
                   onClick={() => void handleDeleteVisibleSprites()}
                   disabled={!!deletingSprites}
-                  className="mr-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/30 transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50 sm:px-3 sm:text-sm"
+	                  className="mr-auto inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50 sm:px-3 sm:text-sm"
                 >
                   {deletingSprites === "all" ? (
                     <Loader2 size="0.875rem" className="animate-spin" />
@@ -4304,7 +4304,7 @@ function LorebookTab({
             type="button"
             onClick={handleRemoveFromCard}
             disabled={!characterId || removing || importing || embedding}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--destructive)]/10 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
             title={
               embedding
                 ? "Wait for the embedded lorebook update to finish."

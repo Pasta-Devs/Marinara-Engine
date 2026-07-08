@@ -367,7 +367,7 @@ export function ToolEditor() {
           {dbTool && (
             <button
               onClick={handleDelete}
-              className="mari-editor-action mari-editor-action--danger inline-flex"
+              className="mari-editor-action inline-flex"
               title="Delete function"
               aria-label="Delete function"
             >

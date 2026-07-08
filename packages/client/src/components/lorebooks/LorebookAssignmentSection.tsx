@@ -62,13 +62,17 @@ function getOwnerIds(lorebook: Lorebook, ownerType: LorebookOwnerType) {
   return ownerType === "character" ? uniqueIds(lorebook.characterIds ?? []) : uniqueIds(lorebook.personaIds ?? []);
 }
 
-function getScopeLabel(scope: LorebookScope, chats: Chat[]) {
+function getOwnerLabel(ownerType: LorebookOwnerType, ownerName: string) {
+  return ownerName.trim() || (ownerType === "character" ? "this character" : "this persona");
+}
+
+function getScopeLabel(scope: LorebookScope, chats: Chat[], ownerType: LorebookOwnerType, ownerName: string) {
   if (scope.mode === "disabled") return "Disabled";
   if (scope.mode === "specific") {
     const count = scope.chatIds.filter((id) => chats.some((chat) => chat.id === id)).length;
     return count === 1 ? "1 chat" : `${count} chats`;
   }
-  return "All chats";
+  return `All chats with ${getOwnerLabel(ownerType, ownerName)}`;
 }
 
 function matchesOwnerChat(chat: Chat, ownerType: LorebookOwnerType, ownerId: string | null) {
@@ -194,6 +198,7 @@ export function LorebookAssignmentSection({
   };
 
   const specificSelectionInvalid = draft?.mode === "specific" && draft.chatIds.length === 0;
+  const ownerLabel = getOwnerLabel(ownerType, ownerName);
 
   return (
     <div className="space-y-3">
@@ -209,7 +214,7 @@ export function LorebookAssignmentSection({
             type="button"
             onClick={handleCreateLorebook}
             disabled={!ownerId}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--secondary-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] disabled:opacity-50"
+            className="mari-chrome-control mari-chrome-control--compact gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50"
           >
             <Plus size="0.75rem" />
             New
@@ -248,7 +253,7 @@ export function LorebookAssignmentSection({
                 >
                   <span className="block truncate text-xs font-medium text-[var(--foreground)]">{lorebook.name}</span>
                   <span className="block truncate text-[0.625rem] text-[var(--muted-foreground)]">
-                    {getScopeLabel(scope, eligibleChats)}
+                    {getScopeLabel(scope, eligibleChats, ownerType, ownerName)}
                   </span>
                 </button>
                 <button
@@ -298,7 +303,7 @@ export function LorebookAssignmentSection({
                   type="button"
                   onClick={() => unassignLorebook(lorebook)}
                   disabled={updateLorebook.isPending}
-                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)] disabled:opacity-50"
+                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
                   title={
                     ownerType === "character" && lorebook.id === embeddedLorebookId
                       ? "Unlink lorebook (the card's embedded copy stays — use Remove from card)"
@@ -381,7 +386,8 @@ export function LorebookAssignmentSection({
                 <div>
                   <p className="text-xs font-semibold">Scope</p>
                   <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                    Controls where this assignment is active.
+                    Controls where this assignment is active. All chats means chats that include {ownerLabel}, not every
+                    chat in Marinara.
                   </p>
                 </div>
 
@@ -397,7 +403,11 @@ export function LorebookAssignmentSection({
                         : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
                     )}
                   >
-                    {mode === "all" ? "All chats" : mode === "disabled" ? "Disabled for all chats" : "Specific chats"}
+                    {mode === "all"
+                      ? `All chats with ${ownerLabel}`
+                      : mode === "disabled"
+                        ? "Disabled for all chats"
+                        : "Specific chats"}
                     {draft.mode === mode && <Check size="0.75rem" />}
                   </button>
                 ))}

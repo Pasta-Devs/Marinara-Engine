@@ -939,10 +939,10 @@ export function CharactersPanel() {
                       e.stopPropagation();
                       void handleDeleteGroup(group);
                     }}
-                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1"
+                    className="mari-chrome-control mari-chrome-control--small p-1"
                     title="Delete folder"
                   >
-                    <Trash2 size="0.6875rem" className="text-[var(--destructive)]" />
+                    <Trash2 size="0.6875rem" />
                   </button>
                 </div>
               </div>
@@ -1379,10 +1379,10 @@ export function CharactersPanel() {
                       }
                       deleteCharacter.mutate(char.id);
                     }}
-                    className="mari-chrome-control mari-chrome-control--small mari-chrome-control--danger p-1.5"
+                    className="mari-chrome-control mari-chrome-control--small p-1.5"
                     title="Delete"
                   >
-                    <Trash2 size="0.75rem" className="text-[var(--destructive)]" />
+                    <Trash2 size="0.75rem" />
                   </button>
                 </div>
               )}
