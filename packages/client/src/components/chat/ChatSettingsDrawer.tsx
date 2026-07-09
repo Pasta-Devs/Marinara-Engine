@@ -183,6 +183,9 @@ import {
   GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATES,
   GAME_STORYBOARD_COLORED_MANGA_PROMPT_TEMPLATE_ID,
   GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID,
+  GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
+  GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
+  GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
   GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
   GAME_VIDEO_PROMPT_TEMPLATE_ID,
   getChatModeCapabilities,
@@ -318,6 +321,16 @@ function getAgentSettingsMenuId(chatId: string, agentId: string): string {
 const GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
   GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATES.map((template) => template.id),
 );
+
+function normalizeGameStoryboardKeyframeCount(value: unknown): number {
+  if (value == null || value === "") return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
+  return Math.max(
+    GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
+    Math.min(GAME_STORYBOARD_KEYFRAME_COUNT_MAX, Math.trunc(numeric)),
+  );
+}
 
 function normalizeGameStoryboardPromptTemplateId(value: unknown, fallback: string): string {
   const raw = typeof value === "string" ? value.trim() : "";
@@ -1520,6 +1533,7 @@ export function ChatSettingsDrawer({
   const gameImageDynamicPromptEnabled = metadata.gameImageDynamicPromptEnabled === true;
   const gameStoryboardAutoIllustrationsEnabled = metadata.gameStoryboardAutoIllustrationsEnabled === true;
   const gameStoryboardAutoAnimationsEnabled = metadata.gameStoryboardAutoGenerationEnabled === true;
+  const gameStoryboardKeyframeCount = normalizeGameStoryboardKeyframeCount(metadata.gameStoryboardKeyframeCount);
   const gameStoryboardViewerDisplayMode: GameStoryboardViewerDisplayMode =
     metadata.gameStoryboardViewerDisplayMode === "background" ? "background" : "floating";
   const gameStoryboardPromptTemplates = useMemo(
@@ -7546,6 +7560,41 @@ export function ChatSettingsDrawer({
                         });
                       }}
                     />
+                    <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1 text-[0.625rem] font-medium text-[var(--foreground)]">
+                            Keyframes per Turn
+                            <HelpTooltip text="Controls the number of storyboard illustrations planned for each completed GM turn. Animation clips use the same count." />
+                          </div>
+                          <p className="mt-0.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
+                            Applies to automatic and manual storyboard generation.
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] tabular-nums text-[var(--foreground)] ring-1 ring-[var(--border)]">
+                          {gameStoryboardKeyframeCount}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={GAME_STORYBOARD_KEYFRAME_COUNT_MIN}
+                        max={GAME_STORYBOARD_KEYFRAME_COUNT_MAX}
+                        step={1}
+                        value={gameStoryboardKeyframeCount}
+                        onChange={(event) =>
+                          updateMeta.mutate({
+                            id: chat.id,
+                            gameStoryboardKeyframeCount: normalizeGameStoryboardKeyframeCount(event.target.value),
+                          })
+                        }
+                        className="h-7 w-full cursor-pointer accent-[var(--primary)]"
+                        aria-label="Storyboard keyframes per turn"
+                      />
+                      <div className="flex justify-between text-[0.5625rem] text-[var(--muted-foreground)]">
+                        <span>{GAME_STORYBOARD_KEYFRAME_COUNT_MIN}</span>
+                        <span>{GAME_STORYBOARD_KEYFRAME_COUNT_MAX}</span>
+                      </div>
+                    </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-1 text-[0.625rem] font-medium text-[var(--foreground)]">
                         Viewer Display

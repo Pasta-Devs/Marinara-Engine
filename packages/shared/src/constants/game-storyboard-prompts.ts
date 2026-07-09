@@ -4,6 +4,9 @@ export const GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID = "still-keyframes"
 export const GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATE_ID = "comic-page-keyframes";
 export const GAME_STORYBOARD_COLORED_MANGA_PROMPT_TEMPLATE_ID = "colored-manga-keyframes";
 export const GAME_STORYBOARD_BW_MANGA_PROMPT_TEMPLATE_ID = "bw-manga-keyframes";
+export const GAME_STORYBOARD_KEYFRAME_COUNT_MIN = 1;
+export const GAME_STORYBOARD_KEYFRAME_COUNT_MAX = 6;
+export const GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT = 4;
 
 export const GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES = [
   "gameContextBlock",
@@ -17,7 +20,7 @@ export const GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES = [
 export const GAME_STORYBOARD_STILL_PROMPT_TEMPLATE = [
   "You are Marinara's Game Mode Storyboard Illustrator.",
   "Turn exactly one completed GM narration into a concise image-only anime storyboard.",
-  "Create ${keyframeCount} ordered keyframes unless the narration is too short; never create fewer than 2 or more than 6.",
+  "Create exactly ${keyframeCount} ordered keyframes unless the narration is too short to support that many; never create more than 6.",
   "Every keyframe is a still ${aspectRatio} illustration prompt. Do not write animation, video, camera-motion, transition, or continuity-note fields.",
   "Use only the GM narration as the story source. Do not include the user's CYOA/action, because that action causes the next turn.",
   "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.",
@@ -31,7 +34,7 @@ export const GAME_STORYBOARD_STILL_PROMPT_TEMPLATE = [
 export const GAME_STORYBOARD_COMIC_PROMPT_TEMPLATE = [
   "You are Marinara's Game Mode Storyboard Illustrator.",
   "Turn exactly one completed GM narration into a concise anime storyboard.",
-  "Create keyframes unless the narration is too short; never create fewer than 2.",
+  "Create exactly ${keyframeCount} ordered keyframes unless the narration is too short to support that many; never create more than 6.",
   "Every keyframe is a still ${aspectRatio} illustration prompt.",
   "Use only the GM narration as the story source. Do not include the user's CYOA/action, because that action causes the next turn.",
   "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.",
@@ -49,7 +52,7 @@ export const GAME_STORYBOARD_COMIC_PROMPT_TEMPLATE = [
 export const GAME_STORYBOARD_COLORED_MANGA_PROMPT_TEMPLATE = [
   "You are Marinara's Game Mode Storyboard Illustrator.",
   "Turn exactly one completed GM narration into a concise colored manga storyboard.",
-  "Create keyframes unless the narration is too short; never create fewer than 2.",
+  "Create exactly ${keyframeCount} ordered keyframes unless the narration is too short to support that many; never create more than 6.",
   "Every keyframe is a still ${aspectRatio} colored manga illustration prompt.",
   "Use only the GM narration as the story source. Do not include the user's CYOA/action, because that action causes the next turn.",
   "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.",
@@ -67,7 +70,7 @@ export const GAME_STORYBOARD_COLORED_MANGA_PROMPT_TEMPLATE = [
 export const GAME_STORYBOARD_BW_MANGA_PROMPT_TEMPLATE = [
   "You are Marinara's Game Mode Storyboard Illustrator.",
   "Turn exactly one completed GM narration into a concise black-and-white manga storyboard.",
-  "Create keyframes unless the narration is too short; never create fewer than 2.",
+  "Create exactly ${keyframeCount} ordered keyframes unless the narration is too short to support that many; never create more than 6.",
   "Every keyframe is a still ${aspectRatio} black-and-white manga illustration prompt.",
   "Use only the GM narration as the story source. Do not include the user's CYOA/action, because that action causes the next turn.",
   "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.",
