@@ -14,11 +14,13 @@
 // Invoked from the /api/generate handler ONLY when input.turnGameBots is set,
 // so it can never affect a normal conversation/roleplay generation.
 import type { FastifyReply } from "fastify";
+import { BUILT_IN_THINKING_TAG_PAIRS } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride, logger } from "../../lib/logger.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { BaseLLMProvider, ChatMessage, LLMToolDefinition } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { extractLeadingThinkingBlocks } from "../llm/inline-thinking.js";
 import { trySendSseEvent } from "../../routes/generate/sse.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -476,6 +478,23 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
   }
 }
 
+/**
+ * Reasoning models can emit their chain-of-thought inline in `content` (e.g. a
+ * leading `<think>` block) instead of a provider-native thinking channel. The
+ * generation pipeline strips these before persisting; narration must too, or
+ * the reasoning gets saved verbatim as the character's table talk. When the
+ * closing tag never arrived (maxTokens ran out mid-thought), extraction leaves
+ * the opening tag at the front — everything after it is reasoning, so the line
+ * is unusable and we return "" to let the caller's fallback run.
+ * Exported for tests.
+ */
+export function stripInlineThinking(raw: string): string {
+  const trimmed = extractLeadingThinkingBlocks(raw).content.trim();
+  const lower = trimmed.toLocaleLowerCase();
+  if (BUILT_IN_THINKING_TAG_PAIRS.some((pair) => lower.startsWith(pair.open.toLocaleLowerCase()))) return "";
+  return trimmed;
+}
+
 async function narrateOutcome(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   provider: any,
@@ -496,13 +515,16 @@ async function narrateOutcome(
           `${persona}\n\n` +
           `You are playing ${gameLabel} with friends. Speak ONE short, natural line as ${name}, fully in character. ` +
           `You may react to the table talk and/or to your own move — like a real person at the table (a quip, a taunt, a groan, a little flourish). ` +
-          `Hard rules: do NOT reveal your hand or any hidden information, do NOT recite the board state, and do NOT explain the rules or your strategy. Just talk.`,
+          `Hard rules: do NOT reveal your hand or any hidden information, do NOT recite the board state, and do NOT explain the rules or your strategy. ` +
+          `Reply with the spoken line ONLY — no reasoning, no preamble, no notes about what you are doing. Just talk.`,
       },
       ...(recent ? [{ role: "user" as const, content: `Recent table talk:\n${recent}` }] : []),
       { role: "user", content: `(You just ${did}.) Say your one line.` },
     ];
-    const res = await provider.chatComplete(messages, { model, temperature: 0.9, maxTokens: 100, ...(signal ? { signal } : {}) });
-    return (res.content ?? "").trim();
+    // maxTokens leaves headroom for reasoning models that think before the line;
+    // stripInlineThinking removes what they emit inline.
+    const res = await provider.chatComplete(messages, { model, temperature: 0.9, maxTokens: 300, ...(signal ? { signal } : {}) });
+    return stripInlineThinking(res.content ?? "");
   } catch {
     return "";
   }
@@ -525,7 +547,7 @@ async function narrateAnnouncements(
           `${persona}\n\n` +
           `You are the dealer at this table's game of ${gameLabel}. Announce the following to the table in ONE ` +
           `short line, fully in character — you may add flourish, teasing, or ceremony, but every fact below must ` +
-          `come through accurately. Facts: ${eventSummary}`,
+          `come through accurately. Reply with the announcement ONLY — no reasoning, no preamble. Facts: ${eventSummary}`,
       },
     ];
     // Prompt visibility for the new dealer-narration call: honors DEBUG_AGENTS
@@ -539,10 +561,10 @@ async function narrateAnnouncements(
     const res = await provider.chatComplete(messages, {
       model,
       temperature: 0.85,
-      maxTokens: 120,
+      maxTokens: 300,
       ...(signal ? { signal } : {}),
     });
-    return (res.content ?? "").trim();
+    return stripInlineThinking(res.content ?? "");
   } catch {
     return "";
   }

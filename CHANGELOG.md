@@ -26,6 +26,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Fixed turn-game bot table talk and dealer announcements leaking the model's chain-of-thought into chat when the connected model emits inline reasoning (e.g. a leading `<think>` block): narration now strips inline reasoning like the main generation pipeline, falls back to the factual event line when the output was all reasoning, and gets a larger output budget so reasoning models can still land the spoken line (#3427).
 - Completed Noodle's automatic timeline refresh scheduling: daily refresh times are now distributed across persisted local-day windows, survive restarts, collapse overdue slots into one catch-up refresh, retry safely after failures, and update an open Noodle timeline automatically.
 - Fixed PocketTTS voice refresh so built-in and custom voices returned by the provider `/v1/voices` endpoint are listed, including custom voices identified by URL/path fields (#3410).
 - Fixed Conversation Call live-mic input so Local Whisper/provider media submissions cannot queue unbounded speech segments and lock the call UI behind repeated "too many requests" failures (#3411).
