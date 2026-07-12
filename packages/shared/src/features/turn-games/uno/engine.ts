@@ -6,14 +6,7 @@
 // narrates the engine-confirmed result; it never enforces rules or shuffles.
 // All randomness flows through the seeded RNG so deals replay identically.
 
-import type {
-  GameEvent,
-  ModelTurnView,
-  MoveResult,
-  Seat,
-  TerminalResult,
-  TurnGameEngine,
-} from "../engine.types.js";
+import type { GameEvent, ModelTurnView, MoveResult, Seat, TerminalResult, TurnGameEngine } from "../engine.types.js";
 import { buildStandardDeck, isWildValue } from "./deck.js";
 import { deterministicShuffle } from "./rng.js";
 import { UNO_TOOL_MANIFESTS } from "./tools.js";
@@ -397,11 +390,7 @@ function handlePlayDrawn(
   return resolvePlay(state, seatId, card, move, events);
 }
 
-function handleDraw(
-  state: UnoState,
-  seatId: string,
-  events: GameEvent[],
-): MoveResult<UnoState, UnoMove> {
+function handleDraw(state: UnoState, seatId: string, events: GameEvent[]): MoveResult<UnoState, UnoMove> {
   // Calling draw while a penalty is pending resolves the penalty.
   if (state.pendingDraw > 0) return handleDrawPenalty(state, seatId, events);
 
@@ -443,11 +432,7 @@ function handleDraw(
   return { ok: true, state, events };
 }
 
-function handlePass(
-  state: UnoState,
-  _seatId: string,
-  events: GameEvent[],
-): MoveResult<UnoState, UnoMove> {
+function handlePass(state: UnoState, _seatId: string, events: GameEvent[]): MoveResult<UnoState, UnoMove> {
   if (state.status !== "awaiting_post_draw") return fail("There's nothing to pass on — play or draw.");
   const drawn = state.drawnCardId ? state.hands[_seatId]?.find((c) => c.id === state.drawnCardId) : null;
   if (state.config.forcePlay && drawn && isNormallyPlayable(drawn, state)) {
@@ -461,11 +446,7 @@ function handlePass(
   return { ok: true, state, events };
 }
 
-function handleDrawPenalty(
-  state: UnoState,
-  seatId: string,
-  events: GameEvent[],
-): MoveResult<UnoState, UnoMove> {
+function handleDrawPenalty(state: UnoState, seatId: string, events: GameEvent[]): MoveResult<UnoState, UnoMove> {
   if (state.pendingDraw <= 0) return fail("There is no draw penalty to take.");
   const n = state.pendingDraw;
   drawN(state, seatId, n);
@@ -531,11 +512,7 @@ function handleCallOut(
   return { ok: true, state, events };
 }
 
-function handleDeclareUno(
-  state: UnoState,
-  seatId: string,
-  events: GameEvent[],
-): MoveResult<UnoState, UnoMove> {
+function handleDeclareUno(state: UnoState, seatId: string, events: GameEvent[]): MoveResult<UnoState, UnoMove> {
   if ((state.hands[seatId]?.length ?? 0) !== 1) return fail("You can only call UNO when you hold exactly one card.");
   state.mustCallUno[seatId] = false;
   events.push({ type: "uno_called", seatId, message: `${nameOf(state, seatId)} calls UNO!` });
@@ -556,20 +533,13 @@ function pushCatchMoves(state: UnoState, seatId: string, moves: UnoMove[]): void
 }
 
 /** Expand a playable card into directly-applicable moves (color variants for wilds, swap targets for 7s). */
-function expandPlay(
-  state: UnoState,
-  seatId: string,
-  card: UnoCard,
-  kind: "play" | "play_drawn",
-): UnoMove[] {
+function expandPlay(state: UnoState, seatId: string, card: UnoCard, kind: "play" | "play_drawn"): UnoMove[] {
   const out: UnoMove[] = [];
   const isWild = card.color === "wild";
   const willWin = (state.hands[seatId]?.length ?? 0) === 1;
   const needsSwap = state.config.sevenZero && card.value === "7" && !willWin;
   const colorVariants: Array<UnoColor | undefined> = isWild ? [...ALL_COLORS] : [undefined];
-  const swapTargets: Array<string | undefined> = needsSwap
-    ? state.seatOrder.filter((s) => s !== seatId)
-    : [undefined];
+  const swapTargets: Array<string | undefined> = needsSwap ? state.seatOrder.filter((s) => s !== seatId) : [undefined];
   for (const declaredColor of colorVariants) {
     for (const swapTargetSeatId of swapTargets) {
       if (kind === "play") {
@@ -689,8 +659,7 @@ function pickFallback(state: UnoState, seatId: string): UnoMove {
       moves.find((m) => m.type === "call_out") ??
       moves.find((m) => m.type === "declare_uno") ??
       moves.find((m) => m.type === "jump_in") ??
-      moves[0] ??
-      { type: "declare_uno" }
+      moves[0] ?? { type: "declare_uno" }
     );
   }
 
@@ -753,7 +722,8 @@ function buildBoardSummary(state: UnoState, seatId: string): string {
   lines.push(`Your hand: ${hand.length ? hand.map(cardLabel).join(", ") : "(empty)"}.`);
   if (state.status === "awaiting_post_draw" && state.drawnCardId) {
     const drawn = hand.find((c) => c.id === state.drawnCardId);
-    if (drawn) lines.push(`You just drew ${cardLabel(drawn)} — it's the only card you may play right now (or pass to keep it).`);
+    if (drawn)
+      lines.push(`You just drew ${cardLabel(drawn)} — it's the only card you may play right now (or pass to keep it).`);
   }
   const plays = recentPlayLines(state, 5);
   if (plays.length) lines.push("What just happened:", ...plays);
@@ -762,15 +732,32 @@ function buildBoardSummary(state: UnoState, seatId: string): string {
 
 function buildInstructions(state: UnoState, seatId: string): string {
   const parts: string[] = [];
+  const hand = state.hands[seatId] ?? [];
   if (state.status === "awaiting_post_draw") {
-    parts.push("You just drew (see 'You just drew …' above). Either play_card with that exact card or pass_turn to keep it.");
+    parts.push(
+      "You just drew (see 'You just drew …' above). Either play_card with that exact card or pass_turn to keep it.",
+    );
   } else if (state.pendingDraw > 0) {
-    parts.push("Resolve the draw penalty: draw_card to take it" + (state.config.stacking ? ", or stack a matching draw card with play_card." : "."));
+    parts.push(
+      "Resolve the draw penalty: draw_card to take it" +
+        (state.config.stacking ? ", or stack a matching draw card with play_card." : "."),
+    );
   } else {
     parts.push("Play a legal card with play_card, or draw_card if you cannot or choose not to play.");
   }
   if ((state.hands[seatId]?.length ?? 0) === 2) {
     parts.push("If this play leaves you with one card, set say_uno=true (or call_uno).");
+  }
+  if (hand.some((card) => card.color === "wild")) {
+    const counts = colorCounts(hand);
+    const heldColors = ALL_COLORS.filter((color) => counts[color] > 0)
+      .map((color) => `${cap(color)} ${counts[color]}`)
+      .join(", ");
+    parts.push(
+      heldColors
+        ? `If you play a Wild, choose declared_color from the colored cards left in your hand (${heldColors}); prefer your most-held color, and do not simply repeat the current ${cap(state.activeColor)} unless it is tied for strongest.`
+        : "If you play a Wild with no colored cards left, choose any declared_color.",
+    );
   }
   parts.push("Then narrate your move briefly, in character.");
   return parts.join(" ");
@@ -833,7 +820,9 @@ function buildParticipantSummary(state: UnoState, seatId: string): string {
   }
   const lastOwn = [...state.log]
     .reverse()
-    .find((e) => e.seatId === seatId && e.type !== "deal" && typeof e.message === "string" && e.message.trim().length > 0);
+    .find(
+      (e) => e.seatId === seatId && e.type !== "deal" && typeof e.message === "string" && e.message.trim().length > 0,
+    );
   if (lastOwn) lines.push(`Your most recent action: ${lastOwn.message}`);
   return lines.join("\n");
 }

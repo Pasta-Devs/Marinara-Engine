@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
-import { stripLeadingMessageTimestamps } from "../../packages/shared/src/utils/speaker-segments.js";
+import {
+  parseGroupedSpeakerSegments,
+  stripLeadingMessageTimestamps,
+} from "../../packages/shared/src/utils/speaker-segments.js";
 import type { Lorebook } from "../../packages/shared/src/types/lorebook.js";
 import {
   createLorebookSchema,
+  bulkUpdateLorebookEntriesSchema,
   normalizeLorebookCategory,
   updateLorebookSchema,
 } from "../../packages/shared/src/schemas/lorebook.schema.js";
@@ -37,6 +41,12 @@ import {
   getTemperatureGaugeDisplay,
   parsePureTemperatureValue,
 } from "../../packages/client/src/features/tracker-panel/lib/world-state-display.js";
+import {
+  resolveStandardEmojiShortcode,
+  searchStandardEmojiShortcodes,
+} from "../../packages/client/src/lib/emoji-shortcodes.js";
+import { unoEngine } from "../../packages/shared/src/features/turn-games/uno/engine.js";
+import { DEFAULT_UNO_CONFIG, type UnoState } from "../../packages/shared/src/features/turn-games/uno/types.js";
 
 assert.equal(resolveInitialGameGmConnectionId(undefined, "chat-connection"), "chat-connection");
 assert.equal(resolveInitialGameGmConnectionId("explicit-connection", "chat-connection"), "explicit-connection");
@@ -49,10 +59,7 @@ assert.equal(
   ),
   "Handle must contain at most 40 characters.",
 );
-assert.equal(
-  getApiErrorMessage({ code: "USER_NOT_FOUND", requestId: "abc-123" }, "Request failed"),
-  "Request failed",
-);
+assert.equal(getApiErrorMessage({ code: "USER_NOT_FOUND", requestId: "abc-123" }, "Request failed"), "Request failed");
 
 assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
@@ -72,6 +79,63 @@ assert.equal(
   stripLeadingMessageTimestamps("We meet at [11.07 15:53] by the station."),
   "We meet at [11.07 15:53] by the station.",
 );
+
+const partiallyPrefixedConversationReply = "lol you're such a rebel!!\nPaige: Are you powered by pure caffeine?";
+const parsedWithoutAuthor = parseGroupedSpeakerSegments(partiallyPrefixedConversationReply, new Set(["paige"]));
+assert.equal(parsedWithoutAuthor?.[0]?.speaker, null);
+const parsedWithAuthor = parseGroupedSpeakerSegments(partiallyPrefixedConversationReply, new Set(["paige"]), "Paige");
+assert.equal(parsedWithAuthor?.length, 1);
+assert.equal(parsedWithAuthor?.[0]?.speaker, "Paige");
+assert.deepEqual(parsedWithAuthor?.[0]?.lines, ["lol you're such a rebel!!", "Are you powered by pure caffeine?"]);
+
+assert.equal(resolveStandardEmojiShortcode("crying"), "😢");
+assert.equal(resolveStandardEmojiShortcode("test_tube"), "🧪");
+assert.equal(
+  searchStandardEmojiShortcodes("cry", 5).some((entry) => entry.name === "crying"),
+  true,
+);
+
+assert.equal(
+  bulkUpdateLorebookEntriesSchema.safeParse({
+    entryIds: ["entry-1", "entry-2"],
+    changes: { preventRecursion: false, caseSensitive: true },
+  }).success,
+  true,
+);
+assert.equal(bulkUpdateLorebookEntriesSchema.safeParse({ entryIds: ["entry-1"], changes: {} }).success, false);
+
+const unoColorStrategyState: UnoState = {
+  config: { ...DEFAULT_UNO_CONFIG },
+  seatOrder: ["bot", "user"],
+  seatNames: { bot: "Bot", user: "User" },
+  drawPile: [{ id: "yellow-1", color: "yellow", value: "1" }],
+  discardPile: [{ id: "red-5", color: "red", value: "5" }],
+  activeColor: "red",
+  hands: {
+    bot: [
+      { id: "wild", color: "wild", value: "wild" },
+      { id: "blue-1", color: "blue", value: "1" },
+      { id: "blue-2", color: "blue", value: "2" },
+      { id: "red-2", color: "red", value: "2" },
+    ],
+    user: [{ id: "green-1", color: "green", value: "1" }],
+  },
+  turnIndex: 0,
+  direction: 1,
+  pendingDraw: 0,
+  pendingDrawType: null,
+  mustCallUno: { bot: false, user: false },
+  drawnCardId: null,
+  status: "awaiting_move",
+  seed: 1,
+  rngCursor: 1,
+  turnCount: 0,
+  lastAction: null,
+  log: [],
+};
+const unoInstructions = unoEngine.describeForModel(unoColorStrategyState, "bot").instructions;
+assert.match(unoInstructions, /Blue 2/u);
+assert.match(unoInstructions, /do not simply repeat the current Red/u);
 
 assert.equal(parsePureTemperatureValue("15°C"), 15);
 assert.equal(parsePureTemperatureValue("59 Fahrenheit"), 15);

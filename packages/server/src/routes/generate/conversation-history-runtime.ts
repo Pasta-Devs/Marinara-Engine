@@ -17,10 +17,7 @@ import { formatConversationPromptTurn } from "../../services/generation/generati
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
 import { createLLMProvider } from "../../services/llm/provider-registry.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
-import {
-  annotateContentWithReactions,
-  REACTION_ANNOTATION_CONTENT_CAP,
-} from "./conversation-custom-assets.js";
+import { annotateContentWithReactions, REACTION_ANNOTATION_CONTENT_CAP } from "./conversation-custom-assets.js";
 import {
   formatConversationDateHistoryMessages,
   formatConversationSummaryHistoryBlock,
@@ -41,7 +38,10 @@ type ConversationHistoryCharacterStore = {
 };
 
 type ConversationHistoryChatsStore = {
-  patchMetadata(chatId: string, updater: (freshMeta: Record<string, unknown>) => Record<string, unknown>): Promise<unknown>;
+  patchMetadata(
+    chatId: string,
+    updater: (freshMeta: Record<string, unknown>) => Record<string, unknown>,
+  ): Promise<unknown>;
 };
 
 type ConversationSummaryConnection = {
@@ -144,7 +144,10 @@ export async function prepareConversationPromptHistory(args: {
   });
 
   for (const failure of summaryRun.failedDays) {
-    logger.warn({ chatId: args.chatId, date: failure.date, err: failure.error }, "[conversation-summary] failed to generate day summary");
+    logger.warn(
+      { chatId: args.chatId, date: failure.date, err: failure.error },
+      "[conversation-summary] failed to generate day summary",
+    );
   }
   for (const failure of summaryRun.failedWeeks) {
     logger.warn(
@@ -154,8 +157,7 @@ export async function prepareConversationPromptHistory(args: {
   }
 
   const hasNewSummaries =
-    Object.keys(summaryRun.newlyGeneratedDays).length > 0 ||
-    Object.keys(summaryRun.newlyConsolidatedWeeks).length > 0;
+    Object.keys(summaryRun.newlyGeneratedDays).length > 0 || Object.keys(summaryRun.newlyConsolidatedWeeks).length > 0;
   if (hasNewSummaries || summaryRun.summaryFailureMetadataChanged) {
     await args.chats.patchMetadata(args.chatId, (freshMeta) => {
       const existingDaySummaries = (freshMeta.daySummaries as Record<string, unknown> | undefined) ?? {};
@@ -288,6 +290,7 @@ async function annotateConversationPromptReactions(args: {
         parseExtra(raw.extra).reactions,
         reactionSpeakersByNorm,
         reactorDisplayName,
+        typeof raw.characterId === "string" ? (args.charIdToName.get(raw.characterId) ?? null) : null,
       ),
     };
   });

@@ -24,11 +24,23 @@ export const playCardToolManifest = {
   parameters: {
     type: "object",
     properties: {
-      color: { type: "string", description: "The card's color (use 'wild' for Wild / Wild Draw Four).", enum: COLOR_ENUM },
+      color: {
+        type: "string",
+        description: "The card's color (use 'wild' for Wild / Wild Draw Four).",
+        enum: COLOR_ENUM,
+      },
       value: { type: "string", description: "The card's value/face.", enum: VALUE_ENUM },
-      declared_color: { type: "string", description: "Required when playing a wild: the color you choose.", enum: DECLARED_COLOR_ENUM },
+      declared_color: {
+        type: "string",
+        description:
+          "Required when playing a wild: choose the color best represented among the colored cards remaining in your hand; do not default to the current color.",
+        enum: DECLARED_COLOR_ENUM,
+      },
       say_uno: { type: "boolean", description: "Set true when this play leaves you holding exactly one card." },
-      swap_target: { type: "string", description: "When playing a 7 under the 7-0 rule: the exact name of the player to swap hands with." },
+      swap_target: {
+        type: "string",
+        description: "When playing a 7 under the 7-0 rule: the exact name of the player to swap hands with.",
+      },
     },
     required: ["color", "value"],
   },

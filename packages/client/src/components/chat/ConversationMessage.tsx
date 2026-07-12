@@ -453,8 +453,9 @@ export const ConversationMessage = memo(function ConversationMessage({
   const groupedSegments = useMemo(() => {
     if (isUser || !renderedContent) return null;
     const knownNames = charByName ? new Set(charByName.keys()) : new Set<string>();
-    return parseGroupedSpeakerSegments(renderedContent, knownNames);
-  }, [isUser, renderedContent, charByName]);
+    const leadingSpeaker = message.characterId ? scopedCharacterMap?.get(message.characterId)?.name : null;
+    return parseGroupedSpeakerSegments(renderedContent, knownNames, leadingSpeaker);
+  }, [isUser, renderedContent, charByName, message.characterId, scopedCharacterMap]);
 
   // Segment-targeted reactions render inline under their speaker's segment; the
   // remainder (whole-message entries + orphans from a re-segmentation) keeps the

@@ -47,6 +47,7 @@ import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
+import { searchStandardEmojiShortcodes, type StandardEmojiShortcode } from "../../lib/emoji-shortcodes";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
 import { QuickPersonaSwitcher } from "./QuickPersonaSwitcher";
 import { QuickSwitcherMobile } from "./QuickSwitcherMobile";
@@ -79,6 +80,10 @@ interface Attachment {
   data: string;
   name: string;
 }
+
+type EmojiCompletion =
+  | ({ kind: "custom" } & ConversationCustomEmoji)
+  | ({ kind: "standard"; source: "Standard" } & StandardEmojiShortcode);
 
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "csv",
@@ -336,7 +341,7 @@ export function ConversationInput({
   const [selectedMention, setSelectedMention] = useState(0);
   const [mentionStartPos, setMentionStartPos] = useState(0);
   // :emoji: autocomplete
-  const [emojiCompletions, setEmojiCompletions] = useState<ConversationCustomEmoji[]>([]);
+  const [emojiCompletions, setEmojiCompletions] = useState<EmojiCompletion[]>([]);
   const [selectedEmojiCompletion, setSelectedEmojiCompletion] = useState(0);
   const [emojiStartPos, setEmojiStartPos] = useState(0);
   const { list: customEmojiList } = useConversationCustomEmojis();
@@ -444,13 +449,14 @@ export function ConversationInput({
   const messagesData = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(activeChatId ?? ""));
   const isProfessorMariChat = activeChatCharacters?.some((character) => character.id === PROFESSOR_MARI_ID) ?? false;
   const hasMessages = (messagesData?.pages ?? []).some((page) => page.length > 0);
-  const visibleMariChips = isProfessorMariChat && professorMariSuggestionsEnabled
-    ? mariChipsChatId === activeChatId && mariChips.length > 0
-      ? mariChips
-      : !hasMessages
-        ? MARI_STARTER_CHIPS
-        : []
-    : [];
+  const visibleMariChips =
+    isProfessorMariChat && professorMariSuggestionsEnabled
+      ? mariChipsChatId === activeChatId && mariChips.length > 0
+        ? mariChips
+        : !hasMessages
+          ? MARI_STARTER_CHIPS
+          : []
+      : [];
   const lastMessage = useMemo(() => {
     const firstPage = messagesData?.pages?.[0];
     return firstPage?.[firstPage.length - 1] ?? null;
@@ -832,13 +838,14 @@ export function ConversationInput({
 
   /** Insert an emoji completion into the textarea, replacing the :query. */
   const insertEmoji = useCallback(
-    (name: string) => {
+    (completion: EmojiCompletion) => {
       const el = textareaRef.current;
       if (!el) return;
       const before = el.value.slice(0, emojiStartPos);
       const after = el.value.slice(el.selectionStart);
-      el.value = `${before}:${name}: ${after}`;
-      const cursorPos = before.length + name.length + 3; // ':' + name + ':' + space
+      const inserted = completion.kind === "standard" ? completion.emoji : `:${completion.name}:`;
+      el.value = `${before}${inserted} ${after}`;
+      const cursorPos = before.length + inserted.length + 1;
       el.selectionStart = el.selectionEnd = cursorPos;
       syncInputState(el.value);
       if (activeChatId) setInputDraft(activeChatId, el.value);
@@ -1467,7 +1474,7 @@ export function ConversationInput({
         if (e.key === "Tab" || e.key === "Enter") {
           e.preventDefault();
           const em = emojiCompletions[selectedEmojiCompletion];
-          if (em) insertEmoji(em.name);
+          if (em) insertEmoji(em);
           return;
         }
         if (e.key === "Escape") {
@@ -1591,12 +1598,17 @@ export function ConversationInput({
 
       // :emoji: detection — a `:partial` at a word boundary, just before the cursor
       const emojiMatch = textBefore.match(/(?:^|\s):([a-z0-9_]+)$/);
-      if (emojiMatch && customEmojiList && customEmojiList.length > 0) {
+      if (emojiMatch) {
         const eq = emojiMatch[1]!.toLowerCase();
-        const matches = customEmojiList
+        const customMatches: EmojiCompletion[] = (customEmojiList ?? [])
           .filter((em) => em.name.includes(eq))
           .sort((a, b) => Number(b.name.startsWith(eq)) - Number(a.name.startsWith(eq)))
-          .slice(0, 10);
+          .map((em) => ({ ...em, kind: "custom" as const }));
+        const customNames = new Set(customMatches.map((em) => em.name));
+        const standardMatches: EmojiCompletion[] = searchStandardEmojiShortcodes(eq, 10)
+          .filter((em) => !customNames.has(em.name))
+          .map((em) => ({ ...em, kind: "standard" as const, source: "Standard" as const }));
+        const matches = [...customMatches, ...standardMatches].slice(0, 10);
         if (matches.length > 0) {
           setEmojiCompletions(matches);
           setSelectedEmojiCompletion(0);
@@ -2128,14 +2140,20 @@ export function ConversationInput({
               key={em.name}
               onMouseDown={(e) => {
                 e.preventDefault();
-                insertEmoji(em.name);
+                insertEmoji(em);
               }}
               className={cn(
                 "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
                 i === selectedEmojiCompletion ? "bg-foreground/10 text-foreground" : "hover:bg-foreground/10",
               )}
             >
-              <img src={em.url} alt={`:${em.name}:`} className="h-5 w-5 shrink-0 object-contain" />
+              {em.kind === "custom" ? (
+                <img src={em.url} alt={`:${em.name}:`} className="h-5 w-5 shrink-0 object-contain" />
+              ) : (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center text-base" aria-hidden="true">
+                  {em.emoji}
+                </span>
+              )}
               <span className="min-w-0 flex-1 truncate font-medium">:{em.name}:</span>
               <span className="hidden shrink-0 text-xs text-foreground/40 sm:inline">{em.source}</span>
             </button>

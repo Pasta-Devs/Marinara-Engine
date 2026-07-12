@@ -190,7 +190,7 @@ async function resolveTargetedCharacterReaction(
     const names = new Set(baseNames);
     const author = await authorNameOf(authorId);
     if (author) names.add(normalizeTextForMatch(author));
-    const groups = parseGroupedSpeakerSegments(text, names);
+    const groups = parseGroupedSpeakerSegments(text, names, author);
     if (!groups) return null;
     let cutoff = groups.length;
     if (beforePartByNorm) {
@@ -236,7 +236,11 @@ async function resolveTargetedCharacterReaction(
     const hasAttachments = Array.isArray(messageExtra.attachments) && messageExtra.attachments.length > 0;
     if (!contentStr.trim() && !hasAttachments) continue;
     if (message.characterId === targetChar.id) {
-      return { id: message.id, target: await lastPartBy(message.content, message.characterId), prefetchedMessage: null };
+      return {
+        id: message.id,
+        target: await lastPartBy(message.content, message.characterId),
+        prefetchedMessage: null,
+      };
     }
     const part = await lastPartBy(message.content, message.characterId);
     if (part) {
@@ -244,9 +248,6 @@ async function resolveTargetedCharacterReaction(
     }
   }
 
-  logger.debug(
-    '[react/conversation] No recent part by "%s" to react to - skipping targeted react',
-    targetChar.name,
-  );
+  logger.debug('[react/conversation] No recent part by "%s" to react to - skipping targeted react', targetChar.name);
   return null;
 }

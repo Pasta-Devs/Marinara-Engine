@@ -135,11 +135,7 @@ export const createLorebookSchema = z
       .min(0)
       .max(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX)
       .default(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_DEFAULT),
-    vectorScoreThreshold: z
-      .number()
-      .min(0)
-      .max(1)
-      .default(LIMITS.LOREBOOK_VECTOR_SCORE_THRESHOLD_DEFAULT),
+    vectorScoreThreshold: z.number().min(0).max(1).default(LIMITS.LOREBOOK_VECTOR_SCORE_THRESHOLD_DEFAULT),
     vectorMaxResults: z
       .number()
       .int()
@@ -168,12 +164,7 @@ export const updateLorebookSchema = z
     imagePath: z.string().nullable().optional(),
     scanDepth: z.number().int().min(0).optional(),
     tokenBudget: z.number().int().min(0).optional(),
-    entryLimit: z
-      .number()
-      .int()
-      .min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN)
-      .max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX)
-      .optional(),
+    entryLimit: z.number().int().min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN).max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX).optional(),
     recursiveScanning: z.boolean().optional(),
     maxRecursionDepth: z.number().int().min(1).max(10).optional(),
     excludeFromVectorization: z.boolean().optional(),
@@ -291,9 +282,31 @@ export const updateLorebookEntrySchema = z.object({
   excludeFromVectorization: z.boolean().optional(),
 });
 
+export const bulkUpdateLorebookEntriesSchema = z.object({
+  entryIds: z.array(z.string().min(1)).min(1).max(5000),
+  changes: z
+    .object({
+      enabled: z.boolean().optional(),
+      constant: z.boolean().optional(),
+      selective: z.boolean().optional(),
+      matchWholeWords: z.boolean().optional(),
+      caseSensitive: z.boolean().optional(),
+      useRegex: z.boolean().optional(),
+      preventRecursion: z.boolean().optional(),
+      excludeRecursion: z.boolean().optional(),
+      delayUntilRecursion: z.boolean().optional(),
+      excludeFromVectorization: z.boolean().optional(),
+      locked: z.boolean().optional(),
+    })
+    .refine((changes) => Object.values(changes).some((value) => value !== undefined), {
+      message: "Choose at least one setting to update",
+    }),
+});
+
 export type CreateLorebookInput = z.input<typeof createLorebookSchema>;
 export type UpdateLorebookInput = z.infer<typeof updateLorebookSchema>;
 export type CreateLorebookEntryInput = z.input<typeof createLorebookEntrySchema>;
 export type UpdateLorebookEntryInput = z.infer<typeof updateLorebookEntrySchema>;
+export type BulkUpdateLorebookEntriesInput = z.infer<typeof bulkUpdateLorebookEntriesSchema>;
 export type CreateLorebookFolderInput = z.input<typeof createLorebookFolderSchema>;
 export type UpdateLorebookFolderInput = z.infer<typeof updateLorebookFolderSchema>;

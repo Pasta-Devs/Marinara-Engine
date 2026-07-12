@@ -563,9 +563,6 @@ export function scanForActivatedEntries(
 
     for (const entry of entries) {
       if (!entry.enabled || entry.constant || activatedIds.has(entry.id)) continue;
-      // Explicit primary keys mean the entry is keyword-gated. Vectorization is
-      // still useful for router/search flows, but it must not bypass those keys.
-      if (entry.keys.some((key) => key.trim().length > 0)) continue;
       if (entry.delayUntilRecursion && !recursionPass) continue;
       if (entry.excludeRecursion && recursionPass) continue;
       if (entry.excludeFromVectorization) continue;
@@ -600,8 +597,7 @@ export function scanForActivatedEntries(
     const semanticCountsByLorebookId = new Map<string, number>();
     for (const candidate of semanticCandidates.sort((a, b) => b.similarity - a.similarity)) {
       const lorebookId = candidate.entry.lorebookId;
-      const maxMatches =
-        semanticMaxMatchesByLorebookId.get(lorebookId) ?? LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT;
+      const maxMatches = semanticMaxMatchesByLorebookId.get(lorebookId) ?? LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT;
       const selectedCount = semanticCountsByLorebookId.get(lorebookId) ?? 0;
       if (selectedCount >= maxMatches) continue;
       activated.push({

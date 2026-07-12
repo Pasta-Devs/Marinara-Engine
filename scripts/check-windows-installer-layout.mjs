@@ -33,6 +33,28 @@ try {
 
   const failures = unsafePatterns.filter(({ pattern }) => pattern.test(code));
 
+  const uninstallStart = code.indexOf('Section "Uninstall"');
+  const packageRemoval = code.indexOf('RMDir /r "$INSTDIR\\packages"', uninstallStart);
+  const canonicalDataDecision = code.indexOf("$INSTDIR\\packages\\server\\data", uninstallStart);
+  if (uninstallStart < 0 || packageRemoval < 0 || canonicalDataDecision < 0 || canonicalDataDecision > packageRemoval) {
+    failures.push({
+      message:
+        'The uninstaller must decide how to preserve "$INSTDIR\\packages\\server\\data" before removing packages.',
+    });
+  }
+  if (!code.includes('Rename "$INSTDIR\\packages\\server\\data" "$INSTDIR\\.__marinara-preserved-data"')) {
+    failures.push({ message: "The uninstaller must move current-layout user data out of packages before cleanup." });
+  }
+  if (!code.includes('Rename "$INSTDIR\\.__marinara-preserved-data" "$INSTDIR\\packages\\server\\data"')) {
+    failures.push({ message: "The uninstaller must restore preserved current-layout user data after cleanup." });
+  }
+  if (/RMDir\s+\/r\s+"\$INSTDIR\\installer"/i.test(code)) {
+    failures.push({ message: 'The uninstaller still targets the stale "$INSTDIR\\installer" directory.' });
+  }
+  if (!/RMDir\s+\/r\s+"\$INSTDIR\\win"/i.test(code)) {
+    failures.push({ message: 'The uninstaller must remove the current "$INSTDIR\\win" directory.' });
+  }
+
   const unsafeVariableAssignments = [
     {
       pattern: /\bStrCpy\s+(\$[A-Za-z0-9_]+)\s+"?\$INSTDIR\\repo-temp"?\b/i,

@@ -32,6 +32,7 @@ import {
   useLorebookFolders,
   useCreateLorebookFolder,
   useUpdateLorebookEntry,
+  useBulkUpdateLorebookEntries,
   useReorderLorebookFolders,
   useUpdateLorebookFolder,
   useTransferLorebookEntries,
@@ -320,6 +321,21 @@ const SORT_OPTIONS: Array<{ value: EntrySortKey; label: string }> = [
   { value: "oldest", label: "Oldest" },
 ];
 
+const BATCH_ENTRY_SETTING_OPTIONS = [
+  { value: "enabled", label: "Entry enabled" },
+  { value: "constant", label: "Always active" },
+  { value: "selective", label: "Selective matching" },
+  { value: "matchWholeWords", label: "Match whole words" },
+  { value: "caseSensitive", label: "Case sensitive" },
+  { value: "useRegex", label: "Use regex" },
+  { value: "preventRecursion", label: "Prevent recursion" },
+  { value: "excludeRecursion", label: "Exclude from recursion" },
+  { value: "delayUntilRecursion", label: "Delay until recursion" },
+  { value: "excludeFromVectorization", label: "Exclude from vectors" },
+  { value: "locked", label: "Locked" },
+] as const;
+type BatchEntrySetting = (typeof BATCH_ENTRY_SETTING_OPTIONS)[number]["value"];
+
 function entryStatusSortRank(entry: LorebookEntry): number {
   if (!entry.enabled) return 3;
   if (entry.constant) return 0;
@@ -342,6 +358,7 @@ export function LorebookEditor() {
   const createEntry = useCreateLorebookEntry();
   const deleteEntry = useDeleteLorebookEntry();
   const updateEntry = useUpdateLorebookEntry();
+  const bulkUpdateEntries = useBulkUpdateLorebookEntries();
   const reorderEntries = useReorderLorebookEntries();
   const createFolder = useCreateLorebookFolder();
   const updateFolder = useUpdateLorebookFolder();
@@ -418,6 +435,8 @@ export function LorebookEditor() {
   const [entrySelectionMode, setEntrySelectionMode] = useState(false);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
   const [entryTransferTargetId, setEntryTransferTargetId] = useState("");
+  const [batchEntrySetting, setBatchEntrySetting] = useState<BatchEntrySetting | "">("");
+  const [batchEntryValue, setBatchEntryValue] = useState<"true" | "false">("true");
 
   // ── Folder UI state ──
   // Collapse state: persisted in localStorage, keyed per-lorebook. Loaded
@@ -759,6 +778,22 @@ export function LorebookEditor() {
       transferTargetLorebooks,
     ],
   );
+
+  const handleBatchUpdateEntries = useCallback(async () => {
+    if (!lorebookId || selectedEntryIds.size === 0 || !batchEntrySetting) return;
+    try {
+      const result = await bulkUpdateEntries.mutateAsync({
+        lorebookId,
+        entryIds: Array.from(selectedEntryIds),
+        changes: { [batchEntrySetting]: batchEntryValue === "true" },
+      });
+      const settingLabel =
+        BATCH_ENTRY_SETTING_OPTIONS.find((option) => option.value === batchEntrySetting)?.label ?? "Setting";
+      toast.success(`${settingLabel} updated for ${result.updated} ${result.updated === 1 ? "entry" : "entries"}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update selected entries.");
+    }
+  }, [batchEntrySetting, batchEntryValue, bulkUpdateEntries, lorebookId, selectedEntryIds]);
 
   const handleDeleteSelectedEntries = useCallback(async () => {
     if (!lorebookId || selectedEntryIds.size === 0) return;
@@ -1684,11 +1719,7 @@ export function LorebookEditor() {
               <rect x="3" y="15" width="14" height="2" rx="1" fill="currentColor" />
             </svg>
           </button>
-          <button
-            onClick={handleDelete}
-            className="mari-editor-action inline-flex"
-            title="Delete lorebook"
-          >
+          <button onClick={handleDelete} className="mari-editor-action inline-flex" title="Delete lorebook">
             <Trash2 size="0.875rem" />
           </button>
         </div>
@@ -2263,6 +2294,40 @@ export function LorebookEditor() {
                       Clear
                     </button>
                     <select
+                      value={batchEntrySetting}
+                      onChange={(event) => setBatchEntrySetting(event.target.value as BatchEntrySetting | "")}
+                      className="mari-editor-field min-h-8 min-w-[10rem] px-2.5 py-1.5 text-xs"
+                      aria-label="Setting to apply to selected entries"
+                    >
+                      <option value="">Batch setting…</option>
+                      {BATCH_ENTRY_SETTING_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={batchEntryValue}
+                      onChange={(event) => setBatchEntryValue(event.target.value as "true" | "false")}
+                      className="mari-editor-field min-h-8 px-2.5 py-1.5 text-xs"
+                      aria-label="Value to apply to selected entries"
+                    >
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                    <button
+                      onClick={() => void handleBatchUpdateEntries()}
+                      disabled={selectedEntryIds.size === 0 || !batchEntrySetting || bulkUpdateEntries.isPending}
+                      className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
+                    >
+                      {bulkUpdateEntries.isPending ? (
+                        <Loader2 size="0.6875rem" className="animate-spin" />
+                      ) : (
+                        <Check size="0.6875rem" />
+                      )}
+                      Apply
+                    </button>
+                    <select
                       value={entryTransferTargetId}
                       onChange={(e) => setEntryTransferTargetId(e.target.value)}
                       disabled={transferTargetLorebooks.length === 0}
@@ -2700,9 +2765,8 @@ function VectorizeSection({
       await queryClient.invalidateQueries({ queryKey: lorebookKeys.entries(lorebookId) });
       setResult({
         success: true,
-        message: mode === "all"
-          ? `Re-vectorized ${data.vectorized} entries`
-          : `Vectorized ${data.vectorized} missing entries`,
+        message:
+          mode === "all" ? `Re-vectorized ${data.vectorized} entries` : `Vectorized ${data.vectorized} missing entries`,
       });
     } catch (err) {
       setResult({ success: false, message: err instanceof Error ? err.message : "Vectorization failed" });
@@ -2772,10 +2836,7 @@ function VectorizeSection({
             value={vectorQueryDepth}
             onChange={(e) =>
               onVectorQueryDepthChange(
-                Math.max(
-                  0,
-                  Math.min(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX, Number.parseInt(e.target.value, 10) || 0),
-                ),
+                Math.max(0, Math.min(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX, Number.parseInt(e.target.value, 10) || 0)),
               )
             }
             min={0}

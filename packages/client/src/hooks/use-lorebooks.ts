@@ -80,7 +80,8 @@ export function useLorebookPages(options: {
       if (sort) params.set("sort", sort);
       if (options.active) {
         params.set("active", "true");
-        if (options.active.lorebookIds.length > 0) params.set("activeLorebookIds", options.active.lorebookIds.join(","));
+        if (options.active.lorebookIds.length > 0)
+          params.set("activeLorebookIds", options.active.lorebookIds.join(","));
         if (options.active.characterIds.length > 0) params.set("characterIds", options.active.characterIds.join(","));
         if (options.active.personaId) params.set("personaId", options.active.personaId);
         if (options.active.chatId) params.set("chatId", options.active.chatId);
@@ -96,17 +97,19 @@ export function flattenLorebookPages(data: { pages?: Array<PaginatedList<Loreboo
   return flattenPaginatedItems(data?.pages);
 }
 
-export function fetchAllLorebookPages(options: {
-  category?: string;
-  search?: string;
-  sort?: string;
-  active?: {
-    lorebookIds: string[];
-    characterIds: string[];
-    personaId?: string | null;
-    chatId?: string | null;
-  };
-} = {}) {
+export function fetchAllLorebookPages(
+  options: {
+    category?: string;
+    search?: string;
+    sort?: string;
+    active?: {
+      lorebookIds: string[];
+      characterIds: string[];
+      personaId?: string | null;
+      chatId?: string | null;
+    };
+  } = {},
+) {
   const category = options.category ?? "";
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
@@ -157,10 +160,13 @@ export function useEmbedLorebook() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ characterId, lorebookId }: { characterId: string; lorebookId: string }) =>
-      api.post<{ success: boolean; lorebookId: string; entriesEmbedded: number; refreshed: boolean; characterBook: unknown }>(
-        `/characters/${characterId}/embedded-lorebook/embed`,
-        { lorebookId },
-      ),
+      api.post<{
+        success: boolean;
+        lorebookId: string;
+        entriesEmbedded: number;
+        refreshed: boolean;
+        characterBook: unknown;
+      }>(`/characters/${characterId}/embedded-lorebook/embed`, { lorebookId }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.all });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
@@ -303,6 +309,25 @@ export function useUpdateLorebookEntry() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.entry(variables.entryId) });
+      qc.invalidateQueries({ queryKey: lorebookKeys.active() });
+    },
+  });
+}
+
+export function useBulkUpdateLorebookEntries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      lorebookId,
+      entryIds,
+      changes,
+    }: {
+      lorebookId: string;
+      entryIds: string[];
+      changes: Record<string, boolean>;
+    }) => api.patch<{ updated: number }>(`/lorebooks/${lorebookId}/entries/bulk`, { entryIds, changes }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: lorebookKeys.entries(variables.lorebookId) });
       qc.invalidateQueries({ queryKey: lorebookKeys.active() });
     },
   });

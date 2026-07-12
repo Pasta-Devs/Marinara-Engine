@@ -19,9 +19,7 @@ const LEADING_CONVERSATION_TIMESTAMPS_RE = new RegExp(
 );
 
 function decodeSpeakerTagAttributeEntities(value: string): string {
-  return value
-    .replace(/&quot;|&#0*34;|&#x0*22;/gi, '"')
-    .replace(/&apos;|&#0*39;|&#x0*27;/gi, "'");
+  return value.replace(/&quot;|&#0*34;|&#x0*22;/gi, '"').replace(/&apos;|&#0*39;|&#x0*27;/gi, "'");
 }
 
 export function decodeEncodedSpeakerTags(value: string): string {
@@ -117,7 +115,11 @@ export function parseSpeakerTags(content: string, knownNames: Set<string>): Spea
  * tags are present). Returns null when no known name prefixes any line.
  * `knownNames` holds normalizeTextForMatch()-normalized character names.
  */
-export function parseNamePrefixFormat(content: string, knownNames: Set<string>): SpeakerSegment[] | null {
+export function parseNamePrefixFormat(
+  content: string,
+  knownNames: Set<string>,
+  leadingSpeaker?: string | null,
+): SpeakerSegment[] | null {
   if (!knownNames.size) return null;
   const lines = content.split("\n");
   // Start offset of each line in `content` (lines are separated by exactly "\n").
@@ -166,7 +168,12 @@ export function parseNamePrefixFormat(content: string, knownNames: Set<string>):
   }
   flush();
   if (!found) return null;
-  return segments.filter((s) => s.text.trim());
+  const visibleSegments = segments.filter((s) => s.text.trim());
+  const normalizedLeadingSpeaker = leadingSpeaker ? normalizeTextForMatch(leadingSpeaker) : "";
+  if (visibleSegments[0]?.speaker === null && normalizedLeadingSpeaker && knownNames.has(normalizedLeadingSpeaker)) {
+    visibleSegments[0] = { ...visibleSegments[0], speaker: leadingSpeaker!.trim() };
+  }
+  return visibleSegments;
 }
 
 /** Merge consecutive segments by the same speaker into one grouped segment. */
@@ -197,10 +204,14 @@ export function groupConsecutiveSegments(segments: SpeakerSegment[]): GroupedSeg
  * canonical definition of "segment index N" — both the client's grouped layout
  * and the server's reaction attribution must derive indexes through it.
  */
-export function parseGroupedSpeakerSegments(content: string, knownNames: Set<string>): GroupedSegment[] | null {
+export function parseGroupedSpeakerSegments(
+  content: string,
+  knownNames: Set<string>,
+  leadingSpeaker?: string | null,
+): GroupedSegment[] | null {
   const speakerSegs = parseSpeakerTags(content, knownNames);
   if (speakerSegs) return groupConsecutiveSegments(speakerSegs);
-  const nameSegs = parseNamePrefixFormat(content, knownNames);
+  const nameSegs = parseNamePrefixFormat(content, knownNames, leadingSpeaker);
   if (nameSegs) return groupConsecutiveSegments(nameSegs);
   return null;
 }

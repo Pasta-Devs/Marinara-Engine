@@ -11,6 +11,7 @@ import {
   updateLorebookSchema,
   createLorebookEntrySchema,
   updateLorebookEntrySchema,
+  bulkUpdateLorebookEntriesSchema,
   createLorebookFolderSchema,
   updateLorebookFolderSchema,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -598,6 +599,20 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       return created;
     } catch (err) {
       if (err instanceof Error && err.message === "folderId does not belong to this lorebook") {
+        return reply.status(400).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
+
+  app.patch<{ Params: { id: string } }>("/:id/entries/bulk", async (req, reply) => {
+    const input = bulkUpdateLorebookEntriesSchema.parse(req.body);
+    try {
+      const result = await storage.bulkUpdateEntries(req.params.id, input.entryIds, input.changes);
+      await syncCharacterBookFromLorebook(app.db, req.params.id);
+      return result;
+    } catch (err) {
+      if (err instanceof Error && err.message === "One or more selected entries do not belong to this lorebook") {
         return reply.status(400).send({ error: err.message });
       }
       throw err;

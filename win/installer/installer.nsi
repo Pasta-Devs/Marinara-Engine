@@ -1,6 +1,6 @@
 ; ──────────────────────────────────────────────
 ; Marinara Engine — Windows Installer
-; Cross-compiled from macOS via NSIS (makensis)
+; Built in CI via NSIS (makensis)
 ; ──────────────────────────────────────────────
 
 !include "MUI2.nsh"
@@ -810,6 +810,43 @@ SectionEnd
 Section "Uninstall"
   SetDetailsPrint both
 
+  ; User data lives inside packages/server/data in current installs. Decide
+  ; whether to preserve it BEFORE removing any application directories.
+  ; Older installs used $INSTDIR\data, so keep supporting that location too.
+  StrCpy $0 "delete"
+  ${If} ${FileExists} "$INSTDIR\packages\server\data\*.*"
+    Goto un_confirmData
+  ${ElseIf} ${FileExists} "$INSTDIR\data\*.*"
+    Goto un_confirmData
+  ${Else}
+    Goto un_removeApplication
+  ${EndIf}
+
+  un_confirmData:
+    MessageBox MB_YESNO|MB_ICONQUESTION "\
+${APP_NAME} stores your chats, characters, personas, and other user data inside its installation folder.$\r$\n$\r$\n\
+Would you like to delete your data too?$\r$\n$\r$\n\
+Choose No to preserve it for a future reinstall." IDYES un_removeApplication IDNO un_preserveData
+
+  un_preserveData:
+    StrCpy $0 "keep"
+    ${If} ${FileExists} "$INSTDIR\packages\server\data\*.*"
+      ${If} ${FileExists} "$INSTDIR\.__marinara-preserved-data\*.*"
+        MessageBox MB_OK|MB_ICONSTOP "Uninstall stopped because the temporary preservation folder already exists:$\r$\n$INSTDIR\.__marinara-preserved-data$\r$\n$\r$\nMove or rename that folder, then run the uninstaller again. No application files were removed."
+        Abort
+      ${EndIf}
+      ClearErrors
+      Rename "$INSTDIR\packages\server\data" "$INSTDIR\.__marinara-preserved-data"
+      IfErrors un_preserveFailed un_removeApplication
+    ${EndIf}
+    Goto un_removeApplication
+
+  un_preserveFailed:
+    MessageBox MB_OK|MB_ICONSTOP "Uninstall stopped because your user data could not be moved to a safe temporary location. No application files were removed."
+    Abort
+
+  un_removeApplication:
+
   DetailPrint "Removing desktop shortcut..."
   Delete "$DESKTOP\${APP_NAME}.lnk"
 
@@ -827,7 +864,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\packages"
   RMDir /r "$INSTDIR\android"
   RMDir /r "$INSTDIR\docs"
-  RMDir /r "$INSTDIR\installer"
+  RMDir /r "$INSTDIR\win"
   RMDir /r "$INSTDIR\.git"
   Delete "$INSTDIR\*.json"
   Delete "$INSTDIR\*.yaml"
@@ -842,24 +879,34 @@ Section "Uninstall"
   Delete "$INSTDIR\Dockerfile"
   Delete "$INSTDIR\uninstall.exe"
 
-  ; Keep the data/ directory (user chats, characters, etc.)
-  ; Show a message about it
-  ${If} ${FileExists} "$INSTDIR\data\*.*"
-    MessageBox MB_YESNO|MB_ICONQUESTION "\
-${APP_NAME} has been uninstalled.$\r$\n$\r$\n\
-Your data (chats, characters, personas, etc.) is still in:$\r$\n\
-$INSTDIR\data$\r$\n$\r$\n\
-Would you like to delete your data too?" IDYES deleteData IDNO keepData
-    deleteData:
-      RMDir /r "$INSTDIR\data"
-      RMDir /r "$INSTDIR"
-      Goto doneUninstall
-    keepData:
-      DetailPrint "User data preserved in $INSTDIR\data"
-      Goto doneUninstall
+  ${If} $0 == "keep"
+    ; Restore current-layout data after packages/ has been removed. If restore
+    ; fails, the data remains intact in the explicitly reported safe folder.
+    ${If} ${FileExists} "$INSTDIR\.__marinara-preserved-data\*.*"
+      CreateDirectory "$INSTDIR\packages\server"
+      ClearErrors
+      Rename "$INSTDIR\.__marinara-preserved-data" "$INSTDIR\packages\server\data"
+      IfErrors un_restoreFailed un_dataPreserved
+    ${EndIf}
+    Goto un_dataPreserved
   ${Else}
-    RMDir /r "$INSTDIR"
+    RMDir /r "$INSTDIR\data"
+    RMDir "$INSTDIR"
   ${EndIf}
+
+  Goto doneUninstall
+
+  un_restoreFailed:
+    MessageBox MB_OK|MB_ICONEXCLAMATION "${APP_NAME} was removed, but your preserved data could not be restored to its usual location. It remains safe in:$\r$\n$INSTDIR\.__marinara-preserved-data"
+    Goto doneUninstall
+
+  un_dataPreserved:
+    ${If} ${FileExists} "$INSTDIR\packages\server\data\*.*"
+      DetailPrint "User data preserved in $INSTDIR\packages\server\data"
+    ${EndIf}
+    ${If} ${FileExists} "$INSTDIR\data\*.*"
+      DetailPrint "Legacy user data preserved in $INSTDIR\data"
+    ${EndIf}
 
   doneUninstall:
   DetailPrint "Uninstallation complete."

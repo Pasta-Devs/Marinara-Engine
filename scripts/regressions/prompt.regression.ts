@@ -511,10 +511,7 @@ const cases: RegressionCase[] = [
     name: "TTS dialogue extraction ignores HTML and CSS attributes",
     run() {
       const htmlCard = `<div style="max-width:340px;font-family:Georgia,'Times New Roman',serif;color:#3a2f1e;"><div class="label">read a hundred times</div><div>Your name is <span style="font-weight:bold">Maukie</span>.</div></div>`;
-      const utterances = extractDialogueUtterances(
-        `${htmlCard}\nDottore said, "Stay behind me."`,
-        "Dottore",
-      );
+      const utterances = extractDialogueUtterances(`${htmlCard}\nDottore said, "Stay behind me."`, "Dottore");
 
       assert.deepEqual(utterances, [{ text: "Stay behind me.", speaker: "Dottore" }]);
       const cleaned = cleanTTSInputText(`<style>.note { color: red; }</style>${htmlCard}`);
@@ -524,10 +521,7 @@ const cases: RegressionCase[] = [
       assert.match(cleaned, /Your name is Maukie\./);
 
       assert.deepEqual(
-        extractDialogueUtterances(
-          '<div class="frame"></div><speaker="Dottore">"Do not move."</speaker>',
-          "Narrator",
-        ),
+        extractDialogueUtterances('<div class="frame"></div><speaker="Dottore">"Do not move."</speaker>', "Narrator"),
         [{ text: "Do not move.", speaker: "Dottore" }],
       );
     },
@@ -840,7 +834,10 @@ const cases: RegressionCase[] = [
       const providerMessage = "Provider concurrency limit exceeded for this account";
       assert.match(formatGenerationParameterError(providerMessage), /Provider message: Provider concurrency limit/);
       assert.match(formatGenerationParameterError("Too many parallel requests"), /concurrency limit was reached/);
-      assert.match(formatGenerationParameterError("Simultaneous generations limit reached"), /concurrency limit was reached/);
+      assert.match(
+        formatGenerationParameterError("Simultaneous generations limit reached"),
+        /concurrency limit was reached/,
+      );
       assert.equal(
         formatAgentFailuresToast([
           toAgentFailure({ agentType: "illustrator", agentName: "Illustrator", error: providerMessage }),
@@ -922,10 +919,7 @@ const cases: RegressionCase[] = [
         gameSetupWizardSource,
         /gamePresentation === "anime"\s*\? GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID/,
       );
-      assert.match(
-        gameSetupWizardSource,
-        /gamePresentation === "anime"\s*\? COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID/,
-      );
+      assert.match(gameSetupWizardSource, /gamePresentation === "anime"\s*\? COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID/);
       assert.match(gameSetupWizardSource, /trimmedGameSystemPrompt !== effectiveGameSystemPrompt\.trim\(\)/);
       assert.match(gameSetupWizardSource, /Reset to selected/);
     },
@@ -1002,16 +996,16 @@ const cases: RegressionCase[] = [
       assert.match(animationPreset?.promptTemplate ?? "", /third panel is allowed in a 6-7 second clip only/);
       assert.match(animationPreset?.promptTemplate ?? "", /2-3 panels for 8-10 seconds/);
       assert.match(animationPreset?.promptTemplate ?? "", /Never show a consequence before its cause/);
-      assert.match(animationPreset?.promptTemplate ?? "", /Omit speech bubbles, captions, and SFX lettering by default/);
+      assert.match(
+        animationPreset?.promptTemplate ?? "",
+        /Omit speech bubbles, captions, and SFX lettering by default/,
+      );
       assert.match(animationPreset?.promptTemplate ?? "", /Reserve the final 0.4-0.7 seconds/);
       assert.match(animationPreset?.promptTemplate ?? "", /Do not ask the video model to animate every panel at once/);
       assert.doesNotMatch(animationPreset?.promptTemplate ?? "", /2-6 panels per illustration/);
       assert.match(COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE, /no more than 0.35 seconds/);
       assert.match(COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE, /reveal a later consequence before its cause/);
-      assert.match(
-        drawerSource,
-        /onAddTemplate\(GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID\)/,
-      );
+      assert.match(drawerSource, /onAddTemplate\(GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID\)/);
       assert.match(drawerSource, /Add Comic Animation Copy/);
       assert.match(drawerSource, /onAddTemplate\(COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID\)/);
       assert.match(drawerSource, /Add Comic Video Copy/);
@@ -1023,10 +1017,7 @@ const cases: RegressionCase[] = [
       assert.match(gameSurfaceSource, /storyboardViewerPlayingVideoId === activeStoryboardKeyframe\.video\.id/);
       assert.match(gameSurfaceSource, /video\.playbackRate = 1/);
       assert.match(gameSurfaceSource, /setStoryboardViewerMuted\(false\)/);
-      assert.match(
-        gameSurfaceSource,
-        /setStoryboardViewerPlayingVideoId\(activeStoryboardKeyframe\.video\.id\)/,
-      );
+      assert.match(gameSurfaceSource, /setStoryboardViewerPlayingVideoId\(activeStoryboardKeyframe\.video\.id\)/);
       assert.match(backgroundViewerSource, /onEnded=\{\(\) =>/);
       assert.doesNotMatch(backgroundViewerSource, /\bloop\b/);
     },
@@ -2225,7 +2216,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "semantic lorebook scan can activate keyless vector entries",
+    name: "semantic lorebook scan activates vector matches even when entries have primary keys",
     run() {
       const entry = {
         id: "entry-semantic",
@@ -2233,7 +2224,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         enabled: true,
         constant: false,
         selective: false,
-        keys: [],
+        keys: ["keyword that is absent"],
         secondaryKeys: [],
         selectiveLogic: "and",
         useRegex: false,
@@ -2274,6 +2265,16 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(activated.length, 1);
       assert.equal(activated[0]?.entry.id, "entry-semantic");
       assert.match(activated[0]?.matchedKeys[0] ?? "", /^\[semantic:/);
+
+      const belowThreshold = scanForActivatedEntries(
+        [{ role: "user", content: "nearby query" }],
+        [{ ...entry, id: "entry-below-threshold", keys: [], embedding: [0, 1] } as any],
+        {
+          chatEmbedding: [1, 0],
+          semanticThresholdByLorebookId: new Map([["book-semantic", 0.9]]),
+        },
+      );
+      assert.equal(belowThreshold.length, 0);
     },
   },
 ];

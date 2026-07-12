@@ -712,6 +712,81 @@ test("Lorebook Save keeps Overview stable while the updated detail cache settles
   }
 });
 
+test("selected Lorebook entries accept one batch setting update", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop editor batch controls are covered on desktop.");
+
+  const name = `Lorebook batch edit ${Date.now()}`;
+  const createResponse = await page.request.post("/api/lorebooks", {
+    data: { name, description: "Temporary batch-edit regression lorebook.", category: "world", enabled: true },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const lorebook = (await createResponse.json()) as { id: string };
+
+  try {
+    for (const entryName of ["Batch Entry One", "Batch Entry Two"]) {
+      const entryResponse = await page.request.post(`/api/lorebooks/${lorebook.id}/entries`, {
+        data: { name: entryName, content: `${entryName} content`, preventRecursion: true },
+      });
+      expect(entryResponse.ok()).toBeTruthy();
+    }
+
+    await page.goto("/");
+    await page.locator('[data-tour="panel-lorebooks"]').click();
+    await page.getByText(name, { exact: true }).click();
+    await page.getByRole("button", { name: /^Entries/ }).click();
+    await page.getByTitle("Select entries to copy or move").click();
+    await page.getByRole("button", { name: "Select all", exact: true }).click();
+    await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
+    await page.getByLabel("Setting to apply to selected entries").selectOption("preventRecursion");
+    await page.getByLabel("Value to apply to selected entries").selectOption("false");
+    await page.getByRole("button", { name: "Apply", exact: true }).click();
+    await expect(page.getByText("Prevent recursion updated for 2 entries.")).toBeVisible();
+
+    const entriesResponse = await page.request.get(`/api/lorebooks/${lorebook.id}/entries`);
+    expect(entriesResponse.ok()).toBeTruthy();
+    const entries = (await entriesResponse.json()) as Array<{ preventRecursion: boolean }>;
+    expect(entries).toHaveLength(2);
+    expect(entries.every((entry) => entry.preventRecursion === false)).toBe(true);
+  } finally {
+    await page.request.delete(`/api/lorebooks/${lorebook.id}`).catch(() => undefined);
+  }
+});
+
+test("Conversation autocompletes and renders standard emoji shortcodes", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop Conversation autocomplete is covered on desktop.");
+
+  const characterResponse = await page.request.post("/api/characters", {
+    data: { data: { name: `Emoji Character ${Date.now()}` } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Standard emoji autocomplete", mode: "conversation", characterIds: [character.id] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "assistant", characterId: character.id, content: "Model sent :crying:" },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    await expect(page.getByText("Model sent 😢", { exact: true })).toBeVisible();
+    const input = page.locator('textarea[placeholder*="Message"]').last();
+    await input.fill(":cry");
+    const cryingSuggestion = page.getByRole("button", { name: /:crying:.*Standard/i });
+    await expect(cryingSuggestion).toBeVisible();
+    await cryingSuggestion.click();
+    await expect(input).toHaveValue("😢 ");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+    await page.request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+  }
+});
+
 test("home page stays fitted while FAQ behavior matches the viewport", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const mobile = testInfo.project.name.includes("mobile");

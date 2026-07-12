@@ -21,6 +21,8 @@ import { SwipeJumpControl } from "./SwipeJumpControl";
 import { AnimatedDiceRoll, isDiceRollResult, shouldAnimateDiceRollMessage } from "../dice/AnimatedDiceRoll";
 import type { CharacterMap } from "./chat-area.types";
 
+const EMPTY_INLINE_EMOJI_MAP = new Map<string, string>();
+
 // ── Types ────────────────────────────────────────
 
 export type CharInfo = NonNullable<ReturnType<CharacterMap["get"]>>;
@@ -383,10 +385,8 @@ export function MessageContent({
   const baseInline = mentionNames?.length
     ? (text: string, kp: string) => highlightMentions(applyInlineMarkdown(text, kp), mentionNames, kp)
     : applyInlineMarkdown;
-  const renderInline =
-    emojiMap && emojiMap.size > 0
-      ? (text: string, kp: string) => renderInlineWithCustomEmojis(text, kp, emojiMap, baseInline)
-      : baseInline;
+  const renderInline = (text: string, kp: string) =>
+    renderInlineWithCustomEmojis(text, kp, emojiMap ?? EMPTY_INLINE_EMOJI_MAP, baseInline);
   const renderTextBlock = (text: string, kp: string) => (
     <Fragment key={kp}>{renderMarkdownBlocks(text, renderInline)}</Fragment>
   );

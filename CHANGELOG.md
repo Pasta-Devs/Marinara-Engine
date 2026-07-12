@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added batch editing for selected Lorebook entries, letting one boolean setting such as recursion, case sensitivity, whole-word matching, vector exclusion, or enabled state be applied to thousands of entries in one atomic update (#3513).
+- Added Discord-style standard emoji shortcodes and Conversation autocomplete, so names such as `:crying:` render as Unicode emoji and `:cry…` suggestions appear alongside custom emoji (#3515).
 - Added visible Game setup progress with an elapsed timer and indeterminate progress bar while the Game Master builds the initial world, plus live phase labels during the first turn (#3495).
 - Added optional Noodle image captioning with a selectable vision connection so text-only timeline models can understand images attached to posts and replies (#3505).
 - Added an **Initial Game Setup** section to Game Mode Session History so players can review, copy, or download a `.txt` file containing the complete setup that created a successful campaign, including preferences, prompt choices, visual/storyboard options, safe model descriptors, and effective generation parameters without credentials or local IDs.
@@ -33,6 +35,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Updated UNO bot instructions and Wild tool guidance to expose the bot's remaining color counts and prefer its strongest held color instead of reflexively repeating the active color (#3512).
 - Changed random and exact Noodle participant selection to prioritize directly involved accounts, then accounts absent from the previous refresh, while retaining recently active accounts as a fallback when the pool is small (#3505).
 - Changed post-processing orchestration so Prose Guardian, Continuity Checker, and Immersive HTML share a dedicated rewrite call that is isolated from tracker batches, and hid the legacy About Me Keeper from the manually addable Agents library.
 - Changed Noodle's generated-image quota from a daily cap to **Images/refresh**, applied independently to every manual and automatic timeline refresh while preserving each user's saved limit.
@@ -49,6 +52,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Fixed the Windows uninstaller deleting current-layout user data under `packages/server/data`; uninstall now asks before application cleanup, safely preserves and restores retained data, supports the legacy root data folder, and removes the current `win` directory instead of a stale path (#3484).
+- Fixed semantic Lorebook search being unreachable for ordinary keyed entries; vector similarity now acts as the documented fallback when keyword matching misses while retaining score thresholds, maximum results, filters, and probability gates (#3511).
+- Fixed partially speaker-prefixed Conversation replies rendering their leading model text as narration beneath the user's message; the leading block now inherits the saved assistant character while edit and reaction attribution remain aligned (#3514).
 - Fixed Conversation and other non-assembled generation paths silently disabling reasoning when the UI showed the default **Maximum** effort; shared and server runtime defaults now agree while an explicit disabled value remains respected (#3498).
 - Fixed Noodle accounts repeatedly interacting with the same post or replying to their own comments without new involvement, while still allowing a return after an explicit tag or direct reply; also fixed profile validation errors rendering as `[object Object]` (#3505).
 - Fixed pending persona portrait focus and zoom changes being lost when a tab was refreshed or closed before the debounce completed by flushing the save on `pagehide` with a keepalive request (#3506).
