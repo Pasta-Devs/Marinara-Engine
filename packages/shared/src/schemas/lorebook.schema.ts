@@ -282,25 +282,27 @@ export const updateLorebookEntrySchema = z.object({
   excludeFromVectorization: z.boolean().optional(),
 });
 
+const bulkUpdateLorebookEntryChangesSchema = updateLorebookEntrySchema
+  .pick({
+    enabled: true,
+    constant: true,
+    selective: true,
+    matchWholeWords: true,
+    caseSensitive: true,
+    useRegex: true,
+    preventRecursion: true,
+    excludeRecursion: true,
+    delayUntilRecursion: true,
+    excludeFromVectorization: true,
+    locked: true,
+  })
+  .refine((changes) => Object.values(changes).some((value) => value !== undefined), {
+    message: "Choose at least one setting to update",
+  });
+
 export const bulkUpdateLorebookEntriesSchema = z.object({
   entryIds: z.array(z.string().min(1)).min(1).max(5000),
-  changes: z
-    .object({
-      enabled: z.boolean().optional(),
-      constant: z.boolean().optional(),
-      selective: z.boolean().optional(),
-      matchWholeWords: z.boolean().optional(),
-      caseSensitive: z.boolean().optional(),
-      useRegex: z.boolean().optional(),
-      preventRecursion: z.boolean().optional(),
-      excludeRecursion: z.boolean().optional(),
-      delayUntilRecursion: z.boolean().optional(),
-      excludeFromVectorization: z.boolean().optional(),
-      locked: z.boolean().optional(),
-    })
-    .refine((changes) => Object.values(changes).some((value) => value !== undefined), {
-      message: "Choose at least one setting to update",
-    }),
+  changes: bulkUpdateLorebookEntryChangesSchema,
 });
 
 export type CreateLorebookInput = z.input<typeof createLorebookSchema>;

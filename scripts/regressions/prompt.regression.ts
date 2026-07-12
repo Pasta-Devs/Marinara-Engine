@@ -1069,28 +1069,46 @@ const cases: RegressionCase[] = [
     },
   },
   {
-    name: "Illustrator defaults to Background without overriding an explicit mode",
+    name: "Illustrator defaults to Illustration and preserves explicit Background selections",
     run() {
       const executorSource = readFileSync(
         new URL("../../packages/server/src/services/agents/agent-executor.ts", import.meta.url),
         "utf8",
       );
       const settings = getDefaultBuiltInAgentSettings("illustrator");
-      const backgroundPrompt = resolveAgentPromptTemplate({
+      const illustrationPrompt = resolveAgentPromptTemplate({
         agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
       });
-      const explicitIllustrationPrompt = resolveAgentPromptTemplate({
+      const explicitBackgroundPrompt = resolveAgentPromptTemplate({
         agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
-        selectedPromptTemplateId: DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
+        selectedPromptTemplateId: "background",
       });
 
-      assert.equal(resolveDefaultAgentPromptTemplateId(settings), "background");
-      assert.match(backgroundPrompt, /background-only prompt/);
-      assert.equal(explicitIllustrationPrompt, "BASE ILLUSTRATION PROMPT");
+      assert.equal(resolveDefaultAgentPromptTemplateId(settings), DEFAULT_AGENT_PROMPT_TEMPLATE_ID);
+      assert.equal(illustrationPrompt, "BASE ILLUSTRATION PROMPT");
+      assert.match(explicitBackgroundPrompt, /background-only prompt/);
+
+      const migrationUpdate = buildLegacyDefaultAgentConfigUpdate({
+        id: "builtin:illustrator",
+        type: "illustrator",
+        name: "Illustrator",
+        description: "Generates image prompts for key scenes (requires image generation API).",
+        phase: "post_processing",
+        enabled: "false",
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: DEFAULT_AGENT_PROMPTS.illustrator,
+        settings: JSON.stringify({ defaultPromptTemplateId: "background" }),
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      });
+      const migratedSettings = JSON.parse(String(migrationUpdate.settings)) as Record<string, unknown>;
+      assert.equal(migratedSettings.defaultPromptTemplateId, DEFAULT_AGENT_PROMPT_TEMPLATE_ID);
+      assert.equal(migratedSettings.illustratorDefaultPromptTemplateMigrationVersion, 2);
       assert.match(executorSource, /Follow the selected Illustrator prompt mode exactly/);
       assert.match(executorSource, /Background stays an environment-only plate/);
       assert.doesNotMatch(executorSource, /not a selfie, comic page, manga panel, or background-only plate/);

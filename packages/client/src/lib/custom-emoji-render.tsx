@@ -7,7 +7,7 @@
 import { type CSSProperties, type ReactNode } from "react";
 import { resolveStandardEmojiShortcode } from "./emoji-shortcodes";
 
-const CUSTOM_EMOJI_TOKEN_RE = /:([a-z0-9_]+):/g;
+const CUSTOM_EMOJI_TOKEN_RE = /:([a-z0-9_]+):/gi;
 
 const customEmojiStyle: CSSProperties = {
   display: "inline-block",

@@ -768,7 +768,7 @@ test("Conversation autocompletes and renders standard emoji shortcodes", async (
 
   try {
     const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
-      data: { role: "assistant", characterId: character.id, content: "Model sent :crying:" },
+      data: { role: "assistant", characterId: character.id, content: "Model sent :CRYING:" },
     });
     expect(messageResponse.ok()).toBeTruthy();
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
@@ -776,7 +776,7 @@ test("Conversation autocompletes and renders standard emoji shortcodes", async (
 
     await expect(page.getByText("Model sent 😢", { exact: true })).toBeVisible();
     const input = page.locator('textarea[placeholder*="Message"]').last();
-    await input.fill(":cry");
+    await input.fill(":CRY");
     const cryingSuggestion = page.getByRole("button", { name: /:crying:.*Standard/i });
     await expect(cryingSuggestion).toBeVisible();
     await cryingSuggestion.click();

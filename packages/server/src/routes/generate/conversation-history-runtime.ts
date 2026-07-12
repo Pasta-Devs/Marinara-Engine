@@ -242,6 +242,7 @@ async function annotateConversationPromptReactions(args: {
   });
   if (!anyReactedMessage) return args.finalMessages;
 
+  const reactionNameById = new Map(args.charIdToName);
   const reactionSpeakersByNorm = new Map<string, string>();
   const addReactionSpeaker = (name: unknown) => {
     if (typeof name !== "string") return;
@@ -261,7 +262,11 @@ async function annotateConversationPromptReactions(args: {
     if (!row) continue;
     try {
       const data = typeof row.data === "string" ? JSON.parse(row.data) : row.data;
-      addReactionSpeaker((data as { name?: unknown } | null)?.name);
+      const name = (data as { name?: unknown } | null)?.name;
+      if (typeof name === "string" && name.trim()) {
+        reactionNameById.set(cid, name);
+        addReactionSpeaker(name);
+      }
     } catch {
       // Malformed character data — skip; that speaker just won't be attributable.
     }
@@ -290,7 +295,7 @@ async function annotateConversationPromptReactions(args: {
         parseExtra(raw.extra).reactions,
         reactionSpeakersByNorm,
         reactorDisplayName,
-        typeof raw.characterId === "string" ? (args.charIdToName.get(raw.characterId) ?? null) : null,
+        typeof raw.characterId === "string" ? (reactionNameById.get(raw.characterId) ?? null) : null,
       ),
     };
   });

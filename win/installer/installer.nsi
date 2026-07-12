@@ -818,6 +818,9 @@ Section "Uninstall"
     Goto un_confirmData
   ${ElseIf} ${FileExists} "$INSTDIR\data\*.*"
     Goto un_confirmData
+  ${ElseIf} ${FileExists} "$INSTDIR\.__marinara-preserved-data\*.*"
+    ; Recover data left staged by an interrupted previous uninstall.
+    Goto un_confirmData
   ${Else}
     Goto un_removeApplication
   ${EndIf}
@@ -891,6 +894,7 @@ Choose No to preserve it for a future reinstall." IDYES un_removeApplication IDN
     Goto un_dataPreserved
   ${Else}
     RMDir /r "$INSTDIR\data"
+    RMDir /r "$INSTDIR\.__marinara-preserved-data"
     RMDir "$INSTDIR"
   ${EndIf}
 

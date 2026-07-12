@@ -31,6 +31,7 @@ import {
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
 import { resolveInitialGameGmConnectionId } from "../../packages/server/src/services/game/initial-game-setup.js";
+import { annotateContentWithReactions } from "../../packages/server/src/routes/generate/conversation-custom-assets.js";
 import {
   buildGameSessionReplayTurns,
   findReplayStoryboardKeyframe,
@@ -87,6 +88,15 @@ const parsedWithAuthor = parseGroupedSpeakerSegments(partiallyPrefixedConversati
 assert.equal(parsedWithAuthor?.length, 1);
 assert.equal(parsedWithAuthor?.[0]?.speaker, "Paige");
 assert.deepEqual(parsedWithAuthor?.[0]?.lines, ["lol you're such a rebel!!", "Are you powered by pure caffeine?"]);
+const annotatedPartiallyPrefixedReply = annotateContentWithReactions(
+  partiallyPrefixedConversationReply,
+  partiallyPrefixedConversationReply,
+  [{ emoji: "🔥", by: ["user"], segment: 0, segmentSpeaker: "Paige" }],
+  new Map([["paige", "Paige"]]),
+  (reactorId) => (reactorId === "user" ? "Mari" : reactorId),
+  "Paige",
+);
+assert.equal(annotatedPartiallyPrefixedReply, `${partiallyPrefixedConversationReply}\n[Mari reacted with 🔥]`);
 
 assert.equal(resolveStandardEmojiShortcode("crying"), "😢");
 assert.equal(resolveStandardEmojiShortcode("test_tube"), "🧪");

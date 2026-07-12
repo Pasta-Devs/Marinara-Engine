@@ -37,7 +37,6 @@ export const illustratorAgentManifest = {
   category: "misc",
   defaultTools: [],
   defaultSettings: {
-    defaultPromptTemplateId: "background",
     defaultPromptTemplateName: "Illustration",
     defaultPromptTemplateDescription: "Polished single-scene illustration for important visual beats.",
     useAvatarReferences: false,

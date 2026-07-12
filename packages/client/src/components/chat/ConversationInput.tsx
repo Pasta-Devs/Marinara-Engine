@@ -1597,7 +1597,7 @@ export function ConversationInput({
       }
 
       // :emoji: detection — a `:partial` at a word boundary, just before the cursor
-      const emojiMatch = textBefore.match(/(?:^|\s):([a-z0-9_]+)$/);
+      const emojiMatch = textBefore.match(/(?:^|\s):([a-z0-9_]+)$/i);
       if (emojiMatch) {
         const eq = emojiMatch[1]!.toLowerCase();
         const customMatches: EmojiCompletion[] = (customEmojiList ?? [])

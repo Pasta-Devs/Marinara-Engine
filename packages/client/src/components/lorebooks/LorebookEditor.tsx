@@ -2317,7 +2317,13 @@ export function LorebookEditor() {
                     </select>
                     <button
                       onClick={() => void handleBatchUpdateEntries()}
-                      disabled={selectedEntryIds.size === 0 || !batchEntrySetting || bulkUpdateEntries.isPending}
+                      disabled={
+                        selectedEntryIds.size === 0 ||
+                        !batchEntrySetting ||
+                        bulkUpdateEntries.isPending ||
+                        transferEntries.isPending ||
+                        deleteEntry.isPending
+                      }
                       className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                     >
                       {bulkUpdateEntries.isPending ? (
@@ -2349,6 +2355,7 @@ export function LorebookEditor() {
                         selectedEntryIds.size === 0 ||
                         !entryTransferTargetId ||
                         transferEntries.isPending ||
+                        bulkUpdateEntries.isPending ||
                         deleteEntry.isPending
                       }
                       className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
@@ -2366,6 +2373,7 @@ export function LorebookEditor() {
                         selectedEntryIds.size === 0 ||
                         !entryTransferTargetId ||
                         transferEntries.isPending ||
+                        bulkUpdateEntries.isPending ||
                         deleteEntry.isPending
                       }
                       className="inline-flex items-center gap-1 rounded-lg bg-[var(--destructive)]/12 px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/20 disabled:opacity-40"
@@ -2379,7 +2387,12 @@ export function LorebookEditor() {
                     </button>
                     <button
                       onClick={() => void handleDeleteSelectedEntries()}
-                      disabled={selectedEntryIds.size === 0 || transferEntries.isPending || deleteEntry.isPending}
+                      disabled={
+                        selectedEntryIds.size === 0 ||
+                        transferEntries.isPending ||
+                        bulkUpdateEntries.isPending ||
+                        deleteEntry.isPending
+                      }
                       className="mari-editor-action mari-editor-action--compact inline-flex items-center gap-1 px-2.5 py-1.5 text-[0.625rem] disabled:opacity-40"
                     >
                       {deleteEntry.isPending ? (

@@ -745,7 +745,7 @@ function buildInstructions(state: UnoState, seatId: string): string {
   } else {
     parts.push("Play a legal card with play_card, or draw_card if you cannot or choose not to play.");
   }
-  if ((state.hands[seatId]?.length ?? 0) === 2) {
+  if (hand.length === 2) {
     parts.push("If this play leaves you with one card, set say_uno=true (or call_uno).");
   }
   if (hand.some((card) => card.color === "wild")) {

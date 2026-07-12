@@ -19,6 +19,7 @@ assert.equal(
 );
 assert.equal(resolveStandardEmojiShortcode("crying"), "😢");
 assert.equal(resolveStandardEmojiShortcode("test_tube"), "🧪");
+assert.equal(resolveStandardEmojiShortcode("TEST-TUBE"), "🧪");
 assert.equal(
   searchStandardEmojiShortcodes("cry").some((entry) => entry.name === "crying"),
   true,

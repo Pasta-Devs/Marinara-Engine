@@ -48,6 +48,16 @@ try {
   if (!code.includes('Rename "$INSTDIR\\.__marinara-preserved-data" "$INSTDIR\\packages\\server\\data"')) {
     failures.push({ message: "The uninstaller must restore preserved current-layout user data after cleanup." });
   }
+  const interruptedDataDecision = code.indexOf(
+    '${ElseIf} ${FileExists} "$INSTDIR\\.__marinara-preserved-data\\*.*"',
+    uninstallStart,
+  );
+  if (interruptedDataDecision < 0 || interruptedDataDecision > packageRemoval) {
+    failures.push({ message: "The uninstaller must detect data staged by an interrupted previous uninstall." });
+  }
+  if (!code.includes('RMDir /r "$INSTDIR\\.__marinara-preserved-data"')) {
+    failures.push({ message: "The delete-data path must remove data staged by an interrupted previous uninstall." });
+  }
   if (/RMDir\s+\/r\s+"\$INSTDIR\\installer"/i.test(code)) {
     failures.push({ message: 'The uninstaller still targets the stale "$INSTDIR\\installer" directory.' });
   }
