@@ -55,6 +55,23 @@ test("terminal cleanup rejects a candidate left pending by abort or exception", 
   assert.ok(cleanupReject > cleanupGuard);
 });
 
+test("Runtime coordinates are captured before tool attachment and tracking runs only after promotion", async () => {
+  const text = await source();
+  const latestRevision = text.indexOf("humanOSRuntimeStorage.getLatestCommitted(input.chatId)");
+  const runtimeFactory = text.indexOf("createHumanOSToolRuntime({", latestRevision);
+  const toolResolution = text.indexOf("resolveGenerationTools({", runtimeFactory);
+  const promotion = text.indexOf("messagePublication.promoteCandidate", toolResolution);
+  const tracking = text.indexOf("runPostCanonicalTracking({", promotion);
+  const canonicalReload = text.indexOf("loadMessage: chats.getMessage", tracking);
+
+  assert.ok(latestRevision >= 0);
+  assert.ok(runtimeFactory > latestRevision);
+  assert.ok(toolResolution > runtimeFactory);
+  assert.ok(promotion > toolResolution);
+  assert.ok(tracking > promotion);
+  assert.ok(canonicalReload > tracking);
+});
+
 test("reviewed turns suppress tools, early publication, commands, OOC, map, Discord, and parallel agents", async () => {
   const text = await source();
   assert.match(text, /const toolDefs = humanOSPublicationPolicy\.enabled \? \[\]/);

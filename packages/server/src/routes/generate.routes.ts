@@ -58,6 +58,8 @@ import type {
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createMessagePublicationStorage } from "../services/storage/message-publication.storage.js";
+import { createHumanOSArchitectureStorage } from "../services/storage/humanos-architecture.storage.js";
+import { createHumanOSRuntimeStorage } from "../services/storage/humanos-runtime.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -426,6 +428,8 @@ import {
 } from "../services/generation/agent-prompt-runtime.js";
 import { resolveAgentPipelineAgents } from "../services/generation/agent-resolution.js";
 import { resolveGenerationTools } from "../services/generation/tool-resolution-runtime.js";
+import { runPostCanonicalTracking } from "../services/generation/post-canonical-tracking.js";
+import { createHumanOSToolRuntime } from "../services/humanos/humanos-tool-runtime.js";
 import {
   buildCharacterMacroProfilesById,
   injectIdentityFallbackMessages,
@@ -620,6 +624,8 @@ export async function generateRoutes(app: FastifyInstance) {
 
   const chats = createChatsStorage(app.db);
   const messagePublication = createMessagePublicationStorage(app.db);
+  const humanOSArchitectures = createHumanOSArchitectureStorage(app.db);
+  const humanOSRuntimeStorage = createHumanOSRuntimeStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
   const chars = createCharactersStorage(app.db);
@@ -3645,6 +3651,28 @@ export async function generateRoutes(app: FastifyInstance) {
         }
         const legacyResolvedAgents = humanOSPublicationPolicy.legacyAgents;
         const humanOSPublicationTurnId = humanOSPublicationPolicy.enabled ? newId() : null;
+        const latestHumanOSRuntime =
+          humanOSPublicationPolicy.enabled && humanOSPublicationPolicy.postCanonicalTrackers.length > 0
+            ? await humanOSRuntimeStorage.getLatestCommitted(input.chatId)
+            : null;
+        const humanOSToolRuntime =
+          humanOSPublicationTurnId && humanOSPublicationPolicy.postCanonicalTrackers.length > 0
+            ? createHumanOSToolRuntime({
+                chatId: input.chatId,
+                turnId: humanOSPublicationTurnId,
+                baseRevision: latestHumanOSRuntime?.revision ?? 0,
+                activeSubjects: [
+                  ...promptCharacterIds.map((subjectId) => ({
+                    subjectId,
+                    subjectType: "CHARACTER" as const,
+                  })),
+                  ...(personaId ? [{ subjectId: personaId, subjectType: "USER_PERSONA" as const }] : []),
+                ],
+                architectures: humanOSArchitectures,
+                runtime: humanOSRuntimeStorage,
+                getMessage: chats.getMessage,
+              })
+            : null;
 
         // Create the legacy pipeline (exclude text rewrite agents — they run last,
         // after all other post-processing agents have produced their context).
@@ -3708,6 +3736,7 @@ export async function generateRoutes(app: FastifyInstance) {
           gameState,
           gameSpotifyMusicEnabled,
           agentContext,
+          humanOSTrackerCallbacks: humanOSToolRuntime?.callbacks,
           emitMetadataPatch: (patch) => trySendSseEvent(reply, { type: "metadata_patch", data: patch }),
         });
         // Model tool calls can mutate state before review. Until tool calls gain
@@ -6119,6 +6148,58 @@ export async function generateRoutes(app: FastifyInstance) {
             parallelResults = await parallelPromise;
           } catch {
             // Non-critical — parallel agents may fail independently
+          }
+        }
+
+        // HumanOS Runtime trackers receive commit authority only after the
+        // candidate has been promoted and reloaded as canonical storage.
+        if (
+          humanOSPublicationPolicy.enabled &&
+          humanOSToolRuntime &&
+          humanOSPublicationPolicy.postCanonicalTrackers.length > 0
+        ) {
+          const trackingResult = await runPostCanonicalTracking({
+            agents: humanOSPublicationPolicy.postCanonicalTrackers,
+            chatId: input.chatId,
+            messageId: (lastSavedMsg as any)?.id ?? null,
+            aborted: abortController.signal.aborted,
+            canonicalApproved: true,
+            baseContext: agentContext,
+            preGenInjections: contextInjections,
+            parallelResults,
+            loadMessage: chats.getMessage,
+            setRuntimeAnchor: humanOSToolRuntime.setRuntimeAnchor,
+            executeTrackers: async (trackers, trackerContext) => {
+              const results: AgentResult[] = [];
+              for (const tracker of trackers) {
+                if (abortController.signal.aborted) break;
+                const result = await executeAgent(
+                  tracker,
+                  { ...trackerContext, streaming: false },
+                  tracker.provider,
+                  tracker.model,
+                  tracker.toolContext,
+                );
+                sendAgentEvent(result, { finalized: true });
+                results.push(result);
+              }
+              return results;
+            },
+            saveRun: async (result, canonicalMessageId) => {
+              await agentsStore.saveRun({
+                agentConfigId: result.agentId,
+                chatId: input.chatId,
+                messageId: canonicalMessageId,
+                result,
+              });
+            },
+            onSaveError: (error) => logger.warn(error, "[humanos/runtime] Failed to persist tracker run"),
+          });
+          if (trackingResult.status === "skipped" && trackingResult.reason !== "aborted") {
+            logger.warn(
+              "[humanos/runtime] Post-canonical tracking skipped: %s",
+              trackingResult.reason ?? "unknown",
+            );
           }
         }
 

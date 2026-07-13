@@ -9,6 +9,7 @@ import {
   type MetadataPatch,
   type MetadataPatchInput,
   type ToolExecutionContext,
+  type HumanOSToolCallbacks,
 } from "../tools/tool-executor.js";
 import { resolveSpotifyCredentials, spotifyHasScope } from "../spotify/spotify.service.js";
 import { logger } from "../../lib/logger.js";
@@ -78,6 +79,8 @@ type ResolveGenerationToolsArgs = {
   gameState: unknown;
   gameSpotifyMusicEnabled: boolean;
   agentContext: AgentContext;
+  /** Server-owned callbacks available only to declared post-canonical HumanOS trackers. */
+  humanOSTrackerCallbacks?: HumanOSToolCallbacks;
   emitMetadataPatch(patch: Record<string, unknown>): void;
 };
 
@@ -616,6 +619,7 @@ export async function resolveGenerationTools({
   gameState,
   gameSpotifyMusicEnabled,
   agentContext,
+  humanOSTrackerCallbacks,
   emitMetadataPatch,
 }: ResolveGenerationToolsArgs): Promise<ResolvedGenerationTools> {
   const chatToolsExplicitlyDisabled = booleanFalseText(chatMetadata.enableTools);
@@ -814,10 +818,14 @@ export async function resolveGenerationTools({
     if (agentEnabledNames.length === 0) continue;
 
     const allowSpotifyAgentTools = agent.type === "spotify";
+    const isHumanOSTracker = agentSettings.pipelineStage === "post_canonical_tracking";
     const agentTools = allToolDefs.filter(
       (toolDef) =>
         agentEnabledNames.includes(toolDef.function.name) &&
         (toolDef.function.name !== "edit_chat_message" || customAgentHasCapability(agentSettings, "edit_messages")) &&
+        // Post-canonical trackers may read architecture and commit Runtime, but
+        // may never rewrite private architecture from the publication tail.
+        (!isHumanOSTracker || toolDef.function.name !== "humanos_save_architecture") &&
         (spotifyToolsAvailable || !spotifyToolNames.has(toolDef.function.name) || allowSpotifyAgentTools),
     );
     if (agentTools.length === 0) continue;
@@ -850,6 +858,7 @@ export async function resolveGenerationTools({
           ...baseToolExecutionContext,
           saveLorebookEntry,
           replaceChatMessageContent: replaceChatMessageContentForAgent,
+          humanOS: isHumanOSTracker ? humanOSTrackerCallbacks : undefined,
         });
         const result = results[0]?.result ?? "Tool execution failed";
         if (agent.type === "spotify" && call.function.name === "spotify_play") {

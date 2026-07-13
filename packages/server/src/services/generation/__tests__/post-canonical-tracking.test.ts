@@ -75,7 +75,73 @@ test("post-canonical tracker receives only reloaded final text after anchor expo
     `anchor:message-final:2:${observedAnchor?.sourceContentHash}`,
     "tracker:FINAL_REWRITTEN_TEXT",
     "saved:message-final",
+    "anchor:undefined:undefined:undefined",
   ]);
+});
+
+test("post-canonical tracker clears Runtime authority when tracker execution throws", async () => {
+  const anchors: Array<string | null> = [];
+
+  await assert.rejects(
+    runPostCanonicalTracking({
+      agents: [tracker],
+      chatId: "chat-1",
+      messageId: "message-final",
+      aborted: false,
+      canonicalApproved: true,
+      baseContext: {} as AgentContext,
+      preGenInjections: [],
+      parallelResults: [],
+      loadMessage: async () => ({
+        id: "message-final",
+        chatId: "chat-1",
+        role: "assistant",
+        content: "FINAL",
+        activeSwipeIndex: 0,
+      }),
+      setRuntimeAnchor: (anchor) => anchors.push(anchor?.messageId ?? null),
+      executeTrackers: async () => {
+        throw new Error("tracker exploded");
+      },
+      saveRun: async () => undefined,
+    }),
+    /tracker exploded/,
+  );
+
+  assert.deepEqual(anchors, ["message-final", null]);
+});
+
+test("post-canonical tracker clears Runtime authority when canonical callback throws", async () => {
+  const anchors: Array<string | null> = [];
+
+  await assert.rejects(
+    runPostCanonicalTracking({
+      agents: [tracker],
+      chatId: "chat-1",
+      messageId: "message-final",
+      aborted: false,
+      canonicalApproved: true,
+      baseContext: {} as AgentContext,
+      preGenInjections: [],
+      parallelResults: [],
+      loadMessage: async () => ({
+        id: "message-final",
+        chatId: "chat-1",
+        role: "assistant",
+        content: "FINAL",
+        activeSwipeIndex: 0,
+      }),
+      setRuntimeAnchor: (anchor) => anchors.push(anchor?.messageId ?? null),
+      onCanonicalMessage: () => {
+        throw new Error("callback exploded");
+      },
+      executeTrackers: async () => [result],
+      saveRun: async () => undefined,
+    }),
+    /callback exploded/,
+  );
+
+  assert.deepEqual(anchors, ["message-final", null]);
 });
 
 test("rejected ordered review blocks message loading, Runtime anchoring, and tracker execution", async () => {

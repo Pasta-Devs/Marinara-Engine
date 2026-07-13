@@ -127,6 +127,9 @@ test("post-canonical trackers are classified explicitly and excluded from early 
   assert.equal(participatesInTurnPipeline({ settings: { pipelineStage: "planning_3_2" } } as any), true);
   assert.match(generateSource, /resolveHumanOSPublicationPolicy\(resolvedAgents\)/);
   assert.match(generateSource, /const legacyResolvedAgents = humanOSPublicationPolicy\.legacyAgents/);
+  assert.match(toolResolutionSource, /isHumanOSTracker \? humanOSTrackerCallbacks : undefined/);
+  assert.match(toolResolutionSource, /toolDef\.function\.name !== "humanos_save_architecture"/);
+  assert.doesNotMatch(toolResolutionSource, /humanOS:\s*humanOSTrackerCallbacks[,\s}]/);
 });
 
 test("HumanOS Runtime callbacks require confirmation and a server-owned selected assistant anchor", async () => {

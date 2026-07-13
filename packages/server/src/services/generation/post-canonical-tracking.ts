@@ -54,23 +54,29 @@ export async function runPostCanonicalTracking(args: {
     swipeIndex: canonicalSwipeIndex,
     sourceContentHash: fingerprintHumanOSSnapshot(canonicalMessage.content),
   });
-  args.onCanonicalMessage?.(canonicalMessage, canonicalSwipeIndex);
+  try {
+    args.onCanonicalMessage?.(canonicalMessage, canonicalSwipeIndex);
 
-  const canonicalContext: AgentContext = {
-    ...args.baseContext,
-    mainResponse: canonicalMessage.content,
-    preGenInjections: args.preGenInjections,
-    parallelResults: args.parallelResults,
-  };
-  const results = await args.executeTrackers(args.agents, canonicalContext);
+    const canonicalContext: AgentContext = {
+      ...args.baseContext,
+      mainResponse: canonicalMessage.content,
+      preGenInjections: args.preGenInjections,
+      parallelResults: args.parallelResults,
+    };
+    const results = await args.executeTrackers(args.agents, canonicalContext);
 
-  for (const result of results) {
-    try {
-      await args.saveRun(result, canonicalMessage.id);
-    } catch (error) {
-      args.onSaveError?.(error);
+    for (const result of results) {
+      try {
+        await args.saveRun(result, canonicalMessage.id);
+      } catch (error) {
+        args.onSaveError?.(error);
+      }
     }
-  }
 
-  return { status: "completed", results };
+    return { status: "completed", results };
+  } finally {
+    // Commit authority is scoped to this canonical tracking pass only. A
+    // tracker failure must never leave a reusable anchor in the request.
+    args.setRuntimeAnchor(null);
+  }
 }
