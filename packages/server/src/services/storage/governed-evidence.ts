@@ -6,7 +6,7 @@ import type { CommitEvidence } from "./governed-proposals.storage.js";
 
 export type EvidenceValidation = { valid: true } | { valid: false; reason: string };
 
-export async function validateCommitEvidence(db: DB, evidence: CommitEvidence): Promise<EvidenceValidation> {
+export async function validateCommitEvidence(db: Pick<DB, "select">, evidence: CommitEvidence): Promise<EvidenceValidation> {
   if (evidence.kind !== "canonical_turn") {
     const rows = await db.select().from(stateAuthorityRecords).where(eq(stateAuthorityRecords.id, evidence.authorityRecordId)).limit(1);
     const authority = rows[0];

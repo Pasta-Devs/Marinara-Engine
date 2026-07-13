@@ -1,6 +1,8 @@
 import type { DB } from "../../db/connection.js";
 import type { CommitEvidence } from "./governed-proposals.storage.js";
 
+export type GovernedAdapterExecutor = Pick<DB, "select" | "insert" | "update">;
+
 export interface TargetIdentity {
   kind: string;
   scope: string;
@@ -13,6 +15,14 @@ export interface CommitAuthority {
   actor: { type: "agent" | "user" | "administrator" | "system"; id: string; authorityPath: "canonical_turn" | "manual_edit" | "repair" | "migration" };
 }
 
+export interface GovernedPersistProjectionContext<Patch = unknown> {
+  proposalId: string;
+  operation: string;
+  patch: Patch;
+  authority: CommitAuthority;
+  idempotencyKey: string;
+}
+
 export interface GovernedStateAdapter<Patch = unknown, Projection = unknown> {
   readonly targetKind: string;
   readonly schemaVersion: number;
@@ -21,10 +31,10 @@ export interface GovernedStateAdapter<Patch = unknown, Projection = unknown> {
   normalizeTarget(input: unknown, authority: CommitAuthority): TargetIdentity;
   normalizePatch(operation: string, input: unknown): Patch;
   validatePolicy(input: { operation: string; target: TargetIdentity; patch: Patch; authority: CommitAuthority }): void;
-  loadProjection(tx: DB, target: TargetIdentity, operation: string, patch: Patch): Promise<Projection | null>;
+  loadProjection(tx: GovernedAdapterExecutor, target: TargetIdentity, operation: string, patch: Patch): Promise<Projection | null>;
   applyPatch(current: Projection | null, operation: string, patch: Patch): Projection;
   validateResult(current: Projection | null, result: Projection): void;
-  persistProjection(tx: DB, target: TargetIdentity, result: Projection, revision: number, commitId: string): Promise<void>;
+  persistProjection(tx: GovernedAdapterExecutor, target: TargetIdentity, result: Projection, revision: number, commitId: string, context: GovernedPersistProjectionContext<Patch>): Promise<void>;
   hashProjection(result: Projection): string;
   inversePatch?(current: Projection, previous: Projection): { operation: string; patch: Patch };
 }

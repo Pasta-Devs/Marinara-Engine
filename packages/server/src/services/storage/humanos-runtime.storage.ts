@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { logger } from "../../lib/logger.js";
 import { createGovernedParityStorage } from "./governed-parity.storage.js";
 import { humanOSRuntimeParityAdapter } from "./humanos-runtime-parity.adapter.js";
+import { normalizeHumanOSRuntimeProjection } from "./humanos-runtime-governed.js";
 
 const GAME_TYPE = "humanos-v2";
 const SCHEMA_VERSION = 2;
@@ -141,8 +142,19 @@ export function createHumanOSRuntimeStorage(db: DB) {
         };
         try {
           const target = humanOSRuntimeParityAdapter.normalizeTarget({ chatId: input.chatId }, authority);
-          const patch = humanOSRuntimeParityAdapter.normalizePatch(input.patchType, { state: input.state, baseRevision: input.baseRevision });
-          await createGovernedParityStorage(db).verify({ adapter: humanOSRuntimeParityAdapter, target, operation: input.patchType, patch, authority, legacyProjection: { state: JSON.parse(input.state) as unknown } });
+          const patch = humanOSRuntimeParityAdapter.normalizePatch(input.patchType, {
+            state: input.state,
+            baseRevision: input.baseRevision,
+            compatibility: {
+              messageId: input.messageId,
+              swipeIndex: input.swipeIndex,
+              turnId: input.turnId,
+              sourceContentHash: input.sourceContentHash,
+              patchType: input.patchType,
+              idempotencyKey: input.idempotencyKey,
+            },
+          });
+          await createGovernedParityStorage(db).verify({ adapter: humanOSRuntimeParityAdapter, target, operation: input.patchType, patch, authority, legacyProjection: normalizeHumanOSRuntimeProjection(input.state) });
         } catch (err) {
           logger.warn({ err, chatId: input.chatId, turnId: input.turnId }, "HumanOS Runtime parity verification failed after authoritative legacy commit");
         }

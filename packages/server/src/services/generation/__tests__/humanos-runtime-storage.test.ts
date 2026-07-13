@@ -193,7 +193,7 @@ test("HumanOS Runtime commits are revision-checked, idempotent, and append-only"
     const parityRows = await db.select().from(stateParityVerifications);
     assert.equal(parityRows.length, 2);
     assert.ok(parityRows.every((row) => row.matched));
-    assert.deepEqual(parityRows.map((row) => row.targetKey), ["humanos_runtime:chat-1", "humanos_runtime:chat-1"]);
+    assert.deepEqual(parityRows.map((row) => row.targetKey), ["humanos_runtime:chat:chat-1", "humanos_runtime:chat:chat-1"]);
   } finally {
     cleanup();
   }
