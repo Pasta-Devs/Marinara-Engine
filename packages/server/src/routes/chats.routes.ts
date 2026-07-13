@@ -507,15 +507,16 @@ export async function chatsRoutes(app: FastifyInstance) {
         personaId: nextPersonaId,
         promptPresetId: null,
       });
-      const updated = await storage.patchMetadata(existing.id, {
+      const updated = await storage.patchMetadata(existing.id, (current) => ({
+        ...current,
         internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
         professorMariActive: true,
         professorMariArchived: false,
         enableAgents: false,
         autonomousMessages: false,
         characterExchanges: false,
-        tags: ["internal"],
-      });
+        tags: Array.isArray(current.tags) ? current.tags.map(String).filter(Boolean) : [INTERNAL_CHAT_TAG],
+      }));
       return sanitizeChatGameNpcAvatars(updated ?? existing);
     }
 
