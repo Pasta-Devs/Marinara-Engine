@@ -129,6 +129,16 @@ const PROFESSOR_MARI_PANE_TRANSITION = { duration: 0.24, ease: [0.16, 1, 0.3, 1]
 const PROFESSOR_MARI_FLOATING_EDGE_GAP = 12;
 const PROFESSOR_MARI_FLOATING_MOBILE_TOP_GAP = 64;
 
+function resizeProfessorMariTextarea(textarea: HTMLTextAreaElement) {
+  textarea.style.height = "auto";
+  const computedMaxHeight = Number.parseFloat(window.getComputedStyle(textarea).maxHeight);
+  const nextHeight = Number.isFinite(computedMaxHeight)
+    ? Math.min(textarea.scrollHeight, computedMaxHeight)
+    : textarea.scrollHeight;
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY = textarea.scrollHeight > nextHeight ? "auto" : "hidden";
+}
+
 type WorkspaceApprovalResponse = {
   ok: boolean;
   approval?: MariDbPendingApproval;
@@ -1953,6 +1963,11 @@ export function HomeProfessorMariChat({
   const activeSkillCount = skills.filter((skill) => skill.enabled).length;
   const desktopChatWindowOpen = controlledChatWindowOpen ?? internalChatWindowOpen;
   const chatWindowOpen = desktopChatWindowOpen || mobileFocusMode;
+
+  useLayoutEffect(() => {
+    if (embeddedTextareaRef.current) resizeProfessorMariTextarea(embeddedTextareaRef.current);
+    if (floatingTextareaRef.current) resizeProfessorMariTextarea(floatingTextareaRef.current);
+  }, [chatWindowOpen, draft, floatingSmallViewport]);
   const setChatWindowOpen = useCallback(
     (open: boolean) => {
       setInternalChatWindowOpen(open);
@@ -2985,7 +3000,7 @@ export function HomeProfessorMariChat({
           </div>
         )}
         <MariSuggestionChips chips={chipRowChips} onSelect={handleSuggestionSelect} disabled={isBusy} />
-        <div className="relative flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
+        <div className="relative flex items-end gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
           <button
             type="button"
             onClick={() => attachmentInputRef.current?.click()}
@@ -3084,7 +3099,7 @@ export function HomeProfessorMariChat({
             }}
             rows={1}
             placeholder="Ask Professor Mari..."
-            className="mari-chat-input-textarea h-8 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mari-chat-input-textarea max-h-[12.5rem] min-h-8 flex-1 resize-none overflow-y-hidden bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isBusy}
           />
           <button
@@ -3595,7 +3610,7 @@ export function HomeProfessorMariChat({
                           </div>
                         )}
                         <MariSuggestionChips chips={chipRowChips} onSelect={handleSuggestionSelect} disabled={isBusy} compact />
-                        <div className="relative flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
+                        <div className="relative flex items-end gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-2 py-1.5 shadow-inner shadow-black/10 focus-within:border-[var(--primary)]/50">
                           <button
                             type="button"
                             onClick={() => attachmentInputRef.current?.click()}
@@ -3704,7 +3719,7 @@ export function HomeProfessorMariChat({
                             }}
                             rows={1}
                             placeholder="Ask Professor Mari..."
-                            className="mari-chat-input-textarea h-8 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="mari-chat-input-textarea max-h-[12.5rem] min-h-8 flex-1 resize-none overflow-y-hidden bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
                             disabled={isBusy}
                           />
                           <button
