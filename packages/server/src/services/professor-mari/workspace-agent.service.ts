@@ -50,6 +50,7 @@ import type {
   MariGuidedPlanStep,
   MariSuggestionChip,
   MariWorkspaceConnectionSummary,
+  MariWorkspacePendingResume,
   MariWorkspacePromptEvent,
   MariWorkspaceStatus,
   MariWorkspaceToolName,
@@ -116,7 +117,7 @@ type AssistantWorkspaceAction = {
   assistantHistoryContent: string;
 };
 
-const WORKSPACE_TOOLS: MariWorkspaceToolName[] = ["read", "grep", "find", "ls", "edit", "write", "bash", "app_data"];
+const WORKSPACE_TOOLS: MariWorkspaceToolName[] = ["read", "grep", "find", "ls", "edit", "write", "mari", "bash", "app_data"];
 const RUNTIME_API_KEY = "local-marinara-runtime";
 const SESSION_ID = "professor-mari-workspace";
 const MAX_COMMAND_ROUNDS = 12;
@@ -223,6 +224,22 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
       type: "object",
       properties: { path: { type: "string" }, content: { type: "string" } },
       required: ["path", "content"],
+    },
+  },
+  {
+    name: "mari",
+    description:
+      "Run a structured Mari helper command directly, without shell quoting. Prefer this for mari code/db/characters/personas/lorebooks/themes/images/chats/extensions/tools workflows.",
+    parameters: {
+      type: "object",
+      properties: {
+        argv: {
+          type: "array",
+          items: { type: "string" },
+          minItems: 1,
+        },
+      },
+      required: ["argv"],
     },
   },
   {
@@ -354,7 +371,7 @@ function windowsShellCompatibilityIssue(command: string): string | null {
   if (matches.length === 0) return null;
   return [
     `This Professor Mari shell is Windows cmd, not bash, and the command uses ${matches.join(", ")}.`,
-    "Use read/grep/find/ls/edit/write for file work. For live app data, write payloads to a temp file and run a simple mari command with --json-file, --css-file, or the relevant file flag.",
+    "Use read/grep/find/ls/edit/write for file work. Prefer the dedicated mari workspace tool for Mari helper commands, and use bash only for plain shell work.",
   ].join(" ");
 }
 
@@ -370,8 +387,9 @@ ENFP 4w7, Choleric-Sanguine, Chaotic Neutral, Taurus. Mari's speech is typically
 
 Workspace defaults:
 - Use the structured \`app_data\` workspace command, not shell, for character/persona/lorebook/lorebook-entry/theme/agent/preset reads, creation, and updates.
-- Use Mari CLI commands for images, wiki reads, code/workspace tasks, agents, tools, extensions, raw DB work, or anything \`app_data\` does not cover. Only write raw files when no CLI/helper path fits.
+- Use the dedicated \`mari\` workspace command for Mari helper commands (images, wiki reads, code/workspace tasks, agents, tools, extensions, raw DB work, or anything \`app_data\` does not cover). Use \`bash\` only for general shell work that is not naturally a \`mari\` helper command. Only write raw files when no CLI/helper path fits.
 - Inspect before claiming facts. Verify after changing anything.
+- For source-code tasks, prefer a deterministic loop: inspect with \`mari code status\`/reads, make the edit, verify with \`mari code diff\` and \`mari code check\`, then use \`mari code reload request --kind ...\` when the change needs a client/server restart boundary.
 - Do not ask the user to choose between \`apply:true\` and \`apply:false\`. Those are internal command flags, not chat questions.
 - For structured app-data writes the user requested, use \`apply:true\` so Marinara can save the change and show the user an in-chat Keep/Restore review card when the change is reversible. Use \`apply:false\` only when the user explicitly asks for a preview/dry run or when you are inspecting a risky change before deciding what to do.
 - Keep user-facing replies concise and human-readable.
@@ -416,7 +434,7 @@ Required schema:
 {
   "say": "visible text for the user, or empty string for silent work",
   "commands": [
-    { "name": "read|grep|find|ls|edit|write|bash|app_data", "arguments": {} }
+    { "name": "read|grep|find|ls|edit|write|mari|bash|app_data", "arguments": {} }
   ],
   "suggestions": [
     { "label": "short button text", "prompt": "exact message to send if tapped", "entity": "characters|lorebooks|personas|presets|connections|agents|settings|chat", "tone": "danger|caution|success" }
@@ -457,6 +475,7 @@ Examples:
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"persona.create","data":{"name":"Dr. Marisia Voss","description":"A successful alternate version of Mari.","personality":"Confident, witty, organized, still warmly sarcastic."},"reason":"User requested a test persona","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"preset.create","data":{"name":"Test preset","sections":[{"name":"Main","content":"You are {{char}}.","role":"system"}],"choiceBlocks":[{"variableName":"tone","question":"Tone","options":[{"label":"Warm","value":"warm"},{"label":"Sharp","value":"sharp"}]}]},"reason":"User requested a preset with variables","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":false}}],"stop":false}
+{"say":"","commands":[{"name":"mari","arguments":{"argv":["code","status"]}}],"stop":false}
 {"say":"Done — I created it and verified it saved.","commands":[],"stop":true}
 
 Available command schemas:
@@ -1133,6 +1152,34 @@ ${entries.join("\n\n")}
 </workspace_continuity>`;
 }
 
+function resumeRequestedFromOutput(output: string): WorkspaceResumeRequest | null {
+  const marker = /stdout:\s*([\s\S]+)$/m.exec(output)?.[1]?.trim() ?? "";
+  if (!marker) return null;
+  try {
+    const parsed = JSON.parse(marker) as unknown;
+    if (!isRecord(parsed) || parsed.status !== "reload_requested") return null;
+    return {
+      status: "reload_requested",
+      kind: parsed.kind === "server" || parsed.kind === "full" ? parsed.kind : "client",
+      reason: typeof parsed.reason === "string" ? parsed.reason : "Workspace reload continuation",
+      resume: parsed.resume === true,
+      requestedAt: typeof parsed.requestedAt === "string" ? parsed.requestedAt : new Date().toISOString(),
+      workspace: typeof parsed.workspace === "string" ? parsed.workspace : undefined,
+      note: typeof parsed.note === "string" ? parsed.note : undefined,
+      manualSteps: Array.isArray(parsed.manualSteps) ? parsed.manualSteps.map(String) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function shouldUseResumePrompt(userText: string, pendingResumes: MariWorkspacePendingResume[]): boolean {
+  if (pendingResumes.length === 0) return false;
+  const normalized = userText.toLowerCase();
+  if (pendingResumes.some((entry) => normalized.includes(entry.runId.toLowerCase()))) return true;
+  return /\bcontinue\b|\bresume\b|\bpick up\b|\bcarry on\b|\bgo on\b/.test(normalized);
+}
+
 function chunkText(value: string, chunkSize = 1200): string[] {
   const chunks: string[] = [];
   for (let index = 0; index < value.length; index += chunkSize) chunks.push(value.slice(index, index + chunkSize));
@@ -1207,6 +1254,7 @@ function isWithin(parent: string, child: string): boolean {
 function isReadOnlyWorkspaceCommand(command: WorkspaceCommandCall): boolean {
   if (command.name === "read" || command.name === "grep" || command.name === "find" || command.name === "ls")
     return true;
+  if (command.name === "mari") return mariArgvLooksReadOnly(command.arguments.argv);
   if (command.name !== "app_data") return false;
   return appDataActionLooksReadOnly(command.arguments.action);
 }
@@ -1243,12 +1291,40 @@ function bashLooksMutating(command: string): boolean {
   );
 }
 
+function mariArgvLooksMutating(argv: unknown): boolean {
+  if (!Array.isArray(argv)) return false;
+  const tokens = argv
+    .map((token) => (typeof token === "string" ? token.trim() : ""))
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+  return bashLooksMutating(`mari ${tokens.join(" ")}`);
+}
+
+function mariArgvLooksReadOnly(argv: unknown): boolean {
+  if (!Array.isArray(argv)) return false;
+  const tokens = argv
+    .map((token) => (typeof token === "string" ? token.trim() : ""))
+    .filter(Boolean);
+  if (tokens.length === 0) return false;
+  return !mariArgvLooksMutating(tokens);
+}
+
 function isMutatingWorkspaceCommand(command: WorkspaceCommandCall): boolean {
   if (command.name === "edit" || command.name === "write") return true;
   if (command.name === "app_data") return !isReadOnlyWorkspaceCommand(command);
+  if (command.name === "mari") return mariArgvLooksMutating(command.arguments.argv);
   if (command.name !== "bash") return false;
   const rawCommand = command.arguments.command;
   return typeof rawCommand === "string" && bashLooksMutating(rawCommand);
+}
+
+function isSourceMutatingWorkspaceCommand(command: WorkspaceCommandCall): boolean {
+  if (command.name === "edit" || command.name === "write") return true;
+  if (command.name === "bash") {
+    const rawCommand = command.arguments.command;
+    return typeof rawCommand === "string" && /\b--apply\b/.test(rawCommand.toLowerCase());
+  }
+  return false;
 }
 
 function workspaceCommandValidationIssue(command: WorkspaceCommandCall): string | null {
@@ -1272,6 +1348,10 @@ function workspaceCommandValidationIssue(command: WorkspaceCommandCall): string 
     }
     case "write":
       return requireString("path") ?? (typeof args.content === "string" ? null : "write requires a content string");
+    case "mari":
+      return Array.isArray(args.argv) && args.argv.length > 0 && args.argv.every((value) => typeof value === "string" && value.trim())
+        ? null
+        : "mari requires a non-empty argv string array";
     case "bash":
       return requireString("command");
     case "app_data":
@@ -1381,12 +1461,29 @@ function parseDirectMariArgv(command: string, cwd: string): string[] | null {
   return normalizeMariPathFlagArgs(tokens.slice(1), cwd);
 }
 
+type WorkspaceResumeHandoff = MariWorkspacePendingResume & {
+  summary: string;
+  prompt: string;
+};
+
+type WorkspaceResumeRequest = {
+  status: "reload_requested";
+  kind: "client" | "server" | "full";
+  reason: string;
+  resume?: boolean;
+  requestedAt: string;
+  workspace?: string;
+  note?: string;
+  manualSteps?: string[];
+};
+
 export class ProfessorMariWorkspaceService {
   private enabled = true;
   private workspaceRoot = getMonorepoRoot();
   private lastError: string | null = null;
   private active = false;
   private abortController: AbortController | null = null;
+  private activeChatId: string | null = null;
 
   constructor(private readonly app: FastifyInstance) {}
 
@@ -1396,7 +1493,7 @@ export class ProfessorMariWorkspaceService {
     if (!enabled) void this.abort();
   }
 
-  async status(connectionId?: string | null): Promise<MariWorkspaceStatus> {
+  async status(connectionId?: string | null, chatId?: string | null): Promise<MariWorkspaceStatus> {
     const connection = await this.resolveConnection(connectionId).catch((err) => {
       this.lastError = err instanceof Error ? err.message : String(err);
       return null;
@@ -1419,6 +1516,7 @@ export class ProfessorMariWorkspaceService {
       skillDiagnostics: skillsResponse.diagnostics,
       active: this.active,
       pendingApprovals: getMariDbService(this.app.db).getPendingApprovals(),
+      pendingResumes: await this.listPendingResumes(chatId ?? null),
       history: await getMariDbService(this.app.db).getHistory(),
       error: this.lastError,
     };
@@ -1434,6 +1532,66 @@ export class ProfessorMariWorkspaceService {
     await this.abort();
     this.lastError = null;
     if (options?.clearHistory === true) await getMariDbService(this.app.db).clearHistory();
+  }
+
+  private resumeStorePath() {
+    return join(DATA_DIR, ".mari-workspace", "resume-handoffs.json");
+  }
+
+  private async readResumeStore(): Promise<WorkspaceResumeHandoff[]> {
+    const filePath = this.resumeStorePath();
+    try {
+      const raw = await readFile(filePath, "utf8");
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((entry): entry is WorkspaceResumeHandoff => isRecord(entry) && typeof entry.runId === "string" && typeof entry.chatId === "string" && typeof entry.prompt === "string")
+        .map((entry) => ({
+          runId: String(entry.runId),
+          chatId: String(entry.chatId),
+          kind: entry.kind === "server" || entry.kind === "full" ? entry.kind : "client",
+          reason: typeof entry.reason === "string" ? entry.reason : "Workspace reload continuation",
+          requestedAt: typeof entry.requestedAt === "string" ? entry.requestedAt : new Date().toISOString(),
+          command: typeof entry.command === "string" ? entry.command : "mari code reload request",
+          note: typeof entry.note === "string" ? entry.note : undefined,
+          manualSteps: Array.isArray(entry.manualSteps) ? entry.manualSteps.map(String) : [],
+          summary: typeof entry.summary === "string" ? entry.summary : "",
+          prompt: String(entry.prompt),
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeResumeStore(entries: WorkspaceResumeHandoff[]) {
+    const filePath = this.resumeStorePath();
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify(entries, null, 2));
+  }
+
+  private async listPendingResumes(chatId?: string | null): Promise<MariWorkspacePendingResume[]> {
+    const entries = await this.readResumeStore();
+    return entries
+      .filter((entry) => !chatId || entry.chatId === chatId)
+      .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+      .map(({ summary: _summary, prompt: _prompt, ...entry }) => entry);
+  }
+
+  private async savePendingResume(entry: WorkspaceResumeHandoff) {
+    const entries = await this.readResumeStore();
+    const next = [entry, ...entries.filter((current) => current.runId !== entry.runId)].slice(0, 20);
+    await this.writeResumeStore(next);
+  }
+
+  private async clearPendingResume(runId: string) {
+    const entries = await this.readResumeStore();
+    const next = entries.filter((entry) => entry.runId !== runId);
+    if (next.length === entries.length) return;
+    await this.writeResumeStore(next);
+  }
+
+  private async getPendingResume(runId: string): Promise<WorkspaceResumeHandoff | null> {
+    const entries = await this.readResumeStore();
+    return entries.find((entry) => entry.runId === runId) ?? null;
   }
 
   async prompt(args: {
@@ -1465,6 +1623,7 @@ export class ProfessorMariWorkspaceService {
     this.abortController?.abort();
     this.abortController = controller;
     this.active = true;
+    this.activeChatId = args.chatId;
 
     const workspaceTrace: MariWorkspaceTraceItem[] = [];
     let assistantText = "";
@@ -1506,7 +1665,19 @@ export class ProfessorMariWorkspaceService {
     try {
       await this.ensureMariCliShim();
       const provider = createProviderForConnection(connection);
-      const messages = await this.buildPromptMessages(args.chatId, connection);
+      const pendingResumes = await this.listPendingResumes(args.chatId);
+      const usingResumePrompt = shouldUseResumePrompt(args.text, pendingResumes);
+      const matchedResumeIds = usingResumePrompt
+        ? (() => {
+            const explicit = pendingResumes
+              .filter((entry) => args.text.toLowerCase().includes(entry.runId.toLowerCase()))
+              .map((entry) => entry.runId);
+            return explicit.length > 0 ? explicit : pendingResumes.slice(0, 1).map((entry) => entry.runId);
+          })()
+        : [];
+      const messages = await this.buildPromptMessages(args.chatId, connection, {
+        pendingResumes: usingResumePrompt ? pendingResumes.filter((entry) => matchedResumeIds.includes(entry.runId)) : [],
+      });
       const baseOptions = this.baseChatOptions(connection, controller.signal, (delta) => {
         thinkingText += delta;
         appendTraceThinking(workspaceTrace, delta);
@@ -1514,6 +1685,7 @@ export class ProfessorMariWorkspaceService {
       });
       const repeatedFailureCounts = new Map<string, number>();
       let protocolRepairRounds = 0;
+      let pendingReloadDecision = false;
 
       for (let round = 0; round < MAX_COMMAND_ROUNDS; round += 1) {
         if (controller.signal.aborted) throw new Error("aborted");
@@ -1595,6 +1767,19 @@ export class ProfessorMariWorkspaceService {
         messages.push({ role: "assistant", content: action.assistantHistoryContent });
 
         if (action.commands.length === 0) {
+          if (action.stop && pendingReloadDecision) {
+            const content =
+              "Professor Mari changed workspace files but has not yet verified whether a reload/resume handoff is needed, so I asked her to do that before stopping.";
+            appendTraceStatus(workspaceTrace, content);
+            args.onEvent({ type: "status", data: { content, kind: "info", level: "info" } });
+            messages.push({
+              role: "user",
+              content:
+                "Before you stop, resolve the pending reload decision for your recent file edits. Verify the change with mari code diff and mari code check or another targeted check. If the change needs a client/server/app restart boundary, issue mari code reload request --kind ... --reason ... --resume. Only stop without a reload request if your verification shows no restart boundary is needed, and say that plainly in your final answer.",
+              contextKind: "history",
+            });
+            continue;
+          }
           if (isLengthFinishReason(result.finishReason)) {
             const content = "Mari hit the model output limit. Ask her to continue and she can pick up from here.";
             appendTraceStatus(workspaceTrace, content);
@@ -1610,6 +1795,57 @@ export class ProfessorMariWorkspaceService {
           args.onEvent,
         );
         commandResultsForContinuity.push(...commandResults);
+        const successfulSourceMutation = commandResults.some(
+          (commandResult, index) =>
+            commandResult.success && isSourceMutatingWorkspaceCommand(action.commands[index] as WorkspaceCommandCall),
+        );
+        const requestedReloadResume = commandResults.some((commandResult) => !!resumeRequestedFromOutput(commandResult.output));
+        if (successfulSourceMutation) pendingReloadDecision = true;
+        if (requestedReloadResume) pendingReloadDecision = false;
+        for (const commandResult of commandResults) {
+          const resumeRequest = resumeRequestedFromOutput(commandResult.output);
+          if (!resumeRequest?.resume || !this.activeChatId) continue;
+          const runId = `mari_resume_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const summary = buildWorkspaceContinuitySnapshot({
+            userText: args.text,
+            assistantText: assistantText || action.visibleText,
+            commandResults: [...commandResultsForContinuity],
+          }) ?? `User request: ${compactTraceText(args.text, 900)}`;
+          const manualSteps = resumeRequest.manualSteps ?? [];
+          const prompt = [
+            `Resume workspace run ${runId}.`,
+            `A reload handoff was requested for chat ${this.activeChatId}.`,
+            `Kind: ${resumeRequest.kind}`,
+            `Reason: ${resumeRequest.reason}`,
+            resumeRequest.note ? `Note: ${resumeRequest.note}` : "",
+            `Requested at: ${resumeRequest.requestedAt}`,
+            manualSteps.length > 0 ? `Manual steps:\n- ${manualSteps.join("\n- ")}` : "",
+            `Saved context:\n${summary}`,
+            "First verify the app after reconnect with mari code health or a targeted read/check, then continue the original task without repeating completed discovery.",
+          ]
+            .filter(Boolean)
+            .join("\n\n");
+          await this.savePendingResume({
+            runId,
+            chatId: this.activeChatId,
+            kind: resumeRequest.kind,
+            reason: resumeRequest.reason,
+            requestedAt: resumeRequest.requestedAt,
+            command: commandResult.input && isRecord(commandResult.input) ? `mari ${Array.isArray(commandResult.input.argv) ? commandResult.input.argv.join(" ") : "code reload request"}` : "mari code reload request",
+            note: resumeRequest.note,
+            manualSteps,
+            summary,
+            prompt,
+          });
+          args.onEvent({
+            type: "status",
+            data: {
+              content: `Saved reload handoff ${runId}. After the restart, ask Mari to continue and she can resume from the saved workspace context.`,
+              kind: "info",
+              level: "info",
+            },
+          });
+        }
 
         const repeatedFailure = commandResults
           .filter((commandResult) => !commandResult.success)
@@ -1678,6 +1914,7 @@ export class ProfessorMariWorkspaceService {
       }
 
       await persistAssistantMessage();
+      for (const runId of matchedResumeIds) await this.clearPendingResume(runId);
       args.onEvent({ type: "metadata", data: { connection: connectionSummary(connection) ?? undefined } });
     } catch (err) {
       if (controller.signal.aborted) {
@@ -1710,10 +1947,15 @@ export class ProfessorMariWorkspaceService {
     } finally {
       if (this.abortController === controller) this.abortController = null;
       this.active = false;
+      if (this.activeChatId === args.chatId) this.activeChatId = null;
     }
   }
 
-  private async buildPromptMessages(chatId: string, connection: WorkspaceConnection): Promise<ChatMessage[]> {
+  private async buildPromptMessages(
+    chatId: string,
+    connection: WorkspaceConnection,
+    options: { pendingResumes?: MariWorkspacePendingResume[] } = {},
+  ): Promise<ChatMessage[]> {
     const chatStorage = createChatsStorage(this.app.db);
     const history = (await chatStorage.listMessages(chatId)).slice(-MAX_HISTORY_MESSAGES);
     const continuityPrompt = buildRecentWorkspaceContinuityPrompt(history);
@@ -1733,6 +1975,30 @@ export class ProfessorMariWorkspaceService {
       { role: "system", content: workspaceInfo, contextKind: "prompt" },
     ];
     if (skillsPrompt) messages.push({ role: "system", content: skillsPrompt, contextKind: "prompt" });
+    if (options.pendingResumes && options.pendingResumes.length > 0) {
+      const detailedResumes = (await Promise.all(options.pendingResumes.map((entry) => this.getPendingResume(entry.runId)))).filter(
+        (entry): entry is WorkspaceResumeHandoff => !!entry,
+      );
+      if (detailedResumes.length > 0) {
+        messages.push({
+          role: "system",
+          contextKind: "injection",
+          content: `<workspace_resume_handoffs>
+Saved reload/restart handoff context is available for this chat. When the user asks to continue or resume after a restart, use this handoff instead of asking them to restate the task. If verification is still needed, run mari code health or targeted checks first.
+
+${detailedResumes
+  .map(
+    (entry) => `<resume_handoff runId="${entry.runId}" kind="${entry.kind}" requestedAt="${entry.requestedAt}">
+Reason: ${entry.reason}
+Command: ${entry.command}
+${entry.note ? `Note: ${entry.note}\n` : ""}${entry.prompt}
+</resume_handoff>`,
+  )
+  .join("\n\n")}
+</workspace_resume_handoffs>`,
+        });
+      }
+    }
 
     for (const row of history) {
       const extra = parseExtra(row.extra);
@@ -1921,6 +2187,8 @@ ${sections.join("\n\n")}
         return this.commandWrite(command.arguments);
       case "edit":
         return this.commandEdit(command.arguments);
+      case "mari":
+        return this.commandMari(command.arguments);
       case "app_data":
         return this.commandAppData(command.arguments);
       case "bash":
@@ -2257,6 +2525,16 @@ ${sections.join("\n\n")}
     );
     if (result.ok === false) throw new Error(output);
     return output;
+  }
+
+  private async commandMari(args: Record<string, unknown>): Promise<string> {
+    if (!Array.isArray(args.argv)) throw new Error("mari requires argv");
+    const argv = args.argv
+      .map((token) => (typeof token === "string" ? token.trim() : ""))
+      .filter(Boolean);
+    if (argv.length === 0) throw new Error("mari requires a non-empty argv array");
+    const command = `mari ${argv.map((token) => (/\s/.test(token) ? JSON.stringify(token) : token)).join(" ")}`;
+    return this.commandMariDirect(command, argv);
   }
 
   private async commandAppData(args: Record<string, unknown>): Promise<string> {

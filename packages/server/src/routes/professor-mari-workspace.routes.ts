@@ -61,9 +61,9 @@ function privileged(request: FastifyRequest, reply: FastifyReply, loopbackOnly =
 }
 
 export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
-  app.get<{ Querystring: { connectionId?: string } }>("/status", async (req, reply) => {
+  app.get<{ Querystring: { connectionId?: string; chatId?: string } }>("/status", async (req, reply) => {
     if (!privileged(req, reply)) return;
-    return getProfessorMariWorkspaceService(app).status(req.query.connectionId ?? null);
+    return getProfessorMariWorkspaceService(app).status(req.query.connectionId ?? null, req.query.chatId ?? null);
   });
 
   app.post("/abort", async (req, reply) => {

@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { eq } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
@@ -16,6 +16,7 @@ import { getFileStorageDir, getMonorepoRoot, isCustomToolScriptEnabled } from ".
 import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { DATA_DIR } from "../../utils/data-dir.js";
 import { normalizeThemeCss } from "../../utils/theme-css.js";
 import { getMariImagesService } from "./mari-images.service.js";
 import { executeWikiCli } from "../professor-mari/fandom-mediawiki/wiki-cli.js";
@@ -128,6 +129,19 @@ type ProcessRunResult = {
   durationMs: number;
   timedOut: boolean;
   truncated: boolean;
+};
+
+type StoredWorkspaceResumeHandoff = {
+  runId: string;
+  chatId: string;
+  kind: "client" | "server" | "full";
+  reason: string;
+  requestedAt: string;
+  command: string;
+  note?: string;
+  manualSteps: string[];
+  summary: string;
+  prompt: string;
 };
 
 const PREVIEW_LIMIT = 50;
@@ -2029,6 +2043,10 @@ export class MariDbService {
           "name",
           "description",
           "category",
+          "characterId",
+          "characterIds",
+          "personaId",
+          "personaIds",
           "tags",
           "global",
           "isGlobal",
@@ -2048,6 +2066,22 @@ export class MariDbService {
         const name = requiredString(data, ["name"], "lorebook name");
         const timestamp = now();
         const id = firstString(args, ["id", "lorebookId"]) ?? newId();
+        const characterIds = [...new Set([
+          ...((firstString(data, ["characterId"]) ?? "").trim() ? [firstString(data, ["characterId"])!.trim()] : []),
+          ...(firstStringList(data, ["characterIds"]) ?? []),
+        ])];
+        const personaIds = [...new Set([
+          ...((firstString(data, ["personaId"]) ?? "").trim() ? [firstString(data, ["personaId"])!.trim()] : []),
+          ...(firstStringList(data, ["personaIds"]) ?? []),
+        ])];
+        for (const characterId of characterIds) {
+          const characterExists = await this.getRawById(getMeta("characters"), characterId);
+          if (!characterExists) throw new Error(`Character ${characterId} not found`);
+        }
+        for (const personaId of personaIds) {
+          const personaExists = await this.getRawById(getMeta("personas"), personaId);
+          if (!personaExists) throw new Error(`Persona ${personaId} not found`);
+        }
         const row: Row = {
           id,
           name,
@@ -2064,6 +2098,8 @@ export class MariDbService {
           vectorQueryDepth: 10,
           vectorScoreThreshold: 0.3,
           vectorMaxResults: 10,
+          characterId: characterIds[0] ?? null,
+          personaId: personaIds[0] ?? null,
           scope: { mode: "all", chatIds: [] },
           tags: [],
           generatedBy: "agent",
@@ -2072,12 +2108,23 @@ export class MariDbService {
           updatedAt: timestamp,
         };
         this.assignLorebookActionFields(row, data);
+        const relatedInserts = [
+          ...characterIds.map((characterId) => ({
+            table: "lorebook_character_links",
+            row: { id: newId(), lorebookId: id, characterId, createdAt: timestamp },
+          })),
+          ...personaIds.map((personaId) => ({
+            table: "lorebook_persona_links",
+            row: { id: newId(), lorebookId: id, personaId, createdAt: timestamp },
+          })),
+        ];
         return this.executeMutation(
           {
             kind: "insert",
             table: "lorebooks",
             id,
             row,
+            relatedInserts,
             apply: appDataCreateApply(args),
             requiresApproval: false,
             cascade: false,
@@ -2991,12 +3038,62 @@ export class MariDbService {
 
   private executeCodeContinue(runId: string | undefined, context: CodeCommandContext): MariDbCommandResult {
     if (!runId) return { ok: false, mode: "read", command: context.command, error: "Usage: mari code continue <run-id>" };
+    const handoff = this.readWorkspaceResumeHandoff(runId);
+    if (!handoff) {
+      return {
+        ok: false,
+        mode: "read",
+        command: context.command,
+        error: `No saved Professor Mari workspace resume handoff found for ${runId}.`,
+      };
+    }
     return {
-      ok: false,
+      ok: true,
       mode: "read",
       command: context.command,
-      error: "Durable workspace run resume is planned but not implemented yet. Reopen Professor Mari and paste the run context or continue manually.",
+      output: {
+        status: "resume_ready",
+        runId: handoff.runId,
+        chatId: handoff.chatId,
+        kind: handoff.kind,
+        reason: handoff.reason,
+        requestedAt: handoff.requestedAt,
+        command: handoff.command,
+        note: handoff.note,
+        manualSteps: handoff.manualSteps,
+        summary: handoff.summary,
+        prompt: handoff.prompt,
+      },
     };
+  }
+
+  private workspaceResumeStorePath() {
+    return join(DATA_DIR, ".mari-workspace", "resume-handoffs.json");
+  }
+
+  private readWorkspaceResumeHandoff(runId: string): StoredWorkspaceResumeHandoff | null {
+    try {
+      const filePath = this.workspaceResumeStorePath();
+      if (!existsSync(filePath)) return null;
+      const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+      if (!Array.isArray(parsed)) return null;
+      const handoff = parsed.find((entry) => isRecord(entry) && entry.runId === runId);
+      if (!handoff || !isRecord(handoff)) return null;
+      return {
+        runId: String(handoff.runId),
+        chatId: String(handoff.chatId),
+        kind: handoff.kind === "server" || handoff.kind === "full" ? handoff.kind : "client",
+        reason: typeof handoff.reason === "string" ? handoff.reason : "Workspace reload continuation",
+        requestedAt: typeof handoff.requestedAt === "string" ? handoff.requestedAt : now(),
+        command: typeof handoff.command === "string" ? handoff.command : "mari code reload request",
+        note: typeof handoff.note === "string" ? handoff.note : undefined,
+        manualSteps: Array.isArray(handoff.manualSteps) ? handoff.manualSteps.map(String) : [],
+        summary: typeof handoff.summary === "string" ? handoff.summary : "",
+        prompt: typeof handoff.prompt === "string" ? handoff.prompt : "",
+      };
+    } catch {
+      return null;
+    }
   }
 
   private async executeCharactersCommand(
@@ -4726,7 +4823,7 @@ export class MariDbService {
       "check [--changed]       Run validation. --changed currently falls back to baseline pnpm check.",
       "health                 Show server/runtime health and database validation status.",
       "reload request --kind client|server|full --reason <text> [--resume]",
-      "continue <run-id>       Planned durable resume command; not implemented yet.",
+      "continue <run-id>       Load a saved Professor Mari reload handoff for a workspace run.",
       "Examples:",
       "  mari code status",
       "  mari code diff --patch",
@@ -4739,7 +4836,7 @@ export class MariDbService {
     return [
       "Usage: mari code reload request --kind client|server|full --reason <text> [--resume]",
       "Records that a reload/restart is needed and returns manual resume instructions for this build.",
-      "Automatic suspend/resume cards are planned for the durable workspace-runs phase.",
+      "When used from Professor Mari workspace with --resume, the reload handoff is saved so mari code continue <run-id> can recover it after reconnect.",
     ].join("\n");
   }
 

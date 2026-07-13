@@ -2,7 +2,7 @@
 // Professor Mari Workspace Agent Contracts
 // ──────────────────────────────────────────────
 
-export type MariWorkspaceToolName = "read" | "grep" | "find" | "ls" | "edit" | "write" | "bash" | "app_data";
+export type MariWorkspaceToolName = "read" | "grep" | "find" | "ls" | "edit" | "write" | "mari" | "bash" | "app_data";
 
 export type MariChipEntity =
   | "characters"
@@ -340,8 +340,20 @@ export interface MariWorkspaceStatus {
   skillDiagnostics: string[];
   active: boolean;
   pendingApprovals: MariDbPendingApproval[];
+  pendingResumes: MariWorkspacePendingResume[];
   history: MariDbHistoryEntry[];
   error?: string | null;
+}
+
+export interface MariWorkspacePendingResume {
+  runId: string;
+  chatId: string;
+  kind: "client" | "server" | "full";
+  reason: string;
+  requestedAt: string;
+  command: string;
+  note?: string;
+  manualSteps: string[];
 }
 
 export type MariWorkspacePromptEvent =

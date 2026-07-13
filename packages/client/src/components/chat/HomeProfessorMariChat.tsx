@@ -2057,12 +2057,13 @@ export function HomeProfessorMariChat({
   const refreshWorkspaceStatus = useCallback(async () => {
     const params = new URLSearchParams();
     if (effectiveConnectionId) params.set("connectionId", effectiveConnectionId);
+    if (chatId) params.set("chatId", chatId);
     const query = params.toString();
     const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query ? `?${query}` : ""}`);
     setWorkspaceStatus(status);
     workspaceStatusErrorToastShownRef.current = false;
     return status;
-  }, [effectiveConnectionId]);
+  }, [chatId, effectiveConnectionId]);
 
   const invalidateWorkspaceData = useCallback(async () => {
     await qc.invalidateQueries({ refetchType: "all" });
@@ -2184,10 +2185,12 @@ export function HomeProfessorMariChat({
   }, [selectedSkill]);
 
   const pendingChangeReviews = workspaceStatus?.pendingApprovals ?? [];
+  const pendingResumeHandoffs = workspaceStatus?.pendingResumes ?? [];
   const workspaceTimelineActive = workspaceActive || hasActiveGeneration;
   const workspaceHasResponseText = workspaceTimeline.some((item) => item.type === "text" && item.content.trim());
   const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText;
   const visiblePendingChangeReviews = !sending && !workspaceTimelineActive ? pendingChangeReviews : [];
+  const visiblePendingResumeHandoffs = !sending && !workspaceTimelineActive ? pendingResumeHandoffs : [];
   const visiblePendingChangeReviewKey = visiblePendingChangeReviews.map((approval) => approval.id).join("|");
 
   useEffect(() => {
@@ -2982,6 +2985,35 @@ export function HomeProfessorMariChat({
             )}
             <WorkspaceTimelineList items={workspaceTimeline} active={workspaceTimelineActive} openReasoning />
             {workspaceStatus?.error && <WorkspaceErrorEvent message={workspaceStatus.error} />}
+            {visiblePendingResumeHandoffs.map((handoff) => (
+              <div
+                key={handoff.runId}
+                className="rounded-xl border border-[var(--primary)]/30 bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] shadow-sm"
+              >
+                <div className="font-medium">Saved reload handoff ready</div>
+                <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Run {handoff.runId} · {handoff.kind} reload · {handoff.reason}
+                </div>
+                {handoff.manualSteps.length > 0 && (
+                  <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                    {handoff.manualSteps[0]}
+                  </div>
+                )}
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md bg-[var(--primary)] px-2.5 py-1 text-xs font-medium text-[var(--primary-foreground)]"
+                    onClick={() =>
+                      void handleSubmit(
+                        `Continue the saved Professor Mari workspace reload follow-up for run ${handoff.runId}. Verify the app after reconnect, then continue the task from the saved context.`,
+                      )
+                    }
+                  >
+                    Continue run
+                  </button>
+                </div>
+              </div>
+            ))}
             {visiblePendingChangeReviews.map((approval) => (
               <WorkspaceApprovalCard
                 key={approval.id}
@@ -3603,6 +3635,35 @@ export function HomeProfessorMariChat({
                               openReasoning
                             />
                             {workspaceStatus?.error && <WorkspaceErrorEvent message={workspaceStatus.error} />}
+                            {visiblePendingResumeHandoffs.map((handoff) => (
+                              <div
+                                key={handoff.runId}
+                                className="rounded-xl border border-[var(--primary)]/30 bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] shadow-sm"
+                              >
+                                <div className="font-medium">Saved reload handoff ready</div>
+                                <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                                  Run {handoff.runId} · {handoff.kind} reload · {handoff.reason}
+                                </div>
+                                {handoff.manualSteps.length > 0 && (
+                                  <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                                    {handoff.manualSteps[0]}
+                                  </div>
+                                )}
+                                <div className="mt-2 flex gap-2">
+                                  <button
+                                    type="button"
+                                    className="rounded-md bg-[var(--primary)] px-2.5 py-1 text-xs font-medium text-[var(--primary-foreground)]"
+                                    onClick={() =>
+                                      void handleSubmit(
+                                        `Continue the saved Professor Mari workspace reload follow-up for run ${handoff.runId}. Verify the app after reconnect, then continue the task from the saved context.`,
+                                      )
+                                    }
+                                  >
+                                    Continue run
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
                             {visiblePendingChangeReviews.map((approval) => (
                               <WorkspaceApprovalCard
                                 key={approval.id}
