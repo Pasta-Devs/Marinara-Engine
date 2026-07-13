@@ -963,6 +963,10 @@ export async function generateRoutes(app: FastifyInstance) {
       trySendSseEvent(reply, { type: "progress", data: { phase } });
     };
 
+    // Request-lifetime publication guard. It must live outside the outer try so
+    // terminal cleanup can reject a candidate left pending by aborts or errors.
+    let pendingHumanOSCandidate: { messageId: string; turnId: string } | null = null;
+
     try {
       // ── Turn-game bot seats (UNO, etc.): drive the active game's bot players and
       //    short-circuit the normal conversation pipeline. Gated by an explicit
@@ -5612,6 +5616,7 @@ export async function generateRoutes(app: FastifyInstance) {
               content: fullResponse,
               turnId: humanOSPublicationTurnId,
             });
+            pendingHumanOSCandidate = { messageId: savedMsg.id, turnId: humanOSPublicationTurnId };
             savedSwipeIndex = 0;
           } else {
             savedMsg = await chats.createMessage({
@@ -6058,12 +6063,14 @@ export async function generateRoutes(app: FastifyInstance) {
                 if (promoted.status !== "promoted") {
                   throw new Error(`HumanOS candidate promotion failed: ${promoted.status}`);
                 }
+                pendingHumanOSCandidate = null;
                 promotedMessage = promoted.message;
               },
             });
           } catch (error) {
             const reason = error instanceof Error ? error.message : "HumanOS ordered review failed";
             await messagePublication.rejectCandidate(candidateMessageId, humanOSPublicationTurnId, reason);
+            pendingHumanOSCandidate = null;
             trySendSseEvent(reply, { type: "error", data: `Response review failed: ${reason}` });
             trySendSseEvent(reply, { type: "done", data: "" });
             return;
@@ -6075,6 +6082,7 @@ export async function generateRoutes(app: FastifyInstance) {
               reviewResult.records.at(-1)?.diagnostic ??
               `HumanOS review ended with status ${reviewResult.status}`;
             await messagePublication.rejectCandidate(candidateMessageId, humanOSPublicationTurnId, reason);
+            pendingHumanOSCandidate = null;
             trySendSseEvent(reply, { type: "error", data: `Response was not approved: ${reason}` });
             trySendSseEvent(reply, { type: "done", data: "" });
             return;
@@ -8473,6 +8481,21 @@ export async function generateRoutes(app: FastifyInstance) {
           : "Generation failed";
       sendSseEvent(reply, { type: "error", data: message });
     } finally {
+      if (pendingHumanOSCandidate) {
+        const pending = pendingHumanOSCandidate;
+        pendingHumanOSCandidate = null;
+        try {
+          await messagePublication.rejectCandidate(
+            pending.messageId,
+            pending.turnId,
+            abortController.signal.aborted
+              ? "Generation aborted before canonical promotion"
+              : "Generation ended before canonical promotion",
+          );
+        } catch (cleanupError) {
+          logger.error(cleanupError, "[humanos/publication] Failed to reject orphaned candidate");
+        }
+      }
       if (conversationGenerationStartedAt != null && !conversationAssistantSaved) {
         clearGenerationInProgress(input.chatId, conversationGenerationStartedAt);
       }

@@ -39,6 +39,22 @@ test("review failure rejects the candidate before downstream post-processing", a
   assert.ok(postProcessing > reject);
 });
 
+test("terminal cleanup rejects a candidate left pending by abort or exception", async () => {
+  const text = await source();
+  const requestGuard = text.indexOf("let pendingHumanOSCandidate:");
+  const outerTry = text.indexOf("    try {", requestGuard);
+  const candidateCreated = text.indexOf("pendingHumanOSCandidate = { messageId: savedMsg.id", outerTry);
+  const terminalFinally = text.lastIndexOf("    } finally {");
+  const cleanupGuard = text.indexOf("if (pendingHumanOSCandidate)", terminalFinally);
+  const cleanupReject = text.indexOf("await messagePublication.rejectCandidate", cleanupGuard);
+  assert.ok(requestGuard >= 0);
+  assert.ok(outerTry > requestGuard);
+  assert.ok(candidateCreated > outerTry);
+  assert.ok(terminalFinally > candidateCreated);
+  assert.ok(cleanupGuard > terminalFinally);
+  assert.ok(cleanupReject > cleanupGuard);
+});
+
 test("reviewed turns suppress tools, early publication, commands, OOC, map, Discord, and parallel agents", async () => {
   const text = await source();
   assert.match(text, /const toolDefs = humanOSPublicationPolicy\.enabled \? \[\]/);

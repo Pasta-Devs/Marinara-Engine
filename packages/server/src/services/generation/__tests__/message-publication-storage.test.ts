@@ -90,6 +90,9 @@ test("rejected candidates remain audit-only and cannot be promoted", async () =>
     const candidate = await publication.createCandidate({ chatId: "chat-1", content: "unsafe", turnId: "turn-2" });
     const rejected = await publication.rejectCandidate(candidate.id, "turn-2", "agency violation");
     assert.equal(rejected.status, "rejected");
+    assert.deepEqual(await publication.rejectCandidate(candidate.id, "turn-2", "duplicate cleanup"), {
+      status: "already_rejected",
+    });
 
     const storedMessage = (await db.select().from(messages).where(eq(messages.id, candidate.id)))[0]!;
     const storedSwipe = (await db.select().from(messageSwipes).where(eq(messageSwipes.messageId, candidate.id)))[0]!;
