@@ -57,6 +57,7 @@ import type {
   ThinkingTagPair,
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
+import { createMessagePublicationStorage } from "../services/storage/message-publication.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
 import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
@@ -103,6 +104,14 @@ import { wrapContent } from "../services/prompt/format-engine.js";
 import { yieldToEventLoop, type ChatMessage, type LLMUsage } from "../services/llm/base-provider.js";
 import { executeToolCalls } from "../services/tools/tool-executor.js";
 import { createAgentPipeline, type ResolvedAgent, type AgentInjection } from "../services/agents/agent-pipeline.js";
+import {
+  humanOSReviewDecisionFromAgentResult,
+  runHumanOSOrderedReview,
+} from "../services/generation/humanos-ordered-review.js";
+import {
+  assertHumanOSPublicationModeSupported,
+  resolveHumanOSPublicationPolicy,
+} from "../services/generation/humanos-publication-policy.js";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { executeAgent, normalizeAgentContextSize, resolveAgentResultType } from "../services/agents/agent-executor.js";
 import { matchCustomAgentActivation } from "./generate/agent-activation.js";
@@ -610,6 +619,7 @@ export async function generateRoutes(app: FastifyInstance) {
   const isDebug = logger.isLevelEnabled("debug");
 
   const chats = createChatsStorage(app.db);
+  const messagePublication = createMessagePublicationStorage(app.db);
   const connections = createConnectionsStorage(app.db);
   const presets = createPromptsStorage(app.db);
   const chars = createCharactersStorage(app.db);
@@ -3617,18 +3627,41 @@ export async function generateRoutes(app: FastifyInstance) {
           trySendSseEvent(reply, { type: "agent_warning", data: warning });
         }
 
-        // Create the pipeline (exclude text rewrite agents — they run last,
+        // HumanOS ordered reviewers and post-canonical trackers have their own
+        // authority boundaries. They must never execute through the legacy
+        // post-processing/rewrite pipeline.
+        const humanOSPublicationPolicy = resolveHumanOSPublicationPolicy(resolvedAgents);
+        if (humanOSPublicationPolicy.enabled) {
+          assertHumanOSPublicationModeSupported({
+            regenerateMessageId: input.regenerateMessageId,
+            continueMessageId: input.continueMessageId,
+            impersonate: input.impersonate,
+            individualGroupGeneration: (isGroupChat && groupChatMode === "individual") || chatMode === "game",
+          });
+        }
+        const legacyResolvedAgents = humanOSPublicationPolicy.legacyAgents;
+        const humanOSPublicationTurnId = humanOSPublicationPolicy.enabled ? newId() : null;
+
+        // Create the legacy pipeline (exclude text rewrite agents — they run last,
         // after all other post-processing agents have produced their context).
-        const textRewriteAgents = resolvedAgents.filter(
-          (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
-        );
+        const textRewriteAgents = humanOSPublicationPolicy.enabled
+          ? []
+          : legacyResolvedAgents.filter(
+              (a) => a.phase === "post_processing" && resolveAgentResultType(a) === "text_rewrite",
+            );
         const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
-        const holdForTextRewrite = shouldHoldForTextRewrite(textRewriteAgents);
+        const holdForTextRewrite =
+          humanOSPublicationPolicy.enabled || shouldHoldForTextRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(textRewriteAgents.map((a) => a.id));
-        const lorebookKeeperAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null;
-        let pipelineAgents = resolvedAgents.filter(
-          (a) => !textRewriteAgentIds.has(a.id) && a.type !== "lorebook-keeper",
+        const lorebookKeeperAgent = humanOSPublicationPolicy.enabled
+          ? null
+          : (legacyResolvedAgents.find((a) => a.type === "lorebook-keeper") ?? null);
+        let pipelineAgents = legacyResolvedAgents.filter(
+          (a) =>
+            !textRewriteAgentIds.has(a.id) &&
+            a.type !== "lorebook-keeper" &&
+            (!humanOSPublicationPolicy.enabled || a.phase !== "post_processing"),
         );
 
         // Manual tracker agents are stripped from the automatic pipeline — the
@@ -3653,13 +3686,7 @@ export async function generateRoutes(app: FastifyInstance) {
           pipelineAgents = pipelineAgents.filter((a) => a.type !== "combat");
         }
 
-        const {
-          enableChatTools,
-          chatResolvedToolNames,
-          toolDefs,
-          baseToolExecutionContext,
-          updateChatMetadataForTools,
-        } = await resolveGenerationTools({
+        const resolvedGenerationTools = await resolveGenerationTools({
           requestBody: input as Record<string, unknown>,
           chatId: input.chatId,
           chatMetadata: chatMeta,
@@ -3679,6 +3706,16 @@ export async function generateRoutes(app: FastifyInstance) {
           agentContext,
           emitMetadataPatch: (patch) => trySendSseEvent(reply, { type: "metadata_patch", data: patch }),
         });
+        // Model tool calls can mutate state before review. Until tool calls gain
+        // proposed-action staging, reviewed HumanOS turns intentionally expose no
+        // main-model tools.
+        const enableChatTools = humanOSPublicationPolicy.enabled ? false : resolvedGenerationTools.enableChatTools;
+        const chatResolvedToolNames = humanOSPublicationPolicy.enabled
+          ? new Set<string>()
+          : resolvedGenerationTools.chatResolvedToolNames;
+        const toolDefs = humanOSPublicationPolicy.enabled ? [] : resolvedGenerationTools.toolDefs;
+        const baseToolExecutionContext = resolvedGenerationTools.baseToolExecutionContext;
+        const updateChatMetadataForTools = resolvedGenerationTools.updateChatMetadataForTools;
         if (enableChatTools && toolDefs && toolDefs.length > 0 && conn.treatAsLocalEndpoint === "true") {
           const toolLines = toolDefs.map(
             (t) =>
@@ -5491,6 +5528,16 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           }
 
+          // Hidden commands and cross-chat OOC posts are side effects derived from
+          // unapproved prose. Reviewed HumanOS turns fail closed until those actions
+          // can be staged and re-derived from the approved candidate.
+          if (
+            humanOSPublicationPolicy.enabled &&
+            (parsedCommands.length > 0 || parsedRawCommandCount > 0 || oocMessages.length > 0)
+          ) {
+            throw new Error("HumanOS reviewed publication does not yet support hidden commands or OOC side effects");
+          }
+
           // Guard: don't save empty responses — the model returned nothing useful.
           // Exception: if the model emitted character commands (e.g. [fetch:...]) with
           // no surrounding prose, treat the commands as the useful output. Skip saving
@@ -5557,6 +5604,15 @@ export async function generateRoutes(app: FastifyInstance) {
               typeof savedMsg?.activeSwipeIndex === "number" && Number.isInteger(savedMsg.activeSwipeIndex)
                 ? savedMsg.activeSwipeIndex
                 : 0;
+          } else if (humanOSPublicationPolicy.enabled) {
+            if (!humanOSPublicationTurnId) throw new Error("HumanOS publication turn ID is missing");
+            savedMsg = await messagePublication.createCandidate({
+              chatId: input.chatId,
+              characterId: targetCharId,
+              content: fullResponse,
+              turnId: humanOSPublicationTurnId,
+            });
+            savedSwipeIndex = 0;
           } else {
             savedMsg = await chats.createMessage({
               chatId: input.chatId,
@@ -5566,10 +5622,15 @@ export async function generateRoutes(app: FastifyInstance) {
             });
             savedSwipeIndex = 0;
           }
-          if (markGenerationCommitted && savedMsg?.id) {
+          if (!humanOSPublicationPolicy.enabled && markGenerationCommitted && savedMsg?.id) {
             generationComplete = true;
           }
-          if (chatMode === "conversation" && !input.impersonate && !input.regenerateMessageId) {
+          if (
+            !humanOSPublicationPolicy.enabled &&
+            chatMode === "conversation" &&
+            !input.impersonate &&
+            !input.regenerateMessageId
+          ) {
             recordAssistantActivity(input.chatId, input.autonomous ? (targetCharId ?? undefined) : undefined);
             await recordSavedAutonomousGeneration(targetCharId);
             conversationAssistantSaved = true;
@@ -5648,12 +5709,14 @@ export async function generateRoutes(app: FastifyInstance) {
                     },
                   }
                 : (refreshedMsg ?? savedMsg);
-            sendSseEvent(reply, {
-              type: "message_saved",
-              data: savedMessagePayload,
-            });
+            if (!humanOSPublicationPolicy.enabled) {
+              sendSseEvent(reply, {
+                type: "message_saved",
+                data: savedMessagePayload,
+              });
+            }
 
-            if (chatMode === "game" && !input.impersonate) {
+            if (!humanOSPublicationPolicy.enabled && chatMode === "game" && !input.impersonate) {
               const mapUpdates = parseMapUpdateCommands(fullResponse);
               if (mapUpdates.length > 0) {
                 try {
@@ -5736,7 +5799,13 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           // Mirror character response to Discord (fire-and-forget, skip regens/swipes)
-          if (discordWebhookUrl && fullResponse.trim() && !input.impersonate && !input.regenerateMessageId) {
+          if (
+            !humanOSPublicationPolicy.enabled &&
+            discordWebhookUrl &&
+            fullResponse.trim() &&
+            !input.impersonate &&
+            !input.regenerateMessageId
+          ) {
             const charName =
               chatMode === "game"
                 ? await resolveGameDiscordSpeakerName()
@@ -5757,7 +5826,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // ────────────────────────────────────────
         // Phase 2: Fire parallel agents alongside the main generation
         // ────────────────────────────────────────
-        const hasParallelAgents = pipelineAgents.some((a) => a.phase === "parallel");
+        const hasParallelAgents =
+          !humanOSPublicationPolicy.enabled && pipelineAgents.some((a) => a.phase === "parallel");
         let parallelPromise: Promise<AgentResult[]> | null = null;
         if (hasParallelAgents && !abortController.signal.aborted) {
           deferParallelAgentEvents = true;
@@ -5939,6 +6009,96 @@ export async function generateRoutes(app: FastifyInstance) {
           allResponses.push(fullResponse);
         }
 
+        // HumanOS reviewed publication: the assistant row remains audit-only
+        // until all six ordered reviewers approve the latest candidate.
+        if (humanOSPublicationPolicy.enabled) {
+          const candidateMessageId = (lastSavedMsg as any)?.id ?? "";
+          if (!candidateMessageId || !humanOSPublicationTurnId || firstSavedMsg?.id !== lastSavedMsg?.id) {
+            throw new Error("HumanOS reviewed publication requires exactly one saved assistant candidate");
+          }
+
+          let promotedMessage: any = null;
+          let reviewResult;
+          try {
+            reviewResult = await runHumanOSOrderedReview({
+              candidate: fullResponse,
+              reviewers: humanOSPublicationPolicy.declarations,
+              isAborted: () => abortController.signal.aborted,
+              execute: async (declaration, latestCandidate) => {
+                const reviewerIndex = humanOSPublicationPolicy.declarations.findIndex(
+                  (entry) => entry.key === declaration.key,
+                );
+                const reviewer = humanOSPublicationPolicy.reviewers[reviewerIndex];
+                if (!reviewer) throw new Error(`Missing configured reviewer for ${declaration.key}`);
+                const reviewerResult = await executeAgent(
+                  reviewer,
+                  { ...agentContext, mainResponse: latestCandidate, streaming: false },
+                  reviewer.provider,
+                  reviewer.model,
+                );
+                sendAgentEvent(reviewerResult, { finalized: true });
+                try {
+                  await agentsStore.saveRun({
+                    agentConfigId: reviewerResult.agentId,
+                    chatId: input.chatId,
+                    messageId: candidateMessageId,
+                    result: reviewerResult,
+                  });
+                } catch (error) {
+                  logger.warn(error, "[humanos/review] Failed to persist reviewer run");
+                }
+                return humanOSReviewDecisionFromAgentResult(reviewerResult);
+              },
+              publishCanonical: async (approvedText) => {
+                const promoted = await messagePublication.promoteCandidate(
+                  candidateMessageId,
+                  humanOSPublicationTurnId,
+                  approvedText,
+                );
+                if (promoted.status !== "promoted") {
+                  throw new Error(`HumanOS candidate promotion failed: ${promoted.status}`);
+                }
+                promotedMessage = promoted.message;
+              },
+            });
+          } catch (error) {
+            const reason = error instanceof Error ? error.message : "HumanOS ordered review failed";
+            await messagePublication.rejectCandidate(candidateMessageId, humanOSPublicationTurnId, reason);
+            trySendSseEvent(reply, { type: "error", data: `Response review failed: ${reason}` });
+            trySendSseEvent(reply, { type: "done", data: "" });
+            return;
+          }
+
+          if (reviewResult.status !== "canonical" || !promotedMessage) {
+            const reason =
+              reviewResult.correctionNotice ??
+              reviewResult.records.at(-1)?.diagnostic ??
+              `HumanOS review ended with status ${reviewResult.status}`;
+            await messagePublication.rejectCandidate(candidateMessageId, humanOSPublicationTurnId, reason);
+            trySendSseEvent(reply, { type: "error", data: `Response was not approved: ${reason}` });
+            trySendSseEvent(reply, { type: "done", data: "" });
+            return;
+          }
+
+          fullResponse = reviewResult.text;
+          allResponses.splice(0, allResponses.length, reviewResult.text);
+          firstSavedMsg = promotedMessage;
+          lastSavedMsg = promotedMessage;
+          generationComplete = true;
+          if (chatMode === "conversation") {
+            recordAssistantActivity(input.chatId, input.autonomous ? (promotedMessage.characterId ?? undefined) : undefined);
+            await recordSavedAutonomousGeneration(promotedMessage.characterId ?? null);
+            conversationAssistantSaved = true;
+          }
+          trySendSseEvent(reply, { type: "content_replace", data: reviewResult.text });
+          trySendSseEvent(reply, { type: "message_saved", data: promotedMessage });
+
+          if (discordWebhookUrl && reviewResult.text.trim()) {
+            const charName = charInfo.find((character) => character.id === promotedMessage.characterId)?.name ?? "Character";
+            postToDiscordWebhook(discordWebhookUrl, { content: reviewResult.text, username: charName });
+          }
+        }
+
         // ────────────────────────────────────────
         // Collect parallel results + Phase 3: Post-processing agents
         // ────────────────────────────────────────
@@ -5994,7 +6154,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        const hasPostProcessingAgents = resolvedAgents.some((a) => a.phase === "post_processing");
+        const hasPostProcessingAgents = pipelineAgents.some((a) => a.phase === "post_processing");
         const combinedResponse = allResponses.join("\n\n");
         let lorebookKeeperProcessedMessageId = "";
         // Illustration runs asynchronously so it doesn't block other agents.

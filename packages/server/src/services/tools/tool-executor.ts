@@ -65,6 +65,13 @@ export type MetadataPatch = Record<string, unknown>;
 export type MetadataUpdater = (current: MetadataPatch) => MetadataPatch | Promise<MetadataPatch>;
 export type MetadataPatchInput = MetadataPatch | MetadataUpdater;
 
+export interface HumanOSToolCallbacks {
+  getArchitecture(input: Record<string, unknown>): Promise<unknown>;
+  saveArchitecture(input: Record<string, unknown>): Promise<unknown>;
+  getRuntime(input?: Record<string, unknown>): Promise<unknown>;
+  commitRuntime(input: Record<string, unknown>): Promise<unknown>;
+}
+
 const MAX_APPEND_BYTES = 16 * 1024;
 const MAX_LOREBOOK_ENTRY_DESCRIPTION_BYTES = 4 * 1024;
 const MAX_LOREBOOK_ENTRY_NAME_LENGTH = 160;
@@ -176,6 +183,7 @@ export interface ToolExecutionContext {
   replaceChatMessageContent?: ReplaceChatMessageContentFn;
   spotify?: SpotifyCredentials;
   spotifyRepeatAfterPlay?: "off" | "track" | "context";
+  humanOS?: HumanOSToolCallbacks;
 }
 
 /**
@@ -261,6 +269,14 @@ async function executeSingleTool(
       return spotifySetVolume(args, context?.spotify);
     case "update_about_me":
       return updateAboutMe(args, context);
+    case "humanos_get_architecture":
+      return context?.humanOS?.getArchitecture(args) ?? { error: "HUMANOS_V2_ARCHITECTURE_READ_UNAVAILABLE" };
+    case "humanos_save_architecture":
+      return context?.humanOS?.saveArchitecture(args) ?? { error: "HUMANOS_V2_ARCHITECTURE_WRITE_UNAVAILABLE" };
+    case "humanos_get_runtime":
+      return context?.humanOS?.getRuntime(args) ?? { error: "HUMANOS_V2_RUNTIME_READ_UNAVAILABLE" };
+    case "humanos_commit_runtime":
+      return context?.humanOS?.commitRuntime(args) ?? { error: "HUMANOS_V2_RUNTIME_WRITE_UNAVAILABLE" };
     default: {
       // Try custom tools
       const custom = context?.customTools?.find((t) => t.name === name);

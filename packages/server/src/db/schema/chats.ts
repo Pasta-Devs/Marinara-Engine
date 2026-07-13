@@ -48,6 +48,14 @@ export const messages = sqliteTable("messages", {
   characterId: text("character_id"),
   content: text("content").notNull().default(""),
   activeSwipeIndex: integer("active_swipe_index").notNull().default(0),
+  /** Server-owned publication lifecycle. Legacy and public writes default to canonical. */
+  publicationStatus: text("publication_status", { enum: ["candidate", "canonical", "rejected"] })
+    .notNull()
+    .default("canonical"),
+  publicationTurnId: text("publication_turn_id"),
+  promotedAt: text("promoted_at"),
+  rejectedAt: text("rejected_at"),
+  rejectionReason: text("rejection_reason"),
   /** JSON object for extra data */
   extra: text("extra").notNull().default("{}"),
   createdAt: text("created_at").notNull(),
@@ -60,6 +68,14 @@ export const messageSwipes = sqliteTable("message_swipes", {
     .references(() => messages.id, { onDelete: "cascade" }),
   index: integer("index").notNull(),
   content: text("content").notNull().default(""),
+  /** Swipe-level lifecycle supports reviewed regeneration without replacing the canonical swipe. */
+  publicationStatus: text("publication_status", { enum: ["candidate", "canonical", "rejected"] })
+    .notNull()
+    .default("canonical"),
+  publicationTurnId: text("publication_turn_id"),
+  promotedAt: text("promoted_at"),
+  rejectedAt: text("rejected_at"),
+  rejectionReason: text("rejection_reason"),
   /** JSON object for extra data */
   extra: text("extra").notNull().default("{}"),
   createdAt: text("created_at").notNull(),

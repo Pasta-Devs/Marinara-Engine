@@ -395,6 +395,37 @@ export interface AgentContext {
   /** Abort signal — when triggered, agent execution should stop. Typed as `any` to avoid DOM/Node lib dependency. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   signal?: any;
+  /** Immutable HumanOS turn capture, when the deterministic pipeline is active. */
+  humanOSTurnSnapshot?: HumanOSTurnSnapshot;
+  /** Retrieval/context snapshot paired with the HumanOS turn capture. */
+  humanOSContextSnapshot?: HumanOSContextSnapshot;
+}
+
+export interface HumanOSTurnSnapshot {
+  schemaVersion: "humanos-turn-snapshot/v1";
+  turnId: string;
+  generationId: string;
+  capturedAt: string;
+  sourceMessageId: string | null;
+  generationType: string;
+  snapshotHash: string;
+  revisions: Record<"chat" | "characters" | "persona" | "runtime" | "lorebook" | "preset", string>;
+  chat: { id: string; mode: string; presetId: string | null };
+  recentMessages: AgentContext["recentMessages"];
+  characters: AgentContext["characters"];
+  persona: AgentContext["persona"];
+  runtime: AgentContext["gameState"];
+  activatedLorebookEntries: AgentContext["activatedLorebookEntries"];
+}
+
+export interface HumanOSContextSnapshot {
+  schemaVersion: "humanos-context-snapshot/v1";
+  turnId: string;
+  sourceSnapshotHash: string;
+  snapshotHash: string;
+  unavailableSources: string[];
+  activatedLorebookEntries: AgentContext["activatedLorebookEntries"];
+  chatSummary: string | null;
 }
 
 /** Built-in agent type identifiers. */

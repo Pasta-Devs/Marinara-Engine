@@ -28,6 +28,9 @@ const TEST_GLOBS = [
   "src/services/image/__tests__/*.test.ts",
   "src/services/llm/providers/__tests__/*.test.ts",
   "src/services/llm/providers/claude-subscription/__tests__/*.test.ts",
+  "src/services/generation/__tests__/humanos-*.test.ts",
+  "src/services/generation/__tests__/message-publication-storage.test.ts",
+  "src/services/generation/__tests__/post-canonical-tracking.test.ts",
 ];
 
 // Going through tsx's CLI entry and the current Node binary (rather than a

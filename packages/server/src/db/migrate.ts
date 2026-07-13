@@ -30,6 +30,11 @@ const CREATE_TABLES: string[] = [
     character_id TEXT,
     content TEXT NOT NULL DEFAULT '',
     active_swipe_index INTEGER NOT NULL DEFAULT 0,
+    publication_status TEXT NOT NULL DEFAULT 'canonical',
+    publication_turn_id TEXT,
+    promoted_at TEXT,
+    rejected_at TEXT,
+    rejection_reason TEXT,
     extra TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
   )`,
@@ -38,6 +43,11 @@ const CREATE_TABLES: string[] = [
     message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
     "index" INTEGER NOT NULL,
     content TEXT NOT NULL DEFAULT '',
+    publication_status TEXT NOT NULL DEFAULT 'canonical',
+    publication_turn_id TEXT,
+    promoted_at TEXT,
+    rejected_at TEXT,
+    rejection_reason TEXT,
     extra TEXT NOT NULL DEFAULT '{}',
     created_at TEXT NOT NULL
   )`,
@@ -479,6 +489,15 @@ const CREATE_TABLES: string[] = [
     committed INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS humanos_architectures (
+    id TEXT PRIMARY KEY NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 2,
+    architecture TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS game_checkpoints (
     id TEXT PRIMARY KEY NOT NULL,
     chat_id TEXT NOT NULL,
@@ -729,6 +748,22 @@ interface ColumnMigration {
 }
 
 const COLUMN_MIGRATIONS: ColumnMigration[] = [
+  { table: "messages", column: "publication_status", definition: "TEXT NOT NULL DEFAULT 'canonical'" },
+  { table: "messages", column: "publication_turn_id", definition: "TEXT" },
+  { table: "messages", column: "promoted_at", definition: "TEXT" },
+  { table: "messages", column: "rejected_at", definition: "TEXT" },
+  { table: "messages", column: "rejection_reason", definition: "TEXT" },
+  { table: "message_swipes", column: "publication_status", definition: "TEXT NOT NULL DEFAULT 'canonical'" },
+  { table: "message_swipes", column: "publication_turn_id", definition: "TEXT" },
+  { table: "message_swipes", column: "promoted_at", definition: "TEXT" },
+  { table: "message_swipes", column: "rejected_at", definition: "TEXT" },
+  { table: "message_swipes", column: "rejection_reason", definition: "TEXT" },
+  { table: "game_engine_state", column: "revision", definition: "INTEGER" },
+  { table: "game_engine_state", column: "base_revision", definition: "INTEGER" },
+  { table: "game_engine_state", column: "turn_id", definition: "TEXT" },
+  { table: "game_engine_state", column: "source_content_hash", definition: "TEXT" },
+  { table: "game_engine_state", column: "patch_type", definition: "TEXT" },
+  { table: "game_engine_state", column: "idempotency_key", definition: "TEXT" },
   {
     table: "prompt_presets",
     column: "conversation_prompt",
@@ -1290,6 +1325,12 @@ export async function runMigrations(db: DB) {
   );
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_game_engine_state_message ON game_engine_state(message_id, swipe_index)`),
+  );
+  await db.run(
+    sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_game_engine_state_idempotency ON game_engine_state(idempotency_key) WHERE idempotency_key IS NOT NULL`),
+  );
+  await db.run(
+    sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_humanos_architectures_subject ON humanos_architectures(subject_type, subject_id)`),
   );
   await db.run(
     sql.raw(

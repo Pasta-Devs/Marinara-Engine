@@ -27,3 +27,4 @@ export * from "./app-settings.js";
 export * from "./prompt-overrides.js";
 export * from "./achievements.js";
 export * from "./noodle.js";
+export * from "./humanos.js";

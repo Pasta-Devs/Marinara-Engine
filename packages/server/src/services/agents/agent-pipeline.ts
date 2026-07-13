@@ -21,6 +21,13 @@ import {
 } from "./agent-executor.js";
 import { logger } from "../../lib/logger.js";
 import { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
+import {
+  humanOSAgentDependencies,
+  humanOSAgentKey,
+  isDeterministicHumanOSAgent,
+  planHumanOSDependencyWaves,
+} from "./humanos-dependency-graph.js";
+import { HumanOSTurnArtifactLedger } from "./humanos-artifact-ledger.js";
 export { settleAgentJobsWithConcurrencyLimit } from "./agent-concurrency.js";
 
 /** A fully resolved agent ready for execution. */
@@ -321,6 +328,74 @@ async function executePhase(
         results.push(errorResult);
       }
     }
+  }
+  return results;
+}
+
+export function participatesInTurnPipeline(agent: Pick<ResolvedAgent, "settings">): boolean {
+  return agent.settings.pipelineStage !== "authoring_only" && agent.settings.participatesInTurnPipeline !== false;
+}
+
+export function isPostCanonicalTrackingAgent(agent: Pick<ResolvedAgent, "phase" | "settings">): boolean {
+  return agent.phase === "post_processing" && agent.settings.pipelineStage === "post_canonical_tracking";
+}
+
+type HumanOSWaveExecutor = (
+  agents: ResolvedAgent[],
+  phase: string,
+  context: AgentContext,
+  onResult?: AgentResultCallback,
+) => Promise<AgentResult[]>;
+
+/** Execute legacy agents first, then deterministic HumanOS agents in dependency waves. */
+export async function executePhaseWithHumanOSDependencies(
+  agents: ResolvedAgent[],
+  phase: string,
+  context: AgentContext,
+  availableArtifacts: Iterable<string>,
+  onResult?: AgentResultCallback,
+  executor: HumanOSWaveExecutor = executePhase,
+  ledger = new HumanOSTurnArtifactLedger(context.humanOSTurnSnapshot?.turnId ?? "untracked", availableArtifacts),
+): Promise<AgentResult[]> {
+  const phaseAgents = agents.filter((agent) => agent.phase === phase);
+  const legacy = phaseAgents.filter((agent) => !isDeterministicHumanOSAgent(agent));
+  const deterministic = phaseAgents.filter(isDeterministicHumanOSAgent);
+  const results: AgentResult[] = [];
+
+  if (legacy.length) results.push(...(await executor(legacy, phase, context, onResult)));
+  if (!deterministic.length) return results;
+
+  const plan = planHumanOSDependencyWaves(deterministic, availableArtifacts, ledger.recordedAgentKeys());
+  for (const wave of plan.waves) {
+    const runnable: ResolvedAgent[] = [];
+    for (const agent of wave) {
+      const blockedBy = humanOSAgentDependencies(agent).filter(
+        (dependency) => ledger.resultFor(dependency)?.disposition !== "succeeded",
+      );
+      if (blockedBy.length) ledger.recordBlocked(agent, blockedBy);
+      else runnable.push(agent);
+    }
+    if (!runnable.length) continue;
+
+    const waveResults = await executor(runnable, phase, context, onResult);
+    results.push(...waveResults);
+    for (const agent of runnable) {
+      const result = waveResults.find((candidate) => candidate.agentId === agent.id || candidate.agentType === agent.type);
+      ledger.recordResult(
+        agent,
+        result ?? {
+          agentId: agent.id,
+          agentType: agent.type,
+          type: "context_injection",
+          data: null,
+          tokensUsed: 0,
+          durationMs: 0,
+          success: false,
+          error: "Agent executor returned no result",
+        },
+      );
+    }
+    ledger.assertNoRequiredFailure(runnable.map((agent) => ledger.resultFor(humanOSAgentKey(agent))!));
   }
   return results;
 }

@@ -25,5 +25,13 @@ export const gameEngineState = sqliteTable("game_engine_state", {
   /** Whether this snapshot has been "committed" (the turn was accepted). */
   committed: integer("committed").notNull().default(0),
 
+  /** Optional optimistic-concurrency metadata used by HumanOS runtime snapshots. */
+  revision: integer("revision"),
+  baseRevision: integer("base_revision"),
+  turnId: text("turn_id"),
+  sourceContentHash: text("source_content_hash"),
+  patchType: text("patch_type"),
+  idempotencyKey: text("idempotency_key"),
+
   createdAt: text("created_at").notNull(),
 });

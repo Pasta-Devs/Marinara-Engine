@@ -795,7 +795,13 @@ export function createChatsStorage(db: DB) {
           createdAt: messages.createdAt,
         })
         .from(messages)
-        .where(and(eq(messages.chatId, chatId), isNotNull(messages.characterId)));
+        .where(
+          and(
+            eq(messages.chatId, chatId),
+            eq(messages.publicationStatus, "canonical"),
+            isNotNull(messages.characterId),
+          ),
+        );
       const result: Record<string, string> = {};
       for (const row of rows) {
         const characterId = row.characterId;
@@ -809,7 +815,10 @@ export function createChatsStorage(db: DB) {
     },
 
     async countMessages(chatId: string): Promise<number> {
-      const rows = await db.select({ id: messages.id }).from(messages).where(eq(messages.chatId, chatId));
+      const rows = await db
+        .select({ id: messages.id })
+        .from(messages)
+        .where(and(eq(messages.chatId, chatId), eq(messages.publicationStatus, "canonical")));
       return rows.length;
     },
 
@@ -821,7 +830,7 @@ export function createChatsStorage(db: DB) {
       const rows = await db
         .select()
         .from(messages)
-        .where(eq(messages.chatId, chatId))
+        .where(and(eq(messages.chatId, chatId), eq(messages.publicationStatus, "canonical")))
         .orderBy(messages.createdAt, messages.id);
       const decorated = rows.map((m, index) => ({ ...m, rowid: index + 1 }));
       const countMap = await countSwipesByMessageId(
@@ -837,7 +846,7 @@ export function createChatsStorage(db: DB) {
       const allRows = await db
         .select()
         .from(messages)
-        .where(eq(messages.chatId, chatId))
+        .where(and(eq(messages.chatId, chatId), eq(messages.publicationStatus, "canonical")))
         .orderBy(messages.createdAt, messages.id);
       let candidates = allRows.map((m, index) => ({ ...m, rowid: index + 1 }));
       if (cursor) {
@@ -855,9 +864,23 @@ export function createChatsStorage(db: DB) {
       return reversed.map((m) => ({ ...m, swipeCount: countMap.get(m.id) ?? 0 }));
     },
 
+    /** Raw internal/audit read. Callers requiring published prose should use getCanonicalMessage. */
     async getMessage(id: string) {
       const rows = await db.select().from(messages).where(eq(messages.id, id));
       return rows[0] ?? null;
+    },
+
+    async getCanonicalMessage(id: string) {
+      const rows = await db
+        .select()
+        .from(messages)
+        .where(and(eq(messages.id, id), eq(messages.publicationStatus, "canonical")));
+      return rows[0] ?? null;
+    },
+
+    /** Explicit audit listing; normal transcript reads exclude candidates and rejections. */
+    async listMessagesForAudit(chatId: string) {
+      return db.select().from(messages).where(eq(messages.chatId, chatId)).orderBy(messages.createdAt, messages.id);
     },
 
     async createMessage(input: CreateMessageInput, timestampOverrides?: TimestampOverrides | null) {

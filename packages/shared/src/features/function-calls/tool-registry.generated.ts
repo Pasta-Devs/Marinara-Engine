@@ -21,6 +21,10 @@ import { spotifySearchToolManifest } from "./tools/spotify-search/manifest.js";
 import { spotifyPlayToolManifest } from "./tools/spotify-play/manifest.js";
 import { spotifySetVolumeToolManifest } from "./tools/spotify-set-volume/manifest.js";
 import { editChatMessageToolManifest } from "./tools/edit-chat-message/manifest.js";
+import { humanosCommitRuntimeToolManifest } from "./tools/humanos-commit-runtime/manifest.js";
+import { humanosGetArchitectureToolManifest } from "./tools/humanos-get-architecture/manifest.js";
+import { humanosGetRuntimeToolManifest } from "./tools/humanos-get-runtime/manifest.js";
+import { humanosSaveArchitectureToolManifest } from "./tools/humanos-save-architecture/manifest.js";
 
 export const BUILT_IN_TOOL_MANIFESTS: readonly ToolDefinition[] = [
   rollDiceToolManifest,
@@ -42,5 +46,9 @@ export const BUILT_IN_TOOL_MANIFESTS: readonly ToolDefinition[] = [
   spotifyPlayToolManifest,
   spotifySetVolumeToolManifest,
   editChatMessageToolManifest,
+  humanosCommitRuntimeToolManifest,
+  humanosGetArchitectureToolManifest,
+  humanosGetRuntimeToolManifest,
+  humanosSaveArchitectureToolManifest,
 ];
 
