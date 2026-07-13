@@ -72,6 +72,8 @@ export default defineConfig({
     "./src/db/schema/themes.ts",
     "./src/db/schema/extensions.ts",
     "./src/db/schema/app-settings.ts",
+    "./src/db/schema/humanos.ts",
+    "./src/db/schema/governed-state.ts",
   ],
   out: "./src/db/migrations",
   dialect: "sqlite",

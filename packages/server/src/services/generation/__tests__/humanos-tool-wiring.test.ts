@@ -1,17 +1,15 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
 import { createHumanOSToolRuntime } from "../../humanos/humanos-tool-runtime.js";
 import { fingerprintHumanOSSnapshot } from "../humanos-turn-snapshot.js";
 import { isPostCanonicalTrackingAgent, participatesInTurnPipeline } from "../../agents/agent-pipeline.js";
 
-const executorPath = fileURLToPath(new URL("../../tools/tool-executor.ts", import.meta.url));
-const generatePath = fileURLToPath(new URL("../../../routes/generate.routes.ts", import.meta.url));
-const toolResolutionPath = fileURLToPath(new URL("../tool-resolution-runtime.ts", import.meta.url));
-const registryPath = fileURLToPath(
-  new URL("../../../../../shared/src/features/function-calls/tool-registry.generated.ts", import.meta.url),
-);
+const executorPath = resolve(process.cwd(), "src/services/tools/tool-executor.ts");
+const generatePath = resolve(process.cwd(), "src/routes/generate.routes.ts");
+const toolResolutionPath = resolve(process.cwd(), "src/services/generation/tool-resolution-runtime.ts");
+const registryPath = resolve(process.cwd(), "../shared/src/features/function-calls/tool-registry.generated.ts");
 
 const executorSource = readFileSync(executorPath, "utf8");
 const generateSource = readFileSync(generatePath, "utf8");
@@ -52,10 +50,7 @@ test("HumanOS v2 tools are registered and fail closed without scoped callbacks",
 });
 
 test("HumanOS Runtime coordinates are server-owned callback construction inputs", () => {
-  const runtimeSource = readFileSync(
-    fileURLToPath(new URL("../../humanos/humanos-tool-runtime.ts", import.meta.url)),
-    "utf8",
-  );
+  const runtimeSource = readFileSync(resolve(process.cwd(), "src/services/humanos/humanos-tool-runtime.ts"), "utf8");
   assert.match(runtimeSource, /turnId:\s*string\s*\|\s*null/);
   assert.match(runtimeSource, /baseRevision:\s*number/);
   assert.match(runtimeSource, /baseRevision:\s*args\.baseRevision/);

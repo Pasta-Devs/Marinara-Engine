@@ -28,3 +28,4 @@ export * from "./prompt-overrides.js";
 export * from "./achievements.js";
 export * from "./noodle.js";
 export * from "./humanos.js";
+export * from "./governed-state.js";

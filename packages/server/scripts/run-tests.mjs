@@ -12,7 +12,8 @@
 // identically on Linux, macOS, and Windows.
 
 import { spawnSync } from "node:child_process";
-import { dirname } from "node:path";
+import { existsSync, readdirSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Quiet the Pino logger for the run unless the caller set a level explicitly.
@@ -31,16 +32,25 @@ const TEST_GLOBS = [
   "src/services/generation/__tests__/humanos-*.test.ts",
   "src/services/generation/__tests__/message-publication-storage.test.ts",
   "src/services/generation/__tests__/post-canonical-tracking.test.ts",
-];
+].filter((pattern) => existsSync(dirname(pattern)));
 
-// Going through tsx's CLI entry and the current Node binary (rather than a
-// bare `tsx` on PATH) keeps the runner working whether it's invoked as a
-// package script or by hand, and sidesteps the platform-specific bin shim
-// (`tsx` vs `tsx.cmd`) and the shell entirely.
-const tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
+function wildcardToRegExp(pattern) {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`);
+}
+
+const TEST_FILES = TEST_GLOBS.flatMap((pattern) => {
+  if (!pattern.includes("*")) return [pattern];
+  const folder = dirname(pattern);
+  const matcher = wildcardToRegExp(basename(pattern));
+  return readdirSync(folder)
+    .filter((entry) => matcher.test(entry))
+    .sort((a, b) => a.localeCompare(b))
+    .map((entry) => join(folder, entry));
+});
+
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-
-const result = spawnSync(process.execPath, [tsxCli, "--test", ...TEST_GLOBS], {
+const result = spawnSync(process.execPath, ["--import", "tsx", "--test", ...TEST_FILES], {
   stdio: "inherit",
   cwd: packageRoot,
 });

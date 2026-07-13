@@ -3,7 +3,7 @@
 // ──────────────────────────────────────────────
 import { createHash } from "node:crypto";
 import type { FastifyInstance } from "fastify";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { characters, messages, personas } from "../db/schema/index.js";
 import {
@@ -11,6 +11,7 @@ import {
   type HumanOSSubjectType,
 } from "../services/storage/humanos-architecture.storage.js";
 import { createHumanOSRuntimeStorage } from "../services/storage/humanos-runtime.storage.js";
+import { createRelationshipSavesStorage, relationshipSaveTargetKey } from "../services/storage/relationship-saves.storage.js";
 
 const subjectTypeSchema = z.enum(["CHARACTER", "USER_PERSONA"]);
 const architectureSchema = z
@@ -28,12 +29,13 @@ const architectureSchema = z
   })
   .passthrough();
 
-const runtimeSchema = z.object({
-  messageId: z.string().min(1),
-  swipeIndex: z.number().int().min(0),
-  committed: z.literal(true),
-  state: z.record(z.string(), z.unknown()),
-});
+const relationshipSaveSchema = z
+  .object({
+    state: z.record(z.string(), z.unknown()),
+    activeTruthCount: z.number().int().min(0).default(0),
+    milestoneCount: z.number().int().min(0).default(0),
+  })
+  .strict();
 
 async function subjectExists(app: FastifyInstance, subjectType: HumanOSSubjectType, subjectId: string) {
   if (subjectType === "CHARACTER") {
@@ -47,6 +49,7 @@ async function subjectExists(app: FastifyInstance, subjectType: HumanOSSubjectTy
 export async function humanosV2Routes(app: FastifyInstance) {
   const architectures = createHumanOSArchitectureStorage(app.db);
   const runtime = createHumanOSRuntimeStorage(app.db);
+  const relationshipSaves = createRelationshipSavesStorage(app.db);
 
   app.get("/architecture/:subjectType/:subjectId", async (req, reply) => {
     const params = z
@@ -100,61 +103,133 @@ export async function humanosV2Routes(app: FastifyInstance) {
     return { ...row, state: JSON.parse(row.state) as unknown };
   });
 
-  app.put("/runtime/:chatId", async (req, reply) => {
-    const params = z.object({ chatId: z.string().min(1) }).safeParse(req.params);
-    if (!params.success) return reply.status(400).send({ error: "Invalid chat" });
-    const parsed = runtimeSchema.safeParse(req.body);
-    if (!parsed.success) return reply.status(400).send({ error: "Invalid HumanOS Runtime", details: parsed.error.flatten() });
+  // Runtime commits are agent-authored, post-canonical writes. The public HTTP
+  // surface cannot supply their canonical coordinates or canonical-tool
+  // authority. Keep reads public, but fail closed until a distinct manual-write
+  // flow has explicit server-owned authority records.
+  app.put("/runtime/:chatId", async (_req, reply) => {
+    return reply.status(403).send({
+      error: "HUMANOS_RUNTIME_SERVER_AUTHORITY_REQUIRED",
+    });
+  });
+
+  app.get("/relationship-save/:chatId/:characterId/:personaId", async (req, reply) => {
+    const params = z
+      .object({ chatId: z.string().min(1), characterId: z.string().min(1), personaId: z.string().min(1) })
+      .safeParse(req.params);
+    if (!params.success) return reply.status(400).send({ error: "Invalid relationship save identity" });
+    const row = await relationshipSaves.get(params.data.chatId, params.data.characterId, params.data.personaId);
+    if (!row) return reply.status(404).send({ error: "Relationship Save not found" });
+    return { ...row, state: JSON.parse(row.state) as unknown };
+  });
+
+  app.put("/relationship-save/:chatId/:characterId/:personaId", async (req, reply) => {
+    const params = z
+      .object({ chatId: z.string().min(1), characterId: z.string().min(1), personaId: z.string().min(1) })
+      .safeParse(req.params);
+    if (!params.success) return reply.status(400).send({ error: "Invalid relationship save identity" });
+    const parsed = relationshipSaveSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Invalid Relationship Save payload", details: parsed.error.flatten() });
     const anchors = await app.db
-      .select({
-        id: messages.id,
-        role: messages.role,
-        content: messages.content,
-        activeSwipeIndex: messages.activeSwipeIndex,
-      })
+      .select({ id: messages.id, content: messages.content, activeSwipeIndex: messages.activeSwipeIndex })
       .from(messages)
-      .where(and(eq(messages.id, parsed.data.messageId), eq(messages.chatId, params.data.chatId)))
+      .where(
+        and(
+          eq(messages.chatId, params.data.chatId),
+          eq(messages.role, "assistant"),
+          eq(messages.publicationStatus, "canonical"),
+        ),
+      )
+      .orderBy(desc(messages.createdAt), desc(messages.id))
       .limit(1);
     const anchor = anchors[0];
-    if (!anchor) return reply.status(404).send({ error: "Anchor message not found in chat" });
-    if (anchor.role !== "assistant") {
-      return reply.status(409).send({ error: "Runtime anchor is not an assistant message" });
-    }
-    if (anchor.activeSwipeIndex !== parsed.data.swipeIndex) {
-      return reply.status(409).send({
-        error: "Runtime anchor is not the selected canonical swipe",
-        activeSwipeIndex: anchor.activeSwipeIndex,
-      });
-    }
-    const latest = await runtime.getLatestCommitted(params.data.chatId);
-    const baseRevision = latest?.revision ?? 0;
+    if (!anchor) return reply.status(409).send({ error: "RELATIONSHIP_SAVE_CANONICAL_EVIDENCE_UNAVAILABLE" });
+
+    const current = await relationshipSaves.get(params.data.chatId, params.data.characterId, params.data.personaId);
     const state = JSON.stringify(parsed.data.state);
-    const sourceContentHash = createHash("sha256").update(anchor.content).digest("hex");
-    const turnId = `manual:${anchor.id}:${anchor.activeSwipeIndex}:${sourceContentHash}`;
+    const evidenceContentHash = createHash("sha256").update(anchor.content).digest("hex");
     const idempotencyKey = createHash("sha256")
-      .update(`${turnId}:humanos-runtime:${state}`)
+      .update(
+        JSON.stringify({
+          schemaVersion: 1,
+          target: [params.data.chatId, params.data.characterId, params.data.personaId],
+          logicalPatchSlot: "relationship-save:manual",
+          state: parsed.data.state,
+          activeTruthCount: parsed.data.activeTruthCount,
+          milestoneCount: parsed.data.milestoneCount,
+          evidenceMessageId: anchor.id,
+          evidenceSwipeIndex: anchor.activeSwipeIndex,
+          evidenceContentHash,
+          actorType: "user",
+          actorId: "local-user",
+          authorityPath: "manual_edit",
+        }),
+      )
       .digest("hex");
-    const result = await runtime.commit({
+    const targetKey = relationshipSaveTargetKey(params.data.chatId, params.data.characterId, params.data.personaId);
+    const committedBaseRevision = await relationshipSaves.getCommittedBaseRevision(idempotencyKey);
+    const result = await relationshipSaves.commit({
       chatId: params.data.chatId,
-      messageId: parsed.data.messageId,
-      swipeIndex: parsed.data.swipeIndex,
+      characterId: params.data.characterId,
+      personaId: params.data.personaId,
       state,
-      baseRevision,
-      turnId,
-      sourceContentHash,
-      patchType: "humanos-runtime",
+      activeTruthCount: parsed.data.activeTruthCount,
+      milestoneCount: parsed.data.milestoneCount,
+      baseRevision: committedBaseRevision ?? current?.revision ?? 0,
+      evidenceMessageId: anchor.id,
+      evidenceSwipeIndex: anchor.activeSwipeIndex,
+      evidenceContentHash,
+      actorType: "user",
+      actorId: "local-user",
+      authorityPath: "manual_edit",
+      explicitAuthority: {
+        actorType: "user",
+        actorId: "local-user",
+        authorityPath: "manual_edit",
+        targetKey,
+        reason: "Manual Relationship Save update",
+        issuedBy: "humanos-v2-http",
+        authorizationKey: idempotencyKey,
+      },
       idempotencyKey,
     });
     if (result.status === "revision_conflict") {
       return reply.status(409).send({
-        error: "HUMANOS_V2_RUNTIME_REVISION_CONFLICT",
+        error: "RELATIONSHIP_SAVE_REVISION_CONFLICT",
         expectedRevision: result.expectedRevision,
         currentRevision: result.currentRevision,
       });
     }
-    if (result.status === "idempotency_conflict") {
-      return reply.status(409).send({ error: "HUMANOS_V2_IDEMPOTENCY_CONFLICT" });
+    if (result.status === "idempotency_conflict") return reply.status(409).send({ error: "RELATIONSHIP_SAVE_IDEMPOTENCY_CONFLICT" });
+    const persisted = await relationshipSaves.get(params.data.chatId, params.data.characterId, params.data.personaId);
+    if (!persisted) {
+      throw new Error("Relationship Save projection missing after successful commit");
     }
-    return { ...result.row, state: parsed.data.state, idempotentReplay: result.status === "replayed" };
+    return {
+      ...persisted,
+      state: JSON.parse(persisted.state) as unknown,
+      idempotentReplay: result.status === "replayed",
+    };
+  });
+
+  app.get("/relationship-save/:chatId/:characterId/:personaId/checkpoints", async (req, reply) => {
+    const params = z
+      .object({ chatId: z.string().min(1), characterId: z.string().min(1), personaId: z.string().min(1) })
+      .safeParse(req.params);
+    if (!params.success) return reply.status(400).send({ error: "Invalid relationship save identity" });
+    const rows = await relationshipSaves.listCheckpoints(params.data.chatId, params.data.characterId, params.data.personaId);
+    return rows.map((row) => ({
+      ...row,
+      activeState: JSON.parse(row.activeState) as unknown,
+      classifications: JSON.parse(row.classifications) as unknown,
+      sourceCommitIds: JSON.parse(row.sourceCommitIds) as unknown,
+      messageHashes: JSON.parse(row.messageHashes) as unknown,
+    }));
+  });
+
+  app.post("/relationship-save/:chatId/:characterId/:personaId/checkpoint", async (_req, reply) => {
+    return reply.status(403).send({
+      error: "RELATIONSHIP_CHECKPOINT_SERVER_AUTHORITY_REQUIRED",
+    });
   });
 }

@@ -52,6 +52,7 @@ pr-evidence/
 
 # Temporary tests
 *.test.ts
+!packages/server/src/**/__tests__/*.test.ts
 *.spec.ts
 
 # Custom agents (personal)

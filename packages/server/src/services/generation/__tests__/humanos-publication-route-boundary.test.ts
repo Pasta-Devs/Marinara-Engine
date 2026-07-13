@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import test from "node:test";
 
-const routeUrl = new URL("../../../routes/generate.routes.ts", import.meta.url);
+const routePath = resolve(process.cwd(), "src/routes/generate.routes.ts");
 
 async function source(): Promise<string> {
-  return readFile(routeUrl, "utf8");
+  return readFile(routePath, "utf8");
 }
 
 test("reviewed generation stores a candidate instead of creating a canonical assistant row", async () => {

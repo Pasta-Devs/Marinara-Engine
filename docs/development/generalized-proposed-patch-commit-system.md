@@ -5,9 +5,31 @@
 **Reference implementation:** HumanOS Runtime commits
 **Out of scope for this ADR:** candidate message publication, Phase 5 review, provider retries, UI-only preferences, caches, delivery jobs, and media generation
 
+## Implementation reconciliation (2026-07-13)
+
+The repository contains an **in-progress implementation** of this ADR, with **Phase A complete** and later phases still open:
+
+- `state_authority_records`, `state_patch_proposals`, `state_parity_verifications`, `state_target_heads`, and `state_commit_ledger` exist in both legacy SQLite migrations and file-native persistence;
+- canonical JSON normalization/hashing, strict authority/evidence types, the adapter registry, deterministic dependency planning, and separate non-authoritative parity diagnostics are implemented;
+- HumanOS Runtime remains the selected legacy-authoritative writer and runs best-effort predictive parity verification after successful commits without allowing parity to mutate projections or target heads;
+- Phase A acceptance coverage proves exact replay, conflicting retry rejection, stale canonical-anchor rejection, stable randomized planning, parity isolation, authority-row separation, legacy migration, and file-native restart persistence;
+- the Runtime compatibility path preserves its existing projection and API behavior, while Relationship Save remains an early Phase C prototype.
+
+Phase B exit criteria have **not** been met: Runtime has not yet been migrated behind the generic authoritative adapter/commit service, and compensation plus the broader all-adapter contract matrix remain later implementation work. The Relationship Save prototype must not be interpreted as completion of Phase C. Public governed routes retain server-owned authority boundaries, and blocked routes remain blocked until their internal authority paths exist. The locked decisions and migration order below remain normative; implementation status must be judged by phase exit criteria, not merely by table or route presence.
+
 ## 1. Problem
 
-HumanOS Runtime currently has Marinara's strongest write contract: a canonical message anchor, server-owned turn identity, base revision, append-only revisions, persistent idempotency, and conflict detection. Other durable writers use heterogeneous storage paths. Some append snapshots, while others directly update aggregate or document rows.
+HumanOS Runtime currently has Marinara's strongest write contract: a canonical message anchor, server-owned turn identity, base revision, append-only revisions, persistent idempotency, and conflict detection. Other durable writers use heterogeneous storage paths.
+
+Current governed HTTP authority matrix:
+
+| HTTP write | Public request contract | Server authority behavior |
+| --- | --- | --- |
+| `PUT /api/humanos-v2/runtime/:chatId` | Blocked (`403`) | Runtime commits remain internal post-canonical writes using canonical-turn evidence. |
+| `PUT /api/humanos-v2/relationship-save/:chatId/:characterId/:personaId` | Content-only: state and counts | Server derives evidence, revision, ordering, idempotency, actor, and a target-bound explicit manual authority record. |
+| `POST /api/humanos-v2/relationship-save/:chatId/:characterId/:personaId/checkpoint` | Blocked (`403`) | Awaiting the internal scheduler/classifier authority path. |
+
+HumanOS architecture writes are not yet governed and remain migration backlog; they are not covered by this matrix. Some append snapshots, while others directly update aggregate or document rows.
 
 That inconsistency creates four authority risks:
 
@@ -483,6 +505,8 @@ The projection should contain the achieved relationship state, permanent milesto
 
 ### Phase A — Kernel and parity verification
 
+**Implementation status:** Complete as of 2026-07-13. The acceptance suite covers every exit criterion below, including legacy migration and file-native restart persistence.
+
 - Add proposal, target-head, and commit-ledger schemas.
 - Implement canonical JSON hashing and authority types.
 - Implement adapter registry and deterministic planner.
@@ -623,15 +647,13 @@ Metrics should distinguish proposal failure from commit failure. Agent-run succe
 
 ## 16. Initial implementation slice
 
-The first production slice should be deliberately small. Phase A is now unblocked by design decisions:
+The first production slice remains deliberately small. Phase A completed the kernel and parity-verification foundation; Phase B now owns the Runtime reference migration:
 
-1. add generic schemas and storage kernel;
-2. add adapter contract tests;
-3. implement the HumanOS Runtime compatibility adapter;
-4. dual-record Runtime commits into the generic ledger;
-5. prove exact parity with current Runtime behavior;
-6. do not migrate another writer until parity, recovery, and restart tests pass;
-7. introduce the chat-bound Relationship Save File and Character Truth observation adapter next;
+1. retain the completed generic schemas, proposal storage, authority model, deterministic planner, and parity acceptance suite;
+2. migrate HumanOS Runtime behind the generic authoritative adapter/commit service while preserving compatibility rows and APIs;
+3. prove authoritative revision, hash, idempotency, replay, recovery, and restart equivalence;
+4. do not migrate another authoritative writer until the Phase B parity and compatibility gates pass;
+5. introduce the chat-bound Relationship Save File and Character Truth observation adapter next;
 8. add idempotent ten-message relationship checkpoints and semantic retention classification;
 9. add the private token-budget-triggered managed lorebook projection;
 10. add derived branch hypotheses only after save isolation, milestone retention, and projection rebuild tests pass.

@@ -498,6 +498,118 @@ const CREATE_TABLES: string[] = [
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS state_authority_records (
+    id TEXT PRIMARY KEY NOT NULL,
+    authority_kind TEXT NOT NULL,
+    actor_type TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    authority_path TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    issued_by TEXT NOT NULL,
+    authorization_key TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS state_patch_proposals (
+    id TEXT PRIMARY KEY NOT NULL,
+    schema_version INTEGER NOT NULL,
+    target_kind TEXT NOT NULL, target_scope TEXT NOT NULL, target_id TEXT NOT NULL, target_key TEXT NOT NULL,
+    operation TEXT NOT NULL, patch_json TEXT NOT NULL, patch_hash TEXT NOT NULL, base_revision INTEGER NOT NULL,
+    evidence_kind TEXT NOT NULL, chat_id TEXT, turn_id TEXT, message_id TEXT, swipe_index INTEGER,
+    source_content_hash TEXT, canonical_revision INTEGER, authority_record_id TEXT, authority_reason TEXT,
+    authority_source_hash TEXT, actor_type TEXT NOT NULL, actor_id TEXT NOT NULL, authority_path TEXT NOT NULL,
+    agent_run_id TEXT, pipeline_stage TEXT, writer_priority INTEGER NOT NULL, commit_group_id TEXT NOT NULL,
+    dependency_ids_json TEXT NOT NULL DEFAULT '[]', failure_boundary TEXT NOT NULL, failure_mode TEXT NOT NULL,
+    logical_patch_slot TEXT NOT NULL, idempotency_key TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'proposed',
+    diagnostic_json TEXT, commit_id TEXT, created_at TEXT NOT NULL, resolved_at TEXT
+  )`,
+  `CREATE TABLE IF NOT EXISTS state_parity_verifications (
+    id TEXT PRIMARY KEY NOT NULL, proposal_id TEXT, adapter_kind TEXT NOT NULL, target_key TEXT NOT NULL,
+    legacy_hash TEXT NOT NULL, predicted_hash TEXT NOT NULL, matched INTEGER NOT NULL,
+    diagnostic_json TEXT, created_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS state_target_heads (
+    target_key TEXT PRIMARY KEY NOT NULL,
+    target_kind TEXT NOT NULL,
+    target_scope TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 0,
+    last_commit_id TEXT,
+    state_hash TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS state_commit_ledger (
+    id TEXT PRIMARY KEY NOT NULL,
+    proposal_id TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    target_kind TEXT NOT NULL,
+    target_scope TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    base_revision INTEGER NOT NULL,
+    result_revision INTEGER NOT NULL,
+    operation TEXT NOT NULL,
+    patch_json TEXT NOT NULL,
+    patch_hash TEXT NOT NULL,
+    before_hash TEXT NOT NULL,
+    result_hash TEXT NOT NULL,
+    evidence_kind TEXT NOT NULL,
+    evidence_chat_id TEXT,
+    evidence_turn_id TEXT,
+    evidence_message_id TEXT,
+    evidence_swipe_index INTEGER,
+    evidence_content_hash TEXT,
+    evidence_canonical_revision INTEGER,
+    evidence_reason TEXT,
+    evidence_source_hash TEXT,
+    actor_type TEXT NOT NULL,
+    actor_id TEXT NOT NULL,
+    authority_path TEXT NOT NULL,
+    authority_record_id TEXT,
+    batch_id TEXT NOT NULL,
+    commit_order INTEGER NOT NULL DEFAULT 0,
+    commit_group_id TEXT,
+    dependency_commit_ids TEXT NOT NULL DEFAULT '[]',
+    compensates_commit_id TEXT,
+    idempotency_key TEXT NOT NULL,
+    committed_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS relationship_saves (
+    id TEXT PRIMARY KEY NOT NULL,
+    target_key TEXT NOT NULL,
+    chat_id TEXT NOT NULL,
+    character_id TEXT NOT NULL,
+    persona_id TEXT NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 1,
+    revision INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT '{}',
+    active_truth_count INTEGER NOT NULL DEFAULT 0,
+    milestone_count INTEGER NOT NULL DEFAULT 0,
+    last_checkpoint_id TEXT,
+    projection_hash TEXT NOT NULL DEFAULT '',
+    source_commit_id TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS relationship_checkpoints (
+    id TEXT PRIMARY KEY NOT NULL,
+    relationship_save_id TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 1,
+    revision INTEGER NOT NULL,
+    canonical_message_count INTEGER NOT NULL,
+    start_message_id TEXT NOT NULL,
+    end_message_id TEXT NOT NULL,
+    message_hashes TEXT NOT NULL DEFAULT '[]',
+    previous_checkpoint_id TEXT,
+    policy_version TEXT NOT NULL,
+    character_truth_tokens INTEGER NOT NULL DEFAULT 0,
+    active_state TEXT NOT NULL DEFAULT '{}',
+    classifications TEXT NOT NULL DEFAULT '[]',
+    source_commit_ids TEXT NOT NULL DEFAULT '[]',
+    status TEXT NOT NULL DEFAULT 'valid',
+    creation_reason TEXT NOT NULL,
+    created_at TEXT NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS game_checkpoints (
     id TEXT PRIMARY KEY NOT NULL,
     chat_id TEXT NOT NULL,
@@ -764,6 +876,16 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   { table: "game_engine_state", column: "source_content_hash", definition: "TEXT" },
   { table: "game_engine_state", column: "patch_type", definition: "TEXT" },
   { table: "game_engine_state", column: "idempotency_key", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "authority_record_id", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_kind", definition: "TEXT NOT NULL DEFAULT 'migration'" },
+  { table: "state_commit_ledger", column: "evidence_chat_id", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_turn_id", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_message_id", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_swipe_index", definition: "INTEGER" },
+  { table: "state_commit_ledger", column: "evidence_content_hash", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_canonical_revision", definition: "INTEGER" },
+  { table: "state_commit_ledger", column: "evidence_reason", definition: "TEXT" },
+  { table: "state_commit_ledger", column: "evidence_source_hash", definition: "TEXT" },
   {
     table: "prompt_presets",
     column: "conversation_prompt",
@@ -1426,6 +1548,18 @@ export async function runMigrations(db: DB) {
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_game_checkpoints_chat ON game_checkpoints(chat_id, created_at DESC)`),
   );
+  await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_state_authority_records_authorization ON state_authority_records(authorization_key)`));
+  await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_state_patch_proposals_idempotency ON state_patch_proposals(idempotency_key)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_state_patch_proposals_target_status ON state_patch_proposals(target_key, status, created_at)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_state_patch_proposals_chat_turn_status ON state_patch_proposals(chat_id, turn_id, status)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_state_patch_proposals_message_swipe ON state_patch_proposals(message_id, swipe_index)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_state_patch_proposals_agent_run ON state_patch_proposals(agent_run_id)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_state_parity_target_created ON state_parity_verifications(target_key, created_at)`));
+  await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_state_commit_ledger_proposal ON state_commit_ledger(proposal_id)`));
+  await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_state_commit_ledger_idempotency ON state_commit_ledger(idempotency_key)`));
+  await db.run(sql.raw(`CREATE UNIQUE INDEX IF NOT EXISTS idx_relationship_saves_target ON relationship_saves(target_key)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_relationship_saves_chat ON relationship_saves(chat_id, updated_at DESC)`));
+  await db.run(sql.raw(`CREATE INDEX IF NOT EXISTS idx_relationship_checkpoints_target ON relationship_checkpoints(target_key, revision DESC)`));
   await db.run(
     sql.raw(`CREATE INDEX IF NOT EXISTS idx_ooc_influences_target ON ooc_influences(target_chat_id, consumed)`),
   );

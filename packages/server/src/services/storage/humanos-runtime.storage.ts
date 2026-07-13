@@ -5,6 +5,11 @@ import { and, desc, eq } from "drizzle-orm";
 import type { DB } from "../../db/connection.js";
 import { gameEngineState } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { createGovernedStateStorage } from "./governed-state.storage.js";
+import { createHash } from "node:crypto";
+import { logger } from "../../lib/logger.js";
+import { createGovernedParityStorage } from "./governed-parity.storage.js";
+import { humanOSRuntimeParityAdapter } from "./humanos-runtime-parity.adapter.js";
 
 const GAME_TYPE = "humanos-v2";
 const SCHEMA_VERSION = 2;
@@ -27,6 +32,8 @@ export type CommitHumanOSRuntimeResult =
   | { status: "idempotency_conflict" };
 
 export function createHumanOSRuntimeStorage(db: DB) {
+  const governed = createGovernedStateStorage(db);
+
   return {
     async getLatestCommitted(chatId: string) {
       const rows = await db
@@ -39,7 +46,7 @@ export function createHumanOSRuntimeStorage(db: DB) {
     },
 
     async commit(input: CommitHumanOSRuntimeInput): Promise<CommitHumanOSRuntimeResult> {
-      return db.transaction(async (tx) => {
+      const result = await db.transaction<CommitHumanOSRuntimeResult>(async (tx): Promise<CommitHumanOSRuntimeResult> => {
         const retries = await tx
           .select()
           .from(gameEngineState)
@@ -88,9 +95,59 @@ export function createHumanOSRuntimeStorage(db: DB) {
           idempotencyKey: input.idempotencyKey,
           createdAt: now(),
         };
+        const governedResult = await governed.commit(
+          {
+            proposalId: createHash("sha256").update(`${input.turnId}:${input.idempotencyKey}:proposal`).digest("hex"),
+            targetKey: `humanos_runtime:${input.chatId}`,
+            targetKind: "humanos_runtime",
+            targetScope: "chat",
+            targetId: input.chatId,
+            baseRevision: input.baseRevision,
+            operation: input.patchType,
+            patchJson: input.state,
+            patchHash: createHash("sha256").update(input.state).digest("hex"),
+            beforeHash: latestRows[0]?.state ? createHash("sha256").update(latestRows[0].state).digest("hex") : "",
+            resultHash: createHash("sha256").update(input.state).digest("hex"),
+            evidence: {
+              kind: "canonical_turn",
+              chatId: input.chatId,
+              turnId: input.turnId,
+              messageId: input.messageId,
+              swipeIndex: input.swipeIndex,
+              sourceContentHash: input.sourceContentHash,
+            },
+            actorType: "agent",
+            actorId: "humanos-runtime-updater",
+            authorityPath: "canonical_turn",
+            batchId: input.idempotencyKey,
+            commitOrder: 0,
+            idempotencyKey: input.idempotencyKey,
+          },
+          tx,
+        );
+        if (governedResult.status === "revision_conflict") {
+          return governedResult;
+        }
+        if (governedResult.status === "idempotency_conflict") {
+          return governedResult;
+        }
         await tx.insert(gameEngineState).values(row);
         return { status: "committed", row: row as typeof gameEngineState.$inferSelect };
       });
+      if (result.status === "committed") {
+        const authority = {
+          evidence: { kind: "canonical_turn" as const, chatId: input.chatId, turnId: input.turnId, messageId: input.messageId, swipeIndex: input.swipeIndex, sourceContentHash: input.sourceContentHash },
+          actor: { type: "agent" as const, id: "humanos-runtime-updater", authorityPath: "canonical_turn" as const },
+        };
+        try {
+          const target = humanOSRuntimeParityAdapter.normalizeTarget({ chatId: input.chatId }, authority);
+          const patch = humanOSRuntimeParityAdapter.normalizePatch(input.patchType, { state: input.state, baseRevision: input.baseRevision });
+          await createGovernedParityStorage(db).verify({ adapter: humanOSRuntimeParityAdapter, target, operation: input.patchType, patch, authority, legacyProjection: { state: JSON.parse(input.state) as unknown } });
+        } catch (err) {
+          logger.warn({ err, chatId: input.chatId, turnId: input.turnId }, "HumanOS Runtime parity verification failed after authoritative legacy commit");
+        }
+      }
+      return result;
     },
   };
 }
