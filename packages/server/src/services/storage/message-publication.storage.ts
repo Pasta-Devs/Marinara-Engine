@@ -21,6 +21,13 @@ export type PublicationTransitionResult =
   | { status: "turn_conflict" }
   | { status: "already_canonical" | "already_rejected" };
 
+export type CandidateDraftUpdateResult =
+  | { status: "updated"; message: typeof messages.$inferSelect }
+  | { status: "not_found" | "turn_conflict" | "content_conflict" }
+  | { status: "already_canonical" | "already_rejected" };
+
+class CandidateDraftCompareAndSetConflict extends Error {}
+
 function generatedMessageExtra(extra: Record<string, unknown> | undefined) {
   return JSON.stringify({
     ...(extra ?? {}),
@@ -81,8 +88,82 @@ export function createMessagePublicationStorage(db: DB) {
       });
     },
 
+    /**
+     * Compare-and-set the hidden draft while preserving one candidate row across
+     * bounded recomposition attempts. Both the message and selected swipe must
+     * still contain the caller's expected draft under the same server turn.
+     */
+    async updateCandidateDraft(input: {
+      messageId: string;
+      turnId: string;
+      expectedContent: string;
+      replacementContent: string;
+    }): Promise<CandidateDraftUpdateResult> {
+      try {
+        return await db.transaction(async (tx) => {
+          const rows = await tx.select().from(messages).where(eq(messages.id, input.messageId)).limit(1);
+          const message = rows[0];
+          if (!message) return { status: "not_found" };
+          if (message.publicationTurnId !== input.turnId) return { status: "turn_conflict" };
+          if (message.publicationStatus === "canonical") return { status: "already_canonical" };
+          if (message.publicationStatus === "rejected") return { status: "already_rejected" };
+          if (message.content !== input.expectedContent) return { status: "content_conflict" };
+
+          const swipeRows = await tx
+            .select()
+            .from(messageSwipes)
+            .where(and(eq(messageSwipes.messageId, input.messageId), eq(messageSwipes.index, message.activeSwipeIndex)))
+            .limit(1);
+          const swipe = swipeRows[0];
+          if (!swipe) return { status: "not_found" };
+          if (swipe.publicationTurnId !== input.turnId) return { status: "turn_conflict" };
+          if (swipe.publicationStatus === "canonical") return { status: "already_canonical" };
+          if (swipe.publicationStatus === "rejected") return { status: "already_rejected" };
+          if (swipe.content !== input.expectedContent) return { status: "content_conflict" };
+
+          const updatedSwipes = await tx
+            .update(messageSwipes)
+            .set({ content: input.replacementContent })
+            .where(
+              and(
+                eq(messageSwipes.id, swipe.id),
+                eq(messageSwipes.publicationStatus, "candidate"),
+                eq(messageSwipes.content, input.expectedContent),
+              ),
+            )
+            .returning({ id: messageSwipes.id });
+          if (updatedSwipes.length !== 1) throw new CandidateDraftCompareAndSetConflict();
+
+          const updatedMessages = await tx
+            .update(messages)
+            .set({ content: input.replacementContent })
+            .where(
+              and(
+                eq(messages.id, input.messageId),
+                eq(messages.publicationStatus, "candidate"),
+                eq(messages.content, input.expectedContent),
+              ),
+            )
+            .returning({ id: messages.id });
+          if (updatedMessages.length !== 1) throw new CandidateDraftCompareAndSetConflict();
+
+          return {
+            status: "updated",
+            message: { ...message, content: input.replacementContent },
+          };
+        });
+      } catch (error) {
+        if (error instanceof CandidateDraftCompareAndSetConflict) return { status: "content_conflict" };
+        throw error;
+      }
+    },
+
     /** Compare-and-set candidate → canonical while publishing approved text. */
-    async promoteCandidate(messageId: string, turnId: string, approvedContent: string): Promise<PublicationTransitionResult> {
+    async promoteCandidate(
+      messageId: string,
+      turnId: string,
+      approvedContent: string,
+    ): Promise<PublicationTransitionResult> {
       return db.transaction(async (tx) => {
         const rows = await tx.select().from(messages).where(eq(messages.id, messageId)).limit(1);
         const message = rows[0];
@@ -128,7 +209,12 @@ export function createMessagePublicationStorage(db: DB) {
           .set({ lastMessageAt: message.createdAt, updatedAt: timestamp })
           .where(eq(chats.id, message.chatId));
 
-        const promoted = { ...message, content: approvedContent, publicationStatus: "canonical" as const, promotedAt: timestamp };
+        const promoted = {
+          ...message,
+          content: approvedContent,
+          publicationStatus: "canonical" as const,
+          promotedAt: timestamp,
+        };
         return { status: "promoted", message: promoted };
       });
     },

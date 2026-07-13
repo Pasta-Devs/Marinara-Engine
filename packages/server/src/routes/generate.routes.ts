@@ -111,6 +111,10 @@ import {
   runHumanOSOrderedReview,
 } from "../services/generation/humanos-ordered-review.js";
 import {
+  runBoundedHumanOSRecomposition,
+  type HumanOSRecompositionRequest,
+} from "../services/generation/humanos-recomposition.js";
+import {
   assertHumanOSPublicationModeSupported,
   resolveHumanOSPublicationPolicy,
 } from "../services/generation/humanos-publication-policy.js";
@@ -972,6 +976,7 @@ export async function generateRoutes(app: FastifyInstance) {
     // Request-lifetime publication guard. It must live outside the outer try so
     // terminal cleanup can reject a candidate left pending by aborts or errors.
     let pendingHumanOSCandidate: { messageId: string; turnId: string } | null = null;
+    let humanOSRecomposeDraft: ((request: HumanOSRecompositionRequest) => Promise<string>) | null = null;
 
     try {
       // ── Turn-game bot seats (UNO, etc.): drive the active game's bot players and
@@ -3683,8 +3688,7 @@ export async function generateRoutes(app: FastifyInstance) {
             );
         const textRewriteRunAgents = mergePairedBuiltInRewriteAgents(textRewriteAgents);
         const textRewritePendingState = getTextRewritePendingState(textRewriteAgents);
-        const holdForTextRewrite =
-          humanOSPublicationPolicy.enabled || shouldHoldForTextRewrite(textRewriteAgents);
+        const holdForTextRewrite = humanOSPublicationPolicy.enabled || shouldHoldForTextRewrite(textRewriteAgents);
         const textRewriteAgentIds = new Set(textRewriteAgents.map((a) => a.id));
         const lorebookKeeperAgent = humanOSPublicationPolicy.enabled
           ? null
@@ -3835,7 +3839,12 @@ export async function generateRoutes(app: FastifyInstance) {
                   deferredDirectorSecretPlotArc = plotData.overarchingArc;
                 } else {
                   try {
-                    await agentsStore.setMemory(secretAgent.id, input.chatId, "overarchingArc", plotData.overarchingArc);
+                    await agentsStore.setMemory(
+                      secretAgent.id,
+                      input.chatId,
+                      "overarchingArc",
+                      plotData.overarchingArc,
+                    );
                   } catch (err) {
                     logger.warn(err, "[narrative-director] Failed to persist secret plot arc");
                   }
@@ -4807,6 +4816,82 @@ export async function generateRoutes(app: FastifyInstance) {
           );
           finalPromptSent = initialProviderMessages;
           rememberMainPromptPreviewForAgents(initialProviderMessages);
+
+          if (humanOSPublicationPolicy.enabled) {
+            humanOSRecomposeDraft = async (request: HumanOSRecompositionRequest): Promise<string> => {
+              if (abortController.signal.aborted) throw new Error("HumanOS recomposition aborted");
+              const correctionMessage: ChatMessage = {
+                role: "user",
+                content: [
+                  "[HumanOS Phase 4 correction request]",
+                  `Recomposition attempt: ${request.recomposition}`,
+                  "Rewrite the assistant response from scratch while preserving valid story intent.",
+                  "Address the validator correction exactly. Do not mention this review process.",
+                  "Do not emit hidden commands, tool calls, direct-message commands, or <ooc> blocks.",
+                  "",
+                  "Validator correction:",
+                  request.correctionNotice,
+                  "",
+                  "Rejected candidate:",
+                  request.rejectedCandidate,
+                ].join("\n"),
+              };
+              const retryMessages = prepareProviderMessages(
+                fitPromptForSend([...initialProviderMessages.map((message) => ({ ...message })), correctionMessage]),
+              );
+              const retry = await provider.chatComplete(retryMessages, {
+                model: conn.model,
+                temperature,
+                maxTokens: effectiveMaxTokensForSend,
+                maxContext: effectiveMaxContext,
+                topP,
+                topK: providerTopK,
+                frequencyPenalty: frequencyPenalty || undefined,
+                presencePenalty: presencePenalty || undefined,
+                minP: minP || undefined,
+                stop: stopSequences.length ? stopSequences : undefined,
+                stream: false,
+                enableCaching: conn.enableCaching === "true",
+                anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
+                cachingAtDepth: conn.cachingAtDepth ?? 5,
+                enableThinking,
+                captureReasoning,
+                reasoningEffort: resolvedEffort ?? undefined,
+                excludePastReasoning: true,
+                verbosity: verbosity ?? undefined,
+                serviceTier,
+                customParameters,
+                enabledParameters,
+                suppressModelParameters,
+                openrouterProvider: conn.openrouterProvider ?? undefined,
+                signal: abortController.signal,
+              });
+              if (retry.toolCalls.length > 0) {
+                throw new Error("HumanOS recomposition attempted a tool call");
+              }
+              let draft = extractLeadingThinkingBlocks(retry.content ?? "", customThinkingTags).content.trim();
+              const hasCommands =
+                parseCharacterCommands(draft).commands.length > 0 ||
+                parseDirectMessageCommands(draft).commands.length > 0 ||
+                /<ooc>[\s\S]*?<\/ooc>/i.test(draft);
+              if (hasCommands) {
+                throw new Error("HumanOS recomposition emitted a forbidden side-effect command");
+              }
+              if (chatMode === "conversation") {
+                const speakerName = targetCharId
+                  ? (charInfo.find((character) => character.id === targetCharId)?.name ?? null)
+                  : null;
+                draft = stripConversationResponseEnvelope(draft, {
+                  speakerName,
+                  preserveSpeakerPrefix: isGroupChat && groupChatMode !== "individual",
+                });
+              }
+              if (input.trimIncompleteModelOutput) draft = trimIncompleteModelEnding(draft);
+              if (chatMode === "roleplay") draft = stripSpacesBeforeLineBreaks(draft).trim();
+              if (!draft.trim()) throw new Error("HumanOS recomposition returned an empty candidate");
+              return draft;
+            };
+          }
 
           // Reset per-character accumulators
           fullResponse = "";
@@ -6062,48 +6147,67 @@ export async function generateRoutes(app: FastifyInstance) {
           let promotedMessage: any = null;
           let reviewResult;
           try {
-            reviewResult = await runHumanOSOrderedReview({
-              candidate: fullResponse,
-              reviewers: humanOSPublicationPolicy.declarations,
+            if (!humanOSRecomposeDraft) throw new Error("HumanOS draft recomposer is unavailable");
+            const boundedReview = await runBoundedHumanOSRecomposition({
+              initialCandidate: fullResponse,
+              maxRecompositions: 2,
               isAborted: () => abortController.signal.aborted,
-              execute: async (declaration, latestCandidate) => {
-                const reviewerIndex = humanOSPublicationPolicy.declarations.findIndex(
-                  (entry) => entry.key === declaration.key,
-                );
-                const reviewer = humanOSPublicationPolicy.reviewers[reviewerIndex];
-                if (!reviewer) throw new Error(`Missing configured reviewer for ${declaration.key}`);
-                const reviewerResult = await executeAgent(
-                  reviewer,
-                  { ...agentContext, mainResponse: latestCandidate, streaming: false },
-                  reviewer.provider,
-                  reviewer.model,
-                );
-                sendAgentEvent(reviewerResult, { finalized: true });
-                try {
-                  await agentsStore.saveRun({
-                    agentConfigId: reviewerResult.agentId,
-                    chatId: input.chatId,
-                    messageId: candidateMessageId,
-                    result: reviewerResult,
-                  });
-                } catch (error) {
-                  logger.warn(error, "[humanos/review] Failed to persist reviewer run");
-                }
-                return humanOSReviewDecisionFromAgentResult(reviewerResult);
-              },
-              publishCanonical: async (approvedText) => {
-                const promoted = await messagePublication.promoteCandidate(
-                  candidateMessageId,
-                  humanOSPublicationTurnId,
-                  approvedText,
-                );
-                if (promoted.status !== "promoted") {
-                  throw new Error(`HumanOS candidate promotion failed: ${promoted.status}`);
-                }
-                pendingHumanOSCandidate = null;
-                promotedMessage = promoted.message;
-              },
+              review: async (candidate, attempt) =>
+                runHumanOSOrderedReview({
+                  candidate,
+                  reviewers: humanOSPublicationPolicy.declarations,
+                  isAborted: () => abortController.signal.aborted,
+                  execute: async (declaration, latestCandidate) => {
+                    const reviewerIndex = humanOSPublicationPolicy.declarations.findIndex(
+                      (entry) => entry.key === declaration.key,
+                    );
+                    const reviewer = humanOSPublicationPolicy.reviewers[reviewerIndex];
+                    if (!reviewer) throw new Error(`Missing configured reviewer for ${declaration.key}`);
+                    const reviewerResult = await executeAgent(
+                      reviewer,
+                      { ...agentContext, mainResponse: latestCandidate, streaming: false },
+                      reviewer.provider,
+                      reviewer.model,
+                    );
+                    sendAgentEvent(reviewerResult, { finalized: true });
+                    try {
+                      await agentsStore.saveRun({
+                        agentConfigId: reviewerResult.agentId,
+                        chatId: input.chatId,
+                        messageId: candidateMessageId,
+                        result: {
+                          ...reviewerResult,
+                          data: { humanOSReviewAttempt: attempt, payload: reviewerResult.data },
+                        },
+                      });
+                    } catch (error) {
+                      logger.warn(error, "[humanos/review] Failed to persist reviewer run");
+                    }
+                    return humanOSReviewDecisionFromAgentResult(reviewerResult);
+                  },
+                  publishCanonical: async (approvedText) => {
+                    const promoted = await messagePublication.promoteCandidate(
+                      candidateMessageId,
+                      humanOSPublicationTurnId,
+                      approvedText,
+                    );
+                    if (promoted.status !== "promoted") {
+                      throw new Error(`HumanOS candidate promotion failed: ${promoted.status}`);
+                    }
+                    pendingHumanOSCandidate = null;
+                    promotedMessage = promoted.message;
+                  },
+                }),
+              recompose: humanOSRecomposeDraft,
+              replaceCandidateDraft: async ({ expectedCandidate, replacementCandidate }) =>
+                messagePublication.updateCandidateDraft({
+                  messageId: candidateMessageId,
+                  turnId: humanOSPublicationTurnId,
+                  expectedContent: expectedCandidate,
+                  replacementContent: replacementCandidate,
+                }),
             });
+            reviewResult = boundedReview.review;
           } catch (error) {
             const reason = error instanceof Error ? error.message : "HumanOS ordered review failed";
             await messagePublication.rejectCandidate(candidateMessageId, humanOSPublicationTurnId, reason);
@@ -6131,7 +6235,10 @@ export async function generateRoutes(app: FastifyInstance) {
           lastSavedMsg = promotedMessage;
           generationComplete = true;
           if (chatMode === "conversation") {
-            recordAssistantActivity(input.chatId, input.autonomous ? (promotedMessage.characterId ?? undefined) : undefined);
+            recordAssistantActivity(
+              input.chatId,
+              input.autonomous ? (promotedMessage.characterId ?? undefined) : undefined,
+            );
             await recordSavedAutonomousGeneration(promotedMessage.characterId ?? null);
             conversationAssistantSaved = true;
           }
@@ -6139,7 +6246,8 @@ export async function generateRoutes(app: FastifyInstance) {
           trySendSseEvent(reply, { type: "message_saved", data: promotedMessage });
 
           if (discordWebhookUrl && reviewResult.text.trim()) {
-            const charName = charInfo.find((character) => character.id === promotedMessage.characterId)?.name ?? "Character";
+            const charName =
+              charInfo.find((character) => character.id === promotedMessage.characterId)?.name ?? "Character";
             postToDiscordWebhook(discordWebhookUrl, { content: reviewResult.text, username: charName });
           }
         }
@@ -6204,14 +6312,15 @@ export async function generateRoutes(app: FastifyInstance) {
             onSaveError: (error) => logger.warn(error, "[humanos/runtime] Failed to persist tracker run"),
           });
           if (trackingResult.status === "skipped" && trackingResult.reason !== "aborted") {
-            logger.warn(
-              "[humanos/runtime] Post-canonical tracking skipped: %s",
-              trackingResult.reason ?? "unknown",
-            );
+            logger.warn("[humanos/runtime] Post-canonical tracking skipped: %s", trackingResult.reason ?? "unknown");
           }
         }
 
-        if (humanOSPublicationPolicy.enabled && deferredDirectorSecretPlotArc !== undefined && directorSecretPlotAgent) {
+        if (
+          humanOSPublicationPolicy.enabled &&
+          deferredDirectorSecretPlotArc !== undefined &&
+          directorSecretPlotAgent
+        ) {
           try {
             await agentsStore.setMemory(
               directorSecretPlotAgent.id,
@@ -7902,9 +8011,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       if (imagePositivePrompt) {
                         fullPrompt = `${fullPrompt}, ${imagePositivePrompt}`;
                       }
-                      const requestedNegativePrompt = [negativePrompt, savedNegativePrompt]
-                        .filter(Boolean)
-                        .join(", ");
+                      const requestedNegativePrompt = [negativePrompt, savedNegativePrompt].filter(Boolean).join(", ");
 
                       logger.debug(`[illustrator] Starting image generation (${imgWidth}x${imgHeight})...`);
 

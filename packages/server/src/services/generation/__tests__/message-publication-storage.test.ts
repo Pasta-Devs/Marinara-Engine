@@ -39,7 +39,9 @@ async function createPublicationTestDatabase() {
   )`);
   const db = drizzle(client, { schema }) as unknown as DB;
   const timestamp = new Date().toISOString();
-  await db.insert(chats).values({ id: "chat-1", name: "Test", mode: "roleplay", createdAt: timestamp, updatedAt: timestamp });
+  await db
+    .insert(chats)
+    .values({ id: "chat-1", name: "Test", mode: "roleplay", createdAt: timestamp, updatedAt: timestamp });
   return {
     client,
     db,
@@ -72,12 +74,74 @@ test("candidate messages promote atomically and advance chat recency only after 
     assert.equal(storedMessage.content, "approved");
     assert.equal(storedSwipe.content, "approved");
     assert.ok(storedMessage.promotedAt);
-    assert.deepEqual((await transcripts.listMessages("chat-1")).map((row) => row.content), ["approved"]);
+    assert.deepEqual(
+      (await transcripts.listMessages("chat-1")).map((row) => row.content),
+      ["approved"],
+    );
     assert.equal(await transcripts.countMessages("chat-1"), 1);
 
-    assert.deepEqual(await publication.promoteCandidate(candidate.id, "turn-1", "other"), { status: "already_canonical" });
-    assert.deepEqual(await publication.rejectCandidate(candidate.id, "turn-1", "late"), { status: "already_canonical" });
-    assert.deepEqual(await publication.promoteCandidate(candidate.id, "wrong-turn", "other"), { status: "turn_conflict" });
+    assert.deepEqual(await publication.promoteCandidate(candidate.id, "turn-1", "other"), {
+      status: "already_canonical",
+    });
+    assert.deepEqual(await publication.rejectCandidate(candidate.id, "turn-1", "late"), {
+      status: "already_canonical",
+    });
+    assert.deepEqual(await publication.promoteCandidate(candidate.id, "wrong-turn", "other"), {
+      status: "turn_conflict",
+    });
+  } finally {
+    cleanup();
+  }
+});
+
+test("candidate draft replacement updates message and swipe with compare-and-set protection", async () => {
+  const { db, cleanup } = await createPublicationTestDatabase();
+  try {
+    const publication = createMessagePublicationStorage(db);
+    const candidate = await publication.createCandidate({ chatId: "chat-1", content: "draft-0", turnId: "turn-r" });
+
+    assert.deepEqual(
+      await publication.updateCandidateDraft({
+        messageId: candidate.id,
+        turnId: "wrong-turn",
+        expectedContent: "draft-0",
+        replacementContent: "nope",
+      }),
+      { status: "turn_conflict" },
+    );
+    assert.deepEqual(
+      await publication.updateCandidateDraft({
+        messageId: candidate.id,
+        turnId: "turn-r",
+        expectedContent: "stale",
+        replacementContent: "nope",
+      }),
+      { status: "content_conflict" },
+    );
+
+    const updated = await publication.updateCandidateDraft({
+      messageId: candidate.id,
+      turnId: "turn-r",
+      expectedContent: "draft-0",
+      replacementContent: "draft-1",
+    });
+    assert.equal(updated.status, "updated");
+    const storedMessage = (await db.select().from(messages).where(eq(messages.id, candidate.id)))[0]!;
+    const storedSwipe = (await db.select().from(messageSwipes).where(eq(messageSwipes.messageId, candidate.id)))[0]!;
+    assert.equal(storedMessage.content, "draft-1");
+    assert.equal(storedSwipe.content, "draft-1");
+    assert.equal(storedMessage.publicationStatus, "candidate");
+    assert.equal((await createChatsStorage(db).listMessages("chat-1")).length, 0);
+
+    assert.deepEqual(
+      await publication.updateCandidateDraft({
+        messageId: candidate.id,
+        turnId: "turn-r",
+        expectedContent: "draft-0",
+        replacementContent: "draft-2",
+      }),
+      { status: "content_conflict" },
+    );
   } finally {
     cleanup();
   }
@@ -103,7 +167,9 @@ test("rejected candidates remain audit-only and cannot be promoted", async () =>
     assert.equal((await transcripts.listMessages("chat-1")).length, 0);
     assert.equal(await transcripts.countMessages("chat-1"), 0);
     assert.equal((await transcripts.listMessagesForAudit("chat-1")).length, 1);
-    assert.deepEqual(await publication.promoteCandidate(candidate.id, "turn-2", "nope"), { status: "already_rejected" });
+    assert.deepEqual(await publication.promoteCandidate(candidate.id, "turn-2", "nope"), {
+      status: "already_rejected",
+    });
 
     const chatAfter = (await db.select().from(chats).where(eq(chats.id, "chat-1")))[0]!;
     assert.equal(chatAfter.lastMessageAt, null);

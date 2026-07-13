@@ -77,7 +77,10 @@ test("reviewed turns suppress tools, early publication, commands, OOC, map, Disc
   assert.match(text, /const toolDefs = humanOSPublicationPolicy\.enabled \? \[\]/);
   assert.match(text, /restrictAgentToolsToPostCanonicalTrackers: humanOSPublicationPolicy\.enabled/);
   assert.match(text, /if \(!humanOSPublicationPolicy\.enabled\) \{\s*sendSseEvent\(reply, \{\s*type: "message_saved"/s);
-  assert.match(text, /humanOSPublicationPolicy\.enabled &&\s*\(parsedCommands\.length > 0 \|\| parsedRawCommandCount > 0 \|\| oocMessages\.length > 0\)/s);
+  assert.match(
+    text,
+    /humanOSPublicationPolicy\.enabled &&\s*\(parsedCommands\.length > 0 \|\| parsedRawCommandCount > 0 \|\| oocMessages\.length > 0\)/s,
+  );
   assert.match(text, /!humanOSPublicationPolicy\.enabled && chatMode === "game"/);
   assert.match(text, /!humanOSPublicationPolicy\.enabled && pipelineAgents\.some\(\(a\) => a\.phase === "parallel"\)/s);
   assert.match(text, /!humanOSPublicationPolicy\.enabled &&\s*discordWebhookUrl/s);
@@ -88,15 +91,42 @@ test("reviewed turns defer Narrative Director memory until after canonical promo
   const deferredDeclaration = text.indexOf("let deferredDirectorSecretPlotArc:");
   const deferAssignment = text.indexOf("deferredDirectorSecretPlotArc = plotData.overarchingArc", deferredDeclaration);
   const promotion = text.indexOf("messagePublication.promoteCandidate", deferAssignment);
-  const deferredPersistence = text.indexOf(
-    "humanOSPublicationPolicy.enabled && deferredDirectorSecretPlotArc !== undefined",
-    promotion,
-  );
+  const deferredPersistence = text.indexOf("deferredDirectorSecretPlotArc !== undefined", promotion);
   const setMemory = text.indexOf('"overarchingArc",', deferredPersistence);
+  const deferredGuard = text.slice(Math.max(promotion, deferredPersistence - 180), deferredPersistence + 80);
 
   assert.ok(deferredDeclaration >= 0);
   assert.ok(deferAssignment > deferredDeclaration);
   assert.ok(promotion > deferAssignment);
   assert.ok(deferredPersistence > promotion);
+  assert.match(deferredGuard, /humanOSPublicationPolicy\.enabled\s*&&\s*deferredDirectorSecretPlotArc/);
   assert.ok(setMemory > deferredPersistence);
+});
+
+test("review rejection uses bounded draft-only recomposition before canonical promotion", async () => {
+  const text = await source();
+  const controllerCall = text.indexOf("runBoundedHumanOSRecomposition({");
+  const candidateReplacement = text.indexOf("messagePublication.updateCandidateDraft({", controllerCall);
+  const orderedReview = text.indexOf("runHumanOSOrderedReview({", controllerCall);
+  const promotion = text.indexOf("messagePublication.promoteCandidate(", controllerCall);
+  assert.ok(controllerCall >= 0, "bounded recomposition controller must govern reviewed publication");
+  assert.ok(orderedReview > controllerCall, "every attempt must enter the ordered review chain");
+  assert.ok(candidateReplacement > orderedReview, "replacement must be compare-and-set through candidate storage");
+  assert.ok(promotion > orderedReview, "promotion must remain owned by a passing ordered review");
+  assert.match(text.slice(controllerCall, candidateReplacement + 500), /maxRecompositions:\s*2/);
+  assert.match(text.slice(controllerCall, candidateReplacement + 500), /humanOSReviewAttempt:\s*attempt/);
+});
+
+test("recomposition provider calls are draft-only, tool-free, and non-streaming", async () => {
+  const text = await source();
+  const start = text.indexOf("humanOSRecomposeDraft = async");
+  const end = text.indexOf("// Reset per-character accumulators", start);
+  assert.ok(start >= 0 && end > start, "draft-only recomposition closure must be installed before generation");
+  const block = text.slice(start, end);
+  assert.match(block, /provider\.chatComplete\(/);
+  assert.match(block, /stream:\s*false/);
+  assert.doesNotMatch(block, /tools:\s*toolDefs/);
+  assert.match(block, /retry\.toolCalls\.length\s*>\s*0/);
+  assert.match(block, /forbidden side-effect command/);
+  assert.doesNotMatch(block, /sendSseEvent|trySendSseEvent|createCandidate|createMessage/);
 });
