@@ -2294,6 +2294,36 @@ export function HomeProfessorMariChat({
     setChatWindowOpen(true);
   }, [floatingMode, setChatWindowOpen]);
 
+  const handleOpenInApp = useCallback(async () => {
+    if (isBusy) {
+      toast.info("Wait for Professor Mari to finish before opening this chat in the app.");
+      return;
+    }
+
+    try {
+      const baseChat =
+        chatId != null
+          ? { id: chatId }
+          : await ensureProfessorMariChat(effectiveConnectionId);
+      const surfacedChat = await api.post<Chat>(`/chats/internal/professor-mari/chats/${baseChat.id}/open-in-app`);
+      setChatId(surfacedChat.id);
+      qc.setQueryData(chatKeys.detail(surfacedChat.id), surfacedChat);
+      useChatStore.getState().setActiveChat(surfacedChat);
+      useChatStore.getState().setActiveChatId(surfacedChat.id);
+      await qc.invalidateQueries({ queryKey: chatKeys.list() });
+      rememberProfessorMariFloatingEnabled(false);
+      dispatchProfessorMariFloatingEvent(PROFESSOR_MARI_FLOATING_HIDE_EVENT);
+      closeChatWindow();
+      toast.success("Professor Mari is ready in your chat list.");
+    } catch (error) {
+      console.error("[Professor Mari] Failed to open chat in app", error);
+      toast.error("Professor Mari could not open this chat in the app.", {
+        description: describeProfessorMariError(error),
+        duration: 12_000,
+      });
+    }
+  }, [chatId, closeChatWindow, effectiveConnectionId, ensureProfessorMariChat, isBusy, qc]);
+
   const toggleSkillsMenu = useCallback(() => {
     const next = !skillsMenuOpen;
     if (next) {
@@ -3508,6 +3538,19 @@ export function HomeProfessorMariChat({
                               <Square size="0.7rem" /> Stop
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => void handleOpenInApp()}
+                            disabled={isBusy}
+                            className={cn(
+                              "inline-flex h-8 items-center gap-1 rounded-md px-2 text-[0.6875rem] font-semibold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50",
+                              "mari-chrome-accent-text-muted mari-accent-animated hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
+                            )}
+                            title="Open this Professor Mari chat in the app"
+                          >
+                            <MessageCircle size="0.75rem" />
+                            <span className="max-[420px]:hidden">Open in app</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => void runRestart()}

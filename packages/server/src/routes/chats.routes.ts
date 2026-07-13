@@ -106,6 +106,7 @@ type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?:
 const MEMORY_RECALL_IMPORT_BODY_LIMIT_BYTES = 25 * 1024 * 1024;
 const MEMORY_RECALL_IMPORT_BATCH_SIZE = 500;
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
+const INTERNAL_CHAT_TAG = "internal";
 
 function presetStringField(preset: Record<string, unknown> | null | undefined, field: string): string {
   const value = preset?.[field];
@@ -148,8 +149,17 @@ function parseChatMetadata(raw: unknown): Record<string, unknown> {
   return isRecord(raw) ? raw : {};
 }
 
+function readChatTags(raw: unknown): string[] {
+  const tags = parseChatMetadata(raw).tags;
+  return Array.isArray(tags) ? tags.map(String).filter(Boolean) : [];
+}
+
 function isHomeProfessorMariChat(chat: { metadata?: unknown }) {
   return parseChatMetadata(chat.metadata).internalAssistant === PROFESSOR_MARI_INTERNAL_CHAT_MARKER;
+}
+
+function isHiddenHomeProfessorMariChat(chat: { metadata?: unknown }) {
+  return isHomeProfessorMariChat(chat) && readChatTags(chat.metadata).includes(INTERNAL_CHAT_TAG);
 }
 
 function isActiveHomeProfessorMariChat(chat: { metadata?: unknown }) {
@@ -183,7 +193,7 @@ function hasProfessorMariCharacter(chat: { characterIds?: unknown }) {
 }
 
 function shouldHideProfessorMariChat(chat: { metadata?: unknown }) {
-  return isHomeProfessorMariChat(chat);
+  return isHiddenHomeProfessorMariChat(chat);
 }
 
 function isUsableTimestamp(value: unknown): value is string {
@@ -620,6 +630,36 @@ export async function chatsRoutes(app: FastifyInstance) {
     return sanitizeChatGameNpcAvatars(updated ?? target);
   });
 
+  app.post<{ Params: { id: string } }>("/internal/professor-mari/chats/:id/open-in-app", async (req, reply) => {
+    const professorChats = (await storage.list()).filter(isHomeProfessorMariChat);
+    const target = professorChats.find((chat) => chat.id === req.params.id);
+    if (!target) return reply.status(404).send({ error: "Professor Mari chat not found" });
+
+    for (const chat of professorChats) {
+      await storage.patchMetadata(chat.id, (current) => {
+        const currentTags = Array.isArray(current.tags) ? current.tags.map(String).filter(Boolean) : [];
+        const nextTags =
+          chat.id === target.id ? currentTags.filter((tag) => tag !== INTERNAL_CHAT_TAG) : currentTags;
+        return {
+          ...current,
+          internalAssistant: PROFESSOR_MARI_INTERNAL_CHAT_MARKER,
+          professorMariActive: chat.id === target.id,
+          professorMariArchived: chat.id === target.id ? false : true,
+          enableAgents: false,
+          autonomousMessages: false,
+          characterExchanges: false,
+          tags: nextTags,
+        };
+      });
+    }
+
+    const updated = await storage.update(target.id, {
+      characterIds: [PROFESSOR_MARI_ID],
+      promptPresetId: null,
+    });
+    return sanitizeChatGameNpcAvatars(updated ?? target);
+  });
+
   app.patch<{ Params: { id: string }; Body: { name?: unknown } }>(
     "/internal/professor-mari/chats/:id",
     async (req, reply) => {
@@ -661,7 +701,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Get single chat
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat || isHomeProfessorMariChat(chat)) {
+    if (!chat || shouldHideProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
     return sanitizeChatGameNpcAvatars(chat);
@@ -690,7 +730,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const data = createChatSchema.partial().parse(req.body);
     const existing = await storage.getById(req.params.id);
-    if (!existing || isHomeProfessorMariChat(existing)) {
+    if (!existing || shouldHideProfessorMariChat(existing)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
     if (data.characterIds?.includes(PROFESSOR_MARI_ID) && !hasProfessorMariCharacter(existing)) {
@@ -747,7 +787,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
-    if (!chat || isHomeProfessorMariChat(chat)) {
+    if (!chat || shouldHideProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
     return storage.touch(req.params.id);
