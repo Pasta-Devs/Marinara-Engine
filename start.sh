@@ -13,6 +13,26 @@ echo ""
 # Navigate to script directory
 cd "$(dirname "$0")"
 
+# ── Use Marinara's project-local Node.js version ──
+# Loading and switching NVM inside this executed script changes only the
+# launcher's child environment; it does not change the caller's active Node.js
+# version or global NVM default.
+if [ -f ".nvmrc" ]; then
+    export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+    if ! command -v nvm &> /dev/null && [ -s "$NVM_DIR/nvm.sh" ]; then
+        # shellcheck source=/dev/null
+        . "$NVM_DIR/nvm.sh"
+    fi
+    if command -v nvm &> /dev/null; then
+        MARINARA_NODE_VERSION=$(tr -d '[:space:]' < .nvmrc)
+        if ! nvm use --silent "$MARINARA_NODE_VERSION"; then
+            echo "  [ERROR] Marinara requires Node.js ${MARINARA_NODE_VERSION}, but that NVM version is not installed."
+            echo "          Install it with: nvm install ${MARINARA_NODE_VERSION}"
+            exit 1
+        fi
+    fi
+fi
+
 # ── Check Node.js ──
 if ! command -v node &> /dev/null; then
     echo "  [ERROR] Node.js is not installed."
