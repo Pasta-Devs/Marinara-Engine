@@ -75,9 +75,28 @@ test("Runtime coordinates are captured before tool attachment and tracking runs 
 test("reviewed turns suppress tools, early publication, commands, OOC, map, Discord, and parallel agents", async () => {
   const text = await source();
   assert.match(text, /const toolDefs = humanOSPublicationPolicy\.enabled \? \[\]/);
+  assert.match(text, /restrictAgentToolsToPostCanonicalTrackers: humanOSPublicationPolicy\.enabled/);
   assert.match(text, /if \(!humanOSPublicationPolicy\.enabled\) \{\s*sendSseEvent\(reply, \{\s*type: "message_saved"/s);
   assert.match(text, /humanOSPublicationPolicy\.enabled &&\s*\(parsedCommands\.length > 0 \|\| parsedRawCommandCount > 0 \|\| oocMessages\.length > 0\)/s);
   assert.match(text, /!humanOSPublicationPolicy\.enabled && chatMode === "game"/);
   assert.match(text, /!humanOSPublicationPolicy\.enabled && pipelineAgents\.some\(\(a\) => a\.phase === "parallel"\)/s);
   assert.match(text, /!humanOSPublicationPolicy\.enabled &&\s*discordWebhookUrl/s);
+});
+
+test("reviewed turns defer Narrative Director memory until after canonical promotion", async () => {
+  const text = await source();
+  const deferredDeclaration = text.indexOf("let deferredDirectorSecretPlotArc:");
+  const deferAssignment = text.indexOf("deferredDirectorSecretPlotArc = plotData.overarchingArc", deferredDeclaration);
+  const promotion = text.indexOf("messagePublication.promoteCandidate", deferAssignment);
+  const deferredPersistence = text.indexOf(
+    "humanOSPublicationPolicy.enabled && deferredDirectorSecretPlotArc !== undefined",
+    promotion,
+  );
+  const setMemory = text.indexOf('"overarchingArc",', deferredPersistence);
+
+  assert.ok(deferredDeclaration >= 0);
+  assert.ok(deferAssignment > deferredDeclaration);
+  assert.ok(promotion > deferAssignment);
+  assert.ok(deferredPersistence > promotion);
+  assert.ok(setMemory > deferredPersistence);
 });

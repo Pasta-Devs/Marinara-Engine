@@ -129,6 +129,8 @@ test("post-canonical trackers are classified explicitly and excluded from early 
   assert.match(generateSource, /const legacyResolvedAgents = humanOSPublicationPolicy\.legacyAgents/);
   assert.match(toolResolutionSource, /isHumanOSTracker \? humanOSTrackerCallbacks : undefined/);
   assert.match(toolResolutionSource, /toolDef\.function\.name !== "humanos_save_architecture"/);
+  assert.match(toolResolutionSource, /restrictAgentToolsToPostCanonicalTrackers && !isHumanOSTracker/);
+  assert.match(toolResolutionSource, /agent\.toolContext = undefined/);
   assert.doesNotMatch(toolResolutionSource, /humanOS:\s*humanOSTrackerCallbacks[,\s}]/);
 });
 

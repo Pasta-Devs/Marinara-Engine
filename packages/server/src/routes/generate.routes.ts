@@ -3737,6 +3737,7 @@ export async function generateRoutes(app: FastifyInstance) {
           gameSpotifyMusicEnabled,
           agentContext,
           humanOSTrackerCallbacks: humanOSToolRuntime?.callbacks,
+          restrictAgentToolsToPostCanonicalTrackers: humanOSPublicationPolicy.enabled,
           emitMetadataPatch: (patch) => trySendSseEvent(reply, { type: "metadata_patch", data: patch }),
         });
         // Model tool calls can mutate state before review. Until tool calls gain
@@ -3763,6 +3764,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const pipeline = createAgentPipeline(pipelineAgents, agentContext, sendAgentEventAfterMainStream);
         let directorSecretPlotResults: AgentResult[] = [];
         let directorSecretPlotArcForPrompt: unknown = directorSecretPlotMemory.overarchingArc;
+        let deferredDirectorSecretPlotArc: unknown = undefined;
 
         // ────────────────────────────────────────
         // Phase 1: Pre-generation agents
@@ -3823,14 +3825,20 @@ export async function generateRoutes(app: FastifyInstance) {
               const plotData = result.data as Record<string, unknown>;
               if (plotData.overarchingArc !== undefined) {
                 directorSecretPlotArcForPrompt = plotData.overarchingArc;
-                try {
-                  await agentsStore.setMemory(secretAgent.id, input.chatId, "overarchingArc", plotData.overarchingArc);
-                  const nextState = buildSecretPlotStateFromMemory({ overarchingArc: plotData.overarchingArc });
-                  if (Object.keys(nextState).length > 0) {
-                    agentContext.memory._secretPlotState = nextState;
+                const nextState = buildSecretPlotStateFromMemory({ overarchingArc: plotData.overarchingArc });
+                if (Object.keys(nextState).length > 0) {
+                  agentContext.memory._secretPlotState = nextState;
+                }
+                if (humanOSPublicationPolicy.enabled) {
+                  // This result may shape composition, but rejected prose must not
+                  // advance durable Director memory. Persist only after promotion.
+                  deferredDirectorSecretPlotArc = plotData.overarchingArc;
+                } else {
+                  try {
+                    await agentsStore.setMemory(secretAgent.id, input.chatId, "overarchingArc", plotData.overarchingArc);
+                  } catch (err) {
+                    logger.warn(err, "[narrative-director] Failed to persist secret plot arc");
                   }
-                } catch (err) {
-                  logger.warn(err, "[narrative-director] Failed to persist secret plot arc");
                 }
               }
             }
@@ -6200,6 +6208,19 @@ export async function generateRoutes(app: FastifyInstance) {
               "[humanos/runtime] Post-canonical tracking skipped: %s",
               trackingResult.reason ?? "unknown",
             );
+          }
+        }
+
+        if (humanOSPublicationPolicy.enabled && deferredDirectorSecretPlotArc !== undefined && directorSecretPlotAgent) {
+          try {
+            await agentsStore.setMemory(
+              directorSecretPlotAgent.id,
+              input.chatId,
+              "overarchingArc",
+              deferredDirectorSecretPlotArc,
+            );
+          } catch (err) {
+            logger.warn(err, "[narrative-director] Failed to persist promoted secret plot arc");
           }
         }
 

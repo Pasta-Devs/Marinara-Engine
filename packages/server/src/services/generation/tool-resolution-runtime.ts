@@ -81,6 +81,8 @@ type ResolveGenerationToolsArgs = {
   agentContext: AgentContext;
   /** Server-owned callbacks available only to declared post-canonical HumanOS trackers. */
   humanOSTrackerCallbacks?: HumanOSToolCallbacks;
+  /** Reviewed publication forbids every non-tracker agent tool until canonical promotion. */
+  restrictAgentToolsToPostCanonicalTrackers?: boolean;
   emitMetadataPatch(patch: Record<string, unknown>): void;
 };
 
@@ -620,6 +622,7 @@ export async function resolveGenerationTools({
   gameSpotifyMusicEnabled,
   agentContext,
   humanOSTrackerCallbacks,
+  restrictAgentToolsToPostCanonicalTrackers = false,
   emitMetadataPatch,
 }: ResolveGenerationToolsArgs): Promise<ResolvedGenerationTools> {
   const chatToolsExplicitlyDisabled = booleanFalseText(chatMetadata.enableTools);
@@ -798,9 +801,16 @@ export async function resolveGenerationTools({
   });
 
   for (const agent of resolvedAgents) {
+    const agentSettings = parseSettings(agent.settings);
+    const isHumanOSTracker = agentSettings.pipelineStage === "post_canonical_tracking";
+    if (restrictAgentToolsToPostCanonicalTrackers && !isHumanOSTracker) {
+      // Resolved agent objects may be reused within the request. Clear rather
+      // than merely skipping so no pre-attached mutating authority survives.
+      agent.toolContext = undefined;
+      continue;
+    }
     if (agent.toolContext) continue;
 
-    const agentSettings = parseSettings(agent.settings);
     let agentEnabledNames = Array.isArray(agentSettings.enabledTools) ? (agentSettings.enabledTools as string[]) : [];
     // YouTube-mode Music DJ has no tools by design (pure-JSON); only backfill the
     // Spotify tools when the agent is actually in Spotify mode.
@@ -818,7 +828,6 @@ export async function resolveGenerationTools({
     if (agentEnabledNames.length === 0) continue;
 
     const allowSpotifyAgentTools = agent.type === "spotify";
-    const isHumanOSTracker = agentSettings.pipelineStage === "post_canonical_tracking";
     const agentTools = allToolDefs.filter(
       (toolDef) =>
         agentEnabledNames.includes(toolDef.function.name) &&
