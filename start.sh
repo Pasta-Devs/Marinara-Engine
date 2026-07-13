@@ -280,8 +280,9 @@ fi
 
 BROWSER_HOST="$HOST"
 case "$BROWSER_HOST" in
-  ""|"0.0.0.0"|"::") BROWSER_HOST="127.0.0.1" ;;
+  ""|"0.0.0.0"|"::") BROWSER_HOST="localhost" ;;
 esac
+BROWSER_URL="${PROTOCOL}://${BROWSER_HOST}:$PORT/?launch=$(date +%s)"
 
 AUTO_OPEN_BROWSER_VALUE="${AUTO_OPEN_BROWSER:-true}"
 AUTO_OPEN_BROWSER_NORMALIZED=$(printf '%s' "$AUTO_OPEN_BROWSER_VALUE" | tr '[:upper:]' '[:lower:]')
@@ -306,7 +307,9 @@ echo ""
 
 # Open browser after a short delay
 if [ "$AUTO_OPEN_BROWSER_ENABLED" = "1" ]; then
-  (sleep 3 && open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null || xdg-open "${PROTOCOL}://${BROWSER_HOST}:$PORT" 2>/dev/null) &
+  # The per-launch query forces an already-open browser tab to navigate instead
+  # of merely being focused with a stale pre-rebuild asset graph.
+  (sleep 3 && open "$BROWSER_URL" 2>/dev/null || xdg-open "$BROWSER_URL" 2>/dev/null) &
 else
   echo "  [OK] Auto-open disabled (AUTO_OPEN_BROWSER=${AUTO_OPEN_BROWSER_VALUE})"
 fi
