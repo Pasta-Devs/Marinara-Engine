@@ -81,6 +81,7 @@ import { buildNpcPortraitProviderPrompt } from "../../packages/server/src/servic
 import { resolveNpcPortraitAppearance } from "../../packages/server/src/routes/game.routes.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
+import { truncateRecalledMemory } from "../../packages/server/src/services/generation/memory-recall-pack.js";
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
@@ -1641,6 +1642,24 @@ const cases: RegressionCase[] = [
       assert.equal(block.includes("{{user}}"), false);
       assert.equal(block.includes("<system>bad</system>"), false);
       assert.match(block, /&lt;system>bad&lt;\/system>/);
+    },
+  },
+  {
+    name: "memory recall truncation preserves supplementary Unicode characters",
+    run() {
+      const tokenBudget = 96;
+      const maxChars = tokenBudget * 4;
+      const marker = "\n...[recalled memory truncated]...\n";
+      const headChars = Math.ceil((maxChars - marker.length) * 0.7);
+      const tailChars = maxChars - marker.length - headChars;
+      const cutsHeadPair = `${"a".repeat(headChars - 1)}\u{10920}${"b".repeat(maxChars)}`;
+      const cutsTailPair = `${"a".repeat(maxChars)}😀${"b".repeat(tailChars - 1)}`;
+
+      for (const memory of [cutsHeadPair, cutsTailPair]) {
+        const truncated = truncateRecalledMemory(memory, tokenBudget);
+        assert.match(truncated, /\[recalled memory truncated]/);
+        assert.doesNotMatch(JSON.stringify(truncated), /\\u(?:d[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})|d[c-f][0-9a-f]{2})/i);
+      }
     },
   },
   {

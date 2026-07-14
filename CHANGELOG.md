@@ -21,6 +21,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Fixed recalled-memory truncation splitting supplementary Unicode characters such as emoji or Lydian text into invalid UTF-16 surrogate halves, which caused strict provider JSON parsers to reject otherwise valid Conversation generations (#3596).
 - Fixed selected background-library images immediately disappearing in Roleplay mode because the renderer probed the GET-only image route with an unsupported HEAD request (#3592).
 - Fixed Noodle profile text edits resetting character avatars from their configured crop to the full source image. Unchanged avatars now preserve their crop, and previously lost crops recover from the matching character card on the next profile save.
 - Fixed a blank `TZ=` forcing server-side schedules and date-sensitive Conversation context into the synthetic `Etc/Unknown` UTC timezone. Blank values now inherit the host timezone, Noodle warns when timezone detection is unresolved, and chats remember the browser timezone for autonomous scheduling, temporal awareness, daily memories, and tool macros (#3590).

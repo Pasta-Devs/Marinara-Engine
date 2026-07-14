@@ -12,18 +12,35 @@ function estimateTextTokens(content: string): number {
   return Math.max(1, Math.ceil(trimmed.length / 4));
 }
 
-function truncateRecalledMemory(content: string, tokenBudget: number): string {
+function sliceAtCodePointBoundaries(content: string, start: number, end: number): string {
+  let safeStart = Math.max(0, start);
+  let safeEnd = Math.min(content.length, end);
+
+  const startsWithLowSurrogate = safeStart > 0 && safeStart < content.length
+    && content.charCodeAt(safeStart) >= 0xdc00 && content.charCodeAt(safeStart) <= 0xdfff;
+  if (startsWithLowSurrogate) safeStart += 1;
+
+  const endsWithHighSurrogate = safeEnd > 0 && safeEnd < content.length
+    && content.charCodeAt(safeEnd - 1) >= 0xd800 && content.charCodeAt(safeEnd - 1) <= 0xdbff;
+  if (endsWithHighSurrogate) safeEnd -= 1;
+
+  return content.slice(safeStart, safeEnd);
+}
+
+export function truncateRecalledMemory(content: string, tokenBudget: number): string {
   const maxChars = Math.max(32, tokenBudget * 4);
   if (content.length <= maxChars) return content;
 
   const availableChars = maxChars - RECALL_TRUNCATION_MARKER.length;
   if (availableChars <= 0) {
-    return content.slice(0, maxChars);
+    return sliceAtCodePointBoundaries(content, 0, maxChars);
   }
 
   const headChars = Math.max(16, Math.ceil(availableChars * 0.7));
   const tailChars = Math.max(16, availableChars - headChars);
-  return `${content.slice(0, headChars).trimEnd()}${RECALL_TRUNCATION_MARKER}${content.slice(-tailChars).trimStart()}`;
+  const head = sliceAtCodePointBoundaries(content, 0, headChars).trimEnd();
+  const tail = sliceAtCodePointBoundaries(content, content.length - tailChars, content.length).trimStart();
+  return `${head}${RECALL_TRUNCATION_MARKER}${tail}`;
 }
 
 export function packRecalledMemories(
