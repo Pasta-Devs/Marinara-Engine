@@ -169,6 +169,14 @@ assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
 
+const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
+const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
+assert.match(appSource, /--marinara-app-accent-static-gradient/u);
+assert.match(
+  globalStyles,
+  /\[data-marinara-accent-animation\] \.mari-editor-content \{[\s\S]*--primary: var\(--marinara-app-accent-static\);[\s\S]*--marinara-chat-chrome-accent: var\(--marinara-app-accent-static\);[\s\S]*\}/u,
+);
+
 assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripConversationPromptTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");

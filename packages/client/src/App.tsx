@@ -589,6 +589,12 @@ export function App() {
     const accentAnimationEnabled = appAccentRgbMode || appAccentPulseMode || themeAccentPulseConfig.enabled;
     const usesTimerDrivenAccentAnimation = accentAnimationEnabled;
 
+    root.style.setProperty("--marinara-app-accent-static", solidAccent);
+    root.style.setProperty(
+      "--marinara-app-accent-static-gradient",
+      accentIsGradient ? accentSource : getSolidAccentGradient(solidAccent),
+    );
+
     let accentAnimationTimer: ReturnType<typeof window.setTimeout> | null = null;
     let cursorRecolorFreezeTimer: ReturnType<typeof window.setTimeout> | null = null;
     let cursorRecolorFrozen = false;

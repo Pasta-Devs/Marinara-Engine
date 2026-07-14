@@ -236,11 +236,18 @@
   --mari-logo-title-orange: #fb923c;
   --mari-logo-title-pink: #ec4899;
   --marinara-app-accent-solid: var(--primary);
+  --marinara-app-accent-static: var(--primary);
   --marinara-app-accent-gradient: linear-gradient(
     90deg,
     var(--marinara-app-accent-solid),
     color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%),
     var(--marinara-app-accent-solid)
+  );
+  --marinara-app-accent-static-gradient: linear-gradient(
+    90deg,
+    var(--marinara-app-accent-static),
+    color-mix(in srgb, var(--marinara-app-accent-static) 76%, var(--foreground) 24%),
+    var(--marinara-app-accent-static)
   );
   --marinara-chat-chrome-accent: var(--marinara-app-accent-solid);
   --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-gradient);
@@ -1677,6 +1684,18 @@
   min-height: 0;
   overflow-y: auto;
   padding: 1.5rem;
+}
+
+/* Pulse ticks update root accent variables every 500ms. Keep dense editor reading
+   surfaces on the selected base accent so Chromium does not rerasterize their text
+   on every tick; headers and explicitly animated chrome continue to pulse. */
+[data-marinara-accent-animation] .mari-editor-content {
+  --primary: var(--marinara-app-accent-static);
+  --ring: var(--marinara-app-accent-static);
+  --marinara-app-accent-solid: var(--marinara-app-accent-static);
+  --marinara-app-accent-gradient: var(--marinara-app-accent-static-gradient);
+  --marinara-chat-chrome-accent: var(--marinara-app-accent-static);
+  --marinara-chat-chrome-accent-gradient: var(--marinara-app-accent-static-gradient);
 }
 
 .mari-editor-content-inner {
