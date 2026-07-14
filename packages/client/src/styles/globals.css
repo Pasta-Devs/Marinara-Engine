@@ -239,12 +239,14 @@
   --marinara-app-accent-static: var(--primary);
   --marinara-app-accent-gradient: linear-gradient(
     90deg,
+    color-mix(in srgb, var(--marinara-app-accent-solid) 72%, var(--background) 28%),
     var(--marinara-app-accent-solid),
     color-mix(in srgb, var(--marinara-app-accent-solid) 76%, var(--foreground) 24%),
     var(--marinara-app-accent-solid)
   );
   --marinara-app-accent-static-gradient: linear-gradient(
     90deg,
+    color-mix(in srgb, var(--marinara-app-accent-static) 72%, var(--background) 28%),
     var(--marinara-app-accent-static),
     color-mix(in srgb, var(--marinara-app-accent-static) 76%, var(--foreground) 24%),
     var(--marinara-app-accent-static)
