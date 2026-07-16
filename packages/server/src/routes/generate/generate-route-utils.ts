@@ -1177,7 +1177,6 @@ export function shouldEnableAgentsForGeneration({
   impersonateBlockAgents,
 }: {
   chatEnableAgents: boolean;
-  chatMode: string;
   impersonate: boolean;
   impersonateBlockAgents: boolean;
 }): boolean {

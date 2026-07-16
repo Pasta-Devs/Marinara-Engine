@@ -3003,17 +3003,15 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(shouldInjectIdentityFallback({ chatMode: "roleplay", presetId: null }), true);
       assert.equal(shouldInjectIdentityFallback({ chatMode: "game", presetId: null }), false);
 
+      assert.equal(
+        shouldEnableAgentsForGeneration({
+          chatEnableAgents: true,
+          impersonate: false,
+          impersonateBlockAgents: false,
+        }),
+        true,
+      );
       for (const chatMode of ["conversation", "roleplay", "visual_novel", "game"] as const) {
-        assert.equal(
-          shouldEnableAgentsForGeneration({
-            chatEnableAgents: true,
-            chatMode,
-            impersonate: false,
-            impersonateBlockAgents: false,
-          }),
-          true,
-          `expected the enabled agent pipeline to run in ${chatMode}`,
-        );
         assert.equal(
           isAgentAvailableInChatMode(chatMode, "custom-human-voice-rewriter"),
           true,
@@ -3023,7 +3021,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(
         shouldEnableAgentsForGeneration({
           chatEnableAgents: false,
-          chatMode: "conversation",
           impersonate: false,
           impersonateBlockAgents: false,
         }),
@@ -3032,7 +3029,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(
         shouldEnableAgentsForGeneration({
           chatEnableAgents: true,
-          chatMode: "roleplay",
           impersonate: true,
           impersonateBlockAgents: true,
         }),
