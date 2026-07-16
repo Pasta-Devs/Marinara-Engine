@@ -2710,7 +2710,8 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
                 {agentAddPreview.agent.execution === "feature" ? (
                   <p className="rounded-lg bg-[var(--accent)] px-3 py-2 text-[0.6875rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                    This activates the downloaded feature for this chat. It does not make a separate agent model call.
+                    This lets characters initiate the downloaded feature in this chat. Manual controls supplied by the
+                    installed package remain available independently, and no separate agent model call is used.
                   </p>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2">

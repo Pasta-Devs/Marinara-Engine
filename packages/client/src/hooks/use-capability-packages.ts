@@ -268,7 +268,7 @@ export function useInstallCapabilityPackage() {
   const invalidate = useInvalidateCapabilityState();
   return useMutation({
     mutationFn: (id: string) => api.post<InstalledCapabilityPackage>(`/capability-packages/${id}/install`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   });
 }
 

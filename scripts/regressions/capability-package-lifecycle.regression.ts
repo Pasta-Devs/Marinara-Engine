@@ -605,7 +605,7 @@ try {
 
   await capabilityModuleRuntime.stop();
   assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
-  const hotGame = installedPackage("hot-game", ["agent", "turn-game"], "1.0.0", false);
+  const hotGame = installedPackage("hot-game", ["agent", "turn-game"], "1.0.0", true);
   writeRegistry([hotGame]);
   mkdirSync(join(packagesRoot, "versions", hotGame.id, hotGame.version), { recursive: true });
   writeFileSync(

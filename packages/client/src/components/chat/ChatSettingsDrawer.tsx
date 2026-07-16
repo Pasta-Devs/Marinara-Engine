@@ -8685,8 +8685,8 @@ export function ChatSettingsDrawer({
 
             {agentAddIsFeature ? (
               <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                This activates the downloaded feature for this chat. Its package owns the UI and runtime, so it does not
-                make a separate agent model call or use an agent connection.
+                This lets characters initiate the downloaded feature in this chat. Manual controls supplied by the
+                installed package remain available independently, and no separate agent model call or connection is used.
               </div>
             ) : agentAddIsRuntimeDisabled ? (
               <div className="rounded-xl bg-[var(--secondary)]/70 px-3 py-2.5 text-[0.6875rem] leading-5 text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
