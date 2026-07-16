@@ -2125,7 +2125,10 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
     engine: { min: "2.3.0", maxExclusive: "2.4.0" },
     kind: ["agent", "maps"],
     entrypoints: { agents: "agents.json", client: "client.js" },
-    contributions: { slots: ["chat-settings", "spatial-workspace", "chat-runtime", "game-world-map"] },
+    contributions: {
+      slots: ["chat-settings", "spatial-workspace", "chat-runtime", "game-world-map"],
+      agentDetail: { agentIds: ["hierarchical-maps"] },
+    },
     files: [],
     permissions: ["ui"],
     restartRequired: true,
@@ -2165,6 +2168,16 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
       body: `
         class HierarchicalMapsSmokeElement extends HTMLElement {
           connectedCallback() {
+            this.addEventListener('marinara-capability-props', () => this.render());
+            this.render();
+          }
+          render() {
+            const props = this.capabilityProps || {};
+            if (this.getAttribute('view') === 'detail') {
+              this.innerHTML = '<section data-testid="hierarchical-maps-detail"><h1>Hierarchical Maps home</h1><p>' + (props.chatName || 'No current chat') + '</p><button type="button">Back to Agents</button></section>';
+              this.querySelector('button')?.addEventListener('click', () => props.onClose?.());
+              return;
+            }
             this.innerHTML = '<div data-testid="hierarchical-maps-controls">Hierarchical map controls</div>';
           }
         }
@@ -2185,6 +2198,20 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
       body: JSON.stringify({ entries: [], budgetSkippedEntries: [], totalTokens: 0, totalEntries: 0 }),
     });
   });
+  await page.route("**/api/chats/*/spatial-context", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        definition: null,
+        currentLocationId: null,
+        breadcrumb: [],
+        destinations: [],
+        warnings: [],
+        hasCommittedSpatialHistory: false,
+      }),
+    });
+  });
   await page.route("**/api/game-assets/manifest", async (route) => {
     await route.fulfill({
       status: 200,
@@ -2201,7 +2228,25 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
   });
 
   try {
+    await page.addInitScript((chatId) => {
+      if (sessionStorage.getItem("maps-feature-detail-chat-seeded")) return;
+      localStorage.setItem("marinara-active-chat-id", chatId);
+      sessionStorage.setItem("maps-feature-detail-chat-seeded", "true");
+    }, chats[0]!.id);
     await page.goto("/");
+    await page.locator('[data-tour="panel-agents"]').click();
+    const agentsPanel = page.locator('[data-component="RightPanelDesktop"]');
+    const mapsCard = agentsPanel.locator('[data-agent-name="Hierarchical Maps"]');
+    await expect(mapsCard).toBeVisible();
+    await mapsCard.getByText("Hierarchical Maps", { exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Hierarchical Maps home" })).toBeVisible();
+    await expect(page.getByTestId("hierarchical-maps-detail")).toContainText(
+      "roleplay Hierarchical Maps Agent Menu Smoke",
+    );
+    await expect(page.getByText("System Prompt", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Back to Agents" }).click();
+    await expect(page.getByTestId("hierarchical-maps-detail")).toHaveCount(0);
+
     for (const chat of chats) {
       await page.evaluate((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
       await page.reload();

@@ -187,11 +187,24 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
       throw new Error(`Package entrypoint is not declared: ${entrypoint}`);
     }
   }
+  const agentDetailIds = installedManifest.contributions?.agentDetail?.agentIds ?? [];
+  if (agentDetailIds.length > 0 && !installedManifest.entrypoints.client) {
+    throw new Error("Agent detail contributions require a client entrypoint");
+  }
+  if (agentDetailIds.length > 0 && !installedManifest.entrypoints.agents) {
+    throw new Error("Agent detail contributions require agent definitions");
+  }
   if (installedManifest.entrypoints.agents) {
     const agentsPath = normalizeArchivePath(installedManifest.entrypoints.agents);
     const agentsFile = verifiedFiles.get(agentsPath);
     if (!agentsFile) throw new Error("Package agent definitions are missing");
-    packagedAgentDefinitionsSchema.parse(JSON.parse(agentsFile.toString("utf8")));
+    const agentDefinitions = packagedAgentDefinitionsSchema.parse(JSON.parse(agentsFile.toString("utf8")));
+    for (const agentId of agentDetailIds) {
+      const definition = agentDefinitions.find((agent) => agent.id === agentId);
+      if (!definition || definition.execution !== "feature") {
+        throw new Error(`Agent detail contribution ${agentId} must identify a feature agent from this package`);
+      }
+    }
   }
 
   const temporary = join(ROOT, `.install-${manifest.id}-${Date.now()}`);
