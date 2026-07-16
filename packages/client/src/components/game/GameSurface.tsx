@@ -6436,6 +6436,7 @@ function GameSurfaceComponent({
     size: SpatialMapDraftSize;
     groundingMode: SpatialMapGroundingMode;
     sourceLorebookIds: string[];
+    instructions?: string;
     connectionId?: string;
   } | null>(null);
   createGameResetRef.current = createGame.reset;
@@ -6466,6 +6467,7 @@ function GameSurfaceComponent({
           size: request.size,
           groundingMode: request.groundingMode,
           sourceLorebookIds: request.sourceLorebookIds,
+          instructions: request.instructions,
           connectionId: request.connectionId,
           debugMode: useUIStore.getState().debugMode,
         });
@@ -9827,6 +9829,7 @@ function GameSurfaceComponent({
                       size: mapDraft.size,
                       groundingMode: mapDraft.groundingMode,
                       sourceLorebookIds: mapDraft.sourceLorebookIds,
+                      instructions: mapDraft.instructions,
                       connectionId: conns.gmConnectionId,
                     }
                   : null;
