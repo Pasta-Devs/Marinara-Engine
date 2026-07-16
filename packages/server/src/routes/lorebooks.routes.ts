@@ -1080,7 +1080,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
       logger.debug(err, "[lorebooks] Semantic scan preview failed; falling back to keyword-only preview");
     }
 
-    const ownerSpatialProjection = await resolveOwnerSpatialProjection(app.db, chatId);
+    const ownerSpatialProjection = await resolveOwnerSpatialProjection(chatId);
 
     const result = await processLorebooks(app.db, scanMessages, gameStateForScan, {
       chatId,

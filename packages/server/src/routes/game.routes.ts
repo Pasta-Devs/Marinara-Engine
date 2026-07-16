@@ -6904,9 +6904,9 @@ export async function gameRoutes(app: FastifyInstance) {
       let carriedStateSnapshotId = "";
       if (previousState) {
         try {
-          const previousSpatialState = await resolveEffectiveSpatialState(app.db, latestSession.id);
+          const previousSpatialState = await resolveEffectiveSpatialState(latestSession.id);
           if (previousSpatialState.definition?.enabled && previousSpatialState.currentLocationId) {
-            await createSpatialContextStorage(app.db).replaceBootstrap({
+            await createSpatialContextStorage().replaceBootstrap({
               chatId: newChat.id,
               currentLocationId: previousSpatialState.currentLocationId,
               definitionRevision: previousSpatialState.definition.revision,
@@ -6915,7 +6915,7 @@ export async function gameRoutes(app: FastifyInstance) {
               transitionPayloadHash: null,
             });
           }
-          const ownerSpatialProjection = await resolveOwnerSpatialProjection(app.db, newChat.id);
+          const ownerSpatialProjection = await resolveOwnerSpatialProjection(newChat.id);
           carriedStateSnapshotId = await stateStore.create({
             chatId: newChat.id,
             messageId: recapMessageId,
@@ -12066,11 +12066,11 @@ export async function gameRoutes(app: FastifyInstance) {
     const input = checkpointCreateSchema.parse(req.body);
     const checkpoints = createCheckpointService(app.db);
     const stateStore = createGameStateStorage(app.db);
-    const spatialStore = createSpatialContextStorage(app.db);
+    const spatialStore = createSpatialContextStorage();
 
     const snapshot = await stateStore.getLatest(input.chatId);
     if (!snapshot) throw new Error("No game state snapshot to checkpoint");
-    const spatialState = await resolveEffectiveSpatialState(app.db, input.chatId);
+    const spatialState = await resolveEffectiveSpatialState(input.chatId);
     const spatialSnapshot =
       spatialState.snapshot ??
       (spatialState.definition?.enabled && spatialState.currentLocationId
@@ -12131,7 +12131,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const input = checkpointLoadSchema.parse(req.body);
     const checkpointSvc = createCheckpointService(app.db);
     const stateStore = createGameStateStorage(app.db);
-    const spatialStore = createSpatialContextStorage(app.db);
+    const spatialStore = createSpatialContextStorage();
     const chats = createChatsStorage(app.db);
 
     const cp = await checkpointSvc.getById(input.checkpointId);
@@ -12186,7 +12186,7 @@ export async function gameRoutes(app: FastifyInstance) {
         transitionPayloadHash: null,
       });
     }
-    const ownerSpatialProjection = await resolveOwnerSpatialProjection(app.db, input.chatId, {
+    const ownerSpatialProjection = await resolveOwnerSpatialProjection(input.chatId, {
       exactAnchor: { messageId: restoreMsg.id, swipeIndex: 0 },
     });
     const manualOverrides = parseJsonField<Record<string, string> | null>(snapshot.manualOverrides, null);

@@ -2,7 +2,6 @@ import type {
   ResolvedOwnerSpatialProjection,
   SpatialContextDefinition,
 } from "@marinara-engine/shared";
-import type { DB } from "../../db/connection.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
 import type { ResolveSpatialStateOptions } from "./state-resolution.js";
 
@@ -43,7 +42,6 @@ export function buildOwnerSpatialProjection(
 }
 
 export async function resolveOwnerSpatialProjection(
-  _db: DB,
   chatId: string,
   options: ResolveSpatialStateOptions = {},
 ): Promise<ResolvedOwnerSpatialProjection | null> {

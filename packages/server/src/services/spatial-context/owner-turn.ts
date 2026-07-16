@@ -5,7 +5,6 @@ import type {
   SpatialContextSnapshot,
   SpatialTransitionErrorCode,
 } from "@marinara-engine/shared";
-import type { DB } from "../../db/connection.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
 
 export type SpatialOwnerTurnErrorCode =
@@ -60,7 +59,7 @@ interface OwnerTurnService {
   commitSpatialOwnerTurn(input: CommitSpatialOwnerTurnInput): Promise<CommitResult>;
 }
 
-export async function commitSpatialOwnerTurn(_db: DB, input: CommitSpatialOwnerTurnInput): Promise<CommitResult> {
+export async function commitSpatialOwnerTurn(input: CommitSpatialOwnerTurnInput): Promise<CommitResult> {
   const provider = getCapabilityService<OwnerTurnService>("hierarchical-maps:owner-turn");
   if (!provider) throw new SpatialOwnerTurnError("spatial_feature_unavailable", "Hierarchical Maps is not active.", 409);
   return provider.commitSpatialOwnerTurn(input);
