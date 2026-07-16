@@ -2310,6 +2310,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 >)
               : undefined;
           const generationTriggers = Array.from(new Set([chatMode, "chat"]));
+          const lorebookTokenBudget = resolveLorebookTokenBudget(chatMeta);
           const forcedLorebookEntryIds =
             ownerSpatialProjection &&
             (ownerSpatialProjection.ownerMode === chatMode ||
@@ -2386,7 +2387,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 forcedEntryIds: forcedLorebookEntryIds,
                 excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
                 excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-                tokenBudget: resolveLorebookTokenBudget(chatMeta),
+                tokenBudget: lorebookTokenBudget,
                 entryStateOverrides,
                 entryTimingStates,
                 generationTriggers,
@@ -2423,7 +2424,7 @@ export async function chatsRoutes(app: FastifyInstance) {
               forcedEntryIds: forcedLorebookEntryIds,
               excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
               excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-              tokenBudget: resolveLorebookTokenBudget(chatMeta),
+              tokenBudget: lorebookTokenBudget,
               entryStateOverrides,
               entryTimingStates,
               generationTriggers,
@@ -2505,10 +2506,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                     LorebookEntryTimingState
                   >)
                 : undefined,
-            lorebookTokenBudget:
-              typeof (chatMeta.lorebookTokenBudget ?? chatMeta.generationLorebookTokenBudget) === "number"
-                ? ((chatMeta.lorebookTokenBudget ?? chatMeta.generationLorebookTokenBudget) as number)
-                : undefined,
+            lorebookTokenBudget,
             generationTriggers,
             previewOnly: true,
             groupScenarioOverrideText:

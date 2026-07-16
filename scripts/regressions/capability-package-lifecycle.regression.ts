@@ -483,6 +483,64 @@ try {
   assert.equal((await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id, "rollback-original-snapshot");
   assert.deepEqual((await persistence.getChat(rollbackChat.id))?.metadata, rollbackChatBefore.metadata);
 
+  await persistence.spatialSnapshots.create({
+    id: "standalone-snapshot-id-conflict",
+    chatId: rollbackChat.id,
+    messageId: "standalone-snapshot-anchor",
+    swipeIndex: 0,
+    currentLocationId: "anchored-location",
+    definitionRevision: 1,
+    source: "generation",
+    transitionCommandId: null,
+    transitionPayloadHash: null,
+    createdAt: "2026-07-16T00:01:30.000Z",
+  });
+  await assert.rejects(
+    persistence.spatialSnapshots.replaceBootstrap({
+      id: "standalone-snapshot-id-conflict",
+      chatId: rollbackChat.id,
+      currentLocationId: "replacement-location",
+      definitionRevision: 2,
+      source: "bootstrap",
+      transitionCommandId: null,
+      transitionPayloadHash: null,
+      createdAt: "2026-07-16T00:01:31.000Z",
+    }),
+  );
+  assert.equal(
+    (await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id,
+    "rollback-original-snapshot",
+    "A failed standalone snapshot replacement must preserve the previous bootstrap",
+  );
+
+  await persistence.createMessageWithSwipe({
+    id: "atomic-existing-message",
+    swipeId: "atomic-shared-swipe",
+    chatId: rollbackChat.id,
+    role: "user",
+    characterId: null,
+    content: "Existing atomic message",
+    extra: {},
+    createdAt: "2026-07-16T00:01:40.000Z",
+  });
+  await assert.rejects(
+    persistence.createMessageWithSwipe({
+      id: "atomic-orphan-candidate",
+      swipeId: "atomic-shared-swipe",
+      chatId: rollbackChat.id,
+      role: "user",
+      characterId: null,
+      content: "This message must roll back when its swipe conflicts",
+      extra: {},
+      createdAt: "2026-07-16T00:01:41.000Z",
+    }),
+  );
+  assert.equal(
+    (await persistence.listMessages(rollbackChat.id)).some((message) => message.id === "atomic-orphan-candidate"),
+    false,
+    "A failed initial swipe insert must not leave an orphaned message",
+  );
+
   await persistence.transaction(async (transaction) => {
     await transaction.updateChatMetadata({
       chatId: rollbackChat.id,

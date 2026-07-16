@@ -160,22 +160,28 @@ function createSpatialSnapshotStore(db: DB): CapabilitySpatialSnapshotStore {
       return mapSnapshot(input as typeof spatialContextSnapshots.$inferSelect);
     },
     async replaceBootstrap(input) {
-      await db
-        .delete(spatialContextSnapshots)
-        .where(and(eq(spatialContextSnapshots.chatId, input.chatId), eq(spatialContextSnapshots.messageId, "")));
-      return store.create(input);
+      return db.transaction(async (tx) => {
+        await tx
+          .delete(spatialContextSnapshots)
+          .where(and(eq(spatialContextSnapshots.chatId, input.chatId), eq(spatialContextSnapshots.messageId, "")));
+        await tx.insert(spatialContextSnapshots).values(input);
+        return mapSnapshot(input as typeof spatialContextSnapshots.$inferSelect);
+      });
     },
     async replaceAtAnchor(input) {
-      await db
-        .delete(spatialContextSnapshots)
-        .where(
-          and(
-            eq(spatialContextSnapshots.chatId, input.chatId),
-            eq(spatialContextSnapshots.messageId, input.messageId),
-            eq(spatialContextSnapshots.swipeIndex, input.swipeIndex),
-          ),
-        );
-      return store.create(input);
+      return db.transaction(async (tx) => {
+        await tx
+          .delete(spatialContextSnapshots)
+          .where(
+            and(
+              eq(spatialContextSnapshots.chatId, input.chatId),
+              eq(spatialContextSnapshots.messageId, input.messageId),
+              eq(spatialContextSnapshots.swipeIndex, input.swipeIndex),
+            ),
+          );
+        await tx.insert(spatialContextSnapshots).values(input);
+        return mapSnapshot(input as typeof spatialContextSnapshots.$inferSelect);
+      });
     },
   };
   return store;
@@ -206,32 +212,34 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
       return requestedIds.filter((entryId) => existingIds.has(entryId));
     },
     async createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput) {
-      const chatRows = await db
-        .select({ lastMessageAt: chats.lastMessageAt })
-        .from(chats)
-        .where(eq(chats.id, input.chatId))
-        .limit(1);
-      const createdAt = ensureTimestampAfter(input.createdAt, chatRows[0]?.lastMessageAt);
-      const message: typeof messages.$inferInsert = {
-        id: input.id,
-        chatId: input.chatId,
-        role: input.role,
-        characterId: input.characterId,
-        content: input.content,
-        activeSwipeIndex: 0,
-        extra: JSON.stringify(input.extra),
-        createdAt,
-      };
-      await db.insert(messages).values(message);
-      await db.insert(messageSwipes).values({
-        id: input.swipeId,
-        messageId: input.id,
-        index: 0,
-        content: input.content,
-        extra: JSON.stringify({}),
-        createdAt,
+      return db.transaction(async (tx) => {
+        const chatRows = await tx
+          .select({ lastMessageAt: chats.lastMessageAt })
+          .from(chats)
+          .where(eq(chats.id, input.chatId))
+          .limit(1);
+        const createdAt = ensureTimestampAfter(input.createdAt, chatRows[0]?.lastMessageAt);
+        const message: typeof messages.$inferInsert = {
+          id: input.id,
+          chatId: input.chatId,
+          role: input.role,
+          characterId: input.characterId,
+          content: input.content,
+          activeSwipeIndex: 0,
+          extra: JSON.stringify(input.extra),
+          createdAt,
+        };
+        await tx.insert(messages).values(message);
+        await tx.insert(messageSwipes).values({
+          id: input.swipeId,
+          messageId: input.id,
+          index: 0,
+          content: input.content,
+          extra: JSON.stringify({}),
+          createdAt,
+        });
+        return mapMessage(message as typeof messages.$inferSelect);
       });
-      return mapMessage(message as typeof messages.$inferSelect);
     },
     async markGameStateSnapshotCommitted(chatId, snapshotId) {
       await db
