@@ -651,6 +651,13 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "venice",
+    name: "Venice.ai",
+    description: "Private image generation through Venice's native image API.",
+    defaultBaseUrl: "https://api.venice.ai/api/v1",
+    requiresApiKey: true,
+  },
+  {
     id: "pollinations",
     name: "Pollinations",
     description: "Free, no-key-needed image generation via Pollinations AI.",
@@ -753,6 +760,10 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
   { id: "grok-4.1-fast-image", name: "Grok 4.1 Fast Image", context: 0, maxOutput: 0 },
   { id: "grok-imagine-image", name: "Grok Imagine Image", context: 0, maxOutput: 0 },
   { id: "grok-2-image", name: "Grok 2 Image", context: 0, maxOutput: 0 },
+  // Venice.ai
+  { id: "chroma", name: "Chroma (Venice)", context: 0, maxOutput: 0 },
+  { id: "flux-2-pro", name: "FLUX 2 Pro (Venice)", context: 0, maxOutput: 0 },
+  { id: "venice-sd35", name: "Venice SD3.5", context: 0, maxOutput: 0 },
   // NovelAI
   { id: "nai-diffusion-4-curated-preview", name: "NAI Diffusion 4 Curated", context: 0, maxOutput: 0 },
   { id: "nai-diffusion-4-5-full", name: "NAI Diffusion 4.5 Full", context: 0, maxOutput: 0 },
@@ -805,6 +816,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     m === "blockentropy" ||
     m === "openrouter" ||
     m === "xai" ||
+    m === "venice" ||
     m === "comfyui" ||
     m === "automatic1111" ||
     m === "runpod_comfyui" ||
@@ -816,6 +828,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (u.includes("nano-gpt.com")) return "nanogpt";
   if (u.includes("openrouter.ai")) return "openrouter";
   if (u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
+  if (u.includes("venice.ai")) return "venice";
   if (m.startsWith("grok-") && m.includes("image")) return "xai";
   if (m.includes("grok") && m.includes("imagine")) return "xai";
   if (m.startsWith("dall-e") || m.startsWith("gpt-image") || u.includes("openai.com")) return "openai";

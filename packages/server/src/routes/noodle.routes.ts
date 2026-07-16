@@ -1251,6 +1251,7 @@ async function generateNoodlePostImage(input: {
         comfyWorkflow: input.imageConnection.comfyuiWorkflow || undefined,
         imageDefaults,
         referenceImages,
+        debugMode: input.debugMode,
         fallback: imageFallback,
       }),
     (error, attempt, maxAttempts) => {

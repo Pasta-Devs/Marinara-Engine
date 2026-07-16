@@ -21,7 +21,11 @@ import { toast } from "sonner";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { gameAssetKeys, useGameAssetManifest, type GameAssetManifest } from "../../hooks/use-game-assets";
-import { isSameNpcAvatarResource } from "../../lib/game-npc-avatar";
+import {
+  cleanNpcAvatarDisplayName,
+  isSameNpcAvatarResource,
+  normalizeNpcAvatarName,
+} from "../../lib/game-npc-avatar";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGameStateStore } from "../../stores/game-state.store";
@@ -970,10 +974,8 @@ function generatedEnemyToCombatant(enemy: CombatEnemy, index: number, fallbackLe
   };
 }
 
-const TRAILING_NPC_REPUTATION_LABEL = /(devoted|allied|friendly|neutral|unfriendly|hostile|enemy)$/i;
-
 function cleanGameNpcDisplayName(value: string): string {
-  return value.replace(TRAILING_NPC_REPUTATION_LABEL, "").trim() || value;
+  return cleanNpcAvatarDisplayName(value);
 }
 
 function normalizeGameNpcJournalName(value: string): string {
@@ -6654,12 +6656,12 @@ function GameSurfaceComponent({
       if (!activeChatId) return;
 
       const displayName = cleanGameNpcDisplayName(npcName).trim();
-      const normalizedName = normalizeTextForMatch(displayName);
+      const normalizedName = normalizeNpcAvatarName(displayName);
       if (!normalizedName) return;
 
       const targetNpc = useGameModeStore
         .getState()
-        .npcs.find((npc) => normalizeTextForMatch(npc.name) === normalizedName);
+        .npcs.find((npc) => normalizeNpcAvatarName(npc.name) === normalizedName);
 
       setPendingNpcPortraitUploadName(targetNpc?.name ?? displayName);
       npcPortraitUploadInputRef.current?.click();
@@ -6672,11 +6674,11 @@ function GameSurfaceComponent({
       if (!activeChatId) return;
 
       const displayName = cleanGameNpcDisplayName(npcName).trim();
-      const normalizedName = normalizeTextForMatch(displayName);
+      const normalizedName = normalizeNpcAvatarName(displayName);
       if (!normalizedName) return;
 
       const currentNpcs = useGameModeStore.getState().npcs;
-      const existingNpcIndex = currentNpcs.findIndex((npc) => normalizeTextForMatch(npc.name) === normalizedName);
+      const existingNpcIndex = currentNpcs.findIndex((npc) => normalizeNpcAvatarName(npc.name) === normalizedName);
       const targetNpc =
         existingNpcIndex >= 0
           ? currentNpcs[existingNpcIndex]!
@@ -6726,7 +6728,7 @@ function GameSurfaceComponent({
       if (!activeChatId) return;
 
       const displayName = cleanGameNpcDisplayName(npcName).trim();
-      const normalizedName = normalizeTextForMatch(displayName);
+      const normalizedName = normalizeNpcAvatarName(displayName);
       if (!normalizedName) return;
 
       if (!chatMeta.enableSpriteGeneration || !chatMeta.gameImageConnectionId) {
@@ -6736,10 +6738,10 @@ function GameSurfaceComponent({
 
       const currentNpcs = useGameModeStore.getState().npcs;
       const metadataNpc = Array.isArray(chatMeta.gameNpcs)
-        ? (chatMeta.gameNpcs as GameNpc[]).find((npc) => normalizeTextForMatch(npc.name) === normalizedName)
+        ? (chatMeta.gameNpcs as GameNpc[]).find((npc) => normalizeNpcAvatarName(npc.name) === normalizedName)
         : null;
       const targetNpc =
-        currentNpcs.find((npc) => normalizeTextForMatch(npc.name) === normalizedName) ??
+        currentNpcs.find((npc) => normalizeNpcAvatarName(npc.name) === normalizedName) ??
         metadataNpc ??
         ({
           id: buildPartyNpcId(displayName),
@@ -6775,7 +6777,7 @@ function GameSurfaceComponent({
         if (!result) return;
         await applyGeneratedAssets(result);
         const generated = result.generatedNpcAvatars.find(
-          (avatar) => normalizeTextForMatch(avatar.name) === normalizeTextForMatch(targetNpc.name),
+          (avatar) => normalizeNpcAvatarName(avatar.name) === normalizeNpcAvatarName(targetNpc.name),
         );
         if (generated) {
           clearFailedNpcAvatars([targetNpc.name]);

@@ -7226,6 +7226,7 @@ export async function generateRoutes(app: FastifyInstance) {
                               imageEndpointId: imgConnFull.imageEndpointId || undefined,
                               comfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
                               imageDefaults,
+                              debugMode: input.debugMode,
                               fallback: imageFallback,
                               onFallback,
                             });
@@ -7904,6 +7905,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         comfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
                         imageDefaults,
                         referenceImages: illustratorRefImages,
+                        debugMode: input.debugMode,
                         fallback: imageFallback,
                         onFallback,
                       });

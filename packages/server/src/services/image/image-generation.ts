@@ -25,9 +25,14 @@ import {
 } from "@marinara-engine/shared";
 import { isImageLocalUrlsEnabled } from "../../config/runtime-config.js";
 import { generateRunPodComfyUI } from "./runpod-comfyui.service.js";
-import { logger } from "../../lib/logger.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { assertInsideDir, normalizeLoopbackUrl, safeFetch, validateOutboundUrl } from "../../utils/security.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
+import {
+  buildVeniceApiUrl,
+  buildVeniceImageRequest,
+  parseVeniceImageResponse,
+} from "./venice-image.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
 // Lazy-load so the server boots even when sharp is missing. The Draw Things img2img
@@ -101,6 +106,8 @@ export interface ImageGenRequest {
   transparentBackground?: boolean;
   /** Optional caller-owned abort signal for cancelling long image requests. */
   signal?: AbortSignal;
+  /** Emit the final provider request even when the global log level is above debug. */
+  debugMode?: boolean;
   /** Called immediately before a configured fallback connection is attempted. */
   onFallback?: GenerationFallbackNotifier;
   /** Optional one-shot backup connection used only when the primary image request fails. */
@@ -145,6 +152,7 @@ const EXPLICIT_IMAGE_SOURCES = new Set([
   "novelai",
   "horde",
   "xai",
+  "venice",
   "comfyui",
   "automatic1111",
   "runpod_comfyui",
@@ -224,6 +232,8 @@ export async function generateImage(
           return generateHorde(normalizedBaseUrl, apiKey, scopedRequest);
         case "xai":
           return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "venice":
+          return generateVenice(normalizedBaseUrl, apiKey, scopedRequest);
         case "comfyui":
           return generateComfyUI(normalizedBaseUrl, scopedRequest);
         case "runpod_comfyui": {
@@ -924,6 +934,41 @@ async function generateXAI(baseUrl: string, apiKey: string, request: ImageGenReq
   if (result?.url) return downloadImageUrl(result.url, request.allowLocalUrls, request.signal);
 
   throw new Error("No image data in xAI response");
+}
+
+async function generateVenice(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  const body = buildVeniceImageRequest(request);
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/venice] final request payload:\n%s",
+    JSON.stringify(body, null, 2),
+  );
+  const resp = await imageFetch(
+    buildVeniceApiUrl(baseUrl, "image/generate"),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: imageRequestSignal(request),
+    },
+    { allowLocal: request.allowLocalUrls },
+  );
+
+  const responseText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`Venice image generation failed (${resp.status}): ${sanitizeErrorText(responseText)}`);
+  }
+
+  let response: unknown;
+  try {
+    response = JSON.parse(responseText);
+  } catch {
+    throw new Error("Venice image generation returned invalid JSON");
+  }
+  return parseVeniceImageResponse(response);
 }
 
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
