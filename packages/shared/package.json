@@ -1,6 +1,6 @@
 {
   "name": "@marinara-engine/shared",
-  "version": "3.2.2",
+  "version": "2.3.2",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
