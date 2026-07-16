@@ -105,7 +105,10 @@ import {
   initializeActivityFromMessages,
   isAutonomousDailyBudgetExhausted,
 } from "../../packages/server/src/services/conversation/autonomous.service.js";
-import type { WeekSchedule } from "../../packages/server/src/services/conversation/schedule.service.js";
+import {
+  resolveRoutineSummaryMaxTokens,
+  type WeekSchedule,
+} from "../../packages/server/src/services/conversation/schedule.service.js";
 import { resolveGroupGenerationMode } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
 import {
@@ -395,6 +398,10 @@ await assert.rejects(
   }),
   /selected selfie Prompt Model connection could not be found/u,
 );
+
+assert.equal(resolveRoutineSummaryMaxTokens(null), 8192);
+assert.equal(resolveRoutineSummaryMaxTokens(16_384), 16_384);
+assert.equal(resolveRoutineSummaryMaxTokens(4096), 4096);
 
 const autonomousSchedule = (talkativeness: number, cap: number): WeekSchedule => ({
   weekStart: "2026-07-13",
