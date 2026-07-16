@@ -110,6 +110,7 @@ import {
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,
   resolvePromptMessageMacros,
+  scopePromptMacroContextToCharacter,
   type AssemblerInput,
 } from "../services/prompt/index.js";
 import { wrapContent } from "../services/prompt/format-engine.js";
@@ -1583,6 +1584,12 @@ export async function generateRoutes(app: FastifyInstance) {
           messages: T[],
         ): T[] => resolvePromptMessageMacros(messages, promptMacroContext, historyMacroProfilesById);
         const resolvePromptMacros = (value: string) => resolveMacros(value, promptMacroContext);
+        const resolvePromptMacrosWithoutVariableWrites = (value: string) =>
+          resolveMacros(
+            value,
+            { ...promptMacroContext, variables: { ...promptMacroContext.variables } },
+            { trimResult: false },
+          );
         const resolvePromptMacrosForLorebook = (value: string) =>
           resolveMacrosWithVariableSnapshot(
             value,
@@ -1669,6 +1676,7 @@ export async function generateRoutes(app: FastifyInstance) {
               content: m.content,
             })),
             input,
+            resolvePromptMacrosWithoutVariableWrites,
           );
         const injectCharacterAdvancedPrompts = async () => {
           if (characterAdvancedPromptsInjected) return;
@@ -4669,8 +4677,8 @@ export async function generateRoutes(app: FastifyInstance) {
           oocMessages: string[];
           characterId: string | null;
         } | null> => {
-          const targetCharacterProfile =
-            deferCharacterMacros && targetCharId ? characterMacroProfilesById.get(targetCharId) : undefined;
+          const targetCharacterProfile = targetCharId ? characterMacroProfilesById.get(targetCharId) : undefined;
+          const deferredTargetCharacterProfile = deferCharacterMacros ? targetCharacterProfile : undefined;
           // Turn-game board awareness: when a table game is active in this chat,
           // give THIS responder the current board — from their own seat when they
           // are playing (own hand / color / last move), spectator view otherwise.
@@ -4712,13 +4720,24 @@ export async function generateRoutes(app: FastifyInstance) {
             targetScopedMessagesForGen,
             ownerSpatialProjection,
           );
-          const preparedMessagesForGen = spatiallyScopedMessagesForGen.map((message) => ({
+          const macroScopedMessagesForGen = spatiallyScopedMessagesForGen.map((message) => ({
             ...message,
-            content: (targetCharacterProfile
-              ? resolveDeferredCharacterMacros(message.content, targetCharacterProfile, promptMacroContext)
+            content: (deferredTargetCharacterProfile
+              ? resolveDeferredCharacterMacros(message.content, deferredTargetCharacterProfile, promptMacroContext)
               : message.content
             ).replace(/\n([ \t]*\n){2,}/g, "\n\n"),
           }));
+          // Resolve again at the provider boundary. History is normally expanded
+          // earlier, but guide/system/depth blocks can be appended afterward; a
+          // last scoped pass prevents raw identity macros from escaping (#3704).
+          const providerMacroContext = targetCharacterProfile
+            ? scopePromptMacroContextToCharacter(promptMacroContext, targetCharacterProfile)
+            : promptMacroContext;
+          const preparedMessagesForGen = resolvePromptMessageMacros(
+            macroScopedMessagesForGen,
+            providerMacroContext,
+            historyMacroProfilesById,
+          );
           if (chatMode === "conversation" && conversationIsGroup && !input.impersonate) {
             preparedMessagesForGen.push({
               role: "user",

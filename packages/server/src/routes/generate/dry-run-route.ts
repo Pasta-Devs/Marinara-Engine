@@ -1504,6 +1504,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     }
     finalMessages = injectOwnerSpatialPrompt(finalMessages, promptSpatialProjection);
     dedupeLastMessageWrappers(finalMessages);
+    // Mirror the live route's provider-boundary macro guard so Peek Prompt is
+    // both accurate and incapable of exposing late raw identity macros (#3704).
+    finalMessages = resolveHistoryMessageMacros(finalMessages);
 
     // ── Parameter normalization (mirror /api/generate) ──
     const modelLower = (conn.model ?? "").toLowerCase();

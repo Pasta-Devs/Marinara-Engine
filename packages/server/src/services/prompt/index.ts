@@ -10,6 +10,7 @@ export {
   collectCharacterDepthPromptEntries,
   collectCharacterPostHistoryEntries,
   resolvePromptMessageMacros,
+  scopePromptMacroContextToCharacter,
   resolveCharacterAdvancedPromptIds,
   resolvePromptIdleDuration,
   resolvePromptLastGenerationType,

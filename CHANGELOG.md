@@ -10,6 +10,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Resolved `{{user}}`, `{{char}}`, and other prompt macros in opening greetings and `/guided` instructions at the final provider boundary, including lorebook routing and embedding scans, so late prompt injections cannot send raw identity placeholders to models (#3704).
 - Raised Conversation routine-summary generations from a 512-token ceiling to an 8,192-token default, honored larger Connection overrides, and requested low reasoning effort so reasoning models still return visible summaries (#3696).
 - Allowed selected custom agents to run in Conversation, Roleplay, and Game chats whenever **Enable Agents** is on, while preserving per-mode availability rules for official packages (#3692).
 - Applied saved Connection Custom Parameters to every API-backed text generation that uses that connection, including Noodle and custom endpoints hosted locally, while preserving per-chat and per-call overrides.

@@ -290,6 +290,23 @@ function characterFieldsFromProfile(profile: CharacterMacroProfile): NonNullable
   };
 }
 
+/**
+ * Scope otherwise shared prompt macros to the character whose provider request
+ * is about to run. This is used by the final prompt pass so late injections
+ * resolve {{char}} and card-field macros against the actual responder.
+ */
+export function scopePromptMacroContextToCharacter(
+  macroCtx: MacroContext,
+  profile: CharacterMacroProfile,
+): MacroContext {
+  return {
+    ...macroCtx,
+    char: profile.name,
+    charPhonetic: profile.phoneticName || profile.name,
+    characterFields: characterFieldsFromProfile(profile),
+  };
+}
+
 function macroContextForMessage(
   message: PromptMacroMessage,
   macroCtx: MacroContext,
@@ -297,13 +314,7 @@ function macroContextForMessage(
 ): MacroContext {
   const profile = message.characterId ? profilesById?.get(message.characterId) : undefined;
   if (!profile) return macroCtx;
-
-  return {
-    ...macroCtx,
-    char: profile.name,
-    charPhonetic: profile.phoneticName || profile.name,
-    characterFields: characterFieldsFromProfile(profile),
-  };
+  return scopePromptMacroContextToCharacter(macroCtx, profile);
 }
 
 export function resolvePromptMessageMacros<T extends PromptMacroMessage>(
