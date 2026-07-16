@@ -20,12 +20,14 @@ import {
 } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { useBackgroundAutonomousPolling } from "../../hooks/use-background-autonomous";
-import { useClearAutonomousUnread } from "../../hooks/use-chats";
+import { useClearAutonomousUnread, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { usePageActivity } from "../../hooks/use-page-activity";
 import { useCapabilityAgentRegistry, useCapabilityClientModules } from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
+import { FeatureAgentDetailHost } from "../agents/FeatureAgentDetailHost";
 import { getCssBackgroundStyle } from "../../lib/css-colors";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,6 +39,7 @@ import {
   useLayoutEffect,
   useRef,
   useCallback,
+  useMemo,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -182,8 +185,9 @@ function SidePanelFallback() {
 }
 
 export function AppShell() {
-  useCapabilityAgentRegistry();
+  const capabilityAgents = useCapabilityAgentRegistry();
   const installedCapabilities = useCapabilityClientModules();
+  const updateChatMetadata = useUpdateChatMetadata();
   const musicPlayerEnabled = useUIStore((state) => state.musicPlayerEnabled);
   const musicDjInstalled = (installedCapabilities.data ?? []).some(
     (capability) => capability.id === "spotify" && capability.status === "active",
@@ -241,7 +245,13 @@ export function AppShell() {
   const trackerPanelBackgroundColor = useUIStore((s) => s.trackerPanelBackgroundColor);
   const spatialMapDetailChatId = useUIStore((s) => s.spatialMapDetailChatId);
   const pendingSpatialMapDraftReview = useUIStore((s) => s.pendingSpatialMapDraftReview);
+  const clearPendingSpatialMapDraftReview = useUIStore((s) => s.clearPendingSpatialMapDraftReview);
   const closeSpatialMapDetail = useUIStore((s) => s.closeSpatialMapDetail);
+  const debugMode = useUIStore((s) => s.debugMode);
+  const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
+  const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
@@ -418,6 +428,59 @@ export function AppShell() {
   const trackerPanelWasActiveRef = useRef(false);
   const lastAutonomousUnreadClearRef = useRef<string | null>(null);
 
+  const selectedFeatureAgent = useMemo(
+    () =>
+      agentDetailId
+        ? ((capabilityAgents.data ?? []).find((agent) => agent.id === agentDetailId && agent.execution === "feature") ??
+          null)
+        : null,
+    [agentDetailId, capabilityAgents.data],
+  );
+  const selectedFeaturePackage = useMemo(
+    () =>
+      selectedFeatureAgent
+        ? ((installedCapabilities.data ?? []).find((item) =>
+            item.manifest.contributions?.agentDetail?.agentIds.includes(selectedFeatureAgent.id),
+          ) ?? null)
+        : null,
+    [installedCapabilities.data, selectedFeatureAgent],
+  );
+  const activeChatMetadata = parseChatMetadata(activeChat?.metadata);
+  const activeChatAgentIds = Array.isArray(activeChatMetadata.activeAgentIds)
+    ? activeChatMetadata.activeAgentIds.filter((id): id is string => typeof id === "string")
+    : [];
+  const selectedFeatureSupportsActiveChat = Boolean(
+    selectedFeatureAgent &&
+    activeChat &&
+    (!selectedFeatureAgent.modeAllowlist || selectedFeatureAgent.modeAllowlist.includes(activeChat.mode)),
+  );
+  const selectedFeatureEnabledForChat = Boolean(
+    selectedFeatureAgent &&
+    activeChatMetadata.enableAgents === true &&
+    activeChatAgentIds.includes(selectedFeatureAgent.id),
+  );
+  const setSelectedFeatureEnabledForChat = useCallback(
+    async (enabled: boolean) => {
+      if (!selectedFeatureAgent || !activeChatId || !selectedFeatureSupportsActiveChat) return;
+      const latestChat = useChatStore.getState().activeChat;
+      const latestMetadata = parseChatMetadata(
+        latestChat?.id === activeChatId ? latestChat.metadata : activeChat?.metadata,
+      );
+      const latestAgentIds = Array.isArray(latestMetadata.activeAgentIds)
+        ? latestMetadata.activeAgentIds.filter((id): id is string => typeof id === "string")
+        : [];
+      const activeAgentIds = enabled
+        ? Array.from(new Set([...latestAgentIds, selectedFeatureAgent.id]))
+        : latestAgentIds.filter((id) => id !== selectedFeatureAgent.id);
+      await updateChatMetadata.mutateAsync({
+        id: activeChatId,
+        ...(enabled ? { enableAgents: true } : {}),
+        activeAgentIds,
+      });
+    },
+    [activeChat?.metadata, activeChatId, selectedFeatureAgent, selectedFeatureSupportsActiveChat, updateChatMetadata],
+  );
+
   useEffect(() => {
     if (!activeChatId || isClearingAutonomousUnread) return;
     const metadata = parseChatMetadata(activeChat?.metadata);
@@ -561,7 +624,28 @@ export function AppShell() {
   ) : toolDetailId ? (
     <ToolEditor />
   ) : agentDetailId ? (
-    <AgentEditor />
+    capabilityAgents.isLoading ? (
+      <MainPaneFallback />
+    ) : selectedFeatureAgent ? (
+      <FeatureAgentDetailHost
+        agent={selectedFeatureAgent}
+        installedPackage={selectedFeaturePackage}
+        activeChat={activeChat ? { id: activeChat.id, name: activeChat.name, mode: activeChat.mode } : null}
+        activeChatSupported={selectedFeatureSupportsActiveChat}
+        enabledForChat={selectedFeatureEnabledForChat}
+        onEnabledForChatChange={setSelectedFeatureEnabledForChat}
+        onClose={closeAgentDetail}
+        onManagePackage={openAgentCatalog}
+        capabilityProps={{
+          debugMode,
+          confirmAction: showConfirmDialog,
+          onDirtyChange: setEditorDirty,
+          onOpenLorebook: openLorebookDetail,
+        }}
+      />
+    ) : (
+      <AgentEditor />
+    )
   ) : connectionDetailId ? (
     <ConnectionEditor />
   ) : presetDetailId ? (
@@ -1118,7 +1202,12 @@ export function AppShell() {
           view="workspace"
           capabilityProps={{
             chatId: spatialMapDetailChatId,
+            debugMode,
             pendingDraftReview: pendingSpatialMapDraftReview,
+            confirmAction: showConfirmDialog,
+            onClearPendingDraftReview: clearPendingSpatialMapDraftReview,
+            onDirtyChange: setEditorDirty,
+            onOpenLorebook: openLorebookDetail,
             onClose: closeSpatialMapDetail,
           }}
         />

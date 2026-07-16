@@ -964,11 +964,19 @@ export function shouldPreferLatestVisibleGameState(input: {
 }
 
 export function resolveVisibleGameStateAnchor(
-  messages: Array<{ role?: unknown; id?: unknown; activeSwipeIndex?: unknown }>,
+  messages: Array<{ role?: unknown; id?: unknown; activeSwipeIndex?: unknown; extra?: unknown }>,
 ): { messageId: string; swipeIndex: number } | null {
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!;
-    if (message.role !== "assistant" || typeof message.id !== "string" || !message.id) continue;
+    const markedSystemAnchor =
+      message.role === "system" && parseExtra(message.extra).gameStateAnchor === "checkpoint_restore";
+    if (
+      (message.role !== "assistant" && !markedSystemAnchor) ||
+      typeof message.id !== "string" ||
+      !message.id
+    ) {
+      continue;
+    }
     const swipeIndex =
       typeof message.activeSwipeIndex === "number" &&
       Number.isInteger(message.activeSwipeIndex) &&

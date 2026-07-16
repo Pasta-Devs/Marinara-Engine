@@ -437,7 +437,7 @@ export async function importSTChat(jsonlContent: string, db: DB, opts?: ImportST
   }
 
   const importedMessageIds = await storage.createMessagesBatch(chat.id, msgInputs, chatTimestamps);
-  const spatialStorage = createSpatialContextStorage(db);
+  const spatialStorage = createSpatialContextStorage();
   for (const candidate of importedSpatialHistory) {
     if (!isRecord(candidate)) continue;
     const messageIndex = candidate.messageIndex;

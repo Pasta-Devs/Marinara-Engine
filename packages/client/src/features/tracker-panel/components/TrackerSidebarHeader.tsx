@@ -12,6 +12,9 @@ const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
   standard: "Standard",
   expanded: "Expanded",
 };
+const TRACKER_TOOLBAR_ITEM_ORDER = ["side", "size", "hide", "lock", "add", "delete"] as const;
+type TrackerToolbarItem = (typeof TRACKER_TOOLBAR_ITEM_ORDER)[number];
+
 export function TrackerSidebarHeader({
   trackerPanelSide,
   sizeProfile,
@@ -32,6 +35,7 @@ export function TrackerSidebarHeader({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toolbarFocusIndex, setToolbarFocusIndex] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const addMode = activeEditMode === "add";
   const deleteMode = activeEditMode === "delete";
   const hideMode = activeEditMode === "hide";
@@ -59,34 +63,61 @@ export function TrackerSidebarHeader({
   };
 
   const getToolbarItems = () =>
-    Array.from(toolbarRef.current?.querySelectorAll<HTMLButtonElement>("[data-tracker-toolbar-item]") ?? []);
+    TRACKER_TOOLBAR_ITEM_ORDER.flatMap((_, index) => {
+      const element = toolbarRef.current?.querySelector<HTMLButtonElement>(`[data-tracker-toolbar-item="${index}"]`);
+      return element ? [{ element, index }] : [];
+    });
+
+  const getToolbarItemProps = (item: TrackerToolbarItem) => {
+    const index = TRACKER_TOOLBAR_ITEM_ORDER.indexOf(item);
+    return {
+      "data-tracker-toolbar-item": index,
+      tabIndex: toolbarFocusIndex === index ? 0 : -1,
+    };
+  };
 
   const handleToolbarFocus = (event: FocusEvent<HTMLDivElement>) => {
-    if (!(event.target instanceof HTMLButtonElement)) return;
-    const focusedIndex = getToolbarItems().indexOf(event.target);
-    if (focusedIndex >= 0) setToolbarFocusIndex(focusedIndex);
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+    const indexAttribute = target.getAttribute("data-tracker-toolbar-item");
+    if (indexAttribute === null) return;
+    const index = Number(indexAttribute);
+    if (!Number.isInteger(index) || index < 0 || index >= TRACKER_TOOLBAR_ITEM_ORDER.length) return;
+    setToolbarFocusIndex(index);
   };
 
   const handleToolbarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!(event.target instanceof HTMLButtonElement)) return;
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSettings();
+      settingsButtonRef.current?.focus();
+      return;
+    }
+
     const toolbarItems = getToolbarItems();
-    const focusedIndex = toolbarItems.indexOf(event.target);
-    if (focusedIndex < 0) return;
+    const focusedPosition = toolbarItems.findIndex(({ element }) => element === target);
+    if (focusedPosition < 0) return;
 
-    let nextIndex: number | undefined;
-    if (event.key === "ArrowRight") nextIndex = (focusedIndex + 1) % toolbarItems.length;
-    else if (event.key === "ArrowLeft") nextIndex = (focusedIndex - 1 + toolbarItems.length) % toolbarItems.length;
-    else if (event.key === "Home") nextIndex = 0;
-    else if (event.key === "End") nextIndex = toolbarItems.length - 1;
+    let nextPosition: number | undefined;
+    if (event.key === "ArrowRight") nextPosition = (focusedPosition + 1) % toolbarItems.length;
+    else if (event.key === "ArrowLeft")
+      nextPosition = (focusedPosition - 1 + toolbarItems.length) % toolbarItems.length;
+    else if (event.key === "Home") nextPosition = 0;
+    else if (event.key === "End") nextPosition = toolbarItems.length - 1;
 
-    if (nextIndex === undefined) return;
+    if (nextPosition === undefined) return;
     event.preventDefault();
-    setToolbarFocusIndex(nextIndex);
-    toolbarItems[nextIndex]?.focus();
+    const nextItem = toolbarItems[nextPosition];
+    if (!nextItem) return;
+    setToolbarFocusIndex(nextItem.index);
+    nextItem.element.focus();
   };
 
   const settingsButton = (
     <button
+      ref={settingsButtonRef}
       type="button"
       onClick={() => {
         if (settingsOpen) closeSettings();
@@ -115,8 +146,7 @@ export function TrackerSidebarHeader({
         className="flex items-center gap-0.5 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]/45 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
       >
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 0 ? 0 : -1}
+          {...getToolbarItemProps("side")}
           type="button"
           onClick={() => onSetSide(trackerPanelSide === "left" ? "right" : "left")}
           title={`Panel anchored ${trackerPanelSide}. Click to anchor ${trackerPanelSide === "left" ? "right" : "left"}.`}
@@ -141,8 +171,7 @@ export function TrackerSidebarHeader({
           />
         </button>
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 1 ? 0 : -1}
+          {...getToolbarItemProps("size")}
           type="button"
           onClick={() => onSetSizeProfile(nextSizeProfile)}
           title={sizeTitle}
@@ -158,8 +187,7 @@ export function TrackerSidebarHeader({
         className="flex items-center gap-0.5 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]/45 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
       >
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 2 ? 0 : -1}
+          {...getToolbarItemProps("hide")}
           type="button"
           onClick={() => onSetEditMode(hideMode ? null : "hide")}
           title={hideMode ? "Exit hide mode" : "Enter hide mode"}
@@ -175,8 +203,7 @@ export function TrackerSidebarHeader({
           <EyeOff size="0.75rem" />
         </button>
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 3 ? 0 : -1}
+          {...getToolbarItemProps("lock")}
           type="button"
           onClick={() => onSetEditMode(lockMode ? null : "lock")}
           title={lockMode ? "Exit lock mode" : "Enter lock mode"}
@@ -192,8 +219,7 @@ export function TrackerSidebarHeader({
           {lockMode ? <Lock size="0.75rem" /> : <Unlock size="0.75rem" />}
         </button>
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 4 ? 0 : -1}
+          {...getToolbarItemProps("add")}
           type="button"
           onClick={() => onSetEditMode(addMode ? null : "add")}
           title={addMode ? "Exit add mode" : "Enter add mode"}
@@ -209,8 +235,7 @@ export function TrackerSidebarHeader({
           <Plus size="0.875rem" />
         </button>
         <button
-          data-tracker-toolbar-item
-          tabIndex={toolbarFocusIndex === 5 ? 0 : -1}
+          {...getToolbarItemProps("delete")}
           type="button"
           onClick={() => onSetEditMode(deleteMode ? null : "delete")}
           title={deleteMode ? "Exit delete mode" : "Enter delete mode"}

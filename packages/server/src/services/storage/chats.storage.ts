@@ -29,6 +29,7 @@ import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import type { CreateChatInput, CreateMessageInput } from "@marinara-engine/shared";
 import {
+  ensureTimestampAfter,
   latestTrustedTimestamp,
   normalizeTimestampOverrides,
   type TimestampOverrides,
@@ -867,7 +868,16 @@ export function createChatsStorage(db: DB) {
 
     async createMessage(input: CreateMessageInput, timestampOverrides?: TimestampOverrides | null) {
       const id = newId();
-      const timestamp = resolveTimestamps(timestampOverrides).createdAt;
+      const resolvedTimestamp = resolveTimestamps(timestampOverrides).createdAt;
+      const explicitTimestamp = normalizeTimestampOverrides(timestampOverrides)?.createdAt;
+      const chatRows = await db
+        .select({ lastMessageAt: chats.lastMessageAt })
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .limit(1);
+      const timestamp = explicitTimestamp
+        ? resolvedTimestamp
+        : ensureTimestampAfter(resolvedTimestamp, chatRows[0]?.lastMessageAt);
       await db.insert(messages).values({
         id,
         chatId: input.chatId,

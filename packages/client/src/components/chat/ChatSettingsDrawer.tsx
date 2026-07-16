@@ -937,6 +937,9 @@ export function ChatSettingsDrawer({
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   const openToolDetail = useUIStore((s) => s.openToolDetail);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
+  const debugMode = useUIStore((s) => s.debugMode);
+  const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
 
   const { data: allCharacters } = useCharacters({ includeBuiltIn: true });
   const { data: characterGroups } = useCharacterGroups();
@@ -1289,11 +1292,10 @@ export function ChatSettingsDrawer({
   );
   const mapsPackage = installedCapabilities.find(
     (item) =>
-      item.status === "active" &&
-      item.manifest.kind.includes("maps") &&
-      item.manifest.entrypoints.client &&
-      activeAgentIds.includes(item.id),
+      item.status === "active" && item.manifest.kind.includes("maps") && item.manifest.entrypoints.client,
   );
+  const mapsPackageEnabledForChat =
+    metadata.enableAgents === true && Boolean(mapsPackage && activeAgentIds.includes(mapsPackage.id));
   const callsPackage = installedCapabilities.find(
     (item) =>
       item.status === "active" &&
@@ -8188,7 +8190,25 @@ export function ChatSettingsDrawer({
                                       <CapabilityElement
                                         packageId={mapsPackage.id}
                                         view="settings"
-                                        capabilityProps={{ chatId: chat.id }}
+                                        capabilityProps={{
+                                          chatId: chat.id,
+                                          debugMode,
+                                          enabledForChat: mapsPackageEnabledForChat,
+                                          onEnabledForChatChange: async (enabled: boolean) => {
+                                            const current = readLatestActiveAgentIds();
+                                            const nextActiveAgentIds = enabled
+                                              ? Array.from(new Set([...current, mapsPackage.id]))
+                                              : current.filter((id) => id !== mapsPackage.id);
+                                            await updateMeta.mutateAsync({
+                                              id: chat.id,
+                                              ...(enabled ? { enableAgents: true } : {}),
+                                              activeAgentIds: nextActiveAgentIds,
+                                            });
+                                          },
+                                          confirmAction: showConfirmDialog,
+                                          onDirtyChange: setEditorDirty,
+                                          onOpenLorebook: openLorebookDetail,
+                                        }}
                                         className="block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/45"
                                       />
                                     )}
@@ -8314,7 +8334,25 @@ export function ChatSettingsDrawer({
                                             <CapabilityElement
                                               packageId={mapsPackage.id}
                                               view="settings"
-                                              capabilityProps={{ chatId: chat.id }}
+                                              capabilityProps={{
+                                                chatId: chat.id,
+                                                debugMode,
+                                                enabledForChat: mapsPackageEnabledForChat,
+                                                onEnabledForChatChange: async (enabled: boolean) => {
+                                                  const current = readLatestActiveAgentIds();
+                                                  const nextActiveAgentIds = enabled
+                                                    ? Array.from(new Set([...current, mapsPackage.id]))
+                                                    : current.filter((id) => id !== mapsPackage.id);
+                                                  await updateMeta.mutateAsync({
+                                                    id: chat.id,
+                                                    ...(enabled ? { enableAgents: true } : {}),
+                                                    activeAgentIds: nextActiveAgentIds,
+                                                  });
+                                                },
+                                                confirmAction: showConfirmDialog,
+                                                onDirtyChange: setEditorDirty,
+                                                onOpenLorebook: openLorebookDetail,
+                                              }}
                                               className="mt-2 block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/45"
                                             />
                                           )}

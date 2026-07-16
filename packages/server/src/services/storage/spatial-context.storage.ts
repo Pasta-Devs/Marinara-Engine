@@ -1,8 +1,5 @@
 import type { SpatialContextSnapshot, SpatialSnapshotSource } from "@marinara-engine/shared";
-import type { DB } from "../../db/connection.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
-
-type SpatialSnapshotConnection = Pick<DB, "select" | "insert" | "delete" | "update">;
 
 export interface CreateSpatialSnapshotInput {
   chatId: string;
@@ -30,7 +27,7 @@ export interface SpatialContextStorage {
 }
 
 interface SpatialStorageProvider {
-  create(db: SpatialSnapshotConnection): SpatialContextStorage;
+  create(): SpatialContextStorage;
 }
 
 function unavailableWrite(): never {
@@ -52,6 +49,6 @@ const unavailableStorage: SpatialContextStorage = {
 };
 
 /** Small compatibility bridge; all persistence code lives in the optional package. */
-export function createSpatialContextStorage(db: SpatialSnapshotConnection): SpatialContextStorage {
-  return getCapabilityService<SpatialStorageProvider>("hierarchical-maps:storage")?.create(db) ?? unavailableStorage;
+export function createSpatialContextStorage(): SpatialContextStorage {
+  return getCapabilityService<SpatialStorageProvider>("hierarchical-maps:storage")?.create() ?? unavailableStorage;
 }

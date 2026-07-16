@@ -10,6 +10,10 @@ export const gameCheckpoints = fileTable("game_checkpoints", {
   spatialSnapshotId: text("spatial_snapshot_id"),
   /** FK to game_state_snapshots.id */
   snapshotId: text("snapshot_id").notNull(),
+  /** Immutable JSON copy of the captured Game snapshot. */
+  snapshotData: text("snapshot_data"),
+  /** Immutable JSON copy of the captured Spatial Context snapshot, when enabled. */
+  spatialSnapshotData: text("spatial_snapshot_data"),
   /** FK to messages.id — the message this checkpoint was taken at */
   messageId: text("message_id").notNull(),
 

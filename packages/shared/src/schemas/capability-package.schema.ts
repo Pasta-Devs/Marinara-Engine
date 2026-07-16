@@ -50,6 +50,12 @@ const capabilityPackageManifestBaseSchema = z.object({
         })
         .strict()
         .optional(),
+      agentDetail: z
+        .object({
+          agentIds: z.array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80)).min(1).max(32),
+        })
+        .strict()
+        .optional(),
     })
     .strict()
     .optional(),
@@ -62,7 +68,7 @@ const capabilityPackageManifestBaseSchema = z.object({
   restartRequired: z.boolean().default(false),
 }).strict();
 
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 0 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 3 } as const);
 
 const capabilityApiVersionSchema = z.object({
   major: z.number().int().positive(),
