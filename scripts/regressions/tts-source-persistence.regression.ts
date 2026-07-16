@@ -1,8 +1,40 @@
 import assert from "node:assert/strict";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
+import { buildTTSVoiceRequests } from "../../packages/client/src/lib/tts-dialogue.ts";
 import { maskTTSConfigForResponse, prepareTTSConfigForStorage } from "../../packages/server/src/routes/tts.routes.ts";
 
 const encryptForTest = (value: string) => (value ? `encrypted:${value}` : "");
+
+const legacyConfigWithoutDialoguePause = ttsConfigSchema.parse({});
+assert.equal(legacyConfigWithoutDialoguePause.dialoguePauseMs, 300);
+
+const dialogueConfig = ttsConfigSchema.parse({ dialogueOnly: true, dialoguePauseMs: 300 });
+const twoUtterances = buildTTSVoiceRequests('"First line." "Second line."', dialogueConfig);
+assert.deepEqual(
+  twoUtterances.map((request) => request.pauseAfterMs),
+  [300, undefined],
+);
+
+const threeUtterances = buildTTSVoiceRequests('"First." "Second." "Third."', dialogueConfig);
+assert.deepEqual(
+  threeUtterances.map((request) => request.pauseAfterMs),
+  [300, 300, undefined],
+);
+
+const longDialogue = `${"A".repeat(950)}. Short ending.`;
+const splitUtteranceRequests = buildTTSVoiceRequests(`"${longDialogue}" "Next line."`, dialogueConfig);
+assert.ok(splitUtteranceRequests.length > 2);
+assert.ok(splitUtteranceRequests.slice(0, -2).every((request) => request.pauseAfterMs === undefined));
+assert.equal(splitUtteranceRequests.at(-2)?.pauseAfterMs, 300);
+assert.equal(splitUtteranceRequests.at(-1)?.pauseAfterMs, undefined);
+
+const fullMessageConfig = ttsConfigSchema.parse({ dialogueOnly: false, dialoguePauseMs: 300 });
+const fullMessageRequests = buildTTSVoiceRequests('"First." "Second."', fullMessageConfig);
+assert.ok(fullMessageRequests.every((request) => request.pauseAfterMs === undefined));
+
+const zeroPauseConfig = ttsConfigSchema.parse({ dialogueOnly: true, dialoguePauseMs: 0 });
+const zeroPauseRequests = buildTTSVoiceRequests('"First." "Second."', zeroPauseConfig);
+assert.ok(zeroPauseRequests.every((request) => request.pauseAfterMs === undefined));
 
 const legacyOpenAiConfig = ttsConfigSchema.parse({
   enabled: true,

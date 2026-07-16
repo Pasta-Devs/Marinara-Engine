@@ -421,6 +421,7 @@ export function TTSConfigCard() {
   const [autoplayGame, setAutoplayGame] = useState(false);
   const [progressivePlayback, setProgressivePlayback] = useState(false);
   const [dialogueOnly, setDialogueOnly] = useState(false);
+  const [dialoguePauseMs, setDialoguePauseMs] = useState(300);
   const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
   const [callAudioEnabled, setCallAudioEnabled] = useState(false);
   const [callAudioInputMode, setCallAudioInputMode] = useState<TTSConversationCallAudioInputMode>("local_whisper");
@@ -476,6 +477,7 @@ export function TTSConfigCard() {
     setAutoplayGame(savedConfig.autoplayGame);
     setProgressivePlayback(savedConfig.progressivePlayback ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
+    setDialoguePauseMs(savedConfig.dialoguePauseMs ?? 300);
     setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setCallAudioEnabled(savedConfig.callAudioEnabled ?? false);
     setCallAudioInputMode(savedConfig.callAudioInputMode ?? "local_whisper");
@@ -545,6 +547,7 @@ export function TTSConfigCard() {
     autoplayGame,
     progressivePlayback,
     dialogueOnly,
+    dialoguePauseMs,
     audioFormat,
     callAudioEnabled,
     callSttConnectionId: "",
@@ -1491,6 +1494,30 @@ export function TTSConfigCard() {
                 mark({ dialogueOnly: v });
               }}
             />
+            {dialogueOnly && (
+              <FieldRow
+                label={`Pause between dialogues — ${dialoguePauseMs} ms`}
+                help="Adds silence between separate dialogue lines in the same message. It does not pause between chunks of the same long dialogue."
+              >
+                <input
+                  type="range"
+                  min={0}
+                  max={1500}
+                  step={50}
+                  value={dialoguePauseMs}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setDialoguePauseMs(next);
+                    mark({ dialoguePauseMs: next });
+                  }}
+                  className="w-full accent-rose-400"
+                />
+                <div className="flex justify-between text-[0.6rem] text-[var(--muted-foreground)]">
+                  <span>No pause</span>
+                  <span>1500 ms</span>
+                </div>
+              </FieldRow>
+            )}
           </div>
 
           <div className="flex items-center gap-2 rounded-xl border border-sky-400/15 bg-sky-400/5 px-2.5 py-2">

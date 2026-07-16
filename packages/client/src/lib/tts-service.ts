@@ -24,6 +24,7 @@ export interface TTSSpeakRequest {
   speaker?: string;
   tone?: string;
   voice?: string;
+  pauseAfterMs?: number;
   cacheKey?: string;
   cacheAliases?: string[];
   activeId?: string | null;
@@ -65,6 +66,30 @@ function waitForBlobWithAbort(promise: Promise<Blob>, signal?: AbortSignal): Pro
 
 function playbackAbortError(): DOMException {
   return new DOMException("TTS playback aborted", "AbortError");
+}
+
+function waitForPlaybackDelay(delayMs: number | undefined, signal: AbortSignal): Promise<void> {
+  const ms = typeof delayMs === "number" && Number.isFinite(delayMs) ? Math.max(0, Math.min(1500, delayMs)) : 0;
+
+  if (ms <= 0) return Promise.resolve();
+  if (signal.aborted) return Promise.reject(playbackAbortError());
+
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      signal.removeEventListener("abort", onAbort);
+    };
+    const onAbort = () => {
+      clearTimeout(timer);
+      cleanup();
+      reject(playbackAbortError());
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function shouldWaitForPlaybackReturn(error: unknown): boolean {
@@ -472,12 +497,17 @@ class TTSService {
 
         try {
           await playBlob(result.blob, result.request, result.index);
+          await waitForPlaybackDelay(result.request.pauseAfterMs, abortController.signal);
           played += 1;
           if (nextFetch && this.isCurrentSequence(sequence)) {
             this.setState("loading", id ?? null);
           }
         } catch (err) {
           detachAbortSignal();
+          if (err instanceof Error && err.name === "AbortError") {
+            this.setState("idle");
+            return;
+          }
           if (options.throwOnError) throw err;
           return;
         }
@@ -499,13 +529,13 @@ class TTSService {
     }
 
     const results = await Promise.all(playableRequests.map((request, index) => fetchChunk(request, index)));
-    detachAbortSignal();
     if (!this.isCurrentSequence(sequence)) return;
-    if (this.abortController === abortController) {
-      this.abortController = null;
-    }
 
     if (results.some((result) => !result.ok && isAbortError(result.error))) {
+      detachAbortSignal();
+      if (this.abortController === abortController) {
+        this.abortController = null;
+      }
       this.setState("idle");
       return;
     }
@@ -514,6 +544,10 @@ class TTSService {
     const fetchErrors = results.flatMap((result) => (result.ok ? [] : [result.error]));
     handleFetchFailures(fetchErrors);
     if (playableChunks.length === 0) {
+      detachAbortSignal();
+      if (this.abortController === abortController) {
+        this.abortController = null;
+      }
       const error = fetchErrors[0] ?? new Error("TTS request failed");
       this.lastError = error.message;
       this.setState("error");
@@ -524,11 +558,24 @@ class TTSService {
     for (const chunk of playableChunks) {
       try {
         await playBlob(chunk.blob, chunk.request, chunk.index);
+        await waitForPlaybackDelay(chunk.request.pauseAfterMs, abortController.signal);
       } catch (err) {
+        detachAbortSignal();
+        if (this.abortController === abortController) {
+          this.abortController = null;
+        }
+        if (err instanceof Error && err.name === "AbortError") {
+          this.setState("idle");
+          return;
+        }
         if (options.throwOnError) throw err;
         return;
       }
       if (!this.isCurrentSequence(sequence)) return;
+    }
+    detachAbortSignal();
+    if (this.abortController === abortController) {
+      this.abortController = null;
     }
     this.setState("idle");
   }

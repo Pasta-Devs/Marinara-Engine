@@ -12,6 +12,7 @@ export interface TTSVoiceRequest {
   speaker?: string;
   tone?: string;
   voice?: string;
+  pauseAfterMs?: number;
 }
 
 export interface CachedTTSVoiceRequest extends TTSVoiceRequest {
@@ -378,7 +379,7 @@ export function buildTTSVoiceRequests(
         : [{ text: cleanTTSInputText(normalized), speaker: fallbackSpeaker || undefined } satisfies TTSUtterance];
 
   const fallbackSpeakerKey = normalizeTTSCharacterName(fallbackSpeaker);
-  return utterances.flatMap((utterance) => {
+  return utterances.flatMap((utterance, utteranceIndex) => {
     const speaker = utterance.speaker || fallbackSpeaker || undefined;
     const speakerKey = normalizeTTSCharacterName(speaker);
     const resolvedCharacterId = speaker
@@ -388,11 +389,18 @@ export function buildTTSVoiceRequests(
     const voice = resolveTTSVoiceForSpeaker(config, speaker, resolvedCharacterId);
     if (config.source === "elevenlabs" && !voice) return [];
 
-    return splitTTSChunks(utterance.text).map((chunk) => ({
+    const chunks = splitTTSChunks(utterance.text);
+    return chunks.map((chunk, chunkIndex) => ({
       text: chunk,
       speaker,
       tone: utterance.tone,
       voice,
+      ...(config.dialogueOnly &&
+      utteranceIndex < utterances.length - 1 &&
+      chunkIndex === chunks.length - 1 &&
+      config.dialoguePauseMs > 0
+        ? { pauseAfterMs: config.dialoguePauseMs }
+        : {}),
     }));
   });
 }
@@ -409,10 +417,7 @@ function isLikelyTTSVNSpeaker(value: string): boolean {
   return /^[\p{L}\p{N}][\p{L}\p{N}' ._-]{0,47}$/u.test(speaker);
 }
 
-export function extractDialogueUtterances(
-  text: string,
-  fallbackSpeaker?: string | null,
-): TTSUtterance[] {
+export function extractDialogueUtterances(text: string, fallbackSpeaker?: string | null): TTSUtterance[] {
   // Remove ordinary HTML before looking for quoted dialogue. Otherwise quote
   // marks inside style/class attributes are mistaken for spoken lines.
   const speechText = stripTTSMarkup(text, true);

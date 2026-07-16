@@ -126,6 +126,7 @@ const ttsConfigBaseSchema = z.object({
   autoplayGame: z.boolean().default(false),
   progressivePlayback: z.boolean().default(false),
   dialogueOnly: z.boolean().default(false),
+  dialoguePauseMs: z.number().min(0).max(1500).default(300),
   audioFormat: ttsAudioFormatSchema.default("mp3"),
   /** Global gate for Conversation-mode calls. Individual chats opt in separately. */
   callAudioEnabled: z.boolean().default(false),
