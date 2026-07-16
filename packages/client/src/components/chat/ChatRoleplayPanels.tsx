@@ -1,5 +1,24 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, BookOpen, ChevronDown, ChevronRight, Loader2, MapPin, PenLine, Sparkles, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Loader2,
+  MapPin,
+  PenLine,
+  Plus,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  AUTHOR_NOTES_DEFAULT_DEPTH,
+  migrateLegacyAuthorNotes,
+  readAuthorNoteEntries,
+  type AuthorNoteEntry,
+} from "@marinara-engine/shared";
 import { useUpdateChatMetadata } from "../../hooks/use-chats";
 import { type BudgetSkippedLorebookEntry, useActiveLorebookEntries } from "../../hooks/use-lorebooks";
 import { cn } from "../../lib/utils";
@@ -321,6 +340,22 @@ export function ActiveLorebookEntriesPanel({
   );
 }
 
+/**
+ * Entries for display. A chat that predates the entries feature still holds a
+ * single `authorNotes` string; it is split for display only, and not written
+ * back until the user actually edits something.
+ */
+function initialAuthorNoteEntries(chatMeta: Record<string, any>): AuthorNoteEntry[] {
+  const stored = readAuthorNoteEntries(chatMeta);
+  if (stored !== null) return stored;
+  return migrateLegacyAuthorNotes((chatMeta.authorNotes as string) ?? "", () => crypto.randomUUID());
+}
+
+function authorNoteEntriesEqual(a: AuthorNoteEntry[], b: AuthorNoteEntry[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((entry, i) => entry.id === b[i].id && entry.content === b[i].content && entry.enabled === b[i].enabled);
+}
+
 export function AuthorNotesPanel({
   chatId,
   chatMeta,
@@ -330,30 +365,37 @@ export function AuthorNotesPanel({
   chatMeta: Record<string, any>;
   onClose: () => void;
 }) {
-  const [notes, setNotes] = useState((chatMeta.authorNotes as string) ?? "");
-  const [depthStr, setDepthStr] = useState(String((chatMeta.authorNotesDepth as number) ?? 4));
+  const [entries, setEntries] = useState<AuthorNoteEntry[]>(() => initialAuthorNoteEntries(chatMeta));
+  const [depthStr, setDepthStr] = useState(String((chatMeta.authorNotesDepth as number) ?? AUTHOR_NOTES_DEFAULT_DEPTH));
   const updateMeta = useUpdateChatMetadata();
 
   const initialBaseline = {
-    notes: (chatMeta.authorNotes as string) ?? "",
-    depth: (chatMeta.authorNotesDepth as number) ?? 4,
+    entries: initialAuthorNoteEntries(chatMeta),
+    depth: (chatMeta.authorNotesDepth as number) ?? AUTHOR_NOTES_DEFAULT_DEPTH,
   };
-  const latestByChatRef = useRef(new Map<string, { notes: string; depthStr: string }>([[chatId, { notes, depthStr }]]));
-  latestByChatRef.current.set(chatId, { notes, depthStr });
-  const baselineByChatRef = useRef(new Map<string, { notes: string; depth: number }>([[chatId, initialBaseline]]));
+  const latestByChatRef = useRef(
+    new Map<string, { entries: AuthorNoteEntry[]; depthStr: string }>([[chatId, { entries, depthStr }]]),
+  );
+  latestByChatRef.current.set(chatId, { entries, depthStr });
+  const baselineByChatRef = useRef(
+    new Map<string, { entries: AuthorNoteEntry[]; depth: number }>([[chatId, initialBaseline]]),
+  );
   const mutateRef = useRef(updateMeta.mutate);
   mutateRef.current = updateMeta.mutate;
 
+  const storedEntriesKey = JSON.stringify(chatMeta.authorNoteEntries ?? null);
   useEffect(() => {
     const nextBaseline = {
-      notes: (chatMeta.authorNotes as string) ?? "",
-      depth: (chatMeta.authorNotesDepth as number) ?? 4,
+      entries: initialAuthorNoteEntries(chatMeta),
+      depth: (chatMeta.authorNotesDepth as number) ?? AUTHOR_NOTES_DEFAULT_DEPTH,
     };
-    setNotes(nextBaseline.notes);
+    setEntries(nextBaseline.entries);
     setDepthStr(String(nextBaseline.depth));
     baselineByChatRef.current.set(chatId, nextBaseline);
-    latestByChatRef.current.set(chatId, { notes: nextBaseline.notes, depthStr: String(nextBaseline.depth) });
-  }, [chatId, chatMeta.authorNotes, chatMeta.authorNotesDepth]);
+    latestByChatRef.current.set(chatId, { entries: nextBaseline.entries, depthStr: String(nextBaseline.depth) });
+    // `chatMeta` is a fresh object each render; key off the stored values instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId, storedEntriesKey, chatMeta.authorNotes, chatMeta.authorNotesDepth]);
 
   // Outside-click closes the popover via mousedown, which unmounts the
   // textarea before its onBlur (the only save trigger) can fire. Flush
@@ -362,14 +404,17 @@ export function AuthorNotesPanel({
     const capturedChatId = chatId;
     const latestByChat = latestByChatRef.current;
     const baselineByChat = baselineByChatRef.current;
-    const snapshot = latestByChat.get(capturedChatId) ?? { notes: "", depthStr: "4" };
-    const baselineSnapshot = baselineByChat.get(capturedChatId) ?? { notes: "", depth: 4 };
+    const snapshot = latestByChat.get(capturedChatId) ?? { entries: [], depthStr: String(AUTHOR_NOTES_DEFAULT_DEPTH) };
+    const baselineSnapshot = baselineByChat.get(capturedChatId) ?? { entries: [], depth: AUTHOR_NOTES_DEFAULT_DEPTH };
     return () => {
-      const { notes: n, depthStr: d } = latestByChat.get(capturedChatId) ?? snapshot;
+      const { entries: e, depthStr: d } = latestByChat.get(capturedChatId) ?? snapshot;
       const nextDepth = Math.max(0, parseInt(d, 10) || 0);
       const base = baselineByChat.get(capturedChatId) ?? baselineSnapshot;
-      if (n !== base.notes || nextDepth !== base.depth) {
-        mutateRef.current({ id: capturedChatId, authorNotes: n, authorNotesDepth: nextDepth });
+      if (!authorNoteEntriesEqual(e, base.entries) || nextDepth !== base.depth) {
+        // Clearing `authorNotes` completes the migration: once the entries
+        // array exists it is the only source of truth, so a lingering legacy
+        // string would just be dead data.
+        mutateRef.current({ id: capturedChatId, authorNotes: "", authorNoteEntries: e, authorNotesDepth: nextDepth });
       }
       latestByChat.delete(capturedChatId);
       baselineByChat.delete(capturedChatId);
@@ -377,9 +422,27 @@ export function AuthorNotesPanel({
   }, [chatId]);
 
   const depth = parseInt(depthStr, 10) || 0;
-  const handleSave = () => {
-    updateMeta.mutate({ id: chatId, authorNotes: notes, authorNotesDepth: depth });
+  const persist = (nextEntries: AuthorNoteEntry[], nextDepth = depth) => {
+    updateMeta.mutate({ id: chatId, authorNotes: "", authorNoteEntries: nextEntries, authorNotesDepth: nextDepth });
   };
+
+  const commitEntries = (nextEntries: AuthorNoteEntry[]) => {
+    setEntries(nextEntries);
+    persist(nextEntries);
+  };
+
+  const updateEntry = (id: string, patch: Partial<AuthorNoteEntry>) =>
+    entries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry));
+
+  const moveEntry = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= entries.length) return;
+    const next = [...entries];
+    [next[index], next[target]] = [next[target], next[index]];
+    commitEntries(next);
+  };
+
+  const enabledCount = entries.filter((entry) => entry.enabled && entry.content.trim()).length;
 
   return (
     <>
@@ -396,16 +459,90 @@ export function AuthorNotesPanel({
         </button>
       </h3>
       <p className={cn(ROLEPLAY_POPOVER_SUBTITLE, "mb-2")}>
-        Text here is injected into the prompt at the chosen depth every generation.
+        {entries.length === 0
+          ? "Add notes to inject into the prompt at the chosen depth every generation."
+          : `${enabledCount} of ${entries.length} ${entries.length === 1 ? "note" : "notes"} injected at the chosen depth every generation.`}
       </p>
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={handleSave}
-        placeholder="e.g. Keep the tone dark and suspenseful. The villain is secretly an ally."
-        className="w-full resize-none rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--ring)]"
-        rows={4}
-      />
+
+      <div className="flex flex-col gap-1.5">
+        {entries.map((entry, index) => (
+          <div
+            key={entry.id}
+            className={cn(
+              "rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-1.5 transition-opacity",
+              !entry.enabled && "opacity-50",
+            )}
+          >
+            <div className="mb-1 flex items-center gap-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={entry.enabled}
+                aria-label={entry.enabled ? "Disable this note" : "Enable this note"}
+                onClick={() => commitEntries(updateEntry(entry.id, { enabled: !entry.enabled }))}
+                className={cn(
+                  "relative h-3.5 w-6 shrink-0 rounded-full transition-colors",
+                  entry.enabled ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/30",
+                )}
+              >
+                <span
+                  className={cn(
+                    "absolute top-0.5 h-2.5 w-2.5 rounded-full bg-white transition-transform",
+                    entry.enabled ? "translate-x-3" : "translate-x-0.5",
+                  )}
+                />
+              </button>
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">#{index + 1}</span>
+              <div className="ml-auto flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => moveEntry(index, -1)}
+                  disabled={index === 0}
+                  aria-label="Move note up"
+                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronUp size="0.75rem" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveEntry(index, 1)}
+                  disabled={index === entries.length - 1}
+                  aria-label="Move note down"
+                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronDown size="0.75rem" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => commitEntries(entries.filter((candidate) => candidate.id !== entry.id))}
+                  aria-label="Delete this note"
+                  className="rounded p-0.5 text-[var(--muted-foreground)] transition-colors hover:text-red-400"
+                >
+                  <Trash2 size="0.75rem" />
+                </button>
+              </div>
+            </div>
+            <textarea
+              value={entry.content}
+              onChange={(e) => setEntries(updateEntry(entry.id, { content: e.target.value }))}
+              onBlur={() => persist(entries)}
+              placeholder="e.g. Keep the tone dark and suspenseful."
+              className="w-full resize-none rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-xs text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:ring-2 focus:ring-[var(--ring)]"
+              rows={2}
+            />
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => commitEntries([...entries, { id: crypto.randomUUID(), content: "", enabled: true }])}
+        className="mt-1.5 flex w-full items-center justify-center gap-1 rounded-lg border border-dashed border-[var(--border)] px-2 py-1.5 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--ring)] hover:text-[var(--foreground)]"
+      >
+        <Plus size="0.75rem" />
+        Add note
+      </button>
+
       <div className="mt-2 flex items-center gap-2">
         <span className="shrink-0 text-[0.625rem] text-[var(--muted-foreground)]">Injection Depth</span>
         <input
@@ -416,7 +553,7 @@ export function AuthorNotesPanel({
           onBlur={() => {
             const nextDepth = Math.max(0, parseInt(depthStr, 10) || 0);
             setDepthStr(String(nextDepth));
-            updateMeta.mutate({ id: chatId, authorNotes: notes, authorNotesDepth: nextDepth });
+            persist(entries, nextDepth);
           }}
           className="w-14 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-0.5 text-center text-[0.625rem] text-[var(--foreground)] outline-none transition-colors [appearance:textfield] focus:ring-2 focus:ring-[var(--ring)] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         />

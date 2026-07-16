@@ -15,6 +15,7 @@ import {
 } from "react";
 import { isMessageShadowedByLiveStream } from "../../lib/generation-stream-policy";
 import {
+  resolveAuthorNotesText,
   type ChatSummaryEntry,
   type MarkerConfig,
   type PromptGroup,
@@ -957,7 +958,7 @@ function AuthorNotesButton({
 
   if (!chatId) return null;
 
-  const hasNotes = !!String(chatMeta.authorNotes ?? "").trim();
+  const hasNotes = !!resolveAuthorNotesText(chatMeta);
 
   return (
     <div className="relative" ref={ref} onClick={(e) => e.stopPropagation()}>

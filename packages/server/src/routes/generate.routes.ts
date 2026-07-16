@@ -36,9 +36,11 @@ import {
   DEFAULT_GENERATION_PARAMS,
   unwrapConversationInstructions,
   findKnownModel,
+  AUTHOR_NOTES_DEFAULT_DEPTH,
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeTextForMatch,
   normalizeGameStoryboardKeyframeCount,
+  resolveAuthorNotesText,
   resolveGameSetupArtStylePrompt,
   type APIProvider,
   type MacroContext,
@@ -2361,9 +2363,9 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         // ── Author's Notes injection ──
-        const authorNotes = (chatMeta.authorNotes as string | undefined)?.trim();
+        const authorNotes = resolveAuthorNotesText(chatMeta);
         if (authorNotes) {
-          const authorNotesDepth = (chatMeta.authorNotesDepth as number) ?? 4;
+          const authorNotesDepth = (chatMeta.authorNotesDepth as number) ?? AUTHOR_NOTES_DEFAULT_DEPTH;
           finalMessages = injectAtDepth(finalMessages, [
             { content: authorNotes, role: "system", depth: authorNotesDepth },
           ]);
