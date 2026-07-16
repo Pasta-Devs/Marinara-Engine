@@ -3,6 +3,7 @@ import {
   COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID,
   GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID,
   STORYBOARD_OPTIMIZED_IMAGE_PROMPT_TEMPLATE_ID,
+  generationParametersSchema,
   type GameInitialSetupConnectionSnapshot,
   type GameInitialSetupLabels,
   type GameInitialSetupSnapshot,
@@ -84,6 +85,15 @@ export interface GameSetupSummarySection {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+const importedGenerationParametersSchema = generationParametersSchema.partial().strict();
+
+function parseGenerationParameters(value: unknown): Partial<GenerationParameters> | undefined {
+  if (value === undefined) return undefined;
+  const parsed = importedGenerationParametersSchema.safeParse(value);
+  if (!parsed.success) throw new Error("This file has invalid generation parameters.");
+  return parsed.data;
 }
 
 function requireString(
@@ -229,9 +239,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
   if (value.customHudWidgets !== undefined && !Array.isArray(value.customHudWidgets)) {
     throw new Error("This file has invalid HUD widgets.");
   }
-  if (value.generationParameters !== undefined && !isRecord(value.generationParameters)) {
-    throw new Error("This file has invalid generation parameters.");
-  }
+  const generationParameters = parseGenerationParameters(value.generationParameters);
 
   return {
     ...(value as unknown as GameSetupConfig),
@@ -243,6 +251,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     gmMode,
     rating,
     partyCharacterIds: [...value.partyCharacterIds],
+    generationParameters,
   };
 }
 
@@ -305,15 +314,10 @@ export function parseGameSetupShareFileJson(text: string): GameSetupShareFile {
   if (typeof setup.preferences === "string" && setup.preferences.length > 5_000) {
     throw new Error("This file's additional preferences are too long.");
   }
-  if (
-    setup.effectiveGenerationParameters != null &&
-    !isRecord(setup.effectiveGenerationParameters)
-  ) {
-    throw new Error("This file has invalid effective generation parameters.");
-  }
-  const effectiveGenerationParameters = isRecord(setup.effectiveGenerationParameters)
-    ? (setup.effectiveGenerationParameters as Partial<GenerationParameters>)
-    : null;
+  const effectiveGenerationParameters =
+    setup.effectiveGenerationParameters == null
+      ? null
+      : (parseGenerationParameters(setup.effectiveGenerationParameters) ?? null);
 
   return {
     format: GAME_SETUP_SHARE_FORMAT,
@@ -361,7 +365,8 @@ function resolveConnectionId(
   const model = normalizeLookupValue(snapshot.model);
   const service = normalizeLookupValue(snapshot.service);
   const candidates = connections.filter((connection) => normalizeLookupValue(connection.name) === name);
-  const pool = candidates.length > 0 ? candidates : connections;
+  if (candidates.length === 0) return null;
+  const pool = candidates;
 
   const scored = pool
     .map((connection) => {

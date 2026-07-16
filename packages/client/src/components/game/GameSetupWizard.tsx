@@ -492,6 +492,12 @@ export function GameSetupWizard({
   const setupImportInputRef = useRef<HTMLInputElement>(null);
   const pendingImportedGenerationParametersRef = useRef<Partial<EditableGenerationParameters> | null>(null);
   const importedGenerationParametersRef = useRef<Partial<GenerationParameters> | null>(null);
+  const importedArtStyleSettingsRef = useRef<
+    Pick<
+      GameSetupConfig,
+      "artStylePrompt" | "generatedArtStylePrompt" | "useCampaignArtStyle" | "imageStyleProfileId"
+    > | null
+  >(null);
 
   const sidecarStatus = useSidecarStore((s) => s.status);
   const sidecarConfig = useSidecarStore((s) => s.config);
@@ -763,12 +769,13 @@ export function GameSetupWizard({
   useEffect(() => {
     const importedParameters = pendingImportedGenerationParametersRef.current;
     if (importedParameters) {
+      if (!gmConnectionId) return;
       pendingImportedGenerationParametersRef.current = null;
       setGenerationParameters(getEditableGenerationParameters(gmParameterDefaults, importedParameters));
       return;
     }
     setGenerationParameters(gmParameterDefaults);
-  }, [gmParameterDefaults]);
+  }, [gmConnectionId, gmParameterDefaults]);
 
   useEffect(() => {
     if (enableSpriteGeneration && !imageConnectionId && preferredImageConnectionId) {
@@ -949,7 +956,16 @@ export function GameSetupWizard({
       setGenerationParameters(getEditableGenerationParameters(importedGmDefaults, importedParameterOverrides));
       importedGenerationParametersRef.current = importedGenerationParameters;
       pendingImportedGenerationParametersRef.current =
-        imported.gmConnectionId !== gmConnectionId ? importedParameterOverrides : null;
+        importedParameterOverrides &&
+        (imported.gmConnectionId === null || imported.gmConnectionId !== gmConnectionId)
+          ? importedParameterOverrides
+          : null;
+      importedArtStyleSettingsRef.current = {
+        artStylePrompt: config.artStylePrompt,
+        generatedArtStylePrompt: config.generatedArtStylePrompt,
+        useCampaignArtStyle: config.useCampaignArtStyle,
+        imageStyleProfileId: config.imageStyleProfileId,
+      };
       setUseLocalScene(
         sidecarAvailable &&
           !config.sceneConnectionId &&
@@ -1071,6 +1087,7 @@ export function GameSetupWizard({
         enableSpriteGeneration: illustratorEnabled || undefined,
         imageConnectionId: illustratorEnabled && imageConnectionId ? imageConnectionId : undefined,
         videoConnectionId: illustratorEnabled && videoConnectionId ? videoConnectionId : undefined,
+        ...(importedArtStyleSettingsRef.current ?? {}),
         gameStoryboardAutoIllustrationsEnabled: illustratorEnabled
           ? enableStoryboardIllustrations
           : undefined,

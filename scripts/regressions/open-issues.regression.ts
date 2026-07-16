@@ -864,6 +864,9 @@ const sharedGameSetupSource: GameSetupShareSource = {
     partyCharacterIds: ["character-local-id"],
     personaId: "persona-local-id",
     activeLorebookIds: ["lorebook-local-id"],
+    artStylePrompt: "Painterly cel-shaded fantasy",
+    generatedArtStylePrompt: "Original painterly cel-shaded fantasy",
+    useCampaignArtStyle: false,
     imageStyleProfileId: "image-style-profile-local-id",
     enableSpriteGeneration: true,
     imageConnectionId: "image-connection-local-id",
@@ -960,6 +963,10 @@ assert.equal(resolvedGameSetup.config.videoConnectionId, "video-connection-new-i
 assert.deepEqual(resolvedGameSetup.config.partyCharacterIds, ["character-new-id"]);
 assert.equal(resolvedGameSetup.config.personaId, "persona-new-id");
 assert.deepEqual(resolvedGameSetup.config.activeLorebookIds, ["lorebook-new-id"]);
+assert.equal(resolvedGameSetup.config.artStylePrompt, "Painterly cel-shaded fantasy");
+assert.equal(resolvedGameSetup.config.generatedArtStylePrompt, "Original painterly cel-shaded fantasy");
+assert.equal(resolvedGameSetup.config.useCampaignArtStyle, false);
+assert.equal(resolvedGameSetup.config.imageStyleProfileId, "image-style-profile-local-id");
 assert.equal(resolvedGameSetup.preferences, "Use clear progression and frequent loot rewards.");
 assert.deepEqual(resolvedGameSetup.warnings, []);
 assert.doesNotMatch(JSON.stringify(exportedGameSetup), /apiKey|baseUrl/u);
@@ -976,6 +983,21 @@ assert.deepEqual(unresolvedGameSetup.config.partyCharacterIds, []);
 assert.equal(unresolvedGameSetup.config.personaId, null);
 assert.deepEqual(unresolvedGameSetup.config.activeLorebookIds, []);
 assert.ok(unresolvedGameSetup.warnings.length >= 5);
+const providerOnlyGameSetup = resolveGameSetupImport(parsedGameSetup, {
+  characters: [],
+  personas: [],
+  lorebooks: [],
+  promptPresets: [],
+  connections: [
+    {
+      id: "wrong-name-same-provider",
+      name: "Different OpenAI Connection",
+      provider: "openai_chatgpt",
+      model: "gpt-5.6-sol",
+    },
+  ],
+});
+assert.equal(providerOnlyGameSetup.gmConnectionId, null);
 assert.throws(
   () => parseGameSetupShareFileJson(sharedGameSetup),
   /Choose a reusable Game Mode setup JSON file/u,
@@ -996,6 +1018,45 @@ assert.throws(
         setup: {
           ...exportedGameSetup.setup,
           config: { ...exportedGameSetup.setup.config, generationParameters: [] },
+        },
+      }),
+    ),
+  /invalid generation parameters/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          config: { ...exportedGameSetup.setup.config, generationParameters: { maxContext: "invalid" } },
+        },
+      }),
+    ),
+  /invalid generation parameters/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          effectiveGenerationParameters: { stopSequences: "invalid" },
+        },
+      }),
+    ),
+  /invalid generation parameters/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          effectiveGenerationParameters: { unsupportedParameter: true },
         },
       }),
     ),

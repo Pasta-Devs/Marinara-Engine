@@ -1969,7 +1969,30 @@ test("Game setup only shows features owned by installed agents", async ({ page, 
       ),
     ).toBeVisible();
 
-    let dialog = await openLorebooksStep();
+    const temperatureField = initialDialog.locator('input[inputmode="decimal"]').first();
+    await expect(temperatureField).toHaveValue("0.65");
+    await initialDialog.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(initialDialog.getByRole("heading", { name: "World", exact: true })).toBeVisible();
+    await expect(initialDialog.locator('input[placeholder="Describe your world…"]')).toHaveValue(
+      "A city built around a shifting dungeon tower",
+    );
+    await expect(initialDialog.getByRole("button", { name: "Hard", exact: true })).toHaveClass(
+      /bg-\[var\(--primary\)\]\/20/,
+    );
+    await initialDialog.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(initialDialog.getByRole("heading", { name: "Party", exact: true })).toBeVisible();
+    await initialDialog.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(initialDialog.getByRole("heading", { name: "Goals", exact: true })).toBeVisible();
+    await expect(initialDialog.locator('textarea[placeholder="What do you want to achieve?"]')).toHaveValue(
+      "Reach the final floor",
+    );
+    await expect(initialDialog.locator('textarea[placeholder="Any extra details for the GM?"]')).toHaveValue(
+      "Use clear progression and frequent loot rewards.",
+    );
+    await initialDialog.getByRole("button", { name: "Next", exact: true }).click();
+    await expect(initialDialog.getByRole("heading", { name: "Lorebooks", exact: true })).toBeVisible();
+
+    let dialog = initialDialog;
     await expect(dialog.getByText("Hierarchical world map", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Next", exact: true }).click();
     await expect(dialog.getByRole("heading", { name: "Features", exact: true })).toBeVisible();
