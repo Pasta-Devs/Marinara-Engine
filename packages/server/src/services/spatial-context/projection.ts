@@ -13,7 +13,6 @@ interface ProjectionService {
     currentLocationId: string | null,
   ): ResolvedOwnerSpatialProjection | null;
   resolveOwnerSpatialProjection(
-    db: DB,
     chatId: string,
     options?: ResolveSpatialStateOptions,
   ): Promise<ResolvedOwnerSpatialProjection | null>;
@@ -44,11 +43,11 @@ export function buildOwnerSpatialProjection(
 }
 
 export async function resolveOwnerSpatialProjection(
-  db: DB,
+  _db: DB,
   chatId: string,
   options: ResolveSpatialStateOptions = {},
 ): Promise<ResolvedOwnerSpatialProjection | null> {
-  return service()?.resolveOwnerSpatialProjection(db, chatId, options) ?? null;
+  return service()?.resolveOwnerSpatialProjection(chatId, options) ?? null;
 }
 
 export function formatOwnerSpatialBreadcrumb(projection: ResolvedOwnerSpatialProjection): string {

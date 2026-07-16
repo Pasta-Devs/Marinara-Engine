@@ -20,6 +20,7 @@ import {
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
 import { registerCapabilityService } from "./capability-service-registry.service.js";
+import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
 
 type Cleanup = () => void | Promise<void>;
 type CapabilityActivationContext = {
@@ -34,21 +35,24 @@ type CapabilityActivationContext = {
   };
 };
 
-const capabilityRuntimeHost: CapabilityRuntimeHost = Object.freeze({
-  isDebugAgentsEnabled,
-  logger: Object.freeze({
-    debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
-      Reflect.apply(logger.debug, logger, [message, ...args]),
-    info: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
-      Reflect.apply(logger.info, logger, [message, ...args]),
-    warn: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
-      Reflect.apply(logger.warn, logger, [message, ...args]),
-    error: (error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
-      Reflect.apply(logger.error, logger, [error, message, ...args]),
-    debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
-      logDebugOverride(overrideEnabled, message, ...args),
-  }),
-});
+function createCapabilityRuntimeHost(app: FastifyInstance): CapabilityRuntimeHost {
+  return Object.freeze({
+    isDebugAgentsEnabled,
+    logger: Object.freeze({
+      debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.debug, logger, [message, ...args]),
+      info: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.info, logger, [message, ...args]),
+      warn: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.warn, logger, [message, ...args]),
+      error: (error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.error, logger, [error, message, ...args]),
+      debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        logDebugOverride(overrideEnabled, message, ...args),
+    }),
+    persistence: createCapabilityPersistenceHost(app.db),
+  });
+}
 type CapabilityModule = {
   activate?: (context: CapabilityActivationContext) => void | Cleanup | Promise<void | Cleanup>;
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
@@ -120,7 +124,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
-          runtime: capabilityRuntimeHost,
+          runtime: createCapabilityRuntimeHost(app),
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) =>
             trackCleanup(registerCapabilityConversationCommand(registration)),

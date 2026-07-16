@@ -26,15 +26,14 @@ export interface ResolveSpatialStateOptions {
 
 interface StateResolutionService {
   parseStoredSpatialDefinition(rawMetadata: unknown): SpatialContextDefinition | null;
-  resolveEffectiveSpatialState(
-    db: SpatialReadConnection,
-    chatId: string,
-    options?: ResolveSpatialStateOptions,
-  ): Promise<EffectiveSpatialState>;
-  materializeAssistantSpatialState(
-    db: DB,
-    input: { chatId: string; messageId: string; swipeIndex: number; regenerate: boolean; continuation: boolean },
-  ): Promise<SpatialContextSnapshot | null>;
+  resolveEffectiveSpatialState(chatId: string, options?: ResolveSpatialStateOptions): Promise<EffectiveSpatialState>;
+  materializeAssistantSpatialState(input: {
+    chatId: string;
+    messageId: string;
+    swipeIndex: number;
+    regenerate: boolean;
+    continuation: boolean;
+  }): Promise<SpatialContextSnapshot | null>;
 }
 
 const service = () => getCapabilityService<StateResolutionService>("hierarchical-maps:state-resolution");
@@ -44,12 +43,12 @@ export function parseStoredSpatialDefinition(rawMetadata: unknown): SpatialConte
 }
 
 export async function resolveEffectiveSpatialState(
-  db: SpatialReadConnection,
+  _db: SpatialReadConnection,
   chatId: string,
   options: ResolveSpatialStateOptions = {},
 ): Promise<EffectiveSpatialState> {
   return (
-    service()?.resolveEffectiveSpatialState(db, chatId, options) ?? {
+    service()?.resolveEffectiveSpatialState(chatId, options) ?? {
       definition: null,
       snapshot: null,
       currentLocationId: null,
@@ -61,8 +60,8 @@ export async function resolveEffectiveSpatialState(
 }
 
 export async function materializeAssistantSpatialState(
-  db: DB,
+  _db: DB,
   input: { chatId: string; messageId: string; swipeIndex: number; regenerate: boolean; continuation: boolean },
 ): Promise<SpatialContextSnapshot | null> {
-  return service()?.materializeAssistantSpatialState(db, input) ?? null;
+  return service()?.materializeAssistantSpatialState(input) ?? null;
 }

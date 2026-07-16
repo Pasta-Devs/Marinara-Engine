@@ -10,6 +10,7 @@ const packagesRoot = join(dataDir, "capability-packages");
 const registryPath = join(packagesRoot, "installed.json");
 const modelsRoot = join(dataDir, "models");
 const speechConfigPath = join(modelsRoot, "sidecar-speech-config.json");
+let closeDatabase: (() => Promise<void>) | null = null;
 
 function installedPackage(id: string, kind: string[], version = "1.0.0") {
   return {
@@ -78,7 +79,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 1 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 2 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -92,7 +93,7 @@ try {
   assert.equal(getCapabilityApiCompatibilityIssue(manifestV2), null);
   const currentManifestV2 = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 1 },
+    capabilityApi: { major: 1, minor: 2 },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(currentManifestV2), null);
   assert.throws(
@@ -112,15 +113,15 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.1/,
+    /requires capability API 2\.0; this Engine supports 1\.2/,
   );
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 2 },
+    capabilityApi: { major: 1, minor: 3 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.2; this Engine supports 1\.1/,
+    /requires capability API 1\.3; this Engine supports 1\.2/,
   );
 
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
@@ -241,6 +242,10 @@ try {
       if (typeof debugAgentsEnabled !== "boolean") throw new Error("Capability debug state is invalid");
       api.runtime.logger.debug("Capability package fixture activated");
       api.runtime.logger.debugOverride(false, "Capability package fixture debug override");
+      if (typeof api.runtime.persistence?.transaction !== "function") {
+        throw new Error("Capability persistence transaction is unavailable");
+      }
+      await api.runtime.persistence.spatialSnapshots.listForChat("__marinara_capability_self_check__");
       api.registerService("readiness:success", { active: true, debugAgentsEnabled });
     }
     export async function selfCheck() {}`,
@@ -252,7 +257,34 @@ try {
   const { getCapabilityService } = await import(
     "../../packages/server/src/services/capability-packages/capability-service-registry.service.js"
   );
-  await capabilityModuleRuntime.start({} as Parameters<typeof capabilityModuleRuntime.start>[0]);
+  const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
+  closeDatabase = closeDB;
+  const db = await getDB();
+  const { createCapabilityPersistenceHost } = await import(
+    "../../packages/server/src/services/capability-packages/capability-persistence.service.js"
+  );
+  const persistence = createCapabilityPersistenceHost(db);
+  await assert.rejects(
+    persistence.transaction(async (transaction) => {
+      await transaction.spatialSnapshots.create({
+        id: "rollback-snapshot",
+        chatId: "rollback-chat",
+        messageId: "",
+        swipeIndex: 0,
+        currentLocationId: null,
+        definitionRevision: 1,
+        source: "bootstrap",
+        transitionCommandId: null,
+        transitionPayloadHash: null,
+        createdAt: "2026-07-16T00:00:00.000Z",
+      });
+      throw new Error("rollback fixture");
+    }),
+    /rollback fixture/,
+  );
+  assert.equal(await persistence.spatialSnapshots.getById("rollback-snapshot"), null);
+
+  await capabilityModuleRuntime.start({ db } as Parameters<typeof capabilityModuleRuntime.start>[0]);
 
   const readinessById = new Map((await capabilityPackageManager.installed()).map((item) => [item.id, item]));
   assert.equal(readinessById.get("hierarchical-maps")?.status, "error");
@@ -301,5 +333,6 @@ try {
 
   console.info("Capability package lifecycle and readiness regressions passed.");
 } finally {
+  await closeDatabase?.();
   rmSync(dataDir, { recursive: true, force: true });
 }

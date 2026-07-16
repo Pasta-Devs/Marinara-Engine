@@ -1,0 +1,224 @@
+import {
+  type CapabilityChatActivityUpdate,
+  type CapabilityChatRecord,
+  type CapabilityCreateMessageWithSwipeInput,
+  type CapabilityMessageRecord,
+  type CapabilityPersistenceHost,
+  type CapabilityPersistenceSession,
+  type CapabilitySpatialSnapshotStore,
+  type SpatialContextSnapshot,
+  type SpatialSnapshotSource,
+} from "@marinara-engine/shared";
+import type { DB } from "../../db/connection.js";
+import { and, desc, eq, ne, or } from "../../db/file-query.js";
+import { chats, gameStateSnapshots, messages, messageSwipes, spatialContextSnapshots } from "../../db/schema/index.js";
+import { withChatMetadataPatchQueue } from "../storage/chats.storage.js";
+
+function mapChat(row: typeof chats.$inferSelect): CapabilityChatRecord {
+  return {
+    id: row.id,
+    mode: row.mode,
+    metadata: row.metadata,
+    lastMessageAt: row.lastMessageAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function mapMessage(row: typeof messages.$inferSelect): CapabilityMessageRecord {
+  return {
+    id: row.id,
+    chatId: row.chatId,
+    role: row.role,
+    characterId: row.characterId,
+    content: row.content,
+    activeSwipeIndex: row.activeSwipeIndex,
+    extra: row.extra,
+    createdAt: row.createdAt,
+  };
+}
+
+function mapSnapshot(row: typeof spatialContextSnapshots.$inferSelect): SpatialContextSnapshot {
+  return {
+    id: row.id,
+    chatId: row.chatId,
+    messageId: row.messageId,
+    swipeIndex: row.swipeIndex,
+    currentLocationId: row.currentLocationId,
+    definitionRevision: row.definitionRevision,
+    source: row.source as SpatialSnapshotSource,
+    transitionCommandId: row.transitionCommandId,
+    transitionPayloadHash: row.transitionPayloadHash,
+    createdAt: row.createdAt,
+  };
+}
+
+function createSpatialSnapshotStore(db: DB): CapabilitySpatialSnapshotStore {
+  const store: CapabilitySpatialSnapshotStore = {
+    async getById(id) {
+      const rows = await db.select().from(spatialContextSnapshots).where(eq(spatialContextSnapshots.id, id)).limit(1);
+      return rows[0] ? mapSnapshot(rows[0]) : null;
+    },
+    async getByAnchor(chatId, messageId, swipeIndex) {
+      const rows = await db
+        .select()
+        .from(spatialContextSnapshots)
+        .where(
+          and(
+            eq(spatialContextSnapshots.chatId, chatId),
+            eq(spatialContextSnapshots.messageId, messageId),
+            eq(spatialContextSnapshots.swipeIndex, swipeIndex),
+          ),
+        )
+        .limit(1);
+      return rows[0] ? mapSnapshot(rows[0]) : null;
+    },
+    async getByCommand(chatId, commandId) {
+      const rows = await db
+        .select()
+        .from(spatialContextSnapshots)
+        .where(
+          and(eq(spatialContextSnapshots.chatId, chatId), eq(spatialContextSnapshots.transitionCommandId, commandId)),
+        )
+        .limit(1);
+      return rows[0] ? mapSnapshot(rows[0]) : null;
+    },
+    async listByAnchors(chatId, anchors) {
+      if (anchors.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(spatialContextSnapshots)
+        .where(
+          and(
+            eq(spatialContextSnapshots.chatId, chatId),
+            or(
+              ...anchors.map((anchor) =>
+                and(
+                  eq(spatialContextSnapshots.messageId, anchor.messageId),
+                  eq(spatialContextSnapshots.swipeIndex, anchor.swipeIndex),
+                ),
+              ),
+            ),
+          ),
+        );
+      return rows.map(mapSnapshot);
+    },
+    async listForChat(chatId) {
+      const rows = await db.select().from(spatialContextSnapshots).where(eq(spatialContextSnapshots.chatId, chatId));
+      return rows.map(mapSnapshot);
+    },
+    async hasMessageSnapshots(chatId) {
+      const rows = await db
+        .select({ id: spatialContextSnapshots.id })
+        .from(spatialContextSnapshots)
+        .where(and(eq(spatialContextSnapshots.chatId, chatId), ne(spatialContextSnapshots.messageId, "")))
+        .limit(1);
+      return rows.length > 0;
+    },
+    async getLatest(chatId) {
+      const rows = await db
+        .select()
+        .from(spatialContextSnapshots)
+        .where(eq(spatialContextSnapshots.chatId, chatId))
+        .orderBy(desc(spatialContextSnapshots.createdAt), desc(spatialContextSnapshots.id))
+        .limit(1);
+      return rows[0] ? mapSnapshot(rows[0]) : null;
+    },
+    async getBootstrap(chatId) {
+      const rows = await db
+        .select()
+        .from(spatialContextSnapshots)
+        .where(and(eq(spatialContextSnapshots.chatId, chatId), eq(spatialContextSnapshots.messageId, "")))
+        .orderBy(desc(spatialContextSnapshots.createdAt), desc(spatialContextSnapshots.id))
+        .limit(1);
+      return rows[0] ? mapSnapshot(rows[0]) : null;
+    },
+    async create(input) {
+      await db.insert(spatialContextSnapshots).values(input);
+      return mapSnapshot(input as typeof spatialContextSnapshots.$inferSelect);
+    },
+    async replaceBootstrap(input) {
+      await db
+        .delete(spatialContextSnapshots)
+        .where(and(eq(spatialContextSnapshots.chatId, input.chatId), eq(spatialContextSnapshots.messageId, "")));
+      return store.create(input);
+    },
+    async replaceAtAnchor(input) {
+      await db
+        .delete(spatialContextSnapshots)
+        .where(
+          and(
+            eq(spatialContextSnapshots.chatId, input.chatId),
+            eq(spatialContextSnapshots.messageId, input.messageId),
+            eq(spatialContextSnapshots.swipeIndex, input.swipeIndex),
+          ),
+        );
+      return store.create(input);
+    },
+  };
+  return store;
+}
+
+function createPersistenceSession(db: DB): CapabilityPersistenceSession {
+  return {
+    async getChat(chatId) {
+      const rows = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
+      return rows[0] ? mapChat(rows[0]) : null;
+    },
+    async listMessages(chatId) {
+      const rows = await db
+        .select()
+        .from(messages)
+        .where(eq(messages.chatId, chatId))
+        .orderBy(messages.createdAt, messages.id);
+      return rows.map(mapMessage);
+    },
+    async createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput) {
+      const message: typeof messages.$inferInsert = {
+        id: input.id,
+        chatId: input.chatId,
+        role: input.role,
+        characterId: input.characterId,
+        content: input.content,
+        activeSwipeIndex: 0,
+        extra: JSON.stringify(input.extra),
+        createdAt: input.createdAt,
+      };
+      await db.insert(messages).values(message);
+      await db.insert(messageSwipes).values({
+        id: input.swipeId,
+        messageId: input.id,
+        index: 0,
+        content: input.content,
+        extra: JSON.stringify({}),
+        createdAt: input.createdAt,
+      });
+      return mapMessage(message as typeof messages.$inferSelect);
+    },
+    async markGameStateSnapshotCommitted(chatId, snapshotId) {
+      await db
+        .update(gameStateSnapshots)
+        .set({ committed: 1 })
+        .where(and(eq(gameStateSnapshots.id, snapshotId), eq(gameStateSnapshots.chatId, chatId)));
+    },
+    async updateChatActivity(input: CapabilityChatActivityUpdate) {
+      await db
+        .update(chats)
+        .set({
+          lastMessageAt: input.lastMessageAt,
+          updatedAt: input.updatedAt,
+          ...(input.metadata ? { metadata: JSON.stringify(input.metadata) } : {}),
+        })
+        .where(eq(chats.id, input.chatId));
+    },
+    spatialSnapshots: createSpatialSnapshotStore(db),
+  };
+}
+
+export function createCapabilityPersistenceHost(db: DB): CapabilityPersistenceHost {
+  const session = createPersistenceSession(db);
+  return {
+    ...session,
+    withChatLock: (chatId, operation) => withChatMetadataPatchQueue(chatId, operation),
+    transaction: (operation) => db.transaction((tx) => operation(createPersistenceSession(tx))),
+  };
+}
