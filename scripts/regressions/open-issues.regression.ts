@@ -229,15 +229,19 @@ assert.equal(minimalProfessorMariPersona.convoBehavior, "");
 const generatedCharacterData = normalizeCharacterActionData({
   firstMessage: "Welcome to the laboratory.",
   mesExample: "{{char}}: Observe carefully.",
+  creatorNotes: "Created for regression coverage.",
   systemPrompt: "Stay in character.",
   postHistoryInstructions: "Remain concise.",
+  characterVersion: "1.2.3",
   alternateGreetings: ["You made it."],
   aboutMe: "lab gremlin. ethically flexible. coffee required.",
 });
 assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
 assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
+assert.equal(generatedCharacterData.creator_notes, "Created for regression coverage.");
 assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
 assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
+assert.equal(generatedCharacterData.character_version, "1.2.3");
 assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
 assert.equal(
   (generatedCharacterData.extensions as Record<string, unknown>).aboutMe,
@@ -245,6 +249,13 @@ assert.equal(
 );
 assert.equal(Object.hasOwn(generatedCharacterData, "aboutMe"), false);
 assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
+
+const partialCharacterUpdateData = normalizeCharacterActionData({ personality: "Quietly analytical." });
+assert.deepEqual(
+  partialCharacterUpdateData,
+  { personality: "Quietly analytical." },
+  "Partial character updates must not synthesize undefined fields that deepMerge treats as deletions",
+);
 
 const professorMariAboutMeCommands = parseCharacterCommands(
   '[update_character: name="Luna", about_me="fate dealer. tea hoarder. 🔮"]\n' +
