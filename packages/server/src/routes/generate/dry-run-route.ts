@@ -587,7 +587,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
       chatEnableAgents: chatMeta.enableAgents === true,
-      chatMode,
       impersonate,
       impersonateBlockAgents: false,
     });
@@ -609,7 +608,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? body.regenerateMessageId.trim()
         : null;
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(
-      app.db,
       chatId,
       regenerateMessageId ? { beforeMessageId: regenerateMessageId } : {},
     );

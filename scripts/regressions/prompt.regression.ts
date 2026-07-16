@@ -15,9 +15,11 @@ import {
   createRegexScriptSchema,
   createDefaultImageStyleProfileSettings,
   getDefaultBuiltInAgentSettings,
+  isAgentAvailableInChatMode,
   isPatternSafe,
   normalizeChatSummaryEntries,
   normalizeWorldCustomFields,
+  LIMITS,
   resolveRegexPatternLiteralMacros,
   resolveGameSetupArtStylePrompt,
   resolveMacros,
@@ -199,6 +201,7 @@ import {
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
 } from "../../packages/server/src/services/game/game-asset-generation.js";
+import { resolveLorebookTokenBudget } from "../../packages/server/src/services/generation/lorebook-generation-runtime.js";
 import {
   buildGameIllustratorAppearanceContextBlock,
   buildIllustrationNarrationSummaryMessages,
@@ -481,6 +484,21 @@ const cases: RegressionCase[] = [
 
       assert.match(seededMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
       assert.match(workspaceMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
+    },
+  },
+  {
+    name: "lorebook budget normalization preserves legacy generation metadata",
+    run() {
+      assert.equal(resolveLorebookTokenBudget({ lorebookTokenBudget: 512.9 }), 512);
+      assert.equal(resolveLorebookTokenBudget({ generationLorebookTokenBudget: 384.9 }), 384);
+      assert.equal(
+        resolveLorebookTokenBudget({ lorebookTokenBudget: Number.NaN, generationLorebookTokenBudget: 384 }),
+        LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET,
+      );
+      assert.equal(
+        resolveLorebookTokenBudget({ generationLorebookTokenBudget: -1 }),
+        LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET,
+      );
     },
   },
   {
@@ -3005,18 +3023,31 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(
         shouldEnableAgentsForGeneration({
           chatEnableAgents: true,
-          chatMode: "roleplay",
           impersonate: false,
           impersonateBlockAgents: false,
         }),
         true,
       );
+      for (const chatMode of ["conversation", "roleplay", "visual_novel", "game"] as const) {
+        assert.equal(
+          isAgentAvailableInChatMode(chatMode, "custom-human-voice-rewriter"),
+          true,
+          `expected custom agents to be available in ${chatMode}`,
+        );
+      }
+      assert.equal(
+        shouldEnableAgentsForGeneration({
+          chatEnableAgents: false,
+          impersonate: false,
+          impersonateBlockAgents: false,
+        }),
+        false,
+      );
       assert.equal(
         shouldEnableAgentsForGeneration({
           chatEnableAgents: true,
-          chatMode: "conversation",
-          impersonate: false,
-          impersonateBlockAgents: false,
+          impersonate: true,
+          impersonateBlockAgents: true,
         }),
         false,
       );

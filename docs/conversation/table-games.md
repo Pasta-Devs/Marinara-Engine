@@ -6,7 +6,7 @@ This guide covers the six optional table-game packages you can play against a ch
 
 Table games are small tabletop games that run right inside a Conversation Mode chat. Marinara Engine deals the cards or sets up the board, and it enforces every rule for you. Each seated character narrates its own moves in character. A live board appears above the message box while you play.
 
-Install each game you want from **Agents → Download Agents**, then restart Marinara when the catalog asks. An uninstalled game does not appear in the games picker, its slash command is unavailable, and its character command setting stays hidden.
+Install each game you want from **Agents → Download Agents**. It becomes available immediately without restarting Marinara. An uninstalled game does not appear in the games picker, its slash command is unavailable, and its character command setting stays hidden.
 
 Two facts to keep in mind:
 

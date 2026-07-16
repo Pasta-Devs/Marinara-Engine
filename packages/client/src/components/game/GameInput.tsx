@@ -396,6 +396,7 @@ export function GameInput({
           capabilityProps={{
             chatId: draftKey,
             disabled,
+            pendingTransition: pendingSpatialTransition,
             onPendingTransitionChange: (pending: unknown) => {
               if (pending && typeof pending === "object") {
                 useChatStore.getState().setPendingSpatialTransition(draftKey, pending as PendingSpatialTransitionDraft);

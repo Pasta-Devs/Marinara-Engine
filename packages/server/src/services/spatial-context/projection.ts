@@ -2,7 +2,6 @@ import type {
   ResolvedOwnerSpatialProjection,
   SpatialContextDefinition,
 } from "@marinara-engine/shared";
-import type { DB } from "../../db/connection.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
 import type { ResolveSpatialStateOptions } from "./state-resolution.js";
 
@@ -13,7 +12,6 @@ interface ProjectionService {
     currentLocationId: string | null,
   ): ResolvedOwnerSpatialProjection | null;
   resolveOwnerSpatialProjection(
-    db: DB,
     chatId: string,
     options?: ResolveSpatialStateOptions,
   ): Promise<ResolvedOwnerSpatialProjection | null>;
@@ -44,11 +42,10 @@ export function buildOwnerSpatialProjection(
 }
 
 export async function resolveOwnerSpatialProjection(
-  db: DB,
   chatId: string,
   options: ResolveSpatialStateOptions = {},
 ): Promise<ResolvedOwnerSpatialProjection | null> {
-  return service()?.resolveOwnerSpatialProjection(db, chatId, options) ?? null;
+  return service()?.resolveOwnerSpatialProjection(chatId, options) ?? null;
 }
 
 export function formatOwnerSpatialBreadcrumb(projection: ResolvedOwnerSpatialProjection): string {

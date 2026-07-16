@@ -4,6 +4,7 @@ import { z } from "zod";
 import { BUILT_IN_AGENT_MANIFESTS } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { capabilityPackageManager } from "../services/capability-packages/package-manager.service.js";
+import { capabilityModuleRuntime } from "../services/capability-packages/capability-module-runtime.service.js";
 import { refreshCapabilityAgentRegistry } from "../services/capability-packages/capability-agent-registry.service.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
@@ -27,12 +28,19 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent package installation" })) return;
     const { id } = packageParams.parse(request.params);
     const installed = await capabilityPackageManager.install(id);
-    await refreshCapabilityAgentRegistry();
-    return installed;
+    try {
+      return installed.manifest.kind.includes("turn-game")
+        ? await capabilityModuleRuntime.activatePackage(app, id)
+        : installed;
+    } finally {
+      await refreshCapabilityAgentRegistry();
+    }
   });
   app.delete<{ Params: { id: string } }>("/:id", async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent package removal" })) return;
     const { id } = packageParams.parse(request.params);
+    const existing = (await capabilityPackageManager.installed()).find((item) => item.id === id);
+    if (existing?.manifest.kind.includes("turn-game")) await capabilityModuleRuntime.deactivatePackage(id);
     const removed = await capabilityPackageManager.uninstall(id);
     if (!removed) return reply.status(404).send({ error: "Package not found" });
     const chats = createChatsStorage(app.db);
@@ -55,6 +63,10 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     const agentConfig = await createAgentsStorage(app.db).getByType(id);
     if (agentConfig) await createAgentsStorage(app.db).remove(agentConfig.id);
     await refreshCapabilityAgentRegistry();
-    return { restartRequired: Boolean(removed.manifest.entrypoints.server || removed.manifest.entrypoints.client) };
+    return {
+      restartRequired:
+        !removed.manifest.kind.includes("turn-game") &&
+        Boolean(removed.manifest.entrypoints.server || removed.manifest.entrypoints.client),
+    };
   });
 }

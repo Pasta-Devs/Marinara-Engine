@@ -34,7 +34,7 @@ import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import { confirmEmbeddedLorebookImport, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
+import { confirmEmbeddedLorebookImport, hasLorebookEntries, readEmbeddedLorebookFromCharacterPayload } from "../../lib/character-import";
 import { mergeChubDetailIntoCharacterJson } from "../../lib/chub-character-card";
 
 // ════════════════════════════════════════════════
@@ -161,13 +161,6 @@ const STAT_ICONS = {
   message: MessageSquare,
   hash: Hash,
 };
-
-function hasLorebookEntries(value: unknown): boolean {
-  if (!value || typeof value !== "object") return false;
-  const entries = (value as Record<string, unknown>).entries;
-  if (Array.isArray(entries)) return entries.length > 0;
-  return !!entries && typeof entries === "object" && Object.keys(entries).length > 0;
-}
 
 function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, embeddedLorebook: unknown) {
   if (!hasLorebookEntries(embeddedLorebook)) return raw;

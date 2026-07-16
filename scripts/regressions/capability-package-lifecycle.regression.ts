@@ -11,8 +11,9 @@ const registryPath = join(packagesRoot, "installed.json");
 const migrationPath = join(packagesRoot, "availability-migration-v1.json");
 const modelsRoot = join(dataDir, "models");
 const speechConfigPath = join(modelsRoot, "sidecar-speech-config.json");
+let closeDatabase: (() => Promise<void>) | null = null;
 
-function installedPackage(id: string, kind: string[], version = "1.0.0") {
+function installedPackage(id: string, kind: string[], version = "1.0.0", restartRequired = true) {
   return {
     id,
     version,
@@ -30,7 +31,7 @@ function installedPackage(id: string, kind: string[], version = "1.0.0") {
         { path: "client.js", sha256: "0".repeat(64), bytes: 1 },
       ],
       permissions: ["ui"],
-      restartRequired: true,
+      restartRequired,
     },
     installedAt: "2026-07-14T00:00:00.000Z",
     status: "active",
@@ -79,7 +80,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 0 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 3 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -91,6 +92,13 @@ try {
     },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(manifestV2), null);
+  const currentManifestV2 = capabilityPackageManifestSchema.parse({
+    ...manifestV2,
+    capabilityApi: { major: 1, minor: 3 },
+    contributions: { agentDetail: { agentIds: ["feature-agent"] } },
+  });
+  assert.equal(getCapabilityApiCompatibilityIssue(currentManifestV2), null);
+  assert.deepEqual(currentManifestV2.contributions?.agentDetail?.agentIds, ["feature-agent"]);
   assert.throws(
     () =>
       capabilityPackageManifestSchema.parse({
@@ -108,15 +116,15 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.0/,
+    /requires capability API 2\.0; this Engine supports 1\.3/,
   );
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 1 },
+    capabilityApi: { major: 1, minor: 4 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.1; this Engine supports 1\.0/,
+    /requires capability API 1\.4; this Engine supports 1\.3/,
   );
 
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
@@ -289,7 +297,43 @@ try {
   writeFileSync(
     join(packagesRoot, "versions", ready.id, ready.version, "server.mjs"),
     `export async function activate({ api }) {
-      api.registerService("readiness:success", { active: true });
+      const methods = ["debug", "info", "warn", "error", "debugOverride"];
+      if (!methods.every((method) => typeof api.runtime?.logger?.[method] === "function")) {
+        throw new Error("Capability runtime logger is incomplete");
+      }
+      const debugAgentsEnabled = api.runtime.isDebugAgentsEnabled();
+      if (typeof debugAgentsEnabled !== "boolean") throw new Error("Capability debug state is invalid");
+      api.runtime.logger.debug("Capability package fixture activated");
+      api.runtime.logger.debugOverride(false, "Capability package fixture debug override");
+      if (typeof api.runtime.persistence?.transaction !== "function") {
+        throw new Error("Capability persistence transaction is unavailable");
+      }
+      if (typeof api.runtime.persistence?.updateChatMetadata !== "function") {
+        throw new Error("Capability chat metadata persistence is unavailable");
+      }
+      if (typeof api.runtime.persistence?.listExistingLorebookEntryIds !== "function") {
+        throw new Error("Capability lore entry lookup is unavailable");
+      }
+      if (typeof api.runtime.resources?.listCharacters !== "function") {
+        throw new Error("Capability character resources are unavailable");
+      }
+      if (typeof api.runtime.resources?.listEligibleLorebookEntries !== "function") {
+        throw new Error("Capability lore resources are unavailable");
+      }
+      if (typeof api.runtime.languageModels?.resolve !== "function") {
+        throw new Error("Capability language model host is unavailable");
+      }
+      if (typeof api.runtime.json?.parseJsonish !== "function") {
+        throw new Error("Capability JSON parser is unavailable");
+      }
+      if (api.runtime.json.parseJsonish('Preface\\n{"ok":true}').ok !== true) {
+        throw new Error("Capability JSON parser returned an invalid result");
+      }
+      await api.runtime.persistence.spatialSnapshots.listForChat("__marinara_capability_self_check__");
+      await api.runtime.persistence.listExistingLorebookEntryIds([]);
+      await api.runtime.resources.listCharacters([]);
+      await api.runtime.resources.listEligibleLorebookEntries({ lorebookIds: [], entryIds: [] });
+      api.registerService("readiness:success", { active: true, debugAgentsEnabled });
     }
     export async function selfCheck() {}`,
   );
@@ -309,7 +353,221 @@ try {
   const { getCapabilityService } = await import(
     "../../packages/server/src/services/capability-packages/capability-service-registry.service.js"
   );
-  await capabilityModuleRuntime.start({} as Parameters<typeof capabilityModuleRuntime.start>[0]);
+  const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
+  closeDatabase = closeDB;
+  const db = await getDB();
+  const { createCapabilityPersistenceHost } = await import(
+    "../../packages/server/src/services/capability-packages/capability-persistence.service.js"
+  );
+  const { createCapabilityResourceHost } = await import(
+    "../../packages/server/src/services/capability-packages/capability-resources.service.js"
+  );
+  const persistence = createCapabilityPersistenceHost(db);
+  const resources = createCapabilityResourceHost(db);
+  const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  const { createGameStateStorage } = await import(
+    "../../packages/server/src/services/storage/game-state.storage.js"
+  );
+  const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
+  const rollbackChat = await createChatsStorage(db).create({
+    name: "Capability persistence rollback fixture",
+    mode: "roleplay",
+    characterIds: [],
+  });
+  assert.ok(rollbackChat);
+  const rollbackChatBefore = await persistence.getChat(rollbackChat.id);
+  assert.ok(rollbackChatBefore);
+  assert.equal(rollbackChatBefore.name, "Capability persistence rollback fixture");
+  assert.deepEqual(rollbackChatBefore.characterIds, []);
+  assert.equal(rollbackChatBefore.connectionId, null);
+  const gameStates = createGameStateStorage(db);
+  const gameStateBase = {
+    chatId: rollbackChat.id,
+    swipeIndex: 0,
+    date: null,
+    time: null,
+    location: null,
+    weather: null,
+    temperature: null,
+    worldCustomFields: [],
+    presentCharacters: [],
+    recentEvents: [],
+    playerStats: null,
+    personaStats: null,
+    fieldLocks: null,
+    hiddenTrackerFields: null,
+    committed: true,
+  };
+  const firstGameStateId = await gameStates.create({
+    ...gameStateBase,
+    messageId: "game-state-order-first",
+  });
+  const firstGameState = await gameStates.getById(firstGameStateId);
+  assert.ok(firstGameState);
+  const secondGameStateId = await gameStates.create({
+    ...gameStateBase,
+    messageId: "game-state-order-second",
+  });
+  const secondGameState = await gameStates.getById(secondGameStateId);
+  assert.ok(secondGameState);
+  assert.ok(
+    secondGameState.createdAt > firstGameState.createdAt,
+    "Live Game snapshots must retain creation order when the clock has not advanced",
+  );
+  assert.equal((await gameStates.getLatest(rollbackChat.id))?.id, secondGameStateId);
+  const lorebooks = createLorebooksStorage(db);
+  const lorebook = await lorebooks.create({ name: "Capability persistence fixture" });
+  assert.ok(lorebook);
+  const lorebookEntry = await lorebooks.createEntry({
+    lorebookId: lorebook.id,
+    name: "Existing capability entry",
+    content: "A stable lore entry used by the capability persistence regression.",
+  });
+  assert.ok(lorebookEntry);
+  assert.deepEqual(
+    await persistence.listExistingLorebookEntryIds([lorebookEntry.id, "missing-entry", lorebookEntry.id]),
+    [lorebookEntry.id],
+  );
+  assert.deepEqual(await resources.listEligibleLorebookEntries({ lorebookIds: [lorebook.id], entryIds: [] }), [
+    {
+      id: lorebookEntry.id,
+      lorebookId: lorebook.id,
+      lorebookName: "Capability persistence fixture",
+      name: "Existing capability entry",
+      content: "A stable lore entry used by the capability persistence regression.",
+      description: "",
+    },
+  ]);
+  assert.deepEqual(
+    await resources.listEligibleLorebookEntries({
+      lorebookIds: [lorebook.id],
+      entryIds: [lorebookEntry.id],
+      excludedLorebookIds: [lorebook.id],
+    }),
+    [],
+  );
+  await persistence.spatialSnapshots.create({
+    id: "rollback-original-snapshot",
+    chatId: rollbackChat.id,
+    messageId: "",
+    swipeIndex: 0,
+    currentLocationId: "original-location",
+    definitionRevision: 1,
+    source: "bootstrap",
+    transitionCommandId: null,
+    transitionPayloadHash: null,
+    createdAt: "2026-07-16T00:00:00.000Z",
+  });
+  await assert.rejects(
+    persistence.transaction(async (transaction) => {
+      await transaction.updateChatMetadata({
+        chatId: rollbackChat.id,
+        metadata: { spatialContext: { revision: 2 } },
+        updatedAt: "2026-07-16T00:01:00.000Z",
+      });
+      await transaction.spatialSnapshots.replaceBootstrap({
+        id: "rollback-snapshot",
+        chatId: rollbackChat.id,
+        messageId: "",
+        swipeIndex: 0,
+        currentLocationId: "replacement-location",
+        definitionRevision: 2,
+        source: "bootstrap",
+        transitionCommandId: null,
+        transitionPayloadHash: null,
+        createdAt: "2026-07-16T00:01:00.000Z",
+      });
+      throw new Error("rollback fixture");
+    }),
+    /rollback fixture/,
+  );
+  assert.equal(await persistence.spatialSnapshots.getById("rollback-snapshot"), null);
+  assert.equal((await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id, "rollback-original-snapshot");
+  assert.deepEqual((await persistence.getChat(rollbackChat.id))?.metadata, rollbackChatBefore.metadata);
+
+  await persistence.spatialSnapshots.create({
+    id: "standalone-snapshot-id-conflict",
+    chatId: rollbackChat.id,
+    messageId: "standalone-snapshot-anchor",
+    swipeIndex: 0,
+    currentLocationId: "anchored-location",
+    definitionRevision: 1,
+    source: "generation",
+    transitionCommandId: null,
+    transitionPayloadHash: null,
+    createdAt: "2026-07-16T00:01:30.000Z",
+  });
+  await assert.rejects(
+    persistence.spatialSnapshots.replaceBootstrap({
+      id: "standalone-snapshot-id-conflict",
+      chatId: rollbackChat.id,
+      currentLocationId: "replacement-location",
+      definitionRevision: 2,
+      source: "bootstrap",
+      transitionCommandId: null,
+      transitionPayloadHash: null,
+      createdAt: "2026-07-16T00:01:31.000Z",
+    }),
+  );
+  assert.equal(
+    (await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id,
+    "rollback-original-snapshot",
+    "A failed standalone snapshot replacement must preserve the previous bootstrap",
+  );
+
+  await persistence.createMessageWithSwipe({
+    id: "atomic-existing-message",
+    swipeId: "atomic-shared-swipe",
+    chatId: rollbackChat.id,
+    role: "user",
+    characterId: null,
+    content: "Existing atomic message",
+    extra: {},
+    createdAt: "2026-07-16T00:01:40.000Z",
+  });
+  await assert.rejects(
+    persistence.createMessageWithSwipe({
+      id: "atomic-orphan-candidate",
+      swipeId: "atomic-shared-swipe",
+      chatId: rollbackChat.id,
+      role: "user",
+      characterId: null,
+      content: "This message must roll back when its swipe conflicts",
+      extra: {},
+      createdAt: "2026-07-16T00:01:41.000Z",
+    }),
+  );
+  assert.equal(
+    (await persistence.listMessages(rollbackChat.id)).some((message) => message.id === "atomic-orphan-candidate"),
+    false,
+    "A failed initial swipe insert must not leave an orphaned message",
+  );
+
+  await persistence.transaction(async (transaction) => {
+    await transaction.updateChatMetadata({
+      chatId: rollbackChat.id,
+      metadata: { spatialContext: { revision: 2 } },
+      updatedAt: "2026-07-16T00:02:00.000Z",
+    });
+    await transaction.spatialSnapshots.replaceBootstrap({
+      id: "committed-definition-snapshot",
+      chatId: rollbackChat.id,
+      messageId: "",
+      swipeIndex: 0,
+      currentLocationId: "committed-location",
+      definitionRevision: 2,
+      source: "bootstrap",
+      transitionCommandId: null,
+      transitionPayloadHash: null,
+      createdAt: "2026-07-16T00:02:00.000Z",
+    });
+  });
+  assert.deepEqual(JSON.parse(String((await persistence.getChat(rollbackChat.id))?.metadata)), {
+    spatialContext: { revision: 2 },
+  });
+  assert.equal((await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id, "committed-definition-snapshot");
+
+  await capabilityModuleRuntime.start({ db } as Parameters<typeof capabilityModuleRuntime.start>[0]);
 
   const readinessById = new Map((await capabilityPackageManager.installed()).map((item) => [item.id, item]));
   assert.equal(readinessById.get("hierarchical-maps")?.status, "error");
@@ -321,7 +579,15 @@ try {
   assert.equal(readinessById.get("readiness-success")?.readiness, "ready");
 
   assert.equal(getCapabilityService("readiness:failure"), null, "Failed self-check contributions must be removed");
-  assert.deepEqual(getCapabilityService("readiness:success"), { active: true });
+  assert.equal(
+    getCapabilityService<{ active: boolean; debugAgentsEnabled: boolean }>("readiness:success")?.active,
+    true,
+  );
+  assert.equal(
+    typeof getCapabilityService<{ active: boolean; debugAgentsEnabled: boolean }>("readiness:success")
+      ?.debugAgentsEnabled,
+    "boolean",
+  );
   assert.equal(await capabilityPackageManager.clientEntrypoint("hierarchical-maps"), null);
   assert.equal(await capabilityPackageManager.clientEntrypoint("readiness-failure"), null);
   assert.ok(await capabilityPackageManager.clientEntrypoint("readiness-success"));
@@ -337,6 +603,27 @@ try {
   );
   assert.equal(JSON.stringify(diagnostics).includes("snapshot read failed"), false, "Health diagnostics must omit errors");
 
+  await capabilityModuleRuntime.stop();
+  assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
+  const hotGame = installedPackage("hot-game", ["agent", "turn-game"], "1.0.0", true);
+  writeRegistry([hotGame]);
+  mkdirSync(join(packagesRoot, "versions", hotGame.id, hotGame.version), { recursive: true });
+  writeFileSync(
+    join(packagesRoot, "versions", hotGame.id, hotGame.version, "server.mjs"),
+    `export async function activate({ api }) {
+      return api.registerService("hot-game:runtime", { active: true });
+    }`,
+  );
+  const activatedHotGame = await capabilityModuleRuntime.activatePackage(
+    {} as Parameters<typeof capabilityModuleRuntime.activatePackage>[0],
+    hotGame.id,
+  );
+  assert.equal(activatedHotGame.status, "active");
+  assert.equal(activatedHotGame.readiness, "ready");
+  assert.deepEqual(getCapabilityService("hot-game:runtime"), { active: true });
+  await capabilityModuleRuntime.deactivatePackage(hotGame.id);
+  assert.equal(getCapabilityService("hot-game:runtime"), null, "Hot uninstall must remove game contributions");
+
   const { getFileTableConfig, isFileTable } = await import("../../packages/server/src/db/file-schema.js");
   const packageTable = {};
   Object.defineProperty(packageTable, Symbol.for("marinara:file-table"), {
@@ -346,9 +633,9 @@ try {
   assert.equal(getFileTableConfig(packageTable as never).name, "package_fixture");
 
   await capabilityModuleRuntime.stop();
-  assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
 
   console.info("Capability package lifecycle and readiness regressions passed.");
 } finally {
+  await closeDatabase?.();
   rmSync(dataDir, { recursive: true, force: true });
 }

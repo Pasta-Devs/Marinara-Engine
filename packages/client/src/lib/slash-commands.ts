@@ -80,11 +80,21 @@ export interface SlashCommandContext {
   selfie?: (characterId?: string) => void | Promise<void>;
   /** Active downloadable capability packages available to this composer. */
   availableCapabilityIds?: ReadonlySet<string>;
+  /** Installed Conversation games that contribute manual slash launchers. */
+  conversationGames?: readonly ConversationGameSlashContribution[];
+}
+
+export interface ConversationGameSlashContribution {
+  packageId: string;
+  packageName: string;
+  command: string;
+  aliases: readonly string[];
 }
 
 export interface SlashCommandAvailability {
   mode?: "conversation" | "roleplay";
   availableCapabilityIds?: ReadonlySet<string>;
+  conversationGames?: readonly ConversationGameSlashContribution[];
 }
 
 function isSlashCommandAvailable(command: SlashCommand, availability: SlashCommandAvailability = {}): boolean {
@@ -270,7 +280,7 @@ function withSlashCommandTimeout<T>(promise: Promise<T>, timeoutMs: number, mess
 }
 
 function buildSlashHelpText(availability: SlashCommandAvailability): string {
-  const availableCommands = COMMANDS.filter((command) => isSlashCommandAvailable(command, availability));
+  const availableCommands = getAvailableSlashCommands(availability);
   return [
     "Available Commands:",
     "",
@@ -559,7 +569,11 @@ const COMMANDS: SlashCommand[] = [
     async execute(_args, ctx) {
       return {
         handled: true,
-        feedback: buildSlashHelpText({ mode: ctx.mode, availableCapabilityIds: ctx.availableCapabilityIds }),
+        feedback: buildSlashHelpText({
+          mode: ctx.mode,
+          availableCapabilityIds: ctx.availableCapabilityIds,
+          conversationGames: ctx.conversationGames,
+        }),
       };
     },
   },
@@ -1300,6 +1314,48 @@ const COMMANDS: SlashCommand[] = [
   },
 ];
 
+function buildConversationGameSlashCommands(
+  games: readonly ConversationGameSlashContribution[] = [],
+): SlashCommand[] {
+  const reserved = new Set(
+    COMMANDS.flatMap((command) => [command.name, ...(command.aliases ?? [])]).map((name) => name.toLowerCase()),
+  );
+  const commands: SlashCommand[] = [];
+  for (const game of games) {
+    const name = game.command.startsWith("/") ? game.command.slice(1).toLowerCase() : "";
+    if (!/^[a-z0-9-]+$/u.test(name) || reserved.has(name)) continue;
+    reserved.add(name);
+    const aliases = game.aliases
+      .map((alias) => alias.trim().toLowerCase())
+      .filter((alias) => {
+        if (!/^[a-z0-9-]+$/u.test(alias) || reserved.has(alias)) return false;
+        reserved.add(alias);
+        return true;
+      });
+    commands.push({
+      name,
+      aliases,
+      description: `Start ${game.packageName}`,
+      usage: game.command,
+      requiredCapabilityId: game.packageId,
+      modes: ["conversation"],
+      local: true,
+      async execute(args, ctx) {
+        if (args.trim()) return { handled: true, feedback: `Usage: ${game.command}` };
+        useConversationGamesStore.getState().openSetup(game.packageId, ctx.chatId);
+        return { handled: true };
+      },
+    });
+  }
+  return commands;
+}
+
+function getAvailableSlashCommands(availability: SlashCommandAvailability = {}): SlashCommand[] {
+  return [...COMMANDS, ...buildConversationGameSlashCommands(availability.conversationGames)].filter((command) =>
+    isSlashCommandAvailable(command, availability),
+  );
+}
+
 /** Find a matching command for the given input. */
 export function matchSlashCommand(
   input: string,
@@ -1310,7 +1366,7 @@ export function matchSlashCommand(
   const cmdName = (spaceIdx === -1 ? input.slice(1) : input.slice(1, spaceIdx)).toLowerCase();
   const args = spaceIdx === -1 ? "" : input.slice(spaceIdx + 1);
 
-  for (const cmd of COMMANDS) {
+  for (const cmd of getAvailableSlashCommands(availability)) {
     if ((cmd.name === cmdName || cmd.aliases?.includes(cmdName)) && isSlashCommandAvailable(cmd, availability)) {
       return { command: cmd, args };
     }
@@ -1329,7 +1385,7 @@ export function getSlashCompletions(partial: string, availability: SlashCommandA
   const rawPrefix = partial.slice(1);
   if (rawPrefix.includes(" ")) return [];
   const prefix = rawPrefix.trim().toLowerCase();
-  const availableCommands = COMMANDS.filter((command) => isSlashCommandAvailable(command, availability));
+  const availableCommands = getAvailableSlashCommands(availability);
   if (!prefix) return availableCommands;
   return availableCommands.filter(
     (command) => command.name.startsWith(prefix) || command.aliases?.some((alias) => alias.startsWith(prefix)),

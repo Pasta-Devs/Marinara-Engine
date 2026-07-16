@@ -19,6 +19,23 @@ An agent package may contribute one or more declarative agents and optional trus
 
 Packages target a versioned Marinara capability API. They must not import private source paths from the engine.
 
+Capability API 1.1 adds a generic runtime facade to the server activation context.
+Packages can read the effective agent-debug state and write through the Engine's
+Pino logger, including explicit debug-mode overrides, without importing the
+private logger or runtime-configuration modules. The facade exposes operations,
+not the underlying Engine objects.
+
+Capability API 1.2 adds transaction-scoped chat/message operations, narrow
+chat-metadata writes and lore-entry existence reads, and the spatial snapshot
+compatibility store. Packages can validate domain changes inside an Engine
+transaction and atomically commit metadata with an owner message, swipe, or spatial
+snapshot without receiving a database handle or table object. Engine retains
+rollback and historical-storage compatibility; packages retain validation and
+domain policy. The same API exposes normalized chat and character records, eligible
+lore-entry selection, JSON-ish response parsing, and resolved language-model calls.
+Connection credentials, provider implementations, database handles, and storage
+objects remain private to Engine.
+
 ## Initial packages
 
 - all currently built-in agents;
@@ -59,6 +76,8 @@ Only first-party trusted executable packages are enabled by the official catalog
 The server owns the installed-package registry and exposes installed capabilities to clients. Declarative and reloadable modules activate immediately. The UI invalidates catalog, agent, mode-capability, and active-chat queries after activation.
 
 The manifest may declare `restartRequired` only when the host cannot safely reload that entry point. Successful hot activation says `Agent installed. It is ready to use.` Restart-required activation says `Agent installed. Restart Marinara Engine to finish setup.`
+
+Turn-game packages are hot-reloadable: installation registers their server engine and manual slash launcher immediately, and uninstallation detaches the runtime without an Engine restart. Per-chat Conversation Commands settings control only whether characters may emit the package's hidden command; they do not gate the user's slash launcher. Current official turn-game manifests retain their conservative legacy restart marker for Engine 2.x compatibility; Engine 3.x recognizes the `turn-game` kind, performs the safe hot activation, and returns the package as active and ready.
 
 ## Compatibility migration
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   isInstalledCapabilityReady,
@@ -50,19 +50,166 @@ export function useInstalledCapabilityPackages(enabled = true) {
 }
 
 const loadedClientModules = new Map<string, string>();
+const capabilityClientModuleStates = new Map<string, CapabilityClientModuleState>();
+const capabilityClientModuleIdleStates = new Map<string, CapabilityClientModuleState>();
+const capabilityClientModuleListeners = new Set<() => void>();
+let capabilityClientModuleRevision = 0;
+
+export type CapabilityClientModuleStatus = "idle" | "loading" | "ready" | "error";
+
+export interface CapabilityClientModuleState {
+  packageId: string;
+  name: string | null;
+  version: string | null;
+  status: CapabilityClientModuleStatus;
+  error: string | null;
+  attempt: number;
+}
+
+function subscribeCapabilityClientModules(listener: () => void): () => void {
+  capabilityClientModuleListeners.add(listener);
+  return () => capabilityClientModuleListeners.delete(listener);
+}
+
+function getCapabilityClientModuleRevision(): number {
+  return capabilityClientModuleRevision;
+}
+
+function getCapabilityClientModuleState(packageId: string): CapabilityClientModuleState {
+  const existing = capabilityClientModuleStates.get(packageId);
+  if (existing) return existing;
+  const idle = capabilityClientModuleIdleStates.get(packageId) ?? {
+    packageId,
+    name: null,
+    version: null,
+    status: "idle" as const,
+    error: null,
+    attempt: 0,
+  };
+  capabilityClientModuleIdleStates.set(packageId, idle);
+  return idle;
+}
+
+function publishCapabilityClientModuleState(next: CapabilityClientModuleState): void {
+  const current = capabilityClientModuleStates.get(next.packageId);
+  if (
+    current?.version === next.version &&
+    current.name === next.name &&
+    current.status === next.status &&
+    current.error === next.error &&
+    current.attempt === next.attempt
+  ) {
+    return;
+  }
+  capabilityClientModuleStates.set(next.packageId, next);
+  capabilityClientModuleRevision += 1;
+  for (const listener of capabilityClientModuleListeners) listener();
+}
+
+function removeCapabilityClientModuleState(packageId: string): void {
+  if (!capabilityClientModuleStates.delete(packageId)) return;
+  loadedClientModules.delete(packageId);
+  capabilityClientModuleRevision += 1;
+  for (const listener of capabilityClientModuleListeners) listener();
+}
+
+function capabilityClientErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  return "The downloaded interface could not be loaded.";
+}
+
+export function retryCapabilityClientModule(packageId: string): void {
+  const current = getCapabilityClientModuleState(packageId);
+  if (current.status !== "error") return;
+  publishCapabilityClientModuleState({
+    ...current,
+    status: "idle",
+    error: null,
+    attempt: current.attempt + 1,
+  });
+}
+
+export function useCapabilityClientModuleState(packageId: string): CapabilityClientModuleState {
+  return useSyncExternalStore(
+    subscribeCapabilityClientModules,
+    () => getCapabilityClientModuleState(packageId),
+    () => getCapabilityClientModuleState(packageId),
+  );
+}
 
 export function useCapabilityClientModules() {
   const installed = useInstalledCapabilityPackages();
+  const clientModuleRevision = useSyncExternalStore(
+    subscribeCapabilityClientModules,
+    getCapabilityClientModuleRevision,
+    getCapabilityClientModuleRevision,
+  );
   useEffect(() => {
+    const eligiblePackageIds = new Set<string>();
     for (const item of installed.data ?? []) {
       if (!isInstalledCapabilityReady(item) || !item.manifest.entrypoints.client) continue;
-      if (loadedClientModules.get(item.id) === item.version) continue;
-      const source = `/api/capability-packages/${encodeURIComponent(item.id)}/client?v=${encodeURIComponent(item.version)}`;
+      eligiblePackageIds.add(item.id);
+      const current = getCapabilityClientModuleState(item.id);
+      const attempt = current.version === item.version ? current.attempt : 0;
+      if (loadedClientModules.get(item.id) === item.version) {
+        publishCapabilityClientModuleState({
+          packageId: item.id,
+          name: item.manifest.name,
+          version: item.version,
+          status: "ready",
+          error: null,
+          attempt,
+        });
+        continue;
+      }
+      if (current.version === item.version && (current.status === "loading" || current.status === "error")) {
+        continue;
+      }
+      publishCapabilityClientModuleState({
+        packageId: item.id,
+        name: item.manifest.name,
+        version: item.version,
+        status: "loading",
+        error: null,
+        attempt,
+      });
+      const source = `/api/capability-packages/${encodeURIComponent(item.id)}/client?v=${encodeURIComponent(item.version)}${attempt > 0 ? `&retry=${attempt}` : ""}`;
       void import(/* @vite-ignore */ source)
-        .then(() => loadedClientModules.set(item.id, item.version))
-        .catch((error) => console.error(`Could not load client capability ${item.id}`, error));
+        .then(() => {
+          const tag = `marinara-capability-${item.id}`;
+          if (!customElements.get(tag)) {
+            throw new Error(`Client module did not register ${tag}`);
+          }
+          loadedClientModules.set(item.id, item.version);
+          const latest = getCapabilityClientModuleState(item.id);
+          if (latest.version !== item.version || latest.attempt !== attempt) return;
+          publishCapabilityClientModuleState({
+            packageId: item.id,
+            name: item.manifest.name,
+            version: item.version,
+            status: "ready",
+            error: null,
+            attempt,
+          });
+        })
+        .catch((error) => {
+          const latest = getCapabilityClientModuleState(item.id);
+          if (latest.version !== item.version || latest.attempt !== attempt) return;
+          publishCapabilityClientModuleState({
+            packageId: item.id,
+            name: item.manifest.name,
+            version: item.version,
+            status: "error",
+            error: capabilityClientErrorMessage(error),
+            attempt,
+          });
+          console.error(`Could not load client capability ${item.id}`, error);
+        });
     }
-  }, [installed.data]);
+    for (const packageId of capabilityClientModuleStates.keys()) {
+      if (!eligiblePackageIds.has(packageId)) removeCapabilityClientModuleState(packageId);
+    }
+  }, [clientModuleRevision, installed.data]);
   return installed;
 }
 
@@ -121,7 +268,7 @@ export function useInstallCapabilityPackage() {
   const invalidate = useInvalidateCapabilityState();
   return useMutation({
     mutationFn: (id: string) => api.post<InstalledCapabilityPackage>(`/capability-packages/${id}/install`),
-    onSuccess: invalidate,
+    onSettled: invalidate,
   });
 }
 

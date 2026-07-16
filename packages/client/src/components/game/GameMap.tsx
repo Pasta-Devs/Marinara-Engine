@@ -617,6 +617,7 @@ export function GameMapPanel({
   const [stateHovered, setStateHovered] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
   const [mapViewMode, setMapViewMode] = useState<GameMapViewMode>("world");
+  const pendingSpatialTransition = useChatStore((state) => state.pendingSpatialTransitions.get(chatId) ?? null);
   const { locked, toggleLocked, resetPosition, x, y, handleDragEnd } = useDraggablePanel(chatId, "map");
   const mapOptions = buildMapOptions(map, maps);
   const selectedMapId = viewedMapId ?? getMapId(map);
@@ -762,6 +763,7 @@ export function GameMapPanel({
             capabilityProps={{
               chatId,
               disabled,
+              pendingTransition: pendingSpatialTransition,
               onPendingTransitionChange: (pending: unknown) => syncPackageSpatialTransition(chatId, pending),
             }}
             className="block h-full min-h-0"
@@ -862,6 +864,7 @@ export function MobileMapButton({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [mapZoom, setMapZoom] = useState(1);
   const [mapViewMode, setMapViewMode] = useState<GameMapViewMode>("world");
+  const pendingSpatialTransition = useChatStore((state) => state.pendingSpatialTransitions.get(chatId) ?? null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const mapOptions = buildMapOptions(map, maps);
   const selectedMapId = viewedMapId ?? getMapId(map);
@@ -1064,6 +1067,7 @@ export function MobileMapButton({
                     chatId,
                     disabled,
                     compact: true,
+                    pendingTransition: pendingSpatialTransition,
                     onPendingTransitionChange: (pending: unknown) => {
                       syncPackageSpatialTransition(chatId, pending);
                       if (pending) setOpen(false);
