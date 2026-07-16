@@ -7,6 +7,8 @@ import {
 } from "./tracker-panel.constants";
 import type { TrackerStatDensity, TrackerStatDisplayScale } from "../tracker-panel.types";
 
+const PREFERRED_PERSONA_STAT_DENSITIES = ["normal", "compact"] as const;
+
 export function trackerStatStackHeight(statCount: number, density: TrackerStatDensity, includeAdd: boolean) {
   return (
     statCount * PERSONA_STAT_DENSITY_HEIGHT_REM[density] +
@@ -19,8 +21,9 @@ export function getPersonaStatDensity(
   includeAdd: boolean,
   allowance = TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM,
 ): TrackerStatDensity {
-  if (trackerStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
-  if (trackerStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
+  for (const density of PREFERRED_PERSONA_STAT_DENSITIES) {
+    if (trackerStatStackHeight(statCount, density, includeAdd) <= allowance) return density;
+  }
   return "tight";
 }
 

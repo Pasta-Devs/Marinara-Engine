@@ -1980,7 +1980,7 @@ export function useGenerate() {
                       setStreamBuffer(fullBuffer, params.chatId);
                     }
                   }
-                  const heldExtra = parseMessageExtraRecord(heldTextRewriteMessage.extra);
+                  const heldExtra = { ...parseMessageExtraRecord(heldTextRewriteMessage.extra) };
                   delete heldExtra.postProcessingPending;
                   if (builtInRewriteApplied) {
                     heldExtra.proseGuardianOriginalText = rw.originalText;
@@ -2016,7 +2016,7 @@ export function useGenerate() {
                 if (useChatStore.getState().committedStreamChatIds.has(params.chatId)) {
                   const latestSavedMessage = latestAssistantMessage(persistedMessages.values());
                   if (latestSavedMessage) {
-                    const nextExtra = parseMessageExtraRecord(latestSavedMessage.extra);
+                    const nextExtra = { ...parseMessageExtraRecord(latestSavedMessage.extra) };
                     if (builtInRewriteApplied) {
                       nextExtra.proseGuardianOriginalText = rw.originalText;
                       nextExtra.proseGuardianRewrittenText = rewrittenText;

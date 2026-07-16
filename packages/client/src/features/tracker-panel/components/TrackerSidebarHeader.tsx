@@ -79,8 +79,11 @@ export function TrackerSidebarHeader({
   const handleToolbarFocus = (event: FocusEvent<HTMLDivElement>) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
-    const focusedItem = getToolbarItems().find(({ element }) => element === target);
-    if (focusedItem) setToolbarFocusIndex(focusedItem.index);
+    const indexAttribute = target.getAttribute("data-tracker-toolbar-item");
+    if (indexAttribute === null) return;
+    const index = Number(indexAttribute);
+    if (!Number.isInteger(index) || index < 0 || index >= TRACKER_TOOLBAR_ITEM_ORDER.length) return;
+    setToolbarFocusIndex(index);
   };
 
   const handleToolbarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
