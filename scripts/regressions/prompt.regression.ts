@@ -15,6 +15,7 @@ import {
   createRegexScriptSchema,
   createDefaultImageStyleProfileSettings,
   getDefaultBuiltInAgentSettings,
+  isAgentAvailableInChatMode,
   isPatternSafe,
   normalizeChatSummaryEntries,
   normalizeWorldCustomFields,
@@ -3002,21 +3003,38 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(shouldInjectIdentityFallback({ chatMode: "roleplay", presetId: null }), true);
       assert.equal(shouldInjectIdentityFallback({ chatMode: "game", presetId: null }), false);
 
+      for (const chatMode of ["conversation", "roleplay", "visual_novel", "game"] as const) {
+        assert.equal(
+          shouldEnableAgentsForGeneration({
+            chatEnableAgents: true,
+            chatMode,
+            impersonate: false,
+            impersonateBlockAgents: false,
+          }),
+          true,
+          `expected the enabled agent pipeline to run in ${chatMode}`,
+        );
+        assert.equal(
+          isAgentAvailableInChatMode(chatMode, "custom-human-voice-rewriter"),
+          true,
+          `expected custom agents to be available in ${chatMode}`,
+        );
+      }
       assert.equal(
         shouldEnableAgentsForGeneration({
-          chatEnableAgents: true,
-          chatMode: "roleplay",
+          chatEnableAgents: false,
+          chatMode: "conversation",
           impersonate: false,
           impersonateBlockAgents: false,
         }),
-        true,
+        false,
       );
       assert.equal(
         shouldEnableAgentsForGeneration({
           chatEnableAgents: true,
-          chatMode: "conversation",
-          impersonate: false,
-          impersonateBlockAgents: false,
+          chatMode: "roleplay",
+          impersonate: true,
+          impersonateBlockAgents: true,
         }),
         false,
       );
