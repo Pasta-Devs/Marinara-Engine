@@ -64,6 +64,10 @@ type CapabilityModule = {
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
 };
 
+export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR): void {
+  if (!process.env.DATA_DIR?.trim()) process.env.DATA_DIR = dataDir;
+}
+
 async function runCleanups(cleanups: Cleanup[]): Promise<void> {
   let firstError: unknown;
   for (const cleanup of cleanups.splice(0).reverse()) {
@@ -80,6 +84,11 @@ class CapabilityModuleRuntime {
   private cleanup: Cleanup[] = [];
 
   async start(app: FastifyInstance): Promise<void> {
+    // Bundled package modules execute before activate(context), so give their
+    // shared Engine utilities the host's already-resolved data root up front.
+    // Without this, a package can derive DATA_DIR from its nested server.mjs
+    // location and fail to see host-owned models and storage.
+    prepareCapabilityRuntimeEnvironment();
     await this.ensureModuleResolution();
     for (const runtimePackage of await capabilityPackageManager.runtimePackages()) {
       await this.activateOne(app, runtimePackage, true);

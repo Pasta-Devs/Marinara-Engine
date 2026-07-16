@@ -501,11 +501,11 @@ const HOME_FAQ_ITEMS: HomeFaqItem[] = [
     category: "Misc",
     question: "How do I set up Conversation audio calls?",
     answer:
-      "Enable TTS first, then turn on Conversation Calls for the chat and pick how your microphone should be transcribed.",
+      "Enable TTS first, then turn on Calls for the chat and pick how your microphone should be transcribed.",
     bullets: [
       "Open Connections > Text to Speech, enable a TTS provider, save it, and confirm the preview plays.",
-      "After installing Conversation Calls, open Connections > Local Model, expand the card, choose Whisper Tiny (Multilingual) or Whisper Base (Multilingual) under Local Speech Model, then click Download Whisper. Uninstalling Calls removes the downloaded model.",
-      "In the Conversation chat, open Chat Settings > Commands > Conversation Calls, enable Audio/Video Calls, then enable Call Audio Pipeline.",
+      "After installing Calls, open Connections > Local Model, expand the card, choose Whisper Tiny (Multilingual) or Whisper Base (Multilingual) under Local Speech Model, then click Download Whisper. Uninstalling Calls removes the downloaded model.",
+      "In the Conversation chat, open Chat Settings > Commands > Calls, enable Audio/Video Calls, then enable Call Audio Pipeline.",
       "Use Mic recording + Local Whisper for Firefox or reliable local speech capture. Browser speech recognition depends on browser support.",
       "The Calls command toggle only controls whether characters can ring you first; you can still call them when Audio/Video Calls is enabled.",
     ],

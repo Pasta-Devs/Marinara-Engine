@@ -69,6 +69,12 @@ type TableSnapshotManifest = {
   tables: Record<string, number>;
 };
 
+type FileTransactionContext = {
+  snapshots: Map<string, Row[]>;
+  dirtyTables: Set<string>;
+  flushed: boolean;
+};
+
 export type QuarantinedStorageTable = {
   table: string;
   files: Array<{
@@ -855,11 +861,14 @@ class FileTableStore {
   private beforeExitHandler: (() => void) | null = null;
   private loadedManifest: TableSnapshotManifest | null = null;
   // Rollback state for the active transaction lives in this AsyncLocalStorage so
-  // it is bound to the transaction's own async call path. A concurrent
-  // non-transactional write that interleaves during an await runs OUTSIDE this
-  // context and is therefore never recorded — so it survives a rollback. See
-  // transaction() / recordTxMutation().
-  private readonly txContext = new AsyncLocalStorage<{ snapshots: Map<string, Row[]>; dirtyTables: Set<string> }>();
+  // it is bound to the transaction's own async call path. Writes from other
+  // async call paths wait for the transaction to finish and are therefore never
+  // captured by (or reverted with) its rollback snapshots.
+  private readonly txContext = new AsyncLocalStorage<FileTransactionContext>();
+  private transactionQueue: Promise<void> = Promise.resolve();
+  private activeTransactionCount = 0;
+  private transactionIdleWaiters = new Set<() => void>();
+  private pendingTransactionFlush = false;
   private quarantinedTables: QuarantinedStorageTable[] = [];
 
   constructor(
@@ -893,19 +902,31 @@ class FileTableStore {
   async transaction<T>(fn: (tx: FileNativeDB) => Promise<T> | T, tx: FileNativeDB): Promise<T> {
     // Copy-on-write rollback, isolated to this transaction's async context:
     // instead of cloning every table up front (O(total rows) per call, on the
-    // per-turn setMemories hot path) and restoring the whole map on throw (which
-    // also dropped concurrent writes), snapshot each table only on its first
-    // mutation by THIS transaction and restore only those. Mutations made on
-    // other async call paths (concurrent non-transactional writes) run outside
-    // the context, are never recorded, and so survive a rollback.
+    // per-turn setMemories hot path), snapshot each table only on its first
+    // mutation by THIS transaction and restore only those. Other writes wait for
+    // this transaction, then run against its committed or restored state.
     if (this.txContext.getStore()) {
       // Nested call: run inside the outer transaction's context so the whole
       // nest rolls back together; the outermost owns snapshot/restore.
       return await fn(tx);
     }
-    const ctx = { snapshots: new Map<string, Row[]>(), dirtyTables: new Set<string>() };
+
+    let releaseTransaction!: () => void;
+    const previousTransaction = this.transactionQueue;
+    this.transactionQueue = new Promise<void>((resolve) => {
+      releaseTransaction = resolve;
+    });
+    await previousTransaction;
+    if (this.activeFlush) await this.activeFlush;
+
+    const ctx: FileTransactionContext = {
+      snapshots: new Map<string, Row[]>(),
+      dirtyTables: new Set<string>(),
+      flushed: false,
+    };
     const dirtySnapshot = this.dirty;
     const dirtyTablesSnapshot = new Set(this.dirtyTables);
+    this.activeTransactionCount++;
 
     try {
       return await this.txContext.run(ctx, () => fn(tx));
@@ -916,7 +937,38 @@ class FileTableStore {
       }
       this.dirty = dirtySnapshot;
       this.dirtyTables = dirtyTablesSnapshot;
+      if (ctx.flushed) {
+        this.dirty = true;
+        for (const tableName of ctx.dirtyTables) this.dirtyTables.add(tableName);
+        try {
+          await this.txContext.run(ctx, () => this.flush(true, true));
+        } catch (rollbackError) {
+          throw new AggregateError([err, rollbackError], "File-storage transaction and durable rollback both failed");
+        }
+      }
       throw err;
+    } finally {
+      this.activeTransactionCount--;
+      if (this.activeTransactionCount === 0) {
+        for (const resolve of this.transactionIdleWaiters) resolve();
+        this.transactionIdleWaiters.clear();
+      }
+      releaseTransaction();
+      if (this.pendingTransactionFlush) {
+        this.pendingTransactionFlush = false;
+        void this.flush();
+      }
+    }
+  }
+
+  private async waitForTransactions(): Promise<void> {
+    if (this.activeTransactionCount === 0) return;
+    await new Promise<void>((resolve) => this.transactionIdleWaiters.add(resolve));
+  }
+
+  private async waitForWritableTurn(): Promise<void> {
+    if (this.activeTransactionCount > 0 && !this.txContext.getStore()) {
+      await this.waitForTransactions();
     }
   }
 
@@ -950,6 +1002,7 @@ class FileTableStore {
       values: (rows) => {
         const runInsert = (onConflict?: { target: unknown; set: Row }) =>
           executable(async () => {
+            await this.waitForWritableTurn();
             const conflictColumns = normalizeConflictTargets(onConflict?.target);
             const inputRows = Array.isArray(rows) ? rows : [rows];
             const target = this.rows(meta.name);
@@ -991,6 +1044,7 @@ class FileTableStore {
       set: (patch) => {
         const runUpdate = (condition?: Condition) =>
           executable(async () => {
+            await this.waitForWritableTurn();
             const target = this.rows(meta.name);
             const changedIndexes: number[] = [];
             const nextRows = target.map((row, index) => {
@@ -1024,6 +1078,7 @@ class FileTableStore {
     const meta = getMeta(table);
     const runDelete = (condition?: Condition) =>
       executable(async () => {
+        await this.waitForWritableTurn();
         this.deleteWhere(meta, condition);
       });
     const builder = runDelete() as DeleteBuilder;
@@ -1031,10 +1086,18 @@ class FileTableStore {
     return builder;
   }
 
-  async flush(force = false) {
+  async flush(force = false, throwOnError = false) {
+    const transactionContext = this.txContext.getStore();
+    if (this.activeTransactionCount > 0 && !(force && transactionContext)) {
+      this.pendingTransactionFlush = true;
+      if (transactionContext) return;
+      await this.waitForTransactions();
+    }
+    if (transactionContext && force) transactionContext.flushed = true;
     if (this.activeFlush) {
       await this.activeFlush;
-      if (this.dirty || this.dirtyTables.size > 0) await this.flush(force);
+      if (this.dirty || this.dirtyTables.size > 0) await this.flush(force, throwOnError);
+      else if (throwOnError && this.lastFlushError) throw this.lastFlushError;
       return;
     }
     if (!force && !this.dirty && this.dirtyTables.size === 0) return;
@@ -1064,6 +1127,7 @@ class FileTableStore {
     } finally {
       if (this.activeFlush === flush) this.activeFlush = null;
     }
+    if (throwOnError && this.lastFlushError) throw this.lastFlushError;
   }
 
   async close() {
@@ -1138,12 +1202,12 @@ class FileTableStore {
       let changed = false;
       for (const row of this.rows(childMeta.name)) {
         if (row[relation.childKey] != null && deletedValues.has(row[relation.childKey])) {
+          if (!changed) this.recordTxMutation(childMeta.name);
           row[relation.childKey] = null;
           changed = true;
         }
       }
       if (changed) {
-        this.recordTxMutation(childMeta.name);
         this.markDirty(childMeta.name);
       }
     }
@@ -1367,7 +1431,7 @@ export async function createFileNativeDB(testHooks?: FileNativeStoreTestHooks): 
 
   const controller: FileNativeStoreController = {
     rootDir,
-    flush: () => store.flush(true),
+    flush: () => store.flush(true, true),
     close: () => store.close(),
     getQuarantinedTables: () => store.getQuarantinedTables(),
   };

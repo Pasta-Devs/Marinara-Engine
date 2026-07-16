@@ -91,8 +91,10 @@ import {
   resolveVisibleGameStateAnchor,
   shouldEnableAgentsForGeneration,
   formatConversationInstructionsForWrap,
+  injectIntoOutputFormatOrLastUser,
   normalizePromptWrapFormat,
   parseGameStateRow,
+  stripSpeakerTagsExceptLastAssistant,
 } from "./generate/generate-route-utils.js";
 import {
   filterGameInternalAgentIds,
@@ -2520,18 +2522,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           // ── Strip <speaker> tags from chat history to save tokens (non-conversation modes; game already returned above, so effectively roleplay plus legacy visual_novel chats) ──
           const isGroupChat = characterIds.length > 1;
           if (isGroupChat && chatMode !== "conversation") {
-            const speakerCloseRegex = /<\/speaker>/g;
-            for (let i = 0; i < assembled.messages.length; i++) {
-              const msg = assembled.messages[i]!;
-              if (msg.role === "system") continue;
-              if (msg.content.includes("<speaker=")) {
-                let converted = msg.content;
-                converted = converted.replace(/<speaker="[^"]*">/g, "");
-                converted = converted.replace(speakerCloseRegex, "");
-                converted = converted.replace(/^\s*\n/gm, "").trim();
-                assembled.messages[i] = { ...msg, content: converted };
-              }
-            }
+            stripSpeakerTagsExceptLastAssistant(assembled.messages);
           }
 
           // ── Inject group chat speaker tag instructions ──
@@ -2555,31 +2546,8 @@ export async function chatsRoutes(app: FastifyInstance) {
             const instructionBlock =
               wrapFmt === "markdown" ? `\n## Group Chat\n${speakerInstruction}` : speakerInstruction;
 
-            // Inject into </output_format> if present, otherwise append to last user message
-            let speakerInjected = false;
-            for (let i = 0; i < assembled.messages.length; i++) {
-              const msg = assembled.messages[i]!;
-              if (msg.content.includes("</output_format>")) {
-                assembled.messages[i] = {
-                  ...msg,
-                  content: msg.content.replace("</output_format>", "    " + instructionBlock + "\n</output_format>"),
-                };
-                speakerInjected = true;
-                break;
-              }
-            }
-            if (!speakerInjected) {
-              let lastUserIdx = -1;
-              for (let i = assembled.messages.length - 1; i >= 0; i--) {
-                if (assembled.messages[i]!.role === "user") {
-                  lastUserIdx = i;
-                  break;
-                }
-              }
-              const idx = lastUserIdx >= 0 ? lastUserIdx : assembled.messages.length - 1;
-              const target = assembled.messages[idx]!;
-              assembled.messages[idx] = { ...target, content: target.content + "\n\n" + instructionBlock };
-            }
+            // Keep prompt preview placement identical to live generation.
+            injectIntoOutputFormatOrLastUser(assembled.messages, instructionBlock, { indent: true });
           }
 
           // ── Fallback: inject character & persona info if the preset didn't include them ──

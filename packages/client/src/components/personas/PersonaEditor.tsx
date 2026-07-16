@@ -2285,13 +2285,22 @@ function PersonaColorsTab({
         {extracting ? "Extracting..." : avatarUrl ? "Extract Colors from Avatar" : "Upload an avatar first"}
       </button>
 
-      <div className="rounded-xl border border-[var(--border)] bg-black/30 p-4 space-y-3">
+      <div className="space-y-3 overflow-hidden rounded-xl border border-[var(--border)] bg-black/30 p-4">
         <p className="text-[0.625rem] font-medium uppercase tracking-widest text-[var(--muted-foreground)]">Preview</p>
         <div className="flex gap-3 flex-row-reverse">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-neutral-500 to-neutral-600 ring-2 ring-white/15">
-            <User size="1rem" className="text-white" />
+          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-neutral-500 to-neutral-600 ring-2 ring-white/15">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={`${formData.name || "Persona"} avatar preview`}
+                className="h-full w-full object-cover"
+                style={getAvatarCropStyle(formData.avatarCrop)}
+              />
+            ) : (
+              <User size="1rem" className="text-white" />
+            )}
           </div>
-          <div className="flex-1 space-y-1 items-end flex flex-col">
+          <div className="flex min-w-0 flex-1 flex-col items-end space-y-1">
             <span
               className="text-[0.75rem] font-bold tracking-tight"
               style={

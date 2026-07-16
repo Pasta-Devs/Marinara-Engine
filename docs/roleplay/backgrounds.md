@@ -10,7 +10,7 @@ You do not need image generation for this to work. If you have not set up an ima
 
 ## The Background agent
 
-The **Background** agent is an optional helper that chooses a scene backdrop for you. It runs after each reply. It reads the current scene, then picks the most fitting image from your uploaded backgrounds. If a location has no matching image, it can generate a new one for you.
+The **Background** agent is an optional helper that chooses a scene backdrop for you. It runs after each reply. It reads the current scene, then picks the most fitting image from every available background. Library folders are only an organization aid in Settings and never hide choices from the agent. If a location has no matching image, it can generate a new one for you.
 
 The **Background** agent is off by default. To turn it on:
 

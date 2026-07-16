@@ -41,7 +41,7 @@ function showChibiProfessorMariToast() {
         <img
           src={CHIBI_PROFESSOR_MARI_IMAGE}
           alt="Chibi Professor Mari"
-          className="h-24 w-20 shrink-0 self-end object-contain drop-shadow-[0_4px_10px_rgb(0_0_0/0.25)]"
+          className="h-24 w-20 shrink-0 self-center object-contain drop-shadow-[0_4px_10px_rgb(0_0_0/0.25)]"
           onError={(event) => {
             event.currentTarget.hidden = true;
           }}

@@ -72,7 +72,7 @@ Marinara supports many providers. You pick one per connection.
 
 For chat and roleplay text, the choices are **OpenAI**, **OpenAI (ChatGPT)**, **Anthropic**, **Claude (Subscription)**, **Grok CLI (Subscription)**, **Google Gemini**, **Google Vertex AI**, **Mistral**, **Cohere**, **OpenRouter**, **NanoGPT**, **xAI / Grok**, and **Custom (OAI-Compatible)** for local or self-hosted models such as Ollama, LM Studio, and KoboldCpp.
 
-For image generation, the choices include **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT**, and **Block Entropy**.
+For image generation, the choices include **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT**, and **Block Entropy**.
 
 For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, and **Seedance 2.0**.
 
@@ -159,7 +159,7 @@ To make them automatically, open **Chat Settings**, go to **Agents**, find the *
 
 Yes, in **Conversation** mode. Audio and video calls are a Conversation-only feature. To hear a character speak, first set up **Text to Speech** under the **Connections** panel.
 
-If you want to talk back with your microphone and the browser's own speech recognition is unreliable, first install **Conversation Calls** from **Agents > Download Agents**. Then open the **Connections** panel, expand the **Local Model** card, find **Local Speech Model**, pick **Whisper Tiny (Multilingual)** or **Whisper Base (Multilingual)**, and click **Download Whisper**. Uninstalling Conversation Calls also removes its Whisper downloads to reclaim disk space. For the full call setup, see [Conversation Calls](conversation/calls.md).
+If you want to talk back with your microphone and the browser's own speech recognition is unreliable, first install **Calls** from **Agents > Download Agents**. Then open the **Connections** panel, expand the **Local Model** card, find **Local Speech Model**, pick **Whisper Tiny (Multilingual)** or **Whisper Base (Multilingual)**, and click **Download Whisper**. Uninstalling Calls also removes its Whisper downloads to reclaim disk space. For the full call setup, see [Calls](conversation/calls.md).
 
 ## Can Marinara generate images?
 

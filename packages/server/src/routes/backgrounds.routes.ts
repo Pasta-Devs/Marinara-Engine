@@ -2,14 +2,21 @@
 // Routes: Chat Backgrounds (upload, list, delete, serve, tags, rename)
 // ──────────────────────────────────────────────
 import type { FastifyInstance, FastifyReply } from "fastify";
-import { existsSync, mkdirSync, readdirSync, unlinkSync, readFileSync, writeFileSync, renameSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, unlinkSync, readFileSync, writeFileSync, renameSync, statSync } from "fs";
 import { writeFile } from "fs/promises";
 import { join, extname, basename, parse as parsePath } from "path";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { logDebugOverride } from "../lib/logger.js";
 import { isDebugAgentsEnabled } from "../config/runtime-config.js";
-import { buildAssetManifest, getAssetManifest } from "../services/game/asset-manifest.service.js";
+import { buildAssetManifest, GAME_ASSETS_DIR, getAssetManifest } from "../services/game/asset-manifest.service.js";
+import {
+  moveBackgroundAssignment,
+  normalizeBackgroundLibraryOrganization,
+  removeBackgroundFolder,
+  type BackgroundLibraryOrganization,
+} from "../services/background-library-organization.js";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -24,6 +31,7 @@ import { resolveGameSetupArtStylePrompt } from "@marinara-engine/shared";
 
 const BG_DIR = join(DATA_DIR, "backgrounds");
 const META_PATH = join(BG_DIR, "meta.json");
+const ORGANIZATION_PATH = join(BG_DIR, "organization.json");
 
 // Ensure directory exists
 function ensureDir() {
@@ -53,6 +61,37 @@ function writeMeta(meta: MetaMap) {
   writeFileSync(META_PATH, JSON.stringify(meta, null, 2), "utf-8");
 }
 
+function readOrganization(): BackgroundLibraryOrganization {
+  ensureDir();
+  if (!existsSync(ORGANIZATION_PATH)) return { folders: [], assignments: {} };
+  try {
+    return normalizeBackgroundLibraryOrganization(JSON.parse(readFileSync(ORGANIZATION_PATH, "utf-8")));
+  } catch {
+    return { folders: [], assignments: {} };
+  }
+}
+
+function writeOrganization(organization: BackgroundLibraryOrganization) {
+  ensureDir();
+  const temporaryPath = `${ORGANIZATION_PATH}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(temporaryPath, JSON.stringify(organization, null, 2), "utf-8");
+    renameSync(temporaryPath, ORGANIZATION_PATH);
+  } finally {
+    if (existsSync(temporaryPath)) unlinkSync(temporaryPath);
+  }
+}
+
+function fileCreatedAt(filePath: string): string {
+  try {
+    const stats = statSync(filePath);
+    const timestamp = stats.birthtimeMs > 0 ? stats.birthtime : stats.mtime;
+    return timestamp.toISOString();
+  } catch {
+    return new Date(0).toISOString();
+  }
+}
+
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const BACKGROUND_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
 const SCENE_BACKGROUND_MODES = new Set(["roleplay", "visual_novel", "game"]);
@@ -74,6 +113,15 @@ const generateSceneBackgroundSchema = z.object({
     .max(1)
     .optional(),
   debugMode: z.boolean().optional().default(false),
+});
+
+const backgroundFolderNameSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+});
+
+const backgroundAssignmentSchema = z.object({
+  backgroundId: z.string().trim().min(1).max(500),
+  folderId: z.string().trim().min(1).max(100).nullable(),
 });
 
 /** Sanitise a filename: keep alphanumeric, spaces, hyphens, underscores, dots. */
@@ -164,36 +212,47 @@ export async function backgroundsRoutes(app: FastifyInstance) {
   app.get("/", async () => {
     ensureDir();
     const meta = readMeta();
+    const organization = readOrganization();
     const files = readdirSync(BG_DIR).filter((f) => {
       const ext = extname(f).toLowerCase();
       return ALLOWED_EXTS.has(ext);
     });
-    const userBackgrounds = files.map((filename) => ({
-      id: `user:${filename}`,
-      filename,
-      url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
-      originalName: meta[filename]?.originalName ?? null,
-      tags: meta[filename]?.tags ?? [],
-      source: "user" as const,
-      editable: true,
-      deletable: true,
-      renameable: true,
-    }));
+    const userBackgrounds = files.map((filename) => {
+      const id = `user:${filename}`;
+      return {
+        id,
+        filename,
+        url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
+        originalName: meta[filename]?.originalName ?? null,
+        tags: meta[filename]?.tags ?? [],
+        source: "user" as const,
+        editable: true,
+        deletable: true,
+        renameable: true,
+        createdAt: fileCreatedAt(join(BG_DIR, filename)),
+        folderId: organization.assignments[id] ?? null,
+      };
+    });
 
     const gameAssetBackgrounds = (getAssetManifest().byCategory.backgrounds ?? [])
       .filter((entry) => !entry.path.startsWith("__user_bg__/"))
-      .map((entry) => ({
-        id: `game:${entry.tag}`,
-        filename: `${entry.name}${entry.ext}`,
-        url: `/api/game-assets/file/${encodeAssetPath(entry.path)}`,
-        originalName: entry.tag,
-        tags: entry.subcategory ? [entry.subcategory] : [],
-        source: "game_asset" as const,
-        tag: entry.tag,
-        editable: false,
-        deletable: false,
-        renameable: false,
-      }));
+      .map((entry) => {
+        const id = `game:${entry.tag}`;
+        return {
+          id,
+          filename: `${entry.name}${entry.ext}`,
+          url: `/api/game-assets/file/${encodeAssetPath(entry.path)}`,
+          originalName: entry.tag,
+          tags: entry.subcategory ? [entry.subcategory] : [],
+          source: "game_asset" as const,
+          tag: entry.tag,
+          editable: false,
+          deletable: false,
+          renameable: false,
+          createdAt: fileCreatedAt(join(GAME_ASSETS_DIR, entry.path)),
+          folderId: organization.assignments[id] ?? null,
+        };
+      });
 
     return [...userBackgrounds, ...gameAssetBackgrounds];
   });
@@ -205,7 +264,70 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     for (const entry of Object.values(meta)) {
       for (const t of entry.tags) tagSet.add(t);
     }
+    for (const entry of getAssetManifest().byCategory.backgrounds ?? []) {
+      if (!entry.path.startsWith("__user_bg__/") && entry.subcategory) tagSet.add(entry.subcategory);
+    }
     return [...tagSet].sort();
+  });
+
+  app.get("/folders", async () => readOrganization().folders);
+
+  app.post("/folders", async (req, reply) => {
+    const parsed = backgroundFolderNameSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Folder name is required and must be 80 characters or fewer" });
+    const organization = readOrganization();
+    const now = new Date().toISOString();
+    const folder = { id: randomUUID(), name: parsed.data.name, createdAt: now, updatedAt: now };
+    organization.folders.push(folder);
+    writeOrganization(organization);
+    return folder;
+  });
+
+  app.patch("/folders/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = backgroundFolderNameSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "Folder name is required and must be 80 characters or fewer" });
+    const organization = readOrganization();
+    const folder = organization.folders.find((candidate) => candidate.id === id);
+    if (!folder) return reply.status(404).send({ error: "Folder not found" });
+    folder.name = parsed.data.name;
+    folder.updatedAt = new Date().toISOString();
+    writeOrganization(organization);
+    return folder;
+  });
+
+  app.delete("/folders/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const organization = readOrganization();
+    if (!organization.folders.some((folder) => folder.id === id)) {
+      return reply.status(404).send({ error: "Folder not found" });
+    }
+    writeOrganization(removeBackgroundFolder(organization, id));
+    return { success: true };
+  });
+
+  app.patch("/organization", async (req, reply) => {
+    const parsed = backgroundAssignmentSchema.safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "A valid backgroundId and folderId are required" });
+    const organization = readOrganization();
+    if (parsed.data.folderId && !organization.folders.some((folder) => folder.id === parsed.data.folderId)) {
+      return reply.status(404).send({ error: "Folder not found" });
+    }
+
+    const userBackgroundIds = readdirSync(BG_DIR)
+      .filter((filename) => ALLOWED_EXTS.has(extname(filename).toLowerCase()))
+      .map((filename) => `user:${filename}`);
+    const gameBackgroundIds = (getAssetManifest().byCategory.backgrounds ?? [])
+      .filter((entry) => !entry.path.startsWith("__user_bg__/"))
+      .map((entry) => `game:${entry.tag}`);
+    if (!new Set([...userBackgroundIds, ...gameBackgroundIds]).has(parsed.data.backgroundId)) {
+      return reply.status(404).send({ error: "Background not found" });
+    }
+
+    if (parsed.data.folderId) organization.assignments[parsed.data.backgroundId] = parsed.data.folderId;
+    else delete organization.assignments[parsed.data.backgroundId];
+    writeOrganization(organization);
+    return { success: true, folderId: parsed.data.folderId };
   });
 
   // Upload a new background (preserves original filename)
@@ -498,6 +620,13 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     }
     writeMeta(meta);
 
+    const organization = moveBackgroundAssignment(
+      readOrganization(),
+      `user:${filename}`,
+      `user:${newFilename}`,
+    );
+    writeOrganization(organization);
+
     // Rebuild game asset manifest
     buildAssetManifest();
 
@@ -562,6 +691,8 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     const meta = readMeta();
     delete meta[filename];
     writeMeta(meta);
+
+    writeOrganization(moveBackgroundAssignment(readOrganization(), `user:${filename}`, null));
 
     // Rebuild game asset manifest
     buildAssetManifest();

@@ -27,6 +27,7 @@ import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
 import { getApiErrorMessage } from "../../packages/client/src/lib/api-client.js";
 import {
   isSameNpcAvatarResource,
+  normalizeNpcAvatarName,
   withFreshNpcAvatarRevision,
   withoutNpcAvatarRevision,
 } from "../../packages/client/src/lib/game-npc-avatar.js";
@@ -47,7 +48,10 @@ import {
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
-import { resolveInitialGameGmConnectionId } from "../../packages/server/src/services/game/initial-game-setup.js";
+import {
+  GAME_SETUP_GENERATION_TIMEOUT_MS,
+  resolveInitialGameGmConnectionId,
+} from "../../packages/server/src/services/game/initial-game-setup.js";
 import {
   resolveIllustratorPromptRuntime,
   type IllustratorPromptConnection,
@@ -76,8 +80,24 @@ import {
   resolveIllustratorPromptSubmission,
 } from "../../packages/server/src/services/image/illustrator-prompt-review.js";
 import { resolveReviewedImagePromptSubmission } from "../../packages/server/src/services/image/image-prompt-review.js";
+import {
+  cleanupStagedProfileAssets,
+  promoteStagedProfileAssets,
+  rollbackPromotedProfileAssets,
+  stageProfileImportAssets,
+} from "../../packages/server/src/services/import/profile-import-assets.js";
+import {
+  buildVeniceApiUrl,
+  buildVeniceImageRequest,
+  normalizeVeniceImageModels,
+  parseVeniceImageResponse,
+} from "../../packages/server/src/services/image/venice-image.js";
 import { resolveSceneVideoPrompt } from "../../packages/server/src/services/video/scene-video-prompt-review.js";
-import { buildPersonaCreateRow } from "../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  buildLorebookEntryCreateRow,
+  buildPersonaCreateRow,
+  normalizeCharacterActionData,
+} from "../../packages/server/src/services/mari-db/mari-db.service.js";
 import {
   checkAutonomousMessaging,
   clearChatActivity,
@@ -87,6 +107,82 @@ import {
 import type { WeekSchedule } from "../../packages/server/src/services/conversation/schedule.service.js";
 import { resolveGroupGenerationMode } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
+import {
+  moveBackgroundAssignment,
+  normalizeBackgroundLibraryOrganization,
+  removeBackgroundFolder,
+} from "../../packages/server/src/services/background-library-organization.js";
+import {
+  filterAndSortBackgrounds,
+  getNextBackgroundFolderName,
+} from "../../packages/client/src/lib/background-library.js";
+
+const backgroundOrganization = normalizeBackgroundLibraryOrganization({
+  folders: [
+    {
+      id: "folder-night",
+      name: "Night",
+      createdAt: "2026-07-16T00:00:00.000Z",
+      updatedAt: "2026-07-16T00:00:00.000Z",
+    },
+    { id: "", name: "Invalid" },
+  ],
+  assignments: {
+    "user:moonlit-garden.jpg": "folder-night",
+    "game:backgrounds:fantasy:castle": "missing-folder",
+  },
+});
+assert.equal(backgroundOrganization.folders.length, 1);
+assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
+assert.equal(backgroundOrganization.assignments["game:backgrounds:fantasy:castle"], undefined);
+const renamedBackgroundOrganization = moveBackgroundAssignment(
+  backgroundOrganization,
+  "user:moonlit-garden.jpg",
+  "user:moonlit-courtyard.jpg",
+);
+assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-garden.jpg"], undefined);
+assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-courtyard.jpg"], "folder-night");
+assert.deepEqual(removeBackgroundFolder(renamedBackgroundOrganization, "folder-night"), {
+  folders: [],
+  assignments: {},
+});
+assert.equal(getNextBackgroundFolderName([{ name: "Unnamed" }, { name: "unnamed 2" }]), "unnamed 3");
+
+const backgroundLibraryFixtures = [
+  {
+    id: "user:forest.jpg",
+    filename: "Forest.jpg",
+    originalName: "Forest.jpg",
+    tags: ["nature", "day"],
+    source: "user" as const,
+    createdAt: "2026-07-14T00:00:00.000Z",
+  },
+  {
+    id: "game:backgrounds:modern:city-night",
+    filename: "City Night.webp",
+    originalName: "backgrounds:modern:city-night",
+    tag: "backgrounds:modern:city-night",
+    tags: ["modern", "night"],
+    source: "game_asset" as const,
+    createdAt: "2026-07-16T00:00:00.000Z",
+  },
+];
+assert.deepEqual(
+  filterAndSortBackgrounds(backgroundLibraryFixtures, {
+    search: "",
+    includedTags: new Set(["night"]),
+    sort: "name-asc",
+  }).map((background) => background.id),
+  ["game:backgrounds:modern:city-night"],
+);
+assert.deepEqual(
+  filterAndSortBackgrounds(backgroundLibraryFixtures, {
+    search: "",
+    includedTags: new Set(),
+    sort: "newest",
+  }).map((background) => background.id),
+  ["game:backgrounds:modern:city-night", "user:forest.jpg"],
+);
 
 const dockerDesktopRouteTable = `Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask
 eth0\t00000000\t01D7A8C0\t0003\t0\t0\t100\t00000000
@@ -113,6 +209,36 @@ assert.equal(minimalProfessorMariPersona.convoDisplayName, "");
 assert.equal(minimalProfessorMariPersona.aboutMe, "");
 assert.equal(minimalProfessorMariPersona.convoBehavior, "");
 
+const generatedCharacterData = normalizeCharacterActionData({
+  firstMessage: "Welcome to the laboratory.",
+  mesExample: "{{char}}: Observe carefully.",
+  systemPrompt: "Stay in character.",
+  postHistoryInstructions: "Remain concise.",
+  alternateGreetings: ["You made it."],
+});
+assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
+assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
+assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
+assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
+assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
+assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
+
+const generatedLorebookEntry = buildLorebookEntryCreateRow(
+  {
+    name: "Glass City",
+    content: "A city made from black glass.",
+    keys: ["Glass City", "black glass"],
+    secondaryKeys: ["rain"],
+  },
+  "lorebook-generated",
+  "entry-generated",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(generatedLorebookEntry.lorebookId, "lorebook-generated");
+assert.equal(generatedLorebookEntry.content, "A city made from black glass.");
+assert.deepEqual(generatedLorebookEntry.keys, ["Glass City", "black glass"]);
+assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
+
 const completeProfessorMariPersona = buildPersonaCreateRow(
   {
     name: "Complete helper persona",
@@ -135,7 +261,81 @@ assert.deepEqual(completeProfessorMariPersona.convoBehavior, {
 assert.equal(resolveInitialGameGmConnectionId(undefined, "chat-connection"), "chat-connection");
 assert.equal(resolveInitialGameGmConnectionId("explicit-connection", "chat-connection"), "explicit-connection");
 assert.equal(resolveInitialGameGmConnectionId(undefined, null), null);
+assert.equal(GAME_SETUP_GENERATION_TIMEOUT_MS, 500_000);
 assert.equal(DEFAULT_GENERATION_PARAMS.reasoningEffort, "maximum");
+
+assert.equal(
+  buildVeniceApiUrl("https://api.venice.ai/api/v1", "models"),
+  "https://api.venice.ai/api/v1/models?type=image",
+);
+assert.deepEqual(buildVeniceImageRequest({ model: "venice-sd35", prompt: "canal", width: 1600, height: 900 }), {
+  model: "venice-sd35",
+  prompt: "canal",
+  format: "webp",
+  return_binary: false,
+  variants: 1,
+  width: 1280,
+  height: 720,
+});
+assert.deepEqual(buildVeniceImageRequest({ model: "gpt-image-2", prompt: "canal", width: 1536, height: 1024 }), {
+  model: "gpt-image-2",
+  prompt: "canal",
+  format: "webp",
+  return_binary: false,
+  variants: 1,
+  aspect_ratio: "3:2",
+  resolution: "2K",
+});
+const tinyVenicePng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString("base64");
+assert.equal(parseVeniceImageResponse({ images: [tinyVenicePng] }).mimeType, "image/png");
+assert.deepEqual(
+  normalizeVeniceImageModels({
+    data: [
+      { id: "chroma", type: "image", model_spec: { name: "Chroma" } },
+      { id: "llama", type: "text", model_spec: { name: "Llama" } },
+      { id: "untyped", model_spec: { name: "Untyped" } },
+    ],
+  }),
+  [{ id: "chroma", name: "Chroma" }],
+);
+
+const profileImportAssetRoot = mkdtempSync(join(tmpdir(), "marinara-profile-import-atomic-"));
+try {
+  const liveAvatarPath = join(profileImportAssetRoot, "avatars", "character.png");
+  mkdirSync(join(profileImportAssetRoot, "avatars"), { recursive: true });
+  writeFileSync(liveAvatarPath, "live-avatar");
+  await assert.rejects(
+    stageProfileImportAssets(
+      profileImportAssetRoot,
+      [
+        { path: "avatars/character.png", expectedSize: 15, read: () => Buffer.from("imported-avatar") },
+        {
+          path: "gallery/corrupt.png",
+          expectedSize: 8,
+          read: () => {
+            throw new Error("simulated corrupt archive member");
+          },
+        },
+      ],
+      1024,
+    ),
+    /simulated corrupt archive member/u,
+  );
+  assert.equal(readFileSync(liveAvatarPath, "utf8"), "live-avatar");
+
+  const stagedProfileAssets = await stageProfileImportAssets(
+    profileImportAssetRoot,
+    [{ path: "avatars/character.png", expectedSize: 15, read: () => Buffer.from("imported-avatar") }],
+    1024,
+  );
+  await promoteStagedProfileAssets(stagedProfileAssets);
+  assert.equal(readFileSync(liveAvatarPath, "utf8"), "imported-avatar");
+  await rollbackPromotedProfileAssets(stagedProfileAssets);
+  assert.equal(readFileSync(liveAvatarPath, "utf8"), "live-avatar");
+  await cleanupStagedProfileAssets(stagedProfileAssets);
+} finally {
+  rmSync(profileImportAssetRoot, { recursive: true, force: true });
+}
 
 const mainPromptConnection: IllustratorPromptConnection = {
   id: "main-prompt-connection",
@@ -686,6 +886,9 @@ const refreshedNpcAvatar = withFreshNpcAvatarRevision("/avatars/npc/chat/albedo.
 assert.match(refreshedNpcAvatar, /mariAvatarRevision=/u);
 assert.equal(withoutNpcAvatarRevision(refreshedNpcAvatar), "/avatars/npc/chat/albedo.png?size=small#portrait");
 assert.equal(isSameNpcAvatarResource(refreshedNpcAvatar, "/avatars/npc/chat/albedo.png?size=small#portrait"), true);
+assert.equal(normalizeNpcAvatarName("Director Althea Voss Friendly"), normalizeNpcAvatarName("Director Althea Voss"));
+assert.equal(normalizeNpcAvatarName("Benemy"), "benemy");
+assert.equal(normalizeNpcAvatarName("Director__Althea--Voss Friendly"), normalizeNpcAvatarName("Director Althea Voss"));
 
 const noodleAvatarCrop = parseNoodleAvatarCrop(
   JSON.stringify({ srcX: 0.25, srcY: 0.1, srcWidth: 0.5, srcHeight: 0.5 }),

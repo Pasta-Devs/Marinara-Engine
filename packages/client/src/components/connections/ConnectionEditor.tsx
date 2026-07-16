@@ -498,13 +498,15 @@ export function ConnectionEditor() {
   const selectedVideoProvider = videoSourceToProviderOption(selectedVideoService);
   const selectedVideoDefaultsService = videoSelectionToDefaultsService(selectedVideoService, localModel, localBaseUrl);
   const apiKeyLink =
-    localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
-      ? API_KEY_LINKS.xai
-      : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
-        ? API_KEY_LINKS.openrouter
-        : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
-          ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
-          : API_KEY_LINKS[localProvider];
+    localProvider === "image_generation" && selectedImageService === "venice"
+      ? { label: "Get your Venice API key", url: "https://venice.ai/settings/api" }
+      : localProvider === "video_generation" && selectedVideoDefaultsService === "xai"
+        ? API_KEY_LINKS.xai
+        : localProvider === "video_generation" && selectedVideoDefaultsService === "openrouter"
+          ? API_KEY_LINKS.openrouter
+          : localProvider === "video_generation" && selectedVideoDefaultsService === "seedance"
+            ? { label: "Open Seedance API docs", url: "https://seedance2.ai/api-docs" }
+            : API_KEY_LINKS[localProvider];
 
   useEffect(() => {
     if (localProvider !== "image_generation" || !selectedImageDefaultsService) {

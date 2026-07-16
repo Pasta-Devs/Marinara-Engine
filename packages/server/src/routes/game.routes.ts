@@ -32,7 +32,10 @@ import { extractLeadingThinkingBlocks } from "../services/llm/inline-thinking.js
 import { type ChatCompletionResult, type ChatMessage, type ChatOptions } from "../services/llm/base-provider.js";
 import { isDiceNotation, rollDice } from "../services/game/dice.service.js";
 import { jsonishLooksTruncated, parseGameJsonish } from "../services/game/jsonish.js";
-import { resolveInitialGameGmConnectionId } from "../services/game/initial-game-setup.js";
+import {
+  GAME_SETUP_GENERATION_TIMEOUT_MS,
+  resolveInitialGameGmConnectionId,
+} from "../services/game/initial-game-setup.js";
 import { validateTransition } from "../services/game/state-machine.service.js";
 import {
   buildSetupPrompt,
@@ -6384,7 +6387,7 @@ export async function gameRoutes(app: FastifyInstance) {
       maxTokens: Math.max(GAME_SETUP_MIN_OUTPUT_TOKENS, setupGenerationParameters?.maxTokens ?? 0),
       maxTokensOverride: conn.maxTokensOverride,
     });
-    const setupAbort = createResponseAbortTracker(reply, GAME_GENERATION_TIMEOUT_MS, "Game setup");
+    const setupAbort = createResponseAbortTracker(reply, GAME_SETUP_GENERATION_TIMEOUT_MS, "Game setup");
     const setupOverrides: Partial<ChatOptions> = {
       maxTokens: setupMaxTokens,
       stream: streaming,

@@ -1,6 +1,6 @@
 # Image Generation Providers and Setup
 
-This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 14 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
+This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 15 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
 
 You set up image generation as a special kind of connection. Once one image connection works, every image feature in the app can use it.
 
@@ -23,7 +23,7 @@ If **Test Image** returns a picture, your connection is ready. If it fails, chec
 
 ## Choosing a service
 
-The 14 services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
+The 15 services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
 
 The table below shows each service at a glance. Details and quirks follow in the per-service sections.
 
@@ -35,6 +35,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | NovelAI | Yes | Cloud |
 | OpenRouter Images | Yes | Cloud |
 | xAI / Grok Imagine | Yes | Cloud |
+| Venice.ai | Yes | Cloud |
 | NanoGPT | Yes | Cloud |
 | Block Entropy | Yes | Cloud |
 | RunPod Serverless (ComfyUI) | Yes | Cloud |
@@ -67,6 +68,10 @@ Cloud service with the default Base URL `https://openrouter.ai/api/v1`. It needs
 ## xAI / Grok Imagine
 
 Cloud service with the default Base URL `https://api.x.ai/v1`. It needs an xAI API key. It uses Grok Imagine for image generation.
+
+## Venice.ai
+
+Cloud service with the default Base URL `https://api.venice.ai/api/v1`. It needs a Venice API key. Use **Fetch Models from API** to load the image models available to your account. Marinara uses Venice's native image endpoint and automatically maps requested dimensions to each model's pixel, aspect-ratio, or resolution-tier sizing format.
 
 ## NanoGPT
 
@@ -155,6 +160,7 @@ A **reference image** is an existing picture you send along with your prompt. It
 | OpenAI (DALL-E) | Up to 16 |
 | NovelAI | Up to 16, V4.5 model only |
 | xAI / Grok Imagine | Up to 3 |
+| Venice.ai | Not supported for text-to-image generation |
 | NanoGPT | Up to 3 |
 | Stability AI | First image only, used as image to image |
 | OpenRouter Images | Supported, no fixed limit |

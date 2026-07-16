@@ -45,7 +45,7 @@ import { createReplyFallbackNotifier } from "./routes/generate/fallback-notifica
 import { initializeCapabilityAgentRegistry } from "./services/capability-packages/capability-agent-registry.service.js";
 import { capabilityPackageManager } from "./services/capability-packages/package-manager.service.js";
 import { capabilityModuleRuntime } from "./services/capability-packages/capability-module-runtime.service.js";
-import { migrateLegacyChatCapabilitySelections } from "./services/capability-packages/legacy-capability-chat-migration.js";
+import { migrateLegacyCapabilities } from "./services/capability-packages/legacy-capability-migration.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const REVALIDATE_FILES = new Set(["index.html"]);
@@ -108,8 +108,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       if (removedCorePackages.length > 0) {
         app.log.info("Removed obsolete downloadable copies of core features: %s", removedCorePackages.join(", "));
       }
-      const migration = await capabilityPackageManager.migrateLegacyAvailability(hadUserStateBeforeStartup);
-      migratedLegacyCapabilities = migration.migrated;
+      const migration = await migrateLegacyCapabilities(db, hadUserStateBeforeStartup);
+      migratedLegacyCapabilities = migration.migrated && migration.complete;
     } catch (error) {
       app.log.warn(error, "Optional package availability migration did not complete; it will retry next startup");
     }
@@ -139,7 +139,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
   }
   resetTurnGameRegistry(false);
-  if (migratedLegacyCapabilities) await migrateLegacyChatCapabilitySelections(db);
 
   // ── Seed defaults ──
   await seedDefaultPreset(db);

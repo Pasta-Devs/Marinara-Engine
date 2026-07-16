@@ -8,6 +8,7 @@ process.env.DATA_DIR = dataDir;
 
 const packagesRoot = join(dataDir, "capability-packages");
 const registryPath = join(packagesRoot, "installed.json");
+const migrationPath = join(packagesRoot, "availability-migration-v1.json");
 const modelsRoot = join(dataDir, "models");
 const speechConfigPath = join(modelsRoot, "sidecar-speech-config.json");
 let closeDatabase: (() => Promise<void>) | null = null;
@@ -130,6 +131,66 @@ try {
   const { capabilityPackageManager, findCompatibleCapabilityPackageUpdates } = await import(
     "../../packages/server/src/services/capability-packages/package-manager.service.js"
   );
+  const { buildLegacyChatCapabilityPatch } = await import(
+    "../../packages/server/src/services/capability-packages/legacy-capability-chat-migration.js"
+  );
+  const { migrateLegacyCapabilities } = await import(
+    "../../packages/server/src/services/capability-packages/legacy-capability-migration.js"
+  );
+
+  assert.deepEqual(
+    buildLegacyChatCapabilityPatch({
+      mode: "roleplay",
+      metadata: { enableAgents: false, activeAgentIds: ["illustrator", "custom-agent"] },
+    }),
+    { activeAgentIds: ["illustrator", "custom-agent", "hierarchical-maps"] },
+    "Legacy capability selection must not alter the agent execution master switch",
+  );
+
+  const migrationSteps: string[] = [];
+  const completedMigration = await migrateLegacyCapabilities({} as never, true, {
+    async migrateAvailability() {
+      migrationSteps.push("packages");
+      return { migrated: true, legacy: true, complete: false };
+    },
+    async migrateChatSelections() {
+      migrationSteps.push("chats");
+    },
+    async flush() {
+      migrationSteps.push("flush");
+    },
+    async complete() {
+      migrationSteps.push("marker");
+    },
+  });
+  assert.deepEqual(migrationSteps, ["packages", "chats", "flush", "marker"]);
+  assert.equal(completedMigration.complete, true);
+
+  const interruptedSteps: string[] = [];
+  await assert.rejects(
+    migrateLegacyCapabilities({} as never, true, {
+      async migrateAvailability() {
+        interruptedSteps.push("packages");
+        return { migrated: true, legacy: true, complete: false };
+      },
+      async migrateChatSelections() {
+        interruptedSteps.push("chats");
+      },
+      async flush() {
+        interruptedSteps.push("flush");
+        throw new Error("fixture flush failed");
+      },
+      async complete() {
+        interruptedSteps.push("marker");
+      },
+    }),
+    /fixture flush failed/,
+  );
+  assert.deepEqual(interruptedSteps, ["packages", "chats", "flush"]);
+
+  assert.equal(existsSync(migrationPath), false);
+  await capabilityPackageManager.completeLegacyAvailabilityMigration();
+  assert.equal(JSON.parse(readFileSync(migrationPath, "utf8")).kind, "legacy");
   const catalogEntry = (manifest: typeof legacyManifest) => ({
     manifest,
     category: "misc",
@@ -275,9 +336,18 @@ try {
     export async function selfCheck() {}`,
   );
 
-  const { capabilityModuleRuntime } = await import(
+  const { capabilityModuleRuntime, prepareCapabilityRuntimeEnvironment } = await import(
     "../../packages/server/src/services/capability-packages/capability-module-runtime.service.js"
   );
+  const configuredDataDir = process.env.DATA_DIR;
+  delete process.env.DATA_DIR;
+  prepareCapabilityRuntimeEnvironment(dataDir);
+  assert.equal(
+    process.env.DATA_DIR,
+    dataDir,
+    "Downloaded capability runtimes must resolve host-owned models from the host data directory",
+  );
+  process.env.DATA_DIR = configuredDataDir;
   const { getCapabilityService } = await import(
     "../../packages/server/src/services/capability-packages/capability-service-registry.service.js"
   );

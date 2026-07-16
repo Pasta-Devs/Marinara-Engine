@@ -402,8 +402,13 @@ export const capabilityPackageManager = {
       if (installedById.get(entry.manifest.id)?.version === entry.manifest.version) continue;
       await installCatalogPackage(entry, true);
     }
+    // Existing-install completion also depends on per-chat selections becoming
+    // durable. The startup orchestrator writes the marker only after that work.
+    return { migrated: true, legacy: true, complete: false };
+  },
+
+  async completeLegacyAvailabilityMigration() {
     await writeAvailabilityMigration("legacy");
-    return { migrated: true, legacy: true, complete: true };
   },
 
   async updateInstalledPackagesToLatest() {

@@ -1,5 +1,16 @@
+import { normalizeTextForMatch } from "@marinara-engine/shared";
+
 const NPC_AVATAR_REVISION_PARAM = "mariAvatarRevision";
+const TRAILING_NPC_REPUTATION_LABEL = /(?:^|[\s_-])(?:devoted|allied|friendly|neutral|unfriendly|hostile|enemy)$/i;
 let npcAvatarRevision = 0;
+
+export function cleanNpcAvatarDisplayName(value: string): string {
+  return value.replace(TRAILING_NPC_REPUTATION_LABEL, "").trim() || value;
+}
+
+export function normalizeNpcAvatarName(value: string): string {
+  return normalizeTextForMatch(cleanNpcAvatarDisplayName(value).replace(/[_-]+/g, " "));
+}
 
 function splitHash(value: string): { base: string; hash: string } {
   const hashIndex = value.indexOf("#");

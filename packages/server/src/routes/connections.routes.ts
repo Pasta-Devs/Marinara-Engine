@@ -25,6 +25,7 @@ import { fetchOpenAIChatGPTModels, getOpenAIChatGPTAuth } from "../services/llm/
 import { fetchGrokCliModels } from "../services/llm/providers/grok-subscription.provider.js";
 import { buildGoogleVertexModelUrl, googleAuthHeadersForVertex } from "../services/llm/providers/google.provider.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
+import { buildVeniceApiUrl, normalizeVeniceImageModels } from "../services/image/venice-image.js";
 import { isImageLocalUrlsEnabled, isProviderLocalUrlsEnabled } from "../config/runtime-config.js";
 import { logDebugOverride } from "../lib/logger.js";
 import {
@@ -812,6 +813,31 @@ export async function connectionsRoutes(app: FastifyInstance) {
           });
         }
         return { models: normalizeModelsResponse("openrouter", json) };
+      }
+
+      if (conn.provider === "image_generation" && imageSource === "venice") {
+        const res = await safeFetch(buildVeniceApiUrl(baseUrl, "models"), {
+          headers,
+          policy: localUrlPolicyForProvider(conn.provider, imageSource),
+          maxResponseBytes: 5 * 1024 * 1024,
+          decodeCompressedResponse: true,
+        });
+        if (!res.ok) {
+          const body = await res.text();
+          return reply.status(502).send({
+            error: `Venice returned ${res.status}: ${sanitizeProviderBody(body)}`,
+          });
+        }
+        const text = await res.text();
+        let json: unknown;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          return reply.status(502).send({
+            error: `Failed to fetch models: ${sanitizeProviderBody(text)}`,
+          });
+        }
+        return { models: normalizeVeniceImageModels(json) };
       }
 
       if (conn.provider === "image_generation" && imageSource === "horde") {

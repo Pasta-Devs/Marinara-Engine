@@ -9,10 +9,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { X, MapPin, Swords, ScrollText, Package, Users, PenLine, BookOpen, Trash2, Loader2, Wand2 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { api } from "../../lib/api-client";
+import { cleanNpcAvatarDisplayName, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { AnimatedText } from "./AnimatedText";
 
-import { normalizeTextForMatch, type GameNpc } from "@marinara-engine/shared";
+import type { GameNpc } from "@marinara-engine/shared";
 
 interface JournalEntry {
   timestamp: string;
@@ -82,14 +83,12 @@ function isMobileGameViewport(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
 }
 
-const TRAILING_REPUTATION_LABEL = /(devoted|allied|friendly|neutral|unfriendly|hostile|enemy)$/i;
-
 function normalizeNpcName(value: string): string {
-  return normalizeTextForMatch(value).replace(/[_-]+/g, " ");
+  return normalizeNpcAvatarName(value);
 }
 
 function cleanNpcDisplayName(value: string): string {
-  return value.replace(TRAILING_REPUTATION_LABEL, "").trim() || value;
+  return cleanNpcAvatarDisplayName(value);
 }
 
 function normalizeNpcEntryTitle(value: string): string {

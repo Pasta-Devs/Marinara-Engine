@@ -1328,9 +1328,35 @@ export function injectIntoOutputFormatOrLastUser(
     }
   }
 
-  const lastIdx = Math.max(findLastIndex(messages, "user"), messages.length - 1);
+  const lastUserIdx = findLastIndex(messages, "user");
+  const lastIdx = lastUserIdx >= 0 ? lastUserIdx : messages.length - 1;
+  if (lastIdx < 0) {
+    messages.push({ role: "user", content: block });
+    return;
+  }
   const target = messages[lastIdx]!;
   messages[lastIdx] = { ...target, content: target.content + "\n\n" + block };
+}
+
+/**
+ * Remove speaker wrappers from older group-chat history while preserving the
+ * latest assistant turn as a concrete formatting example for the model.
+ */
+export function stripSpeakerTagsExceptLastAssistant(messages: SimpleMessage[]): void {
+  const lastAssistantIdx = findLastIndex(messages, "assistant");
+  const speakerCloseRegex = /<\/speaker>/g;
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i]!;
+    if (message.role === "system" || i === lastAssistantIdx || !message.content.includes("<speaker=")) continue;
+
+    const content = message.content
+      .replace(/<speaker="[^"]*">/g, "")
+      .replace(speakerCloseRegex, "")
+      .replace(/^\s*\n/gm, "")
+      .trim();
+    messages[i] = { ...message, content };
+  }
 }
 
 /** Build wrapped field parts from a record of { fieldName: value }. */

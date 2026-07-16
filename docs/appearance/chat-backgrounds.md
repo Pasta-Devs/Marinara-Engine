@@ -10,7 +10,7 @@ The **Backgrounds** section has three parts:
 
 1. The **Chat Background** picker, where you choose the image for the chat you are in.
 2. The **Background Blur** slider.
-3. The background library grid, where you import, tag, rename, and delete images.
+3. The background library, where you import, organize, filter, tag, rename, and delete images.
 
 A chat background only shows in Roleplay and Game mode chats. Conversation mode uses a gradient instead, which you set in the **Conversation Theme** section. See [Appearance Settings](appearance-settings.md) for that.
 
@@ -41,7 +41,22 @@ Marinara checks the real contents of every file, not just its name. If you renam
 
 ### Search the library
 
-Use the **Search backgrounds...** box above the grid to filter by name, tag, or source. The count line shows how many images match, for example "3 of 20 backgrounds". Click the small X in the search box to clear it.
+Use the **Search backgrounds** box above the library to filter by name, tag, or source. The count line shows how many images match, for example "3 of 20 backgrounds". Click the small X in the search box to clear it.
+
+Use the selector beside search to sort backgrounds **A-Z**, **Z-A**, **Newest**, or **Oldest**. Select **All** to clear tag filters, or expand **Tags** and select one or more tags. When several tags are selected, a background matches if it has any selected tag.
+
+### Organize backgrounds into folders
+
+Folders organize the library without moving or hiding the underlying image files.
+
+1. Click **New Folder**. Marinara creates a uniquely named folder.
+2. Double-click or double-tap the folder name to rename it. You can also focus it and press F2.
+3. On desktop, drag a background row into a folder. On a phone or tablet, drag it by the visible grip handle.
+4. Drag a background back into the unfiled area to remove it from its folder.
+
+Folders and assignments are saved on the server and included in backups. Deleting a folder returns its backgrounds to the unfiled list; it does not delete the images. Search and tag filters automatically reveal matching items inside their folders.
+
+The **Background** agent still sees every available background, including backgrounds placed in folders. Folders affect organization in Settings only.
 
 ### Rename a background
 
@@ -62,7 +77,7 @@ Tags help you group and search your uploads. You can only tag images with the **
 
 ### Delete a background
 
-You can only delete images with the **Library** label. Hover over the image row and click the trash icon. If the image was the current chat background or the default Roleplay background, Marinara switches back to the built-in default for you.
+You can only delete images with the **Library** label. Hover over the image row and click the trash icon, then confirm the deletion. If the image was the current chat background or the default Roleplay background, Marinara switches back to the built-in default for you.
 
 ## Setting a default Roleplay background
 
@@ -70,7 +85,7 @@ The default Roleplay background is the image every new Roleplay chat starts with
 
 1. In the **Backgrounds** section, find the image you want in the grid.
 2. Click the star icon (**Set as default for new Roleplay chats**) on that image row.
-3. The image gets a **Default** star badge. New Roleplay chats now start with it.
+3. The star fills with color without moving from its position. New Roleplay chats now start with it.
 
 To go back, click the star on the current default image. You can also click the **Reset Roleplay default** link near the top of the grid. That link only appears when your default background differs from the built-in one.
 
@@ -95,6 +110,7 @@ AI-generated scene backgrounds you create from the Gallery also land in this sam
 Two different settings decide what background a chat shows, and they save in different ways:
 
 - The **Chat Background** you pick for a chat is saved with that chat on the server. It follows the chat to any device you open it on.
+- Background folders and their assignments are saved on the server and follow the library to other devices.
 - The default Roleplay background and **Background Blur** are saved per device. They do not sync between browsers or devices. For the full sync model, see [Appearance Settings](appearance-settings.md).
 
 ## Automatic and AI-generated backgrounds
