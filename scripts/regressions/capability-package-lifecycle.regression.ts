@@ -293,6 +293,9 @@ try {
   const persistence = createCapabilityPersistenceHost(db);
   const resources = createCapabilityResourceHost(db);
   const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  const { createGameStateStorage } = await import(
+    "../../packages/server/src/services/storage/game-state.storage.js"
+  );
   const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
   const rollbackChat = await createChatsStorage(db).create({
     name: "Capability persistence rollback fixture",
@@ -305,6 +308,41 @@ try {
   assert.equal(rollbackChatBefore.name, "Capability persistence rollback fixture");
   assert.deepEqual(rollbackChatBefore.characterIds, []);
   assert.equal(rollbackChatBefore.connectionId, null);
+  const gameStates = createGameStateStorage(db);
+  const gameStateBase = {
+    chatId: rollbackChat.id,
+    swipeIndex: 0,
+    date: null,
+    time: null,
+    location: null,
+    weather: null,
+    temperature: null,
+    worldCustomFields: [],
+    presentCharacters: [],
+    recentEvents: [],
+    playerStats: null,
+    personaStats: null,
+    fieldLocks: null,
+    hiddenTrackerFields: null,
+    committed: true,
+  };
+  const firstGameStateId = await gameStates.create({
+    ...gameStateBase,
+    messageId: "game-state-order-first",
+  });
+  const firstGameState = await gameStates.getById(firstGameStateId);
+  assert.ok(firstGameState);
+  const secondGameStateId = await gameStates.create({
+    ...gameStateBase,
+    messageId: "game-state-order-second",
+  });
+  const secondGameState = await gameStates.getById(secondGameStateId);
+  assert.ok(secondGameState);
+  assert.ok(
+    secondGameState.createdAt > firstGameState.createdAt,
+    "Live Game snapshots must retain creation order when the clock has not advanced",
+  );
+  assert.equal((await gameStates.getLatest(rollbackChat.id))?.id, secondGameStateId);
   const lorebooks = createLorebooksStorage(db);
   const lorebook = await lorebooks.create({ name: "Capability persistence fixture" });
   assert.ok(lorebook);

@@ -5,6 +5,7 @@ import { eq, and, ne, desc, inArray, lte } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { gameStateSnapshots } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
+import { ensureTimestampAfter } from "../import/import-timestamps.js";
 import {
   coerceGameStateTextValue,
   normalizeWorldCustomFields,
@@ -330,6 +331,7 @@ export function createGameStateStorage(db: DB) {
     },
 
     async create(state: Omit<GameState, "id" | "createdAt">, manualOverrides?: Record<string, string> | null) {
+      const latestBeforeInsert = await this.getLatest(state.chatId);
       // Remove any prior snapshot for the same message + swipe so duplicates don't accumulate
       if (state.messageId) {
         await db
@@ -354,7 +356,7 @@ export function createGameStateStorage(db: DB) {
         fieldLocks: serializeFieldLocks(state.fieldLocks),
         hiddenTrackerFields: serializeHiddenTrackerFields(state.hiddenTrackerFields),
         committed: state.committed ? 1 : 0,
-        createdAt: now(),
+        createdAt: ensureTimestampAfter(now(), latestBeforeInsert?.createdAt),
       });
       return id;
     },

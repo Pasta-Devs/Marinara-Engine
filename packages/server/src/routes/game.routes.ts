@@ -12159,6 +12159,10 @@ export async function gameRoutes(app: FastifyInstance) {
       role: "system",
       characterId: null,
       content: `[Checkpoint restored: ${cp.label}]`,
+      extra: {
+        gameStateAnchor: "checkpoint_restore",
+        checkpointId: cp.id,
+      },
     });
     if (!restoreMsg) throw new Error("Failed to create restore message");
 
