@@ -691,6 +691,15 @@ export class OpenAIProvider extends BaseLLMProvider {
     return !!reasoningEffort && reasoningEffort !== "none";
   }
 
+  private requestReasoningLogValue(body: Record<string, unknown>): string {
+    if (typeof body.reasoning_effort === "string") return body.reasoning_effort;
+    if (!body.reasoning || typeof body.reasoning !== "object" || Array.isArray(body.reasoning)) return "none";
+    const reasoning = body.reasoning as Record<string, unknown>;
+    if (typeof reasoning.effort === "string") return reasoning.effort;
+    if (reasoning.enabled === true) return "enabled";
+    return Object.keys(reasoning).length > 0 ? "configured" : "none";
+  }
+
   private isOpenRouterEndpoint(): boolean {
     return (
       this.providerKind === "openrouter" || (!this.isGenericCustomProvider() && this.baseUrl.includes("openrouter.ai"))
@@ -743,11 +752,12 @@ export class OpenAIProvider extends BaseLLMProvider {
     )
       return;
 
-    if (
-      this.supportsOpenRouterUnifiedReasoning(options.model) &&
-      this.hasActiveReasoningEffort(options.reasoningEffort)
-    ) {
-      body.reasoning = { effort: options.reasoningEffort };
+    if (this.isOpenRouterEndpoint() && this.hasActiveReasoningEffort(options.reasoningEffort)) {
+      const existingReasoning =
+        body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)
+          ? (body.reasoning as Record<string, unknown>)
+          : {};
+      body.reasoning = { ...existingReasoning, effort: options.reasoningEffort };
       return;
     }
 
@@ -1052,10 +1062,6 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.verbosity = options.verbosity;
       }
 
-      if (this.shouldSendParameter(options, "reasoningEffort")) {
-        this.applyChatCompletionsReasoning(body, options);
-      }
-
       // OpenRouter provider routing preference
       const openrouterProvider = this.resolveOpenrouterProvider(options.openrouterProvider);
       if (this.shouldApplyOpenRouterProviderOverride(openrouterProvider)) {
@@ -1071,15 +1077,22 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
+    if (
+      this.shouldSendParameter(options, "reasoningEffort") &&
+      (!suppressModelParameters || this.isOpenRouterEndpoint())
+    ) {
+      this.applyChatCompletionsReasoning(body, options);
+    }
+
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.stripUnsupportedSamplerParameters(body, options);
 
     logger.debug(
-      "[OpenAI chat()] stream=%s model=%s reasoning_effort=%s enableThinking=%s verbosity=%s max_completion_tokens=%s max_tokens=%s temperature=%s top_p=%s tools=%s",
+      "[OpenAI chat()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s max_completion_tokens=%s max_tokens=%s temperature=%s top_p=%s tools=%s",
       body.stream,
       body.model,
-      body.reasoning_effort ?? "none",
+      this.requestReasoningLogValue(body),
       !!options.enableThinking,
       body.verbosity ?? "default",
       body.max_completion_tokens ?? "n/a",
@@ -1331,10 +1344,6 @@ export class OpenAIProvider extends BaseLLMProvider {
         body.verbosity = options.verbosity;
       }
 
-      if (this.shouldSendParameter(options, "reasoningEffort")) {
-        this.applyChatCompletionsReasoning(body, options);
-      }
-
       // OpenRouter provider routing preference
       const openrouterProvider = this.resolveOpenrouterProvider(options.openrouterProvider);
       if (this.shouldApplyOpenRouterProviderOverride(openrouterProvider)) {
@@ -1350,11 +1359,26 @@ export class OpenAIProvider extends BaseLLMProvider {
       }
     }
 
+    if (
+      this.shouldSendParameter(options, "reasoningEffort") &&
+      (!suppressModelParameters || this.isOpenRouterEndpoint())
+    ) {
+      this.applyChatCompletionsReasoning(body, options);
+    }
+
     this.applyOpenRouterServiceTier(body, options);
     this.applyCustomParameters(body, options);
     this.stripUnsupportedSamplerParameters(body, options);
 
-    logger.debug("[OpenAI chatComplete()] stream=%s model=%s onToken=%s", useStream, body.model, !!options.onToken);
+    logger.debug(
+      "[OpenAI chatComplete()] stream=%s model=%s reasoning=%s enableThinking=%s verbosity=%s onToken=%s",
+      useStream,
+      body.model,
+      this.requestReasoningLogValue(body),
+      !!options.enableThinking,
+      body.verbosity ?? "default",
+      !!options.onToken,
+    );
 
     const response = await llmFetch(url, {
       method: "POST",

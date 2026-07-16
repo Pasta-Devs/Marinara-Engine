@@ -511,18 +511,20 @@ function NoodleMentionSuggestions({
   );
 }
 
-function NoodlePostContent({
+function NoodleTextContent({
   content,
   accountByHandle,
   onOpenProfile,
+  className,
 }: {
   content: string;
   accountByHandle: Map<string, NoodleAccount>;
   onOpenProfile: (account: NoodleAccount) => void;
+  className?: string;
 }) {
   const mentions = findNoodleTextMentions(content);
   if (mentions.length === 0) {
-    return <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{content}</p>;
+    return <p className={cn("whitespace-pre-wrap text-sm", className)}>{content}</p>;
   }
 
   const parts: React.ReactNode[] = [];
@@ -549,7 +551,7 @@ function NoodlePostContent({
     cursor = mention.end;
   }
   if (cursor < content.length) parts.push(content.slice(cursor));
-  return <p className="mt-2 whitespace-pre-wrap text-sm leading-6">{parts}</p>;
+  return <p className={cn("whitespace-pre-wrap text-sm", className)}>{parts}</p>;
 }
 
 function NoodlePollCard({
@@ -3695,7 +3697,12 @@ export function NoodleView() {
                 </div>
               </div>
             ) : !poll || post.content.trim() !== poll.question ? (
-              <NoodlePostContent content={post.content} accountByHandle={accountByHandle} onOpenProfile={openProfile} />
+              <NoodleTextContent
+                content={post.content}
+                accountByHandle={accountByHandle}
+                onOpenProfile={openProfile}
+                className="mt-2 leading-6"
+              />
             ) : null}
             {poll && (
               <NoodlePollCard
@@ -3791,9 +3798,8 @@ export function NoodleView() {
                   const parentReply = reply.parentInteractionId
                     ? (replyById.get(reply.parentInteractionId) ?? null)
                     : null;
-                  const parentActor = parentReply
-                    ? (accountById.get(parentReply.actorAccountId) ?? parentReply.actorSnapshot)
-                    : null;
+                  const parentActorAccount = parentReply ? (accountById.get(parentReply.actorAccountId) ?? null) : null;
+                  const parentActor = parentActorAccount ?? parentReply?.actorSnapshot ?? null;
                   const replyLikes = postInteractions.filter(
                     (interaction) => interaction.type === "like" && interaction.parentInteractionId === reply.id,
                   );
@@ -3845,7 +3851,19 @@ export function NoodleView() {
                           </div>
                           {parentActor && (
                             <p className="mt-0.5 text-[var(--muted-foreground)]">
-                              Replying to <span className="text-[var(--noodle-blue)]">@{parentActor.handle}</span>
+                              Replying to{" "}
+                              {parentActorAccount ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openProfile(parentActorAccount)}
+                                  className="font-medium text-[var(--noodle-blue)] hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-blue)]/70"
+                                  aria-label={`View @${parentActorAccount.handle} profile`}
+                                >
+                                  @{parentActorAccount.handle}
+                                </button>
+                              ) : (
+                                <span className="text-[var(--noodle-blue)]">@{parentActor.handle}</span>
+                              )}
                             </p>
                           )}
                           {editingReplyId === reply.id ? (
@@ -3879,7 +3897,12 @@ export function NoodleView() {
                               </div>
                             </div>
                           ) : reply.content ? (
-                            <p className="mt-1 whitespace-pre-wrap text-sm leading-5">{reply.content}</p>
+                            <NoodleTextContent
+                              content={reply.content}
+                              accountByHandle={accountByHandle}
+                              onOpenProfile={openProfile}
+                              className="mt-1 leading-5"
+                            />
                           ) : null}
                           {reply.imageUrl && (
                             <button

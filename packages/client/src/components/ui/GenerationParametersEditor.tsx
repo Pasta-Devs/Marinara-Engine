@@ -11,6 +11,7 @@ import { cn } from "../../lib/utils";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { DraftTextarea } from "./DraftTextarea";
 import { HelpTooltip } from "./HelpTooltip";
+import { parseCustomParametersDraft } from "../../lib/generation-custom-parameters";
 
 export type EditableGenerationParameters = Pick<
   GenerationParameters,
@@ -499,11 +500,10 @@ function CustomParametersInput({
   const [focused, setFocused] = useState(false);
 
   useEffect(() => {
-    if (!focused) {
+    if (!focused && error === null) {
       setDraft(serialized);
-      setError(null);
     }
-  }, [focused, serialized]);
+  }, [error, focused, serialized]);
 
   const commit = () => {
     const parsed = parseCustomParametersDraft(draft);
@@ -543,14 +543,15 @@ function CustomParametersInput({
         }}
         rows={3}
         spellCheck={false}
+        aria-invalid={error ? true : undefined}
         className={PARAM_TEXTAREA_CLASS}
-        placeholder={focused ? "" : '{ "thinking": true }'}
+        placeholder={focused ? "" : '{ "reasoning_effort": "high" }'}
       />
       {error ? (
         <p className="mt-1 text-[0.5625rem] text-amber-500">{error}</p>
       ) : (
         <p className="mt-1 text-[0.5625rem] text-[var(--muted-foreground)]/70">
-          Must be a JSON object. Use lowercase true, false, and null.
+          Accepts strings, numbers, booleans, null, arrays, and nested objects. Bare string values are saved as strings.
         </p>
       )}
     </div>
@@ -560,34 +561,6 @@ function CustomParametersInput({
 function stringifyCustomParameters(value: Record<string, unknown> | null | undefined): string {
   if (!value || Object.keys(value).length === 0) return "";
   return JSON.stringify(value, null, 2);
-}
-
-function parseCustomParametersDraft(
-  draft: string,
-): { ok: true; value: Record<string, unknown> } | { ok: false; error: string } {
-  const trimmed = draft.trim();
-  if (!trimmed) return { ok: true, value: {} };
-
-  const attempts = [trimmed];
-  const normalized = trimmed
-    .replace(/\bTrue\b/g, "true")
-    .replace(/\bFalse\b/g, "false")
-    .replace(/\bNone\b/g, "null");
-  if (normalized !== trimmed) attempts.push(normalized);
-
-  for (const attempt of attempts) {
-    try {
-      const parsed = JSON.parse(attempt);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return { ok: true, value: parsed as Record<string, unknown> };
-      }
-      return { ok: false, error: "Custom parameters must be a JSON object, not an array or scalar." };
-    } catch {
-      // Try the next normalized variant.
-    }
-  }
-
-  return { ok: false, error: "Invalid JSON. Check quotes, commas, and boolean casing." };
 }
 
 function ParamInput({
