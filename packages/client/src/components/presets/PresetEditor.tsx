@@ -67,27 +67,8 @@ import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { EditorTabRail } from "../ui/EditorTabRail";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
+import { handleTextareaTab } from "../../lib/textarea-editing";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
-
-/** Intercept Tab in a textarea to insert 2 spaces instead of changing focus. */
-function handleTextareaTab(
-  e: React.KeyboardEvent<HTMLTextAreaElement>,
-  value: string,
-  setValue: (v: string) => void,
-  formatValue: (v: string) => string = (v) => v,
-) {
-  if (e.key !== "Tab") return;
-  e.preventDefault();
-  const ta = e.currentTarget;
-  const start = ta.selectionStart;
-  const end = ta.selectionEnd;
-  const newValue = formatValue(value.substring(0, start) + "  " + value.substring(end));
-  setValue(newValue);
-  // Restore cursor position after React re-renders
-  requestAnimationFrame(() => {
-    ta.selectionStart = ta.selectionEnd = start + 2;
-  });
-}
 
 // ── Input caret helpers ──
 type TextSelection = { start: number; end: number };
@@ -2692,21 +2673,7 @@ function ExpandedEditorModal({
               ref={textareaRef}
               value={local}
               onChange={handleChange}
-              onKeyDown={(e) =>
-                handleTextareaTab(
-                  e,
-                  local,
-                  (v) => {
-                    const nextValue = formatQuotes(v);
-                    setLocal(nextValue);
-                    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-                    timeoutRef.current = setTimeout(() => {
-                      onChange(nextValue);
-                    }, 600);
-                  },
-                  formatQuotes,
-                )
-              }
+              onKeyDown={handleTextareaTab}
               className="mari-editor-field h-full w-full resize-none p-4 font-mono text-sm"
               placeholder="Prompt content… (supports macros like {{user}}, {{char}}, etc.)"
             />

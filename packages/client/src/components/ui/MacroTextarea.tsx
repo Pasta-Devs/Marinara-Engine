@@ -4,6 +4,7 @@ import { BookOpen, Maximize2, X } from "lucide-react";
 import { SUPPORTED_MACROS } from "@marinara-engine/shared";
 
 import { cn } from "../../lib/utils";
+import { handleTextareaTab } from "../../lib/textarea-editing";
 
 type MacroDefinition = (typeof SUPPORTED_MACROS)[number];
 
@@ -56,14 +57,6 @@ interface ExpandedMacroEditorProps {
   formatOnChange?: (textarea: HTMLTextAreaElement) => string;
 }
 
-function insertTextAtSelection(target: HTMLTextAreaElement, insertText: string): { value: string; cursor: number } {
-  const { selectionStart, selectionEnd, value } = target;
-  return {
-    value: `${value.slice(0, selectionStart)}${insertText}${value.slice(selectionEnd)}`,
-    cursor: selectionStart + insertText.length,
-  };
-}
-
 function ExpandedMacroEditor({
   open,
   title,
@@ -112,21 +105,9 @@ function ExpandedMacroEditor({
 
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-      if (event.key !== "Tab") {
-        return;
-      }
-
-      event.preventDefault();
-      const target = event.currentTarget;
-      const next = insertTextAtSelection(target, "  ");
-      setLocalValue(next.value);
-      onChange(next.value);
-      requestAnimationFrame(() => {
-        target.selectionStart = next.cursor;
-        target.selectionEnd = next.cursor;
-      });
+      handleTextareaTab(event);
     },
-    [onChange],
+    [],
   );
 
   if (!open) {
@@ -136,6 +117,7 @@ function ExpandedMacroEditor({
   return (
     <MacroModalPortal>
       <div
+        data-component="ExpandedMacroEditor"
         className={cn(
           "fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
@@ -328,16 +310,9 @@ export function MacroTextarea({
         return;
       }
 
-      event.preventDefault();
-      const target = event.currentTarget;
-      const next = insertTextAtSelection(target, "  ");
-      onChange(next.value);
-      requestAnimationFrame(() => {
-        target.selectionStart = next.cursor;
-        target.selectionEnd = next.cursor;
-      });
+      handleTextareaTab(event);
     },
-    [onChange, onKeyDown],
+    [onKeyDown],
   );
 
   const affordanceButtonClassName = cn(
