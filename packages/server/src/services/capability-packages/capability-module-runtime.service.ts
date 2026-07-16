@@ -14,13 +14,16 @@ import {
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { parseGameJsonish } from "../game/jsonish.js";
 import { capabilityPackageManager } from "./package-manager.service.js";
 import {
   registerCapabilityConversationCommand,
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
 import { registerCapabilityService } from "./capability-service-registry.service.js";
+import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
 import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
+import { createCapabilityResourceHost } from "./capability-resources.service.js";
 
 type Cleanup = () => void | Promise<void>;
 type CapabilityActivationContext = {
@@ -38,6 +41,8 @@ type CapabilityActivationContext = {
 function createCapabilityRuntimeHost(app: FastifyInstance): CapabilityRuntimeHost {
   return Object.freeze({
     isDebugAgentsEnabled,
+    json: Object.freeze({ parseJsonish: parseGameJsonish }),
+    languageModels: createCapabilityLanguageModelHost(app.db),
     logger: Object.freeze({
       debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
         Reflect.apply(logger.debug, logger, [message, ...args]),
@@ -51,6 +56,7 @@ function createCapabilityRuntimeHost(app: FastifyInstance): CapabilityRuntimeHos
         logDebugOverride(overrideEnabled, message, ...args),
     }),
     persistence: createCapabilityPersistenceHost(app.db),
+    resources: createCapabilityResourceHost(app.db),
   });
 }
 type CapabilityModule = {

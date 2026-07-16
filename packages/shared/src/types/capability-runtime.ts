@@ -13,10 +13,72 @@ export interface CapabilityRuntimeLogger {
 
 export interface CapabilityChatRecord {
   id: string;
+  name: string;
   mode: ChatMode;
+  characterIds: string[];
+  connectionId: string | null;
   metadata: unknown;
   lastMessageAt: string | null;
   updatedAt: string;
+}
+
+export interface CapabilityCharacterRecord {
+  id: string;
+  data: unknown;
+}
+
+export interface CapabilityLorebookEntryRecord {
+  id: string;
+  lorebookId: string;
+  lorebookName: string;
+  name: string;
+  content: string;
+  description: string;
+}
+
+export interface CapabilityLorebookEntrySelection {
+  lorebookIds: string[];
+  entryIds: string[];
+  excludedLorebookIds?: string[];
+  excludedSourceAgentIds?: string[];
+}
+
+export interface CapabilityResourceHost {
+  listCharacters(characterIds: string[]): Promise<CapabilityCharacterRecord[]>;
+  listEligibleLorebookEntries(selection: CapabilityLorebookEntrySelection): Promise<CapabilityLorebookEntryRecord[]>;
+}
+
+export interface CapabilityLanguageModelMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface CapabilityLanguageModelCompletionOptions {
+  temperature?: number;
+  maxTokens?: number;
+  debugMode?: boolean;
+}
+
+export interface CapabilityLanguageModelCompletion {
+  content: string | null;
+  finishReason: string;
+}
+
+export interface CapabilityResolvedLanguageModel {
+  connectionId: string;
+  model: string;
+  chatComplete(
+    messages: CapabilityLanguageModelMessage[],
+    options?: CapabilityLanguageModelCompletionOptions,
+  ): Promise<CapabilityLanguageModelCompletion>;
+}
+
+export interface CapabilityLanguageModelHost {
+  resolve(connectionId?: string | null): Promise<CapabilityResolvedLanguageModel>;
+}
+
+export interface CapabilityJsonHost {
+  parseJsonish(raw: string): unknown;
 }
 
 export interface CapabilityMessageRecord {
@@ -102,6 +164,9 @@ export interface CapabilityPersistenceHost extends CapabilityPersistenceSession 
 
 export interface CapabilityRuntimeHost {
   isDebugAgentsEnabled(): boolean;
+  json: CapabilityJsonHost;
+  languageModels: CapabilityLanguageModelHost;
   logger: CapabilityRuntimeLogger;
   persistence: CapabilityPersistenceHost;
+  resources: CapabilityResourceHost;
 }

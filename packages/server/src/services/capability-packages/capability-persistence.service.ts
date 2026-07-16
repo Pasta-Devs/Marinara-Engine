@@ -22,10 +22,24 @@ import {
 } from "../../db/schema/index.js";
 import { withChatMetadataPatchQueue } from "../storage/chats.storage.js";
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === "string");
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 function mapChat(row: typeof chats.$inferSelect): CapabilityChatRecord {
   return {
     id: row.id,
+    name: row.name,
     mode: row.mode,
+    characterIds: parseStringArray(row.characterIds),
+    connectionId: row.connectionId,
     metadata: row.metadata,
     lastMessageAt: row.lastMessageAt,
     updatedAt: row.updatedAt,

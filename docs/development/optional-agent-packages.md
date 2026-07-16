@@ -31,7 +31,10 @@ compatibility store. Packages can validate domain changes inside an Engine
 transaction and atomically commit metadata with an owner message, swipe, or spatial
 snapshot without receiving a database handle or table object. Engine retains
 rollback and historical-storage compatibility; packages retain validation and
-domain policy.
+domain policy. The same API exposes normalized chat and character records, eligible
+lore-entry selection, JSON-ish response parsing, and resolved language-model calls.
+Connection credentials, provider implementations, database handles, and storage
+objects remain private to Engine.
 
 ## Initial packages
 

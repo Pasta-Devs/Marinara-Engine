@@ -251,8 +251,25 @@ try {
       if (typeof api.runtime.persistence?.listExistingLorebookEntryIds !== "function") {
         throw new Error("Capability lore entry lookup is unavailable");
       }
+      if (typeof api.runtime.resources?.listCharacters !== "function") {
+        throw new Error("Capability character resources are unavailable");
+      }
+      if (typeof api.runtime.resources?.listEligibleLorebookEntries !== "function") {
+        throw new Error("Capability lore resources are unavailable");
+      }
+      if (typeof api.runtime.languageModels?.resolve !== "function") {
+        throw new Error("Capability language model host is unavailable");
+      }
+      if (typeof api.runtime.json?.parseJsonish !== "function") {
+        throw new Error("Capability JSON parser is unavailable");
+      }
+      if (api.runtime.json.parseJsonish('Preface\\n{"ok":true}').ok !== true) {
+        throw new Error("Capability JSON parser returned an invalid result");
+      }
       await api.runtime.persistence.spatialSnapshots.listForChat("__marinara_capability_self_check__");
       await api.runtime.persistence.listExistingLorebookEntryIds([]);
+      await api.runtime.resources.listCharacters([]);
+      await api.runtime.resources.listEligibleLorebookEntries({ lorebookIds: [], entryIds: [] });
       api.registerService("readiness:success", { active: true, debugAgentsEnabled });
     }
     export async function selfCheck() {}`,
@@ -270,7 +287,11 @@ try {
   const { createCapabilityPersistenceHost } = await import(
     "../../packages/server/src/services/capability-packages/capability-persistence.service.js"
   );
+  const { createCapabilityResourceHost } = await import(
+    "../../packages/server/src/services/capability-packages/capability-resources.service.js"
+  );
   const persistence = createCapabilityPersistenceHost(db);
+  const resources = createCapabilityResourceHost(db);
   const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
   const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
   const rollbackChat = await createChatsStorage(db).create({
@@ -281,6 +302,9 @@ try {
   assert.ok(rollbackChat);
   const rollbackChatBefore = await persistence.getChat(rollbackChat.id);
   assert.ok(rollbackChatBefore);
+  assert.equal(rollbackChatBefore.name, "Capability persistence rollback fixture");
+  assert.deepEqual(rollbackChatBefore.characterIds, []);
+  assert.equal(rollbackChatBefore.connectionId, null);
   const lorebooks = createLorebooksStorage(db);
   const lorebook = await lorebooks.create({ name: "Capability persistence fixture" });
   assert.ok(lorebook);
@@ -293,6 +317,24 @@ try {
   assert.deepEqual(
     await persistence.listExistingLorebookEntryIds([lorebookEntry.id, "missing-entry", lorebookEntry.id]),
     [lorebookEntry.id],
+  );
+  assert.deepEqual(await resources.listEligibleLorebookEntries({ lorebookIds: [lorebook.id], entryIds: [] }), [
+    {
+      id: lorebookEntry.id,
+      lorebookId: lorebook.id,
+      lorebookName: "Capability persistence fixture",
+      name: "Existing capability entry",
+      content: "A stable lore entry used by the capability persistence regression.",
+      description: "",
+    },
+  ]);
+  assert.deepEqual(
+    await resources.listEligibleLorebookEntries({
+      lorebookIds: [lorebook.id],
+      entryIds: [lorebookEntry.id],
+      excludedLorebookIds: [lorebook.id],
+    }),
+    [],
   );
   await persistence.spatialSnapshots.create({
     id: "rollback-original-snapshot",
