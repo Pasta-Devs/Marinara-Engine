@@ -20,7 +20,7 @@ type CapabilityElementNode = HTMLElement & {
 
 interface CapabilityElementProps {
   packageId: string;
-  view: "surface" | "setup" | "settings" | "toolbar" | "workspace" | "runtime" | "world-map";
+  view: "surface" | "setup" | "settings" | "toolbar" | "detail" | "workspace" | "runtime" | "world-map";
   capabilityProps?: Record<string, unknown>;
   className?: string;
 }
@@ -106,6 +106,35 @@ function CapabilityLoadingState({
               className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/60"
             >
               <X size="0.75rem" /> Close
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+  if (view === "detail") {
+    return (
+      <div
+        className={cn(
+          className === "contents" ? undefined : className,
+          "flex min-h-0 flex-1 flex-col justify-center overflow-hidden px-5",
+        )}
+        data-capability-client-state="loading"
+        data-capability-package-id={packageId}
+      >
+        <div className="mx-auto w-full max-w-3xl space-y-4" role="status" aria-live="polite">
+          <span className="sr-only">{statusCopy}</span>
+          <div className="h-5 w-48 animate-pulse rounded bg-[var(--muted)]" />
+          <div className="h-3 w-full animate-pulse rounded bg-[var(--muted)]/70" />
+          <div className="h-3 w-2/3 animate-pulse rounded bg-[var(--muted)]/70" />
+          <div className="h-32 animate-pulse rounded-xl bg-[var(--muted)]/45" />
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]/60"
+            >
+              <X size="0.75rem" /> Back to Agents
             </button>
           ) : null}
         </div>
@@ -209,6 +238,13 @@ function CapabilityFailureState({
       </div>
     </div>
   );
+  if (view === "detail") {
+    return (
+      <div className={cn(className === "contents" ? undefined : className, "flex min-h-0 flex-1 items-center px-5")}>
+        <div className="mx-auto w-full max-w-3xl">{failure}</div>
+      </div>
+    );
+  }
   if (view !== "workspace" && view !== "setup") return failure;
   return (
     <div
