@@ -149,6 +149,11 @@ try {
     { agentIds: ["hierarchical-maps"] },
     "Stable Engines must parse newer agent-detail metadata before applying compatibility gates",
   );
+  assert.match(
+    getCapabilityApiCompatibilityIssue(forwardCompatibleCatalog.packages[0]!.manifest) ?? "",
+    /requires capability API 1\.3; this Engine supports 1\.0/,
+    "Parsing newer contribution metadata must not bypass capability API compatibility gates",
+  );
 
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
   seedWhisperModels();
@@ -196,6 +201,7 @@ try {
     generatedAt: "2026-07-16T00:00:00.000Z",
     packages: [
       catalogEntry(callsUpdateManifest),
+      forwardCompatibleCatalog.packages[0]!,
       catalogEntry(futureEngineManifest),
       catalogEntry(futureCapabilityManifest),
       catalogEntry(coreUpdateManifest),

@@ -1021,6 +1021,34 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   expect(errors).toEqual([]);
 });
 
+test("agent catalog reports API failures without diagnosing an internet outage", async ({ page }) => {
+  await page.route("**/api/capability-packages/catalog", async (route) => {
+    await route.fulfill({
+      status: 400,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Validation Error" }),
+    });
+  });
+  await page.route("**/api/capability-packages/installed", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/capability-packages/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  await page.route("**/api/agents", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+
+  await page.goto("/");
+  await page.locator('[data-tour="panel-agents"]').click();
+  await page.getByLabel("Agents").getByRole("button", { name: "Download Agents", exact: true }).click();
+
+  const catalogView = page.locator('[data-component="AgentCatalogView"]');
+  await expect(catalogView.getByText("The agent catalog is unavailable.")).toBeVisible();
+  await expect(catalogView.getByText(/Marinara Engine returned HTTP 400: Validation Error\./)).toBeVisible();
+  await expect(catalogView.getByText(/Check the server internet connection/)).toHaveCount(0);
+});
+
 test("Music Player links to Music DJ while its package is unavailable", async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   let musicDjInstalled = false;

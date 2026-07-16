@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
-  WifiOff,
+  TriangleAlert,
 } from "lucide-react";
 import { compareCapabilityPackageVersions, type CapabilityCatalogPackage } from "@marinara-engine/shared";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ import {
   useUninstallAllCapabilityPackages,
   useUninstallCapabilityPackage,
 } from "../../hooks/use-capability-packages";
-import { getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
@@ -44,6 +44,15 @@ type BulkActionProgress = {
 function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function catalogErrorDescription(error: unknown) {
+  const offlineSuffix = "Installed agents remain available offline.";
+  if (error instanceof ApiError) {
+    return `Marinara Engine returned HTTP ${error.status}: ${error.message}. ${offlineSuffix}`;
+  }
+  if (error instanceof Error && error.message) return `${error.message}. ${offlineSuffix}`;
+  return `Marinara Engine could not load the official catalog. ${offlineSuffix}`;
 }
 
 function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
@@ -340,11 +349,11 @@ export function AgentCatalogView() {
               </div>
             ) : catalog.isError ? (
               <div className="flex min-h-56 flex-col items-center justify-center gap-3 px-4 text-center">
-                <WifiOff size="2rem" className="text-[var(--muted-foreground)]" />
+                <TriangleAlert size="2rem" className="text-[var(--muted-foreground)]" />
                 <div>
                   <p className="font-semibold">The agent catalog is unavailable.</p>
                   <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                    Check the server internet connection. Installed agents remain available offline.
+                    {catalogErrorDescription(catalog.error)}
                   </p>
                 </div>
                 <button

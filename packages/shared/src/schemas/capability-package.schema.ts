@@ -50,6 +50,12 @@ const capabilityPackageManifestBaseSchema = z.object({
         })
         .strict()
         .optional(),
+      agentDetail: z
+        .object({
+          agentIds: z.array(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80)).min(1).max(32),
+        })
+        .strict()
+        .optional(),
     })
     .strict()
     .optional(),
