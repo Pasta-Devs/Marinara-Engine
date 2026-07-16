@@ -879,7 +879,9 @@ export function ChatArea() {
   const chatCharIds = useMemo(() => getChatCharacterIds({ characterIds: chatCharacterIdsRaw }), [chatCharacterIdsRaw]);
   const chatPersonaId = useMemo(() => resolveChatPersonaId(chat), [chat]);
   const { data: chatPersona } = usePersona(chatPersonaId);
-  const { data: activePersonaFallback } = useActivePersona(!!chat?.id && !chatPersonaId && !isGameChat);
+  const { data: activePersonaFallback } = useActivePersona(
+    !!chat?.id && !chatPersonaId && chatMode === "conversation",
+  );
 
   const activeCharacterQueries = useQueries({
     queries: chatCharIds.map((id) => ({
@@ -1043,8 +1045,9 @@ export function ChatArea() {
 
   // Active persona info (for user message styling: name, avatar, colors)
   const personaInfo = useMemo(() => {
-    // Prefer per-chat personaId, fall back to the globally active persona outside Game mode.
-    const persona = chatPersona ?? (!isGameChat ? activePersonaFallback : null);
+    // Roleplay and Game may intentionally have no Persona; only Conversation
+    // falls back to the globally active account Persona.
+    const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
     if (!persona) return undefined;
     const avatarCrop =
       typeof persona.avatarCrop === "string" ? parseAvatarCropJson(persona.avatarCrop) : (persona.avatarCrop ?? null);
@@ -1064,7 +1067,7 @@ export function ChatArea() {
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
     };
-  }, [activePersonaFallback, chatPersona, isGameChat]);
+  }, [activePersonaFallback, chatMode, chatPersona]);
 
   const { startEncounter } = useEncounter();
   const { concludeScene, abandonScene, forkScene, isForking } = useScene();
@@ -1513,14 +1516,14 @@ export function ChatArea() {
   // (personas have no other data-card-css hook), so only feed it in Convo mode.
   const cardCssPersonas = useMemo<PersonaCssRow[] | undefined>(() => {
     if (chatMode !== "conversation") return undefined;
-    const persona = (chatPersona ?? (!isGameChat ? activePersonaFallback : null)) as
+    const persona = (chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null)) as
       | { id?: string; creatorNotes?: string | null }
       | null
       | undefined;
     return persona?.id
       ? [{ id: persona.id, creatorNotes: typeof persona.creatorNotes === "string" ? persona.creatorNotes : null }]
       : undefined;
-  }, [chatMode, chatPersona, activePersonaFallback, isGameChat]);
+  }, [chatMode, chatPersona, activePersonaFallback]);
   const cardCssInjector = (
     <CreatorNotesCssInjector
       characterIds={chatCharIds}

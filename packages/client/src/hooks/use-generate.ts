@@ -27,6 +27,7 @@ import {
   createInlineThinkingStreamFilter,
   EDITABLE_CHARACTER_CARD_FIELDS,
   normalizeThinkingTagPairs,
+  resolveChatPersonaCandidate,
   type AgentWriteApprovalProposal,
   type AgentCallDebugEvent,
   type CharacterCardFieldUpdate,
@@ -1156,12 +1157,10 @@ export function useGenerate() {
           qc.getQueryData<any>(chatKeys.detail(params.chatId)) ??
           (qc.getQueryData<any[]>(chatKeys.list()) ?? []).find((c: any) => c.id === params.chatId);
         const chatPersonaId = activeChat?.personaId as string | null | undefined;
-        // Game mode skips the active-persona fallback, matching the server's snapshot stamping
+        // Roleplay may intentionally have no Persona. Keep optimistic snapshot
+        // stamping identical to the server's Conversation-only fallback policy.
         const snapshotPersona = cachedPersonas
-          ? ((chatPersonaId ? cachedPersonas.find((p) => p.id === chatPersonaId) : null) ??
-            (activeChat?.mode !== "game"
-              ? cachedPersonas.find((p) => p.isActive === "true" || p.isActive === true)
-              : null))
+          ? resolveChatPersonaCandidate(cachedPersonas, chatPersonaId, activeChat?.mode)
           : null;
         const personaSnapshot = snapshotPersona
           ? {

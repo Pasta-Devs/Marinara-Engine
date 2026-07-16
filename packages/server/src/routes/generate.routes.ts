@@ -345,6 +345,7 @@ import {
   clampRoleplaySummaryContextSize,
   clampRoleplaySummaryInterval,
   clampRoleplaySummaryMaxTokens,
+  formatRoleplaySummaryChatLog,
   isAutomaticRoleplaySummaryEnabled,
   parseChatSummaryText,
   resolveChatSummaryPrompt,
@@ -829,8 +830,8 @@ export async function generateRoutes(app: FastifyInstance) {
           .catch(releaseActiveGenerationAndRethrow);
       }
 
-      // Snapshot persona info for per-message persona tracking
-      // (game mode skips the active-persona fallback, matching the prompt's persona resolution below)
+      // Snapshot Persona info for per-message tracking. Only Conversation may
+      // fall back to the active Persona; Roleplay and Game can stay Persona-less.
       if (userMsg?.id) {
         const snapshotPersonas = await chars.listPersonas().catch(releaseActiveGenerationAndRethrow);
         const snapshotPersona = resolveActivePersonaCandidate(snapshotPersonas, chat.personaId, requestChatMode);
@@ -1285,8 +1286,8 @@ export async function generateRoutes(app: FastifyInstance) {
         throw new Error("All characters in this chat are disabled. Enable at least one character before generating.");
       }
 
-      // Resolve persona — prefer per-chat personaId, fall back to globally active persona
-      // (Game mode skips the fallback — persona must be explicitly selected in the setup wizard)
+      // Resolve Persona — explicit selection always wins, while only
+      // Conversation may fall back to the globally active Persona.
       let personaId: string | null = null;
       let personaName = "User";
       let personaPhoneticName = "";
@@ -6245,9 +6246,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const summaryProvider = resolvedSummaryConnection.provider;
           const summaryModel = resolvedSummaryConnection.model;
 
-          const chatLog = selectedMessages
-            .map((message: any) => `[${message.role}]: ${(message.content as string).slice(0, 2000)}`)
-            .join("\n\n");
+          const chatLog = formatRoleplaySummaryChatLog(selectedMessages);
           const previousSummary = typeof chatMeta.summary === "string" ? chatMeta.summary.trim() : "";
           const globalSummaryPromptSettings = await appSettings.get(CHAT_SUMMARY_PROMPT_SETTINGS_KEY);
           const result = await summaryProvider.chatComplete(

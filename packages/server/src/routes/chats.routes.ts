@@ -112,6 +112,7 @@ import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.
 import { persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
 import {
   clampRoleplaySummaryMaxTokens,
+  formatRoleplaySummaryChatLog,
   resolveChatSummaryPrompt,
 } from "../services/generation/roleplay-summary-runtime.js";
 import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
@@ -354,8 +355,8 @@ async function buildPersonaSnapshotForChat(
   const charactersStore = createCharactersStorage(app.db);
   const personas = await charactersStore.listPersonas();
   const chatPersonaId = chat?.personaId ?? null;
-  // Game mode skips the active-persona fallback — persona must be explicitly
-  // selected in the setup wizard (mirrors generate.routes.ts persona resolution).
+  // Only Conversation falls back to the active Persona. Roleplay and Game may
+  // intentionally remain Persona-less (mirrors generate.routes.ts resolution).
   const persona = resolveActivePersonaCandidate(personas, chatPersonaId, chat?.mode);
 
   if (!persona) return null;
@@ -3689,9 +3690,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (selectedMessages.length === 0) {
       return reply.status(400).send({ error: "No non-hidden messages available for the requested summary range" });
     }
-    const chatLog = selectedMessages
-      .map((m: any) => `[${m.role}]: ${(m.content as string).slice(0, 2000)}`)
-      .join("\n\n");
+    const chatLog = formatRoleplaySummaryChatLog(selectedMessages);
 
     const previousSummary = chatMeta.summary ?? null;
     const requestedPromptTemplateId =

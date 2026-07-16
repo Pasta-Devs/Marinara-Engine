@@ -22,6 +22,7 @@ import {
   LIMITS,
   resolveRegexPatternLiteralMacros,
   resolveGameSetupArtStylePrompt,
+  resolveChatPersonaCandidate,
   resolveMacros,
   resolveAgentPromptTemplate,
   resolveDefaultAgentPromptTemplateId,
@@ -246,11 +247,13 @@ import {
   collectLatestTrackerCharacterHistory,
   injectIntoOutputFormatOrLastUser,
   preserveTrackerCharacterUiFields,
+  resolveActivePersonaCandidate,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   stripSpeakerTagsExceptLastAssistant,
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import { formatRoleplaySummaryChatLog } from "../../packages/server/src/services/generation/roleplay-summary-runtime.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
 import {
   calibrateLorebookSimilarity,
@@ -2715,6 +2718,22 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "Roleplay preserves an explicit no-Persona selection",
+    run() {
+      const personas = [
+        { id: "active-persona", isActive: "true" },
+        { id: "selected-persona", isActive: "false" },
+      ];
+
+      assert.equal(resolveChatPersonaCandidate(personas, null, "roleplay"), null);
+      assert.equal(resolveActivePersonaCandidate(personas, null, "roleplay"), null);
+      assert.equal(resolveActivePersonaCandidate(personas, null, "visual_novel"), null);
+      assert.equal(resolveActivePersonaCandidate(personas, null, "game"), null);
+      assert.equal(resolveActivePersonaCandidate(personas, null, "conversation")?.id, "active-persona");
+      assert.equal(resolveActivePersonaCandidate(personas, "selected-persona", "roleplay")?.id, "selected-persona");
+    },
+  },
+  {
     name: "chat summaries normalize legacy data and compile enabled entries only",
     run() {
       const legacyEntries = normalizeChatSummaryEntries([], {
@@ -2737,6 +2756,27 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       ]);
 
       assert.equal(compiled, "The previous scene was summarized.");
+
+      const chapterMessage = "A".repeat(8_500);
+      assert.equal(
+        formatRoleplaySummaryChatLog([{ role: "assistant", content: chapterMessage }]),
+        `[assistant]: ${chapterMessage}`,
+        "Roleplay Summary must send a chapter-length source message without per-message truncation",
+      );
+
+      const largeSummary = "Summary detail. ".repeat(5_000);
+      const compiledLargeSummary = compileChatSummaryEntries([
+        {
+          ...legacyEntries[0]!,
+          id: "large-summary",
+          content: largeSummary,
+        },
+      ]);
+      assert.equal(
+        compiledLargeSummary,
+        largeSummary.trim(),
+        "Compiled chat metadata must preserve summaries larger than the former 64 KiB ceiling",
+      );
     },
   },
   {

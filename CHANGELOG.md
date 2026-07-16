@@ -11,6 +11,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept new Roleplay chats Persona-less when the user selects no Persona, including the first optimistic message snapshot, provider prompt, scene generation, and combat context; only Conversation mode may fall back to the globally active Persona.
+- Removed Roleplay Summary's 2,000-character truncation for each source message and the 64 KiB compiled-summary ceiling in `chats.json`, so chapter-length messages and accumulated summaries remain complete unless the selected model rejects the request.
 - Preserved greetings, example dialogue, creator notes, system prompts, post-history instructions, character versions, and alternate greetings when Professor Mari or another app-data caller updates an unrelated Character Card field (#3708).
 - Restored native undo and redo in shared text editors, including lorebook Content and Description fields, and made `Tab` / `Shift+Tab` indent or unindent every selected line without replacing the selection.
 - Resolved `{{user}}`, `{{char}}`, and other prompt macros in opening greetings and `/guided` instructions at the final provider boundary, including lorebook routing and embedding scans, so late prompt injections cannot send raw identity placeholders to models (#3704).

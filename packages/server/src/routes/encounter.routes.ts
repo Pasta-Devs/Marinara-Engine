@@ -154,15 +154,14 @@ async function buildCharacterContext(chars: ReturnType<typeof createCharactersSt
 
 /**
  * Build persona context. Prefers the chat-scoped persona (`chat.personaId`)
- * before falling back to the globally active persona — mirrors the same
- * resolution order used elsewhere (see `chats.routes.ts`). Without this, a
+ * before Conversation-only fallback to the globally active Persona — mirrors
+ * the resolution order used elsewhere (see `chats.routes.ts`). Without this, a
  * user who picks a per-chat persona but doesn't have a matching global active
  * persona ends up named "User" in combat because the encounter prompt's
  * `${personaName}` placeholder defaulted to that string.
  *
- * Game mode skips the active-persona fallback — persona must be explicitly
- * selected in the setup wizard (see generate.routes.ts persona resolution),
- * so a persona-less game stays persona-less in combat too.
+ * Roleplay and Game skip active-Persona fallback, so both can intentionally
+ * remain Persona-less in combat prompts.
  */
 async function buildPersonaContext(
   chars: ReturnType<typeof createCharactersStorage>,

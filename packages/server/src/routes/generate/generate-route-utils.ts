@@ -13,6 +13,7 @@ import {
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
   resolveMacros,
+  resolveChatPersonaCandidate,
   unwrapConversationInstructions,
   wrapConversationInstructions,
   type CharacterStat,
@@ -43,20 +44,15 @@ export type SpeakerPrefixMessage = SimpleMessage & {
 export type StoredGenerationParameters = Partial<GenerationParameters>;
 
 /**
- * Resolve the persona visible to a chat. An explicit chat persona always wins;
- * non-game chats may fall back to the globally active persona, while Game Mode
- * deliberately remains persona-less unless setup selected one.
+ * Preserve the route-layer export while sharing the same Persona policy with
+ * the client: only Conversation falls back to the globally active Persona.
  */
 export function resolveActivePersonaCandidate<T extends { id: string; isActive?: unknown }>(
   personas: readonly T[],
   chatPersonaId: string | null | undefined,
   chatMode: string | null | undefined,
 ): T | null {
-  return (
-    (chatPersonaId ? personas.find((persona) => persona.id === chatPersonaId) : null) ??
-    (chatMode !== "game" ? personas.find((persona) => persona.isActive === "true") : null) ??
-    null
-  );
+  return resolveChatPersonaCandidate(personas, chatPersonaId, chatMode);
 }
 
 export type LocalSidecarGenerationConnection = {
