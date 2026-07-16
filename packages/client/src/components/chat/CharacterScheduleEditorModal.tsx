@@ -11,6 +11,8 @@ import { Modal } from "../ui/Modal";
 import { api } from "../../lib/api-client";
 import { cn, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
 import { toast } from "sonner";
+import { useUIStore } from "../../stores/ui.store";
+import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;
@@ -469,6 +471,7 @@ export function CharacterScheduleEditorModal({
         schedule: currentSchedule,
         guidance: generationGuidance,
         draftMode: weekDraftMode,
+        timeZone: useUIStore.getState().conversationTimeZone,
       });
       applyDraftAndMarkSummaryStale((current) => ({
         ...createDraft(result.schedule),
@@ -497,6 +500,7 @@ export function CharacterScheduleEditorModal({
         schedule: currentSchedule,
         guidance: generationGuidance,
         dayGuidance: specificGuidance,
+        timeZone: useUIStore.getState().conversationTimeZone,
       });
       applyDraftAndMarkSummaryStale((current) => ({ ...current, days: { ...current.days, [result.day]: result.blocks } }));
       if (blocksEqual(previousBlocks, result.blocks)) {
@@ -522,6 +526,10 @@ export function CharacterScheduleEditorModal({
   return (
     <Modal open={open} onClose={onClose} title={`Edit ${characterName} Schedule`} width="max-w-5xl" chatFloatingPanel>
       <div className="space-y-4">
+        <div className="rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
+          <ConversationTimeZoneSelect compact />
+        </div>
+
         <div className="rounded-xl bg-[var(--secondary)] p-4 ring-1 ring-[var(--border)]">
           <div className="flex min-w-0 gap-3 sm:gap-4">
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[var(--background)] ring-1 ring-[var(--border)] sm:h-20 sm:w-20">

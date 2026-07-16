@@ -928,6 +928,21 @@ export function resolveActiveCharacterIds(
   return characterIds;
 }
 
+export type GroupGenerationMode = "merged" | "individual";
+
+/**
+ * Conversation groups are always generated as one merged provider response so
+ * the model can decide which present characters speak in the turn. Only
+ * roleplay-style chats honor an explicit merged/individual mode.
+ */
+export function resolveGroupGenerationMode(
+  chatMode: string | null | undefined,
+  configuredMode: unknown,
+): GroupGenerationMode {
+  if (chatMode === "conversation") return "merged";
+  return configuredMode === "individual" ? "individual" : "merged";
+}
+
 export function resolvePromptCharacterIdsForTarget(
   characterIds: string[],
   targetCharacterId: string | null | undefined,

@@ -101,7 +101,7 @@
 
 ## Latest Release
 
-Current stable release: **[v2.3.0](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.3.0)**.
+Current stable release: **[v2.3.1](https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.3.1)**.
 
 See [CHANGELOG.md](CHANGELOG.md) for detailed release notes. Tagged releases use the `vX.Y.Z` format and are published on the [Releases](https://github.com/Pasta-Devs/Marinara-Engine/releases) page with a Windows installer, Android bootstrap APK, and named versioned source ZIP. Android APKs are Termux bootstrap + WebView shells: they can download Termux from F-Droid, launch Android's installer, start the Termux setup flow after required permission prompts, then open the local Marinara server on the same device.
 
@@ -135,7 +135,7 @@ Each guide covers installation, updating, and LAN access for that platform. See 
 
 Upgrading from an older release? See [Upgrading Marinara Engine](docs/UPGRADING.md) for the platform-by-platform upgrade path.
 
-Security defaults are intentionally local-first: loopback access works out of the box, ordinary LAN and public clients require Basic Auth unless you explicitly opt back in, and Tailscale (`100.64.0.0/10`) plus Docker bridge (`172.16.0.0/12`) traffic are trusted by default for easier private installs. Set `BYPASS_AUTH_TAILSCALE=false` or `BYPASS_AUTH_DOCKER=false` if you want those clients to authenticate too. `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores unauthenticated access for other trusted private networks; public clients still require `ALLOW_UNAUTHENTICATED_REMOTE=true`. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control).
+Security defaults are intentionally local-first: loopback access works out of the box, ordinary LAN and public clients require Basic Auth unless you explicitly opt back in, and Tailscale (`100.64.0.0/10`) plus same-host Docker bridge/gateway traffic are trusted by default for easier private installs. Set `BYPASS_AUTH_TAILSCALE=false` or `BYPASS_AUTH_DOCKER=false` if you want those clients to authenticate too. `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores unauthenticated access for other trusted private networks; public clients still require `ALLOW_UNAUTHENTICATED_REMOTE=true`. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control).
 
 ---
 
@@ -151,7 +151,7 @@ Character expression sprites with automatic emotion switching, custom scene back
 
 ### AI Agent System
 
-An optional one-click catalog of 29 first-party agents and feature packages. Fresh installs stay lightweight with no bundled agents. Open **Agents → Download Agents** to install only what you want; update or uninstall packages from the same responsive catalog. Existing installations retain their agents during upgrade. Package sources, artifacts, and the complete catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). You can also create or import custom agents.
+An optional one-click catalog of 29 first-party agents and feature packages. Fresh installs stay lightweight with no bundled agents. Open **Agents → Download Agents** to install only what you want or uninstall packages you no longer need. Installed official packages automatically update to the newest compatible catalog version when the Marinara server starts, while remaining available at their current version when the server is offline. Existing installations retain their agents during Engine upgrades. Package sources, artifacts, and the complete catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). You can also create or import custom agents.
 
 - **Writer Agents:** Prose Guardian, Continuity Checker, Narrative Director, Knowledge Retrieval, Knowledge Router, and Card Evolution Auditor.
 - **Tracker Agents:** World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, and Hierarchical Maps.

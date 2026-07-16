@@ -15,6 +15,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createHash } from "crypto";
 import { eq } from "./file-query.js";
+import { migrateLegacyDefaultConversationPromptLead } from "./default-conversation-prompt-migration.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -236,6 +237,18 @@ async function computePresetSnapshotHash(
   );
 }
 
+async function migrateExistingMarinaraConversationPrompt(
+  storage: ReturnType<typeof createPromptsStorage>,
+  preset: { id: string; conversationPrompt?: unknown },
+  bundledPrompt: string,
+): Promise<boolean> {
+  const currentPrompt = typeof preset.conversationPrompt === "string" ? preset.conversationPrompt : "";
+  const migratedPrompt = migrateLegacyDefaultConversationPromptLead(currentPrompt, bundledPrompt);
+  if (migratedPrompt === currentPrompt) return false;
+  await storage.update(preset.id, { conversationPrompt: migratedPrompt });
+  return true;
+}
+
 async function applyBundledPresetToExisting(
   db: DB,
   storage: ReturnType<typeof createPromptsStorage>,
@@ -348,24 +361,41 @@ export async function seedDefaultPreset(db: DB) {
 
   const appliedHash = await appSettings.get(MARINARA_PRESET_SEED_HASH_KEY);
   const appliedSnapshotHash = await appSettings.get(MARINARA_PRESET_SNAPSHOT_KEY);
+  const bundledConversationPromptValue = bundledConversationPrompt(bundled.envelope.data.preset);
   if (existingMarinaraPreset && appliedHash !== bundled.hash) {
     if (!appliedSnapshotHash) {
+      const migratedConversationPrompt = await migrateExistingMarinaraConversationPrompt(
+        storage,
+        existingMarinaraPreset,
+        bundledConversationPromptValue,
+      );
       await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
       await appSettings.set(MARINARA_PRESET_SNAPSHOT_KEY, computeBundledPresetSnapshotHash(bundled.envelope));
       logger.info(
         "[seed] Preserved existing Marinara universal preset without prior snapshot while recording bundled hash %s",
         bundled.hash.slice(0, 12),
       );
+      if (migratedConversationPrompt) {
+        logger.info("[seed] Updated the legacy Marinara Conversation prompt lead sentence");
+      }
       return;
     }
 
     const currentSnapshotHash = await computePresetSnapshotHash(storage, existingMarinaraPreset.id);
     if (currentSnapshotHash && currentSnapshotHash !== appliedSnapshotHash) {
+      const migratedConversationPrompt = await migrateExistingMarinaraConversationPrompt(
+        storage,
+        existingMarinaraPreset,
+        bundledConversationPromptValue,
+      );
       await appSettings.set(MARINARA_PRESET_SEED_HASH_KEY, bundled.hash);
       logger.info(
         "[seed] Preserved customized Marinara universal preset while recording bundled hash %s",
         bundled.hash.slice(0, 12),
       );
+      if (migratedConversationPrompt) {
+        logger.info("[seed] Updated the legacy Marinara Conversation prompt lead sentence");
+      }
       return;
     }
 
@@ -377,6 +407,17 @@ export async function seedDefaultPreset(db: DB) {
     if (nextSnapshotHash) await appSettings.set(MARINARA_PRESET_SNAPSHOT_KEY, nextSnapshotHash);
     logger.info("[seed] Updated bundled Marinara universal preset to %s", bundled.hash.slice(0, 12));
     return;
+  }
+
+  if (
+    existingMarinaraPreset &&
+    (await migrateExistingMarinaraConversationPrompt(
+      storage,
+      existingMarinaraPreset,
+      bundledConversationPromptValue,
+    ))
+  ) {
+    logger.info("[seed] Updated the legacy Marinara Conversation prompt lead sentence");
   }
 
   if (existingMarinaraPreset && !appliedSnapshotHash) {

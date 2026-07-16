@@ -38,7 +38,11 @@ import {
   initializeActivityFromMessages,
 } from "../services/conversation/autonomous.service.js";
 import { getActiveTurnGame } from "../services/turn-games/turn-game-runner.service.js";
-import { normalizePromptTimeZone, toZonedWallClockDate } from "../services/conversation/timezone.js";
+import {
+  normalizePromptTimeZone,
+  resolveConversationTimeZone,
+  toZonedWallClockDate,
+} from "../services/conversation/timezone.js";
 import {
   getIntentHint,
   isIntentOnCooldown,
@@ -180,6 +184,7 @@ function resolveLongAbsenceCandidate(
   statusOverrides: Record<string, ConversationStatusOverride>,
   meta: Record<string, unknown>,
   now = new Date(),
+  scheduleNow = now,
 ):
   | { characterId: string; intent: AutonomousIntentPayload }
   | { blockedReason: "daily_budget_exhausted" | "intent_cooldown" }
@@ -189,14 +194,20 @@ function resolveLongAbsenceCandidate(
 
   const candidates = Object.entries(schedules)
     .filter(([characterId, schedule]) => {
-      const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[characterId], now);
+      const { status } = getEffectiveCurrentStatus(
+        schedule,
+        statusOverrides[characterId],
+        now,
+        "free time",
+        scheduleNow,
+      );
       return status !== "offline";
     })
     .sort(([, a], [, b]) => b.talkativeness - a.talkativeness);
 
   let blockedReason: "daily_budget_exhausted" | "intent_cooldown" | null = null;
   for (const [characterId, schedule] of candidates) {
-    const intent = resolveAutonomousIntentPayload(chatId, characterId, schedule, meta, now);
+    const intent = resolveAutonomousIntentPayload(chatId, characterId, schedule, meta, scheduleNow);
     if (intent.autonomousIntentKey !== "long_absence_check_in") continue;
 
     if (isAutonomousDailyBudgetExhausted(characterId, schedule, meta)) {
@@ -365,6 +376,19 @@ export async function conversationRoutes(app: FastifyInstance) {
   const chars = createCharactersStorage(app.db);
   const connections = createConnectionsStorage(app.db);
 
+  async function rememberConversationTimeZone(timeZone: string): Promise<number> {
+    const allChats = await chats.list();
+    let updatedChats = 0;
+    for (const chat of allChats) {
+      if (chat.mode !== "conversation") continue;
+      const metadata = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+      if (normalizePromptTimeZone(metadata.conversationTimeZone) === timeZone) continue;
+      await chats.patchMetadata(chat.id, { conversationTimeZone: timeZone }, { touchUpdatedAt: false });
+      updatedChats += 1;
+    }
+    return updatedChats;
+  }
+
   async function createConversationAgentProvider(
     conn: NonNullable<Awaited<ReturnType<typeof connections.getWithKey>>>,
     baseUrl: string,
@@ -435,6 +459,15 @@ export async function conversationRoutes(app: FastifyInstance) {
     return merged;
   }
 
+  app.put<{
+    Body: { timeZone?: unknown };
+  }>("/schedule/timezone", async (req, reply) => {
+    const timeZone = normalizePromptTimeZone(req.body.timeZone);
+    if (!timeZone) return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
+    const updatedChats = await rememberConversationTimeZone(timeZone);
+    return reply.send({ timeZone, updatedChats });
+  });
+
   app.post<{
     Body: {
       chatId: string;
@@ -445,6 +478,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       guidance?: string;
       dayGuidance?: string;
       draftMode?: string;
+      timeZone?: unknown;
     };
   }>("/schedule/draft", async (req, reply) => {
     const { chatId, characterId, mode } = req.body;
@@ -452,6 +486,15 @@ export async function conversationRoutes(app: FastifyInstance) {
     const dayGuidance = typeof req.body.dayGuidance === "string" ? req.body.dayGuidance.trim() : "";
     const context = await resolveScheduleGenerationContext(chatId, characterId);
     if ("error" in context) return reply.status(context.errorStatus ?? 400).send({ error: context.error });
+    const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
+    if (req.body.timeZone != null && !requestedTimeZone) {
+      return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
+    }
+    if (requestedTimeZone) await rememberConversationTimeZone(requestedTimeZone);
+    const contextMeta =
+      typeof context.chat.metadata === "string" ? JSON.parse(context.chat.metadata) : (context.chat.metadata ?? {});
+    const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(contextMeta);
+    const scheduleNow = toZonedWallClockDate(new Date(), scheduleTimeZone);
     const { charData, provider, model } = context;
 
     try {
@@ -469,6 +512,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           req.body.schedule,
           guidance,
           dayGuidance,
+          scheduleTimeZone,
         );
         return reply.send({ day, blocks });
       }
@@ -485,10 +529,11 @@ export async function conversationRoutes(app: FastifyInstance) {
           : undefined,
         {
           draftMode: parseWeekScheduleDraftMode(req.body.draftMode),
+          timeZone: scheduleTimeZone,
         },
       );
       const fullSchedule = preserveDraftScheduleFields(
-        { ...schedule, weekStart: getMonday().toISOString() },
+        { ...schedule, weekStart: getMonday(scheduleNow).toISOString() },
         req.body.schedule,
       );
       return reply.send({ schedule: fullSchedule });
@@ -530,6 +575,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       forceRefresh?: boolean;
       characterIds?: string[];
       scheduleGenerationPreferences?: string;
+      timeZone?: unknown;
     };
   }>("/schedule/generate", async (req, reply) => {
     const { chatId, forceRefresh } = req.body;
@@ -544,6 +590,11 @@ export async function conversationRoutes(app: FastifyInstance) {
     const chat = await chats.getById(chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     if (chat.mode !== "conversation") return reply.status(400).send({ error: "Not a conversation chat" });
+    const requestedTimeZone = normalizePromptTimeZone(req.body.timeZone);
+    if (req.body.timeZone != null && !requestedTimeZone) {
+      return reply.status(400).send({ error: "timeZone must be a valid IANA timezone" });
+    }
+    if (requestedTimeZone) await rememberConversationTimeZone(requestedTimeZone);
 
     // Resolve connection (need decrypted API key; "random" is a sentinel, not a persisted connection id)
     const { conn, error: connectionError } = await resolveConversationScheduleConnection(
@@ -555,6 +606,10 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (!baseUrl) return reply.status(400).send({ error: "No base URL" });
 
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
+    if (requestedTimeZone) meta.conversationTimeZone = requestedTimeZone;
+    const scheduleTimeZone = requestedTimeZone ?? resolveConversationTimeZone(meta);
+    const nowInstant = new Date();
+    const scheduleNow = toZonedWallClockDate(nowInstant, scheduleTimeZone);
     const existingSchedules: CharacterSchedules = hasSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
     // Prefer client-supplied characterIds (avoids race condition with DB persistence)
     const characterIds: string[] =
@@ -566,7 +621,7 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const provider = await createConversationAgentProvider(conn, baseUrl);
     const model = conn.model ?? "";
-    const mondayStr = getMonday().toISOString();
+    const mondayStr = getMonday(scheduleNow).toISOString();
 
     const preserveTimingSettings = (schedule: WeekSchedule, existing?: WeekSchedule): WeekSchedule => {
       if (!existing) {
@@ -601,7 +656,7 @@ export async function conversationRoutes(app: FastifyInstance) {
         if (!areConversationSchedulesEnabled(m)) continue;
         const scheds: CharacterSchedules = getEnabledConversationSchedules(m);
         for (const [cid, sched] of Object.entries(scheds)) {
-          if (sched && !otherChatSchedules.has(cid) && !scheduleNeedsRefresh(sched)) {
+          if (sched && !otherChatSchedules.has(cid) && !scheduleNeedsRefresh(sched, scheduleNow)) {
             otherChatSchedules.set(cid, sched);
           }
         }
@@ -612,7 +667,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     for (const charId of characterIds) {
       // Check if schedule exists and is fresh
       const existing = existingSchedules[charId];
-      if (existing && !forceRefresh && !scheduleNeedsRefresh(existing)) {
+      if (existing && !forceRefresh && !scheduleNeedsRefresh(existing, scheduleNow)) {
         results[charId] = { status: "fresh" };
         continue;
       }
@@ -628,7 +683,13 @@ export async function conversationRoutes(app: FastifyInstance) {
           if (charRow) {
             const charData = JSON.parse(charRow.data as string) as CharacterData;
             const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
-            const { status } = getEffectiveCurrentStatus(mergedShared, statusOverrides[charId]);
+            const { status } = getEffectiveCurrentStatus(
+              mergedShared,
+              statusOverrides[charId],
+              nowInstant,
+              "free time",
+              scheduleNow,
+            );
             const extensions = { ...(charData.extensions ?? {}), conversationStatus: status };
             await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
               skipVersionSnapshot: true,
@@ -666,6 +727,7 @@ export async function conversationRoutes(app: FastifyInstance) {
           charData.personality ?? "",
           userSchedulePreferences,
           recentContinuityContext,
+          { timeZone: scheduleTimeZone },
         );
         logger.info("[schedule] Generated schedule for %s, days: %s", charData.name, Object.keys(schedule.days ?? {}));
 
@@ -680,7 +742,13 @@ export async function conversationRoutes(app: FastifyInstance) {
 
         // Update character's conversationStatus to match current schedule
         const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
-        const { status } = getEffectiveCurrentStatus(fullSchedule, statusOverrides[charId]);
+        const { status } = getEffectiveCurrentStatus(
+          fullSchedule,
+          statusOverrides[charId],
+          nowInstant,
+          "free time",
+          scheduleNow,
+        );
         const extensions = { ...(charData.extensions ?? {}), conversationStatus: status };
         await chars.update(charId, { extensions } as Partial<CharacterData>, undefined, {
           skipVersionSnapshot: true,
@@ -777,6 +845,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
 
     const now = new Date();
+    const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
     const statuses: Record<
       string,
       { status: string; activity: string; schedule?: WeekSchedule; override?: object; lastContact?: string }
@@ -785,7 +854,13 @@ export async function conversationRoutes(app: FastifyInstance) {
     for (const charId of characterIds) {
       const schedule = schedules[charId];
       if (!schedule) {
-        const { status, activity, override } = getEffectiveCurrentStatus(null, statusOverrides[charId], now, "");
+        const { status, activity, override } = getEffectiveCurrentStatus(
+          null,
+          statusOverrides[charId],
+          now,
+          "",
+          scheduleNow,
+        );
         const charRow = await chars.getById(charId);
         if (charRow) {
           const charData = JSON.parse(charRow.data as string) as CharacterData;
@@ -804,7 +879,13 @@ export async function conversationRoutes(app: FastifyInstance) {
         statuses[charId] = { status, activity, override, lastContact: lastContactMap[charId] };
         continue;
       }
-      const { status, activity, override } = getEffectiveCurrentStatus(schedule, statusOverrides[charId], now);
+      const { status, activity, override } = getEffectiveCurrentStatus(
+        schedule,
+        statusOverrides[charId],
+        now,
+        "free time",
+        scheduleNow,
+      );
 
       // Sync the character's conversationStatus in the database
       const charRow = await chars.getById(charId);
@@ -828,7 +909,10 @@ export async function conversationRoutes(app: FastifyInstance) {
       statuses[charId] = { status, activity, schedule, override, lastContact: lastContactMap[charId] };
     }
 
-    return reply.send({ statuses, needsRefresh: Object.values(schedules).some((s) => scheduleNeedsRefresh(s)) });
+    return reply.send({
+      statuses,
+      needsRefresh: Object.values(schedules).some((schedule) => scheduleNeedsRefresh(schedule, scheduleNow)),
+    });
   });
 
   // ─────────────────────────────────────────────
@@ -878,8 +962,9 @@ export async function conversationRoutes(app: FastifyInstance) {
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
 
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
-    const promptTimeZone = normalizePromptTimeZone(meta.promptTimeZone);
-    const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
+    const promptTimeZone = resolveConversationTimeZone(meta);
+    const nowInstant = new Date();
+    const promptNow = toZonedWallClockDate(nowInstant, promptTimeZone);
 
     // Check if autonomous messages are enabled
     if (!meta.autonomousMessages) {
@@ -911,7 +996,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     for (const cid of characterIds) {
       const schedule = schedules[cid];
       if (!schedule) continue;
-      const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[cid], promptNow);
+      const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[cid], nowInstant, "free time", promptNow);
       const charRow = await chars.getById(cid);
       if (!charRow) continue;
       const charData = JSON.parse(charRow.data as string);
@@ -951,6 +1036,7 @@ export async function conversationRoutes(app: FastifyInstance) {
     const result = checkAutonomousMessaging(chatId, filteredSchedules, isGroup, {
       maxFollowups: req.body.maxFollowups,
       statusOverrides,
+      actualNow: nowInstant,
       scheduleNow: promptNow,
     });
     if (result.reason === "generation_in_progress") return reply.send(result);
@@ -975,7 +1061,14 @@ export async function conversationRoutes(app: FastifyInstance) {
       if (blockedReason) return reply.send(blockedAutonomousResponse(blockedReason));
     }
 
-    const longAbsence = resolveLongAbsenceCandidate(chatId, filteredSchedules, statusOverrides, meta, promptNow);
+    const longAbsence = resolveLongAbsenceCandidate(
+      chatId,
+      filteredSchedules,
+      statusOverrides,
+      meta,
+      nowInstant,
+      promptNow,
+    );
     if (longAbsence) {
       if ("blockedReason" in longAbsence) return reply.send(blockedAutonomousResponse(longAbsence.blockedReason));
       const state = getActivityState(chatId);
@@ -997,7 +1090,13 @@ export async function conversationRoutes(app: FastifyInstance) {
       const onlineCharIds = characterIds.filter((cid) => {
         if (sceneBusyCharIds.includes(cid)) return false;
         const schedule = autonomySchedules[cid];
-        const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[cid], promptNow);
+        const { status } = getEffectiveCurrentStatus(
+          schedule,
+          statusOverrides[cid],
+          nowInstant,
+          "free time",
+          promptNow,
+        );
         return status !== "offline";
       });
 
@@ -1062,13 +1161,27 @@ export async function conversationRoutes(app: FastifyInstance) {
     const schedule = schedules[characterId];
     const meta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
     const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
+    const now = new Date();
+    const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
 
     if (!schedule) {
-      const { status, activity } = getEffectiveCurrentStatus(null, statusOverrides[characterId], undefined, "");
+      const { status, activity } = getEffectiveCurrentStatus(
+        null,
+        statusOverrides[characterId],
+        now,
+        "",
+        scheduleNow,
+      );
       return reply.send({ delayMs: getBusyDelay(status), status, activity });
     }
 
-    const { status, activity } = getEffectiveCurrentStatus(schedule, statusOverrides[characterId]);
+    const { status, activity } = getEffectiveCurrentStatus(
+      schedule,
+      statusOverrides[characterId],
+      now,
+      "free time",
+      scheduleNow,
+    );
     const delayMs = getBusyDelay(status, schedule);
 
     return reply.send({ delayMs, status, activity });
@@ -1100,6 +1213,8 @@ export async function conversationRoutes(app: FastifyInstance) {
 
     const schedules: CharacterSchedules = await chats.inheritFreshConversationSchedules(chatId);
     const statusOverrides = parseConversationStatusOverrides(meta.conversationStatusOverrides);
+    const now = new Date();
+    const scheduleNow = toZonedWallClockDate(now, resolveConversationTimeZone(meta));
     const sceneBusyCharIds: string[] = meta.sceneBusyCharIds ?? [];
     const filteredSchedules = { ...schedules };
     for (const busyId of sceneBusyCharIds) {
@@ -1111,7 +1226,7 @@ export async function conversationRoutes(app: FastifyInstance) {
       messages as Array<{ role: string; createdAt?: string; characterId?: string | null }>,
     );
 
-    const result = checkCharacterExchange(chatId, lastSpeakerCharId, filteredSchedules, statusOverrides);
+    const result = checkCharacterExchange(chatId, lastSpeakerCharId, filteredSchedules, statusOverrides, now, scheduleNow);
     if (result.shouldTrigger) {
       const allowedCharacterId = result.characterIds.find(
         (characterId) => !isAutonomousDailyBudgetExhausted(characterId, schedules[characterId], meta),

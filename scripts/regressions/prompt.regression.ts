@@ -28,6 +28,7 @@ import {
   type AgentContext,
   type ChatMLMessage,
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
+  DEFAULT_CONVERSATION_PROMPT,
   getDefaultAgentPrompt,
   replaceBuiltInAgentDefinitions,
   GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
@@ -62,6 +63,70 @@ import {
   selectConditionalPayloadBranch,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
+import {
+  formatNoodleTimelineForPrompt,
+  NOODLE_PERSONA_IDENTITY_INSTRUCTION,
+} from "../../packages/server/src/services/noodle/noodle-prompt.js";
+
+const personaA = {
+  id: "noodle-account-a",
+  kind: "persona" as const,
+  entityId: "persona-a",
+  handle: "persona_a",
+  displayName: "Persona A",
+  avatarUrl: null,
+  avatarCrop: null,
+};
+const personaB = {
+  id: "noodle-account-b",
+  kind: "persona" as const,
+  entityId: "persona-b",
+  handle: "persona_b",
+  displayName: "Persona B",
+  avatarUrl: null,
+  avatarCrop: null,
+};
+const formattedPersonaTimeline = formatNoodleTimelineForPrompt(
+  [
+    {
+      id: "post-a",
+      authorAccountId: personaA.id,
+      authorSnapshot: personaA,
+      content: "Post from A",
+      imageUrl: null,
+      imagePrompt: null,
+      metadata: {},
+      createdAt: "2026-07-16T00:00:00.000Z",
+    },
+    {
+      id: "post-b",
+      authorAccountId: personaB.id,
+      authorSnapshot: personaB,
+      content: "Post from B",
+      imageUrl: null,
+      imagePrompt: null,
+      metadata: {},
+      createdAt: "2026-07-16T00:01:00.000Z",
+    },
+  ],
+  [
+    {
+      id: "reply-b",
+      postId: "post-a",
+      parentInteractionId: null,
+      actorAccountId: personaB.id,
+      actorSnapshot: personaB,
+      type: "reply",
+      content: "B replies as B",
+      imageUrl: null,
+      createdAt: "2026-07-16T00:02:00.000Z",
+    },
+  ],
+);
+assert.match(formattedPersonaTimeline, /Persona A \(@persona_a; persona accountKey=persona:persona-a\)/);
+assert.match(formattedPersonaTimeline, /Persona B \(@persona_b; persona accountKey=persona:persona-b\)/);
+assert.match(formattedPersonaTimeline, /replyId=reply-b.*accountKey=persona:persona-b/);
+assert.match(NOODLE_PERSONA_IDENTITY_INSTRUCTION, /separate user identity/);
 
 const REGRESSION_AGENT_IDS = [
   "about-me-keeper", "background", "card-evolution-auditor", "character-tracker", "combat", "continuity",
@@ -121,7 +186,15 @@ import {
 } from "../../packages/server/src/services/video/prompt-context.js";
 import { resolveGameGmPromptTemplate } from "../../packages/server/src/services/generation/game-gm-prompt-runtime.js";
 import { countUserMessagesAfterSummaryAnchor } from "../../packages/server/src/services/conversation/auto-summary.service.js";
-import { prepareConversationPromptHistory } from "../../packages/server/src/routes/generate/conversation-history-runtime.js";
+import {
+  prepareConversationPromptHistory,
+  resolveConversationMembershipHistoryEvent,
+} from "../../packages/server/src/routes/generate/conversation-history-runtime.js";
+import { formatConversationGroupOutputFormat } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
+import {
+  LEGACY_DEFAULT_CONVERSATION_PROMPT_LEAD,
+  migrateLegacyDefaultConversationPromptLead,
+} from "../../packages/server/src/db/default-conversation-prompt-migration.js";
 import {
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
@@ -141,7 +214,7 @@ import { truncateRecalledMemory } from "../../packages/server/src/services/gener
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
-import { expandMarker } from "../../packages/server/src/services/prompt/marker-expander.js";
+import { expandMarker, type MarkerContext } from "../../packages/server/src/services/prompt/marker-expander.js";
 import {
   buildRuntimeAgentSectionEligibleTypesForTest,
   clearUnusedRuntimeAgentSectionsForTest,
@@ -851,7 +924,7 @@ const cases: RegressionCase[] = [
         user: "Mari",
         char: "Dottore",
         characters: ["Dottore"],
-        variables: {},
+        variables: {} as Record<string, string>,
         personaFields: {
           description: "{{setvar::personaTouched::yes}}Unused persona description",
         },
@@ -2852,7 +2925,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         activatedEntries: [],
         budgetSkippedEntries: [],
       };
-      const markerCtx = {
+      const markerCtx: MarkerContext = {
         db: undefined as unknown as DB,
         chatId: "chat-lorebook-markup",
         characterIds: [],
@@ -3170,6 +3243,92 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "Conversation group output rule follows the preset wrap format",
+    run() {
+      const instruction = "Remember to prefix messages with `Name: message`!";
+      const responseBoundary =
+        "Only respond for these characters: Dottore, Pantalone. Never respond for Mari or write Mari's messages.";
+      const formatOutput = (wrapFormat: "xml" | "markdown" | "none") =>
+        formatConversationGroupOutputFormat({
+          wrapFormat,
+          characterNames: ["Dottore", "Pantalone"],
+          userName: "Mari",
+        });
+      assert.equal(
+        formatOutput("xml"),
+        `<output_format>\n    ${instruction}\n    ${responseBoundary}\n</output_format>`,
+      );
+      assert.equal(formatOutput("markdown"), `## Output Format\n${instruction}\n${responseBoundary}`);
+      assert.equal(formatOutput("none"), `${instruction}\n${responseBoundary}`);
+
+      const contextSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/conversation-context-block.ts", import.meta.url),
+        "utf8",
+      );
+      assert.equal(contextSource.includes(instruction), false);
+    },
+  },
+  {
+    name: "Conversation reaction syntax is advertised only inside Commands",
+    run() {
+      const routeSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const commandSource = readFileSync(
+        new URL(
+          "../../packages/server/src/services/generation/conversation-command-runtime.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      );
+      assert.equal(routeSource.includes("each character reacts for themselves"), false);
+      assert.match(commandSource, /\[react: emoji="😂"\].*\[react: emoji=":name:"\]/u);
+    },
+  },
+  {
+    name: "Conversation membership events recognize tagged and legacy timeline notices",
+    run() {
+      assert.equal(
+        resolveConversationMembershipHistoryEvent({
+          role: "system",
+          content: "Arlecchino has joined the chat.",
+          extra: { conversationMembershipEvent: "joined" },
+        }),
+        "joined",
+      );
+      assert.equal(
+        resolveConversationMembershipHistoryEvent({ role: "system", content: "Arlecchino has left the chat." }),
+        "left",
+      );
+      assert.equal(
+        resolveConversationMembershipHistoryEvent({ role: "system", content: "Stay in character." }),
+        null,
+      );
+    },
+  },
+  {
+    name: "default Conversation identity wording is safe for DMs and groups",
+    run() {
+      assert.match(
+        DEFAULT_CONVERSATION_PROMPT,
+        /^You are \{\{charName\}\} chatting with the user called \{\{userName\}\} in a casual private DM conversation\. You are real and autonomous people\./u,
+      );
+      const customizedTail = "\nKeep this installation-specific instruction.";
+      assert.equal(
+        migrateLegacyDefaultConversationPromptLead(
+          LEGACY_DEFAULT_CONVERSATION_PROMPT_LEAD + customizedTail,
+          DEFAULT_CONVERSATION_PROMPT,
+        ),
+        DEFAULT_CONVERSATION_PROMPT.split("\n", 1)[0] + customizedTail,
+      );
+      assert.equal(
+        migrateLegacyDefaultConversationPromptLead("A genuinely custom opening.", DEFAULT_CONVERSATION_PROMPT),
+        "A genuinely custom opening.",
+      );
+    },
+  },
+  {
     name: "past Conversation scene summaries compact into day and week summaries",
     async run() {
       const oldCreatedAt = "2026-06-23T12:00:00.000Z";
@@ -3177,13 +3336,29 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const oldSceneSummary = "OLD_SCENE_SUMMARY_MUST_NOT_REMAIN_VERBATIM";
       const currentSceneSummary = "CURRENT_SCENE_SUMMARY_MUST_REMAIN_VERBATIM";
       const authoredSystemInstruction = "AUTHORED_SYSTEM_INSTRUCTION_MUST_REMAIN";
+      const legacySetupMembership = "SETUP_ONLY has joined the chat.";
+      const currentMembership = "Tartaglia has joined the chat.";
       const chatMessages = [
+        { id: "legacy-setup-membership", role: "system", content: legacySetupMembership, createdAt: oldCreatedAt },
         { id: "old-user", role: "user", content: "An older conversation turn.", createdAt: oldCreatedAt },
         { id: "old-scene", role: "narrator", content: oldSceneSummary, createdAt: oldCreatedAt },
         { id: "authored-system", role: "system", content: authoredSystemInstruction, createdAt: oldCreatedAt },
         { id: "current-scene", role: "narrator", content: currentSceneSummary, createdAt: currentCreatedAt },
+        {
+          id: "current-membership",
+          role: "system",
+          content: currentMembership,
+          createdAt: currentCreatedAt,
+          extra: { conversationMembershipEvent: "joined" },
+        },
       ];
       const finalMessages = [
+        {
+          id: "legacy-setup-membership",
+          role: "system" as const,
+          content: legacySetupMembership,
+          contextKind: "history" as const,
+        },
         { id: "old-user", role: "user" as const, content: "An older conversation turn.", contextKind: "history" as const },
         { id: "old-scene", role: "system" as const, content: oldSceneSummary, contextKind: "history" as const },
         {
@@ -3193,6 +3368,12 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           contextKind: "history" as const,
         },
         { id: "current-scene", role: "system" as const, content: currentSceneSummary, contextKind: "history" as const },
+        {
+          id: "current-membership",
+          role: "system" as const,
+          content: currentMembership,
+          contextKind: "history" as const,
+        },
       ];
 
       const prepared = await prepareConversationPromptHistory({
@@ -3238,6 +3419,8 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, /An older conversation turn\./u);
       assert.match(promptText, new RegExp(currentSceneSummary, "u"));
       assert.match(promptText, new RegExp(authoredSystemInstruction, "u"));
+      assert.equal(promptText.includes(legacySetupMembership), false, promptText);
+      assert.match(promptText, new RegExp(currentMembership, "u"));
     },
   },
   {

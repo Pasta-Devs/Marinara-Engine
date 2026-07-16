@@ -99,7 +99,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
     }
   });
 
-  // Existing installations retain the capabilities the previous release shipped. Fresh installs stay empty.
+  // Existing installations retain their selected capabilities and receive compatible package updates.
+  // Fresh installs stay empty.
   let migratedLegacyCapabilities = false;
   if (getNodeEnv() !== "test") {
     try {
@@ -111,6 +112,30 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       migratedLegacyCapabilities = migration.migrated;
     } catch (error) {
       app.log.warn(error, "Optional package availability migration did not complete; it will retry next startup");
+    }
+    if (!migratedLegacyCapabilities) {
+      try {
+        const packageUpdates = await capabilityPackageManager.updateInstalledPackagesToLatest();
+        for (const update of packageUpdates.updated) {
+          app.log.info(
+            "Automatically updated capability package %s from %s to %s",
+            update.id,
+            update.previousVersion,
+            update.version,
+          );
+        }
+        for (const failure of packageUpdates.failures) {
+          app.log.warn(
+            failure.error,
+            "Could not automatically update capability package %s from %s to %s; keeping the installed version",
+            failure.id,
+            failure.previousVersion,
+            failure.version,
+          );
+        }
+      } catch (error) {
+        app.log.warn(error, "Automatic capability package update check failed; installed versions remain available");
+      }
     }
   }
   resetTurnGameRegistry(false);

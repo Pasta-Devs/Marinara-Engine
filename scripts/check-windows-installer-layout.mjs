@@ -5,9 +5,14 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..");
 const installerPath = resolve(REPO_ROOT, "win/installer/installer.nsi");
+const sharedPackagePath = resolve(REPO_ROOT, "packages/shared/package.json");
 
 try {
-  const content = await readFile(installerPath, "utf8");
+  const [content, sharedPackageSource] = await Promise.all([
+    readFile(installerPath, "utf8"),
+    readFile(sharedPackagePath, "utf8"),
+  ]);
+  const sharedPackage = JSON.parse(sharedPackageSource);
   const lines = content.split(/\r?\n/);
   const code = lines.map((line) => (/^\s*;/.test(line) ? "" : line)).join("\n");
 
@@ -32,6 +37,13 @@ try {
   ];
 
   const failures = unsafePatterns.filter(({ pattern }) => pattern.test(code));
+  const sharedBuild = sharedPackage?.scripts?.build;
+  if (typeof sharedBuild !== "string" || /\bpnpm(?:\.cmd)?\s/i.test(sharedBuild)) {
+    failures.push({
+      message:
+        "The shared workspace build must not invoke nested pnpm; Windows Corepack-only launchers do not put a global pnpm executable on PATH.",
+    });
+  }
 
   const uninstallStart = code.indexOf('Section "Uninstall"');
   const packageRemoval = code.indexOf('RMDir /r "$INSTDIR\\packages"', uninstallStart);
@@ -111,7 +123,7 @@ try {
     process.exit(1);
   }
 
-  console.log("Windows installer staging layout is safe.");
+  console.log("Windows installer layout and Corepack launcher compatibility are safe.");
 } catch (err) {
   console.error(err instanceof Error ? err.message : String(err));
   process.exit(1);

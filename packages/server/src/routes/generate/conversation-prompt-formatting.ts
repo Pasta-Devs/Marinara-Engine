@@ -1,7 +1,26 @@
 import type { WrapFormat } from "@marinara-engine/shared";
 
 import type { GenerationPromptMessage } from "../../services/generation/prompt-message-scope.js";
+import { wrapContent } from "../../services/prompt/format-engine.js";
 import { parseExtra } from "./generate-route-utils.js";
+
+export const CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION =
+  "Remember to prefix messages with `Name: message`!";
+
+export function formatConversationGroupOutputFormat(args: {
+  wrapFormat: WrapFormat;
+  characterNames: string[];
+  userName: string;
+}): string {
+  const characterList = Array.from(new Set(args.characterNames.map((name) => name.trim()).filter(Boolean))).join(", ");
+  const userName = args.userName.trim() || "the user";
+  const responseBoundary = `Only respond for these characters: ${characterList || "the listed characters"}. Never respond for ${userName} or write ${userName}'s messages.`;
+  return wrapContent(
+    [CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION, responseBoundary].join("\n"),
+    "Output Format",
+    args.wrapFormat,
+  );
+}
 
 function presetStringField(preset: Record<string, unknown> | null | undefined, field: string): string {
   const value = preset?.[field];

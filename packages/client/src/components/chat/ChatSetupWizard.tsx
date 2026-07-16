@@ -94,6 +94,7 @@ import {
   type AgentAddSetupState,
   type AgentAddSpriteSubject,
 } from "./AgentAddSetupFields";
+import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 
 // ─── Step definitions ─────────────────────────
 
@@ -1039,6 +1040,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
       characterCommands: hasConversationCommands && commandsEnabled,
       conversationCommandToggles,
+      conversationSetupComplete: true,
       chatParameters: customizeParameters ? generationParameters : null,
       customSystemPrompt,
     });
@@ -1046,10 +1048,12 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       setScheduleState("generating");
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        const conversationTimeZone = useUIStore.getState().conversationTimeZone;
         await api.post("/conversation/schedule/generate", {
           chatId: chat.id,
           characterIds: chatCharIds,
           scheduleGenerationPreferences,
+          timeZone: conversationTimeZone,
         });
         await queryClient.invalidateQueries({ queryKey: chatKeys.detail(chat.id) });
         await queryClient.invalidateQueries({ queryKey: ["conversation-status", chat.id] });
@@ -1462,6 +1466,12 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
             />
           </div>
         </button>
+      )}
+
+      {autonomousEnabled && generateSchedule && (
+        <div className="rounded-lg bg-[var(--secondary)]/55 px-3 py-2.5 ring-1 ring-[var(--border)]/80">
+          <ConversationTimeZoneSelect compact />
+        </div>
       )}
 
       {hasConversationCommands && (

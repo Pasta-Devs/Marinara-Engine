@@ -14,7 +14,7 @@ To protect your data, a fresh Marinara install refuses connections from other de
 
 1. Loopback (`127.0.0.1` or `::1`), the machine running the server itself.
 2. Tailscale devices in your tailnet. Tailscale is a private network tool, and its addresses use the `100.64.0.0/10` range.
-3. Docker containers on the same host, whose bridge addresses use the `172.16.0.0/12` range.
+3. Docker clients on the same host. Marinara recognizes the usual `172.16.0.0/12` bridge range and the container's exact default gateway, which also covers Docker Desktop and custom address pools.
 
 Everything else, such as your phone on the same Wi-Fi or a public-internet client, is blocked until you pick an option below. A blocked device that opens Marinara in a browser sees a dark setup page. Its title reads **This Marinara Engine install needs access control before remote devices can connect.** The page shows your device's own IP and two copy-paste `.env` snippets.
 
@@ -77,7 +77,7 @@ Some clients skip the password even when Basic Auth is on:
 
 - Loopback (`127.0.0.1`, `::1`), so you never need a password on the host machine itself.
 - Any address in `IP_ALLOWLIST`. Careful: setting an allowlist also blocks every unlisted address (see Option 2).
-- Tailscale (`100.64.0.0/10`) and Docker bridge (`172.16.0.0/12`) traffic, unless you turn their bypass off.
+- Tailscale (`100.64.0.0/10`) and same-host Docker bridge/gateway traffic, unless you turn their bypass off.
 - The `/api/health` address, so uptime monitors keep working.
 
 Important: Basic Auth only encodes the password. It does not encrypt it. Anyone watching an unencrypted connection can read it. If you expose Marinara to the public internet, pair Basic Auth with HTTPS (see below).
@@ -96,7 +96,7 @@ How the IP allowlist behaves:
 
 - Any address not in the list is rejected with **403 Forbidden**.
 - Loopback is always allowed, so you cannot lock yourself out of local access.
-- Tailscale and Docker bridge traffic also skips the list, unless you turn their bypass off (see below).
+- Tailscale and same-host Docker bridge/gateway traffic also skips the list, unless you turn their bypass off (see below).
 - Invalid entries are ignored and logged. They do not crash the server.
 - The allowlist stays strict even with Basic Auth on. Listed addresses skip the password prompt. Every other address is still blocked with **403 Forbidden** and never gets a login prompt.
 
@@ -131,7 +131,7 @@ BYPASS_AUTH_TAILSCALE=true
 BYPASS_AUTH_DOCKER=true
 ```
 
-These defaults are safe. A Tailscale peer already logged in to your Tailscale account to join. Docker bridge addresses are not reachable from outside the host. Even with Basic Auth on, your Tailscale and Docker clients still skip the prompt. The rest of your network must log in.
+These defaults are safe. A Tailscale peer already logged in to your Tailscale account to join. Docker bridge addresses and the exact gateway detected from inside the container represent the same Docker host. Even with Basic Auth on, your Tailscale and Docker clients still skip the prompt. The rest of your network must log in.
 
 Set a flag to false if you want a password from those clients too. There are two less common reasons to turn one off.
 
@@ -147,7 +147,7 @@ Your regular LAN may use `172.16.x.x` addresses. In that case, turn the Docker b
 BYPASS_AUTH_DOCKER=false
 ```
 
-Marinara may also sit behind a reverse proxy container on the Docker bridge. To make Marinara's own access checks apply to the clients the proxy forwards, set:
+Marinara may also sit behind a reverse proxy container on the Docker bridge or detected gateway. To make Marinara's own access checks apply to the clients the proxy forwards, set:
 
 ```env
 REQUIRE_AUTH_FOR_DOCKER_PROXY=true

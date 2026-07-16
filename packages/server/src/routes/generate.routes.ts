@@ -207,6 +207,7 @@ import {
   resolveActiveCharacterIds,
   resolveActivePersonaCandidate,
   resolveBaseUrl,
+  resolveGroupGenerationMode,
   resolveRoleplaySummaryTail,
   resolveCharacterNameMap,
   resolvePromptCharacterIdsForTarget,
@@ -239,6 +240,7 @@ import { resolveProfessorMariPromptContext } from "./generate/professor-mari-pro
 import {
   appendToFirstSystemMessage,
   conversationPromptHistoryContent,
+  formatConversationGroupOutputFormat,
   latestHistoryUserContent,
   resolvePresetModePrompt,
 } from "./generate/conversation-prompt-formatting.js";
@@ -410,7 +412,6 @@ import {
   type ConversationProfileParticipant,
 } from "../services/conversation/conversation-profiles.js";
 import {
-  isStandaloneCharacterProfileBlock,
   scopeIndividualGroupMessagesForTarget,
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
@@ -916,8 +917,10 @@ export async function generateRoutes(app: FastifyInstance) {
     let chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
     const requestTimeZone = normalizePromptTimeZone(input.userTimeZone);
     const storedPromptTimeZone = normalizePromptTimeZone(chatMeta.promptTimeZone);
-    const promptTimeZone = requestTimeZone ?? storedPromptTimeZone;
-    if (!input.autonomous && requestTimeZone && requestTimeZone !== storedPromptTimeZone) {
+    const conversationTimeZone =
+      chat.mode === "conversation" ? normalizePromptTimeZone(chatMeta.conversationTimeZone) : undefined;
+    const promptTimeZone = conversationTimeZone ?? requestTimeZone ?? storedPromptTimeZone;
+    if (!input.autonomous && !conversationTimeZone && requestTimeZone && requestTimeZone !== storedPromptTimeZone) {
       try {
         const updatedChat = await chats.patchMetadata(
           input.chatId,
@@ -1414,7 +1417,8 @@ export async function generateRoutes(app: FastifyInstance) {
         let conversationContextMacroSlots: ConversationContextMacroSlots = {
           ...EMPTY_CONVERSATION_CONTEXT_MACRO_SLOTS,
         };
-        let conversationReactRules: string | null = null;
+        let conversationIsGroup = false;
+        let conversationCharacterNames: string[] = [];
         let conversationImportantMemoryBlock: string | null = null;
         // Relocation-macro content captured for the deferred-{{#if}} decode pass
         // (#3448) — set where each is computed, read after all are known.
@@ -1534,12 +1538,7 @@ export async function generateRoutes(app: FastifyInstance) {
             }
           });
         const promptGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
-        const promptGroupChatMode =
-          chatMode === "conversation"
-            ? promptGroupResponseOrder === "manual"
-              ? "individual"
-              : "merged"
-            : ((chatMeta.groupChatMode as string) ?? "merged");
+        const promptGroupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
         const promptTargetCharacterId =
           typeof input.forCharacterId === "string" && characterIds.includes(input.forCharacterId)
             ? input.forCharacterId
@@ -1927,6 +1926,7 @@ export async function generateRoutes(app: FastifyInstance) {
             characterIds,
             chars,
             chats,
+            actualNow: new Date(),
             promptNow,
             forCharacterId: input.forCharacterId,
             mentionedCharacterNames: input.mentionedCharacterNames,
@@ -1954,6 +1954,8 @@ export async function generateRoutes(app: FastifyInstance) {
           chatMessages = presenceRuntime.chatMessages;
           finalMessages = presenceRuntime.finalMessages;
           const { convoCharInfo, convoCharNames, charNameList, isGroup } = presenceRuntime;
+          conversationIsGroup = isGroup;
+          conversationCharacterNames = convoCharNames;
 
           const nowInstant = new Date();
           const conversationSummaryFallback = await connections.getFallbackForAgents();
@@ -2055,13 +2057,6 @@ export async function generateRoutes(app: FastifyInstance) {
               ? resolvePresetModePrompt(resolvedPreset as Record<string, unknown>, "conversation")
               : "";
 
-          const earlyGroupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
-          const earlyGroupMode =
-            chatMode === "conversation"
-              ? earlyGroupResponseOrder === "manual"
-                ? "individual"
-                : "merged"
-              : ((chatMeta.groupChatMode as string) ?? "merged");
           const conversationPromptTemplate =
             customPrompt ?? (selectedConversationPrompt || DEFAULT_CONVERSATION_PROMPT);
           identityFallbackPromptTemplateSources.push(conversationPromptTemplate);
@@ -2085,7 +2080,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
           const conversationInstructionParts = [unwrapConversationInstructions(renderedConversationPrompt)];
 
-          if (isGroup && earlyGroupMode !== "individual") {
+          if (isGroup) {
             conversationInstructionParts.push(
               [
                 `This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time; only those who would naturally react.`,
@@ -2098,10 +2093,6 @@ export async function generateRoutes(app: FastifyInstance) {
                 `i was thinking about that`,
                 `${convoCharNames[1] ?? "Bob"}: yeah?`,
               ].join("\n"),
-            );
-          } else if (isGroup && earlyGroupMode === "individual") {
-            conversationInstructionParts.push(
-              `This is a group DM. Each character responds in their own voice and personality. You will be told which character to respond as. Do NOT prefix your message with the character name; just respond naturally as that character.`,
             );
           }
 
@@ -2127,31 +2118,6 @@ export async function generateRoutes(app: FastifyInstance) {
             resolvePromptMacros,
           });
 
-          // ── React capability ──
-          // Tell the character it can react to the user's latest message. Standard
-          // emojis always work; any custom emojis are advertised in the shared
-          // conversation asset context below. Whether
-          // to react — and how warmly or dryly — is emergent from personality, not
-          // dictated here.
-          // Gated on `conversationCommandsEnabled` + the per-command "react"
-          // toggle (#3219): the `[react: …]` tag is parsed, stripped, and applied
-          // inside the command pipeline, which only runs when Character Commands
-          // are enabled. Advertising the syntax while that pipeline is off leaves
-          // the raw tag in the visible message with no badge (#2877).
-          if (conversationCommandsEnabled && isConversationCommandEnabled(chatMeta, "react")) {
-            conversationReactRules =
-              'You can react to the user\'s most recent message with a single emoji by writing [react: emoji="😂"] on its own line — any standard emoji, or a custom one you have access to as [react: emoji=":name:"]. It posts as a small badge on their message, the way you\'d react in a chat app. You can also react to another character instead by adding their name: [react: emoji="🙄" to "Character Name"] puts the badge on that character\'s most recent message. Only the [react: …] tag posts a badge — an emoji typed in your message body is just text. Use it only when it genuinely fits how your character feels in the moment; it is optional, may stand alone or sit alongside your reply, and choosing a flat reaction or none at all is itself a valid choice.';
-            // Merged group replies only: individual-order group chats forbid
-            // name-prefixed sections entirely (matching the other name-prefix
-            // instructions gated on earlyGroupMode !== "individual").
-            if (characterIds.length > 1 && earlyGroupMode !== "individual") {
-              conversationReactRules +=
-                " In this group chat, each character reacts for themselves: write the tag inside that character's own section of the reply, directly under their name line, so the reaction is credited to them — never above the first name line. One reaction per reply is not a limit — every character who would plausibly react may include their own tag in their own section, the way several people tap a reaction on the same message in a real chat.";
-            }
-            if (!conversationContextMacroSlots.reactRules) {
-              conversationSystemPrompt += "\n\n" + conversationReactRules;
-            }
-          }
           // ── Home Professor Mari: inject assistant knowledge & commands ──
           if (isHomeProfessorMariAssistantChat) {
             conversationSystemPrompt +=
@@ -2170,8 +2136,6 @@ export async function generateRoutes(app: FastifyInstance) {
             userActivity: input.userActivity,
             mentionedCharacterNames: input.mentionedCharacterNames,
             autonomousIntentKey: input.autonomousIntentKey,
-            isGroup,
-            earlyGroupMode,
             wrapFormat,
           });
           conversationContextBlockValue = contextBlock ?? "";
@@ -2254,7 +2218,7 @@ export async function generateRoutes(app: FastifyInstance) {
             finalMessages.push({ role: "user" as const, content: contextBlock });
           }
           if (conversationContextMacroSlots.reactRules) {
-            replaceConversationContextMacro(finalMessages, "reactRules", conversationReactRules);
+            replaceConversationContextMacro(finalMessages, "reactRules", null);
           }
           if (conversationContextMacroSlots.commands) {
             replaceConversationContextMacro(
@@ -2895,7 +2859,7 @@ export async function generateRoutes(app: FastifyInstance) {
             {
               context: conversationContextBlockValue,
               commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
-              reactRules: conversationReactRules ?? "",
+              reactRules: "",
               replyRules: conversationReplyRulesBlockValue,
               memories: conversationMemoriesBlockValue,
               lorebook: conversationLorebookBlockValue,
@@ -2958,14 +2922,7 @@ export async function generateRoutes(app: FastifyInstance) {
         // ── Group chat processing ──
         const isGroupChat = characterIds.length > 1;
         const groupResponseOrder = (chatMeta.groupResponseOrder as string) ?? "sequential";
-        // Conversation mode stays merged by default, but Manual uses the same individual
-        // one-character-at-a-time trigger path as roleplay.
-        const groupChatMode =
-          chatMode === "conversation"
-            ? groupResponseOrder === "manual"
-              ? "individual"
-              : "merged"
-            : ((chatMeta.groupChatMode as string) ?? "merged");
+        const groupChatMode = resolveGroupGenerationMode(chatMode, chatMeta.groupChatMode);
         // Auto-enable speaker colors for conversation mode groups (system prompt already requests tags)
         const groupSpeakerColors = chatMeta.groupSpeakerColors === true || (chatMode === "conversation" && isGroupChat);
         const groupTurnPromptEnabled = chatMeta.groupTurnPromptEnabled !== false;
@@ -4454,16 +4411,6 @@ export async function generateRoutes(app: FastifyInstance) {
           return chatMode === "conversation" ? "another group member" : "the narrator";
         };
 
-        const latestVisibleSenderOtherThan = (targetCharId: string): string | null => {
-          for (let i = chatMessages.length - 1; i >= 0; i--) {
-            const message = chatMessages[i]!;
-            if (message.role !== "user" && message.role !== "assistant") continue;
-            if (message.role === "assistant" && message.characterId === targetCharId) continue;
-            return resolveMessageSpeakerName(message);
-          }
-          return null;
-        };
-
         const getExplicitlyMentionedCharacterIds = (): string[] => {
           const latestUserText =
             typeof input.userMessage === "string" && input.userMessage.trim()
@@ -4632,8 +4579,7 @@ export async function generateRoutes(app: FastifyInstance) {
         // ── Determine characters to generate for ──
         // Individual group mode: each character responds separately
         // Merged/single: one generation for the first (or mentioned) character
-        const usesIndividualGroupGeneration =
-          groupChatMode === "individual" || (chatMode === "conversation" && groupResponseOrder === "sequential");
+        const usesIndividualGroupGeneration = groupChatMode === "individual";
         const useIndividualLoop =
           isGroupChat && usesIndividualGroupGeneration && !input.regenerateMessageId && !input.impersonate;
         const regenGroupChatIndividual = isGroupChat && usesIndividualGroupGeneration && input.regenerateMessageId;
@@ -4785,6 +4731,17 @@ export async function generateRoutes(app: FastifyInstance) {
               : message.content
             ).replace(/\n([ \t]*\n){2,}/g, "\n\n"),
           }));
+          if (chatMode === "conversation" && conversationIsGroup && !input.impersonate) {
+            preparedMessagesForGen.push({
+              role: "user",
+              content: formatConversationGroupOutputFormat({
+                wrapFormat,
+                characterNames: conversationCharacterNames,
+                userName: personaName,
+              }),
+              contextKind: "injection",
+            });
+          }
           // Defense in depth: the relocation decode pass should have consumed
           // every token already; strip any that slipped through so no control
           // sentinel reaches the provider (#3448).
@@ -6010,46 +5967,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // are declared above the follow-up loop so they survive iterations.)
 
         const generationGuideInstruction = buildGenerationGuideInstruction(input.generationGuide, promptMacroContext);
-        const filterTargetProfileBlocks = (messages: typeof finalMessages, targetCharId: string) => {
-          if (chatMode !== "conversation") return messages;
-          const otherNames = charInfo.filter((c) => c.id !== targetCharId).map((c) => c.name);
-          if (otherNames.length === 0) return messages;
-          return messages.filter((message) => {
-            if (message.role !== "system") return true;
-            return !otherNames.some((name) => isStandaloneCharacterProfileBlock(message.content, name));
-          });
-        };
-        const buildCharacterInstruction = (charId: string, charName: string) => {
-          if (chatMode !== "conversation") {
-            return groupTurnPromptEnabled ? `Respond ONLY as ${charName}.` : null;
-          }
-          if (groupResponseOrder !== "manual") {
-            const otherNames = charInfo
-              .filter((character) => character.id !== charId)
-              .map((character) => character.name);
-            return [
-              `Respond ONLY as ${charName}.`,
-              `Your entire answer is ${charName}'s next message only.`,
-              `Do not write dialogue, narration, labels, or actions for anyone except ${charName}.`,
-              otherNames.length > 0
-                ? `Forbidden speaker labels for this turn: ${otherNames.join(", ")}. Do not start any line with those names.`
-                : null,
-              `If another character should react, stop after ${charName}'s message and let their own turn handle it.`,
-            ]
-              .filter(Boolean)
-              .join("\n");
-          }
-          const latestOtherSender = latestVisibleSenderOtherThan(charId);
-          return [
-            `Respond ONLY as ${charName}.`,
-            `This is an invisible manual trigger, not a visible message from ${personaName}. Do not mention being pinged, summoned, selected, or called by the user.`,
-            latestOtherSender
-              ? `Reply naturally to the latest visible sender other than yourself: ${latestOtherSender}.`
-              : `Reply naturally to the ongoing group context.`,
-            `If your own previous message is the most relevant last beat, continue naturally instead of answering the hidden trigger as if it came from ${personaName}.`,
-            `You may address ${personaName} or another character if that is what the context calls for, but do not speak or act for them.`,
-          ].join("\n");
-        };
+        const buildCharacterInstruction = (charName: string) =>
+          groupTurnPromptEnabled ? `Respond ONLY as ${charName}.` : null;
 
         if (useIndividualLoop) {
           // Individual group mode: generate one response per character
@@ -6071,8 +5990,8 @@ export async function generateRoutes(app: FastifyInstance) {
             );
 
             // Append "Respond ONLY as [name]" instruction
-            const charInstruction = buildCharacterInstruction(charId, charName);
-            const messagesWithInstruction = [...filterTargetProfileBlocks(runningMessages, charId)];
+            const charInstruction = buildCharacterInstruction(charName);
+            const messagesWithInstruction = [...runningMessages];
             // Add as a system message at the end (just before any trailing user message)
             if (charInstruction) {
               messagesWithInstruction.push({ role: "system", content: charInstruction });
@@ -6164,7 +6083,7 @@ export async function generateRoutes(app: FastifyInstance) {
             targetCharId = regenMsg?.characterId ?? null;
             const targetCharName = charInfo.find((c) => c.id === targetCharId)?.name ?? "Character";
             const charInstruction = targetCharId
-              ? buildCharacterInstruction(targetCharId, targetCharName)
+              ? buildCharacterInstruction(targetCharName)
               : groupTurnPromptEnabled
                 ? `Respond ONLY as ${targetCharName}.`
                 : null;

@@ -88,6 +88,7 @@ import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SecretPlotPanel } from "../agents/SecretPlotPanel";
 import { SummariesEditorModal } from "./SummariesEditorModal";
 import { AgentSuiteModal } from "./AgentSuiteModal";
+import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 import { useCharacters, usePersonas, useCharacterGroups, type SpriteInfo } from "../../hooks/use-characters";
 import { useLorebooks, useEntriesAcrossLorebooks } from "../../hooks/use-lorebooks";
 import { useDefaultPreset, usePresetFull, usePresets } from "../../hooks/use-presets";
@@ -3094,11 +3095,13 @@ export function ChatSettingsDrawer({
       setIsRegeneratingSchedules(true);
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        const conversationTimeZone = useUIStore.getState().conversationTimeZone;
         const result = await api.post<ScheduleGenerationResponse>("/conversation/schedule/generate", {
           chatId: chat.id,
           characterIds: chatCharIds,
           forceRefresh,
           scheduleGenerationPreferences,
+          timeZone: conversationTimeZone,
         });
         await qc.refetchQueries({ queryKey: chatKeys.detail(chat.id) });
         await qc.invalidateQueries({ queryKey: chatKeys.list() });
@@ -5425,6 +5428,10 @@ export function ChatSettingsDrawer({
                           ? "Regenerate"
                           : "Generate"}
                     </button>
+                  </div>
+
+                  <div className="rounded-lg bg-[var(--secondary)]/55 px-3 py-2.5 ring-1 ring-[var(--border)]/80">
+                    <ConversationTimeZoneSelect compact />
                   </div>
 
                   {hasGeneratedConversationSchedules && onOpenScheduleEditor && (

@@ -51,6 +51,7 @@ export async function resolveConversationPresenceRuntime(args: {
   characterIds: string[];
   chars: ConversationPresenceCharactersStore;
   chats: ConversationPresenceChatsStore;
+  actualNow?: Date;
   promptNow: Date;
   forCharacterId?: string | null;
   mentionedCharacterNames?: string[] | null;
@@ -84,6 +85,7 @@ export async function resolveConversationPresenceRuntime(args: {
     chars: args.chars,
     schedules,
     statusOverrides,
+    actualNow: args.actualNow ?? new Date(),
     promptNow: args.promptNow,
   });
 
@@ -211,6 +213,7 @@ async function resolveConversationPromptCharacters(args: {
   chars: ConversationPresenceCharactersStore;
   schedules: Record<string, WeekSchedule>;
   statusOverrides: ReturnType<typeof parseConversationStatusOverrides>;
+  actualNow: Date;
   promptNow: Date;
 }): Promise<ConversationPromptCharacterInfo[]> {
   const convoCharInfo: ConversationPromptCharacterInfo[] = [];
@@ -227,13 +230,13 @@ async function resolveConversationPromptCharacters(args: {
       }
     }
     const override = args.statusOverrides[cid];
-    const fallback = getEffectiveCurrentStatus(undefined, override, args.promptNow, "");
+    const fallback = getEffectiveCurrentStatus(undefined, override, args.actualNow, "", args.promptNow);
     let status = fallback.status;
     let activity = fallback.activity;
     let todaySchedule = "";
     const schedule = args.schedules[cid];
     if (schedule) {
-      const derived = getEffectiveCurrentStatus(schedule, override, args.promptNow);
+      const derived = getEffectiveCurrentStatus(schedule, override, args.actualNow, "free time", args.promptNow);
       status = derived.status;
       activity = derived.activity;
       todaySchedule = getTodaySchedule(schedule, args.promptNow);

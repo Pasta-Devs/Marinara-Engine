@@ -30,8 +30,10 @@ export function buildConversationCurrentContextBlock(args: {
   userActivity?: string | null;
   mentionedCharacterNames?: string[] | null;
   autonomousIntentKey?: unknown;
-  isGroup: boolean;
-  earlyGroupMode: string;
+  /** @deprecated Group behavior is derived from convoCharInfo. Kept for caller compatibility. */
+  isGroup?: boolean;
+  /** @deprecated Conversation mode no longer has a separate early-group mode. */
+  earlyGroupMode?: string;
   wrapFormat: WrapFormat;
 }): string {
   const timeStr = formatZonedConversationTime(args.nowInstant, args.promptTimeZone);
@@ -85,9 +87,6 @@ export function buildConversationCurrentContextBlock(args: {
     ...(intentHint ? [`What prompted this message: ${intentHint}`] : []),
     ...scheduleLines,
     `The current time and date: ${timeStr}, ${dateStr}.`,
-    ...(args.isGroup && args.earlyGroupMode !== "individual"
-      ? [`- Remember to prefix messages with \`Name: message\`!`]
-      : []),
   ];
 
   return wrapContent(contextLines.join("\n"), "Context", args.wrapFormat);

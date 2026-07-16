@@ -2,7 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { Modal } from "../ui/Modal";
 
 const CONTRIBUTORS = [
-  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 1461 },
+  { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 1463 },
   { login: "cha1latte", url: "https://github.com/cha1latte", contributions: 319 },
   { login: "kolacheee", url: "https://github.com/kolacheee", contributions: 213 },
   { login: "Romuromylus", url: "https://github.com/Romuromylus", contributions: 202 },

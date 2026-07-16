@@ -344,7 +344,7 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   {
     category: "Conversation",
     syntax: "{{reactRules}}",
-    description: "Place the custom-emoji reaction rules here and skip their auto insertion (Conversation mode)",
+    description: "Legacy placeholder; reaction syntax is now included in {{commands}} (Conversation mode)",
   },
   {
     category: "Conversation",

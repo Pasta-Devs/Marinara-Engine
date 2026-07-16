@@ -1211,6 +1211,7 @@ export function usePeekPrompt() {
       const messageId = typeof request === "string" ? undefined : request.messageId;
       return api.post<{
         messages: Array<{ role: string; content: string }>;
+        chatMode?: string;
         parameters: unknown;
         source?: "cached" | "live_preview" | "raw_messages";
         exact?: boolean;
@@ -1231,6 +1232,7 @@ export function usePeekPrompt() {
           durationMs?: number | null;
           finishReason?: string | null;
         } | null;
+        agentNote?: string;
       }>(`/chats/${chatId}/peek-prompt`, messageId ? { messageId } : {});
     },
   });

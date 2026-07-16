@@ -44,6 +44,7 @@ export type PersonaInfo = {
 
 export type PeekPromptData = {
   messages: Array<{ role: string; content: string }>;
+  chatMode?: string;
   parameters: unknown;
   source?: "cached" | "live_preview" | "raw_messages";
   exact?: boolean;

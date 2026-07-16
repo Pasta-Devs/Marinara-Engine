@@ -4,6 +4,27 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [2.3.1]
+
+### Added
+
+- Installed official agents and feature packages now check the Marinara-Agents catalog during server startup and automatically upgrade to the newest compatible version before their runtimes activate. Offline, incompatible, missing, or failed package updates leave the previously installed version available, while verified server-runtime failures continue to roll back automatically.
+- Conversation schedule creation now includes a global timezone selector that defaults to the browser-detected IANA timezone, can be overridden or reset to the current device zone, syncs across devices, and applies to existing and future Conversation chats. Schedule generation, presence, autonomous messages, temporal prompt context, and background server polling now honor the same saved selection.
+
+### Changed
+
+- Began the v2.3.1 development cycle and synchronized version metadata across packages, the PWA manifest, README release pointer, Windows installer sources, Android APK metadata, and shared update checks.
+- Android `versionName` is `2.3.1` with `versionCode 35`.
+
+### Fixed
+
+- Restored passwordless localhost access to container installs on Docker Desktop and custom Docker address pools. Docker runtime trust now recognizes the container's exact default IPv4 gateway in addition to the conventional `172.16.0.0/12` bridge range, while the existing `BYPASS_AUTH_DOCKER=false` and proxy-auth controls remain available.
+- Fixed Windows installs and updates failing during the shared-package build with `'pnpm' is not recognized` when the launcher correctly used Corepack without a global pnpm executable. The shared build now cleans its artifacts directly through Node, and the Windows installer guard prevents nested package-manager calls from returning.
+- Reworked Conversation prompt assembly so Peek Prompt groups Conversation turns under **Chat History**, character join/leave notices become timestamped history events only after a chat has actually started, reaction syntax lives inside **Commands**, and merged-group speaker-prefix and character-only response boundaries are emitted last in the preset's XML, Markdown, or plain output format. The built-in Conversation prompt and Marinara preset now use identity wording that fits both one-to-one and group chats, with a safe startup migration for existing bundled presets that still have the old lead sentence.
+- Restored Conversation group chats to one merged provider generation per turn, allowing the model to choose every present speaker within the grouped response instead of issuing a separate restricted request for each character. Roleplay Individual mode remains unchanged.
+- Preserved distinct Noodle authorship across persona switching: posts and replies retain their originating persona account and snapshot, timeline prompts identify each persona by handle and stable identity key, and chat carryover summaries name the persona account instead of collapsing activity into the currently selected identity.
+- Restored Card Browser and official agent-catalog requests when upstream services reject Undici's default identity or a Windows proxy strips the response `Content-Type`. Marinara now identifies those requests explicitly and permits only missing MIME headers for their trusted, size-capped JSON paths; present invalid content types and malformed catalog data remain rejected.
+
 ## [2.3.0]
 
 ### Added

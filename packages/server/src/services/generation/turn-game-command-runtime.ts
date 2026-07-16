@@ -4,6 +4,7 @@ import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { getEnabledConversationSchedules } from "./conversation-context-utils.js";
 import { getCurrentStatus, type WeekSchedule } from "../conversation/schedule.service.js";
+import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
 import { runTurnGameBotTurns } from "../turn-games/turn-game-bot-runner.service.js";
 import { getActiveTurnGame, startTurnGame } from "../turn-games/turn-game-runner.service.js";
 
@@ -48,9 +49,10 @@ export async function handleTurnGameCommand(args: TurnGameCommandArgs): Promise<
     const chat = await args.chats.getById(args.chatId);
     const characterIds = readCharacterIds(chat?.characterIds);
     const schedules = getEnabledConversationSchedules(args.chatMeta) as Record<string, WeekSchedule>;
+    const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(args.chatMeta));
     const available = characterIds.filter((characterId) => {
       const schedule = schedules[characterId];
-      return !schedule || getCurrentStatus(schedule).status !== "offline";
+      return !schedule || getCurrentStatus(schedule, scheduleNow).status !== "offline";
     });
     if (args.characterId && characterIds.includes(args.characterId) && !available.includes(args.characterId)) {
       available.unshift(args.characterId);

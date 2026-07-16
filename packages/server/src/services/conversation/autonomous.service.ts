@@ -312,7 +312,12 @@ export function checkAutonomousMessaging(
   chatId: string,
   characterSchedules: Record<string, WeekSchedule>,
   isGroupChat: boolean,
-  opts: { maxFollowups?: number; statusOverrides?: Record<string, ConversationStatusOverride>; scheduleNow?: Date } = {},
+  opts: {
+    maxFollowups?: number;
+    statusOverrides?: Record<string, ConversationStatusOverride>;
+    actualNow?: Date;
+    scheduleNow?: Date;
+  } = {},
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -350,9 +355,17 @@ export function checkAutonomousMessaging(
 
   // Maximum autonomous follow-ups before a character stops messaging
   const maxFollowups = Math.max(1, Math.min(3, Math.floor(opts.maxFollowups ?? 3)));
+  const actualNow = opts.actualNow ?? new Date();
+  const scheduleNow = opts.scheduleNow ?? actualNow;
 
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
-    const { status } = getEffectiveCurrentStatus(schedule, opts.statusOverrides?.[charId], opts.scheduleNow);
+    const { status } = getEffectiveCurrentStatus(
+      schedule,
+      opts.statusOverrides?.[charId],
+      actualNow,
+      "free time",
+      scheduleNow,
+    );
 
     // Can't send if offline or sleeping
     if (status === "offline") continue;
@@ -436,6 +449,8 @@ export function checkCharacterExchange(
   lastSpeakerCharId: string,
   characterSchedules: Record<string, WeekSchedule>,
   statusOverrides: Record<string, ConversationStatusOverride> = {},
+  now: Date = new Date(),
+  scheduleNow: Date = now,
 ): AutonomousCheckResult {
   const noTrigger: AutonomousCheckResult = {
     shouldTrigger: false,
@@ -463,7 +478,13 @@ export function checkCharacterExchange(
   for (const [charId, schedule] of Object.entries(characterSchedules)) {
     if (charId === lastSpeakerCharId) continue;
 
-    const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[charId]);
+    const { status } = getEffectiveCurrentStatus(
+      schedule,
+      statusOverrides[charId],
+      now,
+      "free time",
+      scheduleNow,
+    );
     if (status === "offline") continue;
     if (status === "dnd") continue; // Busy characters don't join casual exchanges
 

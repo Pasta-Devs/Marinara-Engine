@@ -36,6 +36,11 @@ export function normalizePromptTimeZone(value: unknown): string | undefined {
   }
 }
 
+/** Conversation schedule overrides take precedence over the legacy per-chat browser timezone. */
+export function resolveConversationTimeZone(metadata: Record<string, unknown>): string | undefined {
+  return normalizePromptTimeZone(metadata.conversationTimeZone) ?? normalizePromptTimeZone(metadata.promptTimeZone);
+}
+
 export function getZonedDateParts(date: Date, timeZone?: string): ZonedDateParts {
   if (!timeZone) return localDateParts(date);
 

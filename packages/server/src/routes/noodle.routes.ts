@@ -78,6 +78,7 @@ import {
   NOODLE_LEGACY_PAST_MEMORY_INCLUSION_CHANCE,
   NOODLE_LEGACY_PAST_MEMORY_MAX_ITEMS,
   NOODLE_LEGACY_RECALLED_MEMORY_INSTRUCTION,
+  NOODLE_PERSONA_IDENTITY_INSTRUCTION,
   NOODLE_RECALLED_MEMORY_INSTRUCTION,
   noodleTimelineFeatureInstructions,
   sampleNoodlePastMemories,
@@ -220,13 +221,17 @@ function characterContextFromRow(row: { id: string; data: unknown; avatarPath?: 
 function personaContextFromRow(row: {
   id: string;
   name: string;
+  convoDisplayName?: string | null;
   description?: string | null;
   personality?: string | null;
   scenario?: string | null;
   backstory?: string | null;
   appearance?: string | null;
 }) {
-  const lines = [`<persona name="${escapePromptAttribute(row.name || "User")}">`];
+  const displayName = row.convoDisplayName?.trim() || row.name || "User";
+  const lines = [
+    `<persona id="${escapePromptAttribute(row.id)}" accountKey="persona:${escapePromptAttribute(row.id)}" name="${escapePromptAttribute(displayName)}">`,
+  ];
   for (const [label, value] of [
     ["Description", row.description],
     ["Personality", row.personality],
@@ -782,7 +787,7 @@ async function buildRefreshPrompt(input: {
   const activeAccountList = [...input.activeAccounts, ...(input.personaAccount ? [input.personaAccount] : [])]
     .map(
       (account) =>
-        `- ${account.displayName} (@${account.handle}) kind=${account.kind} generationRole=${
+        `- ${account.displayName} (@${account.handle}) kind=${account.kind} accountKey=${account.kind}:${account.entityId} generationRole=${
           account.kind === "persona" ? "reference-target-only" : "allowed-author-and-actor"
         }`,
     )
@@ -876,6 +881,10 @@ async function buildRefreshPrompt(input: {
       "",
       "# User Persona",
       personaContext,
+      "",
+      "# Persona Identity Rule",
+      NOODLE_PERSONA_IDENTITY_INSTRUCTION,
+      "The User Persona above is the identity selected for this refresh only. Historical timeline authors retain the distinct accountKey recorded on their own activity.",
       "",
       "# Character Profiles",
       characterContext || "No character profiles.",
@@ -1106,6 +1115,11 @@ function interactionDigestVerb(type: NoodleInteractionType) {
   if (type === "repost") return "reposted";
   if (type === "vote") return "voted in";
   return "liked";
+}
+
+function noodleDigestAccountLabel(account: Pick<NoodleAccount, "kind" | "displayName" | "handle">) {
+  const identity = `${account.displayName} (@${account.handle})`;
+  return account.kind === "persona" ? `Persona ${identity}` : identity;
 }
 
 async function generateNoodlePostImage(input: {
@@ -1455,7 +1469,7 @@ export async function noodleRoutes(app: FastifyInstance) {
     if (!post) return reply.code(404).send({ error: "Noodle author not found" });
     const digest = await noodle.createDigest({
       accountIds: [account.id, ...mentionedAccounts.map((mentionedAccount) => mentionedAccount.id)],
-      content: `${account.displayName} posted on Noodle: ${post.content}`,
+      content: `${noodleDigestAccountLabel(account)} posted on Noodle: ${post.content}`,
       sourcePostId: post.id,
     });
     return (await noodle.updatePostMedia(post.id, { metadata: { activityDigestId: digest.id } })) ?? post;
@@ -1478,7 +1492,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       if (typeof digestId === "string" && digestId && author) {
         await noodle.updateDigest(digestId, {
           accountIds: [author.id, ...mentionedAccounts.map((mentionedAccount) => mentionedAccount.id)],
-          content: `${author.displayName} posted on Noodle: ${post.content}`,
+          content: `${noodleDigestAccountLabel(author)} posted on Noodle: ${post.content}`,
         });
       }
     }
@@ -1539,7 +1553,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         accountIds: Array.from(
           new Set([actor.id, post.authorAccountId, directReplyTarget?.actorAccountId].filter(Boolean) as string[]),
         ),
-        content: `${actor.displayName} ${interactionDigestVerb(parsed.data.type)} a Noodle post: ${interactionSummary}`,
+        content: `${noodleDigestAccountLabel(actor)} ${interactionDigestVerb(parsed.data.type)} a Noodle post: ${interactionSummary}`,
         sourcePostId: post.id,
         sourceInteractionId: interaction.id,
       });
@@ -1592,7 +1606,7 @@ export async function noodleRoutes(app: FastifyInstance) {
             ].filter(Boolean) as string[],
           ),
         ),
-        content: `${interactionActor.displayName} replied to a Noodle post: ${
+        content: `${noodleDigestAccountLabel(interactionActor)} replied to a Noodle post: ${
           updated.content || (updated.imageUrl ? "shared an image" : post.content)
         }`,
         sourcePostId: post.id,
@@ -2097,7 +2111,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         if (generatedPost.tempId) tempIdToPostId.set(generatedPost.tempId, post.id);
         const digest = await noodle.createDigest({
           accountIds: [account.id, ...mentionedAccounts.map((mentionedAccount) => mentionedAccount.id)],
-          content: `${account.displayName} posted on Noodle: ${post.content}`,
+          content: `${noodleDigestAccountLabel(account)} posted on Noodle: ${post.content}`,
           sourceRunId: runId,
           sourcePostId: post.id,
         });
@@ -2171,7 +2185,7 @@ export async function noodleRoutes(app: FastifyInstance) {
             accountIds: Array.from(
               new Set([actor.id, targetPost.authorAccountId, parentInteraction?.actorAccountId]),
             ).filter((accountId): accountId is string => Boolean(accountId)),
-            content: `${actor.displayName} ${interactionDigestVerb(
+            content: `${noodleDigestAccountLabel(actor)} ${interactionDigestVerb(
               generatedInteraction.type,
             )} a Noodle post: ${interactionSummary}`,
             sourceRunId: runId,
@@ -2210,7 +2224,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         await noodle.updateAccount(actor.id, { settings: nextSettings });
         await noodle.createDigest({
           accountIds: [actor.id, target.id],
-          content: `${actor.displayName} followed ${target.displayName} on Noodle.`,
+          content: `${noodleDigestAccountLabel(actor)} followed ${noodleDigestAccountLabel(target)} on Noodle.`,
           sourceRunId: runId,
         });
       }

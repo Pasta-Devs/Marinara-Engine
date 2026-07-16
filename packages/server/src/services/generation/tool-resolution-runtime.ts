@@ -28,7 +28,7 @@ import { resolveSpotifyToolAvailabilityRequest } from "./spotify-tool-availabili
 import {
   formatZonedConversationTime,
   getZonedDateParts,
-  normalizePromptTimeZone,
+  resolveConversationTimeZone,
 } from "../conversation/timezone.js";
 
 type CustomToolsStore = {
@@ -209,7 +209,7 @@ function buildCustomToolHiddenContext(args: {
   const lastInput =
     [...args.agentContext.recentMessages].reverse().find((message) => message.role === "user")?.content ?? "";
   const now = new Date();
-  const timeZone = normalizePromptTimeZone(args.chatMetadata.promptTimeZone);
+  const timeZone = resolveConversationTimeZone(args.chatMetadata);
   const zonedNow = getZonedDateParts(now, timeZone);
   const zonedDate = `${zonedNow.year}-${String(zonedNow.month).padStart(2, "0")}-${String(zonedNow.day).padStart(2, "0")}`;
 

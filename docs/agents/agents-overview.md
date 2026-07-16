@@ -22,13 +22,15 @@ Every agent runs at one of three points around your reply. This point is called 
 
 Open the **Agents** panel from the right-side panel tabs (the Sparkles icon). Here you browse, create, and organize agents. This is your library. It is not the on or off switch for a single chat.
 
-Click **Download Agents** at the top to open the full-screen official catalog. It works on desktop and mobile. Select an item to read its description, supported feature type, download size, permissions, version compatibility, and documentation. Click **Install** to add it. The same screen offers **Update** and **Uninstall** for packages you already have. Follow the restart message when a package contains server code; installed packages work offline afterward.
+Click **Download Agents** at the top to open the full-screen official catalog. It works on desktop and mobile. Select an item to read its description, supported feature type, download size, permissions, version compatibility, and documentation. Click **Install** to add it; the same screen offers immediate manual updates and **Uninstall** for packages you already have. Marinara also checks every installed official package at server startup and upgrades it to the newest compatible catalog version before its runtime activates. Packages continue working at their current version when the host server is offline or an update cannot be verified.
 
 The in-app catalog is backed by the public [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents). You can inspect every package and artifact there, but normal users should install through **Download Agents** so Marinara can validate compatibility, permissions, hashes, archive contents, and restart requirements.
 
 The catalog includes first-party chat agents, Hierarchical Maps, Conversation audio/video calls, and every optional Conversation game. Installed agents are grouped into **Writer Agents**, **Tracker Agents**, and **Misc Agents**, plus a **Custom Agents** section for ones you make. Uninstalling a catalog package removes its code and settings from the Engine while preserving chat messages and history. Deleting a custom agent removes it for good.
 
 When upgrading from an Engine version that bundled these features, Marinara downloads the matching packages once and preserves existing chat selections, agent settings, stored runtime data, and history. If that migration cannot reach the catalog, it retries at the next startup instead of discarding anything.
+
+Automatic startup updates never install an unselected package. Desktop, Docker, and Android/Termux installations update the packages stored by their local server. iOS, iPadOS, and other browser clients use the packages installed and updated by the Marinara server they connect to.
 
 ## Enabling agents for a chat
 

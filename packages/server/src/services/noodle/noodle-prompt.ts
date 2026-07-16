@@ -21,6 +21,8 @@ export const NOODLE_ADULT_PLATFORM_POLICY =
   "Noodle only accepts confirmed adult accounts and personas. Every participant on Noodle is 18+; minors are not allowed on the platform. NSFW content is allowed, anything goes, and adult in-character drama, flirtation, gossip, and explicit references may appear when they fit the accounts involved.";
 export const NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION =
   "- The user persona is controlled exclusively by the user. Never generate posts, replies, likes, reposts, poll votes, or follows as a persona. Personas may only be mentioned or targeted by other accounts.";
+export const NOODLE_PERSONA_IDENTITY_INSTRUCTION =
+  "- Every persona account is a separate user identity. Preserve the accountKey on historical posts and replies: changing the currently selected persona never changes, merges, or reattributes activity created by another persona.";
 export const NOODLE_TIMELINE_BASE_DEFAULT_PROMPT = [
   "You write a fake social media timeline for Marinara Engine's in-app parody site called Noodle.",
   NOODLE_ADULT_PLATFORM_POLICY,
@@ -30,6 +32,7 @@ export const NOODLE_TIMELINE_BASE_DEFAULT_PROMPT = [
   "- Do not make an account interact with the same existing post again when it has already liked, reposted, voted, or replied there, unless that account was tagged or is answering a direct response to its own comment. Never make an account reply to its own comment.",
   "- Avoid repeating an account's recent post topic or phrasing. Continue an existing thread only when new activity gives the account a reason to return.",
   NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION,
+  NOODLE_PERSONA_IDENTITY_INSTRUCTION,
   "- For each interaction, set either targetTempId or targetPostId and set the unused target field to null.",
   "- pollOptionIndex must be a zero-based integer for votes and null for every other interaction.",
   "- An exact @handle in post or reply text tags that active account. Preserve the @handle exactly when mentioning someone.",
@@ -124,6 +127,11 @@ type NoodlePromptInteraction = Pick<
 >;
 
 const NOODLE_PROMPT_REPLIES_PER_POST = 12;
+
+function formatNoodlePromptAccount(snapshot: NoodlePost["authorSnapshot"], fallbackAccountId: string): string {
+  if (!snapshot) return `accountKey=${fallbackAccountId}`;
+  return `${snapshot.displayName} (@${snapshot.handle}; ${snapshot.kind} accountKey=${snapshot.kind}:${snapshot.entityId})`;
+}
 
 export interface NoodlePromptImageCandidate {
   key: string;
@@ -225,7 +233,7 @@ export function formatNoodleTimelineForPrompt(
     .slice()
     .reverse()
     .map((post) => {
-      const author = post.authorSnapshot?.displayName ?? post.authorAccountId;
+      const author = formatNoodlePromptAccount(post.authorSnapshot, post.authorAccountId);
       const poll = readNoodlePollFromMetadata(post.metadata);
       const pollSummary = poll
         ? ` [poll: ${poll.question}; ${poll.options
@@ -240,15 +248,14 @@ export function formatNoodleTimelineForPrompt(
         : "";
       const timestamp = options.includeTimestamp ? ` at ${post.createdAt}` : "";
       const replyLines = promptRepliesForPost(interactions, post.id, options.priorityActorAccountId).map((reply) => {
-        const replyAuthor = reply.actorSnapshot?.displayName ?? reply.actorAccountId;
-        const replyHandle = reply.actorSnapshot?.handle ? ` (@${reply.actorSnapshot.handle})` : "";
+        const replyAuthor = formatNoodlePromptAccount(reply.actorSnapshot, reply.actorAccountId);
         const parent = reply.parentInteractionId ? ` parentReplyId=${reply.parentInteractionId}` : "";
         const imageKey = noodleReplyImageKey(reply.id);
         const imageAttached = options.attachedImageKeys?.has(imageKey) === true;
         const imageCaption = options.imageCaptions?.get(imageKey)?.trim();
         const replyBody =
           reply.content || (imageAttached ? "[image]" : reply.imageUrl ? "[image reply]" : "[empty reply]");
-        return `  - replyId=${reply.id}${parent} by ${replyAuthor}${replyHandle} at ${reply.createdAt}: ${replyBody}${
+        return `  - replyId=${reply.id}${parent} by ${replyAuthor} at ${reply.createdAt}: ${replyBody}${
           imageAttached
             ? ` [attached image: ${imageKey}]`
             : imageCaption

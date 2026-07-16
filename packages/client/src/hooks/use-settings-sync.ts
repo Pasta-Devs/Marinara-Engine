@@ -16,6 +16,7 @@
 import { useEffect } from "react";
 import { normalizeImageStyleProfileSettings, normalizeQuoteFormat } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import {
   normalizeTrackerPanelSizeProfile,
   normalizeTrackerTemperatureUnit,
@@ -201,6 +202,9 @@ export function useSettingsSync() {
               );
               parsed.settings.scenePromptPreferences = normalizeScenePromptPreferences(
                 parsed.settings.scenePromptPreferences,
+              );
+              parsed.settings.conversationTimeZone = normalizeConversationTimeZone(
+                parsed.settings.conversationTimeZone,
               );
 
               const serverUpdatedAt = parsed.updatedAt;

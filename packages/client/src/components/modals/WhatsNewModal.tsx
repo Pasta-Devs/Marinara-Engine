@@ -19,13 +19,17 @@ type ReleaseHighlight = {
 
 type ReleaseAnnouncement = {
   headline: string;
-  intro: string;
+  intro?: string;
   highlights: ReleaseHighlight[];
 };
 
 // Add each release here before its version ships. Versions without a tailored
 // entry still get a one-time update notice and a link to their full release.
 const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
+  "2.3.1": {
+    headline: "A quick patch with bug fixes!",
+    highlights: [],
+  },
   "2.3.0": {
     headline: "Choose the Agents you want.",
     intro:
@@ -118,9 +122,11 @@ export function WhatsNewModal({ presentationAllowed }: { presentationAllowed: bo
             <h3 className="mt-3 text-balance text-2xl font-bold tracking-tight text-[var(--marinara-chat-chrome-panel-title)] sm:text-3xl">
               {announcement.headline}
             </h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--marinara-chat-chrome-panel-muted)]">
-              {announcement.intro}
-            </p>
+            {announcement.intro ? (
+              <p className="mt-2 text-sm leading-6 text-[var(--marinara-chat-chrome-panel-muted)]">
+                {announcement.intro}
+              </p>
+            ) : null}
           </header>
 
           {announcement.highlights.length > 0 ? (

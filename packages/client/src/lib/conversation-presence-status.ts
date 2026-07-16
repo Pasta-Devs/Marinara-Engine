@@ -1,6 +1,7 @@
 import {
   getActiveStatusOverride,
   getEffectiveCurrentStatus,
+  toConversationScheduleWallClockDate,
   type ConversationPresenceStatus,
   type ConversationStatusOverride,
   type WeekSchedule,
@@ -8,6 +9,8 @@ import {
 
 type ConversationPresenceMeta = {
   conversationSchedulesEnabled?: unknown;
+  conversationTimeZone?: unknown;
+  promptTimeZone?: unknown;
   characterSchedules?: unknown;
   conversationStatusOverrides?: unknown;
 };
@@ -46,6 +49,13 @@ export function resolveLiveConversationStatus(
       ? (meta.characterSchedules as Record<string, WeekSchedule> | undefined)?.[characterId]
       : undefined;
   if (!getActiveStatusOverride(override, now) && !schedule) return null;
-  const { status, activity } = getEffectiveCurrentStatus(schedule, override, now);
+  const timeZone =
+    typeof meta.conversationTimeZone === "string"
+      ? meta.conversationTimeZone
+      : typeof meta.promptTimeZone === "string"
+        ? meta.promptTimeZone
+        : undefined;
+  const scheduleNow = toConversationScheduleWallClockDate(now, timeZone);
+  const { status, activity } = getEffectiveCurrentStatus(schedule, override, now, "free time", scheduleNow);
   return { status, activity };
 }

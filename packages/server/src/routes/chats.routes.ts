@@ -714,6 +714,11 @@ export async function chatsRoutes(app: FastifyInstance) {
       const addedIds = nextIds.filter((id) => !previousSet.has(id));
 
       if (removedIds.length > 0 || addedIds.length > 0) {
+        const existingMessages = await storage.listMessages(req.params.id);
+        const existingMetadata = parseChatMetadata(existing.metadata);
+        const hasStartedChat =
+          existingMetadata.conversationSetupComplete === true ||
+          existingMessages.some((message) => message.role === "user" || message.role === "assistant");
         const snapshots: Record<string, unknown> = {};
         const eventNames = new Map<string, string>();
         for (const id of [...removedIds, ...addedIds]) {
@@ -730,24 +735,28 @@ export async function chatsRoutes(app: FastifyInstance) {
             },
           }));
         }
-        // An empty chat is still being configured by the setup wizard. Its
-        // character greetings are the opening messages, so do not insert a
-        // hidden join notice that makes the chat appear non-empty first.
-        for (const id of previousIds.length > 0 ? addedIds : []) {
-          await storage.createMessage({
-            chatId: req.params.id,
-            role: "system",
-            characterId: null,
-            content: `${eventNames.get(id) ?? "A character"} has joined the chat.`,
-          });
-        }
-        for (const id of removedIds) {
-          await storage.createMessage({
-            chatId: req.params.id,
-            role: "system",
-            characterId: null,
-            content: `${eventNames.get(id) ?? "A character"} has left the chat.`,
-          });
+        // Character selection can be patched more than once while the setup
+        // wizard is still configuring a new chat. Membership events begin only
+        // after setup completes or a real user/assistant turn starts the timeline.
+        if (hasStartedChat) {
+          for (const id of addedIds) {
+            await storage.createMessage({
+              chatId: req.params.id,
+              role: "system",
+              characterId: null,
+              content: `${eventNames.get(id) ?? "A character"} has joined the chat.`,
+              extra: { conversationMembershipEvent: "joined", characterId: id },
+            });
+          }
+          for (const id of removedIds) {
+            await storage.createMessage({
+              chatId: req.params.id,
+              role: "system",
+              characterId: null,
+              content: `${eventNames.get(id) ?? "A character"} has left the chat.`,
+              extra: { conversationMembershipEvent: "left", characterId: id },
+            });
+          }
         }
       }
     }
@@ -2123,19 +2132,20 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (cached) {
         return {
           messages: cached.messages,
+          chatMode,
           parameters: null,
           source: "cached",
           exact: true,
           generationInfo: cached.generationInfo ?? null,
           agentNote: requestedMessage
-            ? "This is the exact cached text prompt sent for the selected Game Mode turn."
+            ? "This is the exact cached text prompt sent for the selected turn."
             : "This is the cached text prompt saved after provider preparation for the active assistant swipe.",
         };
       }
     }
 
     if (requestedMessage) {
-      return reply.status(404).send({ error: "No exact saved prompt is available for this game turn" });
+      return reply.status(404).send({ error: "No exact saved prompt is available for this turn" });
     }
 
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(app.db, req.params.id);
@@ -2294,6 +2304,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             ];
             return {
               messages: toPeekPromptMessages(messages),
+              chatMode,
               parameters: null,
               source: "live_preview",
               exact: false,
@@ -2319,6 +2330,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             ];
             return {
               messages: toPeekPromptMessages(injectOwnerSpatialPrompt(messages, ownerSpatialProjection)),
+              chatMode,
               parameters: null,
               source: "live_preview",
               exact: false,
@@ -2628,6 +2640,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           return {
             messages: toPeekPromptMessages(injectOwnerSpatialPrompt(assembled.messages, ownerSpatialProjection)),
+            chatMode,
             parameters: assembled.parameters,
             source: "live_preview",
             exact: false,
@@ -2654,6 +2667,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     return {
       messages: injectOwnerSpatialPrompt(mappedMessages, ownerSpatialProjection),
+      chatMode,
       parameters: null,
       source: "raw_messages",
       exact: false,

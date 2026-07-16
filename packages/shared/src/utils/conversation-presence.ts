@@ -81,6 +81,40 @@ export const CONVERSATION_SCHEDULE_DAYS = [
   "Sunday",
 ];
 
+/**
+ * Re-express an instant as a local wall-clock Date in an IANA timezone.
+ * This lets schedule code keep using Date's weekday/hour accessors without
+ * tying evaluation to the browser or server host timezone.
+ */
+export function toConversationScheduleWallClockDate(date: Date, timeZone?: string): Date {
+  if (!timeZone) return date;
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).formatToParts(date);
+    const readPart = (type: Intl.DateTimeFormatPartTypes) =>
+      Number(parts.find((part) => part.type === type)?.value ?? 0);
+    const hour = readPart("hour");
+    return new Date(
+      readPart("year"),
+      readPart("month") - 1,
+      readPart("day"),
+      hour === 24 ? 0 : hour,
+      readPart("minute"),
+      readPart("second"),
+    );
+  } catch {
+    return date;
+  }
+}
+
 // ── Status Derivation ──
 
 /**
@@ -141,8 +175,11 @@ export function getEffectiveCurrentStatus(
   override: ConversationStatusOverride | null | undefined,
   now: Date = new Date(),
   fallbackActivity = "free time",
+  scheduleNow: Date = now,
 ): CurrentConversationStatus {
-  const scheduled = schedule ? getCurrentStatus(schedule, now) : { status: "online" as const, activity: fallbackActivity };
+  const scheduled = schedule
+    ? getCurrentStatus(schedule, scheduleNow)
+    : { status: "online" as const, activity: fallbackActivity };
   const activeOverride = getActiveStatusOverride(override, now);
   if (!activeOverride) return scheduled;
   const activity = typeof activeOverride.activity === "string" ? activeOverride.activity.trim() : scheduled.activity;

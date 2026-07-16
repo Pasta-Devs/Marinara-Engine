@@ -1431,13 +1431,6 @@ export function ConversationView({
         mobileHistoryCollapsed={mobileHistoryComposerCollapsed}
         onMobileHistoryCollapsedChange={setMobileHistoryComposerCollapsed}
         characterNames={characterNames}
-        groupResponseOrder={
-          chatMeta.groupResponseOrder === "manual"
-            ? "manual"
-            : chatCharIds.length > 1
-              ? (chatMeta.groupResponseOrder ?? "sequential")
-              : undefined
-        }
         chatCharacters={chatCharIds
           .filter((id) => characterMap.has(id))
           .map((id) => {

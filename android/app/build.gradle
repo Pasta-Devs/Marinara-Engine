@@ -22,10 +22,10 @@ android {
         applicationId "com.marinara.engine"
         minSdk 24
         targetSdk 34
-        versionCode 34
-        versionName "2.3.0"
+        versionCode 35
+        versionName "2.3.1"
         buildConfigField "String", "MARINARA_SERVER_URL", "\"http://127.0.0.1:${marinaraPort}\""
-        buildConfigField "String", "MARINARA_RELEASE_TAG", "\"v2.3.0\""
+        buildConfigField "String", "MARINARA_RELEASE_TAG", "\"v2.3.1\""
     }
 
     signingConfigs {

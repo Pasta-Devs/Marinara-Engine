@@ -13,7 +13,7 @@ import {
 } from "./intent.service.js";
 import { getBusyDelay, getEffectiveCurrentStatus, type WeekSchedule } from "./schedule.service.js";
 import { parseConversationStatusOverrides } from "../generation/conversation-context-utils.js";
-import { normalizePromptTimeZone, toZonedWallClockDate } from "./timezone.js";
+import { resolveConversationTimeZone, toZonedWallClockDate } from "./timezone.js";
 
 const SERVER_AUTONOMOUS_INITIAL_DELAY_MS = 20_000;
 const SERVER_AUTONOMOUS_POLL_MS = 60_000;
@@ -174,7 +174,7 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     chatMeta: Record<string, unknown>,
     claimedAt?: number,
   ): Promise<boolean> => {
-    const promptTimeZone = normalizePromptTimeZone(chatMeta.promptTimeZone);
+    const promptTimeZone = resolveConversationTimeZone(chatMeta);
     const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
     const { intent, onCooldown, disabled } = resolveAvailableIntent(
       chatId,
@@ -318,14 +318,21 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
       const freshChat = await chats.getById(chat.id);
       if (!freshChat) return;
       const freshMeta = parseMetadata(freshChat.metadata);
-      const promptTimeZone = normalizePromptTimeZone(freshMeta.promptTimeZone);
-      const promptNow = toZonedWallClockDate(new Date(), promptTimeZone);
+      const promptTimeZone = resolveConversationTimeZone(freshMeta);
+      const nowInstant = new Date();
+      const promptNow = toZonedWallClockDate(nowInstant, promptTimeZone);
       const freshSchedules = (freshMeta.characterSchedules ?? {}) as Record<string, WeekSchedule>;
       const statusOverrides = parseConversationStatusOverrides(freshMeta.conversationStatusOverrides);
       const schedule = freshSchedules[characterId] ?? null;
 
       if (schedule) {
-        const { status } = getEffectiveCurrentStatus(schedule, statusOverrides[characterId], promptNow);
+        const { status } = getEffectiveCurrentStatus(
+          schedule,
+          statusOverrides[characterId],
+          nowInstant,
+          "free time",
+          promptNow,
+        );
         if (status === "offline") {
           clearGenerationInProgress(chat.id, generationStartedAt);
           return;

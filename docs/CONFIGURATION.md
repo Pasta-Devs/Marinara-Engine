@@ -17,7 +17,7 @@ You might edit configuration when you want to:
 
 Almost everything else, like your AI provider keys, characters, and chat options, is set inside the app, not here. To add an AI provider, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
-Optional first-party agents are also managed inside the app. Open **Agents → Download Agents** to install, update, or uninstall them. Package sources, manifests, artifacts, and the complete catalog live in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Installed packages live under `DATA_DIR/capability-packages`, so Docker volumes, custom data directories, backups, and normal upgrades preserve them. Installed packages work offline; catalog browsing and installation require outbound HTTPS access to that official repository. Server-runtime package changes require a full Marinara restart.
+Optional first-party agents are also managed inside the app. Open **Agents → Download Agents** to install or uninstall them. On every server startup, installed official packages check the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog and automatically upgrade to the newest version compatible with the running Engine before package runtimes activate. The same behavior applies to desktop, Docker, and Termux-hosted Android installations; iOS and other browser clients use the packages installed on their Marinara host server. Packages live under `DATA_DIR/capability-packages`, so Docker volumes, custom data directories, backups, and normal upgrades preserve them. Existing packages continue working at their installed version when outbound GitHub HTTPS is unavailable or an update fails verification.
 
 ## Where the .env file is
 
@@ -68,7 +68,7 @@ A few terms used below:
 - A CIDR range is a short way to write a whole block of IP addresses, like `192.168.1.0/24`. CIDR stands for Classless Inter-Domain Routing.
 - RFC 1918 ranges are the standard private address ranges used inside home and office networks, such as `10.x.x.x` and `192.168.x.x`.
 
-By default, when you set no password, the server accepts connections only from trusted sources. Those are loopback, any address in `IP_ALLOWLIST`, Tailscale, and the Docker bridge. Every other caller, including your normal home network, gets a `403 Forbidden` until you pick one of the options below.
+By default, when you set no password, the server accepts connections only from trusted sources. Those are loopback, any address in `IP_ALLOWLIST`, Tailscale, and same-host Docker bridge/gateway traffic. Every other caller, including your normal home network, gets a `403 Forbidden` until you pick one of the options below.
 
 The main access-control settings are:
 
@@ -83,7 +83,7 @@ The main access-control settings are:
 | `ALLOW_UNAUTHENTICATED_REMOTE` | `false` | Allows passwordless access from any address, including the public internet. Not recommended. |
 | `TRUSTED_PRIVATE_NETWORKS` | built-in defaults | Replaces the default private-network ranges. Include any defaults you still want. |
 | `BYPASS_AUTH_TAILSCALE` | `true` | Lets Tailscale traffic skip the login and allowlist. |
-| `BYPASS_AUTH_DOCKER` | `true` | Lets Docker bridge traffic skip the login and allowlist. |
+| `BYPASS_AUTH_DOCKER` | `true` | Lets Docker bridge traffic and the exact default gateway detected inside Docker skip the login and allowlist. |
 | `REQUIRE_AUTH_FOR_DOCKER_PROXY` | `false` | Forces normal login for Docker traffic that looks reverse-proxied. |
 | `SSL_CERT` | empty | Path to a TLS certificate file. Set with `SSL_KEY` to serve HTTPS directly. |
 | `SSL_KEY` | empty | Path to the TLS private key file. |
@@ -216,11 +216,13 @@ This section lists the remaining settings, grouped by purpose. The tables above 
 | `HOST` | `127.0.0.1` (`0.0.0.0` in the shell launchers) | The network interface to bind. Use `0.0.0.0` for LAN access. |
 | `AUTO_OPEN_BROWSER` | `true` | Whether the shell launchers open the app URL for you. Set `false` to stop this. |
 | `MARINARA_ENV_FILE` | project-root `.env` | Optional path override for the `.env` file. Set it before startup. |
-| `TZ` | system default | Optional IANA timezone used by server-side schedules. Leave it unset to inherit the host timezone; an empty `TZ=` is also treated as unset. |
+| `TZ` | system default | Host fallback timezone for server-side jobs. Conversation schedules use the global timezone selected in their schedule controls when one has been saved. Leave `TZ` unset to inherit the host timezone; an empty `TZ=` is also treated as unset. |
 | `CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Browser origins allowed to make cross-origin requests. |
 | `AUTO_CREATE_DEFAULT_CONNECTION` | `true` | Legacy flag. Current builds bundle no starter key, so this creates nothing. Add your own connection in the app. |
 
 `AUTO_CREATE_DEFAULT_CONNECTION` is kept only for older installs. New builds no longer ship a bundled starter connection, so leaving it on does nothing. To start chatting, add a connection under [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
+
+Conversation schedule controls default to the timezone reported by the browser or app device. **Schedule timezone** can be changed during Conversation setup, in Conversation Chat Settings, or in the character schedule editor. The selected IANA timezone is one global preference shared by every Conversation chat and synced to other Marinara clients connected to the same server.
 
 ### Media and sprite tools
 

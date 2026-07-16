@@ -1,3 +1,4 @@
+import { APP_VERSION } from "@marinara-engine/shared";
 import { safeFetch, type SafeFetchOptions } from "../../utils/security.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -6,7 +7,7 @@ const JSON_CONTENT_TYPES = ["application/json", "+json"];
 
 export interface BotBrowserJsonFetchOptions extends Omit<
   SafeFetchOptions,
-  "allowedContentTypes" | "bufferResponse" | "maxResponseBytes" | "policy"
+  "allowedContentTypes" | "allowMissingContentType" | "bufferResponse" | "maxResponseBytes" | "policy"
 > {
   allowedHosts: readonly string[];
   maxResponseBytes?: number;
@@ -32,13 +33,21 @@ export async function fetchBotBrowserJson(url: string | URL, options: BotBrowser
   if (callerSignal?.aborted) abortFromCaller();
   else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
   const timeout = setTimeout(() => controller.abort(new Error("Card Browser request timed out")), timeoutMs);
+  const headers = new Headers(request.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
+  if (!headers.has("User-Agent")) headers.set("User-Agent", `MarinaraEngine/${APP_VERSION}`);
 
   try {
     const response = await safeFetch(target, {
       ...request,
+      headers,
       signal: controller.signal,
       policy: { allowedProtocols: ["https:"], maxRedirects: 0 },
       allowedContentTypes: JSON_CONTENT_TYPES,
+      // Some trusted catalog APIs and Windows network intermediaries omit this
+      // header. The bounded body must still parse as JSON below.
+      allowMissingContentType: true,
+      decodeCompressedResponse: true,
       maxResponseBytes,
     });
     if (!response.ok) {

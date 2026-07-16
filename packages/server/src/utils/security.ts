@@ -46,7 +46,13 @@ export interface OutboundUrlPolicy {
 export interface SafeFetchOptions extends Omit<RequestInit, "dispatcher"> {
   policy?: OutboundUrlPolicy;
   maxResponseBytes?: number;
-  allowedContentTypes?: string[];
+  allowedContentTypes?: readonly string[];
+  /**
+   * Permit a response with no Content-Type header while still rejecting any
+   * present, disallowed type. Use only for fixed, trusted endpoints whose
+   * bounded response body is parsed and validated by the caller.
+   */
+  allowMissingContentType?: boolean;
   bufferResponse?: boolean;
   decodeCompressedResponse?: boolean;
   agentOptions?: Omit<AgentOptions, "connect">;
@@ -540,6 +546,16 @@ export function requestHeadersWithIdentityEncoding(headersInit: RequestInit["hea
   return headers;
 }
 
+export function isAllowedResponseContentType(
+  contentType: string | null,
+  allowedContentTypes: readonly string[],
+  allowMissingContentType = false,
+): boolean {
+  const normalized = contentType?.trim().toLowerCase() ?? "";
+  if (!normalized) return allowMissingContentType;
+  return allowedContentTypes.some((allowed) => normalized.includes(allowed.toLowerCase()));
+}
+
 const CROSS_ORIGIN_REDIRECT_STRIPPED_HEADERS = [
   "authorization",
   "proxy-authorization",
@@ -565,6 +581,7 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     policy,
     maxResponseBytes = DEFAULT_MAX_RESPONSE_BYTES,
     allowedContentTypes,
+    allowMissingContentType = false,
     bufferResponse = true,
     decodeCompressedResponse = false,
     agentOptions,
@@ -608,11 +625,11 @@ export async function safeFetch(url: string | URL, options: SafeFetchOptions = {
     }
 
     if (allowedContentTypes?.length) {
-      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-      if (!contentType || !allowedContentTypes.some((allowed) => contentType.includes(allowed.toLowerCase()))) {
+      const contentType = response.headers.get("content-type");
+      if (!isAllowedResponseContentType(contentType, allowedContentTypes, allowMissingContentType)) {
         await internalDispatcher?.close().catch(() => undefined);
         await response.body?.cancel().catch(() => undefined);
-        throw new Error(`Outbound response content type is not allowed: ${contentType}`);
+        throw new Error(`Outbound response content type is not allowed: ${contentType?.toLowerCase() || "(missing)"}`);
       }
     }
 

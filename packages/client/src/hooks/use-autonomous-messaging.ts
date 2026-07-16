@@ -80,10 +80,12 @@ export function useAutonomousMessaging(
       if (!chatId) return;
       try {
         const scheduleGenerationPreferences = useUIStore.getState().scheduleGenerationPreferences;
+        const conversationTimeZone = useUIStore.getState().conversationTimeZone;
         await api.post("/conversation/schedule/generate", {
           chatId,
           characterIds,
           scheduleGenerationPreferences,
+          timeZone: conversationTimeZone,
         });
         await qc.invalidateQueries({ queryKey: chatKeys.detail(chatId) });
         await qc.invalidateQueries({ queryKey: ["conversation-status", chatId] });

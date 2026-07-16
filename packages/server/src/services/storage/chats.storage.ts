@@ -34,6 +34,7 @@ import {
   type TimestampOverrides,
 } from "../import/import-timestamps.js";
 import { scheduleNeedsRefresh, type CharacterSchedules, type WeekSchedule } from "../conversation/schedule.service.js";
+import { resolveConversationTimeZone, toZonedWallClockDate } from "../conversation/timezone.js";
 import { logger } from "../../lib/logger.js";
 
 const GALLERY_DIR = join(DATA_DIR, "gallery");
@@ -411,9 +412,11 @@ export function createChatsStorage(db: DB) {
       if (chat.id === excludeChatId || chat.mode !== "conversation") continue;
       const meta = parseMetadata(chat.metadata);
       if (!areConversationSchedulesEnabled(meta) || !hasConversationSchedules(meta.characterSchedules)) continue;
+      const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta));
 
       for (const [characterId, schedule] of Object.entries(meta.characterSchedules)) {
-        if (!wanted.has(characterId) || sharedSchedules[characterId] || scheduleNeedsRefresh(schedule)) continue;
+        if (!wanted.has(characterId) || sharedSchedules[characterId] || scheduleNeedsRefresh(schedule, scheduleNow))
+          continue;
         sharedSchedules[characterId] = schedule;
       }
 
@@ -479,9 +482,10 @@ export function createChatsStorage(db: DB) {
 
       const characterIds = parseCharacterIds(chat.characterIds);
       const currentSchedules = hasConversationSchedules(meta.characterSchedules) ? meta.characterSchedules : {};
+      const scheduleNow = toZonedWallClockDate(new Date(), resolveConversationTimeZone(meta));
       const missingOrStaleIds = characterIds.filter((characterId) => {
         const existing = currentSchedules[characterId];
-        return !existing || scheduleNeedsRefresh(existing);
+        return !existing || scheduleNeedsRefresh(existing, scheduleNow);
       });
       if (missingOrStaleIds.length === 0) return currentSchedules;
 

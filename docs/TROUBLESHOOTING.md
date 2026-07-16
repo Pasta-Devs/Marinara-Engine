@@ -32,6 +32,16 @@ npm install -g pnpm
 npm install -g corepack
 ```
 
+### Windows: `'pnpm' is not recognized` while building the shared package
+
+Marinara v2.3.0 could start pnpm through Corepack successfully and then fail during the shared-package build because that build tried to launch a second, global `pnpm` executable. v2.3.1 removes that nested requirement. Close the failed launcher and run `start.bat` again so it can pull the corrected build script before rebuilding. Your data does not need to be removed.
+
+If the checkout itself cannot update, run `git pull` in the Marinara folder and start it again. As a temporary v2.3.0 workaround, install the pinned package manager globally, rerun the launcher, and then update normally:
+
+```bash
+npm install -g pnpm@10.33.2
+```
+
 ### Linux: ERR_PNPM_ENAMETOOLONG during install
 
 This means an older install left behind long folder paths. From the Marinara folder, clear the partial install and run the launcher again:
@@ -63,13 +73,15 @@ Sometimes the server is running but the browser shows a blank page, or the app l
 
 ## Downloadable agent problems
 
-If **Agents → Download Agents** says the catalog is unavailable, the machine running the Marinara server—not only the browser—must be able to reach the official [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over GitHub HTTPS. Installed agents continue to work offline. Restore the server connection and click **Refresh** or **Try again**.
+If **Agents → Download Agents** says the catalog is unavailable, the machine running the Marinara server—not only the browser—must be able to reach the official [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog over GitHub HTTPS. Installed agents continue to work offline at their current version. Restore the server connection and restart Marinara to retry automatic package updates, or click **Refresh** or **Try again** to browse the catalog immediately.
 
 If an installed map, call, or Conversation game does not appear, close Marinara Engine completely and start it again. Packages containing server or client runtime code deliberately remain in **Restart required** state until the next process start. Then enable the agent for the chat in Chat Settings; Game-compatible agents can also be selected during game creation.
 
 If an older installation cannot complete its first package migration, do not delete the `data/capability-packages` folder or your chat data. Marinara leaves the migration incomplete and retries on the next startup. Existing chat selections and settings remain stored while the catalog is unreachable.
 
 Package downloads are rejected when their checksum, declared file list, Engine version range, or archive paths do not match the official catalog. Update Marinara Engine first, refresh the catalog, and retry. Do not manually extract an artifact into the data directory.
+
+Automatic updates never install packages the user did not choose. They only replace an already-installed official package with a newer compatible, verified catalog build. A failed update leaves the installed version registered; if a newly updated server runtime fails its startup self-check, Marinara rolls it back to the previous version.
 
 ## Accessing Marinara from another device
 
@@ -78,7 +90,7 @@ If you cannot access Marinara from a phone, tablet, or another computer on your 
 - Bind the server to a reachable address. The server listens on `127.0.0.1` (loopback, your own machine only) by default. The shell launchers set `HOST=0.0.0.0` for you. If you started with `pnpm start` by hand, set `HOST=0.0.0.0` in your `.env` file first.
 - Confirm both devices are on the same Wi-Fi network.
 - Confirm no firewall blocks the port. The default port is `7860`, or whatever you set as `PORT`.
-- Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless. Traffic over Tailscale and the Docker bridge is trusted by default.
+- Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless. Traffic over Tailscale and the same-host Docker bridge or detected container gateway is trusted by default.
 - For privileged actions from that device (backups, data clearing, updates), set `ADMIN_SECRET` in the server `.env`. Then paste the same value into **Settings** > **Advanced** > **Admin Access** on that device and click **Save**.
 
 For the full walkthrough, see [Remote Access](REMOTE_ACCESS.md) and the [Frequently Asked Questions](FAQ.md).
@@ -259,7 +271,9 @@ Do not delete `data`, `storage`, or `marinara-engine.db`; those locations may co
 
 ### Noodle shows `Etc/Unknown` or schedules use the wrong timezone
 
-Remove any blank `TZ=` line from `.env` and restart Marinara so the server inherits the device timezone. To choose a timezone explicitly, set a valid IANA name such as `TZ=Europe/Warsaw` or `TZ=America/New_York`. Current releases treat a blank value as unset, but a restart is still required for Node's timezone state and scheduled jobs to be rebuilt consistently.
+For Conversation schedules, open Conversation Chat Settings or a character schedule editor and choose **Schedule timezone**. This global selection applies to every Conversation chat, including background autonomous messages, and can be reset with **Use device**.
+
+For Noodle or server jobs without a Conversation override, remove any blank `TZ=` line from `.env` and restart Marinara so the server inherits the host timezone. To choose a host fallback explicitly, set a valid IANA name such as `TZ=Europe/Warsaw` or `TZ=America/New_York`. Current releases treat a blank value as unset, but a restart is still required for Node's timezone state and scheduled jobs to be rebuilt consistently.
 
 ### Container permission denied on a volume mount
 

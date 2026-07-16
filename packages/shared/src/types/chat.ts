@@ -429,6 +429,8 @@ export interface ChatMetadata {
   // ── Conversation Mode Fields ──
   /** Whether conversation character schedules are enabled for this chat. */
   conversationSchedulesEnabled?: boolean;
+  /** IANA timezone used to evaluate Conversation schedules and temporal context. */
+  conversationTimeZone?: string;
   /** Allow conversation characters to use hidden command tags. Default: true. */
   characterCommands?: boolean;
   /** Per-command Conversation command enable overrides. Missing/true means enabled. */

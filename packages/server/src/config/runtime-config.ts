@@ -352,14 +352,14 @@ export function isTailscaleBypassEnabled() {
 }
 
 /**
- * Trust traffic from the Docker bridge range (172.16.0.0/12) unconditionally.
+ * Trust traffic from the Docker bridge range (172.16.0.0/12) and, while
+ * running in Docker, the container's exact detected default gateway.
  * When enabled, those clients skip both the IP allowlist and Basic Auth.
  *
- * Default: ON. Docker bridge IPs are unreachable from outside the host —
- * external traffic is NAT'd through the bridge gateway, so a request that
- * actually arrives with a 172.16.0.0/12 source IP genuinely came from a
- * container on this host. Set BYPASS_AUTH_DOCKER=false to require auth from
- * containers as well.
+ * Default: ON. Docker bridge and container-gateway IPs represent same-host
+ * Docker traffic. Detecting the exact gateway also covers Docker Desktop and
+ * custom address pools outside 172.16.0.0/12. Set BYPASS_AUTH_DOCKER=false to
+ * require auth from these clients as well.
  *
  * Caveat: 172.16.0.0/12 also covers some private LAN deployments. If your
  * non-Docker LAN uses 172.16.x.x or 172.20.x.x addresses, set the flag to

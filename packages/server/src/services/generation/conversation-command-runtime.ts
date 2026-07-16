@@ -152,6 +152,7 @@ export async function buildConversationCommandsReminder(args: {
     isConversationCommandAvailable("selfie") && isConversationCommandEnabled(chatMeta, "selfie");
   const memoryCommandEnabled = isConversationCommandEnabled(chatMeta, "memory");
   const sceneCommandEnabled = isConversationCommandEnabled(chatMeta, "scene");
+  const reactCommandEnabled = isConversationCommandEnabled(chatMeta, "react");
   const callCommandEnabled =
     isConversationCommandAvailable("call") && isConversationCommandEnabled(chatMeta, "call");
   const musicCommandEnabled =
@@ -235,6 +236,12 @@ export async function buildConversationCommandsReminder(args: {
   if (scheduleCommandEnabled) {
     addCommandLines(
       `- [schedule_update: status="online|idle|dnd|offline", activity="activity name", duration="number of hours (e.g., 1h)"] - only if you change your own status/activity, for example, if the user asks you to stop what you're doing or if you decide to change them yourself.`,
+    );
+  }
+
+  if (reactCommandEnabled) {
+    addCommandLines(
+      `- [react: emoji="😂"] or [react: emoji=":name:"] — if you want to react to the user's message, send it in its own line, using any standard emoji, or a custom one. It posts as a small emoji on their message, the way you'd react in a chat app. You can also react to another character instead by adding their name: [react: emoji="🙄" to "Character Name"]. Use it only when it genuinely fits how your character feels in the moment; it is optional, may stand alone or sit alongside your reply, and choosing a flat reaction or none at all is itself a valid choice.`,
     );
   }
 

@@ -60,6 +60,7 @@ function seedWhisperModels() {
 
 try {
   const {
+    capabilityCatalogSchema,
     capabilityPackageManifestSchema,
     compareCapabilityPackageVersions,
     getCapabilityApiCompatibilityIssue,
@@ -125,8 +126,69 @@ try {
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
   seedWhisperModels();
 
-  const { capabilityPackageManager } = await import(
+  const { capabilityPackageManager, findCompatibleCapabilityPackageUpdates } = await import(
     "../../packages/server/src/services/capability-packages/package-manager.service.js"
+  );
+  const catalogEntry = (manifest: typeof legacyManifest) => ({
+    manifest,
+    category: "misc",
+    artifact: {
+      url: `https://example.com/${manifest.id}-${manifest.version}.zip`,
+      sha256: "1".repeat(64),
+      bytes: 1,
+    },
+  });
+  const callsUpdateManifest = capabilityPackageManifestSchema.parse({
+    ...legacyManifest,
+    id: "conversation-calls",
+    name: "conversation-calls",
+    version: "1.0.2",
+    kind: ["agent", "conversation-calls"],
+  });
+  const futureEngineManifest = capabilityPackageManifestSchema.parse({
+    ...legacyManifest,
+    id: "future-engine",
+    name: "future-engine",
+    version: "1.1.0",
+    engine: { min: "2.4.0", maxExclusive: "3.0.0" },
+  });
+  const futureCapabilityManifest = capabilityPackageManifestSchema.parse({
+    ...unsupportedMajorManifest,
+    id: "future-contract",
+    name: "future-contract",
+    version: "1.1.0",
+  });
+  const coreUpdateManifest = capabilityPackageManifestSchema.parse({
+    ...legacyManifest,
+    id: "about-me-keeper",
+    name: "about-me-keeper",
+    version: "1.1.0",
+  });
+  const updateCatalog = capabilityCatalogSchema.parse({
+    schemaVersion: 1,
+    generatedAt: "2026-07-16T00:00:00.000Z",
+    packages: [
+      catalogEntry(callsUpdateManifest),
+      catalogEntry(futureEngineManifest),
+      catalogEntry(futureCapabilityManifest),
+      catalogEntry(coreUpdateManifest),
+    ],
+  });
+  const updateCandidates = findCompatibleCapabilityPackageUpdates(
+    [
+      installedCapabilityPackageSchema.parse(installedPackage("conversation-calls", ["agent", "conversation-calls"])),
+      installedCapabilityPackageSchema.parse(installedPackage("future-engine", ["agent"])),
+      installedCapabilityPackageSchema.parse(installedPackage("future-contract", ["agent"])),
+      installedCapabilityPackageSchema.parse(installedPackage("about-me-keeper", ["agent"])),
+      installedCapabilityPackageSchema.parse(installedPackage("not-in-catalog", ["agent"])),
+    ],
+    updateCatalog,
+    "2.3.1",
+  );
+  assert.deepEqual(
+    updateCandidates.map(({ installed, entry }) => [installed.id, installed.version, entry.manifest.version]),
+    [["conversation-calls", "1.0.0", "1.0.2"]],
+    "Automatic updates must select only newer, compatible, downloadable packages already installed by the user",
   );
   const unsupportedInstalled = installedCapabilityPackageSchema.parse({
     ...installedPackage("future-contract", ["agent"]),

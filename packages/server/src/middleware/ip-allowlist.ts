@@ -12,11 +12,13 @@
 // so you can never lock yourself out of local access.
 
 import type { FastifyRequest, FastifyReply } from "fastify";
+import { readFileSync } from "node:fs";
 import {
   getIpAllowlist,
   getTrustedPrivateNetworksOverride,
   isDockerBypassEnabled,
   isDockerProxyAuthRequired,
+  isDockerRuntime,
   isTailscaleBypassEnabled,
 } from "../config/runtime-config.js";
 import { logger } from "../lib/logger.js";
@@ -138,6 +140,63 @@ const LOOPBACK_CIDRS: CIDREntry[] = [parseCIDR("127.0.0.1")!, parseCIDR("::1")!]
 // Docker's default bridge networks live within 172.16.0.0/12.
 const TAILSCALE_CIDR = parseCIDR("100.64.0.0/10")!;
 const DOCKER_CIDR = parseCIDR("172.16.0.0/12")!;
+
+/**
+ * Resolve the IPv4 default gateway from Linux's route table.
+ *
+ * Docker Desktop and custom Docker address pools do not necessarily use the
+ * conventional 172.16.0.0/12 bridge range. In those environments, traffic
+ * forwarded from the host arrives from this exact gateway address.
+ */
+export function parseDockerDefaultGatewayIp(routeTable: string): string | null {
+  const candidates: Array<{ ip: string; metric: number }> = [];
+
+  for (const line of routeTable.split(/\r?\n/u).slice(1)) {
+    const columns = line.trim().split(/\s+/u);
+    if (columns.length < 8) continue;
+
+    const destination = columns[1];
+    const gatewayHex = columns[2];
+    const flagsHex = columns[3];
+    const metricText = columns[6];
+    if (destination !== "00000000" || !/^[0-9a-f]{8}$/iu.test(gatewayHex ?? "")) continue;
+
+    const flags = Number.parseInt(flagsHex ?? "", 16);
+    if (!Number.isFinite(flags) || (flags & 0x3) !== 0x3) continue;
+
+    const octets = (gatewayHex!.match(/.{2}/gu) ?? []).map((part) => Number.parseInt(part, 16)).reverse();
+    if (octets.length !== 4 || octets.every((octet) => octet === 0)) continue;
+
+    const metric = Number.parseInt(metricText ?? "", 10);
+    candidates.push({
+      ip: octets.join("."),
+      metric: Number.isFinite(metric) ? metric : Number.MAX_SAFE_INTEGER,
+    });
+  }
+
+  candidates.sort((left, right) => left.metric - right.metric);
+  return candidates[0]?.ip ?? null;
+}
+
+/** Read and parse Docker's default gateway once during module initialization. */
+function readDockerDefaultGatewayIp(): string | null {
+  try {
+    return parseDockerDefaultGatewayIp(readFileSync("/proc/net/route", "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+const dockerDefaultGatewayIp = isDockerRuntime() ? readDockerDefaultGatewayIp() : null;
+
+/** True only when the client matches this Docker runtime's exact host gateway. */
+function isDockerRuntimeGatewayIp(ip: string): boolean {
+  if (!dockerDefaultGatewayIp) return false;
+
+  const bytes = ipToBytes(ip);
+  const gateway = parseCIDR(dockerDefaultGatewayIp);
+  return Boolean(bytes && gateway && matchesCIDR(bytes, gateway));
+}
 
 // ── Private / non-routable network CIDRs ──
 // Used by the safe-by-default Basic Auth lockdown to avoid breaking
@@ -292,6 +351,11 @@ export function isDockerIp(ip: string): boolean {
   return matchesCIDR(bytes, DOCKER_CIDR);
 }
 
+/** True for a conventional Docker bridge client or this container's exact host gateway. */
+function isDockerInterfaceIp(ip: string): boolean {
+  return isDockerIp(ip) || isDockerRuntimeGatewayIp(ip);
+}
+
 const PROXY_FORWARDING_HEADERS = [
   "forwarded",
   "x-forwarded-for",
@@ -312,7 +376,7 @@ function hasProxyForwardingHeaders(request: Pick<FastifyRequest, "headers">): bo
 
 /** True when Docker bridge traffic appears to be forwarding another client. */
 function isDockerProxyForwardedRequest(request: Pick<FastifyRequest, "headers" | "ip">): boolean {
-  return isDockerIp(request.ip) && hasProxyForwardingHeaders(request);
+  return isDockerInterfaceIp(request.ip) && hasProxyForwardingHeaders(request);
 }
 
 let bypassAnnounced = { tailscale: false, docker: false, dockerProxyForwarded: false };
@@ -337,10 +401,10 @@ export function isTrustedInterfaceIp(ip: string): boolean {
     return true;
   }
 
-  if (dockerOn && isDockerIp(ip)) {
+  if (dockerOn && isDockerInterfaceIp(ip)) {
     if (!bypassAnnounced.docker) {
       logger.warn(
-        "[auth-bypass] BYPASS_AUTH_DOCKER=true — clients in 172.16.0.0/12 will skip Basic Auth and IP allowlist",
+        "[auth-bypass] BYPASS_AUTH_DOCKER=true — clients in 172.16.0.0/12 and this container's detected default gateway will skip Basic Auth and IP allowlist",
       );
       bypassAnnounced.docker = true;
     }

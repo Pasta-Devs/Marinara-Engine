@@ -8,6 +8,14 @@ const APP_VERSION = (
   JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
 ).version;
 
+function createDeferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
 function collectUnexpectedErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -73,15 +81,10 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   const announcement = page.getByRole("dialog", { name: "What's New?" });
   await expect(announcement).toBeVisible();
   await expect(announcement.getByText(`Version ${APP_VERSION}`)).toBeVisible();
-  await expect(announcement.getByText("Hierarchical Maps")).toBeVisible();
-  await expect(announcement.getByText("Tactical Combat Mode in Games")).toBeVisible();
-  await expect(announcement.getByText("NoodleR")).toHaveCount(0);
-  const tacticalPreview = announcement.getByRole("img", {
-    name: "Tactical Combat Mode battlefield with a terrain grid, units, and battle controls",
-  });
-  await expect(tacticalPreview).toHaveAttribute("src", "https://i.imgur.com/tMhfbej.jpeg");
-  await expect(tacticalPreview).toHaveClass(/max-h-36/);
-  await expect(tacticalPreview).toHaveClass(/object-contain/);
+  await expect(announcement.getByRole("heading", { name: "A quick patch with bug fixes!" })).toBeVisible();
+  await expect(announcement.getByText("Marinara Engine has been updated.", { exact: true })).toHaveCount(0);
+  await expect(announcement.getByText("Hierarchical Maps")).toHaveCount(0);
+  await expect(announcement.getByText("Tactical Combat Mode in Games")).toHaveCount(0);
   await expect(announcement.getByRole("link", { name: "View release" })).toHaveAttribute(
     "href",
     `https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v${APP_VERSION}`,
@@ -132,8 +135,8 @@ test("turning off the custom mouse pointer persists immediately and after reload
     .toBeNull();
 });
 
-test("initial Roleplay character assignment does not block greeting seeding", async ({ request }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Roleplay setup regression is covered on desktop.");
+test("Conversation membership notices begin only after the chat starts", async ({ request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Conversation membership regression is covered on desktop.");
 
   const createCharacter = async (name: string) => {
     const response = await request.post("/api/characters", {
@@ -145,8 +148,9 @@ test("initial Roleplay character assignment does not block greeting seeding", as
 
   const firstCharacter = await createCharacter("Greeting Seed One");
   const secondCharacter = await createCharacter("Greeting Seed Two");
+  const thirdCharacter = await createCharacter("Later Join Three");
   const chatResponse = await request.post("/api/chats", {
-    data: { name: "Roleplay Greeting Seed Smoke", mode: "roleplay", characterIds: [] },
+    data: { name: "Conversation Membership Smoke", mode: "conversation", characterIds: [] },
   });
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
@@ -166,6 +170,21 @@ test("initial Roleplay character assignment does not block greeting seeding", as
       data: { characterIds: [firstCharacter.id, secondCharacter.id] },
     });
     expect(laterAssignment.ok()).toBeTruthy();
+    const messagesAfterSetupChanges = (await (await request.get(`/api/chats/${chat.id}/messages`)).json()) as Array<{
+      role: string;
+      content: string;
+    }>;
+    expect(messagesAfterSetupChanges).toEqual([]);
+
+    const finishSetup = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { conversationSetupComplete: true },
+    });
+    expect(finishSetup.ok()).toBeTruthy();
+
+    const postStartAssignment = await request.patch(`/api/chats/${chat.id}`, {
+      data: { characterIds: [firstCharacter.id, secondCharacter.id, thirdCharacter.id] },
+    });
+    expect(postStartAssignment.ok()).toBeTruthy();
     const messagesAfterLaterJoin = (await (await request.get(`/api/chats/${chat.id}/messages`)).json()) as Array<{
       role: string;
       content: string;
@@ -173,12 +192,13 @@ test("initial Roleplay character assignment does not block greeting seeding", as
     expect(messagesAfterLaterJoin).toHaveLength(1);
     expect(messagesAfterLaterJoin[0]).toMatchObject({
       role: "system",
-      content: "Greeting Seed Two has joined the chat.",
+      content: "Later Join Three has joined the chat.",
     });
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
     await request.delete(`/api/characters/${firstCharacter.id}`);
     await request.delete(`/api/characters/${secondCharacter.id}`);
+    await request.delete(`/api/characters/${thirdCharacter.id}`);
   }
 });
 
@@ -792,9 +812,7 @@ test("Game history above the dialogue box opens a historical Peek Prompt", async
     await expect(peekButton).toBeVisible();
     await peekButton.click();
     await expect(page.getByRole("heading", { name: "Assembled Prompt" })).toBeVisible();
-    await expect(
-      page.getByText("This is the exact cached text prompt sent for the selected Game Mode turn."),
-    ).toBeVisible();
+    await expect(page.getByText("This is the exact cached text prompt sent for the selected turn.")).toBeVisible();
     await page.getByRole("button", { name: /System/ }).click();
     await expect(page.getByText("Exact historical Game Master prompt")).toBeVisible();
   } finally {
@@ -2848,10 +2866,11 @@ test("Noodle settings persist through refetch and reload", async ({ page }, test
   }
 });
 
-test("Noodle restores the last selected persona after reload", async ({ page }, testInfo) => {
+test("Noodle restores the selected persona and preserves per-persona post authorship", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Noodle persona persistence is covered on desktop.");
 
   const createdPersonaIds: string[] = [];
+  const createdPostIds: string[] = [];
   try {
     for (const name of ["Noodle Persona One", "Noodle Persona Two"]) {
       const response = await page.request.post("/api/characters/personas", {
@@ -2862,6 +2881,30 @@ test("Noodle restores the last selected persona after reload", async ({ page }, 
     }
     const selectedPersonaId = createdPersonaIds[1]!;
     expect((await page.request.get("/api/noodle")).ok()).toBe(true);
+    const authoredPosts = [];
+    for (const [index, personaId] of createdPersonaIds.entries()) {
+      const response = await page.request.post("/api/noodle/posts", {
+        data: {
+          authorKind: "persona",
+          authorEntityId: personaId,
+          content: `Authorship regression post ${index + 1}`,
+        },
+      });
+      expect(response.ok()).toBe(true);
+      const post = (await response.json()) as {
+        id: string;
+        authorAccountId: string;
+        authorSnapshot: { kind: string; entityId: string; displayName: string; handle: string } | null;
+      };
+      createdPostIds.push(post.id);
+      authoredPosts.push(post);
+      expect(post.authorSnapshot).toMatchObject({
+        kind: "persona",
+        entityId: personaId,
+        displayName: `Noodle Persona ${index === 0 ? "One" : "Two"}`,
+      });
+    }
+    expect(authoredPosts[0]?.authorAccountId).not.toBe(authoredPosts[1]?.authorAccountId);
 
     await page.goto("/");
     await page.locator('[data-tour="noodle-tab"]').click();
@@ -2887,7 +2930,15 @@ test("Noodle restores the last selected persona after reload", async ({ page }, 
     await page.locator('[data-tour="noodle-tab"]').click();
     await expect(noodle).toBeVisible();
     await expect(accountSwitcher).toContainText("Noodle Persona Two");
+    for (const [index, post] of authoredPosts.entries()) {
+      const article = noodle.locator(`[data-noodle-post-id="${post.id}"]`);
+      await expect(article).toContainText(`Noodle Persona ${index === 0 ? "One" : "Two"}`);
+      await expect(article).toContainText(`@${post.authorSnapshot?.handle}`);
+    }
   } finally {
+    for (const postId of createdPostIds) {
+      await page.request.delete(`/api/noodle/posts/${postId}`, { timeout: 5_000 }).catch(() => undefined);
+    }
     for (const personaId of createdPersonaIds) {
       await page.request.delete(`/api/characters/personas/${personaId}`, { timeout: 5_000 }).catch(() => undefined);
     }
@@ -3124,7 +3175,6 @@ test("liking one Noodle post leaves unrelated reaction controls visually stable"
   let personaId = activePersona?.id ?? null;
   let createdPersonaId: string | null = null;
   const createdPostIds: string[] = [];
-  let releaseReactionRequest: (() => void) | null = null;
   if (!personaId) {
     const personaResponse = await page.request.post("/api/characters/personas", {
       data: { name: "Noodle Reaction Regression", description: "Temporary browser regression persona." },
@@ -3150,6 +3200,9 @@ test("liking one Noodle post leaves unrelated reaction controls visually stable"
     createdPostIds.push(((await response.json()) as { id: string }).id);
   }
 
+  const reactionRequestStarted = createDeferred();
+  const releaseReaction = createDeferred();
+
   try {
     await page.goto("/");
     await page.locator('[data-tour="noodle-tab"]').click();
@@ -3165,17 +3218,10 @@ test("liking one Noodle post leaves unrelated reaction controls visually stable"
     await expect(targetLike.locator("svg")).toHaveAttribute("fill", "none");
     const unrelatedClass = await unrelatedLike.getAttribute("class");
     const unrelatedText = await unrelatedLike.textContent();
-    let markReactionRequestStarted: (() => void) | null = null;
-    const reactionRequestStarted = new Promise<void>((resolve) => {
-      markReactionRequestStarted = resolve;
-    });
-    const releaseReaction = new Promise<void>((resolve) => {
-      releaseReactionRequest = resolve;
-    });
     await page.route("**/api/noodle/posts/*/interactions", async (route) => {
       if (route.request().method() === "POST") {
-        markReactionRequestStarted?.();
-        await releaseReaction;
+        reactionRequestStarted.resolve();
+        await releaseReaction.promise;
       }
       await route.continue();
     });
@@ -3190,15 +3236,14 @@ test("liking one Noodle post leaves unrelated reaction controls visually stable"
 
     countBootstrapRequests = true;
     await targetLike.click();
-    await reactionRequestStarted;
+    await reactionRequestStarted.promise;
     await expect(targetLike).toBeDisabled();
     await expect(targetLike).toHaveAttribute("aria-busy", "true");
     await expect(unrelatedLike).toBeEnabled();
     await expect(unrelatedLike).toHaveAttribute("class", unrelatedClass ?? "");
     await expect(unrelatedLike).toHaveText(unrelatedText ?? "");
 
-    releaseReactionRequest?.();
-    releaseReactionRequest = null;
+    releaseReaction.resolve();
     const targetUnlike = targetPost.getByRole("button", { name: "Unlike post" });
     await expect(targetUnlike).toBeEnabled();
     await expect(targetUnlike.locator("svg")).toHaveAttribute("fill", "currentColor");
@@ -3208,7 +3253,7 @@ test("liking one Noodle post leaves unrelated reaction controls visually stable"
     expect(bootstrapRequestsAfterLike).toBe(0);
     expect(errors).toEqual([]);
   } finally {
-    releaseReactionRequest?.();
+    releaseReaction.resolve();
     for (const postId of createdPostIds) {
       await page.request.delete(`/api/noodle/posts/${postId}`, { timeout: 5_000 }).catch(() => undefined);
     }
@@ -3706,7 +3751,7 @@ test("Noodle only bumps posts when another account replies to the persona's comm
           (elements, postIds) =>
             elements
               .map((element) => element.getAttribute("data-noodle-post-id"))
-              .filter((postId): postId is string => Boolean(postId) && postIds.includes(postId)),
+              .filter((postId): postId is string => postId !== null && postIds.includes(postId)),
           [olderPost.id, newerPost.id],
         );
 

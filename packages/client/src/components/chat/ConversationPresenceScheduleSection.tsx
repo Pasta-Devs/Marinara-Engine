@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { CalendarClock, Pencil } from "lucide-react";
 import {
   CONVERSATION_SCHEDULE_DAYS,
+  toConversationScheduleWallClockDate,
   type ConversationPresenceStatus,
   type WeekSchedule,
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 
 type ConversationPresenceScheduleSectionProps = {
   characterId: string;
@@ -63,9 +65,9 @@ function formatScheduleTimeRange(value: string) {
   return formattedStart && formattedEnd ? `${formattedStart} - ${formattedEnd}` : value;
 }
 
-function getUpcomingScheduleBlocks(schedule?: WeekSchedule, limit = 4): UpcomingScheduleBlock[] {
+function getUpcomingScheduleBlocks(schedule?: WeekSchedule, limit = 4, timeZone?: string): UpcomingScheduleBlock[] {
   if (!schedule?.days) return [];
-  const now = new Date();
+  const now = toConversationScheduleWallClockDate(new Date(), timeZone);
   const todayIndex = (now.getDay() + 6) % 7;
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const upcoming: UpcomingScheduleBlock[] = [];
@@ -124,7 +126,11 @@ export function ConversationPresenceScheduleSection({
   onOpenScheduleEditor,
 }: ConversationPresenceScheduleSectionProps) {
   const [expanded, setExpanded] = useState(false);
-  const upcomingBlocks = useMemo(() => getUpcomingScheduleBlocks(schedule, 3), [schedule]);
+  const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
+  const upcomingBlocks = useMemo(
+    () => getUpcomingScheduleBlocks(schedule, 3, conversationTimeZone),
+    [conversationTimeZone, schedule],
+  );
   const nextBlock = upcomingBlocks[0];
   const extraBlocks = upcomingBlocks.slice(1);
   const badge = schedulesEnabled ? (schedule ? "Active" : "Ready") : "Off";

@@ -372,7 +372,12 @@ export function ConversationPresenceCard({
     setIsRefreshing(true);
     try {
       if (statusesQuery.data?.needsRefresh) {
-        await api.post("/conversation/schedule/generate", { chatId, characterIds: chatCharIds });
+        await api.post("/conversation/schedule/generate", {
+          chatId,
+          characterIds: chatCharIds,
+          scheduleGenerationPreferences: useUIStore.getState().scheduleGenerationPreferences,
+          timeZone: useUIStore.getState().conversationTimeZone,
+        });
         await queryClient.refetchQueries({ queryKey: ["chat", chatId] });
       }
       await statusesQuery.refetch();
