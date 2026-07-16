@@ -1160,7 +1160,15 @@ test("Connections exposes Local Whisper only while Conversation Calls is install
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
   await page.route("**/api/capability-packages/conversation-calls/client?*", async (route) => {
-    await route.fulfill({ status: 200, contentType: "application/javascript", body: "export {};" });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: `
+        if (!customElements.get("marinara-capability-conversation-calls")) {
+          customElements.define("marinara-capability-conversation-calls", class extends HTMLElement {});
+        }
+      `,
+    });
   });
   await page.route("**/api/sidecar/speech/status", async (route) => {
     await route.fulfill({

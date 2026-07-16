@@ -308,10 +308,9 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
     "manualOverrides",
     "fieldLocks",
   ],
-  // game_checkpoints has no JSON columns (snapshotId is a plain FK; there is
-  // no snapshot/metadata column — see db/schema/checkpoints.ts). The same goes
-  // for chat_images, character_images, assets, custom_themes, and
-  // installed_extensions, whose former entries named columns that do not exist.
+  game_checkpoints: ["snapshotData", "spatialSnapshotData"],
+  // chat_images, character_images, assets, custom_themes, and installed_extensions
+  // have no JSON columns; their former entries named columns that do not exist.
   game_engine_state: ["state"],
   regex_scripts: ["trimStrings", "placement", "targetCharacterIds"],
 };

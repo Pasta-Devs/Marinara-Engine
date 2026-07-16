@@ -12134,13 +12134,18 @@ export async function gameRoutes(app: FastifyInstance) {
     if (!cp) throw new Error("Checkpoint not found");
     if (cp.chatId !== input.chatId) throw new Error("Checkpoint does not belong to this chat");
 
-    // Fetch the exact snapshot captured by the checkpoint. Do not fall back to
-    // message/swipe lookup: swipe indexes can shift while the snapshot row id
-    // remains stable, and a fallback could restore the wrong state.
-    const snapshot = await stateStore.getById(cp.snapshotId);
+    // New checkpoints carry immutable copies because the live tracker rows can
+    // still be edited after capture. Older checkpoints fall back to their row IDs.
+    const snapshot =
+      parseJsonField<NonNullable<Awaited<ReturnType<typeof stateStore.getById>>> | null>(cp.snapshotData, null) ??
+      (await stateStore.getById(cp.snapshotId));
     if (!snapshot) throw new Error("Checkpoint snapshot was deleted and can no longer be restored");
     if (snapshot.chatId !== input.chatId) throw new Error("Checkpoint snapshot does not belong to this chat");
-    const spatialSnapshot = cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId) : null;
+    const spatialSnapshot =
+      parseJsonField<NonNullable<Awaited<ReturnType<typeof spatialStore.getById>>> | null>(
+        cp.spatialSnapshotData,
+        null,
+      ) ?? (cp.spatialSnapshotId ? await spatialStore.getById(cp.spatialSnapshotId) : null);
     if (cp.spatialSnapshotId && !spatialSnapshot) {
       throw new Error("Checkpoint spatial snapshot was deleted and can no longer be restored");
     }

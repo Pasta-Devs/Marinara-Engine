@@ -57,6 +57,8 @@ import {
 } from "../services/spatial-context/projection.js";
 import { createSpatialContextStorage } from "../services/storage/spatial-context.storage.js";
 import { createRegexScriptsStorage } from "../services/storage/regex-scripts.storage.js";
+import { processLorebooks } from "../services/lorebook/index.js";
+import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
@@ -90,6 +92,7 @@ import {
   shouldEnableAgentsForGeneration,
   formatConversationInstructionsForWrap,
   normalizePromptWrapFormat,
+  parseGameStateRow,
 } from "./generate/generate-route-utils.js";
 import {
   filterGameInternalAgentIds,
@@ -109,6 +112,7 @@ import {
   clampRoleplaySummaryMaxTokens,
   resolveChatSummaryPrompt,
 } from "../services/generation/roleplay-summary-runtime.js";
+import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
 
 type TrackerWrapFormat = "xml" | "markdown" | "none";
 type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?: boolean }>;
@@ -2159,7 +2163,13 @@ export async function chatsRoutes(app: FastifyInstance) {
         : typeof chatMeta.presetId === "string" && chatMeta.presetId
           ? chatMeta.presetId
           : null;
-    if (presetId) {
+    if (
+      presetId ||
+      chatMode === "conversation" ||
+      chatMode === "game" ||
+      chatMode === "roleplay" ||
+      chatMode === "visual_novel"
+    ) {
       try {
         const { createPromptsStorage } = await import("../services/storage/prompts.storage.js");
         const { createCharactersStorage } = await import("../services/storage/characters.storage.js");
@@ -2168,9 +2178,15 @@ export async function chatsRoutes(app: FastifyInstance) {
         const presetStore = createPromptsStorage(app.db);
         const charStore = createCharactersStorage(app.db);
 
-        const preset = await presetStore.getById(presetId);
+        const preset = presetId ? await presetStore.getById(presetId) : null;
         const chatMode = (chat.mode as string) ?? "roleplay";
-        if (preset || chatMode === "conversation" || chatMode === "game") {
+        if (
+          preset ||
+          chatMode === "conversation" ||
+          chatMode === "game" ||
+          chatMode === "roleplay" ||
+          chatMode === "visual_novel"
+        ) {
           // Apply conversation-start filter
           let scopedMessages = chatMessages;
           for (let i = chatMessages.length - 1; i >= 0; i--) {
@@ -2208,9 +2224,9 @@ export async function chatsRoutes(app: FastifyInstance) {
 
           const [sections, groups, choiceBlocks] = preset
             ? await Promise.all([
-                presetStore.listSections(presetId),
-                presetStore.listGroups(presetId),
-                presetStore.listChoiceBlocksForPreset(presetId),
+                presetStore.listSections(preset.id),
+                presetStore.listGroups(preset.id),
+                presetStore.listChoiceBlocksForPreset(preset.id),
               ])
             : [[], [], []];
 
@@ -2276,6 +2292,28 @@ export async function chatsRoutes(app: FastifyInstance) {
           promptMacroContext.lastInput = [...mappedMessages]
             .reverse()
             .find((message) => message.role === "user")?.content;
+          const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
+          const activeLorebookIds = Array.isArray(chatMeta.activeLorebookIds)
+            ? (chatMeta.activeLorebookIds as string[])
+            : [];
+          const entryStateOverrides = resolveEntryStateOverrides(
+            chatMeta.entryStateOverrides ?? chatMeta.lorebookEntryStateOverrides,
+          );
+          const entryTimingStates =
+            (chatMeta.entryTimingStates ?? chatMeta.lorebookEntryTimingStates) &&
+            typeof (chatMeta.entryTimingStates ?? chatMeta.lorebookEntryTimingStates) === "object"
+              ? ((chatMeta.entryTimingStates ?? chatMeta.lorebookEntryTimingStates) as Record<
+                  string,
+                  LorebookEntryTimingState
+                >)
+              : undefined;
+          const generationTriggers = Array.from(new Set([chatMode, "chat"]));
+          const forcedLorebookEntryIds =
+            ownerSpatialProjection &&
+            (ownerSpatialProjection.ownerMode === chatMode ||
+              (ownerSpatialProjection.ownerMode === "roleplay" && chatMode === "visual_novel"))
+              ? ownerSpatialProjection.lorebookEntryIds
+              : [];
           if (chatMode === "conversation") {
             const customPrompt =
               typeof chatMeta.customSystemPrompt === "string" && chatMeta.customSystemPrompt.trim()
@@ -2321,13 +2359,48 @@ export async function chatsRoutes(app: FastifyInstance) {
             const selectedGamePrompt = presetStringField(preset as Record<string, unknown> | null, "gamePrompt");
             const gamePromptTemplate = customPrompt ?? (selectedGamePrompt || DEFAULT_GAME_SYSTEM_PROMPT);
             const renderedGamePrompt = resolveMacros(gamePromptTemplate, promptMacroContext);
-            const messages = [
+            let messages: Parameters<typeof toPeekPromptMessages>[0] = [
               {
                 role: "system" as const,
                 content: renderedGamePrompt,
               },
               ...mappedMessages,
             ];
+            const latestGameState = projectGameSnapshotLocation(
+              await loadLatestChatGameSnapshot(app, req.params.id, visibleGameStateAnchor),
+              ownerSpatialProjection,
+            );
+            const lorebookResult = await processLorebooks(
+              app.db,
+              mappedMessages,
+              latestGameState
+                ? (parseGameStateRow(latestGameState as Record<string, unknown>) as unknown as Record<string, unknown>)
+                : null,
+              {
+                chatId: req.params.id,
+                characterIds,
+                personaId,
+                activeLorebookIds,
+                forcedEntryIds: forcedLorebookEntryIds,
+                excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+                excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+                tokenBudget: resolveLorebookTokenBudget(chatMeta),
+                entryStateOverrides,
+                entryTimingStates,
+                generationTriggers,
+                previewOnly: true,
+                resolveContent: resolvePromptMacros,
+              },
+            );
+            const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
+              .filter(Boolean)
+              .join("\n");
+            if (loreContent) {
+              messages[0]!.content += `\n\n<lore>\n${loreContent}\n</lore>`;
+            }
+            if (lorebookResult.depthEntries.length > 0) {
+              messages = injectAtDepth(messages, lorebookResult.depthEntries);
+            }
             return {
               messages: toPeekPromptMessages(injectOwnerSpatialPrompt(messages, ownerSpatialProjection)),
               chatMode,
@@ -2339,8 +2412,51 @@ export async function chatsRoutes(app: FastifyInstance) {
                 "No saved model request was available, so this is a live best-effort preview assembled without sending.",
             };
           }
-          const entryStateOverrides = resolveEntryStateOverrides(chatMeta.entryStateOverrides);
-          const lorebookScopeExclusions = resolveLorebookScopeExclusions(chatMode, chatMeta);
+          if (!preset && (chatMode === "roleplay" || chatMode === "visual_novel")) {
+            const lorebookResult = await processLorebooks(app.db, mappedMessages, null, {
+              chatId: req.params.id,
+              characterIds,
+              personaId,
+              activeLorebookIds,
+              forcedEntryIds: forcedLorebookEntryIds,
+              excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+              excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+              tokenBudget: resolveLorebookTokenBudget(chatMeta),
+              entryStateOverrides,
+              entryTimingStates,
+              generationTriggers,
+              previewOnly: true,
+              resolveContent: resolvePromptMacros,
+            });
+            let messages: Parameters<typeof toPeekPromptMessages>[0] = [...mappedMessages];
+            const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
+              .filter(Boolean)
+              .join("\n");
+            if (loreContent) {
+              const loreBlock = `<lore>\n${loreContent}\n</lore>`;
+              const firstHistoryIndex = messages.findIndex(
+                (message) => message.role === "user" || message.role === "assistant",
+              );
+              messages.splice(firstHistoryIndex >= 0 ? firstHistoryIndex : messages.length, 0, {
+                role: "system",
+                content: loreBlock,
+              });
+            }
+            if (lorebookResult.depthEntries.length > 0) {
+              messages = injectAtDepth(messages, lorebookResult.depthEntries);
+            }
+            return {
+              messages: toPeekPromptMessages(injectOwnerSpatialPrompt(messages, ownerSpatialProjection)),
+              chatMode,
+              parameters: null,
+              source: "live_preview",
+              exact: false,
+              generationInfo: null,
+              agentNote:
+                "No saved model request was available, so this is a live best-effort preview assembled without sending.",
+            };
+          }
+          if (!preset) throw new Error(`Prompt preset ${presetId ?? "(none)"} is unavailable`);
           const promptActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
             ? (chatMeta.activeAgentIds as string[])
             : [];
@@ -2368,6 +2484,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             activeLorebookIds: Array.isArray(chatMeta.activeLorebookIds)
               ? (chatMeta.activeLorebookIds as string[])
               : [],
+            forcedLorebookEntryIds,
             excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
             excludedLorebookSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
             entryStateOverrides:
@@ -2386,15 +2503,11 @@ export async function chatsRoutes(app: FastifyInstance) {
                     LorebookEntryTimingState
                   >)
                 : undefined,
-            generationTriggers:
-              (chatMeta.generationTriggers ?? chatMeta.lorebookGenerationTriggers) &&
-              Array.isArray(chatMeta.generationTriggers ?? chatMeta.lorebookGenerationTriggers)
-                ? ((chatMeta.generationTriggers ?? chatMeta.lorebookGenerationTriggers) as string[])
-                : undefined,
             lorebookTokenBudget:
               typeof (chatMeta.lorebookTokenBudget ?? chatMeta.generationLorebookTokenBudget) === "number"
                 ? ((chatMeta.lorebookTokenBudget ?? chatMeta.generationLorebookTokenBudget) as number)
                 : undefined,
+            generationTriggers,
             previewOnly: true,
             groupScenarioOverrideText:
               typeof chatMeta.groupScenarioText === "string" && (chatMeta.groupScenarioText as string).trim()
