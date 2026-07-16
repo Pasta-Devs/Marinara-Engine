@@ -4,6 +4,30 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+## [3.2.2]
+
+### Added
+
+- Added responsive Background library folders, desktop and touch drag-and-drop organization, A-Z/Z-A/Newest/Oldest sorting, and collapsible tag filters without limiting the Background agent's available choices (#3678).
+- Added Conversation, Roleplay, and Game compatibility badges to Download Agents, including catalog search by supported mode (#3676).
+
+### Changed
+
+- Renamed current user-facing Conversation Calls references to **Calls** while preserving package IDs and legacy compatibility symbols (#3676).
+- Moved Hierarchical Maps controls inside its active entry in Chat Settings → Agents instead of displaying a separate top-level settings section (#3679).
+
+### Fixed
+
+- Fixed merged Roleplay group prompts stripping every historical speaker-tag example. The latest assistant message now keeps its `<speaker>` wrappers while older tags are still trimmed, and the instruction remains inside `<output_format>` when available or otherwise appends to the last user message (#3673).
+- Preserved the **Enable Agents** master switch during the v2.3 capability migration, so upgrading cannot silently reactivate selected agents or their model calls. Hierarchical Maps now remains independently available when selected (#3669).
+- Made the v2.3 capability migration restart-safe by writing its completion marker only after per-chat selections are migrated and flushed to durable storage; interrupted migrations retry idempotently on the next startup (#3670).
+- Fixed Conversation Calls failing to recognize downloaded Local Whisper models when `DATA_DIR` was not explicitly configured. Downloaded capability runtimes now inherit Engine's resolved host data directory instead of deriving a private nested model path (#3671).
+- Fixed Professor Mari returning blank character or lorebook generation turns, normalized common character-card field names, and made lorebook creation save generated entries atomically (#3674).
+- Fixed Tic-Tac-Toe failing to render when an installed legacy game client expects React on the global scope (#3675).
+- Kept cropped Character and Persona avatars contained inside the Colors message preview, including cards with additional sprites, instead of letting the preview image cover the editor (#3678).
+- Kept the Roleplay-default star anchored in one place when its selected state changes (#3678).
+- Vertically centered Chibi Professor Mari in her surprise-visit toast (#3678).
+
 ## [2.3.1]
 
 ### Added

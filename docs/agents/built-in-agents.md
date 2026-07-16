@@ -206,13 +206,13 @@ Adds clickable "What will you do?" choice buttons after each reply, for a choose
 - **Where it works**: Roleplay.
 - **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones.
 
-### Conversation Calls
+### Calls
 
 Adds live audio and video calls with Conversation characters, including user-started and incoming calls, call-only transcripts, text-to-speech, microphone input, and character video clips.
 
 - **Integration**: Conversation feature package; it adds toolbar, chat-surface, and Chat Settings controls instead of running as a normal generation-phase agent.
 - **Where it works**: Conversation.
-- **Key settings**: open **Chat Settings → Agents → Conversation Calls** to enable calls and choose speech, microphone, ringing, and video behavior. See [Conversation Audio and Video Calls](../conversation/calls.md). Installing or removing it requires a Marinara restart.
+- **Key settings**: open **Chat Settings → Agents → Calls** to enable calls and choose speech, microphone, ringing, and video behavior. See [Conversation Audio and Video Calls](../conversation/calls.md). Installing or removing it requires a Marinara restart.
 
 ### UNO
 

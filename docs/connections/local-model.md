@@ -158,9 +158,9 @@ Selecting it for a chat starts the local server on demand, even when both helper
 
 ## Local Speech Model for calls
 
-The **Local Speech Model** is an optional Conversation Calls download for offline microphone transcription. It powers Conversation calls when you choose to transcribe your voice on your own machine. It is a Whisper model, a speech-to-text model that turns your spoken words into text.
+The **Local Speech Model** is an optional Calls download for offline microphone transcription. It powers Conversation calls when you choose to transcribe your voice on your own machine. It is a Whisper model, a speech-to-text model that turns your spoken words into text.
 
-First install **Conversation Calls** from **Agents > Download Agents**. You can then manage Whisper from the **Local Model** card in Connections, under the **Local Speech Model** heading. The heading and download controls stay hidden when Conversation Calls is not installed.
+First install **Calls** from **Agents > Download Agents**. You can then manage Whisper from the **Local Model** card in Connections, under the **Local Speech Model** heading. The heading and download controls stay hidden when Calls is not installed.
 
 Two choices are offered:
 
@@ -174,7 +174,7 @@ To set it up:
 3. Click **Download Whisper**.
 4. When it reads **Ready**, it is set up.
 
-To remove only the selected model, click the trash button titled **Delete Local Whisper**. Uninstalling Conversation Calls removes all downloaded Whisper choices and their saved selection automatically to reclaim their disk space. If you reinstall Calls later, the Local Speech Model controls return and you can download Whisper again.
+To remove only the selected model, click the trash button titled **Delete Local Whisper**. Uninstalling Calls removes all downloaded Whisper choices and their saved selection automatically to reclaim their disk space. If you reinstall Calls later, the Local Speech Model controls return and you can download Whisper again.
 
 Your recorded audio never leaves your machine. Only the transcribed text is sent to your chosen chat connection. To use it in a call, set the call audio input mode to the Local Whisper option. See [Conversation Audio and Video Calls](../conversation/calls.md).
 

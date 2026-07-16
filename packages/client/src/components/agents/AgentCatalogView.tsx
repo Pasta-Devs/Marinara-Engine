@@ -35,6 +35,58 @@ const CATEGORY_SECTIONS = [
   { id: "misc", label: "Misc Agents" },
 ] as const;
 
+type CatalogMode = "conversation" | "roleplay" | "game";
+
+const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> = Object.freeze({
+  "card-evolution-auditor": ["roleplay"],
+  continuity: ["roleplay"],
+  "knowledge-retrieval": ["roleplay"],
+  "knowledge-router": ["roleplay"],
+  director: ["roleplay"],
+  "prose-guardian": ["roleplay"],
+  background: ["roleplay"],
+  "character-tracker": ["roleplay"],
+  "custom-tracker": ["roleplay"],
+  expression: ["roleplay"],
+  "hierarchical-maps": ["roleplay", "game"],
+  "persona-stats": ["roleplay"],
+  quest: ["roleplay"],
+  "world-state": ["roleplay"],
+  eightball: ["conversation"],
+  chess: ["conversation"],
+  combat: ["roleplay"],
+  "conversation-calls": ["conversation"],
+  cyoa: ["roleplay"],
+  "echo-chamber": ["roleplay"],
+  haptic: ["conversation", "roleplay"],
+  illustrator: ["conversation", "roleplay", "game"],
+  html: ["roleplay"],
+  "lorebook-keeper": ["roleplay", "game"],
+  spotify: ["conversation", "roleplay", "game"],
+  poker: ["conversation"],
+  "rock-paper-scissors": ["conversation"],
+  "tic-tac-toe": ["conversation"],
+  uno: ["conversation"],
+});
+
+const MODE_BADGES: Record<CatalogMode, { label: string; className: string }> = {
+  conversation: {
+    label: "Conversation",
+    className:
+      "border-[color-mix(in_srgb,var(--mari-logo-cyan)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-cyan)_18%,transparent)]",
+  },
+  roleplay: {
+    label: "Roleplay",
+    className:
+      "border-[color-mix(in_srgb,var(--mari-logo-orange)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-orange)_18%,transparent)]",
+  },
+  game: {
+    label: "Game",
+    className:
+      "border-[color-mix(in_srgb,var(--mari-logo-pink)_55%,var(--border))] bg-[color-mix(in_srgb,var(--mari-logo-pink)_18%,transparent)]",
+  },
+};
+
 type BulkActionProgress = {
   action: "install" | "uninstall";
   completed: number;
@@ -47,10 +99,14 @@ function formatBytes(bytes: number) {
 }
 
 function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
-  if (kind === "conversation-calls") return "Conversation Calls";
+  if (kind === "conversation-calls") return "Calls";
   if (kind === "turn-game") return "Conversation Game";
   if (kind === "maps") return "Maps";
   return "Agent";
+}
+
+function packageModes(packageId: string): readonly CatalogMode[] {
+  return OFFICIAL_PACKAGE_MODES[packageId] ?? [];
 }
 
 export function AgentCatalogView() {
@@ -72,7 +128,14 @@ export function AgentCatalogView() {
     return (catalog.data?.packages ?? []).filter(
       ({ manifest, category }) =>
         !needle ||
-        [manifest.name, manifest.description, manifest.id, category, ...manifest.kind.map(kindLabel)]
+        [
+          manifest.name,
+          manifest.description,
+          manifest.id,
+          category,
+          ...manifest.kind.map(kindLabel),
+          ...packageModes(manifest.id).map((mode) => MODE_BADGES[mode].label),
+        ]
           .join(" ")
           .toLowerCase()
           .includes(needle),
@@ -476,6 +539,18 @@ export function AgentCatalogView() {
                         className="rounded-full border border-[var(--border)] px-2.5 py-1 text-[0.68rem]"
                       >
                         {kindLabel(kind)}
+                      </span>
+                    ))}
+                    {packageModes(selected.manifest.id).map((mode) => (
+                      <span
+                        key={mode}
+                        data-chat-mode={mode}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-[0.68rem] font-semibold text-[var(--foreground)]",
+                          MODE_BADGES[mode].className,
+                        )}
+                      >
+                        {MODE_BADGES[mode].label}
                       </span>
                     ))}
                   </div>

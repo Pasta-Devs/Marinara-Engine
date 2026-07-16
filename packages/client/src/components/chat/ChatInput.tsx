@@ -318,8 +318,7 @@ export const ChatInput = memo(function ChatInput({
   );
   const narrativeDirectorActive =
     mode === "roleplay" && chatMetadata.enableAgents === true && activeAgentIds.includes("director");
-  const hierarchicalMapsActive =
-    mode === "roleplay" && chatMetadata.enableAgents === true && activeAgentIds.includes("hierarchical-maps");
+  const hierarchicalMapsActive = mode === "roleplay" && activeAgentIds.includes("hierarchical-maps");
   const combatActionActive =
     mode === "roleplay" && combatAgentEnabled === true && typeof onStartEncounter === "function";
   const showRoleplayAgentActions = narrativeDirectorActive || combatActionActive;

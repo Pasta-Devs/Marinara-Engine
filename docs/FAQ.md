@@ -159,7 +159,7 @@ To make them automatically, open **Chat Settings**, go to **Agents**, find the *
 
 Yes, in **Conversation** mode. Audio and video calls are a Conversation-only feature. To hear a character speak, first set up **Text to Speech** under the **Connections** panel.
 
-If you want to talk back with your microphone and the browser's own speech recognition is unreliable, first install **Conversation Calls** from **Agents > Download Agents**. Then open the **Connections** panel, expand the **Local Model** card, find **Local Speech Model**, pick **Whisper Tiny (Multilingual)** or **Whisper Base (Multilingual)**, and click **Download Whisper**. Uninstalling Conversation Calls also removes its Whisper downloads to reclaim disk space. For the full call setup, see [Conversation Calls](conversation/calls.md).
+If you want to talk back with your microphone and the browser's own speech recognition is unreliable, first install **Calls** from **Agents > Download Agents**. Then open the **Connections** panel, expand the **Local Model** card, find **Local Speech Model**, pick **Whisper Tiny (Multilingual)** or **Whisper Base (Multilingual)**, and click **Download Whisper**. Uninstalling Calls also removes its Whisper downloads to reclaim disk space. For the full call setup, see [Calls](conversation/calls.md).
 
 ## Can Marinara generate images?
 

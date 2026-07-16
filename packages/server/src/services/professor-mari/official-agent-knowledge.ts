@@ -123,14 +123,14 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     id: "illustrator",
     name: "Illustrator",
     category: "misc",
-    modes: "Roleplay and Conversation media commands",
+    modes: "Conversation, Roleplay, and Game",
     summary: "Responsible for image and video generations.",
   },
   {
     id: "lorebook-keeper",
     name: "Lorebook Keeper",
     category: "misc",
-    modes: "Roleplay",
+    modes: "Roleplay and Game",
     summary: "creates and updates durable lorebook entries from important story facts",
   },
   {
@@ -151,14 +151,14 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     id: "spotify",
     name: "Music DJ",
     category: "misc",
-    modes: "Roleplay, Game, and Conversation music commands",
+    modes: "Conversation, Roleplay, and Game",
     summary: "matches scene mood with Spotify, YouTube, or local Game Assets music",
   },
   {
     id: "haptic",
     name: "Haptic Feedback",
     category: "misc",
-    modes: "Roleplay and Conversation haptic commands",
+    modes: "Conversation and Roleplay",
     summary: "converts direct narrative contact into safe Intiface Central device commands",
   },
   {
@@ -170,7 +170,7 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
   },
   {
     id: "conversation-calls",
-    name: "Conversation Calls",
+    name: "Calls",
     category: "misc",
     modes: "Conversation",
     summary:

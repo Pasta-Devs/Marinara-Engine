@@ -4,7 +4,7 @@ This guide explains Conversation calls in Marinara Engine. You will learn how a 
 
 Calls exist only in Conversation Mode. Roleplay and Game chats do not have a call screen.
 
-Conversation Calls is an optional agent package. Install **Conversation Calls** from **Agents → Download Agents** before following the setup below, then restart Marinara when the catalog asks.
+Calls is an optional agent package. Install **Calls** from **Agents → Download Agents** before following the setup below, then restart Marinara when the catalog asks.
 
 ## What a call is
 
@@ -30,7 +30,7 @@ To run a working voice call, set up these pieces in order. You can skip the step
 3. **Audio/Video Calls** turned on for that chat (see the section "Turn calls on for a chat" below).
 4. **Call Audio Pipeline** turned on. This is required to start any call, even a call where you only type or only listen. It also enables microphone input.
 5. Text to Speech set up so characters can speak. Without it, every character joins as text only.
-6. Optional: Local Whisper downloaded from Connections after Conversation Calls is installed, if your browser cannot do reliable speech recognition (Firefox needs this).
+6. Optional: Local Whisper downloaded from Connections after Calls is installed, if your browser cannot do reliable speech recognition (Firefox needs this).
 7. Optional: a video connection and generated clips if you want **Character Video Presence**.
 8. Optional: an image connection set as the chat Selfie Connection if you want characters to send selfies in the call.
 
@@ -64,7 +64,7 @@ The camera and screen buttons appear only when **Camera and screen input** is on
 
 Local Whisper turns your speech into text on the machine running Marinara. Your microphone audio never leaves that machine for transcription. The resulting text is still sent to your Conversation model as part of the call.
 
-Local Whisper is owned by the Conversation Calls package and is the most reliable microphone path for browsers with weak speech support, including Firefox. After installing Conversation Calls, open **Connections**, open **Local Model**, expand the card, and find **Local Speech Model**. The section is hidden when Calls is not installed. For the general Local Model card, see [Local Model Setup](../connections/local-model.md).
+Local Whisper is owned by the Calls package and is the most reliable microphone path for browsers with weak speech support, including Firefox. After installing Calls, open **Connections**, open **Local Model**, expand the card, and find **Local Speech Model**. The section is hidden when Calls is not installed. For the general Local Model card, see [Local Model Setup](../connections/local-model.md).
 
 1. Choose a model. **Whisper Tiny (Multilingual)** is the default. It is about 180 MB to download and uses about 350 MB of memory while running. It is the best first choice for phones and older machines.
 2. Or choose **Whisper Base (Multilingual)** for better accuracy on messy speech. It is about 320 MB to download and uses about 650 MB of memory.
@@ -73,20 +73,20 @@ Local Whisper is owned by the Conversation Calls package and is the most reliabl
 
 After download, a **Delete Local Whisper** control (trash icon) appears if you want to remove the model.
 
-Uninstalling Conversation Calls also deletes every downloaded Whisper model and its saved selection. This reclaims the model's disk space. Reinstalling Calls restores the download controls, but does not redownload a model until you choose one.
+Uninstalling Calls also deletes every downloaded Whisper model and its saved selection. This reclaims the model's disk space. Reinstalling Calls restores the download controls, but does not redownload a model until you choose one.
 
 ## Turn calls on for a chat
 
 You can turn calls on while creating a new Conversation, or later from the chat settings.
 
-For a new Conversation, finish the setup wizard first, then open that chat's settings and follow the same steps below. The optional package settings are shown only after Conversation Calls is installed.
+For a new Conversation, finish the setup wizard first, then open that chat's settings and follow the same steps below. The optional package settings are shown only after Calls is installed.
 
 For an existing Conversation:
 
 1. Open the chat.
 2. Open **Chat Settings**.
 3. Go to the **Agents** section.
-4. Open **Conversation Calls**.
+4. Open **Calls**.
 5. Turn on **Audio/Video Calls**. You should now see a call button next to the conversation name.
 6. Turn on **Call Audio Pipeline**. No call can start without it, even if you never use a microphone.
 7. Pick an **Audio input mode**.
@@ -97,7 +97,7 @@ The **Agents** section also contains a master **Commands** toggle when a command
 
 ### Settings and defaults
 
-Most call settings live in **Chat Settings**, then **Agents**, then **Conversation Calls**. Some of them are global, which means changing them in one chat changes them for every Conversation call in the app.
+Most call settings live in **Chat Settings**, then **Agents**, then **Calls**. Some of them are global, which means changing them in one chat changes them for every Conversation call in the app.
 
 | Setting | Scope | Default |
 |---|---|---|
@@ -166,7 +166,7 @@ You can upload your own sound with the **Upload** button. Accepted formats are m
 
 ## Character Video Presence and video call clips
 
-**Character Video Presence** replaces a still avatar tile with a looping AI-generated video clip of the character. It is off by default. The toggle is **Character video presence** in **Chat Settings**, then **Agents**, then **Conversation Calls**.
+**Character Video Presence** replaces a still avatar tile with a looping AI-generated video clip of the character. It is off by default. The toggle is **Character video presence** in **Chat Settings**, then **Agents**, then **Calls**.
 
 To set up video call clips:
 
@@ -228,13 +228,13 @@ The detailed call transcript stays in separate call storage. Only the short summ
 
 ### Start call fails and says call audio is not enabled
 
-If you click **Start call** and see "Conversation call audio is not enabled in Chat Settings", turn on **Call Audio Pipeline**. Open **Chat Settings**, then **Agents**, then **Conversation Calls**, and turn it on. This setting is required for every call, even a call where you only type. It is global, so turning it on in one chat turns it on for all Conversation calls.
+If you click **Start call** and see "Conversation call audio is not enabled in Chat Settings", turn on **Call Audio Pipeline**. Open **Chat Settings**, then **Agents**, then **Calls**, and turn it on. This setting is required for every call, even a call where you only type. It is global, so turning it on in one chat turns it on for all Conversation calls.
 
 ### I can hear characters, but they cannot hear me
 
-Open **Chat Settings**, then **Agents**, then **Conversation Calls**, and confirm **Call Audio Pipeline** is on. Then confirm your browser has given the Marinara page permission to use the microphone.
+Open **Chat Settings**, then **Agents**, then **Calls**, and confirm **Call Audio Pipeline** is on. Then confirm your browser has given the Marinara page permission to use the microphone.
 
-If you are on Firefox, or browser speech recognition does not work, install Conversation Calls and download Local Whisper. Open **Connections**, then **Local Model**, then **Local Speech Model**. Then choose **Mic recording + Local Whisper**.
+If you are on Firefox, or browser speech recognition does not work, install Calls and download Local Whisper. Open **Connections**, then **Local Model**, then **Local Speech Model**. Then choose **Mic recording + Local Whisper**.
 
 ### Local Whisper says it is unavailable
 

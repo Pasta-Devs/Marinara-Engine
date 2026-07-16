@@ -79,8 +79,8 @@ async function requireConversationCallsForSpeech(reply: FastifyReply): Promise<b
   );
   if (callsAvailable) return true;
   reply.status(409).send({
-    error: "Conversation Calls is not installed",
-    message: "Install Conversation Calls from Agents before managing the Local Speech Model.",
+    error: "Calls is not installed",
+    message: "Install Calls from Agents before managing the Local Speech Model.",
   });
   return false;
 }

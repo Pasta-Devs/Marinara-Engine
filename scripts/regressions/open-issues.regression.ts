@@ -77,7 +77,11 @@ import {
 } from "../../packages/server/src/services/image/illustrator-prompt-review.js";
 import { resolveReviewedImagePromptSubmission } from "../../packages/server/src/services/image/image-prompt-review.js";
 import { resolveSceneVideoPrompt } from "../../packages/server/src/services/video/scene-video-prompt-review.js";
-import { buildPersonaCreateRow } from "../../packages/server/src/services/mari-db/mari-db.service.js";
+import {
+  buildLorebookEntryCreateRow,
+  buildPersonaCreateRow,
+  normalizeCharacterActionData,
+} from "../../packages/server/src/services/mari-db/mari-db.service.js";
 import {
   checkAutonomousMessaging,
   clearChatActivity,
@@ -87,6 +91,82 @@ import {
 import type { WeekSchedule } from "../../packages/server/src/services/conversation/schedule.service.js";
 import { resolveGroupGenerationMode } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
+import {
+  moveBackgroundAssignment,
+  normalizeBackgroundLibraryOrganization,
+  removeBackgroundFolder,
+} from "../../packages/server/src/services/background-library-organization.js";
+import {
+  filterAndSortBackgrounds,
+  getNextBackgroundFolderName,
+} from "../../packages/client/src/lib/background-library.js";
+
+const backgroundOrganization = normalizeBackgroundLibraryOrganization({
+  folders: [
+    {
+      id: "folder-night",
+      name: "Night",
+      createdAt: "2026-07-16T00:00:00.000Z",
+      updatedAt: "2026-07-16T00:00:00.000Z",
+    },
+    { id: "", name: "Invalid" },
+  ],
+  assignments: {
+    "user:moonlit-garden.jpg": "folder-night",
+    "game:backgrounds:fantasy:castle": "missing-folder",
+  },
+});
+assert.equal(backgroundOrganization.folders.length, 1);
+assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
+assert.equal(backgroundOrganization.assignments["game:backgrounds:fantasy:castle"], undefined);
+const renamedBackgroundOrganization = moveBackgroundAssignment(
+  backgroundOrganization,
+  "user:moonlit-garden.jpg",
+  "user:moonlit-courtyard.jpg",
+);
+assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-garden.jpg"], undefined);
+assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-courtyard.jpg"], "folder-night");
+assert.deepEqual(removeBackgroundFolder(renamedBackgroundOrganization, "folder-night"), {
+  folders: [],
+  assignments: {},
+});
+assert.equal(getNextBackgroundFolderName([{ name: "Unnamed" }, { name: "unnamed 2" }]), "unnamed 3");
+
+const backgroundLibraryFixtures = [
+  {
+    id: "user:forest.jpg",
+    filename: "Forest.jpg",
+    originalName: "Forest.jpg",
+    tags: ["nature", "day"],
+    source: "user" as const,
+    createdAt: "2026-07-14T00:00:00.000Z",
+  },
+  {
+    id: "game:backgrounds:modern:city-night",
+    filename: "City Night.webp",
+    originalName: "backgrounds:modern:city-night",
+    tag: "backgrounds:modern:city-night",
+    tags: ["modern", "night"],
+    source: "game_asset" as const,
+    createdAt: "2026-07-16T00:00:00.000Z",
+  },
+];
+assert.deepEqual(
+  filterAndSortBackgrounds(backgroundLibraryFixtures, {
+    search: "",
+    includedTags: new Set(["night"]),
+    sort: "name-asc",
+  }).map((background) => background.id),
+  ["game:backgrounds:modern:city-night"],
+);
+assert.deepEqual(
+  filterAndSortBackgrounds(backgroundLibraryFixtures, {
+    search: "",
+    includedTags: new Set(),
+    sort: "newest",
+  }).map((background) => background.id),
+  ["game:backgrounds:modern:city-night", "user:forest.jpg"],
+);
 
 const dockerDesktopRouteTable = `Iface\tDestination\tGateway\tFlags\tRefCnt\tUse\tMetric\tMask
 eth0\t00000000\t01D7A8C0\t0003\t0\t0\t100\t00000000
@@ -112,6 +192,36 @@ assert.equal(minimalProfessorMariPersona.phoneticName, "");
 assert.equal(minimalProfessorMariPersona.convoDisplayName, "");
 assert.equal(minimalProfessorMariPersona.aboutMe, "");
 assert.equal(minimalProfessorMariPersona.convoBehavior, "");
+
+const generatedCharacterData = normalizeCharacterActionData({
+  firstMessage: "Welcome to the laboratory.",
+  mesExample: "{{char}}: Observe carefully.",
+  systemPrompt: "Stay in character.",
+  postHistoryInstructions: "Remain concise.",
+  alternateGreetings: ["You made it."],
+});
+assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
+assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
+assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
+assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
+assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
+assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
+
+const generatedLorebookEntry = buildLorebookEntryCreateRow(
+  {
+    name: "Glass City",
+    content: "A city made from black glass.",
+    keys: ["Glass City", "black glass"],
+    secondaryKeys: ["rain"],
+  },
+  "lorebook-generated",
+  "entry-generated",
+  "2026-07-16T00:00:00.000Z",
+);
+assert.equal(generatedLorebookEntry.lorebookId, "lorebook-generated");
+assert.equal(generatedLorebookEntry.content, "A city made from black glass.");
+assert.deepEqual(generatedLorebookEntry.keys, ["Glass City", "black glass"]);
+assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
 
 const completeProfessorMariPersona = buildPersonaCreateRow(
   {

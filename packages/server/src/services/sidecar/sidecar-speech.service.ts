@@ -352,7 +352,7 @@ class SidecarSpeechService {
     options: { localFilesOnly: boolean; progress?: (data: TransformersProgress) => void },
   ): Promise<AsrPipeline> {
     if (this.removingAllModels) {
-      throw new Error("Local Whisper is being removed with the Conversation Calls package.");
+      throw new Error("Local Whisper is being removed with the Calls package.");
     }
     if (this.pipeline && this.activeModelId === modelId) return this.pipeline;
     if (this.loadingPromise && this.activeModelId === modelId) return this.loadingPromise;

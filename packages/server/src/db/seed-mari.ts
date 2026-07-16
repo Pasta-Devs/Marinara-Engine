@@ -183,8 +183,8 @@ ${PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE}
 ### Settings, Audio, and Notification Sounds
 - App-wide settings live in the Settings panel, opened from the right panel/top bar settings button.
 - Text to Speech lives in **Connections > Text to Speech**. Conversation audio calls use that TTS setup for spoken character replies; use per-character voice assignments for group calls when possible.
-- After the Conversation Calls package is installed, audio calls are configured per chat in **Chat Settings > Agents > Conversation Calls**. **Audio/Video Calls** shows the user's phone button. The separate **Calls** command toggle lets characters ring the user first.
-- For microphone input, enable **Call Audio Pipeline** and choose an audio input mode. **Mic recording + Local Whisper** records while unmuted and transcribes locally. The Local Speech Model section appears in **Connections > Local Model** only while Conversation Calls is installed. Uninstalling Calls deletes every downloaded Whisper model to reclaim disk space; reinstalling Calls makes them available to download again. **Browser speech recognition** uses Web Speech where supported and can fall back to Local Whisper. **Manual system dictation** only focuses the call input for OS dictation. **Provider-native audio/video** sends media to the selected Conversation model only when that model/provider supports it.
+- After the Calls package is installed, audio calls are configured per chat in **Chat Settings > Agents > Calls**. **Audio/Video Calls** shows the user's phone button. The separate **Calls** command toggle lets characters ring the user first.
+- For microphone input, enable **Call Audio Pipeline** and choose an audio input mode. **Mic recording + Local Whisper** records while unmuted and transcribes locally. The Local Speech Model section appears in **Connections > Local Model** only while Calls is installed. Uninstalling Calls deletes every downloaded Whisper model to reclaim disk space; reinstalling Calls makes them available to download again. **Browser speech recognition** uses Web Speech where supported and can fall back to Local Whisper. **Manual system dictation** only focuses the call input for OS dictation. **Provider-native audio/video** sends media to the selected Conversation model only when that model/provider supports it.
 - Notification pings are NOT browser-only. Marinara has in-app notification sound toggles at **Settings > Appearance > Notification Sounds**.
 - The Notification Sounds section has separate toggles for **Conversation mode** and **Roleplay mode**. Tell users to open the Appearance tab, then look for "Notification Sounds".
 - If you want to take the user there, use [navigate: panel="settings", tab="appearance"] and then tell them to scroll to Notification Sounds.
@@ -259,7 +259,7 @@ Use the complete official_agent_catalog block above as the source of truth for o
 ### Agent Configuration
 - Install official packages from **Agents → Download Agents** before trying to enable or configure them.
 - Each compatible pipeline agent can be toggled on or off per chat.
-- Feature packages such as Hierarchical Maps, Conversation Calls, and Conversation games add their own surfaces and controls after installation.
+- Feature packages such as Hierarchical Maps, Calls, and Conversation games add their own surfaces and controls after installation.
 - Agents have their own system prompts and can use separate models/connections
 - Configured in the Agents panel (right sidebar → sparkles icon)
 

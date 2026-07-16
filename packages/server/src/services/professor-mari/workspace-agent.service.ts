@@ -296,7 +296,11 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
         activate: { type: "boolean" },
         apply: { type: "boolean" },
         reason: { type: "string" },
-        data: { type: "object" },
+        data: {
+          type: "object",
+          description:
+            "Entity fields. character.create accepts name, description, personality, scenario, firstMes/firstMessage, mesExample, creatorNotes, backstory, appearance, systemPrompt, postHistoryInstructions, tags, alternateGreetings, creator, and characterVersion. lorebook.create accepts name, description, category, tags, and an entries array whose items contain name, content, keys, secondaryKeys, tag, constant, position, depth, role, and order.",
+        },
         patch: { type: "object" },
       },
       required: ["action"],
@@ -450,6 +454,8 @@ ${MARI_GUIDED_SEQUENCES}
 - Writes: \`character.create|update\`, \`persona.create|update\`, \`lorebook.create|update|addEntry|updateEntry\`, \`theme.create|update|setActive\`, \`agent.create|update\`, \`preset.create|update\`.
 - Put write fields in \`data\` for creates and \`patch\` for updates. Use \`entryId\` for \`lorebook.updateEntry\`; use \`lorebookId\` only for a lorebook or for \`lorebook.addEntry\`.
 - New creates: use \`apply:true\` immediately for \`character.create\`, \`persona.create\`, \`lorebook.create\`, \`lorebook.addEntry\`, \`agent.create\`, \`preset.create\`, and non-activating \`theme.create\` when the user asked you to create it. Verify with a read before claiming success.
+- Character generation: put the full card in \`data\`; do not create a name-only placeholder. \`firstMes\` and \`firstMessage\` both map to the opening message.
+- Lorebook generation: put the complete \`entries\` array inside \`data\` on \`lorebook.create\`. Marinara saves the lorebook and its entries together, so do not create an empty lorebook and promise to fill it later.
 - For \`preset.create\`, put prompt sections in \`data.sections\` and preset variables in \`data.choiceBlocks\`. Each choice block needs \`variableName\`, \`question\`, and \`options\` with \`label\`/\`value\` pairs.
 - Existing-data changes: use \`apply:true\` for requested \`*.update\`, \`lorebook.updateEntry\`, and \`theme.setActive\`. Marinara will save first and show the user an in-chat Keep/Restore review card for reversible changes.
 - Use \`apply:false\` only for explicit preview/dry-run requests or when you need to inspect validation before making a risky change.
@@ -459,6 +465,8 @@ Examples:
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.list","limit":50}}],"stop":false}
 {"say":"I found the lorebook. I'll read its entries now.","commands":[{"name":"app_data","arguments":{"action":"lorebook.entries","lorebookId":"lorebook-id","limit":100}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"persona.create","data":{"name":"Dr. Marisia Voss","description":"A successful alternate version of Mari.","personality":"Confident, witty, organized, still warmly sarcastic."},"reason":"User requested a test persona","apply":true}}],"stop":false}
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"character.create","data":{"name":"Dr. Voss","description":"A brilliant field researcher.","personality":"Exacting, curious, dryly funny.","firstMes":"You are late. Sit down.","appearance":"Silver hair and a white laboratory coat."},"reason":"User requested a character","apply":true}}],"stop":false}
+{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.create","data":{"name":"The Glass City","description":"People and places in the setting.","entries":[{"name":"The Glass City","content":"A rain-soaked city built from black glass.","keys":["Glass City","black glass"]}]},"reason":"User requested a lorebook","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"preset.create","data":{"name":"Test preset","sections":[{"name":"Main","content":"You are {{char}}.","role":"system"}],"choiceBlocks":[{"variableName":"tone","question":"Tone","options":[{"label":"Warm","value":"warm"},{"label":"Sharp","value":"sharp"}]}]},"reason":"User requested a preset with variables","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.updateEntry","entryId":"entry-id","patch":{"content":"new content"},"reason":"Update requested by user","apply":false}}],"stop":false}
 {"say":"Done — I created it and verified it saved.","commands":[],"stop":true}
@@ -1022,6 +1030,16 @@ function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceActio
   };
 }
 
+function isEmptyCompletedAction(action: AssistantWorkspaceAction): boolean {
+  return (
+    action.commands.length === 0 &&
+    action.stop &&
+    !action.visibleText &&
+    action.suggestions.length === 0 &&
+    action.plan.length === 0
+  );
+}
+
 function sanitizeSuggestionChips(raw: unknown): MariSuggestionChip[] {
   const chips = sanitizeMariSuggestionChips(raw, { maxChips: 6 });
   if (Array.isArray(raw) && raw.length > 0 && chips.length === 0) {
@@ -1560,6 +1578,26 @@ export class ProfessorMariWorkspaceService {
           appendTraceStatus(workspaceTrace, content);
           args.onEvent({ type: "status", data: { content, kind: "info", level: "warning" } });
         }
+        if (isEmptyCompletedAction(action)) {
+          protocolRepairRounds += 1;
+          if (protocolRepairRounds <= MAX_PROTOCOL_REPAIR_ROUNDS) {
+            messages.push({ role: "assistant", content: action.assistantHistoryContent });
+            messages.push({
+              role: "user",
+              content:
+                "Your previous response was empty. Continue the task now. Return commands when work remains, or put a concise user-visible result in say before setting stop to true.",
+              contextKind: "history",
+            });
+            continue;
+          }
+          const content =
+            "Professor Mari returned an empty response twice. Please try again; the request and any completed workspace steps remain in this chat.";
+          assistantText = appendVisibleText(assistantText, content);
+          appendTraceStatus(workspaceTrace, content);
+          args.onEvent({ type: "status", data: { content, kind: "retry", level: "warning" } });
+          for (const chunk of chunkText(content)) args.onEvent({ type: "token", data: chunk });
+          break;
+        }
         if (action.commands.length === 0 && !action.stop) {
           if (!action.protocolValid) {
             protocolRepairRounds += 1;
@@ -1669,12 +1707,14 @@ export class ProfessorMariWorkspaceService {
         }
       }
 
-      if (!assistantText.trim() && workspaceTrace.length > 0) {
+      if (!assistantText.trim()) {
         const failedTool = workspaceTrace.find((item) => item.type === "tool" && item.tool.status === "error");
         const content =
           failedTool?.type === "tool"
             ? `Professor Mari stopped after ${formatWorkspaceToolName(failedTool.tool.name)} failed: ${compactTraceText(String(failedTool.tool.output ?? "unknown error"), 700)}`
-            : "Professor Mari finished workspace steps but did not return a visible final answer. I saved the tool timeline here so the work is not lost; ask her to continue and she can pick up from the trace.";
+            : workspaceTrace.length > 0
+              ? "Professor Mari finished workspace steps but did not return a visible final answer. I saved the tool timeline here so the work is not lost; ask her to continue and she can pick up from the trace."
+              : "Professor Mari returned an empty response. Please try again; your request remains in this chat.";
         assistantText = appendVisibleText(assistantText, content);
         appendTraceStatus(workspaceTrace, content);
         args.onEvent({ type: "status", data: { content, kind: "info", level: failedTool ? "warning" : "info" } });

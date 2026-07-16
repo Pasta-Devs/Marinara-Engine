@@ -61,7 +61,7 @@ This readout turns amber with a warning icon when the load gets heavy. The real 
 A fresh installation starts with no optional agents installed or active. Each chat mode shows only compatible packages you have installed.
 
 - **Roleplay**: install Roleplay agents from the catalog, then add them in Chat Settings. Hierarchical Maps appears there like any other supported agent.
-- **Conversation**: install Conversation Calls or individual table games from the catalog. Games appear in the games picker and register their slash commands; calls add their toolbar and Chat Settings controls.
+- **Conversation**: install Calls or individual table games from the catalog. Games appear in the games picker and register their slash commands; calls add their toolbar and Chat Settings controls.
 - **Game Mode**: installed Game-compatible agents can be selected during game creation or added later. Hierarchical Maps contributes its map workspace and world-map view only when it is active for that game.
 
 You can add or remove compatible agents at any time.

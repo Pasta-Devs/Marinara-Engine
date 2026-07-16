@@ -110,7 +110,7 @@ export class ConversationCallVideoClipUploadError extends Error {
 
 function requireProvider(): CharacterVideoService {
   const service = provider();
-  if (!service) throw new Error("Conversation Calls is not installed or active");
+  if (!service) throw new Error("Calls is not installed or active");
   return service;
 }
 

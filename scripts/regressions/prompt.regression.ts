@@ -240,9 +240,11 @@ import {
   buildGenerationGuideInstruction,
   appendSeparateAgentInjectionMessage,
   collectLatestTrackerCharacterHistory,
+  injectIntoOutputFormatOrLastUser,
   preserveTrackerCharacterUiFields,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
+  stripSpeakerTagsExceptLastAssistant,
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
@@ -557,6 +559,48 @@ const cases: RegressionCase[] = [
         normalized.some((message, index) => index > 0 && message.role === "system"),
         false,
       );
+    },
+  },
+  {
+    name: "group speaker instructions prefer output format and otherwise use the last user turn",
+    run() {
+      const withOutputFormat: SimpleMessage[] = [
+        { role: "system", content: "base system" },
+        { role: "user", content: "<output_format>\nexisting rule\n</output_format>" },
+      ];
+      injectIntoOutputFormatOrLastUser(withOutputFormat, "speaker tag rule", { indent: true });
+
+      assert.match(
+        withOutputFormat[1]?.content ?? "",
+        /existing rule\n    speaker tag rule\n<\/output_format>/,
+      );
+
+      const withoutOutputFormat: SimpleMessage[] = [
+        { role: "system", content: "base system" },
+        { role: "user", content: "latest user turn" },
+        { role: "assistant", content: "assistant prefill" },
+      ];
+      injectIntoOutputFormatOrLastUser(withoutOutputFormat, "speaker tag rule", { indent: true });
+
+      assert.equal(withoutOutputFormat[1]?.content, "latest user turn\n\nspeaker tag rule");
+      assert.equal(withoutOutputFormat[2]?.content, "assistant prefill");
+    },
+  },
+  {
+    name: "group speaker tag cleanup preserves the latest assistant example",
+    run() {
+      const messages: SimpleMessage[] = [
+        { role: "system", content: "base system" },
+        { role: "assistant", content: '<speaker="Dottore">"An older line."</speaker>' },
+        { role: "user", content: '<speaker="Mari">"A user-authored tag."</speaker>' },
+        { role: "assistant", content: '<speaker="Pantalone">"The latest example."</speaker>' },
+      ];
+
+      stripSpeakerTagsExceptLastAssistant(messages);
+
+      assert.equal(messages[1]?.content, '"An older line."');
+      assert.equal(messages[2]?.content, '"A user-authored tag."');
+      assert.equal(messages[3]?.content, '<speaker="Pantalone">"The latest example."</speaker>');
     },
   },
   {

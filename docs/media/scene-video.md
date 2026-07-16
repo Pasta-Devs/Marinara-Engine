@@ -134,7 +134,7 @@ If a chat has no video connection of its own, Marinara falls back to the connect
 
 ## Video generation settings
 
-Some video defaults live in the app settings, not on a connection. Open **Settings**, then **Generations**, then the **Video Generation** section. It is described as "Set default clip lengths and edit reusable video prompts for Game, Gallery, and Conversation Calls."
+Some video defaults live in the app settings, not on a connection. Open **Settings**, then **Generations**, then the **Video Generation** section. It is described as "Set default clip lengths and edit reusable video prompts for Game, Gallery, and Calls."
 
 The main scene-video setting here is **Scene video fallback length**, which defaults to 10 seconds. It is used only when the selected video connection has no length of its own. You can set it from 1 to 60 seconds.
 

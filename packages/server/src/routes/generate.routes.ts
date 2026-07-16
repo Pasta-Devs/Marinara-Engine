@@ -221,6 +221,7 @@ import {
   shouldAbortOnPassiveGenerationDisconnect,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
+  stripSpeakerTagsExceptLastAssistant,
   type PromptAttachment,
   type SimpleMessage,
 } from "./generate/generate-route-utils.js";
@@ -2928,20 +2929,9 @@ export async function generateRoutes(app: FastifyInstance) {
         const groupTurnPromptEnabled = chatMeta.groupTurnPromptEnabled !== false;
 
         if (isGroupChat && chatMode !== "conversation") {
-          // Strip <speaker> tags from history to save tokens in roleplay mode.
-          // Just remove the tags, keep the dialogue content as-is.
-          const speakerCloseRegex = /<\/speaker>/g;
-          for (let i = 0; i < finalMessages.length; i++) {
-            const msg = finalMessages[i]!;
-            if (msg.role === "system") continue;
-            if (msg.content.includes("<speaker=")) {
-              let converted = msg.content;
-              converted = converted.replace(/<speaker="[^"]*">/g, "");
-              converted = converted.replace(speakerCloseRegex, "");
-              converted = converted.replace(/^\s*\n/gm, "").trim();
-              finalMessages[i] = { ...msg, content: converted };
-            }
-          }
+          // Keep one concrete tagged assistant example while trimming redundant
+          // wrappers from older roleplay history.
+          stripSpeakerTagsExceptLastAssistant(finalMessages);
         }
 
         if (isGroupChat) {

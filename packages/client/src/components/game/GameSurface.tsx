@@ -2364,7 +2364,6 @@ function GameSurfaceComponent({
   // Sync game metadata → store
   useSyncGameState(activeChatId, chatMeta);
   const hierarchicalMapsActive =
-    chatMeta.enableAgents === true &&
     Array.isArray(chatMeta.activeAgentIds) &&
     (chatMeta.activeAgentIds as string[]).includes("hierarchical-maps");
   const spatialContext = useSpatialContext(activeChatId, hierarchicalMapsActive);
