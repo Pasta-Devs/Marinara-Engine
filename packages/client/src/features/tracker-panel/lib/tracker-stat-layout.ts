@@ -14,17 +14,13 @@ export function trackerStatStackHeight(statCount: number, density: TrackerStatDe
   );
 }
 
-export function personaStatStackHeight(statCount: number, density: TrackerStatDensity, includeAdd: boolean) {
-  return trackerStatStackHeight(statCount, density, includeAdd);
-}
-
 export function getPersonaStatDensity(
   statCount: number,
   includeAdd: boolean,
   allowance = TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM,
 ): TrackerStatDensity {
-  if (personaStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
-  if (personaStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
+  if (trackerStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
+  if (trackerStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";
   return "tight";
 }
 
