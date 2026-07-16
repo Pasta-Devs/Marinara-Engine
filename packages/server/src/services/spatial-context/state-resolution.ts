@@ -1,8 +1,5 @@
 import type { SpatialContextDefinition, SpatialContextSnapshot } from "@marinara-engine/shared";
-import type { DB } from "../../db/connection.js";
 import { getCapabilityService } from "../capability-packages/capability-service-registry.service.js";
-
-type SpatialReadConnection = Pick<DB, "select" | "insert" | "delete" | "update">;
 
 export interface SpatialMessageAnchor {
   messageId: string;
@@ -26,15 +23,14 @@ export interface ResolveSpatialStateOptions {
 
 interface StateResolutionService {
   parseStoredSpatialDefinition(rawMetadata: unknown): SpatialContextDefinition | null;
-  resolveEffectiveSpatialState(
-    db: SpatialReadConnection,
-    chatId: string,
-    options?: ResolveSpatialStateOptions,
-  ): Promise<EffectiveSpatialState>;
-  materializeAssistantSpatialState(
-    db: DB,
-    input: { chatId: string; messageId: string; swipeIndex: number; regenerate: boolean; continuation: boolean },
-  ): Promise<SpatialContextSnapshot | null>;
+  resolveEffectiveSpatialState(chatId: string, options?: ResolveSpatialStateOptions): Promise<EffectiveSpatialState>;
+  materializeAssistantSpatialState(input: {
+    chatId: string;
+    messageId: string;
+    swipeIndex: number;
+    regenerate: boolean;
+    continuation: boolean;
+  }): Promise<SpatialContextSnapshot | null>;
 }
 
 const service = () => getCapabilityService<StateResolutionService>("hierarchical-maps:state-resolution");
@@ -44,12 +40,11 @@ export function parseStoredSpatialDefinition(rawMetadata: unknown): SpatialConte
 }
 
 export async function resolveEffectiveSpatialState(
-  db: SpatialReadConnection,
   chatId: string,
   options: ResolveSpatialStateOptions = {},
 ): Promise<EffectiveSpatialState> {
   return (
-    service()?.resolveEffectiveSpatialState(db, chatId, options) ?? {
+    service()?.resolveEffectiveSpatialState(chatId, options) ?? {
       definition: null,
       snapshot: null,
       currentLocationId: null,
@@ -61,8 +56,7 @@ export async function resolveEffectiveSpatialState(
 }
 
 export async function materializeAssistantSpatialState(
-  db: DB,
   input: { chatId: string; messageId: string; swipeIndex: number; regenerate: boolean; continuation: boolean },
 ): Promise<SpatialContextSnapshot | null> {
-  return service()?.materializeAssistantSpatialState(db, input) ?? null;
+  return service()?.materializeAssistantSpatialState(input) ?? null;
 }

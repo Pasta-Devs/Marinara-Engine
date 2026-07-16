@@ -4,15 +4,26 @@ import { mkdir, symlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
-import { registerTurnGameEngine, type AnyTurnGameEngine, type InstalledCapabilityPackage } from "@marinara-engine/shared";
-import { logger } from "../../lib/logger.js";
+import {
+  registerTurnGameEngine,
+  type AnyTurnGameEngine,
+  type CapabilityRuntimeHost,
+  type CapabilityRuntimeLogArgument,
+  type InstalledCapabilityPackage,
+} from "@marinara-engine/shared";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
+import { parseGameJsonish } from "../game/jsonish.js";
 import { capabilityPackageManager } from "./package-manager.service.js";
 import {
   registerCapabilityConversationCommand,
   type CapabilityConversationCommandRegistration,
 } from "./capability-command-registry.service.js";
 import { registerCapabilityService } from "./capability-service-registry.service.js";
+import { createCapabilityLanguageModelHost } from "./capability-language-model.service.js";
+import { createCapabilityPersistenceHost } from "./capability-persistence.service.js";
+import { createCapabilityResourceHost } from "./capability-resources.service.js";
 
 type Cleanup = () => void | Promise<void>;
 type CapabilityActivationContext = {
@@ -20,11 +31,34 @@ type CapabilityActivationContext = {
   dataDir: string;
   package: InstalledCapabilityPackage;
   api: {
+    runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
     registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
     registerService<T>(key: string, service: T): Cleanup;
   };
 };
+
+function createCapabilityRuntimeHost(app: FastifyInstance): CapabilityRuntimeHost {
+  return Object.freeze({
+    isDebugAgentsEnabled,
+    json: Object.freeze({ parseJsonish: parseGameJsonish }),
+    languageModels: createCapabilityLanguageModelHost(app.db),
+    logger: Object.freeze({
+      debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.debug, logger, [message, ...args]),
+      info: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.info, logger, [message, ...args]),
+      warn: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.warn, logger, [message, ...args]),
+      error: (error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        Reflect.apply(logger.error, logger, [error, message, ...args]),
+      debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+        logDebugOverride(overrideEnabled, message, ...args),
+    }),
+    persistence: createCapabilityPersistenceHost(app.db),
+    resources: createCapabilityResourceHost(app.db),
+  });
+}
 type CapabilityModule = {
   activate?: (context: CapabilityActivationContext) => void | Cleanup | Promise<void | Cleanup>;
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
@@ -108,6 +142,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
+          runtime: createCapabilityRuntimeHost(app),
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) =>
             trackCleanup(registerCapabilityConversationCommand(registration)),

@@ -1,6 +1,9 @@
 import { ExternalLink } from "lucide-react";
 import { Modal } from "../ui/Modal";
 
+const FONT_AWESOME_D20_SOURCE_URL = "https://github.com/FortAwesome/Font-Awesome/blob/5.15.4/svgs/solid/dice-d20.svg";
+const CC_BY_4_0_LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
+
 const CONTRIBUTORS = [
   { login: "SpicyMarinara", url: "https://github.com/SpicyMarinara", contributions: 1475 },
   { login: "cha1latte", url: "https://github.com/cha1latte", contributions: 319 },
@@ -144,7 +147,7 @@ export function HomeCreditsModal({ open, onClose }: { open: boolean; onClose: ()
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
             The tracker panel d20 icon uses the path geometry from{" "}
             <a
-              href="https://github.com/FortAwesome/Font-Awesome/blob/5.15.4/svgs/solid/dice-d20.svg"
+              href={FONT_AWESOME_D20_SOURCE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"
@@ -153,7 +156,7 @@ export function HomeCreditsModal({ open, onClose }: { open: boolean; onClose: ()
             </a>{" "}
             by Fonticons, Inc., licensed under{" "}
             <a
-              href="https://creativecommons.org/licenses/by/4.0/"
+              href={CC_BY_4_0_LICENSE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="font-medium text-[var(--primary)] underline-offset-2 hover:underline"

@@ -86,6 +86,7 @@ interface GameSetupWizardProps {
       size: SpatialMapDraftSize;
       groundingMode: SpatialMapGroundingMode;
       sourceLorebookIds: string[];
+      instructions?: string;
     },
   ) => void;
   onCancel: () => void;
@@ -472,6 +473,7 @@ export function GameSetupWizard({
   const [draftSpatialMap, setDraftSpatialMap] = useState(false);
   const [spatialMapDraftSize, setSpatialMapDraftSize] = useState<SpatialMapDraftSize>("medium");
   const [spatialMapGroundingMode, setSpatialMapGroundingMode] = useState<SpatialMapGroundingMode>("setup");
+  const [spatialMapInstructions, setSpatialMapInstructions] = useState("");
   const [expandedLearnedOptions, setExpandedLearnedOptions] = useState<Record<LearnedOptionGroup, boolean>>({
     genres: false,
     tones: false,
@@ -962,6 +964,7 @@ export function GameSetupWizard({
             size: spatialMapDraftSize,
             groundingMode: spatialMapGroundingMode,
             sourceLorebookIds: spatialMapGroundingMode === "setup" ? [] : activeLorebookIds,
+            instructions: spatialMapInstructions.trim() || undefined,
           }
         : undefined,
     );
@@ -2401,6 +2404,27 @@ export function GameSetupWizard({
 
                 {draftSpatialMap && (
                   <div className="mt-2 space-y-3 rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
+                    <div>
+                      <label
+                        htmlFor="game-setup-spatial-map-instructions"
+                        className="text-[0.625rem] font-medium text-[var(--foreground)]"
+                      >
+                        What should this world include?
+                      </label>
+                      <textarea
+                        id="game-setup-spatial-map-instructions"
+                        value={spatialMapInstructions}
+                        onChange={(event) => setSpatialMapInstructions(event.target.value)}
+                        maxLength={4_000}
+                        rows={3}
+                        placeholder="A misty coastal city with a harbor, market, haunted inn, lighthouse, and sewers beneath the old district."
+                        className="mt-2 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
+                      />
+                      <p className="mt-1 text-[0.5625rem] leading-relaxed text-[var(--muted-foreground)]">
+                        Optional. If left blank, Marinara builds from the existing game setup.
+                      </p>
+                    </div>
+
                   <fieldset>
                     <legend className="text-[0.625rem] font-medium text-[var(--foreground)]">Map size</legend>
                     <div className="mt-2 grid grid-cols-3 gap-2">

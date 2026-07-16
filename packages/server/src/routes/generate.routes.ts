@@ -782,7 +782,7 @@ export async function generateRoutes(app: FastifyInstance) {
       let userMsg: Awaited<ReturnType<typeof chats.createMessage>>;
       if (input.pendingSpatialTransition) {
         try {
-          const committed = await commitSpatialOwnerTurn(app.db, {
+          const committed = await commitSpatialOwnerTurn({
             chatId: input.chatId,
             content: input.userMessage ?? "",
             transition: input.pendingSpatialTransition,
@@ -1151,7 +1151,6 @@ export async function generateRoutes(app: FastifyInstance) {
         fallbackMessageIds: resolveRegenerationGameStateFallbackMessageIds(scopedMessages, input.regenerateMessageId),
       };
       const ownerSpatialProjectionPromise = resolveOwnerSpatialProjection(
-        app.db,
         input.chatId,
         input.regenerateMessageId
           ? { beforeMessageId: input.regenerateMessageId }
@@ -5682,7 +5681,7 @@ export async function generateRoutes(app: FastifyInstance) {
                 anchoredMsg?.id &&
                 (requestChatMode === "roleplay" || requestChatMode === "game")
               ) {
-                await materializeAssistantSpatialState(app.db, {
+                await materializeAssistantSpatialState({
                   chatId: input.chatId,
                   messageId: anchoredMsg.id,
                   swipeIndex: anchoredMsg.activeSwipeIndex ?? 0,
@@ -5744,7 +5743,7 @@ export async function generateRoutes(app: FastifyInstance) {
             !input.impersonate &&
             (requestChatMode === "roleplay" || requestChatMode === "game")
           ) {
-            await materializeAssistantSpatialState(app.db, {
+            await materializeAssistantSpatialState({
               chatId: input.chatId,
               messageId: savedMsg.id,
               swipeIndex: savedSwipeIndex,

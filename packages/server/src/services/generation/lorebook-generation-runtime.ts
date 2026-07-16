@@ -52,7 +52,7 @@ export function buildLorebookScanMessagesWithGenerationGuide(
 }
 
 export function resolveLorebookTokenBudget(meta: Record<string, unknown>): number {
-  const raw = meta.lorebookTokenBudget;
+  const raw = meta.lorebookTokenBudget ?? meta.generationLorebookTokenBudget;
   if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) {
     return LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET;
   }

@@ -88,3 +88,11 @@ export function latestTrustedTimestamp(values: Array<unknown>): string | null {
 
   return normalized.at(-1) ?? null;
 }
+
+/** Keep live records in creation order when the clock has not advanced a millisecond. */
+export function ensureTimestampAfter(candidate: unknown, previous: unknown): string {
+  const normalizedCandidate = parseTrustedTimestamp(candidate) ?? new Date().toISOString();
+  const normalizedPrevious = parseTrustedTimestamp(previous);
+  if (!normalizedPrevious || normalizedCandidate > normalizedPrevious) return normalizedCandidate;
+  return new Date(new Date(normalizedPrevious).getTime() + 1).toISOString();
+}

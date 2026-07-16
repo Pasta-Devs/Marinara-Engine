@@ -32,6 +32,7 @@ export * from "./types/achievement.js";
 export * from "./types/conversation-call.js";
 export * from "./types/noodle.js";
 export * from "./types/spatial-context.js";
+export * from "./types/capability-runtime.js";
 
 // Schemas
 export * from "./schemas/chat.schema.js";

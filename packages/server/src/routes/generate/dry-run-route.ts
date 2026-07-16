@@ -608,7 +608,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? body.regenerateMessageId.trim()
         : null;
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(
-      app.db,
       chatId,
       regenerateMessageId ? { beforeMessageId: regenerateMessageId } : {},
     );

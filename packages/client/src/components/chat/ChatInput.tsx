@@ -1665,6 +1665,7 @@ export const ChatInput = memo(function ChatInput({
           capabilityProps={{
             chatId: activeChatId,
             disabled: isInputBusy,
+            pendingTransition: pendingSpatialTransition,
             onPendingTransitionChange: (pending: unknown) => {
               if (pending && typeof pending === "object") {
                 useChatStore
