@@ -1293,11 +1293,10 @@ export function ChatSettingsDrawer({
   );
   const mapsPackage = installedCapabilities.find(
     (item) =>
-      item.status === "active" &&
-      item.manifest.kind.includes("maps") &&
-      item.manifest.entrypoints.client &&
-      activeAgentIds.includes(item.id),
+      item.status === "active" && item.manifest.kind.includes("maps") && item.manifest.entrypoints.client,
   );
+  const mapsPackageEnabledForChat =
+    metadata.enableAgents === true && Boolean(mapsPackage && activeAgentIds.includes(mapsPackage.id));
   const callsPackage = installedCapabilities.find(
     (item) =>
       item.status === "active" &&
@@ -6081,6 +6080,18 @@ export function ChatSettingsDrawer({
               capabilityProps={{
                 chatId: chat.id,
                 debugMode,
+                enabledForChat: mapsPackageEnabledForChat,
+                onEnabledForChatChange: async (enabled: boolean) => {
+                  const current = readLatestActiveAgentIds();
+                  const nextActiveAgentIds = enabled
+                    ? Array.from(new Set([...current, mapsPackage.id]))
+                    : current.filter((id) => id !== mapsPackage.id);
+                  await updateMeta.mutateAsync({
+                    id: chat.id,
+                    ...(enabled ? { enableAgents: true } : {}),
+                    activeAgentIds: nextActiveAgentIds,
+                  });
+                },
                 confirmAction: showConfirmDialog,
                 onDirtyChange: setEditorDirty,
                 onOpenLorebook: openLorebookDetail,
