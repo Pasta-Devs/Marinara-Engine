@@ -212,7 +212,11 @@ class CapabilityModuleRuntime {
     const cleanup = this.cleanups.get(packageId);
     if (!cleanup) return;
     this.cleanups.delete(packageId);
-    await cleanup();
+    try {
+      await cleanup();
+    } catch (error) {
+      logger.warn(error, "Capability package %s cleanup failed during deactivation", packageId);
+    }
     logger.info("Deactivated capability package %s", packageId);
   }
 

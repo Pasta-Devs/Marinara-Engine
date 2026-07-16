@@ -1318,15 +1318,15 @@ function buildConversationGameSlashCommands(
   games: readonly ConversationGameSlashContribution[] = [],
 ): SlashCommand[] {
   const reserved = new Set(
-    COMMANDS.flatMap((command) => [command.name, ...(command.aliases ?? [])]).map((name) => name.toLocaleLowerCase()),
+    COMMANDS.flatMap((command) => [command.name, ...(command.aliases ?? [])]).map((name) => name.toLowerCase()),
   );
   const commands: SlashCommand[] = [];
   for (const game of games) {
-    const name = game.command.startsWith("/") ? game.command.slice(1).toLocaleLowerCase() : "";
+    const name = game.command.startsWith("/") ? game.command.slice(1).toLowerCase() : "";
     if (!/^[a-z0-9-]+$/u.test(name) || reserved.has(name)) continue;
     reserved.add(name);
     const aliases = game.aliases
-      .map((alias) => alias.trim().toLocaleLowerCase())
+      .map((alias) => alias.trim().toLowerCase())
       .filter((alias) => {
         if (!/^[a-z0-9-]+$/u.test(alias) || reserved.has(alias)) return false;
         reserved.add(alias);

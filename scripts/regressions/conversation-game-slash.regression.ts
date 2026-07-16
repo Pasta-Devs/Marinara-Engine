@@ -11,7 +11,7 @@ const availability = {
       packageId: "eightball",
       packageName: "8-Ball Pool",
       command: "/8ball",
-      aliases: ["8-ball", "8 ball", "eightball", "pool", "billiards"],
+      aliases: ["8-ball", "eightball", "pool", "billiards"],
     },
   ],
 };
