@@ -118,6 +118,38 @@ try {
     /requires capability API 1\.1; this Engine supports 1\.0/,
   );
 
+  const forwardCompatibleCatalog = capabilityCatalogSchema.parse({
+    schemaVersion: 1,
+    generatedAt: "2026-07-16T00:00:00.000Z",
+    packages: [
+      {
+        manifest: {
+          ...manifestV2,
+          id: "hierarchical-maps",
+          name: "Hierarchical Maps",
+          version: "1.1.1",
+          engine: { min: "3.2.0", maxExclusive: "3.3.0" },
+          capabilityApi: { major: 1, minor: 3 },
+          contributions: {
+            slots: ["chat-settings", "spatial-workspace", "chat-runtime", "game-world-map"],
+            agentDetail: { agentIds: ["hierarchical-maps"] },
+          },
+        },
+        category: "tracker",
+        artifact: {
+          url: "https://example.com/hierarchical-maps-1.1.1.zip",
+          sha256: "1".repeat(64),
+          bytes: 1,
+        },
+      },
+    ],
+  });
+  assert.deepEqual(
+    forwardCompatibleCatalog.packages[0]?.manifest.contributions?.agentDetail,
+    { agentIds: ["hierarchical-maps"] },
+    "Stable Engines must parse newer agent-detail metadata before applying compatibility gates",
+  );
+
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
   seedWhisperModels();
 
