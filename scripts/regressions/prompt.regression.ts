@@ -199,6 +199,7 @@ import {
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
 } from "../../packages/server/src/services/game/game-asset-generation.js";
+import { buildMapGenerationPrompt } from "../../packages/server/src/services/game/map.service.js";
 import {
   buildGameIllustratorAppearanceContextBlock,
   buildIllustrationNarrationSummaryMessages,
@@ -479,6 +480,19 @@ const cases: RegressionCase[] = [
 
       assert.match(seededMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
       assert.match(workspaceMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
+    },
+  },
+  {
+    name: "classic Game node-map prompts reject repetitive star topology",
+    run() {
+      const prompt = buildMapGenerationPrompt("dungeon", "A ruined keep with winding halls and side chambers.");
+      assert.match(prompt, /irregular chains, branches, junctions, and occasional loops/u);
+      assert.match(prompt, /Avoid hub-and-spoke or star layouts/u);
+      assert.match(prompt, /distribute connections across multiple junctions/u);
+      assert.match(prompt, /instead of placing rooms at equal distances around a center point/u);
+      assert.match(prompt, /"from": "entrance", "to": "hallway1"/u);
+      assert.match(prompt, /"from": "hallway1", "to": "library"/u);
+      assert.doesNotMatch(prompt, /"from": "entrance", "to": "library"/u);
     },
   },
   {
