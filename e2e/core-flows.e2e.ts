@@ -1667,7 +1667,9 @@ test("Conversation feature packages expose commands and settings without per-cha
     await expect(
       clientLoadFailure.getByText("Your chat and saved data are unchanged.", { exact: false }),
     ).toBeVisible();
-    await clientLoadFailure.getByRole("button", { name: "Try again", exact: true }).click();
+    const clientLoadRetry = clientLoadFailure.getByRole("button", { name: "Try again", exact: true });
+    expect((await clientLoadRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await clientLoadRetry.click();
     await expect(clientLoadFailure).toHaveCount(0);
     await expect(drawer.getByText("Commands", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Selfies", { exact: true })).toBeVisible();
@@ -1699,7 +1701,9 @@ test("Conversation feature packages expose commands and settings without per-cha
     await drawer.getByRole("button", { name: "Crash capability", exact: true }).click();
     const runtimeFailure = drawer.getByRole("alert").filter({ hasText: "Conversation Calls stopped" });
     await expect(runtimeFailure).toBeVisible();
-    await runtimeFailure.getByRole("button", { name: "Try again", exact: true }).click();
+    const runtimeRetry = runtimeFailure.getByRole("button", { name: "Try again", exact: true });
+    expect((await runtimeRetry.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    await runtimeRetry.click();
     await expect(runtimeFailure).toHaveCount(0);
     await expect(drawer.getByText("Conversation Calls", { exact: true })).toBeVisible();
     await expect(drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Commands$/ })).toHaveCount(0);
