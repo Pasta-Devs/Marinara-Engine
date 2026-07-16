@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { createPortal } from "react-dom";
 import { BookOpen, Maximize2, X } from "lucide-react";
 import { SUPPORTED_MACROS } from "@marinara-engine/shared";
@@ -103,13 +112,6 @@ function ExpandedMacroEditor({
     [formatOnChange, onChange],
   );
 
-  const handleKeyDown = useCallback(
-    (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
-      handleTextareaTab(event);
-    },
-    [],
-  );
-
   if (!open) {
     return null;
   }
@@ -146,7 +148,7 @@ function ExpandedMacroEditor({
             ref={textareaRef}
             value={localValue}
             onChange={handleChange}
-            onKeyDown={handleKeyDown}
+            onKeyDown={handleTextareaTab}
             placeholder={placeholder}
             className="min-h-0 flex-1 resize-none bg-[var(--secondary)] p-4 font-mono text-sm leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
             spellCheck={false}

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Expanded Textarea — Fullscreen editing overlay
 // ──────────────────────────────────────────────
-import { useEffect, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Minimize2 } from "lucide-react";
@@ -112,7 +112,7 @@ export function ExpandedTextarea({
               ref={textareaRef}
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              onKeyDown={(event: ReactKeyboardEvent<HTMLTextAreaElement>) => handleTextareaTab(event)}
+              onKeyDown={handleTextareaTab}
               placeholder={placeholder}
               className={cn(
                 "h-full w-full resize-none rounded-xl p-5 text-sm leading-relaxed outline-none transition-colors",
