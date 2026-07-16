@@ -938,6 +938,9 @@ export function ChatSettingsDrawer({
   const setMusicPlayerSource = useUIStore((s) => s.setMusicPlayerSource);
   const openToolDetail = useUIStore((s) => s.openToolDetail);
   const openPresetDetail = useUIStore((s) => s.openPresetDetail);
+  const debugMode = useUIStore((s) => s.debugMode);
+  const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
 
   const { data: allCharacters } = useCharacters({ includeBuiltIn: true });
   const { data: characterGroups } = useCharacterGroups();
@@ -6075,7 +6078,14 @@ export function ChatSettingsDrawer({
             <CapabilityElement
               packageId={mapsPackage.id}
               view="settings"
-              capabilityProps={{ chatId: chat.id, style: { order: CHAT_SETTINGS_ORDER.spatialMap } }}
+              capabilityProps={{
+                chatId: chat.id,
+                debugMode,
+                confirmAction: showConfirmDialog,
+                onDirtyChange: setEditorDirty,
+                onOpenLorebook: openLorebookDetail,
+                style: { order: CHAT_SETTINGS_ORDER.spatialMap },
+              }}
               className="contents"
             />
           )}

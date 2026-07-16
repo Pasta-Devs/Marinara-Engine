@@ -26,6 +26,7 @@ import { usePageActivity } from "../../hooks/use-page-activity";
 import { useCapabilityAgentRegistry, useCapabilityClientModules } from "../../hooks/use-capability-packages";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
 import { getCssBackgroundStyle } from "../../lib/css-colors";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { motion, AnimatePresence } from "framer-motion";
@@ -241,7 +242,11 @@ export function AppShell() {
   const trackerPanelBackgroundColor = useUIStore((s) => s.trackerPanelBackgroundColor);
   const spatialMapDetailChatId = useUIStore((s) => s.spatialMapDetailChatId);
   const pendingSpatialMapDraftReview = useUIStore((s) => s.pendingSpatialMapDraftReview);
+  const clearPendingSpatialMapDraftReview = useUIStore((s) => s.clearPendingSpatialMapDraftReview);
   const closeSpatialMapDetail = useUIStore((s) => s.closeSpatialMapDetail);
+  const debugMode = useUIStore((s) => s.debugMode);
+  const setEditorDirty = useUIStore((s) => s.setEditorDirty);
+  const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
@@ -1118,7 +1123,12 @@ export function AppShell() {
           view="workspace"
           capabilityProps={{
             chatId: spatialMapDetailChatId,
+            debugMode,
             pendingDraftReview: pendingSpatialMapDraftReview,
+            confirmAction: showConfirmDialog,
+            onClearPendingDraftReview: clearPendingSpatialMapDraftReview,
+            onDirtyChange: setEditorDirty,
+            onOpenLorebook: openLorebookDetail,
             onClose: closeSpatialMapDetail,
           }}
         />
