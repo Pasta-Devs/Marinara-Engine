@@ -753,6 +753,17 @@ export function normalizeCharacterActionData(input: Row): Row {
   out.post_history_instructions = out.post_history_instructions ?? out.postHistoryInstructions;
   out.character_version = out.character_version ?? out.characterVersion;
   out.alternate_greetings = out.alternate_greetings ?? out.alternateGreetings;
+  for (const key of [
+    "first_mes",
+    "mes_example",
+    "creator_notes",
+    "system_prompt",
+    "post_history_instructions",
+    "character_version",
+    "alternate_greetings",
+  ]) {
+    if (out[key] === undefined) delete out[key];
+  }
   delete out.firstMes;
   delete out.firstMessage;
   delete out.greeting;

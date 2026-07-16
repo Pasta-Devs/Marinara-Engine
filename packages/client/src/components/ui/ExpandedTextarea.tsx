@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Minimize2 } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { handleTextareaTab } from "../../lib/textarea-editing";
 import {
   NEUTRAL_PANEL_HEADER,
   NEUTRAL_PANEL_SCROLL_AREA,
@@ -111,6 +112,7 @@ export function ExpandedTextarea({
               ref={textareaRef}
               value={value}
               onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleTextareaTab}
               placeholder={placeholder}
               className={cn(
                 "h-full w-full resize-none rounded-xl p-5 text-sm leading-relaxed outline-none transition-colors",

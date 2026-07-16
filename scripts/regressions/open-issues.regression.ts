@@ -104,6 +104,7 @@ import { resolveSceneVideoPrompt } from "../../packages/server/src/services/vide
 import {
   buildLorebookEntryCreateRow,
   buildPersonaCreateRow,
+  MariDbService,
   normalizeCharacterActionData,
 } from "../../packages/server/src/services/mari-db/mari-db.service.js";
 import {
@@ -229,15 +230,19 @@ assert.equal(minimalProfessorMariPersona.convoBehavior, "");
 const generatedCharacterData = normalizeCharacterActionData({
   firstMessage: "Welcome to the laboratory.",
   mesExample: "{{char}}: Observe carefully.",
+  creatorNotes: "Created for regression coverage.",
   systemPrompt: "Stay in character.",
   postHistoryInstructions: "Remain concise.",
+  characterVersion: "1.2.3",
   alternateGreetings: ["You made it."],
   aboutMe: "lab gremlin. ethically flexible. coffee required.",
 });
 assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
 assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
+assert.equal(generatedCharacterData.creator_notes, "Created for regression coverage.");
 assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
 assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
+assert.equal(generatedCharacterData.character_version, "1.2.3");
 assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
 assert.equal(
   (generatedCharacterData.extensions as Record<string, unknown>).aboutMe,
@@ -245,6 +250,84 @@ assert.equal(
 );
 assert.equal(Object.hasOwn(generatedCharacterData, "aboutMe"), false);
 assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
+
+const partialCharacterUpdateData = normalizeCharacterActionData({ personality: "Quietly analytical." });
+assert.deepEqual(
+  partialCharacterUpdateData,
+  { personality: "Quietly analytical." },
+  "Partial character updates must not synthesize undefined fields that deepMerge treats as deletions",
+);
+
+const characterUpdateStorageRoot = mkdtempSync(join(tmpdir(), "marinara-character-update-preservation-"));
+const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
+process.env.FILE_STORAGE_DIR = characterUpdateStorageRoot;
+let closeCharacterUpdateDb: (() => Promise<void>) | null = null;
+try {
+  const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
+  closeCharacterUpdateDb = closeDB;
+  const mariDb = new MariDbService(await getDB());
+  const characterId = "partial-update-preservation";
+  const createResult = await mariDb.executeAction({
+    action: "character.create",
+    id: characterId,
+    data: {
+      name: "Preserved Character",
+      personality: "Before the update.",
+      firstMes: "Welcome to the laboratory.",
+      mesExample: "{{char}}: Observe carefully.",
+      creatorNotes: "Created for integration coverage.",
+      systemPrompt: "Stay in character.",
+      postHistoryInstructions: "Remain concise.",
+      characterVersion: "1.2.3",
+      alternateGreetings: ["You made it."],
+    },
+  });
+  assert.equal(createResult.ok, true, "The character update regression fixture must be created");
+
+  const updateResult = await mariDb.executeAction({
+    action: "character.update",
+    id: characterId,
+    patch: { personality: "After the update." },
+    apply: true,
+  });
+  assert.equal(updateResult.ok, true, "A personality-only character.update must apply");
+
+  const readResult = await mariDb.executeAction({ action: "character.get", id: characterId });
+  assert.equal(readResult.ok, true);
+  const updatedCard = (readResult.output as { data: Record<string, unknown> }).data;
+  assert.deepEqual(
+    {
+      personality: updatedCard.personality,
+      first_mes: updatedCard.first_mes,
+      mes_example: updatedCard.mes_example,
+      creator_notes: updatedCard.creator_notes,
+      system_prompt: updatedCard.system_prompt,
+      post_history_instructions: updatedCard.post_history_instructions,
+      character_version: updatedCard.character_version,
+      alternate_greetings: updatedCard.alternate_greetings,
+    },
+    {
+      personality: "After the update.",
+      first_mes: "Welcome to the laboratory.",
+      mes_example: "{{char}}: Observe carefully.",
+      creator_notes: "Created for integration coverage.",
+      system_prompt: "Stay in character.",
+      post_history_instructions: "Remain concise.",
+      character_version: "1.2.3",
+      alternate_greetings: ["You made it."],
+    },
+    "character.update must preserve every omitted Character Card field through the real merge and persistence path",
+  );
+
+  for (const approval of mariDb.getPendingApprovals()) {
+    await mariDb.keepAppliedReview(approval.id);
+  }
+} finally {
+  await closeCharacterUpdateDb?.();
+  if (previousFileStorageDir === undefined) delete process.env.FILE_STORAGE_DIR;
+  else process.env.FILE_STORAGE_DIR = previousFileStorageDir;
+  rmSync(characterUpdateStorageRoot, { recursive: true, force: true });
+}
 
 const professorMariAboutMeCommands = parseCharacterCommands(
   '[update_character: name="Luna", about_me="fate dealer. tea hoarder. 🔮"]\n' +
