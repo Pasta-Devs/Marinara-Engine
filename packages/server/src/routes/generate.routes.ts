@@ -1471,7 +1471,6 @@ export async function generateRoutes(app: FastifyInstance) {
               : "spotify";
         const chatEnableAgents = shouldEnableAgentsForGeneration({
           chatEnableAgents: chatMeta.enableAgents === true,
-          chatMode,
           impersonate: input.impersonate,
           impersonateBlockAgents: input.impersonateBlockAgents,
         });

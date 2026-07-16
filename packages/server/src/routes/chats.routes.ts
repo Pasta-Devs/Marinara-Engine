@@ -2698,7 +2698,6 @@ export async function chatsRoutes(app: FastifyInstance) {
           const activeAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
           const chatEnableAgents = shouldEnableAgentsForGeneration({
             chatEnableAgents: chatMeta.enableAgents === true,
-            chatMode,
             impersonate: false,
             impersonateBlockAgents: false,
           });
