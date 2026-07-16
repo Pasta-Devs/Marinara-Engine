@@ -4,8 +4,15 @@ import { mkdir, symlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
-import { registerTurnGameEngine, type AnyTurnGameEngine, type InstalledCapabilityPackage } from "@marinara-engine/shared";
-import { logger } from "../../lib/logger.js";
+import {
+  registerTurnGameEngine,
+  type AnyTurnGameEngine,
+  type CapabilityRuntimeHost,
+  type CapabilityRuntimeLogArgument,
+  type InstalledCapabilityPackage,
+} from "@marinara-engine/shared";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { capabilityPackageManager } from "./package-manager.service.js";
 import {
@@ -20,11 +27,28 @@ type CapabilityActivationContext = {
   dataDir: string;
   package: InstalledCapabilityPackage;
   api: {
+    runtime: CapabilityRuntimeHost;
     registerTurnGameEngine(engine: AnyTurnGameEngine): Cleanup;
     registerConversationCommand(registration: CapabilityConversationCommandRegistration): Cleanup;
     registerService<T>(key: string, service: T): Cleanup;
   };
 };
+
+const capabilityRuntimeHost: CapabilityRuntimeHost = Object.freeze({
+  isDebugAgentsEnabled,
+  logger: Object.freeze({
+    debug: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+      Reflect.apply(logger.debug, logger, [message, ...args]),
+    info: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+      Reflect.apply(logger.info, logger, [message, ...args]),
+    warn: (message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+      Reflect.apply(logger.warn, logger, [message, ...args]),
+    error: (error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+      Reflect.apply(logger.error, logger, [error, message, ...args]),
+    debugOverride: (overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]) =>
+      logDebugOverride(overrideEnabled, message, ...args),
+  }),
+});
 type CapabilityModule = {
   activate?: (context: CapabilityActivationContext) => void | Cleanup | Promise<void | Cleanup>;
   selfCheck?: (context: CapabilityActivationContext) => void | Promise<void>;
@@ -96,6 +120,7 @@ class CapabilityModuleRuntime {
         dataDir: DATA_DIR,
         package: installed,
         api: {
+          runtime: capabilityRuntimeHost,
           registerTurnGameEngine: (engine) => trackCleanup(registerTurnGameEngine(engine)),
           registerConversationCommand: (registration) =>
             trackCleanup(registerCapabilityConversationCommand(registration)),

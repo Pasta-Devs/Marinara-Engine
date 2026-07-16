@@ -62,7 +62,22 @@ const capabilityPackageManifestBaseSchema = z.object({
   restartRequired: z.boolean().default(false),
 }).strict();
 
-export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 0 } as const);
+export const supportedCapabilityApi = Object.freeze({ major: 1, minor: 1 } as const);
+
+export type CapabilityRuntimeLogArgument = unknown;
+
+export interface CapabilityRuntimeLogger {
+  debug(message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+  info(message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+  warn(message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+  error(error: unknown, message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+  debugOverride(overrideEnabled: boolean, message: string, ...args: CapabilityRuntimeLogArgument[]): void;
+}
+
+export interface CapabilityRuntimeHost {
+  isDebugAgentsEnabled(): boolean;
+  logger: CapabilityRuntimeLogger;
+}
 
 const capabilityApiVersionSchema = z.object({
   major: z.number().int().positive(),

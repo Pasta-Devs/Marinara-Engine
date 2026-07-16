@@ -19,6 +19,12 @@ An agent package may contribute one or more declarative agents and optional trus
 
 Packages target a versioned Marinara capability API. They must not import private source paths from the engine.
 
+Capability API 1.1 adds a generic runtime facade to the server activation context.
+Packages can read the effective agent-debug state and write through the Engine's
+Pino logger, including explicit debug-mode overrides, without importing the
+private logger or runtime-configuration modules. The facade exposes operations,
+not the underlying Engine objects.
+
 ## Initial packages
 
 - all currently built-in agents;

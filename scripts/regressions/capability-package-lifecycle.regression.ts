@@ -77,7 +77,7 @@ try {
   const legacyManifest = capabilityPackageManifestSchema.parse(installedPackage("legacy", ["agent"]).manifest);
   assert.equal(legacyManifest.schemaVersion, 1, "Existing manifest v1 packages must remain readable");
   assert.equal(getCapabilityApiCompatibilityIssue(legacyManifest), null);
-  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 0 });
+  assert.deepEqual(supportedCapabilityApi, { major: 1, minor: 1 });
 
   const manifestV2 = capabilityPackageManifestSchema.parse({
     ...legacyManifest,
@@ -89,6 +89,11 @@ try {
     },
   });
   assert.equal(getCapabilityApiCompatibilityIssue(manifestV2), null);
+  const currentManifestV2 = capabilityPackageManifestSchema.parse({
+    ...manifestV2,
+    capabilityApi: { major: 1, minor: 1 },
+  });
+  assert.equal(getCapabilityApiCompatibilityIssue(currentManifestV2), null);
   assert.throws(
     () =>
       capabilityPackageManifestSchema.parse({
@@ -106,15 +111,15 @@ try {
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMajorManifest) ?? "",
-    /requires capability API 2\.0; this Engine supports 1\.0/,
+    /requires capability API 2\.0; this Engine supports 1\.1/,
   );
   const unsupportedMinorManifest = capabilityPackageManifestSchema.parse({
     ...manifestV2,
-    capabilityApi: { major: 1, minor: 1 },
+    capabilityApi: { major: 1, minor: 2 },
   });
   assert.match(
     getCapabilityApiCompatibilityIssue(unsupportedMinorManifest) ?? "",
-    /requires capability API 1\.1; this Engine supports 1\.0/,
+    /requires capability API 1\.2; this Engine supports 1\.1/,
   );
 
   writeRegistry([installedPackage("conversation-calls", ["agent", "conversation-calls"])]);
@@ -166,7 +171,15 @@ try {
   writeFileSync(
     join(packagesRoot, "versions", ready.id, ready.version, "server.mjs"),
     `export async function activate({ api }) {
-      api.registerService("readiness:success", { active: true });
+      const methods = ["debug", "info", "warn", "error", "debugOverride"];
+      if (!methods.every((method) => typeof api.runtime?.logger?.[method] === "function")) {
+        throw new Error("Capability runtime logger is incomplete");
+      }
+      const debugAgentsEnabled = api.runtime.isDebugAgentsEnabled();
+      if (typeof debugAgentsEnabled !== "boolean") throw new Error("Capability debug state is invalid");
+      api.runtime.logger.debug("Capability package fixture activated");
+      api.runtime.logger.debugOverride(false, "Capability package fixture debug override");
+      api.registerService("readiness:success", { active: true, debugAgentsEnabled });
     }
     export async function selfCheck() {}`,
   );
@@ -189,7 +202,15 @@ try {
   assert.equal(readinessById.get("readiness-success")?.readiness, "ready");
 
   assert.equal(getCapabilityService("readiness:failure"), null, "Failed self-check contributions must be removed");
-  assert.deepEqual(getCapabilityService("readiness:success"), { active: true });
+  assert.equal(
+    getCapabilityService<{ active: boolean; debugAgentsEnabled: boolean }>("readiness:success")?.active,
+    true,
+  );
+  assert.equal(
+    typeof getCapabilityService<{ active: boolean; debugAgentsEnabled: boolean }>("readiness:success")
+      ?.debugAgentsEnabled,
+    "boolean",
+  );
   assert.equal(await capabilityPackageManager.clientEntrypoint("hierarchical-maps"), null);
   assert.equal(await capabilityPackageManager.clientEntrypoint("readiness-failure"), null);
   assert.ok(await capabilityPackageManager.clientEntrypoint("readiness-success"));
