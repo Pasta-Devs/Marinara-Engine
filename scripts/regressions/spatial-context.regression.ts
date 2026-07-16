@@ -30,6 +30,11 @@ import {
   GameMapBindingError,
   updateGameMapBinding,
 } from "../../packages/server/src/services/spatial-context/game-map-binding.js";
+import { ensureTimestampAfter } from "../../packages/server/src/services/import/import-timestamps.js";
+
+assert.equal(ensureTimestampAfter("2026-07-16T07:47:03.766Z", "2026-07-16T07:47:03.765Z"), "2026-07-16T07:47:03.766Z");
+assert.equal(ensureTimestampAfter("2026-07-16T07:47:03.765Z", "2026-07-16T07:47:03.765Z"), "2026-07-16T07:47:03.766Z");
+assert.equal(ensureTimestampAfter("2026-07-16T07:47:03.700Z", "2026-07-16T07:47:03.765Z"), "2026-07-16T07:47:03.766Z");
 
 function location(
   id: string,

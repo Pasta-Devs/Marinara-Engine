@@ -12,6 +12,7 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { and, desc, eq, inArray, ne, or } from "../../db/file-query.js";
+import { ensureTimestampAfter } from "../import/import-timestamps.js";
 import {
   chats,
   gameStateSnapshots,
@@ -205,6 +206,12 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
       return requestedIds.filter((entryId) => existingIds.has(entryId));
     },
     async createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput) {
+      const chatRows = await db
+        .select({ lastMessageAt: chats.lastMessageAt })
+        .from(chats)
+        .where(eq(chats.id, input.chatId))
+        .limit(1);
+      const createdAt = ensureTimestampAfter(input.createdAt, chatRows[0]?.lastMessageAt);
       const message: typeof messages.$inferInsert = {
         id: input.id,
         chatId: input.chatId,
@@ -213,7 +220,7 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
         content: input.content,
         activeSwipeIndex: 0,
         extra: JSON.stringify(input.extra),
-        createdAt: input.createdAt,
+        createdAt,
       };
       await db.insert(messages).values(message);
       await db.insert(messageSwipes).values({
@@ -222,7 +229,7 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
         index: 0,
         content: input.content,
         extra: JSON.stringify({}),
-        createdAt: input.createdAt,
+        createdAt,
       });
       return mapMessage(message as typeof messages.$inferSelect);
     },
