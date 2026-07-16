@@ -109,7 +109,6 @@ import {
   normalizeSpriteExpressionLabel,
   normalizeRpgStatPools,
   syncRpgHpFromPools,
-  type AboutMeSourceConfig,
   type CharacterCardVersion,
   type CharacterData,
   type ConversationCallCharacterVideoClipKind,
@@ -1276,8 +1275,8 @@ function ConvoTab({
 }) {
   const ext = formData.extensions;
   return (
-    // Key by the edited character so all transient state (revert snapshot, open
-    // panels, connection choice) resets on switch — the editor reuses this instance.
+    // Key by the edited character so transient edit state resets on switch. The
+    // editor reuses this component instance while moving between characters.
     <ConvoProfileFields
       key={characterId ?? "new-character"}
       kind={kind}
@@ -1287,21 +1286,10 @@ function ConvoTab({
       onDisplayNameChange={(v) => updateExtension("convoDisplayName", v)}
       displayNameInCard={ext.convoDisplayNameInCard === true}
       onDisplayNameInCardChange={(v) => updateExtension("convoDisplayNameInCard", v)}
-      characterId={characterId}
-      sources={ext.aboutMeSources as AboutMeSourceConfig | undefined}
-      onSourcesChange={(v) => updateExtension("aboutMeSources", v)}
       aboutMe={(ext.aboutMe as string) ?? ""}
       onAboutMeChange={(v) => updateExtension("aboutMe", v)}
       behavior={ext.convoBehavior as ConvoBehaviorConfig | undefined}
       onBehaviorChange={(b) => updateExtension("convoBehavior", b)}
-      aiSource={{
-        name: formData.name ?? "",
-        description: formData.description ?? "",
-        personality: formData.personality ?? "",
-        scenario: formData.scenario ?? "",
-        backstory: (ext.backstory as string) ?? "",
-        appearance: (ext.appearance as string) ?? "",
-      }}
     />
   );
 }

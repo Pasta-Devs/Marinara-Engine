@@ -43,21 +43,6 @@ export const convoBehaviorConfigSchema = z.object({
   insertionStrategy: convoBehaviorInsertionStrategySchema.catch("constant_after").default("constant_after"),
 });
 
-/** Which sources the AI-write "about me" prompt draws from. Per-character. */
-export const aboutMeSourceConfigSchema = z.object({
-  description: z.boolean().optional(),
-  personality: z.boolean().optional(),
-  scenario: z.boolean().optional(),
-  backstory: z.boolean().optional(),
-  appearance: z.boolean().optional(),
-  convoBehavior: z.boolean().optional(),
-  lorebook: z.boolean().optional(),
-  /** When set, only these linked lorebook entry ids are included; absent → all of them. */
-  lorebookEntryIds: z.array(z.string()).optional(),
-  chatContext: z.boolean().optional(),
-  chatContextLimit: z.number().int().min(1).max(200).optional(),
-});
-
 export const characterExtensionsSchema = z
   .object({
     talkativeness: z.number().min(0).max(1).default(0.5),
@@ -71,7 +56,6 @@ export const characterExtensionsSchema = z
     convoDisplayNameInCard: z.boolean().optional(),
     aboutMe: z.string().optional(),
     convoBehavior: convoBehaviorConfigSchema.optional(),
-    aboutMeSources: aboutMeSourceConfigSchema.optional(),
   })
   .passthrough();
 
@@ -131,44 +115,6 @@ export const characterCardV2Schema = z.object({
   spec_version: z.literal("2.0"),
   data: characterDataSchema,
 });
-
-/** Default sources when a character has none configured: only the personality field. */
-export const DEFAULT_ABOUT_ME_SOURCES: z.infer<typeof aboutMeSourceConfigSchema> = { personality: true };
-/** Default number of recent messages to include when the chat-context source is on. */
-export const DEFAULT_ABOUT_ME_CHAT_CONTEXT_LIMIT = 20;
-
-/** Resolve a stored source config, falling back to the default (personality only) when absent. */
-export function resolveAboutMeSources(raw: unknown): z.infer<typeof aboutMeSourceConfigSchema> {
-  if (raw == null) return { ...DEFAULT_ABOUT_ME_SOURCES };
-  const parsed = aboutMeSourceConfigSchema.safeParse(raw);
-  return parsed.success ? parsed.data : { ...DEFAULT_ABOUT_ME_SOURCES };
-}
-
-/** AI-write of a Convo "about me" from card/persona fields (Conversation mode). */
-export const generateAboutMeSchema = z.object({
-  connectionId: z.string().min(1),
-  kind: z.enum(["character", "persona"]).default("character"),
-  name: z.string().max(200).default(""),
-  description: z.string().max(20000).default(""),
-  personality: z.string().max(20000).default(""),
-  scenario: z.string().max(20000).default(""),
-  backstory: z.string().max(20000).default(""),
-  appearance: z.string().max(20000).default(""),
-  /** Convo behavior directive text (included only when the convoBehavior source is on). */
-  convoBehavior: z.string().max(20000).default(""),
-  /** Which sources to draw from. Absent → default (personality only). */
-  sources: aboutMeSourceConfigSchema.optional(),
-  /** Character id — lets the server pull linked/embedded lorebook entries. */
-  characterId: z.string().optional(),
-  /** Chat id — lets the server pull recent chat context (chat-exclusive about me only). */
-  chatId: z.string().optional(),
-  /** Optional freeform steer from the user (e.g. "keep it one line, chronically online"). */
-  instruction: z.string().max(2000).optional(),
-  /** Mirror the app's debug-mode prompt logging for this one-shot generation. */
-  debugMode: z.boolean().optional().default(false),
-});
-
-export type GenerateAboutMeInput = z.infer<typeof generateAboutMeSchema>;
 
 export const createCharacterSchema = z.object({
   data: characterDataSchema,

@@ -350,28 +350,30 @@ You can't complete the entire Game Setup Wizard by hidden assistant command — 
 You have special commands you can embed in your messages. They are silently processed by the system — the user never sees the command syntax, only the result.
 
 1. CREATE PERSONA — Create a new persona for the user
-   Format: [create_persona: name="Name", description="desc", personality="traits", appearance="look"]
+   Format: [create_persona: name="Name", description="desc", personality="traits", appearance="look", about_me="self-authored Conversation bio"]
    All fields except name are optional. Ask the user for details before creating.
    Example: [create_persona: name="Alex Storm", description="A laid-back college student", personality="chill, sarcastic, loyal", appearance="messy brown hair, hoodie, sneakers"]
 
 2. CREATE CHARACTER — Create a new character card
-  Format: [create_character: name="Name", description="desc", personality="traits", first_message="greeting", scenario="setting", backstory="lore", appearance="look", mes_example="dialogue examples", creator_notes="notes", system_prompt="rules", post_history_instructions="reminder", creator="author", character_version="v2", tags="tag1, tag2", alternate_greetings="hello || hi", talkativeness=0.5, fav=true, world="setting", depth_prompt="late-context reminder", depth_prompt_depth=4, depth_prompt_role="system"]
+  Format: [create_character: name="Name", description="desc", personality="traits", first_message="greeting", scenario="setting", backstory="lore", appearance="look", about_me="self-authored Conversation bio", mes_example="dialogue examples", creator_notes="notes", system_prompt="rules", post_history_instructions="reminder", creator="author", character_version="v2", tags="tag1, tag2", alternate_greetings="hello || hi", talkativeness=0.5, fav=true, world="setting", depth_prompt="late-context reminder", depth_prompt_depth=4, depth_prompt_role="system"]
    All fields except name are optional. Ask the user for details before creating.
   Use commas for tags and || to separate alternate greetings. talkativeness is 0.0-1.0. Use the depth_prompt* fields only when the user explicitly wants them.
   Example: [create_character: name="Luna", description="A mysterious fortune teller", personality="enigmatic, wise, playful", first_message="*shuffles her tarot cards* Ah, a new visitor...", appearance="Silver hair, dark velvet dress", backstory="Learned divination from her grandmother", tags="fortune teller, mystery", alternate_greetings="*shuffles her deck* Fate brought you here. || Another seeker? Sit."]
 
 3. UPDATE CHARACTER — Update an existing character card (only the fields you provide will be changed)
-  Format: [update_character: name="Name", description="new desc", personality="new traits", first_message="new greeting", scenario="new setting", backstory="new lore", appearance="new look", mes_example="new dialogue examples", creator_notes="new notes", system_prompt="new rules", post_history_instructions="new reminder", creator="new author", character_version="v2", tags="tag1, tag2", alternate_greetings="hello || hi", talkativeness=0.5, fav=true, world="setting", depth_prompt="late-context reminder", depth_prompt_depth=4, depth_prompt_role="system"]
+  Format: [update_character: name="Name", description="new desc", personality="new traits", first_message="new greeting", scenario="new setting", backstory="new lore", appearance="new look", about_me="new self-authored Conversation bio", mes_example="new dialogue examples", creator_notes="new notes", system_prompt="new rules", post_history_instructions="new reminder", creator="new author", character_version="v2", tags="tag1, tag2", alternate_greetings="hello || hi", talkativeness=0.5, fav=true, world="setting", depth_prompt="late-context reminder", depth_prompt_depth=4, depth_prompt_role="system"]
    The name field identifies which character to update. Only include fields that need changing — omitted fields stay as they are.
   Use commas for tags and || to separate alternate greetings. talkativeness is 0.0-1.0.
    IMPORTANT: Before updating, ALWAYS use [fetch] to load the character's current data first so you can see what exists and make targeted changes.
-   Example: [update_character: name="Luna", personality="enigmatic, wise, playful, with a dark sense of humor", appearance="Silver hair, dark velvet dress", system_prompt="Stay mysterious and concise"]
+   For an About Me request, fetch the character first, write a short self-authored Conversation profile in their own voice, then save it with about_me. Do not put the bio in description or creator notes.
+   Example: [update_character: name="Luna", about_me="fate dealer. tea hoarder. your future looks expensive. 🔮"]
 
 4. UPDATE PERSONA — Update an existing persona (only the fields you provide will be changed)
-   Format: [update_persona: name="Name", description="new desc", personality="new traits", appearance="new look", scenario="new setup", backstory="new history"]
+   Format: [update_persona: name="Name", description="new desc", personality="new traits", appearance="new look", scenario="new setup", backstory="new history", about_me="new self-authored Conversation bio"]
    The name field identifies which persona to update. Only include fields that need changing.
    IMPORTANT: Before updating, ALWAYS use [fetch] to load the persona's current data first.
-   Example: [update_persona: name="Alex Storm", appearance="messy brown hair, leather jacket, combat boots", backstory="Former detective turned occult fixer"]
+   For an About Me request, fetch the persona first, write a short self-authored Conversation profile in their own voice, then save it with about_me.
+   Example: [update_persona: name="Alex Storm", about_me="coffee, cold cases, and things that should stay buried"]
 
 5. CREATE LOREBOOK — Create a new lorebook for worldbuilding, character notes, setting rules, or reusable lore
    Format: <create_lorebook>{"name":"Name","description":"what this lorebook stores","category":"world","tags":["tag1","tag2"],"entries":[{"name":"Entry Name","content":"facts the AI should know","keys":["keyword","alias"],"tag":"character"}]}</create_lorebook>

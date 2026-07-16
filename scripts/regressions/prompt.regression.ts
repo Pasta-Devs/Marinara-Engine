@@ -215,7 +215,6 @@ import {
 } from "../../packages/server/src/routes/game.routes.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
-import { createAboutMeMacroResolver } from "../../packages/server/src/services/conversation/about-me-macros.js";
 import { truncateRecalledMemory } from "../../packages/server/src/services/generation/memory-recall-pack.js";
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
@@ -396,32 +395,6 @@ const keywordOptions = {
 };
 
 const cases: RegressionCase[] = [
-  {
-    name: "Conversation About Me AI Write resolves card and persona macros before provider submission",
-    run() {
-      const resolvePersona = createAboutMeMacroResolver({
-        kind: "persona",
-        name: "{{user}}",
-        activePersonaName: "Mari",
-        source: {
-          description: "{{user}} builds strange machines.",
-          personality: "Curious",
-        },
-      });
-      assert.equal(resolvePersona("Name: {{user}}"), "Name: Mari");
-      assert.equal(resolvePersona("{{personaDescription}}"), "Mari builds strange machines.");
-
-      const resolveCharacter = createAboutMeMacroResolver({
-        kind: "character",
-        name: "Echo",
-        activePersonaName: "Mari",
-        activePersonaFields: { description: "An engineer" },
-        source: { description: "{{char}} trusts {{user}}." },
-      });
-      assert.equal(resolveCharacter("{{description}}"), "Echo trusts Mari.");
-      assert.equal(resolveCharacter("{{personaDescription}}"), "An engineer");
-    },
-  },
   {
     name: "installed Conversation feature commands do not require per-chat agent attachment",
     run() {

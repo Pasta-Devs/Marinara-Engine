@@ -45,6 +45,7 @@ import {
 import { isGitUpdateApplyAllowed } from "../../packages/server/src/services/updates/update-apply-policy.js";
 import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { sanitizeExampleDialoguePromptLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
+import { parseCharacterCommands } from "../../packages/server/src/services/conversation/character-commands.js";
 import {
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
@@ -231,13 +232,34 @@ const generatedCharacterData = normalizeCharacterActionData({
   systemPrompt: "Stay in character.",
   postHistoryInstructions: "Remain concise.",
   alternateGreetings: ["You made it."],
+  aboutMe: "lab gremlin. ethically flexible. coffee required.",
 });
 assert.equal(generatedCharacterData.first_mes, "Welcome to the laboratory.");
 assert.equal(generatedCharacterData.mes_example, "{{char}}: Observe carefully.");
 assert.equal(generatedCharacterData.system_prompt, "Stay in character.");
 assert.equal(generatedCharacterData.post_history_instructions, "Remain concise.");
 assert.deepEqual(generatedCharacterData.alternate_greetings, ["You made it."]);
+assert.equal(
+  (generatedCharacterData.extensions as Record<string, unknown>).aboutMe,
+  "lab gremlin. ethically flexible. coffee required.",
+);
+assert.equal(Object.hasOwn(generatedCharacterData, "aboutMe"), false);
 assert.equal(Object.hasOwn(generatedCharacterData, "firstMessage"), false);
+
+const professorMariAboutMeCommands = parseCharacterCommands(
+  '[update_character: name="Luna", about_me="fate dealer. tea hoarder. 🔮"]\n' +
+    '[update_persona: name="Alex Storm", about_me=""]',
+).commands;
+assert.deepEqual(professorMariAboutMeCommands[0], {
+  type: "update_character",
+  name: "Luna",
+  aboutMe: "fate dealer. tea hoarder. 🔮",
+});
+assert.deepEqual(professorMariAboutMeCommands[1], {
+  type: "update_persona",
+  name: "Alex Storm",
+  aboutMe: "",
+});
 
 const generatedLorebookEntry = buildLorebookEntryCreateRow(
   {

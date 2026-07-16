@@ -27,28 +27,13 @@ The `{{convo_display}}` macro puts the responding character's display name into 
 
 The bio is not just decoration. By default, Marinara adds the **About Me** of every present character and persona to the prompt on each turn. The bios go in as a short list of participant profiles. This way, the model always knows how each person presents themselves. You do not need to do anything for this to work.
 
-### AI Write
+### Writing an About Me with Professor Mari
 
-You do not have to write the bio yourself. The **AI Write** button drafts one for you using a language model.
+You do not have to write the bio yourself. Open Professor Mari from the Home screen and ask her to write or revise the **About Me** for a named character or persona. She reads the saved profile first, writes a short self-authored bio in that person's voice, and saves it directly to the real **About Me** field.
 
-1. Pick a connection from the dropdown next to the button. A connection is a saved link to an AI provider. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
-2. Click **AI Write**.
-3. Review the draft and edit it to taste.
+For example, ask: `Write Luna's About Me as a cryptic one-line bio.` You can also ask for a revision, such as making an existing bio funnier, shorter, warmer, or more faithful to the card.
 
-**AI Write** is allowed to return a short or blank bio on purpose. If the model returns nothing and you already have text, Marinara keeps your text. It shows a note instead of wiping the bio. After an edit or an **AI Write**, a **Revert** button appears. It restores the bio to what it was before.
-
-### Choosing what AI Write reads
-
-Next to **AI Write** there is a small gear button. Its hover text reads **Choose what AI Write reads from**. Click it to pick which parts of the card feed the draft. The panel is headed **AI Write draws from**.
-
-Available sources:
-
-- **Description**, **Personality**, **Scenario**, **Backstory**, **Appearance**: the character card fields.
-- **Convo behavior**: the behavior directive described below.
-- **Lorebook entries**: the character's linked lorebook entries (character editor only). You can tick which entries to include.
-- **Chat context**: recent messages from the current chat. This one is only offered when you edit a bio from inside a chat. It does not appear in the card editor.
-
-By default only **Personality** is selected. Your source choices are saved per character.
+Professor Mari uses her normal configured model. There is no separate About Me connection, source picker, or generation button in the character and persona editors. Her saved change appears in the usual review flow, where you can keep or restore it. Manual edits in the editor still show **Revert**, which restores the text from before your current edit.
 
 ## Convo Behavior
 
@@ -79,7 +64,7 @@ The **About Me** on the card is the default bio used everywhere. You can also se
 To set an override:
 
 1. Click **Edit** in the popout.
-2. Type the bio for this chat. You get an emoji picker, including a **Custom emojis** tab. For characters you also get **AI Write** and the source picker. Here the **Chat context** source is available.
+2. Type the bio for this chat. You get an emoji picker, including a **Custom emojis** tab.
 3. Click **Save**. You should see a note that a chat-specific about me was saved.
 
 While editing, a **Revert** button undoes unsaved changes, and **Cancel** closes edit mode without saving. When an override exists, a **Clear** button removes it and returns to the card default. Saving an empty bio also clears the override. Remember: the default **About Me** is edited on the card, and an override only applies in that one chat.

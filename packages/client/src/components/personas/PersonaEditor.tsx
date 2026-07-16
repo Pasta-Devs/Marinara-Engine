@@ -3203,14 +3203,6 @@ function PersonaConvoTab({
       onAboutMeChange={(v) => updateField("aboutMe", v)}
       behavior={formData.convoBehavior}
       onBehaviorChange={(b) => updateField("convoBehavior", b)}
-      aiSource={{
-        name: formData.name,
-        description: formData.description,
-        personality: formData.personality,
-        scenario: formData.scenario,
-        backstory: formData.backstory,
-        appearance: formData.appearance,
-      }}
     />
   );
 }

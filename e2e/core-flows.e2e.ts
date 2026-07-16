@@ -135,6 +135,41 @@ test("turning off the custom mouse pointer persists immediately and after reload
     .toBeNull();
 });
 
+test("Convo About Me keeps manual editing without legacy AI Write controls", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The shared Convo profile fields are covered on desktop.");
+
+  const characterName = "About Me Controls Smoke";
+  const createResponse = await page.request.post("/api/characters", {
+    data: {
+      data: {
+        name: characterName,
+        personality: "Dryly funny and observant.",
+        extensions: { aboutMe: "quietly judging your playlist" },
+      },
+    },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const character = (await createResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-characters"]').click();
+    await page.getByText(characterName, { exact: true }).click();
+
+    const editorSections = page.getByRole("navigation", { name: "Editor sections" });
+    await editorSections.getByRole("button", { name: "Convo", exact: true }).click();
+
+    const fields = page.locator('[data-component="ConvoProfileFields"]');
+    await expect(fields.getByText("About Me", { exact: true })).toBeVisible();
+    await expect(fields.locator("textarea").first()).toHaveValue("quietly judging your playlist");
+    await expect(fields.getByRole("button", { name: "AI Write", exact: true })).toHaveCount(0);
+    await expect(fields.getByRole("button", { name: "AI Write sources", exact: true })).toHaveCount(0);
+    await expect(fields.locator("select")).toHaveCount(1);
+  } finally {
+    await page.request.delete(`/api/characters/${character.id}`);
+  }
+});
+
 test("Conversation membership notices begin only after the chat starts", async ({ request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Conversation membership regression is covered on desktop.");
 

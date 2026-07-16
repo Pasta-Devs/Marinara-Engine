@@ -63,9 +63,6 @@ export interface CharacterExtensions {
   /** Marinara Engine (Conversation mode ONLY): behavior directive + insertion strategy.
    *  Never read in RP/VN/Game. */
   convoBehavior?: ConvoBehaviorConfig;
-  /** Marinara Engine (Conversation mode ONLY): which sources the AI-write "about me"
-   *  draws on. Never read in RP/VN/Game. */
-  aboutMeSources?: AboutMeSourceConfig;
   [key: string]: unknown;
 }
 
@@ -84,25 +81,6 @@ export interface ConvoBehaviorConfig {
   instruction: string;
   /** How/where the directive is placed in the convo prompt. */
   insertionStrategy: ConvoBehaviorInsertionStrategy;
-}
-
-/** Which sources the AI-write "about me" draws on. Per-character; default = personality only. */
-export interface AboutMeSourceConfig {
-  description?: boolean;
-  personality?: boolean;
-  scenario?: boolean;
-  backstory?: boolean;
-  appearance?: boolean;
-  /** The Convo behavior directive. */
-  convoBehavior?: boolean;
-  /** The character's linked + embedded lorebook entries. */
-  lorebook?: boolean;
-  /** When set, only these linked lorebook entry ids are included; absent → all of them. */
-  lorebookEntryIds?: string[];
-  /** Recent chat messages — only meaningful for a chat-specific (override) about me. */
-  chatContext?: boolean;
-  /** How many recent messages to include when chatContext is on. */
-  chatContextLimit?: number;
 }
 
 /** RPG stats configuration attached to a character card. */

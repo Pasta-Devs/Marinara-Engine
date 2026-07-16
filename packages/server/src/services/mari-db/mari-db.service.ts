@@ -771,6 +771,11 @@ export function normalizeCharacterActionData(input: Row): Row {
     extensions.appearance = out.appearance;
     delete out.appearance;
   }
+  const aboutMe = out.aboutMe ?? out.about_me ?? out["about-me"];
+  if (typeof aboutMe === "string") extensions.aboutMe = aboutMe;
+  delete out.aboutMe;
+  delete out.about_me;
+  delete out["about-me"];
   if (Object.keys(extensions).length > 0) out.extensions = extensions;
   return out;
 }
@@ -1540,6 +1545,7 @@ function buildMinimalCharacterData(
   const extMap: Array<[string, string]> = [
     ["backstory", "backstory"],
     ["appearance", "appearance"],
+    ["about-me", "aboutMe"],
   ];
   for (const [flagName, fieldName] of extMap) {
     const val = flagString(flags, flagName);
@@ -1716,6 +1722,9 @@ export class MariDbService {
             "creatorNotes",
             "backstory",
             "appearance",
+            "aboutMe",
+            "about_me",
+            "about-me",
             "tags",
             "comment",
           ]),
@@ -1767,6 +1776,9 @@ export class MariDbService {
             "creatorNotes",
             "backstory",
             "appearance",
+            "aboutMe",
+            "about_me",
+            "about-me",
             "tags",
             "comment",
           ]),
@@ -1774,7 +1786,7 @@ export class MariDbService {
         const comment = firstString(patchData, ["comment"]) ?? (typeof existing.comment === "string" ? existing.comment : "");
         delete patchData.comment;
         if (Object.keys(patchData).length === 0 && comment === (typeof existing.comment === "string" ? existing.comment : "")) {
-          throw new Error("character.update needs a patch field such as name, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, tags, or comment");
+          throw new Error("character.update needs a patch field such as name, description, personality, scenario, firstMes, creatorNotes, backstory, appearance, aboutMe, tags, or comment");
         }
         const name = firstString(patchData, ["name"]) ?? (typeof existingData.name === "string" ? existingData.name : "");
         const row: Row = {
@@ -3105,7 +3117,7 @@ export class MariDbService {
         const rawJson = await resolveJsonInput(flags, context.cwd);
         if (!name && !rawJson) {
           throw new Error(
-            "Usage: mari characters create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--apply]\n" +
+            "Usage: mari characters create --name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--about-me <text>] [--apply]\n" +
               "       or: mari characters create --json '<data_json>' [--json-file <path>] [--apply]",
           );
         }
@@ -3138,7 +3150,7 @@ export class MariDbService {
         const id = parsed.positionals[0];
         if (!id)
           throw new Error(
-            "Usage: mari characters update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+            "Usage: mari characters update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
           );
         const existing = await this.getRawById(getMeta("characters"), id);
         if (!existing) throw new Error(`Character ${id} not found`);
@@ -4726,9 +4738,9 @@ export class MariDbService {
       "Read:  list [--limit <n>] [--search <text>]",
       "Read:  get <id>",
       "Read:  search <query> [--limit <n>]",
-      "Write: create (--name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
-      "       --backstory and --appearance write to data.extensions.backstory / data.extensions.appearance",
-      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
+      "Write: create (--name <name> [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] | --json '<data_json>' | --json-file <path>) [--apply] [--reason <text>]",
+      "       --backstory, --appearance, and --about-me write to matching data.extensions fields",
+      "Write: update <id> [--name <name>] [--description <text>] [--personality <text>] [--scenario <text>] [--first-mes <text>] [--creator-notes <text>] [--backstory <text>] [--appearance <text>] [--about-me <text>] [--tags <t1,t2,...>] [--comment <text>] [--json '<data_json>' | --json-file <path>] [--apply] [--reason <text>]",
       "Write: delete <id> [--apply] [--reason <text>]",
       "Writes dry-run by default; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");

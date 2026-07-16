@@ -19,7 +19,6 @@ import {
 } from "../lib/tracker-card-colors";
 import {
   PROFESSOR_MARI_ID,
-  type AboutMeSourceConfig,
   type CharacterCardVersion,
   type Persona,
   type PersonaCardVersion,
@@ -960,41 +959,6 @@ export function useActivePersona(enabled = true) {
     enabled,
     retry: false,
     staleTime: 5 * 60_000,
-  });
-}
-
-export function useGenerateAboutMe() {
-  return useMutation({
-    mutationFn: (body: {
-      connectionId: string;
-      kind: "character" | "persona";
-      name?: string;
-      description?: string;
-      personality?: string;
-      scenario?: string;
-      backstory?: string;
-      appearance?: string;
-      convoBehavior?: string;
-      sources?: AboutMeSourceConfig;
-      characterId?: string;
-      chatId?: string;
-      instruction?: string;
-    }) =>
-      api.post<{ aboutMe: string }>("/characters/generate-about-me", {
-        ...body,
-        debugMode: useUIStore.getState().debugMode,
-      }),
-  });
-}
-
-/** A character's linked lorebook entries (names only) for the AI-write source picker. */
-export function useCharacterLorebookEntries(characterId: string | null | undefined) {
-  return useQuery({
-    queryKey: ["character-lorebook-entries", characterId],
-    queryFn: () =>
-      api.get<{ entries: Array<{ id: string; name: string }> }>(`/characters/${characterId}/lorebook-entries`),
-    enabled: !!characterId,
-    staleTime: 30_000,
   });
 }
 
