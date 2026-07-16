@@ -31,12 +31,7 @@ export type { CharacterSchedules, ConversationMessageIntent, CurrentConversation
 // ── Constants ──
 
 const DAYS = CONVERSATION_SCHEDULE_DAYS;
-
-export const ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS = 8192;
-
-export function resolveRoutineSummaryMaxTokens(maxTokensOverride: number | null): number {
-  return maxTokensOverride ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS;
-}
+const ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS = 8192;
 
 export type WeekScheduleDraftMode = "rewrite" | "adjust" | "vary" | "repair";
 
@@ -321,7 +316,7 @@ export async function generateScheduleRoutineSummary(
     {
       model,
       temperature: 0.55,
-      maxTokens: resolveRoutineSummaryMaxTokens(provider.maxTokensOverrideValue),
+      maxTokens: provider.maxTokensOverrideValue ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS,
       reasoningEffort: "low",
     },
   );
