@@ -30,7 +30,7 @@ export interface SpatialContextStorage {
 }
 
 interface SpatialStorageProvider {
-  create(db: SpatialSnapshotConnection): SpatialContextStorage;
+  create(): SpatialContextStorage;
 }
 
 function unavailableWrite(): never {
@@ -52,6 +52,6 @@ const unavailableStorage: SpatialContextStorage = {
 };
 
 /** Small compatibility bridge; all persistence code lives in the optional package. */
-export function createSpatialContextStorage(db: SpatialSnapshotConnection): SpatialContextStorage {
-  return getCapabilityService<SpatialStorageProvider>("hierarchical-maps:storage")?.create(db) ?? unavailableStorage;
+export function createSpatialContextStorage(_db: SpatialSnapshotConnection): SpatialContextStorage {
+  return getCapabilityService<SpatialStorageProvider>("hierarchical-maps:storage")?.create() ?? unavailableStorage;
 }

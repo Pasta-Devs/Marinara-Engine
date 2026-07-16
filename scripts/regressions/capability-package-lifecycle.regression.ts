@@ -245,7 +245,14 @@ try {
       if (typeof api.runtime.persistence?.transaction !== "function") {
         throw new Error("Capability persistence transaction is unavailable");
       }
+      if (typeof api.runtime.persistence?.updateChatMetadata !== "function") {
+        throw new Error("Capability chat metadata persistence is unavailable");
+      }
+      if (typeof api.runtime.persistence?.listExistingLorebookEntryIds !== "function") {
+        throw new Error("Capability lore entry lookup is unavailable");
+      }
       await api.runtime.persistence.spatialSnapshots.listForChat("__marinara_capability_self_check__");
+      await api.runtime.persistence.listExistingLorebookEntryIds([]);
       api.registerService("readiness:success", { active: true, debugAgentsEnabled });
     }
     export async function selfCheck() {}`,
@@ -264,25 +271,91 @@ try {
     "../../packages/server/src/services/capability-packages/capability-persistence.service.js"
   );
   const persistence = createCapabilityPersistenceHost(db);
+  const { createChatsStorage } = await import("../../packages/server/src/services/storage/chats.storage.js");
+  const { createLorebooksStorage } = await import("../../packages/server/src/services/storage/lorebooks.storage.js");
+  const rollbackChat = await createChatsStorage(db).create({
+    name: "Capability persistence rollback fixture",
+    mode: "roleplay",
+    characterIds: [],
+  });
+  assert.ok(rollbackChat);
+  const rollbackChatBefore = await persistence.getChat(rollbackChat.id);
+  assert.ok(rollbackChatBefore);
+  const lorebooks = createLorebooksStorage(db);
+  const lorebook = await lorebooks.create({ name: "Capability persistence fixture" });
+  assert.ok(lorebook);
+  const lorebookEntry = await lorebooks.createEntry({
+    lorebookId: lorebook.id,
+    name: "Existing capability entry",
+    content: "A stable lore entry used by the capability persistence regression.",
+  });
+  assert.ok(lorebookEntry);
+  assert.deepEqual(
+    await persistence.listExistingLorebookEntryIds([lorebookEntry.id, "missing-entry", lorebookEntry.id]),
+    [lorebookEntry.id],
+  );
+  await persistence.spatialSnapshots.create({
+    id: "rollback-original-snapshot",
+    chatId: rollbackChat.id,
+    messageId: "",
+    swipeIndex: 0,
+    currentLocationId: "original-location",
+    definitionRevision: 1,
+    source: "bootstrap",
+    transitionCommandId: null,
+    transitionPayloadHash: null,
+    createdAt: "2026-07-16T00:00:00.000Z",
+  });
   await assert.rejects(
     persistence.transaction(async (transaction) => {
-      await transaction.spatialSnapshots.create({
+      await transaction.updateChatMetadata({
+        chatId: rollbackChat.id,
+        metadata: { spatialContext: { revision: 2 } },
+        updatedAt: "2026-07-16T00:01:00.000Z",
+      });
+      await transaction.spatialSnapshots.replaceBootstrap({
         id: "rollback-snapshot",
-        chatId: "rollback-chat",
+        chatId: rollbackChat.id,
         messageId: "",
         swipeIndex: 0,
-        currentLocationId: null,
-        definitionRevision: 1,
+        currentLocationId: "replacement-location",
+        definitionRevision: 2,
         source: "bootstrap",
         transitionCommandId: null,
         transitionPayloadHash: null,
-        createdAt: "2026-07-16T00:00:00.000Z",
+        createdAt: "2026-07-16T00:01:00.000Z",
       });
       throw new Error("rollback fixture");
     }),
     /rollback fixture/,
   );
   assert.equal(await persistence.spatialSnapshots.getById("rollback-snapshot"), null);
+  assert.equal((await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id, "rollback-original-snapshot");
+  assert.deepEqual((await persistence.getChat(rollbackChat.id))?.metadata, rollbackChatBefore.metadata);
+
+  await persistence.transaction(async (transaction) => {
+    await transaction.updateChatMetadata({
+      chatId: rollbackChat.id,
+      metadata: { spatialContext: { revision: 2 } },
+      updatedAt: "2026-07-16T00:02:00.000Z",
+    });
+    await transaction.spatialSnapshots.replaceBootstrap({
+      id: "committed-definition-snapshot",
+      chatId: rollbackChat.id,
+      messageId: "",
+      swipeIndex: 0,
+      currentLocationId: "committed-location",
+      definitionRevision: 2,
+      source: "bootstrap",
+      transitionCommandId: null,
+      transitionPayloadHash: null,
+      createdAt: "2026-07-16T00:02:00.000Z",
+    });
+  });
+  assert.deepEqual(JSON.parse(String((await persistence.getChat(rollbackChat.id))?.metadata)), {
+    spatialContext: { revision: 2 },
+  });
+  assert.equal((await persistence.spatialSnapshots.getBootstrap(rollbackChat.id))?.id, "committed-definition-snapshot");
 
   await capabilityModuleRuntime.start({ db } as Parameters<typeof capabilityModuleRuntime.start>[0]);
 

@@ -78,12 +78,20 @@ export interface CapabilityChatActivityUpdate {
   metadata?: Record<string, unknown>;
 }
 
+export interface CapabilityChatMetadataUpdate {
+  chatId: string;
+  metadata: Record<string, unknown>;
+  updatedAt: string;
+}
+
 export interface CapabilityPersistenceSession {
   getChat(chatId: string): Promise<CapabilityChatRecord | null>;
   listMessages(chatId: string): Promise<CapabilityMessageRecord[]>;
+  listExistingLorebookEntryIds(entryIds: string[]): Promise<string[]>;
   createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput): Promise<CapabilityMessageRecord>;
   markGameStateSnapshotCommitted(chatId: string, snapshotId: string): Promise<void>;
   updateChatActivity(input: CapabilityChatActivityUpdate): Promise<void>;
+  updateChatMetadata(input: CapabilityChatMetadataUpdate): Promise<void>;
   spatialSnapshots: CapabilitySpatialSnapshotStore;
 }
 

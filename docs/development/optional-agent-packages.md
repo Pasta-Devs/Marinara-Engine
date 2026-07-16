@@ -25,9 +25,10 @@ Pino logger, including explicit debug-mode overrides, without importing the
 private logger or runtime-configuration modules. The facade exposes operations,
 not the underlying Engine objects.
 
-Capability API 1.2 adds transaction-scoped chat/message operations and the spatial
-snapshot compatibility store. Packages can validate domain changes inside an
-Engine transaction and commit an owner message, swipe, chat activity update, and
+Capability API 1.2 adds transaction-scoped chat/message operations, narrow
+chat-metadata writes and lore-entry existence reads, and the spatial snapshot
+compatibility store. Packages can validate domain changes inside an Engine
+transaction and atomically commit metadata with an owner message, swipe, or spatial
 snapshot without receiving a database handle or table object. Engine retains
 rollback and historical-storage compatibility; packages retain validation and
 domain policy.

@@ -1,5 +1,6 @@
 import {
   type CapabilityChatActivityUpdate,
+  type CapabilityChatMetadataUpdate,
   type CapabilityChatRecord,
   type CapabilityCreateMessageWithSwipeInput,
   type CapabilityMessageRecord,
@@ -10,8 +11,15 @@ import {
   type SpatialSnapshotSource,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
-import { and, desc, eq, ne, or } from "../../db/file-query.js";
-import { chats, gameStateSnapshots, messages, messageSwipes, spatialContextSnapshots } from "../../db/schema/index.js";
+import { and, desc, eq, inArray, ne, or } from "../../db/file-query.js";
+import {
+  chats,
+  gameStateSnapshots,
+  lorebookEntries,
+  messages,
+  messageSwipes,
+  spatialContextSnapshots,
+} from "../../db/schema/index.js";
 import { withChatMetadataPatchQueue } from "../storage/chats.storage.js";
 
 function mapChat(row: typeof chats.$inferSelect): CapabilityChatRecord {
@@ -172,6 +180,16 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
         .orderBy(messages.createdAt, messages.id);
       return rows.map(mapMessage);
     },
+    async listExistingLorebookEntryIds(entryIds) {
+      const requestedIds = Array.from(new Set(entryIds.filter((entryId) => entryId.length > 0)));
+      if (requestedIds.length === 0) return [];
+      const rows = await db
+        .select({ id: lorebookEntries.id })
+        .from(lorebookEntries)
+        .where(inArray(lorebookEntries.id, requestedIds));
+      const existingIds = new Set(rows.map((row) => row.id));
+      return requestedIds.filter((entryId) => existingIds.has(entryId));
+    },
     async createMessageWithSwipe(input: CapabilityCreateMessageWithSwipeInput) {
       const message: typeof messages.$inferInsert = {
         id: input.id,
@@ -207,6 +225,15 @@ function createPersistenceSession(db: DB): CapabilityPersistenceSession {
           lastMessageAt: input.lastMessageAt,
           updatedAt: input.updatedAt,
           ...(input.metadata ? { metadata: JSON.stringify(input.metadata) } : {}),
+        })
+        .where(eq(chats.id, input.chatId));
+    },
+    async updateChatMetadata(input: CapabilityChatMetadataUpdate) {
+      await db
+        .update(chats)
+        .set({
+          metadata: JSON.stringify(input.metadata),
+          updatedAt: input.updatedAt,
         })
         .where(eq(chats.id, input.chatId));
     },
