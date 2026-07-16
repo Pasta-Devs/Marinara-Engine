@@ -1499,6 +1499,8 @@ test("Conversation feature packages expose commands and settings without per-cha
   expect(chatResponse.ok()).toBeTruthy();
   const chat = (await chatResponse.json()) as { id: string };
   let conversationFeaturesInstalled = false;
+  let clientLoadAttempts = 0;
+  const releaseInitialClientLoad = createDeferred();
   const illustratorManifest = {
     id: "illustrator",
     name: "Illustrator",
@@ -1570,6 +1572,16 @@ test("Conversation feature packages expose commands and settings without per-cha
     });
   });
   await page.route("**/api/capability-packages/conversation-calls/client?*", async (route) => {
+    clientLoadAttempts += 1;
+    if (clientLoadAttempts === 1) {
+      await releaseInitialClientLoad.promise;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/javascript",
+        body: "Service unavailable",
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/javascript",
@@ -1584,9 +1596,14 @@ test("Conversation feature packages expose commands and settings without per-cha
               if (this.getAttribute("view") !== "settings") return;
               const props = this.capabilityProps || {};
               const enabled = props.metadata?.conversationCallsEnabled === true;
-              this.innerHTML = '<section class="mari-chat-option-field"><span>Conversation Calls</span><button type="button">Audio/Video Calls</button>' + (enabled ? '<span>Call Audio Pipeline</span>' : '') + '</section>';
-              this.querySelector("button")?.addEventListener("click", () => {
+              this.innerHTML = '<section class="mari-chat-option-field"><span>Conversation Calls</span><button type="button">Audio/Video Calls</button><button type="button" data-crash-capability>Crash capability</button>' + (enabled ? '<span>Call Audio Pipeline</span>' : '') + '</section>';
+              this.querySelector("button:not([data-crash-capability])")?.addEventListener("click", () => {
                 props.updateMetadata?.({ conversationCallsEnabled: !enabled });
+              });
+              this.querySelector("[data-crash-capability]")?.addEventListener("click", () => {
+                const message = "Injected capability runtime failure";
+                this.capabilityRuntimeError = message;
+                this.dispatchEvent(new CustomEvent("marinara-capability-runtime-error", { detail: { message }, bubbles: true }));
               });
             }
           });
@@ -1639,6 +1656,19 @@ test("Conversation feature packages expose commands and settings without per-cha
     agentsSection = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents$/ });
     await expect(agentsSection).toHaveCount(1);
     await agentsSection.click();
+    await expect(
+      drawer.locator(
+        '[data-capability-client-state="loading"][data-capability-package-id="conversation-calls"]',
+      ),
+    ).toBeVisible();
+    releaseInitialClientLoad.resolve();
+    const clientLoadFailure = drawer.getByRole("alert").filter({ hasText: "Conversation Calls didn't load" });
+    await expect(clientLoadFailure).toBeVisible();
+    await expect(
+      clientLoadFailure.getByText("Your chat and saved data are unchanged.", { exact: false }),
+    ).toBeVisible();
+    await clientLoadFailure.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(clientLoadFailure).toHaveCount(0);
     await expect(drawer.getByText("Commands", { exact: true })).toBeVisible();
     await expect(drawer.getByText("Selfies", { exact: true })).toBeVisible();
     await expect(drawer.getByText("8-Ball Pool", { exact: true })).toBeVisible();
@@ -1666,8 +1696,22 @@ test("Conversation feature packages expose commands and settings without per-cha
     ).toBe(true);
     await drawer.getByRole("button", { name: "Audio/Video Calls", exact: true }).click();
     await expect(drawer.getByText("Call Audio Pipeline", { exact: true })).toBeVisible();
+    await drawer.getByRole("button", { name: "Crash capability", exact: true }).click();
+    const runtimeFailure = drawer.getByRole("alert").filter({ hasText: "Conversation Calls stopped" });
+    await expect(runtimeFailure).toBeVisible();
+    await runtimeFailure.getByRole("button", { name: "Try again", exact: true }).click();
+    await expect(runtimeFailure).toHaveCount(0);
+    await expect(drawer.getByText("Conversation Calls", { exact: true })).toBeVisible();
     await expect(drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Commands$/ })).toHaveCount(0);
-    expect(errors).toEqual([]);
+    expect(clientLoadAttempts).toBe(2);
+    expect(errors.some((error) => error.includes("Could not load client capability conversation-calls"))).toBe(true);
+    expect(
+      errors.filter(
+        (error) =>
+          !error.includes("Could not load client capability conversation-calls") &&
+          !/Failed to load resource:.*503/iu.test(error),
+      ),
+    ).toEqual([]);
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
