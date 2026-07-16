@@ -3281,6 +3281,26 @@ test("Noodle posts tag invited characters with @handle mentions", async ({ page 
 
     await mention.click();
     await expect(noodle.getByRole("heading", { name: "Professor Mari", exact: true })).toBeVisible();
+
+    const replyResponse = await page.request.post(`/api/noodle/posts/${post.id}/interactions`, {
+      data: {
+        actorKind: "persona",
+        actorEntityId: personaId,
+        type: "reply",
+        content: "Reply mention for @professor_mari.",
+      },
+    });
+    expect(replyResponse.ok()).toBe(true);
+    const reply = (await replyResponse.json()) as { id: string };
+
+    await page.reload();
+    await page.locator('[data-tour="noodle-tab"]').click();
+    const replyMention = page
+      .locator(`[data-noodle-interaction-id="${reply.id}"]`)
+      .getByRole("button", { name: "View @professor_mari profile" });
+    await expect(replyMention).toBeVisible();
+    await replyMention.click();
+    await expect(noodle.getByRole("heading", { name: "Professor Mari", exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   } finally {
     if (createdPostId) {

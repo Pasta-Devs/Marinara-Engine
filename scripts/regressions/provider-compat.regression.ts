@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { findKnownModel } from "../../packages/shared/src/constants/model-lists.js";
+import {
+  findKnownModel,
+  resolveProviderReasoningEffort,
+} from "../../packages/shared/src/constants/model-lists.js";
 import {
   applyGlmThinkingParameters,
   isNativeGlmEndpoint,
@@ -107,6 +110,53 @@ try {
 } finally {
   await new Promise<void>((resolve, reject) =>
     gatewayServer.close((error) => (error ? reject(error) : resolve())),
+  );
+}
+
+let openRouterRequestBody: Record<string, unknown> | null = null;
+const openRouterServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  openRouterRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ choices: [{ message: { content: "reasoned response" }, finish_reason: "stop" }] }));
+});
+await new Promise<void>((resolve) => openRouterServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = openRouterServer.address();
+  assert.ok(address && typeof address === "object");
+  const provider = new OpenAIProvider(
+    `http://127.0.0.1:${address.port}/v1`,
+    "test",
+    undefined,
+    undefined,
+    undefined,
+    "openrouter",
+  );
+  const resolvedTencentEffort = resolveProviderReasoningEffort({
+    provider: "openrouter",
+    model: "tencent/hy3:free",
+    reasoningEffort: "xhigh",
+  });
+  assert.equal(resolvedTencentEffort, "high");
+  assert.equal(
+    await collectProviderOutput(provider, {
+      model: "tencent/hy3:free",
+      stream: false,
+      enableThinking: true,
+      reasoningEffort: resolvedTencentEffort,
+      customParameters: { awesomesauce: "enabled", nested: { level: 3 } },
+    }),
+    "reasoned response",
+  );
+  const capturedOpenRouterBody = openRouterRequestBody as Record<string, unknown> | null;
+  assert.ok(capturedOpenRouterBody);
+  assert.deepEqual(capturedOpenRouterBody.reasoning, { effort: "high" });
+  assert.equal(capturedOpenRouterBody.awesomesauce, "enabled");
+  assert.deepEqual(capturedOpenRouterBody.nested, { level: 3 });
+} finally {
+  await new Promise<void>((resolve, reject) =>
+    openRouterServer.close((error) => (error ? reject(error) : resolve())),
   );
 }
 

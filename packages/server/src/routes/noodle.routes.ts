@@ -24,6 +24,7 @@ import {
   noodleSettingsUpdateSchema,
   PROFESSOR_MARI_ID,
   readNoodlePollFromMetadata,
+  resolveMacros,
   type APIProvider,
   type NoodleAccount,
   type NoodleBootstrap,
@@ -85,6 +86,7 @@ import {
   sampleNoodlePastMemoriesWeighted,
 } from "../services/noodle/noodle-prompt.js";
 import { processLorebooks } from "../services/lorebook/index.js";
+import { buildPromptMacroContext, resolveMacrosWithVariableSnapshot } from "../services/prompt/index.js";
 import type { DB } from "../db/connection.js";
 import {
   generateImageCaptionForDataUrl,
@@ -771,9 +773,25 @@ async function buildRefreshPrompt(input: {
     input.noodle.listInteractions(recalledPosts.map((post) => post.id)),
   ]);
 
+  const promptMacroContext = await buildPromptMacroContext({
+    db: input.db,
+    characterIds: selectedCharacterIds,
+    personaName: personaNameFromRow(personaRow),
+    personaPhoneticName: personaRow?.phoneticName ?? "",
+    personaDescription: personaRow?.description ?? "",
+    personaFields: {
+      phoneticName: personaRow?.phoneticName ?? "",
+      personality: personaRow?.personality ?? "",
+      scenario: personaRow?.scenario ?? "",
+      backstory: personaRow?.backstory ?? "",
+      appearance: personaRow?.appearance ?? "",
+    },
+    lastGenerationType: "noodle",
+  });
+  const resolveNoodleMacros = (value: string) => resolveMacros(value, promptMacroContext, { trimResult: false });
   const characterContext = characterRows
     .filter((row): row is NonNullable<typeof row> => !!row)
-    .map(characterContextFromRow)
+    .map((row) => resolveNoodleMacros(characterContextFromRow(row)))
     .join("\n\n");
   const randomUserContext = activeRandomUsers
     .map(
@@ -783,7 +801,9 @@ async function buildRefreshPrompt(input: {
         }\n</random_user>`,
     )
     .join("\n\n");
-  const personaContext = personaRow ? personaContextFromRow(personaRow) : "No user persona is active.";
+  const personaContext = personaRow
+    ? resolveNoodleMacros(personaContextFromRow(personaRow))
+    : "No user persona is active.";
   const activeAccountList = [...input.activeAccounts, ...(input.personaAccount ? [input.personaAccount] : [])]
     .map(
       (account) =>
@@ -818,6 +838,8 @@ async function buildRefreshPrompt(input: {
           tokenBudget: noodleLorebookTokenBudget(activeCharacters.length),
           generationTriggers: ["noodle"],
           previewOnly: true,
+          resolveContent: (value) =>
+            resolveMacrosWithVariableSnapshot(value, promptMacroContext, { trimResult: false }),
         },
       )
     : null;
