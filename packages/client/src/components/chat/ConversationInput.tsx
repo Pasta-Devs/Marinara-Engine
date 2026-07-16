@@ -31,6 +31,7 @@ import {
   matchSlashCommand,
   shouldExecuteQuickPostAsCommand,
   getSlashCompletions,
+  type ConversationGameSlashContribution,
   type SlashCommand,
   type SlashCommandContext,
 } from "../../lib/slash-commands";
@@ -68,6 +69,7 @@ import {
   startsWithTextForMatch,
   type MariSuggestionChip,
   type Message,
+  isInstalledCapabilityReady,
 } from "@marinara-engine/shared";
 
 interface Attachment {
@@ -160,6 +162,7 @@ function buildConversationSlashCompletions(
   input: string,
   characters: Array<{ id: string; name: string }> | undefined,
   availableCapabilityIds: ReadonlySet<string>,
+  conversationGames: readonly ConversationGameSlashContribution[],
 ): ConversationSlashCompletion[] {
   if (!input.startsWith("/")) return [];
 
@@ -216,7 +219,7 @@ function buildConversationSlashCompletions(
       });
   }
 
-  return getSlashCompletions(input, { mode: "conversation", availableCapabilityIds })
+  return getSlashCompletions(input, { mode: "conversation", availableCapabilityIds, conversationGames })
     .filter((command) => !isConversationHiddenSlashCommand(command))
     .map((command) => {
       const { value, cursor } = buildSlashCommandPrefill(command, characters);
@@ -361,12 +364,24 @@ export function ConversationInput({
     () => new Set(installedCapabilities.filter((item) => item.status === "active").map((item) => item.id)),
     [installedCapabilities],
   );
-  const availableConversationGames = installedCapabilities.filter(
-    (item) =>
-      item.status === "active" &&
-      item.manifest.kind.includes("turn-game") &&
-      item.manifest.entrypoints.client &&
-      item.manifest.contributions?.conversationGame,
+  const availableConversationGames = useMemo(
+    () => installedCapabilities.filter(
+      (item) =>
+        isInstalledCapabilityReady(item) &&
+        item.manifest.kind.includes("turn-game") &&
+        item.manifest.entrypoints.client &&
+        item.manifest.contributions?.conversationGame,
+    ),
+    [installedCapabilities],
+  );
+  const conversationGameSlashContributions = useMemo<ConversationGameSlashContribution[]>(
+    () => availableConversationGames.map((game) => ({
+      packageId: game.id,
+      packageName: game.manifest.name,
+      command: game.manifest.contributions!.conversationGame!.command,
+      aliases: game.manifest.contributions!.conversationGame!.aliases,
+    })),
+    [availableConversationGames],
   );
   const chatName = activeChat?.name;
   const streamingChatId = useChatStore((s) => s.streamingChatId);
@@ -933,7 +948,11 @@ export function ConversationInput({
     }
 
     // Slash command check
-    const matched = matchSlashCommand(raw, { mode: "conversation", availableCapabilityIds });
+    const matched = matchSlashCommand(raw, {
+      mode: "conversation",
+      availableCapabilityIds,
+      conversationGames: conversationGameSlashContributions,
+    });
     if (matched) {
       if (isConversationHiddenSlashCommand(matched.command)) {
         setFeedback("Impersonate is not available in Conversation mode.");
@@ -955,6 +974,7 @@ export function ConversationInput({
         illustrate: onIllustrate,
         selfie: onGenerateSelfie,
         availableCapabilityIds,
+        conversationGames: conversationGameSlashContributions,
       };
       const submittedDraft = textareaRef.current?.value ?? "";
       const submittedHeight = textareaRef.current?.style.height ?? "auto";
@@ -1098,13 +1118,18 @@ export function ConversationInput({
     onIllustrate,
     onGenerateSelfie,
     availableCapabilityIds,
+    conversationGameSlashContributions,
   ]);
 
   const runQuickSlashCommand = useCallback(
     async (commandLine: string, fallbackError: string) => {
       if (!activeChatId) return;
       const submittingChatId = activeChatId;
-      const matched = matchSlashCommand(commandLine, { mode: "conversation", availableCapabilityIds });
+      const matched = matchSlashCommand(commandLine, {
+        mode: "conversation",
+        availableCapabilityIds,
+        conversationGames: conversationGameSlashContributions,
+      });
       if (!matched) return;
       if (isConversationHiddenSlashCommand(matched.command)) {
         toast.info("Impersonate is not available in Conversation mode.");
@@ -1131,6 +1156,7 @@ export function ConversationInput({
         illustrate: onIllustrate,
         selfie: onGenerateSelfie,
         availableCapabilityIds,
+        conversationGames: conversationGameSlashContributions,
       };
 
       const previousDraft = textareaRef.current?.value ?? "";
@@ -1197,6 +1223,7 @@ export function ConversationInput({
       onIllustrate,
       onGenerateSelfie,
       availableCapabilityIds,
+      conversationGameSlashContributions,
       qc,
       setInputDraft,
       syncInputState,
@@ -1215,7 +1242,11 @@ export function ConversationInput({
     const hasFiles = attachments.length > 0;
     if (!hasText && !hasFiles) return;
 
-    if (shouldExecuteQuickPostAsCommand(raw, { mode: "conversation", availableCapabilityIds })) {
+    if (shouldExecuteQuickPostAsCommand(raw, {
+      mode: "conversation",
+      availableCapabilityIds,
+      conversationGames: conversationGameSlashContributions,
+    })) {
       await handleSend();
       return;
     }
@@ -1337,6 +1368,7 @@ export function ConversationInput({
     updateMessageExtra,
     handleSend,
     availableCapabilityIds,
+    conversationGameSlashContributions,
   ]);
 
   const handleGuidedGenerationButton = useCallback(async () => {
@@ -1535,7 +1567,12 @@ export function ConversationInput({
 
       // Slash completions
       if (formatted.startsWith("/")) {
-        const results = buildConversationSlashCompletions(formatted, activeChatCharacters, availableCapabilityIds);
+        const results = buildConversationSlashCompletions(
+          formatted,
+          activeChatCharacters,
+          availableCapabilityIds,
+          conversationGameSlashContributions,
+        );
         setCompletions(results);
         setSelectedCompletion(0);
       } else {
@@ -1600,6 +1637,7 @@ export function ConversationInput({
       setInputDraft,
       syncInputState,
       availableCapabilityIds,
+      conversationGameSlashContributions,
     ],
   );
 

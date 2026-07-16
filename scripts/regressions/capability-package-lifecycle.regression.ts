@@ -12,7 +12,7 @@ const migrationPath = join(packagesRoot, "availability-migration-v1.json");
 const modelsRoot = join(dataDir, "models");
 const speechConfigPath = join(modelsRoot, "sidecar-speech-config.json");
 
-function installedPackage(id: string, kind: string[], version = "1.0.0") {
+function installedPackage(id: string, kind: string[], version = "1.0.0", restartRequired = true) {
   return {
     id,
     version,
@@ -30,7 +30,7 @@ function installedPackage(id: string, kind: string[], version = "1.0.0") {
         { path: "client.js", sha256: "0".repeat(64), bytes: 1 },
       ],
       permissions: ["ui"],
-      restartRequired: true,
+      restartRequired,
     },
     installedAt: "2026-07-14T00:00:00.000Z",
     status: "active",
@@ -337,6 +337,26 @@ try {
   );
   assert.equal(JSON.stringify(diagnostics).includes("snapshot read failed"), false, "Health diagnostics must omit errors");
 
+  await capabilityModuleRuntime.stop();
+  assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
+  const hotGame = installedPackage("hot-game", ["agent", "turn-game"], "1.0.0", false);
+  writeRegistry([hotGame]);
+  writeFileSync(
+    join(packagesRoot, "versions", hotGame.id, hotGame.version, "server.mjs"),
+    `export async function activate({ api }) {
+      return api.registerService("hot-game:runtime", { active: true });
+    }`,
+  );
+  const activatedHotGame = await capabilityModuleRuntime.activatePackage(
+    {} as Parameters<typeof capabilityModuleRuntime.activatePackage>[0],
+    hotGame.id,
+  );
+  assert.equal(activatedHotGame.status, "active");
+  assert.equal(activatedHotGame.readiness, "ready");
+  assert.deepEqual(getCapabilityService("hot-game:runtime"), { active: true });
+  await capabilityModuleRuntime.deactivatePackage(hotGame.id);
+  assert.equal(getCapabilityService("hot-game:runtime"), null, "Hot uninstall must remove game contributions");
+
   const { getFileTableConfig, isFileTable } = await import("../../packages/server/src/db/file-schema.js");
   const packageTable = {};
   Object.defineProperty(packageTable, Symbol.for("marinara:file-table"), {
@@ -346,7 +366,6 @@ try {
   assert.equal(getFileTableConfig(packageTable as never).name, "package_fixture");
 
   await capabilityModuleRuntime.stop();
-  assert.equal(getCapabilityService("readiness:success"), null, "Runtime stop must remove ready contributions");
 
   console.info("Capability package lifecycle and readiness regressions passed.");
 } finally {

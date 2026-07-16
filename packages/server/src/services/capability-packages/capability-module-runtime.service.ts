@@ -47,7 +47,7 @@ async function runCleanups(cleanups: Cleanup[]): Promise<void> {
 }
 
 class CapabilityModuleRuntime {
-  private cleanup: Cleanup[] = [];
+  private cleanups = new Map<string, Cleanup>();
 
   async start(app: FastifyInstance): Promise<void> {
     // Bundled package modules execute before activate(context), so give their
@@ -57,7 +57,7 @@ class CapabilityModuleRuntime {
     prepareCapabilityRuntimeEnvironment();
     await this.ensureModuleResolution();
     for (const runtimePackage of await capabilityPackageManager.runtimePackages()) {
-      await this.activateOne(app, runtimePackage, true);
+      await this.activateOne(app, runtimePackage, true, false);
     }
   }
 
@@ -79,6 +79,7 @@ class CapabilityModuleRuntime {
     app: FastifyInstance,
     runtimePackage: Awaited<ReturnType<typeof capabilityPackageManager.runtimePackages>>[number],
     allowRollback: boolean,
+    throwOnFailure: boolean,
   ): Promise<void> {
     const { installed, serverEntrypoint } = runtimePackage;
     const registeredCleanups: Cleanup[] = [];
@@ -88,7 +89,9 @@ class CapabilityModuleRuntime {
       const blockReason = capabilityPackageManager.runtimeBlockReason(installed);
       if (blockReason) throw new Error(blockReason);
 
-      const module = (await import(pathToFileURL(serverEntrypoint).href)) as CapabilityModule;
+      const moduleUrl = new URL(pathToFileURL(serverEntrypoint).href);
+      moduleUrl.searchParams.set("activation", `${installed.version}-${Date.now()}`);
+      const module = (await import(moduleUrl.href)) as CapabilityModule;
       if (typeof module.activate !== "function") throw new Error("Server entrypoint must export activate(context)");
       const trackCleanup = (cleanup: Cleanup) => {
         let called = false;
@@ -117,7 +120,7 @@ class CapabilityModuleRuntime {
       await module.selfCheck?.(context);
       await capabilityPackageManager.markRuntimeStatus(installed.id, "active");
       await capabilityPackageManager.markRuntimeReadiness(installed.id, "ready");
-      this.cleanup.push(async () => {
+      this.cleanups.set(installed.id, async () => {
         if (moduleCleanup) await moduleCleanup();
         await runCleanups(registeredCleanups);
       });
@@ -133,7 +136,13 @@ class CapabilityModuleRuntime {
       const previous = allowRollback ? await capabilityPackageManager.rollbackRuntime(installed.id) : null;
       if (previous) {
         logger.warn("Rolling capability package %s back to %s", installed.id, previous.installed.version);
-        await this.activateOne(app, previous, false);
+        await this.activateOne(app, previous, false, false);
+        if (throwOnFailure) {
+          throw new Error(
+            `Could not activate ${installed.id}@${installed.version}; restored ${previous.installed.version}`,
+            { cause: error },
+          );
+        }
         return;
       }
       await capabilityPackageManager.markRuntimeStatus(
@@ -146,11 +155,35 @@ class CapabilityModuleRuntime {
         "error",
         error instanceof Error ? error.message : String(error),
       );
+      if (throwOnFailure) throw error;
     }
   }
 
+  async activatePackage(app: FastifyInstance, packageId: string): Promise<InstalledCapabilityPackage> {
+    prepareCapabilityRuntimeEnvironment();
+    await this.ensureModuleResolution();
+    const runtimePackage = (await capabilityPackageManager.runtimePackages()).find(
+      ({ installed }) => installed.id === packageId,
+    );
+    if (!runtimePackage) throw new Error(`Installed capability package ${packageId} has no server runtime`);
+    await this.deactivatePackage(packageId);
+    await this.activateOne(app, runtimePackage, true, true);
+    const installed = (await capabilityPackageManager.installed()).find((item) => item.id === packageId);
+    if (!installed) throw new Error(`Capability package ${packageId} disappeared during activation`);
+    return installed;
+  }
+
+  async deactivatePackage(packageId: string): Promise<void> {
+    const cleanup = this.cleanups.get(packageId);
+    if (!cleanup) return;
+    this.cleanups.delete(packageId);
+    await cleanup();
+    logger.info("Deactivated capability package %s", packageId);
+  }
+
   async stop(): Promise<void> {
-    for (const cleanup of this.cleanup.splice(0).reverse()) {
+    for (const [packageId, cleanup] of [...this.cleanups.entries()].reverse()) {
+      this.cleanups.delete(packageId);
       try {
         await cleanup();
       } catch (error) {
