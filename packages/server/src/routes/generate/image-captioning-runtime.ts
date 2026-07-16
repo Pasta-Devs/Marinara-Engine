@@ -33,6 +33,7 @@ export type ImageCaptionConnection = {
   enableCaching?: string | null;
   anthropicExtendedCacheTtl?: string | null;
   cachingAtDepth?: number | null;
+  defaultParameters?: unknown;
 };
 
 export type ImageCaptioningRuntime = {
@@ -119,6 +120,7 @@ export async function resolveImageCaptioningRuntime(args: {
         captionConnection.maxTokensOverride,
         captionConnection.claudeFastMode === "true",
         captionConnection.treatAsLocalEndpoint === "true",
+        captionConnection.defaultParameters,
       );
     }
 

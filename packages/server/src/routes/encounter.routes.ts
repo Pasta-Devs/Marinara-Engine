@@ -587,6 +587,9 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.maxContext,
         conn.openrouterProvider,
         conn.maxTokensOverride,
+        conn.claudeFastMode === "true",
+        conn.treatAsLocalEndpoint === "true",
+        conn.defaultParameters,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
@@ -694,6 +697,9 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.maxContext,
         conn.openrouterProvider,
         conn.maxTokensOverride,
+        conn.claudeFastMode === "true",
+        conn.treatAsLocalEndpoint === "true",
+        conn.defaultParameters,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
@@ -792,6 +798,9 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.maxContext,
         conn.openrouterProvider,
         conn.maxTokensOverride,
+        conn.claudeFastMode === "true",
+        conn.treatAsLocalEndpoint === "true",
+        conn.defaultParameters,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);

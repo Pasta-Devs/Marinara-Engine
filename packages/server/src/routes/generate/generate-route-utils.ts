@@ -1173,16 +1173,14 @@ export function resolveBaseUrl(connection: { baseUrl: string | null; provider: s
 
 export function shouldEnableAgentsForGeneration({
   chatEnableAgents,
-  chatMode,
   impersonate,
   impersonateBlockAgents,
 }: {
   chatEnableAgents: boolean;
-  chatMode: string;
   impersonate: boolean;
   impersonateBlockAgents: boolean;
 }): boolean {
-  return chatEnableAgents && chatMode !== "conversation" && !(impersonate && impersonateBlockAgents);
+  return chatEnableAgents && !(impersonate && impersonateBlockAgents);
 }
 
 export function shouldInjectIdentityFallback({

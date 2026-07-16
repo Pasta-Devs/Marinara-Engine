@@ -587,7 +587,6 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const dryRunActiveAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
     const dryRunChatEnableAgents = shouldEnableAgentsForGeneration({
       chatEnableAgents: chatMeta.enableAgents === true,
-      chatMode,
       impersonate,
       impersonateBlockAgents: false,
     });
@@ -1560,6 +1559,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             conn.maxContext,
             conn.openrouterProvider,
             conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
           );
 
     // ── Mirror /api/generate: normalize + fit prompt to context ──

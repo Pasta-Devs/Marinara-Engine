@@ -468,6 +468,9 @@ export async function agentsRoutes(app: FastifyInstance) {
       conn.maxContext,
       conn.openrouterProvider,
       conn.maxTokensOverride,
+      conn.claudeFastMode === "true",
+      conn.treatAsLocalEndpoint === "true",
+      conn.defaultParameters,
     );
 
     const contextLines: string[] = [];

@@ -116,6 +116,7 @@ export async function resolveIllustratorPromptRuntime(args: {
         connection.maxTokensOverride,
         isEnabled(connection.claudeFastMode),
         isEnabled(connection.treatAsLocalEndpoint),
+        connection.defaultParameters,
       ),
     ),
     model,

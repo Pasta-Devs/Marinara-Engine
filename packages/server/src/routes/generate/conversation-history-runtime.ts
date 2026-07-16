@@ -56,6 +56,9 @@ type ConversationSummaryConnection = {
   maxContext?: number | null;
   openrouterProvider?: string | null;
   maxTokensOverride?: number | null;
+  claudeFastMode?: string | null;
+  treatAsLocalEndpoint?: string | null;
+  defaultParameters?: unknown;
 };
 
 type BucketMsg = { role: string; content: string; author: string; ts: Date };
@@ -162,6 +165,9 @@ export async function prepareConversationPromptHistory(args: {
       args.connection.maxContext,
       args.connection.openrouterProvider,
       args.connection.maxTokensOverride,
+      args.connection.claudeFastMode === "true",
+      args.connection.treatAsLocalEndpoint === "true",
+      args.connection.defaultParameters,
     ),
     primaryConnectionId: args.connectionId,
     fallbackConnection: args.fallbackConnection,

@@ -2906,6 +2906,36 @@ test("Noodle settings edit and restore the timeline base prompt", async ({ page 
   }
 });
 
+test("Noodle carryover mode labels fit inside their controls", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The compact three-column settings row is desktop-only.");
+
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await page.goto("/");
+  await page.locator('[data-tour="noodle-tab"]').click();
+  const noodle = page.locator('[data-component="NoodleView"]');
+  await noodle.getByRole("button", { name: "Settings", exact: true }).click();
+  const carryoverSection = noodle.getByRole("heading", { name: "Carryover" }).locator("..");
+
+  for (const name of ["Conversations", "Roleplays", "Games"]) {
+    const checkbox = carryoverSection.getByRole("checkbox", { name, exact: true });
+    const control = checkbox.locator("..");
+    const text = control.getByText(name, { exact: true });
+    await expect(control).toBeVisible();
+    const [controlRect, textRect, checkboxRect] = await Promise.all([
+      control.boundingBox(),
+      text.boundingBox(),
+      checkbox.boundingBox(),
+    ]);
+    expect(controlRect).not.toBeNull();
+    expect(textRect).not.toBeNull();
+    expect(checkboxRect).not.toBeNull();
+    expect(textRect!.x).toBeGreaterThanOrEqual(controlRect!.x);
+    expect(checkboxRect!.x - (textRect!.x + textRect!.width)).toBeGreaterThanOrEqual(6);
+    expect(checkboxRect!.x + checkboxRect!.width).toBeLessThanOrEqual(controlRect!.x + controlRect!.width);
+    expect(await text.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
+});
+
 test("Noodle settings persist through refetch and reload", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Noodle settings persistence is covered on desktop.");
 

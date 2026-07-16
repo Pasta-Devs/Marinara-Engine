@@ -89,6 +89,8 @@ You write one wrapper per line, with a slot in the middle for the hidden text. C
 
 **Custom Parameters** lets you add raw settings that Marinara does not show as its own field. You type a JSON object, and Marinara merges it into the request sent to the provider.
 
+Custom Parameters saved as connection defaults are sent for every API-backed text generation that uses that connection, including Conversation, Roleplay, Game, Noodle, summaries, and agents. This also applies to custom endpoints running on your own machine. Per-chat Custom Parameters are added for that chat and override matching connection-level keys.
+
 This is an advanced field. A wrong key can make the provider reject the request. The object must use lowercase `true`, `false`, and `null`. Leave this empty unless a provider's guide tells you to add a specific key.
 
 ## OpenRouter Service Tier

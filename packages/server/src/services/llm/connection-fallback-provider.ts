@@ -1,7 +1,10 @@
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "./base-provider.js";
 import { BaseLLMProvider } from "./base-provider.js";
 import { createLLMProvider } from "./provider-registry.js";
-import { parseStoredGenerationParameters } from "../../routes/generate/generate-route-utils.js";
+import {
+  mergeCustomParameters,
+  parseStoredGenerationParameters,
+} from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
 
@@ -80,7 +83,7 @@ function fallbackOptions(options: ChatOptions, connection: FallbackConnection): 
     verbosity: stored?.verbosity === null ? undefined : (stored?.verbosity ?? options.verbosity),
     serviceTier: stored?.serviceTier ?? options.serviceTier,
     stop: stored?.stopSequences ?? options.stop,
-    customParameters: stored?.customParameters ?? {},
+    customParameters: mergeCustomParameters(stored?.customParameters, options.customParameters),
     enabledParameters: stored?.enabledParameters,
     enableCaching: isEnabled(connection.enableCaching),
     anthropicExtendedCacheTtl: isEnabled(connection.anthropicExtendedCacheTtl),
@@ -193,6 +196,7 @@ export function withConnectionFallbackProvider({
     fallbackConnection.maxTokensOverride,
     isEnabled(fallbackConnection.claudeFastMode),
     isEnabled(fallbackConnection.treatAsLocalEndpoint),
+    fallbackConnection.defaultParameters,
   );
   return new ConnectionFallbackProvider(primary, fallback, fallbackConnection, category, onFallback);
 }

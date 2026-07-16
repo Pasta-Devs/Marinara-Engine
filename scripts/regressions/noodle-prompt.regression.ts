@@ -30,6 +30,11 @@ import {
   sampleNoodlePastMemoriesWeighted,
 } from "../../packages/server/src/services/noodle/noodle-prompt.js";
 import { chooseNoodleParticipantAccounts } from "../../packages/server/src/services/noodle/noodle-participant-selection.js";
+import { noodleAccountsNeedingProfiles } from "../../packages/server/src/services/noodle/noodle-profile-selection.js";
+import {
+  buildNoodleCarryoverBlock,
+  NOODLE_CARRYOVER_TOKEN_BUDGET,
+} from "../../packages/server/src/services/noodle/noodle-context.js";
 import { canCreateGeneratedNoodleInteraction } from "../../packages/server/src/services/noodle/noodle-interaction-policy.js";
 import { parseNoodleGeneratedProfiles } from "../../packages/server/src/services/noodle/noodle-generated-profiles.js";
 import {
@@ -73,6 +78,25 @@ const selectionPersona: NoodleAccount = {
   entityId: "persona-entity",
   handle: "mari",
 };
+
+const largeInvitedRoster = Array.from({ length: 200 }, (_, index) => makeAccount(`invited-${index}`));
+const selectedLargeRosterParticipants = chooseNoodleParticipantAccounts({
+  accounts: largeInvitedRoster,
+  settings: participantSettings,
+  selectedGroupCharacterIds: new Set(),
+  random: () => 0,
+});
+assert.equal(selectedLargeRosterParticipants.length, 2);
+const selectedWithExistingProfile = selectedLargeRosterParticipants.map((account, index) => ({
+  ...account,
+  settings: index === 0 ? { profileGenerated: true } : {},
+}));
+const largeRosterProfileTargets = noodleAccountsNeedingProfiles(selectedWithExistingProfile);
+assert.equal(largeRosterProfileTargets.length, 1);
+assert.ok(selectedLargeRosterParticipants.some((account) => account.id === largeRosterProfileTargets[0]!.id));
+assert.ok(
+  largeRosterProfileTargets.every((account) => selectedLargeRosterParticipants.some((selected) => selected.id === account.id)),
+);
 assert.deepEqual(
   [
     ...collectNoodlePriorityAccountIds({
@@ -612,14 +636,29 @@ assert.equal(sampleNoodlePastMemoriesWeighted(["a", "b"], 0, () => 1, () => 0.5)
 
 // noodleLorebookTokenBudget scales with active character count but is floored and capped so a
 // single-character Noodle refresh never dips below the floor, and a large roster never exceeds
-// the same global default a normal chat turn would get.
+// Noodle's explicit 8k hard ceiling.
 assert.equal(noodleLorebookTokenBudget(0), LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR);
 assert.equal(noodleLorebookTokenBudget(1), LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR);
 assert.equal(
   noodleLorebookTokenBudget(10),
-  Math.min(LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET, 10 * LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_PER_ACCOUNT),
+  Math.min(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX, 10 * LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_PER_ACCOUNT),
 );
-assert.equal(noodleLorebookTokenBudget(100), LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET);
+assert.equal(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX, 8192);
+assert.equal(noodleLorebookTokenBudget(100), LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX);
+
+const oversizedCarryoverDigests = Array.from({ length: 50 }, (_, index) => ({
+  content: `newest-${index}-${"x".repeat(1180)}`,
+}));
+const boundedCarryoverBlock = buildNoodleCarryoverBlock(oversizedCarryoverDigests, 50, "xml");
+assert.ok(boundedCarryoverBlock);
+assert.ok(boundedCarryoverBlock.length <= NOODLE_CARRYOVER_TOKEN_BUDGET * 4);
+assert.match(boundedCarryoverBlock, /newest-0-/u);
+assert.doesNotMatch(boundedCarryoverBlock, /newest-49-/u);
+assert.ok(boundedCarryoverBlock.indexOf("newest-1-") < boundedCarryoverBlock.indexOf("newest-0-"));
+assert.equal(
+  buildNoodleCarryoverBlock([{ content: "newest" }, { content: "older\nwith detail" }], 2, "none"),
+  "- older\nwith detail\n- newest",
+);
 
 // noodleTimelineVoiceDefaultText(enhanced) feeds the "Noodle Timeline Voice & Tone" prompt
 // override default (NOODLE_TIMELINE_VOICE.defaultBuilder). `enhanced=false` (the setting's

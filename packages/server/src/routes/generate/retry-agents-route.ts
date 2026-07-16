@@ -1136,6 +1136,9 @@ async function resolveRetryAgents(args: {
       storedConn.maxContext,
       storedConn.openrouterProvider,
       storedConn.maxTokensOverride,
+      storedConn.claudeFastMode === "true",
+      storedConn.treatAsLocalEndpoint === "true",
+      storedConn.defaultParameters,
     );
     return {
       entry: {

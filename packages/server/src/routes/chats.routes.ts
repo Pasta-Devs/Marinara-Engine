@@ -1201,6 +1201,9 @@ export async function chatsRoutes(app: FastifyInstance) {
         conn.maxContext,
         conn.openrouterProvider,
         conn.maxTokensOverride,
+        conn.claudeFastMode === "true",
+        conn.treatAsLocalEndpoint === "true",
+        conn.defaultParameters,
       ),
       primaryConnectionId: conn.id,
       fallbackConnection,
@@ -2584,7 +2587,6 @@ export async function chatsRoutes(app: FastifyInstance) {
           const activeAgentIds = Array.isArray(chatMeta.activeAgentIds) ? (chatMeta.activeAgentIds as string[]) : [];
           const chatEnableAgents = shouldEnableAgentsForGeneration({
             chatEnableAgents: chatMeta.enableAgents === true,
-            chatMode,
             impersonate: false,
             impersonateBlockAgents: false,
           });

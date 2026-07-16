@@ -697,21 +697,34 @@ function ToggleSetting({
   help,
   checked,
   disabled,
+  compact = false,
   onChange,
 }: {
   label: string;
   help?: React.ReactNode;
   checked: boolean;
   disabled?: boolean;
+  compact?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 py-2 text-xs">
-      <span className="inline-flex min-w-0 items-center gap-1 font-semibold">
-        {label}
+    <label
+      className={cn(
+        "flex items-center justify-between rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] py-2 text-xs",
+        compact ? "gap-2 px-1.5" : "gap-3 px-3",
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex min-w-0 items-center gap-1 font-semibold",
+          compact && "flex-1",
+        )}
+      >
+        <span className={cn(compact && "min-w-0 truncate text-[10px] leading-none")}>{label}</span>
         {help && <HelpTooltip text={help} side="top" wide />}
       </span>
       <input
+        className="shrink-0"
         type="checkbox"
         checked={checked}
         disabled={disabled}
@@ -3329,18 +3342,21 @@ export function NoodleView() {
                 <div className="grid gap-2 sm:grid-cols-3">
                   <ToggleSetting
                     label="Conversations"
+                    compact
                     checked={carryoverTargets.has("conversation")}
                     disabled={updateSettings.isPending}
                     onChange={(checked) => toggleCarryoverTarget("conversation", checked)}
                   />
                   <ToggleSetting
                     label="Roleplays"
+                    compact
                     checked={carryoverTargets.has("roleplay")}
                     disabled={updateSettings.isPending}
                     onChange={(checked) => toggleCarryoverTarget("roleplay", checked)}
                   />
                   <ToggleSetting
                     label="Games"
+                    compact
                     checked={carryoverTargets.has("game")}
                     disabled={updateSettings.isPending}
                     onChange={(checked) => toggleCarryoverTarget("game", checked)}

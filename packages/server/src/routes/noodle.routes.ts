@@ -109,6 +109,10 @@ import {
 import { normalizeNoodleImagePrompt } from "../services/noodle/noodle-image-prompt.js";
 import { normalizeNoodleHandle } from "../services/noodle/noodle-handle.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/noodle-profile-avatar.js";
+import {
+  isNoodleProfileGenerated,
+  noodleAccountsNeedingProfiles,
+} from "../services/noodle/noodle-profile-selection.js";
 
 const NOODLE_ROUTE_DIR = dirname(fileURLToPath(import.meta.url));
 const CLIENT_PUBLIC_DIR = resolve(NOODLE_ROUTE_DIR, "../../../client/public");
@@ -262,15 +266,6 @@ function galleryImageUrl(filePath: string, fallbackChatId: string) {
 function characterGalleryImageUrl(characterId: string, filePath: string) {
   const filename = basename(filePath.replace(/\\/g, "/"));
   return `/api/characters/${encodeURIComponent(characterId)}/gallery/file/${encodeURIComponent(filename)}`;
-}
-
-function readBoolSetting(settings: Record<string, unknown>, key: string) {
-  const value = settings[key];
-  return value === true || value === "true";
-}
-
-function isProfileGenerated(account: NoodleAccount) {
-  return readBoolSetting(account.settings, "profileGenerated");
 }
 
 function mentionedCharacterAccounts(accounts: NoodleAccount[], content: string): NoodleAccount[] {
@@ -462,7 +457,7 @@ async function ensureProfessorMariAccount(
   });
   if (
     account.settings.profileManuallyEdited !== true &&
-    (account.bio !== PROFESSOR_MARI_NOODLE_BIO || !isProfileGenerated(account) || !account.settings.location)
+    (account.bio !== PROFESSOR_MARI_NOODLE_BIO || !isNoodleProfileGenerated(account) || !account.settings.location)
   ) {
     await noodle.updateAccount(account.id, {
       handle: account.handle || "professor_mari",
@@ -1041,8 +1036,7 @@ async function generateMissingNoodleProfiles(input: {
     row: { id: string; data: unknown; avatarPath?: string | null };
     bannerUrl: string | null;
   }> = [];
-  for (const account of input.accounts) {
-    if (account.kind !== "character" || isProfileGenerated(account)) continue;
+  for (const account of noodleAccountsNeedingProfiles(input.accounts)) {
     const row = await input.characters.getById(account.entityId);
     if (!row) continue;
     const bannerUrl = await pickRandomCharacterBannerUrl(input.characterGallery, account.entityId);
@@ -1777,6 +1771,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         conn.maxTokensOverride,
         conn.claudeFastMode === "true",
         conn.treatAsLocalEndpoint === "true",
+        conn.defaultParameters,
       );
       const fallbackConnection = await connections.getFallbackForMain();
       const provider = withConnectionFallbackProvider({
@@ -1795,22 +1790,6 @@ export async function noodleRoutes(app: FastifyInstance) {
         settings.invitedCharacterGroupIds,
       );
       if (settings.allowRandomUsers) await ensureRandomUserAccounts(noodle);
-      const eligibleAccounts = await noodle.listAccounts();
-      const eligibleCharacterAccounts = eligibleAccounts.filter(
-        (account) =>
-          account.kind === "character" &&
-          (settings.allowProfessorMari || account.entityId !== PROFESSOR_MARI_ID) &&
-          (account.invited || selectedGroupCharacterIds.has(account.entityId)),
-      );
-      await generateMissingNoodleProfiles({
-        noodle,
-        characters,
-        characterGallery,
-        accounts: eligibleCharacterAccounts,
-        provider,
-        connection: conn,
-        debugMode,
-      });
       const participantAccounts = await noodle.listAccounts();
       const selectionCutoff = sinceHoursIso(48);
       const [recentCreatedSelectionPosts, recentPersonaSelectionReplies] = await Promise.all([
@@ -1836,7 +1815,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         interactions: recentSelectionInteractions,
         personaAccount,
       });
-      const selectedParticipants = chooseNoodleParticipantAccounts({
+      let selectedParticipants = chooseNoodleParticipantAccounts({
         accounts: participantAccounts,
         settings,
         selectedGroupCharacterIds,
@@ -1849,6 +1828,19 @@ export async function noodleRoutes(app: FastifyInstance) {
           .code(400)
           .send({ error: "Invite a character, select a character folder, or enable random users before refreshing." });
       }
+
+      await generateMissingNoodleProfiles({
+        noodle,
+        characters,
+        characterGallery,
+        accounts: selectedParticipants,
+        provider,
+        connection: conn,
+        debugMode,
+      });
+      selectedParticipants = (
+        await Promise.all(selectedParticipants.map((account) => noodle.getAccountById(account.id)))
+      ).filter((account): account is NoodleAccount => account !== null);
 
       const activeAccounts = [...selectedParticipants, ...(personaAccount ? [personaAccount] : [])];
       const {

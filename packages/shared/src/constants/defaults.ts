@@ -83,6 +83,8 @@ export const LIMITS = {
   NOODLE_LOREBOOK_TOKEN_BUDGET_PER_ACCOUNT: 400,
   /** Minimum Noodle lorebook token budget even for a single active character. */
   NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR: 1500,
+  /** Hard ceiling for all world/lore context activated by one Noodle refresh. */
+  NOODLE_LOREBOOK_TOKEN_BUDGET_MAX: 8192,
   /** Default summary trigger: every N messages */
   SUMMARY_INTERVAL: 50,
   /** Default vectorization: top-K results */

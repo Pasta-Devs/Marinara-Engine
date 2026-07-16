@@ -2698,6 +2698,7 @@ async function createGameMainProvider(
     conn.maxTokensOverride,
     conn.claudeFastMode === "true",
     conn.treatAsLocalEndpoint === "true",
+    conn.defaultParameters,
   );
   const fallbackConnection = await connections.getFallbackForMain();
   return withConnectionFallbackProvider({

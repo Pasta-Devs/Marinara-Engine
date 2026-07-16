@@ -105,7 +105,16 @@ import {
   initializeActivityFromMessages,
   isAutonomousDailyBudgetExhausted,
 } from "../../packages/server/src/services/conversation/autonomous.service.js";
-import type { WeekSchedule } from "../../packages/server/src/services/conversation/schedule.service.js";
+import {
+  generateScheduleRoutineSummary,
+  type WeekSchedule,
+} from "../../packages/server/src/services/conversation/schedule.service.js";
+import type {
+  BaseLLMProvider,
+  ChatCompletionResult,
+  ChatMessage,
+  ChatOptions,
+} from "../../packages/server/src/services/llm/base-provider.js";
 import { resolveGroupGenerationMode } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
 import {
@@ -395,6 +404,38 @@ await assert.rejects(
   }),
   /selected selfie Prompt Model connection could not be found/u,
 );
+
+async function captureRoutineSummaryOptions(maxTokensOverrideValue: number | null): Promise<ChatOptions> {
+  let capturedOptions: ChatOptions | null = null;
+  const provider = {
+    maxTokensOverrideValue,
+    async chatComplete(_messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+      capturedOptions = options;
+      return { content: "Usually available in the evenings.", toolCalls: [], finishReason: "stop" };
+    },
+  } as unknown as BaseLLMProvider;
+
+  await generateScheduleRoutineSummary(provider, "reasoning-model", "Routine Tester", {
+    weekStart: "2026-07-13",
+    days: {},
+    inactivityThresholdMinutes: 60,
+    autonomousDailyCapOverride: 3,
+    talkativeness: 50,
+  });
+
+  assert.ok(capturedOptions);
+  return capturedOptions;
+}
+
+for (const [override, expectedMaxTokens] of [
+  [null, 8192],
+  [16_384, 16_384],
+  [4096, 4096],
+] as const) {
+  const options = await captureRoutineSummaryOptions(override);
+  assert.equal(options.maxTokens, expectedMaxTokens);
+  assert.equal(options.reasoningEffort, "low");
+}
 
 const autonomousSchedule = (talkativeness: number, cap: number): WeekSchedule => ({
   weekStart: "2026-07-13",

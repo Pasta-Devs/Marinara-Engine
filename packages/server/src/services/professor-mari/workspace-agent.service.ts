@@ -768,6 +768,8 @@ function createProviderForConnection(connection: WorkspaceConnection): BaseLLMPr
     connection.openrouterProvider,
     connection.maxTokensOverride,
     bool(connection.claudeFastMode),
+    bool(connection.treatAsLocalEndpoint),
+    connection.defaultParameters,
   );
 }
 

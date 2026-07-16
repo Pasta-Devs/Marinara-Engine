@@ -31,6 +31,7 @@ export type { CharacterSchedules, ConversationMessageIntent, CurrentConversation
 // ── Constants ──
 
 const DAYS = CONVERSATION_SCHEDULE_DAYS;
+const ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS = 8192;
 
 export type WeekScheduleDraftMode = "rewrite" | "adjust" | "vary" | "repair";
 
@@ -312,7 +313,12 @@ export async function generateScheduleRoutineSummary(
       { role: "system", content: systemPrompt },
       { role: "user", content: "Summarize the routine." },
     ],
-    { model, temperature: 0.55, maxTokens: Math.min(provider.maxTokensOverrideValue ?? 512, 512) },
+    {
+      model,
+      temperature: 0.55,
+      maxTokens: provider.maxTokensOverrideValue ?? ROUTINE_SUMMARY_DEFAULT_MAX_TOKENS,
+      reasoningEffort: "low",
+    },
   );
   const summary = (result.content ?? "").replace(/^```(?:text)?/i, "").replace(/```$/i, "").trim();
   if (!summary) throw new Error("Routine summary was empty");
