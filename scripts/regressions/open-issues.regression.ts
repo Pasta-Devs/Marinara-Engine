@@ -63,7 +63,13 @@ import {
   findReplayStoryboardKeyframe,
 } from "../../packages/client/src/lib/game-session-replay.js";
 import { findReplayableGameSessionChat } from "../../packages/client/src/lib/game-session-resolution.js";
-import { formatGameSetupShareText } from "../../packages/client/src/lib/game-setup-share.js";
+import {
+  buildGameSetupShareFile,
+  formatGameSetupShareText,
+  parseGameSetupShareFileJson,
+  resolveGameSetupImport,
+  type GameSetupShareSource,
+} from "../../packages/client/src/lib/game-setup-share.js";
 import {
   getTemperatureGaugeDisplay,
   parsePureTemperatureValue,
@@ -804,7 +810,7 @@ assert.match(
 );
 assert.match(retryAgentsPromptReviewSource, /\[debug\/retry-agents\/illustrator\] final prompt/);
 
-const sharedGameSetup = formatGameSetupShareText({
+const sharedGameSetupSource: GameSetupShareSource = {
   gameName: "Tower Run",
   config: {
     genre: "Fantasy, anime JRPG dungeon crawler",
@@ -843,8 +849,10 @@ const sharedGameSetup = formatGameSetupShareText({
   effectiveGenerationParameters: {
     temperature: 1.1,
     maxTokens: 16384,
+    maxContext: 128000,
     reasoningEffort: "high",
     customParameters: { example_flag: true },
+    stopSequences: ["[END]"],
   },
   preferences: "Use clear progression and frequent loot rewards.",
   connections: {
@@ -857,7 +865,8 @@ const sharedGameSetup = formatGameSetupShareText({
     lorebookNames: { "lorebook-local-id": "Dungeon Lore" },
     personaName: "Player Persona",
   },
-});
+};
+const sharedGameSetup = formatGameSetupShareText(sharedGameSetupSource);
 assert.match(sharedGameSetup, /Presentation: Storyboard Optimized/u);
 assert.match(sharedGameSetup, /Temperature: 1\.1/u);
 assert.match(sharedGameSetup, /Max Tokens: 16384/u);
@@ -868,6 +877,88 @@ assert.match(sharedGameSetup, /"startingValue": 3/u);
 assert.doesNotMatch(
   sharedGameSetup,
   /character-local-id|persona-local-id|connection-local-id|lorebook-local-id|profile-local-id|widget-local-id/u,
+);
+
+const exportedGameSetup = buildGameSetupShareFile(sharedGameSetupSource, "2026-07-16T12:00:00.000Z");
+const parsedGameSetup = parseGameSetupShareFileJson(JSON.stringify(exportedGameSetup));
+const resolvedGameSetup = resolveGameSetupImport(parsedGameSetup, {
+  characters: [{ id: "character-new-id", name: "Party Member" }],
+  personas: [{ id: "persona-new-id", name: "Player Persona" }],
+  lorebooks: [{ id: "lorebook-new-id", name: "Dungeon Lore" }],
+  promptPresets: [],
+  connections: [
+    {
+      id: "gm-connection-new-id",
+      name: "ChatGPT Subscription",
+      provider: "openai_chatgpt",
+      model: "gpt-5.6-sol",
+    },
+    {
+      id: "image-connection-new-id",
+      name: "Image Generator",
+      provider: "image_generation",
+      model: "banana-2-lite",
+    },
+    {
+      id: "video-connection-new-id",
+      name: "Video Generator",
+      provider: "video_generation",
+      videoService: "gemini-omni",
+    },
+  ],
+});
+assert.equal(exportedGameSetup.format, "marinara-game-setup");
+assert.equal(exportedGameSetup.version, 1);
+assert.equal(exportedGameSetup.exportedAt, "2026-07-16T12:00:00.000Z");
+assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.temperature, 1.1);
+assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.maxContext, 128000);
+assert.deepEqual(parsedGameSetup.setup.effectiveGenerationParameters?.stopSequences, ["[END]"]);
+assert.equal(resolvedGameSetup.gmConnectionId, "gm-connection-new-id");
+assert.equal(resolvedGameSetup.config.imageConnectionId, "image-connection-new-id");
+assert.equal(resolvedGameSetup.config.videoConnectionId, "video-connection-new-id");
+assert.deepEqual(resolvedGameSetup.config.partyCharacterIds, ["character-new-id"]);
+assert.equal(resolvedGameSetup.config.personaId, "persona-new-id");
+assert.deepEqual(resolvedGameSetup.config.activeLorebookIds, ["lorebook-new-id"]);
+assert.equal(resolvedGameSetup.preferences, "Use clear progression and frequent loot rewards.");
+assert.deepEqual(resolvedGameSetup.warnings, []);
+assert.doesNotMatch(JSON.stringify(exportedGameSetup), /apiKey|baseUrl/u);
+
+const unresolvedGameSetup = resolveGameSetupImport(parsedGameSetup, {
+  characters: [],
+  personas: [],
+  lorebooks: [],
+  promptPresets: [],
+  connections: [],
+});
+assert.equal(unresolvedGameSetup.gmConnectionId, null);
+assert.deepEqual(unresolvedGameSetup.config.partyCharacterIds, []);
+assert.equal(unresolvedGameSetup.config.personaId, null);
+assert.deepEqual(unresolvedGameSetup.config.activeLorebookIds, []);
+assert.ok(unresolvedGameSetup.warnings.length >= 5);
+assert.throws(
+  () => parseGameSetupShareFileJson(sharedGameSetup),
+  /Choose a reusable Game Mode setup JSON file/u,
+);
+assert.throws(
+  () => parseGameSetupShareFileJson(JSON.stringify({ ...exportedGameSetup, version: 99 })),
+  /unsupported version 99/u,
+);
+assert.throws(
+  () => parseGameSetupShareFileJson(JSON.stringify({ format: "other", version: 1 })),
+  /not a Marinara Game Mode setup file/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          config: { ...exportedGameSetup.setup.config, generationParameters: [] },
+        },
+      }),
+    ),
+  /invalid generation parameters/u,
 );
 
 const sanitizedExampleDialogue = sanitizeExampleDialoguePromptLeaf(

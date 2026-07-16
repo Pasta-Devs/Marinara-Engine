@@ -1872,6 +1872,47 @@ test("Game setup only shows features owned by installed agents", async ({ page, 
 
   try {
     await page.goto("/");
+    const initialDialog = page.getByRole("dialog", { name: "New Game" });
+    const importButton = initialDialog.getByRole("button", { name: "Import setup", exact: true });
+    await expect(importButton).toBeEnabled();
+    await initialDialog.getByLabel("Import Game Mode setup file").setInputFiles({
+      name: "tower-run.marinara-game-setup.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          format: "marinara-game-setup",
+          version: 1,
+          exportedAt: "2026-07-16T12:00:00.000Z",
+          gameName: "Imported Tower Run",
+          setup: {
+            config: {
+              genre: "Fantasy",
+              setting: "A city built around a shifting dungeon tower",
+              tone: "Heroic",
+              difficulty: "Hard",
+              playerGoals: "Reach the final floor",
+              gmMode: "standalone",
+              rating: "sfw",
+              partyCharacterIds: [],
+              generationParameters: { temperature: 0.65 },
+            },
+            effectiveGenerationParameters: { temperature: 0.65, maxTokens: 8192 },
+            preferences: "Use clear progression and frequent loot rewards.",
+            createdAt: "2026-07-16T11:00:00.000Z",
+          },
+        }),
+      ),
+    });
+    await expect(initialDialog.locator('input[placeholder="Name your adventure..."]')).toHaveValue(
+      "Imported Tower Run",
+    );
+    await expect(
+      initialDialog.getByText(
+        "tower-run.marinara-game-setup.json loaded. Review the steps, then start the new game.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+
     let dialog = await openLorebooksStep();
     await expect(dialog.getByText("Hierarchical world map", { exact: true })).toHaveCount(0);
     await dialog.getByRole("button", { name: "Next", exact: true }).click();

@@ -1,9 +1,10 @@
 import { Copy, Download, Info } from "lucide-react";
 import { toast } from "sonner";
 import type { GameInitialSetupSnapshot, GameSetupConfig, GenerationParameters } from "@marinara-engine/shared";
-import { sanitizeExportFilenamePart } from "../../lib/download-json";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { copyToClipboard } from "../../lib/utils";
 import {
+  buildGameSetupShareFile,
   buildGameSetupSummarySections,
   formatGameSetupShareText,
   type GameSetupShareLabels,
@@ -98,6 +99,7 @@ export function GameSetupSummary({
     connections: snapshot?.connections,
     fallbackGmConnectionId,
     labels,
+    createdAt: snapshot?.createdAt,
   };
   const sections = buildGameSetupSummarySections(source);
   const shareText = formatGameSetupShareText(source);
@@ -110,16 +112,11 @@ export function GameSetupSummary({
   };
 
   const handleDownload = () => {
-    const blob = new Blob([shareText], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${sanitizeExportFilenamePart(gameName, "game")}-marinara-setup.txt`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    toast.success("Initial Game Mode setup downloaded.");
+    downloadJsonFile(
+      buildGameSetupShareFile(source),
+      `${sanitizeExportFilenamePart(gameName, "game")}.marinara-game-setup.json`,
+    );
+    toast.success("Reusable Game Mode setup downloaded.");
   };
 
   return (
@@ -132,8 +129,8 @@ export function GameSetupSummary({
           <p className="mt-0.5 max-w-md text-[0.6875rem] leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
             {snapshot
               ? createdAt
-                ? `Saved ${createdAt}. Copy or download it whenever this combination produces a game worth sharing.`
-                : "Saved when this campaign was created."
+                ? `Saved ${createdAt}. Copy a readable summary or download a reusable setup file.`
+                : "Saved when this campaign was created. Download it to reuse these settings in a new game."
               : "Reconstructed from the campaign's earliest saved setup."}
           </p>
         </div>
@@ -152,7 +149,7 @@ export function GameSetupSummary({
             className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary)] px-3 text-xs font-semibold text-[var(--primary-foreground)] transition-[filter,transform] hover:brightness-105 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:flex-none"
           >
             <Download size={13} />
-            Download .txt
+            Download setup
           </button>
         </div>
       </div>
