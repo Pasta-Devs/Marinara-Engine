@@ -264,7 +264,17 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
   const provider =
     args.provider ??
     (conn && baseUrl
-      ? createLLMProvider(conn.provider, baseUrl, conn.apiKey, conn.maxContext, conn.openrouterProvider, conn.maxTokensOverride)
+      ? createLLMProvider(
+          conn.provider,
+          baseUrl,
+          conn.apiKey,
+          conn.maxContext,
+          conn.openrouterProvider,
+          conn.maxTokensOverride,
+          conn.claudeFastMode === "true",
+          conn.treatAsLocalEndpoint === "true",
+          conn.defaultParameters,
+        )
       : null);
   if (!provider) {
     logger.warn("[turn-game] no LLM provider available for chat %s; skipping bot turns", chatId);

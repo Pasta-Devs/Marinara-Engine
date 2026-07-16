@@ -1560,6 +1560,9 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             conn.maxContext,
             conn.openrouterProvider,
             conn.maxTokensOverride,
+            conn.claudeFastMode === "true",
+            conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
           );
 
     // ── Mirror /api/generate: normalize + fit prompt to context ──

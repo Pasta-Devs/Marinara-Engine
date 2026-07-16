@@ -22,6 +22,8 @@ type EmbeddingConnectionLike = Omit<
     | "openrouterProvider"
     | "maxTokensOverride"
     | "claudeFastMode"
+    | "treatAsLocalEndpoint"
+    | "defaultParameters"
     | "embeddingConnectionId"
     | "embeddingBaseUrl"
     | "embeddingModel"
@@ -160,6 +162,8 @@ export async function resolveMemoryRecallEmbeddingSource(
     embeddingConnection.openrouterProvider,
     embeddingConnection.maxTokensOverride,
     embeddingConnection.claudeFastMode === "true",
+    embeddingConnection.treatAsLocalEndpoint === "true",
+    embeddingConnection.defaultParameters,
   );
   const label = `${embeddingConnection.name || embeddingConnection.provider} (${embeddingModel})`;
 

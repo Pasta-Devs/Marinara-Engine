@@ -347,12 +347,15 @@ export function sampleNoodlePastMemoriesWeighted<T>(
  * Noodle can batch far more characters into one refresh (up to 100, or uncapped with "All
  * invited") than a normal chat turn (1-2 characters), so it scales its own lorebook budget by
  * active character count rather than reusing DEFAULT_LOREBOOK_TOKEN_BUDGET outright — a
- * single-character refresh gets at least the floor, and a large roster is capped at the same
- * default a normal chat turn would get, never more.
+ * single-character refresh gets at least the floor, and a large roster is capped at Noodle's
+ * explicit 8k-token hard ceiling, never more.
  */
 export function noodleLorebookTokenBudget(activeCharacterCount: number): number {
   const scaled = Math.max(activeCharacterCount, 0) * LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_PER_ACCOUNT;
-  return Math.min(LIMITS.DEFAULT_LOREBOOK_TOKEN_BUDGET, Math.max(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR, scaled));
+  return Math.min(
+    LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_MAX,
+    Math.max(LIMITS.NOODLE_LOREBOOK_TOKEN_BUDGET_FLOOR, scaled),
+  );
 }
 
 export function noodleTimelineFeatureInstructions(settings: NoodleTimelineFeatureSettings): string[] {

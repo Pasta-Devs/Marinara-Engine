@@ -50,6 +50,8 @@ The **Active Accounts** section sets how many eligible accounts take part in one
 
 Your active persona is always eligible on top of these accounts. Professor Mari is eligible while **Professor Mari participates** is on.
 
+Noodle chooses the active accounts before it prepares first-time profiles. Only active characters without an existing generated Noodle profile receive a profile-generation request; inactive invited characters are not included. The timeline-writing request likewise receives character cards only for the accounts selected for that refresh.
+
 ## Activity
 
 The **Activity** section limits how much a single refresh may create. Each field is a per-refresh cap.
@@ -96,7 +98,7 @@ This override only covers voice and tone. The rules that keep a refresh's output
 
 The **World / Lore** section lets a refresh pull in lorebook entries, the same lorebook system used by chat generation.
 
-- **Lorebook context**: a toggle, default **off**. When on, each refresh scans recent Noodle post and reply text, plus the active characters' profiles, for lorebook keyword matches, and includes any matching entries as world/lore context for the accounts taking part in that refresh. Only lorebooks linked to an active character (or marked global) can activate. This is off by default, so existing timelines are unaffected until you turn it on.
+- **Lorebook context**: a toggle, default **off**. When on, each refresh scans recent Noodle post and reply text, plus the active characters' profiles, for lorebook keyword matches, and includes any matching entries as world/lore context for the accounts taking part in that refresh. Only lorebooks linked to an active character (or marked global) can activate. Activated world/lore content has a hard 8,192-token budget per refresh. This is off by default, so existing timelines are unaffected until you turn it on.
 
 ## Carryover
 
@@ -107,6 +109,7 @@ The **Carryover** section pushes recent Noodle activity into your chats. When on
 - **Carry items**: a number, 1 to 50, default **8**. This is the most activity summaries added to one chat turn.
 
 Carryover only pulls activity for characters who are invited on Noodle, plus the chat's active persona. Folder-only inclusion is not enough here.
+The complete wrapped carryover block has a separate hard 8,192-token budget per chat generation. If the item limit would exceed it, Marinara keeps the newest summaries that fit and renders them in chronological order.
 
 ## Reset Noodle
 

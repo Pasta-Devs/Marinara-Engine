@@ -228,6 +228,7 @@ export async function registerRawRoute(app: FastifyInstance) {
             conn.maxTokensOverride,
             conn.claudeFastMode === "true",
             conn.treatAsLocalEndpoint === "true",
+            conn.defaultParameters,
           );
     const fallbackConnection = await connections.getFallbackForMain();
     const provider = withConnectionFallbackProvider({

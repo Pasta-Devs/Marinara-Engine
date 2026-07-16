@@ -1190,6 +1190,9 @@ export async function lorebooksRoutes(app: FastifyInstance) {
             resolvedConn.maxContext,
             resolvedConn.openrouterProvider,
             resolvedConn.maxTokensOverride,
+            resolvedConn.claudeFastMode === "true",
+            resolvedConn.treatAsLocalEndpoint === "true",
+            resolvedConn.defaultParameters,
           );
         })();
     const embeddingModel = useLocalSidecar ? LOCAL_SIDECAR_MODEL : body.model;

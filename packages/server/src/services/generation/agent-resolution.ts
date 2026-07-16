@@ -244,6 +244,9 @@ async function resolveAgentConnectionProvider(args: {
     agentConn.maxContext,
     agentConn.openrouterProvider,
     agentConn.maxTokensOverride,
+    agentConn.claudeFastMode === "true",
+    agentConn.treatAsLocalEndpoint === "true",
+    agentConn.defaultParameters,
   );
   const resolved = {
     provider: withConnectionFallbackProvider({

@@ -4,6 +4,16 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Changed
+
+- Changed Noodle refreshes to choose active participants before first-time profile generation, skip characters that already have generated profiles, and send only the selected character cards to the timeline model. World/lore context and chat carryover now each have an 8,192-token budget so large invited rosters cannot inflate unrelated generations.
+
+### Fixed
+
+- Applied saved Connection Custom Parameters to every API-backed text generation that uses that connection, including Noodle and custom endpoints hosted locally, while preserving per-chat and per-call overrides.
+- Routed bare Cohere API roots and versioned API URLs through Cohere's OpenAI-compatible endpoint.
+- Kept the Noodle Carryover mode buttons equal-width while scaling their labels to remain fully visible with consistent spacing before each checkbox.
+
 ## [3.2.2]
 
 ### Added
