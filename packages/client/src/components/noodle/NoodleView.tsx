@@ -1838,7 +1838,7 @@ export function NoodleView() {
         const followingAccountIds = account.settings.social.followingAccountIds ?? [];
         if (!followingAccountIds.includes(personaAccount.id)) return [];
         const followedAtByAccount = account.settings.social.followingAccountTimestamps ?? {};
-        return [{ account, followedAt: readString(followedAtByAccount[personaAccount.id]) }];
+        return [{ account, followedAt: followedAtByAccount[personaAccount.id] }];
       })
       .sort((left, right) => (Date.parse(right.followedAt) || 0) - (Date.parse(left.followedAt) || 0));
   }, [accounts, personaAccount]);
