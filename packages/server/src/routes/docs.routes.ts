@@ -135,6 +135,7 @@ const DOC_ORDER: Record<string, string[]> = {
   ],
   media: [
     "image-providers.md",
+    "comfyui.md",
     "style-profiles.md",
     "illustrator-agent.md",
     "scene-backgrounds.md",

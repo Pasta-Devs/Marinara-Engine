@@ -113,7 +113,7 @@ If your image server runs on a different computer on your home network, you must
 
 ## ComfyUI workflow JSON and RunPod
 
-For **ComfyUI** and **RunPod Serverless (ComfyUI)**, a **ComfyUI Workflow** field appears. Paste a workflow JSON that you exported from ComfyUI with **Save (API Format)**. The field is labeled Optional for **ComfyUI** and Required for **RunPod Serverless (ComfyUI)**.
+For **ComfyUI** and **RunPod Serverless (ComfyUI)**, a **ComfyUI Workflow** field appears. Paste a workflow JSON that you exported from ComfyUI with **Save (API Format)**, **Export (API)**, or **Export to API**, depending on the frontend version. The field is labeled Optional for **ComfyUI** and Required for **RunPod Serverless (ComfyUI)**.
 
 Marinara fills your workflow using placeholders. Put these text markers in your workflow where the value should go.
 
@@ -121,9 +121,11 @@ Marinara fills your workflow using placeholders. Put these text markers in your 
 - `%width%`, `%height%`, and `%seed%` for the image size and seed.
 - `%model%`, `%steps%`, `%cfg%`, `%sampler%`, `%scheduler%`, and `%denoise%` for generation settings.
 - `%reference_image%` and `%reference_image_01%` through `%reference_image_04%` to inject reference image data.
-- `%reference_image_name%` and `%reference_image_name_01%` through `%reference_image_name_04%` to upload reference images and inject their filenames for a LoadImage node.
+- `%reference_image_name%` and `%reference_image_name_01%` through `%reference_image_name_04%` to upload reference images and inject their filenames for a local ComfyUI LoadImage node.
 
-The `%prompt%` placeholder is the important one. The editor warns you if it is missing. For **ComfyUI**, leaving the field empty uses a built-in default workflow. For **RunPod Serverless (ComfyUI)**, the workflow is required because the endpoint has no default. Both accept up to 4 reference images through these placeholders.
+The `%prompt%` placeholder is the important one. The editor warns you if it is missing. For **ComfyUI**, leaving the field empty uses a built-in default workflow. For **RunPod Serverless (ComfyUI)**, the workflow is required because the endpoint has no default. Both accept up to 4 raw base64 reference images; filename-upload placeholders are available only for local ComfyUI.
+
+See [ComfyUI Workflow Setup](comfyui.md) for the complete export process, JSON examples, placeholder quoting rules, reference-image setup, character-specific workflows, LAN access, and troubleshooting.
 
 ## Local Image Defaults per connection
 
@@ -177,6 +179,7 @@ When it is on, Marinara sends image jobs one at a time. Keep it on for services 
 
 ## Related guides
 
+- [ComfyUI Workflow Setup](comfyui.md) explains custom local and RunPod workflow JSON step by step.
 - [Illustrator Agent](illustrator-agent.md) sets up automatic scene illustrations.
 - [Image Style Profiles](style-profiles.md) shapes the look of every generated image.
 - [Scene Backgrounds and the Gallery](scene-backgrounds.md) covers generated scene backgrounds.
