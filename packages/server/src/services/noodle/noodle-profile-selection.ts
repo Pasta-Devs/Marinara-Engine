@@ -1,12 +1,7 @@
 import type { NoodleAccount } from "@marinara-engine/shared";
 
-function readBooleanSetting(settings: Record<string, unknown>, key: string): boolean {
-  const value = settings[key];
-  return value === true || value === "true";
-}
-
 export function isNoodleProfileGenerated(account: Pick<NoodleAccount, "settings">): boolean {
-  return readBooleanSetting(account.settings, "profileGenerated");
+  return account.settings.profile.profileGenerated === true;
 }
 
 /** Profiles are generated only for character accounts selected for the current refresh. */

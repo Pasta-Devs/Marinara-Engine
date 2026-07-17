@@ -12,6 +12,36 @@ export type NoodleCarryoverTarget = "conversation" | "roleplay" | "game";
 export type NoodleParticipantSelectionMode = "all" | "random_range" | "exact";
 export type NoodleAvatarCrop = PersonaAvatarCrop | LegacyPersonaAvatarCrop;
 
+export interface NoodleAccountProfileSettings {
+  avatarCrop?: NoodleAvatarCrop | null;
+  bannerUrl?: string;
+  location?: string;
+  profileGenerated?: boolean;
+  profileManuallyEdited?: boolean;
+}
+
+export interface NoodleAccountSocialSettings {
+  followingAccountIds?: string[];
+  followingAccountTimestamps?: Record<string, string>;
+  notificationsReadAt?: string;
+}
+
+export type NoodleAccountSchedulerSettings = Record<string, never>;
+export type NoodleAccountPrivacySettings = Record<string, never>;
+
+export interface NoodleAccountSettings {
+  profile: NoodleAccountProfileSettings;
+  social: NoodleAccountSocialSettings;
+  scheduler: NoodleAccountSchedulerSettings;
+  privacy: NoodleAccountPrivacySettings;
+}
+
+export type NoodleAccountSettingsPatch =
+  | { subtree: "profile"; patch: Partial<NoodleAccountProfileSettings> }
+  | { subtree: "social"; patch: Partial<NoodleAccountSocialSettings> }
+  | { subtree: "scheduler"; patch: NoodleAccountSchedulerSettings }
+  | { subtree: "privacy"; patch: NoodleAccountPrivacySettings };
+
 export interface NoodlePollOption {
   id: string;
   label: string;
@@ -63,7 +93,7 @@ export interface NoodleAccount {
   avatarUrl: string | null;
   avatarCrop: NoodleAvatarCrop | null;
   invited: boolean;
-  settings: Record<string, unknown>;
+  settings: NoodleAccountSettings;
   createdAt: string;
   updatedAt: string;
 }

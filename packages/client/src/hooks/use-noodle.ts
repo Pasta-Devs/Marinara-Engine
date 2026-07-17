@@ -7,6 +7,8 @@ import { useUIStore } from "../stores/ui.store";
 import type {
   NoodleAccount,
   NoodleAccountKind,
+  NoodleAccountSettingsPatchInput,
+  NoodleAccountUpdateInput,
   NoodleBootstrap,
   NoodleCreateInteractionInput,
   NoodleCreatePostInput,
@@ -99,8 +101,27 @@ export function useRescheduleNoodleRefresh() {
 export function useUpdateNoodleAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...patch }: { id: string } & Partial<NoodleAccount>) =>
+    mutationFn: ({ id, ...patch }: { id: string } & NoodleAccountUpdateInput) =>
       api.put<NoodleAccount>(`/noodle/accounts/${id}`, patch),
+    onSuccess: (account) => {
+      qc.setQueryData<NoodleBootstrap | undefined>(noodleKeys.bootstrap(), (current) =>
+        current
+          ? {
+              ...current,
+              accounts: current.accounts.map((item) => (item.id === account.id ? account : item)),
+            }
+          : current,
+      );
+      qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });
+    },
+  });
+}
+
+export function usePatchNoodleAccountSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & NoodleAccountSettingsPatchInput) =>
+      api.patch<NoodleAccount>(`/noodle/accounts/${id}/settings`, input),
     onSuccess: (account) => {
       qc.setQueryData<NoodleBootstrap | undefined>(noodleKeys.bootstrap(), (current) =>
         current

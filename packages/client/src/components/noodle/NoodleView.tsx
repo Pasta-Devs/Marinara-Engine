@@ -104,6 +104,7 @@ import {
   useInviteNoodleCharacter,
   useInviteNoodleCharacters,
   useNoodle,
+  usePatchNoodleAccountSettings,
   useRefreshNoodle,
   useRemoveNoodleCharacter,
   useRemoveNoodleInteraction,
@@ -131,8 +132,6 @@ const iconButtonClass =
 const NOODLE_BLUE = "#7EA7FF";
 const NOODLE_ICON_SCOPE_CLASS = "[&_svg]:!text-[var(--noodle-blue)]";
 const NOODLE_LOGO_SRC = "/noodle-klusek.png";
-const NOODLE_NOTIFICATIONS_READ_AT_KEY = "notificationsReadAt";
-const NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY = "followingAccountTimestamps";
 const NOODLE_INVITE_PAGE_SIZE = 50;
 const NOODLE_PERSONA_SWITCHER_PAGE_SIZE = 5;
 const NOODLE_MENTION_SUGGESTION_LIMIT = 8;
@@ -250,12 +249,12 @@ function legacyCarryoverModeFromTargets(targets: NoodleCarryoverTarget[]): Noodl
   return "off";
 }
 
-function readAccountSetting(account: NoodleAccount | null, key: string) {
-  return readString(account?.settings?.[key]).trim();
+function readAccountSetting(account: NoodleAccount | null, key: keyof NoodleAccount["settings"]["profile"]) {
+  return readString(account?.settings.profile[key]).trim();
 }
 
-function readAccountSettingBoolean(account: NoodleAccount | null, key: string) {
-  const value = account?.settings?.[key];
+function readAccountSettingBoolean(account: NoodleAccount | null, key: keyof NoodleAccount["settings"]["profile"]) {
+  const value = account?.settings.profile[key];
   return value === true || value === "true";
 }
 
@@ -927,6 +926,7 @@ export function NoodleView() {
   const { data: connectionsRaw } = useConnections();
   const updateSettings = useUpdateNoodleSettings();
   const updateAccount = useUpdateNoodleAccount();
+  const patchAccountSettings = usePatchNoodleAccountSettings();
   const inviteCharacter = useInviteNoodleCharacter();
   const inviteCharacters = useInviteNoodleCharacters();
   const clearInvites = useClearNoodleInvites();
@@ -1286,11 +1286,6 @@ export function NoodleView() {
     if (!viewedProfileAccount || !canEditViewedProfile) return;
     const normalizedHandle = profileHandle.trim().replace(/^@+/, "");
     const nextAvatarUrl = profileAvatarUrl.trim() || null;
-    const nextSettings = {
-      ...viewedProfileAccount.settings,
-      bannerUrl: profileBannerUrl.trim(),
-      location: profileLocation.trim(),
-    };
     updateAccount.mutate(
       {
         id: viewedProfileAccount.id,
@@ -1298,13 +1293,24 @@ export function NoodleView() {
         displayName: profileName.trim(),
         bio: profileBio,
         ...(nextAvatarUrl !== viewedProfileAccount.avatarUrl ? { avatarUrl: nextAvatarUrl } : {}),
-        settings: nextSettings,
       },
       {
-        onSuccess: () => {
-          setProfileEditing(false);
-          toast.success("Noodle profile updated.");
-        },
+        onSuccess: () =>
+          patchAccountSettings.mutate(
+            {
+              id: viewedProfileAccount.id,
+              subtree: "profile",
+              patch: { bannerUrl: profileBannerUrl.trim(), location: profileLocation.trim() },
+            },
+            {
+              onSuccess: () => {
+                setProfileEditing(false);
+                toast.success("Noodle profile updated.");
+              },
+              onError: (error) =>
+                toast.error(error instanceof Error ? error.message : "Could not update Noodle profile."),
+            },
+          ),
         onError: (error) => toast.error(error instanceof Error ? error.message : "Could not update Noodle profile."),
       },
     );
@@ -1328,22 +1334,18 @@ export function NoodleView() {
           else setProfileBannerUrl(image.url);
 
           if (!viewedProfileAccount || !canEditViewedProfile) return;
-          updateAccount.mutate(
-            target === "avatar"
-              ? { id: viewedProfileAccount.id, avatarUrl: image.url }
-              : {
-                  id: viewedProfileAccount.id,
-                  settings: {
-                    ...viewedProfileAccount.settings,
-                    bannerUrl: image.url,
-                  },
-                },
-            {
-              onSuccess: () => toast.success(target === "avatar" ? "Noodle avatar updated." : "Noodle banner updated."),
-              onError: (error) =>
-                toast.error(error instanceof Error ? error.message : "Could not update Noodle profile image."),
-            },
-          );
+          const callbacks = {
+            onSuccess: () => toast.success(target === "avatar" ? "Noodle avatar updated." : "Noodle banner updated."),
+            onError: (error: Error) => toast.error(error.message || "Could not update Noodle profile image."),
+          };
+          if (target === "avatar") {
+            updateAccount.mutate({ id: viewedProfileAccount.id, avatarUrl: image.url }, callbacks);
+          } else {
+            patchAccountSettings.mutate(
+              { id: viewedProfileAccount.id, subtree: "profile", patch: { bannerUrl: image.url } },
+              callbacks,
+            );
+          }
         },
         onError: (error) => toast.error(error instanceof Error ? error.message : "Could not upload profile image."),
         onSettled: () => setProfileUploadTarget(null),
@@ -1654,7 +1656,7 @@ export function NoodleView() {
     directlyInvitedCharacterIds.length > 0 || selectedCharacterGroupIds.size > 0 || settings?.allowRandomUsers,
   );
   const followedAccountIds = useMemo(
-    () => new Set(readStringArray(personaAccount?.settings?.followingAccountIds)),
+    () => new Set(personaAccount?.settings.social.followingAccountIds ?? []),
     [personaAccount?.settings],
   );
   const canFollowViewedProfile = Boolean(
@@ -1780,7 +1782,7 @@ export function NoodleView() {
     if (!viewedProfileAccount) return [];
     const explicitFollowers = accounts.filter((account) => {
       if (account.id === viewedProfileAccount.id) return false;
-      const followingAccountIds = readStringArray(account.settings?.followingAccountIds);
+      const followingAccountIds = account.settings.social.followingAccountIds ?? [];
       return followingAccountIds.includes(viewedProfileAccount.id);
     });
     const personaFollowsViewedProfile =
@@ -1794,13 +1796,13 @@ export function NoodleView() {
   }, [accounts, followedAccountIds, personaAccount, viewedProfileAccount, viewingOwnProfile]);
   const profileFollowingAccounts = useMemo(() => {
     if (viewingOwnProfile) {
-      const explicitFollowing = readStringArray(personaAccount?.settings?.followingAccountIds).map((id) =>
+      const explicitFollowing = (personaAccount?.settings.social.followingAccountIds ?? []).map((id) =>
         accountById.get(id),
       );
       return uniqueAccountsById(explicitFollowing).sort(sortAccountsByDisplayName);
     }
     if (!viewedProfileAccount) return [];
-    const followingIds = new Set(readStringArray(viewedProfileAccount.settings?.followingAccountIds));
+    const followingIds = new Set(viewedProfileAccount.settings.social.followingAccountIds ?? []);
     return uniqueAccountsById([...followingIds].map((id) => accountById.get(id))).sort(sortAccountsByDisplayName);
   }, [accountById, personaAccount, viewedProfileAccount, viewingOwnProfile]);
   const profileFollowerCount = profileFollowerAccounts.length;
@@ -1842,9 +1844,9 @@ export function NoodleView() {
     return accounts
       .flatMap((account) => {
         if (account.id === personaAccount.id) return [];
-        const followingAccountIds = readStringArray(account.settings?.followingAccountIds);
+        const followingAccountIds = account.settings.social.followingAccountIds ?? [];
         if (!followingAccountIds.includes(personaAccount.id)) return [];
-        const followedAtByAccount = parseRecord(account.settings?.[NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY]);
+        const followedAtByAccount = account.settings.social.followingAccountTimestamps ?? {};
         return [{ account, followedAt: readString(followedAtByAccount[personaAccount.id]) }];
       })
       .sort((left, right) => (Date.parse(right.followedAt) || 0) - (Date.parse(left.followedAt) || 0));
@@ -1945,8 +1947,7 @@ export function NoodleView() {
   }, [highlightedInteractionId]);
 
   const notificationReadAt = personaAccount
-    ? (notificationReadOverrides[personaAccount.id] ??
-      readAccountSetting(personaAccount, NOODLE_NOTIFICATIONS_READ_AT_KEY))
+    ? (notificationReadOverrides[personaAccount.id] ?? personaAccount.settings.social.notificationsReadAt ?? "")
     : "";
   const notificationReadTime = Date.parse(notificationReadAt) || 0;
   const notificationCount =
@@ -2135,22 +2136,22 @@ export function NoodleView() {
 
   const updateFollowedAccount = (account: NoodleAccount, followed: boolean) => {
     if (!personaAccount || account.id === personaAccount.id) return;
-    const currentFollowingAccountIds = readStringArray(personaAccount.settings?.followingAccountIds);
+    const currentFollowingAccountIds = personaAccount.settings.social.followingAccountIds ?? [];
     const nextFollowingAccountIds = followed
       ? Array.from(new Set([...currentFollowingAccountIds, account.id]))
       : currentFollowingAccountIds.filter((id) => id !== account.id);
     const nextFollowedAtByAccount = {
-      ...parseRecord(personaAccount.settings?.[NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY]),
+      ...personaAccount.settings.social.followingAccountTimestamps,
     };
     if (followed) nextFollowedAtByAccount[account.id] = new Date().toISOString();
     else delete nextFollowedAtByAccount[account.id];
-    updateAccount.mutate(
+    patchAccountSettings.mutate(
       {
         id: personaAccount.id,
-        settings: {
-          ...personaAccount.settings,
+        subtree: "social",
+        patch: {
           followingAccountIds: nextFollowingAccountIds,
-          [NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY]: nextFollowedAtByAccount,
+          followingAccountTimestamps: nextFollowedAtByAccount,
         },
       },
       {
@@ -2540,13 +2541,11 @@ export function NoodleView() {
       const previousOverride = notificationReadOverrides[accountId];
       const readAt = new Date().toISOString();
       setNotificationReadOverrides((current) => ({ ...current, [accountId]: readAt }));
-      updateAccount.mutate(
+      patchAccountSettings.mutate(
         {
           id: accountId,
-          settings: {
-            ...personaAccount.settings,
-            [NOODLE_NOTIFICATIONS_READ_AT_KEY]: readAt,
-          },
+          subtree: "social",
+          patch: { notificationsReadAt: readAt },
         },
         {
           onSuccess: () => {

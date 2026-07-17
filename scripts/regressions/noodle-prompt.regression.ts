@@ -59,7 +59,7 @@ const makeAccount = (id: string): NoodleAccount => ({
   avatarUrl: null,
   avatarCrop: null,
   invited: true,
-  settings: {},
+  settings: { profile: {}, social: {}, scheduler: {}, privacy: {} },
   createdAt: "2026-07-10T10:00:00.000Z",
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
@@ -89,7 +89,7 @@ const selectedLargeRosterParticipants = chooseNoodleParticipantAccounts({
 assert.equal(selectedLargeRosterParticipants.length, 2);
 const selectedWithExistingProfile = selectedLargeRosterParticipants.map((account, index) => ({
   ...account,
-  settings: index === 0 ? { profileGenerated: true } : {},
+  settings: index === 0 ? { ...account.settings, profile: { profileGenerated: true } } : account.settings,
 }));
 const largeRosterProfileTargets = noodleAccountsNeedingProfiles(selectedWithExistingProfile);
 assert.equal(largeRosterProfileTargets.length, 1);

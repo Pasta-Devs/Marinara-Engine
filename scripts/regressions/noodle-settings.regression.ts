@@ -3,7 +3,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DB } from "../../packages/server/src/db/connection.js";
+import { eq } from "../../packages/server/src/db/file-query.js";
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
+import { noodleAccounts } from "../../packages/server/src/db/schema/noodle.js";
+import {
+  noodleAccountSettingsPatchSchema,
+  noodleAccountUpdateSchema,
+} from "../../packages/shared/src/schemas/noodle.schema.js";
 import { createNoodleStorage } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../../packages/server/src/services/noodle/noodle-profile-avatar.js";
 
@@ -67,6 +73,77 @@ try {
   assert.equal(updated.maxImagesPerRefresh, 9);
   assert.equal(updated.allowRandomUsers, true);
   assert.equal(updated.maxGeneratedPostsPerRefresh, 11);
+  const concurrentAccount = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "concurrent-settings",
+    displayName: "Concurrent Settings",
+  });
+  await Promise.all([
+    firstNoodle.patchAccountSettings(concurrentAccount.id, {
+      subtree: "profile",
+      patch: { bannerUrl: "/banner.png" },
+    }),
+    firstNoodle.patchAccountSettings(concurrentAccount.id, {
+      subtree: "social",
+      patch: { followingAccountIds: ["followed-account"] },
+    }),
+    firstNoodle.patchAccountSettings(concurrentAccount.id, { subtree: "scheduler", patch: {} }),
+    firstNoodle.patchAccountSettings(concurrentAccount.id, { subtree: "privacy", patch: {} }),
+  ]);
+  const concurrentlyUpdatedAccount = await firstNoodle.getAccountById(concurrentAccount.id);
+  assert.equal(concurrentlyUpdatedAccount?.settings.profile.bannerUrl, "/banner.png");
+  assert.deepEqual(concurrentlyUpdatedAccount?.settings.social.followingAccountIds, ["followed-account"]);
+  assert.deepEqual(concurrentlyUpdatedAccount?.settings.scheduler, {});
+  assert.deepEqual(concurrentlyUpdatedAccount?.settings.privacy, {});
+  assert.equal(
+    noodleAccountSettingsPatchSchema.safeParse({
+      subtree: "profile",
+      patch: { notificationsReadAt: new Date().toISOString() },
+    }).success,
+    false,
+  );
+  assert.equal(
+    noodleAccountSettingsPatchSchema.safeParse({ subtree: "scheduler", patch: { nextRunAt: null } }).success,
+    false,
+  );
+  assert.equal(noodleAccountUpdateSchema.safeParse({ settings: { profile: {} } }).success, false);
+  const legacyAccount = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "legacy-flat-settings",
+    displayName: "Legacy Flat Settings",
+  });
+  await firstDb
+    .update(noodleAccounts)
+    .set({
+      settings: JSON.stringify({
+        avatarCrop: { zoom: 1.5, offsetX: 2, offsetY: -3 },
+        bannerUrl: "/legacy-banner.png",
+        location: "Legacy Location",
+        profileGenerated: "true",
+        profileManuallyEdited: false,
+        followingAccountIds: ["legacy-follow"],
+        followingAccountTimestamps: { "legacy-follow": "2026-07-17T10:00:00.000Z" },
+        notificationsReadAt: "2026-07-17T11:00:00.000Z",
+      }),
+    })
+    .where(eq(noodleAccounts.id, legacyAccount.id));
+  const normalizedLegacyAccount = await firstNoodle.getAccountById(legacyAccount.id);
+  assert.deepEqual(normalizedLegacyAccount?.settings, {
+    profile: {
+      avatarCrop: { zoom: 1.5, offsetX: 2, offsetY: -3 },
+      bannerUrl: "/legacy-banner.png",
+      location: "Legacy Location",
+      profileGenerated: true,
+      profileManuallyEdited: false,
+    },
+    social: {
+      followingAccountIds: ["legacy-follow"],
+      followingAccountTimestamps: { "legacy-follow": "2026-07-17T10:00:00.000Z" },
+      notificationsReadAt: "2026-07-17T11:00:00.000Z",
+    },
+    scheduler: {},
+    privacy: {},
+  });
   const refreshRun = await firstNoodle.createRefreshRun({
     activeAccountIds: ["alpha"],
     prompt: "Generate a Noodle timeline.",
@@ -108,7 +185,10 @@ try {
     displayName: "Generated Social Name",
     handle: "custom_handle",
     bio: "Keep this generated biography",
-    settings: { profileGenerated: true, location: "Snezhnaya" },
+  });
+  await firstNoodle.patchAccountSettings(characterAccount.id, {
+    subtree: "profile",
+    patch: { profileGenerated: true, location: "Snezhnaya" },
   });
   const renamedCharacterAccount = await firstNoodle.upsertAccountFromProfile({
     kind: "character",
@@ -121,7 +201,12 @@ try {
   assert.equal(renamedCharacterAccount.avatarUrl, "/new-avatar.png");
   assert.equal(renamedCharacterAccount.handle, "custom_handle");
   assert.equal(renamedCharacterAccount.bio, "Keep this generated biography");
-  assert.deepEqual(renamedCharacterAccount.settings, { profileGenerated: true, location: "Snezhnaya" });
+  assert.deepEqual(renamedCharacterAccount.settings, {
+    profile: { profileGenerated: true, location: "Snezhnaya" },
+    social: {},
+    scheduler: {},
+    privacy: {},
+  });
   await firstDb._fileStore.close();
 
   const refreshRunsPath = join(storageDir, "tables", "noodle_refresh_runs.json");
@@ -137,6 +222,9 @@ try {
   assert.equal(reopenedSettings.maxImagesPerRefresh, 9);
   assert.equal(reopenedSettings.allowRandomUsers, true);
   assert.equal(reopenedSettings.maxGeneratedPostsPerRefresh, 11);
+  const reopenedConcurrentAccount = await reopenedNoodle.getAccountById(concurrentAccount.id);
+  assert.equal(reopenedConcurrentAccount?.settings.profile.bannerUrl, "/banner.png");
+  assert.deepEqual(reopenedConcurrentAccount?.settings.social.followingAccountIds, ["followed-account"]);
   const reopenedRuns = await reopenedNoodle.listRefreshRuns({ status: "completed", limit: 2 });
   const reopenedRun = reopenedRuns.find((entry) => entry.id === refreshRun.id);
   assert.equal(reopenedRun?.result, correctedResponse);
