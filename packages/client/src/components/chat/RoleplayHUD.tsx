@@ -1343,7 +1343,6 @@ function CombinedWorldWidget({
       ? "text-[var(--muted-foreground)]/70"
       : weatherStyle.color;
   const temperatureDisplay = getTemperatureGaugeDisplay(temperature, trackerTemperatureUnit);
-  const tempNumeric = temperatureDisplay.numericCelsius;
   const tempColor = temperatureDisplay.color;
   const sideLayout = layout === "left" || layout === "right";
 
@@ -1395,7 +1394,7 @@ function CombinedWorldWidget({
               variant="solid-bulb"
               className="h-4 w-[0.625rem] shrink-0"
             />
-            {tempNumeric !== null && (
+            {temperatureDisplay.isPure && (
               <span
                 className="shrink-0 text-[0.5rem] font-bold leading-none md:text-[0.5625rem]"
                 style={{ color: tempColor }}

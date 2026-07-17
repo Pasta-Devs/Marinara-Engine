@@ -275,7 +275,10 @@ function WorldCustomFieldPlate({
 
   return (
     <div
-      className={cn("@container relative min-h-[2.25rem] min-w-0 transition-colors duration-200", className)}
+      className={cn(
+        "@container relative min-h-[2.25rem] min-w-0 transition-colors duration-200 [@media(pointer:coarse)]:min-h-11",
+        className,
+      )}
       title={name}
     >
       <div

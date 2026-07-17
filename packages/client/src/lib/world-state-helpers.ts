@@ -140,7 +140,7 @@ export function classifyWorldWeather(weather: string | null | undefined): WorldW
   if (!text) return "atmosphere";
   if (text.includes("thunder") || text.includes("lightning")) return "thunder";
   if (text.includes("blizzard")) return "blizzard";
-  if (text.includes("heavy rain") || text.includes("downpour") || text.includes("storm")) return "heavy-rain";
+  if (text.includes("heavy rain") || text.includes("downpour") || /\bstorm\b/.test(text)) return "heavy-rain";
   if (text.includes("rain") || text.includes("drizzle") || text.includes("shower")) return "rain";
   if (text.includes("hail")) return "hail";
   if (text.includes("snow") || text.includes("sleet") || text.includes("frost")) return "snow";
@@ -205,13 +205,13 @@ export function getTemperatureGaugeDisplay(
             : "rgb(248 113 113)";
   return {
     color,
+    isPure: pureParsed !== null,
     label:
       pureParsed !== null
         ? unit === "fahrenheit"
           ? `${Math.round(pureParsed * (9 / 5) + 32)}°F`
           : `${Math.round(pureParsed)}°C`
         : (temperature ?? "").trim() || "--",
-    numericCelsius,
     percent,
     value,
   };
