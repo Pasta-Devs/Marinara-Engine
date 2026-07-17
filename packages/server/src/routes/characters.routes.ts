@@ -24,6 +24,7 @@ import { generateImage } from "../services/image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
 import {
   ConversationCallVideoClipAvatarMismatchError,
@@ -602,6 +603,13 @@ export async function charactersRoutes(app: FastifyInstance) {
       styleProfileId: body.styleProfileId,
       imageDefaults,
     });
+    const previewSize = resolveImagePromptReviewSize({
+      connection: resolved.conn,
+      prompt: compiled.prompt,
+      width,
+      height,
+      imageDefaults,
+    });
 
     return {
       items: [
@@ -611,8 +619,8 @@ export async function charactersRoutes(app: FastifyInstance) {
           title: `Avatar: ${body.name?.trim() || "Character"}`,
           prompt: compiled.prompt,
           negativePrompt: compiled.negativePrompt,
-          width,
-          height,
+          width: previewSize.width,
+          height: previewSize.height,
         },
       ],
     };

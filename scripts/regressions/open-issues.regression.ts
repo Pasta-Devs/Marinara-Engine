@@ -90,6 +90,8 @@ import {
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   detectNovelAiSubjectCount,
+  resolveNovelAiDefaults,
+  resolveNovelAiRequestSize,
   resolveNovelAiSize,
 } from "../../packages/server/src/services/image/image-generation.js";
 import { DEFAULT_NOVELAI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
@@ -98,7 +100,10 @@ import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
 } from "../../packages/server/src/services/image/illustrator-prompt-review.js";
-import { resolveReviewedImagePromptSubmission } from "../../packages/server/src/services/image/image-prompt-review.js";
+import {
+  resolveImagePromptReviewSize,
+  resolveReviewedImagePromptSubmission,
+} from "../../packages/server/src/services/image/image-prompt-review.js";
 import {
   cleanupStagedProfileAssets,
   promoteStagedProfileAssets,
@@ -1609,9 +1614,87 @@ const legacyNovelAiProfile = {
   seed: -1,
   novelai: { promptPrefix: "2girls" },
 } as unknown as ImageGenerationDefaultsProfile;
+assert.deepEqual(resolveNovelAiDefaults({ prompt: "1boy", imageDefaults: legacyNovelAiProfile }), {
+  ...DEFAULT_NOVELAI_DEFAULTS,
+  promptPrefix: "2girls",
+});
 assert.deepEqual(
   resolveNovelAiSize({ prompt: "1boy", width: 1216, height: 832, imageDefaults: legacyNovelAiProfile }, "1boy"),
   { width: 832, height: 1216 },
+);
+const nativeNovelAiConnection = {
+  baseUrl: "https://image.novelai.net",
+  model: "nai-diffusion-4-5-full",
+  imageService: "novelai",
+};
+const prefixedNovelAiProfile = {
+  version: 1,
+  service: "novelai",
+  seed: -1,
+  novelai: { ...DEFAULT_NOVELAI_DEFAULTS, promptPrefix: "2girls" },
+} satisfies ImageGenerationDefaultsProfile;
+assert.deepEqual(
+  resolveNovelAiRequestSize({
+    prompt: "1boy",
+    width: 1216,
+    height: 832,
+    model: nativeNovelAiConnection.model,
+    imageDefaults: prefixedNovelAiProfile,
+  }),
+  { width: 832, height: 1216 },
+);
+assert.deepEqual(
+  resolveImagePromptReviewSize({
+    connection: nativeNovelAiConnection,
+    prompt: "1boy",
+    width: 1216,
+    height: 832,
+    imageDefaults: prefixedNovelAiProfile,
+  }),
+  { width: 832, height: 1216 },
+);
+assert.deepEqual(
+  resolveImagePromptReviewSize({
+    connection: nativeNovelAiConnection,
+    prompt: "1girl, 1boy, 1other",
+    width: 832,
+    height: 1216,
+    imageDefaults: prefixedNovelAiProfile,
+  }),
+  { width: 1216, height: 832 },
+);
+assert.deepEqual(
+  resolveImagePromptReviewSize({
+    connection: nativeNovelAiConnection,
+    prompt: "1boy",
+    width: 1216,
+    height: 832,
+    imageDefaults: {
+      ...prefixedNovelAiProfile,
+      novelai: { ...prefixedNovelAiProfile.novelai!, dynamicResolutionBySubjectCount: false },
+    },
+  }),
+  { width: 1216, height: 832 },
+);
+assert.deepEqual(
+  resolveImagePromptReviewSize({
+    connection: { ...nativeNovelAiConnection, baseUrl: "https://novelai-proxy.example.com" },
+    prompt: "1boy",
+    width: 1216,
+    height: 832,
+    imageDefaults: prefixedNovelAiProfile,
+  }),
+  { width: 1216, height: 832 },
+);
+assert.deepEqual(
+  resolveImagePromptReviewSize({
+    connection: { baseUrl: "https://api.openai.com", model: "gpt-image-1", imageService: "openai" },
+    prompt: "1boy",
+    width: 1024,
+    height: 1024,
+    imageDefaults: null,
+  }),
+  { width: 1024, height: 1024 },
 );
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;

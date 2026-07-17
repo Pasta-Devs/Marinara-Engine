@@ -53,6 +53,7 @@ import { generateImage, saveImageToDisk } from "../services/image/image-generati
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import {
   loadPrompt,
   NOODLE_IMAGE_POST,
@@ -1247,6 +1248,13 @@ async function generateNoodlePostImage(input: {
   }
 
   if (input.previewOnly) {
+    const previewSize = resolveImagePromptReviewSize({
+      connection: input.imageConnection,
+      prompt: finalPrompt,
+      width: imageSettings.illustration.width,
+      height: imageSettings.illustration.height,
+      imageDefaults,
+    });
     return {
       imageUrl: null,
       metadata: {},
@@ -1255,8 +1263,8 @@ async function generateNoodlePostImage(input: {
         title: `${input.account.displayName} Noodle image`,
         prompt: finalPrompt,
         negativePrompt: finalNegativePrompt,
-        width: imageSettings.illustration.width,
-        height: imageSettings.illustration.height,
+        width: previewSize.width,
+        height: previewSize.height,
       },
     };
   }

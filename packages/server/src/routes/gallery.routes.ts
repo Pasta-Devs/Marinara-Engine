@@ -34,7 +34,10 @@ import { generateImage, saveImageToDisk } from "../services/image/image-generati
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
-import { resolveReviewedImagePromptSubmission } from "../services/image/image-prompt-review.js";
+import {
+  resolveImagePromptReviewSize,
+  resolveReviewedImagePromptSubmission,
+} from "../services/image/image-prompt-review.js";
 import { runImageGenerationRequest } from "../services/image/image-generation-queue.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
 import {
@@ -1067,6 +1070,13 @@ export async function galleryRoutes(app: FastifyInstance) {
     const providerNegativePrompt = promptSubmission.negativePrompt;
 
     if (input.previewOnly) {
+      const previewSize = resolveImagePromptReviewSize({
+        connection: imageConn,
+        prompt: providerPrompt,
+        width,
+        height,
+        imageDefaults,
+      });
       return {
         items: [
           {
@@ -1075,8 +1085,8 @@ export async function galleryRoutes(app: FastifyInstance) {
             title: `${characterName} selfie`,
             prompt: providerPrompt,
             ...(providerNegativePrompt ? { negativePrompt: providerNegativePrompt } : {}),
-            width,
-            height,
+            width: previewSize.width,
+            height: previewSize.height,
           },
         ],
       };

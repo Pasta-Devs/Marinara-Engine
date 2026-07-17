@@ -73,6 +73,7 @@ import { resolveImageConnectionFallback } from "../../services/generation/media-
 import type { GenerationFallbackNotifier } from "../../services/generation/fallback-notification.js";
 import { createReplyFallbackNotifier } from "./fallback-notification.js";
 import { runImageGenerationRequest } from "../../services/image/image-generation-queue.js";
+import { resolveImagePromptReviewSize } from "../../services/image/image-prompt-review.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -3128,6 +3129,13 @@ async function applyRetryResultEffects(args: {
             });
 
             if (reviewImagePromptsBeforeSend && !illustratorPromptReviewOverride) {
+              const previewSize = resolveImagePromptReviewSize({
+                connection: imgConnFull,
+                prompt: promptSubmission.prompt,
+                width: imgWidth,
+                height: imgHeight,
+                imageDefaults,
+              });
               sendSseEvent(reply, {
                 type: "image_prompt_review",
                 data: {
@@ -3138,8 +3146,8 @@ async function applyRetryResultEffects(args: {
                     title: "Scene illustration",
                     prompt: promptSubmission.prompt,
                     ...(promptSubmission.negativePrompt ? { negativePrompt: promptSubmission.negativePrompt } : {}),
-                    width: imgWidth,
-                    height: imgHeight,
+                    width: previewSize.width,
+                    height: previewSize.height,
                   },
                   resultData: illData,
                 },

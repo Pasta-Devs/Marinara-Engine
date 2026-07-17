@@ -48,6 +48,7 @@ import { generateImage } from "../services/image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
+import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import {
   resolveImageConnectionFallback,
   resolveVideoConnectionFallback,
@@ -1559,14 +1560,21 @@ export async function spritesRoutes(app: FastifyInstance) {
             compiledPrompt,
           );
           const finalPrompt = withSpriteBackgroundContract(reviewedPrompt.value, plan);
+          const previewSize = resolveImagePromptReviewSize({
+            connection: conn,
+            prompt: finalPrompt.prompt,
+            width: 1024,
+            height: 1024,
+            imageDefaults,
+          });
           return {
             id: spritePromptReviewId("expression", plan.spriteType, expression),
             kind: "sprite",
             title: `Expression: ${expression.replace(/_/g, " ")}`,
             prompt: finalPrompt.prompt,
             negativePrompt: finalPrompt.negativePrompt,
-            width: 1024,
-            height: 1024,
+            width: previewSize.width,
+            height: previewSize.height,
           };
         }),
       );
@@ -1590,6 +1598,13 @@ export async function spritesRoutes(app: FastifyInstance) {
       }),
       plan,
     );
+    const previewSize = resolveImagePromptReviewSize({
+      connection: conn,
+      prompt: finalPrompt.prompt,
+      width: plan.sheetWidth,
+      height: plan.sheetHeight,
+      imageDefaults,
+    });
     return {
       items: [
         {
@@ -1601,8 +1616,8 @@ export async function spritesRoutes(app: FastifyInstance) {
               : `Expression sprites: ${plan.cols}x${plan.rows}`,
           prompt: finalPrompt.prompt,
           negativePrompt: finalPrompt.negativePrompt,
-          width: plan.sheetWidth,
-          height: plan.sheetHeight,
+          width: previewSize.width,
+          height: previewSize.height,
         },
       ],
     };

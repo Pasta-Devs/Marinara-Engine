@@ -1460,6 +1460,16 @@ export function resolveNovelAiSize(
   return { width, height };
 }
 
+/** Resolve the native NovelAI request size from scene content only, excluding the connection Prompt Prefix. */
+export function resolveNovelAiRequestSize(
+  request: ImageGenRequest,
+  defaults: NovelAiDefaults = resolveNovelAiDefaults(request),
+): { width: number; height: number } {
+  const model = request.model || "nai-diffusion-4-5-full";
+  const scenePrompt = isNovelAiV4Model(model) ? sanitizeNovelAiV4Prompt(request.prompt) : request.prompt;
+  return resolveNovelAiSize(request, scenePrompt, defaults);
+}
+
 function isNovelAiV4Model(model: string): boolean {
   return /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?)$/i.test(model.trim());
 }
@@ -1717,7 +1727,7 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
   }
   const directorReferenceImages = await prepareNovelAiDirectorReferenceImages(referenceImages);
   const characterPromptPayload = buildNovelAiV4CharacterPromptPayload(request.characterPrompts, model);
-  const size = resolveNovelAiSize(request, mergedPrompt, defaults);
+  const size = resolveNovelAiRequestSize(request, defaults);
 
   const parameters: Record<string, unknown> = {
     width: size.width,
@@ -2329,9 +2339,9 @@ function resolveSeed(profile: ImageGenerationDefaultsProfile | null | undefined)
   return typeof profile?.seed === "number" && profile.seed >= 0 ? profile.seed : randomSeed();
 }
 
-function resolveNovelAiDefaults(request: ImageGenRequest): NovelAiDefaults {
+export function resolveNovelAiDefaults(request: ImageGenRequest): NovelAiDefaults {
   if (request.imageDefaults?.service === "novelai" && request.imageDefaults.novelai) {
-    return request.imageDefaults.novelai;
+    return { ...DEFAULT_NOVELAI_DEFAULTS, ...request.imageDefaults.novelai };
   }
   return DEFAULT_NOVELAI_DEFAULTS;
 }

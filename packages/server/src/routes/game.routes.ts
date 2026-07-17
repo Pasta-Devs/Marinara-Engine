@@ -210,6 +210,7 @@ import {
 } from "../services/video/video-generation.js";
 import { resolveGameVideoRuntime, type GameVideoRuntime } from "../services/video/game-video-runtime.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
+import { resolveImagePromptReviewSize } from "../services/image/image-prompt-review.js";
 import {
   resolveImageConnectionFallback,
   resolveVideoConnectionFallback,
@@ -10595,14 +10596,21 @@ export async function gameRoutes(app: FastifyInstance) {
                 compiled.negativePrompt,
               );
             }
+            const previewSize = resolveImagePromptReviewSize({
+              connection: imgConn,
+              prompt: compiled.prompt,
+              width: backgroundSize.width,
+              height: backgroundSize.height,
+              imageDefaults: imgDefaults,
+            });
             return {
               id: `storyboard:${frameIndex}`,
               kind: "illustration" as const,
               title: `Keyframe ${frameIndex + 1}: ${plannedFrame.title}`,
               prompt: compiled.prompt,
               negativePrompt: compiled.negativePrompt,
-              width: backgroundSize.width,
-              height: backgroundSize.height,
+              width: previewSize.width,
+              height: previewSize.height,
             };
           }),
         );
@@ -11243,6 +11251,14 @@ export async function gameRoutes(app: FastifyInstance) {
     const imgServiceHint = imgConn.imageService || imgSource;
     const imgEndpointId = imgConn.imageEndpointId || undefined;
     const imgDefaults = resolveConnectionImageDefaults(imgConn);
+    const previewSizeFor = (prompt: string, size: ImageGenerationSize) =>
+      resolveImagePromptReviewSize({
+        connection: imgConn,
+        prompt,
+        width: size.width,
+        height: size.height,
+        imageDefaults: imgDefaults,
+      });
     const promptOverridesStorage = createPromptOverridesStorage(app.db);
     const promptOverrideById = new Map(
       (input.promptOverrides ?? []).map((item) => [
@@ -11319,14 +11335,15 @@ export async function gameRoutes(app: FastifyInstance) {
         promptOverride: promptOverride?.prompt,
         negativePromptOverride: promptOverride?.negativePrompt,
       });
+      const previewSize = previewSizeFor(compiledReviewPrompt.prompt, backgroundSize);
       items.push({
         id: gameImagePromptReviewId("background", slug),
         kind: "background",
         title: `Background: ${slug}`,
         prompt: compiledReviewPrompt.prompt,
         negativePrompt: compiledReviewPrompt.negativePrompt,
-        width: backgroundSize.width,
-        height: backgroundSize.height,
+        width: previewSize.width,
+        height: previewSize.height,
       });
     }
 
@@ -11436,14 +11453,15 @@ export async function gameRoutes(app: FastifyInstance) {
           promptOverride: promptOverride?.prompt,
           negativePromptOverride: promptOverride?.negativePrompt,
         });
+        const previewSize = previewSizeFor(compiledReviewPrompt.prompt, backgroundSize);
         items.push({
           id: gameImagePromptReviewId("illustration", illustrationReviewKey),
           kind: "illustration",
           title: illustration.reason ? `Illustration: ${illustration.reason}` : "Scene illustration",
           prompt: compiledReviewPrompt.prompt,
           negativePrompt: compiledReviewPrompt.negativePrompt,
-          width: backgroundSize.width,
-          height: backgroundSize.height,
+          width: previewSize.width,
+          height: previewSize.height,
         });
       }
     }
@@ -11526,14 +11544,15 @@ export async function gameRoutes(app: FastifyInstance) {
             promptOverride: promptOverride?.prompt,
             negativePromptOverride: promptOverride?.negativePrompt,
           });
+          const previewSize = previewSizeFor(compiledReviewPrompt.prompt, portraitSize);
           portraitPreviewItems[index] = {
             id: gameImagePromptReviewId("portrait", npc.name),
             kind: "portrait",
             title: `Portrait: ${npc.name}`,
             prompt: compiledReviewPrompt.prompt,
             negativePrompt: compiledReviewPrompt.negativePrompt,
-            width: portraitSize.width,
-            height: portraitSize.height,
+            width: previewSize.width,
+            height: previewSize.height,
           };
         }
       };
