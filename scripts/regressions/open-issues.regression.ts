@@ -1619,7 +1619,7 @@ assert.deepEqual(resolveNovelAiDefaults({ prompt: "1boy", imageDefaults: legacyN
   promptPrefix: "2girls",
 });
 assert.deepEqual(
-  resolveNovelAiSize({ prompt: "1boy", width: 1216, height: 832, imageDefaults: legacyNovelAiProfile }, "1boy"),
+  resolveNovelAiSize({ prompt: "1boy", width: 1216, height: 832, imageDefaults: legacyNovelAiProfile }),
   { width: 832, height: 1216 },
 );
 const nativeNovelAiConnection = {
