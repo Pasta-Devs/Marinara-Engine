@@ -72,10 +72,7 @@ import {
   resolveGameSetupImport,
   type GameSetupShareSource,
 } from "../../packages/client/src/lib/game-setup-share.js";
-import {
-  getTemperatureGaugeDisplay,
-  parsePureTemperatureValue,
-} from "../../packages/client/src/features/tracker-panel/lib/world-state-display.js";
+import { getTemperatureGaugeDisplay } from "../../packages/client/src/lib/world-state-helpers.js";
 import {
   resolveStandardEmojiShortcode,
   searchStandardEmojiShortcodes,
@@ -779,9 +776,8 @@ assert.equal(
 );
 assert.equal(bulkUpdateLorebookEntriesSchema.safeParse({ entryIds: ["entry-1"], changes: {} }).success, false);
 
-assert.equal(parsePureTemperatureValue("15°C"), 15);
-assert.equal(parsePureTemperatureValue("59 Fahrenheit"), 15);
-assert.equal(parsePureTemperatureValue("Around 15°C, windy skies ahead"), null);
+assert.equal(getTemperatureGaugeDisplay("15°C", "celsius").label, "15°C");
+assert.equal(getTemperatureGaugeDisplay("59 Fahrenheit", "celsius").label, "15°C");
 assert.equal(
   getTemperatureGaugeDisplay("Around 15°C, windy skies ahead", "celsius").label,
   "Around 15°C, windy skies ahead",

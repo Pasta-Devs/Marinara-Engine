@@ -158,7 +158,7 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
       )}
       style={trackerPanelSurfaceStyle}
     >
-      <div className="pointer-events-none absolute inset-0 z-0 opacity-[0.08] [background-image:linear-gradient(color-mix(in_srgb,var(--foreground)_12%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--foreground)_9%,transparent)_1px,transparent_1px)] [background-size:8px_8px]" />
+      <div className="pointer-events-none absolute inset-0 z-0 opacity-[0.11] [background-image:linear-gradient(color-mix(in_srgb,var(--foreground)_12%,transparent)_1px,transparent_1px),linear-gradient(90deg,color-mix(in_srgb,var(--foreground)_9%,transparent)_1px,transparent_1px)] [background-size:8px_8px]" />
       <TrackerLockProvider
         fieldLocks={fieldLocks}
         hiddenTrackerFields={hiddenTrackerFields}

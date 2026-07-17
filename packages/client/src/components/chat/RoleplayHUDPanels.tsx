@@ -1575,7 +1575,7 @@ export function CombinedWorldPanel({
           onToggleLock={weatherLock.onToggle}
         />
         <WorldFieldRow
-          icon={<Thermometer size="0.8125rem" className={tempColor} />}
+          icon={<Thermometer size="0.8125rem" style={{ color: tempColor }} />}
           label="Temperature"
           value={temperature}
           onSave={onSaveTemperature}

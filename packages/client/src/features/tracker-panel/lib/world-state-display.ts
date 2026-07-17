@@ -1,409 +1,247 @@
 import type { CSSProperties } from "react";
 import type { TrackerTemperatureUnit } from "../../../stores/ui.store";
+import {
+  classifyWorldWeather,
+  getTemperatureGaugeDisplay,
+  getWorldTimeDisplay,
+  type WorldWeatherFamily,
+} from "../../../lib/world-state-helpers";
 import { visibleText } from "./tracker-display";
 
-// Row 1 holds Date / Time / Forecast; the forecast column flexes to fill the
-// remaining width so weather is never squeezed. Location renders on its own
-// full-width row below (see WorldStatePanel), so no per-tile width balancing is
-// needed. Word-based times ("Afternoon") get a wider Time column so the word
-// stays readable and wraps on spaces instead of shrinking; clock times keep the
-// compact 3.25rem column.
-export const WORLD_GRID_BASE_CLASS = "grid-cols-[2.5rem_3.25rem_minmax(0,1fr)]";
-export const WORLD_GRID_PHRASE_TIME_CLASS = "grid-cols-[2.5rem_4.5rem_minmax(0,1fr)]";
-export const WORLD_FREEFORM_DATE_GRID_BASE_CLASS = "grid-cols-[minmax(3.8rem,4.45rem)_3.25rem_minmax(0,1fr)]";
-export const WORLD_FREEFORM_DATE_GRID_PHRASE_TIME_CLASS = "grid-cols-[minmax(3.8rem,4.45rem)_4.5rem_minmax(0,1fr)]";
+export type WorldSceneGlyph = "sun" | "moon" | "cloud" | "rain" | "snow" | "storm" | "fog" | "wind" | "fire";
+type WorldSceneTone = "warm" | "cool" | "muted" | "neutral";
+type WorldTimeDisplay = ReturnType<typeof getWorldTimeDisplay>;
+type WorldTimeOfDay = WorldTimeDisplay["timeOfDay"];
 
-export const WORLD_MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
-export const WORLD_MONTH_ALIASES: Record<string, number> = {
-  jan: 0,
-  january: 0,
-  feb: 1,
-  february: 1,
-  mar: 2,
-  march: 2,
-  apr: 3,
-  april: 3,
-  may: 4,
-  jun: 5,
-  june: 5,
-  jul: 6,
-  july: 6,
-  aug: 7,
-  august: 7,
-  sep: 8,
-  sept: 8,
-  september: 8,
-  oct: 9,
-  october: 9,
-  nov: 10,
-  november: 10,
-  dec: 11,
-  december: 11,
+interface WorldScenePresentation {
+  glyph?: WorldSceneGlyph;
+  tone: WorldSceneTone;
+}
+
+interface TrackerWeatherStyle {
+  tone: string;
+  accent: string;
+  scene?: WorldScenePresentation;
+}
+
+/**
+ * Select one conservative cue for the whole scene. Individual field
+ * presentations remain authoritative; this is only a compact, optional hint.
+ */
+function getWorldScenePresentation({
+  time,
+  weatherFamily,
+  weatherText,
+}: {
+  time: WorldTimeDisplay;
+  weatherFamily: WorldWeatherFamily;
+  weatherText: string;
+}): WorldScenePresentation {
+  const normalizedWeather = weatherText.toLowerCase();
+  const mentionsDay = /\b(day|daylight|morning|noon|afternoon|sunrise|sunny|sunlit)\b/.test(normalizedWeather);
+  const mentionsNight = /\b(night|nighttime|midnight|evening|dusk|moonlit|starlit)\b/.test(normalizedWeather);
+  const hasTimeConflict =
+    (time.timeOfDay === "night" && mentionsDay) ||
+    ((time.timeOfDay === "dawn" || time.timeOfDay === "day") && mentionsNight);
+
+  if (hasTimeConflict) return { tone: "neutral" };
+
+  if (weatherFamily === "clear") {
+    if (time.timeOfDay === "night") return { glyph: "moon", tone: "cool" };
+    if (time.timeOfDay === "dawn" || time.timeOfDay === "day") {
+      return { glyph: "sun", tone: "warm" };
+    }
+  }
+
+  const configuredScene = TRACKER_WEATHER_STYLES[weatherFamily].scene;
+  if (configuredScene) return configuredScene;
+  if (time.timeOfDay === "night") return { glyph: "moon", tone: "cool" };
+
+  return { tone: "neutral" };
+}
+
+interface WorldStateInputs {
+  time?: string | null;
+  weather?: string | null;
+  temperature?: string | null;
+}
+
+type WorldAmbienceStyle = CSSProperties & Record<`--${string}`, string | number>;
+
+const WORLD_TIME_TONE: Record<WorldTimeOfDay, string> = {
+  dawn: "color-mix(in srgb, var(--primary) 15%, transparent)",
+  day: "color-mix(in srgb, var(--foreground) 8%, transparent)",
+  dusk: "color-mix(in srgb, color-mix(in srgb, var(--primary) 70%, var(--destructive) 30%) 15%, transparent)",
+  night: "color-mix(in srgb, var(--accent) 18%, transparent)",
+  unknown: "transparent",
 };
 
-function getFreeformDateParts(text: string) {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const ofMatch = normalized.match(/^(.+?)\s+of\s+(.+)$/i);
-  if (ofMatch) {
-    return {
-      main: ofMatch[2]!.trim(),
-      detail: ofMatch[1]!.trim(),
-    };
-  }
+const WORLD_TIME_ACCENT: Record<WorldTimeOfDay, string> = {
+  dawn: "oklch(0.8 0.13 72)",
+  day: "oklch(0.82 0.055 225)",
+  dusk: "oklch(0.72 0.135 38)",
+  night: "oklch(0.7 0.12 255)",
+  unknown: "var(--muted-foreground)",
+};
 
-  const commaParts = normalized.split(/\s*,\s*/).filter(Boolean);
-  if (commaParts.length > 1) {
-    return {
-      main: commaParts[0]!,
-      detail: commaParts.slice(1).join(", "),
-    };
-  }
+const TRACKER_WEATHER_STYLES: Record<WorldWeatherFamily, TrackerWeatherStyle> = {
+  thunder: {
+    tone: "color-mix(in srgb, var(--muted-foreground) 16%, transparent)",
+    accent: "oklch(0.68 0.14 285)",
+    scene: { glyph: "storm", tone: "muted" },
+  },
+  blizzard: {
+    tone: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+    accent: "oklch(0.86 0.07 220)",
+    scene: { glyph: "snow", tone: "cool" },
+  },
+  "heavy-rain": {
+    tone: "color-mix(in srgb, var(--muted-foreground) 16%, transparent)",
+    accent: "oklch(0.68 0.14 285)",
+    scene: { glyph: "storm", tone: "muted" },
+  },
+  rain: {
+    tone: "color-mix(in srgb, var(--primary) 10%, transparent)",
+    accent: "oklch(0.7 0.13 235)",
+    scene: { glyph: "rain", tone: "cool" },
+  },
+  hail: {
+    tone: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+    accent: "oklch(0.86 0.07 220)",
+    scene: { glyph: "snow", tone: "cool" },
+  },
+  snow: {
+    tone: "color-mix(in srgb, var(--foreground) 10%, transparent)",
+    accent: "oklch(0.86 0.07 220)",
+    scene: { glyph: "snow", tone: "cool" },
+  },
+  fog: {
+    tone: "color-mix(in srgb, var(--muted-foreground) 12%, transparent)",
+    accent: "oklch(0.72 0.035 240)",
+    scene: { glyph: "fog", tone: "muted" },
+  },
+  sand: {
+    tone: "color-mix(in srgb, var(--destructive) 9%, transparent)",
+    accent: "oklch(0.76 0.12 72)",
+    scene: { glyph: "wind", tone: "warm" },
+  },
+  ash: {
+    tone: "color-mix(in srgb, var(--muted-foreground) 14%, transparent)",
+    accent: "oklch(0.62 0.025 250)",
+    scene: { glyph: "fog", tone: "muted" },
+  },
+  fire: {
+    tone: "color-mix(in srgb, var(--destructive) 12%, transparent)",
+    accent: "oklch(0.73 0.17 44)",
+    scene: { glyph: "fire", tone: "warm" },
+  },
+  wind: {
+    tone: "color-mix(in srgb, var(--foreground) 7%, transparent)",
+    accent: "oklch(0.76 0.09 210)",
+    scene: { glyph: "wind", tone: "cool" },
+  },
+  blossom: {
+    tone: "color-mix(in srgb, var(--primary) 10%, transparent)",
+    accent: "oklch(0.78 0.12 15)",
+    scene: { glyph: "sun", tone: "warm" },
+  },
+  aurora: {
+    tone: "color-mix(in srgb, var(--accent) 15%, transparent)",
+    accent: "oklch(0.76 0.13 190)",
+    scene: { glyph: "moon", tone: "cool" },
+  },
+  cloud: {
+    tone: "color-mix(in srgb, var(--muted-foreground) 10%, transparent)",
+    accent: "oklch(0.7 0.035 235)",
+    scene: { glyph: "cloud", tone: "muted" },
+  },
+  clear: {
+    tone: "color-mix(in srgb, var(--primary) 9%, transparent)",
+    accent: "oklch(0.81 0.12 85)",
+  },
+  heat: {
+    tone: "color-mix(in srgb, var(--destructive) 12%, transparent)",
+    accent: "oklch(0.7 0.17 38)",
+    scene: { glyph: "fire", tone: "warm" },
+  },
+  cold: {
+    tone: "color-mix(in srgb, var(--primary) 9%, transparent)",
+    accent: "oklch(0.74 0.11 235)",
+    scene: { glyph: "snow", tone: "cool" },
+  },
+  atmosphere: {
+    tone: "transparent",
+    accent: "var(--muted-foreground)",
+  },
+};
 
-  const words = normalized.split(" ");
-  if (words.length > 2) {
-    return {
-      main: words.slice(0, 2).join(" "),
-      detail: words.slice(2).join(" "),
-    };
-  }
+const WORLD_SCENE_INK: Record<WorldSceneTone, string> = {
+  cool: "oklch(0.76 0.105 232)",
+  warm: "oklch(0.79 0.125 76)",
+  muted: "color-mix(in oklch, var(--muted-foreground) 78%, var(--foreground) 22%)",
+  neutral: "color-mix(in oklch, var(--muted-foreground) 64%, var(--foreground) 36%)",
+};
 
-  return {
-    main: normalized,
-    detail: "",
-  };
-}
-
-function getCalendarDateDisplay({
-  month,
-  day,
-  year = "",
-  raw,
+function getWorldAmbienceStyle({
+  time,
+  weatherFamily,
+  hasWeatherText,
+  temperature,
+  scene,
 }: {
-  month: string;
-  day: string;
-  year?: string;
-  raw: string;
-}) {
-  return {
-    kind: "calendar" as const,
-    month,
-    day,
-    year,
-    raw,
-    main: "",
-    detail: "",
-  };
-}
+  time: WorldTimeDisplay;
+  weatherFamily: WorldWeatherFamily;
+  hasWeatherText: boolean;
+  temperature: ReturnType<typeof getTemperatureGaugeDisplay>;
+  scene: WorldScenePresentation;
+}): WorldAmbienceStyle {
+  const weatherStyle = TRACKER_WEATHER_STYLES[weatherFamily];
+  const sceneInk = WORLD_SCENE_INK[scene.tone];
+  const temperatureTone =
+    temperature.value === null ? "transparent" : `color-mix(in srgb, ${temperature.color} 8%, transparent)`;
+  const hasAtmosphere =
+    time.timeOfDay !== "unknown" ||
+    weatherFamily !== "atmosphere" ||
+    temperature.value !== null;
 
-export function getWorldDateDisplay(date: string | null | undefined) {
-  const text = (date ?? "").trim();
-  if (!text) return { kind: "empty" as const, month: "DATE", day: "--", year: "", raw: "", main: "", detail: "" };
-
-  const isoMatch = text.match(/\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
-  if (isoMatch) {
-    const monthIndex = Number(isoMatch[2]) - 1;
-    return getCalendarDateDisplay({
-      month: WORLD_MONTH_LABELS[monthIndex] ?? "DATE",
-      day: String(Number(isoMatch[3])).padStart(2, "0"),
-      year: isoMatch[1]!,
-      raw: text,
-    });
-  }
-
-  const numericDate = text.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
-  if (numericDate) {
-    const first = Number(numericDate[1]);
-    const second = Number(numericDate[2]);
-    const day = first > 12 ? first : second;
-    const monthIndex = (first > 12 ? second : first) - 1;
-    return getCalendarDateDisplay({
-      month: WORLD_MONTH_LABELS[monthIndex] ?? "DATE",
-      day: String(day).padStart(2, "0"),
-      year: numericDate[3]!,
-      raw: text,
-    });
-  }
-
-  const namedMonthFirst = text.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{2,4}))?\b/i,
-  );
-  if (namedMonthFirst) {
-    const monthIndex = WORLD_MONTH_ALIASES[namedMonthFirst[1]!.toLowerCase()];
-    return getCalendarDateDisplay({
-      month: monthIndex === undefined ? "DATE" : (WORLD_MONTH_LABELS[monthIndex] ?? "DATE"),
-      day: String(Number(namedMonthFirst[2])).padStart(2, "0"),
-      year: namedMonthFirst[3] ?? "",
-      raw: text,
-    });
-  }
-
-  const dayFirst = text.match(
-    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\.|,)?(?:\s+(\d{2,4}))?\b/i,
-  );
-  if (dayFirst) {
-    const monthIndex = WORLD_MONTH_ALIASES[dayFirst[2]!.toLowerCase()];
-    return getCalendarDateDisplay({
-      month: monthIndex === undefined ? "DATE" : (WORLD_MONTH_LABELS[monthIndex] ?? "DATE"),
-      day: String(Number(dayFirst[1])).padStart(2, "0"),
-      year: dayFirst[3] ?? "",
-      raw: text,
-    });
-  }
-
-  const freeform = getFreeformDateParts(text);
-  return {
-    kind: "freeform" as const,
-    month: "DATE",
-    day: "",
-    year: "",
-    raw: text,
-    main: freeform.main,
-    detail: freeform.detail,
-  };
-}
-
-export type WorldDateDisplay = ReturnType<typeof getWorldDateDisplay>;
-
-export function getWorldTimeDisplay(time: string | null | undefined) {
-  const text = (time ?? "").trim();
-  if (!text) return { kind: "empty" as const, main: "--:--", suffix: "", raw: "", hour: null, minute: null };
-
-  const meridiem = text.match(/\b(1[0-2]|0?\d)(?::([0-5]\d))?\s*([ap])\.?m?\.?\b/i);
-  if (meridiem) {
-    const displayHour = Number(meridiem[1]);
-    const minute = Number(meridiem[2] ?? "00");
-    const marker = meridiem[3]!.toLowerCase();
-    const hour = marker === "p" ? (displayHour % 12) + 12 : displayHour % 12;
-    return {
-      kind: "clock" as const,
-      main: `${meridiem[1]!.padStart(2, "0")}:${meridiem[2] ?? "00"}`,
-      suffix: `${meridiem[3]!.toUpperCase()}M`,
-      hour,
-      minute,
-      raw: text,
-    };
-  }
-
-  const twentyFourHour = text.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
-  if (twentyFourHour) {
-    const hour = Number(twentyFourHour[1]);
-    const minute = Number(twentyFourHour[2]);
-    return {
-      kind: "clock" as const,
-      main: `${twentyFourHour[1]!.padStart(2, "0")}:${twentyFourHour[2]}`,
-      suffix: "",
-      hour,
-      minute,
-      raw: text,
-    };
-  }
-
-  // Word-based time ("Late", "Midnight", "Just before dawn") — no clock face,
-  // shown as a wrapped phrase so it is never truncated to "Late...".
-  return { kind: "phrase" as const, main: text, suffix: "", raw: text, hour: null, minute: null };
-}
-
-export function getWeatherEmoji(weather: string | null | undefined) {
-  const text = (weather ?? "").toLowerCase();
-  if (text.includes("thunder") || text.includes("lightning")) return "⛈️";
-  if (text.includes("blizzard")) return "🌨️";
-  if (text.includes("heavy rain") || text.includes("downpour") || text.includes("storm")) return "🌧️";
-  if (text.includes("rain") || text.includes("drizzle") || text.includes("shower")) return "🌦️";
-  if (text.includes("hail")) return "🧊";
-  if (text.includes("snow") || text.includes("sleet") || text.includes("frost")) return "❄️";
-  if (text.includes("fog") || text.includes("mist") || text.includes("haze")) return "🌫️";
-  if (text.includes("sand") || text.includes("dust")) return "🏜️";
-  if (text.includes("ash") || text.includes("volcanic") || text.includes("smoke")) return "🌋";
-  if (text.includes("ember") || text.includes("fire") || text.includes("inferno")) return "🔥";
-  if (text.includes("wind") || text.includes("breez") || text.includes("gust")) return "💨";
-  if (text.includes("cherry") || text.includes("blossom") || text.includes("petal")) return "🌸";
-  if (text.includes("aurora") || text.includes("northern light")) return "🌌";
-  if (text.includes("cloud") || text.includes("overcast") || text.includes("grey") || text.includes("gray"))
-    return "☁️";
-  if (text.includes("clear") || text.includes("sunny") || text.includes("bright")) return "☀️";
-  if (text.includes("hot") || text.includes("swelter")) return "🥵";
-  if (text.includes("cold") || text.includes("freez")) return "🥶";
-  return "🌤️";
-}
-
-export function parseTemperatureValue(temperature: string | null | undefined) {
-  const match = (temperature ?? "").match(/(-?\d+(?:\.\d+)?)(?:\s*°?\s*(f(?:ahrenheit)?|c(?:elsius)?)\b)?/i);
-  if (!match) return null;
-  const numeric = parseFloat(match[1]!);
-  const unit = match[2]?.toLowerCase();
-  if (unit?.startsWith("f")) return (numeric - 32) * (5 / 9);
-  return numeric;
-}
-
-/** Parse a temperature only when the entire value is numeric, with an optional unit. */
-export function parsePureTemperatureValue(temperature: string | null | undefined) {
-  const match = (temperature ?? "").match(/^\s*([+-]?\d+(?:\.\d+)?)\s*°?\s*(f(?:ahrenheit)?|c(?:elsius)?)?\s*$/i);
-  if (!match) return null;
-  const numeric = parseFloat(match[1]!);
-  return match[2]?.toLowerCase().startsWith("f") ? (numeric - 32) * (5 / 9) : numeric;
-}
-
-function formatTemperatureValue(celsius: number, unit: TrackerTemperatureUnit) {
-  if (unit === "fahrenheit") return `${Math.round(celsius * (9 / 5) + 32)}°F`;
-  return `${Math.round(celsius)}°C`;
-}
-
-export function getTemperatureKeywordHint(temperature: string | null | undefined) {
-  const text = (temperature ?? "").toLowerCase();
-  if (/\b(freez|frigid|arctic|glacial|sub-?zero|blizzard)/.test(text)) return -10;
-  if (/\b(cold|chill|frost|wintry|icy|bitter|nipp)/.test(text)) return 2;
-  if (/\b(cool|brisk|crisp|refresh)/.test(text)) return 12;
-  if (/\b(mild|pleasant|comfort|temperate|fair)/.test(text)) return 20;
-  if (/\b(warm|balmy|toasty|muggy|humid|stuffy|sultry)/.test(text)) return 28;
-  if (/\b(hot|swelter|blaz|scorch|burn|heat|boil|sear|bak)/.test(text)) return 38;
-  return null;
-}
-
-export function getTemperatureColor(temperature: string | null | undefined) {
-  const parsed = parseTemperatureValue(temperature);
-  const value = parsed ?? getTemperatureKeywordHint(temperature);
-  if (value === null) return "text-[var(--muted-foreground)]/70";
-  if (value < 0) return "text-blue-400";
-  if (value < 15) return "text-sky-400";
-  if (value < 30) return "text-lime-500";
-  return "text-red-400";
-}
-
-export function getTemperatureGaugeDisplay(
-  temperature: string | null | undefined,
-  unit: TrackerTemperatureUnit = "celsius",
-) {
-  const parsed = parseTemperatureValue(temperature);
-  const pureParsed = parsePureTemperatureValue(temperature);
-  const hinted = getTemperatureKeywordHint(temperature);
-  const value = parsed ?? hinted;
-  const percent =
-    value === null ? 42 : Math.max(8, Math.min(96, Math.round(((Math.max(-12, Math.min(42, value)) + 12) / 54) * 100)));
-  const color =
-    value === null
-      ? "color-mix(in srgb, var(--foreground) 42%, var(--muted-foreground) 28%)"
-      : value < 0
-        ? "rgb(96 165 250)"
-        : value < 15
-          ? "rgb(56 189 248)"
-          : value < 30
-            ? "rgb(132 204 22)"
-            : "rgb(248 113 113)";
-
-  return {
-    color,
-    label: pureParsed !== null ? formatTemperatureValue(pureParsed, unit) : visibleText(temperature, "--"),
-    percent,
-  };
-}
-
-export function getLocationPinColor(location: string | null | undefined) {
-  const text = (location ?? "").toLowerCase();
-  if (
-    /\b(sea|ocean|lake|river|pond|creek|bay|shore|beach|harbor|harbour|port|coast|marsh|swamp|waterfall|spring|well|dock|canal|dam|reef|lagoon|estuary|fjord|cove)\b/.test(
-      text,
-    )
-  ) {
-    return "text-blue-400";
-  }
-  if (
-    /\b(mountain|hill|cliff|peak|ridge|canyon|gorge|cave|cavern|mine|quarry|summit|bluff|crag|volcano|crater|mesa|plateau|ravine|boulder)\b/.test(
-      text,
-    )
-  ) {
-    return "text-amber-700";
-  }
-  if (
-    /\b(city|town|village|castle|palace|fortress|market|shop|inn|tavern|bar|pub|guild|district|quarter|bazaar|temple|church|cathedral|shrine|tower|gate|square|plaza|street|alley|arena|throne|court|capitol|capital|metro|subway)\b/.test(
-      text,
-    )
-  ) {
-    return "text-sky-400";
-  }
-  if (
-    /\b(room|hall|chamber|dungeon|cellar|basement|attic|library|study|bedroom|kitchen|office|lab|laboratory|vault|corridor|passage|cabin|hut|tent|interior|house|home|building|apartment|manor|lodge|dormitor|warehouse|prison|cell|jail)\b/.test(
-      text,
-    )
-  ) {
-    return "text-amber-300";
-  }
-  return "text-emerald-400";
-}
-
-export function getWorldDateIconColor(date: string | null | undefined) {
-  const text = (date ?? "").trim();
-  if (!text) return "text-[var(--muted-foreground)]/70";
-
-  const display = getWorldDateDisplay(text);
-  const normalized = `${text} ${display.main} ${display.detail}`.toLowerCase();
-  const monthIndex =
-    display.month !== "DATE" ? WORLD_MONTH_LABELS.indexOf(display.month) : inferMonthIndexFromText(normalized);
-
-  if (/\b(winter|snow|frost|yuletide|christmas|yule|solstice)\b/.test(normalized)) return "text-sky-300";
-  if (/\b(spring|blossom|bloom|equinox)\b/.test(normalized)) return "text-emerald-300";
-  if (/\b(summer|midsummer|sunny|heatwave)\b/.test(normalized)) return "text-yellow-300";
-  if (/\b(autumn|fall|harvest|leaf|leaves)\b/.test(normalized)) return "text-orange-400";
-
-  if (monthIndex === 11 || monthIndex === 0 || monthIndex === 1) return "text-sky-300";
-  if (monthIndex >= 2 && monthIndex <= 4) return "text-emerald-300";
-  if (monthIndex >= 5 && monthIndex <= 7) return "text-yellow-300";
-  if (monthIndex >= 8 && monthIndex <= 10) return "text-orange-400";
-  return "text-zinc-200";
-}
-
-export function getWorldTimeIconColor(time: string | null | undefined) {
-  const text = (time ?? "").trim();
-  if (!text) return "text-[var(--muted-foreground)]/70";
-  const normalized = text.toLowerCase();
-
-  if (/\b(dawn|sunrise|morning|daybreak)\b/.test(normalized)) return "text-amber-300";
-  if (/\b(noon|midday|afternoon|daylight)\b/.test(normalized)) return "text-yellow-300";
-  if (/\b(dusk|sunset|twilight|evening|golden hour)\b/.test(normalized)) return "text-orange-400";
-  if (/\b(night|midnight|moon|moonlit|late)\b/.test(normalized)) return "text-indigo-300";
-
-  const display = getWorldTimeDisplay(text);
-  const hour = display.hour;
-  if (hour === null) return "text-amber-300";
-  if (hour >= 5 && hour < 10) return "text-amber-300";
-  if (hour >= 10 && hour < 17) return "text-yellow-300";
-  if (hour >= 17 && hour < 20) return "text-orange-400";
-  return "text-indigo-300";
-}
-
-export function getWeatherIconColor(weather: string | null | undefined) {
-  const text = (weather ?? "").toLowerCase();
-  if (!text) return "text-[var(--muted-foreground)]/70";
-  if (text.includes("thunder") || text.includes("lightning")) return "text-violet-300";
-  if (text.includes("blizzard") || text.includes("snow") || text.includes("sleet") || text.includes("frost"))
-    return "text-sky-300";
-  if (text.includes("heavy rain") || text.includes("downpour") || text.includes("storm")) return "text-blue-300";
-  if (text.includes("rain") || text.includes("drizzle") || text.includes("shower")) return "text-cyan-300";
-  if (text.includes("hail")) return "text-sky-200";
-  if (text.includes("fog") || text.includes("mist") || text.includes("haze")) return "text-zinc-300";
-  if (text.includes("sand") || text.includes("dust")) return "text-amber-300";
-  if (text.includes("ash") || text.includes("volcanic") || text.includes("smoke")) return "text-stone-300";
-  if (text.includes("ember") || text.includes("fire") || text.includes("inferno")) return "text-red-400";
-  if (text.includes("wind") || text.includes("breez") || text.includes("gust")) return "text-teal-300";
-  if (text.includes("cherry") || text.includes("blossom") || text.includes("petal"))
-    return "text-[var(--marinara-chat-chrome-panel-text)]";
-  if (text.includes("aurora") || text.includes("northern light"))
-    return "text-[var(--marinara-chat-chrome-panel-text)]";
-  if (text.includes("cloud") || text.includes("overcast") || text.includes("grey") || text.includes("gray"))
-    return "text-zinc-300";
-  if (text.includes("clear") || text.includes("sunny") || text.includes("bright")) return "text-yellow-300";
-  if (text.includes("hot") || text.includes("swelter")) return "text-red-400";
-  return "text-sky-300";
-}
-
-function inferMonthIndexFromText(text: string) {
-  for (const [alias, index] of Object.entries(WORLD_MONTH_ALIASES)) {
-    if (new RegExp(`\\b${alias}\\.?\\b`, "i").test(text)) return index;
-  }
-  return -1;
-}
-
-export function getWorldAmbienceStyle(): CSSProperties {
   return {
     background: "var(--tracker-panel-section-background, color-mix(in srgb, var(--card) 6%, transparent))",
+    "--tracker-world-time-tone": WORLD_TIME_TONE[time.timeOfDay],
+    "--tracker-world-weather-tone": weatherStyle.tone,
+    "--tracker-world-temperature-tone": temperatureTone,
+    "--tracker-world-time-accent": time.timeOfDay === "unknown" ? sceneInk : WORLD_TIME_ACCENT[time.timeOfDay],
+    "--tracker-world-weather-accent": hasWeatherText ? weatherStyle.accent : sceneInk,
+    "--tracker-world-temperature-accent": temperature.value !== null ? temperature.color : sceneInk,
+    "--tracker-world-scene-ink": sceneInk,
+    "--tracker-world-scene-wash": `color-mix(in oklch, ${sceneInk} 16%, transparent)`,
+    "--tracker-world-scene-stroke": `color-mix(in oklch, ${sceneInk} 34%, transparent)`,
+    "--tracker-world-atmosphere-opacity": hasAtmosphere ? "0.78" : "0.36",
   };
 }
+
+export function getWorldStatePresentation(
+  inputs: WorldStateInputs = {},
+  temperatureUnit: TrackerTemperatureUnit = "celsius",
+) {
+  const time = getWorldTimeDisplay(inputs.time);
+  const weatherText = visibleText(inputs.weather, "");
+  const weatherFamily = classifyWorldWeather(weatherText);
+  const temperature = getTemperatureGaugeDisplay(inputs.temperature, temperatureUnit);
+  const scene = getWorldScenePresentation({ time, weatherFamily, weatherText });
+
+  return {
+    time,
+    weatherText,
+    temperature,
+    sceneGlyph: scene.glyph,
+    ambienceStyle: getWorldAmbienceStyle({
+      time,
+      weatherFamily,
+      hasWeatherText: Boolean(weatherText),
+      temperature,
+      scene,
+    }),
+  } as const;
+}
+
+export type WorldStatePresentation = ReturnType<typeof getWorldStatePresentation>;

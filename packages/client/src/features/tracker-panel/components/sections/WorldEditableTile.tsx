@@ -1,32 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Lock, Pencil, Unlock } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import { visibleText } from "../../lib/tracker-display";
 
-export function WorldTileShell({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative min-h-[3.125rem] min-w-0 overflow-hidden rounded-[5px] border border-[var(--border)]/36 bg-[var(--tracker-panel-card-background,color-mix(in_srgb,var(--background)_43%,transparent))] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_9%,transparent),inset_0_-10px_20px_color-mix(in_srgb,var(--background)_18%,transparent)] transition-[border-color,box-shadow] duration-200",
-        className,
-      )}
-      title={label}
-    >
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_5%,transparent),transparent_42%,color-mix(in_srgb,var(--foreground)_7%,transparent))]" />
-      <div className="pointer-events-none absolute inset-x-1 bottom-1 h-px bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--foreground)_14%,transparent),transparent)] opacity-70" />
-      <span className="sr-only">{label}</span>
-      <div className="relative z-[1] h-full min-w-0">{children}</div>
-    </div>
-  );
-}
+export const WORLD_INSTRUMENT_TEXT_STYLE =
+  "font-[family-name:'Share_Tech_Mono',monospace] font-normal uppercase tabular-nums tracking-[0.035em]";
 
 export function WorldRenderedEdit({
   label,
@@ -36,7 +14,6 @@ export function WorldRenderedEdit({
   className,
   inputClassName,
   showEditHint = true,
-  editHintClassName,
   locked = false,
   lockMode = false,
   onToggleLock,
@@ -44,12 +21,11 @@ export function WorldRenderedEdit({
 }: {
   label: string;
   value: string | null | undefined;
-  onSave?: (value: string) => void;
-  placeholder?: string;
+  onSave: (value: string) => void;
+  placeholder: string;
   className?: string;
   inputClassName?: string;
   showEditHint?: boolean;
-  editHintClassName?: string;
   locked?: boolean;
   lockMode?: boolean;
   onToggleLock?: () => void;
@@ -58,8 +34,9 @@ export function WorldRenderedEdit({
   const currentValue = value === null || value === undefined ? "" : String(value);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(currentValue);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const committedRef = useRef(false);
+  const cancelledRef = useRef(false);
   const title = `${label}: ${visibleText(value)}`;
   const lockToggleActive = lockMode && !!onToggleLock;
 
@@ -70,45 +47,49 @@ export function WorldRenderedEdit({
   useEffect(() => {
     if (!editing) return;
     committedRef.current = false;
+    cancelledRef.current = false;
     inputRef.current?.focus();
     inputRef.current?.select();
   }, [editing]);
 
+  useLayoutEffect(() => {
+    if (!editing || !inputRef.current) return;
+    inputRef.current.style.height = "auto";
+    inputRef.current.style.height = `${inputRef.current.scrollHeight}px`;
+  }, [draft, editing]);
+
   const commit = () => {
-    if (committedRef.current) return;
+    if (committedRef.current || cancelledRef.current) return;
     committedRef.current = true;
     const trimmed = draft.trim();
-    if (trimmed !== currentValue) onSave?.(trimmed);
+    if (trimmed !== currentValue) onSave(trimmed);
     setEditing(false);
   };
 
-  if (!onSave) {
-    return (
-      <div className={cn("h-full min-w-0", className)} title={title}>
-        {children}
-      </div>
-    );
-  }
-
   if (editing) {
     return (
-      <input
+      <textarea
         ref={inputRef}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter") commit();
-          if (event.key === "Escape") {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            commit();
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            cancelledRef.current = true;
             setDraft(currentValue);
             setEditing(false);
           }
         }}
         onBlur={commit}
         className={cn(
-          "h-full w-full min-w-0 rounded-sm border border-[var(--foreground)]/25 bg-[var(--background)]/68 px-1 text-[0.6875rem] font-semibold text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--border)]",
+          "h-auto max-h-24 min-h-full w-full min-w-0 resize-none overflow-y-auto rounded-sm border border-[var(--foreground)]/25 bg-[var(--background)]/68 px-1 py-1 text-[0.6875rem] font-semibold leading-4 text-[var(--foreground)] outline-none focus:ring-1 focus:ring-[var(--border)]",
+          className,
           inputClassName,
         )}
-        placeholder={placeholder ?? `Set ${label.toLowerCase()}`}
+        placeholder={placeholder}
         aria-label={label}
       />
     );
@@ -126,9 +107,7 @@ export function WorldRenderedEdit({
       }}
       title={lockToggleActive ? (locked ? `Unlock ${label.toLowerCase()}` : `Lock ${label.toLowerCase()}`) : title}
       aria-label={
-        lockToggleActive
-          ? `${locked ? "Unlock" : "Lock"} ${label.toLowerCase()}`
-          : `${title}. Click to edit.`
+        lockToggleActive ? `${locked ? "Unlock" : "Lock"} ${label.toLowerCase()}` : `${title}. Click to edit.`
       }
       aria-pressed={lockToggleActive ? locked : undefined}
       className={cn(
@@ -144,7 +123,6 @@ export function WorldRenderedEdit({
           className={cn(
             "pointer-events-none absolute right-0.5 top-0.5 z-[12] flex h-3.5 w-3.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-opacity duration-150 [@media(pointer:coarse)]:h-4 [@media(pointer:coarse)]:w-4",
             locked ? "text-[var(--foreground)] opacity-90" : "text-[var(--muted-foreground)] opacity-50",
-            editHintClassName,
           )}
           aria-hidden="true"
         >
@@ -159,7 +137,6 @@ export function WorldRenderedEdit({
         <span
           className={cn(
             "pointer-events-none absolute right-0.5 top-0.5 z-[12] flex h-3 w-3 translate-y-0.5 items-center justify-center rounded-[2px] bg-[var(--background)]/58 text-[var(--muted-foreground)] opacity-0 shadow-[0_0_6px_color-mix(in_srgb,var(--foreground)_10%,transparent)] ring-1 ring-[var(--border)] transition-[opacity,transform] duration-150 group-hover/world-edit:translate-y-0 group-hover/world-edit:opacity-70 group-focus-visible/world-edit:translate-y-0 group-focus-visible/world-edit:opacity-80 max-md:translate-y-0 max-md:opacity-45",
-            editHintClassName,
           )}
           aria-hidden="true"
         >
@@ -167,5 +144,107 @@ export function WorldRenderedEdit({
         </span>
       )}
     </button>
+  );
+}
+
+/** Raw world text that shrinks to its field's line budget before clamping exceptional values. */
+export function WorldValueText({
+  value,
+  maxLines,
+  className,
+  minScale = 0.62,
+}: {
+  value: string | null | undefined;
+  maxLines: 1 | 2 | 3;
+  className?: string;
+  minScale?: number;
+}) {
+  const text = value === null || value === undefined ? "" : String(value);
+  const displayText = text || "Not recorded";
+  const containerRef = useRef<HTMLSpanElement>(null);
+  const measureRef = useRef<HTMLSpanElement>(null);
+  const [fit, setFit] = useState({ scale: 1, fontSize: 0, lineHeight: 0 });
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const measure = measureRef.current;
+    if (!container || !measure) return;
+
+    const updateScale = () => {
+      measure.style.fontSize = "";
+      measure.style.lineHeight = "";
+      const computed = window.getComputedStyle(measure);
+      const baseFontSize = Number.parseFloat(computed.fontSize);
+      const baseLineHeight = Number.parseFloat(computed.lineHeight);
+      if (!container.clientWidth || !baseFontSize || !baseLineHeight) return;
+
+      const fits = (candidate: number) => {
+        measure.style.fontSize = `${baseFontSize * candidate}px`;
+        measure.style.lineHeight = `${baseLineHeight * candidate}px`;
+        return measure.scrollHeight <= baseLineHeight * candidate * maxLines + 1;
+      };
+
+      let nextScale = 1;
+      if (!fits(1)) {
+        let lower = minScale;
+        let upper = 1;
+        for (let step = 0; step < 7; step += 1) {
+          const candidate = (lower + upper) / 2;
+          if (fits(candidate)) lower = candidate;
+          else upper = candidate;
+        }
+        nextScale = fits(lower) ? lower : minScale;
+      }
+
+      setFit((previous) =>
+        Math.abs(previous.scale - nextScale) < 0.01 &&
+        Math.abs(previous.fontSize - baseFontSize * nextScale) < 0.1 &&
+        Math.abs(previous.lineHeight - baseLineHeight * nextScale) < 0.1
+          ? previous
+          : {
+              scale: nextScale,
+              fontSize: baseFontSize * nextScale,
+              lineHeight: baseLineHeight * nextScale,
+            },
+      );
+    };
+
+    updateScale();
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => updateScale());
+    resizeObserver?.observe(container);
+    void document.fonts?.ready.then(updateScale);
+    if (!resizeObserver) window.addEventListener("resize", updateScale);
+    return () => {
+      resizeObserver?.disconnect();
+      if (!resizeObserver) window.removeEventListener("resize", updateScale);
+    };
+  }, [displayText, maxLines, minScale]);
+
+  const fittedStyle: CSSProperties = {
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: maxLines,
+    fontSize: fit.scale < 0.999 ? `${fit.fontSize}px` : undefined,
+    lineHeight: fit.scale < 0.999 ? `${fit.lineHeight}px` : undefined,
+  };
+
+  return (
+    <span
+      ref={containerRef}
+      className={cn("relative block min-w-0 overflow-hidden whitespace-pre-wrap break-words [overflow-wrap:anywhere] leading-5", className)}
+      dir="auto"
+    >
+      <span
+        ref={measureRef}
+        aria-hidden="true"
+        className="pointer-events-none invisible absolute inset-x-0 top-0 block whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+      >
+        {displayText}
+      </span>
+      <span className="overflow-hidden" style={fittedStyle}>
+        {displayText}
+      </span>
+    </span>
   );
 }

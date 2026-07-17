@@ -1,157 +1,157 @@
-import { Clock } from "lucide-react";
 import { cn } from "../../../../lib/utils";
-import { getWorldDateDisplay, getWorldTimeDisplay, type WorldDateDisplay } from "../../lib/world-state-display";
-import { FittedText } from "../controls/InlineControls";
+import { WorldCalendarIcon } from "../../../../components/ui/WorldCalendarIcon";
+import { WorldClockIcon } from "../../../../components/ui/WorldStateInstruments";
+import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
+import type { WorldStatePresentation } from "../../lib/world-state-display";
 import { useTrackerFieldLock } from "../TrackerLockContext";
-import { WorldRenderedEdit, WorldTileShell } from "./WorldEditableTile";
+import {
+  WORLD_INSTRUMENT_TEXT_STYLE,
+  WorldRenderedEdit,
+  WorldValueText,
+} from "./WorldEditableTile";
 
-export function WorldDateTile({
-  value,
-  display = getWorldDateDisplay(value),
-  onSave,
-  lockKey,
+const WORLD_DATE_TIME_PROFILE_STYLES: Record<
+  TrackerPanelSizeProfile,
+  {
+    shell: string;
+    grid: string;
+    clock: string;
+    calendar: string;
+    edit: string;
+    time: string;
+    date: string;
+  }
+> = {
+  compact: {
+    shell: "px-0",
+    grid: "grid-cols-[1.25rem_minmax(0,1fr)]",
+    clock: "h-4 w-4 opacity-80",
+    calendar: "h-3.5 w-3.5 opacity-[0.58]",
+    edit: "px-0.5",
+    time: "text-sm leading-4",
+    date: "text-xs leading-4",
+  },
+  standard: {
+    shell: "pr-1",
+    grid: "grid-cols-[1.5rem_minmax(0,1fr)]",
+    clock: "h-5 w-5 opacity-85",
+    calendar: "h-4 w-4 opacity-[0.62]",
+    edit: "px-1",
+    time: "text-[1.0625rem] leading-5",
+    date: "text-[0.8125rem] leading-4",
+  },
+  expanded: {
+    shell: "pr-1",
+    grid: "grid-cols-[1.5rem_minmax(0,1fr)]",
+    clock: "h-6 w-6 opacity-85",
+    calendar: "h-5 w-5 opacity-[0.62]",
+    edit: "px-1",
+    time: "text-[1.1875rem] leading-6",
+    date: "text-sm leading-5",
+  },
+};
+
+export function WorldDateTimeTile({
+  dateText,
+  dateColor,
+  dateDay,
+  timeDisplay,
+  onSaveDate,
+  onSaveTime,
+  dateLockKey,
+  timeLockKey,
+  sizeProfile,
 }: {
-  value: string | null | undefined;
-  display?: WorldDateDisplay;
-  onSave?: (value: string) => void;
-  lockKey?: string;
+  dateText: string;
+  dateColor: string;
+  dateDay: string | null;
+  timeDisplay: WorldStatePresentation["time"];
+  onSaveDate: (value: string) => void;
+  onSaveTime: (value: string) => void;
+  dateLockKey?: string;
+  timeLockKey?: string;
+  sizeProfile: TrackerPanelSizeProfile;
 }) {
-  const lock = useTrackerFieldLock(lockKey);
-  const isFreeformDate = display.kind === "freeform";
-
+  const dateLock = useTrackerFieldLock(dateLockKey);
+  const timeLock = useTrackerFieldLock(timeLockKey);
+  const style = WORLD_DATE_TIME_PROFILE_STYLES[sizeProfile];
   return (
-    <WorldTileShell label="Date">
-      <WorldRenderedEdit
-        label="Date"
-        value={display.raw || value}
-        onSave={onSave}
-        placeholder="Set date"
-        className={cn(
-          "overflow-hidden text-center",
-          isFreeformDate
-            ? "flex flex-col items-center justify-center px-0.5 py-1"
-            : "grid grid-rows-[0.95rem_minmax(0,1fr)]",
-        )}
-        inputClassName="text-center"
-        showEditHint={false}
-        {...lock}
-      >
-        {isFreeformDate ? (
-          <>
-            <span className="mb-0.5 max-w-full truncate text-[0.4375rem] font-bold uppercase leading-none text-[var(--muted-foreground)]/75">
-              Date
-            </span>
-            <span className="line-clamp-2 max-w-full break-words text-[0.5625rem] font-black leading-[0.625rem] text-[var(--foreground)] [overflow-wrap:anywhere]">
-              {display.main}
-            </span>
-            {display.detail && (
-              <span className="mt-0.5 line-clamp-1 max-w-full break-words text-[0.5rem] font-semibold leading-[0.625rem] text-[var(--muted-foreground)]/82 [overflow-wrap:anywhere]">
-                {display.detail}
-              </span>
+    <div className={cn("relative z-[1] min-h-16 min-w-0 overflow-hidden rounded-sm py-1", style.shell)}>
+      <div className={cn("relative z-[1] grid min-h-14 min-w-0 grid-rows-[auto_auto] content-center", style.grid)}>
+        <WorldClockIcon
+          display={timeDisplay}
+          variant="accented"
+          className={cn(
+            "pointer-events-none col-start-1 row-start-1 self-center justify-self-center text-[var(--tracker-world-time-accent)] drop-shadow-sm",
+            style.clock,
+          )}
+        />
+        {dateDay && (
+          <WorldCalendarIcon
+            day={dateDay}
+            className={cn(
+              "pointer-events-none col-start-1 row-start-2 self-center justify-self-center drop-shadow-sm",
+              style.calendar,
+              dateColor,
             )}
-          </>
-        ) : (
-          <>
-            <div className="bg-[var(--foreground)]/10 text-[0.5rem] font-bold leading-[0.95rem] text-[var(--foreground)]/75">
-              {display.month}
-            </div>
-            <div className="flex min-h-0 flex-col items-center justify-center bg-[var(--background)]/22 text-[var(--foreground)]">
-              <span className="text-base font-black leading-none">{display.day}</span>
-              {display.year && (
-                <span className="mt-0.5 text-[0.5rem] font-semibold leading-none text-[var(--muted-foreground)]/70">
-                  {display.year}
-                </span>
-              )}
-            </div>
-          </>
+          />
         )}
-      </WorldRenderedEdit>
-    </WorldTileShell>
-  );
-}
-
-function WorldClockFace({ hour, minute }: { hour: number | null; minute: number | null }) {
-  const hasTime = hour !== null && minute !== null;
-  const minuteRotation = hasTime ? minute * 6 : 0;
-  const hourRotation = hasTime ? (hour % 12) * 30 + minute * 0.5 : -45;
-
-  return (
-    <div className="relative flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border)]/45 bg-[radial-gradient(circle_at_50%_48%,color-mix(in_srgb,var(--background)_58%,transparent)_0%,color-mix(in_srgb,var(--background)_84%,transparent)_68%,color-mix(in_srgb,var(--foreground)_8%,transparent)_100%)] text-sky-300 shadow-[inset_0_-2px_5px_rgba(0,0,0,0.28),0_0_10px_rgba(56,189,248,0.10)]">
-      {hasTime ? (
-        <>
-          <span className="absolute h-1 w-1 rounded-full bg-sky-300 shadow-[0_0_5px_rgba(125,211,252,0.42)]" />
-          <span
-            className="absolute left-1/2 top-1/2 h-[0.5625rem] w-[2px] origin-bottom rounded-full bg-sky-300"
-            style={{ transform: `translate(-50%, -100%) rotate(${hourRotation}deg)` }}
+        <WorldRenderedEdit
+          label="Time"
+          value={timeDisplay.raw}
+          onSave={onSaveTime}
+          placeholder="Set time"
+          className={cn("col-start-2 row-start-1 w-full min-w-0 self-center rounded-sm py-0.5 text-left", style.edit)}
+          inputClassName={cn(
+            "text-left text-[var(--tracker-world-time-accent)]",
+            WORLD_INSTRUMENT_TEXT_STYLE,
+            style.time,
+          )}
+          {...timeLock}
+        >
+          <WorldValueText
+            value={timeDisplay.raw}
+            maxLines={timeDisplay.kind === "clock" ? 1 : 3}
+            className={cn(
+              "min-w-0 text-left text-[var(--tracker-world-time-accent)] drop-shadow-sm",
+              WORLD_INSTRUMENT_TEXT_STYLE,
+              style.time,
+              timeDisplay.kind === "clock"
+                ? "whitespace-nowrap [overflow-wrap:normal]"
+                : "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+            )}
           />
-          <span
-            className="absolute left-1/2 top-1/2 h-[0.78rem] w-[1px] origin-bottom rounded-full bg-sky-200"
-            style={{ transform: `translate(-50%, -100%) rotate(${minuteRotation}deg)` }}
+        </WorldRenderedEdit>
+        <WorldRenderedEdit
+          label="Date"
+          value={dateText}
+          onSave={onSaveDate}
+          placeholder="Set date"
+          className={cn(
+            "col-start-2 row-start-2 w-full min-w-0 justify-self-start overflow-hidden rounded-sm py-0.5 text-left",
+            style.edit,
+            sizeProfile === "compact" ? "pr-1" : "pr-2",
+          )}
+          inputClassName={cn(
+            "text-left",
+            WORLD_INSTRUMENT_TEXT_STYLE,
+            style.date,
+            sizeProfile === "compact" ? "pr-1" : "pr-2",
+          )}
+          {...dateLock}
+        >
+          <WorldValueText
+            value={dateText}
+            maxLines={2}
+            className={cn(
+              "relative z-[1] min-w-0 text-left text-[color-mix(in_srgb,var(--foreground)_86%,var(--muted-foreground))] drop-shadow-[0_1px_1px_color-mix(in_srgb,var(--background)_90%,transparent)]",
+              WORLD_INSTRUMENT_TEXT_STYLE,
+              style.date,
+              "tracking-[0.015em]",
+            )}
           />
-        </>
-      ) : (
-        <Clock size="0.875rem" />
-      )}
+        </WorldRenderedEdit>
+      </div>
     </div>
-  );
-}
-
-export function WorldTimeTile({
-  value,
-  onSave,
-  lockKey,
-}: {
-  value: string | null | undefined;
-  onSave?: (value: string) => void;
-  lockKey?: string;
-}) {
-  const lock = useTrackerFieldLock(lockKey);
-  const display = getWorldTimeDisplay(value);
-  const isPhraseTime = display.kind === "phrase";
-  const clockLabel = `${display.main}${display.suffix ? ` ${display.suffix}` : ""}`;
-
-  return (
-    <WorldTileShell label="Time">
-      <WorldRenderedEdit
-        label="Time"
-        value={display.raw || value}
-        onSave={onSave}
-        placeholder="Set time"
-        className={cn(
-          "overflow-hidden text-center",
-          isPhraseTime
-            ? "flex flex-col items-center justify-center px-0.5 py-1"
-            : "grid grid-rows-[minmax(0,1fr)_0.6875rem] px-0.5 pb-0.5 pt-0.5",
-        )}
-        inputClassName="text-center"
-        showEditHint={false}
-        {...lock}
-      >
-        {isPhraseTime ? (
-          <>
-            <span className="mb-0.5 max-w-full truncate text-[0.4375rem] font-bold uppercase leading-none text-[var(--muted-foreground)]/75">
-              Time
-            </span>
-            <span className="line-clamp-3 max-w-full whitespace-normal break-words text-center text-[0.625rem] font-black leading-[0.7rem] text-[var(--foreground)]">
-              {display.main}
-            </span>
-          </>
-        ) : (
-          <>
-            <div className="flex min-h-0 items-center justify-center overflow-visible">
-              <WorldClockFace hour={display.hour} minute={display.minute} />
-            </div>
-            <FittedText
-              align="center"
-              minScale={0.62}
-              title={clockLabel}
-              className="w-full max-w-full translate-y-px text-[0.625rem] font-black leading-[0.6875rem] text-[var(--foreground)]"
-            >
-              {clockLabel}
-            </FittedText>
-          </>
-        )}
-      </WorldRenderedEdit>
-    </WorldTileShell>
   );
 }

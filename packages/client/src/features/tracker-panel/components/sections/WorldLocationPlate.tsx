@@ -1,53 +1,42 @@
-import { MapPin } from "lucide-react";
 import { cn } from "../../../../lib/utils";
-import { getLocationPinColor } from "../../lib/world-state-display";
-import { visibleText } from "../../lib/tracker-display";
+import type { TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import { useTrackerFieldLock } from "../TrackerLockContext";
-import { WorldRenderedEdit, WorldTileShell } from "./WorldEditableTile";
+import { WorldRenderedEdit, WorldValueText } from "./WorldEditableTile";
 
 export function WorldLocationPlate({
   value,
   onSave,
-  className,
   lockKey,
+  sizeProfile,
 }: {
   value: string | null | undefined;
-  onSave?: (value: string) => void;
-  className?: string;
+  onSave: (value: string) => void;
   lockKey?: string;
+  sizeProfile: TrackerPanelSizeProfile;
 }) {
   const lock = useTrackerFieldLock(lockKey);
-  const locationText = visibleText(value, "Set location");
-  const compactLocationText = locationText.length > 34;
-
+  const compact = sizeProfile === "compact";
   return (
-    <WorldTileShell label="Location" className={cn("min-h-[2.375rem]", className)}>
-      <WorldRenderedEdit
-        label="Location"
+    <WorldRenderedEdit
+      label="Location"
+      value={value}
+      onSave={onSave}
+      placeholder="Set location"
+      className={cn(
+        "flex min-w-0 items-center gap-1.5 rounded-sm px-1 pb-0.5 pt-0 text-left",
+        compact && "px-0.5",
+      )}
+      inputClassName={cn("text-left text-sm", compact && "text-[0.8125rem]")}
+      {...lock}
+    >
+      <WorldValueText
         value={value}
-        onSave={onSave}
-        placeholder="Set location"
-        className="relative z-[1] grid grid-cols-[1.7rem_minmax(0,1fr)] items-center gap-1 px-1 py-1 text-left @min-[380px]:grid-cols-[1.9rem_minmax(0,1fr)] @min-[380px]:px-1.5"
-        inputClassName="text-center text-[0.75rem]"
-        editHintClassName="right-1 top-1"
-        {...lock}
-      >
-        <div className="relative flex h-full min-h-[1.625rem] w-full items-center justify-center overflow-hidden rounded-[3px] bg-[color-mix(in_srgb,var(--background)_34%,transparent)] ring-1 ring-[var(--border)]/24 @min-[380px]:min-h-[1.8rem]">
-          <div className="pointer-events-none absolute inset-0 opacity-[0.17] [background-image:radial-gradient(circle,color-mix(in_srgb,var(--foreground)_44%,transparent)_0.75px,transparent_1px)] [background-size:4px_4px]" />
-          <MapPin
-            size="0.8125rem"
-            className={cn("relative z-[1] shrink-0 drop-shadow-sm", getLocationPinColor(value))}
-          />
-        </div>
-        <span
-          className={cn(
-            "line-clamp-2 min-w-0 max-w-full pr-3 whitespace-normal break-words text-left font-bold text-[var(--foreground)]/92 drop-shadow-sm",
-            compactLocationText ? "text-[0.625rem] leading-[0.75rem]" : "text-[0.75rem] leading-4",
-          )}
-        >
-          {locationText}
-        </span>
-      </WorldRenderedEdit>
-    </WorldTileShell>
+        maxLines={2}
+        className={cn(
+          "min-w-0 text-sm font-semibold leading-5 text-[var(--foreground)]",
+          compact && "text-[0.8125rem] leading-4",
+        )}
+      />
+    </WorldRenderedEdit>
   );
 }
