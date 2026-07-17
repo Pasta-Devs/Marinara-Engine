@@ -191,15 +191,19 @@ stage identity, scheduling cadence) before those controls exist would be mislead
 Doc updates land with the slice that actually introduces the user-facing behavior.
 
 **Acceptance:**
-- Controlled concurrency proof: `Promise.all` across **all four** subtrees
-  (profile/social/scheduler/privacy) on the same account, then inspect both the live
+- Controlled concurrency proof: `Promise.all` across the currently writable
+  `profile` and `social` subtrees on the same account, then inspect both the live
   in-memory result and the reopened persisted storage — not just one or the other.
-  ("Send two requests quickly" is not sufficient proof.)
+  (`scheduler` and `privacy` are strict empty containers in this slice; verify their
+  schemas accept `{}` and reject unknown fields, but do not claim meaningful
+  concurrency coverage until later slices add writable fields.) "Send two requests
+  quickly" is not sufficient proof.
 - Negative-case proof: a patch attempting to touch fields across subtree boundaries
   fails schema validation, not a runtime check.
-- Confirm no code path anywhere in the current diff still calls the generic
-  account-update operation with a `settings` field — grep for it, don't just check the
-  files you touched.
+- Search the entire repository, not only the current diff or touched files, and
+  confirm no caller passes a `settings` field through the generic account-update
+  operation. Also prove the generic operation's type or schema rejects `settings`;
+  both checks must pass before the escape hatch is considered closed.
 - `pnpm check`, `pnpm guard:installer-artifacts`, and `pnpm regression` all green
   (`pnpm regression` runs both `regression:prompt` and `smoke:ui` — settings changes
   can affect prompt assembly and UI behavior alike, verify both rather than assuming
