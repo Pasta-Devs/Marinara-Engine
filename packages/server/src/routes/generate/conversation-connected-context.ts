@@ -203,7 +203,7 @@ export async function resolveConversationConnectedChatContext(args: {
     const recentMessageLines: string[] = [];
     for (const m of recentGame) {
       const speaker = m.role === "user" ? args.personaName : m.role === "narrator" ? "Narrator" : "Game Master";
-      const content = sanitizeConnectedGameTranscript(m.content as string);
+      const content = sanitizeConnectedGameTranscript(typeof m.content === "string" ? m.content : "");
       if (!content) continue;
       recentMessageLines.push(`[${safe(speaker)}]: ${safe(content.slice(0, 500))}`);
     }

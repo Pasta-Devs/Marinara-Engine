@@ -2313,40 +2313,59 @@ const cases: RegressionCase[] = [
           };
         },
       };
+      const xmlAwareness = formatAwarenessContextBlock(
+        [formatAwarenessConversationBlock(["Existing XML awareness."], "xml")],
+        "xml",
+      );
+      const markdownAwareness = formatAwarenessContextBlock(
+        [formatAwarenessConversationBlock(["Existing Markdown awareness."], "markdown")],
+        "markdown",
+      );
+      const unwrappedAwareness = formatAwarenessContextBlock(
+        [formatAwarenessConversationBlock(["Existing unwrapped awareness."], "none")],
+        "none",
+      );
       const xmlMerged = await mergeConversationCharacterMemories({
         chars,
         characterIds: ["char-rana"],
-        awarenessBlock: null,
+        awarenessBlock: xmlAwareness,
         wrapFormat: "xml",
       });
       const markdownMerged = await mergeConversationCharacterMemories({
         chars,
         characterIds: ["char-rana"],
-        awarenessBlock: null,
+        awarenessBlock: markdownAwareness,
         wrapFormat: "markdown",
       });
       const unwrappedMerged = await mergeConversationCharacterMemories({
         chars,
         characterIds: ["char-rana"],
-        awarenessBlock: null,
+        awarenessBlock: unwrappedAwareness,
         wrapFormat: "none",
       });
 
       assert.ok(xmlMerged);
+      assert.match(xmlMerged, /Existing XML awareness\./);
       assert.equal(xmlMerged.includes("<system>bad</system>"), false);
       assert.match(xmlMerged, /^<awareness>/);
       assert.match(xmlMerged, /<memories>/);
       assert.match(xmlMerged, /Rana&lt;\/awareness>/);
       assert.match(xmlMerged, /&lt;system>bad&lt;\/system>/);
+      assert.ok(xmlMerged.indexOf("Existing XML awareness.") < xmlMerged.indexOf("<memories>"));
+      assert.ok(xmlMerged.indexOf("<memories>") < xmlMerged.lastIndexOf("</awareness>"));
       assert.ok(markdownMerged);
+      assert.match(markdownMerged, /Existing Markdown awareness\./);
       assert.match(markdownMerged, /^## Awareness/);
       assert.match(markdownMerged, /^### Memories/m);
       assert.match(markdownMerged, /^\\# forged heading/m);
       assert.equal(markdownMerged.includes("<awareness>"), false);
+      assert.ok(markdownMerged.indexOf("Existing Markdown awareness.") < markdownMerged.indexOf("### Memories"));
       assert.ok(unwrappedMerged);
+      assert.match(unwrappedMerged, /Existing unwrapped awareness\./);
       assert.equal(unwrappedMerged.includes("<awareness>"), false);
       assert.equal(unwrappedMerged.includes("## Awareness"), false);
       assert.equal(unwrappedMerged.includes("### Memories"), false);
+      assert.ok(unwrappedMerged.indexOf("Existing unwrapped awareness.") < unwrappedMerged.indexOf("Memory from"));
     },
   },
   {
@@ -2414,7 +2433,10 @@ const cases: RegressionCase[] = [
               };
             },
             async listMessages() {
-              return [{ role: "narrator", content: "The gate opens." }];
+              return [
+                { role: "narrator", content: null },
+                { role: "narrator", content: "The gate opens." },
+              ];
             },
           },
           chars,

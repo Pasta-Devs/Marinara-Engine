@@ -302,6 +302,8 @@ export async function buildAwarenessBlock(
     if (renderAwareness([...conversationBlocks, headerOnly]).length > maxChars) break;
 
     for (const burst of bursts) {
+      const burstStartLength = conversationLines.length;
+      let appendedBurstMessages = 0;
       // Check if this burst from a different day than the previous needs a date header
       const burstDate = fmtDate(burst[0]!.createdAt, timeZone);
       const dateHeader = `[${burstDate}]\n`;
@@ -326,9 +328,11 @@ export async function buildAwarenessBlock(
         const line = `[${fmtTime(msg.createdAt, timeZone)}] ${sanitizePromptLeaf(senderName, wrapFormat)}: ${sanitizePromptLeaf(msg.content, wrapFormat)}`;
 
         if (!appendWithinBudget(line)) {
+          if (appendedBurstMessages === 0) conversationLines.length = burstStartLength;
           reachedBudget = true;
           break;
         }
+        appendedBurstMessages += 1;
       }
       if (reachedBudget) break;
     }
