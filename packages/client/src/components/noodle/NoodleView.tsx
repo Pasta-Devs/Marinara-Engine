@@ -112,6 +112,7 @@ import {
   useResetNoodleTimeline,
   useUpdateNoodleAccount,
   useUpdateNoodleAccountFollow,
+  useUpdateNoodleAccountProfile,
   useUpdateNoodleInteraction,
   useUpdateNoodlePost,
   useUpdateNoodleSettings,
@@ -928,6 +929,7 @@ export function NoodleView() {
   const updateSettings = useUpdateNoodleSettings();
   const updateAccount = useUpdateNoodleAccount();
   const updateAccountFollow = useUpdateNoodleAccountFollow();
+  const updateAccountProfile = useUpdateNoodleAccountProfile();
   const patchAccountSettings = usePatchNoodleAccountSettings();
   const inviteCharacter = useInviteNoodleCharacter();
   const inviteCharacters = useInviteNoodleCharacters();
@@ -1288,7 +1290,7 @@ export function NoodleView() {
     if (!viewedProfileAccount || !canEditViewedProfile) return;
     const normalizedHandle = profileHandle.trim().replace(/^@+/, "");
     const nextAvatarUrl = profileAvatarUrl.trim() || null;
-    updateAccount.mutate(
+    updateAccountProfile.mutate(
       {
         id: viewedProfileAccount.id,
         handle: normalizedHandle,
@@ -1330,10 +1332,13 @@ export function NoodleView() {
             onError: (error: Error) => toast.error(error.message || "Could not update Noodle profile image."),
           };
           if (target === "avatar") {
-            updateAccount.mutate({ id: viewedProfileAccount.id, avatarUrl: image.url }, callbacks);
+            updateAccountProfile.mutate(
+              { id: viewedProfileAccount.id, avatarUrl: image.url, profile: {} },
+              callbacks,
+            );
           } else {
-            patchAccountSettings.mutate(
-              { id: viewedProfileAccount.id, subtree: "profile", patch: { bannerUrl: image.url } },
+            updateAccountProfile.mutate(
+              { id: viewedProfileAccount.id, profile: { bannerUrl: image.url } },
               callbacks,
             );
           }
@@ -5156,16 +5161,18 @@ export function NoodleView() {
                             if (isEditingProfile) saveProfile();
                             else setProfileEditing(true);
                           }}
-                          disabled={isEditingProfile ? !canSaveProfile || updateAccount.isPending : !viewedProfileAccount}
+                          disabled={
+                            isEditingProfile ? !canSaveProfile || updateAccountProfile.isPending : !viewedProfileAccount
+                          }
                           className="mb-1 h-9 rounded-full bg-[var(--noodle-blue)] px-5 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {isEditingProfile ? (updateAccount.isPending ? "Saving" : "Save") : "Edit Profile"}
+                          {isEditingProfile ? (updateAccountProfile.isPending ? "Saving" : "Save") : "Edit Profile"}
                         </button>
                       ) : canFollowViewedProfile && viewedProfileAccount ? (
                         <button
                           type="button"
                           onClick={() => updateFollowedAccount(viewedProfileAccount, !viewedProfileFollowed)}
-                          disabled={updateAccount.isPending}
+                          disabled={updateAccountFollow.isPending}
                           className={cn(
                             "mb-1 h-9 rounded-full px-5 text-xs font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
                             viewedProfileFollowed

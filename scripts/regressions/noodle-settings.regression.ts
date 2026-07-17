@@ -79,27 +79,22 @@ try {
     displayName: "Concurrent Settings",
   });
   await Promise.all([
-    firstNoodle.patchAccountSettings(concurrentAccount.id, {
-      subtree: "profile",
-      patch: { bannerUrl: "/banner.png" },
-    }),
+    firstNoodle.updateAccountProfile(concurrentAccount.id, { profile: { bannerUrl: "/banner.png" } }),
     firstNoodle.patchAccountSettings(concurrentAccount.id, {
       subtree: "social",
-      patch: { followingAccountIds: ["followed-account"] },
+      patch: { notificationsReadAt: "2026-07-17T09:00:00.000Z" },
     }),
     firstNoodle.patchAccountSettings(concurrentAccount.id, { subtree: "scheduler", patch: {} }),
     firstNoodle.patchAccountSettings(concurrentAccount.id, { subtree: "privacy", patch: {} }),
   ]);
   const concurrentlyUpdatedAccount = await firstNoodle.getAccountById(concurrentAccount.id);
   assert.equal(concurrentlyUpdatedAccount?.settings.profile.bannerUrl, "/banner.png");
-  assert.deepEqual(concurrentlyUpdatedAccount?.settings.social.followingAccountIds, ["followed-account"]);
+  assert.equal(concurrentlyUpdatedAccount?.settings.social.notificationsReadAt, "2026-07-17T09:00:00.000Z");
   assert.deepEqual(concurrentlyUpdatedAccount?.settings.scheduler, {});
   assert.deepEqual(concurrentlyUpdatedAccount?.settings.privacy, {});
   assert.equal(
-    noodleAccountSettingsPatchSchema.safeParse({
-      subtree: "profile",
-      patch: { notificationsReadAt: new Date().toISOString() },
-    }).success,
+    noodleAccountSettingsPatchSchema.safeParse({ subtree: "social", patch: { followingAccountIds: ["blocked"] } })
+      .success,
     false,
   );
   assert.equal(
@@ -121,7 +116,7 @@ try {
         location: "Legacy Location",
         profileGenerated: "true",
         profileManuallyEdited: false,
-        followingAccountIds: ["legacy-follow"],
+        followingAccountIds: '["legacy-follow"]',
         followingAccountTimestamps: { "legacy-follow": "2026-07-17T10:00:00.000Z" },
         notificationsReadAt: "2026-07-17T11:00:00.000Z",
       }),
@@ -186,7 +181,6 @@ try {
   ]);
   const concurrentlyFollowedAccount = await firstNoodle.getAccountById(concurrentAccount.id);
   assert.deepEqual(new Set(concurrentlyFollowedAccount?.settings.social.followingAccountIds), new Set([
-    "followed-account",
     followTargetA.id,
     followTargetB.id,
   ]));
@@ -197,6 +191,32 @@ try {
   assert.equal(
     concurrentlyFollowedAccount?.settings.social.followingAccountTimestamps?.[followTargetB.id],
     "2026-07-17T13:00:01.000Z",
+  );
+  await firstNoodle.patchAccountSettings(concurrentAccount.id, {
+    subtree: "social",
+    patch: { notificationsReadAt: "2026-07-17T14:00:00.000Z" },
+  });
+  const missingTimestampSettings = JSON.stringify({
+    ...(await firstNoodle.getAccountById(concurrentAccount.id))!.settings,
+    social: {
+      ...(await firstNoodle.getAccountById(concurrentAccount.id))!.settings.social,
+      followingAccountTimestamps: { [followTargetB.id]: "2026-07-17T13:00:01.000Z" },
+    },
+  });
+  await firstDb
+    .update(noodleAccounts)
+    .set({ settings: missingTimestampSettings })
+    .where(eq(noodleAccounts.id, concurrentAccount.id));
+  const repairedFollow = await firstNoodle.updateAccountFollow(
+    concurrentAccount.id,
+    followTargetA.id,
+    true,
+    "2026-07-17T14:00:01.000Z",
+  );
+  assert.equal(repairedFollow?.changed, true);
+  assert.equal(
+    repairedFollow?.account.settings.social.followingAccountTimestamps?.[followTargetA.id],
+    "2026-07-17T14:00:01.000Z",
   );
   const refreshRun = await firstNoodle.createRefreshRun({
     activeAccountIds: ["alpha"],
@@ -235,7 +255,7 @@ try {
     invited: true,
     syncIdentity: true,
   });
-  await firstNoodle.updateAccount(characterAccount.id, {
+  await firstNoodle.updateAccountProfile(characterAccount.id, {
     displayName: "Generated Social Name",
     handle: "custom_handle",
     bio: "Keep this generated biography",
@@ -276,7 +296,6 @@ try {
   const reopenedConcurrentAccount = await reopenedNoodle.getAccountById(concurrentAccount.id);
   assert.equal(reopenedConcurrentAccount?.settings.profile.bannerUrl, "/banner.png");
   assert.deepEqual(new Set(reopenedConcurrentAccount?.settings.social.followingAccountIds), new Set([
-    "followed-account",
     followTargetA.id,
     followTargetB.id,
   ]));

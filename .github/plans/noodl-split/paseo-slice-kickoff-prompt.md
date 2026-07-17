@@ -1,13 +1,13 @@
 # Paseo slice kickoff — prompt template
 
-Paste this into Paseo per slice, filling in the bracketed fields. Both the Claude and GPT-5.6-sol agents read the plan straight out of the `noodl-split-plan` branch via `git show` (local, no network dependency) — reference it explicitly so neither agent free-associates a different split. (v2 fixed two self-contradictions v1 had around "extract/preserve code that doesn't exist yet on a fresh branch" — always use v2, not v1.)
+Paste this into Paseo per slice, filling in the bracketed fields. Both the Claude and GPT-5.6-sol agents read the canonical plan from the checked-out repository — reference it explicitly so neither agent free-associates a different split. (v2 fixed two self-contradictions v1 had around "extract/preserve code that doesn't exist yet on a fresh branch" — always use v2, not v1.)
 
 Before pasting: confirm the slice's prerequisite(s) are actually merged to `origin/staging` (check `git log origin/staging`, don't take an agent's earlier "basically done" at its word), and confirm only one agent is assigned to this slice.
 
 ```
 You are implementing ONE slice of a larger PR-stack plan for the NoodleR feature.
-First run: git fetch origin noodl-split-plan
-Then read the plan with: git show origin/noodl-split-plan:.github/plans/noodl-split/noodler-pr-stack-plan-v2.md
+First run: git fetch origin staging
+Then read: .github/plans/noodl-split/noodler-pr-stack-plan-v2.md
 Read it in full before doing anything else — it has the dependency order, the
 findings each slice must fix, and the acceptance criteria.
 Note: this branch is cut fresh from current origin/staging. Do not assume any code
@@ -75,6 +75,6 @@ and wait for me.
 
 ## Notes on using this across two different agents
 
-- Both agents should read the plan via the same `git show origin/noodl-split-plan:...` command (see above) — don't let one work from Codex's raw list and the other from a stale local copy, or you'll get two different slice boundaries. The canonical file is `noodler-pr-stack-plan-v2.md`; there is no plain `noodler-pr-stack-plan.md` to accidentally reference.
+- Both agents should read the plan from the checked-out repository after fetching current `origin/staging` — don't let one work from Codex's raw list and the other from a stale local copy, or you'll get two different slice boundaries. The canonical file is `noodler-pr-stack-plan-v2.md`; there is no plain `noodler-pr-stack-plan.md` to accidentally reference.
 - If you split slices across the two tools (e.g. Claude does the server-side data foundation, GPT-5.6-sol does the client shell), make sure the dependent one doesn't start until the prerequisite slice is actually merged — the plan calls out which slices depend on which. Don't let an agent "assume" an interface from an unmerged branch; that's how the two efforts diverge.
 - If either agent proposes deviating from the plan (different slice boundary, different order), have it stop and ask rather than silently reshaping the split — that's the whole point of writing the plan down first.

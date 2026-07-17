@@ -10,8 +10,9 @@ import {
   readNoodlePollFromMetadata,
   type NoodleAccount,
   type NoodleAccountKind,
+  type NoodleAccountProfileUpdateInput,
   type NoodleAccountSettings,
-  type NoodleAccountSettingsPatch,
+  type NoodleAccountSettingsPatchInput,
   type NoodleAccountUpdateInput,
   type NoodleAvatarCrop,
   type NoodleAuthorSnapshot,
@@ -130,7 +131,8 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
     ),
   );
   const social = {
-    ...(rawFollowingAccountIds !== undefined && validSocialField("followingAccountIds", rawFollowingAccountIds)),
+    ...(rawFollowingAccountIds !== undefined &&
+      validSocialField("followingAccountIds", parseStringArray(rawFollowingAccountIds))),
     ...(rawFollowingAccountTimestamps !== undefined &&
       validSocialField("followingAccountTimestamps", followingAccountTimestamps)),
     ...(rawNotificationsReadAt !== undefined && validSocialField("notificationsReadAt", rawNotificationsReadAt)),
@@ -487,22 +489,32 @@ export function createNoodleStorage(db: DB) {
     }): Promise<NoodleAccount> {
       const existing = await this.getAccountByEntity(input.kind, input.entityId);
       if (existing) {
-        const updates: Record<string, unknown> = { updatedAt: now() };
-        const profileManuallyEdited = existing.settings.profile.profileManuallyEdited === true;
-        if (input.syncIdentity && !profileManuallyEdited) {
-          updates.displayName = input.displayName.trim().slice(0, 120) || existing.handle;
-          if (input.avatarUrl !== undefined) updates.avatarUrl = input.avatarUrl;
-        } else if (!existing.displayName.trim()) {
-          updates.displayName = input.displayName || existing.handle;
-        }
-        if (!profileManuallyEdited && !existing.bio.trim() && input.bio) updates.bio = input.bio;
-        if (!input.syncIdentity && !existing.avatarUrl && input.avatarUrl) updates.avatarUrl = input.avatarUrl;
-        if (input.invited !== undefined) updates.invited = String(input.invited);
-        await db.update(noodleAccounts).set(updates).where(eq(noodleAccounts.id, existing.id));
-        if (input.avatarCrop !== undefined && !profileManuallyEdited) {
-          await this.patchAccountSettings(existing.id, { subtree: "profile", patch: { avatarCrop: input.avatarCrop } });
-        }
-        return (await this.getAccountById(existing.id)) ?? existing;
+        return db.transaction(async (tx) => {
+          const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, existing.id));
+          const row = rows[0];
+          if (!row) return existing;
+          const settings = normalizeNoodleAccountSettings(row.settings);
+          const profileManuallyEdited = settings.profile.profileManuallyEdited === true;
+          const updates: Record<string, unknown> = { updatedAt: now() };
+          if (input.syncIdentity && !profileManuallyEdited) {
+            updates.displayName = input.displayName.trim().slice(0, 120) || row.handle;
+            if (input.avatarUrl !== undefined) updates.avatarUrl = input.avatarUrl;
+          } else if (!String(row.displayName ?? "").trim()) {
+            updates.displayName = input.displayName || row.handle;
+          }
+          if (!profileManuallyEdited && !String(row.bio ?? "").trim() && input.bio) updates.bio = input.bio;
+          if (!input.syncIdentity && !row.avatarUrl && input.avatarUrl) updates.avatarUrl = input.avatarUrl;
+          if (input.invited !== undefined) updates.invited = String(input.invited);
+          if (input.avatarCrop !== undefined && !profileManuallyEdited) {
+            updates.settings = JSON.stringify({
+              ...settings,
+              profile: { ...settings.profile, avatarCrop: input.avatarCrop },
+            });
+          }
+          await tx.update(noodleAccounts).set(updates).where(eq(noodleAccounts.id, existing.id));
+          const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, existing.id));
+          return updatedRows[0] ? mapAccount(updatedRows[0]) : existing;
+        });
       }
 
       const timestamp = now();
@@ -532,10 +544,6 @@ export function createNoodleStorage(db: DB) {
         const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
         const row = rows[0];
         if (!row) return null;
-        const currentSettings = normalizeNoodleAccountSettings(row.settings);
-        const nextSettings = input.profile
-          ? { ...currentSettings, profile: { ...currentSettings.profile, ...input.profile } }
-          : currentSettings;
         await tx
           .update(noodleAccounts)
           .set({
@@ -544,7 +552,6 @@ export function createNoodleStorage(db: DB) {
             ...(input.bio !== undefined && { bio: input.bio.slice(0, 500) }),
             ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
             ...(input.invited !== undefined && { invited: String(input.invited) }),
-            ...(input.profile !== undefined && { settings: JSON.stringify(nextSettings) }),
             updatedAt: now(),
           })
           .where(eq(noodleAccounts.id, id));
@@ -553,16 +560,46 @@ export function createNoodleStorage(db: DB) {
       });
     },
 
-    async patchAccountSettings(id: string, input: NoodleAccountSettingsPatch): Promise<NoodleAccount | null> {
+    async updateAccountProfile(id: string, input: NoodleAccountProfileUpdateInput): Promise<NoodleAccount | null> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        const row = rows[0];
+        if (!row) return null;
+        const settings = normalizeNoodleAccountSettings(row.settings);
+        const nextSettings: NoodleAccountSettings = {
+          ...settings,
+          profile: { ...settings.profile, ...input.profile },
+        };
+        await tx
+          .update(noodleAccounts)
+          .set({
+            ...(input.handle !== undefined && { handle: normalizeHandle(input.handle, row.entityId) }),
+            ...(input.displayName !== undefined && { displayName: input.displayName.trim().slice(0, 120) }),
+            ...(input.bio !== undefined && { bio: input.bio.slice(0, 500) }),
+            ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
+            settings: JSON.stringify(nextSettings),
+            updatedAt: now(),
+          })
+          .where(eq(noodleAccounts.id, id));
+        const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        return updatedRows[0] ? mapAccount(updatedRows[0]) : null;
+      });
+    },
+
+    async patchAccountSettings(id: string, input: NoodleAccountSettingsPatchInput): Promise<NoodleAccount | null> {
       return db.transaction(async (tx) => {
         const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
         const row = rows[0];
         if (!row) return null;
         const current = normalizeNoodleAccountSettings(row.settings);
-        const next = {
-          ...current,
-          [input.subtree]: { ...current[input.subtree], ...input.patch },
-        } as NoodleAccountSettings;
+        let next: NoodleAccountSettings;
+        if (input.subtree === "social") {
+          next = { ...current, social: { ...current.social, ...input.patch } };
+        } else if (input.subtree === "scheduler") {
+          next = { ...current, scheduler: { ...current.scheduler, ...input.patch } };
+        } else {
+          next = { ...current, privacy: { ...current.privacy, ...input.patch } };
+        }
         await tx
           .update(noodleAccounts)
           .set({ settings: JSON.stringify(next), updatedAt: now() })
@@ -585,8 +622,11 @@ export function createNoodleStorage(db: DB) {
         const current = normalizeNoodleAccountSettings(row.settings);
         const followingAccountIds = current.social.followingAccountIds ?? [];
         const isFollowing = followingAccountIds.includes(targetAccountId);
-        if (isFollowing === followed) return { account: mapAccount(row), changed: false };
         const followingAccountTimestamps = { ...current.social.followingAccountTimestamps };
+        const hasFollowTimestamp = typeof followingAccountTimestamps[targetAccountId] === "string";
+        if (isFollowing === followed && (!followed || hasFollowTimestamp)) {
+          return { account: mapAccount(row), changed: false };
+        }
         if (followed) followingAccountTimestamps[targetAccountId] = followedAt;
         else delete followingAccountTimestamps[targetAccountId];
         const next: NoodleAccountSettings = {

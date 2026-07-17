@@ -36,12 +36,6 @@ export interface NoodleAccountSettings {
   privacy: NoodleAccountPrivacySettings;
 }
 
-export type NoodleAccountSettingsPatch =
-  | { subtree: "profile"; patch: Partial<NoodleAccountProfileSettings> }
-  | { subtree: "social"; patch: Partial<NoodleAccountSocialSettings> }
-  | { subtree: "scheduler"; patch: NoodleAccountSchedulerSettings }
-  | { subtree: "privacy"; patch: NoodleAccountPrivacySettings };
-
 export interface NoodlePollOption {
   id: string;
   label: string;

@@ -11,6 +11,7 @@ import {
   canManageNoodleReply,
   extractNoodleMentionHandles,
   noodleAccountFollowUpdateSchema,
+  noodleAccountProfileUpdateSchema,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
   noodleBulkInviteSchema,
@@ -462,7 +463,7 @@ async function ensureProfessorMariAccount(
       !isNoodleProfileGenerated(account) ||
       !account.settings.profile.location)
   ) {
-    await noodle.updateAccount(account.id, {
+    await noodle.updateAccountProfile(account.id, {
       handle: account.handle || "professor_mari",
       displayName: account.displayName || "Professor Mari",
       bio: PROFESSOR_MARI_NOODLE_BIO,
@@ -1119,7 +1120,7 @@ async function generateMissingNoodleProfiles(input: {
   for (const target of targets) {
     const profile = profileByEntityId.get(target.account.entityId);
     if (!profile) continue;
-    await input.noodle.updateAccount(target.account.id, {
+    await input.noodle.updateAccountProfile(target.account.id, {
       handle: profile.handle,
       displayName: profile.name,
       bio: profile.bio,
@@ -1373,6 +1374,15 @@ export async function noodleRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const parsed = noodleAccountUpdateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const updated = await noodle.updateAccount(id, parsed.data);
+    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
+    return updated;
+  });
+
+  app.put("/accounts/:id/profile", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const parsed = noodleAccountProfileUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     const existing = await noodle.getAccountById(id);
     if (!existing) return reply.code(404).send({ error: "Noodle account not found" });
     const sourceCharacter = existing.kind === "character" ? await characters.getById(existing.entityId) : null;
@@ -1389,7 +1399,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         parsed.data.displayName !== undefined ||
         parsed.data.bio !== undefined ||
         parsed.data.avatarUrl !== undefined);
-    const updated = await noodle.updateAccount(id, {
+    const updated = await noodle.updateAccountProfile(id, {
       ...parsed.data,
       ...((profileFieldsChanged || parsed.data.profile) && {
         profile: {

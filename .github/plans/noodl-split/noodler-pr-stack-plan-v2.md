@@ -441,8 +441,7 @@ Compare the noooooods branch against origin/staging:
 List every file changed and, in your own words, what functional area each belongs to
 (e.g. "fan activity scheduling", "PPV unlock UI", "stage profile generation").
 
-Then read noodler-pr-stack-plan-v2.md (via
-git show origin/noodl-split-plan:.github/plans/noodl-split/noodler-pr-stack-plan-v2.md) and check
+Then read .github/plans/noodl-split/noodler-pr-stack-plan-v2.md and check
 each functional area you listed against the slices. For each one, tell me: which
 slice covers it, or flag it clearly as NOT COVERED if you can't find a match.
 
@@ -458,8 +457,7 @@ right slice (or add a new one) before it's needed.
 
 ## Keeping this file current
 
-This plan lives on the `noodl-split-plan` branch at
-`.github/plans/noodl-split/noodler-pr-stack-plan-v2.md`. Whenever it's amended (like the Slice 1A
-4-subtree correction above), push the updated file to that branch before any agent
-starts a new slice off it — a stale local copy defeats the point of having one shared
-source of truth.
+This plan's canonical location is
+`.github/plans/noodl-split/noodler-pr-stack-plan-v2.md` on `staging`. Whenever it is
+amended, merge the update to `staging` before any agent starts a dependent slice — a
+stale local copy defeats the point of having one shared source of truth.

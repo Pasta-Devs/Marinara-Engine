@@ -8,6 +8,7 @@ import type {
   NoodleAccount,
   NoodleAccountFollowUpdateInput,
   NoodleAccountKind,
+  NoodleAccountProfileUpdateInput,
   NoodleAccountSettingsPatchInput,
   NoodleAccountUpdateInput,
   NoodleBootstrap,
@@ -111,6 +112,22 @@ export function useUpdateNoodleAccount() {
               ...current,
               accounts: current.accounts.map((item) => (item.id === account.id ? account : item)),
             }
+          : current,
+      );
+      qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });
+    },
+  });
+}
+
+export function useUpdateNoodleAccountProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & NoodleAccountProfileUpdateInput) =>
+      api.put<NoodleAccount>(`/noodle/accounts/${id}/profile`, input),
+    onSuccess: (account) => {
+      qc.setQueryData<NoodleBootstrap | undefined>(noodleKeys.bootstrap(), (current) =>
+        current
+          ? { ...current, accounts: current.accounts.map((item) => (item.id === account.id ? account : item)) }
           : current,
       );
       qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });
