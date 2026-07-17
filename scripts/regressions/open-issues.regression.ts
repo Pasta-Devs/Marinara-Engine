@@ -93,6 +93,7 @@ import {
   resolveNovelAiSize,
 } from "../../packages/server/src/services/image/image-generation.js";
 import { DEFAULT_NOVELAI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
+import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -1601,6 +1602,16 @@ assert.deepEqual(
     { ...DEFAULT_NOVELAI_DEFAULTS, dynamicResolutionBySubjectCount: false },
   ),
   { width: 1024, height: 1024 },
+);
+const legacyNovelAiProfile = {
+  version: 1,
+  service: "novelai",
+  seed: -1,
+  novelai: { promptPrefix: "2girls" },
+} as unknown as ImageGenerationDefaultsProfile;
+assert.deepEqual(
+  resolveNovelAiSize({ prompt: "1boy", width: 1216, height: 832, imageDefaults: legacyNovelAiProfile }, "1boy"),
+  { width: 832, height: 1216 },
 );
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
