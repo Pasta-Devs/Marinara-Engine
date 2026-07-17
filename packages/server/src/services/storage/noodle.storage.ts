@@ -953,7 +953,16 @@ export function createNoodleStorage(db: DB) {
 
     async listRepliesByActorSince(actorAccountId: string, since: string, limit = 100): Promise<NoodleInteraction[]> {
       if (!(await this.getAccountById(actorAccountId))) return [];
-      const publicPostIds = new Set((await this.listPosts({ limit: 300 })).map((post) => post.id));
+      const publicAccountIds = (await this.listAccounts()).map((account) => account.id);
+      if (publicAccountIds.length === 0) return [];
+      const publicPostIds = new Set(
+        (
+          await db
+            .select({ id: noodlePosts.id })
+            .from(noodlePosts)
+            .where(inArray(noodlePosts.authorAccountId, publicAccountIds))
+        ).map((post) => post.id),
+      );
       const rows = await db
         .select()
         .from(noodleInteractions)

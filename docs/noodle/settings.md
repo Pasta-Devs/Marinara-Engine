@@ -157,6 +157,7 @@ This table lists every Noodle setting with its default and range.
 
 | Setting | Default | Range or options |
 |---|---|---|
+| **Enable NoodleR** | off | on or off |
 | **Generation connection** | none | any text connection (required for refresh) |
 | **Professor Mari participates** | on | on or off |
 | **Refreshes/day** | 2 | 0 to 24 (0 turns automatic refreshes off) |
