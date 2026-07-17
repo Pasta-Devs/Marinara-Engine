@@ -3,19 +3,27 @@
 // ──────────────────────────────────────────────
 import { fileTable, text } from "../file-schema.js";
 
-export const noodleAccounts = fileTable("noodle_accounts", {
-  id: text("id").primaryKey(),
-  kind: text("kind").notNull(),
-  entityId: text("entity_id").notNull(),
-  handle: text("handle").notNull(),
-  displayName: text("display_name").notNull(),
-  bio: text("bio").notNull().default(""),
-  avatarUrl: text("avatar_url"),
-  invited: text("invited").notNull().default("false"),
-  settings: text("settings").notNull().default("{}"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const noodleAccounts = fileTable(
+  "noodle_accounts",
+  {
+    id: text("id").primaryKey(),
+    kind: text("kind").notNull(),
+    entityId: text("entity_id").notNull(),
+    handle: text("handle").notNull(),
+    displayName: text("display_name").notNull(),
+    bio: text("bio").notNull().default(""),
+    avatarUrl: text("avatar_url"),
+    invited: text("invited").notNull().default("false"),
+    settings: text("settings").notNull().default("{}"),
+    visibility: text("visibility").notNull().default("public"),
+    publicAccountId: text("public_account_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  {
+    uniqueBy: [{ keys: ["publicAccountId"], when: (row) => row.publicAccountId != null }],
+  },
+);
 
 export const noodlePosts = fileTable("noodle_posts", {
   id: text("id").primaryKey(),

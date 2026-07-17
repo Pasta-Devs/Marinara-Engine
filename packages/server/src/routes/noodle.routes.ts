@@ -21,6 +21,7 @@ import {
   noodleInteractionOwnerSchema,
   noodleInteractionUpdateSchema,
   noodlePostUpdateSchema,
+  noodlePrivateAccountCreateSchema,
   noodleRemoveInteractionSchema,
   noodleRescheduleRefreshSchema,
   noodleRefreshSchema,
@@ -92,6 +93,7 @@ import {
 import { processLorebooks } from "../services/lorebook/index.js";
 import { buildPromptMacroContext, resolveMacrosWithVariableSnapshot } from "../services/prompt/index.js";
 import type { DB } from "../db/connection.js";
+import { isFileUniqueConstraintError } from "../db/file-schema.js";
 import {
   generateImageCaptionForDataUrl,
   resolveImageCaptioningRuntime,
@@ -1353,6 +1355,30 @@ export async function noodleRoutes(app: FastifyInstance) {
     const parsed = noodleSettingsUpdateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     return noodle.updateSettings(parsed.data);
+  });
+
+  app.get("/noodler/accounts", async (_req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    return noodle.listPrivateAccounts();
+  });
+
+  app.post("/accounts/:id/private", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlePrivateAccountCreateSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    try {
+      const created = await noodle.createPrivateAccount(id);
+      if (!created) return reply.code(404).send({ error: "Noodle account not found" });
+      return reply.code(201).send(created);
+    } catch (error) {
+      if (isFileUniqueConstraintError(error, "noodle_accounts", ["publicAccountId"])) {
+        return reply.code(409).send({ error: "A private account already exists for this Noodle account." });
+      }
+      throw error;
+    }
   });
 
   app.put("/refresh-schedule", async (req, reply) => {

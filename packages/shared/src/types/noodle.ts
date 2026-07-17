@@ -4,6 +4,7 @@
 import type { LegacyPersonaAvatarCrop, PersonaAvatarCrop } from "./persona.js";
 
 export type NoodleAccountKind = "persona" | "character" | "random_user";
+export type NoodleAccountVisibility = "public" | "private";
 export type NoodleInteractionType = "like" | "repost" | "reply" | "vote";
 export type NoodlePostSource = "manual" | "generated";
 export type NoodleTheme = "system" | "light" | "dark";
@@ -75,6 +76,7 @@ export interface NoodleSettings {
   carryoverMaxItems: number;
   theme: NoodleTheme;
   generationConnectionId: string | null;
+  enableNoodler: boolean;
 }
 
 export interface NoodleAccount {
@@ -88,6 +90,8 @@ export interface NoodleAccount {
   avatarCrop: NoodleAvatarCrop | null;
   invited: boolean;
   settings: NoodleAccountSettings;
+  visibility: NoodleAccountVisibility;
+  publicAccountId: string | null;
   createdAt: string;
   updatedAt: string;
 }

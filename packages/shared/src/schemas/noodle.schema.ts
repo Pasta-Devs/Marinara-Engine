@@ -40,6 +40,7 @@ export const DEFAULT_NOODLE_SETTINGS = {
   carryoverMaxItems: 8,
   theme: "system",
   generationConnectionId: null,
+  enableNoodler: false,
 } as const;
 
 export const noodleSettingsSchema = z.object({
@@ -88,6 +89,7 @@ export const noodleSettingsSchema = z.object({
   carryoverMaxItems: z.number().int().min(1).max(50).default(DEFAULT_NOODLE_SETTINGS.carryoverMaxItems),
   theme: noodleThemeSchema.default(DEFAULT_NOODLE_SETTINGS.theme),
   generationConnectionId: z.string().min(1).nullable().default(DEFAULT_NOODLE_SETTINGS.generationConnectionId),
+  enableNoodler: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableNoodler),
 });
 
 export const noodleSettingsUpdateSchema = noodleSettingsSchema.partial();
@@ -161,6 +163,8 @@ export const noodleAccountProfileUpdateSchema = z
   .strict();
 
 export const noodleAccountFollowUpdateSchema = z.object({ followed: z.boolean() }).strict();
+
+export const noodlePrivateAccountCreateSchema = z.object({}).strict();
 
 export const noodleInviteSchema = z.object({
   characterId: z.string().min(1),
@@ -399,6 +403,7 @@ export type NoodleAccountUpdateInput = z.infer<typeof noodleAccountUpdateSchema>
 export type NoodleAccountProfileUpdateInput = z.infer<typeof noodleAccountProfileUpdateSchema>;
 export type NoodleAccountSettingsPatchInput = z.infer<typeof noodleAccountSettingsPatchSchema>;
 export type NoodleAccountFollowUpdateInput = z.infer<typeof noodleAccountFollowUpdateSchema>;
+export type NoodlePrivateAccountCreateInput = z.infer<typeof noodlePrivateAccountCreateSchema>;
 export type NoodleInviteInput = z.infer<typeof noodleInviteSchema>;
 export type NoodleBulkInviteInput = z.infer<typeof noodleBulkInviteSchema>;
 export type NoodlePollInput = z.infer<typeof noodlePollInputSchema>;

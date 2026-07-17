@@ -35,6 +35,7 @@ export type NoodleRefreshResult = {
 export const noodleKeys = {
   all: ["noodle"] as const,
   bootstrap: () => [...noodleKeys.all, "bootstrap"] as const,
+  privateAccounts: () => [...noodleKeys.all, "private-accounts"] as const,
 };
 
 function preservePollVotes(current: NoodleBootstrap | undefined, next: NoodleBootstrap): NoodleBootstrap {
@@ -53,6 +54,15 @@ export function useNoodle(enabled = true) {
     refetchIntervalInBackground: false,
     structuralSharing: (current, next) =>
       preservePollVotes(current as NoodleBootstrap | undefined, next as NoodleBootstrap),
+  });
+}
+
+export function useNoodlerAccounts(enabled = true) {
+  return useQuery({
+    queryKey: noodleKeys.privateAccounts(),
+    queryFn: () => api.get<NoodleAccount[]>("/noodle/noodler/accounts"),
+    enabled,
+    staleTime: 10_000,
   });
 }
 
