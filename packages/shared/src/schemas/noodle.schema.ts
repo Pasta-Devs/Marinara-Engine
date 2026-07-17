@@ -160,8 +160,11 @@ export const noodleAccountUpdateSchema = z
     bio: z.string().max(500).optional(),
     avatarUrl: z.string().max(2000).nullable().optional(),
     invited: z.boolean().optional(),
+    profile: noodleAccountProfileSettingsSchema.optional(),
   })
   .strict();
+
+export const noodleAccountFollowUpdateSchema = z.object({ followed: z.boolean() }).strict();
 
 export const noodleInviteSchema = z.object({
   characterId: z.string().min(1),
@@ -398,6 +401,7 @@ export type NoodleSettingsInput = z.infer<typeof noodleSettingsSchema>;
 export type NoodleSettingsUpdateInput = z.infer<typeof noodleSettingsUpdateSchema>;
 export type NoodleAccountUpdateInput = z.infer<typeof noodleAccountUpdateSchema>;
 export type NoodleAccountSettingsPatchInput = z.infer<typeof noodleAccountSettingsPatchSchema>;
+export type NoodleAccountFollowUpdateInput = z.infer<typeof noodleAccountFollowUpdateSchema>;
 export type NoodleInviteInput = z.infer<typeof noodleInviteSchema>;
 export type NoodleBulkInviteInput = z.infer<typeof noodleBulkInviteSchema>;
 export type NoodlePollInput = z.infer<typeof noodlePollInputSchema>;

@@ -10,6 +10,7 @@ import {
   createNoodlePoll,
   canManageNoodleReply,
   extractNoodleMentionHandles,
+  noodleAccountFollowUpdateSchema,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
   noodleBulkInviteSchema,
@@ -118,7 +119,6 @@ import {
 
 const NOODLE_ROUTE_DIR = dirname(fileURLToPath(import.meta.url));
 const CLIENT_PUBLIC_DIR = resolve(NOODLE_ROUTE_DIR, "../../../client/public");
-const NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY = "followingAccountTimestamps";
 const PROFESSOR_MARI_REFERENCE_ASSETS = [
   "sprites/mari/Mari_profile.png",
   "sprites/mari/chibi-professor-mari.png",
@@ -467,10 +467,7 @@ async function ensureProfessorMariAccount(
       displayName: account.displayName || "Professor Mari",
       bio: PROFESSOR_MARI_NOODLE_BIO,
       avatarUrl: account.avatarUrl || row?.avatarPath || "/sprites/mari/Mari_profile.png",
-    });
-    await noodle.patchAccountSettings(account.id, {
-      subtree: "profile",
-      patch: generatedProfileSettings("Marinara Engine", null),
+      profile: generatedProfileSettings("Marinara Engine", null),
     });
   }
 }
@@ -1127,10 +1124,7 @@ async function generateMissingNoodleProfiles(input: {
       displayName: profile.name,
       bio: profile.bio,
       avatarUrl: target.row.avatarPath ?? target.account.avatarUrl,
-    });
-    await input.noodle.patchAccountSettings(target.account.id, {
-      subtree: "profile",
-      patch: generatedProfileSettings(profile.location, target.bannerUrl),
+      profile: generatedProfileSettings(profile.location, target.bannerUrl),
     });
   }
 }
@@ -1395,17 +1389,17 @@ export async function noodleRoutes(app: FastifyInstance) {
         parsed.data.displayName !== undefined ||
         parsed.data.bio !== undefined ||
         parsed.data.avatarUrl !== undefined);
-    const updated = await noodle.updateAccount(id, parsed.data);
-    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
-    if (profileFieldsChanged) {
-      return noodle.patchAccountSettings(id, {
-        subtree: "profile",
-        patch: {
-          ...(avatarCrop !== undefined ? { avatarCrop } : {}),
-          profileManuallyEdited: true,
+    const updated = await noodle.updateAccount(id, {
+      ...parsed.data,
+      ...((profileFieldsChanged || parsed.data.profile) && {
+        profile: {
+          ...parsed.data.profile,
+          ...(profileFieldsChanged && avatarCrop !== undefined ? { avatarCrop } : {}),
+          ...(profileFieldsChanged ? { profileManuallyEdited: true } : {}),
         },
-      });
-    }
+      }),
+    });
+    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
     return updated;
   });
 
@@ -1416,6 +1410,18 @@ export async function noodleRoutes(app: FastifyInstance) {
     const updated = await noodle.patchAccountSettings(id, parsed.data);
     if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
     return updated;
+  });
+
+  app.patch("/accounts/:id/follows/:targetAccountId", async (req, reply) => {
+    const { id, targetAccountId } = req.params as { id: string; targetAccountId: string };
+    if (id === targetAccountId) return reply.code(400).send({ error: "A Noodle account cannot follow itself" });
+    const parsed = noodleAccountFollowUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const [account, target] = await Promise.all([noodle.getAccountById(id), noodle.getAccountById(targetAccountId)]);
+    if (!account || !target) return reply.code(404).send({ error: "Noodle account not found" });
+    const updated = await noodle.updateAccountFollow(id, targetAccountId, parsed.data.followed);
+    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
+    return updated.account;
   });
 
   app.post("/invites", async (req, reply) => {
@@ -2027,9 +2033,6 @@ export async function noodleRoutes(app: FastifyInstance) {
           account,
         ]),
       );
-      const mutableAccountSettings = new Map(
-        activeAccounts.map((account) => [account.id, { ...account.settings.social }] as const),
-      );
       const freshPosts = await noodle.listPosts({ since: sinceHoursIso(48), limit: 200 });
       const allowedExistingPostIds = new Set([...freshPosts.map((post) => post.id), ...recalledPostIds]);
       const existingInteractionById = new Map(
@@ -2235,20 +2238,8 @@ export async function noodleRoutes(app: FastifyInstance) {
         const followKey = `${actor.id}:${target.id}`;
         if (seenGeneratedFollows.has(followKey)) continue;
         seenGeneratedFollows.add(followKey);
-        const actorSettings = mutableAccountSettings.get(actor.id) ?? actor.settings.social;
-        const currentFollowingAccountIds = actorSettings.followingAccountIds ?? [];
-        if (currentFollowingAccountIds.includes(target.id)) continue;
-        const followedAtByAccount = actorSettings.followingAccountTimestamps ?? {};
-        const nextSettings = {
-          ...actorSettings,
-          followingAccountIds: [...currentFollowingAccountIds, target.id],
-          [NOODLE_FOLLOWED_AT_BY_ACCOUNT_KEY]: {
-            ...followedAtByAccount,
-            [target.id]: new Date().toISOString(),
-          },
-        };
-        mutableAccountSettings.set(actor.id, nextSettings);
-        await noodle.patchAccountSettings(actor.id, { subtree: "social", patch: nextSettings });
+        const follow = await noodle.updateAccountFollow(actor.id, target.id, true);
+        if (!follow?.changed) continue;
         await noodle.createDigest({
           accountIds: [actor.id, target.id],
           content: `${noodleDigestAccountLabel(actor)} followed ${noodleDigestAccountLabel(target)} on Noodle.`,

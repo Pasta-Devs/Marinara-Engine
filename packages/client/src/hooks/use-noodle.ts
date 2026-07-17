@@ -6,6 +6,7 @@ import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import type {
   NoodleAccount,
+  NoodleAccountFollowUpdateInput,
   NoodleAccountKind,
   NoodleAccountSettingsPatchInput,
   NoodleAccountUpdateInput,
@@ -129,6 +130,22 @@ export function usePatchNoodleAccountSettings() {
               ...current,
               accounts: current.accounts.map((item) => (item.id === account.id ? account : item)),
             }
+          : current,
+      );
+      qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });
+    },
+  });
+}
+
+export function useUpdateNoodleAccountFollow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, targetAccountId, ...input }: { id: string; targetAccountId: string } & NoodleAccountFollowUpdateInput) =>
+      api.patch<NoodleAccount>(`/noodle/accounts/${id}/follows/${targetAccountId}`, input),
+    onSuccess: (account) => {
+      qc.setQueryData<NoodleBootstrap | undefined>(noodleKeys.bootstrap(), (current) =>
+        current
+          ? { ...current, accounts: current.accounts.map((item) => (item.id === account.id ? account : item)) }
           : current,
       );
       qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });

@@ -111,6 +111,7 @@ import {
   useRescheduleNoodleRefresh,
   useResetNoodleTimeline,
   useUpdateNoodleAccount,
+  useUpdateNoodleAccountFollow,
   useUpdateNoodleInteraction,
   useUpdateNoodlePost,
   useUpdateNoodleSettings,
@@ -926,6 +927,7 @@ export function NoodleView() {
   const { data: connectionsRaw } = useConnections();
   const updateSettings = useUpdateNoodleSettings();
   const updateAccount = useUpdateNoodleAccount();
+  const updateAccountFollow = useUpdateNoodleAccountFollow();
   const patchAccountSettings = usePatchNoodleAccountSettings();
   const inviteCharacter = useInviteNoodleCharacter();
   const inviteCharacters = useInviteNoodleCharacters();
@@ -1293,24 +1295,13 @@ export function NoodleView() {
         displayName: profileName.trim(),
         bio: profileBio,
         ...(nextAvatarUrl !== viewedProfileAccount.avatarUrl ? { avatarUrl: nextAvatarUrl } : {}),
+        profile: { bannerUrl: profileBannerUrl.trim(), location: profileLocation.trim() },
       },
       {
-        onSuccess: () =>
-          patchAccountSettings.mutate(
-            {
-              id: viewedProfileAccount.id,
-              subtree: "profile",
-              patch: { bannerUrl: profileBannerUrl.trim(), location: profileLocation.trim() },
-            },
-            {
-              onSuccess: () => {
-                setProfileEditing(false);
-                toast.success("Noodle profile updated.");
-              },
-              onError: (error) =>
-                toast.error(error instanceof Error ? error.message : "Could not update Noodle profile."),
-            },
-          ),
+        onSuccess: () => {
+          setProfileEditing(false);
+          toast.success("Noodle profile updated.");
+        },
         onError: (error) => toast.error(error instanceof Error ? error.message : "Could not update Noodle profile."),
       },
     );
@@ -2136,23 +2127,11 @@ export function NoodleView() {
 
   const updateFollowedAccount = (account: NoodleAccount, followed: boolean) => {
     if (!personaAccount || account.id === personaAccount.id) return;
-    const currentFollowingAccountIds = personaAccount.settings.social.followingAccountIds ?? [];
-    const nextFollowingAccountIds = followed
-      ? Array.from(new Set([...currentFollowingAccountIds, account.id]))
-      : currentFollowingAccountIds.filter((id) => id !== account.id);
-    const nextFollowedAtByAccount = {
-      ...personaAccount.settings.social.followingAccountTimestamps,
-    };
-    if (followed) nextFollowedAtByAccount[account.id] = new Date().toISOString();
-    else delete nextFollowedAtByAccount[account.id];
-    patchAccountSettings.mutate(
+    updateAccountFollow.mutate(
       {
         id: personaAccount.id,
-        subtree: "social",
-        patch: {
-          followingAccountIds: nextFollowingAccountIds,
-          followingAccountTimestamps: nextFollowedAtByAccount,
-        },
+        targetAccountId: account.id,
+        followed,
       },
       {
         onError: (error) => toast.error(error instanceof Error ? error.message : "Could not update followed accounts."),

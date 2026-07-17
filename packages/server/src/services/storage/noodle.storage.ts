@@ -4,7 +4,8 @@
 import { and, desc, eq, gt, inArray, isNull, lt } from "../../db/file-query.js";
 import {
   DEFAULT_NOODLE_SETTINGS,
-  noodleAccountSettingsSchema,
+  noodleAccountProfileSettingsSchema,
+  noodleAccountSocialSettingsSchema,
   noodleSettingsSchema,
   readNoodlePollFromMetadata,
   type NoodleAccount,
@@ -81,6 +82,24 @@ function nestedOrLegacy(nested: Record<string, unknown>, legacy: Record<string, 
   return Object.prototype.hasOwnProperty.call(nested, key) ? nested[key] : legacy[key];
 }
 
+function normalizePersistedBoolean(value: unknown): boolean | undefined {
+  if (value === true || value === "true") return true;
+  if (value === false || value === "false") return false;
+  return undefined;
+}
+
+function validProfileField(key: string, value: unknown): NoodleAccountSettings["profile"] {
+  if (value === undefined) return {};
+  const parsed = noodleAccountProfileSettingsSchema.safeParse({ [key]: value });
+  return parsed.success ? parsed.data : {};
+}
+
+function validSocialField(key: string, value: unknown): NoodleAccountSettings["social"] {
+  if (value === undefined) return {};
+  const parsed = noodleAccountSocialSettingsSchema.safeParse({ [key]: value });
+  return parsed.success ? parsed.data : {};
+}
+
 export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSettings {
   const raw = parseRecord(value);
   const rawProfile = parseRecord(raw.profile);
@@ -93,34 +112,35 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
   const rawFollowingAccountIds = nestedOrLegacy(rawSocial, raw, "followingAccountIds");
   const rawFollowingAccountTimestamps = nestedOrLegacy(rawSocial, raw, "followingAccountTimestamps");
   const rawNotificationsReadAt = nestedOrLegacy(rawSocial, raw, "notificationsReadAt");
-  const candidate = {
-    profile: {
-      ...(rawAvatarCrop !== undefined && { avatarCrop: parseNoodleAvatarCrop(rawAvatarCrop) }),
-      ...(typeof rawBannerUrl === "string" && { bannerUrl: rawBannerUrl }),
-      ...(typeof rawLocation === "string" && { location: rawLocation }),
-      ...(rawProfileGenerated !== undefined && { profileGenerated: normalizeBool(rawProfileGenerated) }),
-      ...(rawProfileManuallyEdited !== undefined && {
-        profileManuallyEdited: normalizeBool(rawProfileManuallyEdited),
-      }),
-    },
-    social: {
-      ...(rawFollowingAccountIds !== undefined && {
-        followingAccountIds: parseStringArray(rawFollowingAccountIds),
-      }),
-      ...(rawFollowingAccountTimestamps !== undefined && {
-        followingAccountTimestamps: Object.fromEntries(
-          Object.entries(parseRecord(rawFollowingAccountTimestamps)).filter(
-            (entry): entry is [string, string] => typeof entry[1] === "string",
-          ),
-        ),
-      }),
-      ...(typeof rawNotificationsReadAt === "string" && { notificationsReadAt: rawNotificationsReadAt }),
-    },
+  const normalizedAvatarCrop = rawAvatarCrop === null ? null : parseNoodleAvatarCrop(rawAvatarCrop);
+  const profile = {
+    ...(rawAvatarCrop !== undefined &&
+      (rawAvatarCrop === null || normalizedAvatarCrop !== null) &&
+      validProfileField("avatarCrop", normalizedAvatarCrop)),
+    ...(rawBannerUrl !== undefined && validProfileField("bannerUrl", rawBannerUrl)),
+    ...(rawLocation !== undefined && validProfileField("location", rawLocation)),
+    ...(rawProfileGenerated !== undefined &&
+      validProfileField("profileGenerated", normalizePersistedBoolean(rawProfileGenerated))),
+    ...(rawProfileManuallyEdited !== undefined &&
+      validProfileField("profileManuallyEdited", normalizePersistedBoolean(rawProfileManuallyEdited))),
+  };
+  const followingAccountTimestamps = Object.fromEntries(
+    Object.entries(parseRecord(rawFollowingAccountTimestamps)).filter(([accountId, timestamp]) =>
+      noodleAccountSocialSettingsSchema.safeParse({ followingAccountTimestamps: { [accountId]: timestamp } }).success,
+    ),
+  );
+  const social = {
+    ...(rawFollowingAccountIds !== undefined && validSocialField("followingAccountIds", rawFollowingAccountIds)),
+    ...(rawFollowingAccountTimestamps !== undefined &&
+      validSocialField("followingAccountTimestamps", followingAccountTimestamps)),
+    ...(rawNotificationsReadAt !== undefined && validSocialField("notificationsReadAt", rawNotificationsReadAt)),
+  };
+  return {
+    profile,
+    social,
     scheduler: {},
     privacy: {},
   };
-  const parsed = noodleAccountSettingsSchema.safeParse(candidate);
-  return parsed.success ? parsed.data : emptyNoodleAccountSettings();
 }
 
 function parseRefreshAttempts(value: unknown): NoodleRefreshAttempt[] {
@@ -508,20 +528,29 @@ export function createNoodleStorage(db: DB) {
     },
 
     async updateAccount(id: string, input: NoodleAccountUpdateInput): Promise<NoodleAccount | null> {
-      const existing = await this.getAccountById(id);
-      if (!existing) return null;
-      await db
-        .update(noodleAccounts)
-        .set({
-          ...(input.handle !== undefined && { handle: normalizeHandle(input.handle, existing.entityId) }),
-          ...(input.displayName !== undefined && { displayName: input.displayName.trim().slice(0, 120) }),
-          ...(input.bio !== undefined && { bio: input.bio.slice(0, 500) }),
-          ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
-          ...(input.invited !== undefined && { invited: String(input.invited) }),
-          updatedAt: now(),
-        })
-        .where(eq(noodleAccounts.id, id));
-      return this.getAccountById(id);
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        const row = rows[0];
+        if (!row) return null;
+        const currentSettings = normalizeNoodleAccountSettings(row.settings);
+        const nextSettings = input.profile
+          ? { ...currentSettings, profile: { ...currentSettings.profile, ...input.profile } }
+          : currentSettings;
+        await tx
+          .update(noodleAccounts)
+          .set({
+            ...(input.handle !== undefined && { handle: normalizeHandle(input.handle, row.entityId) }),
+            ...(input.displayName !== undefined && { displayName: input.displayName.trim().slice(0, 120) }),
+            ...(input.bio !== undefined && { bio: input.bio.slice(0, 500) }),
+            ...(input.avatarUrl !== undefined && { avatarUrl: input.avatarUrl }),
+            ...(input.invited !== undefined && { invited: String(input.invited) }),
+            ...(input.profile !== undefined && { settings: JSON.stringify(nextSettings) }),
+            updatedAt: now(),
+          })
+          .where(eq(noodleAccounts.id, id));
+        const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        return updatedRows[0] ? mapAccount(updatedRows[0]) : null;
+      });
     },
 
     async patchAccountSettings(id: string, input: NoodleAccountSettingsPatch): Promise<NoodleAccount | null> {
@@ -540,6 +569,42 @@ export function createNoodleStorage(db: DB) {
           .where(eq(noodleAccounts.id, id));
         const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
         return updatedRows[0] ? mapAccount(updatedRows[0]) : null;
+      });
+    },
+
+    async updateAccountFollow(
+      id: string,
+      targetAccountId: string,
+      followed: boolean,
+      followedAt = new Date().toISOString(),
+    ): Promise<{ account: NoodleAccount; changed: boolean } | null> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        const row = rows[0];
+        if (!row) return null;
+        const current = normalizeNoodleAccountSettings(row.settings);
+        const followingAccountIds = current.social.followingAccountIds ?? [];
+        const isFollowing = followingAccountIds.includes(targetAccountId);
+        if (isFollowing === followed) return { account: mapAccount(row), changed: false };
+        const followingAccountTimestamps = { ...current.social.followingAccountTimestamps };
+        if (followed) followingAccountTimestamps[targetAccountId] = followedAt;
+        else delete followingAccountTimestamps[targetAccountId];
+        const next: NoodleAccountSettings = {
+          ...current,
+          social: {
+            ...current.social,
+            followingAccountIds: followed
+              ? [...followingAccountIds, targetAccountId]
+              : followingAccountIds.filter((accountId) => accountId !== targetAccountId),
+            followingAccountTimestamps,
+          },
+        };
+        await tx
+          .update(noodleAccounts)
+          .set({ settings: JSON.stringify(next), updatedAt: now() })
+          .where(eq(noodleAccounts.id, id));
+        const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        return updatedRows[0] ? { account: mapAccount(updatedRows[0]), changed: true } : null;
       });
     },
 

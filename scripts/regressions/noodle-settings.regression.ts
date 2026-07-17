@@ -144,6 +144,60 @@ try {
     scheduler: {},
     privacy: {},
   });
+  await firstDb
+    .update(noodleAccounts)
+    .set({
+      settings: JSON.stringify({
+        profile: { bannerUrl: "/valid-banner.png", location: 42 },
+        social: {
+          followingAccountIds: ["valid-follow"],
+          followingAccountTimestamps: {
+            "valid-follow": "2026-07-17T12:00:00.000Z",
+            invalid: "not-a-date",
+          },
+          notificationsReadAt: "not-a-date",
+        },
+      }),
+    })
+    .where(eq(noodleAccounts.id, legacyAccount.id));
+  const partiallyInvalidAccount = await firstNoodle.getAccountById(legacyAccount.id);
+  assert.deepEqual(partiallyInvalidAccount?.settings, {
+    profile: { bannerUrl: "/valid-banner.png" },
+    social: {
+      followingAccountIds: ["valid-follow"],
+      followingAccountTimestamps: { "valid-follow": "2026-07-17T12:00:00.000Z" },
+    },
+    scheduler: {},
+    privacy: {},
+  });
+  const followTargetA = await firstNoodle.upsertAccountFromProfile({
+    kind: "character",
+    entityId: "follow-target-a",
+    displayName: "Follow Target A",
+  });
+  const followTargetB = await firstNoodle.upsertAccountFromProfile({
+    kind: "character",
+    entityId: "follow-target-b",
+    displayName: "Follow Target B",
+  });
+  await Promise.all([
+    firstNoodle.updateAccountFollow(concurrentAccount.id, followTargetA.id, true, "2026-07-17T13:00:00.000Z"),
+    firstNoodle.updateAccountFollow(concurrentAccount.id, followTargetB.id, true, "2026-07-17T13:00:01.000Z"),
+  ]);
+  const concurrentlyFollowedAccount = await firstNoodle.getAccountById(concurrentAccount.id);
+  assert.deepEqual(new Set(concurrentlyFollowedAccount?.settings.social.followingAccountIds), new Set([
+    "followed-account",
+    followTargetA.id,
+    followTargetB.id,
+  ]));
+  assert.equal(
+    concurrentlyFollowedAccount?.settings.social.followingAccountTimestamps?.[followTargetA.id],
+    "2026-07-17T13:00:00.000Z",
+  );
+  assert.equal(
+    concurrentlyFollowedAccount?.settings.social.followingAccountTimestamps?.[followTargetB.id],
+    "2026-07-17T13:00:01.000Z",
+  );
   const refreshRun = await firstNoodle.createRefreshRun({
     activeAccountIds: ["alpha"],
     prompt: "Generate a Noodle timeline.",
@@ -185,10 +239,7 @@ try {
     displayName: "Generated Social Name",
     handle: "custom_handle",
     bio: "Keep this generated biography",
-  });
-  await firstNoodle.patchAccountSettings(characterAccount.id, {
-    subtree: "profile",
-    patch: { profileGenerated: true, location: "Snezhnaya" },
+    profile: { profileGenerated: true, location: "Snezhnaya" },
   });
   const renamedCharacterAccount = await firstNoodle.upsertAccountFromProfile({
     kind: "character",
@@ -224,7 +275,11 @@ try {
   assert.equal(reopenedSettings.maxGeneratedPostsPerRefresh, 11);
   const reopenedConcurrentAccount = await reopenedNoodle.getAccountById(concurrentAccount.id);
   assert.equal(reopenedConcurrentAccount?.settings.profile.bannerUrl, "/banner.png");
-  assert.deepEqual(reopenedConcurrentAccount?.settings.social.followingAccountIds, ["followed-account"]);
+  assert.deepEqual(new Set(reopenedConcurrentAccount?.settings.social.followingAccountIds), new Set([
+    "followed-account",
+    followTargetA.id,
+    followTargetB.id,
+  ]));
   const reopenedRuns = await reopenedNoodle.listRefreshRuns({ status: "completed", limit: 2 });
   const reopenedRun = reopenedRuns.find((entry) => entry.id === refreshRun.id);
   assert.equal(reopenedRun?.result, correctedResponse);

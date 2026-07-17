@@ -7,7 +7,7 @@ Before pasting: confirm the slice's prerequisite(s) are actually merged to `orig
 ```
 You are implementing ONE slice of a larger PR-stack plan for the NoodleR feature.
 First run: git fetch origin noodl-split-plan
-Then read the plan with: git show origin/noodl-split-plan:.github/plans/noodler-pr-stack-plan-v2.md
+Then read the plan with: git show origin/noodl-split-plan:.github/plans/noodl-split/noodler-pr-stack-plan-v2.md
 Read it in full before doing anything else — it has the dependency order, the
 findings each slice must fix, and the acceptance criteria.
 Note: this branch is cut fresh from current origin/staging. Do not assume any code
@@ -33,8 +33,13 @@ Hard boundaries for this task:
   Finding 1 — typed settings contract + atomic patch operation"].
 - Depends on: [prior slice(s), state whether they're already merged or you need
   to assume their interfaces — if not merged yet, ask me before proceeding].
-- Target size: under ~500 LOC / 8 files. If you're clearly going to blow past
-  that once you're in the code, stop and tell me — don't just keep going.
+- Target size: ~500 LOC / 8 files is a warning threshold, not a hard cap — it exists
+  to keep the diff reviewable, not to justify a worse design. Mechanical moves
+  (renames, file relocations) can legitimately exceed it; keep those as separate
+  commits from behavior changes so the diff still reads as a clean move. If new
+  *logic* (not moves) is clearly going to blow past it, stop and tell me before
+  continuing — don't just keep going, and don't weaken a type or skip a needed file
+  just to stay under the number.
 
 Before writing code:
 - Give me a concrete plan: which files you'll touch, what the new typed
@@ -46,11 +51,13 @@ While working:
 - Narrate each file change in plain language before you make it (what and why).
 - Stage files individually — never `git add -A` / `git add .`.
 - Run `pnpm check` before telling me it's done. Also run `pnpm version:check`
-  if you touched any version-bearing file, and `pnpm guard:installer-artifacts`.
+  if you touched any version-bearing file, `pnpm guard:installer-artifacts`, and
+  `pnpm regression` (covers both `regression:prompt` and `smoke:ui`) for any slice
+  touching server logic or UI.
 - Don't add any AI/bot attribution to commits or the PR description.
 - If this slice's behavior is user-visible, tell me which docs need updating
-  (README / CHANGELOG / docs/CONFIGURATION.md / docs/FAQ.md) and update them
-  in the same PR.
+  (README / CHANGELOG / docs/CONFIGURATION.md / docs/FAQ.md / docs/noodle/settings.md)
+  and update them in the same PR.
 
 When you think you're done, give me:
 1. A summary of what changed and why, mapped back to the plan's acceptance
@@ -68,6 +75,6 @@ and wait for me.
 
 ## Notes on using this across two different agents
 
-- Both agents should be pointed at the **same** `noodler-pr-stack-plan.md` — don't let one work from Codex's raw list and the other from the reordered plan, or you'll get two different slice boundaries.
+- Both agents should read the plan via the same `git show origin/noodl-split-plan:...` command (see above) — don't let one work from Codex's raw list and the other from a stale local copy, or you'll get two different slice boundaries. The canonical file is `noodler-pr-stack-plan-v2.md`; there is no plain `noodler-pr-stack-plan.md` to accidentally reference.
 - If you split slices across the two tools (e.g. Claude does the server-side data foundation, GPT-5.6-sol does the client shell), make sure the dependent one doesn't start until the prerequisite slice is actually merged — the plan calls out which slices depend on which. Don't let an agent "assume" an interface from an unmerged branch; that's how the two efforts diverge.
 - If either agent proposes deviating from the plan (different slice boundary, different order), have it stop and ask rather than silently reshaping the split — that's the whole point of writing the plan down first.

@@ -15,6 +15,15 @@ behavior separated per the LOC-limit rule below), with the standing option to sp
 into two PRs mid-work if it turns out bigger than expected — same escape hatch every
 other slice already has, applied consistently instead of pre-forked.
 
+**Amendment note (Slice 1A):** after v2 was written, a second Codex review caught
+that the original 3-subtree settings contract (profile/scheduler/privacy) left an
+escape hatch — current `staging` has existing writers (follow graph, notifications,
+avatar sync) that don't fit those three and would keep bypassing the fix. Slice 1A
+below is updated to a 4-subtree contract (adds `social`) and requires closing the
+generic settings-update path entirely, not just adding a new one alongside it. If
+you already started Slice 1A implementation before this note existed, re-check it
+against the current Slice 1A section.
+
 **Testing policy correction:** the repo has real regression tooling: `pnpm regression`
 (runs `regression:prompt` + `smoke:ui`), `pnpm regression:prompt` (prompt-pipeline
 regression via tsx script), `pnpm smoke:ui` (Playwright). There is **no**
@@ -62,6 +71,14 @@ must be separate commits (ideally separate PRs).** Use `git mv` / rely on GitHub
 move-detection so reviewers see "renamed, no changes" rather than a wall of red/green.
 If a "move" PR's diff doesn't render as a clean rename, something is wrong — stop and
 check before pushing.
+
+**Never weaken correctness to dodge the number.** If touching one more file (e.g.
+updating a fixture so a type can stay strict/non-optional) is the price of not
+loosening something the slice is specifically trying to make strict, pay it. The
+guideline exists to keep diffs reviewable, not to justify a worse design. (This came
+up for real in Slice 1A: the agent proposed making settings subtree containers
+optional just to avoid touching a 9th fixture file — rejected, fixture updated
+instead.)
 
 ---
 
@@ -131,17 +148,62 @@ no NoodleR involvement, no dependency.
 
 **Findings:** P1 Finding 1 (settings race).
 
-**Scope:** typed `NoodleAccountSettings` contract, discriminated by owned subtree
-(profile / scheduler / privacy). Atomic server-side `patchAccountSettings(accountId,
-subtreePatch)` that reads-modifies-writes the latest persisted value per subtree.
+**AMENDED after a second Codex pass caught a real gap:** the original three-subtree
+version (profile / scheduler / privacy) left an escape hatch. Current `staging`
+already has independent writers beyond those three — follow graph, follow
+timestamps, notification read state, avatar sync, generated follow activity — none of
+which fit cleanly into profile/scheduler/privacy. If the generic account-update path
+still accepts a raw `settings` object, any of those existing writers can bypass the
+new patch operation entirely and the race stays open for them. This is not scope
+creep; it's required for the fix to actually be complete against the real baseline.
+**First step for the implementing agent: confirm against the actual schema/storage
+files which fields currently live in `NoodleAccount.settings` vs. elsewhere — the
+subtree list below is a starting hypothesis, not a verified inventory.**
+
+**Scope:**
+- Typed `NoodleAccountSettings` contract with **four** owned subtrees, not three:
+  - `profile` — avatar crop, banner, location, generated/manual-edit markers
+  - `social` — following IDs, follow timestamps, notification read cursor, generated
+    follow activity
+  - `scheduler` — future fan-activity and auto-post scheduling state. Only commit to
+    what the plan already requires: shared `1 | 3 | 6` intensity + per-account
+    `nextRunAt`. Do not pre-decide fan-activity or auto-post semantics beyond that —
+    those belong to Slices 7/8.
+  - `privacy` — future hidden-from and access settings. Do not pre-decide
+    subscription/access semantics — that belongs to Slice 6.
+- `patchAccountSettings(accountId, { subtree, patch })` as a discriminated-union
+  input. Implementation: open a transaction, read the account inside it, normalize any
+  legacy flat settings shape into the canonical nested one, merge only the named
+  subtree, write the full canonical object back, return the updated account. Rely on
+  the transaction to serialize concurrent patches rather than hand-rolled locking.
+- **Close the escape hatch:** the generic account-update operation must stop accepting
+  a `settings` field at all. Every current settings writer (profile, follow graph,
+  notifications, avatar sync, generated follow activity) must be migrated onto
+  `patchAccountSettings()` in this same slice — leaving even one on the old path means
+  Finding 1 isn't actually fixed for that writer.
+- Likely touched files (confirm against actual repo, not assumed): shared types,
+  shared schema, server storage service, server routes, client settings hook, the
+  main Noodle view, and a new regression script for this behavior.
+
+**Explicitly out of scope:** no user-facing docs change in this slice — it's
+data-integrity hardening, and documenting NoodleR-specific controls (subscriptions,
+stage identity, scheduling cadence) before those controls exist would be misleading.
+Doc updates land with the slice that actually introduces the user-facing behavior.
 
 **Acceptance:**
-- Controlled concurrency proof: fire concurrent `Promise.all` patches to *different*
-  subtrees of the same account, inspect final persisted state — neither write lost.
-  ("Send two requests quickly" is not sufficient proof; use deliberate concurrency +
-  state inspection, per the corrected testing policy.)
-- `pnpm check` and `pnpm regression:prompt` green (settings changes can affect prompt
-  assembly if any settings feed into it — verify, don't assume they don't).
+- Controlled concurrency proof: `Promise.all` across **all four** subtrees
+  (profile/social/scheduler/privacy) on the same account, then inspect both the live
+  in-memory result and the reopened persisted storage — not just one or the other.
+  ("Send two requests quickly" is not sufficient proof.)
+- Negative-case proof: a patch attempting to touch fields across subtree boundaries
+  fails schema validation, not a runtime check.
+- Confirm no code path anywhere in the current diff still calls the generic
+  account-update operation with a `settings` field — grep for it, don't just check the
+  files you touched.
+- `pnpm check`, `pnpm guard:installer-artifacts`, and `pnpm regression` all green
+  (`pnpm regression` runs both `regression:prompt` and `smoke:ui` — settings changes
+  can affect prompt assembly and UI behavior alike, verify both rather than assuming
+  either is unaffected).
 
 ---
 
@@ -351,8 +413,49 @@ seam rather than Slice 3 pre-building for them).
 - **Separate git worktrees** when the two agents are working different slices at the
   same time, so uncommitted work doesn't cross-contaminate branches.
 - **No dependent slice starts until the prerequisite is merged to `origin/staging`.**
-  Verify this yourself (`git log origin/staging`) before kicking off the kickoff prompt
-  for a dependent slice — don't take an agent's word that a prior slice is "basically
-  done."
+  Run `git fetch origin` first — a stale local `origin/staging` ref can show a
+  prerequisite as unmerged (or merged) incorrectly. Then verify with
+  `git log origin/staging` before kicking off the kickoff prompt for a dependent
+  slice — don't take an agent's word that a prior slice is "basically done."
 - Confirm an issue/Discord thread exists and has maintainer acknowledgment before
   starting implementation on any slice, per the standard contributor pre-flight.
+
+---
+
+## Coverage check — run once, before relying on this plan further
+
+Purpose: confirm every feature area from the original `noooooods` branch is actually
+accounted for in some slice below, so nothing gets quietly dropped in the split. Run
+this once now (or re-run if the plan changes significantly), not per-slice.
+
+Prompt to give an agent:
+
+```
+Compare the noooooods branch against origin/staging:
+  git diff origin/staging...noooooods --stat
+
+List every file changed and, in your own words, what functional area each belongs to
+(e.g. "fan activity scheduling", "PPV unlock UI", "stage profile generation").
+
+Then read noodler-pr-stack-plan-v2.md (via
+git show origin/noodl-split-plan:.github/plans/noodl-split/noodler-pr-stack-plan-v2.md) and check
+each functional area you listed against the slices. For each one, tell me: which
+slice covers it, or flag it clearly as NOT COVERED if you can't find a match.
+
+Do not modify any files. This is a read-only audit. Give me the full list, including
+areas that ARE covered — I want to see the complete mapping, not just the gaps.
+```
+
+If anything comes back "NOT COVERED," that's a plan gap to fix before that area's
+functionality gets built — not a reason to panic, just something to slot into the
+right slice (or add a new one) before it's needed.
+
+---
+
+## Keeping this file current
+
+This plan lives on the `noodl-split-plan` branch at
+`.github/plans/noodl-split/noodler-pr-stack-plan-v2.md`. Whenever it's amended (like the Slice 1A
+4-subtree correction above), push the updated file to that branch before any agent
+starts a new slice off it — a stale local copy defeats the point of having one shared
+source of truth.
