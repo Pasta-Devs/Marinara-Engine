@@ -1,5 +1,9 @@
+import type { WrapFormat } from "@marinara-engine/shared";
+
 import { sanitizeConnectedGameTranscript } from "../../services/generation/generation-text-utils.js";
 import { isConversationCommandEnabled } from "../../services/generation/conversation-command-runtime.js";
+import { wrapContent } from "../../services/prompt/format-engine.js";
+import { sanitizePromptLeaf } from "../../services/prompt/prompt-escaping.js";
 import { parseGameStateRow } from "./generate-route-utils.js";
 
 type ConnectedChatRow = {
@@ -42,6 +46,7 @@ export async function resolveConversationConnectedChatContext(args: {
   chats: ConnectedChatsStore;
   chars: ConnectedCharactersStore;
   gameStateStore: ConnectedGameStateStore;
+  wrapFormat: WrapFormat;
 }): Promise<{ connectedChatBlock: string | null; systemPromptAppend: string | null }> {
   if (!args.connectedChatId) return { connectedChatBlock: null, systemPromptAppend: null };
 
@@ -52,6 +57,8 @@ export async function resolveConversationConnectedChatContext(args: {
   const connectedNoteCommandEnabled =
     args.conversationCommandsEnabled && isConversationCommandEnabled(args.chatMeta, "note");
   const connectedChat = await args.chats.getById(args.connectedChatId as string);
+  const safe = (value: unknown): string => sanitizePromptLeaf(String(value ?? ""), args.wrapFormat);
+  const nestedSection = (content: string, name: string): string => wrapContent(content, name, args.wrapFormat, 1);
 
   if (connectedChat && connectedChat.mode === "roleplay") {
     const rpMessages = await args.chats.listMessages(connectedChat.id);
@@ -70,8 +77,7 @@ export async function resolveConversationConnectedChatContext(args: {
       }
     }
 
-    const rpLines: string[] = [`<connected_roleplay name="${connectedChat.name}">`];
-    rpLines.push(`<recent_messages>`);
+    const recentMessageLines: string[] = [];
     for (const m of recentRp) {
       const speaker =
         m.role === "user"
@@ -79,17 +85,20 @@ export async function resolveConversationConnectedChatContext(args: {
           : m.characterId
             ? (rpCharNames.get(m.characterId) ?? "Character")
             : "Narrator";
-      rpLines.push(`[${speaker}]: ${(m.content as string).slice(0, 500)}`);
+      recentMessageLines.push(`[${safe(speaker)}]: ${safe(String(m.content ?? "").slice(0, 500))}`);
     }
-    rpLines.push(`</recent_messages>`);
-    rpLines.push(`</connected_roleplay>`);
-
-    connectedChatBlock = rpLines.join("\n");
+    const safeConnectedChatName = safe(connectedChat.name ?? "Connected roleplay");
+    connectedChatBlock = wrapContent(
+      [`Connected roleplay: ${safeConnectedChatName}`, nestedSection(recentMessageLines.join("\n"), "Recent Messages")]
+        .filter(Boolean)
+        .join("\n\n"),
+      "Connected Roleplay",
+      args.wrapFormat,
+    );
 
     if (connectedInfluenceCommandEnabled || connectedNoteCommandEnabled) {
       const connectedInstructionLines = [
-        `<connected_roleplay_instructions>`,
-        `You have access to context from a connected roleplay: "${connectedChat.name}".`,
+        `You have access to context from a connected roleplay: "${safeConnectedChatName}".`,
         `Recent messages from that roleplay are provided so you can naturally reference or discuss events happening there.`,
       ];
       if (connectedInfluenceCommandEnabled) {
@@ -97,8 +106,8 @@ export async function resolveConversationConnectedChatContext(args: {
           ``,
           `If something said in THIS conversation should affect or influence the roleplay, you can create an influence tag:`,
           `<influence>description of what should happen or change in the roleplay based on this conversation</influence>`,
-          `Example: if the user says "tell ${rpCharNames.values().next().value ?? "them"} to meet us at the tavern", you could respond normally AND include:`,
-          `<influence>The group discussed meeting at the tavern. ${args.personaName} wants everyone to head there.</influence>`,
+          `Example: if the user says "tell ${safe(rpCharNames.values().next().value ?? "them")} to meet us at the tavern", you could respond normally AND include:`,
+          `<influence>The group discussed meeting at the tavern. ${safe(args.personaName)} wants everyone to head there.</influence>`,
           ``,
           `Influences are injected into the roleplay's context before the next generation. Use them sparingly; only when conversation content genuinely should cross over into the roleplay.`,
           `The influence tag is stripped from your visible message. The rest of your response is shown normally.`,
@@ -113,8 +122,11 @@ export async function resolveConversationConnectedChatContext(args: {
           `The note tag is stripped from your visible message.`,
         );
       }
-      connectedInstructionLines.push(`</connected_roleplay_instructions>`);
-      systemPromptAppend = connectedInstructionLines.join("\n");
+      systemPromptAppend = wrapContent(
+        connectedInstructionLines.join("\n"),
+        "Connected Roleplay Instructions",
+        args.wrapFormat,
+      );
     }
   } else if (connectedChat && connectedChat.mode === "game") {
     const gameMeta =
@@ -140,60 +152,67 @@ export async function resolveConversationConnectedChatContext(args: {
       (await args.gameStateStore.getLatest(connectedChat.id));
     const linkedGameState = latestConnectedState ? parseGameStateRow(latestConnectedState) : null;
 
-    const gameLines: string[] = [`<connected_game name="${connectedChat.name}">`];
-    gameLines.push(`<status>Session ${sessionNumber} (${sessionStatus}), state: ${activeState}</status>`);
+    const safeConnectedChatName = safe(connectedChat.name ?? "Connected game");
+    const gameSections: string[] = [
+      `Connected game: ${safeConnectedChatName}`,
+      nestedSection(`Session ${safe(sessionNumber)} (${safe(sessionStatus)}), state: ${safe(activeState)}`, "Status"),
+    ];
     if (linkedGameState) {
       const sceneDetails = [
-        linkedGameState.location ? `Location: ${linkedGameState.location}` : null,
-        linkedGameState.time ? `Time: ${linkedGameState.time}` : null,
-        linkedGameState.date ? `Date: ${linkedGameState.date}` : null,
-        linkedGameState.weather ? `Weather: ${linkedGameState.weather}` : null,
-        linkedGameState.temperature ? `Temperature: ${linkedGameState.temperature}` : null,
+        linkedGameState.location ? `Location: ${safe(linkedGameState.location)}` : null,
+        linkedGameState.time ? `Time: ${safe(linkedGameState.time)}` : null,
+        linkedGameState.date ? `Date: ${safe(linkedGameState.date)}` : null,
+        linkedGameState.weather ? `Weather: ${safe(linkedGameState.weather)}` : null,
+        linkedGameState.temperature ? `Temperature: ${safe(linkedGameState.temperature)}` : null,
       ].filter(Boolean);
       if (sceneDetails.length > 0) {
-        gameLines.push(`<scene>${sceneDetails.join(" | ")}</scene>`);
+        gameSections.push(nestedSection(sceneDetails.join(" | "), "Scene"));
       }
       if (linkedGameState.presentCharacters.length > 0) {
-        gameLines.push(
-          `<present_characters>${linkedGameState.presentCharacters.map((c) => c.name).join(", ")}</present_characters>`,
+        gameSections.push(
+          nestedSection(
+            linkedGameState.presentCharacters.map((character) => safe(character.name)).join(", "),
+            "Present Characters",
+          ),
         );
       }
       if (linkedGameState.recentEvents.length > 0) {
-        gameLines.push(`<recent_events>`);
-        for (const event of linkedGameState.recentEvents.slice(-5)) {
-          gameLines.push(`- ${event.slice(0, 300)}`);
-        }
-        gameLines.push(`</recent_events>`);
+        gameSections.push(
+          nestedSection(
+            linkedGameState.recentEvents
+              .slice(-5)
+              .map((event) => `- ${safe(event.slice(0, 300))}`)
+              .join("\n"),
+            "Recent Events",
+          ),
+        );
       }
     }
     if (latestSummary?.summary) {
-      gameLines.push(`<latest_session_summary>${latestSummary.summary}</latest_session_summary>`);
+      gameSections.push(nestedSection(safe(latestSummary.summary), "Latest Session Summary"));
       if (latestSummary.resumePoint) {
-        gameLines.push(`<resume_point>${latestSummary.resumePoint}</resume_point>`);
+        gameSections.push(nestedSection(safe(latestSummary.resumePoint), "Resume Point"));
       }
       if (latestSummary.partyDynamics) {
-        gameLines.push(`<party_dynamics>${latestSummary.partyDynamics}</party_dynamics>`);
+        gameSections.push(nestedSection(safe(latestSummary.partyDynamics), "Party Dynamics"));
       }
       if (Array.isArray(latestSummary.keyDiscoveries) && latestSummary.keyDiscoveries.length > 0) {
-        gameLines.push(`<key_discoveries>${latestSummary.keyDiscoveries.join("; ")}</key_discoveries>`);
+        gameSections.push(nestedSection(latestSummary.keyDiscoveries.map(safe).join("; "), "Key Discoveries"));
       }
     }
-    gameLines.push(`<recent_messages>`);
+    const recentMessageLines: string[] = [];
     for (const m of recentGame) {
       const speaker = m.role === "user" ? args.personaName : m.role === "narrator" ? "Narrator" : "Game Master";
-      const content = sanitizeConnectedGameTranscript(m.content as string);
+      const content = sanitizeConnectedGameTranscript(typeof m.content === "string" ? m.content : "");
       if (!content) continue;
-      gameLines.push(`[${speaker}]: ${content.slice(0, 500)}`);
+      recentMessageLines.push(`[${safe(speaker)}]: ${safe(content.slice(0, 500))}`);
     }
-    gameLines.push(`</recent_messages>`);
-    gameLines.push(`</connected_game>`);
-
-    connectedChatBlock = gameLines.join("\n");
+    gameSections.push(nestedSection(recentMessageLines.join("\n"), "Recent Messages"));
+    connectedChatBlock = wrapContent(gameSections.filter(Boolean).join("\n\n"), "Connected Game", args.wrapFormat);
 
     if (connectedInfluenceCommandEnabled || connectedNoteCommandEnabled) {
       const connectedInstructionLines = [
-        `<connected_game_instructions>`,
-        `You have access to context from a connected game: "${connectedChat.name}".`,
+        `You have access to context from a connected game: "${safeConnectedChatName}".`,
         `The current scene, session summary, and recent game messages are provided so you can naturally answer questions or comment on what is happening in that game.`,
       ];
       if (connectedInfluenceCommandEnabled) {
@@ -217,8 +236,11 @@ export async function resolveConversationConnectedChatContext(args: {
           `The note tag is stripped from your visible message.`,
         );
       }
-      connectedInstructionLines.push(`</connected_game_instructions>`);
-      systemPromptAppend = connectedInstructionLines.join("\n");
+      systemPromptAppend = wrapContent(
+        connectedInstructionLines.join("\n"),
+        "Connected Game Instructions",
+        args.wrapFormat,
+      );
     }
   }
 

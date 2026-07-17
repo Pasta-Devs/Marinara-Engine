@@ -2177,6 +2177,7 @@ export async function generateRoutes(app: FastifyInstance) {
               input.userMessage ?? "",
               1500,
               promptTimeZone,
+              wrapFormat,
             );
           }
 
@@ -2189,6 +2190,7 @@ export async function generateRoutes(app: FastifyInstance) {
               chats,
               chars,
               gameStateStore,
+              wrapFormat,
             });
           if (connectedChatSystemPrompt) {
             conversationSystemPrompt += "\n\n" + connectedChatSystemPrompt;
@@ -2819,6 +2821,7 @@ export async function generateRoutes(app: FastifyInstance) {
             characterIds,
             awarenessBlock: convoAwarenessBlock,
             timeZone: promptTimeZone,
+            wrapFormat,
           });
         }
 
@@ -2847,6 +2850,7 @@ export async function generateRoutes(app: FastifyInstance) {
               sendProgress,
               signal: abortController.signal,
               resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
+              wrapFormat,
             });
           }
           const memoryRecallBlock = memoryRecallMessages
@@ -2868,6 +2872,7 @@ export async function generateRoutes(app: FastifyInstance) {
             sendProgress,
             signal: abortController.signal,
             resolveMacros: (value) => resolveMacros(value, promptMacroContext, { trimResult: false }),
+            wrapFormat,
           });
         }
 

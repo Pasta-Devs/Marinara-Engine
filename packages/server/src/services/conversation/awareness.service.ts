@@ -6,9 +6,13 @@
 // so the character naturally "remembers" what's happening elsewhere.
 // ──────────────────────────────────────────────
 
+import type { WrapFormat } from "@marinara-engine/shared";
+
 import { eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { chats, messages } from "../../db/schema/index.js";
+import { wrapContent } from "../prompt/format-engine.js";
+import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import {
   formatZonedConversationDate,
@@ -16,7 +20,6 @@ import {
   getZonedDayBounds,
   isSameZonedLogicalDay,
 } from "./timezone.js";
-import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 // ── Temporal keyword patterns ──
 // Maps regex patterns in the user's message to time windows to pull from.
@@ -152,6 +155,21 @@ function groupIntoBursts(msgs: MessageRow[]): MessageRow[][] {
   return bursts;
 }
 
+const AWARENESS_INTRODUCTION =
+  "These are your other active conversations. You naturally remember what happens in them — reference or react to them as a real person would.";
+
+export function formatAwarenessConversationBlock(lines: string[], wrapFormat: WrapFormat): string {
+  return wrapContent(lines.join("\n"), "Conversation", wrapFormat, 1);
+}
+
+export function formatAwarenessContextBlock(conversationBlocks: string[], wrapFormat: WrapFormat): string {
+  return wrapContent(
+    [AWARENESS_INTRODUCTION, ...conversationBlocks].filter(Boolean).join("\n\n"),
+    "Awareness",
+    wrapFormat,
+  );
+}
+
 /**
  * Build the <awareness> context block for a specific chat.
  *
@@ -162,6 +180,7 @@ function groupIntoBursts(msgs: MessageRow[]): MessageRow[][] {
  * @param userName - The user/persona name
  * @param userMessage - The user's latest message (for temporal keyword scanning)
  * @param maxTokenEstimate - Rough token budget (chars / 4). Default ~1500 tokens.
+ * @param wrapFormat - Structural format selected by the active prompt preset.
  */
 export async function buildAwarenessBlock(
   db: DB,
@@ -172,6 +191,7 @@ export async function buildAwarenessBlock(
   userMessage: string,
   maxTokenEstimate = 1500,
   timeZone?: string,
+  wrapFormat: WrapFormat = "xml",
 ): Promise<string | null> {
   if (characterIds.length === 0) return null;
 
@@ -260,34 +280,42 @@ export async function buildAwarenessBlock(
 
   if (chatMessages.size === 0) return null;
 
-  // 4. Format into the awareness block
+  // 4. Format into the awareness block using the active preset's structure.
   const maxChars = maxTokenEstimate * 4; // rough token → char estimate
-  let block =
-    "These are your other active conversations. You naturally remember what happens in them — reference or react to them as a real person would.\n";
-  let charCount = block.length;
+  const conversationBlocks: string[] = [];
+  const renderAwareness = (blocks: string[]) => formatAwarenessContextBlock(blocks, wrapFormat);
 
   for (const [, data] of chatMessages) {
     const bursts = groupIntoBursts(data.messages);
-    const header = `\n## ${escapeXmlText(data.chatName)} (${data.members.map(escapeXmlText).join(", ")})\n`;
+    const safeChatName = sanitizePromptLeaf(data.chatName, wrapFormat);
+    const safeMembers = data.members.map((member) => sanitizePromptLeaf(member, wrapFormat)).join(", ");
+    const conversationLines = [`Chat: ${safeChatName} (${safeMembers})`];
+    let reachedBudget = false;
+    const appendWithinBudget = (line: string): boolean => {
+      const candidateBlock = formatAwarenessConversationBlock([...conversationLines, line], wrapFormat);
+      if (renderAwareness([...conversationBlocks, candidateBlock]).length > maxChars) return false;
+      conversationLines.push(line);
+      return true;
+    };
 
-    if (charCount + header.length > maxChars) break;
-    block += header;
-    charCount += header.length;
+    const headerOnly = formatAwarenessConversationBlock(conversationLines, wrapFormat);
+    if (renderAwareness([...conversationBlocks, headerOnly]).length > maxChars) break;
 
     for (const burst of bursts) {
+      const burstStartLength = conversationLines.length;
+      let appendedBurstMessages = 0;
       // Check if this burst from a different day than the previous needs a date header
       const burstDate = fmtDate(burst[0]!.createdAt, timeZone);
       const dateHeader = `[${burstDate}]\n`;
-      if (charCount + dateHeader.length > maxChars) break;
 
       // Only add date header if the burst is not from today
       const today = new Date();
       const burstDay = new Date(burst[0]!.createdAt);
       const isToday = isSameZonedLogicalDay(burstDay, today, timeZone);
 
-      if (!isToday) {
-        block += dateHeader;
-        charCount += dateHeader.length;
+      if (!isToday && !appendWithinBudget(dateHeader.trimEnd())) {
+        reachedBudget = true;
+        break;
       }
 
       for (const msg of burst) {
@@ -297,14 +325,22 @@ export async function buildAwarenessBlock(
             : msg.characterId
               ? (characterNames.get(msg.characterId) ?? "Unknown")
               : "Unknown";
-        const line = `[${fmtTime(msg.createdAt, timeZone)}] ${escapeXmlText(senderName)}: ${escapeXmlText(msg.content)}\n`;
+        const line = `[${fmtTime(msg.createdAt, timeZone)}] ${sanitizePromptLeaf(senderName, wrapFormat)}: ${sanitizePromptLeaf(msg.content, wrapFormat)}`;
 
-        if (charCount + line.length > maxChars) break;
-        block += line;
-        charCount += line.length;
+        if (!appendWithinBudget(line)) {
+          if (appendedBurstMessages === 0) conversationLines.length = burstStartLength;
+          reachedBudget = true;
+          break;
+        }
+        appendedBurstMessages += 1;
       }
+      if (reachedBudget) break;
     }
+
+    if (conversationLines.length === 1) break;
+    conversationBlocks.push(formatAwarenessConversationBlock(conversationLines, wrapFormat));
+    if (reachedBudget) break;
   }
 
-  return `<awareness>\n${block}</awareness>`;
+  return conversationBlocks.length > 0 ? renderAwareness(conversationBlocks) : null;
 }

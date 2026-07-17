@@ -1,25 +1,31 @@
+import type { WrapFormat } from "@marinara-engine/shared";
+
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import { recallMemories } from "../memory-recall.js";
 import type { MemoryRecallEmbeddingSource } from "../memory-recall.js";
+import { wrapContent } from "../prompt/format-engine.js";
+import { sanitizePromptLeaf } from "../prompt/prompt-escaping.js";
 import { packRecalledMemories } from "./memory-recall-pack.js";
-import { escapeXmlText } from "../prompt/prompt-escaping.js";
 
 type PromptMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-export function buildMemoryRecallBlock(lines: string[], resolveMacros?: (value: string) => string): string {
-  return [
-    `<memories>`,
+export function buildMemoryRecallBlock(
+  lines: string[],
+  wrapFormat: WrapFormat,
+  resolveMacros?: (value: string) => string,
+): string {
+  const content = [
     `The following are recalled fragments from earlier in this conversation. Use them to maintain continuity, remember past events, and stay in character — but do not explicitly reference "remembering" unless it's natural.`,
     ...lines.map((line, index) => {
       const resolved = resolveMacros ? resolveMacros(line) : line;
-      return `--- Memory ${index + 1} ---\n${escapeXmlText(resolved)}`;
+      return `--- Memory ${index + 1} ---\n${sanitizePromptLeaf(resolved, wrapFormat)}`;
     }),
-    `</memories>`,
   ].join("\n");
+  return wrapContent(content, "Memories", wrapFormat);
 }
 
 export async function injectMemoryRecallContext({
@@ -32,6 +38,7 @@ export async function injectMemoryRecallContext({
   sendProgress,
   signal,
   resolveMacros,
+  wrapFormat,
 }: {
   db: DB;
   messages: PromptMessage[];
@@ -42,6 +49,7 @@ export async function injectMemoryRecallContext({
   sendProgress(phase: string): void;
   signal?: AbortSignal;
   resolveMacros?: (value: string) => string;
+  wrapFormat: WrapFormat;
 }): Promise<void> {
   sendProgress("memory_recall");
   const startedAt = Date.now();
@@ -58,7 +66,7 @@ export async function injectMemoryRecallContext({
       return;
     }
 
-    const memoriesBlock = buildMemoryRecallBlock(packedRecall.lines, resolveMacros);
+    const memoriesBlock = buildMemoryRecallBlock(packedRecall.lines, wrapFormat, resolveMacros);
 
     logger.debug(
       "[memory-recall] Injecting %d/%d recalled memories (~%d/%d tokens)%s",
