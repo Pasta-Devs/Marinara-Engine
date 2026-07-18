@@ -26,7 +26,15 @@ import {
 import { safeFetch } from "../../utils/security.js";
 
 const DEFAULT_RUNPOD_POLL_INTERVAL_MS = 2_000;
-const COMFYUI_GEN_TIMEOUT_SECONDS = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 2400);
+const DEFAULT_COMFYUI_GEN_TIMEOUT_SECONDS = 2_400;
+
+/** Parse the shared ComfyUI timeout without allowing invalid values to poison RunPod polling. */
+export function resolveRunPodComfyUiTimeoutSeconds(rawValue: string | undefined): number {
+  const parsed = Number(rawValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_COMFYUI_GEN_TIMEOUT_SECONDS;
+}
+
+const COMFYUI_GEN_TIMEOUT_SECONDS = resolveRunPodComfyUiTimeoutSeconds(process.env.COMFYUI_GEN_TIMEOUT);
 const RUNPOD_MAX_POLLS = Math.max(
   1,
   Math.ceil((COMFYUI_GEN_TIMEOUT_SECONDS * 1000) / DEFAULT_RUNPOD_POLL_INTERVAL_MS),

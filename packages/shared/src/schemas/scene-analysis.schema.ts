@@ -19,6 +19,7 @@ export const sceneSpotifyTrackCandidateSchema = z.object({
 
 export const sceneAnalysisContextSchema = z.object({
   currentState: gameActiveStateSchema satisfies z.ZodType<GameActiveState>,
+  turnNumber: z.number().int().positive().optional(),
   availableBackgrounds: z.array(z.string()).max(2_000),
   availableSfx: z.array(z.string()).max(2_000),
   activeWidgets: z.array(z.custom<HudWidget>()).max(100),

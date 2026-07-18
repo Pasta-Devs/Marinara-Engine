@@ -112,6 +112,7 @@ import {
 } from "../../packages/server/src/services/sidecar/scene-analyzer.js";
 import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
+import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -1780,6 +1781,7 @@ const longSceneNarration = Array.from(
 ).join("\n");
 const sceneAnalysisContext = {
   currentState: "exploration" as const,
+  turnNumber: 2,
   availableBackgrounds: [],
   availableSfx: [],
   activeWidgets: [],
@@ -1791,11 +1793,16 @@ const sceneAnalysisContext = {
   currentWeather: null,
   currentTimeOfDay: null,
 };
+const parsedSceneAnalysisRequest = sceneAnalysisRequestSchema.parse({
+  narration: longSceneNarration,
+  context: sceneAnalysisContext,
+});
 assert.equal(
-  sceneAnalysisRequestSchema.parse({ narration: longSceneNarration, context: sceneAnalysisContext }).narration,
+  parsedSceneAnalysisRequest.narration,
   longSceneNarration,
   "The shared request contract must accept long narration before endpoint-specific budgeting",
 );
+assert.equal(parsedSceneAnalysisRequest.context.turnNumber, 2, "The shared schema must preserve turn-aware prompts");
 const fittedSceneNarration = fitSceneAnalyzerNarrationBeats(
   longSceneNarration,
   SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
@@ -1817,6 +1824,12 @@ const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
 );
 assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
 assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
+assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
+
+assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
+for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "Infinity"]) {
+  assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
+}
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
 process.env.CHAT_GENERATION_TIMEOUT_MS = "600000";

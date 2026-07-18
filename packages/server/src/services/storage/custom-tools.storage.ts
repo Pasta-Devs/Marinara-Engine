@@ -120,9 +120,9 @@ export function createCustomToolsStorage(db: DB) {
       const tool = await this.getById(id);
       if (!tool) return;
 
-      const configs = await db.select().from(agentConfigs);
       const timestamp = now();
       await db.transaction(async (tx) => {
+        const configs = await tx.select().from(agentConfigs);
         for (const config of configs) {
           const settings = parseAgentSettingsRecord(config.settings);
           if (!Array.isArray(settings.enabledTools) || !settings.enabledTools.includes(tool.name)) continue;
