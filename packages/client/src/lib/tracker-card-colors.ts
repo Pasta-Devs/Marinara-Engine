@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import type {
   TrackerCardColorConfig,
   TrackerCardColorMode,
@@ -12,7 +13,47 @@ export const MAX_TRACKER_CARD_PORTRAIT_FOCUS_Y = 140;
 export const DEFAULT_TRACKER_CARD_PORTRAIT_ZOOM = 1;
 export const MIN_TRACKER_CARD_PORTRAIT_ZOOM = 0.75;
 export const MAX_TRACKER_CARD_PORTRAIT_ZOOM = 2.35;
-export const TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD = "__trackerCardColorPreviewBase";
+let trackerCardColorPreviewValues = new Map<string, string>();
+const trackerCardColorPreviewListeners = new Set<() => void>();
+
+function notifyTrackerCardColorPreviewListeners() {
+  for (const listener of trackerCardColorPreviewListeners) listener();
+}
+
+export function setTrackerCardColorPreview(kind: "character" | "persona", id: string, serializedConfig: string | null) {
+  const key = `${kind}:${id}`;
+  const currentValue = trackerCardColorPreviewValues.get(key);
+  if (serializedConfig === null ? currentValue === undefined : currentValue === serializedConfig) return;
+
+  const nextValues = new Map(trackerCardColorPreviewValues);
+  if (serializedConfig === null) nextValues.delete(key);
+  else nextValues.set(key, serializedConfig);
+  trackerCardColorPreviewValues = nextValues;
+  notifyTrackerCardColorPreviewListeners();
+}
+
+export function useTrackerCardColorPreviews() {
+  return useSyncExternalStore(
+    (listener) => {
+      trackerCardColorPreviewListeners.add(listener);
+      return () => trackerCardColorPreviewListeners.delete(listener);
+    },
+    () => trackerCardColorPreviewValues,
+    () => trackerCardColorPreviewValues,
+  );
+}
+
+export function mergeTrackerCardPortraitFields(
+  config: TrackerCardColorConfig,
+  portraitSource: TrackerCardColorConfig,
+): TrackerCardColorConfig {
+  return cleanTrackerCardColorConfig({
+    ...config,
+    portraitFocusX: portraitSource.portraitFocusX,
+    portraitFocusY: portraitSource.portraitFocusY,
+    portraitZoom: portraitSource.portraitZoom,
+  });
+}
 const DEFAULT_TRACKER_CARD_SURFACE = "var(--card)";
 const TRACKER_CARD_FIXED_TINT_INTENSITY = 100;
 const DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS = 50;

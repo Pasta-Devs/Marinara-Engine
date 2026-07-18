@@ -925,6 +925,7 @@ export function PersonaEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const loadedPersonaIdRef = useRef<string | null>(null);
+  const loadedTrackerCardColorsRef = useRef<string | null>(null);
   const latestAvatarUploadTokenRef = useRef<string | null>(null);
   const formatQuotes = useQuoteFormatter();
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
@@ -1000,6 +1001,8 @@ export function PersonaEditor() {
       /* ignore — empty / malformed crop just stays null */
     }
 
+    const trackerCardColors = parseTrackerCardColorConfig(rawPersona.trackerCardColors);
+    loadedTrackerCardColorsRef.current = serializeTrackerCardColorConfig(trackerCardColors);
     setFormData({
       name: rawPersona.name,
       comment: rawPersona.comment ?? "",
@@ -1015,7 +1018,7 @@ export function PersonaEditor() {
       nameColor: rawPersona.nameColor ?? "",
       dialogueColor: rawPersona.dialogueColor ?? "",
       boxColor: rawPersona.boxColor ?? "",
-      trackerCardColors: parseTrackerCardColorConfig(rawPersona.trackerCardColors),
+      trackerCardColors,
       personaStats: rawPersona.personaStats ?? "",
       tags: (() => {
         try {
@@ -1055,18 +1058,21 @@ export function PersonaEditor() {
     if (!personaId || !formData) return;
     setSaving(true);
     try {
-      const { tags, avatarCrop, convoBehavior, ...rest } = formData;
+      const { tags, avatarCrop, convoBehavior, trackerCardColors, ...rest } = formData;
+      const serializedTrackerCardColors = serializeTrackerCardColorConfig(trackerCardColors);
+      const trackerCardColorsChanged = serializedTrackerCardColors !== loadedTrackerCardColorsRef.current;
       await updatePersona.mutateAsync({
         id: personaId,
         ...rest,
         tags: JSON.stringify(tags),
-        trackerCardColors: serializeTrackerCardColorConfig(formData.trackerCardColors),
+        ...(trackerCardColorsChanged ? { trackerCardColors: serializedTrackerCardColors } : {}),
         // Persist as JSON string; empty string means "no crop" so the row keeps
         // the legacy default in render sites.
         avatarCrop: avatarCrop ? JSON.stringify(avatarCrop) : "",
         // convoBehavior is a JSON-string column; "" means unset.
         convoBehavior: convoBehavior && convoBehavior.instruction?.trim() ? JSON.stringify(convoBehavior) : "",
       });
+      if (trackerCardColorsChanged) loadedTrackerCardColorsRef.current = serializedTrackerCardColors;
       setDirty(false);
     } finally {
       setSaving(false);

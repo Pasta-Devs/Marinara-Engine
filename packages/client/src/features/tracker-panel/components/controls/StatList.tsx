@@ -22,36 +22,27 @@ function getStatNameFitNeed(name: string | null | undefined) {
   return text.length + longestWord * 0.55;
 }
 
-function StatBarGhost({
-  density = "normal",
-  visualTone = "plain",
-  wideColumnCell = false,
-}: {
-  density?: TrackerStatDensity;
-  visualTone?: StatListVisualTone;
-  wideColumnCell?: boolean;
-}) {
+function StatColumnFiller({ density = "normal" }: { density?: TrackerStatDensity }) {
   const isTight = density === "tight";
-  const isInstrument = visualTone === "instrument";
-  const ghostTrackClass = isInstrument
-    ? "relative isolate mt-0.5 shrink-0 overflow-hidden bg-transparent ring-1 ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_18%,transparent)] shadow-[inset_0_1px_2px_color-mix(in_srgb,var(--background)_34%,transparent)]"
-    : "relative isolate mt-0 shrink-0 overflow-hidden bg-[image:var(--tracker-profile-stat-track)] opacity-40 ring-1 ring-[var(--tracker-profile-stat-track-ring)]";
 
   return (
     <div
       aria-hidden="true"
       className={cn(
         "pointer-events-none relative hidden select-none overflow-hidden rounded-[4px] border border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_24%,transparent)] bg-[image:var(--tracker-profile-field-material)] opacity-70 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_3%,transparent),inset_0_-4px_8px_color-mix(in_srgb,var(--background)_20%,transparent)] [background-blend-mode:var(--tracker-profile-field-material-blend)] before:pointer-events-none before:absolute before:inset-x-1 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_28%,transparent),transparent)] before:content-[''] @min-[240px]:block",
-        wideColumnCell ? "px-1" : "px-1.5",
         isTight ? "px-1 py-0.5" : "py-1",
       )}
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_max-content] items-center gap-x-1">
-        <span className="h-2 w-12 max-w-[64%] rounded-[2px] bg-[color-mix(in_srgb,var(--tracker-profile-text)_9%,transparent)]" />
-        <span className="h-2 w-7 rounded-[2px] bg-[color-mix(in_srgb,var(--tracker-profile-number-text)_7%,transparent)]" />
-      </div>
-      <div className={cn(ghostTrackClass, isTight ? "h-[2px] rounded-[1px]" : "h-[4px] rounded-[2px]")}>
-        <div className="h-full w-[34%] rounded-[inherit] bg-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_10%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_8%,transparent)]" />
+      <div className={cn("flex items-center justify-evenly", isTight ? "h-3" : "h-[1.375rem]")}>
+        {[0, 1, 2, 3].map((diamond) => (
+          <span
+            key={diamond}
+            className={cn(
+              "block rotate-45 border border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_36%,transparent)] bg-[color-mix(in_srgb,var(--tracker-profile-text)_2%,transparent)] shadow-[inset_0_0_4px_color-mix(in_srgb,var(--background)_34%,transparent)]",
+              isTight ? "h-1.5 w-1.5" : "h-2.5 w-2.5",
+            )}
+          />
+        ))}
       </div>
     </div>
   );
@@ -358,7 +349,8 @@ export function StatList({
   const removeStat = (index: number) => {
     if (!onUpdate) return;
     const nameLockKey = getLockKey?.(index, "name", stats[index]!);
-    if (nameLockKey) onUpdateFieldLocks?.((locks) => removeTrackerFieldLockPrefix(locks, nameLockKey.replace(/\.name$/, "")));
+    if (nameLockKey)
+      onUpdateFieldLocks?.((locks) => removeTrackerFieldLockPrefix(locks, nameLockKey.replace(/\.name$/, "")));
     onUpdate(stats.filter((_, statIndex) => statIndex !== index));
   };
   const buildLockToggle = (index: number, field: "name" | "value" | "max") =>
@@ -372,7 +364,8 @@ export function StatList({
   const compactNameRhythm =
     nameMode === "truncate" && density === "normal" && stats.some((stat) => getStatNameFitNeed(stat.name) >= 24);
   const shouldFillWideColumns = wideColumns && fillWideColumns && fillAvailable;
-  const shouldRenderWideColumnGhost = showWideColumnGhost && wideColumns && stats.length > 1 && stats.length % 2 === 1;
+  const shouldConnectWideColumns = showWideColumnGhost && wideColumns && stats.length > 1;
+  const shouldRenderWideColumnGhost = shouldConnectWideColumns && stats.length % 2 === 1;
   const wideColumnCell = wideColumns && stats.length > 1;
 
   return (
@@ -395,6 +388,8 @@ export function StatList({
                 ? "@min-[240px]:auto-rows-fr @min-[240px]:flex-1"
                 : "@min-[240px]:auto-rows-min @min-[240px]:content-start @min-[240px]:flex-none",
             ),
+          shouldConnectWideColumns &&
+            "@min-[240px]:gap-0 @min-[240px]:overflow-hidden @min-[240px]:rounded-[5px] @min-[240px]:border @min-[240px]:border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] @min-[240px]:bg-[image:var(--tracker-profile-field-material)] @min-[240px]:shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent),inset_0_-5px_10px_color-mix(in_srgb,var(--background)_22%,transparent)] @min-[240px]:[background-blend-mode:var(--tracker-profile-field-material-blend)] @min-[240px]:[&>*]:rounded-none @min-[240px]:[&>*]:border-0 @min-[240px]:[&>*]:bg-transparent @min-[240px]:[&>*]:shadow-none @min-[240px]:[&>*]:before:hidden @min-[240px]:[&>*]:after:hidden @min-[240px]:[&>*:nth-child(odd)]:border-r @min-[240px]:[&>*:nth-child(odd)]:border-r-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_28%,transparent)] @min-[240px]:[&>*:not(:nth-last-child(-n+2))]:border-b @min-[240px]:[&>*:not(:nth-last-child(-n+2))]:border-b-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_28%,transparent)]",
         )}
       >
         {stats.map((stat, index) => (
@@ -423,9 +418,7 @@ export function StatList({
             onToggleMaxLock={buildLockToggle(index, "max")}
           />
         ))}
-        {shouldRenderWideColumnGhost && (
-          <StatBarGhost density={density} visualTone={visualTone} wideColumnCell={wideColumnCell} />
-        )}
+        {shouldRenderWideColumnGhost && <StatColumnFiller density={density} />}
       </div>
       {onAdd && addMode && (
         <InlineAddRow

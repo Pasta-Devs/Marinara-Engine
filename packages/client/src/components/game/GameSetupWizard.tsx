@@ -1018,9 +1018,11 @@ export function GameSetupWizard({
       setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
       setGameSystemPromptEdited(Boolean(importedCustomPrompt));
       setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
-      setDraftSpatialMap(false);
+      const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
+      setDraftSpatialMap(hierarchicalMapsInstalled && Boolean(importedSpatialMapInstructions));
       setSpatialMapDraftSize("medium");
       setSpatialMapGroundingMode("setup");
+      setSpatialMapInstructions(importedSpatialMapInstructions);
 
       const warningCount = imported.warnings.length;
       setImportedSetupNotice(
@@ -1077,6 +1079,8 @@ export function GameSetupWizard({
         tone: tones.join(", ") || "Heroic",
         difficulty,
         combatStyle,
+        spatialMapInstructions:
+          hierarchicalMapsInstalled && draftSpatialMap ? spatialMapInstructions.trim() || undefined : undefined,
         rating,
         gmMode,
         gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,

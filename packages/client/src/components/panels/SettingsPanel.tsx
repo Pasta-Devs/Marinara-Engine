@@ -27,7 +27,6 @@ import {
   ADMIN_SECRET_STORAGE_KEY,
   ApiError,
   api,
-  getAdminSecretHeader,
   getPrivilegedActionErrorMessage,
 } from "../../lib/api-client";
 import { chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
@@ -6773,9 +6772,8 @@ function AdvancedSettings() {
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
     try {
-      const res = await fetch("/api/backup/download", {
+      const res = await api.raw("/backup/download", {
         method: "POST",
-        headers: getAdminSecretHeader(),
       });
       if (!res.ok) throw new Error(await readSettingsResponseError(res, "Backup failed"));
 

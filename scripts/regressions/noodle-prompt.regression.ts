@@ -70,6 +70,22 @@ const makeAccount = (id: string): NoodleAccount => ({
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
 
+assert.strictEqual(resolveNoodleMaxOutputTokens(null, 6144), 6144);
+assert.strictEqual(
+  resolveNoodleMaxOutputTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
+  16_000,
+);
+assert.strictEqual(resolveNoodleMaxOutputTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
+assert.strictEqual(
+  clampGenerationMaxOutputTokens({
+    provider: "custom",
+    model: "kimi-k2.7",
+    maxTokens: resolveNoodleMaxOutputTokens({ maxTokens: 16_000 }, 6144),
+    maxTokensOverride: 8192,
+  }),
+  8192,
+);
+
 const participantSettings = {
   ...DEFAULT_NOODLE_SETTINGS,
   participantSelectionMode: "exact" as const,

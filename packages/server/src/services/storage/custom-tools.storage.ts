@@ -3,9 +3,9 @@
 // ──────────────────────────────────────────────
 import { asc, desc, eq } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
-import { customTools } from "../../db/schema/index.js";
+import { agentConfigs, customTools } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
-import type { CreateCustomToolInput } from "@marinara-engine/shared";
+import { parseAgentSettingsRecord, type CreateCustomToolInput } from "@marinara-engine/shared";
 import { isCustomToolScriptEnabled } from "../../config/runtime-config.js";
 
 export function createCustomToolsStorage(db: DB) {
@@ -117,7 +117,28 @@ export function createCustomToolsStorage(db: DB) {
     },
 
     async remove(id: string) {
-      await db.delete(customTools).where(eq(customTools.id, id));
+      const tool = await this.getById(id);
+      if (!tool) return;
+
+      const timestamp = now();
+      await db.transaction(async (tx) => {
+        const configs = await tx.select().from(agentConfigs);
+        for (const config of configs) {
+          const settings = parseAgentSettingsRecord(config.settings);
+          if (!Array.isArray(settings.enabledTools) || !settings.enabledTools.includes(tool.name)) continue;
+          await tx
+            .update(agentConfigs)
+            .set({
+              settings: JSON.stringify({
+                ...settings,
+                enabledTools: settings.enabledTools.filter((name) => name !== tool.name),
+              }),
+              updatedAt: timestamp,
+            })
+            .where(eq(agentConfigs.id, config.id));
+        }
+        await tx.delete(customTools).where(eq(customTools.id, id));
+      });
     },
   };
 }

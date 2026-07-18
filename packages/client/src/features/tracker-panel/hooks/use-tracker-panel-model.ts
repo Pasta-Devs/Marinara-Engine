@@ -1,6 +1,12 @@
 import { useCallback, useMemo } from "react";
+import type { PresentCharacter } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../../hooks/use-agents";
 import { usePersona } from "../../../hooks/use-characters";
+import {
+  mergeTrackerCardPortraitFields,
+  parseTrackerCardColorConfig,
+  useTrackerCardColorPreviews,
+} from "../../../lib/tracker-card-colors";
 import { useChat, useChatMessages } from "../../../hooks/use-chats";
 import type { TrackerDataPanelSection } from "../../../stores/ui.store";
 import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from "../lib/tracker-panel.constants";
@@ -15,12 +21,14 @@ import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
 
 interface UseTrackerPanelModelOptions {
   activeChatId: string | null;
+  presentCharacters: PresentCharacter[];
   trackerPanelSectionOrder: TrackerDataPanelSection[];
   trackerPanelUseExpressionSprites: boolean;
 }
 
 export function useTrackerPanelModel({
   activeChatId,
+  presentCharacters,
   trackerPanelSectionOrder,
   trackerPanelUseExpressionSprites,
 }: UseTrackerPanelModelOptions) {
@@ -71,9 +79,11 @@ export function useTrackerPanelModel({
   const { data: messageData } = useChatMessages(activeChatId, 20, spriteExpressionLookupEnabled);
   const { data: agentConfigs } = useAgentConfigs(agentConfigLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
+  const previewValues = useTrackerCardColorPreviews();
   const { characterSpriteLookup, resolveSpriteCharacterId } = useTrackerSpriteLookup({
     enabled: characterDataLookupEnabled,
     chatCharacterIds,
+    presentCharacters,
   });
   const characterTrackerConfig = useMemo(() => {
     if (!Array.isArray(agentConfigs)) return null;
@@ -95,7 +105,19 @@ export function useTrackerPanelModel({
     () => new Set(normalizeStringArray(chatMeta[TRACKER_FEATURED_CHARACTER_META_KEY])),
     [chatMeta],
   );
-  const activePersona = activePersonaData ?? null;
+  const activePersona = useMemo(() => {
+    if (!activePersonaData) return null;
+    const preview = previewValues.get(`persona:${activePersonaData.id}`);
+    return preview
+      ? {
+          ...activePersonaData,
+          trackerCardColors: mergeTrackerCardPortraitFields(
+            parseTrackerCardColorConfig(preview),
+            parseTrackerCardColorConfig(activePersonaData.trackerCardColors),
+          ),
+        }
+      : activePersonaData;
+  }, [activePersonaData, previewValues]);
   const expressionSpritesEnabled = trackerPanelUseExpressionSprites && expressionAgentEnabled;
 
   return {

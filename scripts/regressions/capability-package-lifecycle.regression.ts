@@ -555,14 +555,15 @@ try {
   const { capabilityModuleRuntime, prepareCapabilityRuntimeEnvironment } =
     await import("../../packages/server/src/services/capability-packages/capability-module-runtime.service.js");
   const configuredDataDir = process.env.DATA_DIR;
-  delete process.env.DATA_DIR;
+  process.env.DATA_DIR = "./data";
   prepareCapabilityRuntimeEnvironment(dataDir);
   assert.equal(
     process.env.DATA_DIR,
     dataDir,
-    "Downloaded capability runtimes must resolve host-owned models from the host data directory",
+    "Downloaded capability runtimes must replace relative DATA_DIR values with the host's resolved model directory",
   );
-  process.env.DATA_DIR = configuredDataDir;
+  if (configuredDataDir === undefined) delete process.env.DATA_DIR;
+  else process.env.DATA_DIR = configuredDataDir;
   const { getCapabilityService } =
     await import("../../packages/server/src/services/capability-packages/capability-service-registry.service.js");
   const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");

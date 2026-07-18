@@ -12,33 +12,18 @@ import {
   type PaginatedList,
 } from "../lib/list-pagination";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
-import {
-  parseTrackerCardColorConfig,
-  serializeTrackerCardColorConfig,
-  TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD,
-} from "../lib/tracker-card-colors";
+import { cleanTrackerCardColorConfig } from "../lib/tracker-card-colors";
 import {
   PROFESSOR_MARI_ID,
   type CharacterCardVersion,
   type Persona,
   type PersonaCardVersion,
+  type TrackerCardColorConfig,
 } from "@marinara-engine/shared";
 import type { CustomKind, CustomTagPatch } from "../lib/custom-emoji";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function mergeTrackerCardPortraitFields(baseRaw: unknown, portraitRaw: unknown) {
-  const baseConfig = parseTrackerCardColorConfig(baseRaw);
-  const portraitConfig = parseTrackerCardColorConfig(portraitRaw);
-
-  return serializeTrackerCardColorConfig({
-    ...baseConfig,
-    portraitFocusX: portraitConfig.portraitFocusX,
-    portraitFocusY: portraitConfig.portraitFocusY,
-    portraitZoom: portraitConfig.portraitZoom,
-  });
 }
 
 export const characterKeys = {
@@ -202,6 +187,7 @@ export function useUpdateCharacter() {
   return useMutation({
     mutationFn: ({
       id,
+      trackerCardPaint,
       ...data
     }: {
       id: string;
@@ -211,7 +197,13 @@ export function useUpdateCharacter() {
       versionSource?: string;
       versionReason?: string;
       skipVersionSnapshot?: boolean;
-    }) => api.patch(`/characters/${id}`, data),
+      trackerCardPaint?: TrackerCardColorConfig;
+    }) =>
+      trackerCardPaint !== undefined
+        ? api.patch(`/characters/${id}/tracker-card-colors`, {
+            paint: cleanTrackerCardColorConfig(trackerCardPaint),
+          })
+        : api.patch(`/characters/${id}`, data),
     onSuccess: (updatedCharacter, variables) => {
       const updatedRow = isRecord(updatedCharacter) ? updatedCharacter : null;
       const updatedId = typeof updatedRow?.id === "string" ? updatedRow.id : variables.id;
@@ -1004,7 +996,9 @@ export function useUpdatePersona() {
     mutationFn: ({
       id,
       keepalive,
-      ...data
+      trackerCardPaint,
+      trackerCardPortrait,
+      ...requestedData
     }: {
       id: string;
       keepalive?: boolean;
@@ -1030,33 +1024,39 @@ export function useUpdatePersona() {
       aboutMe?: string;
       convoBehavior?: string;
       avatarCrop?: string;
-    }) => api.patch(`/characters/personas/${id}`, data, keepalive ? { keepalive: true } : undefined),
+      trackerCardPaint?: TrackerCardColorConfig;
+      trackerCardPortrait?: {
+        portraitFocusX: number;
+        portraitFocusY: number;
+        portraitZoom: number;
+      };
+    }) =>
+      trackerCardPaint || trackerCardPortrait
+        ? api.patch<Persona | null>(
+            `/characters/personas/${id}/tracker-card-colors`,
+            trackerCardPaint
+              ? { paint: cleanTrackerCardColorConfig(trackerCardPaint) }
+              : { portrait: trackerCardPortrait },
+            keepalive ? { keepalive: true } : undefined,
+          )
+        : api.patch<Persona | null>(
+            `/characters/personas/${id}`,
+            requestedData,
+            keepalive ? { keepalive: true } : undefined,
+          ),
     onSuccess: (updatedPersona, variables) => {
-      const updatedId = (updatedPersona as { id?: string } | null)?.id ?? variables.id;
-      qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
-        if (!Array.isArray(old)) return old;
-        if (!updatedId) return old;
-
-        return old.map((p) => {
-          const row = p as Record<string, unknown> & { id?: string };
-          if (row?.id !== updatedId) return p;
-          if (!updatedPersona || typeof updatedPersona !== "object") return p;
-          const updatedRow = updatedPersona as Record<string, unknown>;
-          const nextPersona = { ...row, ...updatedRow };
-          const previewBaseTrackerCardColors = row[TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD];
-          const updatedTrackerCardColors = updatedRow.trackerCardColors;
-
-          if (typeof previewBaseTrackerCardColors === "string" && typeof updatedTrackerCardColors === "string") {
-            nextPersona[TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD] = updatedTrackerCardColors;
-            nextPersona.trackerCardColors = mergeTrackerCardPortraitFields(
-              row.trackerCardColors,
-              updatedTrackerCardColors,
-            );
-          }
-
-          return nextPersona;
+      if (updatedPersona) {
+        qc.setQueryData<Persona>(characterKeys.personaDetail(updatedPersona.id), updatedPersona);
+        qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
+          if (!Array.isArray(old)) return old;
+          return old.map((persona) => {
+            if (!isRecord(persona) || persona.id !== updatedPersona.id) return persona;
+            return { ...persona, ...updatedPersona };
+          });
         });
-      });
+      }
+
+      const updatedId = updatedPersona?.id ?? variables.id;
 
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });

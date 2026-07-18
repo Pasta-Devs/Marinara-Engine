@@ -8,7 +8,7 @@
     "mari": "./dist/bin/mari.js"
   },
   "scripts": {
-    "dev": "tsx watch --ignore ./data --ignore ./node_modules --ignore ../../node_modules src/index.ts",
+    "dev": "tsx watch --ignore ./data --ignore ../shared/dist --ignore ./node_modules --ignore ../../node_modules src/index.ts",
     "build": "node ./scripts/build.mjs",
     "start": "node dist/index.js",
     "test": "node ./scripts/run-tests.mjs",

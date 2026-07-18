@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { HeartPulse, Package, Sparkles } from "lucide-react";
 import type { CharacterStat, InventoryItem, Persona } from "@marinara-engine/shared";
 import { isTrackerFieldLocked, personaStatTrackerLockKey, personaStatusTrackerLockKey } from "@marinara-engine/shared";
 import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../../stores/ui.store";
 import {
-  characterKeys,
   useCharacterSprites,
   useUpdatePersona,
   type SpriteInfo,
@@ -13,8 +11,6 @@ import {
 import {
   getTrackerCardPortraitView,
   parseTrackerCardColorConfig,
-  serializeTrackerCardColorConfig,
-  TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD,
 } from "../../../../lib/tracker-card-colors";
 import { cn } from "../../../../lib/utils";
 import {
@@ -79,10 +75,6 @@ interface PersonaPortraitPendingSave {
   portraitZoom: number;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
 function isSamePersonaPortraitPendingSave(
   current: PersonaPortraitPendingSave | null,
   expected: PersonaPortraitPendingSave,
@@ -135,11 +127,10 @@ export function PersonaInventoryPanel({
   onToggleCollapsed?: () => void;
 }) {
   const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
-  const queryClient = useQueryClient();
   const updatePersona = useUpdatePersona();
   const personaPortraitSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const personaPortraitPendingSaveRef = useRef<PersonaPortraitPendingSave | null>(null);
-  const updatePersonaMutateRef = useRef(updatePersona.mutate);
+  const personaPortraitLatestSaveRef = useRef<PersonaPortraitPendingSave | null>(null);
   const flushPersonaPortraitPendingSaveRef = useRef<
     (pendingSave: PersonaPortraitPendingSave, keepalive?: boolean) => void
   >(() => {});
@@ -161,8 +152,6 @@ export function PersonaInventoryPanel({
   const defaultPersonaPortraitFocusY =
     personaPortraitMediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y : undefined;
   const personaTrackerCardColors = parseTrackerCardColorConfig(persona?.trackerCardColors);
-  const personaTrackerCardColorsRef = useRef(personaTrackerCardColors);
-  personaTrackerCardColorsRef.current = personaTrackerCardColors;
   const personaSavedPortraitFocus = getTrackerCardPortraitView(personaTrackerCardColors, {
     y: defaultPersonaPortraitFocusY,
   });
@@ -171,28 +160,32 @@ export function PersonaInventoryPanel({
       ? personaPortraitFocusOverride
       : personaSavedPortraitFocus;
   const flushPersonaPortraitPendingSave = (pendingSave: PersonaPortraitPendingSave, keepalive = false) => {
-    const cachedPersonas = queryClient.getQueryData<unknown[] | undefined>(characterKeys.personas);
-    const cachedPersona = Array.isArray(cachedPersonas)
-      ? cachedPersonas.find((candidate) => isRecord(candidate) && candidate.id === pendingSave.id)
-      : null;
-    const previewBaseTrackerCardColors = isRecord(cachedPersona)
-      ? cachedPersona[TRACKER_CARD_COLOR_PREVIEW_BASE_FIELD]
-      : null;
-    const latestTrackerCardColors = parseTrackerCardColorConfig(
-      typeof previewBaseTrackerCardColors === "string"
-        ? previewBaseTrackerCardColors
-        : isRecord(cachedPersona)
-          ? cachedPersona.trackerCardColors
-          : personaTrackerCardColorsRef.current,
+    updatePersona.mutate(
+      {
+        id: pendingSave.id,
+        keepalive,
+        trackerCardPortrait: {
+          portraitFocusX: pendingSave.portraitFocusX,
+          portraitFocusY: pendingSave.portraitFocusY,
+          portraitZoom: pendingSave.portraitZoom,
+        },
+      },
+      {
+        onSuccess: () => {
+          if (isSamePersonaPortraitPendingSave(personaPortraitPendingSaveRef.current, pendingSave)) {
+            personaPortraitPendingSaveRef.current = null;
+          }
+        },
+        onError: () => {
+          if (
+            !personaPortraitPendingSaveRef.current &&
+            isSamePersonaPortraitPendingSave(personaPortraitLatestSaveRef.current, pendingSave)
+          ) {
+            personaPortraitPendingSaveRef.current = pendingSave;
+          }
+        },
+      },
     );
-    const trackerCardColors = serializeTrackerCardColorConfig({
-      ...latestTrackerCardColors,
-      portraitFocusX: pendingSave.portraitFocusX,
-      portraitFocusY: pendingSave.portraitFocusY,
-      portraitZoom: pendingSave.portraitZoom,
-    });
-
-    updatePersonaMutateRef.current({ id: pendingSave.id, trackerCardColors, keepalive });
   };
   flushPersonaPortraitPendingSaveRef.current = flushPersonaPortraitPendingSave;
   const updatePersonaPortraitFocus =
@@ -205,12 +198,12 @@ export function PersonaInventoryPanel({
             zoom: portraitZoom,
           });
           const pendingSave = { id: persona.id, portraitFocusX, portraitFocusY, portraitZoom };
+          personaPortraitLatestSaveRef.current = pendingSave;
           personaPortraitPendingSaveRef.current = pendingSave;
           if (personaPortraitSaveTimeoutRef.current) clearTimeout(personaPortraitSaveTimeoutRef.current);
           personaPortraitSaveTimeoutRef.current = setTimeout(() => {
             if (isSamePersonaPortraitPendingSave(personaPortraitPendingSaveRef.current, pendingSave)) {
               flushPersonaPortraitPendingSaveRef.current(pendingSave);
-              personaPortraitPendingSaveRef.current = null;
             }
             personaPortraitSaveTimeoutRef.current = null;
           }, 180);
@@ -294,32 +287,20 @@ export function PersonaInventoryPanel({
   }, [persona?.id, persona?.trackerCardColors]);
 
   useEffect(() => {
-    updatePersonaMutateRef.current = updatePersona.mutate;
-  }, [updatePersona.mutate]);
-
-  useEffect(() => {
     const flushOnPageHide = () => {
       if (personaPortraitSaveTimeoutRef.current) {
         clearTimeout(personaPortraitSaveTimeoutRef.current);
         personaPortraitSaveTimeoutRef.current = null;
       }
       const pendingSave = personaPortraitPendingSaveRef.current;
-      personaPortraitPendingSaveRef.current = null;
       if (pendingSave) flushPersonaPortraitPendingSaveRef.current(pendingSave, true);
     };
     window.addEventListener("pagehide", flushOnPageHide);
-    return () => window.removeEventListener("pagehide", flushOnPageHide);
+    return () => {
+      window.removeEventListener("pagehide", flushOnPageHide);
+      flushOnPageHide();
+    };
   }, []);
-
-  useEffect(
-    () => () => {
-      if (personaPortraitSaveTimeoutRef.current) clearTimeout(personaPortraitSaveTimeoutRef.current);
-      const pendingSave = personaPortraitPendingSaveRef.current;
-      personaPortraitPendingSaveRef.current = null;
-      if (pendingSave) flushPersonaPortraitPendingSaveRef.current(pendingSave);
-    },
-    [],
-  );
 
   return (
     <div className="relative z-10 overflow-hidden border-b border-[color-mix(in_srgb,var(--border)_72%,transparent)] bg-[var(--tracker-panel-section-background,color-mix(in_srgb,var(--card)_5%,transparent))] shadow-inner transition-colors duration-200">

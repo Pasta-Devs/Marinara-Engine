@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
+import playwrightConfig from "../../playwright.config.js";
+import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
+
+const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
   parseGroupedSpeakerSegments,
   splitGroupedSegmentDisplayLines,
@@ -94,8 +99,22 @@ import {
   resolveNovelAiRequestSize,
   resolveNovelAiSize,
 } from "../../packages/server/src/services/image/image-generation.js";
-import { DEFAULT_NOVELAI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
+import {
+  COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+  DEFAULT_NOVELAI_DEFAULTS,
+} from "../../packages/shared/src/constants/image-generation-defaults.js";
 import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
+import {
+  sceneAnalysisRequestSchema,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+} from "../../packages/shared/src/schemas/scene-analysis.schema.js";
+import {
+  buildSceneAnalyzerUserPrompt,
+  fitSceneAnalyzerNarrationBeats,
+} from "../../packages/server/src/services/sidecar/scene-analyzer.js";
+import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
+import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
+import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -281,7 +300,36 @@ let closeCharacterUpdateDb: (() => Promise<void>) | null = null;
 try {
   const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
   closeCharacterUpdateDb = closeDB;
-  const mariDb = new MariDbService(await getDB());
+  const db = await getDB();
+  const mariDb = new MariDbService(db);
+  const customToolsStore = createCustomToolsStorage(db);
+  const agentsStore = createAgentsStorage(db);
+  const customTool = await customToolsStore.create({
+    name: "phantom_tool",
+    description: "Custom tool deletion regression fixture.",
+    parametersSchema: {},
+    executionType: "static",
+    webhookUrl: null,
+    staticResult: "fixture",
+    scriptBody: null,
+    includeHiddenContext: false,
+    enabled: true,
+  });
+  assert.ok(customTool);
+  const toolAgent = await agentsStore.create({
+    type: "custom-tool-cleanup-regression",
+    name: "Custom Tool Cleanup Regression",
+    description: "",
+    phase: "parallel",
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: "",
+    settings: { enabledTools: ["phantom_tool", "roll_dice"] },
+  });
+  assert.ok(toolAgent);
+  await customToolsStore.remove(customTool.id);
+  const cleanedToolAgent = await agentsStore.getById(toolAgent.id);
+  assert.deepEqual(JSON.parse(cleanedToolAgent?.settings ?? "{}").enabledTools, ["roll_dice"]);
   const characterId = "partial-update-preservation";
   const createResult = await mariDb.executeAction({
     action: "character.create",
@@ -640,6 +688,23 @@ assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
 
+const sharedPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/shared/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
+assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
+assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
+const serverPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
+assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
+assert.equal(resolveDevSharedBuildScript({}), "build");
+const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
+  ? playwrightConfig.webServer[0]
+  : playwrightConfig.webServer;
+assert.equal(playwrightWebServer?.env?.DEV_PRESERVE_SHARED_DIST, "true");
+
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
@@ -983,6 +1048,13 @@ assert.match(
   /item\.negativePrompt !== undefined \|\| negativePrompt \? \{ negativePrompt \} : \{\}/,
 );
 assert.match(retryAgentsPromptReviewSource, /\[debug\/retry-agents\/illustrator\] final prompt/);
+assert.match(
+  retryAgentsPromptReviewSource,
+  /const\s+retryAgentConnectionCache\s*=\s*new\s+Map<string,\s*RetryAgentConnectionResolution>\(\);/,
+  "retry agent resolution should reuse provider wrappers for the same stored connection",
+);
+assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);
+assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.set\(connectionId, resolution\)/);
 
 const sharedGameSetupSource: GameSetupShareSource = {
   gameName: "Tower Run",
@@ -991,6 +1063,8 @@ const sharedGameSetupSource: GameSetupShareSource = {
     setting: "A city built around a shifting dungeon tower",
     tone: "Heroic, dark, comedic",
     difficulty: "normal",
+    combatStyle: "tactical",
+    spatialMapInstructions: "Build a shifting tower with a market ward and flooded catacombs.",
     rating: "nsfw",
     playerGoals: "Become an elite dungeon conqueror",
     gmMode: "standalone",
@@ -1050,6 +1124,8 @@ assert.match(sharedGameSetup, /Max Tokens: 16384/u);
 assert.match(sharedGameSetup, /gpt-5\.6-sol/iu);
 assert.match(sharedGameSetup, /Use clear progression and frequent loot rewards/u);
 assert.match(sharedGameSetup, /Dungeon Lore/u);
+assert.match(sharedGameSetup, /Combat style: Tactical/u);
+assert.match(sharedGameSetup, /Build a shifting tower with a market ward and flooded catacombs\./u);
 assert.match(sharedGameSetup, /"startingValue": 3/u);
 assert.doesNotMatch(
   sharedGameSetup,
@@ -1090,6 +1166,11 @@ assert.equal(exportedGameSetup.exportedAt, "2026-07-16T12:00:00.000Z");
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.temperature, 1.1);
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.maxContext, 128000);
 assert.deepEqual(parsedGameSetup.setup.effectiveGenerationParameters?.stopSequences, ["[END]"]);
+assert.equal(resolvedGameSetup.config.combatStyle, "tactical");
+assert.equal(
+  resolvedGameSetup.config.spatialMapInstructions,
+  "Build a shifting tower with a market ward and flooded catacombs.",
+);
 assert.equal(resolvedGameSetup.gmConnectionId, "gm-connection-new-id");
 assert.equal(resolvedGameSetup.config.imageConnectionId, "image-connection-new-id");
 assert.equal(resolvedGameSetup.config.videoConnectionId, "video-connection-new-id");
@@ -1142,6 +1223,19 @@ assert.throws(
 assert.throws(
   () => parseGameSetupShareFileJson(JSON.stringify({ format: "other", version: 1 })),
   /not a Marinara Game Mode setup file/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          config: { ...exportedGameSetup.setup.config, spatialMapInstructions: "x".repeat(4_001) },
+        },
+      }),
+    ),
+  /invalid Spatial Map Instructions value/u,
 );
 assert.throws(
   () =>
@@ -1696,6 +1790,72 @@ assert.deepEqual(
   }),
   { width: 1024, height: 1024 },
 );
+
+const comfyPlaceholderPng = Buffer.from(COMFYUI_PLACEHOLDER_REFERENCE_BASE64, "base64");
+assert.equal(comfyPlaceholderPng.toString("ascii", 1, 4), "PNG");
+assert.equal(comfyPlaceholderPng.readUInt32BE(16), 16);
+assert.equal(comfyPlaceholderPng.readUInt32BE(20), 16);
+
+const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
+for (const workspace of ["shared", "server", "client"]) {
+  assert.match(windowsLauncherSource, new RegExp(`--filter @marinara-engine/${workspace} run clean`, "u"));
+}
+
+const longSceneNarration = Array.from(
+  { length: 100 },
+  (_, index) => `Narration: beat ${index} ${"context ".repeat(45)}`,
+).join("\n");
+const sceneAnalysisContext = {
+  currentState: "exploration" as const,
+  turnNumber: 2,
+  availableBackgrounds: [],
+  availableSfx: [],
+  activeWidgets: [],
+  trackedNpcs: [],
+  characterNames: [],
+  currentBackground: null,
+  currentMusic: null,
+  currentAmbient: null,
+  currentWeather: null,
+  currentTimeOfDay: null,
+};
+const parsedSceneAnalysisRequest = sceneAnalysisRequestSchema.parse({
+  narration: longSceneNarration,
+  context: sceneAnalysisContext,
+});
+assert.equal(
+  parsedSceneAnalysisRequest.narration,
+  longSceneNarration,
+  "The shared request contract must accept long narration before endpoint-specific budgeting",
+);
+assert.equal(parsedSceneAnalysisRequest.context.turnNumber, 2, "The shared schema must preserve turn-aware prompts");
+const fittedSceneNarration = fitSceneAnalyzerNarrationBeats(
+  longSceneNarration,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+assert.equal(fittedSceneNarration.truncated, true);
+assert.equal(fittedSceneNarration.beats.at(-1)?.index, 99);
+assert.ok((fittedSceneNarration.beats[0]?.index ?? 0) > 0);
+assert.ok(
+  fittedSceneNarration.beats.reduce(
+    (total, beat) => total + beat.text.length + String(beat.index).length + 3,
+    0,
+  ) <= SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
+  longSceneNarration,
+  undefined,
+  sceneAnalysisContext,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
+assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
+assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
+
+assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
+for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "120.5", "Infinity", "9007199254740992"]) {
+  assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
+}
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
 process.env.CHAT_GENERATION_TIMEOUT_MS = "600000";

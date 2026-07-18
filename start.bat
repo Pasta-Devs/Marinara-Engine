@@ -296,11 +296,11 @@ if "!BUILD_REQUIRED!"=="1" (
     echo  [..] Cleaning stale build artifacts...
     call :run_pnpm clean:stale-client
     if errorlevel 1 echo  [ERROR] Failed to clean stale client artifacts. & pause & exit /b 1
-    call :run_pnpm --filter @marinara-engine/shared clean
+    call :run_pnpm --filter @marinara-engine/shared run clean
     if errorlevel 1 echo  [ERROR] Failed to clean shared build artifacts. & pause & exit /b 1
-    call :run_pnpm --filter @marinara-engine/server clean
+    call :run_pnpm --filter @marinara-engine/server run clean
     if errorlevel 1 echo  [ERROR] Failed to clean server build artifacts. & pause & exit /b 1
-    call :run_pnpm --filter @marinara-engine/client clean
+    call :run_pnpm --filter @marinara-engine/client run clean
     if errorlevel 1 echo  [ERROR] Failed to clean client build artifacts. & pause & exit /b 1
     echo  [..] Building Marinara Engine...
     call :run_pnpm --filter @marinara-engine/shared build
