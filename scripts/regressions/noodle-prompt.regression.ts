@@ -29,7 +29,10 @@ import {
   sampleNoodlePastMemories,
   sampleNoodlePastMemoriesWeighted,
 } from "../../packages/server/src/services/noodle/noodle-prompt.js";
-import { chooseNoodleParticipantAccounts } from "../../packages/server/src/services/noodle/noodle-participant-selection.js";
+import {
+  chooseNoodleParticipantAccounts,
+  collectNoodlePriorityAccountIds,
+} from "../../packages/server/src/services/noodle/noodle-participant-selection.js";
 import { noodleAccountsNeedingProfiles } from "../../packages/server/src/services/noodle/noodle-profile-selection.js";
 import {
   buildNoodleCarryoverBlock,
@@ -46,7 +49,6 @@ import {
   NOODLE_IMAGE_POST,
   NOODLE_TIMELINE_BASE,
 } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
-import { collectNoodlePriorityAccountIds } from "../../packages/server/src/routes/noodle.routes.js";
 import { NOODLE_TIMELINE_VOICE } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
 
 const makeAccount = (id: string): NoodleAccount => ({

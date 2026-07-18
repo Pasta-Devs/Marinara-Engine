@@ -29,9 +29,7 @@ import {
 } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
-import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createNoodleStorage } from "../services/storage/noodle.storage.js";
-import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import { logger } from "../lib/logger.js";
 import {
   noodleRefreshSchedulerStatus,
@@ -41,11 +39,8 @@ import { isFileUniqueConstraintError } from "../db/file-schema.js";
 import { resolveImageCaptioningRuntime } from "./generate/image-captioning-runtime.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/noodle-profile-avatar.js";
 
-import {
-  collectNoodlePriorityAccountIds,
-  createPublicNoodleGenerationService,
-  generateNoodlePostImage,
-} from "../services/noodle/noodle-public-generation.service.js";
+import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
+import { createPublicNoodleImagesService } from "../services/noodle/noodle-public-images.service.js";
 import {
   bootstrapVisibleNoodle,
   characterAvatarCrop,
@@ -59,8 +54,6 @@ import {
   parseRecord,
   resolvePersonaAccount,
 } from "../services/noodle/noodle-public-support.js";
-
-export { collectNoodlePriorityAccountIds };
 
 const noodleImagePromptConfirmationSchema = z.object({
   prompts: z
@@ -79,9 +72,8 @@ export async function noodleRoutes(app: FastifyInstance) {
   const noodle = createNoodleStorage(app.db);
   const characters = createCharactersStorage(app.db);
   const connections = createConnectionsStorage(app.db);
-  const characterGallery = createCharacterGalleryStorage(app.db);
-  const promptOverrides = createPromptOverridesStorage(app.db);
   const publicGeneration = createPublicNoodleGenerationService(app.db);
+  const publicImages = createPublicNoodleImagesService(app.db);
   let refreshInFlight = false;
 
   app.get("/", async () => {
@@ -473,50 +465,12 @@ export async function noodleRoutes(app: FastifyInstance) {
   app.post("/refresh/images", async (req, reply) => {
     const parsed = noodleImagePromptConfirmationSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const settings = await noodle.getSettings();
-    const imageConnection = settings.imageGenerationConnectionId
-      ? await connections.getWithKey(settings.imageGenerationConnectionId)
-      : await connections.getDefaultForImageGeneration();
-    if (!imageConnection) return reply.code(400).send({ error: "Select a Noodle image generation connection first." });
-
-    for (const promptOverride of parsed.data.prompts) {
-      const post = await noodle.getPostById(promptOverride.id);
-      if (!post || !post.imagePrompt || post.imageUrl) continue;
-      const account = await noodle.getAccountById(post.authorAccountId);
-      if (!account) continue;
-      try {
-        const generatedImage = await generateNoodlePostImage({
-          account,
-          referenceAccounts: [account],
-          postContent: post.content,
-          draftPrompt: post.imagePrompt,
-          settings,
-          characters,
-          characterGallery,
-          promptOverrides,
-          imageConnection,
-          db: app.db,
-          debugMode: parsed.data.debugMode === true,
-          promptOverride,
-        });
-        await noodle.updatePostMedia(post.id, {
-          imageUrl: generatedImage.imageUrl,
-          metadata: generatedImage.metadata,
-        });
-      } catch (error) {
-        logger.warn(error, "[noodle] Failed to generate reviewed image for %s", account.displayName);
-        await noodle.updatePostMedia(post.id, {
-          imageUrl: null,
-          imagePrompt: null,
-          metadata: {
-            imageGenerationFailed: true,
-            imageGenerationError: getErrorMessage(error).slice(0, 500),
-          },
-        });
-      }
-    }
-
-    return bootstrapVisibleNoodle(noodle, characters);
+    const result = await publicImages.generateReviewedImages({
+      prompts: parsed.data.prompts,
+      debugMode: parsed.data.debugMode === true,
+    });
+    if (!result.ok) return reply.code(400).send({ error: result.message });
+    return result.bootstrap;
   });
 
   app.post("/refresh", async (req, reply) => {
