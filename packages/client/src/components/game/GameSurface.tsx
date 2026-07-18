@@ -4804,6 +4804,7 @@ function GameSurfaceComponent({
     );
     const sceneContext = {
       currentState: sceneAnalysisState,
+      turnNumber: Math.max(1, assistantTurnCount),
       availableBackgrounds: bgTags,
       availableSfx: sfxTags,
       activeWidgets: hudWidgets,
@@ -6288,6 +6289,7 @@ function GameSurfaceComponent({
     const assetKeys = Object.keys(assets ?? {});
     const sceneContext = {
       currentState: sceneAnalysisState,
+      turnNumber: Math.max(1, assistantTurnCount),
       availableBackgrounds: sampleTags(getSceneBackgroundTags(assetKeys), 50),
       availableSfx: sampleTags(
         assetKeys.filter((key) => key.startsWith("sfx:")),
@@ -6361,6 +6363,7 @@ function GameSurfaceComponent({
     }
   }, [
     activeChatId,
+    assistantTurnCount,
     chatMeta.gameImagePromptInstructions,
     chatMeta.gameSceneConnectionId,
     chatMeta.gameSetupConfig,
@@ -9524,6 +9527,7 @@ function GameSurfaceComponent({
 
     const context = {
       currentState: gameState,
+      turnNumber: Math.max(1, assistantTurnCount),
       availableBackgrounds: bgTags,
       availableSfx: sfxTags,
       activeWidgets: hudWidgets,
@@ -9570,6 +9574,7 @@ function GameSurfaceComponent({
       );
     }
   }, [
+    assistantTurnCount,
     latestAssistantMsg,
     scopedAssetMap,
     gameState,

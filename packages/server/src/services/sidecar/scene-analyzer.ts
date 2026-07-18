@@ -225,11 +225,65 @@ function sceneAnalyzerSegmentBeats(narration: string): string[] {
   return beats.length > 0 ? beats : fallback ? [fallback] : [];
 }
 
+export interface FittedSceneAnalyzerNarration {
+  beats: Array<{ index: number; text: string }>;
+  omittedBeatCount: number;
+  truncated: boolean;
+}
+
+/** Keep the most recent scene beats within the local analyzer budget without renumbering them. */
+export function fitSceneAnalyzerNarrationBeats(
+  narration: string,
+  maxChars = Number.POSITIVE_INFINITY,
+): FittedSceneAnalyzerNarration {
+  const allBeats = sceneAnalyzerSegmentBeats(narration).map((text, index) => ({ index, text }));
+  const boundedMaxChars = Number.isFinite(maxChars) ? Math.max(1, Math.floor(maxChars)) : Number.POSITIVE_INFINITY;
+  const fullLength = allBeats.reduce((total, beat) => total + beat.text.length + String(beat.index).length + 3, 0);
+  if (fullLength <= boundedMaxChars) {
+    return { beats: allBeats, omittedBeatCount: 0, truncated: false };
+  }
+
+  const selected: FittedSceneAnalyzerNarration["beats"] = [];
+  let remaining = boundedMaxChars;
+  for (let index = allBeats.length - 1; index >= 0; index -= 1) {
+    const beat = allBeats[index]!;
+    const labelLength = String(beat.index).length + 3;
+    const availableTextChars = remaining - labelLength;
+    if (availableTextChars <= 0) break;
+    if (beat.text.length <= availableTextChars) {
+      selected.push(beat);
+      remaining -= labelLength + beat.text.length;
+      continue;
+    }
+    if (selected.length === 0) {
+      const omissionMarker = " …[middle omitted]… ";
+      const text =
+        availableTextChars <= omissionMarker.length
+          ? beat.text.slice(-availableTextChars)
+          : `${beat.text.slice(0, Math.floor((availableTextChars - omissionMarker.length) / 3))}${omissionMarker}${beat.text.slice(
+              -(availableTextChars -
+                omissionMarker.length -
+                Math.floor((availableTextChars - omissionMarker.length) / 3)),
+            )}`;
+      selected.push({ ...beat, text });
+    }
+    break;
+  }
+
+  selected.reverse();
+  return {
+    beats: selected,
+    omittedBeatCount: Math.max(0, allBeats.length - selected.length),
+    truncated: true,
+  };
+}
+
 /** Build the user prompt with all choices inline in a JSON template. */
 export function buildSceneAnalyzerUserPrompt(
   narration: string,
   playerAction?: string,
   ctx?: SceneAnalyzerContext,
+  narrationBudgetChars = Number.POSITIVE_INFINITY,
 ): string {
   const parts: string[] = [];
   const canGenerateIllustrations = !!ctx?.canGenerateIllustrations;
@@ -250,10 +304,15 @@ export function buildSceneAnalyzerUserPrompt(
     parts.push(`<player_action>`, playerAction, `</player_action>`);
   }
 
-  const beats = sceneAnalyzerSegmentBeats(narration);
+  const fittedNarration = fitSceneAnalyzerNarrationBeats(narration, narrationBudgetChars);
+  const beats = fittedNarration.beats;
+  const maxSegmentIndex = Math.max(0, sceneAnalyzerSegmentBeats(narration).length - 1);
   parts.push(`<narration>`);
-  for (let i = 0; i < beats.length; i++) {
-    parts.push(`[${i}] ${beats[i]}`);
+  if (fittedNarration.truncated) {
+    parts.push(`[${fittedNarration.omittedBeatCount} earlier narration beat(s) omitted to fit local context]`);
+  }
+  for (const beat of beats) {
+    parts.push(`[${beat.index}] ${beat.text}`);
   }
   parts.push(`</narration>`);
 
@@ -307,7 +366,7 @@ export function buildSceneAnalyzerUserPrompt(
           `2. AUDIO DIRECTION — Choose compact musicGenre/musicIntensity/locationKind hints. Do NOT choose music or ambient file tags; Marinara maps these hints to assets deterministically. Do NOT output spotifyTrack.`,
         ]),
     `3. REPUTATION — If an NPC relationship shifted, note it. Otherwise empty array.`,
-    `4. PER-BEAT EFFECTS — Scan each narration beat [0]-[${Math.max(0, beats.length - 1)}]. For each beat you can optionally add:`,
+    `4. PER-BEAT EFFECTS — Scan the provided narration beats using their original indices [0]-[${maxSegmentIndex}]. For each beat you can optionally add:`,
     `   - "sfx": sound effects (door slam, explosion, footsteps, impact)`,
     `   - "directions": rare cinematic effects at the exact beat they should happen, usually paired with a meaningful sound or reveal`,
     `   - "background": a DIFFERENT background tag if the characters move to a new location at that beat. The background stays the same until the NEXT segment that changes it, so only set "background" on the beat where characters actually arrive at a new location. Do NOT repeat the current background.`,
@@ -393,7 +452,7 @@ export function buildSceneAnalyzerUserPrompt(
 
   // Build ONE segment example showing the range
   const segmentFields: string[] = [];
-  segmentFields.push(`      "segment": <0-${Math.max(0, beats.length - 1)}>`);
+  segmentFields.push(`      "segment": <0-${maxSegmentIndex}>`);
   if (sfxLine) segmentFields.push(sfxLine);
   segmentFields.push(
     `      "directions": [{"effect":"<flash|screen_shake|pulse|slow_zoom|impact_zoom|tilt|desaturate|chromatic_aberration|film_grain|rain_streaks|spotlight|focus|vignette|letterbox|color_grade>","duration":<0.4-3>,"intensity":<0-1>}]  // optional, rare`,
@@ -428,7 +487,7 @@ export function buildSceneAnalyzerUserPrompt(
       : []),
     ...(canGenerateIllustrations
       ? [
-          `,  "illustration": null OR {"segment":<0-${Math.max(0, beats.length - 1)}>,"title":"<short concrete visual title>","prompt":"<important CG image prompt from player POV>","characters":["<visible named character>"],"reason":"<why this is CG-worthy>","slug":"<short-safe-slug>"}`,
+          `,  "illustration": null OR {"segment":<0-${maxSegmentIndex}>,"title":"<short concrete visual title>","prompt":"<important CG image prompt from player POV>","characters":["<visible named character>"],"reason":"<why this is CG-worthy>","slug":"<short-safe-slug>"}`,
         ]
       : []),
     `}`,

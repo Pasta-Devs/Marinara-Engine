@@ -131,6 +131,8 @@ import {
   normalizeAgentPromptTemplateOptions,
   isClaudeAdaptiveOnlyNoSamplingModel,
   localAuthProviderBaseUrl,
+  sceneAnalysisRequestSchema,
+  sceneSpotifyTrackCandidateSchema,
   resolveProviderReasoningEffort,
   scoreMusic,
   scoreAmbient,
@@ -4319,7 +4321,7 @@ function extractNarrationNpcCandidates(narration: string, excludedNames: string[
 }
 
 function buildSceneAssetNpcCandidates(
-  trackedNpcsRaw: Array<Record<string, unknown>>,
+  trackedNpcsRaw: GameNpc[],
   presentCharactersRaw: unknown,
   excludedNames: string[],
   narration: string,
@@ -9627,15 +9629,6 @@ export async function gameRoutes(app: FastifyInstance) {
     return { raw: cleanRaw };
   });
 
-  const spotifySceneTrackCandidateSchema = z.object({
-    uri: z.string().min(1).max(300),
-    name: z.string().min(1).max(300),
-    artist: z.string().min(1).max(300),
-    album: z.string().max(300).nullable().optional(),
-    position: z.number().nullable().optional(),
-    score: z.number().nullable().optional(),
-  });
-
   const spotifySceneTrackSelectionSchema = z.object({
     uri: z.string().min(1).max(300),
     name: z.string().max(300).nullable().optional(),
@@ -9737,40 +9730,11 @@ export async function gameRoutes(app: FastifyInstance) {
   // ── POST /game/scene-wrap ──
   // Scene wrap-up using a regular LLM connection (fallback when sidecar isn't available).
   // Uses the same prompt as the sidecar scene analyzer but via API.
-  const sceneWrapSchema = z.object({
+  const sceneWrapSchema = sceneAnalysisRequestSchema.extend({
     chatId: z.string().min(1),
-    narration: z.string().min(1).max(50000),
-    playerAction: z.string().max(5000).optional(),
     streaming: z.boolean().optional().default(true),
-    context: z.object({
-      currentState: z.string(),
-      availableBackgrounds: z.array(z.string()).max(2000),
-      availableSfx: z.array(z.string()).max(2000),
-      activeWidgets: z.array(z.unknown()).max(100),
-      trackedNpcs: z.array(z.unknown()).max(200),
-      characterNames: z.array(z.string().max(200)).max(100),
-      currentBackground: z.string().nullable(),
-      currentMusic: z.string().nullable(),
-      recentMusic: z.array(z.string().max(500)).max(20).optional().default([]),
-      useSpotifyMusic: z.boolean().optional().default(false),
-      availableSpotifyTracks: z.array(spotifySceneTrackCandidateSchema).max(50).optional().default([]),
-      currentSpotifyTrack: z.string().max(300).nullable().optional().default(null),
-      recentSpotifyTracks: z.array(z.string().max(300)).max(20).optional().default([]),
-      currentAmbient: z.string().nullable().optional().default(null),
-      currentLocation: z.string().nullable().optional().default(null),
-      currentWeather: z.string().nullable(),
-      currentTimeOfDay: z.string().nullable(),
-      genre: z.string().nullable().optional().default(null),
-      setting: z.string().nullable().optional().default(null),
-      worldOverview: z.string().nullable().optional().default(null),
-      canGenerateBackgrounds: z.boolean().optional(),
-      canGenerateIllustrations: z.boolean().optional(),
-      artStylePrompt: z.string().nullable().optional(),
-      imagePromptInstructions: z.string().max(5000).nullable().optional(),
-    }),
     /** Override connection (falls back to scene connection → GM connection). */
     connectionId: z.string().optional(),
-    debugMode: z.boolean().optional().default(false),
   });
 
   app.post("/scene-wrap", async (req, reply) => {
@@ -10053,7 +10017,7 @@ export async function gameRoutes(app: FastifyInstance) {
             const stateStore = createGameStateStorage(app.db);
             const latestState = await stateStore.getLatest(input.chatId);
             const npcs = buildSceneAssetNpcCandidates(
-              (input.context.trackedNpcs ?? []) as Array<Record<string, unknown>>,
+              input.context.trackedNpcs ?? [],
               latestState?.presentCharacters,
               input.context.characterNames ?? [],
               input.narration,

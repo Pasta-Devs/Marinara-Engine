@@ -16,6 +16,7 @@
 
 import type { ImageGenRequest, ImageGenResult } from "./image-generation.js";
 import {
+  COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
   DEFAULT_COMFYUI_DEFAULTS,
   mergeNegativePrompt,
   mergePromptPrefix,
@@ -25,16 +26,21 @@ import {
 import { safeFetch } from "../../utils/security.js";
 
 const DEFAULT_RUNPOD_POLL_INTERVAL_MS = 2_000;
-const COMFYUI_GEN_TIMEOUT_SECONDS = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 2400);
+const DEFAULT_COMFYUI_GEN_TIMEOUT_SECONDS = 2_400;
+
+/** Parse the shared ComfyUI timeout without allowing invalid values to poison RunPod polling. */
+export function resolveRunPodComfyUiTimeoutSeconds(rawValue: string | undefined): number {
+  const parsed = Number(rawValue);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : DEFAULT_COMFYUI_GEN_TIMEOUT_SECONDS;
+}
+
+const COMFYUI_GEN_TIMEOUT_SECONDS = resolveRunPodComfyUiTimeoutSeconds(process.env.COMFYUI_GEN_TIMEOUT);
 const RUNPOD_MAX_POLLS = Math.max(
   1,
   Math.ceil((COMFYUI_GEN_TIMEOUT_SECONDS * 1000) / DEFAULT_RUNPOD_POLL_INTERVAL_MS),
 );
 const RUNPOD_MAX_RESPONSE_BYTES = 30 * 1024 * 1024;
 const RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES = 4;
-const RUNPOD_COMFYUI_PLACEHOLDER_REFERENCE_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
-
 interface RunPodRunResponse {
   id: string;
 }
@@ -180,7 +186,7 @@ function collectRunPodReferenceImages(request: ImageGenRequest, defaults: ComfyU
     .filter((reference, index, all) => all.indexOf(reference) === index)
     .slice(0, RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES);
   if (references.length > 0) return references;
-  return defaults.uploadPlaceholderOnMissingReference ? [RUNPOD_COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
+  return defaults.uploadPlaceholderOnMissingReference ? [COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
 }
 
 function normalizeRunPodReferenceImageBase64(reference: string): string {

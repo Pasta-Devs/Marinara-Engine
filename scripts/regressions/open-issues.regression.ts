@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
+
+const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
   parseGroupedSpeakerSegments,
   splitGroupedSegmentDisplayLines,
@@ -94,8 +97,22 @@ import {
   resolveNovelAiRequestSize,
   resolveNovelAiSize,
 } from "../../packages/server/src/services/image/image-generation.js";
-import { DEFAULT_NOVELAI_DEFAULTS } from "../../packages/shared/src/constants/image-generation-defaults.js";
+import {
+  COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+  DEFAULT_NOVELAI_DEFAULTS,
+} from "../../packages/shared/src/constants/image-generation-defaults.js";
 import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
+import {
+  sceneAnalysisRequestSchema,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+} from "../../packages/shared/src/schemas/scene-analysis.schema.js";
+import {
+  buildSceneAnalyzerUserPrompt,
+  fitSceneAnalyzerNarrationBeats,
+} from "../../packages/server/src/services/sidecar/scene-analyzer.js";
+import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
+import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
+import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -281,7 +298,36 @@ let closeCharacterUpdateDb: (() => Promise<void>) | null = null;
 try {
   const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
   closeCharacterUpdateDb = closeDB;
-  const mariDb = new MariDbService(await getDB());
+  const db = await getDB();
+  const mariDb = new MariDbService(db);
+  const customToolsStore = createCustomToolsStorage(db);
+  const agentsStore = createAgentsStorage(db);
+  const customTool = await customToolsStore.create({
+    name: "phantom_tool",
+    description: "Custom tool deletion regression fixture.",
+    parametersSchema: {},
+    executionType: "static",
+    webhookUrl: null,
+    staticResult: "fixture",
+    scriptBody: null,
+    includeHiddenContext: false,
+    enabled: true,
+  });
+  assert.ok(customTool);
+  const toolAgent = await agentsStore.create({
+    type: "custom-tool-cleanup-regression",
+    name: "Custom Tool Cleanup Regression",
+    description: "",
+    phase: "parallel",
+    connectionId: null,
+    imagePath: null,
+    promptTemplate: "",
+    settings: { enabledTools: ["phantom_tool", "roll_dice"] },
+  });
+  assert.ok(toolAgent);
+  await customToolsStore.remove(customTool.id);
+  const cleanedToolAgent = await agentsStore.getById(toolAgent.id);
+  assert.deepEqual(JSON.parse(cleanedToolAgent?.settings ?? "{}").enabledTools, ["roll_dice"]);
   const characterId = "partial-update-preservation";
   const createResult = await mariDb.executeAction({
     action: "character.create",
@@ -1718,6 +1764,72 @@ assert.deepEqual(
   }),
   { width: 1024, height: 1024 },
 );
+
+const comfyPlaceholderPng = Buffer.from(COMFYUI_PLACEHOLDER_REFERENCE_BASE64, "base64");
+assert.equal(comfyPlaceholderPng.toString("ascii", 1, 4), "PNG");
+assert.equal(comfyPlaceholderPng.readUInt32BE(16), 16);
+assert.equal(comfyPlaceholderPng.readUInt32BE(20), 16);
+
+const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
+for (const workspace of ["shared", "server", "client"]) {
+  assert.match(windowsLauncherSource, new RegExp(`--filter @marinara-engine/${workspace} run clean`, "u"));
+}
+
+const longSceneNarration = Array.from(
+  { length: 100 },
+  (_, index) => `Narration: beat ${index} ${"context ".repeat(45)}`,
+).join("\n");
+const sceneAnalysisContext = {
+  currentState: "exploration" as const,
+  turnNumber: 2,
+  availableBackgrounds: [],
+  availableSfx: [],
+  activeWidgets: [],
+  trackedNpcs: [],
+  characterNames: [],
+  currentBackground: null,
+  currentMusic: null,
+  currentAmbient: null,
+  currentWeather: null,
+  currentTimeOfDay: null,
+};
+const parsedSceneAnalysisRequest = sceneAnalysisRequestSchema.parse({
+  narration: longSceneNarration,
+  context: sceneAnalysisContext,
+});
+assert.equal(
+  parsedSceneAnalysisRequest.narration,
+  longSceneNarration,
+  "The shared request contract must accept long narration before endpoint-specific budgeting",
+);
+assert.equal(parsedSceneAnalysisRequest.context.turnNumber, 2, "The shared schema must preserve turn-aware prompts");
+const fittedSceneNarration = fitSceneAnalyzerNarrationBeats(
+  longSceneNarration,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+assert.equal(fittedSceneNarration.truncated, true);
+assert.equal(fittedSceneNarration.beats.at(-1)?.index, 99);
+assert.ok((fittedSceneNarration.beats[0]?.index ?? 0) > 0);
+assert.ok(
+  fittedSceneNarration.beats.reduce(
+    (total, beat) => total + beat.text.length + String(beat.index).length + 3,
+    0,
+  ) <= SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+const fittedScenePrompt = buildSceneAnalyzerUserPrompt(
+  longSceneNarration,
+  undefined,
+  sceneAnalysisContext,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+);
+assert.match(fittedScenePrompt, /earlier narration beat\(s\) omitted to fit local context/u);
+assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
+assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
+
+assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
+for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "120.5", "Infinity", "9007199254740992"]) {
+  assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
+}
 
 const originalChatGenerationTimeout = process.env.CHAT_GENERATION_TIMEOUT_MS;
 process.env.CHAT_GENERATION_TIMEOUT_MS = "600000";

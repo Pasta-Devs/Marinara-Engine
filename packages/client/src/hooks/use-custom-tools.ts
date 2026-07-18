@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
+import { agentKeys } from "./use-agents";
 
 export interface CustomToolRow {
   id: string;
@@ -95,6 +96,7 @@ export function useDeleteCustomTool() {
     mutationFn: (id: string) => api.delete(`/custom-tools/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: toolKeys.all });
+      qc.invalidateQueries({ queryKey: agentKeys.all });
     },
   });
 }

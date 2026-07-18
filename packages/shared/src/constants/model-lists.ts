@@ -888,6 +888,10 @@ export function shouldSuppressUnknownModelParameters(
   if (!provider || !modelId?.trim()) return false;
   const normalizedProvider = normalizeProviderForCatalog(provider);
   if (!normalizedProvider) return false;
+  // Custom OAI-compatible endpoints are user-defined. Their explicit parameter
+  // switches are the compatibility policy; a built-in catalog cannot know what
+  // an arbitrary endpoint accepts.
+  if (normalizedProvider === "custom") return false;
   const catalog = MODEL_LISTS[normalizedProvider];
   if (!catalog || catalog.length === 0) return false;
   return !findKnownModel(normalizedProvider, modelId.trim());

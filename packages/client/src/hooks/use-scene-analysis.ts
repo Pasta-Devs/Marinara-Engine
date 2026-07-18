@@ -12,48 +12,16 @@
 import { useMutation } from "@tanstack/react-query";
 import type {
   SceneAnalysis,
-  HudWidget,
-  GameNpc,
-  GameActiveState,
-  SceneSpotifyTrackCandidate,
+  SceneAnalysisRequest,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
 
-interface AnalyzeSceneInput {
-  narration: string;
-  playerAction?: string;
-  context: {
-    currentState: GameActiveState;
-    availableBackgrounds: string[];
-    availableSfx: string[];
-    activeWidgets: HudWidget[];
-    trackedNpcs: GameNpc[];
-    characterNames: string[];
-    currentBackground: string | null;
-    currentMusic: string | null;
-    recentMusic?: string[];
-    useSpotifyMusic?: boolean;
-    availableSpotifyTracks?: SceneSpotifyTrackCandidate[];
-    currentSpotifyTrack?: string | null;
-    recentSpotifyTracks?: string[];
-    currentAmbient: string | null;
-    currentLocation?: string | null;
-    currentWeather: string | null;
-    currentTimeOfDay: string | null;
-    genre?: string | null;
-    setting?: string | null;
-    worldOverview?: string | null;
-    canGenerateBackgrounds?: boolean;
-    canGenerateIllustrations?: boolean;
-    artStylePrompt?: string | null;
-    imagePromptInstructions?: string | null;
-  };
+type AnalyzeSceneInput = SceneAnalysisRequest & {
   /** When provided, uses a regular connection instead of sidecar. */
   chatId?: string;
   connectionId?: string;
-  debugMode?: boolean;
   streaming?: boolean;
-}
+};
 
 async function analyzeScene(input: AnalyzeSceneInput): Promise<SceneAnalysis> {
   const debugMode = useUIStore.getState().debugMode;
