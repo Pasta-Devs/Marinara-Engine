@@ -46,7 +46,11 @@ import {
   NOODLE_IMAGE_POST,
   NOODLE_TIMELINE_BASE,
 } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
-import { collectNoodlePriorityAccountIds } from "../../packages/server/src/routes/noodle.routes.js";
+import {
+  collectNoodlePriorityAccountIds,
+  resolveNoodleMaxOutputTokens,
+} from "../../packages/server/src/routes/noodle.routes.js";
+import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import { NOODLE_TIMELINE_VOICE } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
 
 const makeAccount = (id: string): NoodleAccount => ({
@@ -63,6 +67,22 @@ const makeAccount = (id: string): NoodleAccount => ({
   createdAt: "2026-07-10T10:00:00.000Z",
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
+
+assert.equal(resolveNoodleMaxOutputTokens(null, 6144), 6144);
+assert.equal(
+  resolveNoodleMaxOutputTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
+  16_000,
+);
+assert.equal(resolveNoodleMaxOutputTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
+assert.equal(
+  clampGenerationMaxOutputTokens({
+    provider: "custom",
+    model: "kimi-k2.7",
+    maxTokens: resolveNoodleMaxOutputTokens({ maxTokens: 16_000 }, 6144),
+    maxTokensOverride: 8192,
+  }),
+  8192,
+);
 
 const participantSettings = {
   ...DEFAULT_NOODLE_SETTINGS,

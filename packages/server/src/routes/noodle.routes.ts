@@ -62,7 +62,7 @@ import {
 } from "../services/prompt-overrides/index.js";
 import { parseGameJsonish } from "../services/game/jsonish.js";
 import { resolveIllustratorCharacterReferences } from "./generate/illustrator-references.js";
-import { resolveBaseUrl } from "./generate/generate-route-utils.js";
+import { parseStoredGenerationParameters, resolveBaseUrl } from "./generate/generate-route-utils.js";
 import { logger, logDebugOverride } from "../lib/logger.js";
 import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
 import { resolveImageConnectionFallback } from "../services/generation/media-connection-fallback.js";
@@ -303,6 +303,12 @@ function profileSetupMaxTokens(characterCount: number) {
 
 function timelineRefreshMaxTokens(characterCount: number) {
   return 4096 + Math.max(0, characterCount) * 1024;
+}
+
+export function resolveNoodleMaxOutputTokens(defaultParameters: unknown, calculatedMaxTokens: number): number {
+  const connectionParameters = parseStoredGenerationParameters(defaultParameters);
+  if (connectionParameters?.enabledParameters?.maxTokens === false) return calculatedMaxTokens;
+  return connectionParameters?.maxTokens ?? calculatedMaxTokens;
 }
 
 function shuffle<T>(items: T[]): T[] {
@@ -1035,6 +1041,7 @@ async function generateMissingNoodleProfiles(input: {
     provider: string;
     model: string;
     maxTokensOverride?: number | null;
+    defaultParameters?: unknown;
   };
   debugMode: boolean;
 }) {
@@ -1099,7 +1106,7 @@ async function generateMissingNoodleProfiles(input: {
   const maxTokens = clampGenerationMaxOutputTokens({
     provider: input.connection.provider as APIProvider,
     model: input.connection.model,
-    maxTokens: profileSetupMaxTokens(targets.length),
+    maxTokens: resolveNoodleMaxOutputTokens(input.connection.defaultParameters, profileSetupMaxTokens(targets.length)),
     maxTokensOverride: input.connection.maxTokensOverride,
   });
   const result = await input.provider.chatComplete(messages, {
@@ -1956,8 +1963,9 @@ export async function noodleRoutes(app: FastifyInstance) {
       const timelineMaxTokens = clampGenerationMaxOutputTokens({
         provider: conn.provider as APIProvider,
         model: conn.model,
-        maxTokens: timelineRefreshMaxTokens(
-          selectedParticipants.filter((account) => account.kind === "character").length,
+        maxTokens: resolveNoodleMaxOutputTokens(
+          conn.defaultParameters,
+          timelineRefreshMaxTokens(selectedParticipants.filter((account) => account.kind === "character").length),
         ),
         maxTokensOverride: conn.maxTokensOverride,
       });
