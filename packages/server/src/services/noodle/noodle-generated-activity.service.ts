@@ -117,9 +117,9 @@ export async function persistGeneratedNoodleActivity(input: {
     ]),
   );
   const freshPosts = await input.noodle.listPosts({ since: sinceHoursIso(48), limit: 200 });
-  const allowedExistingPostIds = new Set([...freshPosts.map((post) => post.id), ...input.recalledPostIds]);
+  const allowedPostIds = new Set([...freshPosts.map((post) => post.id), ...input.recalledPostIds]);
   const existingInteractionById = new Map(
-    (await input.noodle.listInteractions([...allowedExistingPostIds])).map((interaction) => [
+    (await input.noodle.listInteractions([...allowedPostIds])).map((interaction) => [
       interaction.id,
       interaction,
     ]),
@@ -127,7 +127,6 @@ export async function persistGeneratedNoodleActivity(input: {
   const existingInteractions = [...existingInteractionById.values()];
   let remainingImagePrompts = input.settings.enableImagePrompts ? input.settings.maxImagesPerRefresh : 0;
   const tempIdToPostId = new Map<string, string>();
-  const createdPostIds: string[] = [];
   const imagePromptReviewItems: NoodleImagePromptReviewItem[] = [];
   const activeCharacterReferenceAccounts = activeAccounts.filter((account) => account.kind === "character");
 
@@ -215,7 +214,7 @@ export async function persistGeneratedNoodleActivity(input: {
       },
     });
     if (!post) continue;
-    createdPostIds.push(post.id);
+    allowedPostIds.add(post.id);
     if (imagePromptPreview) imagePromptReviewItems.push({ id: post.id, ...imagePromptPreview });
     if (generatedPost.tempId) tempIdToPostId.set(generatedPost.tempId, post.id);
     const digest = await input.noodle.createDigest({
@@ -247,8 +246,7 @@ export async function persistGeneratedNoodleActivity(input: {
     }
     const targetPostId =
       generatedInteraction.targetPostId ?? tempIdToPostId.get(generatedInteraction.targetTempId ?? "");
-    if (!targetPostId || (!allowedExistingPostIds.has(targetPostId) && !createdPostIds.includes(targetPostId)))
-      continue;
+    if (!targetPostId || !allowedPostIds.has(targetPostId)) continue;
     const targetPost = await input.noodle.getPostById(targetPostId);
     if (!targetPost) continue;
     const parentInteraction = generatedInteraction.parentInteractionId
