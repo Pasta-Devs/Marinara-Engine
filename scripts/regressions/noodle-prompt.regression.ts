@@ -29,7 +29,10 @@ import {
   sampleNoodlePastMemories,
   sampleNoodlePastMemoriesWeighted,
 } from "../../packages/server/src/services/noodle/noodle-prompt.js";
-import { chooseNoodleParticipantAccounts } from "../../packages/server/src/services/noodle/noodle-participant-selection.js";
+import {
+  chooseNoodleParticipantAccounts,
+  collectNoodlePriorityAccountIds,
+} from "../../packages/server/src/services/noodle/noodle-participant-selection.js";
 import { noodleAccountsNeedingProfiles } from "../../packages/server/src/services/noodle/noodle-profile-selection.js";
 import {
   buildNoodleCarryoverBlock,
@@ -42,15 +45,16 @@ import {
   validateNoodleGeneratedRefresh,
 } from "../../packages/server/src/services/noodle/noodle-generated-refresh.js";
 import { normalizeNoodleImagePrompt } from "../../packages/server/src/services/noodle/noodle-image-prompt.js";
+import { characterAppearanceFromRow } from "../../packages/server/src/services/noodle/noodle-public-images.service.js";
+import { buildNoodleProfileTargetBlock } from "../../packages/server/src/services/noodle/noodle-public-profiles.service.js";
+import { buildOptedInChatContext } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
+import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-public-generation.service.js";
+import { resolveStoredMaxTokens } from "../../packages/server/src/services/generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import {
   NOODLE_IMAGE_POST,
   NOODLE_TIMELINE_BASE,
 } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
-import {
-  collectNoodlePriorityAccountIds,
-  resolveNoodleMaxOutputTokens,
-} from "../../packages/server/src/routes/noodle.routes.js";
-import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import { NOODLE_TIMELINE_VOICE } from "../../packages/server/src/services/prompt-overrides/registry/noodle.js";
 
 const makeAccount = (id: string): NoodleAccount => ({
@@ -68,17 +72,19 @@ const makeAccount = (id: string): NoodleAccount => ({
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
 
-assert.strictEqual(resolveNoodleMaxOutputTokens(null, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens(null, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({}, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({ imageGenerationSource: "comfyui" }, 6144), 6144);
 assert.strictEqual(
-  resolveNoodleMaxOutputTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
+  resolveStoredMaxTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
   16_000,
 );
-assert.strictEqual(resolveNoodleMaxOutputTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
 assert.strictEqual(
   clampGenerationMaxOutputTokens({
     provider: "custom",
     model: "kimi-k2.7",
-    maxTokens: resolveNoodleMaxOutputTokens({ maxTokens: 16_000 }, 6144),
+    maxTokens: resolveStoredMaxTokens({ maxTokens: 16_000 }, 6144),
     maxTokensOverride: 8192,
   }),
   8192,
@@ -115,7 +121,9 @@ const largeRosterProfileTargets = noodleAccountsNeedingProfiles(selectedWithExis
 assert.equal(largeRosterProfileTargets.length, 1);
 assert.ok(selectedLargeRosterParticipants.some((account) => account.id === largeRosterProfileTargets[0]!.id));
 assert.ok(
-  largeRosterProfileTargets.every((account) => selectedLargeRosterParticipants.some((selected) => selected.id === account.id)),
+  largeRosterProfileTargets.every((account) =>
+    selectedLargeRosterParticipants.some((selected) => selected.id === account.id),
+  ),
 );
 assert.deepEqual(
   [
@@ -222,9 +230,16 @@ const charactersOnlySelection = chooseNoodleParticipantAccounts({
   selectedGroupCharacterIds: new Set(),
   random: () => 0.9,
 });
-assert.equal(charactersOnlySelection.every((account) => account.kind === "character"), true);
+assert.equal(
+  charactersOnlySelection.every((account) => account.kind === "character"),
+  true,
+);
 const sparseCharacterSelection = chooseNoodleParticipantAccounts({
-  accounts: [participantAccounts[0]!, randomParticipant, { ...randomParticipant, id: "ambient-two", entityId: "ambient-two" }],
+  accounts: [
+    participantAccounts[0]!,
+    randomParticipant,
+    { ...randomParticipant, id: "ambient-two", entityId: "ambient-two" },
+  ],
   settings: { ...participantSettings, allowRandomUsers: true, participantMin: 3, participantMax: 3 },
   selectedGroupCharacterIds: new Set(),
   random: () => 0.9,
@@ -536,7 +551,7 @@ assert.equal(
 
 assert.equal(
   normalizeNoodleImagePrompt(
-    'Post text: a long social post\nDraft image idea: cel-shaded scientist holding a test tube\nUser instructions: vivid color',
+    "Post text: a long social post\nDraft image idea: cel-shaded scientist holding a test tube\nUser instructions: vivid color",
   ),
   "cel-shaded scientist holding a test tube",
 );
@@ -557,6 +572,61 @@ assert.match(defaultNoodleImagePrompt, /Dottore has blue hair/u);
 assert.doesNotMatch(defaultNoodleImagePrompt, /This entire post/u);
 assert.doesNotMatch(defaultNoodleImagePrompt, /Output only|Draft image idea|Post text/u);
 
+assert.equal(
+  characterAppearanceFromRow({
+    data: { description: "  silver hair {{// private note}}\n blue eyes  " },
+  }),
+  "silver hair blue eyes",
+);
+const escapedProfileTarget = buildNoodleProfileTargetBlock(
+  {
+    entityId: `character<&"`,
+    displayName: `Name <&"`,
+    handle: `handle<&"`,
+  },
+  { id: "character", data: { name: "Character" } },
+);
+assert.match(
+  escapedProfileTarget,
+  /<profile_target entityId="character&lt;&amp;&quot;" currentName="Name &lt;&amp;&quot;" currentHandle="handle&lt;&amp;&quot;">/u,
+);
+
+const optedInChats = Array.from({ length: 9 }, (_, index) => ({
+  id: `chat-${index}`,
+  name: `Chat ${index}`,
+  mode: "conversation",
+  metadata: { noodleTimelineContextEnabled: true },
+  characterIds: ["character-alpha"],
+  personaId: null,
+}));
+const optedInChatContext = await buildOptedInChatContext(
+  {
+    list: async () => optedInChats,
+    listMessagesPaginated: async (chatId: string) =>
+      chatId === "chat-0"
+        ? []
+        : [{ role: "assistant", content: `message from ${chatId}`, characterId: "character-alpha" }],
+  } as never,
+  {
+    getById: async () => ({ id: "character-alpha", data: { name: "Alpha" } }),
+    getPersona: async () => null,
+  } as never,
+  ["character-alpha"],
+);
+assert.doesNotMatch(optedInChatContext, /chat-0/u);
+assert.match(optedInChatContext, /chat-8/u);
+assert.equal((optedInChatContext.match(/<chat_context /gu) ?? []).length, 8);
+
+const correctionMessages = [
+  { role: "system" as const, content: "system prompt" },
+  { role: "user" as const, content: "original prompt" },
+  { role: "user" as const, content: "correction prompt" },
+];
+assert.equal(
+  formatNoodleMessagesForLog(correctionMessages),
+  "SYSTEM:\nsystem prompt\n\nUSER:\noriginal prompt\n\nUSER:\ncorrection prompt",
+);
+
 const cutoffAnchor = new Date("2026-07-10T12:00:00.000Z");
 assert.equal(noodlePastMemoryCutoff(cutoffAnchor), "2026-07-08T12:00:00.000Z");
 assert.equal(
@@ -576,7 +646,11 @@ assert.equal(
 
 // Explicit legacy chance/maxItems params reproduce pre-toggle behavior (enableEnhancedTimelineWriting off).
 assert.equal(
-  noodlePastMemorySampleSize(() => 0.5, NOODLE_LEGACY_PAST_MEMORY_INCLUSION_CHANCE, NOODLE_LEGACY_PAST_MEMORY_MAX_ITEMS),
+  noodlePastMemorySampleSize(
+    () => 0.5,
+    NOODLE_LEGACY_PAST_MEMORY_INCLUSION_CHANCE,
+    NOODLE_LEGACY_PAST_MEMORY_MAX_ITEMS,
+  ),
   0,
 );
 const legacyThreeItemRolls = [0, 0.999];
@@ -630,7 +704,10 @@ const partiallyInvalidGeneratedProfiles = parseNoodleGeneratedProfiles({
     { entityId: "valid", name: "Valid Character", handle: "valid_character", bio: "", location: "" },
   ],
 });
-assert.deepEqual(partiallyInvalidGeneratedProfiles.profiles.map((profile) => profile.entityId), ["valid"]);
+assert.deepEqual(
+  partiallyInvalidGeneratedProfiles.profiles.map((profile) => profile.entityId),
+  ["valid"],
+);
 assert.deepEqual(partiallyInvalidGeneratedProfiles.rejected, [{ index: 0, issueCount: 1 }]);
 
 // sampleNoodlePastMemoriesWeighted should reliably favor a much higher-weighted item over
@@ -649,10 +726,23 @@ for (let trial = 0; trial < trials; trial += 1) {
 }
 assert.ok(highWeightPicks > trials * 0.8, `expected high-weight item to dominate, got ${highWeightPicks}/${trials}`);
 assert.deepEqual(
-  sampleNoodlePastMemoriesWeighted(["only"], 5, () => 1, () => 0.5),
+  sampleNoodlePastMemoriesWeighted(
+    ["only"],
+    5,
+    () => 1,
+    () => 0.5,
+  ),
   ["only"],
 );
-assert.equal(sampleNoodlePastMemoriesWeighted(["a", "b"], 0, () => 1, () => 0.5).length, 0);
+assert.equal(
+  sampleNoodlePastMemoriesWeighted(
+    ["a", "b"],
+    0,
+    () => 1,
+    () => 0.5,
+  ).length,
+  0,
+);
 
 // noodleLorebookTokenBudget scales with active character count but is floored and capped so a
 // single-character Noodle refresh never dips below the floor, and a large roster never exceeds

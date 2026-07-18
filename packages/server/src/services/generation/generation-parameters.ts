@@ -1,4 +1,8 @@
-import { DEFAULT_AGENT_MAX_TOKENS, MIN_AGENT_MAX_TOKENS } from "@marinara-engine/shared";
+import {
+  DEFAULT_AGENT_MAX_TOKENS,
+  MIN_AGENT_MAX_TOKENS,
+  generationParametersSchema,
+} from "@marinara-engine/shared";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
 
 export function normalizeMaxContext(value: unknown): number | undefined {
@@ -14,6 +18,26 @@ export function normalizeAgentMaxTokens(value: unknown, fallback = DEFAULT_AGENT
 
 export function applyProviderMaxTokensOverride(provider: BaseLLMProvider, maxTokens: number): number {
   return provider.maxTokensOverrideValue !== null ? Math.min(maxTokens, provider.maxTokensOverrideValue) : maxTokens;
+}
+
+export function resolveStoredMaxTokens(defaultParameters: unknown, calculatedMaxTokens: number): number {
+  let parsed = defaultParameters;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return calculatedMaxTokens;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return calculatedMaxTokens;
+  const source = parsed as Record<string, unknown>;
+  const enabledParameters = generationParametersSchema.shape.enabledParameters.safeParse(source.enabledParameters);
+  if (enabledParameters.success && enabledParameters.data?.maxTokens === false) return calculatedMaxTokens;
+  if (!Object.prototype.hasOwnProperty.call(source, "maxTokens") || source.maxTokens === undefined) {
+    return calculatedMaxTokens;
+  }
+  const maxTokens = generationParametersSchema.shape.maxTokens.safeParse(source.maxTokens);
+  return maxTokens.success ? maxTokens.data : calculatedMaxTokens;
 }
 
 export function minContextLimit(...limits: Array<number | undefined>): number | undefined {

@@ -1,4 +1,11 @@
-import { PROFESSOR_MARI_ID, type NoodleAccount, type NoodleSettings } from "@marinara-engine/shared";
+import {
+  extractNoodleMentionHandles,
+  PROFESSOR_MARI_ID,
+  type NoodleAccount,
+  type NoodleInteraction,
+  type NoodlePost,
+  type NoodleSettings,
+} from "@marinara-engine/shared";
 
 type RandomSource = () => number;
 
@@ -11,6 +18,42 @@ function shuffleWith<T>(items: readonly T[], random: RandomSource): T[] {
     [next[index], next[selected]] = [next[selected]!, next[index]!];
   }
   return next;
+}
+
+export function collectNoodlePriorityAccountIds(input: {
+  accounts: NoodleAccount[];
+  posts: NoodlePost[];
+  interactions: NoodleInteraction[];
+  personaAccount: NoodleAccount | null;
+}): Set<string> {
+  const priority = new Set<string>();
+  if (!input.personaAccount) return priority;
+  const accountByHandle = new Map(input.accounts.map((account) => [account.handle.toLowerCase(), account]));
+  const interactionById = new Map(input.interactions.map((interaction) => [interaction.id, interaction]));
+  const addMentionedAccounts = (content: string | null | undefined) => {
+    for (const handle of extractNoodleMentionHandles(content ?? "")) {
+      const account = accountByHandle.get(handle);
+      if (account && account.kind !== "persona") priority.add(account.id);
+    }
+  };
+
+  for (const post of input.posts) {
+    if (post.authorAccountId === input.personaAccount.id) addMentionedAccounts(post.content);
+  }
+  for (const interaction of input.interactions) {
+    if (interaction.actorAccountId === input.personaAccount.id) {
+      addMentionedAccounts(interaction.content);
+      const post = input.posts.find((candidate) => candidate.id === interaction.postId);
+      if (post && post.authorAccountId !== input.personaAccount.id) priority.add(post.authorAccountId);
+      const parent = interaction.parentInteractionId ? interactionById.get(interaction.parentInteractionId) : null;
+      if (parent && parent.actorAccountId !== input.personaAccount.id) priority.add(parent.actorAccountId);
+      continue;
+    }
+    if (extractNoodleMentionHandles(interaction.content ?? "").includes(input.personaAccount.handle.toLowerCase())) {
+      priority.add(interaction.actorAccountId);
+    }
+  }
+  return priority;
 }
 
 export function chooseNoodleParticipantAccounts(input: {

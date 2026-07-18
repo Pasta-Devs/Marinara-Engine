@@ -6,7 +6,7 @@
 
 import { createHash, createHmac, randomBytes } from "crypto";
 import { existsSync, mkdirSync, renameSync, unlinkSync, writeFileSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
 import { inflateRawSync } from "zlib";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
@@ -317,6 +317,49 @@ export function saveImageToDisk(chatId: string, base64: string, ext: string): st
     throw error;
   }
   return `${chatId}/${filename}`;
+}
+
+export type StagedGalleryImage = {
+  filePath: string;
+  promote: () => void;
+  compensate: () => void;
+};
+
+/** Stage provider output without making it visible in the gallery. */
+export function stageImageToDisk(chatId: string, base64: string, ext: string): StagedGalleryImage {
+  const filename = `${newId()}.${ext}`;
+  const relativePath = `${chatId}/${filename}`;
+  const finalPath = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, relativePath));
+  const stagingDir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ".staging", "noodle"));
+  const stagedPath = assertInsideDir(stagingDir, join(stagingDir, `${filename}.${process.pid}.${Date.now()}.tmp`));
+  mkdirSync(stagingDir, { recursive: true });
+  try {
+    writeFileSync(stagedPath, Buffer.from(base64, "base64"));
+  } catch (error) {
+    try {
+      if (existsSync(stagedPath)) unlinkSync(stagedPath);
+    } catch {
+      /* best-effort cleanup */
+    }
+    throw error;
+  }
+
+  return {
+    filePath: relativePath,
+    promote() {
+      mkdirSync(dirname(finalPath), { recursive: true });
+      renameSync(stagedPath, finalPath);
+    },
+    compensate() {
+      for (const path of [stagedPath, finalPath]) {
+        try {
+          if (existsSync(path)) unlinkSync(path);
+        } catch {
+          /* best-effort compensation */
+        }
+      }
+    },
+  };
 }
 
 // ── Provider Implementations ──

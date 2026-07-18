@@ -2,7 +2,7 @@ import { inferImageSource, inferVideoSource } from "@marinara-engine/shared";
 import type { ImageGenRequest } from "../image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../image/image-generation-defaults.js";
 import type { VideoGenerationRequest } from "../video/video-generation.js";
-import { resolveBaseUrl } from "../../routes/generate/generate-route-utils.js";
+import { resolveBaseUrl } from "./connection-base-url.js";
 
 type ImageFallbackStore = {
   getFallbackForImageGeneration(): Promise<any | null>;

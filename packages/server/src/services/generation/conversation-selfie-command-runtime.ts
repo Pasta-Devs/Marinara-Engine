@@ -4,7 +4,7 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
   isNovelAiImageConnection,
   resolveIllustratorCharacterReferences,
-} from "../../routes/generate/illustrator-references.js";
+} from "../image/illustrator-references.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import { persistGeneratedImageToEntityGalleries } from "../image/generated-image-entity-gallery.js";
 import { resolveConnectionImageDefaults } from "../image/image-generation-defaults.js";
@@ -22,7 +22,7 @@ import {
   type IllustratorPromptConnectionsStore,
 } from "./illustrator-prompt-runtime.js";
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
-import { resolveBaseUrl } from "../../routes/generate/generate-route-utils.js";
+import { resolveBaseUrl } from "./connection-base-url.js";
 
 type CharactersStore = {
   getById(id: string): Promise<{ data: unknown } | null>;
