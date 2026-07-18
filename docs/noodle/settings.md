@@ -14,9 +14,9 @@ All Noodle settings are global. They apply to every persona and every chat, not 
 
 ## NoodleR Access
 
-- **Enable NoodleR**: a toggle, default **off**. Turn it on to opt in to private creator accounts. While it is off, NoodleR account queries are unavailable and private account data remains isolated from the public Noodle timeline.
+- **Enable NoodleR**: a toggle, default **off**. Turn it on to expose the private account hub. While it is off, opening NoodleR shows the opt-in screen, NoodleR account queries are unavailable, and private account data remains isolated from the public Noodle timeline.
 
-This setting enables the private-account foundation only. Private navigation and creator tools arrive separately.
+The hub lists the private accounts currently available to the installation, including loading, failure, and empty states. Private profile editing, subscriptions, generation, and other creator tools arrive in later NoodleR slices.
 
 ## Invites
 
