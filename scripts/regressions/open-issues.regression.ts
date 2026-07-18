@@ -1827,7 +1827,7 @@ assert.match(fittedScenePrompt, /\[99\] Narration: beat 99/u);
 assert.match(fittedScenePrompt, /CINEMATIC DIRECTIONS/u);
 
 assert.equal(resolveRunPodComfyUiTimeoutSeconds("120"), 120);
-for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "Infinity"]) {
+for (const invalidTimeout of [undefined, "", "invalid", "0", "-1", "120.5", "Infinity", "9007199254740992"]) {
   assert.equal(resolveRunPodComfyUiTimeoutSeconds(invalidTimeout), 2_400);
 }
 
