@@ -1050,7 +1050,7 @@ assert.match(
 assert.match(retryAgentsPromptReviewSource, /\[debug\/retry-agents\/illustrator\] final prompt/);
 assert.match(
   retryAgentsPromptReviewSource,
-  /const retryAgentConnectionCache = new Map<string, RetryAgentConnectionResolution>\(\);/,
+  /const\s+retryAgentConnectionCache\s*=\s*new\s+Map<string,\s*RetryAgentConnectionResolution>\(\);/,
   "retry agent resolution should reuse provider wrappers for the same stored connection",
 );
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);

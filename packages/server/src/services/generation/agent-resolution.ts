@@ -210,7 +210,7 @@ async function resolveAgentConnectionProvider(args: {
       anthropicExtendedCacheTtl: args.fallbackAnthropicExtendedCacheTtl,
       cachingAtDepth: args.fallbackCachingAtDepth,
     };
-    args.agentProviderCache.set(null, resolved);
+    args.agentProviderCache.set(args.connectionId, resolved);
     return { entry: resolved };
   }
 
