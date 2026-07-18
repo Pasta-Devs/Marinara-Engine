@@ -1,12 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
 import {
   GENERATION_PARAMETER_SEND_KEYS,
-  LOCAL_SIDECAR_CONNECTION_ID,
-  PROVIDERS,
   SUMMARY_TAIL_MESSAGES,
   applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
-  localAuthProviderBaseUrl,
   normalizeTextForMatch,
   normalizeWorldCustomFields,
   normalizeThinkingTagPairs,
@@ -25,9 +22,30 @@ import {
   type PlayerStats,
   type WrapFormat,
 } from "@marinara-engine/shared";
-import { LOCAL_SIDECAR_MODEL } from "../../services/llm/local-sidecar.js";
-import { sidecarModelService } from "../../services/sidecar/sidecar-model.service.js";
 import { wrapContent } from "../../services/prompt/format-engine.js";
+import {
+  appendReadableAttachmentsToContent,
+  extractFileAttachmentInputs,
+  extractImageAttachmentDataUrls,
+  parseExtra,
+  type PromptAttachment,
+} from "../../services/generation/prompt-attachments.js";
+
+export { resolveBaseUrl } from "../../services/generation/connection-base-url.js";
+export {
+  createLocalSidecarGenerationConnection,
+  type LocalSidecarGenerationConnection,
+} from "../../services/generation/local-sidecar-generation-connection.js";
+export {
+  appendReadableAttachmentsToContent,
+  buildReadableAttachmentBlocks,
+  escapeXmlAttribute,
+  extractFileAttachmentInputs,
+  extractImageAttachmentDataUrls,
+  getAttachmentFilename,
+  parseExtra,
+  type PromptAttachment,
+} from "../../services/generation/prompt-attachments.js";
 
 export type SimpleMessage = {
   role: "system" | "user" | "assistant";
@@ -55,44 +73,6 @@ export function resolveActivePersonaCandidate<T extends { id: string; isActive?:
   return resolveChatPersonaCandidate(personas, chatPersonaId, chatMode);
 }
 
-export type LocalSidecarGenerationConnection = {
-  id: typeof LOCAL_SIDECAR_CONNECTION_ID;
-  name: string;
-  provider: "local_sidecar";
-  baseUrl: string;
-  apiKey: string;
-  apiKeyEncrypted: string;
-  model: string;
-  imagePath: null;
-  maxContext: number;
-  isDefault: "false";
-  fallbackForMain: "false";
-  useForRandom: "false";
-  enableCaching: "false";
-  anthropicExtendedCacheTtl: "false";
-  cachingAtDepth: number;
-  defaultForAgents: "false";
-  fallbackForAgents: "false";
-  embeddingModel: string;
-  embeddingBaseUrl: string;
-  embeddingConnectionId: null;
-  openrouterProvider: null;
-  imageGenerationSource: null;
-  comfyuiWorkflow: null;
-  imageService: null;
-  imageEndpointId: null;
-  defaultParameters: null;
-  promptPresetId: null;
-  maxTokensOverride: null;
-  maxParallelJobs: number;
-  treatAsLocalEndpoint: "true";
-  claudeFastMode: "false";
-  folderId: null;
-  sortOrder: number;
-  createdAt: string;
-  updatedAt: string;
-};
-
 const PROMPT_WRAP_FORMATS = new Set<WrapFormat>(["xml", "markdown", "none"]);
 
 export function normalizePromptWrapFormat(value: unknown): WrapFormat {
@@ -106,21 +86,6 @@ export function formatConversationInstructionsForWrap(prompt: string, wrapFormat
   if (wrapFormat === "markdown") return `## Instructions\n${body}`;
   return body;
 }
-export type PromptAttachment = {
-  type?: string | null;
-  url?: string | null;
-  data?: string | null;
-  filename?: string | null;
-  name?: string | null;
-  prompt?: string | null;
-  galleryId?: string | null;
-  imageCaption?: string | null;
-  imageCaptionConnectionId?: string | null;
-  imageCaptionModel?: string | null;
-  imageCaptionProvider?: string | null;
-  imageCaptionedAt?: string | null;
-};
-
 export function buildGenerationGuideInstruction(
   generationGuide: unknown,
   promptMacroContext: MacroContext,
@@ -142,65 +107,9 @@ export function buildGenerationGuideInstruction(
     : null;
 }
 
-export function createLocalSidecarGenerationConnection(): LocalSidecarGenerationConnection {
-  const config = sidecarModelService.getConfig();
-  return {
-    id: LOCAL_SIDECAR_CONNECTION_ID,
-    name: "Local Model (sidecar)",
-    provider: "local_sidecar",
-    baseUrl: "local-sidecar://runtime",
-    apiKey: "",
-    apiKeyEncrypted: "",
-    model: LOCAL_SIDECAR_MODEL,
-    imagePath: null,
-    maxContext: config.contextSize,
-    isDefault: "false",
-    fallbackForMain: "false",
-    useForRandom: "false",
-    enableCaching: "false",
-    anthropicExtendedCacheTtl: "false",
-    cachingAtDepth: 5,
-    defaultForAgents: "false",
-    fallbackForAgents: "false",
-    embeddingModel: "",
-    embeddingBaseUrl: "",
-    embeddingConnectionId: null,
-    openrouterProvider: null,
-    imageGenerationSource: null,
-    comfyuiWorkflow: null,
-    imageService: null,
-    imageEndpointId: null,
-    defaultParameters: null,
-    promptPresetId: null,
-    maxTokensOverride: null,
-    maxParallelJobs: 1,
-    treatAsLocalEndpoint: "true",
-    claudeFastMode: "false",
-    folderId: null,
-    sortOrder: 0,
-    createdAt: "local-sidecar",
-    updatedAt: "local-sidecar",
-  };
-}
-
 function createEmptyPlayerStats(): PlayerStats {
   return { stats: [], attributes: null, skills: {}, inventory: [], activeQuests: [], status: "" };
 }
-
-const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
-const FILE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 20 * 1024 * 1024;
-const TEXT_ATTACHMENT_EXTENSIONS = new Set([
-  "csv",
-  "json",
-  "jsonl",
-  "log",
-  "markdown",
-  "md",
-  "txt",
-  "xml",
-  "yaml",
-  "yml",
-]);
 
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -594,16 +503,6 @@ export function appendNonLeadingSystemMessagesToLastUser<T extends PromptRoleMes
   }
 
   return result;
-}
-
-/** Parse a JSON extra field safely. */
-export function parseExtra(extra: unknown): Record<string, unknown> {
-  if (!extra) return {};
-  try {
-    return typeof extra === "string" ? JSON.parse(extra) : (extra as Record<string, unknown>);
-  } catch {
-    return {};
-  }
 }
 
 export function isMessageHiddenFromAI(message: { extra?: unknown }): boolean {
@@ -1010,131 +909,6 @@ export function resolveRegenerationGameStateFallbackMessageIds(
   return Array.from(ids);
 }
 
-export function getAttachmentFilename(attachment: PromptAttachment): string {
-  const rawName = attachment.filename ?? attachment.name;
-  return typeof rawName === "string" && rawName.trim() ? rawName.trim() : "attachment";
-}
-
-export function extractImageAttachmentDataUrls(attachments: PromptAttachment[] | undefined): string[] {
-  return (attachments ?? [])
-    .filter((attachment) => typeof attachment.type === "string" && attachment.type.startsWith("image/"))
-    .map((attachment) => attachment.data)
-    .filter((data): data is string => typeof data === "string" && data.length > 0)
-    .filter((data) => estimateDataUrlBytes(data) <= IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT);
-}
-
-export function extractFileAttachmentInputs(
-  attachments: PromptAttachment[] | undefined,
-): Array<{ type: string; data: string; filename: string }> {
-  return (attachments ?? []).flatMap((attachment) => {
-    const type = normalizeProviderFileAttachmentType(attachment);
-    if (!type || typeof attachment.data !== "string") return [];
-    if (estimateDataUrlBytes(attachment.data) > FILE_ATTACHMENT_PROVIDER_BYTE_LIMIT) return [];
-    const data = normalizeDataUrlMimeType(attachment.data, type);
-    if (!data) return [];
-    return [{ type, data, filename: getAttachmentFilename(attachment) }];
-  });
-}
-
-function normalizeProviderFileAttachmentType(attachment: PromptAttachment): string | null {
-  const type = typeof attachment.type === "string" ? attachment.type.toLowerCase().trim() : "";
-  const filename = getAttachmentFilename(attachment).toLowerCase();
-  if (type === "application/pdf" || filename.endsWith(".pdf")) return "application/pdf";
-  return null;
-}
-
-function normalizeDataUrlMimeType(dataUrl: string, mimeType: string): string | null {
-  const commaIndex = dataUrl.indexOf(",");
-  if (!dataUrl.startsWith("data:") || commaIndex < 0) return null;
-  const meta = dataUrl.slice(5, commaIndex).toLowerCase();
-  if (!meta.includes(";base64")) return null;
-  return `data:${mimeType};base64,${dataUrl.slice(commaIndex + 1)}`;
-}
-
-function estimateDataUrlBytes(dataUrl: string): number {
-  const commaIndex = dataUrl.indexOf(",");
-  if (!dataUrl.startsWith("data:") || commaIndex < 0) return Buffer.byteLength(dataUrl, "utf8");
-
-  const meta = dataUrl.slice(0, commaIndex).toLowerCase();
-  const payload = dataUrl.slice(commaIndex + 1);
-  if (!meta.includes(";base64")) {
-    try {
-      return Buffer.byteLength(decodeURIComponent(payload), "utf8");
-    } catch {
-      return Buffer.byteLength(payload, "utf8");
-    }
-  }
-
-  const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
-  return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
-}
-
-function isReadableTextAttachment(attachment: PromptAttachment): boolean {
-  const type = typeof attachment.type === "string" ? attachment.type.toLowerCase() : "";
-  if (type.startsWith("text/")) return true;
-  if (
-    type === "application/json" ||
-    type === "application/ld+json" ||
-    type === "application/xml" ||
-    type === "application/x-yaml" ||
-    type === "application/yaml"
-  ) {
-    return true;
-  }
-
-  const name = getAttachmentFilename(attachment).toLowerCase();
-  const extension = name.includes(".") ? name.split(".").pop() : "";
-  return !!extension && TEXT_ATTACHMENT_EXTENSIONS.has(extension);
-}
-
-function decodeDataUrlText(dataUrl: string): string | null {
-  const commaIndex = dataUrl.indexOf(",");
-  if (!dataUrl.startsWith("data:") || commaIndex < 0) return null;
-
-  const meta = dataUrl.slice(0, commaIndex).toLowerCase();
-  const payload = dataUrl.slice(commaIndex + 1);
-  try {
-    if (meta.includes(";base64")) {
-      return Buffer.from(payload, "base64").toString("utf8");
-    }
-    return decodeURIComponent(payload);
-  } catch {
-    return null;
-  }
-}
-
-export function escapeXmlAttribute(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-export function buildReadableAttachmentBlocks(attachments: PromptAttachment[] | undefined): string[] {
-  return (attachments ?? []).flatMap((attachment) => {
-    if (!isReadableTextAttachment(attachment) || typeof attachment.data !== "string") return [];
-    const decoded = decodeDataUrlText(attachment.data);
-    if (!decoded?.trim()) return [];
-
-    const filename = getAttachmentFilename(attachment);
-    const type = typeof attachment.type === "string" && attachment.type.trim() ? attachment.type.trim() : "text/plain";
-
-    return [
-      [
-        `<attached_file name="${escapeXmlAttribute(filename)}" type="${escapeXmlAttribute(type)}">`,
-        decoded,
-        `</attached_file>`,
-      ].join("\n"),
-    ];
-  });
-}
-
-export function appendReadableAttachmentsToContent(
-  content: string,
-  attachments: PromptAttachment[] | undefined,
-): string {
-  const blocks = buildReadableAttachmentBlocks(attachments);
-  if (blocks.length === 0) return content;
-  return `${content}${content.trim() ? "\n\n" : ""}${blocks.join("\n\n")}`;
-}
-
 export function formatSeparateAgentInjection(agentType: string, text: string, wrapFormat: string): string {
   const meta =
     agentType === "knowledge-router"
@@ -1161,18 +935,6 @@ export function appendSeparateAgentInjectionMessage(
     content: formatSeparateAgentInjection(agentType, text, wrapFormat),
     contextKind: "injection",
   });
-}
-
-/** Resolve the base URL for a connection, falling back to the provider default. */
-export function resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string {
-  if (connection.baseUrl) return connection.baseUrl.replace(/\/+$/, "");
-  // Subscription/login-backed providers own their endpoint internally, but
-  // downstream callers gate on a non-empty baseUrl. Return a sentinel so the
-  // gate passes; the provider ignores the value.
-  const localAuthBaseUrl = localAuthProviderBaseUrl(connection.provider);
-  if (localAuthBaseUrl) return localAuthBaseUrl;
-  const providerDef = PROVIDERS[connection.provider as keyof typeof PROVIDERS];
-  return providerDef?.defaultBaseUrl ?? "";
 }
 
 export function shouldEnableAgentsForGeneration({

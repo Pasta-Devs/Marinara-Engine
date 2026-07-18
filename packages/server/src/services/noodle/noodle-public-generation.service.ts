@@ -38,8 +38,8 @@ import {
   NOODLE_TIMELINE_VOICE,
 } from "../prompt-overrides/index.js";
 import { parseGameJsonish } from "../game/jsonish.js";
-import { resolveIllustratorCharacterReferences } from "../../routes/generate/illustrator-references.js";
-import { resolveBaseUrl } from "../../routes/generate/generate-route-utils.js";
+import { resolveIllustratorCharacterReferences } from "../image/illustrator-references.js";
+import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
@@ -70,7 +70,7 @@ import type { DB } from "../../db/connection.js";
 import {
   generateImageCaptionForDataUrl,
   type ImageCaptioningRuntime,
-} from "../../routes/generate/image-captioning-runtime.js";
+} from "../generation/image-captioning-runtime.js";
 import {
   formatNoodleVisionManifest,
   isUnsupportedNoodleVisionInputError,

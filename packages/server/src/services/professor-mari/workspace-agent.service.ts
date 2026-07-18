@@ -18,15 +18,17 @@ import { createLLMProvider } from "../llm/provider-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
 import {
+  mergeCustomParameters,
+  normalizeServiceTier,
+} from "../../routes/generate/generate-route-utils.js";
+import {
   appendReadableAttachmentsToContent,
   extractFileAttachmentInputs,
   extractImageAttachmentDataUrls,
   getAttachmentFilename,
-  resolveBaseUrl,
-  mergeCustomParameters,
-  normalizeServiceTier,
   type PromptAttachment,
-} from "../../routes/generate/generate-route-utils.js";
+} from "../generation/prompt-attachments.js";
+import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { MARI_GUIDED_SEQUENCES } from "./guided-sequences.js";
 import { getFileStorageDir, getMonorepoRoot, getPort, getServerProtocol } from "../../config/runtime-config.js";
 import { apiConnections } from "../../db/schema/index.js";
