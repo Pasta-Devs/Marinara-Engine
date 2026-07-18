@@ -26,6 +26,7 @@ import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT, isDesktopShellNavigationTarget } from "../../lib/chat-floating-ui-events";
 import { getChatDisplayName } from "../../lib/chat-display";
 import { compareChatsByActivityDesc } from "../../lib/chat-recency";
+import { api } from "../../lib/api-client";
 import { useChatStore } from "../../stores/chat.store";
 import { cn } from "../../lib/utils";
 import {
@@ -120,10 +121,15 @@ export function ChatBranchSelector({
       const formData = new FormData();
       formData.append("chatId", activeChatId);
       formData.append("file", file);
-      const res = await fetch("/api/import/st-chat-into-group", { method: "POST", body: formData });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.success === false || data?.error) {
-        toast.error(`Import failed: ${data?.error ?? res.statusText ?? "Unknown error"}`);
+      const data = await api.upload<{
+        success?: boolean;
+        error?: string;
+        messagesImported?: number;
+        groupId?: string;
+        chatId?: string;
+      }>("/import/st-chat-into-group", formData);
+      if (data.success === false || data.error) {
+        toast.error(`Import failed: ${data.error ?? "Unknown error"}`);
         return;
       }
       toast.success(`Imported ${data.messagesImported ?? 0} messages as a new branch`);

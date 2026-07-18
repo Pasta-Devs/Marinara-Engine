@@ -9,7 +9,7 @@ const BASE = "/api";
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 export const ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
 
-export function getAdminSecretHeader(): Record<string, string> {
+function getAdminSecretHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
   const secret = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim();
   return secret ? { "X-Admin-Secret": secret } : {};
@@ -279,6 +279,7 @@ async function readDownloadFilename(res: Response, fallbackFilename: string) {
 }
 
 export const api = {
+  /** Return the raw response while still applying shared auth, CSRF, and cache policy. */
   raw: (path: string, init?: RequestInit) => apiFetch(path, init),
 
   get: <T>(path: string, init?: RequestInit) => request<T>(path, init),
@@ -319,11 +320,9 @@ export const api = {
 
   /** Download a POST endpoint as a file (useful for bulk exports). */
   downloadPost: async (path: string, body: unknown, fallbackFilename = "export.bin") => {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await apiFetch(path, {
       method: "POST",
-      headers: { ...getAdminSecretHeader(), [CSRF_HEADER]: CSRF_HEADER_VALUE, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      cache: "no-store",
     });
     showGenerationFallbackHeader(res);
     if (!res.ok) {
@@ -339,11 +338,9 @@ export const api = {
    * Stream an SSE endpoint. Returns an async iterable of parsed events.
    */
   stream: async function* (path: string, body?: unknown, signal?: AbortSignal): AsyncGenerator<string> {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await apiFetch(path, {
       method: "POST",
-      headers: { ...getAdminSecretHeader(), [CSRF_HEADER]: CSRF_HEADER_VALUE, "Content-Type": "application/json" },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: "no-store",
       signal,
     });
     showGenerationFallbackHeader(res);
@@ -415,11 +412,9 @@ export const api = {
     body?: unknown,
     signal?: AbortSignal,
   ): AsyncGenerator<{ type: string; data: unknown } & Record<string, unknown>> {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await apiFetch(path, {
       method: "POST",
-      headers: { ...getAdminSecretHeader(), [CSRF_HEADER]: CSRF_HEADER_VALUE, "Content-Type": "application/json" },
       body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: "no-store",
       signal,
     });
     showGenerationFallbackHeader(res);
@@ -479,9 +474,8 @@ export const api = {
 
   /** Upload a file via multipart/form-data */
   upload: async <T>(path: string, formData: FormData): Promise<T> => {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await apiFetch(path, {
       method: "POST",
-      headers: { ...getAdminSecretHeader(), [CSRF_HEADER]: CSRF_HEADER_VALUE },
       body: formData,
     });
     showGenerationFallbackHeader(res);

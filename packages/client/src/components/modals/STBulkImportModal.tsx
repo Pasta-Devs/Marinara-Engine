@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "../../lib/utils";
-import { getAdminSecretHeader } from "../../lib/api-client";
+import { api } from "../../lib/api-client";
 
 interface Props {
   open: boolean;
@@ -189,12 +189,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setError("");
 
     try {
-      const res = await fetch("/api/import/st-bulk/scan", {
+      const res = await api.raw("/import/st-bulk/scan", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAdminSecretHeader(),
-        },
         body: JSON.stringify({ folderPath: folderPath.trim(), folderToken }),
       });
       const { data, raw } = await readJsonResponse<ScanResult>(res);
@@ -221,12 +217,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
   const loadDirectory = useCallback(async (dirPath?: string) => {
     setBrowserLoading(true);
     try {
-      const res = await fetch("/api/import/list-directory", {
+      const res = await api.raw("/import/list-directory", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAdminSecretHeader(),
-        },
         body: JSON.stringify({ path: dirPath || "" }),
       });
       const { data, raw } = await readJsonResponse<{
@@ -258,9 +250,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setPicking(true);
     setError("");
     try {
-      const res = await fetch("/api/import/pick-folder", {
+      const res = await api.raw("/import/pick-folder", {
         method: "POST",
-        headers: getAdminSecretHeader(),
       });
       const { data, raw } = await readJsonResponse<{
         success: boolean;
@@ -307,12 +298,8 @@ export function STBulkImportModal({ open, onClose }: Props) {
     setError("");
 
     try {
-      const res = await fetch("/api/import/st-bulk/run", {
+      const res = await api.raw("/import/st-bulk/run", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAdminSecretHeader(),
-        },
         body: JSON.stringify({
           folderPath: folderPath.trim(),
           folderToken,

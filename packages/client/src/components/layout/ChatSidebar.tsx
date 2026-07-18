@@ -61,6 +61,7 @@ import { Reorder, useDragControls } from "framer-motion";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { compareChatsByActivityAsc, compareChatsByActivityDesc } from "../../lib/chat-recency";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
+import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 
@@ -658,15 +659,14 @@ export function ChatSidebar() {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("mode", activeTab);
-        const res = await fetch("/api/import/st-chat", { method: "POST", body: formData });
-        const data = (await res.json().catch(() => ({}))) as {
+        const data = await api.upload<{
           success?: boolean;
           chatId?: string;
           error?: string;
           messagesImported?: number;
-        };
-        if (!res.ok || data.success === false || data.error) {
-          toast.error(`Import failed: ${data.error ?? res.statusText ?? "Unknown error"}`);
+        }>("/import/st-chat", formData);
+        if (data.success === false || data.error) {
+          toast.error(`Import failed: ${data.error ?? "Unknown error"}`);
           return;
         }
 
