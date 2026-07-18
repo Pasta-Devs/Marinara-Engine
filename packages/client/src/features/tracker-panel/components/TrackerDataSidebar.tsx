@@ -1,4 +1,5 @@
 import { Component, useCallback, useState, type CSSProperties, type ErrorInfo, type ReactNode } from "react";
+import type { PresentCharacter } from "@marinara-engine/shared";
 import {
   normalizeTrackerFieldLocksForState,
   normalizeTrackerHiddenFields,
@@ -73,6 +74,9 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
   const { currentGameState, gameStateRefreshing, isLoadingGameState } = useTrackerGameState(activeChatId);
+  const presentCharacters: PresentCharacter[] = Array.isArray(currentGameState?.presentCharacters)
+    ? currentGameState.presentCharacters
+    : [];
   const {
     activePersona,
     autoGenerateCharacterAvatars,
@@ -87,6 +91,7 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
     spriteExpressions,
   } = useTrackerPanelModel({
     activeChatId,
+    presentCharacters,
     trackerPanelSectionOrder,
     trackerPanelUseExpressionSprites,
   });
