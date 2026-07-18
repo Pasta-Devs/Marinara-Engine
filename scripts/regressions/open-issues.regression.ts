@@ -686,6 +686,18 @@ assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
 
+const sharedPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/shared/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
+assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
+assert.doesNotMatch(preserveSharedBuild, /\[['"]dist['"]/u);
+const devLauncher = readFileSync(new URL("../../scripts/dev.mjs", import.meta.url), "utf8");
+assert.match(devLauncher, /DEV_PRESERVE_SHARED_DIST/u);
+assert.match(devLauncher, /SHARED_BUILD_SCRIPT/u);
+const playwrightConfig = readFileSync(new URL("../../playwright.config.ts", import.meta.url), "utf8");
+assert.match(playwrightConfig, /DEV_PRESERVE_SHARED_DIST:\s*["']true["']/u);
+
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const agentEditorSource = readFileSync(
   new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),

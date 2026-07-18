@@ -39,6 +39,7 @@ export default defineConfig({
             AUTO_CREATE_DEFAULT_CONNECTION: "false",
             AUTO_OPEN_BROWSER: "false",
             DATA_DIR: "../../.tmp/playwright-data",
+            DEV_PRESERVE_SHARED_DIST: "true",
             DEV_SERVER_READY_TIMEOUT_MS: "180000",
             LOG_DISABLE_REQUEST_LOGGING: "true",
             LOG_LEVEL: "silent",
