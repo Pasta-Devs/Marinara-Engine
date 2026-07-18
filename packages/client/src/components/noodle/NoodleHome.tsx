@@ -843,11 +843,13 @@ function NoodleAnchoredPopover({
   children,
   wide,
   className,
+  modalOwned = false,
 }: {
   anchorRef: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
   wide?: boolean;
   className?: string;
+  modalOwned?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
@@ -883,9 +885,10 @@ function NoodleAnchoredPopover({
   return createPortal(
     <div
       ref={panelRef}
-      data-noodle-focus-portal
+      data-noodle-compose-focus-portal={modalOwned ? "true" : undefined}
       className={cn(
-        "fixed z-[80] max-w-[calc(100vw-2rem)]",
+        "fixed max-w-[calc(100vw-2rem)]",
+        modalOwned ? "z-[10001]" : "z-[80]",
         NOODLE_ICON_SCOPE_CLASS,
         wide ? "w-[18rem] sm:w-[24rem]" : "w-[19rem]",
         className,
@@ -912,15 +915,17 @@ function NoodleToolPopover({
   children,
   wide,
   anchorRef,
+  modalOwned,
 }: {
   title: string;
   onClose: () => void;
   children: React.ReactNode;
   wide?: boolean;
   anchorRef: React.RefObject<HTMLElement | null>;
+  modalOwned?: boolean;
 }) {
   return (
-    <NoodleAnchoredPopover anchorRef={anchorRef} wide={wide}>
+    <NoodleAnchoredPopover anchorRef={anchorRef} wide={wide} modalOwned={modalOwned}>
       <div className="marinara-chat-popover flex h-[22rem] max-h-[60vh] flex-col overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] text-[var(--foreground)] shadow-2xl shadow-black/35">
         <div className="flex shrink-0 items-center gap-1 border-b border-foreground/10 px-2 py-1.5">
           <span className="flex-1 rounded-md bg-foreground/10 px-2 py-1 text-center text-xs font-medium text-foreground/80 ring-1 ring-foreground/15">
@@ -2554,6 +2559,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     setComposer(composerValueRef.current);
     setComposeOpen(true);
     setActiveComposerTool(null);
+    setActiveReplyComposerTool(null);
     setMobileDrawerOpen(false);
   };
 
@@ -2648,6 +2654,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     setAccountSwitcherOpen(false);
     setMobileDrawerOpen(false);
     setActiveComposerTool(null);
+  };
+
+  const openNoodlerVerification = () => {
+    const hasUnsavedDraft =
+      composerHasText || Boolean(attachedImageUrl.trim()) || Boolean(draftPoll) || replyHasText || Boolean(replyImageUrl);
+    if (hasUnsavedDraft && !window.confirm("Leave Noodle and discard your unsent post or reply?")) return;
+    onNavigate({ mode: "verification" });
   };
 
   const openProfileConnection = (connection: ProfileConnectionTab | null) => {
@@ -3465,7 +3478,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 checked={settings.enableNoodler}
                 disabled={updateSettings.isPending}
                 onChange={(checked) => {
-                  if (checked) onNavigate({ mode: "verification" });
+                  if (checked) openNoodlerVerification();
                   else saveSettings({ enableNoodler: false });
                 }}
               />
@@ -4271,7 +4284,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   }) => (
     <>
       {activeComposerTool === "image" && (
-        <NoodleToolPopover title="Attach image" anchorRef={imageRef} onClose={() => setActiveComposerTool(null)} wide>
+        <NoodleToolPopover
+          title="Attach image"
+          anchorRef={imageRef}
+          onClose={() => setActiveComposerTool(null)}
+          modalOwned={composeOpen}
+          wide
+        >
           <div className="space-y-3">
             <button
               type="button"
@@ -4310,6 +4329,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           title={draftPoll ? "Edit poll" : "Create poll"}
           anchorRef={pollRef}
           onClose={() => setActiveComposerTool(null)}
+          modalOwned={composeOpen}
           wide
         >
           <div className="space-y-3">
@@ -4357,7 +4377,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         </NoodleToolPopover>
       )}
       {activeComposerTool === "media" && (
-        <NoodleAnchoredPopover anchorRef={mediaRef} wide>
+        <NoodleAnchoredPopover anchorRef={mediaRef} modalOwned={composeOpen} wide>
           <ConversationMediaPickerPanel
             tabs={NOODLE_MEDIA_PICKER_TABS}
             activeTab={mediaPickerTab}
@@ -5512,7 +5532,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         width="max-w-[36rem]"
         initialFocusRef={modalComposerRef}
         restoreFocusRef={composerRestoreFocusRef}
-        focusScopePortalSelector="[data-noodle-focus-portal]"
+        focusScopePortalSelector="[data-noodle-compose-focus-portal='true']"
         panelClassName={cn("marinara-chat-popover", NOODLE_ICON_SCOPE_CLASS)}
         panelStyle={{ "--noodle-blue": NOODLE_BLUE, "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)" } as CSSProperties}
       >

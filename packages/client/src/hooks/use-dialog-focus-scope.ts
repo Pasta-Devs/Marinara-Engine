@@ -23,12 +23,19 @@ export function useDialogFocusScope(
     const restoreTarget = restoreFocusRef?.current ?? opener;
     const focusInitial = window.requestAnimationFrame(() => {
       const container = containerRef.current;
-      const initial =
-        initialFocusRef?.current ??
-        container?.querySelector<HTMLElement>("[data-autofocus]") ??
-        container?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+      if (!container) return;
+      const roots = [
+        container,
+        ...(ownedPortalSelector ? Array.from(document.querySelectorAll<HTMLElement>(ownedPortalSelector)) : []),
+      ];
+      if (roots.some((root) => root.contains(document.activeElement))) return;
+      initialFocusRef?.current?.focus();
+      if (roots.some((root) => root.contains(document.activeElement))) return;
+      const fallback =
+        container.querySelector<HTMLElement>("[data-autofocus]") ??
+        container.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
         container;
-      initial?.focus();
+      fallback.focus();
     });
 
     const trapFocus = (event: KeyboardEvent) => {
