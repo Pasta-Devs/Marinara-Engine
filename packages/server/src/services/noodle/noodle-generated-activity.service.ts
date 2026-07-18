@@ -123,7 +123,7 @@ export async function prepareGeneratedNoodleMedia(input: {
   debugMode: boolean;
   reviewImagePromptsBeforeSend: boolean;
 }): Promise<PreparedGeneratedNoodleMedia> {
-  const activeAccounts = [...input.selectedParticipants, ...(input.personaAccount ? [input.personaAccount] : [])];
+  const activeAccounts = [...(input.personaAccount ? [input.personaAccount] : []), ...input.selectedParticipants];
   const handleToAccount = new Map(activeAccounts.map((account) => [normalizeNoodleHandle(account.handle), account]));
   const activeCharacterReferenceAccounts = activeAccounts.filter((account) => account.kind === "character");
   const posts = new Map<NoodleGeneratedRefresh["posts"][number], PreparedPostMedia>();

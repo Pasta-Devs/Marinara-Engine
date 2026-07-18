@@ -2,6 +2,7 @@ import { basename } from "path";
 import { type APIProvider, type NoodleAccount } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
+import { resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import { parseGameJsonish } from "../game/jsonish.js";
 import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
@@ -79,7 +80,7 @@ export async function generateMissingNoodleProfiles(input: {
   characterGallery: ReturnType<typeof createCharacterGalleryStorage>;
   accounts: NoodleAccount[];
   provider: BaseLLMProvider;
-  connection: { provider: string; model: string; maxTokensOverride?: number | null };
+  connection: { provider: string; model: string; maxTokensOverride?: number | null; defaultParameters?: unknown };
   debugMode: boolean;
 }) {
   const targets: Array<{
@@ -132,7 +133,7 @@ export async function generateMissingNoodleProfiles(input: {
   const maxTokens = clampGenerationMaxOutputTokens({
     provider: input.connection.provider as APIProvider,
     model: input.connection.model,
-    maxTokens: profileSetupMaxTokens(targets.length),
+    maxTokens: resolveStoredMaxTokens(input.connection.defaultParameters, profileSetupMaxTokens(targets.length)),
     maxTokensOverride: input.connection.maxTokensOverride,
   });
   const result = await input.provider.chatComplete(messages, {

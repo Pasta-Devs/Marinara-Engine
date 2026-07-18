@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import {
   generateImageCaptionsForDataUrls,
+  redactImageCaptionMessagesForLog,
   resolvePromptAttachmentInputs,
   type ImageCaptionConnection,
   type ImageCaptioningRuntime,
@@ -25,6 +26,19 @@ const connection: ImageCaptionConnection = {
   model: "caption-model",
   baseUrl: null,
 };
+
+const providerMessages: ChatMessage[] = [
+  { role: "system", content: "exact system prompt" },
+  { role: "user", content: "exact user prompt", images: [dataUrl("private-image")] },
+];
+const redactedProviderMessages = redactImageCaptionMessagesForLog(providerMessages);
+assert.equal(redactedProviderMessages[0]?.content, providerMessages[0]?.content);
+assert.equal(redactedProviderMessages[1]?.content, providerMessages[1]?.content);
+assert.deepEqual(redactedProviderMessages[1]?.images, [
+  { mediaType: "image/png", encodedCharacters: dataUrl("private-image").length },
+]);
+assert.deepEqual(providerMessages[1]?.images, [dataUrl("private-image")], "provider messages must remain unchanged");
+assert.doesNotMatch(JSON.stringify(redactedProviderMessages), /private-image/u);
 
 class CaptionProvider extends BaseLLMProvider {
   calls: string[] = [];

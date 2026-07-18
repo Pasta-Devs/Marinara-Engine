@@ -49,6 +49,8 @@ import { characterAppearanceFromRow } from "../../packages/server/src/services/n
 import { buildNoodleProfileTargetBlock } from "../../packages/server/src/services/noodle/noodle-public-profiles.service.js";
 import { buildOptedInChatContext } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
 import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-public-generation.service.js";
+import { resolveStoredMaxTokens } from "../../packages/server/src/services/generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import {
   NOODLE_IMAGE_POST,
   NOODLE_TIMELINE_BASE,
@@ -70,17 +72,17 @@ const makeAccount = (id: string): NoodleAccount => ({
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
 
-assert.strictEqual(resolveNoodleMaxOutputTokens(null, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens(null, 6144), 6144);
 assert.strictEqual(
-  resolveNoodleMaxOutputTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
+  resolveStoredMaxTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
   16_000,
 );
-assert.strictEqual(resolveNoodleMaxOutputTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({ maxTokens: 16_000, enabledParameters: { maxTokens: false } }, 6144), 6144);
 assert.strictEqual(
   clampGenerationMaxOutputTokens({
     provider: "custom",
     model: "kimi-k2.7",
-    maxTokens: resolveNoodleMaxOutputTokens({ maxTokens: 16_000 }, 6144),
+    maxTokens: resolveStoredMaxTokens({ maxTokens: 16_000 }, 6144),
     maxTokensOverride: 8192,
   }),
   8192,

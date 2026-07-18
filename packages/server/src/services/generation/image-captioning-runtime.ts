@@ -4,7 +4,7 @@ import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { applyProviderMaxTokensOverride } from "./generation-parameters.js";
 import { getLocalSidecarProvider } from "../llm/local-sidecar.js";
-import type { BaseLLMProvider } from "../llm/base-provider.js";
+import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import {
@@ -50,6 +50,23 @@ export type PromptAttachmentResolution = {
   files: Array<{ type: string; data: string; filename: string }>;
   updatedAttachments: PromptAttachment[] | null;
 };
+
+export function redactImageCaptionMessagesForLog(messages: readonly ChatMessage[]) {
+  return messages.map((message) => ({
+    ...message,
+    ...(message.images
+      ? {
+          images: message.images.map((image) => {
+            const separator = image.indexOf(",");
+            return {
+              mediaType: image.startsWith("data:") && separator > 5 ? image.slice(5, separator).split(";")[0] : "unknown",
+              encodedCharacters: image.length,
+            };
+          }),
+        }
+      : {}),
+  }));
+}
 
 export const DISABLED_IMAGE_CAPTIONING: ImageCaptioningRuntime = {
   enabled: false,
@@ -215,10 +232,11 @@ export async function generateImageCaptionForDataUrl(
         images: [imageDataUrl],
       },
     ];
+    const messagesForLog = redactImageCaptionMessagesForLog(messages);
     logDebugOverride(
       debugMode || isDebugAgentsEnabled(),
       "[debug/image-captioning] Final provider messages:\n%s",
-      JSON.stringify(messages, null, 2),
+      JSON.stringify(messagesForLog, null, 2),
     );
     const result = await imageCaptioning.provider.chatComplete(messages, {
       model: imageCaptioning.connection.model,

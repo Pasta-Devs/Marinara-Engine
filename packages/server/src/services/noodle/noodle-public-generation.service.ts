@@ -8,6 +8,7 @@ import {
 import type { DB } from "../../db/connection.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
+import { resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import type { ImageCaptioningRuntime } from "../generation/image-captioning-runtime.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseGameJsonish } from "../game/jsonish.js";
@@ -292,8 +293,9 @@ export function createPublicNoodleGenerationService(db: DB) {
         const timelineMaxTokens = clampGenerationMaxOutputTokens({
           provider: input.connection.provider as APIProvider,
           model: input.connection.model,
-          maxTokens: timelineRefreshMaxTokens(
-            selectedParticipants.filter((account) => account.kind === "character").length,
+          maxTokens: resolveStoredMaxTokens(
+            input.connection.defaultParameters,
+            timelineRefreshMaxTokens(selectedParticipants.filter((account) => account.kind === "character").length),
           ),
           maxTokensOverride: input.connection.maxTokensOverride,
         });

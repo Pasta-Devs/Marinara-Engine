@@ -39,6 +39,27 @@ try {
     follows: [{ actorHandle: author.handle, targetHandle: actor.handle }],
   });
   const settings = noodleSettingsSchema.parse({ maxGeneratedPostsPerRefresh: 1, maxRepliesPerRefresh: 1 });
+  const duplicateHandlePersona = { ...author, id: "duplicate-persona", kind: "persona" as const };
+  const duplicateHandlePrepared = await activityModule.prepareGeneratedNoodleMedia({
+    db: fileDb,
+    characters: {} as never,
+    chats: {} as never,
+    gallery: {} as never,
+    characterGallery: {} as never,
+    promptOverrides: {} as never,
+    generated,
+    selectedParticipants: [author, actor],
+    personaAccount: duplicateHandlePersona,
+    settings,
+    imageConnection: null,
+    debugMode: false,
+    reviewImagePromptsBeforeSend: false,
+  });
+  assert.equal(
+    duplicateHandlePrepared.posts.has(generated.posts[0]!),
+    true,
+    "a participant must win when a persona shares the same normalized handle",
+  );
   const run = await noodle.createRefreshRun({ activeAccountIds: [author.id, actor.id], prompt: "durable prompt" });
   await noodle.recordRefreshAttempt(run.id, {
     sequence: 1,
