@@ -72,6 +72,18 @@ Official downloadable agent and capability-package sources live in the separate 
 
 Marinara Engine owns the host integration: package loading, capability APIs and shared contracts, Engine UI/settings, storage, provider/model routing, orchestration, and compatibility handling. A fix can therefore mention or affect a downloadable agent while still belonging in Engine when it changes only how the host loads, configures, or executes the package. Determine the owning repository before opening an issue, branch, or PR, and split cross-repository changes when both package content and host integration need updates.
 
+## Prompt Leaf Content Is Verbatim (Decision + Threat Model)
+
+**Invariant:** what the model receives inside a prompt section equals what the user typed. Prompt *leaf* content — character card fields, persona, lorebook entries, memories, scene text, example dialogue — is passed to the model **verbatim**. Do not HTML-escape `<`, `>`, or `&` in this content. Users legitimately organize cards and lorebooks with angle-bracket / HTML-style tags (`<thinking>`, `<scenario>`, `<div>`), and those must reach the model as written.
+
+**Why this is safe.** Marinara is a local, single-user tool. The person who authors or imports a card is the same person any "injection" in that card would target — so the worst realistic outcome of an unescaped tag is the model role-playing something odd, which the user sees in their own chat and fixes by editing their own card. That is a rare, self-inflicted, self-correcting annoyance, not a security boundary. An LLM also does not parse the prompt as an XML document, so a stray `<` cannot "break out" of a section the way it would in a real parser — escaping it only corrupts text. Escaping traded that non-threat for a constant, real harm (mangled cards, broken roleplay HTML, wasted tokens).
+
+**Structure is separate from content.** The framework's own section wrappers (`<description>…</description>`, `<last_message>…`, etc.) are emitted by `wrapContent` *around* leaf content, from fixed section names. Verbatim content therefore cannot alter structural tags; it only changes what sits inside them.
+
+**What stays escaped (do not "harmonize" these back into the leaf path).** The agent value/attribute escapers — `escapeXml` / `escapeXmlAttribute` in `agent-executor.ts` and the local escaper in `knowledge-router.ts` — escape dynamic values into XML *attributes* and into strict, machine-parsed agent output (world-state documents, entry catalogs). Those are genuinely parsed downstream, where a stray `"` or `<` breaks an attribute or element, so they must stay escaped. Note that `agent-executor.ts` also escapes some of the same card fields into element *content* of that parsed document — a different consumer with different rules. It is **not** a reason to re-escape the main prompt path.
+
+**If you are about to re-add escaping here: don't.** It has been tried repeatedly (see the flip-flop history in `CHANGELOG.md` and the header comment in `packages/server/src/services/prompt/prompt-escaping.ts`), it corrupts legitimate cards, and it protects against nothing in this deployment model. If a future multi-tenant or shared-marketplace deployment ever changes the threat model, the correct response is a validation/consent step at the import boundary — not silent per-token escaping of everyone's content at prompt-assembly time. Check with a maintainer before changing this.
+
 ## Validation
 
 Baseline validation:

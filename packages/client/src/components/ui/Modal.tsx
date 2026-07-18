@@ -3,7 +3,15 @@
 // Uses CSS animations instead of framer-motion to
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -12,6 +20,7 @@ import {
   NEUTRAL_PANEL_SHELL,
   NEUTRAL_PANEL_TITLE,
 } from "./neutral-surface-styles";
+import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 
 interface ModalProps {
   open: boolean;
@@ -21,6 +30,9 @@ interface ModalProps {
   /** Width class, e.g. "max-w-md", "max-w-lg" */
   width?: string;
   contentRef?: Ref<HTMLDivElement>;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
+  focusScopePortalSelector?: string;
   chatFloatingPanel?: boolean;
   /** Below the sm breakpoint, fill the viewport edge-to-edge like a window instead of floating as a padded bubble. */
   mobileFullscreen?: boolean;
@@ -37,17 +49,22 @@ export function Modal({
   children,
   width = "max-w-md",
   contentRef,
+  initialFocusRef,
+  restoreFocusRef,
+  focusScopePortalSelector,
   chatFloatingPanel = false,
   mobileFullscreen = false,
   panelClassName,
   panelStyle,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   // Track mounted state separately so we can play the exit animation
   // before actually removing the DOM nodes.
   const [mounted, setMounted] = useState(false);
   const [animating, setAnimating] = useState<"enter" | "exit" | null>(null);
   const enterRafRef = useRef<number | null>(null);
+  useDialogFocusScope(open, panelRef, initialFocusRef, restoreFocusRef, focusScopePortalSelector);
 
   useEffect(() => {
     if (enterRafRef.current !== null) {
@@ -141,6 +158,8 @@ export function Modal({
 
       {/* Panel */}
       <div
+        ref={panelRef}
+        tabIndex={-1}
         className={`mari-modal-panel ${NEUTRAL_PANEL_SHELL} relative flex w-full flex-col ${width} max-h-[calc(100dvh-1.5rem)] sm:max-h-[min(90dvh,52rem)]${
           mobileFullscreen
             ? " max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]"

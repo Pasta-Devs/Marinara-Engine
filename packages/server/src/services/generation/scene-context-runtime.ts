@@ -1,5 +1,5 @@
 import type { CharacterPromptInfo } from "./character-prompt-context.js";
-import { escapeXmlText } from "../prompt/prompt-escaping.js";
+import { passThroughLeaf } from "../prompt/prompt-escaping.js";
 
 type GenerationPromptMessage = {
   role: "system" | "user" | "assistant";
@@ -17,8 +17,8 @@ export function injectSceneContextMessages({
   charInfo: CharacterPromptInfo[];
   personaName: string;
 }): void {
-  const charNames = charInfo.map((character) => escapeXmlText(character.name));
-  const safePersonaName = escapeXmlText(personaName);
+  const charNames = charInfo.map((character) => passThroughLeaf(character.name));
+  const safePersonaName = passThroughLeaf(personaName);
   const isGroup = charNames.length > 1;
 
   const roleText = isGroup
@@ -34,26 +34,26 @@ export function injectSceneContextMessages({
       ].join("\n");
 
   const sceneScenario = chatMetadata.sceneScenario as string | undefined;
-  const scenarioText = sceneScenario ? [`<scenario>`, escapeXmlText(sceneScenario), `</scenario>`].join("\n") : "";
+  const scenarioText = sceneScenario ? [`<scenario>`, passThroughLeaf(sceneScenario), `</scenario>`].join("\n") : "";
 
   const sceneConvoCtx = chatMetadata.sceneConversationContext as string | undefined;
   const sceneRelHistory = chatMetadata.sceneRelationshipHistory as string | undefined;
   const awarenessLines: string[] = [];
   if (sceneRelHistory) {
-    awarenessLines.push(`## Relationship History`, escapeXmlText(sceneRelHistory), ``);
+    awarenessLines.push(`## Relationship History`, passThroughLeaf(sceneRelHistory), ``);
   }
   if (sceneConvoCtx) {
     awarenessLines.push(
       `## Conversation Context`,
       `The following is a transcript of the conversation that led up to this scene:`,
-      escapeXmlText(sceneConvoCtx),
+      passThroughLeaf(sceneConvoCtx),
     );
   }
   const awarenessText = awarenessLines.length > 0 ? [`<awareness>`, ...awarenessLines, `</awareness>`].join("\n") : "";
 
   const sceneSystemPrompt = chatMetadata.sceneSystemPrompt as string | undefined;
   const sceneSysText = sceneSystemPrompt
-    ? [`<scene_instructions>`, escapeXmlText(sceneSystemPrompt), `</scene_instructions>`].join("\n")
+    ? [`<scene_instructions>`, passThroughLeaf(sceneSystemPrompt), `</scene_instructions>`].join("\n")
     : "";
 
   const outputFormatText = [
