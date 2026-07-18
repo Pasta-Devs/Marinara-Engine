@@ -8,6 +8,7 @@ import { execFile } from "child_process";
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 import { promisify } from "util";
+import { randomUUID } from "crypto";
 import {
   getMonorepoRoot,
   isDockerRuntime,
@@ -78,6 +79,7 @@ const CACHE_TTL_MS = 15 * 60_000;
 // ── Cached commit-level check (5-min TTL) ──
 const cachedCommitsBehindByChannel = new Map<UpdateChannel, { commitsBehind: number | null; timestamp: number }>();
 const COMMIT_CHECK_TTL_MS = 5 * 60_000;
+let updateApplyInProgress = false;
 
 type InstallType = "git" | "docker" | "standalone";
 type ServerPlatform = "windows" | "macos" | "linux" | "android-termux" | "unknown";
@@ -230,18 +232,14 @@ async function resolveGitRef(root: string, ref: string, shortLength?: number): P
 }
 
 async function getCurrentBranch(root: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFileAsync("git", ["branch", "--show-current"], {
-      cwd: root,
-      timeout: 5_000,
-    });
-    return stdout.trim() || null;
-  } catch {
-    return null;
-  }
+  const { stdout } = await execFileAsync("git", ["branch", "--show-current"], {
+    cwd: root,
+    timeout: 5_000,
+  });
+  return stdout.trim() || null;
 }
 
-async function checkoutOrCreateUpdateBranch(root: string, channel: UpdateChannelInfo): Promise<void> {
+async function checkoutOrCreateUpdateBranch(root: string, channel: UpdateChannelInfo, targetHead: string): Promise<void> {
   const branchRef = `refs/heads/${channel.branch}`;
   const branchExists = await gitCommandSucceeds(root, ["show-ref", "--verify", "--quiet", branchRef]);
   if (branchExists) {
@@ -249,27 +247,99 @@ async function checkoutOrCreateUpdateBranch(root: string, channel: UpdateChannel
       cwd: root,
       timeout: 60_000,
     });
-    await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
+    await execFileAsync("git", ["merge", "--ff-only", targetHead], {
       cwd: root,
       timeout: 60_000,
     });
     return;
   }
-  await execFileAsync("git", ["checkout", "-b", channel.branch, channel.targetRef], {
+  await execFileAsync("git", ["checkout", "-b", channel.branch, targetHead], {
     cwd: root,
     timeout: 60_000,
   });
 }
 
-async function hasTrackedChanges(root: string): Promise<boolean> {
+type UpdateStash = { oid: string; marker: string };
+
+async function createUpdateStash(root: string): Promise<UpdateStash | null> {
+  const { stdout: status } = await execFileAsync("git", ["status", "--short", "--untracked-files=no"], {
+    cwd: root,
+    timeout: 5_000,
+  });
+  if (!status.trim()) return null;
+
+  const marker = `auto-stash before update ${randomUUID()}`;
+  await execFileAsync("git", ["stash", "push", "-q", "-m", marker], {
+    cwd: root,
+    timeout: 10_000,
+  });
   try {
-    const { stdout } = await execFileAsync("git", ["status", "--short", "--untracked-files=no"], {
+    const { stdout } = await execFileAsync("git", ["stash", "list", "--format=%H%x09%gs"], {
       cwd: root,
       timeout: 5_000,
     });
-    return stdout.trim().length > 0;
-  } catch {
-    return false;
+    const matchingEntry = stdout.split(/\r?\n/).find((line) => line.endsWith(marker));
+    const oid = matchingEntry?.split("\t", 1)[0] ?? "";
+    if (!/^[0-9a-f]+$/i.test(oid)) throw new Error("matching stash reflog entry was not found");
+    return { oid, marker };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Git created update stash marker ${marker}, but its immutable recovery commit could not be found: ${message}`);
+  }
+}
+
+async function restoreUpdateStash(root: string, stash: UpdateStash): Promise<void> {
+  const recoveryIdentity = `${stash.oid} (${stash.marker})`;
+  try {
+    await execFileAsync("git", ["stash", "apply", "-q", stash.oid], { cwd: root, timeout: 10_000 });
+  } catch (applyErr) {
+    const applyMessage = applyErr instanceof Error ? applyErr.message : String(applyErr);
+    try {
+      await execFileAsync("git", ["reset", "--hard", "HEAD"], { cwd: root, timeout: 10_000 });
+    } catch (resetErr) {
+      const resetMessage = resetErr instanceof Error ? resetErr.message : String(resetErr);
+      throw new Error(
+        `Could not restore local changes from ${recoveryIdentity}: ${applyMessage}. The stash was preserved, but checkout cleanup also failed: ${resetMessage}`,
+      );
+    }
+    throw new Error(
+      `Could not restore local changes from ${recoveryIdentity}: ${applyMessage}. The stash was preserved and the checkout was cleaned.`,
+    );
+  }
+
+  try {
+    const { stdout } = await execFileAsync("git", ["stash", "list", "--format=%H%x09%gd%x09%gs"], {
+      cwd: root,
+      timeout: 5_000,
+    });
+    let matchingRef: string | undefined;
+    for (const line of stdout.split(/\r?\n/)) {
+      const [oid, ref, subject] = line.split("\t", 3);
+      if (oid === stash.oid && /^stash@\{\d+\}$/.test(ref ?? "") && subject?.includes(stash.marker)) {
+        matchingRef = ref;
+        break;
+      }
+    }
+    if (!matchingRef) {
+      throw new Error("matching stash reflog entry was not found");
+    }
+    await execFileAsync("git", ["stash", "drop", "-q", matchingRef], { cwd: root, timeout: 5_000 });
+  } catch (err) {
+    logger.warn(err, "[Update] Restored local changes but could not drop update stash %s", recoveryIdentity);
+  }
+}
+
+async function restoreOriginalCheckout(root: string, currentBranch: string | null, oldHead: string): Promise<void> {
+  if (currentBranch) {
+    await execFileAsync("git", ["checkout", currentBranch], { cwd: root, timeout: 60_000 });
+    await execFileAsync("git", ["reset", "--hard", oldHead], { cwd: root, timeout: 60_000 });
+  } else {
+    await execFileAsync("git", ["checkout", "--detach", oldHead], { cwd: root, timeout: 60_000 });
+  }
+
+  const restoredHead = await resolveGitRef(root, "HEAD");
+  if (restoredHead !== oldHead) {
+    throw new Error(`Could not restore the original checkout at ${oldHead}; HEAD is ${restoredHead ?? "unreadable"}.`);
   }
 }
 
@@ -584,7 +654,7 @@ export async function updatesRoutes(app: FastifyInstance) {
     const serverPlatform = getServerPlatform();
     const clientPlatform = getClientPlatform(req.headers["user-agent"]);
     const root = getMonorepoRoot();
-    const currentBranch = gitInstall ? await getCurrentBranch(root) : null;
+    const currentBranch = gitInstall ? await getCurrentBranch(root).catch(() => null) : null;
     const currentChannel = gitInstall ? await getUpdateChannelForCheckout(root, currentBranch) : UPDATE_CHANNELS.stable;
     const channel = await resolveUpdateChannel(
       root,
@@ -696,12 +766,11 @@ export async function updatesRoutes(app: FastifyInstance) {
     const installType = getInstallType(gitInstall);
     const serverPlatform = getServerPlatform();
     const root = getMonorepoRoot();
-    const currentBranch = gitInstall ? await getCurrentBranch(root) : null;
-    const currentChannel = gitInstall ? await getUpdateChannelForCheckout(root, currentBranch) : UPDATE_CHANNELS.stable;
-    const channel = await resolveUpdateChannel(root, req.body?.channel, currentBranch);
-    const localChannelSwitchRequested = gitInstall && currentChannel.id !== channel.id && isLoopbackIp(req.ip);
+    let currentBranch: string | null = null;
+    let channel = UPDATE_CHANNELS.stable;
 
     if (!gitInstall) {
+      channel = await resolveUpdateChannel(root, req.body?.channel, null);
       const manualUpdateCommand = getManualUpdateCommand(installType, serverPlatform, channel);
       return reply.status(400).send({
         error: "Auto-update apply is unavailable for this install type",
@@ -718,23 +787,6 @@ export async function updatesRoutes(app: FastifyInstance) {
     }
 
     if (
-      !isGitUpdateApplyAllowed({
-        updatesApplyEnabled: isUpdatesApplyEnabled(),
-        localChannelSwitchRequested,
-      })
-    ) {
-      return reply.status(403).send({
-        error: "Auto-update apply is disabled for this install",
-        message: `Update manually with: ${getManualUpdateCommand("git", serverPlatform, channel) ?? getGitLauncherCommand(serverPlatform)}. Advanced git installs can enable server-side update application with UPDATES_APPLY_ENABLED=true.`,
-        installType: "git",
-        serverPlatform,
-        applyUnavailableReason: "disabled",
-        manualUpdateCommand: getManualUpdateCommand("git", serverPlatform, channel),
-        manualUpdateHint: getManualUpdateHint("git", serverPlatform, channel),
-      });
-    }
-
-    if (
       !requirePrivilegedAccess(req, reply, {
         feature: "Update apply",
         loopbackOnly: !isUpdatesRemoteApplyAllowed(),
@@ -743,7 +795,37 @@ export async function updatesRoutes(app: FastifyInstance) {
       return;
     }
 
+    if (updateApplyInProgress) {
+      return reply.status(409).send({
+        error: "Update already in progress",
+        message: "Another update is already in progress. Wait for it to finish before trying again.",
+      });
+    }
+    updateApplyInProgress = true;
+    let shutdownScheduled = false;
+
     try {
+      currentBranch = await getCurrentBranch(root);
+      const currentChannel = await getUpdateChannelForCheckout(root, currentBranch);
+      channel = await resolveUpdateChannel(root, req.body?.channel, currentBranch);
+      const localChannelSwitchRequested = currentChannel.id !== channel.id && isLoopbackIp(req.ip);
+      if (
+        !isGitUpdateApplyAllowed({
+          updatesApplyEnabled: isUpdatesApplyEnabled(),
+          localChannelSwitchRequested,
+        })
+      ) {
+        return reply.status(403).send({
+          error: "Auto-update apply is disabled for this install",
+          message: `Update manually with: ${getManualUpdateCommand("git", serverPlatform, channel) ?? getGitLauncherCommand(serverPlatform)}. Advanced git installs can enable server-side update application with UPDATES_APPLY_ENABLED=true.`,
+          installType: "git",
+          serverPlatform,
+          applyUnavailableReason: "disabled",
+          manualUpdateCommand: getManualUpdateCommand("git", serverPlatform, channel),
+          manualUpdateHint: getManualUpdateHint("git", serverPlatform, channel),
+        });
+      }
+
       const body = req.body ?? {};
       if (body.confirm !== true) {
         return reply.status(400).send({ error: "Must send { confirm: true } to apply an update" });
@@ -758,7 +840,6 @@ export async function updatesRoutes(app: FastifyInstance) {
       if (body.targetRef && body.targetRef !== channel.targetRef) {
         return reply.status(400).send({ error: `Update target ref must be ${channel.targetRef}` });
       }
-
       const oldHead = await resolveGitRef(root, "HEAD");
       if (!oldHead) {
         throw new Error("Could not read the current git commit.");
@@ -777,66 +858,64 @@ export async function updatesRoutes(app: FastifyInstance) {
       }
 
       // Step 0: stash local tracked changes so the update does not fail.
-      let stashed = false;
-      try {
-        if (await hasTrackedChanges(root)) {
-          await execFileAsync("git", ["stash", "push", "-q", "-m", "auto-stash before update"], {
-            cwd: root,
-            timeout: 10_000,
-          });
-          stashed = true;
-        }
-      } catch {
-        /* clean tree — nothing to stash */
-      }
+      const updateStash = await createUpdateStash(root);
 
       // Step 1: move to the latest selected channel commit.
       // Installer-created release checkouts are shallow detached HEADs, so
       // they cannot reliably merge a remote-tracking branch. A detached
       // checkout is expected there; normal main-branch clones still fast-forward.
       const shouldAttachStagingBranch = channel.id === "staging" && currentBranch !== channel.branch;
-      if (oldHead !== targetHead || shouldAttachStagingBranch) {
-        try {
-          if (channel.id === "staging") {
-            if (currentBranch === channel.branch) {
-              await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
-                cwd: root,
-                timeout: 60_000,
-              });
-            } else {
-              await checkoutOrCreateUpdateBranch(root, channel);
-            }
-          } else if (currentBranch === channel.branch) {
-            await execFileAsync("git", ["merge", "--ff-only", channel.targetRef], {
+      try {
+        if (oldHead !== targetHead || shouldAttachStagingBranch) {
+          if (currentBranch === channel.branch) {
+            await execFileAsync("git", ["merge", "--ff-only", targetHead], {
               cwd: root,
               timeout: 60_000,
             });
+          } else if (channel.id === "staging") {
+            await checkoutOrCreateUpdateBranch(root, channel, targetHead);
           } else {
             await execFileAsync("git", ["checkout", "--detach", targetHead], {
               cwd: root,
               timeout: 60_000,
             });
           }
-        } catch (mergeErr) {
-          if (stashed)
-            await execFileAsync("git", ["stash", "pop", "-q"], { cwd: root, timeout: 10_000 }).catch(() => {});
-          const branchLabel = currentBranch ? ` branch "${currentBranch}"` : " current checkout";
-          const message = mergeErr instanceof Error ? mergeErr.message : String(mergeErr);
-          throw new Error(`Could not update the${branchLabel} to ${channel.targetRef}: ${message}`);
         }
+
+        const newHead = await resolveGitRef(root, "HEAD");
+        if (!newHead) {
+          throw new Error("Could not read the updated git commit.");
+        }
+        if (newHead !== targetHead) {
+          throw new Error(`Update target mismatch: expected ${channel.targetRef} at ${targetHead}, got ${newHead}.`);
+        }
+      } catch (movementErr) {
+        const branchLabel = currentBranch ? ` branch "${currentBranch}"` : " current checkout";
+        const message = movementErr instanceof Error ? movementErr.message : String(movementErr);
+        try {
+          await restoreOriginalCheckout(root, currentBranch, oldHead);
+        } catch (rollbackErr) {
+          const rollbackMessage = rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr);
+          throw new Error(
+            `Could not update the${branchLabel} to ${channel.targetRef}: ${message}. Restoring the original checkout also failed: ${rollbackMessage}`,
+          );
+        }
+        if (updateStash) {
+          try {
+            await restoreUpdateStash(root, updateStash);
+          } catch (restoreErr) {
+            const restoreMessage = restoreErr instanceof Error ? restoreErr.message : String(restoreErr);
+            throw new Error(
+              `Could not update the${branchLabel} to ${channel.targetRef}: ${message}. Recovery also failed: ${restoreMessage}`,
+            );
+          }
+        }
+        throw new Error(`Could not update the${branchLabel} to ${channel.targetRef}: ${message}`);
       }
 
       // Restore stashed changes after successful pull
-      if (stashed) {
-        await execFileAsync("git", ["stash", "pop", "-q"], { cwd: root, timeout: 10_000 }).catch(() => {});
-      }
-
-      const newHead = await resolveGitRef(root, "HEAD");
-      if (!newHead) {
-        throw new Error("Could not read the updated git commit.");
-      }
-      if (newHead !== targetHead) {
-        throw new Error(`Update target mismatch: expected ${channel.targetRef} at ${targetHead}, got ${newHead}.`);
+      if (updateStash) {
+        await restoreUpdateStash(root, updateStash);
       }
 
       const alreadyUpToDate = oldHead === targetHead;
@@ -897,6 +976,7 @@ export async function updatesRoutes(app: FastifyInstance) {
           }
         })();
       }, 1_000);
+      shutdownScheduled = true;
 
       return result;
     } catch (err: unknown) {
@@ -907,6 +987,8 @@ export async function updatesRoutes(app: FastifyInstance) {
         error: `Update failed: ${message}`,
         hint: `You can try running the update manually: ${getManualGitApplyCommand(channel, serverPlatform, manualPnpmCommand)}. If Corepack cannot launch pnpm ${pnpmVersion}, install the pinned version with npm install -g pnpm@${pnpmVersion} and rerun the command.`,
       });
+    } finally {
+      if (!shutdownScheduled) updateApplyInProgress = false;
     }
   });
 }
