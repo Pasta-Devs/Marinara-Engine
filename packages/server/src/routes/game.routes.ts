@@ -2375,7 +2375,10 @@ function clampWidgetValue(value: number, max: number): number {
   return Math.max(0, Math.min(max, value));
 }
 
-function normalizeSetupHudWidgetStartingValues(widgets: Array<{ type: string; config: Record<string, unknown> }>) {
+function normalizeHudWidgetValues(
+  widgets: Array<{ type: string; config: Record<string, unknown> }>,
+  preserveCurrentValues = false,
+) {
   for (const widget of widgets) {
     if (!isNumericHudWidgetType(widget.type)) continue;
 
@@ -2386,11 +2389,11 @@ function normalizeSetupHudWidgetStartingValues(widgets: Array<{ type: string; co
 
     widget.config.max = max;
     widget.config.startingValue = initialValue;
-    widget.config.value = initialValue;
+    widget.config.value = preserveCurrentValues ? clampWidgetValue(currentValue ?? initialValue, max) : initialValue;
   }
 }
 
-function sanitizeGameHudWidgets(value: unknown): HudWidget[] {
+function sanitizeGameHudWidgets(value: unknown, preserveCurrentValues = false): HudWidget[] {
   const parsed = z.array(hudWidgetSchema).max(MAX_GAME_HUD_WIDGETS).safeParse(value);
   if (!parsed.success) return [];
 
@@ -2402,7 +2405,7 @@ function sanitizeGameHudWidgets(value: unknown): HudWidget[] {
     accent: widget.accent?.trim() || undefined,
     config: { ...(widget.config as Record<string, unknown>) },
   }));
-  normalizeSetupHudWidgetStartingValues(widgets);
+  normalizeHudWidgetValues(widgets, preserveCurrentValues);
   return widgets as HudWidget[];
 }
 
@@ -5937,7 +5940,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const parsed = blueprintSchema.safeParse(setupData.blueprint);
       if (parsed.success) {
         normalizeStatBlocks(parsed.data.hudWidgets);
-        normalizeSetupHudWidgetStartingValues(parsed.data.hudWidgets);
+        normalizeHudWidgetValues(parsed.data.hudWidgets);
         updates.gameBlueprint = parsed.data;
       } else {
         // Last-ditch recovery: keep the user's HUD widgets even if campaignPlan
@@ -5953,7 +5956,7 @@ export async function gameRoutes(app: FastifyInstance) {
         });
         if (hudOnly.success && hudOnly.data.hudWidgets.length > 0) {
           normalizeStatBlocks(hudOnly.data.hudWidgets);
-          normalizeSetupHudWidgetStartingValues(hudOnly.data.hudWidgets);
+          normalizeHudWidgetValues(hudOnly.data.hudWidgets);
           updates.gameBlueprint = { hudWidgets: hudOnly.data.hudWidgets };
         }
       }
@@ -9339,7 +9342,7 @@ export async function gameRoutes(app: FastifyInstance) {
     const { widgets: rawWidgets } = z
       .object({ widgets: z.array(hudWidgetSchema).max(MAX_GAME_HUD_WIDGETS) })
       .parse(req.body);
-    const widgets = sanitizeGameHudWidgets(rawWidgets);
+    const widgets = sanitizeGameHudWidgets(rawWidgets, true);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(req.params.chatId);
     if (!chat) throw new Error("Chat not found");

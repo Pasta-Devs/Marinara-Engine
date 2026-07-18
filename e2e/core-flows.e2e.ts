@@ -773,6 +773,42 @@ test("historical Game Peek Prompt returns the exact selected turn request", asyn
   }
 });
 
+test("game widget edits preserve their live numeric values", async ({ request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Game widget persistence is covered on desktop.");
+
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Game Widget Value Smoke", mode: "game", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const widgets = [
+      {
+        id: "party-health",
+        type: "gauge",
+        label: "Party health",
+        position: "hud_left",
+        config: { startingValue: 20, value: 55, max: 100 },
+      },
+    ];
+    const updateResponse = await request.put(`/api/game/${chat.id}/widgets`, { data: { widgets } });
+    expect(updateResponse.ok()).toBeTruthy();
+
+    const storedResponse = await request.get(`/api/chats/${chat.id}`);
+    expect(storedResponse.ok()).toBeTruthy();
+    const storedChat = (await storedResponse.json()) as { metadata: string | Record<string, unknown> };
+    const metadata =
+      typeof storedChat.metadata === "string"
+        ? (JSON.parse(storedChat.metadata) as Record<string, unknown>)
+        : storedChat.metadata;
+    const storedWidgets = metadata.gameWidgetState as typeof widgets;
+    expect(storedWidgets[0]?.config).toMatchObject({ startingValue: 20, value: 55, max: 100 });
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("failed Game Lorebook Keeper run exposes a retry action", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Game session recovery regression is covered on desktop.");
 
