@@ -738,6 +738,10 @@ const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
 );
+const transcriptWindowControlsSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/TranscriptWindowControls.tsx", import.meta.url),
+  "utf8",
+);
 const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
 const galleryRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
@@ -766,6 +770,15 @@ assert.doesNotMatch(gameAssetStoreSource, /api\.|fetchManifest|rescanAssets|\/ga
 assert.match(sidecarStoreSource, /consumeSidecarDownloadStream/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
 assert.match(connectionsPanelSource, /Failed to delete the Local Whisper model/u);
+assert.match(
+  transcriptWindowControlsSource,
+  /const TRANSCRIPT_WINDOW_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small px-3 text-xs";/u,
+);
+assert.equal(
+  transcriptWindowControlsSource.match(/className=\{cn\(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName\)\}/gu)?.length,
+  3,
+);
+assert.doesNotMatch(transcriptWindowControlsSource, /text-\[var\(--muted-foreground\)\]/u);
 assert.match(galleryRoutesSource, /resolveIllustratorPromptRuntime\(\{[\s\S]*chatMetadata: meta/u);
 assert.match(
   conversationSelfieRuntimeSource,

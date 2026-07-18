@@ -11,6 +11,8 @@ type TranscriptWindowControlsProps = {
   buttonClassName?: string;
 };
 
+const TRANSCRIPT_WINDOW_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small px-3 text-xs";
+
 export function TranscriptWindowControls({
   hiddenBeforeCount,
   hiddenAfterCount,
@@ -28,10 +30,7 @@ export function TranscriptWindowControls({
         <button
           type="button"
           onClick={onShowOlder}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]",
-            buttonClassName,
-          )}
+          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
         >
           <ChevronUp size="0.75rem" />
           Show older ({hiddenBeforeCount})
@@ -41,10 +40,7 @@ export function TranscriptWindowControls({
         <button
           type="button"
           onClick={onShowNewer}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]",
-            buttonClassName,
-          )}
+          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
         >
           <ChevronDown size="0.75rem" />
           Show newer ({hiddenAfterCount})
@@ -54,10 +50,7 @@ export function TranscriptWindowControls({
         <button
           type="button"
           onClick={onJumpToLatest}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-all hover:bg-[var(--accent)]",
-            buttonClassName,
-          )}
+          className={cn(TRANSCRIPT_WINDOW_BUTTON_CLASS, buttonClassName)}
         >
           Latest
         </button>
