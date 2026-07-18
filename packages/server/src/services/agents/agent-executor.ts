@@ -1487,7 +1487,6 @@ function shouldRunAgentIndividually(config: Pick<AgentExecConfig, "type" | "sett
   // These agents either need compact prompts or carry large private extras that
   // must not be merged into unrelated batched agent requests.
   return (
-    config.type === "expression" ||
     config.type === "illustrator" ||
     config.type === "lorebook-keeper" ||
     resolveAgentResultType(config) === "text_rewrite" ||
