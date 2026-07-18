@@ -26,11 +26,22 @@ import type { WrapFormat } from "@marinara-engine/shared";
 // emitted by `wrapContent` AROUND this content, independent of what the content
 // contains.
 //
-// SCOPE: this is deliberately separate from the agent value/attribute escapers
-// (`escapeXml` / `escapeXmlAttribute` in `agent-executor.ts` and
-// `knowledge-router.ts`), which escape dynamic values interpolated into XML
-// attributes and structured agent output — those MUST stay escaped and are out
-// of scope here.
+// SCOPE — what is deliberately still escaped, and why it is NOT a reason to
+// re-escape this path:
+//   • The agent value/attribute escapers (`escapeXml` / `escapeXmlAttribute` in
+//     `agent-executor.ts`, and the local `escapeXmlText` in `knowledge-router.ts`)
+//     escape dynamic values into XML *attributes* and into structured agent
+//     output. A stray `"` or `<` there breaks an attribute or element, so those
+//     MUST stay escaped.
+//   • Note that `agent-executor.ts` (~line 2255) escapes the SAME card fields
+//     (description / personality / scenario / …) into ELEMENT CONTENT of a
+//     strict, machine-parsed world-state document. That is a different consumer
+//     with different rules — it is intentionally not verbatim, and it is NOT a
+//     "consistency" argument for re-escaping the main prompt path here. The
+//     model reads the prompt as tokens; the world-state doc is parsed as XML.
+//   • There is also a `knowledge-router.ts` local function coincidentally also
+//     named `escapeXmlText` that legitimately DOES escape (agent entry catalog).
+//     Do not confuse it with the identity `passThroughLeaf` below.
 // ──────────────────────────────────────────────────────────────────────────────
 
 // The example-dialogue separator. Some import paths hand us this marker already
@@ -43,11 +54,14 @@ const EXACT_EXAMPLE_DIALOGUE_MARKER_PATTERN = /^(?:<START>|&lt;START(?:&gt;|>))$
 /**
  * Prompt leaf content is emitted VERBATIM — identity function.
  *
- * Kept as a named export so every leaf call site routes through one obvious
- * place that documents the "no escaping" contract (and so a regression test can
- * lock it). DO NOT add `<` / `>` / `&` escaping here — see the file header.
+ * Named `passThroughLeaf` on purpose: the body is `return value`, and a function
+ * whose name implied escaping (it used to be `escapeXmlText`) invited a one-line
+ * "an XML escaper should obviously escape" change that silently re-broke every
+ * card using `<thinking>` / HTML tags. The name now states the contract so that
+ * regression can't masquerade as a fix. DO NOT add `<` / `>` / `&` escaping
+ * here — see the file header. A regression test locks this to identity.
  */
-export function escapeXmlText(value: string): string {
+export function passThroughLeaf(value: string): string {
   return value;
 }
 

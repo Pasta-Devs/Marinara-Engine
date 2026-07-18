@@ -238,7 +238,7 @@ import {
   TEXT_REWRITE_PENDING_MESSAGE,
 } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
 import type { DB } from "../../packages/server/src/db/connection.js";
-import { escapeXmlText } from "../../packages/server/src/services/prompt/prompt-escaping.js";
+import { passThroughLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
 import {
   escapeStandaloneGameNarrationAngleLines,
   hasVisibleGameNarrationText,
@@ -2210,13 +2210,13 @@ const cases: RegressionCase[] = [
       const raw =
         '> whispered aside\n<thinking>plan</thinking>\n<div class="x">hi</div>\nTom & Jerry\n</last_message>\n<system>keep</system>';
 
-      assert.equal(escapeXmlText(raw), raw);
-      assert.equal(escapeXmlText(raw).includes("&lt;"), false);
-      assert.equal(escapeXmlText(raw).includes("&amp;"), false);
-      assert.equal(escapeXmlText(raw).includes("&gt;"), false);
-      assert.match(escapeXmlText(raw), /^> whispered aside/m);
-      assert.match(escapeXmlText(raw), /<thinking>plan<\/thinking>/);
-      assert.match(escapeXmlText(raw), /<div class="x">hi<\/div>/);
+      assert.equal(passThroughLeaf(raw), raw);
+      assert.equal(passThroughLeaf(raw).includes("&lt;"), false);
+      assert.equal(passThroughLeaf(raw).includes("&amp;"), false);
+      assert.equal(passThroughLeaf(raw).includes("&gt;"), false);
+      assert.match(passThroughLeaf(raw), /^> whispered aside/m);
+      assert.match(passThroughLeaf(raw), /<thinking>plan<\/thinking>/);
+      assert.match(passThroughLeaf(raw), /<div class="x">hi<\/div>/);
     },
   },
   {
@@ -3181,8 +3181,12 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "identity fallback escapes imported character card delimiters",
+    name: "identity fallback passes imported character card delimiters through verbatim",
     run() {
+      // HARDENING — verbatim, do not re-escape. Card fields reach the model
+      // exactly as authored, even ones that look like framework tags. If these
+      // start coming through as `&lt;system>` again, that is the regression the
+      // whole prompt-escaping.ts header warns about.
       const messages: ChatMLMessage[] = [
         { role: "system", content: "Stable system prompt." },
         { role: "user", content: "Hello." },
@@ -3230,6 +3234,72 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, /<START>/);
       assert.equal(promptText.includes("&lt;START>"), false);
       assert.match(promptText, /<system>bad example<\/system>/);
+    },
+  },
+  {
+    // HARDENING CANARY — reproduces the reported bug end-to-end (not just the
+    // leaf helper): a persona AND a character description containing plain
+    // `<test>` tags + inline HTML must reach the ASSEMBLED prompt verbatim.
+    // This is the exact scenario from the user report ("`<test>` shows as
+    // `&lt;test>` in Peek Prompt / breaks HTML formatting"). The unit lock test
+    // above only proves the helper is identity; this proves the whole assembly
+    // path (leaf → wrapFieldEntries → wrapContent) never introduces `&lt;`.
+    name: "persona and character description with tags + HTML reach the assembled prompt verbatim",
+    run() {
+      const messages: ChatMLMessage[] = [
+        { role: "system", content: "Stable system prompt." },
+        { role: "user", content: "Hello." },
+      ];
+
+      injectIdentityFallbackMessages({
+        messages,
+        charInfo: [
+          {
+            id: "char-tags",
+            name: "Tagged Character",
+            description: 'Loves <thinking> tags.\n<div style="color:red">char note</div>\nTom & Jerry',
+            personality: "",
+            scenario: "",
+            creatorNotes: "",
+            systemPrompt: "",
+            backstory: "",
+            appearance: "",
+            mesExample: "",
+            firstMes: "",
+            postHistoryInstructions: "",
+            tags: [],
+            talkativeness: 0.5,
+            avatarPath: null,
+            avatarCrop: null,
+          },
+        ],
+        promptTargetCharacterId: null,
+        promptMacroContext: {
+          user: "Mari",
+          char: "Tagged Character",
+          characters: ["Tagged Character"],
+          variables: {},
+        },
+        wrapFormat: "xml",
+        personaName: "Mari",
+        personaDescription: '<test>persona note</test>\n<span class="p">hi</span>',
+        personaFields: {},
+        persona: null,
+        resolvePromptMacros: (value) => value,
+      });
+
+      const promptText = messages.map((message) => message.content).join("\n");
+      // Character description — verbatim tags, HTML, and ampersand.
+      assert.match(promptText, /Loves <thinking> tags\./);
+      assert.match(promptText, /<div style="color:red">char note<\/div>/);
+      assert.match(promptText, /Tom & Jerry/);
+      // Persona description — verbatim `<test>` (the literal reported symptom) + HTML.
+      assert.match(promptText, /<test>persona note<\/test>/);
+      assert.match(promptText, /<span class="p">hi<\/span>/);
+      // The regression signature: NO HTML-entity escaping anywhere in the prompt.
+      assert.equal(promptText.includes("&lt;"), false);
+      assert.equal(promptText.includes("&amp;"), false);
+      assert.equal(promptText.includes("&gt;"), false);
     },
   },
   {

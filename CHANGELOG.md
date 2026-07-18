@@ -10,6 +10,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Stopped HTML-escaping angle brackets in prompt leaf content so character card fields, persona, lorebook entries, memories, and scene text now reach the model verbatim — `<thinking>`, `<scenario>`, and inline HTML like `<div>` are passed through as written instead of arriving as `&lt;thinking&gt;`, which had been corrupting cards, breaking roleplay HTML, and showing raw `&lt;` in the editor. This finalizes prompt leaf content as verbatim and **supersedes** the `<`/`&` prompt-boundary escaping added in #3108 (line above) and the untrusted-card-text escaping in the "Hardened prompt assembly" entry below, for Marinara's local single-user threat model. The framework's own structural section wrappers are emitted around this content and are unaffected, and the agent value/attribute escapers are unchanged (they still escape values into machine-parsed XML).
 - Made image prompt review display the subject-count-resolved dimensions actually sent to native NovelAI, kept Prompt Prefix count tokens out of scene sizing, and filled new NovelAI settings for legacy partial profiles (#3758).
 - Made recalled memories, cross-chat awareness, connected Roleplay/Game context, and their command instructions honor the active Conversation preset's XML, Markdown, or unwrapped format instead of emitting hardcoded XML (#3753).
 - Kept existing cropped Character avatars contained inside the Metadata upload preview instead of allowing the image to cover the card editor (#3741).
