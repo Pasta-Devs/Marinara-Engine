@@ -6,6 +6,7 @@ import {
   type NoodlePost,
   type NoodlePrivateGenerationRequest,
 } from "@marinara-engine/shared";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride } from "../../lib/logger.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
@@ -116,7 +117,7 @@ export async function generatePrivatePost(
     recentPosts,
     request: input.request,
   });
-  const debugMode = input.request.debugMode === true;
+  const debugMode = input.request.debugMode === true || isDebugAgentsEnabled();
   logDebugOverride(debugMode, "[debug/noodler] Prompt sent to model:\n%s", formatNoodleMessagesForLog(messages));
   const completionOptions = {
     model: input.connection.model,
