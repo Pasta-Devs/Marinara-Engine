@@ -11,8 +11,12 @@ export const ADMIN_SECRET_STORAGE_KEY = "marinara_admin_secret";
 
 function getAdminSecretHeader(): Record<string, string> {
   if (typeof window === "undefined") return {};
-  const secret = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim();
-  return secret ? { "X-Admin-Secret": secret } : {};
+  try {
+    const secret = window.localStorage.getItem(ADMIN_SECRET_STORAGE_KEY)?.trim();
+    return secret ? { "X-Admin-Secret": secret } : {};
+  } catch {
+    return {};
+  }
 }
 
 export class ApiError extends Error {
