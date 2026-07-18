@@ -4562,6 +4562,97 @@ test("chat mode tabs and new-chat actions stay reachable", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("Roleplay reduced paint effects preserve semantic and custom styling", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Reduced Roleplay paint styling is covered on desktop.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Reduced Roleplay Paint Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        content: "A semantic ring must survive the lighter paint profile.",
+        extra: { isConversationStart: true },
+      },
+    });
+    expect(messageResponse.ok()).toBeTruthy();
+
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    const surface = page.locator('[data-chat-mode="roleplay"]');
+    const bubble = page.locator('[data-message-role="assistant"] .mari-rp-bubble').first();
+    await expect(surface).not.toHaveClass(/mari-rp-reduced-paint/);
+    await expect(bubble).toBeVisible();
+    await expect(page.locator(".rpg-vignette")).not.toHaveCSS("display", "none");
+
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Appearance" }).click();
+    const reducedPaintToggle = page.getByLabel("Reduced paint effects");
+    await reducedPaintToggle.scrollIntoViewIfNeeded();
+    await page.getByText("Reduced paint effects", { exact: true }).click();
+    await expect(reducedPaintToggle).toBeChecked();
+
+    await expect(surface).toHaveClass(/mari-rp-reduced-paint/);
+    const reducedStyles = await bubble.evaluate((element) => {
+      const bubbleStyle = getComputedStyle(element);
+      const overlayStyle = getComputedStyle(document.querySelector(".rpg-overlay")!);
+      const vignetteStyle = getComputedStyle(document.querySelector(".rpg-vignette")!);
+      return {
+        backgroundImage: bubbleStyle.backgroundImage,
+        boxShadow: bubbleStyle.boxShadow,
+        dropShadow: bubbleStyle.getPropertyValue("--tw-shadow").trim(),
+        overlayBackgroundImage: overlayStyle.backgroundImage,
+        overlayBackgroundColor: overlayStyle.backgroundColor,
+        vignetteDisplay: vignetteStyle.display,
+      };
+    });
+    expect(reducedStyles.backgroundImage).toContain("linear-gradient");
+    expect(reducedStyles.dropShadow).toBe("0 0 #0000");
+    expect(reducedStyles.boxShadow).not.toBe("none");
+    expect(reducedStyles.overlayBackgroundImage).toBe("none");
+    expect(reducedStyles.overlayBackgroundColor).toBe("rgba(8, 8, 18, 0.5)");
+    expect(reducedStyles.vignetteDisplay).toBe("none");
+
+    await page.evaluate(() => {
+      const style = document.createElement("style");
+      style.id = "reduced-paint-card-css-smoke";
+      style.textContent = ".mari-card-css .mari-message-bubble { background: rgb(1, 2, 3); }";
+      document.head.append(style);
+    });
+    await expect(bubble).toHaveCSS("background-color", "rgb(1, 2, 3)");
+    await expect(bubble).toHaveCSS("background-image", "none");
+    await page.evaluate(() => document.getElementById("reduced-paint-card-css-smoke")?.remove());
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}') as {
+            state?: { roleplayReducedPaintEffects?: unknown };
+          };
+          return persisted.state?.roleplayReducedPaintEffects;
+        }),
+      )
+      .toBe(true);
+
+    await page.reload();
+    await expect(surface).toHaveClass(/mari-rp-reduced-paint/);
+
+    // Exercise the transparent-bubble branch directly after proving the setting
+    // persisted. The production attribute is driven by the existing opacity state.
+    await bubble.evaluate((element) => element.setAttribute("data-roleplay-bubble-transparent", "true"));
+    await expect(bubble).toHaveCSS("background-image", "none");
+    await expect(bubble).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(bubble).not.toHaveCSS("box-shadow", "none");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("memory recall modal accepts clicks from chat settings", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Memory recall modal regression is covered on desktop.");
 

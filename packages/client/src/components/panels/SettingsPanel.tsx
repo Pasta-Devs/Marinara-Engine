@@ -954,6 +954,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Slider",
   },
   {
+    id: "roleplay-reduced-paint-effects",
+    sectionId: "roleplay-messages",
+    label: "Reduced paint effects",
+    description: "Flatten costly Roleplay transparency, shadows, and scene overlays.",
+    aliases: ["roleplay", "performance", "firefox", "slow", "paint", "effects"],
+    kind: "Toggle",
+  },
+  {
     id: "scrollable-avatars",
     sectionId: "roleplay-messages",
     label: "Scrollable Avatars",
@@ -3675,6 +3683,8 @@ function AppearanceSettings() {
   const setChatChromeTextColor = useUIStore((s) => s.setChatChromeTextColor);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
   const setChatFontOpacity = useUIStore((s) => s.setChatFontOpacity);
+  const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
+  const setRoleplayReducedPaintEffects = useUIStore((s) => s.setRoleplayReducedPaintEffects);
   const roleplayAvatarStyle = useUIStore((s) => s.roleplayAvatarStyle);
   const setRoleplayAvatarStyle = useUIStore((s) => s.setRoleplayAvatarStyle);
   const roleplayAvatarScale = useUIStore((s) => s.roleplayAvatarScale);
@@ -4226,6 +4236,14 @@ function AppearanceSettings() {
               Reset opacity to default
             </button>
           </label>
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("roleplay-reduced-paint-effects")}
+            label="Reduced paint effects"
+            checked={roleplayReducedPaintEffects}
+            onChange={setRoleplayReducedPaintEffects}
+            help="Flattens costly Roleplay transparency, shadows, and scene overlays to keep navigation responsive, especially in Firefox. Applies immediately in every browser."
+          />
 
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">

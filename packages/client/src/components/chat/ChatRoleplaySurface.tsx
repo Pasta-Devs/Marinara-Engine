@@ -1284,6 +1284,7 @@ export function ChatRoleplaySurface({
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
+  const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
   const initialLoadSettledRef = useRef(false);
   const prevMessageKeysRef = useRef<Set<string>>(new Set());
   const seenMessageKeysRef = useRef(roleplayNotificationSeenKeys);
@@ -1507,7 +1508,10 @@ export function ChatRoleplaySurface({
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
       <div
-        className="rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden"
+        className={cn(
+          "rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden",
+          roleplayReducedPaintEffects && "mari-rp-reduced-paint",
+        )}
         data-chat-mode="roleplay"
         style={{ isolation: "isolate" }}
       >

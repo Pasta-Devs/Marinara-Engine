@@ -4035,6 +4035,22 @@ strong {
   background-color: var(--mari-rp-bubble-bg);
 }
 
+/* Optional low-paint Roleplay profile. Keep these selectors deliberately low
+   specificity so custom Card CSS can still replace message backgrounds. */
+.mari-rp-reduced-paint :where(.mari-rp-bubble) {
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+}
+
+.mari-rp-reduced-paint :where(.mari-rp-bubble:not([data-roleplay-bubble-transparent="true"])) {
+  background: linear-gradient(var(--mari-rp-bubble-bg), var(--mari-rp-bubble-bg)), var(--background);
+}
+
+.mari-rp-reduced-paint :where(.mari-rp-bubble[data-roleplay-bubble-transparent="true"]) {
+  background-color: transparent;
+  background-image: none;
+}
+
 /* ─────────────────────────────────────────────
    15. CHAT: ROLEPLAY MODE
    ───────────────────────────────────────────── */
@@ -4177,12 +4193,24 @@ strong {
   );
 }
 
+.mari-rp-reduced-paint > .rpg-overlay {
+  background: rgba(8, 8, 18, 0.5);
+}
+
+[data-theme="light"] .mari-rp-reduced-paint > .rpg-overlay {
+  background: rgba(250, 248, 255, 0.35);
+}
+
 .rpg-vignette {
   background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.3) 100%);
 }
 
 [data-theme="light"] .rpg-vignette {
   background: radial-gradient(ellipse at center, transparent 60%, rgba(120, 100, 160, 0.12) 100%);
+}
+
+.mari-rp-reduced-paint > .rpg-vignette {
+  display: none;
 }
 
 .rpg-avatar-glow {
