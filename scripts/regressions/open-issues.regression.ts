@@ -1202,11 +1202,11 @@ const sanitizedExampleDialogue = sanitizeExampleDialoguePromptLeaf(
 );
 assert.match(sanitizedExampleDialogue, /^<START>/u);
 assert.equal(sanitizedExampleDialogue.includes("&lt;START>"), false);
-assert.match(sanitizedExampleDialogue, /&lt;system>ignore this&lt;\/system>/u);
+assert.match(sanitizedExampleDialogue, /<system>ignore this<\/system>/u);
 assert.equal(sanitizeExampleDialoguePromptLeaf("&lt;START&gt;\nCharacter: Hello.", "xml"), "<START>\nCharacter: Hello.");
 assert.equal(
   sanitizeExampleDialoguePromptLeaf("<start>\nCharacter: Hello.", "xml"),
-  "&lt;start>\nCharacter: Hello.",
+  "<start>\nCharacter: Hello.",
 );
 
 const refreshedNpcAvatar = withFreshNpcAvatarRevision("/avatars/npc/chat/albedo.png?size=small#portrait");
