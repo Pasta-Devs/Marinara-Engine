@@ -104,15 +104,27 @@ const profilesSchema = {
   additionalProperties: false,
 } as const;
 
+const privatePostSchema = {
+  type: "object",
+  properties: {
+    content: { type: "string" },
+    imagePrompt: nullableString,
+    poll: pollSchema,
+  },
+  required: ["content", "imagePrompt", "poll"],
+  additionalProperties: false,
+} as const;
+
 export function noodleResponseFormat(
   model: string,
-  kind: "timeline" | "profiles",
+  kind: "timeline" | "profiles" | "private_post",
 ): { type: string; [key: string]: unknown } {
   if (!isOpenAIGpt56Model(model)) return { type: "json_object" };
+  const schema = kind === "timeline" ? timelineSchema : kind === "profiles" ? profilesSchema : privatePostSchema;
   return {
     type: "json_schema",
-    name: kind === "timeline" ? "noodle_timeline" : "noodle_profiles",
-    schema: kind === "timeline" ? timelineSchema : profilesSchema,
+    name: kind === "timeline" ? "noodle_timeline" : kind === "profiles" ? "noodle_profiles" : "noodler_private_post",
+    schema,
     strict: true,
   };
 }

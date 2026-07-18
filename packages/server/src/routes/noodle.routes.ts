@@ -21,7 +21,7 @@ import {
   noodlePrivateAccountCreateSchema,
   noodleRemoveInteractionSchema,
   noodleRescheduleRefreshSchema,
-  noodleRefreshSchema,
+  noodleGenerationRequestSchema,
   noodleSettingsUpdateSchema,
   readNoodlePollFromMetadata,
   type NoodleAccount,
@@ -41,6 +41,7 @@ import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/no
 
 import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
 import { createPublicNoodleImagesService } from "../services/noodle/noodle-public-images.service.js";
+import { generatePrivatePost } from "../services/noodle/noodle-private-generation.service.js";
 import {
   bootstrapVisibleNoodle,
   characterAvatarCrop,
@@ -75,6 +76,7 @@ export async function noodleRoutes(app: FastifyInstance) {
   const publicGeneration = createPublicNoodleGenerationService(app.db);
   const publicImages = createPublicNoodleImagesService(app.db);
   let refreshInFlight = false;
+  const privateGenerationInFlight = new Set<string>();
 
   app.get("/", async () => {
     return bootstrapVisibleNoodle(noodle, characters);
@@ -474,10 +476,37 @@ export async function noodleRoutes(app: FastifyInstance) {
   });
 
   app.post("/refresh", async (req, reply) => {
-    const parsed = noodleRefreshSchema.safeParse(req.body);
+    const parsed = noodleGenerationRequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     const settings = await noodle.getSettings();
+    if (parsed.data.mode === "private" && !settings.enableNoodler) {
+      return reply.code(404).send({ error: "Not Found" });
+    }
+    if (parsed.data.mode === "private" && privateGenerationInFlight.has(parsed.data.targetAccountId)) {
+      return reply.code(409).send({ error: "A generation for this NoodleR account is already running." });
+    }
+    if (parsed.data.mode === "private") privateGenerationInFlight.add(parsed.data.targetAccountId);
     const connectionId = parsed.data.connectionId ?? settings.generationConnectionId;
+    if (parsed.data.mode === "private") {
+      try {
+        if (!connectionId) {
+          return reply.code(400).send({ error: "Select a Noodle generation connection first." });
+        }
+        const conn = await connections.getWithKey(connectionId);
+        if (!conn) return reply.code(404).send({ error: "Noodle generation connection not found" });
+        const generated = await generatePrivatePost(app.db, {
+          request: parsed.data,
+          connection: conn,
+        });
+        if (!generated.ok) return reply.code(404).send({ error: generated.message });
+        return generated.post;
+      } catch (error) {
+        logger.error(error, "[noodler] Private post generation failed");
+        return reply.code(500).send({ error: getErrorMessage(error) });
+      } finally {
+        privateGenerationInFlight.delete(parsed.data.targetAccountId);
+      }
+    }
     if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
     const conn = await connections.getWithKey(connectionId);
     if (!conn) return reply.code(404).send({ error: "Noodle generation connection not found" });

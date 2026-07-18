@@ -290,12 +290,38 @@ export const noodleInteractionUpdateSchema = noodleInteractionOwnerSchema
     message: "Provide comment text or an image update.",
   });
 
-export const noodleRefreshSchema = z.object({
-  personaId: z.string().min(1).optional(),
+const noodleGenerationConnectionShape = {
   connectionId: z.string().min(1).optional(),
   debugMode: z.boolean().optional(),
-  reviewImagePromptsBeforeSend: z.boolean().optional(),
-});
+};
+
+export const noodlePublicGenerationRequestSchema = z
+  .object({
+    mode: z.literal("public"),
+    ...noodleGenerationConnectionShape,
+    personaId: z.string().min(1).optional(),
+    reviewImagePromptsBeforeSend: z.boolean().optional(),
+  })
+  .strict();
+
+export const noodlePrivatePostGuideSchema = z.string().trim().min(1).max(2000);
+
+export const noodlePrivateProjectWorkSchema = z.string().trim().min(1).max(4000);
+
+export const noodlePrivateGenerationRequestSchema = z
+  .object({
+    mode: z.literal("private"),
+    ...noodleGenerationConnectionShape,
+    targetAccountId: z.string().min(1),
+    privatePostGuide: noodlePrivatePostGuideSchema.optional(),
+    privateProjectWork: noodlePrivateProjectWorkSchema.optional(),
+  })
+  .strict();
+
+export const noodleGenerationRequestSchema = z.discriminatedUnion("mode", [
+  noodlePublicGenerationRequestSchema,
+  noodlePrivateGenerationRequestSchema,
+]);
 
 export const noodleRescheduleRefreshSchema = z.object({
   scheduledTime: z.string().datetime(),
@@ -310,6 +336,14 @@ export const noodleGeneratedPostSchema = z.object({
   attachGalleryImage: z.boolean().optional().default(false),
   poll: noodlePollInputSchema.nullable().optional(),
 });
+
+export const noodleGeneratedPrivatePostSchema = z
+  .object({
+    content: z.string().trim().min(1).max(4000),
+    imagePrompt: z.string().max(2000).nullable().optional(),
+    poll: noodlePollInputSchema.nullable().optional(),
+  })
+  .strict();
 
 export const noodleGeneratedInteractionSchema = z
   .object({
@@ -414,8 +448,24 @@ export type NoodleCreateInteractionInput = z.infer<typeof noodleCreateInteractio
 export type NoodleRemoveInteractionInput = z.infer<typeof noodleRemoveInteractionSchema>;
 export type NoodleInteractionOwnerInput = z.infer<typeof noodleInteractionOwnerSchema>;
 export type NoodleInteractionUpdateInput = z.infer<typeof noodleInteractionUpdateSchema>;
-export type NoodleRefreshInput = z.infer<typeof noodleRefreshSchema>;
+type InferredNoodlePublicGenerationRequest = z.infer<typeof noodlePublicGenerationRequestSchema>;
+type AssertNoKeys<T extends never> = T;
+export type NoodlePublicGenerationRequest = InferredNoodlePublicGenerationRequest &
+  Record<
+    AssertNoKeys<
+      Extract<
+        keyof InferredNoodlePublicGenerationRequest,
+        "targetAccountId" | "privatePostGuide" | "privateProjectWork"
+      >
+    >,
+    never
+  >;
+export type NoodlePrivatePostGuide = z.infer<typeof noodlePrivatePostGuideSchema>;
+export type NoodlePrivateProjectWork = z.infer<typeof noodlePrivateProjectWorkSchema>;
+export type NoodlePrivateGenerationRequest = z.infer<typeof noodlePrivateGenerationRequestSchema>;
+export type NoodleGenerationRequest = z.infer<typeof noodleGenerationRequestSchema>;
 export type NoodleRescheduleRefreshInput = z.infer<typeof noodleRescheduleRefreshSchema>;
 export type NoodleGeneratedRefresh = z.infer<typeof noodleGeneratedRefreshSchema>;
+export type NoodleGeneratedPrivatePost = z.infer<typeof noodleGeneratedPrivatePostSchema>;
 export type NoodleGeneratedProfiles = z.infer<typeof noodleGeneratedProfilesSchema>;
 export type NoodleGeneratedProfile = z.infer<typeof noodleGeneratedProfileSchema>;

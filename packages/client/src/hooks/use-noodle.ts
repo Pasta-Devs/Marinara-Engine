@@ -382,6 +382,7 @@ export function useRefreshNoodle() {
   return useMutation({
     mutationFn: (input: { personaId?: string; connectionId?: string }) =>
       api.post<NoodleRefreshResult>("/noodle/refresh", {
+        mode: "public",
         ...input,
         debugMode: useUIStore.getState().debugMode,
         reviewImagePromptsBeforeSend: useUIStore.getState().reviewImagePromptsBeforeSend,
