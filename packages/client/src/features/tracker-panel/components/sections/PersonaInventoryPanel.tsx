@@ -130,6 +130,7 @@ export function PersonaInventoryPanel({
   const updatePersona = useUpdatePersona();
   const personaPortraitSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const personaPortraitPendingSaveRef = useRef<PersonaPortraitPendingSave | null>(null);
+  const personaPortraitLatestSaveRef = useRef<PersonaPortraitPendingSave | null>(null);
   const flushPersonaPortraitPendingSaveRef = useRef<
     (pendingSave: PersonaPortraitPendingSave, keepalive?: boolean) => void
   >(() => {});
@@ -159,15 +160,32 @@ export function PersonaInventoryPanel({
       ? personaPortraitFocusOverride
       : personaSavedPortraitFocus;
   const flushPersonaPortraitPendingSave = (pendingSave: PersonaPortraitPendingSave, keepalive = false) => {
-    updatePersona.mutate({
-      id: pendingSave.id,
-      keepalive,
-      trackerCardPortrait: {
-        portraitFocusX: pendingSave.portraitFocusX,
-        portraitFocusY: pendingSave.portraitFocusY,
-        portraitZoom: pendingSave.portraitZoom,
+    updatePersona.mutate(
+      {
+        id: pendingSave.id,
+        keepalive,
+        trackerCardPortrait: {
+          portraitFocusX: pendingSave.portraitFocusX,
+          portraitFocusY: pendingSave.portraitFocusY,
+          portraitZoom: pendingSave.portraitZoom,
+        },
       },
-    });
+      {
+        onSuccess: () => {
+          if (isSamePersonaPortraitPendingSave(personaPortraitPendingSaveRef.current, pendingSave)) {
+            personaPortraitPendingSaveRef.current = null;
+          }
+        },
+        onError: () => {
+          if (
+            !personaPortraitPendingSaveRef.current &&
+            isSamePersonaPortraitPendingSave(personaPortraitLatestSaveRef.current, pendingSave)
+          ) {
+            personaPortraitPendingSaveRef.current = pendingSave;
+          }
+        },
+      },
+    );
   };
   flushPersonaPortraitPendingSaveRef.current = flushPersonaPortraitPendingSave;
   const updatePersonaPortraitFocus =
@@ -180,12 +198,12 @@ export function PersonaInventoryPanel({
             zoom: portraitZoom,
           });
           const pendingSave = { id: persona.id, portraitFocusX, portraitFocusY, portraitZoom };
+          personaPortraitLatestSaveRef.current = pendingSave;
           personaPortraitPendingSaveRef.current = pendingSave;
           if (personaPortraitSaveTimeoutRef.current) clearTimeout(personaPortraitSaveTimeoutRef.current);
           personaPortraitSaveTimeoutRef.current = setTimeout(() => {
             if (isSamePersonaPortraitPendingSave(personaPortraitPendingSaveRef.current, pendingSave)) {
               flushPersonaPortraitPendingSaveRef.current(pendingSave);
-              personaPortraitPendingSaveRef.current = null;
             }
             personaPortraitSaveTimeoutRef.current = null;
           }, 180);
@@ -275,7 +293,6 @@ export function PersonaInventoryPanel({
         personaPortraitSaveTimeoutRef.current = null;
       }
       const pendingSave = personaPortraitPendingSaveRef.current;
-      personaPortraitPendingSaveRef.current = null;
       if (pendingSave) flushPersonaPortraitPendingSaveRef.current(pendingSave, true);
     };
     window.addEventListener("pagehide", flushOnPageHide);

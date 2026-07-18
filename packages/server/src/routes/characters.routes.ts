@@ -562,15 +562,20 @@ export async function charactersRoutes(app: FastifyInstance) {
   const personaGallery = createPersonaGalleryStorage(app.db);
   const lorebooksStorage = createLorebooksStorage(app.db);
   const connections = createConnectionsStorage(app.db);
+  const characterUpdateQueues = new Map<string, Promise<unknown>>();
   const personaUpdateQueues = new Map<string, Promise<unknown>>();
 
-  function enqueuePersonaUpdate<T>(id: string, update: () => Promise<T>): Promise<T> {
-    const previous = personaUpdateQueues.get(id);
+  function enqueueUpdate<T>(
+    queues: Map<string, Promise<unknown>>,
+    id: string,
+    update: () => Promise<T>,
+  ): Promise<T> {
+    const previous = queues.get(id);
     const next = previous ? previous.catch(() => undefined).then(update) : update();
-    personaUpdateQueues.set(id, next);
+    queues.set(id, next);
     void next
       .finally(() => {
-        if (personaUpdateQueues.get(id) === next) personaUpdateQueues.delete(id);
+        if (queues.get(id) === next) queues.delete(id);
       })
       .catch(() => undefined);
     return next;
@@ -775,13 +780,15 @@ export async function charactersRoutes(app: FastifyInstance) {
     const versionSource = typeof body.versionSource === "string" ? body.versionSource : undefined;
     const versionReason = typeof body.versionReason === "string" ? body.versionReason : undefined;
     const skipVersionSnapshot = body.skipVersionSnapshot === true;
-    return storage.update(req.params.id, update.data ?? {}, avatarPath, {
-      comment,
-      versionSource,
-      versionReason,
-      skipVersionSnapshot,
-      mergeExtensions: false,
-    });
+    return enqueueUpdate(characterUpdateQueues, req.params.id, () =>
+      storage.update(req.params.id, update.data ?? {}, avatarPath, {
+        comment,
+        versionSource,
+        versionReason,
+        skipVersionSnapshot,
+        mergeExtensions: false,
+      }),
+    );
   });
 
   app.patch<{ Params: { id: string }; Body: { paint?: unknown } }>("/:id/tracker-card-colors", async (req, reply) => {
@@ -799,28 +806,30 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Tracker-card paint must be a JSON object" });
     }
 
-    const char = await storage.getById(req.params.id);
-    if (!char) return reply.status(404).send({ error: "Character not found" });
-    const currentData = parseCharacterDataRecord(char.data);
-    const currentExtensions =
-      currentData.extensions && typeof currentData.extensions === "object" && !Array.isArray(currentData.extensions)
-        ? (currentData.extensions as Record<string, unknown>)
-        : {};
+    const updated = await enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+      const char = await storage.getById(req.params.id);
+      if (!char) return null;
+      const currentData = parseCharacterDataRecord(char.data);
+      const currentExtensions =
+        currentData.extensions && typeof currentData.extensions === "object" && !Array.isArray(currentData.extensions)
+          ? (currentData.extensions as Record<string, unknown>)
+          : {};
 
-    const trackerCardColors = JSON.stringify(
-      applyTrackerCardPaint(currentExtensions.trackerCardColors, body.paint as Record<string, unknown>),
-    );
-    const extensions: Record<string, unknown> = { trackerCardColors };
-    const updated = await storage.update(
-      req.params.id,
-      { extensions } as Partial<CharacterData>,
-      undefined,
-      {
-        skipVersionSnapshot: true,
-        versionSource: "settings-tracker-card-colors",
-        mergeExtensions: true,
-      },
-    );
+      const trackerCardColors = JSON.stringify(
+        applyTrackerCardPaint(currentExtensions.trackerCardColors, body.paint as Record<string, unknown>),
+      );
+      const extensions: Record<string, unknown> = { trackerCardColors };
+      return storage.update(
+        req.params.id,
+        { extensions } as Partial<CharacterData>,
+        undefined,
+        {
+          skipVersionSnapshot: true,
+          versionSource: "settings-tracker-card-colors",
+          mergeExtensions: true,
+        },
+      );
+    });
     if (!updated) return reply.status(404).send({ error: "Character not found" });
     return updated;
   });
@@ -1691,6 +1700,9 @@ export async function charactersRoutes(app: FastifyInstance) {
   });
 
   app.patch<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return reply.status(400).send({ error: "Persona update must be a JSON object" });
+    }
     const body = req.body as Record<string, unknown>;
     let parsedPaint: Record<string, unknown> | null = null;
     if (typeof body.trackerCardColors === "string") {
@@ -1704,7 +1716,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       }
     }
 
-    const updated = await enqueuePersonaUpdate(req.params.id, async () => {
+    const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, async () => {
       if (!parsedPaint) return storage.updatePersona(req.params.id, body);
       const currentPersona = await storage.getPersona(req.params.id);
       if (!currentPersona) return null;
@@ -1753,7 +1765,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       paint = body.paint as Record<string, unknown>;
     }
 
-    const updated = await enqueuePersonaUpdate(req.params.id, async () => {
+    const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, async () => {
       const currentPersona = await storage.getPersona(req.params.id);
       if (!currentPersona) return null;
 

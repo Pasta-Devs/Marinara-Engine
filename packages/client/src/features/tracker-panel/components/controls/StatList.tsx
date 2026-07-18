@@ -30,7 +30,6 @@ function StatColumnFiller({ density = "normal" }: { density?: TrackerStatDensity
       aria-hidden="true"
       className={cn(
         "pointer-events-none relative hidden select-none overflow-hidden rounded-[4px] border border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_24%,transparent)] bg-[image:var(--tracker-profile-field-material)] opacity-70 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_3%,transparent),inset_0_-4px_8px_color-mix(in_srgb,var(--background)_20%,transparent)] [background-blend-mode:var(--tracker-profile-field-material-blend)] before:pointer-events-none before:absolute before:inset-x-1 before:top-0 before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_28%,transparent),transparent)] before:content-[''] @min-[240px]:block",
-        "px-1",
         isTight ? "px-1 py-0.5" : "py-1",
       )}
     >
