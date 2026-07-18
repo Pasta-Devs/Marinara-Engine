@@ -128,7 +128,7 @@ import { executeAgent, normalizeAgentContextSize, resolveAgentResultType } from 
 import { matchCustomAgentActivation } from "./generate/agent-activation.js";
 import { listCharacterSprites } from "../services/game/sprite.service.js";
 import { generateChatBackground } from "../services/game/game-asset-generation.js";
-import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
+import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import {
   parseCharacterCommands,
   parseCharacterCommandsBySpeaker,
@@ -7190,10 +7190,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     continue;
                   }
                   // Try loading a stored NPC avatar from disk
-                  const safeName = name
-                    .toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/(^-|-$)/g, "");
+                  const safeName = npcAvatarSlug(name);
                   if (safeName) {
                     const npcAvatarPath = join(NPC_AVATAR_DIR, input.chatId, `${safeName}.png`);
                     if (existsSync(npcAvatarPath)) {
@@ -7278,10 +7275,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             });
 
                             // Save to NPC avatars directory
-                            const safeName = npcName
-                              .toLowerCase()
-                              .replace(/[^a-z0-9]+/g, "-")
-                              .replace(/(^-|-$)/g, "");
+                            const safeName = npcAvatarSlug(npcName);
                             const npcDir = join(NPC_AVATAR_DIR, input.chatId);
                             if (!existsSync(npcDir)) mkdirSync(npcDir, { recursive: true });
                             writeFileSync(join(npcDir, `${safeName}.png`), Buffer.from(imageResult.base64, "base64"));

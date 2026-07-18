@@ -78,7 +78,7 @@ import {
 import { generateWeather, inferBiome, shouldWeatherChange } from "../services/game/weather.service.js";
 import { rollEncounter, rollEnemyCount } from "../services/game/encounter.service.js";
 import { processReputationActions } from "../services/game/reputation.service.js";
-import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
+import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import { createCheckpointService, type CheckpointTrigger } from "../services/game/checkpoint.service.js";
 import {
   resolveSkillCheck,
@@ -4138,10 +4138,7 @@ function buildGameNpcId(name: string): string {
 }
 
 function buildNpcAvatarUrl(chatId: string, name: string): string | null {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+  const slug = npcAvatarSlug(name);
   return slug ? `/api/avatars/npc/${chatId}/${slug}.png` : null;
 }
 

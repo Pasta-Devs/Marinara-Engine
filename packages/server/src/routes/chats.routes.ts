@@ -106,7 +106,7 @@ import {
   resolveMemoryRecallEmbeddingSource,
 } from "../services/memory-recall-embedding.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
-import { sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
+import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import { buildCommittedTrackerContextBlock } from "../services/generation/committed-tracker-context.js";
 import { parseLorebookWriteApprovalText } from "./generate/agent-write-approval.js";
 import { persistLorebookKeeperUpdates } from "./generate/lorebook-keeper-utils.js";
@@ -1875,10 +1875,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           continue;
         }
         // 2. Try loading a stored NPC avatar from disk
-        const safeName = name
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/(^-|-$)/g, "");
+        const safeName = npcAvatarSlug(name);
         if (safeName) {
           const npcPath = join(NPC_AVATAR_DIR, req.params.id, `${safeName}.png`);
           if (existsSync(npcPath)) char.avatarPath = `/api/avatars/npc/${req.params.id}/${safeName}.png`;

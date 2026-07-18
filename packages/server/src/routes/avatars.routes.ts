@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join, extname } from "path";
 import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, isAllowedImageBuffer } from "../utils/security.js";
+import { npcAvatarSlug } from "../services/game/npc-avatar-utils.js";
 
 const AVATAR_DIR = join(DATA_DIR, "avatars");
 const NPC_AVATAR_DIR = join(AVATAR_DIR, "npc");
@@ -93,10 +94,7 @@ export async function avatarsRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Invalid avatar format — expected base64 data URL" });
     }
 
-    const safeName = name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
+    const safeName = npcAvatarSlug(name);
     if (!safeName) {
       return reply.status(400).send({ error: "Invalid character name" });
     }

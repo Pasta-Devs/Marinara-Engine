@@ -2,6 +2,13 @@ import type { GameNpc } from "@marinara-engine/shared";
 
 export const BUILT_IN_MARI_AVATAR = "/sprites/mari/Mari_profile.png";
 
+export function npcAvatarSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 function normalizeNpcName(name: string): string {
   return name
     .normalize("NFKD")

@@ -809,6 +809,34 @@ test("game widget edits preserve their live numeric values", async ({ request },
   }
 });
 
+test("NPC avatar uploads accept Cyrillic character names", async ({ request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "NPC avatar upload compatibility is covered on desktop.");
+
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Unicode NPC Avatar Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const uploadResponse = await request.post(`/api/avatars/npc/${chat.id}`, {
+      data: {
+        name: "Корвин",
+        avatar: `data:image/gif;base64,${TRANSPARENT_GIF_BASE64}`,
+      },
+    });
+    expect(uploadResponse.ok()).toBeTruthy();
+    const upload = (await uploadResponse.json()) as { avatarPath: string };
+    expect(decodeURIComponent(upload.avatarPath)).toContain("/корвин.gif?");
+
+    const imageResponse = await request.get(upload.avatarPath);
+    expect(imageResponse.ok()).toBeTruthy();
+    expect(imageResponse.headers()["content-type"]).toBe("image/gif");
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("failed Game Lorebook Keeper run exposes a retry action", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Game session recovery regression is covered on desktop.");
 
