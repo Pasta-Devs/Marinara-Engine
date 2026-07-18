@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
+import playwrightConfig from "../../playwright.config.js";
+import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
@@ -691,16 +693,17 @@ const sharedPackageJson = JSON.parse(
 ) as { scripts?: Record<string, string> };
 const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
 assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
-assert.doesNotMatch(preserveSharedBuild, /\[['"]dist['"]/u);
+assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
 const serverPackageJson = JSON.parse(
   readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
 ) as { scripts?: Record<string, string> };
 assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
-const devLauncher = readFileSync(new URL("../../scripts/dev.mjs", import.meta.url), "utf8");
-assert.match(devLauncher, /DEV_PRESERVE_SHARED_DIST/u);
-assert.match(devLauncher, /SHARED_BUILD_SCRIPT/u);
-const playwrightConfig = readFileSync(new URL("../../playwright.config.ts", import.meta.url), "utf8");
-assert.match(playwrightConfig, /DEV_PRESERVE_SHARED_DIST:\s*["']true["']/u);
+assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
+assert.equal(resolveDevSharedBuildScript({}), "build");
+const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
+  ? playwrightConfig.webServer[0]
+  : playwrightConfig.webServer;
+assert.equal(playwrightWebServer?.env?.DEV_PRESERVE_SHARED_DIST, "true");
 
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const agentEditorSource = readFileSync(
