@@ -2615,7 +2615,7 @@ strong {
   padding: 0.5em 0.75em;
   margin: 0.35em 0;
   background: color-mix(in srgb, var(--card) 94%, var(--accent));
-  color: var(--muted-foreground);
+  color: inherit;
   font-style: italic;
 }
 
