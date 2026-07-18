@@ -280,7 +280,7 @@ async function createUpdateStash(root: string): Promise<UpdateStash | null> {
     });
     const matchingEntry = stdout.split(/\r?\n/).find((line) => line.endsWith(marker));
     const oid = matchingEntry?.split("\t", 1)[0] ?? "";
-    if (!/^[0-9a-f]{40}$/i.test(oid)) throw new Error("matching stash reflog entry was not found");
+    if (!/^[0-9a-f]+$/i.test(oid)) throw new Error("matching stash reflog entry was not found");
     return { oid, marker };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
