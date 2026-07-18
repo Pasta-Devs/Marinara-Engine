@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
+import playwrightConfig from "../../playwright.config.js";
+import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
@@ -685,6 +687,23 @@ const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
 assert.match(termuxLauncher, /TERMUX_REBUILD_REQUIRED/u);
+
+const sharedPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/shared/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
+assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
+assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
+const serverPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
+assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
+assert.equal(resolveDevSharedBuildScript({}), "build");
+const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
+  ? playwrightConfig.webServer[0]
+  : playwrightConfig.webServer;
+assert.equal(playwrightWebServer?.env?.DEV_PRESERVE_SHARED_DIST, "true");
 
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const agentEditorSource = readFileSync(

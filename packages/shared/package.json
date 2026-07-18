@@ -13,6 +13,7 @@
   },
   "scripts": {
     "build": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\" && node scripts/generate-feature-registries.mjs && tsc",
+    "build:preserve": "node -e \"const fs=require('fs');try{fs.rmSync('tsconfig.tsbuildinfo',{force:true})}catch{}\" && node scripts/generate-feature-registries.mjs && tsc",
     "dev": "node scripts/generate-feature-registries.mjs && tsc --watch --preserveWatchOutput",
     "clean": "node -e \"const fs=require('fs');['dist','tsconfig.tsbuildinfo'].forEach(p=>{try{fs.rmSync(p,{recursive:true,force:true})}catch{}})\"",
     "lint": "node scripts/generate-feature-registries.mjs && tsc --noEmit"
