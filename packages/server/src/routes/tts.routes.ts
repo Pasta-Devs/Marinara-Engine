@@ -739,7 +739,7 @@ export async function ttsRoutes(app: FastifyInstance) {
     const url = useNanoGptSpeech
       ? `${nanoGptV1BaseUrl(base)}/audio/speech`
       : usePocketTtsSpeech
-        ? `${base}/tts`
+        ? `${pocketTtsV1BaseUrl(base)}/audio/speech`
         : useXaiSpeech
           ? `${base}/tts`
           : cfg.source === "elevenlabs"
@@ -758,65 +758,54 @@ export async function ttsRoutes(app: FastifyInstance) {
 
     let providerRes: Response;
     try {
-      const pocketTtsForm = usePocketTtsSpeech ? new FormData() : null;
-      if (pocketTtsForm) {
-        pocketTtsForm.set("text", providerText);
-        if (requestVoice.trim()) pocketTtsForm.set("voice_url", requestVoice.trim());
-        if (audioFormat !== "mp3") pocketTtsForm.set("output_format", audioFormat);
-      }
-
       providerRes = await safeFetch(url, {
         method: "POST",
         headers: useNanoGptSpeech
           ? nanoGptHeaders(cfg.apiKey)
-          : usePocketTtsSpeech
-            ? optionalBearerHeaders(cfg.apiKey)
-            : useXaiSpeech
-              ? openAiHeaders(cfg.apiKey)
-              : cfg.source === "elevenlabs"
-                ? elevenLabsHeaders(cfg.apiKey)
-                : openAiHeaders(cfg.apiKey),
-        body: pocketTtsForm
-          ? pocketTtsForm
-          : useNanoGptSpeech
+          : useXaiSpeech
+            ? openAiHeaders(cfg.apiKey)
+            : cfg.source === "elevenlabs"
+              ? elevenLabsHeaders(cfg.apiKey)
+              : openAiHeaders(cfg.apiKey),
+        body: useNanoGptSpeech
+          ? JSON.stringify({
+              model,
+              input: providerText,
+              voice: requestVoice || "alloy",
+              ...(includeSpeed ? { speed: cfg.speed } : {}),
+              response_format: audioFormat,
+              ...(speechInstructions ? { instructions: speechInstructions } : {}),
+            })
+          : useXaiSpeech
             ? JSON.stringify({
-                model,
-                input: providerText,
-                voice: requestVoice || "alloy",
-                ...(includeSpeed ? { speed: cfg.speed } : {}),
-                response_format: audioFormat,
-                ...(speechInstructions ? { instructions: speechInstructions } : {}),
+                text: providerText,
+                voice_id: requestVoice || "eve",
+                language: "auto",
+                output_format: {
+                  codec: audioFormat,
+                  sample_rate: audioFormat === "mp3" ? 44_100 : 24_000,
+                  ...(audioFormat === "mp3" ? { bit_rate: 128_000 } : {}),
+                },
+                ...(includeSpeed ? { speed: xaiSpeed } : {}),
               })
-            : useXaiSpeech
+            : cfg.source === "elevenlabs"
               ? JSON.stringify({
                   text: providerText,
-                  voice_id: requestVoice || "eve",
-                  language: "auto",
-                  output_format: {
-                    codec: audioFormat,
-                    sample_rate: audioFormat === "mp3" ? 44_100 : 24_000,
-                    ...(audioFormat === "mp3" ? { bit_rate: 128_000 } : {}),
+                  model_id: model,
+                  ...(elevenLabsLanguageCode ? { language_code: elevenLabsLanguageCode } : {}),
+                  voice_settings: {
+                    stability: cfg.elevenLabsStability,
+                    ...(includeSpeed ? { speed: elevenLabsSpeed } : {}),
                   },
-                  ...(includeSpeed ? { speed: xaiSpeed } : {}),
                 })
-              : cfg.source === "elevenlabs"
-                ? JSON.stringify({
-                    text: providerText,
-                    model_id: model,
-                    ...(elevenLabsLanguageCode ? { language_code: elevenLabsLanguageCode } : {}),
-                    voice_settings: {
-                      stability: cfg.elevenLabsStability,
-                      ...(includeSpeed ? { speed: elevenLabsSpeed } : {}),
-                    },
-                  })
-                : JSON.stringify({
-                    model,
-                    input: providerText,
-                    voice: requestVoice,
-                    ...(includeSpeed ? { speed: cfg.speed } : {}),
-                    response_format: audioFormat,
-                    ...(speechInstructions ? { instructions: speechInstructions } : {}),
-                  }),
+              : JSON.stringify({
+                  model,
+                  input: providerText,
+                  voice: requestVoice || (usePocketTtsSpeech ? "alba" : ""),
+                  ...(includeSpeed ? { speed: cfg.speed } : {}),
+                  response_format: audioFormat,
+                  ...(speechInstructions ? { instructions: speechInstructions } : {}),
+                }),
         signal: AbortSignal.timeout(60_000),
         policy: {
           allowLocal: allowLocalTtsUrl(cfg),

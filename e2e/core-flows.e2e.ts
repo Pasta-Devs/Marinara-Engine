@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createServer } from "node:http";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const WHATS_NEW_SEEN_VERSION_KEY = "marinara:whats-new:seen-version";
@@ -834,6 +835,65 @@ test("NPC avatar uploads accept Cyrillic character names", async ({ request }, t
     expect(imageResponse.headers()["content-type"]).toBe("image/gif");
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("PocketTTS uses its OpenAI-compatible speech endpoint", async ({ request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "PocketTTS routing is covered on desktop.");
+
+  let receivedPath = "";
+  let receivedContentType = "";
+  let receivedBody = "";
+  const pocketTts = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      receivedPath = incoming.url ?? "";
+      receivedContentType = String(incoming.headers["content-type"] ?? "");
+      receivedBody = Buffer.concat(chunks).toString("utf8");
+      response.writeHead(200, { "Content-Type": "audio/mpeg" });
+      response.end(Buffer.from([0x49, 0x44, 0x33]));
+    });
+  });
+  await new Promise<void>((resolve) => pocketTts.listen(0, "127.0.0.1", resolve));
+  const address = pocketTts.address();
+  if (!address || typeof address === "string") throw new Error("PocketTTS mock did not bind to a TCP port");
+
+  const originalConfigResponse = await request.get("/api/tts/config");
+  expect(originalConfigResponse.ok()).toBeTruthy();
+  const originalConfig = await originalConfigResponse.json();
+
+  try {
+    const configResponse = await request.put("/api/tts/config", {
+      data: {
+        enabled: true,
+        source: "pockettts",
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        model: "pocket-tts",
+        voice: "alba",
+        audioFormat: "mp3",
+      },
+    });
+    expect(configResponse.ok()).toBeTruthy();
+
+    const speechResponse = await request.post("/api/tts/speak", {
+      data: { text: "Hello from Marinara." },
+    });
+    expect(speechResponse.ok()).toBeTruthy();
+    expect(receivedPath).toBe("/v1/audio/speech");
+    expect(receivedContentType).toContain("application/json");
+    expect(JSON.parse(receivedBody)).toMatchObject({
+      model: "pocket-tts",
+      input: "Hello from Marinara.",
+      voice: "alba",
+      response_format: "mp3",
+      speed: 1,
+    });
+  } finally {
+    await request.put("/api/tts/config", { data: originalConfig });
+    await new Promise<void>((resolve, reject) => {
+      pocketTts.close((error) => (error ? reject(error) : resolve()));
+    });
   }
 });
 
