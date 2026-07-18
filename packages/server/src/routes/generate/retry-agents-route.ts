@@ -1188,6 +1188,7 @@ async function resolveRetryAgents(args: {
     return resolveStoredRetryConnection(null, fallbackConn);
   };
   const fallbackConnection = await resolveFallbackRetryConnection();
+  const retryAgentConnectionCache = new Map<string, RetryAgentConnectionResolution>();
   const resolvedAgents: ResolvedRetryAgent[] = [];
   const skippedLocalSidecarAgents: string[] = [];
   const defaultAgentConnectionAgents: string[] = [];
@@ -1219,9 +1220,13 @@ async function resolveRetryAgents(args: {
       return fallbackConnection;
     }
 
+    const cachedConnection = retryAgentConnectionCache.get(connectionId);
+    if (cachedConnection) return cachedConnection;
+
+    let resolution: RetryAgentConnectionResolution;
     if (isLocalSidecarConnectionId(connectionId) && localSidecarAvailableForTrackers) {
       const primaryProvider = getLocalSidecarProvider();
-      return {
+      resolution = {
         entry: {
           connectionId,
           provider: wrapRetryAgentProvider(primaryProvider, connectionId),
@@ -1234,14 +1239,15 @@ async function resolveRetryAgents(args: {
           cachingAtDepth: 5,
         },
       };
+    } else {
+      const agentConn = await conns.getWithKey(connectionId);
+      resolution = agentConn
+        ? resolveStoredRetryConnection(connectionId, agentConn)
+        : { entry: null, unavailableReason: "the configured connection was deleted" };
     }
 
-    const agentConn = await conns.getWithKey(connectionId);
-    if (!agentConn) {
-      return { entry: null, unavailableReason: "the configured connection was deleted" };
-    }
-
-    return resolveStoredRetryConnection(connectionId, agentConn);
+    retryAgentConnectionCache.set(connectionId, resolution);
+    return resolution;
   };
   const defaultAgentConnection = defaultAgentConn
     ? await resolveRetryAgentConnection(defaultAgentConn.id as string)

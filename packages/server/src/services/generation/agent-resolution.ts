@@ -173,7 +173,7 @@ function resolveConnectionMaxOutputTokens(connection: { provider: string; model:
 
 async function resolveAgentConnectionProvider(args: {
   connections: ConnectionsStore;
-  agentProviderCache: Map<string, AgentProviderCacheEntry>;
+  agentProviderCache: Map<string | null, AgentProviderCacheEntry>;
   connectionId: string | null;
   fallbackProvider: BaseLLMProvider;
   fallbackModel: string;
@@ -188,6 +188,9 @@ async function resolveAgentConnectionProvider(args: {
   onFallback?: GenerationFallbackNotifier;
   resolveBaseUrl(connection: { baseUrl: string | null; provider: string }): string;
 }): Promise<AgentConnectionResolution> {
+  const cached = args.agentProviderCache.get(args.connectionId);
+  if (cached) return { entry: cached };
+
   if (!args.connectionId) {
     const provider = withConnectionFallbackProvider({
       primary: args.fallbackProvider,
@@ -197,22 +200,19 @@ async function resolveAgentConnectionProvider(args: {
       category: "agents",
       onFallback: args.onFallback,
     });
-    return {
-      entry: {
-        provider,
-        model: args.fallbackModel,
-        customParameters: args.fallbackCustomParameters,
-        maxOutputTokens: args.fallbackMaxOutputTokens,
-        maxParallelJobs: args.fallbackMaxParallelJobs,
-        enableCaching: args.fallbackEnableCaching,
-        anthropicExtendedCacheTtl: args.fallbackAnthropicExtendedCacheTtl,
-        cachingAtDepth: args.fallbackCachingAtDepth,
-      },
+    const resolved = {
+      provider,
+      model: args.fallbackModel,
+      customParameters: args.fallbackCustomParameters,
+      maxOutputTokens: args.fallbackMaxOutputTokens,
+      maxParallelJobs: args.fallbackMaxParallelJobs,
+      enableCaching: args.fallbackEnableCaching,
+      anthropicExtendedCacheTtl: args.fallbackAnthropicExtendedCacheTtl,
+      cachingAtDepth: args.fallbackCachingAtDepth,
     };
+    args.agentProviderCache.set(args.connectionId, resolved);
+    return { entry: resolved };
   }
-
-  const cached = args.agentProviderCache.get(args.connectionId);
-  if (cached) return { entry: cached };
 
   const agentConn = await args.connections.getWithKey(args.connectionId);
   if (!agentConn) {
@@ -304,7 +304,7 @@ export async function resolveAgentPipelineAgents({
       !isRetiredBuiltInAgentId(agent.type as string),
   );
   const resolvedAgents: ResolvedAgent[] = [];
-  const agentProviderCache = new Map<string, AgentProviderCacheEntry>();
+  const agentProviderCache = new Map<string | null, AgentProviderCacheEntry>();
   const localSidecarAvailableForTrackers =
     sidecarModelService.getConfig().useForTrackers && sidecarModelService.getConfiguredModelRef() !== null;
 
