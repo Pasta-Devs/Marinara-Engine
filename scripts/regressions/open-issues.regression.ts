@@ -991,6 +991,8 @@ const sharedGameSetupSource: GameSetupShareSource = {
     setting: "A city built around a shifting dungeon tower",
     tone: "Heroic, dark, comedic",
     difficulty: "normal",
+    combatStyle: "tactical",
+    spatialMapInstructions: "Build a shifting tower with a market ward and flooded catacombs.",
     rating: "nsfw",
     playerGoals: "Become an elite dungeon conqueror",
     gmMode: "standalone",
@@ -1050,6 +1052,8 @@ assert.match(sharedGameSetup, /Max Tokens: 16384/u);
 assert.match(sharedGameSetup, /gpt-5\.6-sol/iu);
 assert.match(sharedGameSetup, /Use clear progression and frequent loot rewards/u);
 assert.match(sharedGameSetup, /Dungeon Lore/u);
+assert.match(sharedGameSetup, /Combat style: Tactical/u);
+assert.match(sharedGameSetup, /Build a shifting tower with a market ward and flooded catacombs\./u);
 assert.match(sharedGameSetup, /"startingValue": 3/u);
 assert.doesNotMatch(
   sharedGameSetup,
@@ -1090,6 +1094,11 @@ assert.equal(exportedGameSetup.exportedAt, "2026-07-16T12:00:00.000Z");
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.temperature, 1.1);
 assert.equal(parsedGameSetup.setup.effectiveGenerationParameters?.maxContext, 128000);
 assert.deepEqual(parsedGameSetup.setup.effectiveGenerationParameters?.stopSequences, ["[END]"]);
+assert.equal(resolvedGameSetup.config.combatStyle, "tactical");
+assert.equal(
+  resolvedGameSetup.config.spatialMapInstructions,
+  "Build a shifting tower with a market ward and flooded catacombs.",
+);
 assert.equal(resolvedGameSetup.gmConnectionId, "gm-connection-new-id");
 assert.equal(resolvedGameSetup.config.imageConnectionId, "image-connection-new-id");
 assert.equal(resolvedGameSetup.config.videoConnectionId, "video-connection-new-id");
@@ -1142,6 +1151,19 @@ assert.throws(
 assert.throws(
   () => parseGameSetupShareFileJson(JSON.stringify({ format: "other", version: 1 })),
   /not a Marinara Game Mode setup file/u,
+);
+assert.throws(
+  () =>
+    parseGameSetupShareFileJson(
+      JSON.stringify({
+        ...exportedGameSetup,
+        setup: {
+          ...exportedGameSetup.setup,
+          config: { ...exportedGameSetup.setup.config, spatialMapInstructions: "x".repeat(4_001) },
+        },
+      }),
+    ),
+  /invalid Spatial Map Instructions value/u,
 );
 assert.throws(
   () =>

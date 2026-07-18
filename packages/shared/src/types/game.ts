@@ -181,6 +181,8 @@ export interface GameSetupConfig {
   rating: "sfw" | "nsfw";
   /** Combat presentation preference (classic menu battles vs tactical grid battles). Defaults to "classic". */
   combatStyle?: GameCombatStyle;
+  /** Optional user prompt used to create the initial hierarchical world map draft. */
+  spatialMapInstructions?: string;
   /** Character ID to use as GM (only when gmMode is "character") */
   gmCharacterId?: string | null;
   /** Party member IDs; library character IDs or `npc:<slug>` tracked-NPC IDs. */

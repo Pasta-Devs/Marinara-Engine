@@ -179,6 +179,7 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     gameStoryboardAnimationPromptTemplateId: 200,
     gameStoryboardImagePromptTemplateId: 200,
     gameStoryboardVideoPromptTemplateId: 200,
+    spatialMapInstructions: 4_000,
     artStylePrompt: 500,
     generatedArtStylePrompt: 500,
     imageStyleProfileId: 1_000,
@@ -698,6 +699,7 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
       title: "World tools",
       rows: [
         { label: "Active lorebooks", value: lorebooks },
+        { label: "Hierarchical map creation prompt", value: config.spatialMapInstructions?.trim() || "None" },
         { label: "HUD widgets", value: formatWidgets(config) },
         { label: "Music DJ", value: formatMusicSource(config) },
         { label: "Lorebook Keeper", value: config.enableLorebookKeeper ? "On" : "Off" },
