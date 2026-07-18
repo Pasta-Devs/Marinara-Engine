@@ -4476,7 +4476,7 @@ test("Noodle mobile shell keeps navigation usable across every view", async ({ p
   await expect(drawer).toHaveCount(0);
   const composer = page.getByRole("heading", { name: "New post" });
   await expect(composer).toBeVisible();
-  await page.getByRole("button", { name: "Close post composer" }).click();
+  await page.getByRole("button", { name: "Close New post" }).click();
 
   await noodle.getByRole("button", { name: "Open Noodle account menu" }).click();
   await accountMenu.getByRole("button", { name: "Settings", exact: true }).click();
