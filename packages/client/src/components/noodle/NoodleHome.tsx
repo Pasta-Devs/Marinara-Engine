@@ -3482,6 +3482,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   else saveSettings({ enableNoodler: false });
                 }}
               />
+              <p className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-blue)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                NoodleR is still being implemented and is not usable or finalized yet. Please do not submit bug reports
+                or feature requests for it while it is in development.
+              </p>
               {settings.enableNoodler && (
                 <button
                   type="button"

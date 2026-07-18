@@ -46,8 +46,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             Enable access only if you are 18 or older and want to view the private account hub.
           </p>
           <p className="mt-4 rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-blue)]/10 px-4 py-3 text-sm leading-6 text-[var(--foreground)]">
-            NoodleR is not a finalized feature. Please do not submit feature requests for NoodleR while it is still in
-            development.
+            NoodleR is still being implemented and is not usable or finalized yet. Please do not submit bug reports or
+            feature requests for NoodleR while it is in development.
           </p>
           <button
             type="button"
