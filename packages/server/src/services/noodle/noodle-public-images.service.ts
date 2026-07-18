@@ -9,13 +9,18 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
+import { newId } from "../../utils/id-generator.js";
 import { resolveImageConnectionFallback } from "../generation/media-connection-fallback.js";
-import { generateImage, saveImageToDisk } from "../image/image-generation.js";
+import { generateImage, stageImageToDisk, type StagedGalleryImage } from "../image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
 import { resolveImagePromptReviewSize } from "../image/image-prompt-review.js";
-import { resolveIllustratorCharacterReferences } from "../image/illustrator-references.js";
+import {
+  normalizeIllustratorAppearance,
+  readIllustratorAppearance,
+  resolveIllustratorCharacterReferences,
+} from "../image/illustrator-references.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
@@ -39,12 +44,31 @@ export type NoodleImagePromptReviewItem = {
 
 export type ReviewedNoodleImagePrompt = Pick<NoodleImagePromptReviewItem, "id" | "prompt" | "negativePrompt">;
 
+export type StagedNoodlePostMedia = {
+  file: StagedGalleryImage;
+  characterGalleryInput?: {
+    characterId: string;
+    filePath: string;
+    prompt: string;
+    provider: string;
+    model: string;
+    width: number;
+    height: number;
+  };
+};
+
 const NOODLE_SERVICE_DIR = dirname(fileURLToPath(import.meta.url));
 const CLIENT_PUBLIC_DIR = resolve(NOODLE_SERVICE_DIR, "../../../../client/public");
 const PROFESSOR_MARI_REFERENCE_ASSETS = [
   "sprites/mari/Mari_profile.png",
   "sprites/mari/chibi-professor-mari.png",
 ] as const;
+const REVIEWED_IMAGE_CLAIM_LEASE_MS = 2 * 60 * 1000;
+const REVIEWED_IMAGE_CLAIM_RENEW_MS = 30 * 1000;
+
+function imageClaimLeaseUntil() {
+  return new Date(Date.now() + REVIEWED_IMAGE_CLAIM_LEASE_MS).toISOString();
+}
 
 function readProfessorMariReferenceImages(): string[] {
   return PROFESSOR_MARI_REFERENCE_ASSETS.flatMap((relativePath) => {
@@ -58,11 +82,9 @@ function readProfessorMariReferenceImages(): string[] {
   });
 }
 
-function characterAppearanceFromRow(row: { data: unknown }) {
+export function characterAppearanceFromRow(row: { data: unknown }) {
   const data = parseRecord(row.data);
-  const extensions = parseRecord(data.extensions);
-  const value = data.appearance ?? extensions.appearance ?? data.description;
-  return typeof value === "string" ? value.trim() : "";
+  return readIllustratorAppearance(data) ?? normalizeIllustratorAppearance(data.description) ?? "";
 }
 
 function galleryImageUrl(filePath: string, fallbackChatId: string) {
@@ -194,6 +216,7 @@ export async function generateNoodlePostImage(input: {
         width: previewSize.width,
         height: previewSize.height,
       },
+      stagedMedia: null,
     };
   }
 
@@ -223,32 +246,37 @@ export async function generateNoodlePostImage(input: {
     },
   );
   const provider = input.imageConnection.provider ?? "image_generation";
+  const file = stageImageToDisk(
+    input.account.kind === "character" ? `characters/${input.account.entityId}` : "noodle",
+    image.base64,
+    image.ext,
+  );
   if (input.account.kind === "character") {
-    const filePath = saveImageToDisk(`characters/${input.account.entityId}`, image.base64, image.ext);
-    const galleryImage = await input.characterGallery.create({
-      characterId: input.account.entityId,
-      filePath,
-      prompt: finalPrompt,
-      provider,
-      model: imageModel || "unknown",
-      width: imageSettings.illustration.width,
-      height: imageSettings.illustration.height,
-    });
     return {
-      imageUrl: characterGalleryImageUrl(input.account.entityId, filePath),
+      imageUrl: characterGalleryImageUrl(input.account.entityId, file.filePath),
       metadata: {
         imageGenerated: true,
         imageProvider: provider,
         imageModel: imageModel || "unknown",
         imageStyleProfileId: compiledPrompt.profile.id,
-        characterGalleryImageId: galleryImage?.id ?? null,
       },
       preview: null,
+      stagedMedia: {
+        file,
+        characterGalleryInput: {
+          characterId: input.account.entityId,
+          filePath: file.filePath,
+          prompt: finalPrompt,
+          provider,
+          model: imageModel || "unknown",
+          width: imageSettings.illustration.width,
+          height: imageSettings.illustration.height,
+        },
+      } satisfies StagedNoodlePostMedia,
     };
   }
-  const filePath = saveImageToDisk("noodle", image.base64, image.ext);
   return {
-    imageUrl: galleryImageUrl(filePath, "noodle"),
+    imageUrl: galleryImageUrl(file.filePath, "noodle"),
     metadata: {
       imageGenerated: true,
       imageProvider: provider,
@@ -256,6 +284,7 @@ export async function generateNoodlePostImage(input: {
       imageStyleProfileId: compiledPrompt.profile.id,
     },
     preview: null,
+    stagedMedia: { file } satisfies StagedNoodlePostMedia,
   };
 }
 
@@ -286,16 +315,33 @@ export function createPublicNoodleImagesService(db: DB) {
       }
 
       for (const promptOverride of input.prompts) {
-        const post = await noodle.getPostById(promptOverride.id);
-        if (!post || !post.imagePrompt || post.imageUrl) continue;
+        const claimToken = newId();
+        const post = await noodle.claimPostImage(promptOverride.id, claimToken, imageClaimLeaseUntil());
+        if (!post) continue;
         const account = await noodle.getAccountById(post.authorAccountId);
-        if (!account) continue;
+        if (!account) {
+          await noodle.releasePostImageClaim(post.id, claimToken);
+          continue;
+        }
+        let claimOwned = true;
+        const renewClaim = async () => {
+          if (!claimOwned) return;
+          try {
+            claimOwned = await noodle.renewPostImageClaim(post.id, claimToken, imageClaimLeaseUntil());
+          } catch (error) {
+            claimOwned = false;
+            logger.warn(error, "[noodle] Failed to renew reviewed image claim for post %s", post.id);
+          }
+        };
+        const renewalTimer = setInterval(() => void renewClaim(), REVIEWED_IMAGE_CLAIM_RENEW_MS);
+        renewalTimer.unref?.();
+        let generatedImage: Awaited<ReturnType<typeof generateNoodlePostImage>>;
         try {
-          const generatedImage = await generateNoodlePostImage({
+          generatedImage = await generateNoodlePostImage({
             account,
             referenceAccounts: [account],
             postContent: post.content,
-            draftPrompt: post.imagePrompt,
+            draftPrompt: post.imagePrompt!,
             settings,
             characters,
             characterGallery,
@@ -305,20 +351,56 @@ export function createPublicNoodleImagesService(db: DB) {
             debugMode: input.debugMode,
             promptOverride,
           });
-          await noodle.updatePostMedia(post.id, {
-            imageUrl: generatedImage.imageUrl,
-            metadata: generatedImage.metadata,
-          });
         } catch (error) {
           logger.warn(error, "[noodle] Failed to generate reviewed image for %s", account.displayName);
-          await noodle.updatePostMedia(post.id, {
-            imageUrl: null,
-            imagePrompt: null,
-            metadata: {
-              imageGenerationFailed: true,
-              imageGenerationError: getErrorMessage(error).slice(0, 500),
-            },
+          clearInterval(renewalTimer);
+          await renewClaim();
+          if (claimOwned) {
+            await noodle.finalizePostImageClaim(post.id, claimToken, {
+              imageUrl: null,
+              imagePrompt: null,
+              metadata: {
+                imageGenerationFailed: true,
+                imageGenerationError: getErrorMessage(error).slice(0, 500),
+              },
+            });
+          }
+          continue;
+        }
+
+        clearInterval(renewalTimer);
+        await renewClaim();
+        if (!claimOwned) {
+          generatedImage.stagedMedia?.file.compensate();
+          continue;
+        }
+        try {
+          generatedImage.stagedMedia?.file.promote();
+          await db.transaction(async (tx) => {
+            const txNoodle = createNoodleStorage(tx);
+            const txCharacterGallery = createCharacterGalleryStorage(tx);
+            const galleryImage = generatedImage.stagedMedia?.characterGalleryInput
+              ? await txCharacterGallery.create(generatedImage.stagedMedia.characterGalleryInput)
+              : null;
+            const finalized = await txNoodle.finalizePostImageClaim(post.id, claimToken, {
+              imageUrl: generatedImage.imageUrl,
+              metadata: {
+                ...generatedImage.metadata,
+                ...(galleryImage ? { characterGalleryImageId: galleryImage.id } : {}),
+              },
+            });
+            if (!finalized) throw new Error("Reviewed Noodle image claim was lost during finalization.");
           });
+        } catch (error) {
+          generatedImage.stagedMedia?.file.compensate();
+          try {
+            await noodle.releasePostImageClaim(post.id, claimToken);
+          } catch (releaseError) {
+            logger.warn(releaseError, "[noodle] Failed to release reviewed image claim for post %s", post.id);
+          }
+          throw error;
+        } finally {
+          clearInterval(renewalTimer);
         }
       }
       return { ok: true, bootstrap: await bootstrapVisibleNoodle(noodle, characters) };

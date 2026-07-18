@@ -31,6 +31,8 @@ export const noodlePosts = fileTable("noodle_posts", {
   content: text("content").notNull().default(""),
   imageUrl: text("image_url"),
   imagePrompt: text("image_prompt"),
+  imageClaimToken: text("image_claim_token"),
+  imageClaimLeaseUntil: text("image_claim_lease_until"),
   parentPostId: text("parent_post_id"),
   quotePostId: text("quote_post_id"),
   source: text("source").notNull().default("manual"),

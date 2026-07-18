@@ -81,10 +81,7 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
  * but do not contradict comic pages or other prompts that explicitly request
  * lettering. User- and agent-authored negative prompts remain intact.
  */
-export function mergeIllustratorNegativePrompt(
-  prompt: string,
-  negativePrompt?: string | null,
-): string {
+export function mergeIllustratorNegativePrompt(prompt: string, negativePrompt?: string | null): string {
   const builtInNegativePrompt = illustratorPromptRequestsRenderedText(prompt)
     ? ILLUSTRATOR_NON_TEXT_ARTIFACT_NEGATIVE_PROMPT
     : ILLUSTRATOR_TEXT_NEGATIVE_PROMPT;
@@ -137,21 +134,19 @@ function buildNameAliases(name: string, opts: { includeStandaloneTokens?: boolea
   return [...aliases].sort((a, b) => b.length - a.length);
 }
 
-export function readIllustratorAppearance(data: Record<string, unknown>): string | null {
-  const extensions = parseRecord(data.extensions);
-  const raw =
-    typeof extensions.appearance === "string"
-      ? extensions.appearance
-      : typeof data.appearance === "string"
-        ? data.appearance
-        : "";
-  const cleaned = stripMacroComments(raw).replace(/\s+/g, " ").trim();
+export function normalizeIllustratorAppearance(value: unknown): string | null {
+  const cleaned = typeof value === "string" ? stripMacroComments(value).replace(/\s+/g, " ").trim() : "";
   if (!cleaned) return null;
   if (cleaned.length <= MAX_ILLUSTRATOR_APPEARANCE_CHARS) return cleaned;
   const limit = MAX_ILLUSTRATOR_APPEARANCE_CHARS - 3;
   const clipped = cleaned.slice(0, limit).trimEnd();
   const wordBoundary = clipped.lastIndexOf(" ");
   return `${(wordBoundary > 0 ? clipped.slice(0, wordBoundary) : clipped).trimEnd()}...`;
+}
+
+export function readIllustratorAppearance(data: Record<string, unknown>): string | null {
+  const extensions = parseRecord(data.extensions);
+  return normalizeIllustratorAppearance(extensions.appearance) ?? normalizeIllustratorAppearance(data.appearance);
 }
 
 function textContainsAlias(normalizedText: string, alias: string): boolean {
@@ -202,7 +197,7 @@ export async function resolveIllustratorCharacterReferences(args: {
       id: character.id,
       name: character.name,
       avatarPath: character.avatarPath ?? fromDb?.avatarPath ?? null,
-      appearance: character.appearance ?? fromDb?.appearance ?? null,
+      appearance: normalizeIllustratorAppearance(character.appearance) ?? fromDb?.appearance ?? null,
       aliases: buildNameAliases(character.name),
       promptAliases: buildNameAliases(character.name, { includeStandaloneTokens: false }),
       sourceOrder: index,
@@ -258,7 +253,7 @@ export async function resolveIllustratorCharacterReferences(args: {
   const appearanceNames: string[] = [];
 
   const pushAppearanceLine = (name: string, appearance: string | null | undefined) => {
-    const trimmed = appearance?.trim();
+    const trimmed = normalizeIllustratorAppearance(appearance);
     if (!trimmed || appearanceNames.includes(name)) return;
     appearanceNames.push(name);
     appearanceLines.push(`${name}'s Appearance: ${trimmed}`);
@@ -305,7 +300,6 @@ export async function resolveIllustratorCharacterReferences(args: {
         ? `Attached are reference images of ${referenceNames.join(", ")}. Use them only to preserve character likeness and visual identity; the written scene prompt is authoritative for composition, setting, action, mood, framing, and whether any text appears.`
         : null,
     appearanceNames,
-    appearanceBlock:
-      appearanceLines.length > 0 ? `Character appearance notes:\n${appearanceLines.join("\n")}` : null,
+    appearanceBlock: appearanceLines.length > 0 ? `Character appearance notes:\n${appearanceLines.join("\n")}` : null,
   };
 }

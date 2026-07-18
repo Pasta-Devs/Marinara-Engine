@@ -15,6 +15,7 @@ export type PromptAttachment = {
 
 const IMAGE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 6 * 1024 * 1024;
 const FILE_ATTACHMENT_PROVIDER_BYTE_LIMIT = 20 * 1024 * 1024;
+const READABLE_ATTACHMENT_PROMPT_BYTE_LIMIT = 20 * 1024 * 1024;
 const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "csv",
   "json",
@@ -32,7 +33,10 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 export function parseExtra(extra: unknown): Record<string, unknown> {
   if (!extra) return {};
   try {
-    return typeof extra === "string" ? JSON.parse(extra) : (extra as Record<string, unknown>);
+    const parsed: unknown = typeof extra === "string" ? JSON.parse(extra) : extra;
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }
@@ -57,7 +61,7 @@ export function extractFileAttachmentInputs(
   return (attachments ?? []).flatMap((attachment) => {
     const type = normalizeProviderFileAttachmentType(attachment);
     if (!type || typeof attachment.data !== "string") return [];
-    if (estimateDataUrlBytes(attachment.data) > FILE_ATTACHMENT_PROVIDER_BYTE_LIMIT) return [];
+    if (estimateDataUrlBytes(attachment.data) > READABLE_ATTACHMENT_PROMPT_BYTE_LIMIT) return [];
     const data = normalizeDataUrlMimeType(attachment.data, type);
     if (!data) return [];
     return [{ type, data, filename: getAttachmentFilename(attachment) }];
@@ -86,11 +90,13 @@ function estimateDataUrlBytes(dataUrl: string): number {
   const meta = dataUrl.slice(0, commaIndex).toLowerCase();
   const payload = dataUrl.slice(commaIndex + 1);
   if (!meta.includes(";base64")) {
-    try {
-      return Buffer.byteLength(decodeURIComponent(payload), "utf8");
-    } catch {
-      return Buffer.byteLength(payload, "utf8");
+    let bytes = 0;
+    let segmentStart = 0;
+    for (const match of payload.matchAll(/%[0-9a-f]{2}/gi)) {
+      bytes += Buffer.byteLength(payload.slice(segmentStart, match.index), "utf8") + 1;
+      segmentStart = match.index + match[0].length;
     }
+    return bytes + Buffer.byteLength(payload.slice(segmentStart), "utf8");
   }
 
   const padding = payload.endsWith("==") ? 2 : payload.endsWith("=") ? 1 : 0;
@@ -138,6 +144,7 @@ export function escapeXmlAttribute(value: string): string {
 export function buildReadableAttachmentBlocks(attachments: PromptAttachment[] | undefined): string[] {
   return (attachments ?? []).flatMap((attachment) => {
     if (!isReadableTextAttachment(attachment) || typeof attachment.data !== "string") return [];
+    if (estimateDataUrlBytes(attachment.data) > FILE_ATTACHMENT_PROVIDER_BYTE_LIMIT) return [];
     const decoded = decodeDataUrlText(attachment.data);
     if (!decoded?.trim()) return [];
 

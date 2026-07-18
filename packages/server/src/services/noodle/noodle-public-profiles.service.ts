@@ -60,6 +60,19 @@ function profileSetupMaxTokens(characterCount: number) {
   return 1024 + Math.max(0, characterCount) * 1024;
 }
 
+export function buildNoodleProfileTargetBlock(
+  account: Pick<NoodleAccount, "entityId" | "displayName" | "handle">,
+  row: { id: string; data: unknown },
+) {
+  return [
+    `<profile_target entityId="${escapePromptAttribute(account.entityId)}" currentName="${escapePromptAttribute(
+      account.displayName,
+    )}" currentHandle="${escapePromptAttribute(account.handle)}">`,
+    characterContextFromRow(row),
+    `</profile_target>`,
+  ].join("\n");
+}
+
 export async function generateMissingNoodleProfiles(input: {
   noodle: ReturnType<typeof createNoodleStorage>;
   characters: ReturnType<typeof createCharactersStorage>;
@@ -82,15 +95,7 @@ export async function generateMissingNoodleProfiles(input: {
   }
   if (targets.length === 0) return;
 
-  const characterBlocks = targets
-    .map(({ account, row }) =>
-      [
-        `<profile_target entityId="${account.entityId}" currentName="${account.displayName}" currentHandle="${account.handle}">`,
-        characterContextFromRow(row),
-        `</profile_target>`,
-      ].join("\n"),
-    )
-    .join("\n\n");
+  const characterBlocks = targets.map(({ account, row }) => buildNoodleProfileTargetBlock(account, row)).join("\n\n");
   const outputFormat = [
     NOODLE_JSON_OUTPUT_HEADING,
     JSON.stringify(

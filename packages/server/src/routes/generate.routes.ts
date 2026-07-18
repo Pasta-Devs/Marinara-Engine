@@ -1126,6 +1126,7 @@ export async function generateRoutes(app: FastifyInstance) {
             attachments,
             imageCaptioning: imageCaptioningRuntime,
             signal: abortController.signal,
+            debugMode: requestDebug,
           });
           if (typeof regenMsg.id === "string" && attachmentInputs.updatedAttachments) {
             try {
@@ -1230,6 +1231,7 @@ export async function generateRoutes(app: FastifyInstance) {
           attachments,
           imageCaptioning: imageCaptioningRuntime,
           signal: abortController.signal,
+          debugMode: requestDebug,
         });
         await persistPromptAttachmentCaptions(
           typeof m.id === "string" ? m.id : null,

@@ -32,7 +32,10 @@ import {
 import { processLorebooks } from "../lorebook/index.js";
 import { buildPromptMacroContext, resolveMacrosWithVariableSnapshot } from "../prompt/index.js";
 import type { DB } from "../../db/connection.js";
-import { generateImageCaptionForDataUrl, type ImageCaptioningRuntime } from "../generation/image-captioning-runtime.js";
+import {
+  generateImageCaptionsForDataUrls,
+  type ImageCaptioningRuntime,
+} from "../generation/image-captioning-runtime.js";
 import {
   formatNoodleVisionManifest,
   prepareNoodleVisionAttachments,
@@ -168,7 +171,7 @@ function messageRoleLabel(role: string) {
   return "system";
 }
 
-async function buildOptedInChatContext(
+export async function buildOptedInChatContext(
   chats: ReturnType<typeof createChatsStorage>,
   characters: ReturnType<typeof createCharactersStorage>,
   selectedCharacterIds: string[],
@@ -178,8 +181,7 @@ async function buildOptedInChatContext(
   const allChats = await chats.list();
   const relevant = allChats
     .filter((chat) => parseRecord(chat.metadata).noodleTimelineContextEnabled === true)
-    .filter((chat) => parseStringArray(chat.characterIds).some((characterId) => selected.has(characterId)))
-    .slice(0, NOODLE_CHAT_CONTEXT_CHAT_LIMIT);
+    .filter((chat) => parseStringArray(chat.characterIds).some((characterId) => selected.has(characterId)));
   const blocks: string[] = [];
   const characterNameCache = new Map<string, string>();
   const personaNameCache = new Map<string, string>();
@@ -241,6 +243,7 @@ async function buildOptedInChatContext(
         `</chat_context>`,
       ].join("\n"),
     );
+    if (blocks.length >= NOODLE_CHAT_CONTEXT_CHAT_LIMIT) break;
   }
   return blocks.length > 0
     ? blocks.join("\n\n")
@@ -257,6 +260,7 @@ export async function buildRefreshPrompt(input: {
   personaAccount: NoodleAccount | null;
   settings: NoodleSettings;
   imageCaptioning: ImageCaptioningRuntime;
+  debugMode: boolean;
 }) {
   const activeCharacters = input.activeAccounts.filter((account) => account.kind === "character");
   const activeRandomUsers = input.activeAccounts.filter((account) => account.kind === "random_user");
@@ -417,21 +421,20 @@ export async function buildRefreshPrompt(input: {
   const captionedImages = new Map<string, string>();
   let visionAttachments: NoodleVisionAttachment[] = visionCandidates;
   if (input.imageCaptioning.enabled) {
-    const captionResults = await Promise.all(
-      visionCandidates.map(async (attachment) => ({
+    const captionResults = await generateImageCaptionsForDataUrls(
+      visionCandidates.map((attachment) => ({
+        filename: attachment.key,
+        imageDataUrl: attachment.dataUrl,
         attachment,
-        caption: await generateImageCaptionForDataUrl(
-          attachment.key,
-          attachment.dataUrl,
-          input.imageCaptioning,
-          AbortSignal.timeout(120_000),
-        ),
       })),
+      input.imageCaptioning,
+      AbortSignal.timeout(120_000),
+      input.debugMode,
     );
     visionAttachments = [];
     for (const result of captionResults) {
-      if (result.caption) captionedImages.set(result.attachment.key, result.caption);
-      else visionAttachments.push(result.attachment);
+      if (result.caption) captionedImages.set(result.input.attachment.key, result.caption);
+      else visionAttachments.push(result.input.attachment);
     }
   }
   const attachedImageKeys = new Set(visionAttachments.map((attachment) => attachment.key));

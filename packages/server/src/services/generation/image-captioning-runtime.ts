@@ -1,6 +1,7 @@
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 
-import { logger } from "../../lib/logger.js";
+import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
+import { logger, logDebugOverride } from "../../lib/logger.js";
 import { applyProviderMaxTokensOverride } from "./generation-parameters.js";
 import { getLocalSidecarProvider } from "../llm/local-sidecar.js";
 import type { BaseLLMProvider } from "../llm/base-provider.js";
@@ -59,6 +60,8 @@ export const DISABLED_IMAGE_CAPTIONING: ImageCaptioningRuntime = {
 
 const IMAGE_CAPTION_MAX_TOKENS = 700;
 const IMAGE_CAPTION_MAX_CHARS = 4_000;
+const IMAGE_CAPTION_MAX_GENERATIONS = 8;
+const IMAGE_CAPTION_CONCURRENCY = 2;
 
 export async function resolveImageCaptioningRuntime(args: {
   chatMeta: Record<string, unknown>;
@@ -194,35 +197,39 @@ export async function generateImageCaptionForDataUrl(
   imageDataUrl: string,
   imageCaptioning: ImageCaptioningRuntime,
   signal: AbortSignal,
+  debugMode = false,
 ): Promise<string | null> {
   if (!imageCaptioning.provider || !imageCaptioning.connection) return null;
   try {
-    const result = await imageCaptioning.provider.chatComplete(
-      [
-        {
-          role: "system",
-          content:
-            "You describe image attachments for a downstream chat model that may not support vision. " +
-            "Write a faithful, concise description of the visible content, including readable text, subjects, setting, style, and any details important for conversation continuity. " +
-            "Do not answer the chat and do not add speculation beyond what is visible.",
-        },
-        {
-          role: "user",
-          content: `Describe this image attachment named "${filename}" for use inside a chat prompt. Return only the description.`,
-          images: [imageDataUrl],
-        },
-      ],
+    const messages = [
       {
-        model: imageCaptioning.connection.model,
-        temperature: 0.2,
-        maxTokens: applyProviderMaxTokensOverride(imageCaptioning.provider, IMAGE_CAPTION_MAX_TOKENS),
-        enableCaching: imageCaptioning.connection.enableCaching === "true",
-        anthropicExtendedCacheTtl: imageCaptioning.connection.anthropicExtendedCacheTtl === "true",
-        cachingAtDepth: imageCaptioning.connection.cachingAtDepth ?? 5,
-        stream: false,
-        signal,
+        role: "system" as const,
+        content:
+          "You describe image attachments for a downstream chat model that may not support vision. " +
+          "Write a faithful, concise description of the visible content, including readable text, subjects, setting, style, and any details important for conversation continuity. " +
+          "Do not answer the chat and do not add speculation beyond what is visible.",
       },
+      {
+        role: "user" as const,
+        content: `Describe this image attachment named "${filename}" for use inside a chat prompt. Return only the description.`,
+        images: [imageDataUrl],
+      },
+    ];
+    logDebugOverride(
+      debugMode || isDebugAgentsEnabled(),
+      "[debug/image-captioning] Final provider messages:\n%s",
+      JSON.stringify(messages, null, 2),
     );
+    const result = await imageCaptioning.provider.chatComplete(messages, {
+      model: imageCaptioning.connection.model,
+      temperature: 0.2,
+      maxTokens: applyProviderMaxTokensOverride(imageCaptioning.provider, IMAGE_CAPTION_MAX_TOKENS),
+      enableCaching: imageCaptioning.connection.enableCaching === "true",
+      anthropicExtendedCacheTtl: imageCaptioning.connection.anthropicExtendedCacheTtl === "true",
+      cachingAtDepth: imageCaptioning.connection.cachingAtDepth ?? 5,
+      stream: false,
+      signal,
+    });
     return normalizeImageCaptionText(result.content);
   } catch (error) {
     if (signal.aborted) throw error;
@@ -231,11 +238,41 @@ export async function generateImageCaptionForDataUrl(
   }
 }
 
+export async function generateImageCaptionsForDataUrls<T extends { filename: string; imageDataUrl: string }>(
+  inputs: T[],
+  imageCaptioning: ImageCaptioningRuntime,
+  signal: AbortSignal,
+  debugMode = false,
+): Promise<Array<{ input: T; caption: string | null }>> {
+  const results = new Array<{ input: T; caption: string | null }>(inputs.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(IMAGE_CAPTION_CONCURRENCY, inputs.length) }, async () => {
+    while (nextIndex < inputs.length) {
+      signal.throwIfAborted();
+      const index = nextIndex++;
+      const input = inputs[index]!;
+      results[index] = {
+        input,
+        caption: await generateImageCaptionForDataUrl(
+          input.filename,
+          input.imageDataUrl,
+          imageCaptioning,
+          signal,
+          debugMode,
+        ),
+      };
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 export async function resolvePromptAttachmentInputs(args: {
   content: string;
   attachments: PromptAttachment[] | undefined;
   imageCaptioning: ImageCaptioningRuntime;
   signal: AbortSignal;
+  debugMode?: boolean;
 }): Promise<PromptAttachmentResolution> {
   const { attachments, imageCaptioning, signal } = args;
   const files = extractFileAttachmentInputs(attachments);
@@ -255,35 +292,49 @@ export async function resolvePromptAttachmentInputs(args: {
   let updatedAttachments: PromptAttachment[] | null = null;
   const sourceAttachments = attachments ?? [];
   const captionConnection = imageCaptioning.connection;
-  const resolvedImages = await Promise.all(
-    sourceAttachments.map(async (attachment, index) => {
-      const imageDataUrl = extractImageAttachmentDataUrls([attachment])[0];
-      if (!imageDataUrl) return null;
-
-      let caption = readCachedImageCaption(attachment, imageCaptioning);
-      let updatedAttachment: PromptAttachment | null = null;
-      if (!caption) {
-        caption = await generateImageCaptionForDataUrl(
-          getAttachmentFilename(attachment),
-          imageDataUrl,
-          imageCaptioning,
-          signal,
-        );
-        if (caption) {
-          updatedAttachment = {
-            ...attachment,
-            imageCaption: caption,
-            imageCaptionConnectionId: imageCaptioning.connectionId,
-            imageCaptionModel: captionConnection.model,
-            imageCaptionProvider: captionConnection.provider,
-            imageCaptionedAt: new Date().toISOString(),
-          };
-        }
-      }
-
-      return { index, attachment, imageDataUrl, caption, updatedAttachment };
-    }),
+  const resolvedImages: Array<{
+    index: number;
+    attachment: PromptAttachment;
+    imageDataUrl: string;
+    caption: string | null;
+    updatedAttachment: PromptAttachment | null;
+  } | null> = sourceAttachments.map((attachment, index) => {
+    const imageDataUrl = extractImageAttachmentDataUrls([attachment])[0];
+    if (!imageDataUrl) return null;
+    return {
+      index,
+      attachment,
+      imageDataUrl,
+      caption: readCachedImageCaption(attachment, imageCaptioning),
+      updatedAttachment: null,
+    };
+  });
+  const captionsToGenerate = resolvedImages
+    .filter((result): result is NonNullable<typeof result> => result !== null && result.caption === null)
+    .slice(0, IMAGE_CAPTION_MAX_GENERATIONS);
+  const generatedCaptions = await generateImageCaptionsForDataUrls(
+    captionsToGenerate.map((result) => ({
+      filename: getAttachmentFilename(result.attachment),
+      imageDataUrl: result.imageDataUrl,
+      result,
+    })),
+    imageCaptioning,
+    signal,
+    args.debugMode,
   );
+  for (const { input, caption } of generatedCaptions) {
+    input.result.caption = caption;
+    if (caption) {
+      input.result.updatedAttachment = {
+        ...input.result.attachment,
+        imageCaption: caption,
+        imageCaptionConnectionId: imageCaptioning.connectionId,
+        imageCaptionModel: captionConnection.model,
+        imageCaptionProvider: captionConnection.provider,
+        imageCaptionedAt: new Date().toISOString(),
+      };
+    }
+  }
 
   for (const result of resolvedImages) {
     if (!result) continue;

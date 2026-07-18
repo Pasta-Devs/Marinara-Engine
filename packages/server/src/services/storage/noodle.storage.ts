@@ -362,6 +362,14 @@ function mapPost(row: PostRow): NoodlePost {
   };
 }
 
+function imageClaimIsAvailable(row: PostRow, at: string) {
+  return (
+    Boolean(row.imagePrompt) &&
+    !row.imageUrl &&
+    (!row.imageClaimToken || !row.imageClaimLeaseUntil || row.imageClaimLeaseUntil <= at)
+  );
+}
+
 function mapInteraction(row: InteractionRow): NoodleInteraction {
   return {
     id: row.id,
@@ -833,6 +841,10 @@ export function createNoodleStorage(db: DB) {
         .set({
           ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
           ...(input.imagePrompt !== undefined && { imagePrompt: input.imagePrompt }),
+          ...((input.imageUrl !== undefined || input.imagePrompt !== undefined) && {
+            imageClaimToken: null,
+            imageClaimLeaseUntil: null,
+          }),
           ...(input.metadata !== undefined && {
             metadata: JSON.stringify({ ...existing.metadata, ...input.metadata }),
           }),
@@ -840,6 +852,87 @@ export function createNoodleStorage(db: DB) {
         })
         .where(eq(noodlePosts.id, id));
       return this.getPostById(id);
+    },
+
+    async claimPostImage(id: string, token: string, leaseUntil: string, at = now()): Promise<NoodlePost | null> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+        const row = rows[0];
+        if (!row || !imageClaimIsAvailable(row, at)) return null;
+        await tx
+          .update(noodlePosts)
+          .set({ imageClaimToken: token, imageClaimLeaseUntil: leaseUntil })
+          .where(eq(noodlePosts.id, id));
+        return mapPost(row);
+      });
+    },
+
+    async renewPostImageClaim(id: string, token: string, leaseUntil: string, at = now()): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+        const row = rows[0];
+        if (
+          !row ||
+          row.imageClaimToken !== token ||
+          !row.imageClaimLeaseUntil ||
+          row.imageClaimLeaseUntil <= at ||
+          !row.imagePrompt ||
+          row.imageUrl
+        ) {
+          return false;
+        }
+        await tx
+          .update(noodlePosts)
+          .set({ imageClaimLeaseUntil: leaseUntil })
+          .where(and(eq(noodlePosts.id, id), eq(noodlePosts.imageClaimToken, token)));
+        return true;
+      });
+    },
+
+    async releasePostImageClaim(id: string, token: string): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+        if (rows[0]?.imageClaimToken !== token) return false;
+        await tx
+          .update(noodlePosts)
+          .set({ imageClaimToken: null, imageClaimLeaseUntil: null })
+          .where(and(eq(noodlePosts.id, id), eq(noodlePosts.imageClaimToken, token)));
+        return true;
+      });
+    },
+
+    async finalizePostImageClaim(
+      id: string,
+      token: string,
+      input: { imageUrl: string | null; imagePrompt?: string | null; metadata: Record<string, unknown> },
+      at = now(),
+    ): Promise<boolean> {
+      return db.transaction(async (tx) => {
+        const rows = await tx.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+        const row = rows[0];
+        if (
+          !row ||
+          row.imageClaimToken !== token ||
+          !row.imageClaimLeaseUntil ||
+          row.imageClaimLeaseUntil <= at ||
+          !row.imagePrompt ||
+          row.imageUrl
+        ) {
+          return false;
+        }
+        await tx
+          .update(noodlePosts)
+          .set({
+            imageUrl: input.imageUrl,
+            ...(input.imagePrompt !== undefined && { imagePrompt: input.imagePrompt }),
+            metadata: JSON.stringify({ ...parseRecord(row.metadata), ...input.metadata }),
+            imageClaimToken: null,
+            imageClaimLeaseUntil: null,
+            updatedAt: now(),
+          })
+          .where(and(eq(noodlePosts.id, id), eq(noodlePosts.imageClaimToken, token)));
+        return true;
+      });
     },
 
     async updatePost(id: string, input: NoodlePostUpdateInput): Promise<NoodlePost | null> {
@@ -851,6 +944,10 @@ export function createNoodleStorage(db: DB) {
           ...(input.content !== undefined && { content: input.content.trim().slice(0, 4000) }),
           ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
           ...(input.imagePrompt !== undefined && { imagePrompt: input.imagePrompt }),
+          ...((input.imageUrl !== undefined || input.imagePrompt !== undefined) && {
+            imageClaimToken: null,
+            imageClaimLeaseUntil: null,
+          }),
           updatedAt: now(),
         })
         .where(eq(noodlePosts.id, id));

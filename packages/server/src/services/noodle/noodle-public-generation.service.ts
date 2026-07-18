@@ -21,7 +21,7 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createNoodleStorage } from "../storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
-import { persistGeneratedNoodleActivity } from "./noodle-generated-activity.service.js";
+import { commitGeneratedNoodleActivity, prepareGeneratedNoodleMedia } from "./noodle-generated-activity.service.js";
 import { parseNoodleGeneratedRefresh, validateNoodleGeneratedRefresh } from "./noodle-generated-refresh.js";
 import { normalizeNoodleHandle } from "./noodle-handle.js";
 import { chooseNoodleParticipantAccounts, collectNoodlePriorityAccountIds } from "./noodle-participant-selection.js";
@@ -106,6 +106,10 @@ function sinceHoursIso(hours: number) {
 
 function timelineRefreshMaxTokens(characterCount: number) {
   return 4096 + Math.max(0, characterCount) * 1024;
+}
+
+export function formatNoodleMessagesForLog(messages: readonly ChatMessage[]) {
+  return messages.map((message) => `${message.role.toUpperCase()}:\n${message.content}`).join("\n\n");
 }
 
 async function ensureRandomUserAccounts(noodle: ReturnType<typeof createNoodleStorage>) {
@@ -257,6 +261,7 @@ export function createPublicNoodleGenerationService(db: DB) {
           personaAccount,
           settings,
           imageCaptioning,
+          debugMode,
         });
         logDebugOverride(debugMode, "[debug/noodle] Prompt sent to model:\n%s", prompt.promptForLog);
         if (prompt.visionAttachmentCount > 0)
@@ -359,10 +364,13 @@ export function createPublicNoodleGenerationService(db: DB) {
             `Follow targets may additionally use these known handles: ${knownTargetHandles.join(", ")}.`,
             "Do not invent, rename, or omit an authorHandle, actorHandle, or targetHandle. Return JSON only.",
           ].join("\n");
-          result = await provider.chatComplete(
-            [...requestMessages, { role: "user", content: correction }],
-            completionOptions,
+          const correctionMessages = [...requestMessages, { role: "user" as const, content: correction }];
+          logDebugOverride(
+            debugMode,
+            "[debug/noodle] Correction prompt sent to model:\n%s",
+            formatNoodleMessagesForLog(correctionMessages),
           );
+          result = await provider.chatComplete(correctionMessages, completionOptions);
           content = result.content ?? "";
           logDebugOverride(
             debugMode,
@@ -403,9 +411,8 @@ export function createPublicNoodleGenerationService(db: DB) {
             rejected.issueCount === 1 ? "" : "s",
           );
         }
-        const activity = await persistGeneratedNoodleActivity({
+        const preparedMedia = await prepareGeneratedNoodleMedia({
           db,
-          noodle,
           characters,
           chats,
           gallery,
@@ -418,10 +425,19 @@ export function createPublicNoodleGenerationService(db: DB) {
           imageConnection,
           debugMode,
           reviewImagePromptsBeforeSend: input.reviewImagePromptsBeforeSend,
-          runId,
-          recalledPostIds: prompt.recalledPostIds,
         });
-        await noodle.finishRefreshRun(runId, { status: "completed", result: content });
+        const activity = await commitGeneratedNoodleActivity({
+          db,
+          generated: parsedGenerated.refresh,
+          selectedParticipants,
+          personaAccount,
+          settings,
+          runId,
+          result: content,
+          recalledPostIds: prompt.recalledPostIds,
+          preparedMedia,
+        });
+        run = null;
         return {
           ok: true as const,
           result: {
