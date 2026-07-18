@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
-import { DEFAULT_NOODLE_SETTINGS, noodleRefreshSchema } from "../../packages/shared/src/schemas/noodle.schema.js";
+import {
+  DEFAULT_NOODLE_SETTINGS,
+  noodleGenerationRequestSchema,
+} from "../../packages/shared/src/schemas/noodle.schema.js";
 import { canManageNoodleReply } from "../../packages/shared/src/utils/noodle-interactions.js";
 import type { NoodleAccount, NoodleInteraction, NoodlePost } from "../../packages/shared/src/types/noodle.js";
 import { LIMITS, PROFESSOR_MARI_ID } from "../../packages/shared/src/constants/defaults.js";
@@ -48,7 +51,8 @@ import { normalizeNoodleImagePrompt } from "../../packages/server/src/services/n
 import { characterAppearanceFromRow } from "../../packages/server/src/services/noodle/noodle-public-images.service.js";
 import { buildNoodleProfileTargetBlock } from "../../packages/server/src/services/noodle/noodle-public-profiles.service.js";
 import { buildOptedInChatContext } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
-import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-public-generation.service.js";
+import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-generation-log.js";
+import { buildPrivatePostMessages } from "../../packages/server/src/services/noodle/noodle-private-generation.service.js";
 import { resolveStoredMaxTokens } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import {
@@ -321,7 +325,68 @@ assert.equal(
 assert.equal(canGenerateNoodleActivityForAccountKind("persona"), false);
 assert.equal(canGenerateNoodleActivityForAccountKind("character"), true);
 assert.equal(canGenerateNoodleActivityForAccountKind("random_user"), true);
-assert.equal(noodleRefreshSchema.parse({ reviewImagePromptsBeforeSend: true }).reviewImagePromptsBeforeSend, true);
+assert.equal(
+  noodleGenerationRequestSchema.parse({ mode: "public", reviewImagePromptsBeforeSend: true })
+    .reviewImagePromptsBeforeSend,
+  true,
+);
+assert.equal(noodleGenerationRequestSchema.safeParse({ mode: "public", personaId: "persona-1" }).success, true);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "private",
+    targetAccountId: "private-1",
+    privatePostGuide: "Write about tonight.",
+    privateProjectWork: "Advance the current beat.",
+  }).success,
+  true,
+);
+assert.equal(noodleGenerationRequestSchema.safeParse({}).success, false);
+assert.equal(noodleGenerationRequestSchema.safeParse({ mode: "private" }).success, false);
+assert.equal(noodleGenerationRequestSchema.safeParse({ mode: "public", targetAccountId: "private-1" }).success, false);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "public",
+    privatePostGuide: "Write about tonight.",
+  }).success,
+  false,
+);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "public",
+    privateProjectWork: "Advance the current beat.",
+  }).success,
+  false,
+);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "private",
+    targetAccountId: "private-1",
+    personaId: "persona-1",
+  }).success,
+  false,
+);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "private",
+    targetAccountId: "private-1",
+    reviewImagePromptsBeforeSend: true,
+  }).success,
+  false,
+);
+const privatePostMessages = buildPrivatePostMessages({
+  account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },
+  recentPosts: [],
+  request: {
+    privatePostGuide: "Write about tonight.",
+    privateProjectWork: "Advance the current beat.",
+  },
+});
+assert.match(privatePostMessages[0]?.content ?? "", /exactly one post for one private NoodleR creator page/u);
+assert.match(privatePostMessages[0]?.content ?? "", /Do not infer or reveal a linked public identity/u);
+assert.match(privatePostMessages[1]?.content ?? "", /Private Name/u);
+assert.match(privatePostMessages[1]?.content ?? "", /Write about tonight\./u);
+assert.match(privatePostMessages[1]?.content ?? "", /Advance the current beat\./u);
+assert.doesNotMatch(privatePostMessages.map((message) => message.content).join("\n"), /subscriber|PPV|disclosure/u);
 assert.match(NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION, /controlled exclusively by the user/u);
 assert.match(
   NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION,

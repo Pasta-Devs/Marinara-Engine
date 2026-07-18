@@ -795,6 +795,56 @@ export function createNoodleStorage(db: DB) {
       return rows.map(mapPost);
     },
 
+    async listPrivatePostsByAccount(accountId: string, limit = 8): Promise<NoodlePost[]> {
+      const account = await this.getPrivateAccountById(accountId);
+      if (!account) return [];
+      const rows = await db
+        .select()
+        .from(noodlePosts)
+        .where(eq(noodlePosts.authorAccountId, accountId))
+        .orderBy(desc(noodlePosts.createdAt))
+        .limit(Math.max(1, Math.min(50, Math.floor(limit))));
+      return rows.map(mapPost);
+    },
+
+    async getPrivatePostById(id: string): Promise<NoodlePost | null> {
+      const rows = await db.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+      const row = rows[0];
+      if (!row || !(await this.getPrivateAccountById(row.authorAccountId))) return null;
+      return mapPost(row);
+    },
+
+    async createPrivatePost(
+      input: Omit<NoodleCreatePostInput, "authorKind" | "authorEntityId"> & {
+        authorAccountId: string;
+        source?: NoodlePostSource;
+        metadata?: Record<string, unknown>;
+      },
+    ): Promise<NoodlePost | null> {
+      const account = await this.getPrivateAccountById(input.authorAccountId);
+      if (!account) return null;
+      const timestamp = now();
+      const id = newId();
+      return db.transaction(async (tx) => {
+        await tx.insert(noodlePosts).values({
+          id,
+          authorAccountId: input.authorAccountId,
+          content: input.content,
+          imageUrl: input.imageUrl ?? null,
+          imagePrompt: input.imagePrompt ?? null,
+          parentPostId: input.parentPostId ?? null,
+          quotePostId: input.quotePostId ?? null,
+          source: input.source ?? "manual",
+          metadata: JSON.stringify(input.metadata ?? {}),
+          authorSnapshot: JSON.stringify(snapshotForAccount(account)),
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        const rows = await tx.select().from(noodlePosts).where(eq(noodlePosts.id, id));
+        return rows[0] ? mapPost(rows[0]) : null;
+      });
+    },
+
     async createPost(
       input: Omit<NoodleCreatePostInput, "authorKind" | "authorEntityId"> & {
         authorAccountId: string;

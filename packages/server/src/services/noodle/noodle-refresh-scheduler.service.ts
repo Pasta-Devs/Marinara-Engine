@@ -128,7 +128,7 @@ export function startNoodleRefreshScheduler(app: FastifyInstance) {
       const response = await app.inject({
         method: "POST",
         url: "/api/noodle/refresh",
-        payload: {},
+        payload: { mode: "public" },
       });
       const completedAt = new Date();
       const latest = await noodle.ensureRefreshSchedule(completedAt);

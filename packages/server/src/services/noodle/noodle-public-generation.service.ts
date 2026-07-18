@@ -40,6 +40,7 @@ import {
 } from "./noodle-public-support.js";
 import { noodleResponseFormat } from "./noodle-response-format.js";
 import { isUnsupportedNoodleVisionInputError } from "./noodle-vision.js";
+import { formatNoodleMessagesForLog } from "./noodle-generation-log.js";
 
 type PublicGenerationConnection = NonNullable<
   Awaited<ReturnType<ReturnType<typeof createConnectionsStorage>["getWithKey"]>>
@@ -107,10 +108,6 @@ function sinceHoursIso(hours: number) {
 
 function timelineRefreshMaxTokens(characterCount: number) {
   return 4096 + Math.max(0, characterCount) * 1024;
-}
-
-export function formatNoodleMessagesForLog(messages: readonly ChatMessage[]) {
-  return messages.map((message) => `${message.role.toUpperCase()}:\n${message.content}`).join("\n\n");
 }
 
 async function ensureRandomUserAccounts(noodle: ReturnType<typeof createNoodleStorage>) {
