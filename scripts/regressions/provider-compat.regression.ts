@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import {
   findKnownModel,
   resolveProviderReasoningEffort,
+  shouldSuppressUnknownModelParameters,
 } from "../../packages/shared/src/constants/model-lists.js";
 import {
   applyGlmThinkingParameters,
@@ -208,6 +209,16 @@ assertStrictObjects(solProfileFormat.schema);
 const glm52 = findKnownModel("custom", "glm-5.2");
 assert.equal(glm52?.context, 1_000_000);
 assert.equal(glm52?.maxOutput, 128_000);
+assert.equal(
+  shouldSuppressUnknownModelParameters("custom", "user-defined-model"),
+  false,
+  "Custom OAI-compatible endpoints must honor the user's parameter switches for unlisted models",
+);
+assert.equal(
+  shouldSuppressUnknownModelParameters("openai", "user-defined-model"),
+  true,
+  "Provider catalogs should keep their existing unknown-model compatibility guard",
+);
 assert.equal(isNativeGlmEndpoint("https://api.z.ai/api/paas/v4/"), true);
 assert.equal(isNativeGlmEndpoint("https://example.com/v1"), false);
 

@@ -65,7 +65,10 @@ type CapabilityModule = {
 };
 
 export function prepareCapabilityRuntimeEnvironment(dataDir = DATA_DIR): void {
-  if (!process.env.DATA_DIR?.trim()) process.env.DATA_DIR = dataDir;
+  // Downloaded runtimes bundle Engine utilities and evaluate them before
+  // activate(context). Give those bundles the host's absolute resolved path;
+  // preserving a relative DATA_DIR would resolve beside the nested server.mjs.
+  process.env.DATA_DIR = dataDir;
 }
 
 async function runCleanups(cleanups: Cleanup[]): Promise<void> {

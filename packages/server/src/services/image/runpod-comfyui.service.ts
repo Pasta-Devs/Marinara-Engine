@@ -16,6 +16,7 @@
 
 import type { ImageGenRequest, ImageGenResult } from "./image-generation.js";
 import {
+  COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
   DEFAULT_COMFYUI_DEFAULTS,
   mergeNegativePrompt,
   mergePromptPrefix,
@@ -32,9 +33,6 @@ const RUNPOD_MAX_POLLS = Math.max(
 );
 const RUNPOD_MAX_RESPONSE_BYTES = 30 * 1024 * 1024;
 const RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES = 4;
-const RUNPOD_COMFYUI_PLACEHOLDER_REFERENCE_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
-
 interface RunPodRunResponse {
   id: string;
 }
@@ -180,7 +178,7 @@ function collectRunPodReferenceImages(request: ImageGenRequest, defaults: ComfyU
     .filter((reference, index, all) => all.indexOf(reference) === index)
     .slice(0, RUNPOD_COMFYUI_MAX_REFERENCE_IMAGES);
   if (references.length > 0) return references;
-  return defaults.uploadPlaceholderOnMissingReference ? [RUNPOD_COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
+  return defaults.uploadPlaceholderOnMissingReference ? [COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
 }
 
 function normalizeRunPodReferenceImageBase64(reference: string): string {

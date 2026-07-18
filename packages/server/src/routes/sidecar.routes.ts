@@ -30,7 +30,9 @@ import { postProcessSceneResult, type PostProcessContext } from "../services/sid
 import {
   SIDECAR_EMBEDDING_POOLING_TYPES,
   SIDECAR_RUNTIME_PREFERENCES,
+  SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
   SIDECAR_SPEECH_MODELS,
+  sceneAnalysisRequestSchema,
   scoreAmbient,
   scoreMusic,
   type GameActiveState,
@@ -436,52 +438,8 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
-  const sceneBodySchema = z.object({
-    narration: z.string().max(16000),
-    playerAction: z.string().max(4000).optional(),
-    context: z.object({
-      currentState: z.string().optional(),
-      availableBackgrounds: z.array(z.string()).optional(),
-      availableSfx: z.array(z.string()).optional(),
-      activeWidgets: z.array(z.unknown()).optional(),
-      trackedNpcs: z.array(z.unknown()).optional(),
-      characterNames: z.array(z.string()).optional(),
-      currentBackground: z.string().nullable().optional(),
-      currentMusic: z.string().nullable().optional(),
-      recentMusic: z.array(z.string()).max(20).optional(),
-      useSpotifyMusic: z.boolean().optional(),
-      availableSpotifyTracks: z
-        .array(
-          z.object({
-            uri: z.string().min(1).max(300),
-            name: z.string().min(1).max(300),
-            artist: z.string().min(1).max(300),
-            album: z.string().max(300).nullable().optional(),
-            position: z.number().nullable().optional(),
-            score: z.number().nullable().optional(),
-          }),
-        )
-        .max(50)
-        .optional(),
-      currentSpotifyTrack: z.string().max(300).nullable().optional(),
-      recentSpotifyTracks: z.array(z.string().max(300)).max(20).optional(),
-      currentAmbient: z.string().nullable().optional(),
-      currentLocation: z.string().nullable().optional(),
-      currentWeather: z.string().nullable().optional(),
-      currentTimeOfDay: z.string().nullable().optional(),
-      genre: z.string().nullable().optional(),
-      setting: z.string().nullable().optional(),
-      worldOverview: z.string().nullable().optional(),
-      canGenerateBackgrounds: z.boolean().optional(),
-      canGenerateIllustrations: z.boolean().optional(),
-      artStylePrompt: z.string().nullable().optional(),
-      imagePromptInstructions: z.string().max(5000).nullable().optional(),
-    }),
-    debugMode: z.boolean().optional().default(false),
-  });
-
   app.post("/analyze-scene", async (req, reply) => {
-    const body = sceneBodySchema.parse(req.body);
+    const body = sceneAnalysisRequestSchema.parse(req.body);
     const requestDebug = body.debugMode === true;
     const debugLogsEnabled = requestDebug || logger.isLevelEnabled("debug");
     const debugLog = (message: string, ...args: any[]) => {
@@ -497,7 +455,12 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
 
     const sceneCtx = body.context as SceneAnalyzerContext;
     const systemPrompt = buildSceneAnalyzerSystemPrompt(sceneCtx);
-    const userPrompt = buildSceneAnalyzerUserPrompt(body.narration, body.playerAction, sceneCtx);
+    const userPrompt = buildSceneAnalyzerUserPrompt(
+      body.narration,
+      body.playerAction,
+      sceneCtx,
+      SIDECAR_SCENE_ANALYSIS_NARRATION_BUDGET_CHARS,
+    );
 
     try {
       if (debugLogsEnabled) {
