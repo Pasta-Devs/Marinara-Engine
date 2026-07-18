@@ -1787,7 +1787,11 @@ export async function charactersRoutes(app: FastifyInstance) {
             portraitFocusY: portraitRecord!.portraitFocusY,
             portraitZoom: portraitRecord!.portraitZoom,
           };
-      return storage.updatePersona(req.params.id, { trackerCardColors: JSON.stringify(next) });
+      return storage.updatePersona(
+        req.params.id,
+        { trackerCardColors: JSON.stringify(next) },
+        { skipVersionSnapshot: true },
+      );
     });
     if (!updated) return reply.status(404).send({ error: "Persona not found" });
     return updated;
