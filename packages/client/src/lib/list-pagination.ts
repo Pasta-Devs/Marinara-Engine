@@ -1,4 +1,4 @@
-export const LIBRARY_PAGE_SIZE = 100;
+export const LIBRARY_PAGE_SIZE = 24;
 
 export type PaginatedList<T> = {
   items: T[];
