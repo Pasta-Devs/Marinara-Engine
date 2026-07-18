@@ -73,6 +73,8 @@ const makeAccount = (id: string): NoodleAccount => ({
 });
 
 assert.strictEqual(resolveStoredMaxTokens(null, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({}, 6144), 6144);
+assert.strictEqual(resolveStoredMaxTokens({ imageGenerationSource: "comfyui" }, 6144), 6144);
 assert.strictEqual(
   resolveStoredMaxTokens(JSON.stringify({ maxTokens: 16_000, enabledParameters: { maxTokens: true } }), 6144),
   16_000,

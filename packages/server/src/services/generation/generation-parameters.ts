@@ -33,6 +33,9 @@ export function resolveStoredMaxTokens(defaultParameters: unknown, calculatedMax
   const source = parsed as Record<string, unknown>;
   const enabledParameters = generationParametersSchema.shape.enabledParameters.safeParse(source.enabledParameters);
   if (enabledParameters.success && enabledParameters.data?.maxTokens === false) return calculatedMaxTokens;
+  if (!Object.prototype.hasOwnProperty.call(source, "maxTokens") || source.maxTokens === undefined) {
+    return calculatedMaxTokens;
+  }
   const maxTokens = generationParametersSchema.shape.maxTokens.safeParse(source.maxTokens);
   return maxTokens.success ? maxTokens.data : calculatedMaxTokens;
 }
