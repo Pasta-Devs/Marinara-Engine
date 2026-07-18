@@ -1677,7 +1677,17 @@ export function createPublicNoodleGenerationService(db: DB): PublicNoodleGenerat
         };
       } catch (error) {
         logger.error(error, "[noodle] Timeline refresh failed");
-        if (run) await noodle.finishRefreshRun(run.id, { status: "failed", error: getErrorMessage(error) });
+        if (run) {
+          try {
+            await noodle.finishRefreshRun(run.id, { status: "failed", error: getErrorMessage(error) });
+          } catch (cleanupError) {
+            logger.error(
+              { err: cleanupError, generationError: error },
+              "[noodle] Failed to persist the failed timeline refresh",
+            );
+            throw new Error("Internal Server Error");
+          }
+        }
         throw error;
       }
     },
