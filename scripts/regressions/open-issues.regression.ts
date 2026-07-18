@@ -692,6 +692,10 @@ const sharedPackageJson = JSON.parse(
 const preserveSharedBuild = sharedPackageJson.scripts?.["build:preserve"] ?? "";
 assert.match(preserveSharedBuild, /tsconfig\.tsbuildinfo/u);
 assert.doesNotMatch(preserveSharedBuild, /\[['"]dist['"]/u);
+const serverPackageJson = JSON.parse(
+  readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
+) as { scripts?: Record<string, string> };
+assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
 const devLauncher = readFileSync(new URL("../../scripts/dev.mjs", import.meta.url), "utf8");
 assert.match(devLauncher, /DEV_PRESERVE_SHARED_DIST/u);
 assert.match(devLauncher, /SHARED_BUILD_SCRIPT/u);
