@@ -1,6 +1,6 @@
 # Managing Your Chat List
 
-This guide covers the chat list in Marinara Engine. It explains the three mode tabs and how to create, import, rename, delete, organize, search, and bulk-manage your chats. It also covers the recent chats row on the Home screen.
+This guide covers the chat list in Guksu Motor. It explains the three mode tabs and how to create, import, rename, delete, organize, search, and bulk-manage your chats. It also covers the recent chats row on the Home screen.
 
 ## The chat list and mode tabs
 
@@ -24,19 +24,19 @@ Some rows show a small branch icon with a number. This means the chat has more t
 
 The new chat is named **New Conversation**, **New Roleplay**, or **New Game**. You can rename it later (see Renaming a chat below).
 
-You need at least one connection before a chat will open. A connection links Marinara to an AI provider. If you have no connection yet, a **Set Up** window appears instead of the chat. It asks you to choose a connection first. If you have none at all, it shows **No connections found** with an **Open Connections** button. To set one up, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+You need at least one connection before a chat will open. A connection links Guksu to an AI provider. If you have no connection yet, a **Set Up** window appears instead of the chat. It asks you to choose a connection first. If you have none at all, it shows **No connections found** with an **Open Connections** button. To set one up, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-If you saved a starred default Chat Settings Preset for that mode, Marinara applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
+If you saved a starred default Chat Settings Preset for that mode, Guksu applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
 
 ## Importing a chat
 
-You can import a chat log saved as a `.jsonl` file, from SillyTavern or from Marinara.
+You can import a chat log saved as a `.jsonl` file, from SillyTavern or from Guksu.
 
 1. Pick the mode tab you want the imported chat to land in.
-2. Click the **Import** button near the top of the panel. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**.
+2. Click the **Import** button near the top of the panel. Its tooltip reads **Import SillyTavern or Guksu chat JSONL**.
 3. Choose your `.jsonl` file.
 
-Marinara creates a new chat in the current tab's mode and opens it. You should see a message that reads **Imported N messages**, where N is the message count.
+Guksu creates a new chat in the current tab's mode and opens it. You should see a message that reads **Imported N messages**, where N is the message count.
 
 For all the ways to import and export chats, including bulk import and export formats, see [Exporting and Importing Chats](export-import.md).
 

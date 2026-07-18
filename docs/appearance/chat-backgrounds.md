@@ -1,6 +1,6 @@
 # Chat Backgrounds
 
-This guide covers the background library in Marinara Engine. These are images you upload and pick from by hand to sit behind your chat. For the **Background** agent that picks a scene backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated scene backgrounds you make from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
+This guide covers the background library in Guksu Motor. These are images you upload and pick from by hand to sit behind your chat. For the **Background** agent that picks a scene backdrop for you each turn, see [Roleplay Backgrounds](../roleplay/backgrounds.md). For AI-generated scene backgrounds you make from the Gallery, see [Scene Backgrounds and the Gallery](../media/scene-backgrounds.md).
 
 ## Where to find backgrounds
 
@@ -16,10 +16,10 @@ A chat background only shows in Roleplay and Game mode chats. Conversation mode 
 
 ## The background library
 
-The library holds every image you can pick from. It mixes images you uploaded with the built-in art bundled with Marinara. Each image shows a small label so you can tell them apart:
+The library holds every image you can pick from. It mixes images you uploaded with the built-in art bundled with Guksu. Each image shows a small label so you can tell them apart:
 
 - **Library**: an image you uploaded yourself. You can rename, tag, and delete these.
-- **Game asset**: a built-in image bundled with Marinara. These are read-only. You cannot rename, tag, or delete them.
+- **Game asset**: a built-in image bundled with Guksu. These are read-only. You cannot rename, tag, or delete them.
 
 ### Import a background
 
@@ -30,7 +30,7 @@ The library holds every image you can pick from. It mixes images you uploaded wi
 
 You can import several files at once. Each file must be an image in one of these formats: JPG, PNG, GIF, WebP, or AVIF. Each file can be up to 20 MB.
 
-Marinara checks the real contents of every file, not just its name. If you rename a non-image file to end in `.png`, the upload is rejected.
+Guksu checks the real contents of every file, not just its name. If you rename a non-image file to end in `.png`, the upload is rejected.
 
 ### Pick a background for the current chat
 
@@ -49,7 +49,7 @@ Use the selector beside search to sort backgrounds **A-Z**, **Z-A**, **Newest**,
 
 Folders organize the library without moving or hiding the underlying image files.
 
-1. Click **New Folder**. Marinara creates a uniquely named folder.
+1. Click **New Folder**. Guksu creates a uniquely named folder.
 2. Double-click or double-tap the folder name to rename it. You can also focus it and press F2.
 3. On desktop, drag a background row into a folder. On a phone or tablet, drag it by the visible grip handle.
 4. Drag a background back into the unfiled area to remove it from its folder.
@@ -71,13 +71,13 @@ You can only rename images with the **Library** label.
 Tags help you group and search your uploads. You can only tag images with the **Library** label.
 
 1. Click the tag icon (**Edit tags**) on the image row.
-2. Type a tag in the **Add tag...** field. As you type, Marinara suggests tags you used before.
+2. Type a tag in the **Add tag...** field. As you type, Guksu suggests tags you used before.
 3. Press Enter or click **Add**.
 4. To remove a tag, click the small X on that tag chip.
 
 ### Delete a background
 
-You can only delete images with the **Library** label. Hover over the image row and click the trash icon, then confirm the deletion. If the image was the current chat background or the default Roleplay background, Marinara switches back to the built-in default for you.
+You can only delete images with the **Library** label. Hover over the image row and click the trash icon, then confirm the deletion. If the image was the current chat background or the default Roleplay background, Guksu switches back to the built-in default for you.
 
 ## Setting a default Roleplay background
 

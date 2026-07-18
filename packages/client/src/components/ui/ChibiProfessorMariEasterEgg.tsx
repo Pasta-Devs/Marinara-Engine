@@ -48,7 +48,7 @@ function showChibiProfessorMariToast() {
         />
         <div className="space-y-2 text-sm leading-relaxed">
           <p>
-            If you see this image while scrolling through Marinara Engine, you've been visited by the rare Chibi
+            If you see this image while scrolling through Guksu Motor, you've been visited by the rare Chibi
             Professor Mari!
           </p>
           <p>Good luck and fortune will come to you very soon. Make sure to say "thank you, Professor!"</p>

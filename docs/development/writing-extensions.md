@@ -1,10 +1,10 @@
 # Writing Extensions (Developers)
 
-This is developer material for people who want to author their own Marinara Engine extensions. It covers the extension manifest format and the browser marinara API. It also covers the CSS sanitization rules, the server extension marinara API and its sandbox, and the bundled example package. If you only want to install an extension someone else made, read the user guide instead: [Extensions](../extending/extensions.md).
+This is developer material for people who want to author their own Guksu Motor extensions. It covers the extension manifest format and the browser marinara API. It also covers the CSS sanitization rules, the server extension marinara API and its sandbox, and the bundled example package. If you only want to install an extension someone else made, read the user guide instead: [Extensions](../extending/extensions.md).
 
 ## Before you start
 
-An extension is a small add-on that changes how Marinara Engine looks or behaves. You author it as a small set of files, then import it from **Settings**, then **Addons**, then the **Extension Library** section. For the import, enable, export, and delete steps, see [Extensions](../extending/extensions.md).
+An extension is a small add-on that changes how Guksu Motor looks or behaves. You author it as a small set of files, then import it from **Settings**, then **Addons**, then the **Extension Library** section. For the import, enable, export, and delete steps, see [Extensions](../extending/extensions.md).
 
 Installing or updating an extension is a privileged action. It works from localhost with no extra setup. Any other browser (a phone, a LAN address, a remote tunnel) needs two more steps. Set `ADMIN_SECRET` on the server, then save the same value under **Settings**, then **Advanced**, then **Admin Access**. See [Server Configuration Reference](../CONFIGURATION.md) for how to set `ADMIN_SECRET`.
 
@@ -12,10 +12,10 @@ Installing or updating an extension is a privileged action. It works from localh
 
 There are two runtimes, and you choose one per extension.
 
-1. A browser extension (also called a client extension) injects CSS and JavaScript into the Marinara page in your browser. It can style the UI, add controls, watch the DOM, register timers, and call a limited set of app routes.
-2. A server extension runs trusted JavaScript inside the Marinara Node.js server process. It has no DOM. It can log, run timers, and make safe outbound web requests.
+1. A browser extension (also called a client extension) injects CSS and JavaScript into the Guksu page in your browser. It can style the UI, add controls, watch the DOM, register timers, and call a limited set of app routes.
+2. A server extension runs trusted JavaScript inside the Guksu Node.js server process. It has no DOM. It can log, run timers, and make safe outbound web requests.
 
-Neither kind edits Marinara source code on disk. A browser extension has the same browser privileges as the app UI. A server extension runs with the same privileges as the server process, so only run server code you trust.
+Neither kind edits Guksu source code on disk. A browser extension has the same browser privileges as the app UI. A server extension runs with the same privileges as the server process, so only run server code you trust.
 
 ## The extension manifest
 
@@ -44,7 +44,7 @@ A minimal browser manifest that points at those two files:
 }
 ```
 
-Marinara resolves `cssPath` and `jsPath` relative to the folder that holds `manifest.json` first. If nothing matches there, it tries the package root. Each one can be a single path or an array of paths. When you list several files, Marinara joins them in order.
+Guksu resolves `cssPath` and `jsPath` relative to the folder that holds `manifest.json` first. If nothing matches there, it tries the package root. Each one can be a single path or an array of paths. When you list several files, Guksu joins them in order.
 
 You can also put the code inline instead of in separate files:
 
@@ -62,18 +62,18 @@ You can also put the code inline instead of in separate files:
 }
 ```
 
-A manifest can supply both a file path and inline content for the same slot (for example both `cssPath` and `css`). In that case, the file content wins. Marinara uses the inline value only when the path resolves to nothing.
+A manifest can supply both a file path and inline content for the same slot (for example both `cssPath` and `css`). In that case, the file content wins. Guksu uses the inline value only when the path resolves to nothing.
 
 ### Manifest fields
 
 | Field | Required | Notes |
 | --- | --- | --- |
-| `kind` | Recommended | Use `marinara.extension` for a browser extension or `marinara.server-extension` for a server extension. The importer does not require this field. When both `kind` and `config.runtime` are missing, Marinara imports the extension as a browser extension. |
-| `version` | Recommended | Use `1`. The importer does not read or validate this field. Marinara writes it when it exports an extension, so include it to match the standard format. |
+| `kind` | Recommended | Use `marinara.extension` for a browser extension or `marinara.server-extension` for a server extension. The importer does not require this field. When both `kind` and `config.runtime` are missing, Guksu imports the extension as a browser extension. |
+| `version` | Recommended | Use `1`. The importer does not read or validate this field. Guksu writes it when it exports an extension, so include it to match the standard format. |
 | `config.name` | Yes | Display name. 1 to 200 characters. |
 | `config.description` | No | Up to 2000 characters. Defaults to an empty string. |
 | `config.runtime` | No | Use `client` for a browser extension or `server` for a server extension. Defaults to `client`. If `runtime` is `server`, the extension is treated as a server extension even when `kind` says otherwise. |
-| `config.enabled` | No | For a browser extension, whether it runs right after import. If you omit it, Marinara imports the extension disabled so you can review it first. A server extension is always imported disabled no matter what you set here. |
+| `config.enabled` | No | For a browser extension, whether it runs right after import. If you omit it, Guksu imports the extension disabled so you can review it first. A server extension is always imported disabled no matter what you set here. |
 | `config.cssPath` | No | Path or array of paths to CSS files, relative to the manifest folder. |
 | `config.jsPath` | No | Path or array of paths to browser JS files, relative to the manifest folder. |
 | `config.serverJsPath` | No | Path or array of paths to server JS files, relative to the manifest folder. |
@@ -81,7 +81,7 @@ A manifest can supply both a file path and inline content for the same slot (for
 | `config.js` | No | Inline browser JavaScript. Up to 1 MiB, measured as UTF-8 bytes. |
 | `config.serverJs` | No | Inline server JavaScript. Up to 1 MiB. Required for a server extension unless `serverJsPath` supplies the code. |
 
-Point `jsPath` and `serverJsPath` at plain JavaScript. Marinara does not compile TypeScript for extension code. A `.ts` file will not run, even though folder import can read it as package text.
+Point `jsPath` and `serverJsPath` at plain JavaScript. Guksu does not compile TypeScript for extension code. A `.ts` file will not run, even though folder import can read it as package text.
 
 ### Packaging several extensions
 
@@ -114,7 +114,7 @@ If there is no root package file, folder import scans for every `manifest.json` 
 
 ## Writing a browser extension
 
-Your browser JavaScript runs as a real page module. Marinara passes a frozen helper object named `marinara` into your code. Here is a small example that adds a styled button and cleans up after itself:
+Your browser JavaScript runs as a real page module. Guksu passes a frozen helper object named `marinara` into your code. Here is a small example that adds a styled button and cleans up after itself:
 
 ```js
 marinara.addStyle(`
@@ -152,7 +152,7 @@ The `marinara` helpers below all clean up automatically when the extension is di
 | `marinara.observe(target, callback, options)` | Creates a MutationObserver (default options watch child list and subtree) that disconnects on unload. |
 | `marinara.onCleanup(fn)` | Registers your own cleanup callback. If the extension already unloaded, `fn` runs right away. |
 
-Plain browser globals like `document`, `window`, and `fetch` are also reachable. The code runs as a real page module, not in a sandbox. Marinara catches any error while your module loads or runs. It writes the error to the browser devtools console, tagged with the extension name. It does not crash the app.
+Plain browser globals like `document`, `window`, and `fetch` are also reachable. The code runs as a real page module, not in a sandbox. Guksu catches any error while your module loads or runs. It writes the error to the browser devtools console, tagged with the extension name. It does not crash the app.
 
 ## CSS sanitization rules
 
@@ -228,8 +228,8 @@ A server extension reloads (it stops, then starts again) whenever you create, up
 | `marinara.version` | The server extension API version. Currently `1`. |
 | `marinara.extensionId` | The installed extension's ID. |
 | `marinara.extensionName` | The installed extension's name. |
-| `marinara.log.debug/info/warn/error(...)` | Writes to the Marinara server log, tagged with the extension name and ID. |
-| `marinara.fetch(url, options)` | Fetches an `http:` or `https:` URL through Marinara's outbound safety checks. The response is capped at 25 MiB. |
+| `marinara.log.debug/info/warn/error(...)` | Writes to the Guksu server log, tagged with the extension name and ID. |
+| `marinara.fetch(url, options)` | Fetches an `http:` or `https:` URL through Guksu's outbound safety checks. The response is capped at 25 MiB. |
 | `marinara.setInterval(fn, ms)` | Starts an interval that clears itself on unload. |
 | `marinara.setTimeout(fn, ms)` | Starts a timeout that clears itself on unload. |
 | `marinara.clearInterval(id)` | Clears an interval. |
@@ -242,7 +242,7 @@ While an enabled server extension is loaded, its row in the **Extension Library*
 
 ## The bundled example
 
-Marinara ships a minimal browser extension you can import to see the format in action. It lives in the install and repository at `docs/examples/extensions/minimal/`, and it is not visible inside the app. The docs browser does not serve the `examples/` folder, so there is no in-app link. Open the folder from the file system to find these three files.
+Guksu ships a minimal browser extension you can import to see the format in action. It lives in the install and repository at `docs/examples/extensions/minimal/`, and it is not visible inside the app. The docs browser does not serve the `examples/` folder, so there is no in-app link. Open the folder from the file system to find these three files.
 
 The `manifest.json`:
 

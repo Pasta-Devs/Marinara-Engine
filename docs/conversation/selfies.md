@@ -49,11 +49,11 @@ To learn more about styles, see [Image Style Profiles](../media/style-profiles.m
 
 ### Send Avatar References
 
-**Send Avatar References** is a toggle that is off by default. When it is on, Marinara sends the character's avatar or sprite to the image service as a reference picture. This helps the selfie look like the character. It only works when the image provider supports reference images.
+**Send Avatar References** is a toggle that is off by default. When it is on, Guksu sends the character's avatar or sprite to the image service as a reference picture. This helps the selfie look like the character. It only works when the image provider supports reference images.
 
 ### Attach Card Appearance
 
-**Attach Card Appearance** is a toggle that is off by default. When it is on, Marinara adds the character card's appearance text to the selfie description. This gives the model more detail about how the character looks.
+**Attach Card Appearance** is a toggle that is off by default. When it is on, Guksu adds the character card's appearance text to the selfie description. This gives the model more detail about how the character looks.
 
 ### Resolution
 
@@ -72,7 +72,7 @@ The size options are:
 
 ## How a character sends a selfie
 
-Once selfies are set up, a character can decide to send one during the chat on their own. You do not type a command. The character chooses the moment, and Marinara generates the picture and posts it in the chat.
+Once selfies are set up, a character can decide to send one during the chat on their own. You do not type a command. The character chooses the moment, and Guksu generates the picture and posts it in the chat.
 
 ## Asking for a selfie by hand
 

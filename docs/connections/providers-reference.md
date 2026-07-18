@@ -1,6 +1,6 @@
 # Supported AI Providers
 
-This guide lists every AI provider Marinara Engine can connect to. For each one it tells you where to get an API key, the default base URL, and any quirks to know. An API key is a secret password from a provider that lets Marinara talk to their AI service.
+This guide lists every AI provider Guksu Motor can connect to. For each one it tells you where to get an API key, the default base URL, and any quirks to know. An API key is a secret password from a provider that lets Guksu talk to their AI service.
 
 To learn the general steps for adding a connection, read [Connecting to an AI Provider](connecting-to-a-provider.md) first. This page is a reference you can search when you want details on one specific provider.
 
@@ -12,7 +12,7 @@ Most providers on this page are cloud services that host the AI for you. You mak
 
 You will see two terms often:
 
-- Base URL: the web address Marinara sends requests to. Most providers fill this in for you. You only change it for local or custom servers.
+- Base URL: the web address Guksu sends requests to. Most providers fill this in for you. You only change it for local or custom servers.
 - Model: the specific AI model you pick after choosing a provider. Available models change often, so this page does not list them. Use the **Model** dropdown or the **Fetch Models from API** button in the connection editor to see the current list.
 
 ## OpenAI
@@ -29,7 +29,7 @@ You will see two terms often:
 
 **Anthropic** runs the Claude models. It supports prompt caching, which can lower the cost of long chats. You can turn this on with the **Enable prompt caching** toggle in the connection editor.
 
-**Anthropic** does not offer embeddings. Embeddings turn text into number lists so Marinara can search lorebooks and memory. For those features, use a separate embedding connection (see the Embeddings section below).
+**Anthropic** does not offer embeddings. Embeddings turn text into number lists so Guksu can search lorebooks and memory. For those features, use a separate embedding connection (see the Embeddings section below).
 
 ## Google Gemini
 
@@ -45,7 +45,7 @@ You will see two terms often:
 
 **Google Vertex AI** runs Gemini models through a Google Cloud project. It needs more setup than **Google Gemini**. You must edit the **Base URL** and replace `YOUR_PROJECT_ID` with your real project ID. Also change the region if it is not `us-central1`.
 
-The **API Key** field accepts any one of these three credential types, and Marinara detects which one you pasted:
+The **API Key** field accepts any one of these three credential types, and Guksu detects which one you pasted:
 
 1. A service-account JSON key.
 2. An OAuth access token, for example from `gcloud auth print-access-token`.
@@ -63,7 +63,7 @@ The **API Key** field accepts any one of these three credential types, and Marin
 - Where to get a key: `https://dashboard.cohere.com/api-keys`
 - Default base URL: `https://api.cohere.ai/compatibility/v1`
 
-**Cohere** uses its OpenAI-compatible endpoint by default. If you paste an older Cohere v2 URL, Marinara switches it to the compatibility endpoint for you. Requests still work.
+**Cohere** uses its OpenAI-compatible endpoint by default. If you paste an older Cohere v2 URL, Guksu switches it to the compatibility endpoint for you. Requests still work.
 
 ## OpenRouter
 
@@ -87,13 +87,13 @@ The **API Key** field accepts any one of these three credential types, and Marin
 - Where to get a key: `https://console.x.ai`
 - Default base URL: `https://api.x.ai/v1`
 
-**xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Marinara prefills the model with Grok 4.5. You can change the model afterward.
+**xAI / Grok** runs the Grok models. When you pick this provider in the **Create Connection** modal, Guksu prefills the model with Grok 4.5. You can change the model afterward.
 
 ## Claude (Subscription)
 
 - API key: none. You sign in to a local tool instead.
 
-**Claude (Subscription)** uses your Anthropic Pro or Max plan through the Claude Code tool. The tool runs on the computer that hosts the Marinara server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
+**Claude (Subscription)** uses your Anthropic Pro or Max plan through the Claude Code tool. The tool runs on the computer that hosts the Guksu server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
 
 Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md).
 
@@ -101,7 +101,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 - API key: none. You sign in to a local tool instead.
 
-**OpenAI (ChatGPT)** uses your ChatGPT account through the Codex tool. The tool runs on the computer that hosts the Marinara server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
+**OpenAI (ChatGPT)** uses your ChatGPT account through the Codex tool. The tool runs on the computer that hosts the Guksu server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
 
 Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md).
 
@@ -109,7 +109,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 - API key: none. You sign in to a local tool instead.
 
-**Grok CLI (Subscription)** uses your SuperGrok or X Premium+ account through the Grok CLI tool. The tool runs on the computer that hosts the Marinara server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
+**Grok CLI (Subscription)** uses your SuperGrok or X Premium+ account through the Grok CLI tool. The tool runs on the computer that hosts the Guksu server, and you sign in once. The **API Key** and **Base URL** fields are hidden for this provider. It does not offer embeddings (see the Embeddings section below).
 
 Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connections](subscription-clis.md).
 
@@ -119,7 +119,7 @@ Install and login steps are in [Claude, ChatGPT, and Grok Subscription Connectio
 
 Pick **Custom (OAI-Compatible)** to connect a local or self-hosted model server, such as Ollama, LM Studio, or KoboldCpp. It also works for any hosted proxy that speaks the OpenAI chat format. The **API Key** can be left empty for most local servers. You set the **Base URL** to your server address.
 
-For step-by-step setup and the **Treat as local/custom endpoint** toggle, read [Connecting a Local or Self-Hosted Model](local-self-hosted.md). For the small model that ships inside Marinara, read [Local Model Setup](local-model.md).
+For step-by-step setup and the **Treat as local/custom endpoint** toggle, read [Connecting a Local or Self-Hosted Model](local-self-hosted.md). For the small model that ships inside Guksu, read [Local Model Setup](local-model.md).
 
 ## Image Generation
 
@@ -135,7 +135,7 @@ The full setup and limits for each video service live in [Scene Video Generation
 
 ## Embeddings
 
-Embeddings power lorebook semantic search and Memory Recall. They turn text into number lists so Marinara can find related entries. Most chat providers let you set an **Embedding Model** and an optional **Embedding Endpoint URL** in the connection editor.
+Embeddings power lorebook semantic search and Memory Recall. They turn text into number lists so Guksu can find related entries. Most chat providers let you set an **Embedding Model** and an optional **Embedding Endpoint URL** in the connection editor.
 
 Some providers cannot make embeddings. **Anthropic**, **Claude (Subscription)**, **OpenAI (ChatGPT)**, and **Grok CLI (Subscription)** do not offer them. For those, use the **Embedding Connection** dropdown to borrow another connection, such as an OpenAI-compatible one, **Google Gemini**, or the built-in **Local Model**.
 

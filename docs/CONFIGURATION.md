@@ -1,10 +1,10 @@
 # Server Configuration Reference
 
-This guide explains how to change server-level settings for Marinara Engine using environment variables. An environment variable is a setting you write in a plain text file that the server reads. Most users never need this page. The full variable list is near the bottom.
+This guide explains how to change server-level settings for Guksu Motor using environment variables. An environment variable is a setting you write in a plain text file that the server reads. Most users never need this page. The full variable list is near the bottom.
 
-## When would you configure Marinara?
+## When would you configure Guksu?
 
-Marinara Engine works out of the box with no configuration. You only need this page for a small number of tasks. Most of them involve running the server for more than one device.
+Guksu Motor works out of the box with no configuration. You only need this page for a small number of tasks. Most of them involve running the server for more than one device.
 
 You might edit configuration when you want to:
 
@@ -17,12 +17,12 @@ You might edit configuration when you want to:
 
 Almost everything else, like your AI provider keys, characters, and chat options, is set inside the app, not here. To add an AI provider, see [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
-Optional first-party agents are also managed inside the app. Open **Agents → Download Agents** to install or uninstall them. Marinara automatically selects the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog lane matching its Engine major version.
+Optional first-party agents are also managed inside the app. Open **Agents → Download Agents** to install or uninstall them. Guksu automatically selects the [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) catalog lane matching its Engine major version.
 
 Package lifecycle and storage:
 
 - **Updates:** On every server startup, already-installed official packages automatically upgrade to the newest compatible version before their runtimes activate and self-check. A fresh install remains empty until you choose packages.
-- **Platforms:** The same behavior applies to desktop, Docker, and Termux-hosted Android installations. iOS and other browser clients use the packages installed on their Marinara host server.
+- **Platforms:** The same behavior applies to desktop, Docker, and Termux-hosted Android installations. iOS and other browser clients use the packages installed on their Guksu host server.
 - **Persistence:** Packages live under `DATA_DIR/capability-packages`. Docker volumes, custom data directories, backups, and normal upgrades preserve them.
 - **Offline resilience:** Existing packages continue working at their installed version when outbound GitHub HTTPS is unavailable or an update fails verification.
 
@@ -30,7 +30,7 @@ Package lifecycle and storage:
 
 Configuration lives in a file named `.env`. This is a plain text file with one setting per line, in the form `KEY=value`. Lines that start with `#` are comments and the server ignores them.
 
-Marinara creates an empty `.env` for you the first time it starts, so you do not have to make one by hand.
+Guksu creates an empty `.env` for you the first time it starts, so you do not have to make one by hand.
 
 - On normal installs, the `.env` file sits in the project root folder.
 - On official Docker or Podman images, it sits at `/app/data/.env`, inside the same storage volume as your data.
@@ -49,7 +49,7 @@ The server reads `.env` by itself, no matter how you start it. This includes run
 
 ## Restart or hot reload
 
-Marinara watches the `.env` file while it runs. When you save a change, most settings take effect within about 2 seconds, with no restart. The server writes a log line starting with `[env-watcher]` each time it applies a change.
+Guksu watches the `.env` file while it runs. When you save a change, most settings take effect within about 2 seconds, with no restart. The server writes a log line starting with `[env-watcher]` each time it applies a change.
 
 A small group of low-level settings are locked in when the server starts. Changing them needs a full restart. These settings are:
 
@@ -83,7 +83,7 @@ The main access-control settings are:
 | --- | --- | --- |
 | `BASIC_AUTH_USER` | empty | Username for a password prompt. Set with `BASIC_AUTH_PASS` to require a login. |
 | `BASIC_AUTH_PASS` | empty | Password for the login prompt. Leave either field empty to turn login off. |
-| `BASIC_AUTH_REALM` | `Marinara Engine` | Text shown in the browser's password box. |
+| `BASIC_AUTH_REALM` | `Guksu Motor` | Text shown in the browser's password box. |
 | `IP_ALLOWLIST` | empty | Comma-separated IPs or CIDR ranges that are always allowed. Loopback is always allowed. |
 | `IP_ALLOWLIST_ENABLED` | `true` | Set to `false` to keep the list but pause enforcement. |
 | `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK` | `false` | Restores passwordless access from private networks when no login is set. |
@@ -96,7 +96,7 @@ The main access-control settings are:
 | `SSL_KEY` | empty | Path to the TLS private key file. |
 | `CSRF_TRUSTED_ORIGINS` | empty | Extra browser origins allowed to save changes. Use for a public domain or an unusual port. |
 
-Basic Auth is short for HTTP Basic Authentication, a simple username and password prompt. Its credentials are only encoded, not encrypted, so always pair it with HTTPS when your server faces the public internet. HTTPS is the secure, encrypted version of HTTP. To turn it on directly, set both `SSL_CERT` and `SSL_KEY`, or put a reverse proxy in front of Marinara.
+Basic Auth is short for HTTP Basic Authentication, a simple username and password prompt. Its credentials are only encoded, not encrypted, so always pair it with HTTPS when your server faces the public internet. HTTPS is the secure, encrypted version of HTTP. To turn it on directly, set both `SSL_CERT` and `SSL_KEY`, or put a reverse proxy in front of Guksu.
 
 To let other devices reach the server at all, the server must bind to a reachable interface. Set `HOST=0.0.0.0`. The shell launchers do this for you, but `pnpm start` binds to loopback only.
 
@@ -110,7 +110,7 @@ Storage settings control where your local data lives. Your data includes chats, 
 | `FILE_STORAGE_DIR` | the `storage` folder inside `DATA_DIR` | Overrides the file-storage folder. |
 | `ENCRYPTION_KEY` | empty | Key used to encrypt saved API keys. Generate one with the command below. |
 
-Marinara keeps your data as plain JSON files. This makes backups easy to copy and inspect.
+Guksu keeps your data as plain JSON files. This makes backups easy to copy and inspect.
 
 To generate an encryption key, run this command and paste the result into `ENCRYPTION_KEY`:
 
@@ -231,7 +231,7 @@ This section lists the remaining settings, grouped by purpose. The tables above 
 
 `AUTO_CREATE_DEFAULT_CONNECTION` is kept only for older installs. New builds no longer ship a bundled starter connection, so leaving it on does nothing. To start chatting, add a connection under [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 
-Conversation schedule controls default to the timezone reported by the browser or app device. **Schedule timezone** can be changed during Conversation setup, in Conversation Chat Settings, or in the character schedule editor. The selected IANA timezone is one global preference shared by every Conversation chat and synced to other Marinara clients connected to the same server.
+Conversation schedule controls default to the timezone reported by the browser or app device. **Schedule timezone** can be changed during Conversation setup, in Conversation Chat Settings, or in the character schedule editor. The selected IANA timezone is one global preference shared by every Conversation chat and synced to other Guksu clients connected to the same server.
 
 ### Media and sprite tools
 
@@ -279,4 +279,4 @@ For a Giphy key, note that GIF search stays unavailable until you set `GIPHY_API
 - [Where Your Data Is Stored](data/where-data-is-stored.md)
 - [Connecting to an AI Provider](connections/connecting-to-a-provider.md)
 - [Scene Video](media/scene-video.md)
-- [Troubleshooting Marinara Engine](TROUBLESHOOTING.md)
+- [Troubleshooting Guksu Motor](TROUBLESHOOTING.md)

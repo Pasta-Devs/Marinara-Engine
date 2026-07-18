@@ -1,10 +1,10 @@
 # Conversation Mode: Getting Started
 
-This guide covers Conversation Mode in Marinara Engine, the messenger-style chat mode. It explains what the mode is and how the four-step setup wizard works. It also covers the Conversation-only features you get, such as autonomous messages, presence status, reactions, selfies, and table games.
+This guide covers Conversation Mode in Guksu Motor, the messenger-style chat mode. It explains what the mode is and how the four-step setup wizard works. It also covers the Conversation-only features you get, such as autonomous messages, presence status, reactions, selfies, and table games.
 
 ## What Conversation Mode is
 
-Conversation Mode is one of Marinara Engine's chat modes. It works like a messaging app. You get one or more characters, an input bar, and a scrolling message history.
+Conversation Mode is one of Guksu Motor's chat modes. It works like a messaging app. You get one or more characters, an input bar, and a scrolling message history.
 
 Think of it as sending direct messages, or DMs, the way you would text a friend. There is no game master, no scene art, and no required mechanics. It is the lightest chat mode, and many users spend most of their time here.
 
@@ -93,7 +93,7 @@ Next to the pill is a **What are you doing?** field. Type a short custom activit
 
 ## Reactions and notifications
 
-Any Conversation message can get an emoji reaction. Use the reaction button on a message to add your own. Marinara saves your reaction as a note like `[User reacted with ...]`, and future replies can see it. This lets a character notice that you reacted.
+Any Conversation message can get an emoji reaction. Use the reaction button on a message to add your own. Guksu saves your reaction as a note like `[User reacted with ...]`, and future replies can see it. This lets a character notice that you reacted.
 
 When the **Reactions** command family is on, characters can react too. They can react to your messages or to each other's messages. Reactions are handy in group chats, since a character can respond lightly without a full message.
 
@@ -163,7 +163,7 @@ Group chats have controls for turn-taking, like **Reply When Mentioned**. Open [
 
 ### A character forgets things from earlier
 
-Long chats fill the model's memory. Try a model with a larger context window, or add key facts to a lorebook entry so they stay in context. You can also start a fresh chat with the same character and persona. For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+Long chats fill the model's memory. Try a model with a larger context window, or add key facts to a lorebook entry so they stay in context. You can also start a fresh chat with the same character and persona. For more help, see [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md).
 
 ### A selfie does not look like the character
 

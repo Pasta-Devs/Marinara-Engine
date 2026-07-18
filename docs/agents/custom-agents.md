@@ -1,12 +1,12 @@
 # Creating Custom Agents
 
-This guide shows you how to build your own agent in Marinara Engine. An agent is a small AI helper that runs automatically alongside your chat. You will learn how to set its phase, powers, output type, activation keywords, tools, and prompt, with one full worked example.
+This guide shows you how to build your own agent in Guksu Motor. An agent is a small AI helper that runs automatically alongside your chat. You will learn how to set its phase, powers, output type, activation keywords, tools, and prompt, with one full worked example.
 
 New to agents? Read [Agents: AI Helpers for Your Chats](agents-overview.md) first for the basics, then come back here.
 
 ## When to build a custom agent
 
-Marinara Engine offers many official downloadable agents. See the [Downloadable Agents Reference](built-in-agents.md) and the public [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) package repository before you build your own. A catalog agent may already do what you want, and the official manifests provide working package examples.
+Guksu Motor offers many official downloadable agents. See the [Downloadable Agents Reference](built-in-agents.md) and the public [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents) package repository before you build your own. A catalog agent may already do what you want, and the official manifests provide working package examples.
 
 Build a custom agent when you need something the built-ins do not cover. Good reasons include:
 
@@ -74,7 +74,7 @@ If you turn on **Edit lorebooks**, a **Lorebook Writer** section appears. Turn o
 
 ## Result Type
 
-The **Result Type** tells Marinara how to read your agent's output. Most result types expect the agent to return JSON. JSON is a simple text format written with braces and quotation marks. Each result type needs the matching ability from the table above.
+The **Result Type** tells Guksu how to read your agent's output. Most result types expect the agent to return JSON. JSON is a simple text format written with braces and quotation marks. Each result type needs the matching ability from the table above.
 
 | Result Type | What it does | Ability needed |
 |---|---|---|
@@ -170,7 +170,7 @@ The agent returns JSON like this after each reply:
 {"editedText":"The colour of the harbour caught her eye.","changes":[{"description":"color to colour, harbor to harbour"}]}
 ```
 
-Marinara reads `editedText` and swaps it into the reply. You see the message in British English. The `changes` notes appear as a short summary of what the agent adjusted.
+Guksu reads `editedText` and swaps it into the reply. You see the message in British English. The `changes` notes appear as a short summary of what the agent adjusted.
 
 ## Importing and exporting agents
 

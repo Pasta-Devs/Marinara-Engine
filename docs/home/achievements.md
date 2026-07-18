@@ -1,10 +1,10 @@
 # Achievements
 
-This guide explains the Achievements feature in Marinara Engine. Achievements are cosmetic badges that unlock as you use the app. This guide covers where to find them, the full list, the on/off setting, and how unlocking works.
+This guide explains the Achievements feature in Guksu Motor. Achievements are cosmetic badges that unlock as you use the app. This guide covers where to find them, the full list, the on/off setting, and how unlocking works.
 
 ## What achievements are
 
-Achievements are small collectible badges. Marinara Engine unlocks them in the background as you do normal things, like creating chats, characters, or personas, or visiting community links.
+Achievements are small collectible badges. Guksu Motor unlocks them in the background as you do normal things, like creating chats, characters, or personas, or visiting community links.
 
 Achievements are purely cosmetic. They do not unlock features and they do not change how the app behaves. They are just a fun way to track what you have done.
 
@@ -69,7 +69,7 @@ Because tracking continues while the setting is off, your progress is not lost. 
 
 ## How unlocking works
 
-Marinara checks the ranked achievements against your current live counts. This check runs when a tracked action happens, such as creating a chat or clicking a footer link. It also runs when you open the Achievements panel.
+Guksu checks the ranked achievements against your current live counts. This check runs when a tracked action happens, such as creating a chat or clicking a footer link. It also runs when you open the Achievements panel.
 
 When an action triggers an unlock and the setting is on, a small pop-up notice appears. Its title is **Achievement unlocked**, and it names the badge, for example **Hoarder II** or **One Of Us**.
 
@@ -83,7 +83,7 @@ There is no button anywhere in the app to reset or clear your achievements.
 
 ## Related guides
 
-- [Getting Started with Marinara Engine](welcome.md)
+- [Getting Started with Guksu Motor](welcome.md)
 - [The First-Time Tutorial](tutorial.md)
 - [Professor Mari, Your In-App Assistant](professor-mari.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)

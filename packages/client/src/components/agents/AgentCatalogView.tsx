@@ -102,10 +102,10 @@ function formatBytes(bytes: number) {
 function catalogErrorDescription(error: unknown) {
   const offlineSuffix = "Installed agents remain available offline.";
   if (error instanceof ApiError) {
-    return `Marinara Engine returned HTTP ${error.status}: ${error.message}. ${offlineSuffix}`;
+    return `Guksu Motor returned HTTP ${error.status}: ${error.message}. ${offlineSuffix}`;
   }
   if (error instanceof Error && error.message) return `${error.message}. ${offlineSuffix}`;
-  return `Marinara Engine could not load the official catalog. ${offlineSuffix}`;
+  return `Guksu Motor could not load the official catalog. ${offlineSuffix}`;
 }
 
 function kindLabel(kind: CapabilityCatalogPackage["manifest"]["kind"][number]) {
@@ -196,7 +196,7 @@ export function AgentCatalogView() {
       const result = await install.mutateAsync(entry.manifest.id);
       toast.success(
         result.status === "restart-required"
-          ? "Agent installed. Restart Marinara Engine to finish setup."
+          ? "Agent installed. Restart Guksu Motor to finish setup."
           : "Agent installed. It is ready to use.",
       );
     } catch (error) {
@@ -217,7 +217,7 @@ export function AgentCatalogView() {
       const result = await uninstall.mutateAsync(entry.manifest.id);
       toast.success(
         result.restartRequired
-          ? `${entry.manifest.name} uninstalled. Restart Marinara Engine to finish removal.`
+          ? `${entry.manifest.name} uninstalled. Restart Guksu Motor to finish removal.`
           : `${entry.manifest.name} uninstalled.`,
       );
     } catch (error) {
@@ -237,7 +237,7 @@ export function AgentCatalogView() {
       if (result.failures.length === 0) {
         toast.success(
           result.restartRequired
-            ? `${result.succeeded.length} agents installed. Restart Marinara Engine to finish setup.`
+            ? `${result.succeeded.length} agents installed. Restart Guksu Motor to finish setup.`
             : `${result.succeeded.length} agents installed and ready to use.`,
         );
       } else {
@@ -277,7 +277,7 @@ export function AgentCatalogView() {
       if (result.failures.length === 0) {
         toast.success(
           result.restartRequired
-            ? `${result.succeeded.length} agents uninstalled. Restart Marinara Engine to finish removal.`
+            ? `${result.succeeded.length} agents uninstalled. Restart Guksu Motor to finish removal.`
             : `${result.succeeded.length} agents uninstalled.`,
         );
       } else {
@@ -401,7 +401,7 @@ export function AgentCatalogView() {
                 aria-live="polite"
               >
                 {bulkProgress.action === "install" ? "Installing" : "Uninstalling"} agent {bulkProgress.completed} of{" "}
-                {bulkProgress.total}. Keep Marinara Engine open until this finishes.
+                {bulkProgress.total}. Keep Guksu Motor open until this finishes.
               </p>
             )}
           </div>
@@ -583,7 +583,7 @@ export function AgentCatalogView() {
                 ) : (
                   <span>Agent v{selected.manifest.version}</span>
                 )}
-                <span>Marinara Engine v{selected.manifest.engine.min}+</span>
+                <span>Guksu Motor v{selected.manifest.engine.min}+</span>
               </div>
 
               <section>

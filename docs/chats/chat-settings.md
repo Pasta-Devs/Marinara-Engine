@@ -25,7 +25,7 @@ The **Chat Name** section holds the name shown in your chat list. This name is o
 
 ## Connection
 
-The **Connection** section picks which AI provider and model answers in this chat. A connection is a saved link to an AI provider, including its API key and chosen model. An API key is a secret code that lets Marinara Engine use your account with that provider.
+The **Connection** section picks which AI provider and model answers in this chat. A connection is a saved link to an AI provider, including its API key and chosen model. An API key is a secret code that lets Guksu Motor use your account with that provider.
 
 Pick a saved connection from the dropdown. You can also pick **Random**. It chooses a different connection each time from the connections you marked for your random pool.
 
@@ -46,7 +46,7 @@ The bar has a row of small icon buttons with no text labels. Each button shows i
 - The up-arrow icon (**Export preset (.json)**) saves the selected preset to a `.json` file.
 - The trash icon (**Delete preset**) removes the selected preset.
 
-Next to the dropdown is a star button. Click it to mark a preset as the default for new chats in this mode. When you create a new chat in that mode, Marinara applies the starred preset for you. Only one preset per mode can be the starred default at a time.
+Next to the dropdown is a star button. Click it to mark a preset as the default for new chats in this mode. When you create a new chat in that mode, Guksu applies the starred preset for you. Only one preset per mode can be the starred default at a time.
 
 Each mode that supports this feature has a built-in **Default** preset. You cannot rename, save into, or delete the **Default** preset. Applying it resets the chat's preset-controlled settings back to the app defaults.
 

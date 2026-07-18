@@ -1,12 +1,12 @@
 # Image Style Profiles
 
-This guide explains image style profiles in Marinara Engine. A style profile is a reusable "house style" that shapes every image prompt before Marinara sends it to your image provider. Use it to make avatars, portraits, selfies, backgrounds, illustrations, and sprites look consistent.
+This guide explains image style profiles in Guksu Motor. A style profile is a reusable "house style" that shapes every image prompt before Guksu sends it to your image provider. Use it to make avatars, portraits, selfies, backgrounds, illustrations, and sprites look consistent.
 
 ## What a style profile is
 
-Marinara Engine can generate many kinds of images: character and persona avatars, portraits, Conversation-mode selfies, scene backgrounds, in-scene illustrations, and character sprites. Every one of those images starts as a text prompt.
+Guksu Motor can generate many kinds of images: character and persona avatars, portraits, Conversation-mode selfies, scene backgrounds, in-scene illustrations, and character sprites. Every one of those images starts as a text prompt.
 
-A style profile is a saved set of rules that Marinara adds to that text prompt. It can add positive words (what you want), negative words (what you want to avoid), and a preferred prompt style. This keeps a single look across every image, so you do not have to retype the same style words each time.
+A style profile is a saved set of rules that Guksu adds to that text prompt. It can add positive words (what you want), negative words (what you want to avoid), and a preferred prompt style. This keeps a single look across every image, so you do not have to retype the same style words each time.
 
 You pick one profile as the app-wide default. You can override it for a single chat or a single image connection. All of that is explained below.
 
@@ -19,7 +19,7 @@ To find the editor, follow these steps.
 
 ## The built-in profiles
 
-Marinara ships with 10 built-in style profiles. **Auto** is the default. You can edit any of them, and you can reset a built-in profile back to its original values at any time.
+Guksu ships with 10 built-in style profiles. **Auto** is the default. You can edit any of them, and you can reset a built-in profile back to its original values at any time.
 
 Some terms used below:
 
@@ -55,7 +55,7 @@ Your choice saves right away. New images use the profile you picked.
 You can edit a built-in profile in place, but the **Clone** button lets you keep the original and build your own version. To create and customize a profile, follow these steps.
 
 1. Open the **Editing** dropdown and pick the profile closest to what you want.
-2. Click **Clone**. Marinara makes a copy, selects it for editing, and immediately makes the copy your app-wide default style.
+2. Click **Clone**. Guksu makes a copy, selects it for editing, and immediately makes the copy your app-wide default style.
 3. Change the **Name** field to something you will recognize.
 4. Pick a **Prompt grammar** (explained in the next section).
 5. Fill in **Style text** with a plain description of the look you want.
@@ -70,7 +70,7 @@ Two buttons help you manage profiles:
 
 ## Prompt grammar modes
 
-The **Prompt grammar** dropdown tells Marinara how the image model prefers to read a prompt. Pick the mode that matches your image model. There are four modes.
+The **Prompt grammar** dropdown tells Guksu how the image model prefers to read a prompt. Pick the mode that matches your image model. There are four modes.
 
 - **Hybrid**: a mix of sentences and tags. A safe general choice.
 - **Danbooru tags**: short comma-separated Danbooru-style tags. Best for anime SDXL checkpoints like Illustrious, Pony, and NovelAI.
@@ -79,7 +79,7 @@ The **Prompt grammar** dropdown tells Marinara how the image model prefers to re
 
 ## The Test bench
 
-The **Test bench** section lets you preview exactly what Marinara would send, without generating a real image. Open it inside the Style Profiles editor. To use it, follow these steps.
+The **Test bench** section lets you preview exactly what Guksu would send, without generating a real image. Open it inside the Style Profiles editor. To use it, follow these steps.
 
 1. Pick an **Image kind** (for example, portrait or background).
 2. Type a rough prompt into **Sample input**.
@@ -87,9 +87,9 @@ The **Test bench** section lets you preview exactly what Marinara would send, wi
 
 The Test bench also shows a short note about cleanup. When it changes nothing, it says "No cleanup needed for this sample." When it edits your prompt, it says how many duplicate or misplaced fragments it cleaned.
 
-## How Marinara cleans the prompt
+## How Guksu cleans the prompt
 
-Before any image request leaves Marinara, it compiles your prompt with the active profile. The compiler does a few things:
+Before any image request leaves Guksu, it compiles your prompt with the active profile. The compiler does a few things:
 
 - It removes near-duplicate tags, such as a repeated quality tag.
 - It moves simple negative phrases (like "avoid text" or "no watermark") into the negative prompt.
@@ -120,13 +120,13 @@ If your subject words disappear for a portrait, avatar, or sprite, try the **ill
 
 ## Setting precedence: chat, connection, then global
 
-Marinara can pick a style profile from three places. The most specific choice wins. The order is:
+Guksu can pick a style profile from three places. The most specific choice wins. The order is:
 
 1. An explicit profile chosen for the current chat or game.
 2. The **Style Profile** set on the image connection (under **Local Image Defaults** in the connection editor).
 3. The global **Default style** you set in **Settings**.
 
-The **Local Image Defaults** section appears only for local Stable Diffusion connections (AUTOMATIC1111 / SD Web UI, ComfyUI, and NovelAI). For every other provider, the choice falls straight through to the global **Default style**. To set a per-connection profile, open the connection, expand **Local Image Defaults**, and pick a profile in the **Style Profile** dropdown. Leave it on **Use global default** to follow the global choice. When Marinara can guess a good profile from the connection's model name, it shows a "Use ..." button that applies that profile in one click.
+The **Local Image Defaults** section appears only for local Stable Diffusion connections (AUTOMATIC1111 / SD Web UI, ComfyUI, and NovelAI). For every other provider, the choice falls straight through to the global **Default style**. To set a per-connection profile, open the connection, expand **Local Image Defaults**, and pick a profile in the **Style Profile** dropdown. Leave it on **Use global default** to follow the global choice. When Guksu can guess a good profile from the connection's model name, it shows a "Use ..." button that applies that profile in one click.
 
 ## Related guides
 

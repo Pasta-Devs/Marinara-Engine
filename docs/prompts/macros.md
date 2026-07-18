@@ -1,10 +1,10 @@
 # Prompt Macros
 
-This guide explains prompt macros in Marinara Engine. A macro is a short `{{tag}}` that Marinara replaces with a live value. The value is filled in when a prompt is built, such as your name or the current date. You will learn every built-in macro, where you can type them, and the mistakes to avoid.
+This guide explains prompt macros in Guksu Motor. A macro is a short `{{tag}}` that Guksu replaces with a live value. The value is filled in when a prompt is built, such as your name or the current date. You will learn every built-in macro, where you can type them, and the mistakes to avoid.
 
 ## What macros are and where they work
 
-A macro is literal text wrapped in double braces, like `{{user}}` or `{{char}}`. When Marinara builds the text it sends to the AI, it scans for these tags and swaps each one for its current value. There is no switch to turn macros on. Any field that supports them always resolves them.
+A macro is literal text wrapped in double braces, like `{{user}}` or `{{char}}`. When Guksu builds the text it sends to the AI, it scans for these tags and swaps each one for its current value. There is no switch to turn macros on. Any field that supports them always resolves them.
 
 Macro names are not case sensitive for built-in tags. So `{{user}}` and `{{USER}}` both work.
 
@@ -18,11 +18,11 @@ You can type macros in many places across the app:
 - Agent prompt templates.
 - The chat message box. Type `{{roll:1d20}}` in a message and it resolves before the message is sent.
 
-A macro value can contain another macro, and Marinara resolves that one too.
+A macro value can contain another macro, and Guksu resolves that one too.
 
 ## Before you start
 
-You do not need to set anything up. The built-in macros work right away, with no API key and no extra connection. An API key is the secret code that lets Marinara talk to an AI provider, but macros run inside Marinara on their own.
+You do not need to set anything up. The built-in macros work right away, with no API key and no extra connection. An API key is the secret code that lets Guksu talk to an AI provider, but macros run inside Guksu on their own.
 
 Two macro features do depend on other parts of the app:
 
@@ -79,7 +79,7 @@ You edit these fields on the **Convo** tab of the **Character Editor** and the *
 
 ## Conversation placement macros
 
-Conversation Mode automatically inserts several blocks into the prompt for you. These macros let a preset **move** a block to wherever you place the macro. When you use one, Marinara renders that block at the macro and **skips** its automatic insertion, so the content is never duplicated. Each macro has one or more aliases; every alias behaves the same.
+Conversation Mode automatically inserts several blocks into the prompt for you. These macros let a preset **move** a block to wherever you place the macro. When you use one, Guksu renders that block at the macro and **skips** its automatic insertion, so the content is never duplicated. Each macro has one or more aliases; every alias behaves the same.
 
 | Macro (and aliases) | Places |
 | --- | --- |
@@ -90,7 +90,7 @@ Conversation Mode automatically inserts several blocks into the prompt for you. 
 | `{{memories}}`, `{{memoryRecall}}` | The memory-recall block. |
 | `{{lorebook}}`, `{{lore}}` | Lorebook injections. |
 
-These only apply in Conversation Mode. In a one-character conversation, placing the participant bios yourself with `{{char_about}}` / `{{persona_about}}` (see above) works the same way: Marinara then skips its automatic participant "about me" block so the bios are not inserted twice. Group conversations keep the automatic participant block because either singular macro covers only one participant and must not hide everyone else's bio.
+These only apply in Conversation Mode. In a one-character conversation, placing the participant bios yourself with `{{char_about}}` / `{{persona_about}}` (see above) works the same way: Guksu then skips its automatic participant "about me" block so the bios are not inserted twice. Group conversations keep the automatic participant block because either singular macro covers only one participant and must not hide everyone else's bio.
 
 ## Context macros
 
@@ -110,7 +110,7 @@ The value of `{{lastGenerationType}}` is a plain label. Example values seen in t
 
 `{{gameStoryboardKeyframeCount}}` is supplied to Game Mode GM prompts, including the built-in **Storyboard Game Prompt**. It is a narrative target, not a demand for exactly that many paragraphs. The storyboard planner still returns fewer shots when a turn does not contain enough distinct visual moments.
 
-The `{{agent::TYPE}}` macro inserts the saved output of an agent (a background helper that fills in things like a scene tracker). The easiest way to add it is inside the **Preset Editor**: click **Add Section**, open the **Agent Sections** group, and pick an agent. Marinara creates a section that already contains the right `{{agent::TYPE}}` tag. This macro is resolved last, so agent text cannot inject more macros into your prompt.
+The `{{agent::TYPE}}` macro inserts the saved output of an agent (a background helper that fills in things like a scene tracker). The easiest way to add it is inside the **Preset Editor**: click **Add Section**, open the **Agent Sections** group, and pick an agent. Guksu creates a section that already contains the right `{{agent::TYPE}}` tag. This macro is resolved last, so agent text cannot inject more macros into your prompt.
 
 ## Time macros
 
@@ -179,7 +179,7 @@ Variables let one part of your prompt store a value and let a later part read it
 
 Variables resolve from left to right in one prompt build. A value set early, for example in a lorebook entry that comes first, can be read later in the same prompt.
 
-Important scope limit: these variables only live for a single reply. Marinara does not save them anywhere. When the next reply is generated, every variable starts empty again. Do not expect `{{setvar}}` to remember a value across turns.
+Important scope limit: these variables only live for a single reply. Guksu does not save them anywhere. When the next reply is generated, every variable starts empty again. Do not expect `{{setvar}}` to remember a value across turns.
 
 Any `{{NAME}}` that is not a built-in macro is treated as a preset variable and looked up by name. If no variable with that name exists, the tag is left in the text exactly as you typed it. See [Preset Variables](preset-variables.md) for how to define these.
 
@@ -201,7 +201,7 @@ These macros shape the text around them.
 
 ## Showing literal double braces
 
-There is no escape character for macros. If you want double braces to stay in the text, use a name that Marinara does not know. Any unknown `{{name}}` is left exactly as typed, as long as no preset variable shares that name. If you need a private note that never reaches the AI, use `{{// like this}}` instead.
+There is no escape character for macros. If you want double braces to stay in the text, use a name that Guksu does not know. Any unknown `{{name}}` is left exactly as typed, as long as no preset variable shares that name. If you need a private note that never reaches the AI, use `{{// like this}}` instead.
 
 ## The Macro reference and /macros
 
@@ -216,7 +216,7 @@ You can also type `/macros` in the chat box (the short form `/macro` works too).
 
 - Do not write variables inside a `{{random::...}}` block. A `{{setvar}}` inside a random option runs for every option before the choice is made, not just the chosen one.
 - Do not expect variables to persist. Values set with `{{setvar}}` reset on the next reply.
-- `{{prompt}}` is not a macro. If your whole message is `{{prompt}}`, Marinara opens the **Peek Prompt** viewer instead of sending it. See [Peek Prompt](../chats/peek-prompt.md).
+- `{{prompt}}` is not a macro. If your whole message is `{{prompt}}`, Guksu opens the **Peek Prompt** viewer instead of sending it. See [Peek Prompt](../chats/peek-prompt.md).
 - Custom Tools do not use `{{macro}}` text. Do not paste `{{roll:1d20}}` into a tool field expecting it to resolve.
 - The **Impersonate** prompt template accepts only a few placeholders, not the full macro list. Its names differ too, so a macro that works in a card may not work there.
 - Very large or deeply nested macro output is cut off silently. There is no error, so keep macro expansions reasonable.

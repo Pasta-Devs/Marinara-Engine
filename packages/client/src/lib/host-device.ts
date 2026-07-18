@@ -15,4 +15,4 @@ export function isHostDeviceBrowser(): boolean {
 }
 
 export const HOST_DEVICE_FILE_MANAGER_MESSAGE =
-  "System folders can only be opened from the device hosting Marinara Engine.";
+  "System folders can only be opened from the device hosting Guksu Motor.";

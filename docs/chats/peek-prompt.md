@@ -1,8 +1,8 @@
 # Peek Prompt: See What the AI Received
 
-Peek Prompt shows you the exact text that Marinara Engine sent to the AI model for a reply. It can also show a live preview of the prompt before anything is sent. This guide explains what the viewer shows, how to open it, how to read Stored guidance, and how to use it to debug replies.
+Peek Prompt shows you the exact text that Guksu Motor sent to the AI model for a reply. It can also show a live preview of the prompt before anything is sent. This guide explains what the viewer shows, how to open it, how to read Stored guidance, and how to use it to debug replies.
 
-A prompt is the full block of instructions and chat history that Marinara builds and sends to the model. The model reads that prompt and writes a reply. Peek Prompt lets you see that block after it is put together, so nothing about your reply is a mystery.
+A prompt is the full block of instructions and chat history that Guksu builds and sends to the model. The model reads that prompt and writes a reply. Peek Prompt lets you see that block after it is put together, so nothing about your reply is a mystery.
 
 ## What Peek Prompt shows
 
@@ -42,7 +42,7 @@ The second way is a typed shortcut. It works even before you have any AI reply, 
 
 3. Press Enter or click Send.
 
-Instead of sending a message, Marinara clears the box and opens the Peek Prompt viewer. The shortcuts `{{prompt_preview}}` and `{{preview_prompt}}` do the same thing.
+Instead of sending a message, Guksu clears the box and opens the Peek Prompt viewer. The shortcuts `{{prompt_preview}}` and `{{preview_prompt}}` do the same thing.
 
 ## Reading Stored guidance
 

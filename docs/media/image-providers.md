@@ -1,12 +1,12 @@
 # Image Generation Providers and Setup
 
-This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 15 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
+This guide explains how to connect an image generation service to Guksu Motor. It also covers what each of the 15 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
 
 You set up image generation as a special kind of connection. Once one image connection works, every image feature in the app can use it.
 
 ## How to add an image generation connection
 
-An **API key** is a secret password from a provider that lets Marinara use your account. A **Base URL** is the web address of the service's application interface. Marinara fills in the correct Base URL for you when you pick a service.
+An **API key** is a secret password from a provider that lets Guksu use your account. A **Base URL** is the web address of the service's application interface. Guksu fills in the correct Base URL for you when you pick a service.
 
 Follow these steps to add an image connection.
 
@@ -17,7 +17,7 @@ Follow these steps to add an image connection.
 5. Paste your **API Key** if that service needs one. Free and local services do not.
 6. Pick a **Model** from the list, or type a model ID. Some services offer **Fetch Models from API** to load the current list.
 7. Click **Save**.
-8. Click **Test Image** to confirm it works. Marinara generates a small test image.
+8. Click **Test Image** to confirm it works. Guksu generates a small test image.
 
 If **Test Image** returns a picture, your connection is ready. If it fails, check the API key and Base URL.
 
@@ -71,7 +71,7 @@ Cloud service with the default Base URL `https://api.x.ai/v1`. It needs an xAI A
 
 ## Venice.ai
 
-Cloud service with the default Base URL `https://api.venice.ai/api/v1`. It needs a Venice API key. Use **Fetch Models from API** to load the image models available to your account. Marinara uses Venice's native image endpoint and automatically maps requested dimensions to each model's pixel, aspect-ratio, or resolution-tier sizing format.
+Cloud service with the default Base URL `https://api.venice.ai/api/v1`. It needs a Venice API key. Use **Fetch Models from API** to load the image models available to your account. Guksu uses Venice's native image endpoint and automatically maps requested dimensions to each model's pixel, aspect-ratio, or resolution-tier sizing format.
 
 ## NanoGPT
 
@@ -79,7 +79,7 @@ Cloud service with the default Base URL `https://nano-gpt.com/api/v1`. It needs 
 
 ## Block Entropy
 
-Cloud service with the default Base URL `https://api.blockentropy.ai`. It needs an API key. Marinara has no dedicated handler for Block Entropy, so it sends requests in the OpenAI compatible format. Its real compatibility is not confirmed, so test it with **Test Image** before you rely on it.
+Cloud service with the default Base URL `https://api.blockentropy.ai`. It needs an API key. Guksu has no dedicated handler for Block Entropy, so it sends requests in the OpenAI compatible format. Its real compatibility is not confirmed, so test it with **Test Image** before you rely on it.
 
 ## RunPod Serverless (ComfyUI)
 
@@ -103,11 +103,11 @@ Local service with the default Base URL `http://127.0.0.1:8188`. It talks to a C
 
 ## Draw Things
 
-Local service with the default Base URL `http://localhost:7860`. It talks to the Draw Things app on macOS or iOS. Marinara treats it like an AUTOMATIC1111 server. No API key is needed.
+Local service with the default Base URL `http://localhost:7860`. It talks to the Draw Things app on macOS or iOS. Guksu treats it like an AUTOMATIC1111 server. No API key is needed.
 
 ## Local services on your network
 
-The word `localhost` (also called loopback) means the same computer that runs Marinara. Local image servers on that same computer work with no extra setup.
+The word `localhost` (also called loopback) means the same computer that runs Guksu. Local image servers on that same computer work with no extra setup.
 
 If your image server runs on a different computer on your home network, you must allow local network addresses in the server configuration. See the [Server Configuration Reference](../CONFIGURATION.md) for how to do that.
 
@@ -115,7 +115,7 @@ If your image server runs on a different computer on your home network, you must
 
 For **ComfyUI** and **RunPod Serverless (ComfyUI)**, a **ComfyUI Workflow** field appears. Paste a workflow JSON that you exported from ComfyUI with **Save (API Format)**, **Export (API)**, or **Export to API**, depending on the frontend version. The field is labeled Optional for **ComfyUI** and Required for **RunPod Serverless (ComfyUI)**.
 
-Marinara fills your workflow using placeholders. Put these text markers in your workflow where the value should go.
+Guksu fills your workflow using placeholders. Put these text markers in your workflow where the value should go.
 
 - `%prompt%` and `%negative_prompt%` for the prompts.
 - `%width%`, `%height%`, and `%seed%` for the image size and seed.
@@ -175,7 +175,7 @@ NovelAI precise reference images only work on a V4.5 model, such as `nai-diffusi
 
 The **Queue image generation requests** toggle lives in **Settings**, then **Generations**, then **Image Generation**. It is on by default.
 
-When it is on, Marinara sends image jobs one at a time. Keep it on for services that reject two requests at once. Turn it off only if your service handles many requests at the same time and you want them faster.
+When it is on, Guksu sends image jobs one at a time. Keep it on for services that reject two requests at once. Turn it off only if your service handles many requests at the same time and you want them faster.
 
 ## Related guides
 

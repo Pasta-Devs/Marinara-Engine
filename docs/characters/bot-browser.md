@@ -1,12 +1,12 @@
 # Card Browser: Finding and Importing Characters
 
-This guide explains the **Card Browser** in Marinara Engine, the built-in tool for finding character cards on public sites and importing them into your library. It covers the six sources, how to search and filter, and how adult content works on each source. It also covers how to import a character or save it as a file. Older versions called this tab **Bot Browser** or **Browser**.
+This guide explains the **Card Browser** in Guksu Motor, the built-in tool for finding character cards on public sites and importing them into your library. It covers the six sources, how to search and filter, and how adult content works on each source. It also covers how to import a character or save it as a file. Older versions called this tab **Bot Browser** or **Browser**.
 
-A character card is a file that holds one character's name, personality, greeting, and other details. Normally you would download a card from a website and then upload it into Marinara. The **Card Browser** does both steps for you in one place.
+A character card is a file that holds one character's name, personality, greeting, and other details. Normally you would download a card from a website and then upload it into Guksu. The **Card Browser** does both steps for you in one place.
 
 ## What the Card Browser is
 
-The **Card Browser** searches several public character-card sites from inside Marinara. It supports six sources: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, and **DataCat**. You can search a source, filter the results, and preview a character's full details. Then you can import that character into your library or save it as a PNG file. You do not need an account or an API key to browse and import character cards at the default settings.
+The **Card Browser** searches several public character-card sites from inside Guksu. It supports six sources: **ChubAI**, **JannyAI**, **CharacterTavern**, **Pygmalion**, **Wyvern**, and **DataCat**. You can search a source, filter the results, and preview a character's full details. Then you can import that character into your library or save it as a PNG file. You do not need an account or an API key to browse and import character cards at the default settings.
 
 ## Opening the Card Browser
 
@@ -31,7 +31,7 @@ One naming note: the menu lists **ChubAI**, but on a character's detail page the
 
 ## Searching, sorting, and pages
 
-Type in the **Search characters...** box to search. You do not need to press Enter. Marinara waits a moment (about half a second) after you stop typing, then searches automatically. Clearing the box or changing a filter also searches again.
+Type in the **Search characters...** box to search. You do not need to press Enter. Guksu waits a moment (about half a second) after you stop typing, then searches automatically. Clearing the box or changing a filter also searches again.
 
 Next to the search box is a sort dropdown. The options are different on each source, and each source starts on its own default sort:
 
@@ -91,7 +91,7 @@ Adult characters show a small red **NSFW** badge in the corner of their thumbnai
 
 **CharacterTavern** and **Pygmalion** hide their adult content behind a login. You do not need to log in for normal, public characters. Logging in only unlocks adult content.
 
-To log in, click the **Log In** button in the toolbar. A login window opens. You paste a value copied from your own account on that outside site. Marinara does not ask for your password.
+To log in, click the **Log In** button in the toolbar. A login window opens. You paste a value copied from your own account on that outside site. Guksu does not ask for your password.
 
 For **Pygmalion**, the window is titled **Pygmalion Authentication** and asks for an **Auth Token**:
 
@@ -99,7 +99,7 @@ For **Pygmalion**, the window is titled **Pygmalion Authentication** and asks fo
 2. Open your browser's developer tools. On most browsers you press the F12 key. Developer tools are a built-in browser panel for advanced users.
 3. Open the **Application** tab, then **Local Storage**.
 4. Find the entry named `authn` and copy its value.
-5. Paste the value into the **Auth Token** box in Marinara.
+5. Paste the value into the **Auth Token** box in Guksu.
 6. Click **Save & Connect**. You should see a message that NSFW content is enabled.
 
 For **CharacterTavern**, the window is titled **CharacterTavern Session** and asks for a **Cookie String**:
@@ -108,12 +108,12 @@ For **CharacterTavern**, the window is titled **CharacterTavern Session** and as
 2. Open developer tools with the F12 key.
 3. Open the **Application** tab, then **Cookies**.
 4. Find the cookie named `session` and copy its value.
-5. Paste the value into the **Cookie String** box in Marinara.
+5. Paste the value into the **Cookie String** box in Guksu.
 6. Click **Save & Connect**. You should see a message that NSFW content is enabled.
 
 Each window has a help section that repeats these steps. Each window also has a link that opens the source's own website. In the **Pygmalion** window this link reads **Website**. In the **CharacterTavern** window it reads **CharacterTavern**. To sign out, open the login window again and click **Log Out**.
 
-Important: these logins are held in the server's memory only. They are never saved to a file. If you restart the Marinara server, you are logged out of both sources and must paste the value again. Marinara shows a message telling you to log in again when this happens.
+Important: these logins are held in the server's memory only. They are never saved to a file. If you restart the Guksu server, you are logged out of both sources and must paste the value again. Guksu shows a message telling you to log in again when this happens.
 
 ## Reviewing a character before import
 
@@ -127,7 +127,7 @@ Some sources do not always return full details. If nothing loads, the view says 
 
 ## Importing or downloading a character
 
-The detail view gives you two buttons. **Import** adds the character to your Marinara library. **Download as PNG** saves the character as a file on your device without adding it to your library.
+The detail view gives you two buttons. **Import** adds the character to your Guksu library. **Download as PNG** saves the character as a file on your device without adding it to your library.
 
 To import character cards into your library:
 
@@ -147,11 +147,11 @@ The **Imported tags** panel next to the avatar controls which tags come along wi
 | ------------- | -------------------------------------------- |
 | All tags      | Keeps the source's tags.                     |
 | No tags       | Skips the source's tags.                     |
-| Existing only | Keeps only tags you already use in Marinara. |
+| Existing only | Keeps only tags you already use in Guksu. |
 
 ### Embedded lorebook prompt
 
-If the character carries an embedded lorebook, importing shows a small confirm box from your web browser. It asks if you also want to save the lorebook as a separate, standalone Marinara lorebook. Click **OK** to create the separate lorebook plus the copy attached to the character. Click **Cancel** to keep the lorebook attached to the character only.
+If the character carries an embedded lorebook, importing shows a small confirm box from your web browser. It asks if you also want to save the lorebook as a separate, standalone Guksu lorebook. Click **OK** to create the separate lorebook plus the copy attached to the character. Click **Cancel** to keep the lorebook attached to the character only.
 
 ### Download as PNG
 
@@ -170,9 +170,9 @@ The **Card Browser** panel in the right sidebar keeps a separate list of charact
 
 ## Troubleshooting
 
-**JannyAI search or details fail with a Cloudflare error.** Some sites block automated requests. Visit jannyai.com once in the same web browser, pass any challenge it shows, then return to Marinara and search again.
+**JannyAI search or details fail with a Cloudflare error.** Some sites block automated requests. Visit jannyai.com once in the same web browser, pass any challenge it shows, then return to Guksu and search again.
 
-**My CharacterTavern or Pygmalion login stopped working.** Restarting the Marinara server clears these logins. Open the **Log In** window again and paste your token or cookie value once more.
+**My CharacterTavern or Pygmalion login stopped working.** Restarting the Guksu server clears these logins. Open the **Log In** window again and paste your token or cookie value once more.
 
 **A search fails or a source stops working.** Public sites can change their pages or block access at any time. Try again later. If a source keeps failing, open the character on the site directly and download the card yourself. Then bring it in through the normal import flow. See [Importing and Exporting Character Cards](import-export.md).
 

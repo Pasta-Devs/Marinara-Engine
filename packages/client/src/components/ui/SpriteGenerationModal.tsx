@@ -1898,11 +1898,11 @@ export function SpriteGenerationModal({
                 <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                   {animatedExpressionMode
                     ? "Adds a flat transparent-friendly background instruction to the video prompt. GIF transparency is not guaranteed."
-                    : "Uses native transparency when available. Otherwise, Marinara chooses a flat chroma matte that avoids the character's colors, removes it, and cleans color spill around soft edges."}
+                    : "Uses native transparency when available. Otherwise, Guksu chooses a flat chroma matte that avoids the character's colors, removes it, and cleans color spill around soft edges."}
                 </span>
                 {!animatedExpressionMode && selectedModelIsGptImage2 && nativeTransparentPng && (
                   <span className="mt-1 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                    GPT-Image-2 does not support native transparency right now, so Marinara will use the adaptive matte
+                    GPT-Image-2 does not support native transparency right now, so Guksu will use the adaptive matte
                     fallback.
                   </span>
                 )}
@@ -2129,7 +2129,7 @@ export function SpriteGenerationModal({
               {generationProgress && <p className="mt-1 text-xs text-[var(--primary)]">{generationProgress}</p>}
               <p className="mt-1 text-xs text-[var(--muted-foreground)]">
                 {animatedExpressionMode
-                  ? "Each expression becomes a short video first, then Marinara converts it to a GIF sprite."
+                  ? "Each expression becomes a short video first, then Guksu converts it to a GIF sprite."
                   : fullBodyExpressionMode
                     ? "Each 2×2 batch gets one automatic retry before pausing for your decision."
                     : spriteType === "full-body"

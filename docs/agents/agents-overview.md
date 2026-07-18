@@ -1,6 +1,6 @@
 # Agents: AI Helpers for Your Chats
 
-This guide explains what agents are in Marinara Engine, how to download them, when they run, and how to turn them on for a chat. It covers the **Agents** panel, the official catalog, per-chat settings, and how to tell when an agent has run. For the full first-party catalog, see the Related guides at the end.
+This guide explains what agents are in Guksu Motor, how to download them, when they run, and how to turn them on for a chat. It covers the **Agents** panel, the official catalog, per-chat settings, and how to tell when an agent has run. For the full first-party catalog, see the Related guides at the end.
 
 ## What agents are
 
@@ -8,7 +8,7 @@ Agents are small AI helpers that run automatically around your main chat reply. 
 
 Agents are turned on per chat, not per character. There is no agent toggle on a character card. Two chats with the same character can run completely different agents. You choose which agents run in each chat's settings.
 
-Fresh Marinara Engine installations start without optional agents. This keeps the base app and Termux installation smaller. The official v2.3.0+ catalog contains 29 one-click packages: 6 Writer Agents, 8 Tracker Agents, and 15 Misc Agents, including Maps, Calls, and all six Conversation games. Their source, manifests, downloadable artifacts, and repository-level catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For the complete per-agent guide, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
+Fresh Guksu Motor installations start without optional agents. This keeps the base app and Termux installation smaller. The official v2.3.0+ catalog contains 29 one-click packages: 6 Writer Agents, 8 Tracker Agents, and 15 Misc Agents, including Maps, Calls, and all six Conversation games. Their source, manifests, downloadable artifacts, and repository-level catalog are public in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For the complete per-agent guide, see [Downloadable Agents Reference](built-in-agents.md). To make your own, see [Creating Custom Agents](custom-agents.md).
 
 ## The three phases
 
@@ -22,15 +22,15 @@ Every agent runs at one of three points around your reply. This point is called 
 
 Open the **Agents** panel from the right-side panel tabs (the Sparkles icon). Here you browse, create, and organize agents. This is your library. It is not the on or off switch for a single chat.
 
-Click **Download Agents** at the top to open the full-screen official catalog. It works on desktop and mobile. Select an item to read its description, supported feature type, download size, permissions, version compatibility, and documentation. Click **Install** to add it; the same screen offers immediate manual updates and **Uninstall** for packages you already have. Marinara also checks every installed official package at server startup and upgrades it to the newest compatible catalog version before its runtime activates. Packages continue working at their current version when the host server is offline or an update cannot be verified.
+Click **Download Agents** at the top to open the full-screen official catalog. It works on desktop and mobile. Select an item to read its description, supported feature type, download size, permissions, version compatibility, and documentation. Click **Install** to add it; the same screen offers immediate manual updates and **Uninstall** for packages you already have. Guksu also checks every installed official package at server startup and upgrades it to the newest compatible catalog version before its runtime activates. Packages continue working at their current version when the host server is offline or an update cannot be verified.
 
-The in-app catalog is backed by the public [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents). You can inspect every package and artifact there, but normal users should install through **Download Agents** so Marinara can validate compatibility, permissions, hashes, archive contents, and restart requirements.
+The in-app catalog is backed by the public [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents). You can inspect every package and artifact there, but normal users should install through **Download Agents** so Guksu can validate compatibility, permissions, hashes, archive contents, and restart requirements.
 
 The catalog includes first-party chat agents, Hierarchical Maps, Conversation audio/video calls, and every optional Conversation game. Installed agents are grouped into **Writer Agents**, **Tracker Agents**, and **Misc Agents**, plus a **Custom Agents** section for ones you make. Uninstalling a catalog package removes its code and settings from the Engine while preserving chat messages and history. Deleting a custom agent removes it for good.
 
-When upgrading from an Engine version that bundled these features, Marinara downloads the matching packages once and preserves existing chat selections, agent settings, stored runtime data, and history. If that migration cannot reach the catalog, it retries at the next startup instead of discarding anything.
+When upgrading from an Engine version that bundled these features, Guksu downloads the matching packages once and preserves existing chat selections, agent settings, stored runtime data, and history. If that migration cannot reach the catalog, it retries at the next startup instead of discarding anything.
 
-Automatic startup updates never install an unselected package. Desktop, Docker, and Android/Termux installations update the packages stored by their local server. iOS, iPadOS, and other browser clients use the packages installed and updated by the Marinara server they connect to.
+Automatic startup updates never install an unselected package. Desktop, Docker, and Android/Termux installations update the packages stored by their local server. iOS, iPadOS, and other browser clients use the packages installed and updated by the Guksu server they connect to.
 
 ## Enabling agents for a chat
 
@@ -52,7 +52,7 @@ The **Agents** section has a few more controls:
 
 ### The cost warning
 
-Agents cost extra tokens and extra model calls. Each agent adds its own instructions, and often its own model call. Marinara groups agents that share the same connection into one call when it can. Above the agent list, a readout estimates the load for your current setup. It shows about how many tokens of agent instructions you added and about how many extra calls happen per turn.
+Agents cost extra tokens and extra model calls. Each agent adds its own instructions, and often its own model call. Guksu groups agents that share the same connection into one call when it can. Above the agent list, a readout estimates the load for your current setup. It shows about how many tokens of agent instructions you added and about how many extra calls happen per turn.
 
 This readout turns amber with a warning icon when the load gets heavy. The real cost per turn is higher than the number shown. Your chat history and character details are sent with each call. If you see the warning, remove agents you do not need, or move some to a cheaper or local connection.
 

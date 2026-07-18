@@ -1,6 +1,6 @@
 # Group Chats and Group Conversations
 
-This guide covers group chats in Marinara Engine, which are chats that hold two or more characters at once. It explains how to create a group chat and how to add or remove members. It also shows how to control who speaks in Conversation mode and in Roleplay mode.
+This guide covers group chats in Guksu Motor, which are chats that hold two or more characters at once. It explains how to create a group chat and how to add or remove members. It also shows how to control who speaks in Conversation mode and in Roleplay mode.
 
 ## What a group chat is
 
@@ -8,7 +8,7 @@ A group chat is any chat that has two or more characters in it. There is no sepa
 
 Group chats work in two modes: **Conversation** and **Roleplay**. Game Mode has its own separate party system and is not covered here.
 
-The word "group" is used for a few different things in Marinara. A group chat means many characters in one chat. That is different from **Folders**, which are saved lists of characters you can reuse. It is also different from **Chat Branches**, which are alternate versions of the same chat. This guide is only about group chats.
+The word "group" is used for a few different things in Guksu. A group chat means many characters in one chat. That is different from **Folders**, which are saved lists of characters you can reuse. It is also different from **Chat Branches**, which are alternate versions of the same chat. This guide is only about group chats.
 
 ## Creating a group chat
 
@@ -24,7 +24,7 @@ Once you add a second character, the label above the picker updates. In Conversa
 
 There is no fixed limit on the number of characters. In practice, more characters means a longer prompt and a higher cost per reply. Add only the characters the scene needs.
 
-If you do not rename the chat, Marinara names it after the characters, joined with commas. An example is "Alice, Bob, Carol".
+If you do not rename the chat, Guksu names it after the characters, joined with commas. An example is "Alice, Bob, Carol".
 
 ### Adding many characters at once with Folders
 
@@ -62,7 +62,7 @@ Sometimes you want a character to sit out for a while but stay in the roster. Us
 
 A disabled character stays in the member list but is left out of every reply. Their character card is not sent to the model, and they cannot be picked to speak.
 
-There is one safety fallback. If you disable every character in the chat, Marinara treats all of them as active again. This prevents a reply with zero characters.
+There is one safety fallback. If you disable every character in the chat, Guksu treats all of them as active again. This prevents a reply with zero characters.
 
 This on and off state is saved per chat. It does not change the character anywhere else in the app.
 
@@ -140,7 +140,7 @@ The button tooltip reads "Trigger character response".
 
 Turn on **Character Exchanges** to let characters talk to each other on their own. It is off by default. The description reads "Characters chat with each other in group chats."
 
-When it is on, the characters can reply to each other while you are away, not only to you. This runs only while Marinara is open in your browser. If you close the app, the exchanges stop. It also shares the same daily message limit that autonomous messages use.
+When it is on, the characters can reply to each other while you are away, not only to you. This runs only while Guksu is open in your browser. If you close the app, the exchanges stop. It also shares the same daily message limit that autonomous messages use.
 
 ## Turn handling at a glance
 

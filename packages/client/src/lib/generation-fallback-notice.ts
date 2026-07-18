@@ -31,7 +31,7 @@ export function showGenerationFallbackToast(raw: unknown): void {
   const connection = readNoticeText(notice.connectionName) ?? readNoticeText(notice.connectionId) ?? "fallback";
   const model = readNoticeText(notice.model);
   toast.info(`${categoryLabel(notice.category)} switched to ${connection}${model ? ` (${model})` : ""}.`, {
-    description: "The primary generation failed, so Marinara retried with your configured fallback.",
+    description: "The primary generation failed, so Guksu retried with your configured fallback.",
     duration: 10_000,
   });
 }

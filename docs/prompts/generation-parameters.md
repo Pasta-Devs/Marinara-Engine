@@ -1,6 +1,6 @@
 # Generation Parameters
 
-This guide explains the generation parameters in Marinara Engine. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. You change them per chat in the **Advanced Parameters** panel.
+This guide explains the generation parameters in Guksu Motor. These are the settings that control how the AI writes each reply, such as **Temperature** and **Max Output Tokens**. You change them per chat in the **Advanced Parameters** panel.
 
 ## What generation parameters do
 
@@ -40,7 +40,7 @@ Each numeric parameter has an input box and its own on and off switch. That swit
 
 Together, **Frequency** and **Presence** are the repetition penalties.
 
-**Reasoning Effort** tells a thinking-capable model how much to reason before it answers. A thinking-capable model is one that works through a problem in hidden steps first. The choices are **None**, **Low**, **Medium**, **High**, **Xhigh**, and **Maximum**. If the model does not support the tier you pick, Marinara lowers it to the strongest tier that model allows.
+**Reasoning Effort** tells a thinking-capable model how much to reason before it answers. A thinking-capable model is one that works through a problem in hidden steps first. The choices are **None**, **Low**, **Medium**, **High**, **Xhigh**, and **Maximum**. If the model does not support the tier you pick, Guksu lowers it to the strongest tier that model allows.
 
 **Verbosity** controls how long and detailed replies should be. The choices are **None**, **Low**, **Medium**, and **High**. **Low** keeps replies short. **High** encourages longer, more descriptive replies. Only some models use this setting.
 
@@ -48,7 +48,7 @@ Together, **Frequency** and **Presence** are the repetition penalties.
 
 Every numeric parameter, plus **Reasoning Effort** and **Verbosity**, has a small on and off switch next to its name. The switch has no text label in the app; this guide calls it the Send switch. Hover it to see "This parameter is sent to the model" or "This parameter is not sent to the model."
 
-When a parameter's Send switch is on, Marinara includes that parameter in the request to the provider. When it is off, Marinara leaves that parameter out completely. The provider then uses its own default for that setting.
+When a parameter's Send switch is on, Guksu includes that parameter in the request to the provider. When it is off, Guksu leaves that parameter out completely. The provider then uses its own default for that setting.
 
 Turning the Send switch off is different from setting a value like 1 or 0. A value of 1 still tells the provider what to use. Turning the switch off tells the provider nothing, so the model decides.
 
@@ -81,13 +81,13 @@ Use it only for models that support a prefill or a set opening tag. For example,
 
 ## Thinking Tags
 
-**Thinking Tags** tell Marinara how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Marinara knows those tags, it can hide that reasoning behind the **View thoughts** action instead of showing it in the reply.
+**Thinking Tags** tell Guksu how a model marks its hidden reasoning inside plain text. Some models wrap their reasoning in tags. If Guksu knows those tags, it can hide that reasoning behind the **View thoughts** action instead of showing it in the reply.
 
 You write one wrapper per line, with a slot in the middle for the hidden text. Common wrappers such as think, thinking, thought, pipe, channel, and bracket pairs are already recognized. You only need this field for models that use an unusual wrapper.
 
 ## Custom Parameters
 
-**Custom Parameters** lets you add raw settings that Marinara does not show as its own field. You type a JSON object, and Marinara merges it into the request sent to the provider.
+**Custom Parameters** lets you add raw settings that Guksu does not show as its own field. You type a JSON object, and Guksu merges it into the request sent to the provider.
 
 Custom Parameters saved as connection defaults are sent for every API-backed text generation that uses that connection, including Conversation, Roleplay, Game, Noodle, summaries, and agents. This also applies to custom endpoints running on your own machine. Per-chat Custom Parameters are added for that chat and override matching connection-level keys.
 
@@ -111,7 +111,7 @@ Leave it on unless you have a clear reason to feed old reasoning back into the m
 
 ## Image Captioning
 
-**Image Captioning** changes how the AI handles image attachments. When it is on, Marinara describes each attached image in text using a connection you choose, instead of sending the image itself.
+**Image Captioning** changes how the AI handles image attachments. When it is on, Guksu describes each attached image in text using a connection you choose, instead of sending the image itself.
 
 Use this for models that cannot see images. When you turn it on, pick a connection in the **Captioning Connection** dropdown. A text-only endpoint may fail if you point it at the wrong connection. This setting is off by default.
 
@@ -137,7 +137,7 @@ Game Mode is a special case. Game Mode sets some parameters on its own to keep i
 
 ## Some models ignore some parameters
 
-Not every model accepts every parameter. When Marinara knows a model rejects a setting, it leaves that setting out of the request. The slider or box still shows in the app, but changing it has no effect for that model.
+Not every model accepts every parameter. When Guksu knows a model rejects a setting, it leaves that setting out of the request. The slider or box still shows in the app, but changing it has no effect for that model.
 
 This is common with certain reasoning and thinking models, which refuse sampling settings like temperature. If a setting seems to do nothing, the model may not accept it. Model behavior also depends heavily on which model you picked, so the same value can feel different across models.
 

@@ -2896,7 +2896,7 @@ export function ChatArea() {
                   >
                     <img
                       src={showEmptyStateEffects ? "/logo-splash.gif" : "/logo.png"}
-                      alt="Marinara Engine"
+                      alt="Guksu Motor"
                       width={80}
                       height={80}
                       decoding="async"
@@ -2915,7 +2915,7 @@ export function ChatArea() {
                       isPageActive && "mari-logo-gradient-text--active",
                     )}
                   >
-                    Marinara Engine
+                    Guksu Motor
                   </h3>
                   <p className="mari-chrome-text-muted mt-0.5 text-[0.625rem] tracking-wide opacity-65">
                     v{APP_VERSION}
@@ -2966,6 +2966,7 @@ export function ChatArea() {
                       >
                         Marinara
                       </a>
+                      , Fork by The Bird Internet Company
                     </span>
                     <span>
                       Partnered with{" "}

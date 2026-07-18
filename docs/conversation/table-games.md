@@ -4,16 +4,16 @@ This guide covers the six optional table-game packages you can play against a ch
 
 ## What table games are
 
-Table games are small tabletop games that run right inside a Conversation Mode chat. Marinara Engine deals the cards or sets up the board, and it enforces every rule for you. Each seated character narrates its own moves in character. A live board appears above the message box while you play.
+Table games are small tabletop games that run right inside a Conversation Mode chat. Guksu Motor deals the cards or sets up the board, and it enforces every rule for you. Each seated character narrates its own moves in character. A live board appears above the message box while you play.
 
-Install each game you want from **Agents → Download Agents**. It becomes available immediately without restarting Marinara. An uninstalled game does not appear in the games picker, its slash command is unavailable, and its character command setting stays hidden.
+Install each game you want from **Agents → Download Agents**. It becomes available immediately without restarting Guksu. An uninstalled game does not appear in the games picker, its slash command is unavailable, and its character command setting stays hidden.
 
 Two facts to keep in mind:
 
 - Table games work in Conversation Mode only. You cannot start one in a Roleplay or Game Mode chat. If you type a game command in a Roleplay chat, you see a message such as "UNO can only be played in conversation chats."
 - Only one game can be active per chat at a time. Starting a new game replaces any game already running in that chat, even a finished one still showing its end banner.
 
-You also need at least one character in the chat. You must seat at least one of them as a bot before you can deal or start. Bot moves and in-character lines use the same connection as your normal chat replies. No extra account or API key is needed. An **API key** is the secret code that lets Marinara talk to an AI provider.
+You also need at least one character in the chat. You must seat at least one of them as a bot before you can deal or start. Bot moves and in-character lines use the same connection as your normal chat replies. No extra account or API key is needed. An **API key** is the secret code that lets Guksu talk to an AI provider.
 
 ## Starting a game
 
@@ -144,11 +144,11 @@ The board shows a top-down pool table with the real position of every ball. On y
 
 ## Tic-Tac-Toe
 
-Tic-Tac-Toe is one-on-one. The setup chooses the opponent and whether you play **X**, **O**, or a random mark. X moves first. During your turn, click an empty square. Marinara blocks illegal moves, asks the character for its move in character, and detects wins and draws automatically.
+Tic-Tac-Toe is one-on-one. The setup chooses the opponent and whether you play **X**, **O**, or a random mark. X moves first. During your turn, click an empty square. Guksu blocks illegal moves, asks the character for its move in character, and detects wins and draws automatically.
 
 ## Rock-Paper-Scissors
 
-Rock-Paper-Scissors is one-on-one. The setup chooses the opponent and a best-of-three, best-of-five, or best-of-seven match. Pick **Rock**, **Paper**, or **Scissors** each round. Your opponent's choice stays hidden until both choices are ready, then Marinara reveals the result and updates the match score.
+Rock-Paper-Scissors is one-on-one. The setup chooses the opponent and a best-of-three, best-of-five, or best-of-seven match. Pick **Rock**, **Paper**, or **Scissors** each round. Your opponent's choice stays hidden until both choices are ready, then Guksu reveals the result and updates the match score.
 
 ## Ending a game
 

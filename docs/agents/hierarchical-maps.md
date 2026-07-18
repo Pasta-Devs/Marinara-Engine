@@ -1,7 +1,7 @@
 # Hierarchical Maps: Setup, Authoring, and Travel
 
 > **Current compatibility:** This guide matches Hierarchical Maps **1.1.5** on
-> Marinara Engine **2.3.3**. Maps 1.1.5 supports Engine 2.3.2 through the current
+> Guksu Motor **2.3.3**. Maps 1.1.5 supports Engine 2.3.2 through the current
 > 2.x releases. The package supports Roleplay and Game chats.
 
 Hierarchical Maps adds a persistent story map to Roleplay and Game chats. Instead of keeping one free-text location, it can represent a world as nested places:
@@ -15,7 +15,7 @@ The Shattered Coast
     └── Old Sewers
 ```
 
-Marinara keeps an authoritative current location in this hierarchy. The current path, exact location details, nearby destinations, and eligible lore linked to the exact current location can be included in the next reply's context. The AI cannot move the story merely by narrating that the party went somewhere; you choose a destination and commit the move with your next turn.
+Guksu keeps an authoritative current location in this hierarchy. The current path, exact location details, nearby destinations, and eligible lore linked to the exact current location can be included in the next reply's context. The AI cannot move the story merely by narrating that the party went somewhere; you choose a destination and commit the move with your next turn.
 
 Hierarchical Maps works in **Roleplay** and **Game**. Each chat has its own map and current location.
 
@@ -45,7 +45,7 @@ A 25-floor tower should normally model the floors as 25 siblings under one tower
 ## Quick start
 
 1. Open the **Agents** panel, click **Download Agents**, and install **Hierarchical Maps**. If the catalog then offers **Update**, install that too.
-2. Restart Marinara when the catalog asks.
+2. Restart Guksu when the catalog asks.
 3. Open the Roleplay or Game chat where the map should live.
 4. Open **Agents → Hierarchical Maps**, turn on **Use in this chat**, and click **Create map**. You can also activate it through **Chat Settings → Agents → Tracker Agents** and open **Hierarchical map** there.
 5. Choose **Draft with AI**, describe what you want, and click **Generate draft**.
@@ -75,7 +75,7 @@ The installed feature also appears as **Hierarchical Maps** in the main **Agents
 
 ### Game
 
-You can select Hierarchical Maps while creating a game, or add it later from that game's **Chat Settings → Agents** section. When selected during setup, Marinara can prepare a hierarchy from the accepted game world for you to review before play.
+You can select Hierarchical Maps while creating a game, or add it later from that game's **Chat Settings → Agents** section. When selected during setup, Guksu can prepare a hierarchy from the accepted game world for you to review before play.
 
 If you skip the generated map during setup, you can still build one later from Chat Settings.
 
@@ -122,11 +122,11 @@ If you do not like the generated result, use **Edit prompt**, **Regenerate**, or
 
 If a map exists but the story has no committed map history yet, the AI builder can also **Replace draft**. After the campaign has used the map, replacement is protected: expand the existing hierarchy instead so saved turns keep referring to the same location IDs.
 
-For a saved map that has not been used in a turn, open **Expand with AI**, choose **Replace draft**, and generate a replacement. Once committed history exists, Marinara allows expansion but not wholesale replacement. Export the map before major restructuring.
+For a saved map that has not been used in a turn, open **Expand with AI**, choose **Replace draft**, and generate a replacement. Once committed history exists, Guksu allows expansion but not wholesale replacement. Export the map before major restructuring.
 
 ## Build or edit a map manually
 
-From an empty map, click **Build manually**. Marinara creates one broad starting location. Select it in the hierarchy, then use:
+From an empty map, click **Build manually**. Guksu creates one broad starting location. Select it in the hierarchy, then use:
 
 - **Add child** for a place inside the selected location.
 - **Add sibling** for a place beside it under the same parent.
@@ -275,7 +275,7 @@ Archived locations can be restored from the Details pane.
 
 ### Hierarchical Maps is missing from Chat Settings
 
-Check that the package is installed, that Marinara was restarted after installation, and that the chat is Roleplay or Game. In the chat, turn on the **Enable Agents** master switch, open **Tracker Agents**, and enable **Hierarchical Maps**. Then scroll back to the **Hierarchical map** setting that appears.
+Check that the package is installed, that Guksu was restarted after installation, and that the chat is Roleplay or Game. In the chat, turn on the **Enable Agents** master switch, open **Tracker Agents**, and enable **Hierarchical Maps**. Then scroll back to the **Hierarchical map** setting that appears.
 
 ### The map cannot be enabled
 

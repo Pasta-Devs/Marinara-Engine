@@ -1,12 +1,12 @@
 # Lorebooks Overview
 
-This guide explains what a lorebook is in Marinara Engine, how the **Lorebooks** panel works, and how a lorebook becomes active in a chat. It also walks you through creating your first lorebook and its first entry. Deeper topics like keywords, timing, and semantic search live in their own guides, linked at the end.
+This guide explains what a lorebook is in Guksu Motor, how the **Lorebooks** panel works, and how a lorebook becomes active in a chat. It also walks you through creating your first lorebook and its first entry. Deeper topics like keywords, timing, and semantic search live in their own guides, linked at the end.
 
 ## What a lorebook is
 
 A lorebook is a small knowledge base that the AI can pull from during a chat. It is also called **World Info**, and the two names mean the same thing. Each lorebook holds a list of entries. An entry has two parts: some trigger keywords and a block of text.
 
-When a keyword shows up in the recent chat, Marinara Engine adds that entry's text into the prompt. The prompt is the hidden instructions and history sent to the AI for each reply. This lets the AI use facts it was never told directly in the conversation.
+When a keyword shows up in the recent chat, Guksu Motor adds that entry's text into the prompt. The prompt is the hidden instructions and history sent to the AI for each reply. This lets the AI use facts it was never told directly in the conversation.
 
 Here is a simple example. You write a lorebook entry with the keyword `Eldoria` and this text:
 
@@ -18,7 +18,7 @@ Now, whenever you or a character mentions Eldoria, the AI receives that fact. It
 
 Lorebooks are useful for world lore, character backstories, place names, factions, rules, and any facts you want the AI to remember. You do not need to repeat these facts in every message. The lorebook supplies them only when they are relevant, which saves space in the prompt.
 
-Keyword matching works with any AI connection and needs no extra setup. Marinara can also match entries by meaning instead of exact words, using optional semantic search. That is a separate, opt-in feature covered in its own guide.
+Keyword matching works with any AI connection and needs no extra setup. Guksu can also match entries by meaning instead of exact words, using optional semantic search. That is a separate, opt-in feature covered in its own guide.
 
 ## The Lorebooks panel
 
@@ -56,7 +56,7 @@ A lorebook only feeds the AI when it is active in the current chat. There are th
 2. **Linked to a character or persona.** A linked lorebook auto-activates in any chat that includes that character or uses that persona. You set links in the **Overview** tab or from the character or persona editor. This is the most common choice for a character's own backstory.
 3. **Pinned to a single chat.** You can add a lorebook to just one chat from that chat's settings. It stays active in that chat only. This is handy for lore that fits one story and not your whole library.
 
-A global lorebook and a linked lorebook cannot be the same lorebook. Turning on **Global** clears any character or persona links when you save. Marinara treats these two options as mutually exclusive.
+A global lorebook and a linked lorebook cannot be the same lorebook. Turning on **Global** clears any character or persona links when you save. Guksu treats these two options as mutually exclusive.
 
 Every active lorebook still respects its **Enabled** switch. If a lorebook is turned off, none of its entries activate, even when it is global or linked. To see which lorebooks are active in the open chat, open the chat's settings and find its **Lorebooks** section. You can also edit the active list there. A separate guide covers that section.
 
@@ -86,7 +86,7 @@ Open a lorebook and click the **Overview** tab to set how the whole lorebook beh
 
 | Setting | What it does | Default |
 |---|---|---|
-| **Scan Depth** | How many recent messages Marinara checks for keyword matches. Set 0 to scan the whole chat. | 2 |
+| **Scan Depth** | How many recent messages Guksu checks for keyword matches. Set 0 to scan the whole chat. | 2 |
 | **Token Budget** | The most tokens this lorebook can add to one prompt. Set 0 for no limit. | 2048 |
 | **Entry Limit** | The most entries this lorebook can add to one prompt. The range is 1 to 1000. | 100 |
 | **Max Depth** | How many extra recursive passes to run. This field appears only when **Recursive** is on. The range is 1 to 10. | 3 |

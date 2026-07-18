@@ -4,11 +4,11 @@ This guide explains how to pick which persona represents you in a chat. It cover
 
 ## Your active persona and per-chat personas
 
-A persona is your own character card, the identity Marinara Engine uses to represent you. It gives the AI your name and details so the AI knows who it is talking to. To learn how to build one, see [User Personas](personas.md).
+A persona is your own character card, the identity Guksu Motor uses to represent you. It gives the AI your name and details so the AI knows who it is talking to. To learn how to build one, see [User Personas](personas.md).
 
-Marinara chooses your persona in two layers:
+Guksu chooses your persona in two layers:
 
-- Your **active persona** is your global default. Marinara uses it in any chat that has no persona of its own.
+- Your **active persona** is your global default. Guksu uses it in any chat that has no persona of its own.
 - A per-chat persona overrides the active persona for one chat only.
 
 You can have exactly one active persona at a time. You can also have none.
@@ -61,7 +61,7 @@ On mobile, persona switching shares a menu with connection switching. Tap the **
 
 ## Which persona wins
 
-Marinara picks your chat persona in this order:
+Guksu picks your chat persona in this order:
 
 1. The chat's own per-chat persona, if you set one.
 2. Otherwise, your global active persona.

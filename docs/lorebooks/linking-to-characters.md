@@ -39,7 +39,7 @@ A lorebook that is set to Global is active in every chat. It cannot also be link
 
 ## Scope: which chats can use the linked lorebook
 
-**Scope** controls where a linked lorebook is allowed to turn on. It does not mean every chat in Marinara. It means chats that include this character, or that use this persona. There are three scope modes.
+**Scope** controls where a linked lorebook is allowed to turn on. It does not mean every chat in Guksu. It means chats that include this character, or that use this persona. There are three scope modes.
 
 - **All chats with [name]**: the default. The lorebook turns on in every chat that includes this character or uses this persona.
 - **Disabled for all chats**: the link stays, but the lorebook never turns on. Use this to pause a lorebook without unlinking it.
@@ -72,7 +72,7 @@ When a character card already has an embedded lorebook, extra controls appear be
 - **Edit Embedded Lorebook**: opens that linked lorebook in the full editor. Your edits there sync back into the card's embedded copy automatically.
 - **Remove from card**: deletes the embedded copy from the card. Any separately linked lorebook in your library is left alone.
 
-This is useful for cards you imported from other tools. Many imported cards arrive with an embedded lorebook. Click **Import Embedded Lorebook** to get a fully editable version in Marinara.
+This is useful for cards you imported from other tools. Many imported cards arrive with an embedded lorebook. Click **Import Embedded Lorebook** to get a fully editable version in Guksu.
 
 ## The Chat Settings Lorebooks section
 

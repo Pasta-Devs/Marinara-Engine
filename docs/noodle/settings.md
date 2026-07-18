@@ -2,7 +2,7 @@
 
 This guide covers the **Noodle settings** panel section by section, with every default and limit. It also explains how to connect Noodle to your chats. Two features do this: **Carryover to chats** and the per-chat **Allow Noodle references** toggle. They work in opposite directions.
 
-Noodle is the in-app social media timeline in Marinara Engine. If you are new to it, read [Noodle: The In-App Social Timeline](overview.md) first. A persona is the character you play as in a chat. A connection is a saved link to an AI provider that generates text or images. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
+Noodle is the in-app social media timeline in Guksu Motor. If you are new to it, read [Noodle: The In-App Social Timeline](overview.md) first. A persona is the character you play as in a chat. A connection is a saved link to an AI provider that generates text or images. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
 ## Opening the Noodle settings panel
 
@@ -37,13 +37,13 @@ Inviting from a folder is a one-time bulk action. It is not a live sync. Charact
 The **Refresh** section controls the AI connection Noodle writes with, and how often Noodle refreshes on its own.
 
 - **Generation connection**: a dropdown. Pick the connection Noodle uses to write posts, replies, reposts, likes, and profile text. It starts unset with the placeholder **Choose connection**. You must pick one before any refresh will run. Vision-capable models also receive up to eight recent relevant images from Noodle posts and comments. Text-only models that reject those image inputs are retried automatically without the pictures.
-- **Refreshes/day**: a number, from 0 to 24, default **2**. This is how many automatic refreshes Marinara runs per day. Set it to 0 to turn automatic refreshes off. It does not limit how often you refresh by hand.
+- **Refreshes/day**: a number, from 0 to 24, default **2**. This is how many automatic refreshes Guksu runs per day. Set it to 0 to turn automatic refreshes off. It does not limit how often you refresh by hand.
 
 ### Automatic schedule
 
-When **Refreshes/day** is above 0, Marinara splits the day into equal windows and picks one random time inside each window. The planned times, with their timezone, show under **Automatic schedule**. Click the pencil next to a future time to move it to a different hour. Past times, completed times, and duplicate times cannot be picked.
+When **Refreshes/day** is above 0, Guksu splits the day into equal windows and picks one random time inside each window. The planned times, with their timezone, show under **Automatic schedule**. Click the pencil next to a future time to move it to a different hour. Past times, completed times, and duplicate times cannot be picked.
 
-Automatic refreshes run inside the Marinara server. The Noodle page does not need to stay open, but Marinara itself must be running. If a refresh fails, the schedule shows the error and retries later, waiting longer after repeated failures. If several planned times are missed, one successful catch-up refresh covers them instead of flooding the timeline.
+Automatic refreshes run inside the Guksu server. The Noodle page does not need to stay open, but Guksu itself must be running. If a refresh fails, the schedule shows the error and retries later, waiting longer after repeated failures. If several planned times are missed, one successful catch-up refresh covers them instead of flooding the timeline.
 
 ## Active Accounts
 
@@ -115,7 +115,7 @@ The **Carryover** section pushes recent Noodle activity into your chats. When on
 - **Carry items**: a number, 1 to 50, default **8**. This is the most activity summaries added to one chat turn.
 
 Carryover only pulls activity for characters who are invited on Noodle, plus the chat's active persona. Folder-only inclusion is not enough here.
-The complete wrapped carryover block has a separate hard 8,192-token budget per chat generation. If the item limit would exceed it, Marinara keeps the newest summaries that fit and renders them in chronological order.
+The complete wrapped carryover block has a separate hard 8,192-token budget per chat generation. If the item limit would exceed it, Guksu keeps the newest summaries that fit and renders them in chronological order.
 
 ## Reset Noodle
 
@@ -146,7 +146,7 @@ To make Noodle activity appear in a chat, turn on the matching **Carryover to ch
 ## Troubleshooting
 
 - **Refresh now generates nothing**: pick a **Generation connection**, invite at least one character (or turn on random users), and check the error shown in the **Refresh** section.
-- **Automatic refreshes are not happening**: set **Refreshes/day** above 0, keep the Marinara server running, and check the planned times and timezone under **Automatic schedule**. If the schedule shows an error, fix the connection or rate limit problem and let the retry run.
+- **Automatic refreshes are not happening**: set **Refreshes/day** above 0, keep the Guksu server running, and check the planned times and timezone under **Automatic schedule**. If the schedule shows an error, fix the connection or rate limit problem and let the retry run.
 - **Posts do not mention a recent chat**: turn on **Allow Noodle references** in that chat's settings, and make sure the character is invited. Chat context is guidance for the AI, not a guarantee.
 - **Noodle activity does not show in chats**: turn on the matching **Carryover to chats** mode, and raise **Carry hours** if the activity is too old.
 - **Posts have no images**: turn on **Image generation**, pick a working image connection, and check the **Images/refresh** limit.

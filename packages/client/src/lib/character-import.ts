@@ -38,7 +38,7 @@ export function confirmEmbeddedLorebookImport(characterName: string, embeddedLor
   if (entryCount === 0) return true;
 
   return window.confirm(
-    `${characterName} includes an embedded lorebook with ${entryCount} entr${entryCount === 1 ? "y" : "ies"}.\n\nImport it as a standalone Marinara lorebook too?`,
+    `${characterName} includes an embedded lorebook with ${entryCount} entr${entryCount === 1 ? "y" : "ies"}.\n\nImport it as a standalone Guksu lorebook too?`,
   );
 }
 

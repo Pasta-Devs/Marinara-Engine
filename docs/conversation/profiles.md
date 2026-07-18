@@ -17,7 +17,7 @@ The **Convo** tab holds three fields: **Convo Display Name**, **About Me**, and 
 
 **Convo Display Name** is the name shown for this character or persona in Conversation Mode chats. Leave it blank to use the card name instead. Changing it updates the name on existing messages right away. It only affects Conversation Mode.
 
-Characters (not personas) also have a checkbox: **Declare this name on the card in the prompt**. When you turn it on, Marinara adds a short line to the character's card text. That line tells the model which card is shown under which display name. This checkbox needs a display name to be set first.
+Characters (not personas) also have a checkbox: **Declare this name on the card in the prompt**. When you turn it on, Guksu adds a short line to the character's card text. That line tells the model which card is shown under which display name. This checkbox needs a display name to be set first.
 
 The `{{convo_display}}` macro puts the responding character's display name into a custom prompt. A macro is a placeholder like `{{convo_display}}` that gets replaced with real text. It resolves to nothing outside Conversation Mode. See [Macros](../prompts/macros.md).
 
@@ -25,7 +25,7 @@ The `{{convo_display}}` macro puts the responding character's display name into 
 
 **About Me** is a short self-written bio for the character or persona, shown in Conversation Mode. It can be a line or two, a single emoji, a joke, or nothing at all. An emoji button sits in the text box toolbar so you can drop an emoji into the bio.
 
-The bio is not just decoration. By default, Marinara adds the **About Me** of every present character and persona to the prompt on each turn. The bios go in as a short list of participant profiles. This way, the model always knows how each person presents themselves. You do not need to do anything for this to work.
+The bio is not just decoration. By default, Guksu adds the **About Me** of every present character and persona to the prompt on each turn. The bios go in as a short list of participant profiles. This way, the model always knows how each person presents themselves. You do not need to do anything for this to work.
 
 ### Writing an About Me with Professor Mari
 

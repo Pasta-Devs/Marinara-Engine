@@ -1,6 +1,6 @@
 # Message Translation
 
-Marinara Engine can translate chat messages between languages. This guide covers the four translation providers, the automatic translation toggles, the per-message Translate button, and the limits of each provider.
+Guksu Motor can translate chat messages between languages. This guide covers the four translation providers, the automatic translation toggles, the per-message Translate button, and the limits of each provider.
 
 Translation is set up per chat. Each chat keeps its own provider, target language, and keys. A setting you enter in one chat does not carry over to another.
 
@@ -42,7 +42,7 @@ When you pick **DeepL API**, a **DeepL API Key** field appears. Paste your DeepL
 xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx
 ```
 
-A key that ends in `:fx` is a free-tier key. Marinara sends it to DeepL's free service. Any other key is treated as a paid key.
+A key that ends in `:fx` is a free-tier key. Guksu sends it to DeepL's free service. Any other key is treated as a paid key.
 
 ### DeepLX setup
 
@@ -52,7 +52,7 @@ DeepLX is a free, self-hosted translation server that you run yourself. When you
 http://localhost:1188
 ```
 
-If your DeepLX server runs on your own machine or your local network, the address is a local address. Marinara blocks requests to local addresses by default for safety. To allow them, set this line in your `.env` file and save the file:
+If your DeepLX server runs on your own machine or your local network, the address is a local address. Guksu blocks requests to local addresses by default for safety. To allow them, set this line in your `.env` file and save the file:
 
 ```
 DEEPLX_LOCAL_URLS_ENABLED=true
@@ -64,7 +64,7 @@ A DeepLX server at a public internet address does not need this setting. Only lo
 
 ### AI translation setup
 
-When you pick **AI (via connection)**, Marinara uses one of your AI providers to translate. Two extra fields appear.
+When you pick **AI (via connection)**, Guksu uses one of your AI providers to translate. Two extra fields appear.
 
 The **Connection** dropdown lets you choose which AI connection does the translating. This field is required. If you leave it unset, translation fails with the message "Connection ID is required for AI translation". A connection is a saved link to an AI provider. See the connections guide below to set one up.
 
@@ -78,9 +78,9 @@ You are a translator. Translate the given text accurately, preserving formatting
 
 Below the provider settings are three toggles. All three are off by default.
 
-**Auto-Translate Responses** translates every AI response automatically, right after it is generated. In Game mode, Marinara removes game-master-only tags from the narration before translating it.
+**Auto-Translate Responses** translates every AI response automatically, right after it is generated. In Game mode, Guksu removes game-master-only tags from the narration before translating it.
 
-**Translate My Messages** translates your own message into the target language just before it is sent to the AI. The translation replaces your typed text. If the translation fails, Marinara sends your original text instead and shows an error message.
+**Translate My Messages** translates your own message into the target language just before it is sent to the AI. The translation replaces your typed text. If the translation fails, Guksu sends your original text instead and shows an error message.
 
 **Show Draft Translate Button** adds a **Translate draft** button next to the **Send** button. This lets you translate your message and review or edit the result before you send it. This is the manual alternative to **Translate My Messages**, which translates on send with no chance to review.
 

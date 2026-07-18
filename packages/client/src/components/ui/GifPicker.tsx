@@ -226,7 +226,7 @@ export function GifPicker({ open, onClose, onSelect, anchorRef, containerRef, em
                 <p className="text-xs font-semibold text-foreground/85">GIF search needs a GIPHY API key.</p>
                 <p className="mt-1 text-[0.6875rem] leading-relaxed text-foreground/55">
                   Create a free key, paste it into <code className={setupCodeClass}>GIPHY_API_KEY</code> in your{" "}
-                  <code className={setupCodeClass}>.env</code> file, then restart Marinara.
+                  <code className={setupCodeClass}>.env</code> file, then restart Guksu.
                 </p>
               </div>
               <ol className="space-y-1 text-left text-[0.6875rem] leading-relaxed text-foreground/55">

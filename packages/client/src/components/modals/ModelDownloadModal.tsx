@@ -311,11 +311,11 @@ export function ModelDownloadModal({ open, onClose }: Props) {
         : "Downloading your selected GGUF and preparing it for local use."
       : progress?.phase === "runtime"
         ? activeBackend === "mlx"
-          ? "Downloading a private uv bootstrap and creating an isolated MLX environment inside Marinara's sidecar runtime folder."
+          ? "Downloading a private uv bootstrap and creating an isolated MLX environment inside Guksu's sidecar runtime folder."
           : "Downloading the official local runtime for this device."
         : activeBackend === "mlx"
-          ? "Starting the MLX server in the background. You can close this window while Marinara finishes booting it."
-          : "Starting the local sidecar server in the background. You can close this window while Marinara finishes booting it.";
+          ? "Starting the MLX server in the background. You can close this window while Guksu finishes booting it."
+          : "Starting the local sidecar server in the background. You can close this window while Guksu finishes booting it.";
   const runtimeStatusLabel = canFinish
     ? "Ready"
     : isBlockingSetup
@@ -492,12 +492,12 @@ export function ModelDownloadModal({ open, onClose }: Props) {
           </div>
           <div className="text-sm text-[var(--muted-foreground)]">
             <p>
-              Marinara Engine can run a local sidecar for trackers, scene analysis, and game-state helpers without
+              Guksu Motor can run a local sidecar for trackers, scene analysis, and game-state helpers without
               spending main-model tokens.
             </p>
             <p className="mt-1.5 text-xs text-[var(--muted-foreground)]/70">
               {isAppleSilicon
-                ? "Set up the MLX runtime first if you want Marinara to keep it private and isolated, then choose either a curated Gemma preset or an MLX-native HuggingFace repo."
+                ? "Set up the MLX runtime first if you want Guksu to keep it private and isolated, then choose either a curated Gemma preset or an MLX-native HuggingFace repo."
                 : "Set up the runtime first, then choose either a curated Gemma preset or any GGUF from HuggingFace. Runtime device selection lives inside Runtime Settings."}
             </p>
           </div>
@@ -662,11 +662,11 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                         />
                       </div>
                       <div className="text-xs text-[var(--muted-foreground)]/70">
-                        Pick the GPU family you actually want Marinara to target so it does not guess the wrong adapter.
+                        Pick the GPU family you actually want Guksu to target so it does not guess the wrong adapter.
                       </div>
                       {platform === "linux" && config.runtimePreference === "nvidia" && (
                         <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs leading-relaxed text-amber-100">
-                          Linux CUDA binaries are not currently published by llama.cpp, so Marinara tries Vulkan first
+                          Linux CUDA binaries are not currently published by llama.cpp, so Guksu tries Vulkan first
                           and falls back to CPU. Use System llama-server for a custom CUDA build.
                         </div>
                       )}
@@ -914,7 +914,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 <div className="mt-3 flex items-center justify-between gap-3 max-sm:flex-col max-sm:items-stretch">
                   <div className="text-xs text-[var(--muted-foreground)]/70">
                     Max response tokens caps how much the local runtime can generate. If it is too large relative to the
-                    context window, Marinara has to trim more of the prompt to make room. Marinara does not impose an
+                    context window, Guksu has to trim more of the prompt to make room. Guksu does not impose an
                     upper limit here; the selected model and your hardware still decide what can actually run.
                   </div>
                   <button
@@ -945,7 +945,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
                 <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-4">
                   <div className="text-sm font-medium text-amber-200">Local runtime failed to start</div>
                   <div className="mt-1 text-xs text-[var(--muted-foreground)]/85">
-                    Marinara will keep working without the local model until you retry or change these settings.
+                    Guksu will keep working without the local model until you retry or change these settings.
                   </div>
                   <div className="mt-3 flex flex-col gap-1 text-xs text-[var(--muted-foreground)]/75">
                     {failedRuntimeVariant && <span>Runtime: {formatRuntimeVariantLabel(failedRuntimeVariant)}</span>}
@@ -1189,7 +1189,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
               </div>
               <div className="mt-2 text-xs text-[var(--muted-foreground)]/70">
                 {isAppleSilicon
-                  ? "Enter an MLX-native HuggingFace repo. Marinara will validate it, then let the MLX runtime pull and cache it locally on first startup."
+                  ? "Enter an MLX-native HuggingFace repo. Guksu will validate it, then let the MLX runtime pull and cache it locally on first startup."
                   : "Enter a GGUF repo on HuggingFace, list the available files, and choose the one you want to download."}
               </div>
               <div className="mt-3 flex flex-col gap-2">

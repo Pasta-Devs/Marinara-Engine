@@ -1,6 +1,6 @@
 # Card CSS Theming Guide
 
-This guide shows character and persona creators how to give a card its own look in chat. You embed CSS in the card's Creator Notes, and Marinara Engine applies it safely to that character's messages. It can only ever style the chat, never the rest of the app.
+This guide shows character and persona creators how to give a card its own look in chat. You embed CSS in the card's Creator Notes, and Guksu Motor applies it safely to that character's messages. It can only ever style the chat, never the rest of the app.
 
 ## Before you start
 
@@ -12,7 +12,7 @@ A few plain definitions used throughout this guide:
 - A **selector** is the part of a CSS rule that picks which elements to style.
 - A **descendant selector** uses a space to mean "inside". `.a .b` matches a `.b` that sits inside an `.a`.
 - The **cascade** is the CSS system that decides which rule wins when several rules apply to the same element.
-- A **layout** is how messages are arranged on screen. Marinara has a **Linear** row layout and a **Bubbles** layout.
+- A **layout** is how messages are arranged on screen. Guksu has a **Linear** row layout and a **Bubbles** layout.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ The character's name glows pink and their text goes soft pink in every layout. T
 
 ## How Card Theming works
 
-When a character with CSS in their **Creator Notes** is active, Marinara does four things:
+When a character with CSS in their **Creator Notes** is active, Guksu does four things:
 
 1. It reads every `<style>` block from the **Creator Notes**.
 2. It sanitizes the CSS and strips anything dangerous. See the "What you cannot style" section below.
@@ -78,7 +78,7 @@ Use **Exclusive** for group chats where each character has its own look. Use **C
 
 ## The one scoping rule that matters
 
-Marinara rewrites your CSS so it can only reach the chat. How it rewrites it depends on the mode.
+Guksu rewrites your CSS so it can only reach the chat. How it rewrites it depends on the mode.
 
 - **Chat** mode scopes everything under the chat area. `.mari-message-bubble` matches normally, because it sits inside the area.
 - **Exclusive** mode scopes everything under each of your character's own message elements. Those carry `data-card-css`. A class on that same element cannot match it as a descendant. Only things inside it can.
@@ -506,7 +506,7 @@ Swap the colors, the `content` glyph, and the fonts to make it your own.
 If you would rather not hand-write CSS, give an AI assistant this prompt. Fill in your character concept where marked.
 
 ```text
-I'm creating a character card for Marinara Engine (an AI chat app). The card has a
+I'm creating a character card for Guksu Motor (an AI chat app). The card has a
 "Creator Notes" field where I can embed <style> blocks. Write CSS that themes the
 character's messages.
 

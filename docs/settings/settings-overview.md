@@ -1,10 +1,10 @@
 # Settings Overview
 
-This guide maps the Marinara Engine **Settings** panel: its six tabs and what each one controls. It covers the **General** tab in depth, the **Text Rules** that format your chat text, and how settings sync across your devices.
+This guide maps the Guksu Motor **Settings** panel: its six tabs and what each one controls. It covers the **General** tab in depth, the **Text Rules** that format your chat text, and how settings sync across your devices.
 
 ## The Settings panel and its six tabs
 
-Open **Settings** using the gear icon in the top bar. At the top of the panel is a **Search settings** box. Type any word (like `delete`, `streaming`, or `quotes`) and Marinara jumps you to the matching section.
+Open **Settings** using the gear icon in the top bar. At the top of the panel is a **Search settings** box. Type any word (like `delete`, `streaming`, or `quotes`) and Guksu jumps you to the matching section.
 
 The panel has six tabs. The table below shows what each tab controls.
 
@@ -24,14 +24,14 @@ Here is where to read more about each tab:
 - **Generations**: see [Style Profiles](../media/style-profiles.md) and [Scene Video](../media/scene-video.md).
 - **Addons**: see [Custom CSS Themes](../appearance/custom-css-themes.md) and [Extensions](../extending/extensions.md).
 - **Imports**: see [Importing from SillyTavern](../data/importing-from-sillytavern.md) and [Backup and Restore](../data/backup-and-restore.md).
-- **Advanced**: see the **Message Tools** section below, plus [Upgrading Marinara Engine](../UPGRADING.md), [Remote Access](../REMOTE_ACCESS.md), and [Clearing Your Data](../data/clearing-data.md).
+- **Advanced**: see the **Message Tools** section below, plus [Upgrading Guksu Motor](../UPGRADING.md), [Remote Access](../REMOTE_ACCESS.md), and [Clearing Your Data](../data/clearing-data.md).
 
 ## Settings, General tab
 
 The **General** tab holds six sections. This page owns two of them in full: **App Behavior** and **Text Rules**. The others are summarized here and covered in detail in their own guides.
 
 - **App Behavior**: language, delete safety, and show/hide toggles. Covered below.
-- **Notifications**: notification sounds plus separate browser and Android app controls. **Background Notifications** cover autonomous Conversation messages, while **Generation Completion Notifications** cover replies you start manually in Conversation, Roleplay, Visual Novel, and Game modes. Both work while Marinara remains open but unfocused, and message contents stay hidden.
+- **Notifications**: notification sounds plus separate browser and Android app controls. **Background Notifications** cover autonomous Conversation messages, while **Generation Completion Notifications** cover replies you start manually in Conversation, Roleplay, Visual Novel, and Game modes. Both work while Guksu remains open but unfocused, and message contents stay hidden.
 - **Responses**: how replies stream, save, and paginate. See [Sending and Streaming Messages](../chats/sending-and-streaming.md).
 - **Input & Editing**: message input and fast edit controls. See [Message Actions](../chats/messages.md).
 - **Text Rules**: formatting applied to chat text. Covered below.
@@ -42,7 +42,7 @@ The **General** tab holds six sections. This page owns two of them in full: **Ap
 This section is at **Settings** > **General** > **App Behavior**. It controls daily app behavior and a few show/hide toggles.
 
 - **Language**: choose the app language. Only English is available right now. The setting is saved so future translations can add more.
-- **Confirm before deleting**: on by default. When on, Marinara asks before it permanently deletes a chat, a character, or another item. Keep it on to avoid accidental deletes.
+- **Confirm before deleting**: on by default. When on, Guksu asks before it permanently deletes a chat, a character, or another item. Keep it on to avoid accidental deletes.
 - **Achievements**: on by default. When on, the Home screen shows the achievements button and unlock notices. When off, tracking stays silent. See [Achievements](../home/achievements.md).
 - **Music Player**: on by default. When on, the compact Music Player is shown. See [Music](../media/music.md).
 - **Mini Mari surprise visits**: on by default. When on, a rare Chibi Professor Mari message can appear while you scroll. Turn it off if it gets in the way.
@@ -111,19 +111,19 @@ The **Message Tools** section is at **Settings** > **Advanced** > **Message Tool
 | **Include reasoning in exports** | Adds hidden thinking to chat exports. | [Exporting and Importing Chats](../chats/export-import.md) |
 | **Debug mode** | Logs model payloads in the server console for support. | [Troubleshooting](../TROUBLESHOOTING.md) |
 
-The rest of the **Advanced** tab is covered elsewhere. See [Upgrading Marinara Engine](../UPGRADING.md) for **Updates**, [Remote Access](../REMOTE_ACCESS.md) for **Admin Access**, [Backup and Restore](../data/backup-and-restore.md) for **Backup & Export**, and [Clearing Your Data](../data/clearing-data.md) for **Danger Zone**.
+The rest of the **Advanced** tab is covered elsewhere. See [Upgrading Guksu Motor](../UPGRADING.md) for **Updates**, [Remote Access](../REMOTE_ACCESS.md) for **Admin Access**, [Backup and Restore](../data/backup-and-restore.md) for **Backup & Export**, and [Clearing Your Data](../data/clearing-data.md) for **Danger Zone**.
 
 ## How settings sync across devices
 
-Marinara stores most of your settings on the server, so they follow you between browsers and devices. This is the settings sync behavior.
+Guksu stores most of your settings on the server, so they follow you between browsers and devices. This is the settings sync behavior.
 
 Here is how it works:
 
 1. You change a setting anywhere in **Settings**.
-2. About one second later, Marinara saves the change to the server with a timestamp.
-3. When another browser opens the same Marinara server, it loads those saved settings.
+2. About one second later, Guksu saves the change to the server with a timestamp.
+3. When another browser opens the same Guksu server, it loads those saved settings.
 
-Each device keeps the newer copy. This is last-write-wins by timestamp. Watch out for one result of this rule. If you open Marinara on a second device, its copy can quietly overwrite a setting you just changed on the first device. Give the app a moment to sync before you switch devices.
+Each device keeps the newer copy. This is last-write-wins by timestamp. Watch out for one result of this rule. If you open Guksu on a second device, its copy can quietly overwrite a setting you just changed on the first device. Give the app a moment to sync before you switch devices.
 
 Two settings never sync. They stay per-browser on the device where you set them:
 
@@ -141,6 +141,6 @@ If the server is unreachable, the app keeps working from your local settings and
 - [Sending and Streaming Messages](../chats/sending-and-streaming.md)
 - [Exporting and Importing Chats](../chats/export-import.md)
 - [Where Your Data Is Stored](../data/where-data-is-stored.md)
-- [Upgrading Marinara Engine](../UPGRADING.md)
+- [Upgrading Guksu Motor](../UPGRADING.md)
 - [Troubleshooting](../TROUBLESHOOTING.md)
 - [Achievements](../home/achievements.md)

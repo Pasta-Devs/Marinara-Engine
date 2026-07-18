@@ -1,6 +1,6 @@
 {
   "domain": "marinara_engine",
-  "name": "Marinara Engine",
+  "name": "Guksu Motor",
   "version": "1.0.0",
   "config_flow": true,
   "documentation": "https://github.com/Pasta-Devs/Marinara-Engine/blob/main/docs/integrations/home-assistant.md",

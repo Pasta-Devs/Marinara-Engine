@@ -1,10 +1,10 @@
 # Memory Recall and Chat Summaries
 
-This guide explains how Marinara Engine helps a long chat stay coherent after it grows past what the AI model can read at once. It covers **Memory Recall** (semantic search over past messages), **Chat Summary** for Roleplay chats, and **Automatic Summarization** for Conversation chats.
+This guide explains how Guksu Motor helps a long chat stay coherent after it grows past what the AI model can read at once. It covers **Memory Recall** (semantic search over past messages), **Chat Summary** for Roleplay chats, and **Automatic Summarization** for Conversation chats.
 
 ## The two memory systems
 
-Every AI model can only read a limited amount of text at one time. That limit is called the context window. When a chat gets long, the oldest messages fall out of that window and the AI forgets them. Marinara Engine (called Marinara after this) has two separate systems that fix this.
+Every AI model can only read a limited amount of text at one time. That limit is called the context window. When a chat gets long, the oldest messages fall out of that window and the AI forgets them. Guksu Motor (called Guksu after this) has two separate systems that fix this.
 
 - **Memory Recall** searches your older messages for the parts most related to what you just said, then quietly adds those parts back into the prompt. It works in every chat mode.
 - **Summaries** compress old messages into short recaps that replace the raw messages in the prompt. Roleplay chats use **Chat Summary**. Conversation chats use **Automatic Summarization**.
@@ -15,7 +15,7 @@ You can use both systems at the same time. They do different jobs and do not con
 
 ## Memory Recall setup
 
-**Memory Recall** finds relevant fragments from earlier in a chat and injects them into the prompt as memories. It uses an embedding: a numeric fingerprint of a message's meaning. Marinara compares the fingerprint of your new message against stored fingerprints of past messages, then adds the closest matches.
+**Memory Recall** finds relevant fragments from earlier in a chat and injects them into the prompt as memories. It uses an embedding: a numeric fingerprint of a message's meaning. Guksu compares the fingerprint of your new message against stored fingerprints of past messages, then adds the closest matches.
 
 ### Turning Memory Recall on
 
@@ -41,9 +41,9 @@ Memory Recall needs an embedding source to build those meaning fingerprints. You
 4. Optionally set an **Embedding Endpoint URL** to override the address.
 5. Optionally use the **Embedding Connection** dropdown to borrow another connection's key and address. Options include **Same as this connection** and **Local Model (sidecar)**.
 
-Some providers do not offer embeddings. In that case Marinara shows a note asking you to pick a dedicated embedding connection, such as an OpenAI-compatible one, Google, or the Local Model.
+Some providers do not offer embeddings. In that case Guksu shows a note asking you to pick a dedicated embedding connection, such as an OpenAI-compatible one, Google, or the Local Model.
 
-If you set no embedding connection at all, Marinara falls back to a built-in local embedding model. It downloads this model one time and runs it on your own machine, with no API key needed. For more on the built-in model, see [Local Model Setup](../connections/local-model.md).
+If you set no embedding connection at all, Guksu falls back to a built-in local embedding model. It downloads this model one time and runs it on your own machine, with no API key needed. For more on the built-in model, see [Local Model Setup](../connections/local-model.md).
 
 This same **Semantic Search (Embeddings)** setting also powers Lorebook semantic search, so setting it up once helps both features.
 
@@ -68,14 +68,14 @@ The toolbar has icons to export memories, import memories, rebuild memories, and
 
 Keep these points in mind:
 
-- Marinara stores memory chunks in the background whenever an embedding source is available, even if **Enable Memory Recall** is off. The toggle only controls whether stored memories get injected. To stop storing memories, remove the embedding source or clear the memories from time to time.
+- Guksu stores memory chunks in the background whenever an embedding source is available, even if **Enable Memory Recall** is off. The toggle only controls whether stored memories get injected. To stop storing memories, remove the embedding source or clear the memories from time to time.
 - A chunk needs at least 5 new messages before it is created. Smaller batches wait for the next reply.
 - Recalled fragments must be closely related enough to pass a similarity check. Weak matches are skipped, so recall can return nothing even when memories exist.
 - Only a small budget of the prompt is used for recalled memories, so only the most relevant few are ever added.
 - If you change the embedding model after memories already exist, the old chunks no longer match. Use the rebuild icon to remake them.
 - Deleting a chat's messages also deletes its memory chunks.
 
-Some container builds of Marinara, known as Marinara Lite, turn Memory Recall off completely. On those builds the **Memory Recall** section does not appear at all.
+Some container builds of Guksu, known as Guksu Lite, turn Memory Recall off completely. On those builds the **Memory Recall** section does not appear at all.
 
 ## Chat Summary (Roleplay)
 
@@ -142,7 +142,7 @@ Two settings in the **Automatic Summarization** section shape how days are split
 - **Day Rollover Hour**: the hour when a new day begins for summaries. The default is 4 AM, and you can pick any hour from 12 AM (midnight) through 11 AM. Messages sent before this hour count as part of the previous day. Pick a time when you are never chatting so a late-night session is not cut in half.
 - **Recent Message Tail**: how many of today's newest messages stay word-for-word even after they are summarized. The default is 10, and the range is 0 to 50.
 
-If you change **Day Rollover Hour** after summaries already exist, Marinara warns you that older summaries used the previous setting.
+If you change **Day Rollover Hour** after summaries already exist, Guksu warns you that older summaries used the previous setting.
 
 ### Filling in missing days
 
@@ -171,4 +171,4 @@ Changing the connection or model used for summaries does not rewrite day or week
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Conversation Mode: Getting Started](../conversation/getting-started.md)
 - [Roleplay Mode: Getting Started](../roleplay/getting-started.md)
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md)

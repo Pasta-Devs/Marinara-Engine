@@ -1,6 +1,6 @@
 # Architecture Map (Developers)
 
-This guide is developer material for contributors. It describes the code organization of Marinara Engine: shared foundations, feature systems, mode ownership, and where each piece of code belongs. It also lists the current large files and the direction for future refactor work.
+This guide is developer material for contributors. It describes the code organization of Guksu Motor: shared foundations, feature systems, mode ownership, and where each piece of code belongs. It also lists the current large files and the direction for future refactor work.
 
 Scope: `packages/client/src`, `packages/server/src`, and `packages/shared/src`. The repo keeps no conventional `.test.ts` suite. Tracked regression scripts and Playwright smoke coverage provide automated validation; temporary `.test.ts` proof files are gitignored and removed after use.
 
@@ -24,7 +24,7 @@ Use these codes when planning moves, labeling issues, or adding a short file hea
 | `FEATURE-ASSETS` | Backgrounds, avatars, gallery, generated images, sprites, game assets | asset routes, gallery storage, image services |
 | `FEATURE-SIDECAR` | Local model runtime, scene analysis, downloads, process control | sidecar store, `/api/sidecar`, sidecar services |
 | `FEATURE-TTS` | TTS config, voice routing, cache keys, audio playback | TTS settings/hooks/routes/services |
-| `FEATURE-IMPORT` | SillyTavern and Marinara importers and migration helpers | import routes/services |
+| `FEATURE-IMPORT` | SillyTavern and Guksu importers and migration helpers | import routes/services |
 | `TEST` | Tracked regression and browser smoke coverage, plus temporary proof tests when needed | `scripts/regressions`, `e2e`, and temporary `packages/server/src/**/__tests__/` files removed after use |
 
 Prefer making the path communicate the section. A comment like `// Section: MODE-GAME` is only useful while a file still sits in a mixed directory.

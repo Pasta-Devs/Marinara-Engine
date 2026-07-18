@@ -1,6 +1,6 @@
 # iOS PWA Bottom Safe Area (Developers)
 
-This developer guide explains a colored stripe that can appear at the bottom of the screen. It shows up when Marinara Engine runs as an iPhone home screen app. It covers the fix Marinara ships, the trade-off that fix forces, and how to diagnose the stripe if a future change brings it back.
+This developer guide explains a colored stripe that can appear at the bottom of the screen. It shows up when Guksu Motor runs as an iPhone home screen app. It covers the fix Guksu ships, the trade-off that fix forces, and how to diagnose the stripe if a future change brings it back.
 
 A PWA (Progressive Web App) is a website a user installs to the home screen and opens like a native app. This is code-level material for contributors, not an end-user guide.
 
@@ -14,7 +14,7 @@ The result is a visible strip below the chat input box. This strip, often called
 
 ## The fix we ship
 
-Marinara sets the status bar style to `black` instead of `black-translucent`. The meta tag lives in `packages/client/index.html`.
+Guksu sets the status bar style to `black` instead of `black-translucent`. The meta tag lives in `packages/client/index.html`.
 
 ```html
 <meta name="apple-mobile-web-app-status-bar-style" content="black" />

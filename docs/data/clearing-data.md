@@ -1,6 +1,6 @@
 # Clearing or Resetting Your Data
 
-This guide shows you how to permanently delete your data in Marinara Engine using the **Danger Zone**. You can clear a few categories or wipe everything. There is no undo, so read the warnings first.
+This guide shows you how to permanently delete your data in Guksu Motor using the **Danger Zone**. You can clear a few categories or wipe everything. There is no undo, so read the warnings first.
 
 ## Where the Danger Zone is
 
@@ -12,13 +12,13 @@ The clear data tools live in one place.
 
 The **Danger Zone** description reads: "Permanently clear selected categories of local data. Professor Mari is always preserved."
 
-If you use Marinara from another device (not the computer running the app), clearing data needs admin access. See [Remote Access](../REMOTE_ACCESS.md) for how to set that up.
+If you use Guksu from another device (not the computer running the app), clearing data needs admin access. See [Remote Access](../REMOTE_ACCESS.md) for how to set that up.
 
 ## Back up before you clear
 
 Clearing data cannot be undone. There is no trash and no recycle bin. Once you confirm, the data is gone.
 
-Make a backup first so you can restore later if you change your mind. See [Backing Up and Restoring Marinara](backup-and-restore.md).
+Make a backup first so you can restore later if you change your mind. See [Backing Up and Restoring Guksu](backup-and-restore.md).
 
 ## The eight data categories
 
@@ -65,5 +65,5 @@ Professor Mari is the built-in helper character. This feature never deletes her.
 
 ## Related guides
 
-- [Backing Up and Restoring Marinara](backup-and-restore.md)
+- [Backing Up and Restoring Guksu](backup-and-restore.md)
 - [Remote Access](../REMOTE_ACCESS.md)

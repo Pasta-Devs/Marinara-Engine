@@ -2,7 +2,7 @@
 
 This guide covers what you can do with a single message in a chat. It explains the message toolbar, how to edit and delete a message, and how swipes and regeneration work. It also covers the display toggles that show token counts and message numbers.
 
-Every message in Marinara Engine, whether you wrote it or the AI did, has a small toolbar. The toolbar appears when you hover over the message on a computer, or when you tap the message on a phone or tablet.
+Every message in Guksu Motor, whether you wrote it or the AI did, has a small toolbar. The toolbar appears when you hover over the message on a computer, or when you tap the message on a phone or tablet.
 
 ## The message toolbar
 
@@ -101,4 +101,4 @@ A related toggle in the same **Message Tools** section, **Show model name on mes
 - [Text to Speech (TTS) Setup](../media/tts-setup.md)
 - [Message Translation](../integrations/message-translation.md)
 - [Settings Overview](../settings/settings-overview.md)
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md)

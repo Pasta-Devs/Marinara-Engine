@@ -1,10 +1,10 @@
 # Game Mode: Getting Started
 
-Game Mode turns Marinara Engine into a single-player role-playing game run by an AI Game Master. This guide covers what Game Mode is and what you need before you start. It then walks through the setup wizard and shows where to find each gameplay feature. Read it once, start a game, then follow the links at the end for deeper topics.
+Game Mode turns Guksu Motor into a single-player role-playing game run by an AI Game Master. This guide covers what Game Mode is and what you need before you start. It then walks through the setup wizard and shows where to find each gameplay feature. Read it once, start a game, then follow the links at the end for deeper topics.
 
 ## What Game Mode is
 
-Game Mode is one of Marinara's chat modes. The others are Conversation and Roleplay.
+Game Mode is one of Guksu's chat modes. The others are Conversation and Roleplay.
 
 In Game Mode, an AI Game Master (GM) runs a story for you. A Game Master is the AI that narrates the world, plays every character you meet, and decides what happens next. It works like the Dungeon Master in a tabletop game.
 
@@ -14,18 +14,18 @@ You do not have to use every mechanic. Some players skip combat and dice and use
 
 ## Before you start
 
-You need only one thing to start a game: an AI provider connection for the GM. A connection links Marinara to an AI provider so it can generate text. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) if you have not set one up yet.
+You need only one thing to start a game: an AI provider connection for the GM. A connection links Guksu to an AI provider so it can generate text. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) if you have not set one up yet.
 
 Everything else is optional and off by default. You can add these later:
 
 - **Image generation.** Game Mode has a visual layout with backgrounds and character art. To fill it, you need an image generation connection. The **Visual Generation** setting in the wizard is off by default, so you must turn it on yourself. Without it, you still get the story, state tracking, and combat, but the visual areas stay empty.
-- **A Local Model for scene effects.** Marinara can run a small model on your own machine, labeled **Local Model (Gemma)**. It powers background and music suggestions without extra cost. It is the default choice in the wizard. See [Local Model Setup](../connections/local-model.md).
+- **A Local Model for scene effects.** Guksu can run a small model on your own machine, labeled **Local Model (Gemma)**. It powers background and music suggestions without extra cost. It is the default choice in the wizard. See [Local Model Setup](../connections/local-model.md).
 - **A video generation connection.** This is only needed for scene videos or animated storyboards.
 - **Music.** The **Music DJ** agent can play game music. It needs Spotify or a local music folder, and it is off by default.
 
 ## The setup wizard
 
-When you create a Game Mode chat, a **setup wizard** opens. It has seven steps. The only required field is the GM connection on the first step. Every other field has a sensible default. You can move through the wizard quickly and let Marinara fill in the rest.
+When you create a Game Mode chat, a **setup wizard** opens. It has seven steps. The only required field is the GM connection on the first step. Every other field has a sensible default. You can move through the wizard quickly and let Guksu fill in the rest.
 
 The seven steps are:
 
@@ -60,7 +60,7 @@ These are the starting values in the **World**, **Party**, and **Features** step
 | Custom HUD Widgets | On | Uses AI-made status widgets from the new world |
 | Start Muted | Off | Begins the game with audio muted |
 
-New to Game Mode? Leave **Game Master Mode** on **Standalone GM**. Marinara builds a fair, slightly snarky GM for you, and you can feel out the mode before writing a custom GM card.
+New to Game Mode? Leave **Game Master Mode** on **Standalone GM**. Guksu builds a fair, slightly snarky GM for you, and you can feel out the mode before writing a custom GM card.
 
 Choose **Storyboard Optimized** on the final step when you want GM turns written as filmable visual beats. It selects the built-in **Storyboard Game Prompt**, **Comic Page Animation** planner, **Storyboard Illustration**, and **Comic Page Video** presets. Comic Page Animation uses the clip duration to limit the number of chronological panels, Storyboard Illustration formats each planned keyframe for the image model, and Comic Page Video treats those panels as ordered animation references. It does not turn image or video generation on and does not change your selected connections. The GM uses the wizard's **Keyframes per Turn** value as a target for strong visual anchor moments, but it can write fewer for a short exchange and can use more narration paragraphs when the story needs them.
 
@@ -134,9 +134,9 @@ The most common cause is that the model could not produce the full structured JS
 2. Try again. Some failures are one-off, and the same setup works on a second try.
 3. Shorten a very long setting or preferences field. Long inputs leave the model less room for the JSON output.
 
-If a call almost worked but the JSON was slightly broken, Marinara offers a **Repair JSON** modal. It opens a line-numbered editor with the model's raw output. A status line tells you whether the JSON is valid or shows the parse error. Click **Format** to tidy valid JSON. Then click **Apply Repaired JSON** to use your fixed version without paying for a full retry. The **Repair JSON** option also appears for session summaries and other structured calls.
+If a call almost worked but the JSON was slightly broken, Guksu offers a **Repair JSON** modal. It opens a line-numbered editor with the model's raw output. A status line tells you whether the JSON is valid or shows the parse error. Click **Format** to tidy valid JSON. Then click **Apply Repaired JSON** to use your fixed version without paying for a full retry. The **Repair JSON** option also appears for session summaries and other structured calls.
 
-For more symptoms and fixes, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+For more symptoms and fixes, see [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md).
 
 ### The GM narrates cheerfully even though you chose a dark tone
 
@@ -156,4 +156,4 @@ Some models stay upbeat no matter the tone. You have two options. Add a clear in
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
 - [Generation Parameters](../prompts/generation-parameters.md)
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md)

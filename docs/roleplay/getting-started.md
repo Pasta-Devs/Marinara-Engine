@@ -4,7 +4,7 @@ This guide covers what Roleplay Mode is, how to start a roleplay, and what you s
 
 ## What Roleplay Mode is
 
-Roleplay Mode is one of Marinara Engine's chat modes. The others are Conversation and Game. Roleplay gives you an immersive scene view built around a story.
+Roleplay Mode is one of Guksu Motor's chat modes. The others are Conversation and Game. Roleplay gives you an immersive scene view built around a story.
 
 A roleplay scene can show a background image, character sprites, and a heads-up display of world state. A sprite is a character picture that changes with emotion. A heads-up display, or HUD, is the small strip of info widgets at the top of the chat.
 
@@ -119,11 +119,11 @@ You can set a cheaper model for agents than for chat. Many users run chat on a s
 
 **HUD widgets show the wrong value.** A tracker agent fills each widget. Open the widget panel and edit the value by hand. If values keep drifting, switch the agent connection to a stronger model. You can also lock a field so the next automatic run does not overwrite it.
 
-**Sprite expressions do not change.** Check that the character has an uploaded sprite library. Image generation is needed only when you want Marinara to create new sprites. Without sprites to show, the expression agent runs but has nothing to display. You can also set an expression by hand with the **/emote** command.
+**Sprite expressions do not change.** Check that the character has an uploaded sprite library. Image generation is needed only when you want Guksu to create new sprites. Without sprites to show, the expression agent runs but has nothing to display. You can also set an expression by hand with the **/emote** command.
 
 **The background never changes.** The **Background** agent picks from your background library. With only one or two backgrounds, it keeps picking those. Add more backgrounds so the agent has more choices. See [Roleplay Backgrounds](backgrounds.md).
 
-**A regenerated reply keeps the wrong direction.** Turn on **Debug mode** in **Settings**, under **Advanced**. Open the **Agents & Actions** menu, find the **Injections** tab, then edit or re-run the saved snippet before you regenerate. For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+**A regenerated reply keeps the wrong direction.** Turn on **Debug mode** in **Settings**, under **Advanced**. Open the **Agents & Actions** menu, find the **Injections** tab, then edit or re-run the saved snippet before you regenerate. For more help, see [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md).
 
 ## Related guides
 

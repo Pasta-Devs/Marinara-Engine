@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# Marinara Engine — Wolfi Lite Docker Build
+# Guksu Motor — Wolfi Lite Docker Build
 # ──────────────────────────────────────────────
 # Three-stage build using Chainguard Wolfi images:
 #   1. Builder  — full dev toolchain, compiles TS and bundles client

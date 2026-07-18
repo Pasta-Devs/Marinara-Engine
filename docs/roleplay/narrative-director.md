@@ -1,6 +1,6 @@
 # Narrative Director and Secret Plot
 
-This guide explains the Narrative Director agent in Marinara Engine. It covers the Push Story button, the Natural and Random Event modes, and the hidden Secret Plot arc. These features are for Roleplay Mode.
+This guide explains the Narrative Director agent in Guksu Motor. It covers the Push Story button, the Natural and Random Event modes, and the hidden Secret Plot arc. These features are for Roleplay Mode.
 
 ## What the Narrative Director is
 

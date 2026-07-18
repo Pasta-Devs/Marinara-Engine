@@ -1,6 +1,6 @@
 # Music DJ: Spotify, YouTube, and Local Music
 
-This guide explains how to play background music in Marinara Engine using the **Music DJ**. You will learn how to connect Spotify, YouTube, or your own local music files. You will also learn how the music player, the **DJ Mari** playlist maker, and Game Mode music work.
+This guide explains how to play background music in Guksu Motor using the **Music DJ**. You will learn how to connect Spotify, YouTube, or your own local music files. You will also learn how the music player, the **DJ Mari** playlist maker, and Game Mode music work.
 
 ## What Music DJ is
 
@@ -10,7 +10,7 @@ This guide explains how to play background music in Marinara Engine using the **
 
 - **Spotify**: controls playback on your own real Spotify account and devices.
 - **YouTube**: searches YouTube and plays the result in a small in-app player. No login is needed.
-- **Custom**: plays your own audio files from a folder on the machine that runs Marinara.
+- **Custom**: plays your own audio files from a folder on the machine that runs Guksu.
 
 Whichever source is active shows up as a small **Music Player** pinned in the top bar of the app. On phones and narrow windows it becomes a small floating round widget you can drag.
 
@@ -40,11 +40,11 @@ Open the **Music DJ** editor and find the **Spotify Connection** field. Then fol
 
 1. Open the **Spotify Developer Dashboard** at the link shown in the app.
 2. Create a new app and select "Web API".
-3. In the app's Redirect URIs, add the exact redirect address that Marinara shows you in step 3 of the in-app setup box. A redirect address is the web address Spotify sends you back to after you log in.
+3. In the app's Redirect URIs, add the exact redirect address that Guksu shows you in step 3 of the in-app setup box. A redirect address is the web address Spotify sends you back to after you log in.
 4. Copy the **Client ID** from your Spotify app and paste it into the **Spotify Client ID** field.
 5. Save the agent, then click **Connect Spotify Account**.
 
-A Spotify login and permission window opens. After you approve, the window shows a short "Spotify Connected!" page and closes. Back in Marinara you should see a green **Connected to Spotify** pill. A **Disconnect** button removes the saved connection.
+A Spotify login and permission window opens. After you approve, the window shows a short "Spotify Connected!" page and closes. Back in Guksu you should see a green **Connected to Spotify** pill. A **Disconnect** button removes the saved connection.
 
 The app shows this note: "Requires Spotify Premium. Tokens refresh automatically, no need to reconnect." A free Spotify account can connect, but play, pause, skip, and volume control need Spotify Premium. Premium is the paid Spotify plan.
 
@@ -52,7 +52,7 @@ The app shows this note: "Requires Spotify Premium. Tokens refresh automatically
 
 Spotify plays through a device, such as your phone, your desktop Spotify app, or an in-app player.
 
-On desktop you can turn the browser tab itself into a Spotify device. Click the laptop icon on the mini player. Its tooltip reads **Enable Marinara player** or **Use Marinara player**. This registers a Spotify device named "Marinara Engine" so music streams into the tab. In-app streaming also needs Spotify Premium.
+On desktop you can turn the browser tab itself into a Spotify device. Click the laptop icon on the mini player. Its tooltip reads **Enable Guksu player** or **Use Guksu player**. This registers a Spotify device named "Guksu Motor" so music streams into the tab. In-app streaming also needs Spotify Premium.
 
 On mobile, the player prefers your phone's own Spotify device. So tapping play plays music on your phone, not in the background browser tab.
 
@@ -60,7 +60,7 @@ If a Spotify device does not allow remote volume, the volume slider is replaced 
 
 ### Spotify on another machine
 
-Spotify only accepts secure `https://` redirect addresses or the loopback address `http://127.0.0.1`. Loopback means the same computer. If Marinara runs on another machine over plain `http`, the login window may fail to load.
+Spotify only accepts secure `https://` redirect addresses or the loopback address `http://127.0.0.1`. Loopback means the same computer. If Guksu runs on another machine over plain `http`, the login window may fail to load.
 
 Two options help here:
 
@@ -75,7 +75,7 @@ See the [Server Configuration Reference](../CONFIGURATION.md) for how to set env
 
 ## YouTube setup
 
-YouTube mode needs a free YouTube Data API key. An API key is a secret code that lets Marinara use a service on your behalf. No YouTube account login and no Premium are needed.
+YouTube mode needs a free YouTube Data API key. An API key is a secret code that lets Guksu use a service on your behalf. No YouTube account login and no Premium are needed.
 
 Open the **Music DJ** editor and find the **YouTube Connection** field. Then follow these steps.
 
@@ -91,14 +91,14 @@ The app shows this note: "The free quota (~100 searches/day) is plenty for a per
 
 ## Custom (local) music
 
-Custom mode plays your own audio files from the machine that runs Marinara's server. Supported file types are `.mp3`, `.ogg`, `.wav`, `.flac`, `.m4a`, `.aac`, and `.webm`.
+Custom mode plays your own audio files from the machine that runs Guksu's server. Supported file types are `.mp3`, `.ogg`, `.wav`, `.flac`, `.m4a`, `.aac`, and `.webm`.
 
 Open the **Music DJ** editor and find the **Custom Music Library** field. It has one switch: **Use Game Assets music folder**.
 
-- Switch on: Custom mode reads audio you uploaded to Game Assets. Game Assets is Marinara's built-in asset library for Game Mode. Use the **Game Assets music folder** field to pick a folder. Type `music` for the whole music library, or a subfolder like `music/combat`. The **Open Folder** button opens that folder on the server machine.
+- Switch on: Custom mode reads audio you uploaded to Game Assets. Game Assets is Guksu's built-in asset library for Game Mode. Use the **Game Assets music folder** field to pick a folder. Type `music` for the whole music library, or a subfolder like `music/combat`. The **Open Folder** button opens that folder on the server machine.
 - Switch off: Custom mode reads a folder on the server device. Use **Select Folder** to open a folder picker on the server machine, or paste the path into the **Music folder on this device** field.
 
-Playing from a folder outside Game Assets needs local access on the server. If you use Marinara from another device without a password or admin secret, this one feature can be blocked. See [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
+Playing from a folder outside Game Assets needs local access on the server. If you use Guksu from another device without a password or admin secret, this one feature can be blocked. See [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
 
 ## Using the music player
 
@@ -114,7 +114,7 @@ On a fresh profile the visible source starts as **YouTube**. You can change the 
 
 The player shows the current track's cover art or thumbnail, title, and artist or channel. Controls depend on the source.
 
-- Spotify: shuffle, **Previous**, play or pause, **Next**, repeat, a volume slider with mute, the **DJ** button, the laptop **Marinara player** button, and the **Music DJ setup** gear.
+- Spotify: shuffle, **Previous**, play or pause, **Next**, repeat, a volume slider with mute, the **DJ** button, the laptop **Guksu player** button, and the **Music DJ setup** gear.
 - YouTube: play or pause, an expand arrow that opens a small 16:9 video panel, a **Stop** button, and a volume slider with mute.
 - Custom: play or pause and volume, using your local files.
 
@@ -158,14 +158,14 @@ In **Conversation** mode you cannot add **Music DJ** as an agent. Instead, chara
 
 Open the chat's **Commands** section. Turn on the master **Commands** toggle first. Then turn on the **Music** toggle. Its description reads "Let characters play songs through the active Music Player."
 
-Now a character can name a song for Spotify, or describe a track for YouTube, and Marinara plays it through the active source. This works even when **Music DJ** is not enabled anywhere. It only needs Spotify connected or a YouTube key saved.
+Now a character can name a song for Spotify, or describe a track for YouTube, and Guksu plays it through the active source. This works even when **Music DJ** is not enabled anywhere. It only needs Spotify connected or a YouTube key saved.
 
 If Spotify is not connected or lacks playback permission, a Spotify song command does nothing and shows no error. So set up your source first if songs are not playing.
 
 ## Troubleshooting
 
 - The mini player is missing. Turn on **Music Player** in **Settings**, **General** tab, **App Behavior** section.
-- Spotify plays nothing. Playback control needs Spotify Premium and an active Spotify device. Open the desktop app on a device, or click **Enable Marinara player** on desktop.
+- Spotify plays nothing. Playback control needs Spotify Premium and an active Spotify device. Open the desktop app on a device, or click **Enable Guksu player** on desktop.
 - The Spotify login window fails on another machine. Use the "Browser couldn't reach the callback?" paste box, or set `SPOTIFY_REDIRECT_URI` on the server.
 - YouTube search fails. Confirm the **YouTube Data API v3** is enabled for your project and the key is not restricted by HTTP referrer. If you hit the daily quota, try again the next day or use another key.
 - Custom music will not play from a device folder over remote access. That folder needs local access on the server. See [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).

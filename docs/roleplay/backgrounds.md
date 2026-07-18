@@ -4,7 +4,7 @@ This guide covers the scene backdrop in Roleplay Mode: the **Background** agent 
 
 ## The scene background
 
-Roleplay Mode shows a full scene backdrop behind your messages. When the backdrop changes, Marinara cross-fades smoothly from the old image to the new one, so scene changes feel gentle instead of jumpy.
+Roleplay Mode shows a full scene backdrop behind your messages. When the backdrop changes, Guksu cross-fades smoothly from the old image to the new one, so scene changes feel gentle instead of jumpy.
 
 You do not need image generation for this to work. If you have not set up an image generation connection, the backdrop shows as a solid color. Your chat still works as normal text chat.
 
@@ -23,7 +23,7 @@ After that, the scene backdrop updates on its own as your story moves between pl
 
 ## Generate a background by hand
 
-You can also make a new backdrop yourself, without the agent. Marinara builds an image prompt from the scene (its genre, setting, current location, weather, and time) and creates a fresh backdrop.
+You can also make a new backdrop yourself, without the agent. Guksu builds an image prompt from the scene (its genre, setting, current location, weather, and time) and creates a fresh backdrop.
 
 1. Open the **Gallery** (the image icon in the chat toolbar).
 2. Click the **Background** button.
@@ -31,7 +31,7 @@ You can also make a new backdrop yourself, without the agent. Marinara builds an
 
 While it runs, you see this note: "AI background generation is running. The new background will be applied when it finishes." The new image is added to your background library and applied to the scene.
 
-Manual generation and the **Background** agent both need an image generation connection. Marinara uses the connection set for the **Background** agent first. If none is set, it falls back to the **Illustrator** agent's connection, then to your default image generation connection. If it cannot find one, generation fails with this message: "Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents."
+Manual generation and the **Background** agent both need an image generation connection. Guksu uses the connection set for the **Background** agent first. If none is set, it falls back to the **Illustrator** agent's connection, then to your default image generation connection. If it cannot find one, generation fails with this message: "Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents."
 
 Scene background generation works only in Roleplay and Game modes. It is not available in Conversation mode.
 

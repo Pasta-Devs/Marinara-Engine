@@ -1694,7 +1694,7 @@ export function AgentEditor() {
             <FieldGroup
               label="Result Type"
               icon={<FileText size="0.875rem" className="text-[var(--primary)]" />}
-              help="Controls how Marinara interprets this custom agent's output. Some result types require the matching ability toggle above."
+              help="Controls how Guksu interprets this custom agent's output. Some result types require the matching ability toggle above."
             >
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {CUSTOM_AGENT_RESULT_TYPE_OPTIONS.map((option) => {
@@ -2759,7 +2759,7 @@ export function AgentEditor() {
                     {spotifyPasteOpen && (
                       <div className="space-y-2 pt-1">
                         <p className="text-white/40 leading-relaxed">
-                          If you&apos;re running Marinara on a different machine, the popup probably failed to load
+                          If you&apos;re running Guksu on a different machine, the popup probably failed to load
                           (Spotify only allows <code className="text-white/50">127.0.0.1</code> or HTTPS callbacks).
                           Copy the full URL from the popup&apos;s address bar and paste it here:
                         </p>
@@ -2869,7 +2869,7 @@ export function AgentEditor() {
                   </p>
                   <p className="text-[0.625rem] text-white/30 leading-relaxed">
                     Spotify only accepts <code className="text-white/40">https://</code> redirect URIs or loopback (
-                    <code className="text-white/40">http://127.0.0.1</code>). If you&apos;re running Marinara on another
+                    <code className="text-white/40">http://127.0.0.1</code>). If you&apos;re running Guksu on another
                     machine over plain HTTP, register the loopback URI anyway and use the paste-back fallback that
                     appears under the Connect button — or set{" "}
                     <code className="text-white/40">SPOTIFY_REDIRECT_URI</code> to your HTTPS URL.
@@ -3083,7 +3083,7 @@ export function AgentEditor() {
                       </button>
                     </div>
                     <p className="mt-2 text-[0.625rem] leading-relaxed text-white/40">
-                      The folder picker opens on the device running Marinara&apos;s server. Custom mode will list and
+                      The folder picker opens on the device running Guksu&apos;s server. Custom mode will list and
                       play supported audio files from that folder. On devices without a folder picker, paste the path
                       here.
                     </p>

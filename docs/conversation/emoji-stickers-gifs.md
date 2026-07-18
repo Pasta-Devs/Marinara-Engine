@@ -76,13 +76,13 @@ The **GIFs** tab searches Giphy, a large online GIF library. Type in the search 
 
 ### GIF search needs a key
 
-GIF search needs a free Giphy API key. An API key is a secret code that lets Marinara Engine talk to the Giphy service on your behalf. Without a key, the **GIFs** tab shows a setup card instead of results.
+GIF search needs a free Giphy API key. An API key is a secret code that lets Guksu Motor talk to the Giphy service on your behalf. Without a key, the **GIFs** tab shows a setup card instead of results.
 
 To set up GIF search:
 
 1. Open the Giphy Developer Dashboard at `https://developers.giphy.com/dashboard/`.
 2. Create a free API key for a web app.
-3. Add the key to your `.env` file. This is the server settings file for Marinara.
+3. Add the key to your `.env` file. This is the server settings file for Guksu.
 
 Add a line like this to `.env`:
 
@@ -90,7 +90,7 @@ Add a line like this to `.env`:
 GIPHY_API_KEY=your_key_here
 ```
 
-After you add the key, restart Marinara. For a full explanation of the `.env` file, see the server configuration guide linked below.
+After you add the key, restart Guksu. For a full explanation of the `.env` file, see the server configuration guide linked below.
 
 ### GIF content rating
 
@@ -116,7 +116,7 @@ To change a tagged image later, click its tag button again. The menu offers **Re
 
 ## Selection preferences
 
-Marinara can tell the responding character which of your custom emojis and stickers it may use in its reply. You control this with **Selection preferences**.
+Guksu can tell the responding character which of your custom emojis and stickers it may use in its reply. You control this with **Selection preferences**.
 
 To open the panel, click the gear icon labeled **Selection preferences**. It sits at the top of the **Custom emojis** tab and the **Stickers** tab. Both open the same setting. This setting is saved per chat, so each chat can differ.
 

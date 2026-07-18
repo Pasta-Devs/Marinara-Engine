@@ -145,7 +145,7 @@ const CHARACTER_CARD_SECTIONS = [
 ] as const;
 
 const CHARACTER_METADATA_HELP =
-  "Use metadata for identity, sharing, and library organization. The avatar identifies the character throughout Marinara, name is used as {{char}}, creator/version help track authorship and revisions, tags make the card searchable, talkativeness affects group chat response frequency, and creator notes stay private.";
+  "Use metadata for identity, sharing, and library organization. The avatar identifies the character throughout Guksu, name is used as {{char}}, creator/version help track authorship and revisions, tags make the card searchable, talkativeness affects group chat response frequency, and creator notes stay private.";
 
 const CHARACTER_CARD_HELP =
   "Write the fields that define how the model sees and plays the character. Description, personality, backstory, appearance, scenario, and dialogue are kept together here so you can treat the card as one writing document.";
@@ -184,7 +184,7 @@ const CHARACTER_COLORS_HELP =
   "Name color is applied to the character's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of the character's message bubble in roleplay mode. Leave any field empty to use the default theme colors.";
 
 const CHARACTER_LOREBOOK_HELP =
-  "Attach lorebook/world-info entries to this character. Entries trigger from keywords during conversation; embedded card lorebooks can be imported into Marinara as linked lorebooks for deeper editing.";
+  "Attach lorebook/world-info entries to this character. Entries trigger from keywords during conversation; embedded card lorebooks can be imported into Guksu as linked lorebooks for deeper editing.";
 
 interface ParsedCharacter {
   id: string;
@@ -891,8 +891,8 @@ export function CharacterEditor() {
       <ExportFormatDialog
         open={exportDialogOpen}
         title="Export Character"
-        description="Native keeps Marinara metadata, sprites, gallery images, and attached lorebooks. Compatible exports direct Chara Card V2 JSON for other platforms."
-        compatibleDescription="Exports direct Chara Card V2 JSON without the Marinara wrapper."
+        description="Native keeps Guksu metadata, sprites, gallery images, and attached lorebooks. Compatible exports direct Chara Card V2 JSON for other platforms."
+        compatibleDescription="Exports direct Chara Card V2 JSON without the Guksu wrapper."
         showPngOption
         onClose={() => setExportDialogOpen(false)}
         onSelect={(format: ExportFormatChoice) => {
@@ -2128,7 +2128,7 @@ function characterGalleryClipDeleteMessage(clip: CharacterGalleryClip) {
   if (clip.source === "conversation-call") {
     return "Delete this call clip? The standard slot will stay available for regeneration or upload.";
   }
-  return "Delete this clip everywhere it appears in Marinara? This cannot be undone.";
+  return "Delete this clip everywhere it appears in Guksu? This cannot be undone.";
 }
 
 function isCharacterCallVideoClip(clip: CharacterGalleryClip) {
@@ -3391,7 +3391,7 @@ function SpritesTab({
     if (
       !(await showConfirmDialog({
         title: "Clean Sprite Backgrounds",
-        message: `Clean backgrounds on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Marinara will keep a restore point in case the cleanup looks wrong.`,
+        message: `Clean backgrounds on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Guksu will keep a restore point in case the cleanup looks wrong.`,
         confirmLabel: "Clean",
       }))
     ) {
@@ -4402,7 +4402,7 @@ function LorebookTab({
           <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
             {linkedLorebookId
               ? "Edit opens the lorebook editor; changes sync back into the card's embedded copy."
-              : "Import bakes this embedded lorebook into Marinara as an editable linked lorebook."}
+              : "Import bakes this embedded lorebook into Guksu as an editable linked lorebook."}
           </span>
         </div>
       )}

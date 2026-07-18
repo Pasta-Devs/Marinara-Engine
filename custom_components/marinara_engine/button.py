@@ -38,14 +38,14 @@ class MarinaraAbortButton(CoordinatorEntity[MarinaraCoordinator], ButtonEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_abort_generation"
-        self._attr_name = "Marinara Abort Generation"
+        self._attr_name = "Guksu Abort Generation"
 
     @property
     def device_info(self) -> dict:
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Marinara Engine",
-            "manufacturer": "Marinara Engine",
+            "name": "Guksu Motor",
+            "manufacturer": "Guksu Motor",
             "model": "Local AI Engine",
         }
 
@@ -66,14 +66,14 @@ class MarinaraSyncToolsButton(CoordinatorEntity[MarinaraCoordinator], ButtonEnti
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_sync_tools"
-        self._attr_name = "Marinara Sync HA Tools"
+        self._attr_name = "Guksu Sync HA Tools"
 
     @property
     def device_info(self) -> dict:
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Marinara Engine",
-            "manufacturer": "Marinara Engine",
+            "name": "Guksu Motor",
+            "manufacturer": "Guksu Motor",
             "model": "Local AI Engine",
         }
 

@@ -1,12 +1,12 @@
 # Lorebook Token Budgets and Recursion
 
-This guide explains how Marinara Engine limits how much lorebook text reaches the AI. It covers each lorebook's own **Token Budget** and **Entry Limit**, plus the chat-wide **Lorebook Token Budget**. It also explains how Marinara trims entries when a budget is full, and what **Recursive** scanning does.
+This guide explains how Guksu Motor limits how much lorebook text reaches the AI. It covers each lorebook's own **Token Budget** and **Entry Limit**, plus the chat-wide **Lorebook Token Budget**. It also explains how Guksu trims entries when a budget is full, and what **Recursive** scanning does.
 
 A token is a small chunk of text, roughly a few characters. Every model has a limited context window, which is the total amount of text it can read at once. Budgets keep your lorebooks from filling that window and crowding out the actual conversation.
 
 ## Two token budgets
 
-Marinara applies two separate token budgets every time it builds a prompt. Marinara skips an entry if it would push either budget over its cap.
+Guksu applies two separate token budgets every time it builds a prompt. Guksu skips an entry if it would push either budget over its cap.
 
 1. Each lorebook has its own **Token Budget**. This caps how much text that one lorebook can add per reply.
 2. The chat has a single **Lorebook Token Budget**. This caps the total text from all active lorebooks combined in that chat.
@@ -37,13 +37,13 @@ The default is **8192**. Set it to **0** for unlimited. This budget is the total
 
 ## How entries get trimmed
 
-When more entries match than a budget allows, Marinara keeps the most important ones and drops the rest. It sorts entries before trimming so the ones you most likely need survive.
+When more entries match than a budget allows, Guksu keeps the most important ones and drops the rest. It sorts entries before trimming so the ones you most likely need survive.
 
 - **Constant** entries come first. These are entries set to inject every time the lorebook is active.
 - Entries that matched your latest message come next.
 - Remaining entries follow in their normal injection order.
 
-Marinara goes down that list and adds each entry that still fits. If an entry would push a budget over its cap, Marinara skips that entry and moves on. It still checks every entry below the skipped one. This means a smaller entry can get in even after Marinara skips a larger one.
+Guksu goes down that list and adds each entry that still fits. If an entry would push a budget over its cap, Guksu skips that entry and moves on. It still checks every entry below the skipped one. This means a smaller entry can get in even after Guksu skips a larger one.
 
 ## Seeing skipped entries in Active Context
 
@@ -61,7 +61,7 @@ Expand a skipped entry to see more detail. It shows the matched keywords, the es
 
 ## Recursive scanning
 
-Normally Marinara scans only your recent messages for keyword matches. With **Recursive** scanning on, it also scans the text of entries that just activated. This lets an activated entry pull in related entries whose keywords appear in its text.
+Normally Guksu scans only your recent messages for keyword matches. With **Recursive** scanning on, it also scans the text of entries that just activated. This lets an activated entry pull in related entries whose keywords appear in its text.
 
 Turn it on in the lorebook **Overview** tab.
 

@@ -1,10 +1,10 @@
 # Prompt Overrides for Image and Video
 
-This guide covers **Prompt Overrides**, the editors that change the templates Marinara Engine uses to write prompts for image and video generation. It shows where they live, what you can edit, and how to save a custom template safely.
+This guide covers **Prompt Overrides**, the editors that change the templates Guksu Motor uses to write prompts for image and video generation. It shows where they live, what you can edit, and how to save a custom template safely.
 
 ## What Prompt Overrides are
 
-A **Prompt Override** is a reusable template for a media prompt. When Marinara generates an image or a video, it first builds a text prompt for the image or video model. Prompt Overrides let you edit those templates.
+A **Prompt Override** is a reusable template for a media prompt. When Guksu generates an image or a video, it first builds a text prompt for the image or video model. Prompt Overrides let you edit those templates.
 
 This feature is only about picture and video prompts. It does not change the text prompt sent to your chat model during a conversation or roleplay. That is a common mix-up. To change the prompt that goes to a chat model, use a Prompt Preset and Generation Parameters instead. See [Preset Editor and Prompt Manager](presets.md) and [Generation Parameters](generation-parameters.md).
 

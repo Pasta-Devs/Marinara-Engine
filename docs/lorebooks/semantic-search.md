@@ -1,6 +1,6 @@
 # Semantic Search for Lorebooks
 
-This guide explains semantic search for lorebooks in Marinara Engine. Semantic search lets a lorebook entry activate by meaning, not just by exact keywords. You will learn how to set up an embedding source, vectorize your entries, and tune the matching.
+This guide explains semantic search for lorebooks in Guksu Motor. Semantic search lets a lorebook entry activate by meaning, not just by exact keywords. You will learn how to set up an embedding source, vectorize your entries, and tune the matching.
 
 ## What semantic search adds
 
@@ -8,7 +8,7 @@ A lorebook is a set of entries. Each entry has trigger keywords and a block of t
 
 Semantic search fixes that. It compares the meaning of the recent chat with the meaning of your entries. An entry can then activate even when no exact keyword matches. For example, an entry keyed to "sword" can still match a message that only says "blade".
 
-This works using embeddings. An embedding is a list of numbers that captures the meaning of a piece of text. Marinara stores one embedding, also called a vector, for each entry. This step is called vectorization. At chat time, Marinara embeds your recent messages and finds the entries whose meaning is closest.
+This works using embeddings. An embedding is a list of numbers that captures the meaning of a piece of text. Guksu stores one embedding, also called a vector, for each entry. This step is called vectorization. At chat time, Guksu embeds your recent messages and finds the entries whose meaning is closest.
 
 Keyword matching still works when semantic search is on. Semantic search adds extra matches. It does not replace your keywords.
 
@@ -28,9 +28,9 @@ Not every provider offers embeddings. If the provider cannot do embeddings, the 
 
 Option 2: the built-in local model.
 
-Marinara can run a small embedding model on your own machine with no API key. In the lorebook picker this option is named **Local Model (sidecar)**. It appears only after you download the local model. See [Local Model Setup](../connections/local-model.md) for how to install it.
+Guksu can run a small embedding model on your own machine with no API key. In the lorebook picker this option is named **Local Model (sidecar)**. It appears only after you download the local model. See [Local Model Setup](../connections/local-model.md) for how to install it.
 
-If you are on a Marinara Lite build, the **Local Model (sidecar)** option is hidden. On Lite, semantic search needs a connection with an embedding model.
+If you are on a Guksu Lite build, the **Local Model (sidecar)** option is hidden. On Lite, semantic search needs a connection with an embedding model.
 
 ## Turn on Vectors for a lorebook
 
@@ -60,7 +60,7 @@ Set **Query Messages** to 0 to search against the full chat history instead of a
 
 **Score Threshold** controls how close the meaning must be. A low value like 0.2 lets more entries in but risks off-topic matches. A high value like 0.5 is stricter and matches only close meanings. Start at the default and adjust if you get too many or too few matches.
 
-Marinara calibrates this score against several unrelated neutral passages from the same embedding model. This removes the unusually high common cosine floor produced by some local and OpenAI-compatible embedding backends, where unrelated texts can otherwise all score around 0.95 or higher. The setting therefore remains useful across embedding models instead of requiring a model-specific cutoff near 1.0.
+Guksu calibrates this score against several unrelated neutral passages from the same embedding model. This removes the unusually high common cosine floor produced by some local and OpenAI-compatible embedding backends, where unrelated texts can otherwise all score around 0.95 or higher. The setting therefore remains useful across embedding models instead of requiring a model-specific cutoff near 1.0.
 
 **Vector Limit** caps semantic matches only. Your normal token budgets still apply on top of it.
 
@@ -93,7 +93,7 @@ Rebuild every vector after you change the embedding model. Use **Re-vectorize N 
 
 Do not run only a partial vectorize after a model change. If a "missing only" run returns a different vector size than the stored vectors, the server refuses it with this message: "Embedding dimensions changed. Use Re-vectorize all entries instead of only missing entries before switching embedding models."
 
-There is one quiet failure mode to know about. At chat time, Marinara embeds your recent messages with a query model. The query model is the active connection's own embedding model. If the connection has none set, Marinara uses the built-in local model. The query model may produce a different vector size than the model that vectorized your entries. Marinara then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Re-vectorize after any model change.
+There is one quiet failure mode to know about. At chat time, Guksu embeds your recent messages with a query model. The query model is the active connection's own embedding model. If the connection has none set, Guksu uses the built-in local model. The query model may produce a different vector size than the model that vectorized your entries. Guksu then skips those entries in semantic matching. You do not see an error. To avoid this, vectorize your entries with the same embedding source you use during chat. Re-vectorize after any model change.
 
 ## How it feeds the Knowledge Router agent
 

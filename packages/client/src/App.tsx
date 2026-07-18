@@ -159,7 +159,7 @@ export class AppRecoveryBoundary extends Component<{ children: ReactNode }, { er
       >
         <div className="w-full max-w-lg rounded-xl border border-[var(--marinara-chat-chrome-accent)] bg-[var(--marinara-chat-chrome-panel-bg)] p-5 shadow-2xl ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]">
           <h1 className="text-lg font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-            Marinara hit a recoverable UI error.
+            Guksu hit a recoverable UI error.
           </h1>
           <p className="mt-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
             The app shell crashed while rendering. Reload first; reset local UI state only if the same screen keeps

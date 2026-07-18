@@ -749,7 +749,7 @@ function PromptsTab({
           value={conversationPrompt}
           onChange={onConversationPromptChange}
           title="Edit Conversation Mode Prompt"
-          placeholder="Leave empty to use Marinara's built-in conversation prompt."
+          placeholder="Leave empty to use Guksu's built-in conversation prompt."
           className="mari-editor-field min-h-[12rem] w-full p-3 font-mono text-xs"
           formatOnChange={formatPrompt}
           spellCheck={false}
@@ -770,7 +770,7 @@ function PromptsTab({
           value={gamePrompt}
           onChange={onGamePromptChange}
           title="Edit Game Mode Prompt"
-          placeholder="Leave empty to use Marinara's built-in game prompt."
+          placeholder="Leave empty to use Guksu's built-in game prompt."
           className="mari-editor-field min-h-[12rem] w-full p-3 font-mono text-xs"
           formatOnChange={formatPrompt}
           spellCheck={false}

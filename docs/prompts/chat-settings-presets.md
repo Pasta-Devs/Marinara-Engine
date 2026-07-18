@@ -1,6 +1,6 @@
 # Chat Settings Presets
 
-This guide explains Chat Settings Presets in Marinara Engine. A preset is a named bundle of a chat's connection, prompt preset, and other per-chat settings. You can reuse the bundle across chats. This guide shows how to save, apply, star a default, rename, import, and export presets.
+This guide explains Chat Settings Presets in Guksu Motor. A preset is a named bundle of a chat's connection, prompt preset, and other per-chat settings. You can reuse the bundle across chats. This guide shows how to save, apply, star a default, rename, import, and export presets.
 
 ## What a Chat Settings Preset is
 
@@ -12,7 +12,7 @@ Chat Settings Presets work in Conversation Mode and Roleplay Mode. Game Mode doe
 
 ## Chat Settings Presets are not prompt presets
 
-Marinara has two different "preset" systems. Do not mix them up.
+Guksu has two different "preset" systems. Do not mix them up.
 
 - A **prompt preset** is the system prompt template that builds the text sent to the AI. You edit it in the Presets panel. See [Preset Editor and Prompt Manager](presets.md).
 - A **Chat Settings Preset** is a wider bundle. It includes which prompt preset the chat uses, plus the connection, agents, and more.
@@ -67,7 +67,7 @@ When a preset is already the default, the star tooltip reads **This preset is th
 
 Use **Export preset (.json)** to save a preset as a file you can share or back up. The file downloads with a `.marinara-chat-preset.json` name.
 
-Use **Import preset (.json)** to load a preset file back in. Marinara adds the imported preset as a new, non-default preset. It does not overwrite anything and it does not become the default until you star it.
+Use **Import preset (.json)** to load a preset file back in. Guksu adds the imported preset as a new, non-default preset. It does not overwrite anything and it does not become the default until you star it.
 
 Presets store settings, not secrets. Sharing a preset file is a safe way to pass your setup to another person.
 

@@ -29,7 +29,7 @@ type TagImportMode = "all" | "none" | "existing";
 const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; description: string }> = [
   { value: "all", label: "All tags", description: "Keep source tags." },
   { value: "none", label: "No tags", description: "Skip source tags." },
-  { value: "existing", label: "Existing only", description: "Keep tags already in Marinara." },
+  { value: "existing", label: "Existing only", description: "Keep tags already in Guksu." },
 ];
 
 type RegexScriptScope = "character" | "global";
@@ -261,7 +261,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-[var(--foreground)]">Embedded lorebook found</p>
                 <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                  Import the embedded lorebook as a standalone Marinara lorebook, or keep it only inside the character
+                  Import the embedded lorebook as a standalone Guksu lorebook, or keep it only inside the character
                   card.
                 </p>
                 <div className="mt-3 max-h-32 overflow-y-auto rounded-lg border border-[var(--border)]/70 bg-[var(--background)]/40">
@@ -390,7 +390,7 @@ export function ImportCharacterModal({ open, onClose }: Props) {
           <div className="text-center">
             <p className="text-sm font-medium">Drop one or more files here or click to browse</p>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              Supports JSON, PNG character cards, CharX, and Marinara exports
+              Supports JSON, PNG character cards, CharX, and Guksu exports
             </p>
           </div>
           <div className="flex gap-2">

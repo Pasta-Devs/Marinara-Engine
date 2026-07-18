@@ -177,7 +177,7 @@ export function useLegacyThemeMigration() {
         await qc.invalidateQueries({ queryKey: themeKeys.all });
       } catch (err) {
         console.warn("[Themes] Legacy custom theme migration failed; will retry on the next app start.", err);
-        toast.warning("Legacy theme migration paused. It will retry the next time Marinara starts.");
+        toast.warning("Legacy theme migration paused. It will retry the next time Guksu starts.");
       } finally {
         inFlightRef.current = false;
       }

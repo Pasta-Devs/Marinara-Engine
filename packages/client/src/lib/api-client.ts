@@ -31,7 +31,7 @@ export class ApiError extends Error {
 }
 
 export const PRIVILEGED_ACCESS_HINT =
-  "This action needs loopback access or admin access. Open the app through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Marinara sends it as the X-Admin-Secret header.";
+  "This action needs loopback access or admin access. Open the app through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Guksu sends it as the X-Admin-Secret header.";
 
 /**
  * Build a user-facing message for a privileged-gated action (extension install,

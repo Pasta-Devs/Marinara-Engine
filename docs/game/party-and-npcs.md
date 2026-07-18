@@ -2,7 +2,7 @@
 
 This guide covers the people in your Game Mode campaign: your party members and the NPCs (non-player characters) the Game Master introduces. You will learn how to open party character sheets, edit or regenerate them, and read the Adventure Journal, including NPC reputation labels. It also explains the two Game Master modes.
 
-Game Mode is one of Marinara Engine's chat modes. It runs a single-player RPG (role-playing game) with an AI Game Master, often shortened to GM. For setup and the basics, see [Game Mode: Getting Started](getting-started.md).
+Game Mode is one of Guksu Motor's chat modes. It runs a single-player RPG (role-playing game) with an AI Game Master, often shortened to GM. For setup and the basics, see [Game Mode: Getting Started](getting-started.md).
 
 ## The party bar
 
@@ -102,7 +102,7 @@ An NPC appears in this tab once the Game Master has described it, given it a rep
 
 You pick who runs the game in the setup wizard, on the **Party** step, under **Game Master Mode**. There are two choices:
 
-- **Standalone GM**: the default. Marinara builds a game master for you. The wizard describes it as "A snarky narrator running the show". You do not need a character card.
+- **Standalone GM**: the default. Guksu builds a game master for you. The wizard describes it as "A snarky narrator running the show". You do not need a character card.
 - **Character GM**: use one of your own character cards as the Game Master. The engine tells the model to act as that character while still running the game. Pick this when you want a specific narrator voice.
 
 If this is your first game, use **Standalone GM**. You can set the mode when you create the game. For the full setup walkthrough, see [Game Mode: Getting Started](getting-started.md).

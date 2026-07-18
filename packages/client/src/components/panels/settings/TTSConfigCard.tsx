@@ -1339,7 +1339,7 @@ export function TTSConfigCard() {
 
           <FieldRow
             label="Random NPC Voices"
-            help="When enabled, tracked game NPCs without a character-specific voice use a stable random provider voice. If voice metadata is available, Marinara prefers matching male/female pools."
+            help="When enabled, tracked game NPCs without a character-specific voice use a stable random provider voice. If voice metadata is available, Guksu prefers matching male/female pools."
           >
             <div className="space-y-2 rounded-xl border border-sky-400/15 bg-sky-400/5 p-2">
               <ToggleRow

@@ -1,6 +1,6 @@
 # Game Mode: Dice and Skill Checks
 
-This guide covers dice rolling in Marinara Engine Game Mode. It explains the quick-dice menu, custom dice notation, and the limits on custom rolls. It also covers how the Game Master runs a skill check against a Difficulty Class (DC).
+This guide covers dice rolling in Guksu Motor Game Mode. It explains the quick-dice menu, custom dice notation, and the limits on custom rolls. It also covers how the Game Master runs a skill check against a Difficulty Class (DC).
 
 ## Rolling dice
 

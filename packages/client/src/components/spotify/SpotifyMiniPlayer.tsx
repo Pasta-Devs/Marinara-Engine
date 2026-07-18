@@ -214,7 +214,7 @@ function getShuffleTitle(shuffle: boolean) {
 }
 
 function isBrowserSpotifyDeviceName(name: string | null | undefined): boolean {
-  return name === "Marinara Engine";
+  return name === "Guksu Motor";
 }
 
 function isPersonalMobileSpotifyDeviceType(type: string | null | undefined): boolean {
@@ -454,7 +454,7 @@ export function SpotifyMiniPlayer({
       .then(() => {
         if (disposed || !window.Spotify?.Player) return;
         sdkPlayer = new window.Spotify.Player({
-          name: "Marinara Engine",
+          name: "Guksu Motor",
           volume: 0.5,
           getOAuthToken: (callback) => {
             void api
@@ -697,7 +697,7 @@ export function SpotifyMiniPlayer({
     }
     if (!spotifyStreamingAvailable) {
       setSdkError("Reconnect Spotify to enable in-app playback.");
-      toast.info("Reconnect Spotify with the streaming scope to use Marinara as a Spotify player.");
+      toast.info("Reconnect Spotify with the streaming scope to use Guksu as a Spotify player.");
       return;
     }
     setSdkError(null);
@@ -1071,7 +1071,7 @@ export function SpotifyMiniPlayer({
                 MUSIC_PLAYER_ICON_CLASS,
                 MUSIC_PLAYER_ICON_HOVER_CLASS,
               )}
-              title={sdkDeviceId ? "Use Marinara player" : "Enable Marinara player"}
+              title={sdkDeviceId ? "Use Guksu player" : "Enable Guksu player"}
             >
               {browserPlaybackLoading ? (
                 <Loader2 size="0.8125rem" className="animate-spin" />

@@ -1,10 +1,10 @@
 # Roleplay HUD and Trackers
 
-This guide explains the Roleplay HUD and the small tracker widgets it shows. You will learn how to edit and lock their values, and how the larger Tracker Panel works. It applies to Roleplay Mode in Marinara Engine.
+This guide explains the Roleplay HUD and the small tracker widgets it shows. You will learn how to edit and lock their values, and how the larger Tracker Panel works. It applies to Roleplay Mode in Guksu Motor.
 
 ## What the HUD is
 
-The HUD (heads-up display) is a row of small icon widgets at the top of the chat area. Each widget shows a piece of live story state, such as the time, your stats, or who is present. Marinara keeps these values up to date for you as the story moves.
+The HUD (heads-up display) is a row of small icon widgets at the top of the chat area. Each widget shows a piece of live story state, such as the time, your stats, or who is present. Guksu keeps these values up to date for you as the story moves.
 
 The values come from tracker agents. An agent is a small AI helper that runs in the background. Each tracker agent watches the story and updates one part of the HUD after each message. You do not have to ask for it.
 

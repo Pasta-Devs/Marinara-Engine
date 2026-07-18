@@ -1,15 +1,15 @@
 # macOS / Linux Installation Guide
 
-This guide shows you how to install and run Marinara Engine on macOS or Linux. You will install two required tools, start the app with the shell launcher, and learn how to update it later. Marinara Engine (called Marinara after this) runs entirely on your own computer.
+This guide shows you how to install and run Guksu Motor on macOS or Linux. You will install two required tools, start the app with the shell launcher, and learn how to update it later. Guksu Motor (called Guksu after this) runs entirely on your own computer.
 
 ## Prerequisites
 
 You need two free tools installed before you start:
 
-- **Node.js**: the program that runs Marinara. Install version 24, 25, or 26 (version 24 is the recommended LTS release).
-- **Git**: the tool that downloads Marinara and fetches updates.
+- **Node.js**: the program that runs Guksu. Install version 24, 25, or 26 (version 24 is the recommended LTS release).
+- **Git**: the tool that downloads Guksu and fetches updates.
 
-You do not need to install pnpm yourself. pnpm is the package manager Marinara uses to fetch its parts. The shell launcher installs the correct pnpm version for you.
+You do not need to install pnpm yourself. pnpm is the package manager Guksu uses to fetch its parts. The shell launcher installs the correct pnpm version for you.
 
 ### Install on macOS
 
@@ -69,9 +69,9 @@ You should see a version like `git version 2.40` or higher. If either command re
 
 ## Quick start with the launcher
 
-The launcher script `start.sh` is the recommended way to run Marinara. It installs everything, builds the app, and opens it in your browser.
+The launcher script `start.sh` is the recommended way to run Guksu. It installs everything, builds the app, and opens it in your browser.
 
-1. Download Marinara. Run this command:
+1. Download Guksu. Run this command:
 
 ```bash
 git clone https://github.com/Pasta-Devs/Marinara-Engine.git
@@ -89,13 +89,13 @@ cd Marinara-Engine
 chmod +x start.sh
 ```
 
-4. Start Marinara. Run this command:
+4. Start Guksu. Run this command:
 
 ```bash
 ./start.sh
 ```
 
-The first run takes a few minutes because it downloads and builds everything. When it finishes, Marinara opens in your browser at http://127.0.0.1:7860. The number 7860 is the default port, which is the doorway the app uses on your computer.
+The first run takes a few minutes because it downloads and builds everything. When it finishes, Guksu opens in your browser at http://127.0.0.1:7860. The number 7860 is the default port, which is the doorway the app uses on your computer.
 
 If your browser does not open on its own, open it yourself and go to that same address.
 
@@ -112,7 +112,7 @@ Every time you run `./start.sh` from a Git download, the launcher will:
 
 ### Turning off the automatic browser open
 
-By default the launcher opens your browser for you. To stop this, create a file named `.env` in the Marinara folder and add this line:
+By default the launcher opens your browser for you. To stop this, create a file named `.env` in the Guksu folder and add this line:
 
 ```bash
 AUTO_OPEN_BROWSER=false
@@ -125,7 +125,7 @@ PORT=7860
 AUTO_OPEN_BROWSER=true
 ```
 
-`PORT` sets the address port (7860 by default). By default the launcher also lets other devices on your LAN reach the server. LAN means local area network, the network in your home or office. Marinara still blocks those devices until you set up a password or another access option. The [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md) guide shows you how.
+`PORT` sets the address port (7860 by default). By default the launcher also lets other devices on your LAN reach the server. LAN means local area network, the network in your home or office. Guksu still blocks those devices until you set up a password or another access option. The [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md) guide shows you how.
 
 ## Manual setup
 
@@ -144,7 +144,7 @@ npm install --global corepack
 corepack enable pnpm
 ```
 
-2. Download Marinara. Run this command:
+2. Download Guksu. Run this command:
 
 ```bash
 git clone https://github.com/Pasta-Devs/Marinara-Engine.git
@@ -192,11 +192,11 @@ Then run this command:
 
 ## Optional background remover
 
-Marinara can remove the background from character sprite images. A sprite is a character picture used in Roleplay and Game modes. Native transparency and built-in adaptive matte cleanup work without this download. Install the extra AI remover only if you also need a fallback for sprites made against detailed scenery, shadows, or other non-flat backgrounds; it downloads large files.
+Guksu can remove the background from character sprite images. A sprite is a character picture used in Roleplay and Game modes. Native transparency and built-in adaptive matte cleanup work without this download. Install the extra AI remover only if you also need a fallback for sprites made against detailed scenery, shadows, or other non-flat backgrounds; it downloads large files.
 
 The extra tool is a Python program. Installing it creates a Python venv (a virtual environment, a private folder that holds Python packages). It also downloads PyTorch, a machine learning library. Finally it downloads the U2Net models, the files that find the subject in an image.
 
-To install it once, run this command from the Marinara folder:
+To install it once, run this command from the Guksu folder:
 
 ```bash
 pnpm backgroundremover:install
@@ -222,7 +222,7 @@ BACKGROUNDREMOVER_AUTO_INSTALL=true
 
 ## Updating
 
-When you start Marinara with `./start.sh` from a Git download, the launcher checks for a newer version. It updates itself automatically before it starts. Your chats, characters, and settings are kept.
+When you start Guksu with `./start.sh` from a Git download, the launcher checks for a newer version. It updates itself automatically before it starts. Your chats, characters, and settings are kept.
 
 Run `./start.sh --skip-update` to skip one check. To keep the installed Engine version across launches, add `AUTO_UPDATE_ENABLED=false` to `.env`. You can still check or update manually from **Settings → Advanced → Updates** or with Git commands.
 
@@ -232,17 +232,17 @@ For the full update steps, including how to back up first and how to switch rele
 
 ## Key terms
 
-- **pnpm**: the package manager Marinara uses to download and organize its parts.
+- **pnpm**: the package manager Guksu uses to download and organize its parts.
 - **Corepack**: a helper included with Node.js that turns on pnpm.
 - **LAN**: local area network, the private network in your home or office.
-- **.env**: a plain text settings file in the Marinara folder, one setting per line.
+- **.env**: a plain text settings file in the Guksu folder, one setting per line.
 - **venv**: a Python virtual environment, a private folder that holds Python packages.
 - **PyTorch**: a machine learning library used by the optional background remover.
 - **U2Net**: the model files the background remover uses to find the subject in an image.
 
 ## Related guides
 
-- [Marinara Engine Installation](../INSTALLATION.md): pick the right install method for your device.
-- [Upgrading Marinara Engine](../UPGRADING.md): full update and backup steps for every platform.
-- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md): set up a password so other devices can reach Marinara.
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md): fixes for install and startup problems.
+- [Guksu Motor Installation](../INSTALLATION.md): pick the right install method for your device.
+- [Upgrading Guksu Motor](../UPGRADING.md): full update and backup steps for every platform.
+- [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md): set up a password so other devices can reach Guksu.
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md): fixes for install and startup problems.

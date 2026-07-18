@@ -1,10 +1,10 @@
 # Preset Editor and Prompt Manager
 
-This guide explains prompt presets in Marinara Engine. You will learn what they are, how to build one in the **Preset Editor**, and how to assign one to a chat. A preset controls the structure of the text that Marinara sends to the AI.
+This guide explains prompt presets in Guksu Motor. You will learn what they are, how to build one in the **Preset Editor**, and how to assign one to a chat. A preset controls the structure of the text that Guksu sends to the AI.
 
 ## What a preset is
 
-A preset is a reusable blueprint. It decides what information Marinara sends to the AI and in what order. That includes system instructions you write, the character card, your persona, the chat history, lorebook entries, and more.
+A preset is a reusable blueprint. It decides what information Guksu sends to the AI and in what order. That includes system instructions you write, the character card, your persona, the chat history, lorebook entries, and more.
 
 Presets shape the prompt for **Roleplay** and **Game** chats. **Conversation** mode works differently and uses a single prompt field. See "How Conversation and Game modes differ" below.
 
@@ -38,7 +38,7 @@ Follow these steps to make a new preset.
 
 The editor does not save on its own. Your changes are only kept after you click **Save**. If you try to leave with unsaved edits, a warning appears with **Keep editing**, **Discard**, and **Save & close** buttons.
 
-To export a preset, open it and click the export button (up-arrow icon) in the top bar. Marinara asks to save first if you have unsaved edits. To delete a preset, use the trash icon in the top bar.
+To export a preset, open it and click the export button (up-arrow icon) in the top bar. Guksu asks to save first if you have unsaved edits. To delete a preset, use the trash icon in the top bar.
 
 ## The Overview, Sections, and Prompts tabs
 
@@ -56,9 +56,9 @@ The **Overview** tab holds four fields. **Name** is the display name shown in th
 
 The **Prompts** tab holds the mode prompts.
 
-- **Conversation Mode**: a text box used as this preset's Conversation prompt. Leave it empty to use Marinara's built-in conversation prompt.
+- **Conversation Mode**: a text box used as this preset's Conversation prompt. Leave it empty to use Guksu's built-in conversation prompt.
 - **Roleplay Mode**: not editable here. Roleplay uses the assembled prompt from your **Sections**.
-- **Game Mode**: a text box used as this preset's Game prompt. Leave it empty to use Marinara's built-in game prompt.
+- **Game Mode**: a text box used as this preset's Game prompt. Leave it empty to use Guksu's built-in game prompt.
 
 ## Sections and markers
 
@@ -68,7 +68,7 @@ Click **Add Section** to open the add menu. It offers two kinds of section.
 
 A **Prompt Block** is a free-text section that you write yourself. Use it for system instructions, tone rules, or any wording you want in every prompt.
 
-A **marker** is an auto-filled section. It has no text of its own. Instead, Marinara fills it at send time with live content from your chat. The table below lists the markers.
+A **marker** is an auto-filled section. It has no text of its own. Instead, Guksu fills it at send time with live content from your chat. The table below lists the markers.
 
 | Marker | What it inserts |
 |---|---|
@@ -81,7 +81,7 @@ A **marker** is an auto-filled section. It has no text of its own. Instead, Mari
 | **Lorebook Marker (Before)** | Lorebook entries set to insert before. |
 | **Lorebook Marker (After)** | Lorebook entries set to insert after. |
 
-A section that is a marker shows a **MARKER** badge in its row. Expand it to see a note that names the marker type. You cannot type content into most markers, because Marinara generates them for you.
+A section that is a marker shows a **MARKER** badge in its row. Expand it to see a note that names the marker type. You cannot type content into most markers, because Guksu generates them for you.
 
 If your chat has active lorebooks but your preset has no lorebook marker, a warning appears. It reads: "Add a lorebook marker when this preset should receive active lorebook entries." Add a lorebook marker so those entries reach the AI. See [Lorebooks Overview](../lorebooks/overview.md).
 
@@ -156,7 +156,7 @@ Below the dropdown is a status row. It shows one of three states:
 - **Preset**: the prompt comes from the chosen preset.
 - **Custom**: you have typed a chat-local edit for this chat only.
 
-Click **Edit Prompt** to type a prompt just for this chat. The editor opens as **Edit Conversation Prompt** or **Edit Game Prompt**. If your edit matches the preset or default exactly, Marinara treats it as not customized. Once a custom edit exists, a **Reset to default prompt** button appears to clear it.
+Click **Edit Prompt** to type a prompt just for this chat. The editor opens as **Edit Conversation Prompt** or **Edit Game Prompt**. If your edit matches the preset or default exactly, Guksu treats it as not customized. Once a custom edit exists, a **Reset to default prompt** button appears to clear it.
 
 Game chats also have an **Extra instructions** box. Text there is added to the Game prompt. It has a limit of 2000 characters. A sample instruction is "Write in the style of Terry Pratchett."
 

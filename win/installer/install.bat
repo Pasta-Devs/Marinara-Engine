@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 cd /d "%~dp0\.."
-title Marinara Engine - Installer
+title Guksu Motor - Installer
 color 0A
 
 :: -- Safety net: if anything goes catastrophically wrong, the window stays open --
@@ -17,7 +17,7 @@ set "RELEASE_COMMIT=%MARINARA_RELEASE_COMMIT%"
 
 echo.
 echo  +==========================================+
-echo  ^|   Marinara Engine - Windows Installer     ^|
+echo  ^|   Guksu Motor - Windows Installer         ^|
 echo  ^|   v2.3.3                                  ^|
 
 echo  +==========================================+
@@ -51,10 +51,10 @@ goto :after_same_install_dir_warning
 
 :warn_same_install_dir
 echo.
-echo  [WARN] You are reinstalling Marinara Engine into:
+echo  [WARN] You are reinstalling Guksu Motor into:
 echo         %INSTALL_DIR%
 echo.
-echo         Before continuing, copy the Marinara data folder(s) below to
+echo         Before continuing, copy the Guksu data folder(s) below to
 echo         a backup location outside this install folder if you want to
 echo         keep chats, characters, images, and settings:
 if exist "%INSTALL_DIR%\packages\server\data\" echo           %INSTALL_DIR%\packages\server\data
@@ -219,7 +219,7 @@ echo  [OK] pnpm !CURRENT_PNPM_VERSION! ready
 :: -- Clone repository --
 echo.
 if exist "%INSTALL_DIR%\.git" goto :update_repo
-echo  [..] Cloning Marinara Engine to %INSTALL_DIR%...
+echo  [..] Cloning Guksu Motor to %INSTALL_DIR%...
 git clone --branch "%RELEASE_TAG%" --depth 1 https://github.com/Pasta-Devs/Marinara-Engine.git "%INSTALL_DIR%"
 if errorlevel 1 (
     set "INSTALL_ERROR=Failed to clone release %RELEASE_TAG%. Check your internet connection and try again."
@@ -320,7 +320,7 @@ echo  [OK] Dependencies installed
 
 :: -- Build --
 echo.
-echo  [..] Building Marinara Engine...
+echo  [..] Building Guksu Motor...
 call :run_pnpm --filter @marinara-engine/shared build
 if %errorlevel% neq 0 (
     set "INSTALL_ERROR=Shared package build failed."
@@ -335,7 +335,7 @@ echo  [OK] Build complete
 
 :: -- Create desktop shortcut --
 echo  [..] Creating desktop shortcut...
-set "SHORTCUT=%USERPROFILE%\Desktop\Marinara Engine.lnk"
+set "SHORTCUT=%USERPROFILE%\Desktop\Guksu Motor.lnk"
 set "VBS=%TEMP%\create_shortcut.vbs"
 
 (
@@ -345,7 +345,7 @@ set "VBS=%TEMP%\create_shortcut.vbs"
     echo oLink.TargetPath = "%INSTALL_DIR%\start.bat"
     echo oLink.WorkingDirectory = "%INSTALL_DIR%"
     echo oLink.IconLocation = "%INSTALL_DIR%\win\installer\app-icon.ico,0"
-    echo oLink.Description = "Marinara Engine - AI Chat ^& Roleplay"
+    echo oLink.Description = "Guksu Motor - AI Chat ^& Roleplay"
     echo oLink.Save
 ) > "%VBS%"
 cscript //nologo "%VBS%"
@@ -357,7 +357,7 @@ echo.
 echo  ==========================================
 echo    Installation complete!
 echo.
-echo    To start: double-click "Marinara Engine"
+echo    To start: double-click "Guksu Motor"
 echo    on your Desktop, or run start.bat in:
 echo    %INSTALL_DIR%
 echo.

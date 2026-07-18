@@ -1,12 +1,12 @@
 # Local Model Setup
 
-This guide explains the built-in **Local Model**, a small AI model that Marinara Engine downloads and runs on your own machine. It needs no API key and no online account. This guide covers setup, the **Runtime Settings**, and how the Local Model powers helpers like tracker agents, Game Mode scene effects, and offline call transcription.
+This guide explains the built-in **Local Model**, a small AI model that Guksu Motor downloads and runs on your own machine. It needs no API key and no online account. This guide covers setup, the **Runtime Settings**, and how the Local Model powers helpers like tracker agents, Game Mode scene effects, and offline call transcription.
 
 ## What the Local Model is
 
-The **Local Model** is a compact language model (Gemma) that runs entirely on your computer. An API key is a secret code that lets Marinara talk to an online AI service. The Local Model needs no API key, because nothing leaves your machine.
+The **Local Model** is a compact language model (Gemma) that runs entirely on your computer. An API key is a secret code that lets Guksu talk to an online AI service. The Local Model needs no API key, because nothing leaves your machine.
 
-The Local Model is deliberately small. It is meant for background helper work, not for your main chat or roleplay. Marinara uses it for these jobs:
+The Local Model is deliberately small. It is meant for background helper work, not for your main chat or roleplay. Guksu uses it for these jobs:
 
 - Tracker agents in Roleplay mode.
 - Scene effects in Game Mode, such as backgrounds, music, and weather.
@@ -37,7 +37,7 @@ Support depends on your operating system:
 
 - **Windows (64-bit) and Linux (64-bit)**: You get a full **Runtime Target** picker, so you can choose your graphics card (GPU) family or run on the processor (CPU) only.
 - **Windows on ARM and Linux on ARM**: A reduced set of options, mostly CPU based.
-- **macOS on Apple Silicon**: Marinara uses the MLX runtime, tuned for Apple chips. Custom models are HuggingFace repositories instead of single files.
+- **macOS on Apple Silicon**: Guksu uses the MLX runtime, tuned for Apple chips. Custom models are HuggingFace repositories instead of single files.
 - **macOS on Intel and Android**: Effectively CPU only.
 
 The Local Model is not available in "Lite" installs. A Lite install is a slimmed-down build that leaves out the local runtime to save space. On a Lite install, the Local Model card does not appear.
@@ -88,7 +88,7 @@ Under **Use Your Own Model From HuggingFace** you can supply your own model from
 3. On non-Apple hardware, pick a specific file from the dropdown, then click **Download Selected GGUF**.
 4. On Apple Silicon, once the repository is validated, click **Use Validated MLX Repo**.
 
-Marinara keeps only one Local Model file on disk at a time. Downloading a new model deletes the old one first. There is no separate delete button for the main Local Model. To remove it, download a different model over it.
+Guksu keeps only one Local Model file on disk at a time. Downloading a new model deletes the old one first. There is no separate delete button for the main Local Model. To remove it, download a different model over it.
 
 ## Runtime Settings reference
 
@@ -100,7 +100,7 @@ Open the **Runtime Settings** section inside the setup window to tune how the mo
 
 | Setting | Default | What it controls |
 | --- | --- | --- |
-| Runtime Target | Auto detect | Which GPU family Marinara installs for |
+| Runtime Target | Auto detect | Which GPU family Guksu installs for |
 | GPU Offload | Auto offload | How much work goes to the GPU |
 | Native Tool Calls | On | Lets the model use tools and function calls |
 | Pooling Type | None | Embedding math for lorebook search |
@@ -138,7 +138,7 @@ Once a model is downloaded, the Local Model card shows two switches:
 - **Use for tracker agents (roleplay)**. This is off by default.
 - **Use for game scene analysis**. This is on by default.
 
-These two switches decide whether Marinara keeps the Local Model running in the background. If both are off, the runtime does not start on its own. Turning either one on makes Marinara start the local server automatically. The first start after you turn one on can take a moment.
+These two switches decide whether Guksu keeps the Local Model running in the background. If both are off, the runtime does not start on its own. Turning either one on makes Guksu start the local server automatically. The first start after you turn one on can take a moment.
 
 The card also has a **Use local model for all tracker agents** button. It points every built-in tracker agent at the Local Model in one click. A line below shows how many tracker agents point at the local model, for example "3/7 built-in tracker agents currently point at the local model." This only changes which model the agents use. It does not turn the agents on. See [Memory Recall and Chat Summaries](../agents/memory.md) and your mode guide for enabling agents.
 
@@ -188,13 +188,13 @@ SIDECAR_RUNTIME_INSTALL_ENABLED=true
 
 Or enter your Admin Access secret once in **Settings -> Advanced -> Admin Access**, then try again. See [Server Configuration Reference](../CONFIGURATION.md).
 
-**The runtime failed to start.** The setup window shows a box titled **Local runtime failed to start** with the error and a log file path. Click **Retry Startup**. If that fails, click **Reinstall Runtime**, or try a different **Runtime Target**. You can click **Continue Without Local AI** to keep using Marinara without the Local Model. The Connections card shows the same problem as **Local runtime unavailable**.
+**The runtime failed to start.** The setup window shows a box titled **Local runtime failed to start** with the error and a log file path. Click **Retry Startup**. If that fails, click **Reinstall Runtime**, or try a different **Runtime Target**. You can click **Continue Without Local AI** to keep using Guksu without the Local Model. The Connections card shows the same problem as **Local runtime unavailable**.
 
 **Lorebook search says the local model is not enabled.** Turn on **Use for tracker agents (roleplay)** or **Use for game scene analysis** in the Local Model card, then try the vectorization again.
 
 **A Game Mode banner reads "Local scene helper failed to start."** Click **Open Local AI Model** in the banner to retry, switch models, or turn off local scene analysis.
 
-For more help, see [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md).
+For more help, see [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md).
 
 ## Related guides
 

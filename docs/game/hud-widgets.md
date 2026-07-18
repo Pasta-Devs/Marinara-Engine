@@ -1,6 +1,6 @@
 # Game Mode: HUD Widgets
 
-This guide explains HUD widgets in Marinara Engine Game Mode. HUD stands for heads-up display: small info panels that sit at the left and right edges of the game screen. This guide covers the widget types, the review step before a game starts, moving and locking panels, and sharing widget layouts.
+This guide explains HUD widgets in Guksu Motor Game Mode. HUD stands for heads-up display: small info panels that sit at the left and right edges of the game screen. This guide covers the widget types, the review step before a game starts, moving and locking panels, and sharing widget layouts.
 
 ## What HUD widgets are
 

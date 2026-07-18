@@ -1,6 +1,6 @@
 # Slash Commands Reference
 
-This guide lists the slash commands you can type in a Marinara Engine chat. A slash command is a shortcut you type in the message box, starting with a forward slash, to do something quickly. Some commands act on your screen right away, and some ask the AI to write something.
+This guide lists the slash commands you can type in a Guksu Motor chat. A slash command is a shortcut you type in the message box, starting with a forward slash, to do something quickly. Some commands act on your screen right away, and some ask the AI to write something.
 
 ## How slash commands work
 
@@ -18,7 +18,7 @@ Some commands run in your browser and change the chat right away, with no cost. 
 
 Slash commands work in the **Conversation** and **Roleplay** message boxes. In **Game** mode, only `/illustrate` works as a slash command. Anything else you type starting with a slash is sent as normal text.
 
-Several commands use message numbers. Marinara counts messages from the first message in the chat as number 1, then 2, then 3, and so on. Commands like `/goto`, `/hide`, and `/unhide` use these numbers.
+Several commands use message numbers. Guksu counts messages from the first message in the chat as number 1, then 2, then 3, and so on. Commands like `/goto`, `/hide`, and `/unhide` use these numbers.
 
 ## Chat and message commands
 
@@ -85,7 +85,7 @@ The `/roll` command reads dice notation. This rolls two six-sided dice:
 /roll 2d6
 ```
 
-You can add a modifier, like `/roll 1d20+5`. If you type `/roll` with nothing after it, Marinara rolls `1d20`.
+You can add a modifier, like `/roll 1d20+5`. If you type `/roll` with nothing after it, Guksu rolls `1d20`.
 
 A sprite is a piece of character art that shows an expression. The `/emote` command switches which one is shown. Type `/emote` alone to see the available expressions, or name one to switch to it:
 

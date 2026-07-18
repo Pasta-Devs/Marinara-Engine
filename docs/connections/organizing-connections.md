@@ -1,6 +1,6 @@
 # Organizing Connections
 
-This guide covers how to keep your saved connections tidy in Marinara Engine. It explains connection folders, search and sort, duplicating and deleting, the random pool, the Quick Connection Switcher, and exporting or importing connections. A connection is a saved setup that tells Marinara how to reach one AI service.
+This guide covers how to keep your saved connections tidy in Guksu Motor. It explains connection folders, search and sort, duplicating and deleting, the random pool, the Quick Connection Switcher, and exporting or importing connections. A connection is a saved setup that tells Guksu how to reach one AI service.
 
 You do all of this in the **Connections** panel. Open it, and your saved connections appear as a list of rows. Each row shows the connection name and its provider and model below the name.
 
@@ -20,7 +20,7 @@ To file a connection into a folder, drag the connection row and drop it onto the
 
 To collapse or expand a folder, click the folder row once. A small number on the folder row shows how many connections are inside.
 
-To delete a folder, click the trash icon on the folder row. If the folder still has connections inside, Marinara asks you to confirm with a **Delete Folder** dialog. An empty folder is deleted right away, with no confirmation prompt. Deleting a folder does not delete the connections inside it. Those connections move back to the unfiled area instead.
+To delete a folder, click the trash icon on the folder row. If the folder still has connections inside, Guksu asks you to confirm with a **Delete Folder** dialog. An empty folder is deleted right away, with no confirmation prompt. Deleting a folder does not delete the connections inside it. Those connections move back to the unfiled area instead.
 
 ## Search and sort
 
@@ -44,7 +44,7 @@ Hover over a connection row (or look at the row on a touch screen) to see its ac
 
 To duplicate a connection, click the **Duplicate** button (the copy icon). This makes a full copy, including the stored API key. The copy opens in the editor so you can rename it. There is no confirmation step.
 
-To delete a single connection, click its **Delete** button (the trash icon). Marinara shows a **Delete Connection** dialog that reads Delete "your connection name"? This cannot be undone. Click **Delete** to confirm.
+To delete a single connection, click its **Delete** button (the trash icon). Guksu shows a **Delete Connection** dialog that reads Delete "your connection name"? This cannot be undone. Click **Delete** to confirm.
 
 To delete or export several connections at once, click the **Select** button at the top of the panel. This turns on selection mode. Tap the connections you want, then use the **Export** or **Delete** button in the action bar at the bottom. Bulk delete shows a **Delete Connections** dialog before it removes them.
 
@@ -68,7 +68,7 @@ You can export connections to a file to back them up or move them to another ins
 
 **Your API keys are never included in an export.** After you import connections, you must open each one and enter its API key again.
 
-To export a single connection, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select** mode in the panel and click **Export** in the action bar. Before the download starts, Marinara shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
+To export a single connection, open it in the editor and click its **Export** button (the upload icon). To export several at once, use **Select** mode in the panel and click **Export** in the action bar. Before the download starts, Guksu shows an **Export Connection Data** dialog with this warning: This will export your connection data, WITHOUT your provided API Key. Remember to never share those with others! Click **Export** to continue.
 
 A single connection downloads as a `.connection.json` file. Several connections download together as a `marinara-connections.zip` file.
 

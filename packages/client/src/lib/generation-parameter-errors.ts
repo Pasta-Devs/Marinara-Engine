@@ -78,7 +78,7 @@ export function formatGenerationParameterError(message: string): string {
   ]);
   if (missing) {
     if (missing.toLowerCase() === "model") {
-      return "The provider says the model field is missing. Marinara now sends the configured connection model automatically; if this keeps happening, remove any custom request parameter named model or re-save the connection's model.";
+      return "The provider says the model field is missing. Guksu now sends the configured connection model automatically; if this keeps happening, remove any custom request parameter named model or re-save the connection's model.";
     }
     return `The model says the ${missing} parameter is required. Go to Chat Settings > Advanced Parameters and turn on Send for ${missing}.`;
   }

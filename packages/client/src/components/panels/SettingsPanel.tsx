@@ -418,9 +418,9 @@ const SETTINGS_SECTIONS: readonly SettingsSectionMeta[] = [
   {
     id: "profile-marinara",
     tab: "import",
-    label: "Profile & Marinara",
-    description: "Restore full profiles or import individual Marinara files.",
-    aliases: ["profile", "import", "restore", "marinara", "json", "zip"],
+    label: "Profile & Guksu",
+    description: "Restore full profiles or import individual Guksu files.",
+    aliases: ["profile", "import", "restore", "guksu", "json", "zip"],
   },
   {
     id: "sillytavern-import",
@@ -536,8 +536,8 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
   {
     id: "notification-unfocused-only",
     sectionId: "notifications",
-    label: "Only when Marinara is unfocused",
-    description: "Play notification sounds only while Marinara is not focused.",
+    label: "Only when Guksu is unfocused",
+    description: "Play notification sounds only while Guksu is not focused.",
     aliases: ["sound", "background", "unfocused"],
     kind: "Toggle",
   },
@@ -773,8 +773,8 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     id: "visual-theme",
     sectionId: "app-style",
     label: "Visual Style",
-    description: "Switch between Marinara and SillyTavern visual themes.",
-    aliases: ["theme", "style", "sillytavern", "marinara"],
+    description: "Switch between Guksu and SillyTavern visual themes.",
+    aliases: ["theme", "style", "sillytavern", "guksu"],
     kind: "Button group",
   },
   {
@@ -789,7 +789,7 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     id: "custom-cursor",
     sectionId: "app-style",
     label: "Custom Mouse Pointer",
-    description: "Use Marinara's accent-colored cursor.",
+    description: "Use Guksu's accent-colored cursor.",
     aliases: ["cursor", "mouse", "pointer"],
     kind: "Toggle",
   },
@@ -821,7 +821,7 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     id: "rgb-mode",
     sectionId: "app-style",
     label: "RGB Mode",
-    description: "Cycle the app accent through Marinara's rainbow palette.",
+    description: "Cycle the app accent through Guksu's rainbow palette.",
     aliases: ["rainbow", "accent", "color"],
     kind: "Toggle",
   },
@@ -1120,10 +1120,10 @@ function isStandaloneIosInstall(): boolean {
 function getNativeConsoleShortcutHelp(): string {
   const bridge = getMarinaraAndroidBridge();
   if (typeof bridge?.openConsole === "function") {
-    return "Opens Termux from the Android APK so you can view Marinara server logs while Debug mode is enabled.";
+    return "Opens Termux from the Android APK so you can view Guksu server logs while Debug mode is enabled.";
   }
   if (isMarinaraAndroidShell()) {
-    return "This Android APK build cannot expose the Termux console shortcut yet. Update Marinara, or open Termux manually.";
+    return "This Android APK build cannot expose the Termux console shortcut yet. Update Guksu, or open Termux manually.";
   }
   if (isStandaloneIosInstall()) {
     return "iPhone installations do not expose a native console shortcut yet. Use the host server logs or Safari Web Inspector.";
@@ -2728,7 +2728,7 @@ function GeneralSettings() {
             label="Trim incomplete model endings"
             checked={trimIncompleteModelOutput}
             onChange={setTrimIncompleteModelOutput}
-            help="When on, Marinara trims a trailing unfinished sentence from AI responses before saving the message. It leaves complete responses and command-only endings alone."
+            help="When on, Guksu trims a trailing unfinished sentence from AI responses before saving the message. It leaves complete responses and command-only endings alone."
           />
 
           <label
@@ -3069,7 +3069,7 @@ function ImageGenerationSettings() {
         <div id={getSettingsControlAnchorId("image-style-profiles")} className="mt-1 scroll-mt-3">
           <div className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">
             Style Profiles
-            <HelpTooltip text="Defines what Anime, Danbooru, Realistic, and custom styles mean when Marinara compiles image prompts. Profiles merge with per-chat and connection settings, then clean duplicate tags before sending." />
+            <HelpTooltip text="Defines what Anime, Danbooru, Realistic, and custom styles mean when Guksu compiles image prompts. Profiles merge with per-chat and connection settings, then clean duplicate tags before sending." />
           </div>
           <ImageStyleProfilesEditor value={imageStyleProfiles} onChange={setImageStyleProfiles} />
         </div>
@@ -3636,7 +3636,7 @@ function AppearanceSettings() {
     void setActiveSyncedTheme
       .mutateAsync(null)
       .then(() => {
-        toast.success("Appearance reset to Marinara defaults.");
+        toast.success("Appearance reset to Guksu defaults.");
       })
       .catch((err) => {
         console.error("[AppearanceSettings] Failed to clear active synced theme:", err);
@@ -3781,7 +3781,7 @@ function AppearanceSettings() {
               onClick={handleResetAppearance}
               disabled={setActiveSyncedTheme.isPending}
               className={SETTINGS_BUTTON_CLASS}
-              title="Reset all Appearance settings to Marinara defaults"
+              title="Reset all Appearance settings to Guksu defaults"
             >
               {setActiveSyncedTheme.isPending ? (
                 <Loader2 size="0.75rem" className="animate-spin" />
@@ -3796,14 +3796,14 @@ function AppearanceSettings() {
             <div className="flex items-center gap-1.5">
               <Paintbrush size="0.75rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
               <span className="text-xs font-medium">Visual Style</span>
-              <HelpTooltip text="Choose how the entire app looks. 'Marinara' uses a retro Y2K aesthetic with glow effects. 'SillyTavern' uses a clean, minimal look inspired by the original SillyTavern." />
+              <HelpTooltip text="Choose how the entire app looks. 'Guksu' uses a retro Y2K aesthetic with glow effects. 'SillyTavern' uses a clean, minimal look inspired by the original SillyTavern." />
             </div>
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
                   {
                     id: "default" as VisualTheme,
-                    label: "Default (Marinara)",
+                    label: "Default (Guksu)",
                     desc: "Y2K / retro aesthetic with glow effects",
                   },
                   {
@@ -3850,7 +3850,7 @@ function AppearanceSettings() {
             label="Custom Mouse Pointer"
             checked={customCursorEnabled}
             onChange={setCustomCursorEnabled}
-            help="Uses Marinara's accent-colored cursor across the app. Turn this off to use the system cursor or let a custom CSS theme control cursor styles."
+            help="Uses Guksu's accent-colored cursor across the app. Turn this off to use the system cursor or let a custom CSS theme control cursor styles."
           />
 
           <SearchableSettingTarget controlId="app-background-color">
@@ -3899,7 +3899,7 @@ function AppearanceSettings() {
             checked={appAccentRgbMode}
             onChange={handleAppAccentRgbModeChange}
             switchClassName={appAccentRgbMode ? "mari-rgb-toggle-track" : undefined}
-            help="Cycles the app accent through Marinara's rainbow palette while enabled. Your saved Accent Color stays unchanged. Reduced-motion preferences are respected."
+            help="Cycles the app accent through Guksu's rainbow palette while enabled. Your saved Accent Color stays unchanged. Reduced-motion preferences are respected."
           />
         </div>
       </SettingsSection>
@@ -4776,7 +4776,7 @@ function AddonsSettings() {
   return (
     <div className="flex flex-col gap-3">
       <SettingsIntro>
-        Extensions add trusted browser or server behavior; custom themes change Marinara's look.
+        Extensions add trusted browser or server behavior; custom themes change Guksu's look.
       </SettingsIntro>
       <ExtensionsSettings showIntro={false} />
       <ThemesSettings showIntro={false} />
@@ -5059,7 +5059,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
     <div className="flex flex-col gap-3">
       {showIntro && (
         <SettingsIntro>
-          Create or import custom CSS themes. Themes sync across devices connected to this Marinara server.
+          Create or import custom CSS themes. Themes sync across devices connected to this Guksu server.
         </SettingsIntro>
       )}
 
@@ -5227,7 +5227,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
             <code className="rounded bg-[var(--secondary)] px-1">--marinara-chat-chrome-surface-bg</code>) or add custom
             styles. JSON themes should have{" "}
             <code className="rounded bg-[var(--secondary)] px-1">{`{ "name": "...", "css": "..." }`}</code> format.
-            Imported theme files sync to this Marinara server but do not auto-activate.
+            Imported theme files sync to this Guksu server but do not auto-activate.
           </div>
         </div>
       </SettingsSection>
@@ -5447,7 +5447,7 @@ function describeExtensionImportError(error: unknown, name?: string) {
         : "Failed to import extension.";
   const subject = name ? `Failed to install "${name}": ${rawMessage}` : rawMessage;
   if (error instanceof ApiError && error.status === 403) {
-    return `${subject} Installing extensions requires loopback access or admin access. Open Marinara Engine through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Marinara sends it as the X-Admin-Secret header.`;
+    return `${subject} Installing extensions requires loopback access or admin access. Open Guksu Motor through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Guksu sends it as the X-Admin-Secret header.`;
   }
   return subject;
 }
@@ -5670,7 +5670,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
     if (nextEnabled && ext.runtime === "server") {
       const confirmed = await showConfirmDialog({
         title: "Enable Server Extension",
-        message: `Enable "${ext.name}"? This runs trusted JavaScript inside the Marinara Node.js server process and can affect this server until disabled. Only enable code you trust.`,
+        message: `Enable "${ext.name}"? This runs trusted JavaScript inside the Guksu Node.js server process and can affect this server until disabled. Only enable code you trust.`,
         confirmLabel: "Enable Server Extension",
         tone: "destructive",
       });
@@ -5678,7 +5678,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
     } else if (nextEnabled && ext.js?.trim()) {
       const confirmed = await showConfirmDialog({
         title: "Enable Extension",
-        message: `Enable "${ext.name}"? This runs the extension's JavaScript inside Marinara Engine.`,
+        message: `Enable "${ext.name}"? This runs the extension's JavaScript inside Guksu Motor.`,
         confirmLabel: "Enable",
         tone: "destructive",
       });
@@ -5869,7 +5869,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
             process and should only come from trusted sources.
           </div>
           <div className="rounded-lg bg-[var(--secondary)]/35 p-2.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-            Extensions can be downloaded from the official Marinara Engine Discord server.
+            Extensions can be downloaded from the official Guksu Motor Discord server.
           </div>
         </div>
       </SettingsSection>
@@ -6363,13 +6363,13 @@ function ImportSettings() {
   return (
     <div className="flex flex-col gap-3">
       <SettingsIntro>
-        Import data from Marinara exports, SillyTavern, or asset folders. Full profile imports also restore synced
+        Import data from Guksu exports, SillyTavern, or asset folders. Full profile imports also restore synced
         custom themes and profile archive assets.
       </SettingsIntro>
 
       <SettingsSection
-        title="Profile & Marinara"
-        description="Restore full profiles or import individual Marinara files."
+        title="Profile & Guksu"
+        description="Restore full profiles or import individual Guksu files."
         icon={<Download size="0.875rem" />}
         {...getSettingsSectionAnchorProps("profile-marinara")}
       >
@@ -6556,7 +6556,7 @@ function ImportButton({
           importEmbeddedLorebook = window.confirm(
             `${preview.name ?? file.name} includes an embedded lorebook with ${preview.embeddedLorebookEntries} entr${
               preview.embeddedLorebookEntries === 1 ? "y" : "ies"
-            }.\n\nImport it as a standalone Marinara lorebook too?`,
+            }.\n\nImport it as a standalone Guksu lorebook too?`,
           );
         }
       }
@@ -6800,7 +6800,7 @@ function AdvancedSettings() {
             suggestedName,
             types: [
               {
-                description: "Marinara backup archive",
+                description: "Guksu backup archive",
                 accept: { "application/zip": [".zip"] },
               },
             ],
@@ -7009,8 +7009,8 @@ function AdvancedSettings() {
       <ExportFormatDialog
         open={exportProfileDialogOpen}
         title="Export Profile"
-        description="Native creates a Marinara profile JSON for restoring your data in Marinara. If the JSON would be too large, Marinara will offer a profile ZIP instead."
-        nativeDescription="Keeps Marinara fields, lorebook folders, character/persona metadata, presets, agents, themes, and inline assets for re-import."
+        description="Native creates a Guksu profile JSON for restoring your data in Guksu. If the JSON would be too large, Guksu will offer a profile ZIP instead."
+        nativeDescription="Keeps Guksu fields, lorebook folders, character/persona metadata, presets, agents, themes, and inline assets for re-import."
         compatibleDescription="Exports direct character JSON, simple persona JSON, and folderless lorebooks for other roleplay tools."
         onClose={() => setExportProfileDialogOpen(false)}
         onSelect={handleExportProfileChoice}
@@ -7145,7 +7145,7 @@ function AdvancedSettings() {
               )}
               {isIosClient && (
                 <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                  On iPhone or iPad, this updates the Marinara server you are connected to. Reload the Home Screen app
+                  On iPhone or iPad, this updates the Guksu server you are connected to. Reload the Home Screen app
                   after the host finishes updating.
                 </p>
               )}
@@ -7186,7 +7186,7 @@ function AdvancedSettings() {
                   )}
                   {updateCheck.data.versionUpdate && (
                     <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Android APK assets are WebView shells, not standalone apps. Start Marinara in Termux first.
+                      Android APK assets are WebView shells, not standalone apps. Start Guksu in Termux first.
                     </span>
                   )}
                   {manualUpdateHint && (
@@ -7242,7 +7242,7 @@ function AdvancedSettings() {
             </button>
             <HelpTooltip
               side="bottom"
-              text="Manual refresh unregisters the active service worker and clears browser caches before reloading. Marinara's stored chats, settings, and other local app data stay intact."
+              text="Manual refresh unregisters the active service worker and clears browser caches before reloading. Guksu's stored chats, settings, and other local app data stay intact."
             />
           </div>
         </div>

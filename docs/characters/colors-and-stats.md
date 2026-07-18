@@ -1,6 +1,6 @@
 # Character Colors and RPG Stats
 
-This guide covers the **Colors** tab and the **Stats** tab in Marinara Engine. Both tabs appear in the Character editor and the Persona editor. Colors change how a character or your persona looks in chat. Stats set up trackable values like health or hunger.
+This guide covers the **Colors** tab and the **Stats** tab in Guksu Motor. Both tabs appear in the Character editor and the Persona editor. Colors change how a character or your persona looks in chat. Stats set up trackable values like health or hunger.
 
 ## The Colors tab
 

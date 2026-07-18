@@ -1,16 +1,16 @@
 # Home Assistant Integration
 
-This guide shows you how to connect Marinara Engine to Home Assistant. Once connected, your AI characters can control real smart home devices right from a chat. They can work lights, climate, covers, and media players. The connection also lets Home Assistant automations send messages into Marinara.
+This guide shows you how to connect Guksu Motor to Home Assistant. Once connected, your AI characters can control real smart home devices right from a chat. They can work lights, climate, covers, and media players. The connection also lets Home Assistant automations send messages into Guksu.
 
 Home Assistant is a free, open source platform for controlling smart home devices. If you do not run Home Assistant, you do not need this integration.
 
 ## What this integration does
 
-The integration is a small piece of software that installs inside Home Assistant. It links a running Home Assistant to a running Marinara Engine server. Once installed, it does three things for you automatically:
+The integration is a small piece of software that installs inside Home Assistant. It links a running Home Assistant to a running Guksu Motor server. Once installed, it does three things for you automatically:
 
-- It creates smart home tools inside Marinara. These appear in the **Functions** section of the Presets panel. Marinara calls these "custom tools" or "Functions". See [Custom Tools](../extending/custom-tools.md) for how Functions work in general.
-- It creates one AI agent inside Marinara named **Home Assistant**. An agent is an AI helper that runs alongside your chat. See [Agents Overview](../agents/agents-overview.md).
-- It creates several Home Assistant entities so you can watch and control Marinara from the Home Assistant side. An entity is a device, sensor, or control in Home Assistant.
+- It creates smart home tools inside Guksu. These appear in the **Functions** section of the Presets panel. Guksu calls these "custom tools" or "Functions". See [Custom Tools](../extending/custom-tools.md) for how Functions work in general.
+- It creates one AI agent inside Guksu named **Home Assistant**. An agent is an AI helper that runs alongside your chat. See [Agents Overview](../agents/agents-overview.md).
+- It creates several Home Assistant entities so you can watch and control Guksu from the Home Assistant side. An entity is a device, sensor, or control in Home Assistant.
 
 You never copy tool addresses or set up tools by hand. The integration wires everything together on first setup.
 
@@ -20,12 +20,12 @@ Before you start, make sure you have all of the following.
 
 - A running Home Assistant, version 2024.1.0 or newer.
 - HACS installed in Home Assistant. HACS is the Home Assistant Community Store, a tool for installing custom integrations that are not built in.
-- Marinara Engine installed and running, and reachable from your Home Assistant machine. The default address is `localhost:7860`. If Home Assistant runs on a different device, read the note below about passwords.
-- The setting `WEBHOOK_LOCAL_URLS_ENABLED=true` added to Marinara's `.env` file.
+- Guksu Motor installed and running, and reachable from your Home Assistant machine. The default address is `localhost:7860`. If Home Assistant runs on a different device, read the note below about passwords.
+- The setting `WEBHOOK_LOCAL_URLS_ENABLED=true` added to Guksu's `.env` file.
 
-The `.env` file is the plain text settings file for the Marinara server. See [Server Configuration](../CONFIGURATION.md) to learn where it is and how to edit it.
+The `.env` file is the plain text settings file for the Guksu server. See [Server Configuration](../CONFIGURATION.md) to learn where it is and how to edit it.
 
-You need that last setting because the integration uses a webhook. A webhook is a web address that lets one app send data to another automatically. Home Assistant's webhook address is a local, plain `http` address. Marinara blocks calls to local `http` addresses by default for safety. Setting `WEBHOOK_LOCAL_URLS_ENABLED=true` allows them.
+You need that last setting because the integration uses a webhook. A webhook is a web address that lets one app send data to another automatically. Home Assistant's webhook address is a local, plain `http` address. Guksu blocks calls to local `http` addresses by default for safety. Setting `WEBHOOK_LOCAL_URLS_ENABLED=true` allows them.
 
 Add this line to your `.env` file:
 
@@ -33,15 +33,15 @@ Add this line to your `.env` file:
 WEBHOOK_LOCAL_URLS_ENABLED=true
 ```
 
-This setting takes effect within a couple of seconds. You do not need to restart the Marinara server.
+This setting takes effect within a couple of seconds. You do not need to restart the Guksu server.
 
 ### If Home Assistant runs on a different device
 
-The integration connects to Marinara without a username or password. There is no place to enter one in the setup form. Because of this, where Home Assistant runs matters:
+The integration connects to Guksu without a username or password. There is no place to enter one in the setup form. Because of this, where Home Assistant runs matters:
 
-- If Home Assistant and Marinara run on the same machine, the connection works out of the box.
-- If Home Assistant runs on a different device, Marinara blocks the connection by default. You must allow the Home Assistant device to connect without a password. One way is to add that device's IP address to `IP_ALLOWLIST` in Marinara's `.env` file. An IP address is the number address of a device on your network. On a fully trusted home network, you can set `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` instead.
-- If Marinara is protected with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`, the integration cannot log in. It then only works from the same machine, or from a device listed in `IP_ALLOWLIST`.
+- If Home Assistant and Guksu run on the same machine, the connection works out of the box.
+- If Home Assistant runs on a different device, Guksu blocks the connection by default. You must allow the Home Assistant device to connect without a password. One way is to add that device's IP address to `IP_ALLOWLIST` in Guksu's `.env` file. An IP address is the number address of a device on your network. On a fully trusted home network, you can set `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` instead.
+- If Guksu is protected with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS`, the integration cannot log in. It then only works from the same machine, or from a device listed in `IP_ALLOWLIST`.
 
 See [Remote Access](../REMOTE_ACCESS.md) for how these settings work and which one to pick.
 
@@ -60,25 +60,25 @@ https://github.com/Pasta-Devs/Marinara-Engine
 ```
 
 4. Set the category to **Integration**, then click **Add**.
-5. Search for **Marinara Engine**, then install it.
+5. Search for **Guksu Motor**, then install it.
 6. Restart Home Assistant.
 
 ### Set it up
 
 1. Go to **Settings**, then **Devices & Services**, then click **Add Integration**.
-2. Search for **Marinara Engine**.
-3. Enter the **Host** and **Port** where Marinara is running. The defaults are `localhost` and `7860`.
+2. Search for **Guksu Motor**.
+3. Enter the **Host** and **Port** where Guksu is running. The defaults are `localhost` and `7860`.
 4. Click **Submit**.
 
-If Marinara cannot be reached at that address, Home Assistant shows an error and does not finish. See Troubleshooting below.
+If Guksu cannot be reached at that address, Home Assistant shows an error and does not finish. See Troubleshooting below.
 
-## What Marinara Engine creates automatically
+## What Guksu Motor creates automatically
 
 When setup succeeds, the integration builds everything for you.
 
 - It registers a private webhook inside Home Assistant.
-- It creates the smart home tools in Marinara's **Functions** section, each already pointed at that webhook.
-- It creates the **Home Assistant** agent in Marinara, listing every enabled tool.
+- It creates the smart home tools in Guksu's **Functions** section, each already pointed at that webhook.
+- It creates the **Home Assistant** agent in Guksu, listing every enabled tool.
 - It creates the Home Assistant entities described later in this guide.
 
 ## Add the Home Assistant agent to a chat
@@ -103,12 +103,12 @@ The AI should call a smart home tool, such as `ha_turn_on`, and the matching lig
 
 ## Exposed tool categories
 
-The integration groups its smart home tools into eight categories. You choose which categories Marinara may use.
+The integration groups its smart home tools into eight categories. You choose which categories Guksu may use.
 
-To change the categories, open **Settings**, then **Devices & Services**, click **Marinara Engine**, then click **Configure**. You will see two options:
+To change the categories, open **Settings**, then **Devices & Services**, click **Guksu Motor**, then click **Configure**. You will see two options:
 
 - **Primary Chat**: the default chat that the Home Assistant services target. Those services are described later in this guide.
-- **Exposed Tool Categories**: the list of tool categories Marinara is allowed to use.
+- **Exposed Tool Categories**: the list of tool categories Guksu is allowed to use.
 
 This table lists each category, its default state, and the tools it contains.
 
@@ -127,30 +127,30 @@ Both **Locks** and **Generic Service Calls (Advanced)** are off by default. Turn
 
 Most tools accept either one specific device or a room name. If you give a room name, the tool acts on every matching device in that room at once.
 
-Changes to the categories only take effect after you press **Marinara Sync HA Tools** or restart Home Assistant. That button is described in the next section.
+Changes to the categories only take effect after you press **Guksu Sync HA Tools** or restart Home Assistant. That button is described in the next section.
 
 ## Home Assistant entities
 
-The integration creates these entities under a Home Assistant device named **Marinara Engine**.
+The integration creates these entities under a Home Assistant device named **Guksu Motor**.
 
 | Entity | Type | What it does |
 |---|---|---|
-| Marinara Chat Count | Sensor | Shows the total number of Marinara chats |
-| Marinara Active Agent Count | Sensor | Shows how many Marinara agents are enabled |
-| Marinara Active Chat | Select | Picks which chat the Home Assistant services target |
-| Marinara Agent: (name) | Switch | Turns one Marinara agent on or off. There is one switch per agent |
-| Marinara Abort Generation | Button | Cancels any AI response that is being generated |
-| Marinara Sync HA Tools | Button | Re-sends all tools and rebuilds the Home Assistant agent |
+| Guksu Chat Count | Sensor | Shows the total number of Guksu chats |
+| Guksu Active Agent Count | Sensor | Shows how many Guksu agents are enabled |
+| Guksu Active Chat | Select | Picks which chat the Home Assistant services target |
+| Guksu Agent: (name) | Switch | Turns one Guksu agent on or off. There is one switch per agent |
+| Guksu Abort Generation | Button | Cancels any AI response that is being generated |
+| Guksu Sync HA Tools | Button | Re-sends all tools and rebuilds the Home Assistant agent |
 
-The integration checks Marinara for new chats and agents every 30 seconds. A chat or agent you just made in Marinara may take up to 30 seconds to show up here.
+The integration checks Guksu for new chats and agents every 30 seconds. A chat or agent you just made in Guksu may take up to 30 seconds to show up here.
 
-## Control Marinara from Home Assistant automations
+## Control Guksu from Home Assistant automations
 
-The integration adds two Home Assistant services. You use these inside Home Assistant automations, not inside Marinara. Both can target your **Primary Chat** by default.
+The integration adds two Home Assistant services. You use these inside Home Assistant automations, not inside Guksu. Both can target your **Primary Chat** by default.
 
 ### Send Message (marinara_engine.send_message)
 
-This sends a message into a Marinara chat.
+This sends a message into a Guksu chat.
 
 - `message`: the message text. This field is required.
 - `chat_id`: which chat to send to. If you leave it blank, the Primary Chat is used.
@@ -181,43 +181,43 @@ This starts an AI reply in a chat without you sending a visible message.
 
 ## Re-syncing after you change settings
 
-When you change the enabled categories, press **Marinara Sync HA Tools** to apply the change. You can find this button on the **Marinara Engine** device page in Home Assistant.
+When you change the enabled categories, press **Guksu Sync HA Tools** to apply the change. You can find this button on the **Guksu Motor** device page in Home Assistant.
 
-Pressing **Marinara Sync HA Tools** does the following:
+Pressing **Guksu Sync HA Tools** does the following:
 
-- It updates the existing tools in place, so any changes reach Marinara.
-- It rebuilds the **Home Assistant** agent if you deleted it in Marinara.
+- It updates the existing tools in place, so any changes reach Guksu.
+- It rebuilds the **Home Assistant** agent if you deleted it in Guksu.
 - It disables any tool whose category you turned off. It does not delete those tools.
 
-Do not hand-edit the Home Assistant tools inside Marinara. The next sync overwrites your edits and turns the tools back on.
+Do not hand-edit the Home Assistant tools inside Guksu. The next sync overwrites your edits and turns the tools back on.
 
 ## Troubleshooting
 
 ### The setup form says it cannot connect
 
-Make sure Marinara Engine is running. Check that the **Host** and **Port** you entered match where it is listening. The default is `localhost` and `7860`.
+Make sure Guksu Motor is running. Check that the **Host** and **Port** you entered match where it is listening. The default is `localhost` and `7860`.
 
-If Home Assistant runs on a different device than Marinara, Marinara blocks it by default. The integration cannot send a password, so Marinara must accept that device without one. Add the Home Assistant device's IP address to `IP_ALLOWLIST` in Marinara's `.env` file. See [Remote Access](../REMOTE_ACCESS.md) for this and other options. A Marinara protected with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` also rejects the integration, unless the device is listed in `IP_ALLOWLIST`.
+If Home Assistant runs on a different device than Guksu, Guksu blocks it by default. The integration cannot send a password, so Guksu must accept that device without one. Add the Home Assistant device's IP address to `IP_ALLOWLIST` in Guksu's `.env` file. See [Remote Access](../REMOTE_ACCESS.md) for this and other options. A Guksu protected with `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` also rejects the integration, unless the device is listed in `IP_ALLOWLIST`.
 
-These rules still apply after setup. If Marinara later blocks the Home Assistant device, the sensors and the chat list quietly stop updating.
+These rules still apply after setup. If Guksu later blocks the Home Assistant device, the sensors and the chat list quietly stop updating.
 
 ### The AI tries a device tool but nothing happens
 
-The webhook call is most likely blocked. Add `WEBHOOK_LOCAL_URLS_ENABLED=true` to Marinara's `.env` file and save it. This takes effect within a couple of seconds. Without it, tool calls can fail with a message about `http` not being allowed, or about a private address being refused.
+The webhook call is most likely blocked. Add `WEBHOOK_LOCAL_URLS_ENABLED=true` to Guksu's `.env` file and save it. This takes effect within a couple of seconds. Without it, tool calls can fail with a message about `http` not being allowed, or about a private address being refused.
 
-If Marinara and Home Assistant run on the same machine, the integration uses the internal address for the webhook automatically. If Marinara runs on a different device, make sure Home Assistant's local network address is reachable from that device.
+If Guksu and Home Assistant run on the same machine, the integration uses the internal address for the webhook automatically. If Guksu runs on a different device, make sure Home Assistant's local network address is reachable from that device.
 
 ### The tools do not appear in the Functions list
 
-Press **Marinara Sync HA Tools**, or restart Home Assistant. Then check the **Functions** section of the Presets panel in Marinara.
+Press **Guksu Sync HA Tools**, or restart Home Assistant. Then check the **Functions** section of the Presets panel in Guksu.
 
 ### The Home Assistant agent is not in my chat
 
-First confirm the **Home Assistant** agent exists in Marinara under Agents. If it is missing, press **Marinara Sync HA Tools** to rebuild it. Then open **Chat Settings**, open the **Agents** section, and add the **Home Assistant** agent to that chat.
+First confirm the **Home Assistant** agent exists in Guksu under Agents. If it is missing, press **Guksu Sync HA Tools** to rebuild it. Then open **Chat Settings**, open the **Agents** section, and add the **Home Assistant** agent to that chat.
 
 ### Finding the webhook address by hand
 
-You rarely need this, since each tool already has the address set. To find it, open **Settings**, then **Devices & Services**, then **Marinara Engine** in Home Assistant. The webhook uses this pattern, where 8123 is the default Home Assistant port:
+You rarely need this, since each tool already has the address set. To find it, open **Settings**, then **Devices & Services**, then **Guksu Motor** in Home Assistant. The webhook uses this pattern, where 8123 is the default Home Assistant port:
 
 ```
 http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
@@ -225,7 +225,7 @@ http://<homeassistant-ip>:8123/api/webhook/<webhook-id>
 
 ## Uninstalling
 
-To remove the integration, delete it from **Settings**, then **Devices & Services**, then **Marinara Engine** in Home Assistant. This removes the Home Assistant entities. The tools it created in Marinara's **Functions** section stay in Marinara. So does the **Home Assistant** agent. Delete both by hand in Marinara if you no longer want them.
+To remove the integration, delete it from **Settings**, then **Devices & Services**, then **Guksu Motor** in Home Assistant. This removes the Home Assistant entities. The tools it created in Guksu's **Functions** section stay in Guksu. So does the **Home Assistant** agent. Delete both by hand in Guksu if you no longer want them.
 
 ## Related guides
 

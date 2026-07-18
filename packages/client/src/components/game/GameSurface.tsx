@@ -463,7 +463,7 @@ function isMobileGameViewport(): boolean {
 }
 
 function isBrowserSpotifyDeviceName(name: string | null | undefined): boolean {
-  return name === "Marinara Engine";
+  return name === "Guksu Motor";
 }
 
 function isPersonalMobileSpotifyDeviceType(type: string | null | undefined): boolean {
@@ -11274,7 +11274,7 @@ function GameSurfaceComponent({
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-medium text-amber-200">Local scene helper failed to start</div>
                           <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/70">
-                            Marinara will keep the game running without the local sidecar for now.
+                            Guksu will keep the game running without the local sidecar for now.
                             {sidecarFailedRuntimeVariant &&
                               ` Runtime: ${sidecarFailedRuntimeVariant.replace(/-/g, " ")}.`}
                             {sidecarStartupError ? ` ${sidecarStartupError}.` : ""}

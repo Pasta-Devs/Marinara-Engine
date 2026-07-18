@@ -106,7 +106,7 @@ When you want to act on several characters at once, use selection mode.
 
 The action bar has two buttons:
 
-- **Export** downloads all selected characters together as a single zip file named `marinara-characters.zip`. This is a bulk export in Marinara Engine's own native format.
+- **Export** downloads all selected characters together as a single zip file named `marinara-characters.zip`. This is a bulk export in Guksu Motor's own native format.
 - **Delete** removes all selected characters. You will be asked to confirm first: **Delete N characters?**
 
 While in selection mode you can also drag your selected characters into a folder all at once, instead of moving them one by one.

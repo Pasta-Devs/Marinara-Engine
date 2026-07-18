@@ -1,6 +1,6 @@
 # Regex Scripts
 
-This guide explains regex scripts in Marinara Engine. A regex script is a find and replace rule that rewrites chat text automatically. This guide covers what regex scripts do, how to create one, where they run, and how to scope them to a single character.
+This guide explains regex scripts in Guksu Motor. A regex script is a find and replace rule that rewrites chat text automatically. This guide covers what regex scripts do, how to create one, where they run, and how to scope them to a single character.
 
 ## What a regex script is
 
@@ -149,7 +149,7 @@ Below the mode buttons, the panel lists each character with scoped scripts and l
 
 ## Importing regex scripts from SillyTavern
 
-Marinara can read regex scripts that come bundled inside a SillyTavern character card. When you import a card, a section titled **Imported regex scripts** appears with two choices:
+Guksu can read regex scripts that come bundled inside a SillyTavern character card. When you import a card, a section titled **Imported regex scripts** appears with two choices:
 
 - **Character only** (the default): the scripts stay scoped to that one character.
 - **Global**: the scripts are added to **Presets** and run in every chat.
@@ -158,7 +158,7 @@ This choice appears both in the single-character import dialog and in the bulk *
 
 ## Safety and performance
 
-Every pattern is checked before it can be saved or run. Marinara blocks patterns that are very likely to run slowly and hang the app. A blocked pattern shows this message: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Saving is blocked until you fix it.
+Every pattern is checked before it can be saved or run. Guksu blocks patterns that are very likely to run slowly and hang the app. A blocked pattern shows this message: "Regex pattern is unsafe: avoid nested quantifiers, ambiguous quantified alternatives, and oversized patterns." Saving is blocked until you fix it.
 
 In plain terms, avoid these shapes:
 

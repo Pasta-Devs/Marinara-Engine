@@ -34,7 +34,7 @@ def async_register_webhook(hass: HomeAssistant, webhook_id: str) -> None:
     async_register(
         hass,
         DOMAIN,
-        "Marinara Engine",
+        "Guksu Motor",
         webhook_id,
         _handle_webhook,
         allowed_methods=["POST"],

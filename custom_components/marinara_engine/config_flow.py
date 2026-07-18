@@ -102,7 +102,7 @@ class MarinaraConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
 
                 return self.async_create_entry(
-                    title=f"Marinara Engine ({host}:{port})",
+                    title=f"Guksu Motor ({host}:{port})",
                     data={
                         CONF_HOST: host,
                         CONF_PORT: port,

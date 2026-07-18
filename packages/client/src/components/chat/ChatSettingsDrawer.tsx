@@ -7419,7 +7419,7 @@ export function ChatSettingsDrawer({
                               ? "Roleplay DJ queues several fitting tracks when it changes music."
                               : musicPlayerSource === "youtube"
                                 ? "YouTube mode uses the Music DJ agent's YouTube connection and embedded player."
-                                : "Custom mode picks from local Game Assets music and plays it in Marinara Engine."}
+                                : "Custom mode picks from local Game Assets music and plays it in Guksu Motor."}
                           </p>
                         </AgentSettingsCard>
                       )}
@@ -9175,7 +9175,7 @@ function MemoryRecallMemoriesModal({
 
         {!memoriesQuery.isLoading && !memoriesQuery.error && memories.length === 0 && (
           <div className="rounded-xl bg-[var(--secondary)]/60 px-4 py-8 text-center text-xs text-[var(--muted-foreground)]">
-            No recall memories have been created for this chat yet. Marinara creates them after generation in groups of
+            No recall memories have been created for this chat yet. Guksu creates them after generation in groups of
             5 messages.
           </div>
         )}

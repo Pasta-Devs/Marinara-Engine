@@ -1,10 +1,10 @@
 # Windows Installation Guide
 
-This guide shows you how to install Marinara Engine on Windows. You can use the one click installer (the easy path) or set it up from source. It also covers system requirements, optional features, and how to update later.
+This guide shows you how to install Guksu Motor on Windows. You can use the one click installer (the easy path) or set it up from source. It also covers system requirements, optional features, and how to update later.
 
 ## System requirements
 
-Marinara Engine runs on your own Windows PC. You need the following:
+Guksu Motor runs on your own Windows PC. You need the following:
 
 - Windows 10 or Windows 11 (64 bit).
 - A few gigabytes of free disk space for the app and its dependencies.
@@ -23,7 +23,7 @@ The installer is the easiest way to start. It checks for Node.js and Git, helps 
 
 Follow these steps:
 
-1. Open the Marinara Engine releases page in your browser.
+1. Open the Guksu Motor releases page in your browser.
 
 ```text
 https://github.com/Pasta-Devs/Marinara-Engine/releases
@@ -33,7 +33,7 @@ https://github.com/Pasta-Devs/Marinara-Engine/releases
 3. Run the installer and follow the on screen prompts. If Node.js or Git are missing, let the installer install them.
 4. Choose the install folder when asked, or accept the default.
 5. Wait for the installer to download the app and build it. This can take a few minutes.
-6. When it finishes, double click the new desktop shortcut to launch Marinara Engine.
+6. When it finishes, double click the new desktop shortcut to launch Guksu Motor.
 
 Your browser should open to the app after a short delay. If it does not open on its own, open your browser and go to this address:
 
@@ -153,7 +153,7 @@ HOST=0.0.0.0
 
 ## Optional: AI sprite background removal
 
-Marinara Engine requests native transparency for generated still sprites and has built-in adaptive matte cleanup for flat chroma and older white backgrounds. You can also install an optional tool called `backgroundremover` as a fallback for detailed scenery and other non-flat backgrounds. It is optional because it downloads large machine learning files.
+Guksu Motor requests native transparency for generated still sprites and has built-in adaptive matte cleanup for flat chroma and older white backgrounds. You can also install an optional tool called `backgroundremover` as a fallback for detailed scenery and other non-flat backgrounds. It is optional because it downloads large machine learning files.
 
 To use it you first need Python. Install Python 3.11 from the official site, then run the install command from the `Marinara-Engine` folder:
 
@@ -167,7 +167,7 @@ Run the installer step:
 pnpm backgroundremover:install
 ```
 
-This creates a private Python folder (a venv) under your data folder. Marinara Engine then uses it automatically for sprite cleanup. A venv is a self contained Python setup that does not affect the rest of your system.
+This creates a private Python folder (a venv) under your data folder. Guksu Motor then uses it automatically for sprite cleanup. A venv is a self contained Python setup that does not affect the rest of your system.
 
 You can also let **start.bat** install the tool for you on the next launch. Add this line to your `.env` file:
 
@@ -177,11 +177,11 @@ BACKGROUNDREMOVER_AUTO_INSTALL=true
 
 ## Accessing from another device
 
-You can open Marinara Engine from your phone, tablet, or another computer on the same network. For the setup steps and the security options, see the [Frequently Asked Questions](../FAQ.md) guide.
+You can open Guksu Motor from your phone, tablet, or another computer on the same network. For the setup steps and the security options, see the [Frequently Asked Questions](../FAQ.md) guide.
 
-## Updating Marinara Engine
+## Updating Guksu Motor
 
-Your chats, characters, and settings stay in place when you update. Marinara Engine offers three ways to update on Windows.
+Your chats, characters, and settings stay in place when you update. Guksu Motor offers three ways to update on Windows.
 
 ### Automatic updates with the launcher
 
@@ -266,11 +266,11 @@ git checkout -B staging origin/staging
 
 If the install or launch fails, first make sure Node.js is version 24, 25, or 26 and that Git is installed. If your antivirus blocks the installer or the download, that is a known false alarm as noted above.
 
-For more fixes, see the [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md) guide.
+For more fixes, see the [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md) guide.
 
 ## Related guides
 
-- [Marinara Engine Installation](../INSTALLATION.md): pick the right install method for your device.
-- [Upgrading Marinara Engine](../UPGRADING.md): more detail on keeping the app up to date.
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md): fixes for common problems.
+- [Guksu Motor Installation](../INSTALLATION.md): pick the right install method for your device.
+- [Upgrading Guksu Motor](../UPGRADING.md): more detail on keeping the app up to date.
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md): fixes for common problems.
 - [Frequently Asked Questions](../FAQ.md): quick answers, including network access.

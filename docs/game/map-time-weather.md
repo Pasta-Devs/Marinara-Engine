@@ -12,7 +12,7 @@ You can drag the panel and lock it in place. For how draggable panels work, see 
 
 ## Grid view and node view
 
-The map has two views. Marinara Engine picks the view for you based on the kind of place the map represents. You do not switch views by hand.
+The map has two views. Guksu Motor picks the view for you based on the kind of place the map represents. You do not switch views by hand.
 
 - The **grid** view is for open areas like an overworld, a region, or a city. It shows terrain-colored squares, such as grass, forest, water, mountain, desert, snow, town, road, and cave.
 - The **node** view is for enclosed areas like dungeons and interiors. It shows locations as circles joined by lines. A location you have not discovered yet shows a question mark icon. A dashed line means a path you have not traveled. A solid line means a path you have used.
@@ -23,7 +23,7 @@ To travel, pick a place on the map. You can only pick certain places. On a grid 
 
 1. Click a grid square, or click a node on a node map.
 2. A **Destination:** chip appears above the message box with the place name.
-3. Type your message and send it. Marinara adds a short line like `*moves to <place>*` to the front of your message.
+3. Type your message and send it. Guksu adds a short line like `*moves to <place>*` to the front of your message.
 
 To cancel, click the small clear button (the X) on the **Destination:** chip.
 

@@ -91,7 +91,7 @@ export function TranslationSection({ metadata, textConnections, onMetadataChange
                 <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
                   AI Prompt
                   <HelpTooltip
-                    text="System prompt used by AI translation. Restoring uses Marinara's built-in default."
+                    text="System prompt used by AI translation. Restoring uses Guksu's built-in default."
                     size="0.625rem"
                   />
                 </label>

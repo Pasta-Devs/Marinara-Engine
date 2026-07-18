@@ -1,12 +1,12 @@
 # Haptic Feedback Setup
 
-This guide shows you how to let an AI character control connected haptic devices in Marinara Engine. It covers installing the helper app, adding the **Haptic Feedback** agent to a chat, connecting to your device, and the touch settings you can adjust.
+This guide shows you how to let an AI character control connected haptic devices in Guksu Motor. It covers installing the helper app, adding the **Haptic Feedback** agent to a chat, connecting to your device, and the touch settings you can adjust.
 
 ## What haptic feedback is
 
-Haptic feedback lets an AI character send touch cues to a connected haptic device (an intimate toy) during a chat. Marinara Engine does not talk to the device directly. Instead, it sends commands to a free companion app called **Intiface Central**, and that app talks to your device.
+Haptic feedback lets an AI character send touch cues to a connected haptic device (an intimate toy) during a chat. Guksu Motor does not talk to the device directly. Instead, it sends commands to a free companion app called **Intiface Central**, and that app talks to your device.
 
-**Intiface Central** speaks a device protocol called **Buttplug.io**. This is the same open standard that many toys and other apps support. You install **Intiface Central** once, pair your device with it, and Marinara connects to it over a local network address.
+**Intiface Central** speaks a device protocol called **Buttplug.io**. This is the same open standard that many toys and other apps support. You install **Intiface Central** once, pair your device with it, and Guksu connects to it over a local network address.
 
 Haptic feedback is built as one of the chat **Agents**, the AI helpers you can add to a chat. It works in Conversation mode and Roleplay mode. It is not available in Game Mode.
 
@@ -23,7 +23,7 @@ https://intiface.com/central/
 2. Open **Intiface Central** and start its server. Look for the server start button inside the app.
 3. Pair or connect your device inside **Intiface Central** so the app can see it.
 
-If **Intiface Central** is not running with its server started, Marinara cannot send any touch cues.
+If **Intiface Central** is not running with its server started, Guksu cannot send any touch cues.
 
 ## Add the Haptic Feedback agent
 
@@ -41,7 +41,7 @@ Once the toggle is on, the AI can send hidden touch cues while it writes. These 
 
 ## Connect, scan, and find your device
 
-When you open the **Haptic Feedback** card, Marinara tries to connect to **Intiface Central** automatically using the saved address. You can also connect by hand.
+When you open the **Haptic Feedback** card, Guksu tries to connect to **Intiface Central** automatically using the saved address. You can also connect by hand.
 
 The card shows a status row with a colored dot. A green dot means connected. A red dot means not connected. Next to it is a button that reads **Connect** when you are offline and **Disconnect** when you are connected.
 
@@ -59,9 +59,9 @@ The **Intiface URL** field holds the network address of your **Intiface Central*
 ws://127.0.0.1:12345
 ```
 
-The address `127.0.0.1` means "this same computer". If you leave the field blank, Marinara uses the server default. Marinara also remembers your address in the browser, so it is reused across chats and devices.
+The address `127.0.0.1` means "this same computer". If you leave the field blank, Guksu uses the server default. Guksu also remembers your address in the browser, so it is reused across chats and devices.
 
-If you run Marinara in Docker, or you open Marinara in a browser on a different device, `127.0.0.1` will not reach your **Intiface Central**. In that case, enter the address of the computer running **Intiface Central**. It looks like the example below, where you replace the numbers with that computer's real address.
+If you run Guksu in Docker, or you open Guksu in a browser on a different device, `127.0.0.1` will not reach your **Intiface Central**. In that case, enter the address of the computer running **Intiface Central**. It looks like the example below, where you replace the numbers with that computer's real address.
 
 ```
 ws://192.168.1.50:12345
@@ -79,7 +79,7 @@ The three choices set how strong and how long each cue can be.
 | **Standard** | Balanced feedback for most scenes | The default |
 | **Intense** | Stronger feedback with a higher cap | Strongest option |
 
-**Standard** is selected by default. Pick the one that feels right for your scene. In Roleplay chats, Marinara limits every cue to the range set by your choice. The AI cannot go past it.
+**Standard** is selected by default. Pick the one that feels right for your scene. In Roleplay chats, Guksu limits every cue to the range set by your choice. The AI cannot go past it.
 
 ## Incidental contact
 
@@ -89,9 +89,9 @@ When it is off, the AI ignores small accidental touches in the story. It only se
 
 ## Using it from another device
 
-By default, Marinara only accepts haptic commands from the same computer that runs the Marinara server. This keeps device control local and private.
+By default, Guksu only accepts haptic commands from the same computer that runs the Guksu server. This keeps device control local and private.
 
-Because of this, haptic feedback will not work if you open Marinara from a phone or another device. This applies when that device reaches a Marinara server running elsewhere. The connect, scan, and command actions are refused unless you change the server settings.
+Because of this, haptic feedback will not work if you open Guksu from a phone or another device. This applies when that device reaches a Guksu server running elsewhere. The connect, scan, and command actions are refused unless you change the server settings.
 
 To allow haptic control from another device, turn on a server setting called `HAPTICS_ALLOW_REMOTE`. You must also set up access protection, such as Basic Auth or an admin secret. See the [Server Configuration Reference](../CONFIGURATION.md) for the setting. See the [Remote Access guide](../REMOTE_ACCESS.md) for the access protection. You enter admin access under **Settings** in the **Advanced** area, in the **Admin Access** section.
 
@@ -104,7 +104,7 @@ If the AI never triggers your device, check these in order.
 3. Make sure the status dot is green and the **Haptic Feedback** toggle is on.
 4. If you are on a phone or a remote device, review the remote access notes above.
 
-When **Intiface Central** is not connected, or no device is attached, Marinara skips the AI touch cue quietly. You will not see an error in the chat.
+When **Intiface Central** is not connected, or no device is attached, Guksu skips the AI touch cue quietly. You will not see an error in the chat.
 
 ## Related guides
 

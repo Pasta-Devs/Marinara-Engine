@@ -4,7 +4,7 @@ This guide shows you how to add character art called sprites and generate it wit
 
 ## What sprites are
 
-A sprite is standing character art: a picture of a character that Marinara Engine shows floating over the chat scene. Marinara uses two kinds of sprite:
+A sprite is standing character art: a picture of a character that Guksu Motor shows floating over the chat scene. Guksu uses two kinds of sprite:
 
 - **Facial Expressions**: portrait images for different moods, like happy, sad, or angry.
 - **Full-body**: whole-body images for different poses, like idle, walk, or battle stance.
@@ -25,7 +25,7 @@ This guide covers the **Facial Expressions** and **Full-body** categories. The *
 
 ## Uploading your own sprites
 
-You can upload art you already have. Marinara accepts common image files. Transparent PNG files give the best result, because the empty area around the character stays see-through over the scene.
+You can upload art you already have. Guksu accepts common image files. Transparent PNG files give the best result, because the empty area around the character stays see-through over the scene.
 
 ### Upload one sprite
 
@@ -64,7 +64,7 @@ Deleting asks you to confirm with the message "Delete sprite for" and the name. 
 
 ## Generating sprites with AI
 
-If you have an image connection set up, Marinara can draw sprites for you. A connection is the link between Marinara and an AI service. To generate sprites you need an image connection, and for animated sprites you need a video connection. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) to set one up.
+If you have an image connection set up, Guksu can draw sprites for you. A connection is the link between Guksu and an AI service. To generate sprites you need an image connection, and for animated sprites you need a video connection. See [Connecting to an AI Provider](../connections/connecting-to-a-provider.md) to set one up.
 
 To start, click **Generate Sprite** in the **Add Sprite** box. This opens the **Generate Sprites** window. At the top you choose a source: **Expressions (Portrait)** or **Full-body**.
 
@@ -73,7 +73,7 @@ Fill in the window:
 1. Pick an **Image Generation Connection** from the dropdown.
 2. Add up to four **Reference Images** if you want the art to match a look. You can also tick the box to use the current avatar as a reference.
 3. Write an **Appearance Description** of how the character looks. This is required.
-4. Optionally turn on **Transparent sprite background**. Marinara requests native PNG transparency first. If the provider cannot return alpha, it chooses a saturated green, magenta, or cyan matte that least overlaps the colors in your **Appearance Description**, then removes that matte automatically.
+4. Optionally turn on **Transparent sprite background**. Guksu requests native PNG transparency first. If the provider cannot return alpha, it chooses a saturated green, magenta, or cyan matte that least overlaps the colors in your **Appearance Description**, then removes that matte automatically.
 5. Choose how many images to make with **Expression Count** (or **Pose Count** for full-body), then pick which expressions or poses to fill.
 6. Click the **Generate** button.
 
@@ -84,7 +84,7 @@ On the **Full-body** source, if the character already has portrait expressions, 
 Two notes about AI generation:
 
 - Generation can take a few minutes, even though the in-app text may suggest less. Slow AI services take longer. Please wait rather than starting over.
-- On some devices, such as certain Android installs, AI sprite generation and background cleanup are not available. When that happens, the button is disabled and Marinara shows the reason on screen.
+- On some devices, such as certain Android installs, AI sprite generation and background cleanup are not available. When that happens, the button is disabled and Guksu shows the reason on screen.
 
 ### Animated portrait sprites
 
@@ -92,7 +92,7 @@ On the **Expressions (Portrait)** source there is a checkbox called **Generate a
 
 ## Cleaning up sprite backgrounds
 
-A sprite looks best when only the character shows and the background is see-through. Generated still sprites use native transparency when the provider supports it. Otherwise, Marinara removes a flat adaptive chroma matte with a soft edge and cleans its color out of hair, fabric, and other partially transparent pixels. Older white-background sprites remain supported.
+A sprite looks best when only the character shows and the background is see-through. Generated still sprites use native transparency when the provider supports it. Otherwise, Guksu removes a flat adaptive chroma matte with a soft edge and cleans its color out of hair, fabric, and other partially transparent pixels. Older white-background sprites remain supported.
 
 ### Clean one sprite by hand
 
@@ -105,11 +105,11 @@ The **Clean Backgrounds** button removes the background from every sprite curren
 1. Set the **Cleanup strength** slider. It runs from Soft to Aggressive, from 0 to 100, and starts at 35. A higher value removes more of the background but can bite into the character.
 2. Click **Clean Backgrounds** and confirm.
 
-After a batch cleanup, Marinara keeps a safety copy. A line reads "Last cleanup has a restore point" with an **Undo Cleanup** button. Click it to put every affected sprite back the way it was.
+After a batch cleanup, Guksu keeps a safety copy. A line reads "Last cleanup has a restore point" with an **Undo Cleanup** button. Click it to put every affected sprite back the way it was.
 
 Background cleanup works on PNG, JPG, JPEG, WEBP, and AVIF images. It does not work on GIF or SVG files.
 
-Automatic cleanup examines the image before choosing an engine. The fast built-in matte cleanup handles flat chroma and legacy white backgrounds first. If the border is not actually uniform, Marinara can use the optional AI background remover as a fallback when it is installed. The manual cleanup editor remains the safest option for a busy scene or a subject whose colors are nearly identical to the background.
+Automatic cleanup examines the image before choosing an engine. The fast built-in matte cleanup handles flat chroma and legacy white backgrounds first. If the border is not actually uniform, Guksu can use the optional AI background remover as a fallback when it is installed. The manual cleanup editor remains the safest option for a busy scene or a subject whose colors are nearly identical to the background.
 
 ## Exporting sprites
 

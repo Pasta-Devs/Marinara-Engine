@@ -2,7 +2,7 @@
 
 This guide explains how to link a Conversation chat to a Roleplay or Game chat so the two share context. It also covers **Cross-Chat Awareness**, the special tags that pass information across a link, and how to jump between linked chats.
 
-Marinara Engine (called Marinara after this) has two separate features that let chats know about each other. One is automatic. The other is an explicit one-to-one link you set up yourself. This guide keeps them apart, because they work in different ways.
+Guksu Motor (called Guksu after this) has two separate features that let chats know about each other. One is automatic. The other is an explicit one-to-one link you set up yourself. This guide keeps them apart, because they work in different ways.
 
 ## What Connected Chats do
 
@@ -20,7 +20,7 @@ Two features are easy to confuse. Read this section before you set anything up.
 
 **Cross-Chat Awareness** is automatic. It is a Conversation-mode setting. When a character is present in more than one Conversation chat, it can remember and reference what happened in those other chats. You do not link anything by hand. The setting is on by default.
 
-You find it in the **Cross-Chat Awareness** section of **Chat Settings**. Its help text reads: "Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context." Marinara matches these sibling chats by shared character, not by shared user.
+You find it in the **Cross-Chat Awareness** section of **Chat Settings**. Its help text reads: "Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context." Guksu matches these sibling chats by shared character, not by shared user.
 
 A **Connected Chats** link is different. It is something you create on purpose. It joins exactly one Conversation to one Roleplay or Game chat. It carries story context and the special tags described below.
 
@@ -58,7 +58,7 @@ Write these tags as literal text if you ever need to reference them. Each is sho
 
 - `<influence>` sends a one-time steer from the Conversation into the linked story chat. It affects the very next linked turn, then it is used up.
 - `<note>` saves a durable fact from the Conversation into the linked story chat. It stays in the story chat's prompt on every turn until you clear it.
-- `<ooc>` lets a Roleplay character step out of the story and reply directly to the linked Conversation. Marinara posts that text to the linked direct-message chat.
+- `<ooc>` lets a Roleplay character step out of the story and reply directly to the linked Conversation. Guksu posts that text to the linked direct-message chat.
 
 So a Conversation character can quietly shape or inform the story with `<influence>` and `<note>`. A Roleplay character can talk back to the Conversation with `<ooc>`.
 
@@ -66,7 +66,7 @@ So a Conversation character can quietly shape or inform the story with `<influen
 
 When a Conversation character saves a durable `<note>`, it shows up on the story side. The Roleplay or Game chat gets a **Conversation Notes** section in its **Chat Settings**.
 
-This section lists every saved note. Each note has a delete button. To remove all of them at once, use the **Clear all notes** button. Marinara asks you to confirm before it clears them, and this cannot be undone.
+This section lists every saved note. Each note has a delete button. To remove all of them at once, use the **Clear all notes** button. Guksu asks you to confirm before it clears them, and this cannot be undone.
 
 If no character has saved a note yet, the section explains that notes wrapped in a `<note>` tag will appear here once saved.
 

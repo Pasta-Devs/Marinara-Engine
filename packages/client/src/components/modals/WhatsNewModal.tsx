@@ -66,8 +66,8 @@ const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
 };
 
 const FALLBACK_ANNOUNCEMENT: ReleaseAnnouncement = {
-  headline: "Marinara Engine has been updated.",
-  intro: "Marinara Engine has been updated! Read the release notes for everything included in this version.",
+  headline: "Guksu Motor has been updated.",
+  intro: "Guksu Motor has been updated! Read the release notes for everything included in this version.",
   highlights: [],
 };
 

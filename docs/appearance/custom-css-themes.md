@@ -1,19 +1,19 @@
 # Custom CSS Themes (Theme Library)
 
-This guide explains how to change the whole look of Marinara Engine with a custom CSS theme. You will learn how to create, import, export, and activate themes. You will also see which CSS variables you can change and how themes work with extensions and Card CSS.
+This guide explains how to change the whole look of Guksu Motor with a custom CSS theme. You will learn how to create, import, export, and activate themes. You will also see which CSS variables you can change and how themes work with extensions and Card CSS.
 
 ## What a custom theme is
 
-A custom theme is a block of CSS that repaints Marinara. CSS, short for Cascading Style Sheets, is the code that sets colors, borders, and spacing across the app. A theme can change the page background, the accent color, cards, borders, text, and more.
+A custom theme is a block of CSS that repaints Guksu. CSS, short for Cascading Style Sheets, is the code that sets colors, borders, and spacing across the app. A theme can change the page background, the accent color, cards, borders, text, and more.
 
-Custom themes live in the **Theme Library**. They are stored on your Marinara server, so they sync to every device and browser that connects to the same server. This is different from most other appearance settings, which stay on one device. For the per-device settings, see the [Appearance Settings](appearance-settings.md) guide.
+Custom themes live in the **Theme Library**. They are stored on your Guksu server, so they sync to every device and browser that connects to the same server. This is different from most other appearance settings, which stay on one device. For the per-device settings, see the [Appearance Settings](appearance-settings.md) guide.
 
 Only one custom theme can be active at a time. You can keep as many themes in your library as you like and switch between them.
 
 ## Where to find the Theme Library
 
 1. Open **Settings**.
-2. Open the **Addons** tab. The tab opens with the line "Extensions add trusted browser or server behavior; custom themes change Marinara's look."
+2. Open the **Addons** tab. The tab opens with the line "Extensions add trusted browser or server behavior; custom themes change Guksu's look."
 3. Scroll past the **Extension Library** section. The **Theme Library** section sits below it.
 
 The section is titled **Theme Library** and reads "Create, import, activate, edit, export, or remove custom CSS themes."
@@ -26,7 +26,7 @@ The section is titled **Theme Library** and reads "Create, import, activate, edi
 4. Leave **Preview** on to see your changes live in the app as you type. Turn **Preview** off to stop the live preview.
 5. Click **Save**.
 
-A new theme starts from a template. The template lists common variables as commented-out examples, so you can remove the comment marks and set your own values. When you save a brand new theme, Marinara activates it right away. It also shows a confirmation with the theme name, like: Theme "My Theme" saved and activated.
+A new theme starts from a template. The template lists common variables as commented-out examples, so you can remove the comment marks and set your own values. When you save a brand new theme, Guksu activates it right away. It also shows a confirmation with the theme name, like: Theme "My Theme" saved and activated.
 
 To change a theme later, find it in the **Installed Themes** list. Click the code icon (its tooltip reads **Edit theme CSS**), make your edits, and click **Save**. Editing a saved theme updates it but does not change which theme is active.
 
@@ -42,7 +42,7 @@ To import a theme:
 
 A `.css` file becomes one theme, named after the file. A `.json` file can hold one or more themes, and it comes in two kinds.
 
-The first kind is a file exported from Marinara. It wraps each theme in extra fields that Marinara adds on export. You do not need to read or edit it. Import the file as-is.
+The first kind is a file exported from Guksu. It wraps each theme in extra fields that Guksu adds on export. You do not need to read or edit it. Import the file as-is.
 
 The second kind is a small file you write yourself. For a single theme, this is enough:
 
@@ -52,14 +52,14 @@ The second kind is a small file you write yourself. For a single theme, this is 
 
 Imported themes sync to your server, but they do not activate on their own. A theme that already exists on the server, with the same name and the same CSS, is skipped instead of added twice.
 
-To export a theme, find it in the **Installed Themes** list and click the upload icon (its tooltip reads **Export theme**). Marinara downloads a `.json` file that you can import somewhere else.
+To export a theme, find it in the **Installed Themes** list and click the upload icon (its tooltip reads **Export theme**). Guksu downloads a `.json` file that you can import somewhere else.
 
 ## Activating a theme
 
 The **Installed Themes** list shows every theme, plus a **Default Theme** entry at the top.
 
 1. Click a theme's name to make it active. A check mark shows the active theme.
-2. Click **Default Theme** to turn off custom theming and return to Marinara's built-in look.
+2. Click **Default Theme** to turn off custom theming and return to Guksu's built-in look.
 
 The **Reset Appearance** button sits at the top of the **App Style** section in **Settings -> Appearance**. It also turns off the active custom theme when you use it.
 
@@ -86,7 +86,7 @@ The theme editor has a collapsible **CSS Variable Reference**. Click it to see t
 | `--popover` | Dropdown background |
 | `--accent` | Hover highlights |
 
-You are not limited to this list. A theme can set any CSS variable Marinara uses, and it can add other custom styles too.
+You are not limited to this list. A theme can set any CSS variable Guksu uses, and it can add other custom styles too.
 
 Some visual effects have their own variables. For example, a theme can request the accent pulse animation by setting `--marinara-theme-accent-pulse: enabled`.
 
@@ -98,9 +98,9 @@ A theme name can be up to 200 characters. The CSS payload can be up to 256 KiB, 
 
 ## Admin Access for remote installs
 
-Creating, editing, importing, activating, and removing a theme are protected actions. This matters only when you open Marinara over a network.
+Creating, editing, importing, activating, and removing a theme are protected actions. This matters only when you open Guksu over a network.
 
-If you open Marinara on the same computer that runs the server, using loopback (also called localhost), these actions just work. If you open Marinara from another device, such as a phone or a computer on your network, the server needs an admin secret first.
+If you open Guksu on the same computer that runs the server, using loopback (also called localhost), these actions just work. If you open Guksu from another device, such as a phone or a computer on your network, the server needs an admin secret first.
 
 To manage themes over a network:
 
@@ -111,9 +111,9 @@ Without this, theme changes over a network fail. For the full setup, see the [Se
 
 ## How themes, extensions, and Card CSS work together
 
-Marinara has three ways to add custom CSS. They are separate features and can all be active at once.
+Guksu has three ways to add custom CSS. They are separate features and can all be active at once.
 
-A custom theme repaints the whole app. It is allowed to override Marinara's core variables, use `!important`, and use `position: fixed`. That is the point of a theme.
+A custom theme repaints the whole app. It is allowed to override Guksu's core variables, use `!important`, and use `position: fixed`. That is the point of a theme.
 
 Extensions can also inject CSS into the page. You manage them in **Settings -> Addons -> Extension Library**, right above the Theme Library. Extension CSS follows the same rules as theme CSS, so an enabled extension can also change how the app looks. See the [Extensions guide](../extending/extensions.md).
 

@@ -6,7 +6,7 @@ This guide explains **Preset Variables**, the small form-like choices you can bu
 
 A prompt preset is a reusable blueprint for the text sent to the AI. A preset variable adds a labeled choice to that blueprint. You give the choice a name, write a question, and list some options.
 
-Inside any prompt section you type the variable's name in double braces, like `{{tone}}`. When the AI generates a reply, Marinara Engine replaces `{{tone}}` with the option value the user picked. This lets one preset produce different behavior without editing the prompt text.
+Inside any prompt section you type the variable's name in double braces, like `{{tone}}`. When the AI generates a reply, Guksu Motor replaces `{{tone}}` with the option value the user picked. This lets one preset produce different behavior without editing the prompt text.
 
 Preset variables live inside a prompt preset, so they work in the chat modes that use prompt presets. They do not apply in Conversation mode. That mode uses a single prompt-text override instead of the section-based preset, so there is nothing for the variables to fill in. To learn about presets themselves, see [Preset Editor and Prompt Manager](presets.md).
 
@@ -35,7 +35,7 @@ You add variables while editing a preset. Follow these steps.
 
 To use the variable, type its name in braces inside any prompt section's content. For example, put `{{tone}}` in a section, then create a variable named `tone` with a **Gentle** option and a **Harsh** option. When the user picks Harsh, the section receives the harsh value.
 
-A variable must always keep at least one option. If you try to delete the last option, Marinara keeps it.
+A variable must always keep at least one option. If you try to delete the last option, Guksu keeps it.
 
 ## The Configure Preset Variables modal
 
@@ -55,7 +55,7 @@ You do not have to reopen a preset from scratch to change your answers. In the c
 
 ## The {{NAME}} catch-all
 
-Marinara resolves many built-in macros, such as `{{user}}` and `{{char}}`. After those, any leftover placeholder in the form `{{NAME}}` (letters, numbers, and underscores only) is matched against your preset variables.
+Guksu resolves many built-in macros, such as `{{user}}` and `{{char}}`. After those, any leftover placeholder in the form `{{NAME}}` (letters, numbers, and underscores only) is matched against your preset variables.
 
 If a variable with that exact name exists, the placeholder becomes the chosen value. If no variable matches, the `{{NAME}}` text is left exactly as typed. This is why an unknown placeholder shows up unchanged in the output instead of raising an error. For the full macro list, see [Prompt Macros](macros.md).
 

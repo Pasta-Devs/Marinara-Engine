@@ -67,7 +67,7 @@ export function ScenePromptPreferencesModal({
             {sourceLabel ? `${sourceLabel} wants to start a scene.` : "Start a scene."}
           </p>
           <p className="text-xs leading-relaxed text-[var(--muted-foreground)]">
-            Pick the writing shape before Marinara plans the scene.
+            Pick the writing shape before Guksu plans the scene.
           </p>
         </div>
 

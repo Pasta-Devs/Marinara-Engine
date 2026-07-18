@@ -91,7 +91,7 @@ export function CallClipGenerationModal({
     <Modal open={open} onClose={onClose} title="Generate Call Clips" width="max-w-lg">
       <div className="space-y-4">
         <p className="text-sm leading-relaxed text-[var(--muted-foreground)]">
-          Generate video-call loop clips for {entityName}. Marinara will use the selected video generation connection.
+          Generate video-call loop clips for {entityName}. Guksu will use the selected video generation connection.
         </p>
 
         <label className="grid gap-1.5 text-xs font-semibold text-[var(--foreground)]">

@@ -1,10 +1,10 @@
 # User Personas: Creating and Editing
 
-This guide explains what a persona is, how to create and edit one, and how to import, export, duplicate, and delete personas. A persona is your own character card: the identity Marinara Engine uses to represent you in a chat.
+This guide explains what a persona is, how to create and edit one, and how to import, export, duplicate, and delete personas. A persona is your own character card: the identity Guksu Motor uses to represent you in a chat.
 
 ## What a persona is
 
-A persona is who you are in a chat. It has a name, a description, and other optional details. Marinara sends these details into every prompt so the AI knows who it is talking to.
+A persona is who you are in a chat. It has a name, a description, and other optional details. Guksu sends these details into every prompt so the AI knows who it is talking to.
 
 You can make many personas. You keep them in the **Personas** panel. You pick one persona as your global default, called the **active persona**. You can also override the persona for a single chat. This guide covers making and editing personas. To learn how to choose which persona a chat uses, see [Choosing Your Persona in a Chat](choosing-your-persona.md).
 
@@ -130,7 +130,7 @@ The values you set here are the starting defaults for new chats. They do not upd
 
 ## Version history
 
-Every time you save a change to a persona's card fields, Marinara saves a snapshot automatically. The **Version history** panel on the **Metadata** tab lists these saved versions with a timestamp.
+Every time you save a change to a persona's card fields, Guksu saves a snapshot automatically. The **Version history** panel on the **Metadata** tab lists these saved versions with a timestamp.
 
 For each saved version you can:
 
@@ -157,7 +157,7 @@ To delete many at once, click **Select** in the **Personas** panel and check the
 Click **Import** in the **Personas** panel to open the **Import Persona** window. You can drag files in or click to browse. You can import many files at once. It accepts two file types:
 
 - **.marinara** native package files. These restore full persona details, sprites, and gallery structure.
-- **.json** files. A Marinara JSON export imports fully. A generic JSON file from another tool is mapped field by field into a new persona. The name is required. Other recognized fields are pulled in when present.
+- **.json** files. A Guksu JSON export imports fully. A generic JSON file from another tool is mapped field by field into a new persona. The name is required. Other recognized fields are pulled in when present.
 
 Each file shows a success or failure icon and a message. A summary line shows how many succeeded and how many failed.
 
@@ -165,8 +165,8 @@ Each file shows a success or failure icon and a message. A summary line shows ho
 
 You can export from the **Export persona** icon in the **Persona Editor**, or with the bulk **Export** action in the panel's selection mode. The **Export Persona** window offers two formats:
 
-- **Native**: keeps all Marinara persona details, sprites, and attached lorebooks. Use this to move a persona between Marinara installs.
-- **Compatible**: exports plain persona fields only. Use this for other tools that do not understand Marinara's format.
+- **Native**: keeps all Guksu persona details, sprites, and attached lorebooks. Use this to move a persona between Guksu installs.
+- **Compatible**: exports plain persona fields only. Use this for other tools that do not understand Guksu's format.
 
 A bulk export downloads a single zip file with one file per selected persona.
 

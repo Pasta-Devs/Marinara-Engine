@@ -1,6 +1,6 @@
 # Professor Mari, Your In-App Assistant
 
-Professor Mari is Marinara Engine's built-in assistant on the Home screen. This guide shows where to find her, what she can do, how she keeps her changes reversible, and how to fix common problems.
+Professor Mari is Guksu Motor's built-in assistant on the Home screen. This guide shows where to find her, what she can do, how she keeps her changes reversible, and how to fix common problems.
 
 ## Where to find her
 
@@ -38,11 +38,11 @@ Guided flows ask one focused question at a time instead of presenting a long for
 
 ## She can also read and edit the app's own files
 
-Professor Mari can look inside Marinara's own program files, change them, and run commands on your computer. This is a real and powerful ability, so it is worth understanding clearly.
+Professor Mari can look inside Guksu's own program files, change them, and run commands on your computer. This is a real and powerful ability, so it is worth understanding clearly.
 
 Here is the trust boundary in plain terms:
 
-- She works only inside the folder where Marinara is installed. She cannot reach the rest of your computer.
+- She works only inside the folder where Guksu is installed. She cannot reach the rest of your computer.
 - She cannot write straight into your saved data folder, where your characters and chats live. Instead she uses the reviewable change flow described below.
 - Commands she runs stop on their own after a short time, so a stuck command cannot run forever.
 
@@ -50,7 +50,7 @@ Most people never need this. It exists so she can inspect or repair the app itse
 
 ## Picking a connection
 
-Professor Mari needs a connection to think. A connection links Marinara to an AI provider using an API key. An API key is a secret code from that provider.
+Professor Mari needs a connection to think. A connection links Guksu to an AI provider using an API key. An API key is a secret code from that provider.
 
 Click the link icon next to the paperclip to open the **Connections** dropdown. Pick any text generation connection you have set up. If you have downloaded the built in local model, it appears here too as **Local Model (sidecar)**. If the app knows the model's name, that name shows in the parentheses instead. Your choice is remembered in your browser.
 
@@ -129,7 +129,7 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 - For edits, name the exact item and the exact field you want changed. A request like "rewrite this whole character" is riskier than "make Luna's greeting shorter, keep her personality the same."
 - For multi-step creation, use the suggestion chips to answer one focused question at a time instead of trying to provide every field at once.
 - If she says she finished a task but the app does not show it, trust the app. Finish the task yourself from the matching panel.
-- If you reach Marinara from another device instead of the same computer, her editing actions need remote access set up. See the remote access guide.
+- If you reach Guksu from another device instead of the same computer, her editing actions need remote access set up. See the remote access guide.
 
 ## Troubleshooting
 
@@ -137,11 +137,11 @@ Professor Mari is a helper, not the full documentation. Keep these limits in min
 - "You haven't set up a connection yet" pop-up message: pick a connection from the link icon dropdown, or add one first.
 - She cannot read your attached image: your model must support image input. Switch to a connection whose model can see images.
 - Fandom lookups fail: these need an internet connection, since Fandom is an outside website.
-- Her actions are blocked with a permission error: you are reaching Marinara over a network, not from the same computer. Set up remote access first.
+- Her actions are blocked with a permission error: you are reaching Guksu over a network, not from the same computer. Set up remote access first.
 
 ## Related guides
 
-- [Getting Started with Marinara Engine](welcome.md)
+- [Getting Started with Guksu Motor](welcome.md)
 - [The First-Time Tutorial](tutorial.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Creating and Editing Characters](../characters/creating-and-editing-characters.md)

@@ -1,6 +1,6 @@
 # Noodle: The In-App Social Timeline
 
-Noodle is a pretend social media feed built into Marinara Engine. It looks like a Twitter or X style timeline. But every account and post belongs to your own world: your persona, your characters, and Professor Mari. This guide covers what Noodle is, how to open it, and how to post, follow, and refresh the timeline.
+Noodle is a pretend social media feed built into Guksu Motor. It looks like a Twitter or X style timeline. But every account and post belongs to your own world: your persona, your characters, and Professor Mari. This guide covers what Noodle is, how to open it, and how to post, follow, and refresh the timeline.
 
 ## What Noodle is
 
@@ -104,7 +104,7 @@ Your persona can follow any invited character, but only after that character has
 
 Each persona you create gets its own Noodle account. At the bottom of the left sidebar, your persona's name and avatar are a button. Click it to open **Switch account** and pick a different persona.
 
-Switching accounts here changes which persona you post, like, reply, and follow as inside Noodle. It does not change the app's active persona anywhere else in Marinara.
+Switching accounts here changes which persona you post, like, reply, and follow as inside Noodle. It does not change the app's active persona anywhere else in Guksu.
 
 ## Refresh timeline
 
@@ -120,7 +120,7 @@ Before a refresh works, you need three things:
 
 If something is missing, Noodle blocks the refresh and shows a message telling you what to fix. For example, "Choose a generation connection for Noodle first." On success you see "Noodle timeline refreshed."
 
-You can refresh by hand at any time with **Refresh timeline**. Noodle can also refresh itself on a schedule. Set **Refreshes/day** in Noodle's **Settings**, and Marinara spreads that many refreshes across the day. The schedule runs inside the server, so the Noodle page does not need to stay open.
+You can refresh by hand at any time with **Refresh timeline**. Noodle can also refresh itself on a schedule. Set **Refreshes/day** in Noodle's **Settings**, and Guksu spreads that many refreshes across the day. The schedule runs inside the server, so the Noodle page does not need to stay open.
 
 Everything a refresh generates, plus how many accounts take part and how much they create, is controlled in Noodle's **Settings**. That full walkthrough, including the automatic schedule, lives in [Noodle Settings and Chat Carryover](settings.md).
 

@@ -1,10 +1,10 @@
-# Marinara Engine Installation
+# Guksu Motor Installation
 
-This guide helps you pick the right way to install Marinara Engine for your device. Marinara runs on your own machine, so your chats and data stay local. Each platform below has its own step by step guide, linked from the table.
+This guide helps you pick the right way to install Guksu Motor for your device. Guksu runs on your own machine, so your chats and data stay local. Each platform below has its own step by step guide, linked from the table.
 
 ## Choose your platform
 
-Pick the guide that matches the device you want to run Marinara on.
+Pick the guide that matches the device you want to run Guksu on.
 
 | Platform | Installation guide |
 |---|---|
@@ -16,8 +16,8 @@ Pick the guide that matches the device you want to run Marinara on.
 
 A few things to know before you pick:
 
-- On **iPhone or iPad**, Marinara does not run the server itself. You run the server on a computer, a home server, or an Android device. Then you open it in Safari on your iPhone or iPad. The iOS guide explains this.
-- On **Android**, Marinara runs inside **Termux**. Termux is a free app that gives Android a small Linux environment. The release APK just helps you set Termux up.
+- On **iPhone or iPad**, Guksu does not run the server itself. You run the server on a computer, a home server, or an Android device. Then you open it in Safari on your iPhone or iPad. The iOS guide explains this.
+- On **Android**, Guksu runs inside **Termux**. Termux is a free app that gives Android a small Linux environment. The release APK just helps you set Termux up.
 
 ## Which should I pick
 
@@ -39,13 +39,13 @@ If you are comfortable with a terminal and may want to edit the code, run from s
 http://127.0.0.1:7860
 ```
 
-- The address `127.0.0.1` means your own computer, and `7860` is the default port. To reach Marinara from your phone or another device on your network, see the [FAQ](FAQ.md) for LAN access.
+- The address `127.0.0.1` means your own computer, and `7860` is the default port. To reach Guksu from your phone or another device on your network, see the [FAQ](FAQ.md) for LAN access.
 
 ## Where to go after install
 
-Once Marinara is running and open in your browser, read [Getting Started with Marinara Engine](home/welcome.md). It walks you through your first steps: adding a connection, making or importing a character, and starting a chat.
+Once Guksu is running and open in your browser, read [Getting Started with Guksu Motor](home/welcome.md). It walks you through your first steps: adding a connection, making or importing a character, and starting a chat.
 
-To keep your install up to date later, see [Upgrading Marinara Engine](UPGRADING.md).
+To keep your install up to date later, see [Upgrading Guksu Motor](UPGRADING.md).
 
 ## Related guides
 
@@ -54,5 +54,5 @@ To keep your install up to date later, see [Upgrading Marinara Engine](UPGRADING
 - [Container installation](installation/containers.md)
 - [Android (Termux) installation](installation/android-termux.md)
 - [iOS and iPadOS](installation/ios-pwa.md)
-- [Upgrading Marinara Engine](UPGRADING.md)
-- [Getting Started with Marinara Engine](home/welcome.md)
+- [Upgrading Guksu Motor](UPGRADING.md)
+- [Getting Started with Guksu Motor](home/welcome.md)

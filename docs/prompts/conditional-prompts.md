@@ -1,12 +1,12 @@
 # Conditional Prompts ({{#if}})
 
-This guide explains how to use `{{#if}}` blocks in Marinara Engine. A conditional block lets you include some prompt text only when a value matches a rule you set. Conditionals are part of the macro system, so they work everywhere macros work, including character cards, personas, lorebook entries, and prompt presets.
+This guide explains how to use `{{#if}}` blocks in Guksu Motor. A conditional block lets you include some prompt text only when a value matches a rule you set. Conditionals are part of the macro system, so they work everywhere macros work, including character cards, personas, lorebook entries, and prompt presets.
 
 ## What conditional prompts do
 
-A macro is a `{{double-brace}}` placeholder that Marinara Engine replaces with a live value while it builds your prompt. A conditional block goes one step further. It checks a value, then keeps one piece of text and throws the rest away.
+A macro is a `{{double-brace}}` placeholder that Guksu Motor replaces with a live value while it builds your prompt. A conditional block goes one step further. It checks a value, then keeps one piece of text and throws the rest away.
 
-You write a condition, some text to use when the condition is true, and (optionally) text to use when it is false. Marinara reads the condition each time it builds a prompt. This means the same card or preset can behave differently for different characters, personas, or chats.
+You write a condition, some text to use when the condition is true, and (optionally) text to use when it is false. Guksu reads the condition each time it builds a prompt. This means the same card or preset can behave differently for different characters, personas, or chats.
 
 A common use is character-specific instructions inside one shared preset. Another common use is including a field only when it has content, so you do not send an empty label to the model.
 
@@ -30,7 +30,7 @@ Text used when false.
 {{/if}}
 ```
 
-You can also chain extra conditions with `{{else if}}`. Marinara checks each branch in order from top to bottom. It keeps the first branch whose condition is true, resolves the macros inside that branch, and discards every other branch. If no condition is true and there is no `{{else}}`, the whole block resolves to nothing.
+You can also chain extra conditions with `{{else if}}`. Guksu checks each branch in order from top to bottom. It keeps the first branch whose condition is true, resolves the macros inside that branch, and discards every other branch. If no condition is true and there is no `{{else}}`, the whole block resolves to nothing.
 
 ```
 {{#if length == "short"}}
@@ -61,13 +61,13 @@ The condition is usually a left value, an operator, and a right value, like `cha
 
 A few rules control how the comparison works:
 
-1. For `==`, `=`, `is`, `!=`, and `is not`, if both sides look like numbers, Marinara compares them as numbers. So `5` equals `5.0`. Otherwise it compares them as text, ignoring uppercase and lowercase. So `Mari` equals `mari`.
+1. For `==`, `=`, `is`, `!=`, and `is not`, if both sides look like numbers, Guksu compares them as numbers. So `5` equals `5.0`. Otherwise it compares them as text, ignoring uppercase and lowercase. So `Mari` equals `mari`.
 2. For `>`, `<`, `>=`, and `<=`, both sides must be numbers. If either side is not a number, the condition is false.
 3. For `contains`, `includes`, `not contains`, and `not includes`, the match is case-insensitive. So `contains "dr"` matches the text `Dr Smith`.
 
 ### Truthy checks (no operator)
 
-If you write a condition with no operator, Marinara does a truthy check. This asks a simple question: does this value have real content in it?
+If you write a condition with no operator, Guksu does a truthy check. This asks a simple question: does this value have real content in it?
 
 ```
 {{#if scenario}}
@@ -89,11 +89,11 @@ The left or right side of a condition can be any of these:
 4. An explicit variable lookup written as `var:name` or `var.name`.
 5. Another macro, whose value is resolved first and then compared.
 
-If you write a bare word that is not a keyword, Marinara treats it as a variable name. If no variable by that name exists, it uses the word as its own plain text. Quoting your literal values avoids this confusion, so quote them when in doubt.
+If you write a bare word that is not a keyword, Guksu treats it as a variable name. If no variable by that name exists, it uses the word as its own plain text. Quoting your literal values avoids this confusion, so quote them when in doubt.
 
 ## Quoting rules
 
-When you compare against a fixed piece of text, put it in quotes. This tells Marinara to treat it as an exact literal and not as a keyword or a variable.
+When you compare against a fixed piece of text, put it in quotes. This tells Guksu to treat it as an exact literal and not as a keyword or a variable.
 
 ```
 {{#if char == "Dottore"}}
@@ -101,7 +101,7 @@ Speak in a cold, clinical tone.
 {{/if}}
 ```
 
-You can use straight double quotes or straight single quotes. Marinara also accepts curly (typographic) quotes, but straight quotes are safest and match every in-app example. Inside a quoted value you can escape a quote with a backslash, and you can write `\n` for a newline.
+You can use straight double quotes or straight single quotes. Guksu also accepts curly (typographic) quotes, but straight quotes are safest and match every in-app example. Inside a quoted value you can escape a quote with a backslash, and you can write `\n` for a newline.
 
 Always quote a literal that has a space in it, such as `"Dr Smith"`. An unquoted multi-word value is read as one variable name, which is almost never what you want.
 
@@ -109,7 +109,7 @@ Always quote a literal that has a space in it, such as `"Dr Smith"`. An unquoted
 
 In a group chat with two or more characters, a group block repeats the same text once for each character. This lets you write one block that describes every character in the scene.
 
-To make a group block, put a single `[` on its own line, then your text, then a single `]` on its own line. The block must contain a character macro, such as `{{char}}` or `{{description}}`, or a character-based condition like `{{#if char == "Alice"}}`. Marinara then repeats the block once per character and resolves the character macros against each one in turn.
+To make a group block, put a single `[` on its own line, then your text, then a single `]` on its own line. The block must contain a character macro, such as `{{char}}` or `{{description}}`, or a character-based condition like `{{#if char == "Alice"}}`. Guksu then repeats the block once per character and resolves the character macros against each one in turn.
 
 ```
 [

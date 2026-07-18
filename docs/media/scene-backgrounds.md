@@ -1,6 +1,6 @@
 # Scene Backgrounds and the Gallery
 
-This guide covers AI-generated scene backgrounds, the backdrop images Marinara Engine creates for you from the **Gallery**, and the Gallery panel itself. Two related guides exist: [Chat Backgrounds](../appearance/chat-backgrounds.md) covers the hand-picked upload library, and [Roleplay Backgrounds](../roleplay/backgrounds.md) covers the agent that auto-picks a backdrop each turn.
+This guide covers AI-generated scene backgrounds, the backdrop images Guksu Motor creates for you from the **Gallery**, and the Gallery panel itself. Two related guides exist: [Chat Backgrounds](../appearance/chat-backgrounds.md) covers the hand-picked upload library, and [Roleplay Backgrounds](../roleplay/backgrounds.md) covers the agent that auto-picks a backdrop each turn.
 
 ## Where scene backgrounds work
 
@@ -28,7 +28,7 @@ The background is built from your current scene. In a game, this includes the ge
 
 ### If no image connection is set
 
-If Marinara cannot find an image connection to use, the generate step fails with this message:
+If Guksu cannot find an image connection to use, the generate step fails with this message:
 
 ```
 Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents.
@@ -65,12 +65,12 @@ Move your pointer over any image in the **Images** tab, or tap it on mobile, to 
 
 ## Reviewing a prompt before it is sent
 
-You can check and edit the prompt before Marinara sends a background request to your image provider.
+You can check and edit the prompt before Guksu sends a background request to your image provider.
 
 1. Open **Settings**, then **Generations**, then **Image Generation**.
 2. Turn on **Expose media prompts before sending**.
 
-With this setting on, a **Review Image Prompt** window opens before each request is sent. Its help text reads: "Edit the prompt below before Marinara sends the image request to your provider."
+With this setting on, a **Review Image Prompt** window opens before each request is sent. Its help text reads: "Edit the prompt below before Guksu sends the image request to your provider."
 
 In the window, you can:
 

@@ -43,7 +43,7 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     target: null,
-    title: "Welcome to Marinara Engine!",
+    title: "Welcome to Guksu Motor!",
     body: "Hi! I'm Professor Mari, your assistant and guide! First time around? Allow me to show you around. This is a quick orientation tour, so you can skip it if you already know your way around, but skipping will make me sad a little.",
     sprite: { src: "/sprites/mari/Mari_wave.png" },
   },
@@ -164,7 +164,7 @@ const STEPS: TourStep[] = [
   {
     target: "panel-connections",
     title: "You're All Set!",
-    body: "I'm available from the Home page whenever you need help, and my starter chips can guide you through common first steps without making you type everything. For your first real step, set up a Connection. After that, try creating a new chat. Don't worry, I will be there to guide you. Thank you for trying Marinara Engine. Have fun, and please report bugs or rough edges through our Discord or GitHub so we can keep improving it.",
+    body: "I'm available from the Home page whenever you need help, and my starter chips can guide you through common first steps without making you type everything. For your first real step, set up a Connection. After that, try creating a new chat. Don't worry, I will be there to guide you. Thank you for trying Guksu Motor. Have fun, and please report bugs or rough edges through our Discord or GitHub so we can keep improving it.",
     side: "bottom",
     openPanel: "connections",
     sprite: { src: "/sprites/mari/Mari_greet.png" },

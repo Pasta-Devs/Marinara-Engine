@@ -30,14 +30,14 @@ class MarinaraActiveChatSelect(CoordinatorEntity[MarinaraCoordinator], SelectEnt
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_active_chat"
-        self._attr_name = "Marinara Active Chat"
+        self._attr_name = "Guksu Active Chat"
 
     @property
     def device_info(self) -> dict:
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Marinara Engine",
-            "manufacturer": "Marinara Engine",
+            "name": "Guksu Motor",
+            "manufacturer": "Guksu Motor",
             "model": "Local AI Engine",
         }
 

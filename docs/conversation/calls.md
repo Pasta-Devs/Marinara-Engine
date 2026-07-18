@@ -1,10 +1,10 @@
 # Conversation Audio and Video Calls
 
-This guide explains Conversation calls in Marinara Engine. You will learn how a call works, how to set one up, how to talk during a call, and how to fix common problems.
+This guide explains Conversation calls in Guksu Motor. You will learn how a call works, how to set one up, how to talk during a call, and how to fix common problems.
 
 Calls exist only in Conversation Mode. Roleplay and Game chats do not have a call screen.
 
-Calls is an optional agent package. Install **Calls** from **Agents → Download Agents** before following the setup below, then restart Marinara when the catalog asks.
+Calls is an optional agent package. Install **Calls** from **Agents → Download Agents** before following the setup below, then restart Guksu when the catalog asks.
 
 ## What a call is
 
@@ -17,9 +17,9 @@ During a call:
 - You answer by microphone or by typing.
 - You can optionally see looping AI-generated video clips of a character instead of a still avatar.
 
-A call is not a peer-to-peer phone call. Marinara records your local browser microphone or camera. It sends that input to the model you picked for that Conversation. It speaks replies through your TTS provider and stores the call data on your own machine.
+A call is not a peer-to-peer phone call. Guksu records your local browser microphone or camera. It sends that input to the model you picked for that Conversation. It speaks replies through your TTS provider and stores the call data on your own machine.
 
-When the call ends, Marinara writes a short summary of the audio call back into the normal Conversation. The full call transcript stays in separate call storage and is not copied message by message into the main chat.
+When the call ends, Guksu writes a short summary of the audio call back into the normal Conversation. The full call transcript stays in separate call storage and is not copied message by message into the main chat.
 
 ## Before you start
 
@@ -47,22 +47,22 @@ For the full walkthrough, read [Text to Speech (TTS) Setup](../media/tts-setup.m
 5. Set **Voice Option** to **One voice for all characters** or **Selected per character**.
 6. Save, then use the preview button to confirm you hear audio.
 
-For a group call, per-character voices make it much easier to tell who is talking. If a character has no voice that Marinara can resolve, that character becomes text only for the call.
+For a group call, per-character voices make it much easier to tell who is talking. If a character has no voice that Guksu can resolve, that character becomes text only for the call.
 
 ### Choose a microphone input mode
 
 When **Call Audio Pipeline** is on, an **Audio input mode** dropdown appears with four choices. Pick the one that fits your browser and provider.
 
 - **Mic recording + Local Whisper**: records while you are unmuted, ignores silence, and turns your speech into text on your own machine. This is the default and the best choice for Firefox.
-- **Browser speech recognition**: uses your browser Web Speech feature. The Web Speech API is a built-in browser tool for turning speech into text. Support varies by browser, and Marinara falls back to Local Whisper when it is missing.
-- **Manual system dictation**: only puts the cursor in the call text box so your operating system dictation can type there. Marinara does not record your microphone by itself in this mode.
+- **Browser speech recognition**: uses your browser Web Speech feature. The Web Speech API is a built-in browser tool for turning speech into text. Support varies by browser, and Guksu falls back to Local Whisper when it is missing.
+- **Manual system dictation**: only puts the cursor in the call text box so your operating system dictation can type there. Guksu does not record your microphone by itself in this mode.
 - **Provider-native audio/video**: sends your recorded audio or video straight to the Conversation model, when that model can accept media directly. If the model cannot, use Local Whisper or browser speech recognition instead.
 
 The camera and screen buttons appear only when **Camera and screen input** is on. They work only in **Provider-native audio/video** mode. In every other mode the buttons are visible but stay disabled.
 
 ### Download Local Whisper
 
-Local Whisper turns your speech into text on the machine running Marinara. Your microphone audio never leaves that machine for transcription. The resulting text is still sent to your Conversation model as part of the call.
+Local Whisper turns your speech into text on the machine running Guksu. Your microphone audio never leaves that machine for transcription. The resulting text is still sent to your Conversation model as part of the call.
 
 Local Whisper is owned by the Calls package and is the most reliable microphone path for browsers with weak speech support, including Firefox. After installing Calls, open **Connections**, open **Local Model**, expand the card, and find **Local Speech Model**. The section is hidden when Calls is not installed. For the general Local Model card, see [Local Model Setup](../connections/local-model.md).
 
@@ -121,13 +121,13 @@ When calls are on for a chat, a phone button appears next to the conversation na
 
 Click **Start call**. The full call screen opens right away.
 
-Only one call can be active or ringing per chat. If you start a call while one is already going, Marinara reopens that call instead of making a new one.
+Only one call can be active or ringing per chat. If you start a call while one is already going, Guksu reopens that call instead of making a new one.
 
 ### Incoming character calls
 
 A character can ring you if the **Calls** command is on. When that happens and you are inside that chat, an **Incoming call** banner appears above the message box. The banner has a **Decline call** button and an **Answer call** button.
 
-If you are somewhere else in Marinara, an incoming-call notification appears, similar to the notification for an autonomous character message. A short ringing tone plays. Marinara never answers for you, so you must click **Answer call**.
+If you are somewhere else in Guksu, an incoming-call notification appears, similar to the notification for an autonomous character message. A short ringing tone plays. Guksu never answers for you, so you must click **Answer call**.
 
 Only characters that are currently available join a call. If a schedule or status marks a character as offline, that character does not join the call, even though they belong to the chat.
 
@@ -135,7 +135,7 @@ Only characters that are currently available join a call. If a schedule or statu
 
 You can end a call at any time with the red **End call** button. It sits on the call screen and on the minimized popout. A character can also leave or end the call through an in-call command.
 
-When the call ends, Marinara stops recording, closes the media safely, and adds a card to the normal Conversation.
+When the call ends, Guksu stops recording, closes the media safely, and adds a card to the normal Conversation.
 
 ## The call screen and controls
 
@@ -156,7 +156,7 @@ The control bar at the bottom of the stage has icon buttons:
 
 If you stay muted for a while, a reminder appears: "You are muted! Remember to unmute yourself first if you want to talk."
 
-If you leave the Conversation while a call is active, the call shrinks into a small floating popout. The popout shows the chat name, the elapsed time, and a red **End call** button. Click the popout body to return to the full call screen. Marinara keeps the call running while you browse other panels.
+If you leave the Conversation while a call is active, the call shrinks into a small floating popout. The popout shows the chat name, the elapsed time, and a red **End call** button. Click the popout body to return to the full call screen. Guksu keeps the call running while you browse other panels.
 
 ### Soundboard
 
@@ -180,11 +180,11 @@ For more on sprites and the editor, see [Character Sprites (Expressions and Full
 
 The **Generate Clips** button opens the **Generate Call Clips** window. There you choose a **Video Generation Connection** and choose **Use avatar as reference**. Then you pick which standard clips to make. You can also define one custom clip with a **Clip name** and an action description.
 
-The six standard clip types are **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, and **Sighing**. During a spoken turn, Marinara reads the voice cues in a line, such as `[sighs]` or `[laughs]`. It picks a matching reaction clip, then returns the character to Idle.
+The six standard clip types are **Idle**, **Talking**, **Laughing**, **Angry**, **Crying**, and **Sighing**. During a spoken turn, Guksu reads the voice cues in a line, such as `[sighs]` or `[laughs]`. It picks a matching reaction clip, then returns the character to Idle.
 
 Two extra toggles appear under **Character video presence** when it is on:
 
-- **Automatic video clips generation**: off by default. When on, Marinara auto-generates only the two basic clips, **Idle** and **Talking**, for a call participant that needs them. Reaction clips and custom clips are never auto-generated. You make those by hand from the **Clips** sub-tab.
+- **Automatic video clips generation**: off by default. When on, Guksu auto-generates only the two basic clips, **Idle** and **Talking**, for a call participant that needs them. Reaction clips and custom clips are never auto-generated. You make those by hand from the **Clips** sub-tab.
 - **Custom clips**: off by default. When on, a character can rarely request a one-off clip during a live call, and can replay a ready custom clip afterward. This is meant for special visual requests, not for every mood or line.
 
 Missing clips never block a call. The character just shows a still avatar until a clip is ready. If you trim a clip, it loops inside the trim range you set.
@@ -212,7 +212,7 @@ Some commands add a small system entry to the call chat. For example, a selfie s
 
 ## The call-ended summary
 
-When a call ends, Marinara adds a card to the normal Conversation transcript. The card shows the call status. You may see these titles:
+When a call ends, Guksu adds a card to the normal Conversation transcript. The card shows the call status. You may see these titles:
 
 - **Call Started**
 - **Incoming Call**
@@ -220,7 +220,7 @@ When a call ends, Marinara adds a card to the normal Conversation transcript. Th
 - **Call Declined**
 - **Missed Call**
 
-After a **Call Ended** card, Marinara generates a short audio call summary in the background if anything meaningful happened. It then adds that summary to the Conversation as hidden context that the model can read. This keeps the model aware of what was said without copying the whole call into the visible chat.
+After a **Call Ended** card, Guksu generates a short audio call summary in the background if anything meaningful happened. It then adds that summary to the Conversation as hidden context that the model can read. This keeps the model aware of what was said without copying the whole call into the visible chat.
 
 The detailed call transcript stays in separate call storage. Only the short summary flows back into the normal chat.
 
@@ -232,15 +232,15 @@ If you click **Start call** and see "Conversation call audio is not enabled in C
 
 ### I can hear characters, but they cannot hear me
 
-Open **Chat Settings**, then **Agents**, then **Calls**, and confirm **Call Audio Pipeline** is on. Then confirm your browser has given the Marinara page permission to use the microphone.
+Open **Chat Settings**, then **Agents**, then **Calls**, and confirm **Call Audio Pipeline** is on. Then confirm your browser has given the Guksu page permission to use the microphone.
 
 If you are on Firefox, or browser speech recognition does not work, install Calls and download Local Whisper. Open **Connections**, then **Local Model**, then **Local Speech Model**. Then choose **Mic recording + Local Whisper**.
 
 ### Local Whisper says it is unavailable
 
-Local Whisper needs the native ONNX runtime for your platform. ONNX is the engine that runs the local speech model. If the model was set up for a different Node build, reinstall dependencies with the same Node build you use to run Marinara, then restart.
+Local Whisper needs the native ONNX runtime for your platform. ONNX is the engine that runs the local speech model. If the model was set up for a different Node build, reinstall dependencies with the same Node build you use to run Guksu, then restart.
 
-If you run a "Lite" build of Marinara, Local Whisper is turned off in that build. The app shows: "Local Whisper is disabled in Lite mode. Use a full Marinara install to download and run the local speech model." Use a full install to get Local Whisper.
+If you run a "Lite" build of Guksu, Local Whisper is turned off in that build. The app shows: "Local Whisper is disabled in Lite mode. Use a full Guksu install to download and run the local speech model." Use a full install to get Local Whisper.
 
 ### The browser speech option does nothing
 

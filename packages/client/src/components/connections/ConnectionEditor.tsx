@@ -1291,7 +1291,7 @@ export function ConnectionEditor() {
                 <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                 <span>
                   Routes chat through your local <strong>Claude Code</strong> install so it bills against your Anthropic{" "}
-                  <strong>Pro / Max</strong> subscription instead of an API key. Prerequisites on the Marinara host:
+                  <strong>Pro / Max</strong> subscription instead of an API key. Prerequisites on the Guksu host:
                 </span>
               </p>
               <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1318,7 +1318,7 @@ export function ConnectionEditor() {
                 <AlertCircle size="0.75rem" className="mt-px shrink-0" />
                 <span>
                   Routes chat through your local <strong>Codex ChatGPT</strong> login so it uses your ChatGPT account
-                  instead of an OpenAI API key. Prerequisites on the Marinara host:
+                  instead of an OpenAI API key. Prerequisites on the Guksu host:
                 </span>
               </p>
               <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1331,7 +1331,7 @@ export function ConnectionEditor() {
                 <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are
+                Guksu reads the local Codex auth file and refreshes the ChatGPT session when possible. Embeddings are
                 not available on this provider; configure a separate connection for embedding work.
               </p>
             </div>
@@ -1345,7 +1345,7 @@ export function ConnectionEditor() {
                 <span>
                   Routes chat through your local <strong>Grok CLI</strong> install so it uses your signed-in{" "}
                   <strong>SuperGrok / X Premium+</strong> account instead of an xAI API key. Prerequisites on the
-                  Marinara host:
+                  Guksu host:
                 </span>
               </p>
               <ol className="mt-1.5 ml-4 list-decimal space-y-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1361,7 +1361,7 @@ export function ConnectionEditor() {
                 <li>API Key and Base URL are not required for this provider.</li>
               </ol>
               <p className="mt-1.5 text-[0.625rem] text-[var(--muted-foreground)]">
-                Marinara runs <code className="rounded bg-[var(--secondary)] px-1">grok</code> headlessly with Grok-side
+                Guksu runs <code className="rounded bg-[var(--secondary)] px-1">grok</code> headlessly with Grok-side
                 tools, memory, web search, plans, and subagents disabled. Embeddings are not available on this provider;
                 configure a separate connection for embedding work. The safest roleplay model is usually{" "}
                 <code className="rounded bg-[var(--secondary)] px-1">grok-composer-2.5-fast</code>; leave the model
@@ -1426,7 +1426,7 @@ export function ConnectionEditor() {
               <FieldGroup
                 label="API Key"
                 icon={<Key size="0.875rem" className="text-sky-400" />}
-                help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Marinara talk to the AI service."
+                help="Your authentication key from the AI provider. You can get one from their website. It's like a password that lets Guksu talk to the AI service."
               >
                 <input
                   value={localApiKey}
@@ -1869,7 +1869,7 @@ export function ConnectionEditor() {
                 icon={<Zap size="0.875rem" className="text-sky-400" />}
                 help={
                   selectedImageService === "runpod_comfyui"
-                    ? "Paste your ComfyUI workflow JSON (API format). RunPod needs the full workflow to execute; the endpoint sends this workflow to your serverless endpoint. Use placeholders like %prompt%, %seed%, %width%, %height%, %reference_image%, and %reference_image_01% through %reference_image_04% to let Marinara inject generation parameters."
+                    ? "Paste your ComfyUI workflow JSON (API format). RunPod needs the full workflow to execute; the endpoint sends this workflow to your serverless endpoint. Use placeholders like %prompt%, %seed%, %width%, %height%, %reference_image%, and %reference_image_01% through %reference_image_04% to let Guksu inject generation parameters."
                     : "Paste a custom ComfyUI workflow JSON (API format). Use placeholders like %prompt%, %negative_prompt%, %width%, %height%, %seed%, %model%, %steps%, %cfg%, %sampler%, %scheduler%, and %denoise%. For reference images, use %reference_image% / %reference_image_01% through %reference_image_04% to inject base64 strings, or %reference_image_name% / %reference_image_name_01% through %reference_image_name_04% to upload images to ComfyUI's input directory and inject filenames for LoadImage nodes. Leave empty to use the built-in default txt2img workflow."
                 }
               >
@@ -2035,7 +2035,7 @@ export function ConnectionEditor() {
               icon={
                 <SlidersHorizontal size="0.875rem" className="text-[var(--marinara-chat-chrome-button-text-active)]" />
               }
-              help="How many agent LLM requests Marinara may run at once for this connection. Higher values can speed up agent-heavy chats on providers that tolerate parallel calls."
+              help="How many agent LLM requests Guksu may run at once for this connection. Higher values can speed up agent-heavy chats on providers that tolerate parallel calls."
             >
               <div className="flex items-center gap-3">
                 <DraftNumberInput
@@ -2086,7 +2086,7 @@ export function ConnectionEditor() {
             <FieldGroup
               label="Prompt Preset Override"
               icon={<FileText size="0.875rem" className="mari-chrome-accent-icon mari-accent-animated" />}
-              help="Optional. When roleplay chats use this connection, Marinara assembles this prompt preset instead of the chat's selected prompt preset. Conversation and game mode keep their built-in prompt flows."
+              help="Optional. When roleplay chats use this connection, Guksu assembles this prompt preset instead of the chat's selected prompt preset. Conversation and game mode keep their built-in prompt flows."
             >
               <select
                 value={localPromptPresetId}
@@ -2104,7 +2104,7 @@ export function ConnectionEditor() {
                 ))}
               </select>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                Use this for models that need a different prompt structure. If this preset has variables, Marinara uses
+                Use this for models that need a different prompt structure. If this preset has variables, Guksu uses
                 the preset&apos;s saved defaults unless the chat already uses the same preset.
               </p>
             </FieldGroup>
@@ -2232,7 +2232,7 @@ export function ConnectionEditor() {
                     );
                     markDirty();
                   }}
-                  description="Uses temporary public links when Seedance needs first/last-frame references and cannot fetch local Marinara URLs."
+                  description="Uses temporary public links when Seedance needs first/last-frame references and cannot fetch local Guksu URLs."
                   className="p-1"
                 />
                 {localVideoDefaults.seedance.temporaryPublicReferenceUploadEnabled && (
@@ -2268,7 +2268,7 @@ export function ConnectionEditor() {
                 )}
                 <p className="px-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">
                   Keep this off if you do not want local avatar or gallery reference frames uploaded outside this
-                  Marinara install.
+                  Guksu install.
                 </p>
               </div>
             </FieldGroup>
@@ -2385,7 +2385,7 @@ export function ConnectionEditor() {
                 </>
               ) : (
                 <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                  This provider does not expose embeddings through Marinara. Choose a dedicated embedding connection
+                  This provider does not expose embeddings through Guksu. Choose a dedicated embedding connection
                   below, such as OpenAI-compatible, Google, or the Local Model sidecar.
                 </p>
               )}

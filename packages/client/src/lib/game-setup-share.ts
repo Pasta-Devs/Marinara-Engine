@@ -301,7 +301,7 @@ export function parseGameSetupShareFileJson(text: string): GameSetupShareFile {
     throw new Error("Choose a reusable Game Mode setup JSON file, not the readable text summary.");
   }
   if (!isRecord(value) || value.format !== GAME_SETUP_SHARE_FORMAT) {
-    throw new Error("This is not a Marinara Game Mode setup file.");
+    throw new Error("This is not a Guksu Game Mode setup file.");
   }
   if (value.version !== GAME_SETUP_SHARE_VERSION) {
     throw new Error(`This Game Mode setup file uses unsupported version ${String(value.version ?? "unknown")}.`);
@@ -711,7 +711,7 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
 export function formatGameSetupShareText(source: GameSetupShareSource): string {
   const sections = buildGameSetupSummarySections(source);
   return [
-    `${source.gameName} - Marinara Game Mode Setup`,
+    `${source.gameName} - Guksu Game Mode Setup`,
     "Recreate this from Game > New Game. Local characters, personas, lorebooks, and connections are named but not included.",
     "",
     ...sections.flatMap((section) => [section.title, ...section.rows.map((row) => `${row.label}: ${row.value}`), ""]),

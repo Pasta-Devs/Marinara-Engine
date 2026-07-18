@@ -1,13 +1,13 @@
 # Importing and Exporting Lorebooks
 
-This guide shows you how to bring lorebooks into Marinara Engine and how to save them out as files. It covers single files, many files at once, and the two export formats. A lorebook is a set of keyword-triggered notes that Marinara adds to the AI's prompt when a matching word appears. Some other roleplay tools call this feature **World Info**.
+This guide shows you how to bring lorebooks into Guksu Motor and how to save them out as files. It covers single files, many files at once, and the two export formats. A lorebook is a set of keyword-triggered notes that Guksu adds to the AI's prompt when a matching word appears. Some other roleplay tools call this feature **World Info**.
 
 ## What you can import
 
-Marinara can read two kinds of lorebook file, and it detects which one you gave it automatically:
+Guksu can read two kinds of lorebook file, and it detects which one you gave it automatically:
 
-- A lorebook exported from Marinara itself. This keeps every field and every folder.
-- A **World Info** file from another tool. This includes SillyTavern World Info files and the V2 character card "character-book" format. Marinara maps the other tool's fields onto its own.
+- A lorebook exported from Guksu itself. This keeps every field and every folder.
+- A **World Info** file from another tool. This includes SillyTavern World Info files and the V2 character card "character-book" format. Guksu maps the other tool's fields onto its own.
 
 Both kinds are plain `.json` files. You do not need an account or an API key to import a lorebook.
 
@@ -22,7 +22,7 @@ Follow these steps to import one lorebook file.
 5. Wait for the result. Each file shows a green check with **Imported lorebook**, or a red mark with an error message.
 6. Click **Close**. Your new lorebook now appears in the **Lorebooks** panel list.
 
-Marinara keeps the imported file's own date as the lorebook's created date, not the moment you imported it.
+Guksu keeps the imported file's own date as the lorebook's created date, not the moment you imported it.
 
 ## Import many lorebooks at once (bulk import)
 
@@ -30,9 +30,9 @@ The **Import Lorebook** window accepts more than one file in a single go.
 
 1. Open the **Lorebooks** panel and click the download-arrow icon. Its tooltip reads **Import**.
 2. Drag several `.json` files onto the drop box at the same time, or click the box and select multiple files.
-3. Marinara imports each file in turn and lists a result row for every one. A summary line shows how many succeeded and how many failed.
+3. Guksu imports each file in turn and lists a result row for every one. A summary line shows how many succeeded and how many failed.
 
-You can mix Marinara files and **World Info** files in the same batch. Marinara checks each file on its own.
+You can mix Guksu files and **World Info** files in the same batch. Guksu checks each file on its own.
 
 ## Export a lorebook
 
@@ -41,11 +41,11 @@ Exporting saves one lorebook to a file on your device. This is how you share a l
 1. In the **Lorebooks** panel, click a lorebook to open its editor.
 2. Click the export icon in the editor header. Its tooltip reads **Export lorebook**.
 3. The **Export Lorebook** window opens with two choices. Pick one:
-   - **Marinara Native** keeps Marinara folders and every entry field. Use this to move a lorebook to another Marinara install with nothing lost. The file name ends in `.marinara.json`.
-   - **Compatible JSON** saves a folderless **World Info** file for other roleplay tools. Some Marinara-only details are dropped. The file name ends in `.json`.
+   - **Guksu Native** keeps Guksu folders and every entry field. Use this to move a lorebook to another Guksu install with nothing lost. The file name ends in `.marinara.json`.
+   - **Compatible JSON** saves a folderless **World Info** file for other roleplay tools. Some Guksu-only details are dropped. The file name ends in `.json`.
 4. Your browser downloads the file.
 
-Choose **Marinara Native** when the file is for Marinara. Choose **Compatible JSON** when the file is for a different tool.
+Choose **Guksu Native** when the file is for Guksu. Choose **Compatible JSON** when the file is for a different tool.
 
 ## Export many lorebooks at once (bulk export)
 
@@ -56,7 +56,7 @@ You can save several lorebooks into one zip file.
 3. Click **Export** in the selection bar at the bottom.
 4. Your browser downloads a single zip named `marinara-lorebooks.zip`.
 
-Bulk export always uses the **Marinara Native** format, so it round-trips back into Marinara with nothing lost.
+Bulk export always uses the **Guksu Native** format, so it round-trips back into Guksu with nothing lost.
 
 ## Importing a whole SillyTavern folder
 

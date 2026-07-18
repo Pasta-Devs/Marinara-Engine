@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────
-# Marinara Engine — Multi-stage Docker Build
+# Guksu Motor — Multi-stage Docker Build
 # ──────────────────────────────────────────────
 
 # ── Stage 1: Build ──

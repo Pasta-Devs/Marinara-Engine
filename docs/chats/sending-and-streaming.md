@@ -1,6 +1,6 @@
 # Sending and Streaming Messages
 
-This guide covers the basics of every chat in Marinara Engine. It explains how you send a message, how the AI reply streams onto the screen, and how to stop or retry a reply. It also covers attachments, the "thinking" indicators, and what to do when a generation error appears.
+This guide covers the basics of every chat in Guksu Motor. It explains how you send a message, how the AI reply streams onto the screen, and how to stop or retry a reply. It also covers attachments, the "thinking" indicators, and what to do when a generation error appears.
 
 ## Send a message
 
@@ -31,7 +31,7 @@ When a mode's toggle is off, pressing Enter adds a new line instead. You then cl
 
 You can attach images or files so the AI can see or read them. Click the paperclip control in the input bar and pick a file. Attached files show as small chips above the input before you send.
 
-Marinara accepts these file types:
+Guksu accepts these file types:
 
 - Images.
 - PDF files.
@@ -39,7 +39,7 @@ Marinara accepts these file types:
 
 Each file must be 20 MB or smaller. A larger file is rejected with a note that says the file is too large. An unsupported file type is rejected with a note that lists the allowed types.
 
-The AI can only "see" an image if the connected model supports vision. If your model is text only, turn on **Image Captioning**. This setting lives in the per chat **Chat Settings**, in the **Advanced Parameters** section, and is off by default. When on, Marinara describes each attached image in text using a connection you pick, then sends that description instead of the raw image.
+The AI can only "see" an image if the connected model supports vision. If your model is text only, turn on **Image Captioning**. This setting lives in the per chat **Chat Settings**, in the **Advanced Parameters** section, and is off by default. When on, Guksu describes each attached image in text using a connection you pick, then sends that description instead of the raw image.
 
 ## Streaming the reply
 
@@ -55,11 +55,11 @@ Streaming shows the reply appearing word by word as it generates, instead of wai
 
 When **Enable streaming** is off, the full reply appears all at once after the model finishes.
 
-**Trim incomplete model endings** only affects the saved message. When on, Marinara removes a trailing unfinished sentence from the reply. It leaves complete replies and command style endings alone.
+**Trim incomplete model endings** only affects the saved message. When on, Guksu removes a trailing unfinished sentence from the reply. It leaves complete replies and command style endings alone.
 
 ## Typing and progress indicators
 
-Before the first word of a reply arrives, Marinara shows that the character is working. You see the character's name with three animated dots. In a group chat the names of every replying character appear together.
+Before the first word of a reply arrives, Guksu shows that the character is working. You see the character's name with three animated dots. In a group chat the names of every replying character appear together.
 
 While the server prepares the prompt, a short progress line cycles through these labels:
 
@@ -71,17 +71,17 @@ While the server prepares the prompt, a short progress line cycles through these
 - **Retrieving knowledge...**
 - **Generating...**
 
-Each label matches a step Marinara runs before or during the reply. The line clears once the first word of the reply streams in. Some steps only run when a chat uses that feature, so you may not see every label.
+Each label matches a step Guksu runs before or during the reply. The line clears once the first word of the reply streams in. Some steps only run when a chat uses that feature, so you may not see every label.
 
 If a character's presence is set to a busy or away status, a waiting indicator appears instead of the typing dots. The reply starts once the character is available again.
 
 ## See the model's thinking
 
-Some models expose a hidden reasoning trace, often called "thinking". Marinara keeps this separate from the visible reply.
+Some models expose a hidden reasoning trace, often called "thinking". Guksu keeps this separate from the visible reply.
 
 When a reply has thinking attached, a **View thoughts** action (a brain icon) appears on that message. Click it to open a panel that shows the captured reasoning text.
 
-For the reasoning to show, the model must actually return it. Some models wrap their reasoning in plain text tags. For those, set custom **Thinking Tags** on the connection so Marinara can split the hidden reasoning from the visible reply. Several common tag pairs are already recognized. See the generation parameters guide below for how to set **Thinking Tags**.
+For the reasoning to show, the model must actually return it. Some models wrap their reasoning in plain text tags. For those, set custom **Thinking Tags** on the connection so Guksu can split the hidden reasoning from the visible reply. Several common tag pairs are already recognized. See the generation parameters guide below for how to set **Thinking Tags**.
 
 ## Stop a reply
 
@@ -99,9 +99,9 @@ In Roleplay mode there is a related shortcut. Press **Send** with an empty box t
 
 ## When a generation error appears
 
-If a reply fails, Marinara shows a toast notification at the bottom of the screen. The toast stays up for about 15 seconds, and you can copy its text. A stopped reply is not treated as an error.
+If a reply fails, Guksu shows a toast notification at the bottom of the screen. The toast stays up for about 15 seconds, and you can copy its text. A stopped reply is not treated as an error.
 
-For some common problems, Marinara rewrites the raw error into a clear next step:
+For some common problems, Guksu rewrites the raw error into a clear next step:
 
 - If the model rejects a parameter it does not support, the toast tells you how to fix it. Go to **Chat Settings**, open **Advanced Parameters**, and turn off **Send** for that parameter.
 - If the model requires a parameter that is off, the toast tells you to turn it back on. Go to the same place and turn on **Send** for that parameter.
@@ -118,11 +118,11 @@ If an error keeps happening, the troubleshooting guide below has more fixes for 
 
 A long reply can take a while, and that is normal. You can stop the reply at any time with the stop button.
 
-On mobile, the browser may pause a chat tab when you switch away from it. If the reply was still streaming, Marinara shows a **Finishing in background...** state. It then checks whether the reply finished on the server. If it is taking longer, you see a note that says the reply is still finishing in the background. Refresh the chat in a moment if it has not appeared.
+On mobile, the browser may pause a chat tab when you switch away from it. If the reply was still streaming, Guksu shows a **Finishing in background...** state. It then checks whether the reply finished on the server. If it is taking longer, you see a note that says the reply is still finishing in the background. Refresh the chat in a moment if it has not appeared.
 
 ## Related guides
 
 - [Message Actions: Edit, Delete, Swipe, Regenerate](messages.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Generation Parameters](../prompts/generation-parameters.md)
-- [Troubleshooting Marinara Engine](../TROUBLESHOOTING.md)
+- [Troubleshooting Guksu Motor](../TROUBLESHOOTING.md)

@@ -1,8 +1,8 @@
 # Importing and Exporting Character Cards
 
-This guide shows how to import character cards into Marinara Engine and export your own characters back out. It covers the file types Marinara accepts, the choices in the import dialog, and the three export formats.
+This guide shows how to import character cards into Guksu Motor and export your own characters back out. It covers the file types Guksu accepts, the choices in the import dialog, and the three export formats.
 
-A character card is a single file that holds one character: its name, description, personality, greetings, and often an avatar image. Cards let you move a character between Marinara and other roleplay apps.
+A character card is a single file that holds one character: its name, description, personality, greetings, and often an avatar image. Cards let you move a character between Guksu and other roleplay apps.
 
 ## Import formats
 
@@ -13,9 +13,9 @@ The **Import Character** window accepts four file types. You can drop several fi
 | **.json** | A plain character card in text form (Chara Card V2). |
 | **.png** | A character card image with the card data hidden inside the picture. |
 | **.charx** | A Character Card V3 package (CharX), the zip-based format used by RisuAI. |
-| **.marinara** | A Marinara native export (also seen as `.marinara.json`). |
+| **.marinara** | A Guksu native export (also seen as `.marinara.json`). |
 
-A **.marinara** file keeps the most detail, because it is Marinara's own format. The other three come from SillyTavern, Chub, Risu, and similar tools.
+A **.marinara** file keeps the most detail, because it is Guksu's own format. The other three come from SillyTavern, Chub, Risu, and similar tools.
 
 ## Importing a character
 
@@ -48,12 +48,12 @@ Pick **Character only** unless you know you want the rules everywhere.
 
 A lorebook is a set of background facts the AI can look up during a chat. If a card you are importing has a lorebook baked in, the import pauses and shows an **Embedded lorebook found** panel. It lists each file and how many entries it holds. Choose one option for the whole batch:
 
-- **Import Lorebook**: also create a standalone Marinara lorebook linked to the character.
+- **Import Lorebook**: also create a standalone Guksu lorebook linked to the character.
 - **No Import**: keep the lorebook only inside the card.
 
 ### Importing many cards at once
 
-The same **Import Character** window handles batch imports. Select several files, and Marinara imports them one after another. The result list has one row per file, so you can see which cards worked and which failed.
+The same **Import Character** window handles batch imports. Select several files, and Guksu imports them one after another. The result list has one row per file, so you can see which cards worked and which failed.
 
 ## Exporting a character
 
@@ -61,11 +61,11 @@ Open a character in the editor, then click **Export character** in the top toolb
 
 | Format | What you get | Best for |
 | --- | --- | --- |
-| **Marinara Native** | A `.marinara.json` file that keeps Marinara metadata, sprites, gallery images, and attached lorebooks. | Moving a character between Marinara installs with full detail. |
-| **Compatible JSON** | Plain Chara Card V2 JSON with no Marinara wrapper. | Sharing to other apps that read JSON cards. |
+| **Guksu Native** | A `.marinara.json` file that keeps Guksu metadata, sprites, gallery images, and attached lorebooks. | Moving a character between Guksu installs with full detail. |
+| **Compatible JSON** | Plain Chara Card V2 JSON with no Guksu wrapper. | Sharing to other apps that read JSON cards. |
 | **Compatible PNG Card** | A Chara Card V2 image with the card data baked into the picture. | Apps and sites that expect a PNG card, such as SillyTavern, Chub, and Risu. |
 
-Choose **Marinara Native** when you want to keep everything. Choose one of the **Compatible** formats when the file is going to another tool. The two compatible formats drop Marinara-only extras like sprites and gallery images.
+Choose **Guksu Native** when you want to keep everything. Choose one of the **Compatible** formats when the file is going to another tool. The two compatible formats drop Guksu-only extras like sprites and gallery images.
 
 ## Exporting many characters at once
 
@@ -74,9 +74,9 @@ You can export a batch of characters as a single zip file.
 1. Open the **Characters** panel.
 2. Click the **Select** button in the toolbar to enter select mode. It is an icon button with a checkmark.
 3. Tick the characters you want.
-4. Click **Export** in the action bar at the bottom. Marinara downloads a zip named `marinara-characters.zip`.
+4. Click **Export** in the action bar at the bottom. Guksu downloads a zip named `marinara-characters.zip`.
 
-The zip holds one **Marinara Native** file per character. There is no PNG or compatible-JSON option for bulk export, so use single-character export when you need those formats.
+The zip holds one **Guksu Native** file per character. There is no PNG or compatible-JSON option for bulk export, so use single-character export when you need those formats.
 
 ## Importing a whole SillyTavern folder
 

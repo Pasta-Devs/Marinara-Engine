@@ -1,10 +1,10 @@
 # Frontend Architecture (Developers)
 
-This is developer material, not an end-user guide. It explains how the Marinara Engine client is built. It covers the React app structure, the Zustand stores, the React Query hooks, the main components, and the server API map. If you just want to use the app, start with the user guides instead.
+This is developer material, not an end-user guide. It explains how the Guksu Motor client is built. It covers the React app structure, the Zustand stores, the React Query hooks, the main components, and the server API map. If you just want to use the app, start with the user guides instead.
 
 ## Overview
 
-Marinara Engine is an AI chat application with Conversation, Roleplay, and Game modes. The client is a React 19 single-page app served by Vite, styled with Tailwind CSS v4, and packaged as a Progressive Web App (PWA).
+Guksu Motor is an AI chat application with Conversation, Roleplay, and Game modes. The client is a React 19 single-page app served by Vite, styled with Tailwind CSS v4, and packaged as a Progressive Web App (PWA).
 
 The client lives in `packages/client`. It talks to a Fastify API server (`packages/server`) over REST and Server-Sent Events (SSE). Shared data contracts (types, Zod schemas, constants) live in `packages/shared` and are imported by both sides.
 
@@ -77,7 +77,7 @@ The only persisted store (localStorage via the Zustand `persist` middleware). It
 - Behavior: `confirmBeforeDelete`, `enterToSendRP`, `enterToSendConvo`, `weatherEffects`, and `guideGenerations`.
 - Navigation: `rightPanel`, `rightPanelOpen`, `sidebarOpen`, `settingsTab`, all `*DetailId` fields, and `modal`.
 
-Synced custom themes are not stored in `ui.store.ts`. They are fetched from the server through React Query and mirrored across devices connected to the same Marinara instance.
+Synced custom themes are not stored in `ui.store.ts`. They are fetched from the server through React Query and mirrored across devices connected to the same Guksu instance.
 
 #### `chat.store.ts`: chat runtime
 
@@ -386,7 +386,7 @@ The project uses Tailwind CSS v4 with the `@tailwindcss/vite` plugin (no PostCSS
 
 ### Custom themes
 
-Users can create custom themes. Theme definitions are stored on the Marinara server and sync across connected devices. The active custom theme is shared too. The CSS is injected as a `style` tag by `CustomThemeInjector.tsx`.
+Users can create custom themes. Theme definitions are stored on the Guksu server and sync across connected devices. The active custom theme is shared too. The CSS is injected as a `style` tag by `CustomThemeInjector.tsx`.
 
 Synced theme CSS can request the built-in Accent Pulse engine with `--marinara-theme-accent-pulse: enabled`. Add `--marinara-theme-accent-pulse-source: #a78bfa` (or a gradient) when the pulse should use a specific theme accent instead of the current Appearance accent.
 
@@ -524,7 +524,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/updates/latest`           | Latest release metadata                 |
 | `/api/updates/commits-behind`   | Git install update distance             |
 | `/api/backup`                   | Full backup, export, import             |
-| `/api/import/*`                 | SillyTavern and Marinara profile import |
+| `/api/import/*`                 | SillyTavern and Guksu profile import |
 | `/api/admin/clear-all`          | Full data clear                         |
 | `/api/themes`                   | Synced custom themes                    |
 | `/api/extensions`               | Installed extensions                    |
@@ -541,7 +541,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 
 The app is a Progressive Web App configured with VitePWA:
 
-- Manifest: `public/manifest.json` with the "Marinara Engine" app name, standalone display mode, and dark theme.
+- Manifest: `public/manifest.json` with the "Guksu Motor" app name, standalone display mode, and dark theme.
 - Icons: a 64px favicon, 192px and 512px maskable icons, and a splash logo.
 - Service worker: Workbox with an auto-update strategy.
 - Caching: static assets are cached; `/api/*` routes use NetworkOnly.

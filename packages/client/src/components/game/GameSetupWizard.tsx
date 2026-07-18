@@ -2655,7 +2655,7 @@ export function GameSetupWizard({
                         className="mt-2 w-full resize-y rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none ring-1 ring-[var(--border)] transition-all placeholder:text-[var(--muted-foreground)] focus:ring-[var(--primary)]/40"
                       />
                       <p className="mt-1 text-[0.5625rem] leading-relaxed text-[var(--muted-foreground)]">
-                        Optional. If left blank, Marinara builds from the existing game setup.
+                        Optional. If left blank, Guksu builds from the existing game setup.
                       </p>
                     </div>
 

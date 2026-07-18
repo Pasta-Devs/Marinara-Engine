@@ -1,10 +1,10 @@
 # File-Native Storage
 
-This guide describes Marinara Engine's local persistence architecture. For the user-facing folder layout, see [Where Your Data Is Stored](../data/where-data-is-stored.md).
+This guide describes Guksu Motor's local persistence architecture. For the user-facing folder layout, see [Where Your Data Is Stored](../data/where-data-is-stored.md).
 
 ## Source of truth
 
-Marinara stores application rows as JSON snapshots under `DATA_DIR/storage`:
+Guksu stores application rows as JSON snapshots under `DATA_DIR/storage`:
 
 ```text
 storage/
@@ -32,7 +32,7 @@ Downloaded capability packages may carry their own file-table instances. The sto
 
 Writes mark affected tables dirty. A short debounce coalesces nearby changes, while a safety timer periodically flushes pending work. Graceful shutdown waits for active writes and then persists any rows changed during that write.
 
-Each snapshot is written to a temporary file, flushed, and atomically renamed. Before replacement, the previous healthy snapshot is refreshed as a `.bak` file. On startup, an unreadable primary is recovered from its backup when possible. If neither copy is usable, Marinara quarantines the corrupt files with a timestamped suffix and starts only that table empty so the UI remains reachable for recovery.
+Each snapshot is written to a temporary file, flushed, and atomically renamed. Before replacement, the previous healthy snapshot is refreshed as a `.bak` file. On startup, an unreadable primary is recovered from its backup when possible. If neither copy is usable, Guksu quarantines the corrupt files with a timestamped suffix and starts only that table empty so the UI remains reachable for recovery.
 
 ## Transactions
 

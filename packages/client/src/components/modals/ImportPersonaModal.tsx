@@ -184,7 +184,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
           />
           <div className="text-center">
             <p className="text-sm font-medium">Drop one or more files here or click to browse</p>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">Supports JSON and Marinara persona exports</p>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">Supports JSON and Guksu persona exports</p>
           </div>
           <div className="flex gap-2">
             <span className="flex items-center gap-1 rounded-full bg-[var(--secondary)] px-2.5 py-1 text-xs text-[var(--muted-foreground)]">

@@ -1,6 +1,6 @@
 # Knowledge Sources: Retrieval and Router Agents
 
-This guide explains the two Knowledge agents in Marinara Engine: **Knowledge Retrieval** and **Knowledge Router**. Both pull facts from your lorebooks into a chat only when a scene needs them. This way you do not have to put every detail into every prompt.
+This guide explains the two Knowledge agents in Guksu Motor: **Knowledge Retrieval** and **Knowledge Router**. Both pull facts from your lorebooks into a chat only when a scene needs them. This way you do not have to put every detail into every prompt.
 
 ## What these agents do
 
@@ -8,7 +8,7 @@ A lorebook is a set of world or character notes you write ahead of time. Each no
 
 Knowledge agents solve this with RAG. RAG stands for retrieval-augmented generation. It means the app finds the entries that fit the current scene, then adds only those to the prompt for that one turn.
 
-Marinara does this with two optional agents:
+Guksu does this with two optional agents:
 
 - **Knowledge Retrieval** reads your chosen sources, summarizes the facts that matter, and adds the summary to the prompt.
 - **Knowledge Router** reads a short list of your entries, picks the ones that fit the scene, and adds those entries word for word.
@@ -28,7 +28,7 @@ Use this table to choose. Read the notes below it before you decide.
 
 **Knowledge Retrieval** reads every enabled entry in your chosen lorebooks, plus the text of any files you upload. It then asks the AI to write a short summary of the facts that fit the recent messages. This costs more per turn because the AI reads the full source material.
 
-**Knowledge Router** is the cheaper option. It builds a small catalog of your entries. Each catalog line holds an ID, a name, a few keywords, and a short summary. The AI reads that catalog, picks the entries that fit the scene, and Marinara adds those entries in full. The AI never reads every entry in full, so the router stays cheap even with a big lorebook.
+**Knowledge Router** is the cheaper option. It builds a small catalog of your entries. Each catalog line holds an ID, a name, a few keywords, and a short summary. The AI reads that catalog, picks the entries that fit the scene, and Guksu adds those entries in full. The AI never reads every entry in full, so the router stays cheap even with a big lorebook.
 
 You can add both agents to one chat, but they may add overlapping content and raise your token cost. The agent editor warns you when both are set up. For cleaner prompts, pick one.
 

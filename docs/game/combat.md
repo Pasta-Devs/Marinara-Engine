@@ -1,6 +1,6 @@
 # Game Mode: Combat
 
-This guide explains combat in Marinara Engine Game Mode. It covers how a fight starts, the action menu, and the dice math behind every hit. It also explains status effects, elemental reactions, boss mechanics, loot, the Interrupt control, and Quick-Time Events. Combat is run by the AI Game Master (GM), the character who narrates your adventure.
+This guide explains combat in Guksu Motor Game Mode. It covers how a fight starts, the action menu, and the dice math behind every hit. It also explains status effects, elemental reactions, boss mechanics, loot, the Interrupt control, and Quick-Time Events. Combat is run by the AI Game Master (GM), the character who narrates your adventure.
 
 ## Starting an encounter
 

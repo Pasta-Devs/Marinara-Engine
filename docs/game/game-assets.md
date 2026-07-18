@@ -4,7 +4,7 @@ This guide explains the game asset library that Game Mode uses for music, sound,
 
 ## What game assets are
 
-Game assets are the media files Game Mode plays and shows while a session runs. Marinara Engine sorts them into five categories:
+Game assets are the media files Game Mode plays and shows while a session runs. Guksu Motor sorts them into five categories:
 
 - **Music**: background music tracks that change with the scene.
 - **Ambient**: looping environmental sound, such as nature, urban, or interior audio.
@@ -16,7 +16,7 @@ Game Mode reads this library on its own. It picks music, ambient sound, and back
 
 ## The bundled starter set
 
-Marinara installs a free starter library the first time the server starts. It refreshes these files on later starts if the bundled set changes. The starter set includes:
+Guksu installs a free starter library the first time the server starts. It refreshes these files on later starts if the bundled set changes. The starter set includes:
 
 - Five **Music** tracks, one for each of several scene moods.
 - A set of **Ambient** loops under nature, urban, and interior folders.
@@ -129,7 +129,7 @@ Remember that bundled starter files are protected. You can rename or copy them, 
 
 ## Rescanning after outside changes
 
-Marinara keeps an internal list of your assets so Game Mode can find them fast. When you upload through the app, this list updates on its own.
+Guksu keeps an internal list of your assets so Game Mode can find them fast. When you upload through the app, this list updates on its own.
 
 If you copy files into the game asset folder directly on your computer, outside the app, the app does not notice right away. Click the **Rescan** button to make it re-read the folder and pick up the new files. **Rescan** sits in both the **Asset Browser** toolbar and the **Game Assets** section under **Settings**.
 
@@ -158,7 +158,7 @@ Picking a folder outside the app needs privileged access. On the same computer a
 
 ## Opening the folder on your computer
 
-The **Open in system folder** button opens the selected asset folder in your computer's normal file manager. This only works when you use the app on the same computer that runs the server. On a phone, tablet, or another computer, the app tells you that system folders can only be opened from the device hosting Marinara.
+The **Open in system folder** button opens the selected asset folder in your computer's normal file manager. This only works when you use the app on the same computer that runs the server. On a phone, tablet, or another computer, the app tells you that system folders can only be opened from the device hosting Guksu.
 
 ## Related guides
 

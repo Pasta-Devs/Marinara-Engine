@@ -1,6 +1,6 @@
 # Text to Speech (TTS) Setup
 
-This guide shows you how to set up Text to Speech in Marinara Engine so the app can read messages and game narration out loud. Text to Speech (TTS) turns written chat text into spoken audio. This guide covers picking a voice provider, choosing voices, auto-play, and the per-message playback controls.
+This guide shows you how to set up Text to Speech in Guksu Motor so the app can read messages and game narration out loud. Text to Speech (TTS) turns written chat text into spoken audio. This guide covers picking a voice provider, choosing voices, auto-play, and the per-message playback controls.
 
 ## Where TTS settings live
 
@@ -23,7 +23,7 @@ A **Source** is the service that makes the audio. The four choices are:
 - **PocketTTS**: a free voice server you run on your own computer.
 - **xAI Voice**: xAI's voice service.
 
-The default Source is **OpenAI-compatible**. Marinara keeps a separate saved profile for each Source, including its encrypted API key, endpoint, model, voices, and provider parameters. Switching Sources restores that Source's previous setup; a Source you have not configured yet starts with its defaults.
+The default Source is **OpenAI-compatible**. Guksu keeps a separate saved profile for each Source, including its encrypted API key, endpoint, model, voices, and provider parameters. Switching Sources restores that Source's previous setup; a Source you have not configured yet starts with its defaults.
 
 ## Step 2: Enter the Base URL, API Key, and Model
 
@@ -46,7 +46,7 @@ For **ElevenLabs**, the **Model** field offers a dropdown of speech models. Pick
 
 ### PocketTTS is a separate program
 
-PocketTTS is not built into Marinara Engine. You install and run it yourself, following the PocketTTS project's own instructions. Marinara does not download or manage it for you.
+PocketTTS is not built into Guksu Motor. You install and run it yourself, following the PocketTTS project's own instructions. Guksu does not download or manage it for you.
 
 Once you have installed PocketTTS, start its server. The app's help text refers to this command:
 

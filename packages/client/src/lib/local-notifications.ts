@@ -103,7 +103,7 @@ export async function showLocalMessageNotification({
   if (typeof window === "undefined" || !("Notification" in window)) return false;
 
   const notification = new window.Notification(resolveMessageNotificationTitle(title, characterName), {
-    body: "Open Marinara to read it.",
+    body: "Open Guksu to read it.",
     icon: "/icon-192.png",
     tag,
   });
@@ -129,7 +129,7 @@ export function showNativeMessageNotification({
   }
   bridge.showNotification(
     resolveMessageNotificationTitle(title, characterName),
-    "Open Marinara to read it.",
+    "Open Guksu to read it.",
     tag ?? "message",
   );
   return true;

@@ -42,7 +42,7 @@ const EXEC_TYPES = [
 ] as const;
 
 const SCRIPT_TOOLS_DISABLED_MESSAGE =
-  "Script tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Marinara only for trusted in-process script tools.";
+  "Script tools are disabled. Set CUSTOM_TOOL_SCRIPT_ENABLED=true in your .env and restart Guksu only for trusted in-process script tools.";
 
 // ═══════════════════════════════════════════════
 //  Main Editor
@@ -576,7 +576,7 @@ export function ToolEditor() {
                   <div className="font-medium">Script tools are disabled on this server.</div>
                   <div className="mt-1 text-amber-100/80">
                     Set <code className="rounded bg-black/20 px-1">CUSTOM_TOOL_SCRIPT_ENABLED=true</code> in{" "}
-                    <code className="rounded bg-black/20 px-1">.env</code> and restart Marinara only for trusted
+                    <code className="rounded bg-black/20 px-1">.env</code> and restart Guksu only for trusted
                     in-process Script tools.
                   </div>
                 </div>
@@ -586,7 +586,7 @@ export function ToolEditor() {
           </FieldGroup>
 
           <FieldGroup
-            label="Hidden Marinara context"
+            label="Hidden Guksu context"
             icon={<KeyRound size="0.875rem" className="text-[var(--primary)]" />}
             help="Adds a separate server-provided context object to webhook and script executions. The AI does not see these fields as tool parameters."
           >

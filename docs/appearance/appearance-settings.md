@@ -1,6 +1,6 @@
 # Appearance Settings
 
-This guide walks through the **Settings -> Appearance** tab in Marinara Engine section by section. It covers colors, text size, chat layout, message styling for each mode, and how to reset everything to the defaults.
+This guide walks through the **Settings -> Appearance** tab in Guksu Motor section by section. It covers colors, text size, chat layout, message styling for each mode, and how to reset everything to the defaults.
 
 Fonts, backgrounds, and custom CSS themes each have their own guide. This page links to them where they belong.
 
@@ -24,7 +24,7 @@ Several colors below have separate dark and light defaults. They follow the acti
 
 **Visual Style** picks the overall look of the whole app. You choose between two cards:
 
-- **Default (Marinara)** (the default). A retro Y2K look with glow effects.
+- **Default (Guksu)** (the default). A retro Y2K look with glow effects.
 - **SillyTavern**. A clean, minimal look inspired by the original SillyTavern.
 
 This is only a skin. It has nothing to do with importing data from SillyTavern, which is a separate tool.
@@ -47,7 +47,7 @@ You can only use one of these at a time. Turning on **RGB Mode** turns off **Acc
 
 ## Custom Mouse Pointer
 
-**Custom Mouse Pointer** (default on) uses Marinara's accent-colored cursor across the app. Turn it off to use your normal system cursor, or to let a custom CSS theme control the cursor.
+**Custom Mouse Pointer** (default on) uses Guksu's accent-colored cursor across the app. Turn it off to use your normal system cursor, or to let a custom CSS theme control the cursor.
 
 ## Display Size and Chat Font Size
 
@@ -117,7 +117,7 @@ The **Backgrounds** section lets you import and choose chat background images an
 
 ## Reset Appearance
 
-The **Reset Appearance** button sits at the top of the **App Style** section. It resets the entire **Appearance** tab back to Marinara defaults. This includes colors, text sizes, layout, avatar and sprite scales, and gradients.
+The **Reset Appearance** button sits at the top of the **App Style** section. It resets the entire **Appearance** tab back to Guksu defaults. This includes colors, text sizes, layout, avatar and sprite scales, and gradients.
 
 Reset also clears the current chat's background and turns off any active custom theme from the Theme Library. Use it when your styling gets messy and you want a clean start.
 

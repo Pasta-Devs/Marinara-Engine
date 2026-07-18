@@ -1,10 +1,10 @@
 # Importing from SillyTavern
 
-This guide shows how to bring your SillyTavern data into Marinara Engine. You can import one file at a time, or scan a whole SillyTavern folder and import everything at once.
+This guide shows how to bring your SillyTavern data into Guksu Motor. You can import one file at a time, or scan a whole SillyTavern folder and import everything at once.
 
 ## What you can bring over
 
-Marinara Engine can import these kinds of SillyTavern data:
+Guksu Motor can import these kinds of SillyTavern data:
 
 - Characters (character cards)
 - Chats (message logs)
@@ -31,13 +31,13 @@ This section has four one-file buttons. Each one opens a normal file picker with
 
 JSONL means one JSON record per line. It is the format SillyTavern uses to save a chat log.
 
-When you import a character whose card has an embedded lorebook, a browser prompt asks if you also want to import it as a standalone Marinara lorebook. Click **OK** to keep the World Info as its own lorebook you can reuse. Click **Cancel** to skip that step and import only the character.
+When you import a character whose card has an embedded lorebook, a browser prompt asks if you also want to import it as a standalone Guksu lorebook. Click **OK** to keep the World Info as its own lorebook you can reuse. Click **Cancel** to skip that step and import only the character.
 
 These quick buttons use fixed defaults you cannot change here. They keep all source tags and they scope any regex scripts to the character only. A regex script is a find-and-replace rule that changes text before or after the AI sees it. To choose those options yourself, use the **Import** button in the Characters panel instead. See [Importing and Exporting Character Cards](../characters/import-export.md).
 
 ### Importing a chat into a chosen mode
 
-The single-file **Import Chat (JSONL)** button above always makes a **Roleplay** chat. If you want the chat to land in a different mode, use the small import button at the top of the chat list instead. Its tooltip reads **Import SillyTavern or Marinara chat JSONL**. That button imports the file into whichever mode tab you have open, such as Conversation, Roleplay, or Game. For more on chat import and export, see [Exporting and Importing Chats](../chats/export-import.md).
+The single-file **Import Chat (JSONL)** button above always makes a **Roleplay** chat. If you want the chat to land in a different mode, use the small import button at the top of the chat list instead. Its tooltip reads **Import SillyTavern or Guksu chat JSONL**. That button imports the file into whichever mode tab you have open, such as Conversation, Roleplay, or Game. For more on chat import and export, see [Exporting and Importing Chats](../chats/export-import.md).
 
 ## Import from SillyTavern Folder
 
@@ -52,7 +52,7 @@ To open it, go to **Settings**, then **Imports**, then the **SillyTavern Import*
 3. Point at the main SillyTavern folder. The tip in the window says this is usually the folder that holds a `data/` or `public/` folder inside it.
 4. Click **Scan Folder**. The button shows **Scanning...** while it works.
 
-After the scan, Marinara reports how many items it found in each category. If it cannot read the folder, it shows an error such as "Could not find SillyTavern data directory."
+After the scan, Guksu reports how many items it found in each category. If it cannot read the folder, it shows an error such as "Could not find SillyTavern data directory."
 
 ### Step 2: choose what to import
 
@@ -60,18 +60,18 @@ The next screen is titled **Choose exactly what to import**. It shows a checklis
 
 Each category has **All** and **None** buttons and a **Show** or **Hide** toggle so you can see the individual items and their dates.
 
-Almost everything starts pre-selected. SillyTavern's built-in presets are the exception. Marinara detects them and leaves them unchecked, and a banner explains why. These are the stock presets such as `default`, `deterministic`, `neutral`, and the `universal-*` presets. Leave them unchecked unless you really want copies.
+Almost everything starts pre-selected. SillyTavern's built-in presets are the exception. Guksu detects them and leaves them unchecked, and a banner explains why. These are the stock presets such as `default`, `deterministic`, `neutral`, and the `universal-*` presets. Leave them unchecked unless you really want copies.
 
 If the scan found any characters, two extra controls appear:
 
-- **Imported character tags** sets the tag import mode. Choose **All tags** to keep the source tags, **No tags** to skip them, or **Existing only** to keep only tags you already have in Marinara. The default is **All tags**.
+- **Imported character tags** sets the tag import mode. Choose **All tags** to keep the source tags, **No tags** to skip them, or **Existing only** to keep only tags you already have in Guksu. The default is **All tags**.
 - **Imported regex scripts** sets where regex scripts go. Choose **Character only** so the scripts apply to each bot, or **Global** to add them to **Presets -> Regexes** for every chat. The default is **Character only**.
 
 When your selection looks right, click **Import Selected**. Click **Back** to return to the folder step.
 
 ### Step 3: watch the progress
 
-Marinara imports the items one at a time. You see a spinner, the current category and item name, a progress bar, and running counts per category.
+Guksu imports the items one at a time. You see a spinner, the current category and item name, a progress bar, and running counts per category.
 
 ### Step 4: read the results
 
@@ -79,10 +79,10 @@ The last step shows an **Import complete!** banner when the import succeeds, or 
 
 ### How the wizard handles your data
 
-- The import is best-effort per item. If one character, chat, preset, lorebook, background, or persona fails, Marinara skips it, records a warning, and keeps going with the rest.
+- The import is best-effort per item. If one character, chat, preset, lorebook, background, or persona fails, Guksu skips it, records a warning, and keeps going with the rest.
 - Several chat files that belong to one character import as branches of a single chat, not as separate chats.
 - Group chats always import as **Roleplay** chats.
-- Imported items keep the source file's last-changed date as their date in Marinara. They do not use the moment you ran the import.
+- Imported items keep the source file's last-changed date as their date in Guksu. They do not use the moment you ran the import.
 
 ## Access and folder rules
 
@@ -90,7 +90,7 @@ The single-file import buttons work for everyone with no extra setup.
 
 The **Import from SillyTavern Folder** wizard reads files from disk, so it needs privileged access. On the same machine as the server (loopback), it works with no extra setup. From another device or browser, you must set an admin secret on the server. Then save the same value in **Settings -> Advanced -> Admin Access**. See [Server Configuration Reference](../CONFIGURATION.md) for how to set the admin secret.
 
-If your server sets `IMPORT_ALLOWED_ROOTS`, Marinara rejects typed paths outside those folders. Paths you pick with **Browse** or the in-app folder browser always work, even with that setting on.
+If your server sets `IMPORT_ALLOWED_ROOTS`, Guksu rejects typed paths outside those folders. Paths you pick with **Browse** or the in-app folder browser always work, even with that setting on.
 
 ## What does not transfer
 
@@ -98,7 +98,7 @@ The folder wizard only scans the seven categories listed above. Other SillyTaver
 
 SillyTavern's built-in presets are left unchecked by default, so they do not come over unless you check them yourself.
 
-Marinara skips any single item that fails to convert. Check the warnings list on the last step of the wizard to see exactly what was left out.
+Guksu skips any single item that fails to convert. Check the warnings list on the last step of the wizard to see exactly what was left out.
 
 ## Related guides
 

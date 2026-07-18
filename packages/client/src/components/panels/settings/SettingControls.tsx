@@ -177,7 +177,7 @@ export function ConversationSoundSetting() {
         setPreference(false);
         toast.error(
           permission === "unsupported"
-            ? "Mobile notifications require the Marinara Android app."
+            ? "Mobile notifications require the Guksu Android app."
             : "Android notification permission was not granted.",
         );
       })
@@ -223,14 +223,14 @@ export function ConversationSoundSetting() {
       />
       <ToggleSetting
         anchorId="settings-control-notification-unfocused-only"
-        label="Only when Marinara is unfocused"
+        label="Only when Guksu is unfocused"
         checked={notificationSoundsOnlyWhenUnfocused}
         onChange={setNotificationSoundsOnlyWhenUnfocused}
       />
       <div className="mt-1 flex items-center gap-1.5">
         <Bell size="0.75rem" className="text-[var(--muted-foreground)]" />
         <span className="text-xs font-medium">Background Notifications</span>
-        <HelpTooltip text="Show a private operating-system notification when an autonomous Conversation message arrives while Marinara is not focused. Message content is hidden." />
+        <HelpTooltip text="Show a private operating-system notification when an autonomous Conversation message arrives while Guksu is not focused. Message content is hidden." />
       </div>
       <ToggleSetting
         anchorId="settings-control-browser-background-notifications"
@@ -259,14 +259,14 @@ export function ConversationSoundSetting() {
         disabled={!nativeNotificationsAvailable}
         help={
           nativeNotificationsAvailable
-            ? "Uses native Android notifications from the installed Marinara app."
-            : "Available in the updated Marinara Android APK. Browser and PWA installations use the Browser toggle above."
+            ? "Uses native Android notifications from the installed Guksu app."
+            : "Available in the updated Guksu Android APK. Browser and PWA installations use the Browser toggle above."
         }
       />
       <div className="mt-1 flex items-center gap-1.5">
         <BellRing size="0.75rem" className="text-[var(--muted-foreground)]" />
         <span className="text-xs font-medium">Generation Completion Notifications</span>
-        <HelpTooltip text="Show a private operating-system notification when a reply you started manually finishes in Conversation, Roleplay, Visual Novel, or Game mode while Marinara is not focused. Message content is hidden." />
+        <HelpTooltip text="Show a private operating-system notification when a reply you started manually finishes in Conversation, Roleplay, Visual Novel, or Game mode while Guksu is not focused. Message content is hidden." />
       </div>
       <ToggleSetting
         anchorId="settings-control-browser-generation-notifications"
@@ -295,8 +295,8 @@ export function ConversationSoundSetting() {
         disabled={!nativeNotificationsAvailable}
         help={
           nativeNotificationsAvailable
-            ? "Uses native Android notifications from the installed Marinara app."
-            : "Available in the updated Marinara Android APK. Browser and PWA installations use the Browser toggle above."
+            ? "Uses native Android notifications from the installed Guksu app."
+            : "Available in the updated Guksu Android APK. Browser and PWA installations use the Browser toggle above."
         }
       />
     </div>

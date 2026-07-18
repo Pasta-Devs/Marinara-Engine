@@ -1,6 +1,6 @@
 # Custom Tools and Function Calling
 
-This guide explains custom tools, also called Functions, in Marinara Engine. A custom tool teaches the AI to run a small action during a chat. It can return a fixed piece of text, call an outside web address, or run a short script on the server. You will learn how to build one, turn tool use on for a chat, and keep script tools safe.
+This guide explains custom tools, also called Functions, in Guksu Motor. A custom tool teaches the AI to run a small action during a chat. It can return a fixed piece of text, call an outside web address, or run a short script on the server. You will learn how to build one, turn tool use on for a chat, and keep script tools safe.
 
 ## What function calling is
 

@@ -387,7 +387,7 @@ export function LorebookAssignmentSection({
                   <p className="text-xs font-semibold">Scope</p>
                   <p className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
                     Controls where this assignment is active. All chats means chats that include {ownerLabel}, not every
-                    chat in Marinara.
+                    chat in Guksu.
                   </p>
                 </div>
 

@@ -2,7 +2,7 @@
 
 Status: Proposed, implementation-ready after maintainer approval
 
-Audience: Product, design, and Marinara Engine contributors
+Audience: Product, design, and Guksu Motor contributors
 
 Supersedes: `hierarchical-locations-prd-v2.md`
 
@@ -157,7 +157,7 @@ Storyboard should consume the reviewed visual identities from the completed GM t
 - Creating a storyboard resolves the exact spatial snapshot for its source message and swipe. The chat's latest location is never substituted for an earlier turn.
 - The storyboard freezes the resolved location, ordered candidate image IDs, per-keyframe selections, omissions, and provider capacity in a visual-reference manifest. Regeneration reuses that manifest until the creator explicitly chooses `Refresh references`.
 - The same primary location candidate is available to every keyframe. Character and persona candidates vary by the frame's visible-character list, so off-screen cast members do not consume reference slots.
-- The first version automatically selects one primary image per depicted entity and at most one supporting location image. Richer banks remain useful for manual selection and future shot-aware angle, outfit, expression, or detail matching, but Marinara does not send every stored image on every frame.
+- The first version automatically selects one primary image per depicted entity and at most one supporting location image. Richer banks remain useful for manual selection and future shot-aware angle, outfit, expression, or detail matching, but Guksu does not send every stored image on every frame.
 - If only one automatic slot remains, a keyframe with visible characters selects the lead visible character; an establishing keyframe with no visible characters selects the primary location. With two or more slots, the primary location is selected before additional visible-character references.
 - A higher-capacity provider does not silently add references to an existing storyboard. A lower-capacity provider produces an inline `Review references` conflict instead of silently changing the frozen payload.
 - Each keyframe preview has one progressive `Visual sources` disclosure listing the resolved location, selected characters, image roles, ordering, and omission reasons. `Refresh references` is available there without adding a separate Storyboard asset manager or blocking modal.
@@ -895,7 +895,7 @@ The editor and runtime controls use existing semantic theme tokens, support dark
 
 ### Portability and lifecycle coverage
 
-Native Marinara chat export must carry:
+Native Guksu chat export must carry:
 
 - The current definition in `marinara_metadata`.
 - Spatial snapshots keyed by exported message ordinal and swipe index, not by display names.

@@ -509,7 +509,7 @@ function PersonaVideosGallery({ personaId, personaName }: { personaId: string; p
       if (
         !(await showConfirmDialog({
           title: "Delete Clip",
-          message: "Delete this clip everywhere it appears in Marinara? This cannot be undone.",
+          message: "Delete this clip everywhere it appears in Guksu? This cannot be undone.",
           confirmLabel: "Delete",
           tone: "destructive",
         }))
@@ -1311,8 +1311,8 @@ export function PersonaEditor() {
       <ExportFormatDialog
         open={exportDialogOpen}
         title="Export Persona"
-        description="Native keeps Marinara persona metadata, sprites, and attached lorebooks. Compatible exports simple persona JSON for other tools."
-        compatibleDescription="Exports persona fields directly without the Marinara wrapper."
+        description="Native keeps Guksu persona metadata, sprites, and attached lorebooks. Compatible exports simple persona JSON for other tools."
+        compatibleDescription="Exports persona fields directly without the Guksu wrapper."
         onClose={() => setExportDialogOpen(false)}
         onSelect={(format: ExportFormatChoice) => {
           if (!personaId) return;
@@ -1741,7 +1741,7 @@ function PersonaSpritesTab({
     if (
       !(await showConfirmDialog({
         title: "Clean Sprite Backgrounds",
-        message: `Clean backgrounds on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Marinara will keep a restore point in case the cleanup looks wrong.`,
+        message: `Clean backgrounds on ${visibleSprites.length} saved ${modeLabel} sprite${visibleSprites.length === 1 ? "" : "s"} at strength ${savedCleanupStrength}? Guksu will keep a restore point in case the cleanup looks wrong.`,
         confirmLabel: "Clean",
       }))
     ) {

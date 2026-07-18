@@ -1194,8 +1194,8 @@ export function ChatSidebar() {
           onClick={() => chatImportInputRef.current?.click()}
           disabled={isImportingChat}
           className="mari-chrome-control mari-chrome-control--primary flex-1 text-xs"
-          title={isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL"}
-          aria-label={isImportingChat ? "Importing chat" : "Import SillyTavern or Marinara chat JSONL"}
+          title={isImportingChat ? "Importing chat" : "Import SillyTavern or Guksu chat JSONL"}
+          aria-label={isImportingChat ? "Importing chat" : "Import SillyTavern or Guksu chat JSONL"}
         >
           <Download size="0.8125rem" />
         </button>
@@ -1359,7 +1359,7 @@ export function ChatSidebar() {
               <AlertTriangle size="1.25rem" className="text-[var(--destructive)]" />
             </div>
             <p className="text-xs text-[var(--muted-foreground)]">
-              Marinara is still waking up. Chats should appear in a moment.
+              Guksu is still waking up. Chats should appear in a moment.
             </p>
             <button
               onClick={() => void refetchChats()}

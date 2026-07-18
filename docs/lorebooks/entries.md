@@ -2,7 +2,7 @@
 
 This guide explains how to build the entries inside a lorebook. It covers the **Entries** tab, trigger keywords, and the three entry types. It also covers where each entry goes in the prompt and the timing controls that decide when an entry fires. If you are new to lorebooks, read the [Lorebooks Overview](overview.md) first.
 
-An entry is one block of text plus the rules that decide when Marinara Engine adds that text to the AI's prompt. When an entry activates, its content is injected so the AI "remembers" a fact you never typed into the chat.
+An entry is one block of text plus the rules that decide when Guksu Motor adds that text to the AI's prompt. When an entry activates, its content is injected so the AI "remembers" a fact you never typed into the chat.
 
 ## The Entries tab
 
@@ -28,11 +28,11 @@ To create an entry, follow these steps.
 4. Click the row (or its chevron arrow) to expand the full editor drawer.
 5. Fill in the keywords and content, described in the sections below.
 
-Your edits save automatically. While you type, the drawer shows **Autosaving…**, then **Saving…**, then **Saved automatically**. If a save fails, your text stays in place and Marinara retries it on your next edit. You do not need a separate save button for entries.
+Your edits save automatically. While you type, the drawer shows **Autosaving…**, then **Saving…**, then **Saved automatically**. If a save fails, your text stays in place and Guksu retries it on your next edit. You do not need a separate save button for entries.
 
 Each entry appears as a compact one-line row. The row holds the most-used controls. Expand the row to reach the rest.
 
-To duplicate an entry, hover the row and click the **Duplicate** button. To remove one, click the **Delete** button. Marinara asks you to confirm with the prompt "Delete this lorebook entry?".
+To duplicate an entry, hover the row and click the **Duplicate** button. To remove one, click the **Delete** button. Guksu asks you to confirm with the prompt "Delete this lorebook entry?".
 
 ## Entry content and keys
 
@@ -61,7 +61,7 @@ By default, a primary key matches if the word appears anywhere in the recent cha
 | **Case Sensitive** | Entry drawer | Off | Uppercase and lowercase must match exactly. |
 | **Regex** | Compact row | Off | Treats each key as a regular expression pattern instead of plain text. |
 
-A regular expression (regex) is a pattern-matching language for text. Use it only if you know regex. Marinara runs each regex key with a short safety timeout. A pattern that runs too long does not match on that scan, so keep patterns simple.
+A regular expression (regex) is a pattern-matching language for text. Use it only if you know regex. Guksu runs each regex key with a short safety timeout. A pattern that runs too long does not match on that scan, so keep patterns simple.
 
 ## Entry types: Normal, Constant, Selective
 

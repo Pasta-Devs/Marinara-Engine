@@ -120,7 +120,7 @@ export function CsrfOriginWarningBanner() {
             ⚠ Saves will silently fail — this origin is not trusted
           </div>
           <div style={{ fontSize: "0.85rem", opacity: 0.95, lineHeight: 1.4 }}>
-            Marinara&apos;s CSRF protection rejects unsafe API requests from{" "}
+            Guksu&apos;s CSRF protection rejects unsafe API requests from{" "}
             <code
               style={{
                 background: "rgba(0,0,0,0.25)",

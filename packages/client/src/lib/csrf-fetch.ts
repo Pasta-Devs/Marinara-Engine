@@ -54,7 +54,7 @@ function notifyCsrf(body: CsrfErrorBody): void {
       ? body.hint
       : typeof body.error === "string" && body.error
         ? body.error
-        : "Marinara rejected this request as untrusted. Add this origin to CSRF_TRUSTED_ORIGINS in your .env, then try again.";
+        : "Guksu rejected this request as untrusted. Add this origin to CSRF_TRUSTED_ORIGINS in your .env, then try again.";
 
   toast.error(title, {
     description,

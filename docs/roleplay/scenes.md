@@ -1,6 +1,6 @@
 # Scenes: Branching a Roleplay
 
-This guide explains scenes in Marinara Engine. A scene is a short, self-contained roleplay that branches off from a Conversation chat. This guide covers how to start one, play it, and how to end, discard, fork, or convert it.
+This guide explains scenes in Guksu Motor. A scene is a short, self-contained roleplay that branches off from a Conversation chat. This guide covers how to start one, play it, and how to end, discard, fork, or convert it.
 
 ## What a scene is
 
@@ -31,7 +31,7 @@ Follow these steps:
 6. Optionally, type notes in the **Extra instructions** box to steer the scene.
 7. Click **Plan Scene**.
 
-Marinara plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
+Guksu plans the scene and opens it as a new roleplay chat. You should see the new scene appear in your chat list and open automatically, with an opening message that sets the situation. If you change your mind at the setup window, click **Cancel** and no scene is created.
 
 You can also start a scene without a description. Type just the command on its own if the conversation already has enough history to build from.
 
@@ -39,7 +39,7 @@ You can also start a scene without a description. Type just the command on its o
 /scene
 ```
 
-If the conversation has no messages yet, Marinara asks you to add a description or chat first before it can plan a scene.
+If the conversation has no messages yet, Guksu asks you to add a description or chat first before it can plan a scene.
 
 A character can also ask to start a scene. When that happens, the same **Scene Prompt Setup** window opens, with a line like "[Character] wants to start a scene." Pick **POV** and **Tense** and click **Plan Scene** the same way, or click **Cancel** to decline.
 
@@ -48,7 +48,7 @@ A character can also ask to start a scene. When that happens, the same **Scene P
 While you are inside an active scene, a bar sits just above the message box. It holds the controls that decide what happens to the scene. The exact buttons you see depend on whether the scene has a linked conversation.
 
 - **Back to conversation** returns you to the Conversation chat that started the scene. It leaves the scene open and running, so you can come back to it later. This button appears only when the scene has an origin conversation.
-- **End Scene** finishes the scene and saves a summary. When you click it, the bar asks **End and save summary?** with a **Yes** and a **No** button. Click **Yes** to confirm. The button shows a **Saving...** state while it works. Marinara writes a short summary of the scene back to the origin conversation as a memory, then returns you to where that conversation left off.
+- **End Scene** finishes the scene and saves a summary. When you click it, the bar asks **End and save summary?** with a **Yes** and a **No** button. Click **Yes** to confirm. The button shows a **Saving...** state while it works. Guksu writes a short summary of the scene back to the origin conversation as a memory, then returns you to where that conversation left off.
 - **Discard** throws the scene away without saving anything. When you click it, the bar asks **Discard scene?** with **Yes** and **No** buttons. Click **Yes** to delete the scene and go back to the conversation. Nothing is written back.
 - **Convert** turns the scene into a standalone roleplay chat of its own. It is explained in its own section below, because it changes the scene permanently.
 
@@ -63,7 +63,7 @@ To use it:
 1. Hover over the message you want to branch from.
 2. Click the **Clone from here** action.
 
-Marinara creates a fresh standalone roleplay from the scene, copying the messages up to that point. Your original scene stays open and active, so this is a safe way to explore a different path. You should see a confirmation that the scene was cloned as a roleplay, and the new chat opens.
+Guksu creates a fresh standalone roleplay from the scene, copying the messages up to that point. Your original scene stays open and active, so this is a safe way to explore a different path. You should see a confirmation that the scene was cloned as a roleplay, and the new chat opens.
 
 Cloning keeps the original scene. Converting, described next, does not.
 

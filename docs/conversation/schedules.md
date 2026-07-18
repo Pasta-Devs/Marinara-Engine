@@ -4,7 +4,7 @@ This guide explains how characters in Conversation Mode message you first, and h
 
 ## What autonomous messages and schedules do
 
-An autonomous message is a message a character sends you first, without you writing anything. Marinara Engine (Marinara for short) sends these when you have been quiet for a while, so a chat feels like a real messaging relationship.
+An autonomous message is a message a character sends you first, without you writing anything. Guksu Motor (Guksu for short) sends these when you have been quiet for a while, so a chat feels like a real messaging relationship.
 
 Two settings control this behavior:
 
@@ -48,7 +48,7 @@ The talkativeness-based default works like this:
 The **Schedules** toggle sits in the same **Autonomous Messaging** section and is off by default.
 
 1. Turn on the **Schedules** toggle.
-2. The first time you turn it on with characters in the chat, Marinara starts writing a weekly routine for each character.
+2. The first time you turn it on with characters in the chat, Guksu starts writing a weekly routine for each character.
 3. When routines exist, an **Edit schedules** list appears with one row per character.
 
 Each row shows how many days are filled, for example **3 days scheduled**, or **Create schedule** if that character has none yet. A **Generate** button (labeled **Regenerate** once routines exist) rebuilds the routines whenever you want.
@@ -142,7 +142,7 @@ If the chat has only one character, you can leave the name out. Run **/status** 
 
 ## How autonomous messages are paced
 
-Marinara paces autonomous messages so a character never spams you. The rules below use each character's own schedule.
+Guksu paces autonomous messages so a character never spams you. The rules below use each character's own schedule.
 
 - A character waits until you have been silent for its **Wait before checking in** time. The default is 120 minutes.
 - A character whose current status is **Offline** does not message first.
@@ -164,7 +164,7 @@ Click the status pill to open four choices:
 - **Do Not Disturb**: stops all autonomous messages.
 - **Invisible**: hides your status from characters.
 
-**Idle** is mostly automatic. If your status is **Active** and you do nothing for 10 minutes, Marinara sets you to **Idle**. It sets you back to **Active** when you return. You can also pick **Idle** yourself from the popup. Picking any status by hand turns off the automatic switch until you choose **Active** again.
+**Idle** is mostly automatic. If your status is **Active** and you do nothing for 10 minutes, Guksu sets you to **Idle**. It sets you back to **Active** when you return. You can also pick **Idle** yourself from the popup. Picking any status by hand turns off the automatic switch until you choose **Active** again.
 
 Set **Do Not Disturb** when you want quiet. No character will message you first while it is on. **Idle** does not block autonomous messages. Characters can still check in while you are away.
 
