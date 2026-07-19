@@ -25,6 +25,7 @@ import type {
   NoodleSettingsUpdateInput,
   NoodleStageProfileInput,
   NoodlePrivateGenerationRequest,
+  NoodleStageProfileDraftRequest,
   NoodlerStageProfile,
 } from "@marinara-engine/shared";
 import { mergeNoodlePollVoteInteractions } from "@marinara-engine/shared";
@@ -112,6 +113,13 @@ export function useUpdateNoodlerStageProfile() {
     mutationFn: ({ accountId, ...input }: { accountId: string } & NoodleStageProfileInput) =>
       api.put<NoodlerStageProfile>(`/noodle/noodler/accounts/${encodeURIComponent(accountId)}/stage-profile`, input),
     onSuccess: () => qc.invalidateQueries({ queryKey: noodleKeys.privateAccounts() }),
+  });
+}
+
+export function useGenerateNoodlerStageProfileDraft() {
+  return useMutation({
+    mutationFn: (input: NoodleStageProfileDraftRequest) =>
+      api.post<NoodleStageProfileInput>("/noodle/noodler/stage-profile-draft", input),
   });
 }
 

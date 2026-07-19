@@ -26,7 +26,7 @@ Disclosure controls how the linked public identity may appear in a stage profile
 - **Hinted**: generated content may make a general allusion to a public persona, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved.
 - **Secret**: the linked public identity is withheld from profile presentation and generation context. Exact public names and handles are replaced with non-identifying language if a model returns them.
 
-Use **New profile** in the NoodleR hub to choose an eligible public account and define its stage identity. Open an existing profile and select **Edit profile** to change its presentation or disclosure mode. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
+Use **New profile** in the NoodleR hub to search and choose an eligible character or persona. The setup then explains disclosure and asks you to choose Open, Hinted, or Secret before showing the editable stage-profile form. You can fill the form yourself or ask AI to generate an editable draft from the source character, disclosure choice, and optional guidance. AI never saves the draft automatically; review the fields and select **Save stage profile** yourself. Open an existing profile and select **Edit profile** to change its presentation or use AI to refill the current draft. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
 
 ### Guided private posts
 

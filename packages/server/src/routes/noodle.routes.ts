@@ -24,6 +24,7 @@ import {
   noodleGenerationRequestSchema,
   noodleSettingsUpdateSchema,
   noodleStageProfileUpdateSchema,
+  noodleStageProfileDraftRequestSchema,
   readNoodlePollFromMetadata,
   type NoodleAccount,
   type NoodleInteractionType,
@@ -46,6 +47,7 @@ import {
   generatePrivatePost,
   stageProfileContainsPublicIdentity,
 } from "../services/noodle/noodle-private-generation.service.js";
+import { generateNoodlerStageProfileDraft } from "../services/noodle/noodle-stage-profile-draft.service.js";
 import {
   bootstrapVisibleNoodle,
   characterAvatarCrop,
@@ -106,6 +108,23 @@ export async function noodleRoutes(app: FastifyInstance) {
     return publicAccounts.filter(
       (account) => (account.kind === "persona" || account.kind === "character") && !linkedIds.has(account.id),
     );
+  });
+
+  app.post("/noodler/stage-profile-draft", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodleStageProfileDraftRequestSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const connectionId = settings.generationConnectionId;
+    if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
+    const connection = await connections.getWithKey(connectionId);
+    if (!connection) return reply.code(404).send({ error: "Noodle generation connection not found" });
+    try {
+      return await generateNoodlerStageProfileDraft(app.db, { request: parsed.data, connection });
+    } catch (error) {
+      logger.error(error, "[noodler] Stage profile draft generation failed");
+      return reply.code(500).send({ error: getErrorMessage(error) });
+    }
   });
 
   app.post("/accounts/:id/private", async (req, reply) => {

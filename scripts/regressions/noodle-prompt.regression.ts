@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {
   DEFAULT_NOODLE_SETTINGS,
   noodleGenerationRequestSchema,
+  noodleStageProfileDraftRequestSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
 import { canManageNoodleReply } from "../../packages/shared/src/utils/noodle-interactions.js";
 import type { NoodleAccount, NoodleInteraction, NoodlePost } from "../../packages/shared/src/types/noodle.js";
@@ -414,6 +415,21 @@ assert.equal(
 );
 assert.equal(
   stageProfileContainsPublicIdentity({ ...protectedStageProfile, disclosureMode: "open" }, knownPublicIdentity),
+  false,
+);
+assert.equal(
+  noodleStageProfileDraftRequestSchema.safeParse({
+    publicAccountId: "public-1",
+    disclosureMode: "hinted",
+    guidance: "Make it warmer.",
+  }).success,
+  true,
+);
+assert.equal(
+  noodleStageProfileDraftRequestSchema.safeParse({
+    disclosureMode: "secret",
+    guidance: "No source selected.",
+  }).success,
   false,
 );
 const identitySample = "Known Public Name (@known_public) shares a late-night portrait.";

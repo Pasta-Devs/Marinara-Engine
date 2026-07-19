@@ -115,6 +115,16 @@ export interface NoodlerStageProfile {
   updatedAt: string;
 }
 
+export interface NoodlerProfileSource {
+  id: string;
+  kind: NoodleAccountKind;
+  entityId: string;
+  displayName: string;
+  handle: string;
+  bio: string;
+  avatarUrl: string | null;
+}
+
 export interface NoodleAuthorSnapshot {
   id: string;
   kind: NoodleAccountKind;

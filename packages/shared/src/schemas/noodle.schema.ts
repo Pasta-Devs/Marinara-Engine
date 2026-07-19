@@ -182,6 +182,21 @@ export const noodleStageProfileSchema = z.object(noodleStageProfileShape).strict
 export const noodlePrivateAccountCreateSchema = z.object({ stageProfile: noodleStageProfileSchema }).strict();
 export const noodleStageProfileUpdateSchema = z.object(noodleStageProfileShape).strict();
 
+export const noodleStageProfileDraftRequestSchema = z
+  .object({
+    publicAccountId: z.string().min(1).optional(),
+    privateAccountId: z.string().min(1).optional(),
+    disclosureMode: noodleIdentityDisclosureSchema,
+    guidance: z.string().trim().max(2000).default(""),
+    currentDraft: noodleStageProfileSchema.partial().optional(),
+  })
+  .strict()
+  .refine((input) => Boolean(input.publicAccountId || input.privateAccountId), {
+    message: "Choose a source account.",
+  });
+
+export const noodleStageProfileDraftResponseSchema = noodleStageProfileSchema;
+
 export const noodleInviteSchema = z.object({
   characterId: z.string().min(1),
 });
@@ -455,6 +470,7 @@ export type NoodleAccountSettingsPatchInput = z.infer<typeof noodleAccountSettin
 export type NoodleAccountFollowUpdateInput = z.infer<typeof noodleAccountFollowUpdateSchema>;
 export type NoodlePrivateAccountCreateInput = z.infer<typeof noodlePrivateAccountCreateSchema>;
 export type NoodleStageProfileInput = z.infer<typeof noodleStageProfileSchema>;
+export type NoodleStageProfileDraftRequest = z.infer<typeof noodleStageProfileDraftRequestSchema>;
 export type NoodleInviteInput = z.infer<typeof noodleInviteSchema>;
 export type NoodleBulkInviteInput = z.infer<typeof noodleBulkInviteSchema>;
 export type NoodlePollInput = z.infer<typeof noodlePollInputSchema>;

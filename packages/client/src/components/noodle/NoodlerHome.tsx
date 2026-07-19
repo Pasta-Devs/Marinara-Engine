@@ -1,10 +1,23 @@
-import { ArrowLeft, Check, ChevronRight, Loader2, Lock, Pencil, Plus, Sparkles, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  ChevronRight,
+  Loader2,
+  Lock,
+  Pencil,
+  Plus,
+  Search,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { NoodleIdentityDisclosure, NoodleStageProfileInput, NoodlerStageProfile } from "@marinara-engine/shared";
 import {
   useCreateNoodlerStageProfile,
   useGeneratePrivateNoodlePost,
+  useGenerateNoodlerStageProfileDraft,
   useNoodle,
   useNoodlerAccounts,
   useNoodlerEligibleAccounts,
@@ -63,15 +76,21 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const createProfile = useCreateNoodlerStageProfile();
   const updateProfile = useUpdateNoodlerStageProfile();
   const generatePost = useGeneratePrivateNoodlePost();
+  const generateProfileDraft = useGenerateNoodlerStageProfileDraft();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [profileDraft, setProfileDraft] = useState<NoodleStageProfileInput | null>(null);
   const [draftPublicAccountId, setDraftPublicAccountId] = useState<string | null>(null);
+  const [creationStep, setCreationStep] = useState<"source" | "disclosure" | "draft" | null>(null);
+  const [creationDisclosure, setCreationDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
+  const [draftGuidance, setDraftGuidance] = useState("");
+  const [sourceSearch, setSourceSearch] = useState("");
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
   const eligiblePublicAccounts = eligibleAccountsQuery.data ?? [];
+  const selectedSource = eligiblePublicAccounts.find((account) => account.id === draftPublicAccountId) ?? null;
 
   const enableNoodler = () => {
     updateSettings.mutate(
@@ -85,13 +104,20 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   const beginCreate = () => {
     setEditingProfileId(null);
-    setDraftPublicAccountId(eligiblePublicAccounts[0]?.id ?? null);
-    setProfileDraft({ ...EMPTY_STAGE_PROFILE });
+    setDraftPublicAccountId(null);
+    setProfileDraft(null);
+    setCreationStep("source");
+    setCreationDisclosure("hinted");
+    setDraftGuidance("");
+    setSourceSearch("");
   };
 
   const beginEdit = (profile: NoodlerStageProfile) => {
     setEditingProfileId(profile.id);
     setDraftPublicAccountId(profile.publicAccountId);
+    setCreationDisclosure(profile.disclosureMode ?? "hinted");
+    setCreationStep("draft");
+    setDraftGuidance("");
     setProfileDraft({
       displayName: profile.displayName,
       handle: profile.handle,
@@ -99,6 +125,25 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       stagePersonality: profile.stagePersonality,
       disclosureMode: profile.disclosureMode ?? "hinted",
     });
+  };
+
+  const generateDraft = () => {
+    if (!draftPublicAccountId && !editingProfileId) return;
+    generateProfileDraft.mutate(
+      {
+        ...(editingProfileId ? { privateAccountId: editingProfileId } : { publicAccountId: draftPublicAccountId! }),
+        disclosureMode: creationDisclosure,
+        guidance: draftGuidance,
+        currentDraft: profileDraft ?? undefined,
+      },
+      {
+        onSuccess: (draft) => {
+          setProfileDraft(draft);
+          setCreationStep("draft");
+        },
+        onError: (error) => toast.error(errorMessage(error, "Could not generate a stage profile draft.")),
+      },
+    );
   };
 
   const saveProfile = () => {
@@ -162,24 +207,60 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   }
 
-  if (profileDraft) {
+  if (creationStep === "source") {
+    return (
+      <NoodlerFrame onBack={() => setCreationStep(null)} title="Create stage profile">
+        <StageProfileSourcePicker
+          accounts={eligiblePublicAccounts}
+          search={sourceSearch}
+          selectedId={draftPublicAccountId}
+          onSearch={setSourceSearch}
+          onSelect={setDraftPublicAccountId}
+          onContinue={() => setCreationStep("disclosure")}
+        />
+      </NoodlerFrame>
+    );
+  }
+
+  if (creationStep === "disclosure") {
+    return (
+      <NoodlerFrame onBack={() => setCreationStep("source")} title="Set identity disclosure">
+        <DisclosureStep
+          source={selectedSource}
+          value={creationDisclosure}
+          onChange={setCreationDisclosure}
+          onContinue={() => setCreationStep("draft")}
+        />
+      </NoodlerFrame>
+    );
+  }
+
+  if (profileDraft || creationStep === "draft") {
     return (
       <NoodlerFrame
         onBack={() => {
           setProfileDraft(null);
           setEditingProfileId(null);
+          setCreationStep(editingProfileId ? null : "disclosure");
         }}
         title={editingProfileId ? "Edit stage profile" : "Create stage profile"}
       >
         <StageProfileForm
-          draft={profileDraft}
-          onChange={(patch) => setProfileDraft((current) => (current ? { ...current, ...patch } : current))}
+          draft={profileDraft ?? { ...EMPTY_STAGE_PROFILE, disclosureMode: creationDisclosure }}
+          source={selectedSource}
+          disclosureMode={creationDisclosure}
+          guidance={draftGuidance}
+          onGuidanceChange={setDraftGuidance}
+          onGenerate={generateDraft}
+          isGenerating={generateProfileDraft.isPending}
+          onChange={(patch) => setProfileDraft((current) => ({ ...(current ?? EMPTY_STAGE_PROFILE), ...patch }))}
           publicAccountId={draftPublicAccountId}
-          publicAccounts={eligiblePublicAccounts}
-          onPublicAccountChange={setDraftPublicAccountId}
           isEditing={Boolean(editingProfileId)}
           isPending={createProfile.isPending || updateProfile.isPending}
-          onCancel={() => setProfileDraft(null)}
+          onCancel={() => {
+            setProfileDraft(null);
+            setCreationStep(null);
+          }}
           onSave={saveProfile}
         />
       </NoodlerFrame>
@@ -282,20 +363,28 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
 function StageProfileForm({
   draft,
+  source,
+  disclosureMode,
+  guidance,
+  onGuidanceChange,
+  onGenerate,
+  isGenerating,
   onChange,
   publicAccountId,
-  publicAccounts,
-  onPublicAccountChange,
   isEditing,
   isPending,
   onCancel,
   onSave,
 }: {
   draft: NoodleStageProfileInput;
+  source: { displayName: string; handle: string } | null;
+  disclosureMode: NoodleIdentityDisclosure;
+  guidance: string;
+  onGuidanceChange: (value: string) => void;
+  onGenerate: () => void;
+  isGenerating: boolean;
   onChange: (patch: Partial<NoodleStageProfileInput>) => void;
   publicAccountId: string | null;
-  publicAccounts: Array<{ id: string; displayName: string; handle: string }>;
-  onPublicAccountChange: (id: string) => void;
   isEditing: boolean;
   isPending: boolean;
   onCancel: () => void;
@@ -305,23 +394,50 @@ function StageProfileForm({
     Boolean((isEditing || publicAccountId) && draft.displayName.trim() && draft.handle.trim()) && !isPending;
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+      <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
+            <Sparkles size={16} />
+          </span>
+          <div>
+            <p className="text-sm font-bold">
+              {isEditing ? "Refine this stage identity" : "Create the stage identity"}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+              {source
+                ? `Built from ${source.displayName} (@${source.handle})`
+                : "Your source identity is kept separate from this stage profile."}{" "}
+              Disclosure: <span className="font-bold capitalize">{disclosureMode}</span>.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 rounded-lg border border-[var(--noodle-divider)] p-4">
+        <p className="text-sm font-bold">How should we fill this out?</p>
+        <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+          Generate an editable starting point, or write every field yourself.
+        </p>
+        <label className="mt-4 block space-y-2">
+          <span className="text-xs font-semibold">Optional direction for AI</span>
+          <textarea
+            value={guidance}
+            maxLength={2000}
+            onChange={(event) => onGuidanceChange(event.target.value)}
+            placeholder="A mysterious late-night photographer with a warm but guarded voice"
+            className={`${textareaClass} min-h-20`}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={isGenerating}
+          className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:opacity-50"
+        >
+          {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
+          {isGenerating ? "Generating draft..." : "Generate editable draft"}
+        </button>
+      </div>
       <div className="space-y-5">
-        {!isEditing && (
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold">Linked public account</span>
-            <select
-              value={publicAccountId ?? ""}
-              onChange={(event) => onPublicAccountChange(event.target.value)}
-              className={fieldClass}
-            >
-              {publicAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.displayName} (@{account.handle})
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block space-y-2">
             <span className="text-xs font-semibold">Stage name</span>
@@ -362,23 +478,9 @@ function StageProfileForm({
             className={textareaClass}
           />
         </label>
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-semibold">Identity disclosure</legend>
-          <div className="grid gap-2 sm:grid-cols-3">
-            {DISCLOSURE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                aria-pressed={draft.disclosureMode === option.value}
-                onClick={() => onChange({ disclosureMode: option.value })}
-                className={`min-h-24 rounded-lg border p-3 text-left transition-colors ${draft.disclosureMode === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]/10" : "border-[var(--noodle-divider)] hover:bg-[var(--accent)]"}`}
-              >
-                <span className="text-sm font-bold">{option.label}</span>
-                <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.detail}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          Disclosure was selected earlier and is shown above. You can change it by going back.
+        </p>
       </div>
       <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button
@@ -397,6 +499,145 @@ function StageProfileForm({
         >
           {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
           {isPending ? "Saving..." : "Save stage profile"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StageProfileSourcePicker({
+  accounts,
+  search,
+  selectedId,
+  onSearch,
+  onSelect,
+  onContinue,
+}: {
+  accounts: Array<{ id: string; displayName: string; handle: string; bio: string; avatarUrl: string | null }>;
+  search: string;
+  selectedId: string | null;
+  onSearch: (value: string) => void;
+  onSelect: (id: string) => void;
+  onContinue: () => void;
+}) {
+  const visible = accounts.filter((account) =>
+    `${account.displayName} ${account.handle} ${account.bio}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+  );
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+      <p className="text-xl font-black">Choose the source character</p>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
+        NoodleR will create a separate stage identity from this character or persona. You will choose exactly how much
+        of the public identity can carry over next.
+      </p>
+      <label className="relative mt-5 block">
+        <Search size={16} className="absolute left-3 top-3 text-[var(--muted-foreground)]" />
+        <input
+          value={search}
+          onChange={(event) => onSearch(event.target.value)}
+          placeholder="Search characters and personas"
+          className={`${fieldClass} pl-9`}
+        />
+      </label>
+      <div className="mt-4 divide-y divide-[var(--noodle-divider)] overflow-hidden rounded-lg border border-[var(--noodle-divider)]">
+        {visible.length === 0 ? (
+          <p className="p-6 text-center text-sm text-[var(--muted-foreground)]">
+            No eligible source accounts match that search.
+          </p>
+        ) : (
+          visible.map((account) => (
+            <button
+              key={account.id}
+              type="button"
+              onClick={() => onSelect(account.id)}
+              className={`flex w-full items-center gap-3 p-3 text-left ${selectedId === account.id ? "bg-[var(--noodle-blue)]/10" : "hover:bg-[var(--accent)]"}`}
+            >
+              {account.avatarUrl ? (
+                <img src={account.avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+              ) : (
+                <ProfileInitial profile={account} />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-bold">{account.displayName}</span>
+                <span className="block truncate text-xs text-[var(--muted-foreground)]">@{account.handle}</span>
+                {account.bio && (
+                  <span className="mt-1 block truncate text-xs text-[var(--muted-foreground)]">{account.bio}</span>
+                )}
+              </span>
+              {selectedId === account.id ? (
+                <Check size={18} className="text-[var(--noodle-blue)]" />
+              ) : (
+                <ChevronRight size={17} className="text-[var(--muted-foreground)]" />
+              )}
+            </button>
+          ))
+        )}
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!selectedId}
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Continue <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DisclosureStep({
+  source,
+  value,
+  onChange,
+  onContinue,
+}: {
+  source: { displayName: string; handle: string } | null;
+  value: NoodleIdentityDisclosure;
+  onChange: (value: NoodleIdentityDisclosure) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
+      <p className="text-xl font-black">Choose the identity boundary</p>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+        This controls how the linked public identity may appear in the stage profile and in AI-generated text or image
+        prompts. It does not control access, subscriptions, or who can view posts.
+      </p>
+      {source && (
+        <p className="mt-4 rounded-md bg-[var(--accent)] p-3 text-xs text-[var(--muted-foreground)]">
+          Source: <span className="font-bold text-[var(--foreground)]">{source.displayName}</span> (@{source.handle})
+        </p>
+      )}
+      <div className="mt-5 space-y-3">
+        {DISCLOSURE_OPTIONS.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]/10" : "border-[var(--noodle-divider)] hover:bg-[var(--accent)]"}`}
+          >
+            <span
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]" : "border-[var(--noodle-divider)]"}`}
+            >
+              {value === option.value && <Check size={13} className="text-zinc-950" />}
+            </span>
+            <span>
+              <span className="block text-sm font-bold">{option.label}</span>
+              <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.detail}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950"
+        >
+          Continue <ArrowRight size={16} />
         </button>
       </div>
     </div>

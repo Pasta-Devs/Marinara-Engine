@@ -115,15 +115,42 @@ const privatePostSchema = {
   additionalProperties: false,
 } as const;
 
+const privateProfileSchema = {
+  type: "object",
+  properties: {
+    displayName: { type: "string" },
+    handle: { type: "string" },
+    bio: { type: "string" },
+    stagePersonality: { type: "string" },
+    disclosureMode: { type: "string", enum: ["open", "hinted", "secret"] },
+  },
+  required: ["displayName", "handle", "bio", "stagePersonality", "disclosureMode"],
+  additionalProperties: false,
+} as const;
+
 export function noodleResponseFormat(
   model: string,
-  kind: "timeline" | "profiles" | "private_post",
+  kind: "timeline" | "profiles" | "private_post" | "private_profile",
 ): { type: string; [key: string]: unknown } {
   if (!isOpenAIGpt56Model(model)) return { type: "json_object" };
-  const schema = kind === "timeline" ? timelineSchema : kind === "profiles" ? profilesSchema : privatePostSchema;
+  const schema =
+    kind === "timeline"
+      ? timelineSchema
+      : kind === "profiles"
+        ? profilesSchema
+        : kind === "private_profile"
+          ? privateProfileSchema
+          : privatePostSchema;
   return {
     type: "json_schema",
-    name: kind === "timeline" ? "noodle_timeline" : kind === "profiles" ? "noodle_profiles" : "noodler_private_post",
+    name:
+      kind === "timeline"
+        ? "noodle_timeline"
+        : kind === "profiles"
+          ? "noodle_profiles"
+          : kind === "private_profile"
+            ? "noodler_private_profile"
+            : "noodler_private_post",
     schema,
     strict: true,
   };
