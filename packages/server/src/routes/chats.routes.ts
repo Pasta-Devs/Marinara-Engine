@@ -2603,15 +2603,6 @@ export async function chatsRoutes(app: FastifyInstance) {
                     2,
                   ),
                 );
-              if (characterMacroContext.characterFields.scenario && !hasGroupOverride)
-                parts.push(
-                  wrapContent(
-                    resolveCharacterMacros(characterMacroContext.characterFields.scenario),
-                    "scenario",
-                    wrapFormat,
-                    2,
-                  ),
-                );
               if (characterMacroContext.characterFields.backstory)
                 parts.push(
                   wrapContent(
@@ -2626,6 +2617,15 @@ export async function chatsRoutes(app: FastifyInstance) {
                   wrapContent(
                     resolveCharacterMacros(characterMacroContext.characterFields.appearance),
                     "appearance",
+                    wrapFormat,
+                    2,
+                  ),
+                );
+              if (characterMacroContext.characterFields.scenario && !hasGroupOverride)
+                parts.push(
+                  wrapContent(
+                    resolveCharacterMacros(characterMacroContext.characterFields.scenario),
+                    "scenario",
                     wrapFormat,
                     2,
                   ),

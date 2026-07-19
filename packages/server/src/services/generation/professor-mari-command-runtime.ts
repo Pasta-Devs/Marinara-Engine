@@ -634,14 +634,14 @@ async function fetchCharacterContent(command: FetchCommand, args: Parameters<typ
   const parts = [`Name: ${data.name}`];
   if (data.description) parts.push(`Description: ${data.description}`);
   if (data.personality) parts.push(`Personality: ${data.personality}`);
+  if (data.extensions?.backstory) parts.push(`Backstory: ${data.extensions.backstory}`);
+  if (data.extensions?.appearance) parts.push(`Appearance: ${data.extensions.appearance}`);
   if (data.scenario) parts.push(`Scenario: ${data.scenario}`);
   if (data.mes_example) parts.push(`Example Messages: ${data.mes_example}`);
   if (data.system_prompt) parts.push(`System Prompt: ${data.system_prompt}`);
   if (data.post_history_instructions) parts.push(`Post-History Instructions: ${data.post_history_instructions}`);
   if (data.first_mes) parts.push(`First Message: ${data.first_mes}`);
   if (data.creator_notes) parts.push(`Creator Notes: ${data.creator_notes}`);
-  if (data.extensions?.appearance) parts.push(`Appearance: ${data.extensions.appearance}`);
-  if (data.extensions?.backstory) parts.push(`Backstory: ${data.extensions.backstory}`);
   return parts.join("\n");
 }
 
@@ -655,9 +655,9 @@ async function fetchPersonaContent(command: FetchCommand, args: Parameters<typeo
   const parts = [`Name: ${found.name}`];
   if (found.description) parts.push(`Description: ${found.description}`);
   if (found.personality) parts.push(`Personality: ${found.personality}`);
-  if (found.scenario) parts.push(`Scenario: ${found.scenario}`);
-  if (found.appearance) parts.push(`Appearance: ${found.appearance}`);
   if (found.backstory) parts.push(`Backstory: ${found.backstory}`);
+  if (found.appearance) parts.push(`Appearance: ${found.appearance}`);
+  if (found.scenario) parts.push(`Scenario: ${found.scenario}`);
   return parts.join("\n");
 }
 

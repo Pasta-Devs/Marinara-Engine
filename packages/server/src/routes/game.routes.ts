@@ -2134,11 +2134,11 @@ function buildNpcPartyCard(npc: Pick<GameNpc, "name" | "description" | "location
 
 function buildRecruitCharacterSourceCard(characterData: Record<string, any>): string {
   const lines = [`Name: ${String(characterData.name || "Unknown")}`];
-  if (typeof characterData.personality === "string" && characterData.personality.trim()) {
-    lines.push(`Personality: ${characterData.personality.trim()}`);
-  }
   if (typeof characterData.description === "string" && characterData.description.trim()) {
     lines.push(`Description: ${characterData.description.trim()}`);
+  }
+  if (typeof characterData.personality === "string" && characterData.personality.trim()) {
+    lines.push(`Personality: ${characterData.personality.trim()}`);
   }
   const backstory =
     typeof characterData.extensions?.backstory === "string" && characterData.extensions.backstory.trim()
@@ -6220,9 +6220,9 @@ export async function gameRoutes(app: FastifyInstance) {
       if (gmChar) {
         const data = typeof gmChar.data === "string" ? JSON.parse(gmChar.data) : gmChar.data;
         const parts = [`Name: ${data.name}`];
-        if (data.personality) parts.push(`Personality: ${data.personality}`);
         const description = typeof data.description === "string" ? data.description : "";
         if (description) parts.push(`Description: ${description}`);
+        if (data.personality) parts.push(`Personality: ${data.personality}`);
         const gmBackstory = data.extensions?.backstory || data.backstory;
         const gmAppearance = data.extensions?.appearance || data.appearance;
         if (gmBackstory) parts.push(`Backstory: ${gmBackstory}`);
@@ -6264,9 +6264,9 @@ export async function gameRoutes(app: FastifyInstance) {
         if (typeof data.name === "string" && data.name.trim()) {
           partyNames.push(data.name.trim());
         }
-        if (data.personality) parts.push(`Personality: ${data.personality}`);
         const description = typeof data.description === "string" ? data.description : "";
         if (description) parts.push(`Description: ${description}`);
+        if (data.personality) parts.push(`Personality: ${data.personality}`);
         const pcBackstory = data.extensions?.backstory || data.backstory;
         const pcAppearance = data.extensions?.appearance || data.appearance;
         if (pcBackstory) parts.push(`Backstory: ${pcBackstory}`);
@@ -9432,8 +9432,8 @@ export async function gameRoutes(app: FastifyInstance) {
         const description = typeof charData.description === "string" ? charData.description : "";
         const card = [
           `Name: ${charData.name}`,
-          charData.personality ? `Personality: ${charData.personality}` : null,
           description ? `Description: ${description}` : null,
+          charData.personality ? `Personality: ${charData.personality}` : null,
           charData.extensions?.backstory || charData.backstory
             ? `Backstory: ${charData.extensions?.backstory || charData.backstory}`
             : null,

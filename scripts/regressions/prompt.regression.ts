@@ -260,7 +260,11 @@ import {
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
 import { resolveConversationConnectedChatContext } from "../../packages/server/src/routes/generate/conversation-connected-context.js";
-import { expandMarker, type MarkerContext } from "../../packages/server/src/services/prompt/marker-expander.js";
+import {
+  expandMarker,
+  orderCharacterMarkerFields,
+  type MarkerContext,
+} from "../../packages/server/src/services/prompt/marker-expander.js";
 import {
   buildRuntimeAgentSectionEligibleTypesForTest,
   clearUnusedRuntimeAgentSectionsForTest,
@@ -2841,6 +2845,17 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const context = makeRegressionAgentContext({
         wrapFormat: "markdown",
         mainResponse: "Dottore studies the rain-slick street and chooses a darker alley backdrop.",
+        characters: [
+          {
+            id: "char-dottore",
+            name: "Dottore",
+            description: "AGENT_CHAR_DESCRIPTION",
+            personality: "AGENT_CHAR_PERSONALITY",
+            backstory: "AGENT_CHAR_BACKSTORY",
+            appearance: "AGENT_CHAR_APPEARANCE",
+            scenario: "AGENT_CHAR_SCENARIO",
+          },
+        ],
       });
 
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
@@ -2855,6 +2870,19 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(last.content, /Agent "background" \(Background\):/);
       assert.doesNotMatch(last.content, /Agent "quest"/);
       assert.equal(last.content.trim().endsWith('Return JSON: {"chosen": null}'), true);
+      const system = messages[0]?.content ?? "";
+      const cardFieldPositions = [
+        "AGENT_CHAR_DESCRIPTION",
+        "AGENT_CHAR_PERSONALITY",
+        "AGENT_CHAR_BACKSTORY",
+        "AGENT_CHAR_APPEARANCE",
+        "AGENT_CHAR_SCENARIO",
+      ].map((fragment) => system.indexOf(fragment));
+      assert.ok(cardFieldPositions.every((position) => position >= 0));
+      assert.deepEqual(
+        cardFieldPositions,
+        [...cardFieldPositions].sort((left, right) => left - right),
+      );
     },
   },
   {
@@ -3437,6 +3465,142 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, /<START>/);
       assert.equal(promptText.includes("&lt;START>"), false);
       assert.match(promptText, /<system>bad example<\/system>/);
+    },
+  },
+  {
+    name: "character and persona card sections follow editor order in identity fallbacks",
+    run() {
+      const messages: ChatMLMessage[] = [
+        { role: "system", content: "Stable system prompt." },
+        { role: "user", content: "Hello." },
+      ];
+
+      injectIdentityFallbackMessages({
+        messages,
+        charInfo: [
+          {
+            id: "char-ordered",
+            name: "Ordered Character",
+            description: "CHAR_DESCRIPTION",
+            personality: "CHAR_PERSONALITY",
+            backstory: "CHAR_BACKSTORY",
+            appearance: "CHAR_APPEARANCE",
+            scenario: "CHAR_SCENARIO",
+            mesExample: "CHAR_EXAMPLE_DIALOGUE",
+            creatorNotes: "",
+            systemPrompt: "",
+            firstMes: "",
+            postHistoryInstructions: "",
+            tags: [],
+            talkativeness: 0.5,
+            avatarPath: null,
+            avatarCrop: null,
+          },
+        ],
+        promptTargetCharacterId: null,
+        promptMacroContext: {
+          user: "Mari",
+          char: "Ordered Character",
+          characters: ["Ordered Character"],
+          variables: {},
+        },
+        wrapFormat: "xml",
+        personaName: "Mari",
+        personaDescription: "PERSONA_DESCRIPTION",
+        personaFields: {
+          personality: "PERSONA_PERSONALITY",
+          backstory: "PERSONA_BACKSTORY",
+          appearance: "PERSONA_APPEARANCE",
+          scenario: "PERSONA_SCENARIO",
+        },
+        persona: null,
+        resolvePromptMacros: (value) => value,
+      });
+
+      const promptText = messages.map((message) => message.content).join("\n");
+      const assertInOrder = (fragments: string[]) => {
+        const positions = fragments.map((fragment) => promptText.indexOf(fragment));
+        assert.ok(positions.every((position) => position >= 0));
+        assert.deepEqual(
+          positions,
+          [...positions].sort((left, right) => left - right),
+        );
+      };
+
+      assertInOrder([
+        "CHAR_DESCRIPTION",
+        "CHAR_PERSONALITY",
+        "CHAR_BACKSTORY",
+        "CHAR_APPEARANCE",
+        "CHAR_SCENARIO",
+        "CHAR_EXAMPLE_DIALOGUE",
+      ]);
+      assertInOrder([
+        "PERSONA_DESCRIPTION",
+        "PERSONA_PERSONALITY",
+        "PERSONA_BACKSTORY",
+        "PERSONA_APPEARANCE",
+        "PERSONA_SCENARIO",
+      ]);
+    },
+  },
+  {
+    name: "character marker selections follow editor order without disturbing advanced fields",
+    run() {
+      assert.deepEqual(
+        orderCharacterMarkerFields([
+          "scenario",
+          "system_prompt",
+          "appearance",
+          "mes_example",
+          "description",
+          "backstory",
+          "personality",
+          "stats",
+        ]),
+        ["description", "personality", "backstory", "appearance", "scenario", "mes_example", "system_prompt", "stats"],
+      );
+    },
+  },
+  {
+    name: "persona markers preserve editor order and omit empty sections",
+    async run() {
+      const expanded = await expandMarker(
+        { type: "persona" },
+        {
+          db: undefined as unknown as DB,
+          chatId: "chat-persona-order",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "PERSONA_MARKER_DESCRIPTION",
+          personaFields: {
+            personality: "PERSONA_MARKER_PERSONALITY",
+            backstory: "PERSONA_MARKER_BACKSTORY",
+            appearance: "   ",
+            scenario: "PERSONA_MARKER_SCENARIO",
+          },
+          chatMessages: [],
+          chatSummary: null,
+          wrapFormat: "xml",
+          enableAgents: true,
+          activeAgentIds: [],
+          activeLorebookIds: [],
+          macroCtx: { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} },
+        },
+      );
+
+      const positions = [
+        "PERSONA_MARKER_DESCRIPTION",
+        "PERSONA_MARKER_PERSONALITY",
+        "PERSONA_MARKER_BACKSTORY",
+        "PERSONA_MARKER_SCENARIO",
+      ].map((fragment) => expanded.content.indexOf(fragment));
+      assert.ok(positions.every((position) => position >= 0));
+      assert.deepEqual(
+        positions,
+        [...positions].sort((left, right) => left - right),
+      );
+      assert.equal(expanded.content.includes("<appearance>"), false);
     },
   },
   {

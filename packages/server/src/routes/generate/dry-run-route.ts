@@ -950,14 +950,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         personaLines.push(`Name: ${personaName}`);
         const resolvedPersonaDescription = resolvePromptMacros(personaDescription);
         const resolvedPersonaPersonality = resolvePromptMacros(personaFields.personality ?? "");
-        const resolvedPersonaScenario = resolvePromptMacros(personaFields.scenario ?? "");
         const resolvedPersonaBackstory = resolvePromptMacros(personaFields.backstory ?? "");
         const resolvedPersonaAppearance = resolvePromptMacros(personaFields.appearance ?? "");
+        const resolvedPersonaScenario = resolvePromptMacros(personaFields.scenario ?? "");
         if (resolvedPersonaDescription.trim()) personaLines.push(`Description: ${resolvedPersonaDescription.trim()}`);
         if (resolvedPersonaPersonality.trim()) personaLines.push(`Personality: ${resolvedPersonaPersonality.trim()}`);
-        if (resolvedPersonaScenario.trim()) personaLines.push(`Scenario: ${resolvedPersonaScenario.trim()}`);
         if (resolvedPersonaBackstory.trim()) personaLines.push(`Backstory: ${resolvedPersonaBackstory.trim()}`);
         if (resolvedPersonaAppearance.trim()) personaLines.push(`Appearance: ${resolvedPersonaAppearance.trim()}`);
+        if (resolvedPersonaScenario.trim()) personaLines.push(`Scenario: ${resolvedPersonaScenario.trim()}`);
         return wrapContent(personaLines.join("\n"), "Persona", wrapFormat).trim();
       })();
 
@@ -998,10 +998,14 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             const lines: string[] = [];
             const resolvedDesc = resolveCharacterMacros(desc);
             const resolvedPersonality = resolveCharacterMacros(personality);
+            const resolvedBackstory = resolveCharacterMacros(cardPromptText(extensions.backstory));
+            const resolvedAppearance = resolveCharacterMacros(cardPromptText(extensions.appearance));
             const resolvedScenario = resolveCharacterMacros(scenario);
             const resolvedMesExample = resolveCharacterMacros(mesExample);
             if (resolvedDesc.trim()) lines.push(resolvedDesc.trim());
             if (resolvedPersonality.trim()) lines.push(`Personality: ${resolvedPersonality.trim()}`);
+            if (resolvedBackstory.trim()) lines.push(`Backstory: ${resolvedBackstory.trim()}`);
+            if (resolvedAppearance.trim()) lines.push(`Appearance: ${resolvedAppearance.trim()}`);
             if (resolvedScenario.trim()) lines.push(`Scenario: ${resolvedScenario.trim()}`);
             if (resolvedMesExample.trim()) lines.push(`Example messages:\n${resolvedMesExample.trim()}`);
 

@@ -2149,9 +2149,9 @@ function buildLoreBlock(context: AgentContext): string {
     for (const char of context.characters) {
       parts.push(`<character id="${char.id}" name="${char.name}">`);
       pushLoreField(parts, "Description", char.description, CHARACTER_LORE_DESCRIPTION_LIMIT);
-      pushLoreField(parts, "Appearance", char.appearance, CHARACTER_LORE_FIELD_LIMIT);
       pushLoreField(parts, "Personality", char.personality, CHARACTER_LORE_FIELD_LIMIT);
       pushLoreField(parts, "Backstory", char.backstory, CHARACTER_LORE_FIELD_LIMIT);
+      pushLoreField(parts, "Appearance", char.appearance, CHARACTER_LORE_FIELD_LIMIT);
       pushLoreField(parts, "Scenario", char.scenario, CHARACTER_LORE_FIELD_LIMIT);
       if (char.rpgStats?.enabled) {
         const pools = normalizeRpgStatPools(char.rpgStats);
