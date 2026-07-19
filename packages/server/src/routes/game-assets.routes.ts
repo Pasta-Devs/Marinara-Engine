@@ -524,12 +524,12 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     return reply.header("Content-Type", mime).header("Cache-Control", "public, max-age=604800").send(stream);
   });
 
-  // ── GET /game-assets/local-music-file/:encoded ──
+  // ── GET /game-assets/local-music-file?path=:encoded ──
   // Serves an audio file selected through the local music folder picker.
-  app.get("/local-music-file/:encoded", async (req, reply) => {
+  app.get("/local-music-file", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom music folder picker" })) return;
 
-    const { encoded } = (req.params as { encoded?: string }) ?? {};
+    const { path: encoded } = (req.query as { path?: string }) ?? {};
     if (!encoded) {
       return reply.status(400).send({ error: "Missing music file" });
     }

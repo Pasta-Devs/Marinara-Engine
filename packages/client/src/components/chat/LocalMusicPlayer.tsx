@@ -10,6 +10,7 @@ import {
 } from "react";
 import { encodeAssetPath } from "../game-assets/encode-asset-path";
 import { MusicSourceButton, MusicSourceGlyph } from "../music/MusicSourceButton";
+import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -90,11 +91,25 @@ function getMobileExpandedPanelStyle(position: { x: number; y: number }): CSSPro
   };
 }
 
-function getTrackUrl(path: string) {
-  if (path.startsWith("local-music:")) {
-    return `/api/game-assets/local-music-file/${encodeURIComponent(path.slice("local-music:".length))}`;
+async function loadTrackSource(path: string): Promise<{ url: string; objectUrl: boolean }> {
+  if (!path.startsWith("local-music:")) {
+    return { url: `/api/game-assets/file/${encodeAssetPath(path)}`, objectUrl: false };
   }
-  return `/api/game-assets/file/${encodeAssetPath(path)}`;
+
+  const encodedPath = encodeURIComponent(path.slice("local-music:".length));
+  const response = await api.raw(`/game-assets/local-music-file?path=${encodedPath}`);
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: unknown; message?: unknown } | null;
+    const detail =
+      typeof payload?.message === "string"
+        ? payload.message
+        : typeof payload?.error === "string"
+          ? payload.error
+          : response.statusText;
+    throw new Error(detail || `Custom music could not be loaded (${response.status}).`);
+  }
+
+  return { url: URL.createObjectURL(await response.blob()), objectUrl: true };
 }
 
 function LocalPlayerIcon({ icon: Icon }: { icon: LucideIcon }) {
@@ -117,6 +132,8 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
   const desktopViewport = useMediaQuery("(min-width: 768px)");
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const sourceLoadIdRef = useRef(0);
   const lastNonceRef = useRef(0);
   const prevVolumeRef = useRef(70);
   const dragRef = useRef<{
@@ -133,6 +150,12 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
 
   const active = musicPlayerActive && (mobile || desktopViewport);
 
+  const releaseObjectUrl = useCallback(() => {
+    if (!objectUrlRef.current) return;
+    URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = null;
+  }, []);
+
   useEffect(() => {
     if (!active) return;
     if (!localMusicPlay) return;
@@ -142,21 +165,36 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
     const audio = audioRef.current;
     if (!audio) return;
 
-    const src = getTrackUrl(localMusicPlay.path);
+    const sourceLoadId = ++sourceLoadIdRef.current;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    releaseObjectUrl();
     setError(null);
     setNowPlaying({ path: localMusicPlay.path, title: localMusicPlay.title, mood: localMusicPlay.mood });
-    setPaused(false);
-    audio.src = src;
-    audio.loop = true;
-    audio.volume = Math.max(0, Math.min(1, playerVolume / 100));
-    audio
-      .play()
-      .then(() => setPaused(false))
+    setPaused(true);
+
+    void loadTrackSource(localMusicPlay.path)
+      .then(async (source) => {
+        if (sourceLoadId !== sourceLoadIdRef.current) {
+          if (source.objectUrl) URL.revokeObjectURL(source.url);
+          return;
+        }
+
+        releaseObjectUrl();
+        if (source.objectUrl) objectUrlRef.current = source.url;
+        audio.src = source.url;
+        audio.loop = true;
+        audio.volume = Math.max(0, Math.min(1, playerVolume / 100));
+        await audio.play();
+        if (sourceLoadId === sourceLoadIdRef.current) setPaused(false);
+      })
       .catch((err) => {
+        if (sourceLoadId !== sourceLoadIdRef.current) return;
         setPaused(true);
         setError(err instanceof Error ? err.message : "Local playback failed");
       });
-  }, [active, localMusicPlay, playerVolume]);
+  }, [active, localMusicPlay, playerVolume, releaseObjectUrl]);
 
   useEffect(() => {
     if (localMusicVolume != null) setPlayerVolume(localMusicVolume);
@@ -172,10 +210,20 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
 
   useEffect(() => {
     if (active) return;
+    sourceLoadIdRef.current += 1;
     audioRef.current?.pause();
+    releaseObjectUrl();
     setNowPlaying(null);
     setPaused(true);
-  }, [active]);
+  }, [active, releaseObjectUrl]);
+
+  useEffect(
+    () => () => {
+      sourceLoadIdRef.current += 1;
+      releaseObjectUrl();
+    },
+    [releaseObjectUrl],
+  );
 
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -192,8 +240,13 @@ export function LocalMusicPlayer({ mobile = false }: { mobile?: boolean } = {}) 
   };
 
   const close = () => {
-    audioRef.current?.pause();
-    if (audioRef.current) audioRef.current.currentTime = 0;
+    sourceLoadIdRef.current += 1;
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.removeAttribute("src");
+      audioRef.current.load();
+    }
+    releaseObjectUrl();
     setNowPlaying(null);
     setPaused(true);
     setError(null);

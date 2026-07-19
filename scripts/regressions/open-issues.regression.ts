@@ -746,9 +746,17 @@ const transcriptWindowControlsSource = readFileSync(
   new URL("../../packages/client/src/components/chat/TranscriptWindowControls.tsx", import.meta.url),
   "utf8",
 );
+const localMusicPlayerSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/LocalMusicPlayer.tsx", import.meta.url),
+  "utf8",
+);
 const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
 const galleryRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
+  "utf8",
+);
+const gameAssetsRoutesSource = readFileSync(
+  new URL("../../packages/server/src/routes/game-assets.routes.ts", import.meta.url),
   "utf8",
 );
 const conversationSelfieRuntimeSource = readFileSync(
@@ -759,6 +767,13 @@ assert.match(appSource, /--marinara-app-accent-static-gradient/u);
 assert.match(appSource, /swipeDirections=\{\["left", "right", "top"\]\}/u);
 assert.doesNotMatch(agentEditorSource, /fetch\(["']\/api\/game-assets\/pick-local-music-folder/u);
 assert.match(agentEditorSource, /api\.post<[^>]+>\(["']\/game-assets\/pick-local-music-folder["']\)/u);
+assert.match(localMusicPlayerSource, /api\.raw\(`\/game-assets\/local-music-file\?path=\$\{encodedPath\}`\)/u);
+assert.match(localMusicPlayerSource, /URL\.createObjectURL\(await response\.blob\(\)\)/u);
+assert.match(localMusicPlayerSource, /URL\.revokeObjectURL/u);
+assert.doesNotMatch(localMusicPlayerSource, /return `\/api\/game-assets\/local-music-file/u);
+assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
+assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
+assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
 assert.match(characterEditorSource, /avatar preview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(
