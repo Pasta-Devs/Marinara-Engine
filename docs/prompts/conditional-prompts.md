@@ -65,6 +65,38 @@ A few rules control how the comparison works:
 2. For `>`, `<`, `>=`, and `<=`, both sides must be numbers. If either side is not a number, the condition is false.
 3. For `contains`, `includes`, `not contains`, and `not includes`, the match is case-insensitive. So `contains "dr"` matches the text `Dr Smith`.
 
+## Combining conditions with OR and AND
+
+Use `||` when either condition may match. Use `&&` when every condition must match.
+
+```
+{{#if character == "Maukie" || character == "Pantalone"}}
+Use the shared Maukie and Pantalone instructions.
+{{/if}}
+
+{{#if characters contains "Maukie" && characters contains "Pantalone"}}
+Both characters are present in this chat.
+{{/if}}
+```
+
+`&&` is evaluated before `||`. Add parentheses when you want to control the order explicitly:
+
+```
+{{#if (character == "Maukie" || character == "Pantalone") && scenario contains "lake"}}
+Use the lakeside instructions for either character.
+{{/if}}
+```
+
+For several equality choices on the same value, you may omit the repeated left side after `||`:
+
+```
+{{#if character == "Maukie" || "Pantalone"}}
+Use the shared instructions.
+{{/if}}
+```
+
+This shorthand means `character == "Maukie" || character == "Pantalone"`. It applies to the equality operators `==`, `=`, and `is`. Write complete conditions on both sides of `&&`, since one value usually cannot equal two different choices at once.
+
 ### Truthy checks (no operator)
 
 If you write a condition with no operator, Marinara does a truthy check. This asks a simple question: does this value have real content in it?
@@ -83,7 +115,7 @@ A truthy check is true when the value is not empty and is not one of these words
 
 The left or right side of a condition can be any of these:
 
-1. A field or identity keyword, such as `char`, `user`, `persona`, `description`, `personality`, `scenario`, `input`, or `model`. These read the same values as the matching macros.
+1. A field or identity keyword, such as `char`, `user`, `group`, `persona`, `description`, `personality`, `scenario`, `input`, or `model`. These read the same values as the matching macros. `group` lists the other active chat characters after excluding the current responder.
 2. A quoted literal, such as `"Alice"`.
 3. A preset variable name, such as `length`. A preset variable is a named value you define in a Prompt Preset. See [Preset Variables](preset-variables.md).
 4. An explicit variable lookup written as `var:name` or `var.name`.

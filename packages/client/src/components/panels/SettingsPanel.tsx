@@ -5177,7 +5177,7 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
                   className="flex flex-1 items-center gap-2 min-w-0"
                 >
                   <FileCode2 size="0.75rem" className="shrink-0" />
-                  <span className="truncate">{t.name}</span>
+                  <span className="mari-chrome-text truncate">{t.name}</span>
                   {activeCustomTheme?.id === t.id && <Check size="0.75rem" className="shrink-0" />}
                 </button>
                 <button
@@ -5815,7 +5815,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
                 </button>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex min-w-0 items-center gap-1.5">
-                    <span className="truncate font-medium">{ext.name}</span>
+                    <span className="mari-chrome-text truncate font-medium">{ext.name}</span>
                     <span
                       className={cn(
                         "shrink-0 rounded px-1 py-px text-[0.5625rem] font-semibold",

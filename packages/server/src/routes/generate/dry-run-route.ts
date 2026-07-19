@@ -801,6 +801,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const promptMacroContext = await buildPromptMacroContext({
       db: app.db,
       characterIds: promptCharacterIds,
+      groupCharacterIds: promptTargetCharacterId ? characterIds : undefined,
       personaName,
       personaDescription,
       personaFields,
@@ -1217,6 +1218,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         chatChoices,
         chatId,
         characterIds: promptCharacterIds,
+        groupCharacterIds: characterIds,
         personaId,
         personaName,
         personaDescription,

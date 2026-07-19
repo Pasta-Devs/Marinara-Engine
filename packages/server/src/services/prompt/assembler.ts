@@ -133,6 +133,8 @@ export interface AssemblerInput {
   /** Chat context */
   chatId: string;
   characterIds: string[];
+  /** Full active roster when characterIds is narrowed to one generation target. */
+  groupCharacterIds?: string[];
   personaId?: string | null;
   personaName: string;
   personaPhoneticName?: string;
@@ -306,6 +308,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   const macroCtx = await buildPromptMacroContext({
     db: input.db,
     characterIds: input.characterIds,
+    groupCharacterIds: input.groupCharacterIds,
     personaName: input.personaName,
     personaPhoneticName: input.personaPhoneticName,
     personaDescription: input.personaDescription,

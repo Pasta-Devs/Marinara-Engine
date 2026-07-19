@@ -24,6 +24,8 @@ type PersonaFields = NonNullable<MacroContext["personaFields"]>;
 export interface BuildPromptMacroContextInput {
   db: DB;
   characterIds: string[];
+  /** Full active roster when characterIds is narrowed to one generation target. */
+  groupCharacterIds?: string[];
   personaName: string;
   personaPhoneticName?: string;
   personaDescription?: string;
@@ -249,6 +251,9 @@ export async function resolveCharacterMacroData(db: DB, characterIds: string[]):
 
 export async function buildPromptMacroContext(input: BuildPromptMacroContextInput): Promise<MacroContext> {
   const characterMacroData = await resolveCharacterMacroData(input.db, input.characterIds);
+  const groupCharacterMacroData = input.groupCharacterIds
+    ? await resolveCharacterMacroData(input.db, input.groupCharacterIds)
+    : characterMacroData;
   const variables = input.variables ?? {};
 
   return {
@@ -257,6 +262,7 @@ export async function buildPromptMacroContext(input: BuildPromptMacroContextInpu
     char: characterMacroData.names[0] || "Character",
     charPhonetic: characterMacroData.phoneticNames[0] || characterMacroData.names[0] || "Character",
     characters: characterMacroData.names,
+    groupCharacters: groupCharacterMacroData.names,
     characterProfiles: characterMacroData.profiles,
     variables,
     lastInput: input.lastInput,

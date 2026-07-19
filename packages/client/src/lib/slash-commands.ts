@@ -256,7 +256,7 @@ function buildMacroHelpText(): string {
     "Supported Macros:",
     "Tip: In group chats, a bracketed block containing character macros like {{char}} and {{description}} repeats once per character.",
     'Conditional blocks: {{#if character == "Dottore"}}Dottore prompt{{else}}Fallback prompt{{/if}}',
-    "Conditionals support char, character, speaker, user, preset variables, ==, !=, contains, and straight or typographic quotes.",
+    "Conditionals support char, character, speaker, group, user, preset variables, comparisons, || (OR), && (AND), parentheses, equality-list shorthand, and straight or typographic quotes.",
     ...Array.from(sections.entries()).flatMap(([category, lines], index) =>
       index === 0 ? ["", `${category}:`, ...lines] : ["", `${category}:`, ...lines],
     ),

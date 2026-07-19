@@ -2550,14 +2550,58 @@ async function applyRetryResultEffects(args: {
       .then((snapshot) => projectGameSnapshotLocation(snapshot, retryOwnerSpatialProjection));
     return retryBaseGameStateSnapshotPromise;
   };
+  const buildSnapshotUpdateOptions = async () => ({
+    baseSnapshot: await loadRetryBaseGameStateSnapshot(),
+    ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
+  });
   const loadRetryTargetGameStateSnapshot = async () => {
-    if (!retryMessageId) return null;
+    if (!retryMessageId) {
+      const latest = await gameStateStore.getLatest(chatId);
+      if (latest) return projectGameSnapshotLocation(latest, retryOwnerSpatialProjection);
+
+      await gameStateStore.create({
+        chatId,
+        messageId: "",
+        swipeIndex: 0,
+        date: null,
+        time: null,
+        location: retryCompatibilityLocation,
+        weather: null,
+        temperature: null,
+        worldCustomFields: [],
+        presentCharacters: [],
+        recentEvents: [],
+        playerStats: null,
+        personaStats: null,
+        fieldLocks: null,
+        hiddenTrackerFields: null,
+      });
+      return projectGameSnapshotLocation(await gameStateStore.getLatest(chatId), retryOwnerSpatialProjection);
+    }
     const existing = await gameStateStore.getByMessage(retryMessageId, retrySwipeIndex);
     if (existing) return projectGameSnapshotLocation(existing, retryOwnerSpatialProjection);
-    return gameStateStore.updateByMessage(retryMessageId, retrySwipeIndex, chatId, {}, undefined, {
-      baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-      ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-    });
+    return gameStateStore.updateByMessage(
+      retryMessageId,
+      retrySwipeIndex,
+      chatId,
+      {},
+      undefined,
+      await buildSnapshotUpdateOptions(),
+    );
+  };
+  const updateRetryTargetGameStateSnapshot = async (fields: Record<string, unknown>) => {
+    if (retryMessageId) {
+      return gameStateStore.updateByMessage(
+        retryMessageId,
+        retrySwipeIndex,
+        chatId,
+        fields as any,
+        undefined,
+        await buildSnapshotUpdateOptions(),
+      );
+    }
+    await loadRetryTargetGameStateSnapshot();
+    return gameStateStore.updateLatest(chatId, fields as any);
   };
 
   for (const result of sortedResults) {
@@ -2624,7 +2668,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "game_state_update" &&
       result.agentType !== "combat" &&
@@ -2655,17 +2698,7 @@ async function applyRetryResultEffects(args: {
           lockedWorldStatePatch.location = retryCompatibilityLocation;
         }
         if (Object.keys(worldStatePatch).length > 0 || retryCompatibilityLocation !== null) {
-          await gameStateStore.updateByMessage(
-            retryMessageId,
-            retrySwipeIndex,
-            chatId,
-            lockedWorldStatePatch as any,
-            undefined,
-            {
-              baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-              ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-            },
-          );
+          await updateRetryTargetGameStateSnapshot(lockedWorldStatePatch);
         }
 
         const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
@@ -2724,7 +2757,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "character_tracker_update" &&
       result.data &&
@@ -2764,16 +2796,7 @@ async function applyRetryResultEffects(args: {
         presentCharacters = Array.isArray(lockedCharacterPatch.presentCharacters)
           ? lockedCharacterPatch.presentCharacters
           : presentCharacters;
-        await gameStateStore.updateByMessage(
-          retryMessageId,
-          retrySwipeIndex,
-          chatId,
-          {
-            presentCharacters,
-          },
-          undefined,
-          { baseSnapshot: await loadRetryBaseGameStateSnapshot() },
-        );
+        await updateRetryTargetGameStateSnapshot({ presentCharacters });
         sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters } });
       } catch (err) {
         logger.error(err, "[retry-agents] Failed to apply character-tracker update");
@@ -2781,7 +2804,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "persona_stats_update" &&
       result.data &&
@@ -2882,7 +2904,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "quest_update" &&
       result.data &&
@@ -2952,7 +2973,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "custom_tracker_update" &&
       result.data &&

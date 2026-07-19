@@ -59,10 +59,12 @@ import {
   GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE,
   GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE_ID,
   DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE,
+  hasDeferredCharacterMacros,
   hasDeferredRelocationConditionals,
   getGameStoryboardPromptTemplateKind,
   normalizeGameStoryboardKeyframeCount,
   parseDeferredConditionalPayload,
+  resolveDeferredCharacterMacros,
   selectConditionalPayloadBranch,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
@@ -1045,6 +1047,125 @@ const cases: RegressionCase[] = [
         "Hi Bob",
       );
       assert.equal(resolveMacros("{{#if 1==1}}It is one{{else if 2==2}}It is two{{/if}}", context), "It is one");
+    },
+  },
+  {
+    name: "macro conditionals support OR, AND, grouping, and equality shorthand",
+    run() {
+      const baseContext = {
+        user: "Mari",
+        char: "Pantalone",
+        characters: ["Maukie", "Pantalone", "Dottore"],
+        variables: {},
+        characterFields: { scenario: "Moonlit lake" },
+      };
+
+      assert.equal(
+        resolveMacros('{{#if character == "Maukie" || "Pantalone"}}selected{{else}}other{{/if}}', baseContext),
+        "selected",
+      );
+      assert.equal(
+        resolveMacros("{{#if character == “Maukie” || “Pantalone”}}selected{{else}}other{{/if}}", baseContext),
+        "selected",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if characters contains "Maukie" && characters contains "Pantalone"}}together{{/if}}',
+          baseContext,
+        ),
+        "together",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if (character == "Maukie" || character == "Pantalone") && scenario contains "lake"}}lake party{{/if}}',
+          baseContext,
+        ),
+        "lake party",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if character == "Maukie" || character == "Pantalone" && scenario contains "palace"}}selected{{else}}other{{/if}}',
+          { ...baseContext, characterFields: { scenario: "Empty road" } },
+        ),
+        "other",
+      );
+      assert.equal(
+        resolveMacros('{{#if scenario == "A || B && C"}}literal{{/if}}', {
+          ...baseContext,
+          characterFields: { scenario: "A || B && C" },
+        }),
+        "literal",
+      );
+
+      const deferred = resolveMacros(
+        '{{#if character == "Maukie" || "Pantalone"}}selected{{else}}other{{/if}}',
+        { ...baseContext, char: "Dottore" },
+        { deferCharacterMacros: "names" },
+      );
+      assert.equal(hasDeferredCharacterMacros(deferred), true);
+      assert.equal(resolveDeferredCharacterMacros(deferred, { name: "Pantalone" }, baseContext), "selected");
+      assert.equal(resolveDeferredCharacterMacros(deferred, { name: "Dottore" }, baseContext), "other");
+    },
+  },
+  {
+    name: "group macro uses the full active roster without changing existing identity macros",
+    run() {
+      const context = {
+        user: "Powers That Be",
+        char: "Pantalone",
+        characters: ["Pantalone"],
+        groupCharacters: ["Powers That Be", "Maukie", "Pantalone"],
+        variables: {},
+      };
+
+      assert.equal(resolveMacros("{{group}}", context), "Powers That Be, Maukie");
+      assert.equal(
+        resolveMacros("The other players are {{group}}, and {{user}}.", context),
+        "The other players are Powers That Be, Maukie, and Powers That Be.",
+      );
+      assert.equal(resolveMacros("{{characters}}", context), "Pantalone");
+      assert.equal(resolveMacros("{{user}} / {{char}}", context), "Powers That Be / Pantalone");
+      assert.equal(
+        resolveMacros("{{group}}", {
+          ...context,
+          groupCharacters: ["Powers That Be", "Maukie", "  pantalone  "],
+        }),
+        "Powers That Be, Maukie",
+      );
+      assert.equal(
+        resolveMacros("{{group}}", { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} }),
+        "",
+      );
+
+      const deferred = resolveMacros("{{char}} sees {{group}}", context, { deferCharacterMacros: "names" });
+      assert.equal(hasDeferredCharacterMacros(deferred), true);
+      assert.equal(
+        resolveDeferredCharacterMacros(deferred, { name: "Pantalone" }, context),
+        "Pantalone sees Powers That Be, Maukie",
+      );
+
+      const conditional = resolveMacros('{{#if group contains "Maukie"}}together{{else}}apart{{/if}}', context, {
+        deferCharacterMacros: "names",
+      });
+      assert.equal(hasDeferredCharacterMacros(conditional), true);
+      assert.equal(resolveDeferredCharacterMacros(conditional, { name: "Pantalone" }, context), "together");
+      assert.equal(resolveDeferredCharacterMacros(conditional, { name: "Maukie" }, context), "apart");
+
+      const assemblerSource = readFileSync(
+        new URL("../../packages/server/src/services/prompt/assembler.ts", import.meta.url),
+        "utf8",
+      );
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const dryRunRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/dry-run-route.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(assemblerSource, /groupCharacterIds: input\.groupCharacterIds/);
+      assert.match(generateRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
+      assert.match(dryRunRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
     },
   },
   {
