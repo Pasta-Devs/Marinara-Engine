@@ -76,7 +76,7 @@ assert.ok(savedOpenAiProfile);
 const switchToNewPocketTts = ttsConfigSchema.parse({
   ...maskedElevenLabs,
   source: "pockettts",
-  baseUrl: "http://localhost:8000",
+  baseUrl: "http://localhost:49112",
   apiKey: "",
   model: "pocket-tts",
   voice: "alba",
