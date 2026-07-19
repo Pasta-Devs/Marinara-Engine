@@ -1038,13 +1038,17 @@ async function resolveRetryAgents(args: {
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
+  agentPromptTemplateIds?: unknown;
   activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   onFallback?: GenerationFallbackNotifier;
 }): Promise<ResolvedRetryAgents> {
-  const { agentTypes, chat, conns, agentsStore, activeMusicPlayerSource, onFallback } = args;
+  const { agentTypes, chat, conns, agentsStore, agentPromptTemplateIds, activeMusicPlayerSource, onFallback } = args;
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
   const chatMeta = parseExtra((chat as { metadata?: unknown }).metadata);
-  const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
+  const agentPromptTemplateSelections = {
+    ...normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds),
+    ...normalizeAgentPromptTemplateSelectionMap(agentPromptTemplateIds),
+  };
   const activeAgentTypeSet = resolveActiveRetryAgentTypes(chatMode, chatMeta);
   const normalizedAgentTypes = agentTypes.map(normalizeRetryAgentTypeId);
   const agentTypeSet = new Set(
@@ -3377,6 +3381,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       queueImageGenerationRequests?: boolean;
       /** Pause a manual Illustrator retry after prompt compilation so the client can review it. */
       reviewImagePromptsBeforeSend?: boolean;
+      /** Override prompt modes for this retry without changing the chat's saved selections. */
+      agentPromptTemplateIds?: unknown;
       /** Resume a reviewed Illustrator retry without running the Illustrator LLM a second time. */
       illustratorPromptReviewOverride?: unknown;
       lorebookKeeperBackfill?: boolean;
@@ -3395,6 +3401,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       debugMode = false,
       queueImageGenerationRequests = true,
       reviewImagePromptsBeforeSend = false,
+      agentPromptTemplateIds,
       illustratorPromptReviewOverride: rawIllustratorPromptReviewOverride,
       lorebookKeeperBackfill = false,
       forMessageId,
@@ -3507,6 +3514,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         chat,
         conns,
         agentsStore,
+        agentPromptTemplateIds,
         activeMusicPlayerSource:
           musicPlayerEnabled === false
             ? null

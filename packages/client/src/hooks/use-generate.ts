@@ -43,6 +43,7 @@ type RetryAgentsOptions = {
   lorebookKeeperBackfill?: boolean;
   forMessageId?: string;
   secretPlotRerollMode?: "full" | "turn_only";
+  agentPromptTemplateIds?: Record<string, string>;
   illustratorPromptReviewOverride?: {
     resultData: Record<string, unknown>;
     prompt: string;
@@ -2962,6 +2963,7 @@ export function useGenerate() {
             debugMode: retryDebugMode,
             queueImageGenerationRequests: useUIStore.getState().queueImageGenerationRequests,
             reviewImagePromptsBeforeSend: useUIStore.getState().reviewImagePromptsBeforeSend,
+            ...(options?.agentPromptTemplateIds ? { agentPromptTemplateIds: options.agentPromptTemplateIds } : {}),
             ...(options?.illustratorPromptReviewOverride
               ? { illustratorPromptReviewOverride: options.illustratorPromptReviewOverride }
               : {}),

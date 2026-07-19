@@ -198,6 +198,10 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── Error Handler ──
   app.setErrorHandler(errorHandler);
 
+  // API file routes use reply.sendFile even when the client build is absent.
+  // Decorate once without exposing a static route; production assets register below.
+  await app.register(fastifyStatic, { serve: false });
+
   // ── Routes ──
   await registerRoutes(app);
 
@@ -234,6 +238,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       root: clientDist,
       prefix: "/",
       wildcard: false,
+      decorateReply: false,
       maxAge: 0,
       setHeaders(res, filePath) {
         const fileName = basename(filePath);

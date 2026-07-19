@@ -14,6 +14,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Streamed Roleplay and Game scene-video files with standard byte-range and HEAD handling instead of synchronously buffering complete MP4 files for every playback request (#3811).
+- Stopped the macOS/Linux and Termux launchers from sourcing `.env` as Bash code; launcher-owned settings now use Node's non-evaluating dotenv parser while preserving ambient-environment precedence (#3810).
+- Routed the Roleplay Gallery's **Background** action through Illustrator's background prompt mode instead of bypassing the agent with a raw scene-generation prompt (#3809).
 - Kept the full active Roleplay roster available while assembling a targeted character prompt so `{{group}}` lists the other character cards instead of resolving empty in manual group generation.
 - Applied the selected chroma text color to installed theme and extension names in Settings > Addons instead of inheriting the hard-coded pink accent.
 - Persisted successful Roleplay tracker re-runs against the visible tracker state when a refreshed scene has no assistant reply yet, instead of spending the agent call and then reporting that no tracker changes were returned.

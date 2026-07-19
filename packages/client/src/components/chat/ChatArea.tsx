@@ -156,23 +156,6 @@ function getNewestLoadedMessagePageIndex(pages: MessageWithSwipes[][] | undefine
   return newestIndex;
 }
 
-type GeneratedSceneBackgroundResponse = {
-  success: boolean;
-  filename: string;
-  url: string;
-  tag: string;
-};
-
-type GenerateSceneBackgroundPayload = {
-  chatId: string;
-  sceneDescription: string;
-  locationSlug: string;
-  reason: string;
-  force: boolean;
-  debugMode: boolean;
-  promptOverrides?: ImagePromptOverride[];
-};
-
 type GenerateRoleplaySceneVideoPayload = {
   chatId: string;
   galleryImageId?: string;
@@ -198,29 +181,6 @@ type GenerateConversationSelfiePayload = {
   queueImageGenerationRequests: boolean;
   debugMode: boolean;
 };
-
-function buildRoleplayBackgroundSceneDescription(args: {
-  chatName?: string | null;
-  characterNames: string[];
-  messages?: MessageWithSwipes[];
-}): string {
-  const recentMessages = (args.messages ?? [])
-    .filter((message) => message.role !== "system" && message.content.trim())
-    .slice(-8)
-    .map((message) => {
-      const label = message.role === "user" ? "User" : message.role === "assistant" ? "Character" : "Narrator";
-      return `${label}: ${message.content.replace(/\s+/g, " ").trim().slice(0, 260)}`;
-    });
-
-  return [
-    args.chatName ? `Chat: ${args.chatName}` : null,
-    args.characterNames.length ? `Characters in scene: ${args.characterNames.slice(0, 8).join(", ")}` : null,
-    recentMessages.length ? `Recent scene:\n${recentMessages.join("\n")}` : null,
-  ]
-    .filter(Boolean)
-    .join("\n")
-    .slice(0, 1200);
-}
 
 function sortLoadedMessagePagesChronologically(pages: MessageWithSwipes[][]): MessageWithSwipes[][] {
   return [...pages].sort((left, right) => {
@@ -1195,44 +1155,13 @@ export function ChatArea() {
     [chat?.id, chatMeta.characterSchedules, updateMeta],
   );
   const summaryContextSize: number = (chatMeta.summaryContextSize as number) ?? 50;
-  const [roleplayBackgroundReviewItems, setRoleplayBackgroundReviewItems] = useState<ImagePromptReviewItem[]>([]);
-  const [roleplayBackgroundReviewSubmitting, setRoleplayBackgroundReviewSubmitting] = useState(false);
   const [roleplayVideoReviewItems, setRoleplayVideoReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const [roleplayVideoReviewSubmitting, setRoleplayVideoReviewSubmitting] = useState(false);
   const [conversationSelfieReviewItems, setConversationSelfieReviewItems] = useState<ImagePromptReviewItem[]>([]);
   const [conversationSelfieReviewSubmitting, setConversationSelfieReviewSubmitting] = useState(false);
   const roleplaySceneVideoGeneratingRef = useRef(false);
-  const roleplayBackgroundReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
   const roleplayVideoReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
   const conversationSelfieReviewResolveRef = useRef<((overrides: ImagePromptOverride[] | null) => void) | null>(null);
-
-  const openRoleplayBackgroundPromptReview = useCallback((items: ImagePromptReviewItem[]) => {
-    if (roleplayBackgroundReviewResolveRef.current) {
-      toast.error("Finish or cancel the current background prompt review first.");
-      return Promise.resolve(null);
-    }
-    return new Promise<ImagePromptOverride[] | null>((resolve) => {
-      roleplayBackgroundReviewResolveRef.current = resolve;
-      setRoleplayBackgroundReviewSubmitting(false);
-      setRoleplayBackgroundReviewItems(items);
-    });
-  }, []);
-
-  const closeRoleplayBackgroundPromptReview = useCallback((overrides: ImagePromptOverride[] | null) => {
-    const resolve = roleplayBackgroundReviewResolveRef.current;
-    roleplayBackgroundReviewResolveRef.current = null;
-    setRoleplayBackgroundReviewSubmitting(false);
-    setRoleplayBackgroundReviewItems([]);
-    resolve?.(overrides);
-  }, []);
-
-  const confirmRoleplayBackgroundPromptReview = useCallback((overrides: ImagePromptOverride[]) => {
-    const resolve = roleplayBackgroundReviewResolveRef.current;
-    if (!resolve) return;
-    roleplayBackgroundReviewResolveRef.current = null;
-    setRoleplayBackgroundReviewSubmitting(true);
-    resolve(overrides);
-  }, []);
 
   const openRoleplayVideoPromptReview = useCallback((items: ImagePromptReviewItem[]) => {
     if (roleplayVideoReviewResolveRef.current) {
@@ -1292,9 +1221,6 @@ export function ChatArea() {
 
   useEffect(() => {
     return () => {
-      const resolve = roleplayBackgroundReviewResolveRef.current;
-      roleplayBackgroundReviewResolveRef.current = null;
-      resolve?.(null);
       const resolveVideo = roleplayVideoReviewResolveRef.current;
       roleplayVideoReviewResolveRef.current = null;
       resolveVideo?.(null);
@@ -1305,70 +1231,11 @@ export function ChatArea() {
   }, []);
 
   const handleGenerateRoleplayBackground = useCallback(async () => {
-    if (!activeChatId || !chat || (chatMode !== "roleplay" && chatMode !== "visual_novel")) return;
-    const sceneDescription = buildRoleplayBackgroundSceneDescription({
-      chatName: chat.name,
-      characterNames,
-      messages,
-    }).trim();
-    if (!sceneDescription) {
-      toast.error("Send a scene message before generating a background.");
-      return;
-    }
-
-    const locationSlug = [chat.name, messages?.[messages.length - 1]?.id, Date.now().toString(36)]
-      .filter(Boolean)
-      .join("-");
-    const payload: GenerateSceneBackgroundPayload = {
-      chatId: activeChatId,
-      sceneDescription,
-      locationSlug,
-      reason: "Manual Gallery background request",
-      force: true,
-      debugMode: useUIStore.getState().debugMode,
-    };
-
-    try {
-      if (useUIStore.getState().reviewImagePromptsBeforeSend) {
-        let preview: { items: ImagePromptReviewItem[] } | undefined;
-        try {
-          preview = await api.post<{ items: ImagePromptReviewItem[] }>(
-            "/backgrounds/generate-scene/preview",
-            payload,
-            { signal: AbortSignal.timeout(MEDIA_PROMPT_PREVIEW_TIMEOUT_MS) },
-          );
-        } catch (error) {
-          if (!isMediaPromptPreviewTimeout(error)) throw error;
-          toast.error("Background prompt preview timed out. Continuing with the default prompt.");
-        }
-        if (preview?.items.length) {
-          const overrides = await openRoleplayBackgroundPromptReview(preview.items);
-          if (!overrides) return;
-          payload.promptOverrides = overrides;
-        }
-      }
-
-      const result = await api.post<GeneratedSceneBackgroundResponse>("/backgrounds/generate-scene", payload);
-      useUIStore.getState().setChatBackground(result.url);
-      updateMeta.mutate({ id: activeChatId, background: result.filename });
-      queryClient.invalidateQueries({ queryKey: ["backgrounds"] });
-      toast.success("Background generated.", { duration: 1800 });
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Background generation failed.");
-    } finally {
-      closeRoleplayBackgroundPromptReview(null);
-    }
-  }, [
-    activeChatId,
-    characterNames,
-    chat,
-    chatMode,
-    closeRoleplayBackgroundPromptReview,
-    messages,
-    openRoleplayBackgroundPromptReview,
-    queryClient,
-    updateMeta,
-  ]);
+    if (!activeChatId) return;
+    await retryAgents(activeChatId, ["illustrator"], {
+      agentPromptTemplateIds: { illustrator: "background" },
+    });
+  }, [activeChatId, retryAgents]);
 
   const handleGenerateRoleplaySceneVideo = useCallback(
     async (source?: { galleryImageId?: string }) => {
@@ -3444,13 +3311,6 @@ export function ChatArea() {
         isSubmitting={illustratorPromptReviewSubmitting}
         onCancel={handleCloseIllustratorPromptReview}
         onConfirm={(overrides) => void handleContinueIllustratorPromptReview(overrides)}
-      />
-      <ImagePromptReviewModal
-        open={roleplayBackgroundReviewItems.length > 0}
-        items={roleplayBackgroundReviewItems}
-        isSubmitting={roleplayBackgroundReviewSubmitting}
-        onCancel={() => closeRoleplayBackgroundPromptReview(null)}
-        onConfirm={confirmRoleplayBackgroundPromptReview}
       />
       <ImagePromptReviewModal
         open={roleplayVideoReviewItems.length > 0}
