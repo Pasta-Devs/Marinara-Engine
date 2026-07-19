@@ -92,6 +92,8 @@ export interface MarkerContext {
   lorebookScanResultApplied?: boolean;
   /** When set, replaces all individual character scenario fields with this shared group scenario. */
   groupScenarioOverrideText?: string | null;
+  /** Whether the preset has an enabled marker that owns Example Dialogue placement. */
+  hasDialogueExamplesMarker?: boolean;
 }
 
 /** Expanded marker result. */
@@ -137,6 +139,18 @@ export function orderCharacterMarkerFields(fields: readonly string[]): string[] 
     .map(({ field }) => field);
 }
 
+/** Append Example Dialogue to Character Info when no dedicated marker owns it. */
+export function resolveCharacterMarkerFields(
+  configuredFields: readonly string[] | undefined,
+  hasDialogueExamplesMarker: boolean,
+): string[] {
+  const fields = [...(configuredFields ?? DEFAULT_CHARACTER_MARKER_FIELDS)];
+  if (!hasDialogueExamplesMarker && !fields.includes("mes_example") && !fields.includes("example_dialogue")) {
+    fields.push("mes_example");
+  }
+  return orderCharacterMarkerFields(fields);
+}
+
 /**
  * Expand a marker section into actual content based on its type and config.
  */
@@ -175,7 +189,7 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     const profile = characterMacroProfileFromData(data);
     const characterMacroContext = macroContextForCharacterProfile(ctx.macroCtx, profile);
 
-    const fields = orderCharacterMarkerFields(config.characterFields ?? DEFAULT_CHARACTER_MARKER_FIELDS);
+    const fields = resolveCharacterMarkerFields(config.characterFields, ctx.hasDialogueExamplesMarker === true);
 
     const charParts: string[] = [];
     for (const field of fields) {

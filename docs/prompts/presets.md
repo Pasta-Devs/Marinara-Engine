@@ -83,6 +83,8 @@ A **marker** is an auto-filled section. It has no text of its own. Instead, Mari
 
 A section that is a marker shows a **MARKER** badge in its row. Expand it to see a note that names the marker type. You cannot type content into most markers, because Marinara generates them for you.
 
+When a preset has no enabled **Dialogue Examples** marker, non-empty Example Dialogue is appended to **Character Info** after Scenario. It uses the preset's XML, Markdown, or unwrapped formatting. Add a Dialogue Examples marker when you want to control its placement explicitly; Marinara will not include it twice.
+
 If your chat has active lorebooks but your preset has no lorebook marker, a warning appears. It reads: "Add a lorebook marker when this preset should receive active lorebook entries." Add a lorebook marker so those entries reach the AI. See [Lorebooks Overview](../lorebooks/overview.md).
 
 If you have set up custom agents with the "inject as section" option turned on, the add menu shows an **Agent Sections** group. Each agent section inserts that agent's latest output into the prompt. You can add your own instructions around it.

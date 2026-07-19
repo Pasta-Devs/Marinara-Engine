@@ -309,6 +309,7 @@ import { resolveConversationConnectedChatContext } from "../../packages/server/s
 import {
   expandMarker,
   orderCharacterMarkerFields,
+  resolveCharacterMarkerFields,
   type MarkerContext,
 } from "../../packages/server/src/services/prompt/marker-expander.js";
 import {
@@ -3606,6 +3607,121 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         ]),
         ["description", "personality", "backstory", "appearance", "scenario", "mes_example", "system_prompt", "stats"],
       );
+      assert.deepEqual(resolveCharacterMarkerFields(undefined, false), [
+        "description",
+        "personality",
+        "backstory",
+        "appearance",
+        "scenario",
+        "mes_example",
+        "system_prompt",
+      ]);
+      assert.deepEqual(resolveCharacterMarkerFields(undefined, true), [
+        "description",
+        "personality",
+        "backstory",
+        "appearance",
+        "scenario",
+        "system_prompt",
+      ]);
+    },
+  },
+  {
+    name: "character markers append Example Dialogue only when no enabled dialogue marker owns it",
+    async run() {
+      const characterRow = {
+        id: "char-example-fallback",
+        data: JSON.stringify({
+          name: "Dottore",
+          description: "",
+          personality: "",
+          scenario: "CHARACTER_SCENARIO",
+          first_mes: "",
+          mes_example: "CHARACTER_EXAMPLE_DIALOGUE",
+          creator_notes: "",
+          system_prompt: "CHARACTER_SYSTEM_PROMPT",
+          post_history_instructions: "",
+          tags: [],
+          creator: "",
+          character_version: "1.0",
+          alternate_greetings: [],
+          extensions: {
+            talkativeness: 0.5,
+            fav: false,
+            world: "",
+            depth_prompt: { prompt: "", depth: 4, role: "system" },
+            backstory: "",
+            appearance: "",
+          },
+          character_book: null,
+        }),
+      };
+      const db = {
+        select: () => ({
+          from: () => ({ where: async () => [characterRow] }),
+        }),
+      } as unknown as DB;
+
+      const assemble = (wrapFormat: "xml" | "markdown" | "none", withDialogueMarker: boolean) =>
+        assemblePrompt({
+          db,
+          preset: {
+            id: `preset-example-fallback-${wrapFormat}`,
+            name: "Example Dialogue Fallback Fixture",
+            sectionOrder: JSON.stringify(withDialogueMarker ? ["character", "examples"] : ["character"]),
+            groupOrder: JSON.stringify([]),
+            wrapFormat,
+            parameters: JSON.stringify({}),
+            variableGroups: JSON.stringify([]),
+            variableValues: JSON.stringify({}),
+          },
+          sections: [
+            promptSection({
+              id: "character",
+              identifier: "characterInfo",
+              name: "Character Info",
+              isMarker: "true",
+              markerConfig: JSON.stringify({ type: "character" }),
+            }),
+            ...(withDialogueMarker
+              ? [
+                  promptSection({
+                    id: "examples",
+                    identifier: "dialogueExamples",
+                    name: "Dialogue Examples",
+                    isMarker: "true",
+                    markerConfig: JSON.stringify({ type: "dialogue_examples" }),
+                    injectionOrder: 1,
+                  }),
+                ]
+              : []),
+          ],
+          groups: [],
+          choiceBlocks: [],
+          chatChoices: {},
+          chatId: "chat-example-fallback",
+          characterIds: [characterRow.id],
+          personaName: "Mari",
+          personaDescription: "",
+          chatMessages: [],
+        });
+
+      for (const wrapFormat of ["xml", "markdown", "none"] as const) {
+        const result = await assemble(wrapFormat, false);
+        const promptText = result.messages.map((message) => message.content).join("\n");
+        assert.equal(promptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+        assert.ok(promptText.indexOf("CHARACTER_SCENARIO") < promptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE"));
+        assert.ok(promptText.indexOf("CHARACTER_EXAMPLE_DIALOGUE") < promptText.indexOf("CHARACTER_SYSTEM_PROMPT"));
+        if (wrapFormat === "xml") assert.match(promptText, /<mes_example>/);
+        if (wrapFormat === "markdown") assert.match(promptText, /#### mes_example/);
+        if (wrapFormat === "none") assert.equal(promptText.includes("mes_example"), false);
+      }
+
+      const explicitMarker = await assemble("xml", true);
+      const explicitPromptText = explicitMarker.messages.map((message) => message.content).join("\n");
+      assert.equal(explicitPromptText.match(/CHARACTER_EXAMPLE_DIALOGUE/g)?.length, 1);
+      assert.match(explicitPromptText, /<dialogue_examples>/);
+      assert.equal(explicitPromptText.includes("<mes_example>"), false);
     },
   },
   {
