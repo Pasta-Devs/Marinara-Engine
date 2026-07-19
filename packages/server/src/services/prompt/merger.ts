@@ -31,6 +31,11 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
     if (a.role !== b.role) return false;
     if ((a.characterId ?? null) !== (b.characterId ?? null)) return false;
+    if (
+      JSON.stringify(a.hiddenFromAICharacterIds ?? []) !== JSON.stringify(b.hiddenFromAICharacterIds ?? [])
+    ) {
+      return false;
+    }
     if (!a.contextKind || !b.contextKind) return true;
     return a.contextKind === b.contextKind;
   };
@@ -54,6 +59,9 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
         ...(mergedContextKind ? { contextKind: mergedContextKind } : {}),
         name: current.name,
         ...(current.characterId ? { characterId: current.characterId } : {}),
+        ...(current.hiddenFromAICharacterIds?.length
+          ? { hiddenFromAICharacterIds: current.hiddenFromAICharacterIds }
+          : {}),
         ...(mergedImages ? { images: mergedImages } : {}),
         ...(mergedFiles ? { files: mergedFiles } : {}),
         ...(mergedMeta ? { providerMetadata: mergedMeta } : {}),
@@ -85,15 +93,21 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
 
   if (systemEnd <= 1) return messages; // Nothing to squash
 
-  const combinedContent = messages
-    .slice(0, systemEnd)
-    .map((m) => m.content)
-    .join("\n\n");
+  // Character-scoped visibility must survive until the per-character prompt is
+  // prepared. Combining different audiences here would make that impossible.
+  const leadingSystemMessages = messages.slice(0, systemEnd);
+  const firstAudience = JSON.stringify(leadingSystemMessages[0]?.hiddenFromAICharacterIds ?? []);
+  if (
+    leadingSystemMessages.some(
+      (message) => JSON.stringify(message.hiddenFromAICharacterIds ?? []) !== firstAudience,
+    )
+  ) {
+    return messages;
+  }
+
+  const combinedContent = leadingSystemMessages.map((m) => m.content).join("\n\n");
   const contextKinds = new Set(
-    messages
-      .slice(0, systemEnd)
-      .map((m) => m.contextKind)
-      .filter(Boolean),
+    leadingSystemMessages.map((m) => m.contextKind).filter(Boolean),
   );
 
   return [
@@ -101,6 +115,9 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
       role: "system",
       content: combinedContent,
       ...(contextKinds.size === 1 ? { contextKind: [...contextKinds][0] } : {}),
+      ...(leadingSystemMessages[0]?.hiddenFromAICharacterIds?.length
+        ? { hiddenFromAICharacterIds: leadingSystemMessages[0].hiddenFromAICharacterIds }
+        : {}),
     },
     ...messages.slice(systemEnd),
   ];

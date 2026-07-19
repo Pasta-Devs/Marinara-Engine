@@ -1701,12 +1701,15 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAI")) {
         syncAllSwipeExtra.hiddenFromAI = partial.hiddenFromAI;
       }
+      if (Object.prototype.hasOwnProperty.call(partial, "hiddenFromAICharacterIds")) {
+        syncAllSwipeExtra.hiddenFromAICharacterIds = partial.hiddenFromAICharacterIds;
+      }
       if (Object.prototype.hasOwnProperty.call(partial, "reactions")) {
         syncAllSwipeExtra.reactions = partial.reactions;
       }
 
       if (Object.keys(syncAllSwipeExtra).length > 0) {
-        // hiddenFromAI and reactions are message-level fields, so keep them
+        // AI visibility and reactions are message-level fields, so keep them
         // stable across swipe changes instead of binding them to one swipe.
         const swipes = await storage.getSwipes(req.params.messageId);
         for (const swipe of swipes) {

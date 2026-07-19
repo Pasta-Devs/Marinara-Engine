@@ -7,6 +7,7 @@ export type GenerationPromptMessage = {
   content: string;
   contextKind?: "prompt" | "history" | "injection";
   characterId?: string | null;
+  hiddenFromAICharacterIds?: string[];
   images?: string[];
   files?: Array<{ type: string; data: string; filename?: string }>;
   providerMetadata?: Record<string, unknown>;
@@ -227,6 +228,21 @@ function reassignHistoryLastMessageWrapper(messages: GenerationPromptMessage[]):
     ...messages[lastHistoryIndex]!,
     content: `## Last Message\n${messages[lastHistoryIndex]!.content}`,
   };
+}
+
+export function filterPromptMessagesForCharacterAudience(
+  messages: GenerationPromptMessage[],
+  audienceCharacterIds: string[],
+): GenerationPromptMessage[] {
+  if (audienceCharacterIds.length === 0) return messages;
+  const audience = new Set(audienceCharacterIds);
+  const filtered = messages.filter(
+    (message) => !message.hiddenFromAICharacterIds?.some((characterId) => audience.has(characterId)),
+  );
+  if (filtered.length === messages.length) return messages;
+  reassignHistoryLastMessageWrapper(filtered);
+  pruneEmptyPromptWrappers(filtered);
+  return filtered;
 }
 
 export function scopeIndividualGroupMessagesForTarget(

@@ -1116,7 +1116,11 @@ type RoleplaySurfaceProps = {
   onEdit: (messageId: string, content: string) => void;
   onSetActiveSwipe: (messageId: string, index: number) => void;
   onToggleConversationStart: (messageId: string, current: boolean) => void;
-  onToggleHiddenFromAI: (messageId: string, current: boolean) => void;
+  onToggleHiddenFromAI: (
+    messageId: string,
+    hiddenFromAll: boolean,
+    hiddenFromAICharacterIds?: string[],
+  ) => void;
   onPeekPrompt: () => void;
   onBranch?: (messageId: string) => void;
   onCloneSceneFromHere?: (messageId: string) => void;

@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added per-character **Hide From AI** controls to Roleplay group chats, with avatar-based multi-selection, recipient markers, and character-scoped prompt history while preserving the existing global hide option.
 - Added `||` (OR), `&&` (AND), parentheses, and equality-list shorthand to conditional prompt macros, with matching in-app and documentation examples.
 - Added the `{{group}}` prompt macro for listing every other active chat character, including during targeted Roleplay group generation.
 - Added a chibi Professor Mari artwork icon to Marinara's Universal Preset for existing and new users.
@@ -14,6 +15,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept the Roleplay **Hide From AI** action on the selected chroma/accent color and suppressed the browser's transient tap-highlight color.
 - Kept Character and Persona prompt sections in editor order across preset markers, fallbacks, agent lore, and Game/scene card contexts: Description, Personality, Backstory, Appearance, Scenario, then Example Dialogue when present (#3817).
 - Made PocketTTS server voices directly selectable for global, character, and narrator assignments while retaining custom voice IDs, URLs, and paths, and aligned new PocketTTS setups with the compatible server's default endpoint (#3786).
 - Streamed Roleplay and Game scene-video files with standard byte-range and HEAD handling instead of synchronously buffering complete MP4 files for every playback request (#3811).
