@@ -169,7 +169,6 @@ export function CharacterTrackerCard({
   characterIndex = 0,
   deleteMode = false,
   addMode = false,
-  hideMode = false,
   featured = false,
   onToggleFeatured,
   onUploadAvatar,
@@ -190,13 +189,19 @@ export function CharacterTrackerCard({
   characterIndex?: number;
   deleteMode?: boolean;
   addMode?: boolean;
-  hideMode?: boolean;
   featured?: boolean;
   onToggleFeatured?: () => void;
   onUploadAvatar?: () => void;
 }) {
-  const { fieldLocks, hiddenTrackerFields, lockMode, onToggleFieldLock, onUpdateFieldLocks, onUpdateHiddenFields } =
-    useTrackerLockContext();
+  const {
+    fieldLocks,
+    hiddenTrackerFields,
+    hideMode = false,
+    lockMode,
+    onToggleFieldLock,
+    onUpdateFieldLocks,
+    onUpdateHiddenFields,
+  } = useTrackerLockContext();
   if (featured) {
     return (
       <FeaturedCharacterTrackerCard
@@ -216,7 +221,6 @@ export function CharacterTrackerCard({
         characterIndex={characterIndex}
         deleteMode={deleteMode}
         addMode={addMode}
-        hideMode={hideMode}
         onToggleFeatured={onToggleFeatured}
         onUploadAvatar={onUploadAvatar}
       />

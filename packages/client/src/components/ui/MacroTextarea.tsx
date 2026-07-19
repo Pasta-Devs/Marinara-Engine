@@ -211,7 +211,7 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
           <div className="max-h-[calc(88vh-4rem)] space-y-4 overflow-y-auto p-4 supports-[height:100dvh]:max-h-[calc(88dvh-4rem)]">
             <section className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-xs text-[var(--muted-foreground)]">
               <p>
-                Use <code className="text-[var(--foreground)]">{"{{macro}}"}</code> anywhere in prompt fields. Conditional blocks let you include content only when a value exists.
+                Use <code className="text-[var(--foreground)]">{"{{macro}}"}</code> anywhere in prompt fields. Conditional blocks can combine checks with <code className="text-[var(--foreground)]">||</code> (OR) and <code className="text-[var(--foreground)]">&&</code> (AND).
               </p>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
@@ -219,8 +219,8 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
                   <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">{"{{#if character == \"Dottore\"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}"}</code>
                 </div>
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
-                  <p className="font-semibold text-[var(--foreground)]">Supported comparisons</p>
-                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">{"{{#if character != \"Dottore\"}}\n...\n{{/if}}\n{{#if user contains \"Mari\"}}\n...\n{{/if}}"}</code>
+                  <p className="font-semibold text-[var(--foreground)]">Comparisons and logic</p>
+                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">{"{{#if character == \"Maukie\" || \"Pantalone\"}}\n...\n{{/if}}\n{{#if scenario && user contains \"Mari\"}}\n...\n{{/if}}"}</code>
                 </div>
               </div>
             </section>

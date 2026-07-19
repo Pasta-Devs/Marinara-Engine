@@ -29,7 +29,7 @@ import {
   getTrackerProfilePortraitSide,
 } from "../../lib/tracker-profile-layout";
 import { resolveSpriteUrl } from "../../lib/sprite-expressions";
-import { getPersonaStatDensity } from "../../lib/tracker-stat-layout";
+import { getTrackerStatDensity } from "../../lib/tracker-stat-layout";
 import { getPersonaAmbienceStyle } from "../../lib/tracker-profile-style";
 import { InlineAddRow, InlineEdit } from "../controls/InlineControls";
 import { TrackerProfileNameplate } from "../controls/TrackerProfileNameplate";
@@ -216,7 +216,7 @@ export function PersonaInventoryPanel({
   const hasPersonaStats = personaStats.length > 0;
   const showInventoryInStatColumn = !hasPersonaStats;
   const hasPersonaStatBlock = hasPersonaStats || addMode || showInventoryInStatColumn;
-  const personaStatDensity = getPersonaStatDensity(personaStats.length, addMode, personaPortraitStageRem);
+  const personaStatDensity = getTrackerStatDensity(personaStats.length, addMode, personaPortraitStageRem);
   const fillPersonaStats = personaStatDensity === "normal" && personaStats.length >= 3;
   const useExpandedPersonaStatColumns = trackerPanelSizeProfile === "expanded" && personaStats.length >= 6;
   const personaPortraitSide = getTrackerProfilePortraitSide(trackerPanelSide);

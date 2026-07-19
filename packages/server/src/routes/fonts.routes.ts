@@ -6,9 +6,9 @@ import { logger } from "../lib/logger.js";
 import { existsSync, mkdirSync, createReadStream } from "fs";
 import { readdir, readFile, rename, unlink, writeFile } from "fs/promises";
 import { join, extname, basename } from "path";
-import { execFile } from "child_process";
-import { platform } from "os";
 import { DATA_DIR } from "../utils/data-dir.js";
+import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
 
 const FONTS_DIR = join(DATA_DIR, "fonts");
 const FONT_METADATA_FILE = join(FONTS_DIR, "font-metadata.json");
@@ -371,13 +371,15 @@ export async function fontsRoutes(app: FastifyInstance) {
   });
 
   /** Open the data/fonts folder in the native file explorer */
-  app.post("/open-folder", async (_req, reply) => {
+  app.post("/open-folder", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { loopbackOnly: true, feature: "Fonts folder opening" })) return;
     ensureDir();
-    const os = platform();
-    const cmd = os === "darwin" ? "open" : os === "win32" ? "explorer" : "xdg-open";
-    execFile(cmd, [FONTS_DIR], (err) => {
-      if (err) logger.warn(err, "Could not open fonts folder");
-    });
+    try {
+      await openFolderInFileManager(FONTS_DIR);
+    } catch (err) {
+      logger.warn(err, "Could not open fonts folder");
+      return reply.status(500).send({ error: "Could not open fonts folder" });
+    }
     return reply.send({ ok: true, path: FONTS_DIR });
   });
 

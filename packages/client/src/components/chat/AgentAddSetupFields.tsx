@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from "react";
-import { Check, Loader2, Upload } from "lucide-react";
+import { Check, FolderOpen, Loader2, Upload } from "lucide-react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import {
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
@@ -33,6 +33,7 @@ import {
 
 export type KnowledgeAgentType = "knowledge-retrieval" | "knowledge-router";
 export type MusicProvider = "spotify" | "youtube" | "custom";
+export type CustomMusicSource = "game-assets" | "folder";
 
 export type AgentAddSetupState = {
   directorMode: "natural" | "random";
@@ -63,7 +64,9 @@ export type AgentAddSetupState = {
   spotifyPlaylistName: string | null;
   spotifyArtist: string;
   musicProvider: MusicProvider;
+  customMusicSource: CustomMusicSource;
   customMusicFolder: string;
+  customMusicExternalFolder: string;
   hapticFeedbackEnabled: boolean;
   hapticSensitivity: HapticFeedbackSensitivity;
   hapticIncidentalContact: boolean;
@@ -137,6 +140,15 @@ function normalizeCustomMusicFolder(value: unknown): string {
   const normalized = raw.replace(/^\/+/, "").replace(/\/+$/g, "");
   if (!normalized || normalized.includes("..")) return "music";
   return normalized.startsWith("music") ? normalized : `music/${normalized}`;
+}
+
+export function normalizeCustomMusicSource(settings: Record<string, unknown>): CustomMusicSource {
+  const source = settings.customMusicSource ?? settings.localMusicSource;
+  return source === "folder" ? "folder" : "game-assets";
+}
+
+export function normalizeCustomMusicExternalFolder(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function normalizeHapticSensitivity(value: unknown): HapticFeedbackSensitivity {
@@ -321,7 +333,11 @@ export function buildInitialAgentAddSetupState({
     spotifyPlaylistName: readString(metadata.spotifyPlaylistName) || null,
     spotifyArtist: readString(metadata.spotifyArtist),
     musicProvider,
+    customMusicSource: normalizeCustomMusicSource(settings),
     customMusicFolder: normalizeCustomMusicFolder(settings.customMusicFolder ?? metadata.customMusicFolder),
+    customMusicExternalFolder: normalizeCustomMusicExternalFolder(
+      settings.customMusicExternalFolder ?? settings.localMusicExternalFolder,
+    ),
     hapticFeedbackEnabled: metadata.enableHapticFeedback === true,
     hapticSensitivity: normalizeHapticSensitivity(metadata.hapticSensitivity),
     hapticIncidentalContact: metadata.hapticIncidentalContact === true,
@@ -362,9 +378,10 @@ export function applyAgentAddSetupToAgentSettings(
   }
   if (agentId === "spotify") {
     next.musicProvider = setup.musicProvider;
+    next.customMusicSource = setup.customMusicSource;
     next.customMusicFolder = normalizeCustomMusicFolder(setup.customMusicFolder);
-    next.enabledTools =
-      setup.musicProvider === "spotify" ? next.enabledTools : [];
+    next.customMusicExternalFolder = normalizeCustomMusicExternalFolder(setup.customMusicExternalFolder);
+    next.enabledTools = setup.musicProvider === "spotify" ? next.enabledTools : [];
   }
   if (agentId === "illustrator") {
     next.includeCharacterAppearance = setup.includeCharacterAppearance;
@@ -1103,6 +1120,19 @@ function MusicDjSetupFields({
     retry: false,
   });
 
+  const selectCustomMusicFolder = async () => {
+    try {
+      const data = await api.post<{ success: boolean; path: string }>("/game-assets/pick-local-music-folder");
+      if (data.success !== true || !data.path) throw new Error("No folder selected.");
+      onChange({ customMusicSource: "folder", customMusicExternalFolder: data.path });
+    } catch (error) {
+      await showAlertDialog({
+        title: "Couldn't Select Music Folder",
+        message: error instanceof Error ? error.message : "The music folder could not be selected.",
+      });
+    }
+  };
+
   return (
     <div className="space-y-2.5 rounded-lg bg-[var(--background)]/65 px-3 py-2.5 ring-1 ring-[var(--border)]">
       <p className="text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1207,20 +1237,67 @@ function MusicDjSetupFields({
           YouTube mode uses the Music DJ agent's saved YouTube connection and embedded player.
         </p>
       ) : (
-        <label className="flex flex-col gap-1 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
-          <SetupLabel>Custom Music Folder</SetupLabel>
-          <input
-            value={value.customMusicFolder}
-            disabled={disabled}
-            onChange={(event) => onChange({ customMusicFolder: event.target.value })}
-            onBlur={() => onChange({ customMusicFolder: normalizeCustomMusicFolder(value.customMusicFolder) })}
-            placeholder="music"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
-          />
-          <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
-            Reads local audio from Game Assets, for example <code>music</code> or <code>music/combat</code>.
-          </span>
-        </label>
+        <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
+          <label className="flex flex-col gap-1">
+            <SetupLabel>Custom Music Source</SetupLabel>
+            <select
+              value={value.customMusicSource}
+              disabled={disabled}
+              onChange={(event) => onChange({ customMusicSource: event.target.value as CustomMusicSource })}
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="game-assets">Game Assets</option>
+              <option value="folder">Folder on this device</option>
+            </select>
+          </label>
+
+          {value.customMusicSource === "folder" ? (
+            <div className="flex flex-col gap-1">
+              <SetupLabel>Music Folder on This Device</SetupLabel>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  value={value.customMusicExternalFolder}
+                  disabled={disabled}
+                  onChange={(event) => onChange({ customMusicExternalFolder: event.target.value })}
+                  onBlur={() =>
+                    onChange({
+                      customMusicExternalFolder: normalizeCustomMusicExternalFolder(value.customMusicExternalFolder),
+                    })
+                  }
+                  placeholder="No folder selected"
+                  className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => void selectCustomMusicFolder()}
+                  className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--muted)] px-3 text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <FolderOpen size="0.75rem" />
+                  Choose Folder
+                </button>
+              </div>
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                Music DJ will choose from audio files in this folder and its subfolders.
+              </span>
+            </div>
+          ) : (
+            <label className="flex flex-col gap-1">
+              <SetupLabel>Game Assets Music Folder</SetupLabel>
+              <input
+                value={value.customMusicFolder}
+                disabled={disabled}
+                onChange={(event) => onChange({ customMusicFolder: event.target.value })}
+                onBlur={() => onChange({ customMusicFolder: normalizeCustomMusicFolder(value.customMusicFolder) })}
+                placeholder="music"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 font-mono text-xs text-[var(--foreground)] placeholder:text-[var(--muted-foreground)]/50 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <span className="text-[0.5625rem] text-[var(--muted-foreground)]">
+                Reads local audio from Game Assets, for example <code>music</code> or <code>music/combat</code>.
+              </span>
+            </label>
+          )}
+        </div>
       )}
     </div>
   );

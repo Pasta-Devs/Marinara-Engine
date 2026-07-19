@@ -78,7 +78,7 @@ const TTS_SOURCE_DEFAULTS: Record<
   },
   pockettts: {
     label: "PocketTTS",
-    baseUrl: "http://localhost:8000",
+    baseUrl: "http://localhost:49112",
     model: "pocket-tts",
     voice: "alba",
     idleText: "Local PocketTTS",
@@ -343,6 +343,55 @@ function TtsDropdownIcon({ compact = false }: { compact?: boolean }) {
     >
       <ChevronDown size={compact ? "0.6875rem" : "0.75rem"} />
     </span>
+  );
+}
+
+function PocketTTSVoiceControl({
+  value,
+  options,
+  fetching,
+  selectLabel,
+  inputLabel,
+  onChange,
+}: {
+  value: string;
+  options: VoiceOption[];
+  fetching: boolean;
+  selectLabel: string;
+  inputLabel: string;
+  onChange: (value: string) => void;
+}) {
+  const selectedServerVoice = options.some((option) => option.id === value) ? value : "";
+
+  return (
+    <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
+      <div className="relative">
+        <select
+          aria-label={selectLabel}
+          value={selectedServerVoice}
+          onChange={(event) => {
+            if (event.target.value) onChange(event.target.value);
+          }}
+          disabled={fetching || options.length === 0}
+          className={cn(INPUT_CLS, "cursor-pointer appearance-none pr-10")}
+        >
+          <option value="">{fetching ? "Loading server voices…" : "Choose server voice"}</option>
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {formatVoiceOptionLabel(option)}
+            </option>
+          ))}
+        </select>
+        <TtsDropdownIcon />
+      </div>
+      <input
+        aria-label={inputLabel}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={INPUT_CLS}
+        placeholder="Voice ID, URL, or path"
+      />
+    </div>
   );
 }
 
@@ -972,7 +1021,7 @@ export function TTSConfigCard() {
               source === "elevenlabs"
                 ? "The ElevenLabs API root. Use the default unless you proxy ElevenLabs through another server."
                 : source === "pockettts"
-                  ? "The PocketTTS server root. Start it with pocket-tts serve, then use http://localhost:8000 unless you changed the port."
+                  ? "The PocketTTS OpenAI-compatible server root. Its default is http://localhost:49112 unless you changed the port."
                   : source === "xai"
                     ? "The xAI Voice API root. Use https://api.x.ai/v1 unless you proxy xAI through another server."
                     : "The OpenAI-compatible TTS API endpoint. Use the default for OpenAI or point to a self-hosted server."
@@ -1095,23 +1144,17 @@ export function TTSConfigCard() {
             >
               <div className="flex gap-2">
                 {source === "pockettts" ? (
-                  <>
-                    <input
-                      value={voice}
-                      list="pockettts-voices"
-                      onChange={(e) => {
-                        setVoice(e.target.value);
-                        mark({ voice: e.target.value });
-                      }}
-                      className={cn(INPUT_CLS, "flex-1")}
-                      placeholder="alba or a voice URL/path"
-                    />
-                    <datalist id="pockettts-voices">
-                      {voiceOptions.map((option) => (
-                        <option key={option.id} value={option.id} />
-                      ))}
-                    </datalist>
-                  </>
+                  <PocketTTSVoiceControl
+                    value={voice}
+                    options={voiceOptions}
+                    fetching={fetchingVoices}
+                    selectLabel="PocketTTS server voice"
+                    inputLabel="PocketTTS voice ID, URL, or path"
+                    onChange={(nextVoice) => {
+                      setVoice(nextVoice);
+                      mark({ voice: nextVoice });
+                    }}
+                  />
                 ) : (
                   <select
                     value={voice}
@@ -1162,6 +1205,11 @@ export function TTSConfigCard() {
                 <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                   Showing PocketTTS built-in fallbacks. Save and refresh to load built-in and custom voices from your
                   server.
+                </p>
+              )}
+              {voicesFromProvider && source === "pockettts" && (
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  Loaded {voices.length} voice{voices.length === 1 ? "" : "s"} from PocketTTS server.
                 </p>
               )}
               {!voicesFromProvider && source === "xai" && voices.length > 0 && (
@@ -1260,20 +1308,14 @@ export function TTSConfigCard() {
               {narratorVoiceEnabled && (
                 <div className="flex gap-2 max-sm:flex-col">
                   {source === "pockettts" ? (
-                    <>
-                      <input
-                        value={narratorVoice}
-                        list="pockettts-narrator-voices"
-                        onChange={(e) => handleNarratorVoiceChange(e.target.value)}
-                        className={cn(INPUT_CLS, "min-w-0 flex-1")}
-                        placeholder="alba or a voice URL/path"
-                      />
-                      <datalist id="pockettts-narrator-voices">
-                        {voiceOptions.map((option) => (
-                          <option key={option.id} value={option.id} />
-                        ))}
-                      </datalist>
-                    </>
+                    <PocketTTSVoiceControl
+                      value={narratorVoice}
+                      options={voiceOptions}
+                      fetching={fetchingVoices}
+                      selectLabel="PocketTTS narrator server voice"
+                      inputLabel="PocketTTS narrator voice ID, URL, or path"
+                      onChange={handleNarratorVoiceChange}
+                    />
                   ) : (
                     <select
                       value={narratorVoice}

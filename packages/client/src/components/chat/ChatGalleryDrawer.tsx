@@ -29,7 +29,7 @@ interface ChatGalleryDrawerProps {
   /** Generate an on-demand Conversation selfie. */
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
   selfieCharacters?: Array<{ id: string; name: string }>;
-  /** Generate and apply a background for the current scene. */
+  /** Run Illustrator in its background prompt mode. */
   onGenerateBackground?: () => void | Promise<void>;
   /** Generate a storyboard for the latest completed Game Mode GM turn. */
   onGenerateStoryboard?: () => void | Promise<void>;

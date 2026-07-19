@@ -131,8 +131,8 @@ async function buildCharacterContext(chars: ReturnType<typeof createCharactersSt
     ctx += `<character="${data.name}" id="${cid}">\n`;
     if (description) ctx += `${description}\n`;
     if (data.personality) ctx += `${data.personality}\n`;
-    if (data.extensions?.appearance) ctx += `Appearance: ${data.extensions.appearance}\n`;
     if (data.extensions?.backstory) ctx += `Backstory: ${data.extensions.backstory}\n`;
+    if (data.extensions?.appearance) ctx += `Appearance: ${data.extensions.appearance}\n`;
     ctx += `</character>\n\n`;
   }
   return ctx;

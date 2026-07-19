@@ -28,6 +28,7 @@ import { GAME_ASSETS_DIR, buildAssetManifest, getAssetManifest } from "../servic
 import { folderContainsBundledGameAssets, isBundledGameAsset } from "../services/game/native-game-assets.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { assertInsideDir } from "../utils/security.js";
+import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
 
 const META_PATH = join(GAME_ASSETS_DIR, "meta.json");
 
@@ -524,12 +525,12 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
     return reply.header("Content-Type", mime).header("Cache-Control", "public, max-age=604800").send(stream);
   });
 
-  // ── GET /game-assets/local-music-file/:encoded ──
+  // ── GET /game-assets/local-music-file?path=:encoded ──
   // Serves an audio file selected through the local music folder picker.
-  app.get("/local-music-file/:encoded", async (req, reply) => {
+  app.get("/local-music-file", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Custom music folder picker" })) return;
 
-    const { encoded } = (req.params as { encoded?: string }) ?? {};
+    const { path: encoded } = (req.query as { path?: string }) ?? {};
     if (!encoded) {
       return reply.status(400).send({ error: "Missing music file" });
     }
@@ -700,17 +701,19 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
 
   // ── POST /game-assets/open-folder ──
   app.post("/open-folder", async (req, reply) => {
+    if (!requirePrivilegedAccess(req, reply, { loopbackOnly: true, feature: "Game assets folder opening" })) return;
     const { subfolder } = (req.body as { subfolder?: string }) ?? {};
     let target = GAME_ASSETS_DIR;
     if (subfolder && isSafePath(subfolder)) {
       target = join(GAME_ASSETS_DIR, subfolder);
     }
     if (!existsSync(target)) mkdirSync(target, { recursive: true });
-    const os = platform();
-    const cmd = os === "darwin" ? "open" : os === "win32" ? "explorer" : "xdg-open";
-    execFile(cmd, [target], (err) => {
-      if (err) logger.warn(err, "Could not open game assets folder");
-    });
+    try {
+      await openFolderInFileManager(target);
+    } catch (err) {
+      logger.warn(err, "Could not open game assets folder");
+      return reply.status(500).send({ error: "Could not open game assets folder" });
+    }
     return reply.send({ ok: true, path: target });
   });
 

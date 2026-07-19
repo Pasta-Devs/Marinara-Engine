@@ -30,6 +30,8 @@ Package lifecycle and storage:
 
 Configuration lives in a file named `.env`. This is a plain text file with one setting per line, in the form `KEY=value`. Lines that start with `#` are comments and the server ignores them.
 
+The `.env` file is data, not a shell script. Marinara does not execute `$`, command substitutions such as `$(...)`, or other shell syntax found in a value. The macOS/Linux and Termux launchers use the same non-evaluating rule for the small set of settings they need before server startup. A value already supplied in the launcher's environment takes precedence over the matching `.env` entry.
+
 Marinara creates an empty `.env` for you the first time it starts, so you do not have to make one by hand.
 
 - On normal installs, the `.env` file sits in the project root folder.

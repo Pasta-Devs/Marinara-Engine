@@ -738,13 +738,25 @@ const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
 );
+const presetsPanelSource = readFileSync(
+  new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
+  "utf8",
+);
 const transcriptWindowControlsSource = readFileSync(
   new URL("../../packages/client/src/components/chat/TranscriptWindowControls.tsx", import.meta.url),
+  "utf8",
+);
+const localMusicPlayerSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/LocalMusicPlayer.tsx", import.meta.url),
   "utf8",
 );
 const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
 const galleryRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
+  "utf8",
+);
+const gameAssetsRoutesSource = readFileSync(
+  new URL("../../packages/server/src/routes/game-assets.routes.ts", import.meta.url),
   "utf8",
 );
 const conversationSelfieRuntimeSource = readFileSync(
@@ -755,6 +767,13 @@ assert.match(appSource, /--marinara-app-accent-static-gradient/u);
 assert.match(appSource, /swipeDirections=\{\["left", "right", "top"\]\}/u);
 assert.doesNotMatch(agentEditorSource, /fetch\(["']\/api\/game-assets\/pick-local-music-folder/u);
 assert.match(agentEditorSource, /api\.post<[^>]+>\(["']\/game-assets\/pick-local-music-folder["']\)/u);
+assert.match(localMusicPlayerSource, /api\.raw\(`\/game-assets\/local-music-file\?path=\$\{encodedPath\}`\)/u);
+assert.match(localMusicPlayerSource, /URL\.createObjectURL\(await response\.blob\(\)\)/u);
+assert.match(localMusicPlayerSource, /URL\.revokeObjectURL/u);
+assert.doesNotMatch(localMusicPlayerSource, /return `\/api\/game-assets\/local-music-file/u);
+assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
+assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
+assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
 assert.match(characterEditorSource, /avatar preview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(
@@ -770,6 +789,15 @@ assert.doesNotMatch(gameAssetStoreSource, /api\.|fetchManifest|rescanAssets|\/ga
 assert.match(sidecarStoreSource, /consumeSidecarDownloadStream/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
 assert.match(connectionsPanelSource, /Failed to delete the Local Whisper model/u);
+assert.match(presetsPanelSource, /MARINARA_UNIVERSAL_PRESET_ARTWORK/u);
+assert.match(
+  presetsPanelSource,
+  /preset\.name === MARINARA_UNIVERSAL_PRESET_NAME && preset\.author === MARINARA_UNIVERSAL_PRESET_AUTHOR/u,
+);
+assert.equal(
+  existsSync(join(REPOSITORY_ROOT, "packages/client/public/illustrations/marinara-universal-preset.webp")),
+  true,
+);
 assert.match(
   transcriptWindowControlsSource,
   /const TRANSCRIPT_WINDOW_BUTTON_CLASS = "mari-chrome-control mari-chrome-control--small px-3 text-xs";/u,
@@ -1071,6 +1099,21 @@ assert.match(
 );
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.set\(connectionId, resolution\)/);
+assert.match(
+  chatAreaPromptReviewSource,
+  /agentPromptTemplateIds:\s*\{\s*illustrator:\s*"background"\s*\}/,
+  "the Gallery Background action should run Illustrator with its background prompt mode",
+);
+assert.doesNotMatch(
+  chatAreaPromptReviewSource,
+  /"\/backgrounds\/generate-scene"/,
+  "the Gallery Background action should not bypass Illustrator through direct scene generation",
+);
+assert.match(
+  retryAgentsPromptReviewSource,
+  /\.\.\.normalizeAgentPromptTemplateSelectionMap\(agentPromptTemplateIds\)/,
+  "manual retries should apply per-run prompt mode overrides",
+);
 
 const sharedGameSetupSource: GameSetupShareSource = {
   gameName: "Tower Run",
@@ -1811,6 +1854,16 @@ const comfyPlaceholderPng = Buffer.from(COMFYUI_PLACEHOLDER_REFERENCE_BASE64, "b
 assert.equal(comfyPlaceholderPng.toString("ascii", 1, 4), "PNG");
 assert.equal(comfyPlaceholderPng.readUInt32BE(16), 16);
 assert.equal(comfyPlaceholderPng.readUInt32BE(20), 16);
+
+const chatRoutesSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"),
+  "utf8",
+);
+assert.match(
+  chatRoutesSource,
+  /if \(existing\.mode === "conversation" && hasStartedChat\) \{/u,
+  "Only Conversation chats should create character membership timeline notices",
+);
 
 const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
 for (const workspace of ["shared", "server", "client"]) {

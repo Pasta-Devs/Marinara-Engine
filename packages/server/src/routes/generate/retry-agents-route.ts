@@ -139,7 +139,7 @@ import {
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
 import {
-  isNovelAiImageConnection,
+  suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   resolveIllustratorCharacterReferences,
 } from "./illustrator-references.js";
@@ -1038,13 +1038,17 @@ async function resolveRetryAgents(args: {
   chat: any;
   conns: ReturnType<typeof createConnectionsStorage>;
   agentsStore: ReturnType<typeof createAgentsStorage>;
+  agentPromptTemplateIds?: unknown;
   activeMusicPlayerSource?: "spotify" | "youtube" | "custom" | null;
   onFallback?: GenerationFallbackNotifier;
 }): Promise<ResolvedRetryAgents> {
-  const { agentTypes, chat, conns, agentsStore, activeMusicPlayerSource, onFallback } = args;
+  const { agentTypes, chat, conns, agentsStore, agentPromptTemplateIds, activeMusicPlayerSource, onFallback } = args;
   const chatMode = ((chat as { mode?: ChatMode }).mode ?? "conversation") as ChatMode;
   const chatMeta = parseExtra((chat as { metadata?: unknown }).metadata);
-  const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
+  const agentPromptTemplateSelections = {
+    ...normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds),
+    ...normalizeAgentPromptTemplateSelectionMap(agentPromptTemplateIds),
+  };
   const activeAgentTypeSet = resolveActiveRetryAgentTypes(chatMode, chatMeta);
   const normalizedAgentTypes = agentTypes.map(normalizeRetryAgentTypeId);
   const agentTypeSet = new Set(
@@ -2546,14 +2550,58 @@ async function applyRetryResultEffects(args: {
       .then((snapshot) => projectGameSnapshotLocation(snapshot, retryOwnerSpatialProjection));
     return retryBaseGameStateSnapshotPromise;
   };
+  const buildSnapshotUpdateOptions = async () => ({
+    baseSnapshot: await loadRetryBaseGameStateSnapshot(),
+    ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
+  });
   const loadRetryTargetGameStateSnapshot = async () => {
-    if (!retryMessageId) return null;
+    if (!retryMessageId) {
+      const latest = await gameStateStore.getLatest(chatId);
+      if (latest) return projectGameSnapshotLocation(latest, retryOwnerSpatialProjection);
+
+      await gameStateStore.create({
+        chatId,
+        messageId: "",
+        swipeIndex: 0,
+        date: null,
+        time: null,
+        location: retryCompatibilityLocation,
+        weather: null,
+        temperature: null,
+        worldCustomFields: [],
+        presentCharacters: [],
+        recentEvents: [],
+        playerStats: null,
+        personaStats: null,
+        fieldLocks: null,
+        hiddenTrackerFields: null,
+      });
+      return projectGameSnapshotLocation(await gameStateStore.getLatest(chatId), retryOwnerSpatialProjection);
+    }
     const existing = await gameStateStore.getByMessage(retryMessageId, retrySwipeIndex);
     if (existing) return projectGameSnapshotLocation(existing, retryOwnerSpatialProjection);
-    return gameStateStore.updateByMessage(retryMessageId, retrySwipeIndex, chatId, {}, undefined, {
-      baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-      ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-    });
+    return gameStateStore.updateByMessage(
+      retryMessageId,
+      retrySwipeIndex,
+      chatId,
+      {},
+      undefined,
+      await buildSnapshotUpdateOptions(),
+    );
+  };
+  const updateRetryTargetGameStateSnapshot = async (fields: Record<string, unknown>) => {
+    if (retryMessageId) {
+      return gameStateStore.updateByMessage(
+        retryMessageId,
+        retrySwipeIndex,
+        chatId,
+        fields as any,
+        undefined,
+        await buildSnapshotUpdateOptions(),
+      );
+    }
+    await loadRetryTargetGameStateSnapshot();
+    return gameStateStore.updateLatest(chatId, fields as any);
   };
 
   for (const result of sortedResults) {
@@ -2620,7 +2668,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "game_state_update" &&
       result.agentType !== "combat" &&
@@ -2651,17 +2698,7 @@ async function applyRetryResultEffects(args: {
           lockedWorldStatePatch.location = retryCompatibilityLocation;
         }
         if (Object.keys(worldStatePatch).length > 0 || retryCompatibilityLocation !== null) {
-          await gameStateStore.updateByMessage(
-            retryMessageId,
-            retrySwipeIndex,
-            chatId,
-            lockedWorldStatePatch as any,
-            undefined,
-            {
-              baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-              ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-            },
-          );
+          await updateRetryTargetGameStateSnapshot(lockedWorldStatePatch);
         }
 
         const nextLocation = typeof lockedWorldStatePatch.location === "string" ? lockedWorldStatePatch.location : null;
@@ -2720,7 +2757,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "character_tracker_update" &&
       result.data &&
@@ -2760,16 +2796,7 @@ async function applyRetryResultEffects(args: {
         presentCharacters = Array.isArray(lockedCharacterPatch.presentCharacters)
           ? lockedCharacterPatch.presentCharacters
           : presentCharacters;
-        await gameStateStore.updateByMessage(
-          retryMessageId,
-          retrySwipeIndex,
-          chatId,
-          {
-            presentCharacters,
-          },
-          undefined,
-          { baseSnapshot: await loadRetryBaseGameStateSnapshot() },
-        );
+        await updateRetryTargetGameStateSnapshot({ presentCharacters });
         sendSseEvent(reply, { type: "game_state_patch", data: { presentCharacters } });
       } catch (err) {
         logger.error(err, "[retry-agents] Failed to apply character-tracker update");
@@ -2777,7 +2804,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "persona_stats_update" &&
       result.data &&
@@ -2878,7 +2904,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "quest_update" &&
       result.data &&
@@ -2948,7 +2973,6 @@ async function applyRetryResultEffects(args: {
     }
 
     if (
-      retryMessageId &&
       result.success &&
       result.type === "custom_tracker_update" &&
       result.data &&
@@ -3026,14 +3050,17 @@ async function applyRetryResultEffects(args: {
             const imgApiKey = imgConnFull.apiKey || "";
             const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
             const imgServiceHint = imgConnFull.imageService || imgSource;
-            const suppressReferencePromptLine = isNovelAiImageConnection({
-              model: imgModel,
-              baseUrl: imgBaseUrl,
-              imageService: imgServiceHint,
-              imageGenerationSource: imgSource,
-            });
-            const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
             const imageFallback = await resolveImageConnectionFallback(conns, imgConnFull.id);
+            const suppressReferencePromptLine = suppressesReferencePromptLine(
+              {
+                model: imgModel,
+                baseUrl: imgBaseUrl,
+                imageService: imgServiceHint,
+                imageGenerationSource: imgSource,
+              },
+              imageFallback,
+            );
+            const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
             const imageSettings = await loadImageGenerationUserSettings(app.db);
 
             const chatMeta = typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {});
@@ -3354,6 +3381,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       queueImageGenerationRequests?: boolean;
       /** Pause a manual Illustrator retry after prompt compilation so the client can review it. */
       reviewImagePromptsBeforeSend?: boolean;
+      /** Override prompt modes for this retry without changing the chat's saved selections. */
+      agentPromptTemplateIds?: unknown;
       /** Resume a reviewed Illustrator retry without running the Illustrator LLM a second time. */
       illustratorPromptReviewOverride?: unknown;
       lorebookKeeperBackfill?: boolean;
@@ -3372,6 +3401,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
       debugMode = false,
       queueImageGenerationRequests = true,
       reviewImagePromptsBeforeSend = false,
+      agentPromptTemplateIds,
       illustratorPromptReviewOverride: rawIllustratorPromptReviewOverride,
       lorebookKeeperBackfill = false,
       forMessageId,
@@ -3484,6 +3514,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         chat,
         conns,
         agentsStore,
+        agentPromptTemplateIds,
         activeMusicPlayerSource:
           musicPlayerEnabled === false
             ? null

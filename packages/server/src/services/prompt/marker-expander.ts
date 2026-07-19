@@ -110,6 +110,33 @@ function resolveSanitizedPromptLeaf(value: string, ctx: MarkerContext, macroCtx:
   return sanitizePromptLeaf(resolveMacros(value, macroCtx), ctx.wrapFormat);
 }
 
+const DEFAULT_CHARACTER_MARKER_FIELDS = [
+  "description",
+  "personality",
+  "backstory",
+  "appearance",
+  "scenario",
+  "system_prompt",
+];
+
+const CHARACTER_CARD_FIELD_ORDER = new Map(
+  ["description", "personality", "backstory", "appearance", "scenario", "mes_example", "example_dialogue"].map(
+    (field, index) => [field, index],
+  ),
+);
+
+/** Keep selected card sections in the same order as the Character editor. */
+export function orderCharacterMarkerFields(fields: readonly string[]): string[] {
+  return fields
+    .map((field, index) => ({ field, index }))
+    .sort((left, right) => {
+      const leftOrder = CHARACTER_CARD_FIELD_ORDER.get(left.field) ?? Number.POSITIVE_INFINITY;
+      const rightOrder = CHARACTER_CARD_FIELD_ORDER.get(right.field) ?? Number.POSITIVE_INFINITY;
+      return leftOrder - rightOrder || left.index - right.index;
+    })
+    .map(({ field }) => field);
+}
+
 /**
  * Expand a marker section into actual content based on its type and config.
  */
@@ -148,14 +175,7 @@ async function expandCharacter(config: MarkerConfig, ctx: MarkerContext): Promis
     const profile = characterMacroProfileFromData(data);
     const characterMacroContext = macroContextForCharacterProfile(ctx.macroCtx, profile);
 
-    const fields = config.characterFields ?? [
-      "description",
-      "personality",
-      "scenario",
-      "backstory",
-      "appearance",
-      "system_prompt",
-    ];
+    const fields = orderCharacterMarkerFields(config.characterFields ?? DEFAULT_CHARACTER_MARKER_FIELDS);
 
     const charParts: string[] = [];
     for (const field of fields) {

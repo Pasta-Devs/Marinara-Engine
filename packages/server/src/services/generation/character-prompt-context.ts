@@ -90,9 +90,9 @@ const CHARACTER_FALLBACK_FIELDS: Array<{
 }> = [
   { key: "description", label: "description", macroAliases: ["description"] },
   { key: "personality", label: "personality", macroAliases: ["personality"] },
-  { key: "scenario", label: "scenario", macroAliases: ["scenario"] },
   { key: "backstory", label: "backstory", macroAliases: ["backstory"] },
   { key: "appearance", label: "appearance", macroAliases: ["appearance"] },
+  { key: "scenario", label: "scenario", macroAliases: ["scenario"] },
   { key: "systemPrompt", label: "system_prompt", macroAliases: ["charSysInfo"] },
   { key: "mesExample", label: "example_dialogue", macroAliases: ["example"] },
 ];

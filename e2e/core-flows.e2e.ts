@@ -838,7 +838,7 @@ test("NPC avatar uploads accept Cyrillic character names", async ({ request }, t
   }
 });
 
-test("PocketTTS uses its OpenAI-compatible speech endpoint", async ({ request }, testInfo) => {
+test("PocketTTS discovers server voices and uses its speech endpoint", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "PocketTTS routing is covered on desktop.");
 
   let receivedPath = "";
@@ -851,6 +851,19 @@ test("PocketTTS uses its OpenAI-compatible speech endpoint", async ({ request },
       receivedPath = incoming.url ?? "";
       receivedContentType = String(incoming.headers["content-type"] ?? "");
       receivedBody = Buffer.concat(chunks).toString("utf8");
+      if (incoming.method === "GET" && incoming.url === "/v1/voices") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(
+          JSON.stringify({
+            object: "list",
+            data: [
+              { id: "alba", name: "Alba", object: "voice", type: "builtin" },
+              { id: "AgentCobra.wav", name: "Agent Cobra", object: "voice", type: "custom" },
+            ],
+          }),
+        );
+        return;
+      }
       response.writeHead(200, { "Content-Type": "audio/mpeg" });
       response.end(Buffer.from([0x49, 0x44, 0x33]));
     });
@@ -877,6 +890,33 @@ test("PocketTTS uses its OpenAI-compatible speech endpoint", async ({ request },
       },
     });
     expect(configResponse.ok()).toBeTruthy();
+
+    const voicesResponse = await request.get("/api/tts/voices");
+    expect(voicesResponse.ok()).toBeTruthy();
+    expect(receivedPath).toBe("/v1/voices");
+    expect(await voicesResponse.json()).toEqual({
+      voices: ["alba", "AgentCobra.wav"],
+      voiceOptions: [
+        {
+          id: "alba",
+          name: "Alba",
+          description: null,
+          previewUrl: null,
+          category: "builtin",
+          labels: null,
+        },
+        {
+          id: "AgentCobra.wav",
+          name: "Agent Cobra",
+          description: null,
+          previewUrl: null,
+          category: "custom",
+          labels: null,
+        },
+      ],
+      fromProvider: true,
+      source: "pockettts",
+    });
 
     const speechResponse = await request.post("/api/tts/speak", {
       data: { text: "Hello from Marinara." },
@@ -912,6 +952,19 @@ test("PocketTTS uses its OpenAI-compatible speech endpoint", async ({ request },
       input: "Use the default PocketTTS voice.",
       voice: "alba",
     });
+
+    await page.goto("/");
+    await page.locator('[data-tour="panel-connections"]').click();
+    const rightPanel = page.locator('[data-component="RightPanel"]');
+    await expect(rightPanel).toBeVisible();
+    const ttsLabel = rightPanel.getByText("Text to Speech", { exact: true });
+    const ttsCard = ttsLabel.locator("xpath=../../..");
+    await ttsCard.getByTitle("Expand").click();
+    const serverVoiceSelect = ttsCard.getByLabel("PocketTTS server voice");
+    await expect(serverVoiceSelect.locator('option[value="AgentCobra.wav"]')).toHaveText(
+      "Agent Cobra (AgentCobra.wav)",
+    );
+    await expect(ttsCard.getByText("Loaded 2 voices from PocketTTS server.", { exact: true })).toBeVisible();
   } finally {
     try {
       if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });
@@ -1919,9 +1972,7 @@ test("Conversation feature packages expose commands and settings without per-cha
     await expect(agentsSection).toHaveCount(1);
     await agentsSection.click();
     await expect(
-      drawer.locator(
-        '[data-capability-client-state="loading"][data-capability-package-id="conversation-calls"]',
-      ),
+      drawer.locator('[data-capability-client-state="loading"][data-capability-package-id="conversation-calls"]'),
     ).toBeVisible();
     releaseInitialClientLoad.resolve();
     const clientLoadFailure = drawer.getByRole("alert").filter({ hasText: "Conversation Calls didn't load" });
@@ -2217,10 +2268,9 @@ test("Game setup only shows features owned by installed agents", async ({ page, 
       "Imported Tower Run",
     );
     await expect(
-      initialDialog.getByText(
-        "tower-run.marinara-game-setup.json loaded. Review the steps, then start the new game.",
-        { exact: true },
-      ),
+      initialDialog.getByText("tower-run.marinara-game-setup.json loaded. Review the steps, then start the new game.", {
+        exact: true,
+      }),
     ).toBeVisible();
 
     const temperatureField = initialDialog.locator('input[inputmode="decimal"]').first();
@@ -5047,10 +5097,9 @@ test("Background library organization works with desktop drag and touch drag", a
   let folderId: string | null = null;
 
   try {
-    const tagResponse = await page.request.patch(
-      `/api/backgrounds/${encodeURIComponent(uploaded.filename)}/tags`,
-      { data: { tags: ["smoke-folder"] } },
-    );
+    const tagResponse = await page.request.patch(`/api/backgrounds/${encodeURIComponent(uploaded.filename)}/tags`, {
+      data: { tags: ["smoke-folder"] },
+    });
     expect(tagResponse.ok()).toBeTruthy();
 
     await page.goto("/");
@@ -5059,7 +5108,9 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByPlaceholder("Search settings").fill("Backgrounds");
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
 
-    await expect(page.getByText("Drag and drop backgrounds to folders, double-click or double-tap to rename.")).toBeVisible();
+    await expect(
+      page.getByText("Drag and drop backgrounds to folders, double-click or double-tap to rename."),
+    ).toBeVisible();
     const sortSelect = page.getByLabel("Sort backgrounds");
     await expect(sortSelect.locator("option")).toHaveText(["A-Z", "Z-A", "Newest", "Oldest"]);
     await page.getByRole("button", { name: /Tags \(/ }).click();
@@ -5112,7 +5163,12 @@ test("Background library organization works with desktop drag and touch drag", a
             clientY: targetRect.top + Math.min(targetRect.height / 2, 20),
           });
           handle.dispatchEvent(
-            new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [start], changedTouches: [start] }),
+            new TouchEvent("touchstart", {
+              bubbles: true,
+              cancelable: true,
+              touches: [start],
+              changedTouches: [start],
+            }),
           );
           window.dispatchEvent(
             new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [end], changedTouches: [end] }),

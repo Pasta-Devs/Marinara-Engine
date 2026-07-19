@@ -13,8 +13,7 @@ import { TRACKER_FEATURED_CHARACTER_META_KEY, TRACKER_SECTION_AGENT_TYPES } from
 import {
   normalizeMaybeJsonStringArray,
   normalizeStringArray,
-  parseAgentSettings,
-  parseMetadataRecord,
+  parseRecord,
 } from "../lib/tracker-metadata";
 import { getLatestSpriteExpressionsFromMessages, normalizeSpriteExpressionMap } from "../lib/sprite-expressions";
 import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
@@ -35,7 +34,7 @@ export function useTrackerPanelModel({
   const { data: chat } = useChat(activeChatId);
   const chatMeta = useMemo(() => {
     const raw = (chat as unknown as { metadata?: string | Record<string, unknown> } | undefined)?.metadata;
-    return parseMetadataRecord(raw);
+    return parseRecord(raw);
   }, [chat]);
   const chatCharacterIds = useMemo(
     () => normalizeMaybeJsonStringArray((chat as unknown as { characterIds?: unknown } | undefined)?.characterIds),
@@ -90,7 +89,7 @@ export function useTrackerPanelModel({
     return (agentConfigs as AgentConfigRow[]).find((agent) => agent.type === "character-tracker") ?? null;
   }, [agentConfigs]);
   const characterTrackerSettings = useMemo(
-    () => parseAgentSettings(characterTrackerConfig?.settings),
+    () => parseRecord(characterTrackerConfig?.settings),
     [characterTrackerConfig],
   );
   const autoGenerateCharacterAvatars = characterTrackerSettings.autoGenerateAvatars === true;

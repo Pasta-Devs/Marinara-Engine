@@ -59,10 +59,12 @@ import {
   GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE,
   GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE_ID,
   DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE,
+  hasDeferredCharacterMacros,
   hasDeferredRelocationConditionals,
   getGameStoryboardPromptTemplateKind,
   normalizeGameStoryboardKeyframeCount,
   parseDeferredConditionalPayload,
+  resolveDeferredCharacterMacros,
   selectConditionalPayloadBranch,
 } from "../../packages/shared/src/index.js";
 import { replaceBuiltInAgentDefinitions as replaceBuiltInAgentDefinitionsDist } from "../../packages/shared/dist/index.js";
@@ -211,11 +213,57 @@ import {
   executeAgentBatch,
   renderAgentPromptTemplate,
 } from "../../packages/server/src/services/agents/agent-executor.js";
+import { shouldSkipAgentByAssistantInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
 import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { loadGameVideoPrompt } from "../../packages/server/src/services/video/game-video-prompt.js";
 import { loadGameStoryboardImagePrompt } from "../../packages/server/src/services/image/game-storyboard-image-prompt.js";
 import { formatAgentFailuresToast, toAgentFailure } from "../../packages/client/src/lib/agent-failures.js";
 import { formatGenerationParameterError } from "../../packages/client/src/lib/generation-parameter-errors.js";
+import { normalizeCustomMusicSource } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
+
+const assistantCadenceMessages = [
+  { id: "illustrator-anchor", role: "assistant" },
+  { id: "accepted-user-turn", role: "user" },
+  { id: "accepted-assistant-turn", role: "assistant" },
+];
+const illustratorCadenceStore = {
+  getLastSuccessfulRunByType: async () => ({ messageId: "illustrator-anchor" }),
+};
+assert.strictEqual(
+  normalizeCustomMusicSource({ customMusicSource: "game-assets", localMusicSource: "folder" }),
+  "game-assets",
+  "the current custom music source should override stale legacy settings",
+);
+assert.strictEqual(
+  normalizeCustomMusicSource({ localMusicSource: "folder" }),
+  "folder",
+  "legacy custom music source settings should remain supported as a fallback",
+);
+assert.equal(
+  await shouldSkipAgentByAssistantInterval({
+    agentsStore: illustratorCadenceStore,
+    chatId: "roleplay-cadence",
+    agentType: "illustrator",
+    settings: { runInterval: 2 },
+    fallbackInterval: 5,
+    messages: assistantCadenceMessages,
+  }),
+  false,
+  "a fresh assistant message should satisfy the next Illustrator interval",
+);
+assert.equal(
+  await shouldSkipAgentByAssistantInterval({
+    agentsStore: illustratorCadenceStore,
+    chatId: "roleplay-cadence",
+    agentType: "illustrator",
+    settings: { runInterval: 2 },
+    fallbackInterval: 5,
+    messages: assistantCadenceMessages,
+    countUpcomingAssistantMessage: false,
+  }),
+  true,
+  "a swipe or continuation should not count as a new accepted assistant message",
+);
 import {
   compactVideoPromptText,
   getSceneVideoPromptLimits,
@@ -258,7 +306,11 @@ import {
 import { injectIdentityFallbackMessages } from "../../packages/server/src/services/generation/character-prompt-context.js";
 import { injectSceneContextMessages } from "../../packages/server/src/services/generation/scene-context-runtime.js";
 import { resolveConversationConnectedChatContext } from "../../packages/server/src/routes/generate/conversation-connected-context.js";
-import { expandMarker, type MarkerContext } from "../../packages/server/src/services/prompt/marker-expander.js";
+import {
+  expandMarker,
+  orderCharacterMarkerFields,
+  type MarkerContext,
+} from "../../packages/server/src/services/prompt/marker-expander.js";
 import {
   buildRuntimeAgentSectionEligibleTypesForTest,
   clearUnusedRuntimeAgentSectionsForTest,
@@ -334,6 +386,7 @@ import {
   normalizeIllustratorAppearance,
   readIllustratorAppearance,
   resolveIllustratorCharacterReferences,
+  suppressesReferencePromptLine,
 } from "../../packages/server/src/routes/generate/illustrator-references.js";
 import {
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
@@ -1047,6 +1100,125 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "macro conditionals support OR, AND, grouping, and equality shorthand",
+    run() {
+      const baseContext = {
+        user: "Mari",
+        char: "Pantalone",
+        characters: ["Maukie", "Pantalone", "Dottore"],
+        variables: {},
+        characterFields: { scenario: "Moonlit lake" },
+      };
+
+      assert.equal(
+        resolveMacros('{{#if character == "Maukie" || "Pantalone"}}selected{{else}}other{{/if}}', baseContext),
+        "selected",
+      );
+      assert.equal(
+        resolveMacros("{{#if character == “Maukie” || “Pantalone”}}selected{{else}}other{{/if}}", baseContext),
+        "selected",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if characters contains "Maukie" && characters contains "Pantalone"}}together{{/if}}',
+          baseContext,
+        ),
+        "together",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if (character == "Maukie" || character == "Pantalone") && scenario contains "lake"}}lake party{{/if}}',
+          baseContext,
+        ),
+        "lake party",
+      );
+      assert.equal(
+        resolveMacros(
+          '{{#if character == "Maukie" || character == "Pantalone" && scenario contains "palace"}}selected{{else}}other{{/if}}',
+          { ...baseContext, characterFields: { scenario: "Empty road" } },
+        ),
+        "other",
+      );
+      assert.equal(
+        resolveMacros('{{#if scenario == "A || B && C"}}literal{{/if}}', {
+          ...baseContext,
+          characterFields: { scenario: "A || B && C" },
+        }),
+        "literal",
+      );
+
+      const deferred = resolveMacros(
+        '{{#if character == "Maukie" || "Pantalone"}}selected{{else}}other{{/if}}',
+        { ...baseContext, char: "Dottore" },
+        { deferCharacterMacros: "names" },
+      );
+      assert.equal(hasDeferredCharacterMacros(deferred), true);
+      assert.equal(resolveDeferredCharacterMacros(deferred, { name: "Pantalone" }, baseContext), "selected");
+      assert.equal(resolveDeferredCharacterMacros(deferred, { name: "Dottore" }, baseContext), "other");
+    },
+  },
+  {
+    name: "group macro uses the full active roster without changing existing identity macros",
+    run() {
+      const context = {
+        user: "Powers That Be",
+        char: "Pantalone",
+        characters: ["Pantalone"],
+        groupCharacters: ["Powers That Be", "Maukie", "Pantalone"],
+        variables: {},
+      };
+
+      assert.equal(resolveMacros("{{group}}", context), "Powers That Be, Maukie");
+      assert.equal(
+        resolveMacros("The other players are {{group}}, and {{user}}.", context),
+        "The other players are Powers That Be, Maukie, and Powers That Be.",
+      );
+      assert.equal(resolveMacros("{{characters}}", context), "Pantalone");
+      assert.equal(resolveMacros("{{user}} / {{char}}", context), "Powers That Be / Pantalone");
+      assert.equal(
+        resolveMacros("{{group}}", {
+          ...context,
+          groupCharacters: ["Powers That Be", "Maukie", "  pantalone  "],
+        }),
+        "Powers That Be, Maukie",
+      );
+      assert.equal(
+        resolveMacros("{{group}}", { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} }),
+        "",
+      );
+
+      const deferred = resolveMacros("{{char}} sees {{group}}", context, { deferCharacterMacros: "names" });
+      assert.equal(hasDeferredCharacterMacros(deferred), true);
+      assert.equal(
+        resolveDeferredCharacterMacros(deferred, { name: "Pantalone" }, context),
+        "Pantalone sees Powers That Be, Maukie",
+      );
+
+      const conditional = resolveMacros('{{#if group contains "Maukie"}}together{{else}}apart{{/if}}', context, {
+        deferCharacterMacros: "names",
+      });
+      assert.equal(hasDeferredCharacterMacros(conditional), true);
+      assert.equal(resolveDeferredCharacterMacros(conditional, { name: "Pantalone" }, context), "together");
+      assert.equal(resolveDeferredCharacterMacros(conditional, { name: "Maukie" }, context), "apart");
+
+      const assemblerSource = readFileSync(
+        new URL("../../packages/server/src/services/prompt/assembler.ts", import.meta.url),
+        "utf8",
+      );
+      const generateRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const dryRunRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/dry-run-route.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(assemblerSource, /groupCharacterIds: input\.groupCharacterIds/);
+      assert.match(generateRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
+      assert.match(dryRunRouteSource, /characterIds: promptCharacterIds,\s*groupCharacterIds: characterIds,/);
+    },
+  },
+  {
     name: "deferred relocation conditionals support reply rules",
     run() {
       const context = {
@@ -1693,6 +1865,39 @@ const cases: RegressionCase[] = [
       assert.match(gameSurfaceSource, /setStoryboardViewerPlayingVideoId\(activeStoryboardKeyframe\.video\.id\)/);
       assert.match(backgroundViewerSource, /onEnded=\{\(\) =>/);
       assert.doesNotMatch(backgroundViewerSource, /\bloop\b/);
+    },
+  },
+  {
+    name: "reference prompt suppression requires explicit local providers and fallback-safe routing",
+    run() {
+      for (const service of ["comfyui", "automatic1111", "drawthings"]) {
+        assert.equal(suppressesReferencePromptLine({ imageService: service }), true);
+        assert.equal(suppressesReferencePromptLine({ imageGenerationSource: service }), true);
+      }
+
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://127.0.0.1:8188" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://localhost:7860/sdapi/v1" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://[::1]:8188" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "https://images.example.com:8188" }), false);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "https://images.example.com/api/:7860" }), false);
+      assert.equal(suppressesReferencePromptLine({ imageService: "proxy:8188" }), false);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://localhost:81880" }), false);
+
+      const localPrimary = { imageService: "comfyui" };
+      assert.equal(
+        suppressesReferencePromptLine(localPrimary, {
+          serviceHint: "openai",
+          baseUrl: "https://api.openai.com/v1",
+        }),
+        false,
+      );
+      assert.equal(
+        suppressesReferencePromptLine(localPrimary, {
+          serviceHint: "automatic1111",
+          baseUrl: "http://localhost:7860",
+        }),
+        true,
+      );
     },
   },
   {
@@ -2686,6 +2891,17 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       const context = makeRegressionAgentContext({
         wrapFormat: "markdown",
         mainResponse: "Dottore studies the rain-slick street and chooses a darker alley backdrop.",
+        characters: [
+          {
+            id: "char-dottore",
+            name: "Dottore",
+            description: "AGENT_CHAR_DESCRIPTION",
+            personality: "AGENT_CHAR_PERSONALITY",
+            backstory: "AGENT_CHAR_BACKSTORY",
+            appearance: "AGENT_CHAR_APPEARANCE",
+            scenario: "AGENT_CHAR_SCENARIO",
+          },
+        ],
       });
 
       const result = await executeAgent(config as any, context, provider as any, "regression-model");
@@ -2700,6 +2916,19 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(last.content, /Agent "background" \(Background\):/);
       assert.doesNotMatch(last.content, /Agent "quest"/);
       assert.equal(last.content.trim().endsWith('Return JSON: {"chosen": null}'), true);
+      const system = messages[0]?.content ?? "";
+      const cardFieldPositions = [
+        "AGENT_CHAR_DESCRIPTION",
+        "AGENT_CHAR_PERSONALITY",
+        "AGENT_CHAR_BACKSTORY",
+        "AGENT_CHAR_APPEARANCE",
+        "AGENT_CHAR_SCENARIO",
+      ].map((fragment) => system.indexOf(fragment));
+      assert.ok(cardFieldPositions.every((position) => position >= 0));
+      assert.deepEqual(
+        cardFieldPositions,
+        [...cardFieldPositions].sort((left, right) => left - right),
+      );
     },
   },
   {
@@ -3282,6 +3511,142 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, /<START>/);
       assert.equal(promptText.includes("&lt;START>"), false);
       assert.match(promptText, /<system>bad example<\/system>/);
+    },
+  },
+  {
+    name: "character and persona card sections follow editor order in identity fallbacks",
+    run() {
+      const messages: ChatMLMessage[] = [
+        { role: "system", content: "Stable system prompt." },
+        { role: "user", content: "Hello." },
+      ];
+
+      injectIdentityFallbackMessages({
+        messages,
+        charInfo: [
+          {
+            id: "char-ordered",
+            name: "Ordered Character",
+            description: "CHAR_DESCRIPTION",
+            personality: "CHAR_PERSONALITY",
+            backstory: "CHAR_BACKSTORY",
+            appearance: "CHAR_APPEARANCE",
+            scenario: "CHAR_SCENARIO",
+            mesExample: "CHAR_EXAMPLE_DIALOGUE",
+            creatorNotes: "",
+            systemPrompt: "",
+            firstMes: "",
+            postHistoryInstructions: "",
+            tags: [],
+            talkativeness: 0.5,
+            avatarPath: null,
+            avatarCrop: null,
+          },
+        ],
+        promptTargetCharacterId: null,
+        promptMacroContext: {
+          user: "Mari",
+          char: "Ordered Character",
+          characters: ["Ordered Character"],
+          variables: {},
+        },
+        wrapFormat: "xml",
+        personaName: "Mari",
+        personaDescription: "PERSONA_DESCRIPTION",
+        personaFields: {
+          personality: "PERSONA_PERSONALITY",
+          backstory: "PERSONA_BACKSTORY",
+          appearance: "PERSONA_APPEARANCE",
+          scenario: "PERSONA_SCENARIO",
+        },
+        persona: null,
+        resolvePromptMacros: (value) => value,
+      });
+
+      const promptText = messages.map((message) => message.content).join("\n");
+      const assertInOrder = (fragments: string[]) => {
+        const positions = fragments.map((fragment) => promptText.indexOf(fragment));
+        assert.ok(positions.every((position) => position >= 0));
+        assert.deepEqual(
+          positions,
+          [...positions].sort((left, right) => left - right),
+        );
+      };
+
+      assertInOrder([
+        "CHAR_DESCRIPTION",
+        "CHAR_PERSONALITY",
+        "CHAR_BACKSTORY",
+        "CHAR_APPEARANCE",
+        "CHAR_SCENARIO",
+        "CHAR_EXAMPLE_DIALOGUE",
+      ]);
+      assertInOrder([
+        "PERSONA_DESCRIPTION",
+        "PERSONA_PERSONALITY",
+        "PERSONA_BACKSTORY",
+        "PERSONA_APPEARANCE",
+        "PERSONA_SCENARIO",
+      ]);
+    },
+  },
+  {
+    name: "character marker selections follow editor order without disturbing advanced fields",
+    run() {
+      assert.deepEqual(
+        orderCharacterMarkerFields([
+          "scenario",
+          "system_prompt",
+          "appearance",
+          "mes_example",
+          "description",
+          "backstory",
+          "personality",
+          "stats",
+        ]),
+        ["description", "personality", "backstory", "appearance", "scenario", "mes_example", "system_prompt", "stats"],
+      );
+    },
+  },
+  {
+    name: "persona markers preserve editor order and omit empty sections",
+    async run() {
+      const expanded = await expandMarker(
+        { type: "persona" },
+        {
+          db: undefined as unknown as DB,
+          chatId: "chat-persona-order",
+          characterIds: [],
+          personaName: "Mari",
+          personaDescription: "PERSONA_MARKER_DESCRIPTION",
+          personaFields: {
+            personality: "PERSONA_MARKER_PERSONALITY",
+            backstory: "PERSONA_MARKER_BACKSTORY",
+            appearance: "   ",
+            scenario: "PERSONA_MARKER_SCENARIO",
+          },
+          chatMessages: [],
+          chatSummary: null,
+          wrapFormat: "xml",
+          enableAgents: true,
+          activeAgentIds: [],
+          activeLorebookIds: [],
+          macroCtx: { user: "Mari", char: "Dottore", characters: ["Dottore"], variables: {} },
+        },
+      );
+
+      const positions = [
+        "PERSONA_MARKER_DESCRIPTION",
+        "PERSONA_MARKER_PERSONALITY",
+        "PERSONA_MARKER_BACKSTORY",
+        "PERSONA_MARKER_SCENARIO",
+      ].map((fragment) => expanded.content.indexOf(fragment));
+      assert.ok(positions.every((position) => position >= 0));
+      assert.deepEqual(
+        positions,
+        [...positions].sort((left, right) => left - right),
+      );
+      assert.equal(expanded.content.includes("<appearance>"), false);
     },
   },
   {

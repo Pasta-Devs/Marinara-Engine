@@ -137,7 +137,7 @@ import {
   type DirectMessageCommand,
 } from "../services/conversation/character-commands.js";
 import {
-  isNovelAiImageConnection,
+  suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   resolveIllustratorCharacterReferences,
 } from "./generate/illustrator-references.js";
@@ -1573,6 +1573,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const promptMacroContext = await buildPromptMacroContext({
           db: app.db,
           characterIds: promptCharacterIds,
+          groupCharacterIds: promptTargetCharacterId ? characterIds : undefined,
           personaName,
           personaPhoneticName,
           personaDescription,
@@ -1821,6 +1822,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatChoices,
             chatId: input.chatId,
             characterIds: promptCharacterIds,
+            groupCharacterIds: characterIds,
             personaId,
             personaName,
             personaPhoneticName,
@@ -3182,6 +3184,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
+        const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
         if (
           illustratorAgentForInterval &&
           (await shouldSkipAgentByAssistantInterval({
@@ -3191,6 +3194,7 @@ export async function generateRoutes(app: FastifyInstance) {
             settings: illustratorAgentForInterval.settings,
             fallbackInterval: (getDefaultBuiltInAgentSettings("illustrator").runInterval as number) ?? 5,
             messages: allChatMessages,
+            countUpcomingAssistantMessage: createsAssistantMessage,
           }))
         ) {
           resolvedAgents.splice(resolvedAgents.indexOf(illustratorAgentForInterval), 1);
@@ -3584,6 +3588,7 @@ export async function generateRoutes(app: FastifyInstance) {
               settings: ceaAgent.settings,
               fallbackInterval: (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
               messages: allChatMessages,
+              countUpcomingAssistantMessage: createsAssistantMessage,
             })
           ) {
             resolvedAgents.splice(resolvedAgents.indexOf(ceaAgent), 1);
@@ -3601,6 +3606,7 @@ export async function generateRoutes(app: FastifyInstance) {
               settings: amkAgent.settings,
               fallbackInterval: (getDefaultBuiltInAgentSettings("about-me-keeper").runInterval as number) ?? 8,
               messages: allChatMessages,
+              countUpcomingAssistantMessage: createsAssistantMessage,
             })
           ) {
             resolvedAgents.splice(resolvedAgents.indexOf(amkAgent), 1);
@@ -7837,14 +7843,17 @@ export async function generateRoutes(app: FastifyInstance) {
                       const imgApiKey = imgConnFull.apiKey || "";
                       const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
                       const imgServiceHint = imgConnFull.imageService || imgSource;
-                      const suppressReferencePromptLine = isNovelAiImageConnection({
-                        model: imgModel,
-                        baseUrl: imgBaseUrl,
-                        imageService: imgServiceHint,
-                        imageGenerationSource: imgSource,
-                      });
-                      const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
                       const imageFallback = await resolveImageConnectionFallback(connections, imgConnFull.id);
+                      const suppressReferencePromptLine = suppressesReferencePromptLine(
+                        {
+                          model: imgModel,
+                          baseUrl: imgBaseUrl,
+                          imageService: imgServiceHint,
+                          imageGenerationSource: imgSource,
+                        },
+                        imageFallback,
+                      );
+                      const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
                       const imageSettings = await loadImageGenerationUserSettings(app.db);
                       const styleProfileId =
                         ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.imageStyleProfileId as

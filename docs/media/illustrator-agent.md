@@ -6,7 +6,7 @@ This guide covers the **Illustrator**, a built-in helper that draws pictures of 
 
 An agent is a small AI helper that runs automatically for one chat. The **Illustrator** is a post-processing agent, which means it runs after the AI finishes each reply. It reads the latest reply and decides if the moment is worth a picture. When it is, the Illustrator writes an image prompt and sends it to your image provider. A prompt is the text description that tells an image model what to draw.
 
-The Illustrator does not draw every message. By default, after it makes an image it waits about 5 assistant replies before it can make another one. If it decides a moment is not worth illustrating, it skips it and makes no image. Every image it creates is saved to the chat **Gallery**.
+The Illustrator does not draw every message. By default, after it makes an image it waits about 5 accepted assistant replies before it can make another one. Swiping or regenerating the same reply does not advance that interval. If it decides a moment is not worth illustrating, it skips it and makes no image. Every image it creates is saved to the chat **Gallery**.
 
 You can use the Illustrator in **Roleplay** and **Game Mode** chats, and installing it also unlocks Conversation selfies. Its short description in the app reads: "Responsible for image and video generations." The setup steps and settings in this guide are for Roleplay chats. Game Mode uses one simple switch instead, covered in the Game Mode section below.
 

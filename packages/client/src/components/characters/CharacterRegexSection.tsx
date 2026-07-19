@@ -415,7 +415,7 @@ export function CharacterRegexSection({
                     />
                     <button
                       type="button"
-                      className="mari-chrome-accent-text-muted mari-accent-animated mt-0.5 shrink-0 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
+                      className="mari-chrome-accent-text-muted mari-accent-animated mt-1.5 shrink-0 transition-colors hover:text-[var(--marinara-chat-chrome-button-text-hover)]"
                       title="Edit regex"
                       onClick={() => void openEditorGuarded(script.id)}
                     >
@@ -423,7 +423,7 @@ export function CharacterRegexSection({
                     </button>
                     <button
                       type="button"
-                      className="mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+                      className="mt-1.5 shrink-0 text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                       title="Delete regex"
                       onClick={() => handleDelete(script)}
                     >

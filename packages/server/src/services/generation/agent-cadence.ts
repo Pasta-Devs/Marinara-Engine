@@ -23,6 +23,7 @@ export async function shouldSkipAgentByAssistantInterval({
   settings,
   fallbackInterval,
   messages,
+  countUpcomingAssistantMessage = true,
 }: {
   agentsStore: AgentsStore;
   chatId: string;
@@ -30,6 +31,7 @@ export async function shouldSkipAgentByAssistantInterval({
   settings: unknown;
   fallbackInterval: number;
   messages: ChatMessageLike[];
+  countUpcomingAssistantMessage?: boolean;
 }): Promise<boolean> {
   const runInterval = resolveAgentRunInterval(settings, fallbackInterval);
   if (runInterval <= 1) return false;
@@ -40,5 +42,6 @@ export async function shouldSkipAgentByAssistantInterval({
   const lastRunIdx = messages.findIndex((message) => message.id === lastRun.messageId);
   if (lastRunIdx < 0) return false;
   const assistantMessagesSince = messages.slice(lastRunIdx + 1).filter((message) => message.role === "assistant");
-  return assistantMessagesSince.length + 1 < runInterval;
+  const upcomingAssistantMessages = countUpcomingAssistantMessage ? 1 : 0;
+  return assistantMessagesSince.length + upcomingAssistantMessages < runInterval;
 }

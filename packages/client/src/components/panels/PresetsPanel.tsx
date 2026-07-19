@@ -98,6 +98,14 @@ type PresetRow = {
   updatedAt?: string;
 };
 
+const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
+const MARINARA_UNIVERSAL_PRESET_AUTHOR = "Marinara";
+const MARINARA_UNIVERSAL_PRESET_ARTWORK = "/illustrations/marinara-universal-preset.webp";
+
+function isMarinaraUniversalPreset(preset: PresetRow) {
+  return preset.name === MARINARA_UNIVERSAL_PRESET_NAME && preset.author === MARINARA_UNIVERSAL_PRESET_AUTHOR;
+}
+
 type JsonRecord = Record<string, unknown>;
 
 function isJsonRecord(value: unknown): value is JsonRecord {
@@ -757,6 +765,7 @@ export function PresetsPanel() {
       const sectionCount = getSectionCount(preset);
       const wrapFormat = (preset.wrapFormat ?? "xml") as string;
       const isDefault = String(preset.isDefault) === "true";
+      const hasMarinaraArtwork = isMarinaraUniversalPreset(preset);
 
       return (
         <div
@@ -811,7 +820,16 @@ export function PresetsPanel() {
               </div>
             )}
             <div className="mari-panel-gradient-surface mari-panel-gradient--presets relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm">
-              <FileText size="1rem" />
+              {hasMarinaraArtwork ? (
+                <img
+                  src={MARINARA_UNIVERSAL_PRESET_ARTWORK}
+                  alt=""
+                  className="h-full w-full rounded-xl object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <FileText size="1rem" />
+              )}
               {isSelected && (
                 <div className="mari-panel-gradient-surface mari-panel-gradient--presets absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-md shadow-sm">
                   <Check size="0.625rem" />

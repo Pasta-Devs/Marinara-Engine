@@ -98,6 +98,8 @@ Open the **Music DJ** editor and find the **Custom Music Library** field. It has
 - Switch on: Custom mode reads audio you uploaded to Game Assets. Game Assets is Marinara's built-in asset library for Game Mode. Use the **Game Assets music folder** field to pick a folder. Type `music` for the whole music library, or a subfolder like `music/combat`. The **Open Folder** button opens that folder on the server machine.
 - Switch off: Custom mode reads a folder on the server device. Use **Select Folder** to open a folder picker on the server machine, or paste the path into the **Music folder on this device** field.
 
+Roleplay and Game chat setup show the same selected source. If you chose a folder on the server device, the chat's Music DJ settings show that saved path and a **Choose Folder** button instead of asking for a Game Assets path.
+
 Playing from a folder outside Game Assets needs local access on the server. If you use Marinara from another device without a password or admin secret, this one feature can be blocked. See [Remote Access: Basic Auth and IP Allowlist](../REMOTE_ACCESS.md).
 
 ## Using the music player

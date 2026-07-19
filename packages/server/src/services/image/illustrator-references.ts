@@ -55,6 +55,71 @@ export function isNovelAiImageConnection(args: {
   });
 }
 
+type ReferencePromptImageProvider = {
+  model?: unknown;
+  baseUrl?: unknown;
+  imageService?: unknown;
+  imageGenerationSource?: unknown;
+  serviceHint?: unknown;
+  source?: unknown;
+};
+
+const LOCAL_STABLE_DIFFUSION_SERVICES = new Set(["comfyui", "automatic1111", "drawthings"]);
+const LOCAL_STABLE_DIFFUSION_PORTS = new Set(["8188", "7860"]);
+const LOOPBACK_IMAGE_HOSTS = new Set(["localhost", "localhost.localdomain", "127.0.0.1", "::1"]);
+
+function isLocalStableDiffusionUrl(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) return false;
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname
+      .replace(/^\[|\]$/g, "")
+      .replace(/\.$/, "")
+      .toLowerCase();
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      LOOPBACK_IMAGE_HOSTS.has(hostname) &&
+      LOCAL_STABLE_DIFFUSION_PORTS.has(url.port)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function providerSuppressesReferencePromptLine(args: ReferencePromptImageProvider): boolean {
+  if (
+    isNovelAiImageConnection({
+      model: args.model,
+      baseUrl: args.baseUrl,
+      imageService: args.imageService ?? args.serviceHint,
+      imageGenerationSource: args.imageGenerationSource ?? args.source,
+    })
+  ) {
+    return true;
+  }
+  const explicitServiceValues = [args.imageService, args.imageGenerationSource, args.serviceHint, args.source];
+  return (
+    explicitServiceValues.some(
+      (value) => typeof value === "string" && LOCAL_STABLE_DIFFUSION_SERVICES.has(value.trim().toLowerCase()),
+    ) || isLocalStableDiffusionUrl(args.baseUrl)
+  );
+}
+
+/**
+ * Providers for which the prose "Attached are reference images…" line should be
+ * omitted from the image prompt. NovelAI receives references through its native
+ * character-reference fields. Local Stable Diffusion backends receive reference
+ * images out-of-band, so this prose does not encode the image and only consumes
+ * prompt tokens. When a fallback is configured, every possible provider must
+ * support omission because the same compiled prompt is reused for the retry.
+ */
+export function suppressesReferencePromptLine(
+  args: ReferencePromptImageProvider,
+  fallback?: ReferencePromptImageProvider | null,
+): boolean {
+  return providerSuppressesReferencePromptLine(args) && (!fallback || providerSuppressesReferencePromptLine(fallback));
+}
+
 const MAX_ILLUSTRATOR_REFERENCE_IMAGES = 6;
 const MAX_ILLUSTRATOR_APPEARANCE_CHARS = 1400;
 const NAME_STOPWORDS = new Set(["the", "a", "an", "il", "la", "le", "de", "van", "von", "dr", "mr", "ms"]);
