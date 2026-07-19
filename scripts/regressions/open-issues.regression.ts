@@ -1812,6 +1812,16 @@ assert.equal(comfyPlaceholderPng.toString("ascii", 1, 4), "PNG");
 assert.equal(comfyPlaceholderPng.readUInt32BE(16), 16);
 assert.equal(comfyPlaceholderPng.readUInt32BE(20), 16);
 
+const chatRoutesSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/server/src/routes/chats.routes.ts"),
+  "utf8",
+);
+assert.match(
+  chatRoutesSource,
+  /if \(existing\.mode === "conversation" && hasStartedChat\) \{/u,
+  "Only Conversation chats should create character membership timeline notices",
+);
+
 const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
 for (const workspace of ["shared", "server", "client"]) {
   assert.match(windowsLauncherSource, new RegExp(`--filter @marinara-engine/${workspace} run clean`, "u"));

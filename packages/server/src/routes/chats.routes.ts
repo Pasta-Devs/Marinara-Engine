@@ -742,10 +742,10 @@ export async function chatsRoutes(app: FastifyInstance) {
             },
           }));
         }
-        // Character selection can be patched more than once while the setup
-        // wizard is still configuring a new chat. Membership events begin only
-        // after setup completes or a real user/assistant turn starts the timeline.
-        if (hasStartedChat) {
+        // Conversation character selection can be patched more than once while
+        // the setup wizard is still configuring a new chat. Membership events
+        // begin only after setup completes or a real turn starts the timeline.
+        if (existing.mode === "conversation" && hasStartedChat) {
           for (const id of addedIds) {
             await storage.createMessage({
               chatId: req.params.id,
