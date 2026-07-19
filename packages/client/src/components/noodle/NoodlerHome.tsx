@@ -79,7 +79,7 @@ const EMPTY_STAGE_PROFILE: NoodleStageProfileInput = {
 };
 
 const fieldClass =
-  "mari-chrome-field h-10 w-full rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--noodle-blue)]";
+  "mari-chrome-field h-11 w-full rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none transition-colors focus:border-[var(--noodle-blue)]";
 const textareaClass =
   "mari-chrome-field min-h-24 w-full resize-y rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] p-3 text-sm leading-6 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--noodle-blue)]";
 
@@ -114,6 +114,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
+  const editingProfile = accountsQuery.data?.find((profile) => profile.id === editingProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
   const eligiblePublicAccounts = eligibleAccountsQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const selectedSource = eligiblePublicAccounts.find((account) => account.id === draftPublicAccountId) ?? null;
@@ -164,6 +165,33 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       stagePersonality: profile.stagePersonality,
       disclosureMode: profile.disclosureMode ?? "hinted",
     });
+  };
+
+  const closeProfileEditor = () => {
+    if (editingProfileId && profileDraft && editingProfile) {
+      const savedDraft: NoodleStageProfileInput = {
+        displayName: editingProfile.displayName,
+        handle: editingProfile.handle,
+        bio: editingProfile.bio,
+        stagePersonality: editingProfile.stagePersonality,
+        disclosureMode: editingProfile.disclosureMode ?? "hinted",
+      };
+      if (
+        JSON.stringify(profileDraft) !== JSON.stringify(savedDraft) &&
+        !window.confirm("Discard unsaved profile changes?")
+      ) {
+        return;
+      }
+    }
+    setProfileDraft(null);
+    setPreviousDraft(null);
+    setEditingProfileId(null);
+    setCreationStep(null);
+  };
+
+  const changeDisclosure = (value: NoodleIdentityDisclosure) => {
+    setCreationDisclosure(value);
+    setProfileDraft((current) => (current ? { ...current, disclosureMode: value } : current));
   };
 
   const generateDraft = () => {
@@ -291,14 +319,15 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   if (profileDraft || creationStep === "draft") {
     return (
       <NoodlerFrame
-        onBack={() => setCreationStep(editingProfileId ? null : "disclosure")}
+        onBack={editingProfileId ? closeProfileEditor : () => setCreationStep("disclosure")}
         title={editingProfileId ? "Edit stage profile" : "Create stage profile"}
-        hideBack
+        hideBack={!editingProfileId}
       >
         <StageProfileForm
           draft={profileDraft ?? { ...EMPTY_STAGE_PROFILE, disclosureMode: creationDisclosure }}
           source={selectedSource}
           disclosureMode={creationDisclosure}
+          onDisclosureChange={changeDisclosure}
           guidance={draftGuidance}
           onGuidanceChange={setDraftGuidance}
           onGenerate={generateDraft}
@@ -313,7 +342,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           publicAccountId={draftPublicAccountId}
           isEditing={Boolean(editingProfileId)}
           isPending={createProfile.isPending || updateProfile.isPending}
-          onCancel={() => setCreationStep(editingProfileId ? null : "disclosure")}
+          onCancel={editingProfileId ? closeProfileEditor : () => setCreationStep("disclosure")}
           onSave={saveProfile}
         />
       </NoodlerFrame>
@@ -426,6 +455,7 @@ function StageProfileForm({
   draft,
   source,
   disclosureMode,
+  onDisclosureChange,
   guidance,
   onGuidanceChange,
   onGenerate,
@@ -442,6 +472,7 @@ function StageProfileForm({
   draft: NoodleStageProfileInput;
   source: { displayName: string; handle: string } | null;
   disclosureMode: NoodleIdentityDisclosure;
+  onDisclosureChange: (value: NoodleIdentityDisclosure) => void;
   guidance: string;
   onGuidanceChange: (value: string) => void;
   onGenerate: () => void;
@@ -460,129 +491,156 @@ function StageProfileForm({
     !isPending &&
     !isGenerating;
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
-            <Sparkles size={16} />
-          </span>
-          <div>
-            <p className="text-sm font-bold">
-              {isEditing ? "Refine this stage identity" : "Create the stage identity"}
-            </p>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
-              {source
-                ? `Built from ${source.displayName} (@${source.handle})`
-                : "Your source identity is kept separate from this stage profile."}{" "}
-              Relationship:{" "}
-              <span className="font-bold">
-                {DISCLOSURE_OPTIONS.find((option) => option.value === disclosureMode)?.label}
-              </span>
-              .
-            </p>
+    <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+        <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
+              <Sparkles size={16} />
+            </span>
+            <div>
+              <p className="text-sm font-bold">
+                {isEditing ? "Refine this stage identity" : "Create the stage identity"}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+                {source
+                  ? `Built from ${source.displayName} (@${source.handle})`
+                  : "Your source identity is kept separate from this stage profile."}{" "}
+                Relationship:{" "}
+                <span className="font-bold">
+                  {DISCLOSURE_OPTIONS.find((option) => option.value === disclosureMode)?.label}
+                </span>
+                .
+              </p>
+            </div>
           </div>
         </div>
-      </div>
-      <div className="mt-5 rounded-lg border border-[var(--noodle-divider)] p-4">
-        <p className="text-sm font-bold">How should we fill this out?</p>
-        <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
-          Generate an editable starting point, or write every field yourself.
-        </p>
-        <label className="mt-4 block space-y-2">
-          <span className="text-xs font-semibold">Optional direction for AI</span>
-          <textarea
-            value={guidance}
-            maxLength={2000}
-            onChange={(event) => onGuidanceChange(event.target.value)}
-            placeholder="A mysterious late-night photographer with a warm but guarded voice"
-            className={`${textareaClass} min-h-20`}
-          />
-        </label>
-        <button
-          type="button"
-          onClick={onGenerate}
-          disabled={isGenerating}
-          className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:opacity-50"
-        >
-          {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
-          {isGenerating ? "Generating draft..." : previousDraft ? "Rewrite editable draft" : "Generate editable draft"}
-        </button>
-        {previousDraft && !isGenerating && (
-          <button
-            type="button"
-            onClick={onUndoDraft}
-            className="mt-2 text-xs font-semibold text-[var(--noodle-blue)] hover:underline"
-          >
-            Undo AI changes
-          </button>
-        )}
-      </div>
-      <div className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold">Stage name</span>
-            <input
-              required
-              aria-required="true"
+        <div className="mt-5 grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+          <div className="order-2 rounded-lg border border-[var(--noodle-divider)] p-4 lg:order-1 lg:sticky lg:top-4">
+            <p className="flex items-center gap-2 text-sm font-bold">
+              <Sparkles size={15} /> AI assist
+            </p>
+            <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+              Generate an editable starting point or rewrite the current fields.
+            </p>
+            <label className="mt-4 block space-y-2">
+              <span className="text-xs font-semibold">Optional direction for AI</span>
+              <textarea
+                value={guidance}
+                maxLength={2000}
+                disabled={isGenerating || isPending}
+                onChange={(event) => onGuidanceChange(event.target.value)}
+                placeholder="A mysterious late-night photographer with a warm but guarded voice"
+                className={`${textareaClass} min-h-20`}
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onGenerate}
               disabled={isGenerating || isPending}
-              value={draft.displayName}
-              maxLength={120}
-              onChange={(event) => onChange({ displayName: event.target.value })}
-              className={fieldClass}
-            />
-          </label>
-          <label className="block space-y-2">
-            <span className="text-xs font-semibold">Stage handle</span>
-            <input
-              required
-              aria-required="true"
-              disabled={isGenerating || isPending}
-              value={draft.handle}
-              maxLength={40}
-              onChange={(event) => onChange({ handle: event.target.value })}
-              placeholder="afterhours"
-              className={fieldClass}
-            />
-          </label>
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:opacity-50"
+            >
+              {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
+              {isGenerating
+                ? "Generating draft..."
+                : previousDraft
+                  ? "Rewrite editable draft"
+                  : "Generate editable draft"}
+            </button>
+            {previousDraft && !isGenerating && (
+              <button
+                type="button"
+                onClick={onUndoDraft}
+                className="mt-1 flex min-h-11 w-full items-center justify-center text-xs font-semibold text-[var(--noodle-blue)] hover:underline"
+              >
+                Undo AI changes
+              </button>
+            )}
+          </div>
+          <div className="order-1 space-y-5 lg:order-2">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold">Stage name</span>
+                <input
+                  required
+                  aria-required="true"
+                  disabled={isGenerating || isPending}
+                  value={draft.displayName}
+                  maxLength={120}
+                  onChange={(event) => onChange({ displayName: event.target.value })}
+                  className={fieldClass}
+                />
+              </label>
+              <label className="block space-y-2">
+                <span className="text-xs font-semibold">Stage handle</span>
+                <input
+                  required
+                  aria-required="true"
+                  disabled={isGenerating || isPending}
+                  value={draft.handle}
+                  maxLength={40}
+                  onChange={(event) => onChange({ handle: event.target.value })}
+                  placeholder="afterhours"
+                  className={fieldClass}
+                />
+              </label>
+            </div>
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold">Bio</span>
+              <textarea
+                disabled={isGenerating || isPending}
+                value={draft.bio}
+                maxLength={500}
+                onChange={(event) => onChange({ bio: event.target.value })}
+                className={textareaClass}
+              />
+            </label>
+            <label className="block space-y-2">
+              <span className="text-xs font-semibold">Stage voice</span>
+              <textarea
+                disabled={isGenerating || isPending}
+                value={draft.stagePersonality}
+                maxLength={1000}
+                onChange={(event) => onChange({ stagePersonality: event.target.value })}
+                placeholder="Voice, attitude, boundaries, and creator persona"
+                className={textareaClass}
+              />
+            </label>
+            <fieldset className="space-y-2">
+              <legend className="text-xs font-semibold">Identity relationship</legend>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {DISCLOSURE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={disclosureMode === option.value}
+                    disabled={isGenerating || isPending}
+                    onClick={() => onDisclosureChange(option.value)}
+                    className={`min-h-11 rounded-md border px-3 py-2 text-left text-xs font-semibold transition-colors ${disclosureMode === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]/10 text-[var(--foreground)]" : "border-[var(--noodle-divider)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]"}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          </div>
         </div>
-        <label className="block space-y-2">
-          <span className="text-xs font-semibold">Bio</span>
-          <textarea
-            disabled={isGenerating || isPending}
-            value={draft.bio}
-            maxLength={500}
-            onChange={(event) => onChange({ bio: event.target.value })}
-            className={textareaClass}
-          />
-        </label>
-        <label className="block space-y-2">
-          <span className="text-xs font-semibold">Stage voice</span>
-          <textarea
-            disabled={isGenerating || isPending}
-            value={draft.stagePersonality}
-            maxLength={1000}
-            onChange={(event) => onChange({ stagePersonality: event.target.value })}
-            placeholder="Voice, attitude, boundaries, and creator persona"
-            className={textareaClass}
-          />
-        </label>
-        <p className="text-xs text-[var(--muted-foreground)]">
-          Disclosure was selected earlier and is shown above. You can change it by going back.
-        </p>
       </div>
       <WizardFooter
         step={2}
         onBack={onCancel}
+        backLabel={isEditing ? "Cancel" : "Back"}
+        showProgress={!isEditing}
         disabled={isPending || isGenerating}
         finalAction={
           <button
             type="button"
             onClick={onSave}
             disabled={!canSave}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-            {isPending ? "Saving..." : "Save stage profile"}
+            {isPending ? "Saving..." : isEditing ? "Save changes" : "Create stage profile"}
           </button>
         }
       />
@@ -631,109 +689,113 @@ function StageProfileSourcePicker({
   onContinue: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <h2 className="text-xl font-black">Choose a source character or persona</h2>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
-        NoodleR will create a separate stage identity from this character or persona. You will choose exactly how much
-        of the public identity can carry over next.
-      </p>
-      <label className="relative mt-5 block">
-        <Search size={16} className="absolute left-3 top-3 text-[var(--muted-foreground)]" />
-        <input
-          value={search}
-          onChange={(event) => onSearch(event.target.value)}
-          placeholder="Search characters and personas"
-          className={`${fieldClass} pl-9`}
-        />
-      </label>
-      {selectedId && !accounts.some((account) => account.id === selectedId) && (
-        <p className="mt-3 rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 p-3 text-xs leading-5 text-[var(--foreground)]">
-          A selected source is hidden by the current search or filter. Clear the search or switch to All to review it.
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+        <h2 className="text-xl font-black">Choose a source character or persona</h2>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
+          NoodleR will create a separate stage identity from this character or persona. You will choose exactly how much
+          of the public identity can carry over next.
         </p>
-      )}
-      {isLoading ? (
-        <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[var(--noodle-divider)] py-12 text-sm text-[var(--muted-foreground)]">
-          <Loader2 size={18} className="animate-spin" /> Loading sources...
-        </div>
-      ) : isError ? (
-        <div className="mt-4 rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 p-6 text-center">
-          <p className="text-sm font-semibold">Sources could not be loaded.</p>
+        <label className="relative mt-5 block">
+          <Search size={16} className="absolute left-3 top-3 text-[var(--muted-foreground)]" />
+          <input
+            value={search}
+            onChange={(event) => onSearch(event.target.value)}
+            placeholder="Search characters and personas"
+            className={`${fieldClass} pl-9`}
+          />
+        </label>
+        {selectedId && !accounts.some((account) => account.id === selectedId) && (
+          <p className="mt-3 rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 p-3 text-xs leading-5 text-[var(--foreground)]">
+            A selected source is hidden by the current search or filter. Clear the search or switch to All to review it.
+          </p>
+        )}
+        {isLoading ? (
+          <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[var(--noodle-divider)] py-12 text-sm text-[var(--muted-foreground)]">
+            <Loader2 size={18} className="animate-spin" /> Loading sources...
+          </div>
+        ) : isError ? (
+          <div className="mt-4 rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 p-6 text-center">
+            <p className="text-sm font-semibold">Sources could not be loaded.</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-3 min-h-11 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)]"
+            >
+              Try again
+            </button>
+          </div>
+        ) : (
+          <div
+            className="mt-3 grid grid-cols-3 rounded-lg border border-[var(--noodle-divider)] p-1"
+            aria-label="Filter profile sources"
+          >
+            {(["all", "character", "persona"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={kind === option}
+                onClick={() => onKindChange(option)}
+                className={`min-h-11 rounded-md px-2 text-xs font-semibold capitalize ${kind === option ? "bg-[var(--noodle-blue)] text-zinc-950" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
+              >
+                {option === "all" ? "All" : option === "character" ? "Characters" : "Personas"}
+              </button>
+            ))}
+          </div>
+        )}
+        {!isLoading && !isError && (
+          <div className="mt-4 max-h-[min(28rem,50vh)] divide-y divide-[var(--noodle-divider)] overflow-y-auto rounded-lg border border-[var(--noodle-divider)]">
+            {accounts.length === 0 ? (
+              <p className="p-6 text-center text-sm text-[var(--muted-foreground)]">
+                No eligible source accounts match that search.
+              </p>
+            ) : (
+              accounts.map((account) => (
+                <button
+                  key={account.id}
+                  type="button"
+                  onClick={() => onSelect(account.id)}
+                  className={`flex min-h-16 w-full items-center gap-3 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-blue)] ${selectedId === account.id ? "bg-[var(--noodle-blue)]/10" : "hover:bg-[var(--accent)]"}`}
+                >
+                  {account.avatarUrl ? (
+                    <img src={account.avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                  ) : (
+                    <ProfileInitial profile={account} />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">{account.displayName}</span>
+                    <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                      <span className="truncate">@{account.handle}</span>
+                      <span className="shrink-0 rounded-full border border-[var(--noodle-divider)] px-1.5 py-0.5 text-[0.625rem] font-bold capitalize">
+                        {account.kind}
+                      </span>
+                    </span>
+                    {account.bio && (
+                      <span className="mt-1 block truncate text-xs text-[var(--muted-foreground)]">{account.bio}</span>
+                    )}
+                  </span>
+                  {selectedId === account.id ? (
+                    <Check size={18} className="text-[var(--noodle-blue)]" />
+                  ) : (
+                    <ChevronRight size={17} className="text-[var(--muted-foreground)]" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+        {!isLoading && !isError && hasMore && (
           <button
             type="button"
-            onClick={onRetry}
-            className="mt-3 min-h-11 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)]"
+            onClick={onLoadMore}
+            disabled={isLoadingMore}
+            className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-divider)] text-sm font-semibold hover:bg-[var(--accent)] disabled:opacity-50"
           >
-            Try again
+            {isLoadingMore && <Loader2 size={15} className="animate-spin" />}
+            {isLoadingMore ? "Loading more..." : "Load more characters"}
           </button>
-        </div>
-      ) : (
-        <div
-          className="mt-3 grid grid-cols-3 rounded-lg border border-[var(--noodle-divider)] p-1"
-          aria-label="Filter profile sources"
-        >
-          {(["all", "character", "persona"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={kind === option}
-              onClick={() => onKindChange(option)}
-              className={`h-8 rounded-md px-2 text-xs font-semibold capitalize ${kind === option ? "bg-[var(--noodle-blue)] text-zinc-950" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
-            >
-              {option === "all" ? "All" : option === "character" ? "Characters" : "Personas"}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="mt-4 divide-y divide-[var(--noodle-divider)] overflow-hidden rounded-lg border border-[var(--noodle-divider)]">
-        {accounts.length === 0 ? (
-          <p className="p-6 text-center text-sm text-[var(--muted-foreground)]">
-            No eligible source accounts match that search.
-          </p>
-        ) : (
-          accounts.map((account) => (
-            <button
-              key={account.id}
-              type="button"
-              onClick={() => onSelect(account.id)}
-              className={`flex min-h-16 w-full items-center gap-3 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-blue)] ${selectedId === account.id ? "bg-[var(--noodle-blue)]/10" : "hover:bg-[var(--accent)]"}`}
-            >
-              {account.avatarUrl ? (
-                <img src={account.avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
-              ) : (
-                <ProfileInitial profile={account} />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold">{account.displayName}</span>
-                <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-                  <span className="truncate">@{account.handle}</span>
-                  <span className="shrink-0 rounded-full border border-[var(--noodle-divider)] px-1.5 py-0.5 text-[0.625rem] font-bold capitalize">
-                    {account.kind}
-                  </span>
-                </span>
-                {account.bio && (
-                  <span className="mt-1 block truncate text-xs text-[var(--muted-foreground)]">{account.bio}</span>
-                )}
-              </span>
-              {selectedId === account.id ? (
-                <Check size={18} className="text-[var(--noodle-blue)]" />
-              ) : (
-                <ChevronRight size={17} className="text-[var(--muted-foreground)]" />
-              )}
-            </button>
-          ))
         )}
       </div>
-      {hasMore && (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={isLoadingMore}
-          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-divider)] text-sm font-semibold hover:bg-[var(--accent)] disabled:opacity-50"
-        >
-          {isLoadingMore && <Loader2 size={15} className="animate-spin" />}
-          {isLoadingMore ? "Loading more..." : "Load more characters"}
-        </button>
-      )}
       <WizardFooter
         step={0}
         onBack={onBack}
@@ -758,38 +820,40 @@ function DisclosureStep({
   onContinue: () => void;
 }) {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <h2 className="text-xl font-black">How connected should this feel?</h2>
-      <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-        Choose the relationship between this private stage identity and the character or persona you selected. This is
-        about identity disclosure, not access, subscriptions, or who can view posts.
-      </p>
-      {source && (
-        <p className="mt-4 rounded-md bg-[var(--accent)] p-3 text-xs text-[var(--muted-foreground)]">
-          Source: <span className="font-bold text-[var(--foreground)]">{source.displayName}</span> (@{source.handle})
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+        <h2 className="text-xl font-black">How connected should this feel?</h2>
+        <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+          Choose the relationship between this private stage identity and the character or persona you selected. This is
+          about identity disclosure, not access, subscriptions, or who can view posts.
         </p>
-      )}
-      <div className="mt-5 space-y-3">
-        {DISCLOSURE_OPTIONS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={value === option.value}
-            onClick={() => onChange(option.value)}
-            className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]/10" : "border-[var(--noodle-divider)] hover:bg-[var(--accent)]"}`}
-          >
-            <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]" : "border-[var(--noodle-divider)]"}`}
+        {source && (
+          <p className="mt-4 rounded-md bg-[var(--accent)] p-3 text-xs text-[var(--muted-foreground)]">
+            Source: <span className="font-bold text-[var(--foreground)]">{source.displayName}</span> (@{source.handle})
+          </p>
+        )}
+        <div className="mt-5 space-y-3">
+          {DISCLOSURE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={value === option.value}
+              onClick={() => onChange(option.value)}
+              className={`flex w-full items-start gap-3 rounded-lg border p-4 text-left ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]/10" : "border-[var(--noodle-divider)] hover:bg-[var(--accent)]"}`}
             >
-              {value === option.value && <Check size={13} className="text-zinc-950" />}
-            </span>
-            <span>
-              <span className="block text-sm font-bold">{option.label}</span>
-              <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.detail}</span>
-              <span className="mt-2 block text-xs leading-5 text-[var(--muted-foreground)]">{option.guidance}</span>
-            </span>
-          </button>
-        ))}
+              <span
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]" : "border-[var(--noodle-divider)]"}`}
+              >
+                {value === option.value && <Check size={13} className="text-zinc-950" />}
+              </span>
+              <span>
+                <span className="block text-sm font-bold">{option.label}</span>
+                <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.detail}</span>
+                <span className="mt-2 block text-xs leading-5 text-[var(--muted-foreground)]">{option.guidance}</span>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
       <WizardFooter step={1} onBack={onBack} onNext={onContinue} />
     </div>
@@ -803,6 +867,8 @@ function WizardFooter({
   nextDisabled = false,
   finalAction,
   disabled = false,
+  backLabel = "Back",
+  showProgress = true,
 }: {
   step: 0 | 1 | 2;
   onBack: () => void;
@@ -810,27 +876,31 @@ function WizardFooter({
   nextDisabled?: boolean;
   finalAction?: ReactNode;
   disabled?: boolean;
+  backLabel?: string;
+  showProgress?: boolean;
 }) {
   const labels = ["Source", "Disclosure", "Profile"];
   return (
-    <div className="sticky bottom-0 z-10 mt-6 border-t border-[var(--noodle-divider)] bg-[var(--background)]/95 px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
-      <div
-        className="mb-3 flex items-center justify-center gap-1.5"
-        role="status"
-        aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}
-      >
-        {labels.map((label, index) => (
-          <span key={label} className="flex items-center gap-1.5">
-            <span
-              aria-current={index === step ? "step" : undefined}
-              aria-label={`Step ${index + 1}: ${label}${index === step ? ", current" : index < step ? ", complete" : ""}`}
-              title={label}
-              className={`h-1.5 rounded-full transition-all ${index === step ? "w-6 bg-[var(--noodle-blue)]" : index < step ? "w-4 bg-[var(--noodle-blue)]/45" : "w-2 bg-[var(--muted-foreground)]/25"}`}
-            />
-            {index < labels.length - 1 && <span className="sr-only">to</span>}
-          </span>
-        ))}
-      </div>
+    <div className="z-10 shrink-0 border-t border-[var(--noodle-divider)] bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+      {showProgress && (
+        <div
+          className="mb-3 flex items-center justify-center gap-1.5"
+          role="status"
+          aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}
+        >
+          {labels.map((label, index) => (
+            <span key={label} className="flex items-center gap-1.5">
+              <span
+                aria-current={index === step ? "step" : undefined}
+                aria-label={`Step ${index + 1}: ${label}${index === step ? ", current" : index < step ? ", complete" : ""}`}
+                title={label}
+                className={`h-1.5 rounded-full transition-all ${index === step ? "w-6 bg-[var(--noodle-blue)]" : index < step ? "w-4 bg-[var(--noodle-blue)]/45" : "w-2 bg-[var(--muted-foreground)]/25"}`}
+              />
+              {index < labels.length - 1 && <span className="sr-only">to</span>}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-3">
         <button
           type="button"
@@ -838,7 +908,7 @@ function WizardFooter({
           disabled={disabled}
           className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
         >
-          <ArrowLeft size={15} /> Back
+          <ArrowLeft size={15} /> {backLabel}
         </button>
         {finalAction ?? (
           <button
@@ -1017,12 +1087,12 @@ function NoodlerFrame({
         { "--noodle-blue": "#7EA7FF", "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)" } as CSSProperties
       }
     >
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--noodle-divider)] px-3">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-[var(--noodle-divider)] px-2">
         {!hideBack && (
           <button
             type="button"
             onClick={onBack}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
             aria-label="Back"
           >
             <ArrowLeft size={18} />
