@@ -1,8 +1,8 @@
 import type { PresentCharacter } from "@marinara-engine/shared";
 import { useCharacterSprites, type SpriteInfo } from "../../../../hooks/use-characters";
 import {
-  FEATURED_PORTRAIT_DEFAULT_FOCUS_X,
-  FEATURED_PORTRAIT_DEFAULT_FOCUS_Y,
+  TRACKER_PORTRAIT_DEFAULT_FOCUS_X,
+  TRACKER_PORTRAIT_DEFAULT_FOCUS_Y,
   TRACKER_PORTRAIT_DEFAULT_ZOOM,
   TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y,
   TRACKER_PORTRAIT_EXPRESSION_FOCUS_Y_MAX,
@@ -43,10 +43,10 @@ export function FeaturedCharacterPortrait({
   const mediaKind: TrackerPortraitStageMediaKind | null = spriteUrl ? "expression" : media ? "art" : null;
   const canUploadTrackerArt = !!onUploadAvatar && !spriteUrl && !characterPicture;
   const defaultPortraitFocusY =
-    mediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y : FEATURED_PORTRAIT_DEFAULT_FOCUS_Y;
+    mediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y : TRACKER_PORTRAIT_DEFAULT_FOCUS_Y;
   const portraitFocusYMax = mediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_FOCUS_Y_MAX : 100;
   const portraitFocusX = clampNumber(
-    typeof character.portraitFocusX === "number" ? character.portraitFocusX : FEATURED_PORTRAIT_DEFAULT_FOCUS_X,
+    typeof character.portraitFocusX === "number" ? character.portraitFocusX : TRACKER_PORTRAIT_DEFAULT_FOCUS_X,
     0,
     100,
   );

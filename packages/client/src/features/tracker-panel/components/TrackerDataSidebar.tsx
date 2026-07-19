@@ -3,7 +3,6 @@ import type { PresentCharacter } from "@marinara-engine/shared";
 import {
   normalizeTrackerFieldLocksForState,
   normalizeTrackerHiddenFields,
-  toggleTrackerFieldHidden,
   toggleTrackerFieldLock,
   type TrackerHiddenFields,
 } from "@marinara-engine/shared";
@@ -119,12 +118,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
   const toggleFieldLock = useCallback((key: string) => {
     updateFieldLocks((locks) => toggleTrackerFieldLock(locks, key));
   }, [updateFieldLocks]);
-  const toggleFieldHidden = useCallback(
-    (key: string) => {
-      updateHiddenTrackerFields((hiddenFields) => toggleTrackerFieldHidden(hiddenFields, key));
-    },
-    [updateHiddenTrackerFields],
-  );
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
   const showTrackerSections = !!activeChatId && !isLoadingGameState && !!currentGameState && hasFixedTrackerPanel;
   const trackerPanelHasCustomBackground =
@@ -170,7 +163,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
         lockMode={lockMode}
         hideMode={hideMode}
         onToggleFieldLock={toggleFieldLock}
-        onToggleFieldHidden={toggleFieldHidden}
         onUpdateFieldLocks={updateFieldLocks}
         onUpdateHiddenFields={updateHiddenTrackerFields}
       >
@@ -214,7 +206,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
                 toggleTrackerPanelSectionCollapsed={toggleTrackerPanelSectionCollapsed}
                 deleteMode={deleteMode}
                 addMode={addMode}
-                hideMode={hideMode}
               />
             </TrackerPanelErrorBoundary>
           ) : null}

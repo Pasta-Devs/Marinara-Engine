@@ -1,16 +1,11 @@
 import type { TrackerPanelSide } from "../../../stores/ui.store";
-import {
-  TRACKER_PROFILE_PORTRAIT_COLUMN_LEFT_CLASS,
-  TRACKER_PROFILE_PORTRAIT_COLUMN_RIGHT_CLASS,
-} from "./tracker-panel.constants";
-
 export type TrackerProfileSide = "left" | "right";
 
 export const TRACKER_PROFILE_GRID_CLASS = "relative z-[1] grid gap-y-0 gap-x-0";
 
 export const TRACKER_PROFILE_GRID_CLASS_BY_PORTRAIT_SIDE = {
-  left: TRACKER_PROFILE_PORTRAIT_COLUMN_LEFT_CLASS,
-  right: TRACKER_PROFILE_PORTRAIT_COLUMN_RIGHT_CLASS,
+  left: "grid-cols-[clamp(5.25rem,38cqw,6.75rem)_minmax(0,1fr)] @min-[380px]:grid-cols-[9.25rem_minmax(0,1fr)]",
+  right: "grid-cols-[minmax(0,1fr)_clamp(5.25rem,38cqw,6.75rem)] @min-[380px]:grid-cols-[minmax(0,1fr)_9.25rem]",
 } satisfies Record<TrackerProfileSide, string>;
 
 export const TRACKER_PROFILE_ORDER_CLASS_BY_SIDE = {
@@ -21,11 +16,6 @@ export const TRACKER_PROFILE_ORDER_CLASS_BY_SIDE = {
 export const TRACKER_PROFILE_DETAILS_SEAM_BORDER_CLASS_BY_SIDE = {
   left: "border-r",
   right: "border-l",
-} satisfies Record<TrackerProfileSide, string>;
-
-export const TRACKER_PROFILE_DETAILS_SEAM_EDGE_CLASS_BY_SIDE = {
-  left: "right-0",
-  right: "left-0",
 } satisfies Record<TrackerProfileSide, string>;
 
 export const TRACKER_PROFILE_PORTRAIT_LOWER_OUTSIDE_FRAME_CLASS_BY_SIDE = {
