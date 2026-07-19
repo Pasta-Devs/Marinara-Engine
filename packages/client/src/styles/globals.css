@@ -4058,14 +4058,6 @@ strong {
   background: var(--background);
 }
 
-/* Keep the crossfade layers composited while desktop side panels resize the
-   Roleplay surface. Firefox can otherwise briefly drop a repainted layer. */
-.mari-background {
-  backface-visibility: hidden;
-  contain: paint;
-  will-change: opacity, filter, transform;
-}
-
 [data-chat-mode="roleplay"] {
   --mari-roleplay-message-column-width: 58rem;
 }

@@ -15,7 +15,6 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Smoothed Roleplay typing and streamed replies by batching draft-state publication, pacing the Typewriter effect against bursty provider delivery, and replacing the repaint-heavy streaming glow with an opacity pulse (#3836).
-- Kept Roleplay background images composited while chat and tool sidebars resize the desktop chat, preventing the temporary background flicker in Firefox (#3836).
 - Kept Character and Persona prompt sections in editor order across preset markers, fallbacks, agent lore, and Game/scene card contexts: Description, Personality, Backstory, Appearance, Scenario, then Example Dialogue when present (#3817).
 - Made PocketTTS server voices directly selectable for global, character, and narrator assignments while retaining custom voice IDs, URLs, and paths, and aligned new PocketTTS setups with the compatible server's default endpoint (#3786).
 - Streamed Roleplay and Game scene-video files with standard byte-range and HEAD handling instead of synchronously buffering complete MP4 files for every playback request (#3811).

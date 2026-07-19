@@ -214,12 +214,10 @@ function WeatherEffectsConnected() {
 }
 
 function getBackgroundBlurStyle(blurPx: number): Pick<CSSProperties, "filter" | "transform"> {
-  if (blurPx <= 0) {
-    return { transform: "translate3d(0, 0, 0)" };
-  }
+  if (blurPx <= 0) return {};
   return {
     filter: `blur(${blurPx}px)`,
-    transform: `translate3d(0, 0, 0) scale(${Math.min(1.08, 1 + blurPx * 0.0025)})`,
+    transform: `scale(${Math.min(1.08, 1 + blurPx * 0.0025)})`,
   };
 }
 
