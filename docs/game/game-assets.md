@@ -147,7 +147,7 @@ A bar shows "All folders included" or how many folders are excluded, with a **Re
 
 **Music DJ** is a helper agent that can play music during a game. When it runs in its Custom mode, it plays tracks from a folder you choose. You can set that folder in two places.
 
-When you enable **Music DJ** for a chat, the setup form shows a **Custom Music Folder** field. It points at a folder inside your game assets, such as `music` or `music/combat`.
+When you enable **Music DJ** for a chat, the setup form follows the source saved on the Music DJ agent. **Game Assets** shows a path inside your game assets, such as `music` or `music/combat`. **Folder on this device** shows the saved server-device path and a **Choose Folder** button.
 
 The full **Music DJ** editor has a **Custom Music Library** section. Its **Use Game Assets music folder** switch picks between two modes:
 

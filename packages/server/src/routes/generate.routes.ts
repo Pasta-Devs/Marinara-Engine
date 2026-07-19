@@ -3184,6 +3184,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
+        const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
         if (
           illustratorAgentForInterval &&
           (await shouldSkipAgentByAssistantInterval({
@@ -3193,6 +3194,7 @@ export async function generateRoutes(app: FastifyInstance) {
             settings: illustratorAgentForInterval.settings,
             fallbackInterval: (getDefaultBuiltInAgentSettings("illustrator").runInterval as number) ?? 5,
             messages: allChatMessages,
+            countUpcomingAssistantMessage: createsAssistantMessage,
           }))
         ) {
           resolvedAgents.splice(resolvedAgents.indexOf(illustratorAgentForInterval), 1);
@@ -3586,6 +3588,7 @@ export async function generateRoutes(app: FastifyInstance) {
               settings: ceaAgent.settings,
               fallbackInterval: (getDefaultBuiltInAgentSettings("card-evolution-auditor").runInterval as number) ?? 8,
               messages: allChatMessages,
+              countUpcomingAssistantMessage: createsAssistantMessage,
             })
           ) {
             resolvedAgents.splice(resolvedAgents.indexOf(ceaAgent), 1);
@@ -3603,6 +3606,7 @@ export async function generateRoutes(app: FastifyInstance) {
               settings: amkAgent.settings,
               fallbackInterval: (getDefaultBuiltInAgentSettings("about-me-keeper").runInterval as number) ?? 8,
               messages: allChatMessages,
+              countUpcomingAssistantMessage: createsAssistantMessage,
             })
           ) {
             resolvedAgents.splice(resolvedAgents.indexOf(amkAgent), 1);
