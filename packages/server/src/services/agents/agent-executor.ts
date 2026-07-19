@@ -97,7 +97,8 @@ function getMusicProvider(settings: Record<string, unknown> | null | undefined):
 }
 
 function getCustomMusicSource(settings: Record<string, unknown> | null | undefined): CustomMusicSource {
-  return settings?.customMusicSource === "folder" || settings?.localMusicSource === "folder" ? "folder" : "game-assets";
+  const source = settings?.customMusicSource ?? settings?.localMusicSource;
+  return source === "folder" ? "folder" : "game-assets";
 }
 
 function normalizeAgentContextWrapFormat(value: unknown): WrapFormat {

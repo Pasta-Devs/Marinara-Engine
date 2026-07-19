@@ -143,7 +143,8 @@ function normalizeCustomMusicFolder(value: unknown): string {
 }
 
 export function normalizeCustomMusicSource(settings: Record<string, unknown>): CustomMusicSource {
-  return settings.customMusicSource === "folder" || settings.localMusicSource === "folder" ? "folder" : "game-assets";
+  const source = settings.customMusicSource ?? settings.localMusicSource;
+  return source === "folder" ? "folder" : "game-assets";
 }
 
 export function normalizeCustomMusicExternalFolder(value: unknown): string {

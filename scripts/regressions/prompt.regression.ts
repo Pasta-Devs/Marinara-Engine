@@ -219,6 +219,7 @@ import { loadGameVideoPrompt } from "../../packages/server/src/services/video/ga
 import { loadGameStoryboardImagePrompt } from "../../packages/server/src/services/image/game-storyboard-image-prompt.js";
 import { formatAgentFailuresToast, toAgentFailure } from "../../packages/client/src/lib/agent-failures.js";
 import { formatGenerationParameterError } from "../../packages/client/src/lib/generation-parameter-errors.js";
+import { normalizeCustomMusicSource } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 
 const assistantCadenceMessages = [
   { id: "illustrator-anchor", role: "assistant" },
@@ -228,6 +229,16 @@ const assistantCadenceMessages = [
 const illustratorCadenceStore = {
   getLastSuccessfulRunByType: async () => ({ messageId: "illustrator-anchor" }),
 };
+assert.strictEqual(
+  normalizeCustomMusicSource({ customMusicSource: "game-assets", localMusicSource: "folder" }),
+  "game-assets",
+  "the current custom music source should override stale legacy settings",
+);
+assert.strictEqual(
+  normalizeCustomMusicSource({ localMusicSource: "folder" }),
+  "folder",
+  "legacy custom music source settings should remain supported as a fallback",
+);
 assert.equal(
   await shouldSkipAgentByAssistantInterval({
     agentsStore: illustratorCadenceStore,
