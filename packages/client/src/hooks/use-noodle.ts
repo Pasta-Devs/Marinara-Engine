@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // React Query: Noodle hooks
 // ──────────────────────────────────────────────
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import type {
@@ -73,9 +73,14 @@ export function useNoodlerAccounts(enabled = true) {
 }
 
 export function useNoodlerEligibleAccounts(enabled = true) {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: noodleKeys.privateEligibleAccounts(),
-    queryFn: () => api.get<NoodleAccount[]>("/noodle/noodler/eligible-accounts"),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      api.get<{ items: NoodleAccount[]; limit: number; offset: number; hasMore: boolean }>(
+        `/noodle/noodler/eligible-accounts?limit=20&offset=${pageParam}`,
+      ),
+    getNextPageParam: (page) => (page.hasMore ? page.offset + page.items.length : undefined),
     enabled,
     staleTime: 10_000,
   });

@@ -89,7 +89,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [generationError, setGenerationError] = useState<string | null>(null);
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
-  const eligiblePublicAccounts = eligibleAccountsQuery.data ?? [];
+  const eligiblePublicAccounts = eligibleAccountsQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const selectedSource = eligiblePublicAccounts.find((account) => account.id === draftPublicAccountId) ?? null;
 
   const enableNoodler = () => {
@@ -216,6 +216,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           selectedId={draftPublicAccountId}
           onSearch={setSourceSearch}
           onSelect={setDraftPublicAccountId}
+          hasMore={Boolean(eligibleAccountsQuery.hasNextPage)}
+          isLoadingMore={eligibleAccountsQuery.isFetchingNextPage}
+          onLoadMore={() => void eligibleAccountsQuery.fetchNextPage()}
           onContinue={() => setCreationStep("disclosure")}
         />
       </NoodlerFrame>
@@ -511,6 +514,9 @@ function StageProfileSourcePicker({
   selectedId,
   onSearch,
   onSelect,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
   onContinue,
 }: {
   accounts: Array<{ id: string; displayName: string; handle: string; bio: string; avatarUrl: string | null }>;
@@ -518,6 +524,9 @@ function StageProfileSourcePicker({
   selectedId: string | null;
   onSearch: (value: string) => void;
   onSelect: (id: string) => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
   onContinue: () => void;
 }) {
   const visible = accounts.filter((account) =>
@@ -573,6 +582,17 @@ function StageProfileSourcePicker({
           ))
         )}
       </div>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={isLoadingMore}
+          className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-divider)] text-sm font-semibold hover:bg-[var(--accent)] disabled:opacity-50"
+        >
+          {isLoadingMore && <Loader2 size={15} className="animate-spin" />}
+          {isLoadingMore ? "Loading more..." : "Load more characters"}
+        </button>
+      )}
       <div className="mt-6 flex justify-end">
         <button
           type="button"

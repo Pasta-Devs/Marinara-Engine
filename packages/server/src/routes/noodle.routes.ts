@@ -100,15 +100,35 @@ export async function noodleRoutes(app: FastifyInstance) {
     return noodle.listNoodlerStageProfiles();
   });
 
-  app.get("/noodler/eligible-accounts", async (_req, reply) => {
-    const settings = await noodle.getSettings();
-    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
-    const [publicAccounts, privateAccounts] = await Promise.all([noodle.listAccounts(), noodle.listPrivateAccounts()]);
-    const linkedIds = new Set(privateAccounts.flatMap((account) => account.publicAccountId ?? []));
-    return publicAccounts.filter(
-      (account) => (account.kind === "persona" || account.kind === "character") && !linkedIds.has(account.id),
-    );
-  });
+  app.get<{ Querystring: { limit?: string; offset?: string; search?: string } }>(
+    "/noodler/eligible-accounts",
+    async (req, reply) => {
+      const settings = await noodle.getSettings();
+      if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+      const [publicAccounts, privateAccounts] = await Promise.all([
+        noodle.listAccounts(),
+        noodle.listPrivateAccounts(),
+      ]);
+      const linkedIds = new Set(privateAccounts.flatMap((account) => account.publicAccountId ?? []));
+      const search = (req.query.search ?? "").trim().toLocaleLowerCase();
+      const eligibleAccounts = publicAccounts.filter(
+        (account) => (account.kind === "persona" || account.kind === "character") && !linkedIds.has(account.id),
+      );
+      const filteredAccounts = search
+        ? eligibleAccounts.filter((account) =>
+            `${account.displayName} ${account.handle} ${account.bio}`.toLocaleLowerCase().includes(search),
+          )
+        : eligibleAccounts;
+      const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 20));
+      const offset = Math.max(0, Number(req.query.offset) || 0);
+      return {
+        items: filteredAccounts.slice(offset, offset + limit),
+        limit,
+        offset,
+        hasMore: offset + limit < filteredAccounts.length,
+      };
+    },
+  );
 
   app.post("/noodler/stage-profile-draft", async (req, reply) => {
     const settings = await noodle.getSettings();
