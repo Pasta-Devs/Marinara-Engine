@@ -1018,6 +1018,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Button group",
   },
   {
+    id: "game-text-effects",
+    sectionId: "game-presentation",
+    label: "Game text effects",
+    description: "Animate dramatic words and explicit text-effect tags in Game mode.",
+    aliases: ["game", "text", "animation", "effects", "accessibility", "motion"],
+    kind: "Toggle",
+  },
+  {
     id: "weather-effects",
     sectionId: "motion-backgrounds",
     label: "Dynamic weather effects",
@@ -3695,6 +3703,8 @@ function AppearanceSettings() {
   const setRoleplaySpriteScale = useUIStore((s) => s.setRoleplaySpriteScale);
   const gameDialogueDisplayMode = useUIStore((s) => s.gameDialogueDisplayMode);
   const setGameDialogueDisplayMode = useUIStore((s) => s.setGameDialogueDisplayMode);
+  const gameTextEffectsEnabled = useUIStore((s) => s.gameTextEffectsEnabled);
+  const setGameTextEffectsEnabled = useUIStore((s) => s.setGameTextEffectsEnabled);
   const gameAvatarScale = useUIStore((s) => s.gameAvatarScale);
   const setGameAvatarScale = useUIStore((s) => s.setGameAvatarScale);
   const gameFullBodySpriteScale = useUIStore((s) => s.gameFullBodySpriteScale);
@@ -4518,6 +4528,14 @@ function AppearanceSettings() {
               ))}
             </div>
           </div>
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("game-text-effects")}
+            label="Game text effects"
+            checked={gameTextEffectsEnabled}
+            onChange={setGameTextEffectsEnabled}
+            help="Animates dramatic words, ALL CAPS emphasis, parenthetical asides, and explicit text-effect tags in Game mode. Turn this off for plain, stable text."
+          />
         </div>
       </SettingsSection>
 

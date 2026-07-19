@@ -580,12 +580,12 @@ function slicePreservingEffects(content: string, maxVisible: number): string {
   return result;
 }
 
-function getGameTranslationHtml(message: NarrationMessage, translatedText: string): string {
+function getGameTranslationHtml(message: NarrationMessage, translatedText: string, textEffectsEnabled: boolean): string {
   const content =
     message.role === "assistant" || message.role === "narrator" || message.role === "system"
       ? stripGmTagsKeepReadables(translatedText)
       : translatedText.replace(/^\[(?:To the party|To the GM)]\s*/i, "");
-  return animateTextHtml(formatNarration(content.trim(), false));
+  return animateTextHtml(formatNarration(content.trim(), false), textEffectsEnabled);
 }
 
 function hashVoiceKey(value: string): string {
@@ -1010,6 +1010,7 @@ export function GameNarration({
   const [logsOpen, setLogsOpen] = useState(false);
   const messagesPerPage = useUIStore((s) => s.messagesPerPage);
   const gameDialogueDisplayMode = useUIStore((s) => s.gameDialogueDisplayMode);
+  const gameTextEffectsEnabled = useUIStore((s) => s.gameTextEffectsEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const useStackedLogDisplay = gameDialogueDisplayMode === "stacked";
   const showLogsButton = !useStackedLogDisplay;
@@ -3256,7 +3257,9 @@ export function GameNarration({
           {translatedText ? (
             <div
               className="game-narration-prose text-sm leading-relaxed text-sky-50/85"
-              dangerouslySetInnerHTML={{ __html: getGameTranslationHtml(message, translatedText) }}
+              dangerouslySetInnerHTML={{
+                __html: getGameTranslationHtml(message, translatedText, gameTextEffectsEnabled),
+              }}
             />
           ) : (
             <div className="text-xs text-sky-200/60">Translating...</div>
@@ -3264,7 +3267,7 @@ export function GameNarration({
         </div>
       );
     },
-    [],
+    [gameTextEffectsEnabled],
   );
 
   const playClickSfx = useCallback(() => {
@@ -4183,7 +4186,9 @@ export function GameNarration({
                   seg.partyType === "thought" ? "italic opacity-80" : "font-semibold",
                 )}
                 style={seg.color ? { ...narrationFontStyle, color: seg.color } : narrationFontStyle}
-                dangerouslySetInnerHTML={{ __html: animateTextHtml(formatNarration(seg.content, false)) }}
+                dangerouslySetInnerHTML={{
+                  __html: animateTextHtml(formatNarration(seg.content, false), gameTextEffectsEnabled),
+                }}
               />
             )}
           </div>
@@ -4205,7 +4210,9 @@ export function GameNarration({
             <div
               className="whitespace-pre-wrap break-words text-xs leading-relaxed"
               style={narrationFontStyle}
-              dangerouslySetInnerHTML={{ __html: animateTextHtml(formatNarration(seg.content, false)) }}
+              dangerouslySetInnerHTML={{
+                __html: animateTextHtml(formatNarration(seg.content, false), gameTextEffectsEnabled),
+              }}
             />
           )}
         </div>
@@ -4229,7 +4236,10 @@ export function GameNarration({
               className="text-xs italic leading-relaxed text-amber-200/70"
               style={narrationFontStyle}
               dangerouslySetInnerHTML={{
-                __html: animateTextHtml(formatNarration(seg.readableContent ?? seg.content, false)),
+                __html: animateTextHtml(
+                  formatNarration(seg.readableContent ?? seg.content, false),
+                  gameTextEffectsEnabled,
+                ),
               }}
             />
           )}
@@ -4255,7 +4265,9 @@ export function GameNarration({
           <div
             className="text-xs leading-relaxed text-[var(--foreground)]/80 dark:text-white/80"
             style={narrationStyle}
-            dangerouslySetInnerHTML={{ __html: animateTextHtml(formatNarration(seg.content, false)) }}
+            dangerouslySetInnerHTML={{
+              __html: animateTextHtml(formatNarration(seg.content, false), gameTextEffectsEnabled),
+            }}
           />
         )}
       </div>
@@ -4618,6 +4630,7 @@ export function GameNarration({
                               dangerouslySetInnerHTML={{
                                 __html: animateTextHtml(
                                   formatNarration(slicePreservingEffects(active.content, visibleChars), false),
+                                  gameTextEffectsEnabled,
                                 ),
                               }}
                             />
@@ -4707,6 +4720,7 @@ export function GameNarration({
                     dangerouslySetInnerHTML={{
                       __html: animateTextHtml(
                         formatNarration(slicePreservingEffects(active.content, visibleChars), false),
+                        gameTextEffectsEnabled,
                       ),
                     }}
                   />
@@ -4770,6 +4784,7 @@ export function GameNarration({
                   dangerouslySetInnerHTML={{
                     __html: animateTextHtml(
                       formatNarration(slicePreservingEffects(active.content, visibleChars), false),
+                      gameTextEffectsEnabled,
                     ),
                   }}
                 />
@@ -5418,7 +5433,10 @@ export function GameNarration({
                                   )}
                                   style={seg.color ? { ...narrationFontStyle, color: seg.color } : narrationFontStyle}
                                   dangerouslySetInnerHTML={{
-                                    __html: animateTextHtml(formatNarration(seg.content, false)),
+                                    __html: animateTextHtml(
+                                      formatNarration(seg.content, false),
+                                      gameTextEffectsEnabled,
+                                    ),
                                   }}
                                 />
                               )}
@@ -5448,7 +5466,9 @@ export function GameNarration({
                             <div
                               className="whitespace-pre-wrap break-words pr-6 text-xs leading-relaxed text-cyan-50/80"
                               style={narrationFontStyle}
-                              dangerouslySetInnerHTML={{ __html: animateTextHtml(formatNarration(seg.content, false)) }}
+                              dangerouslySetInnerHTML={{
+                                __html: animateTextHtml(formatNarration(seg.content, false), gameTextEffectsEnabled),
+                              }}
                             />
                           </div>
                         );
@@ -5479,7 +5499,10 @@ export function GameNarration({
                                 className="text-xs italic leading-relaxed text-amber-200/70"
                                 style={narrationFontStyle}
                                 dangerouslySetInnerHTML={{
-                                  __html: animateTextHtml(formatNarration(seg.readableContent ?? seg.content, false)),
+                                  __html: animateTextHtml(
+                                    formatNarration(seg.readableContent ?? seg.content, false),
+                                    gameTextEffectsEnabled,
+                                  ),
                                 }}
                               />
                             )}
@@ -5511,7 +5534,9 @@ export function GameNarration({
                             <div
                               className="text-xs leading-relaxed text-white/80"
                               style={narrationStyle}
-                              dangerouslySetInnerHTML={{ __html: animateTextHtml(formatNarration(seg.content, false)) }}
+                              dangerouslySetInnerHTML={{
+                                __html: animateTextHtml(formatNarration(seg.content, false), gameTextEffectsEnabled),
+                              }}
                             />
                           )}
                         </div>
