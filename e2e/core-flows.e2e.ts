@@ -965,6 +965,24 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
       "Agent Cobra (AgentCobra.wav)",
     );
     await expect(ttsCard.getByText("Loaded 2 voices from PocketTTS server.", { exact: true })).toBeVisible();
+
+    await ttsCard.getByText("Only read dialogues", { exact: true }).click();
+    const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
+    await expect(dialoguePause).toHaveAttribute("min", "1");
+    await expect(dialoguePause).toHaveAttribute("max", "60");
+    await expect(dialoguePause).toHaveAttribute("step", "1");
+    await expect(dialoguePause).toHaveValue("1");
+    await expect(ttsCard.getByText("Pause between dialogues: 1 second", { exact: true })).toBeVisible();
+
+    await dialoguePause.fill("60");
+    await expect(ttsCard.getByText("Pause between dialogues: 60 seconds", { exact: true })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const response = await request.get("/api/tts/config");
+        const config = (await response.json()) as { dialoguePauseMs?: number };
+        return config.dialoguePauseMs;
+      })
+      .toBe(60_000);
   } finally {
     try {
       if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });
