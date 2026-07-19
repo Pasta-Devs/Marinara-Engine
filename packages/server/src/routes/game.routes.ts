@@ -10945,8 +10945,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
       return reply
         .header("Content-Type", "video/mp4")
-        .header("Cache-Control", "public, max-age=31536000, immutable")
-        .send(readFileSync(filePath));
+        .sendFile(filename, join(GAME_SCENE_VIDEOS_ROOT, chatId), { maxAge: "1y", immutable: true });
     },
   );
 
