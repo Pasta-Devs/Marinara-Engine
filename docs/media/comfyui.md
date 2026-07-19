@@ -1,6 +1,6 @@
 # ComfyUI Workflow Setup
 
-Marinara Engine can send image-generation requests to a local ComfyUI server or a RunPod Serverless endpoint that runs ComfyUI. A local connection can use Marinara's built-in basic workflow, but a custom API-format workflow gives you control over checkpoints, LoRAs, VAEs, ControlNet, reference-image nodes, samplers, and other ComfyUI features.
+Marinara Engine can send image- and video-generation requests to a local ComfyUI server, and image requests to a RunPod Serverless endpoint that runs ComfyUI. A local image connection can use Marinara's built-in basic workflow, while video connections and advanced image setups use a custom API-format workflow.
 
 The workflow JSON pasted into Marinara is a snapshot. Marinara does not keep a live link to the workflow open in ComfyUI. Whenever you change the workflow in ComfyUI, test it again, export it again, and replace the JSON saved on the Marinara connection.
 
@@ -8,7 +8,7 @@ The workflow JSON pasted into Marinara is a snapshot. Marinara does not keep a l
 
 Install ComfyUI, add the checkpoints and custom nodes your workflow needs, and start its server. The usual local address is `http://127.0.0.1:8188`.
 
-If ComfyUI runs on a different computer on your home network, its server must listen on an address that Marinara can reach. You must also set `IMAGE_LOCAL_URLS_ENABLED=true` in Marinara's `.env`; see the [Server Configuration Reference](../CONFIGURATION.md). Check the other computer's firewall if the connection still fails.
+If ComfyUI runs on a different computer on your home network, its server must listen on an address that Marinara can reach. Image connections also require `IMAGE_LOCAL_URLS_ENABLED=true` in Marinara's `.env`; see the [Server Configuration Reference](../CONFIGURATION.md). Check the other computer's firewall if the connection still fails.
 
 A local language model and an image model may not fit in GPU memory at the same time, especially on an 8 GB card. Marinara's image queue prevents multiple image jobs from running together, but it cannot make two loaded models fit into the same VRAM. If you run out of memory, use a cloud or separately hosted language model, run ComfyUI on another device, or unload one model before using the other.
 
@@ -32,6 +32,25 @@ A local language model and an image model may not fit in GPU memory at the same 
 7. Open the exported `.json` file in a text editor.
 
 An API-format workflow is different from the normal visual-editor workflow. Its top-level keys are node IDs, and each node normally contains `class_type` and `inputs`. Export the API version; do not paste the regular workflow file containing the editor's visual layout.
+
+## ComfyUI video workflows
+
+Create a **Video Generation** connection, choose **ComfyUI**, and paste an API-format workflow into the required **ComfyUI Workflow** field. WAN 2.2 and other local video graphs are supported as long as the same workflow runs in ComfyUI and saves an MP4 through an output such as the core **SaveVideo** node.
+
+Video workflows can use these quoted placeholders:
+
+| Placeholder              | Value supplied by Marinara                                          |
+| ------------------------ | ------------------------------------------------------------------- |
+| `%prompt%`               | The compiled scene or animation prompt.                             |
+| `%width%`, `%height%`    | `832×480` for 480p or `1280×720` for 720p, swapped for 9:16.        |
+| `%seed%`                 | A new random 32-bit seed.                                           |
+| `%length%`               | Clip length as a frame count at 16 fps.                             |
+| `%model%`                | The connection's Model value, when one is set.                      |
+| `%reference_image_name%` | The uploaded first-frame filename for a ComfyUI **LoadImage** node. |
+
+Marinara queues the workflow through `/prompt`, polls `/history`, and downloads the MP4 named in a `gifs` or `images` output. Image-to-video actions provide `%reference_image_name%`; text-only connection tests do not, so keep that input optional when the same workflow must support both.
+
+Local WAN renders can exceed 30 minutes on mid-range GPUs. ComfyUI video jobs use `VIDEO_GEN_TIMEOUT_MS`, not the image-only `COMFYUI_GEN_TIMEOUT`; raise the video timeout and restart Marinara if a valid workflow is cut off early.
 
 ## Add Marinara placeholders
 
@@ -144,13 +163,15 @@ This can produce more consistent results than one generic workflow, but each con
 | ComfyUI reports a missing node or input          | Install the same custom-node packages used when the workflow was built and confirm their input names have not changed.                                                                                                        |
 | The job completes but Marinara receives no image | Add a connected **SaveImage** output and test the workflow directly in ComfyUI again.                                                                                                                                         |
 | A reference-image node fails                     | For a normal local **LoadImage** node, use a `%reference_image_name...%` placeholder. Use raw base64 only with a node designed for it, and confirm that the Marinara feature actually supplied a reference.                   |
-| A remote/LAN ComfyUI URL is blocked              | Enable `IMAGE_LOCAL_URLS_ENABLED`, make ComfyUI listen on the network interface, and check the host firewall. Do not expose an unauthenticated ComfyUI server to the public internet.                                         |
-| A long generation times out                      | Increase `COMFYUI_GEN_TIMEOUT` in Marinara's `.env`. The value is measured in seconds and defaults to `2400`.                                                                                                                 |
+| A remote/LAN ComfyUI URL is blocked              | For image connections, enable `IMAGE_LOCAL_URLS_ENABLED`. Make ComfyUI listen on the network interface and check the host firewall. Do not expose an unauthenticated ComfyUI server to the public internet.                   |
+| A long image generation times out                | Increase `COMFYUI_GEN_TIMEOUT` in Marinara's `.env`. The value is measured in seconds and defaults to `2400`.                                                                                                                 |
+| A long video generation times out                | Increase `VIDEO_GEN_TIMEOUT_MS` in Marinara's `.env`. The value is measured in milliseconds and defaults to `1800000` (30 minutes).                                                                                           |
 | Generation runs out of GPU memory                | Reduce image dimensions or model size, unload the local language model, use a remote language model, or move ComfyUI to another device.                                                                                       |
 
 ## Related guides
 
 - [Image Generation Providers and Setup](image-providers.md) covers all supported image services and shared image settings.
+- [Scene Video Generation](scene-video.md) covers video connections and every scene-video surface.
 - [Image Style Profiles](style-profiles.md) explains Marinara's reusable prompt styles.
 - [Illustrator Agent](illustrator-agent.md) covers automatic scene illustration.
 - [Server Configuration Reference](../CONFIGURATION.md) documents local-network access and ComfyUI timeouts.

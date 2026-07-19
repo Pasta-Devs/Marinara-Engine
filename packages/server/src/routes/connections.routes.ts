@@ -39,6 +39,7 @@ import { DATA_DIR } from "../utils/data-dir.js";
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
+const DEFAULT_COMFYUI_VIDEO_BASE_URL = "http://127.0.0.1:8188";
 const DEFAULT_GEMINI_OMNI_VIDEO_MODEL = "gemini-omni-flash-preview";
 const DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_GOOGLE_VEO_VIDEO_MODEL = "veo-3.1-generate-preview";
@@ -1003,6 +1004,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
     const isGoogleVeoVideo = videoSource === "google_veo" || videoServiceHint === "google_veo";
     const isOpenRouterVideo = videoSource === "openrouter" || videoServiceHint === "openrouter";
     const isSeedanceVideo = videoSource === "seedance" || videoServiceHint === "seedance";
+    const isComfyUiVideo = videoSource === "comfyui" || videoServiceHint === "comfyui";
     const baseUrl = (
       conn.baseUrl ||
       (isXaiVideo
@@ -1013,7 +1015,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
             ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
             : isSeedanceVideo
               ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
-              : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
+              : isComfyUiVideo
+                ? DEFAULT_COMFYUI_VIDEO_BASE_URL
+                : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
     ).replace(/\/+$/, "");
     const videoModel =
       conn.model ||
@@ -1025,7 +1029,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
             ? DEFAULT_OPENROUTER_VIDEO_MODEL
             : isSeedanceVideo
               ? DEFAULT_SEEDANCE_VIDEO_MODEL
-              : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
+              : isComfyUiVideo
+                ? ""
+                : DEFAULT_GEMINI_OMNI_VIDEO_MODEL);
     const activeDefaults = isXaiVideo
       ? defaults.xai
       : isGoogleVeoVideo
@@ -1034,7 +1040,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
           ? defaults.openrouter
           : isSeedanceVideo
             ? defaults.seedance
-            : defaults.geminiOmni;
+            : isComfyUiVideo
+              ? defaults.comfyui
+              : defaults.geminiOmni;
 
     const prompt =
       "Create a concise cinematic 16:9 game scene video: a plate of spaghetti with marinara sauce on a table, gentle steam rising, warm kitchen light, slow push-in camera, no text or logos.";
@@ -1055,7 +1063,10 @@ export async function connectionsRoutes(app: FastifyInstance) {
               ? defaults.openrouter.resolution
               : isSeedanceVideo
                 ? defaults.seedance.resolution
-                : undefined,
+                : isComfyUiVideo
+                  ? defaults.comfyui.resolution
+                  : undefined,
+        comfyWorkflow: conn.comfyuiWorkflow || undefined,
       });
       return {
         success: true,

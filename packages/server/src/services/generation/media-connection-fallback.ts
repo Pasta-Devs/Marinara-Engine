@@ -57,5 +57,6 @@ export async function resolveVideoConnectionFallback(
     apiKey: connection.apiKey || "",
     serviceHint: String(connection.videoService ?? connection.videoGenerationSource ?? source),
     model,
+    comfyWorkflow: connection.comfyuiWorkflow || undefined,
   };
 }

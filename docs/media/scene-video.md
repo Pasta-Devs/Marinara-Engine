@@ -17,12 +17,12 @@ To make scene videos, you first add a connection that can generate video. This u
 1. Open **Settings**, then open **Connections**.
 2. Click **Add Connection**.
 3. Set the provider type to **Video Generation**.
-4. Under **Video Service**, pick one of the four services below.
-5. Enter the API key for that service. An API key is a secret token that proves your account to the provider.
-6. Pick a model, or keep the default model the service fills in.
+4. Under **Video Service**, pick one of the five services below.
+5. Enter the API key for a cloud service. Local ComfyUI does not need one.
+6. For cloud services, pick a model or keep the provider default. For ComfyUI, leave the model unset unless the workflow uses `%model%`.
 7. Save the connection.
 
-The **Video Service** picker offers four choices. Each one fills in a default web address and a default model:
+The **Video Service** picker offers five choices. Each one fills in a default web address and, where applicable, a default model:
 
 | Video Service        | Default model               | Notes                                                                        |
 | -------------------- | --------------------------- | ---------------------------------------------------------------------------- |
@@ -30,10 +30,11 @@ The **Video Service** picker offers four choices. Each one fills in a default we
 | **xAI Imagine**      | `grok-imagine-video-1.5`    | Grok Imagine video through the xAI Videos API.                               |
 | **OpenRouter Video** | `google/veo-3.1`            | Video models through OpenRouter. You can type any OpenRouter video model ID. |
 | **Seedance 2.0**     | `seedance-2-0`              | Text, first-frame, and first and last frame video modes.                     |
+| **ComfyUI**          | Workflow-defined            | Local WAN and other video workflows exported in API format.                  |
 
 **Google AI Studio** covers two model families. **Gemini Omni** uses `gemini-omni-flash-preview`. **Google Veo** uses `veo-3.1-generate-preview`. Which one runs depends on the model you pick in the connection.
 
-There is no local or self-hosted option for video. Every video service needs an online account and an API key.
+For **ComfyUI**, use the usual local address `http://127.0.0.1:8188` and paste an API-format video workflow into **ComfyUI Workflow**. The workflow is required. See [ComfyUI Workflow Setup](comfyui.md#comfyui-video-workflows) for placeholders and output-node requirements.
 
 ### Make it the default video connection
 
@@ -50,6 +51,7 @@ A Video Generation connection has its own **Video Generation Defaults** panel in
 | xAI Imagine      | 10s            | 1 to 15s     | 16:9         | 720p             |
 | OpenRouter Video | 10s            | 1 to 60s     | 16:9         | 720p             |
 | Seedance 2.0     | 5s             | 4 to 15s     | 16:9         | 720p             |
+| ComfyUI          | 5s             | 1 to 60s     | 16:9         | 720p             |
 
 Gemini Omni has no resolution field, and its length is written into the prompt text instead of a separate setting. Google Veo forces 8 seconds whenever it animates a reference image, because it needs 8 seconds to blend the first and last frames.
 
@@ -63,15 +65,16 @@ If your Marinara server already has a public web address, you can set an environ
 
 ## Choosing a provider
 
-All four services make short clips from your image. They differ in speed, clip length, and how they handle reference images.
+All five services make short clips from your image. They differ in speed, clip length, and how they handle reference images.
 
 - **Google AI Studio (Gemini Omni)**: flexible length up to 60 seconds. Length is baked into the prompt, not a separate control.
 - **Google AI Studio (Veo)**: strong quality, but fixed to 4, 6, or 8 seconds. It uses 8 seconds when it animates an image.
 - **xAI Imagine**: 1 to 15 second clips. It uses a shorter prompt limit than the other services.
 - **OpenRouter Video**: 1 to 60 seconds, and lets you type any video model your OpenRouter account supports.
 - **Seedance 2.0**: 4 to 15 second clips with first-frame and first and last frame modes. It needs a public link to your reference image.
+- **ComfyUI**: local generation through your own API-format workflow. Marinara uploads the reference image directly to ComfyUI when the workflow uses `%reference_image_name%`.
 
-Expect video jobs to take a while. The provider starts the job, then Marinara waits and checks until the clip is ready. This can take several minutes per clip, longer than a still image.
+Expect video jobs to take a while. The provider starts the job, then Marinara waits and checks until the clip is ready. This can take several minutes per clip, longer than a still image. Large local WAN models may need more than the 30-minute default; raise `VIDEO_GEN_TIMEOUT_MS` and restart Marinara when necessary.
 
 ## Generate a video from the Gallery
 

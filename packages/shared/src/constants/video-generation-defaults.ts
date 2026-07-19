@@ -2,6 +2,7 @@ import type {
   GeminiOmniVideoDefaults,
   GoogleVeoVideoDefaults,
   OpenRouterVideoDefaults,
+  ComfyUiVideoDefaults,
   SeedanceVideoDefaults,
   VideoAspectRatio,
   VideoDefaultsService,
@@ -20,6 +21,7 @@ export const VIDEO_DEFAULTS_SERVICES: VideoDefaultsService[] = [
   "xai",
   "openrouter",
   "seedance",
+  "comfyui",
 ];
 
 export const DEFAULT_GEMINI_OMNI_VIDEO_DEFAULTS: GeminiOmniVideoDefaults = {
@@ -53,6 +55,12 @@ export const DEFAULT_SEEDANCE_VIDEO_DEFAULTS: SeedanceVideoDefaults = {
   temporaryPublicReferenceUploadExpiry: "12h",
 };
 
+export const DEFAULT_COMFYUI_VIDEO_DEFAULTS: ComfyUiVideoDefaults = {
+  durationSeconds: 5,
+  aspectRatio: "16:9",
+  resolution: "720p",
+};
+
 export function createDefaultVideoGenerationProfile(
   service: VideoDefaultsService = "gemini_omni",
 ): VideoGenerationDefaultsProfile {
@@ -64,6 +72,7 @@ export function createDefaultVideoGenerationProfile(
     xai: { ...DEFAULT_XAI_VIDEO_DEFAULTS },
     openrouter: { ...DEFAULT_OPENROUTER_VIDEO_DEFAULTS },
     seedance: { ...DEFAULT_SEEDANCE_VIDEO_DEFAULTS },
+    comfyui: { ...DEFAULT_COMFYUI_VIDEO_DEFAULTS },
   };
 }
 
@@ -125,6 +134,12 @@ export function normalizeVideoGenerationProfile(rawProfile: unknown): {
       DEFAULT_SEEDANCE_VIDEO_DEFAULTS.temporaryPublicReferenceUploadExpiry,
     ),
   };
+  const rawComfyUi = isRecord(raw.comfyui) ? raw.comfyui : rawService === "comfyui" ? raw : {};
+  profile.comfyui = {
+    durationSeconds: readInteger(rawComfyUi.durationSeconds, DEFAULT_COMFYUI_VIDEO_DEFAULTS.durationSeconds, 1, 60),
+    aspectRatio: readAspectRatio(rawComfyUi.aspectRatio, DEFAULT_COMFYUI_VIDEO_DEFAULTS.aspectRatio),
+    resolution: readResolution(rawComfyUi.resolution, DEFAULT_COMFYUI_VIDEO_DEFAULTS.resolution),
+  };
   const changed = JSON.stringify(profile) !== JSON.stringify(rawProfile);
   return { profile, changed };
 }
@@ -166,6 +181,7 @@ function readService(value: unknown): VideoDefaultsService {
     value === "openrouter" ||
     value === "seedance" ||
     value === "google_veo" ||
+    value === "comfyui" ||
     value === "gemini_omni"
     ? value
     : "gemini_omni";

@@ -28,6 +28,8 @@ export interface VideoGenerationRequest {
   aspectRatio: "16:9" | "9:16";
   resolution?: "480p" | "720p" | "1080p";
   referenceImage?: VideoReferenceImage | null;
+  /** API-format workflow JSON for local ComfyUI video generation. */
+  comfyWorkflow?: string;
   lastFrameImage?: VideoReferenceImage | null;
   publicReferenceUpload?: VideoReferencePublicUploadOptions | null;
   signal?: AbortSignal;
@@ -46,6 +48,7 @@ export interface VideoGenerationRequest {
     apiKey: string;
     serviceHint: string;
     model: string;
+    comfyWorkflow?: string;
   };
 }
 
@@ -144,6 +147,11 @@ async function generateVideoUnqueued(
         generateSeedanceVideo(baseUrl, apiKey, { ...primaryRequest, signal }),
       );
     }
+    if (resolvedService === "comfyui") {
+      return await withVideoGenerationDeadline(request.signal, VIDEO_GEN_TIMEOUT, (signal) =>
+        generateComfyUiVideo(baseUrl, { ...primaryRequest, signal }),
+      );
+    }
     throw new Error(`Unsupported video generation service: ${resolvedService || serviceHint || source}`);
   } catch (error) {
     const fallback = request.fallback;
@@ -168,6 +176,7 @@ async function generateVideoUnqueued(
       ...request,
       fallback: undefined,
       model: fallback.model,
+      comfyWorkflow: fallback.comfyWorkflow,
       connectionKey: fallback.connectionId,
     });
   }
@@ -262,7 +271,200 @@ function normalizeVideoService(value: string): string {
   if (normalized === "seedance" || normalized === "seedance2" || normalized === "seedance-2") {
     return "seedance";
   }
+  if (normalized === "comfyui" || normalized === "comfy-ui") {
+    return "comfyui";
+  }
   return normalized;
+}
+
+type ComfyUiOutputKey = "gifs" | "images";
+
+interface ComfyUiOutputFile {
+  filename: string;
+  subfolder?: string;
+  type?: string;
+}
+
+interface ComfyUiHistoryEntry {
+  outputs?: Record<string, Partial<Record<ComfyUiOutputKey, ComfyUiOutputFile[]>>>;
+  status?: Record<string, unknown>;
+}
+
+function replaceComfyUiVideoPlaceholders(value: unknown, replacements: Record<string, string | number>): unknown {
+  if (typeof value === "string") {
+    const exact = replacements[value];
+    if (exact !== undefined) return exact;
+    return Object.entries(replacements).reduce(
+      (resolved, [placeholder, replacement]) => resolved.replaceAll(placeholder, String(replacement)),
+      value,
+    );
+  }
+  if (Array.isArray(value)) return value.map((entry) => replaceComfyUiVideoPlaceholders(entry, replacements));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [key, replaceComfyUiVideoPlaceholders(entry, replacements)]),
+    );
+  }
+  return value;
+}
+
+function comfyUiVideoFetch(url: string | URL, init?: RequestInit, maxResponseBytes = 2 * 1024 * 1024) {
+  return safeFetch(url, {
+    ...(init ?? {}),
+    policy: {
+      allowLocal: true,
+      allowLoopback: true,
+      allowedProtocols: ["https:", "http:"],
+    },
+    maxResponseBytes,
+    decodeCompressedResponse: true,
+  });
+}
+
+async function uploadComfyUiVideoReference(
+  baseUrl: string,
+  reference: VideoReferenceImage,
+  signal?: AbortSignal,
+): Promise<string> {
+  const imageBytes = Buffer.from(stripDataUrl(reference.base64), "base64");
+  const extension = reference.mimeType === "image/jpeg" ? "jpg" : "png";
+  const filename = `marinara-video-reference-${newId()}.${extension}`;
+  const formData = new FormData();
+  formData.append("image", new Blob([imageBytes], { type: reference.mimeType }), filename);
+  formData.append("overwrite", "true");
+  const response = await comfyUiVideoFetch(`${baseUrl}/upload/image`, {
+    method: "POST",
+    body: formData,
+    signal,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(`ComfyUI reference image upload failed (${response.status}): ${formatProviderError(text)}`);
+  }
+  let result: unknown;
+  try {
+    result = JSON.parse(text) as unknown;
+  } catch {
+    throw new Error("ComfyUI reference image upload returned invalid JSON");
+  }
+  const uploadedName = readString(asRecord(result).name);
+  if (!uploadedName) throw new Error("ComfyUI did not return a filename for the uploaded reference image");
+  return uploadedName;
+}
+
+function comfyUiWorkflowStatusError(status: unknown): string | null {
+  const record = asRecord(status);
+  if (readString(record.status_str)?.toLowerCase() !== "error") return null;
+  const details = record.messages ?? record;
+  try {
+    return formatProviderError(JSON.stringify(details));
+  } catch {
+    return "Unknown workflow error";
+  }
+}
+
+function isComfyUiWorkflowComplete(status: unknown): boolean {
+  const record = asRecord(status);
+  return record.completed === true || readString(record.status_str)?.toLowerCase() === "success";
+}
+
+function collectComfyUiVideoFiles(entry: ComfyUiHistoryEntry): ComfyUiOutputFile[] {
+  if (!entry.outputs) return [];
+  const files: ComfyUiOutputFile[] = [];
+  for (const output of Object.values(entry.outputs)) {
+    for (const key of ["gifs", "images"] as const) {
+      for (const file of output[key] ?? []) {
+        if (typeof file?.filename === "string" && file.filename.toLowerCase().endsWith(".mp4")) files.push(file);
+      }
+    }
+  }
+  return files;
+}
+
+async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationRequest): Promise<VideoGenerationResult> {
+  const workflowText = request.comfyWorkflow?.trim();
+  if (!workflowText) throw new Error("ComfyUI video generation requires an API-format workflow");
+  let workflow: unknown;
+  try {
+    workflow = JSON.parse(workflowText) as unknown;
+  } catch {
+    throw new Error("Invalid ComfyUI video workflow JSON");
+  }
+
+  const base = baseUrl.replace(/\/+$/, "");
+  const landscape =
+    request.resolution === "480p"
+      ? { width: 832, height: 480 }
+      : request.resolution === "1080p"
+        ? { width: 1920, height: 1080 }
+        : { width: 1280, height: 720 };
+  const dimensions = request.aspectRatio === "9:16" ? { width: landscape.height, height: landscape.width } : landscape;
+  const replacements: Record<string, string | number> = {
+    "%prompt%": request.prompt,
+    "%width%": dimensions.width,
+    "%height%": dimensions.height,
+    "%seed%": Math.floor(Math.random() * 2 ** 32),
+    "%length%": Math.max(1, Math.round(request.durationSeconds * 16)),
+  };
+  if (request.model?.trim()) replacements["%model%"] = request.model.trim();
+  if (request.referenceImage && workflowText.includes("%reference_image_name%")) {
+    replacements["%reference_image_name%"] = await uploadComfyUiVideoReference(
+      base,
+      request.referenceImage,
+      request.signal,
+    );
+  }
+
+  const queueResponse = await comfyUiVideoFetch(`${base}/prompt`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: replaceComfyUiVideoPlaceholders(workflow, replacements) }),
+    signal: request.signal,
+  });
+  const queueText = await queueResponse.text();
+  if (!queueResponse.ok) {
+    throw new Error(`ComfyUI video queue failed (${queueResponse.status}): ${formatProviderError(queueText)}`);
+  }
+  let queued: unknown;
+  try {
+    queued = JSON.parse(queueText) as unknown;
+  } catch {
+    throw new Error("ComfyUI video queue returned invalid JSON");
+  }
+  const promptId = readString(asRecord(queued).prompt_id);
+  if (!promptId) throw new Error(`ComfyUI video queue did not return a prompt_id: ${formatProviderError(queueText)}`);
+
+  while (true) {
+    await delayWithSignal(1000, request.signal);
+    const historyResponse = await comfyUiVideoFetch(`${base}/history/${encodeURIComponent(promptId)}`, {
+      signal: request.signal,
+    });
+    if (!historyResponse.ok) continue;
+    const history = (await historyResponse.json()) as Record<string, ComfyUiHistoryEntry>;
+    const entry = history[promptId];
+    const statusError = comfyUiWorkflowStatusError(entry?.status);
+    if (statusError) throw new Error(`ComfyUI video workflow failed: ${statusError}`);
+    const output = collectComfyUiVideoFiles(entry ?? ({} as ComfyUiHistoryEntry))[0];
+    if (output) {
+      const params = new URLSearchParams({
+        filename: output.filename,
+        subfolder: output.subfolder || "",
+        type: output.type || "output",
+      });
+      const videoResponse = await comfyUiVideoFetch(
+        `${base}/view?${params}`,
+        { signal: request.signal },
+        MAX_VIDEO_RESPONSE_BYTES,
+      );
+      if (!videoResponse.ok) throw new Error(`ComfyUI video fetch failed (${videoResponse.status})`);
+      const buffer = Buffer.from(await videoResponse.arrayBuffer());
+      if (!isMp4Buffer(buffer)) throw new Error("ComfyUI returned a non-MP4 video output");
+      return { base64: buffer.toString("base64"), mimeType: "video/mp4", ext: "mp4" };
+    }
+    if (isComfyUiWorkflowComplete(entry?.status)) {
+      throw new Error("ComfyUI video workflow completed without an MP4 output");
+    }
+  }
 }
 
 async function generateGeminiOmniVideo(

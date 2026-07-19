@@ -605,6 +605,13 @@ export const VIDEO_GENERATION_SOURCES: VideoGenSource[] = [
     defaultBaseUrl: "https://api.seedance2.ai",
     requiresApiKey: true,
   },
+  {
+    id: "comfyui",
+    name: "ComfyUI",
+    description: "Local API-format workflows for WAN and other video models.",
+    defaultBaseUrl: "http://127.0.0.1:8188",
+    requiresApiKey: false,
+  },
 ];
 
 export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
@@ -790,6 +797,7 @@ const VIDEO_GEN_MODELS: KnownModel[] = [
 export function inferVideoSource(model: string, baseUrl: string): string {
   const m = model.toLowerCase();
   const u = baseUrl.toLowerCase();
+  if (m === "comfyui" || u.includes(":8188") || u.includes("comfyui")) return "comfyui";
   if (m === "seedance" || m.startsWith("seedance-") || u.includes("seedance2.ai")) return "seedance";
   if (m === "openrouter" || u.includes("openrouter.ai")) return "openrouter";
   if (m.includes("/") && (m.includes("veo") || m.includes("wan"))) return "openrouter";

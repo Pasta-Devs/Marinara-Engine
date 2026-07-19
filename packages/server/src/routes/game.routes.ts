@@ -10777,6 +10777,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   durationSeconds: Math.min(videoRuntime.maxDurationSeconds, plannedFrame.durationSeconds),
                   aspectRatio: plannedFrame.aspectRatio,
                   resolution: videoRuntime.resolution,
+                  comfyWorkflow: videoRuntime.comfyWorkflow,
                   referenceImage,
                   publicReferenceUpload: videoRuntime.publicReferenceUpload,
                   fallback: videoFallback,
@@ -11039,6 +11040,7 @@ export async function gameRoutes(app: FastifyInstance) {
       minDurationSeconds,
       maxDurationSeconds,
       publicReferenceUpload,
+      comfyWorkflow,
       activeDefaults: activeVideoDefaults,
       hasStoredDefaults,
     } = videoRuntime;
@@ -11143,6 +11145,7 @@ export async function gameRoutes(app: FastifyInstance) {
         durationSeconds,
         aspectRatio,
         resolution,
+        comfyWorkflow,
         referenceImage,
         publicReferenceUpload,
         queue: input.queueMediaGenerationRequests,

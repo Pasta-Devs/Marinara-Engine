@@ -23,6 +23,7 @@ const DEFAULT_OPENROUTER_VIDEO_MODEL = "google/veo-3.1";
 const DEFAULT_OPENROUTER_VIDEO_BASE_URL = "https://openrouter.ai/api/v1";
 const DEFAULT_SEEDANCE_VIDEO_MODEL = "seedance-2-0";
 const DEFAULT_SEEDANCE_VIDEO_BASE_URL = "https://api.seedance2.ai";
+const DEFAULT_COMFYUI_VIDEO_BASE_URL = "http://127.0.0.1:8188";
 
 interface VideoRuntimeConnection {
   baseUrl?: string | null;
@@ -31,6 +32,7 @@ interface VideoRuntimeConnection {
   defaultParameters?: unknown;
   videoGenerationSource?: string | null;
   videoService?: string | null;
+  comfyuiWorkflow?: string | null;
 }
 
 interface ActiveVideoDefaults {
@@ -45,6 +47,7 @@ export interface GameVideoRuntime {
   baseUrl: string;
   apiKey: string;
   model: string;
+  comfyWorkflow?: string;
   resolution?: VideoResolution;
   promptLimits: SceneVideoPromptLimits;
   minDurationSeconds: number;
@@ -92,6 +95,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
   const isGoogleVeo = source === "google_veo" || serviceHint === "google_veo";
   const isOpenRouter = source === "openrouter" || serviceHint === "openrouter";
   const isSeedance = source === "seedance" || serviceHint === "seedance";
+  const isComfyUi = source === "comfyui" || serviceHint === "comfyui";
   const activeDefaults = isXai
     ? videoDefaults.xai
     : isGoogleVeo
@@ -100,7 +104,9 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
         ? videoDefaults.openrouter
         : isSeedance
           ? videoDefaults.seedance
-          : videoDefaults.geminiOmni;
+          : isComfyUi
+            ? videoDefaults.comfyui
+            : videoDefaults.geminiOmni;
   const resolution = isXai
     ? videoDefaults.xai.resolution
     : isGoogleVeo
@@ -109,7 +115,9 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
         ? videoDefaults.openrouter.resolution
         : isSeedance
           ? videoDefaults.seedance.resolution
-          : undefined;
+          : isComfyUi
+            ? videoDefaults.comfyui.resolution
+            : undefined;
 
   return {
     source,
@@ -124,7 +132,9 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
             ? DEFAULT_OPENROUTER_VIDEO_BASE_URL
             : isSeedance
               ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
-              : DEFAULT_GEMINI_OMNI_BASE_URL),
+              : isComfyUi
+                ? DEFAULT_COMFYUI_VIDEO_BASE_URL
+                : DEFAULT_GEMINI_OMNI_BASE_URL),
     apiKey: connection.apiKey || "",
     model:
       connection.model ||
@@ -136,7 +146,10 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
             ? DEFAULT_OPENROUTER_VIDEO_MODEL
             : isSeedance
               ? DEFAULT_SEEDANCE_VIDEO_MODEL
-              : DEFAULT_GEMINI_OMNI_MODEL),
+              : isComfyUi
+                ? ""
+                : DEFAULT_GEMINI_OMNI_MODEL),
+    comfyWorkflow: connection.comfyuiWorkflow || undefined,
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
     minDurationSeconds: isGoogleVeo || isSeedance ? 4 : 1,

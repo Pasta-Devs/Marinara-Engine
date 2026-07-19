@@ -1,4 +1,4 @@
-export type VideoDefaultsService = "gemini_omni" | "google_veo" | "xai" | "openrouter" | "seedance";
+export type VideoDefaultsService = "gemini_omni" | "google_veo" | "xai" | "openrouter" | "seedance" | "comfyui";
 
 export type VideoAspectRatio = "16:9" | "9:16";
 export type VideoResolution = "480p" | "720p" | "1080p";
@@ -31,6 +31,13 @@ export interface OpenRouterVideoDefaults {
   resolution: VideoResolution;
 }
 
+export interface ComfyUiVideoDefaults {
+  /** ComfyUI workflows receive this duration as a 16 fps frame count through %length%. */
+  durationSeconds: number;
+  aspectRatio: VideoAspectRatio;
+  resolution: VideoResolution;
+}
+
 export interface SeedanceVideoDefaults {
   /** Seedance 2.0 accepts 4-15 seconds for video generations. */
   durationSeconds: number;
@@ -49,4 +56,5 @@ export interface VideoGenerationDefaultsProfile {
   xai: XaiVideoDefaults;
   openrouter: OpenRouterVideoDefaults;
   seedance: SeedanceVideoDefaults;
+  comfyui: ComfyUiVideoDefaults;
 }
