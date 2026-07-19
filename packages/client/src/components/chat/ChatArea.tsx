@@ -1230,13 +1230,12 @@ export function ChatArea() {
     };
   }, []);
 
-  const handleGenerateRoleplayBackground = useCallback(
-    () =>
-      retryAgents(activeChatId, ["illustrator"], {
-        agentPromptTemplateIds: { illustrator: "background" },
-      }),
-    [activeChatId, retryAgents],
-  );
+  const handleGenerateRoleplayBackground = useCallback(async () => {
+    if (!activeChatId) return;
+    await retryAgents(activeChatId, ["illustrator"], {
+      agentPromptTemplateIds: { illustrator: "background" },
+    });
+  }, [activeChatId, retryAgents]);
 
   const handleGenerateRoleplaySceneVideo = useCallback(
     async (source?: { galleryImageId?: string }) => {
