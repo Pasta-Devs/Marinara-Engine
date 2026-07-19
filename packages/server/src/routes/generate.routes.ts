@@ -1573,6 +1573,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const promptMacroContext = await buildPromptMacroContext({
           db: app.db,
           characterIds: promptCharacterIds,
+          groupCharacterIds: promptTargetCharacterId ? characterIds : undefined,
           personaName,
           personaPhoneticName,
           personaDescription,
@@ -1821,6 +1822,7 @@ export async function generateRoutes(app: FastifyInstance) {
             chatChoices,
             chatId: input.chatId,
             characterIds: promptCharacterIds,
+            groupCharacterIds: characterIds,
             personaId,
             personaName,
             personaPhoneticName,

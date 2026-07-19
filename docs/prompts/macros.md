@@ -40,6 +40,7 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{char}}` / `{{charName}}` | The current character's name. Defaults to `Character`. |
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
 | `{{characters}}` | Every character in the chat, joined by commas. |
+| `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
 | `{{persona}}` | Your persona's Description, Personality, Backstory, Appearance, and Scenario, joined by new lines. |
 | `{{personaDescription}}` | Your persona's Description field. |
 | `{{personaPersonality}}` | Your persona's Personality field. |
@@ -61,6 +62,8 @@ The character field macros read the current character's card:
 | `{{charPostHistory}}` | Post-History Instructions |
 
 In a chat with one character, these resolve against that character. In a group chat, they resolve against the first character by default. To repeat text for each character, put it inside a bracketed group block. See [Conditional Prompts](conditional-prompts.md) for group blocks.
+
+`{{group}}` follows the character currently responding, including during individual group generations. For example, if Pantalone is responding in a Roleplay group containing Powers That Be, Maukie, and Pantalone, `{{group}}` resolves to `Powers That Be, Maukie`. A character card remains in this roster even if its name happens to match `{{user}}`.
 
 The Phonetic name field has two jobs. It sets how the name is pronounced by text-to-speech. It also feeds `{{charNamePhonetic}}` and `{{userNamePhonetic}}`. You will find it in both the **Character Editor** and the **Persona Editor**.
 
@@ -211,6 +214,8 @@ Every macro-enabled field has two small buttons in its corner:
 - **Macro reference** opens a window titled **Macro reference** that lists every built-in macro by category, each with its exact syntax. This list is generated from the same source the engine uses, so it is always accurate.
 
 You can also type `/macros` in the chat box (the short form `/macro` works too). It prints the full macro list right in the chat as a quick reminder.
+
+Conditional blocks can combine comparisons with `||` (OR), `&&` (AND), and parentheses. Equality lists may use the compact form `{{#if character == "Maukie" || "Pantalone"}}`. See [Conditional Prompts](conditional-prompts.md) for precedence, group-chat examples, and the full operator list.
 
 ## Common mistakes
 

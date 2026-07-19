@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   isMessageShadowedByLiveStream,
   reconcileTypewriterReplacement,
@@ -32,6 +33,29 @@ import {
   type ChatOptions,
 } from "../../packages/server/src/services/llm/base-provider.js";
 import type { AgentCallDebugEvent, AgentContext } from "../../packages/shared/src/types/agent.js";
+
+const retryAgentRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  retryAgentRouteSource,
+  /const updateRetryTargetGameStateSnapshot = async/,
+  "tracker retries should have an unanchored snapshot persistence path",
+);
+for (const resultType of [
+  "game_state_update",
+  "character_tracker_update",
+  "persona_stats_update",
+  "quest_update",
+  "custom_tracker_update",
+]) {
+  assert.doesNotMatch(
+    retryAgentRouteSource,
+    new RegExp(`retryMessageId\\s*&&\\s*result\\.success\\s*&&\\s*result\\.type === ["']${resultType}["']`),
+    `${resultType} retries must not require an assistant-message anchor`,
+  );
+}
 
 assert.equal(
   trackerEditableText({ name: "HP", value: 75, max: 100, color: "#ef4444" }),
