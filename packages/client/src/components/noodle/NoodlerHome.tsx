@@ -43,11 +43,31 @@ interface NoodlerHomeProps {
 const DISCLOSURE_OPTIONS: Array<{
   value: NoodleIdentityDisclosure;
   label: string;
+  shortLabel: string;
   detail: string;
+  guidance: string;
 }> = [
-  { value: "open", label: "Open", detail: "Public identity may be named." },
-  { value: "hinted", label: "Hinted", detail: "General allusions, never the exact public name or handle." },
-  { value: "secret", label: "Secret", detail: "The linked public identity stays fully withheld." },
+  {
+    value: "open",
+    label: "Publicly connected",
+    shortLabel: "Open",
+    detail: "This stage identity can openly be the same person.",
+    guidance: "Names, handles, recognizable details, and continuity may carry over.",
+  },
+  {
+    value: "hinted",
+    label: "Inspired alter ego",
+    shortLabel: "Hinted",
+    detail: "Familiar themes can remain, without naming the public identity.",
+    guidance: "Exact names and handles are removed, but broad personality and interests may inspire the draft.",
+  },
+  {
+    value: "secret",
+    label: "Separate persona",
+    shortLabel: "Secret",
+    detail: "Create a genuinely separate identity with no public connection.",
+    guidance: "The AI receives a reduced, non-identifying inspiration brief and avoids distinctive canonical details.",
+  },
 ];
 
 const EMPTY_STAGE_PROFILE: NoodleStageProfileInput = {
@@ -89,6 +109,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [creationStep, setCreationStep] = useState<"source" | "disclosure" | "draft" | null>(null);
   const [creationDisclosure, setCreationDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
   const [draftGuidance, setDraftGuidance] = useState("");
+  const [previousDraft, setPreviousDraft] = useState<NoodleStageProfileInput | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -114,6 +135,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationStep("source");
     setCreationDisclosure("hinted");
     setDraftGuidance("");
+    setPreviousDraft(null);
     setSourceSearch("");
     setSourceKind("all");
   };
@@ -124,6 +146,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationDisclosure(profile.disclosureMode ?? "hinted");
     setCreationStep("draft");
     setDraftGuidance("");
+    setPreviousDraft(null);
     setProfileDraft({
       displayName: profile.displayName,
       handle: profile.handle,
@@ -144,6 +167,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       },
       {
         onSuccess: (draft) => {
+          if (profileDraft) setPreviousDraft(profileDraft);
           setProfileDraft(draft);
           setCreationStep("draft");
         },
@@ -266,6 +290,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           onGuidanceChange={setDraftGuidance}
           onGenerate={generateDraft}
           isGenerating={generateProfileDraft.isPending}
+          previousDraft={previousDraft}
+          onUndoDraft={() => {
+            if (!previousDraft) return;
+            setProfileDraft(previousDraft);
+            setPreviousDraft(null);
+          }}
           onChange={(patch) => setProfileDraft((current) => ({ ...(current ?? EMPTY_STAGE_PROFILE), ...patch }))}
           publicAccountId={draftPublicAccountId}
           isEditing={Boolean(editingProfileId)}
@@ -382,6 +412,8 @@ function StageProfileForm({
   onGuidanceChange,
   onGenerate,
   isGenerating,
+  previousDraft,
+  onUndoDraft,
   onChange,
   publicAccountId,
   isEditing,
@@ -396,6 +428,8 @@ function StageProfileForm({
   onGuidanceChange: (value: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  previousDraft: NoodleStageProfileInput | null;
+  onUndoDraft: () => void;
   onChange: (patch: Partial<NoodleStageProfileInput>) => void;
   publicAccountId: string | null;
   isEditing: boolean;
@@ -420,7 +454,11 @@ function StageProfileForm({
               {source
                 ? `Built from ${source.displayName} (@${source.handle})`
                 : "Your source identity is kept separate from this stage profile."}{" "}
-              Disclosure: <span className="font-bold capitalize">{disclosureMode}</span>.
+              Relationship:{" "}
+              <span className="font-bold">
+                {DISCLOSURE_OPTIONS.find((option) => option.value === disclosureMode)?.label}
+              </span>
+              .
             </p>
           </div>
         </div>
@@ -447,8 +485,17 @@ function StageProfileForm({
           className="mt-3 inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:opacity-50"
         >
           {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
-          {isGenerating ? "Generating draft..." : "Generate editable draft"}
+          {isGenerating ? "Generating draft..." : previousDraft ? "Rewrite editable draft" : "Generate editable draft"}
         </button>
+        {previousDraft && !isGenerating && (
+          <button
+            type="button"
+            onClick={onUndoDraft}
+            className="mt-2 text-xs font-semibold text-[var(--noodle-blue)] hover:underline"
+          >
+            Undo AI changes
+          </button>
+        )}
       </div>
       <div className="space-y-5">
         <div className="grid gap-4 sm:grid-cols-2">
@@ -650,10 +697,10 @@ function DisclosureStep({
 }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <p className="text-xl font-black">Choose the identity boundary</p>
+      <p className="text-xl font-black">How connected should this feel?</p>
       <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-        This controls how the linked public identity may appear in the stage profile and in AI-generated text or image
-        prompts. It does not control access, subscriptions, or who can view posts.
+        Choose the relationship between this private stage identity and the character or persona you selected. This is
+        about identity disclosure, not access, subscriptions, or who can view posts.
       </p>
       {source && (
         <p className="mt-4 rounded-md bg-[var(--accent)] p-3 text-xs text-[var(--muted-foreground)]">
@@ -677,6 +724,7 @@ function DisclosureStep({
             <span>
               <span className="block text-sm font-bold">{option.label}</span>
               <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.detail}</span>
+              <span className="mt-2 block text-xs leading-5 text-[var(--muted-foreground)]">{option.guidance}</span>
             </span>
           </button>
         ))}
@@ -844,9 +892,10 @@ function ProfileInitial({
 }
 
 function DisclosureBadge({ mode }: { mode: NoodleIdentityDisclosure | null }) {
+  const label = mode ? DISCLOSURE_OPTIONS.find((option) => option.value === mode)?.shortLabel : "Setup needed";
   return (
     <span className="rounded-full border border-[var(--noodle-divider)] px-2 py-0.5 text-[0.68rem] font-bold capitalize text-[var(--muted-foreground)]">
-      {mode ?? "Setup needed"}
+      {label}
     </span>
   );
 }

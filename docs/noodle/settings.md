@@ -22,9 +22,9 @@ The hub lists the stage profiles currently available to the installation, includ
 
 Disclosure controls how the linked public identity may appear in a stage profile and AI-generated post. It does not decide who can view a profile or post.
 
-- **Open**: the stage profile may show its public link, and generated text or image prompts may use the linked public name and handle.
-- **Hinted**: generated content may make a general allusion to a public persona, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved.
-- **Secret**: the linked public identity is withheld from profile presentation and generation context. Exact public names and handles are replaced with non-identifying language if a model returns them.
+- **Publicly connected (Open)**: the stage profile may openly be the same person. Generated text and image prompts may use the linked public name, handle, and recognizable continuity.
+- **Inspired alter ego (Hinted)**: broad personality, interests, and themes may carry over, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved. Distinctive traits may still feel recognizable.
+- **Separate persona (Secret)**: the linked identity is treated as private authoring inspiration only. Profile generation receives a reduced, non-identifying brief and avoids canonical occupations, relationships, locations, signature phrases, and distinctive details. Exact identifiers are also filtered from generated output. This is not a formal anonymity guarantee; review the draft before saving.
 
 Use **New profile** in the NoodleR hub to search and choose an eligible character or persona. The setup then explains disclosure and asks you to choose Open, Hinted, or Secret before showing the editable stage-profile form. You can fill the form yourself or ask AI to generate an editable draft from the source character, disclosure choice, and optional guidance. AI never saves the draft automatically; review the fields and select **Save stage profile** yourself. Open an existing profile and select **Edit profile** to change its presentation or use AI to refill the current draft. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
 
