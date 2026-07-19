@@ -464,16 +464,24 @@ export function buildAgentAddMetadataPatch(
   }
   if (agentId === "illustrator") {
     const defaults = options?.illustratorDefaults;
-    if (!defaults || setup.includeCharacterAppearance !== defaults.includeCharacterAppearance) {
-      patch.illustratorIncludeCharacterAppearance = setup.includeCharacterAppearance;
-    } else if (hasOwn(metadata, "illustratorIncludeCharacterAppearance")) {
-      patch.illustratorIncludeCharacterAppearance = null;
-    }
-    if (!defaults || setup.useAvatarReferences !== defaults.useAvatarReferences) {
-      patch.illustratorUseAvatarReferences = setup.useAvatarReferences;
-    } else if (hasOwn(metadata, "illustratorUseAvatarReferences")) {
-      patch.illustratorUseAvatarReferences = null;
-    }
+    const applyIllustratorDefault = (
+      key: "illustratorIncludeCharacterAppearance" | "illustratorUseAvatarReferences",
+      value: boolean,
+      defaultValue: boolean | undefined,
+    ) => {
+      if (defaultValue === undefined || value !== defaultValue) patch[key] = value;
+      else if (hasOwn(metadata, key)) patch[key] = null;
+    };
+    applyIllustratorDefault(
+      "illustratorIncludeCharacterAppearance",
+      setup.includeCharacterAppearance,
+      defaults?.includeCharacterAppearance,
+    );
+    applyIllustratorDefault(
+      "illustratorUseAvatarReferences",
+      setup.useAvatarReferences,
+      defaults?.useAvatarReferences,
+    );
   }
   if (agentId === "haptic") {
     patch.enableHapticFeedback = setup.hapticFeedbackEnabled;

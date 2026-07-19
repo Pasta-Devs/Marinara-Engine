@@ -191,6 +191,16 @@ async function readInstalledAgentDefinitions(installed: InstalledCapabilityPacka
   return packagedAgentDefinitionsSchema.parse(JSON.parse(await readFile(file, "utf8")));
 }
 
+async function readInstalledAgentIds(installed: InstalledCapabilityPackage): Promise<string[]> {
+  const ids = new Set([installed.id]);
+  try {
+    for (const definition of await readInstalledAgentDefinitions(installed)) ids.add(definition.id);
+  } catch (error) {
+    logger.warn(error, "Could not read agent definitions for package %s during cleanup", installed.id);
+  }
+  return [...ids];
+}
+
 export function findCompatibleCapabilityPackageUpdates(
   installedPackages: InstalledCapabilityPackage[],
   catalog: CapabilityCatalog,
@@ -394,14 +404,7 @@ export const capabilityPackageManager = {
 
   async packageAgentIds(packageId: string) {
     const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
-    const ids = new Set([packageId]);
-    if (!installed) return [...ids];
-    try {
-      for (const definition of await readInstalledAgentDefinitions(installed)) ids.add(definition.id);
-    } catch (error) {
-      logger.warn(error, "Could not read agent definitions for package %s during cleanup", packageId);
-    }
-    return [...ids];
+    return installed ? readInstalledAgentIds(installed) : [packageId];
   },
 
   async runtimePackages() {
@@ -556,11 +559,12 @@ export const capabilityPackageManager = {
     const registry = await readRegistry();
     const existing = registry.packages.find((item) => item.id === packageId);
     if (!existing) return false;
+    const agentIds = await readInstalledAgentIds(existing);
     if (existing.manifest.kind.includes("conversation-calls")) {
       await sidecarSpeechService.deleteAllModels();
     }
     await writeRegistry(registry.packages.filter((item) => item.id !== packageId));
     await rm(join(VERSIONS, packageId), { recursive: true, force: true });
-    return existing;
+    return { ...existing, agentIds };
   },
 };

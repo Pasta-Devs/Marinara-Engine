@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -528,6 +528,12 @@ try {
     ]),
   );
   assert.deepEqual(await capabilityPackageManager.packageAgentIds(agentSuite.id), ["agent-suite", "suite-helper"]);
+  const removedAgentSuite = await capabilityPackageManager.uninstall(agentSuite.id);
+  assert.deepEqual(
+    removedAgentSuite && removedAgentSuite.agentIds,
+    ["agent-suite", "suite-helper"],
+    "Uninstall must retain every package-owned agent ID before deleting its definition file",
+  );
   const { buildCapabilityAgentCleanupPatch } =
     await import("../../packages/server/src/routes/capability-packages.routes.js");
   assert.deepEqual(
@@ -547,7 +553,7 @@ try {
       knowledgeAgentSources: { illustrator: {} },
     },
   );
-  unlinkSync(join(packagesRoot, "versions", agentSuite.id, agentSuite.version, "agents.json"));
+  writeRegistry([agentSuite]);
   assert.deepEqual(
     await capabilityPackageManager.packageAgentIds(agentSuite.id),
     ["agent-suite"],

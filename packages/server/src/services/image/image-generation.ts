@@ -2537,15 +2537,19 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   }
   if (defaults.uploadPlaceholderOnMissingReference) {
     for (const index of findMissingComfyReferenceSlots(workflowJson, "reference_image", references.length)) {
-      replacements[numberedComfyReferencePlaceholder("reference_image", index)] = COMFYUI_PLACEHOLDER_REFERENCE_BASE64;
+      const placeholder = numberedComfyReferencePlaceholder("reference_image", index);
+      logger.debug("Backfilled ComfyUI reference slot %s with the placeholder image", placeholder);
+      replacements[placeholder] = COMFYUI_PLACEHOLDER_REFERENCE_BASE64;
     }
     for (const index of findMissingComfyReferenceSlots(workflowJson, "reference_image_name", references.length)) {
+      const placeholder = numberedComfyReferencePlaceholder("reference_image_name", index);
       placeholderUploadedName ??= await uploadComfyReferenceImage(
         base,
         COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
         request.signal,
       );
-      replacements[numberedComfyReferencePlaceholder("reference_image_name", index)] = placeholderUploadedName;
+      logger.debug("Backfilled ComfyUI reference slot %s with the uploaded placeholder", placeholder);
+      replacements[placeholder] = placeholderUploadedName;
     }
   }
   const resolvedWorkflow = replaceComfyUiPlaceholders(workflow, replacements);

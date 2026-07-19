@@ -23,6 +23,7 @@ import {
   type ComfyUiDefaults,
   type ImageGenerationDefaultsProfile,
 } from "@marinara-engine/shared";
+import { logger } from "../../lib/logger.js";
 import { safeFetch } from "../../utils/security.js";
 import {
   COMFYUI_MAX_REFERENCE_IMAGES,
@@ -129,8 +130,10 @@ export async function generateRunPodComfyUI(
   }
   if (defaults.uploadPlaceholderOnMissingReference) {
     for (const index of findMissingComfyReferenceSlots(wfStr, "reference_image", referenceImages.length)) {
+      const placeholder = numberedComfyReferencePlaceholder("reference_image", index);
+      logger.debug("Backfilled RunPod ComfyUI reference slot %s with the placeholder image", placeholder);
       wfStr = wfStr.replaceAll(
-        numberedComfyReferencePlaceholder("reference_image", index),
+        placeholder,
         escapeJsonStr(COMFYUI_PLACEHOLDER_REFERENCE_BASE64),
       );
     }

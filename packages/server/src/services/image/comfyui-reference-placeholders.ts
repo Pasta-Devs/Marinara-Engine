@@ -13,7 +13,7 @@ export function findMissingComfyReferenceSlots(
   referenceCount: number,
 ): number[] {
   const slots: number[] = [];
-  for (let index = Math.max(0, referenceCount); index < COMFYUI_MAX_REFERENCE_IMAGES; index += 1) {
+  for (let index = Math.max(0, referenceCount); index < COMFYUI_MAX_REFERENCE_IMAGES; index++) {
     if (workflowText.includes(numberedComfyReferencePlaceholder(baseName, index))) slots.push(index);
   }
   return slots;

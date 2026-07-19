@@ -65,9 +65,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>("/:id", async (request, reply) => {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent package removal" })) return;
     const { id } = packageParams.parse(request.params);
-    const existing = (await capabilityPackageManager.installed()).find((item) => item.id === id);
-    const packageAgentIds = await capabilityPackageManager.packageAgentIds(id);
-    if (existing?.manifest.kind.includes("turn-game")) await capabilityModuleRuntime.deactivatePackage(id);
+    await capabilityModuleRuntime.deactivatePackage(id);
     const removed = await capabilityPackageManager.uninstall(id);
     if (!removed) return reply.status(404).send({ error: "Package not found" });
     const chats = createChatsStorage(app.db);
@@ -79,11 +77,11 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
       } catch {
         continue;
       }
-      const patch = buildCapabilityAgentCleanupPatch(metadata, packageAgentIds);
+      const patch = buildCapabilityAgentCleanupPatch(metadata, removed.agentIds);
       if (patch) await chats.patchMetadata(chat.id, patch, { touchUpdatedAt: false });
     }
     const agents = createAgentsStorage(app.db);
-    for (const agentId of packageAgentIds) {
+    for (const agentId of removed.agentIds) {
       const agentConfig = await agents.getByType(agentId);
       if (agentConfig) await agents.remove(agentConfig.id);
     }
