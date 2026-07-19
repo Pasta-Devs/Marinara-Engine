@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { api } from "../../lib/api-client";
+import { HostDeviceFileManagerError } from "../../lib/host-device";
 import {
   agentKeys,
   useAgentConfigs,
@@ -16,6 +17,7 @@ import {
   type AgentConfigRow,
 } from "../../hooks/use-agents";
 import { useConnections } from "../../hooks/use-connections";
+import { useOpenGameAssetsFolder } from "../../hooks/use-game-assets";
 import {
   isCustomToolSelectable,
   useCustomToolCapabilities,
@@ -429,6 +431,7 @@ export function AgentEditor() {
   const { data: customToolCapabilities } = useCustomToolCapabilities();
   const updateAgent = useUpdateAgent();
   const createAgent = useCreateAgent();
+  const openGameAssetsFolder = useOpenGameAssetsFolder();
   const qc = useQueryClient();
   const deleteAgent = useDeleteAgent();
   const connectionIndexRef = useRef<{
@@ -1328,19 +1331,16 @@ export function AgentEditor() {
     [localEnabledTools.length, setMusicPlayerSource],
   );
 
-  const handleOpenCustomMusicFolder = useCallback(async () => {
+  const handleOpenCustomMusicFolder = async () => {
     const subfolder = normalizeCustomMusicFolderInput(localCustomMusicFolder);
     try {
-      await fetch("/api/game-assets/open-folder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subfolder }),
-      });
+      await openGameAssetsFolder.mutateAsync(subfolder);
       toast.success(`Opened Game Assets/${subfolder}`);
-    } catch {
-      toast.error("Could not open the Custom music folder.");
+    } catch (error) {
+      if (error instanceof HostDeviceFileManagerError) return;
+      toast.error(error instanceof Error ? error.message : "Could not open the Custom music folder.");
     }
-  }, [localCustomMusicFolder]);
+  };
 
   const handleSelectCustomMusicFolder = useCallback(async () => {
     try {
