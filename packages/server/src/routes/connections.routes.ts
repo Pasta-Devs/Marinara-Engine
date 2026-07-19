@@ -39,6 +39,7 @@ import { DATA_DIR } from "../utils/data-dir.js";
 
 const CONNECTION_TEST_ERROR_PREVIEW_CHARS = 2000;
 const CONNECTION_IMAGES_DIR = join(DATA_DIR, "connections", "images");
+const DEFAULT_COMFYUI_VIDEO_BASE_URL = "http://127.0.0.1:8188";
 const DEFAULT_GEMINI_OMNI_VIDEO_MODEL = "gemini-omni-flash-preview";
 const DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 const DEFAULT_GOOGLE_VEO_VIDEO_MODEL = "veo-3.1-generate-preview";
@@ -1015,7 +1016,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
             : isSeedanceVideo
               ? DEFAULT_SEEDANCE_VIDEO_BASE_URL
               : isComfyUiVideo
-                ? "http://127.0.0.1:8188"
+                ? DEFAULT_COMFYUI_VIDEO_BASE_URL
                 : providerDef?.defaultBaseUrl || DEFAULT_GEMINI_OMNI_VIDEO_BASE_URL)
     ).replace(/\/+$/, "");
     const videoModel =

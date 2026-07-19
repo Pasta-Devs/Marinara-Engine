@@ -19,7 +19,7 @@ To make scene videos, you first add a connection that can generate video. This u
 3. Set the provider type to **Video Generation**.
 4. Under **Video Service**, pick one of the five services below.
 5. Enter the API key for a cloud service. Local ComfyUI does not need one.
-6. Pick a model, or keep the default model the service fills in.
+6. For cloud services, pick a model or keep the provider default. For ComfyUI, leave the model unset unless the workflow uses `%model%`.
 7. Save the connection.
 
 The **Video Service** picker offers five choices. Each one fills in a default web address and, where applicable, a default model:

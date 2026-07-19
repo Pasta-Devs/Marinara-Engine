@@ -392,7 +392,12 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
   }
 
   const base = baseUrl.replace(/\/+$/, "");
-  const landscape = request.resolution === "480p" ? { width: 832, height: 480 } : { width: 1280, height: 720 };
+  const landscape =
+    request.resolution === "480p"
+      ? { width: 832, height: 480 }
+      : request.resolution === "1080p"
+        ? { width: 1920, height: 1080 }
+        : { width: 1280, height: 720 };
   const dimensions = request.aspectRatio === "9:16" ? { width: landscape.height, height: landscape.width } : landscape;
   const replacements: Record<string, string | number> = {
     "%prompt%": request.prompt,
