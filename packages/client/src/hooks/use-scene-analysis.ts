@@ -16,11 +16,10 @@ import type {
 } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
 
-type AnalyzeSceneInput = SceneAnalysisRequest & {
+type AnalyzeSceneInput = Omit<SceneAnalysisRequest, "debugMode"> & {
   /** When provided, uses a regular connection instead of sidecar. */
   chatId?: string;
   connectionId?: string;
-  streaming?: boolean;
 };
 
 async function analyzeScene(input: AnalyzeSceneInput): Promise<SceneAnalysis> {

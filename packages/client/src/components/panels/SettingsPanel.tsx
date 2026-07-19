@@ -146,7 +146,7 @@ import {
   type FolderPackageImportEntry,
   type PackageTextFile,
 } from "../../lib/folder-package-transfer";
-import { HOST_DEVICE_FILE_MANAGER_MESSAGE } from "../../lib/host-device";
+import { HOST_DEVICE_FILE_MANAGER_MESSAGE, HostDeviceFileManagerError, isHostDeviceBrowser } from "../../lib/host-device";
 import { isZipFile as isZipArchiveFile, readTextFilesFromZip } from "../../lib/read-zip-text";
 
 type CustomFontFace = {
@@ -3317,8 +3317,8 @@ function GameAssetsSettings() {
   const handleOpenGameAssetFolder = (subfolder: string) => {
     openGameAssetsFolder.mutate(subfolder, {
       onError: (error) => {
-        if (error instanceof Error && error.message === HOST_DEVICE_FILE_MANAGER_MESSAGE) return;
-        toast.error("Failed to open game assets folder.");
+        if (error instanceof HostDeviceFileManagerError) return;
+        toast.error(getPrivilegedActionErrorMessage(error, "Failed to open game assets folder."));
       },
     });
   };
@@ -3515,6 +3515,17 @@ function AppearanceSettings() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const updateMeta = useUpdateChatMetadata();
   const setActiveSyncedTheme = useSetActiveTheme();
+  const handleOpenFontsFolder = async () => {
+    if (!isHostDeviceBrowser()) {
+      toast.info(HOST_DEVICE_FILE_MANAGER_MESSAGE);
+      return;
+    }
+    try {
+      await api.post("/fonts/open-folder");
+    } catch (error) {
+      toast.error(getPrivilegedActionErrorMessage(error, "Could not open fonts folder."));
+    }
+  };
   const handleAppBackgroundColorChange = useCallback(
     (color: string) => {
       const normalized = color.trim();
@@ -3955,7 +3966,7 @@ function AppearanceSettings() {
               </p>
             )}
             <button
-              onClick={() => api.post("/fonts/open-folder").catch(() => {})}
+              onClick={handleOpenFontsFolder}
               className={cn(SETTINGS_BUTTON_CLASS, "mt-1 self-start")}
             >
               <FolderOpen size="0.75rem" />
