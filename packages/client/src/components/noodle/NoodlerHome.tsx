@@ -72,7 +72,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const updateSettings = useUpdateNoodleSettings();
   const enabled = data?.settings.enableNoodler === true;
   const accountsQuery = useNoodlerAccounts(navigation.mode === "private" && enabled);
-  const eligibleAccountsQuery = useNoodlerEligibleAccounts(navigation.mode === "private" && enabled);
+  const [sourceSearch, setSourceSearch] = useState("");
+  const [sourceKind, setSourceKind] = useState<"all" | "character" | "persona">("all");
+  const eligibleAccountsQuery = useNoodlerEligibleAccounts(
+    sourceSearch,
+    sourceKind,
+    navigation.mode === "private" && enabled,
+  );
   const createProfile = useCreateNoodlerStageProfile();
   const updateProfile = useUpdateNoodlerStageProfile();
   const generatePost = useGeneratePrivateNoodlePost();
@@ -83,7 +89,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [creationStep, setCreationStep] = useState<"source" | "disclosure" | "draft" | null>(null);
   const [creationDisclosure, setCreationDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
   const [draftGuidance, setDraftGuidance] = useState("");
-  const [sourceSearch, setSourceSearch] = useState("");
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -110,6 +115,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationDisclosure("hinted");
     setDraftGuidance("");
     setSourceSearch("");
+    setSourceKind("all");
   };
 
   const beginEdit = (profile: NoodlerStageProfile) => {
@@ -213,8 +219,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         <StageProfileSourcePicker
           accounts={eligiblePublicAccounts}
           search={sourceSearch}
+          kind={sourceKind}
           selectedId={draftPublicAccountId}
           onSearch={setSourceSearch}
+          onKindChange={setSourceKind}
           onSelect={setDraftPublicAccountId}
           hasMore={Boolean(eligibleAccountsQuery.hasNextPage)}
           isLoadingMore={eligibleAccountsQuery.isFetchingNextPage}
@@ -509,8 +517,10 @@ function StageProfileForm({
 function StageProfileSourcePicker({
   accounts,
   search,
+  kind,
   selectedId,
   onSearch,
+  onKindChange,
   onSelect,
   hasMore,
   isLoadingMore,
@@ -518,10 +528,19 @@ function StageProfileSourcePicker({
   onBack,
   onContinue,
 }: {
-  accounts: Array<{ id: string; displayName: string; handle: string; bio: string; avatarUrl: string | null }>;
+  accounts: Array<{
+    id: string;
+    kind: "character" | "persona" | "random_user";
+    displayName: string;
+    handle: string;
+    bio: string;
+    avatarUrl: string | null;
+  }>;
   search: string;
+  kind: "all" | "character" | "persona";
   selectedId: string | null;
   onSearch: (value: string) => void;
+  onKindChange: (value: "all" | "character" | "persona") => void;
   onSelect: (id: string) => void;
   hasMore: boolean;
   isLoadingMore: boolean;
@@ -529,9 +548,6 @@ function StageProfileSourcePicker({
   onBack: () => void;
   onContinue: () => void;
 }) {
-  const visible = accounts.filter((account) =>
-    `${account.displayName} ${account.handle} ${account.bio}`.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
-  );
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
       <p className="text-xl font-black">Choose the source character</p>
@@ -548,13 +564,29 @@ function StageProfileSourcePicker({
           className={`${fieldClass} pl-9`}
         />
       </label>
+      <div
+        className="mt-3 grid grid-cols-3 rounded-lg border border-[var(--noodle-divider)] p-1"
+        aria-label="Filter profile sources"
+      >
+        {(["all", "character", "persona"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={kind === option}
+            onClick={() => onKindChange(option)}
+            className={`h-8 rounded-md px-2 text-xs font-semibold capitalize ${kind === option ? "bg-[var(--noodle-blue)] text-zinc-950" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
+          >
+            {option === "all" ? "All" : option === "character" ? "Characters" : "Personas"}
+          </button>
+        ))}
+      </div>
       <div className="mt-4 divide-y divide-[var(--noodle-divider)] overflow-hidden rounded-lg border border-[var(--noodle-divider)]">
-        {visible.length === 0 ? (
+        {accounts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--muted-foreground)]">
             No eligible source accounts match that search.
           </p>
         ) : (
-          visible.map((account) => (
+          accounts.map((account) => (
             <button
               key={account.id}
               type="button"
@@ -568,7 +600,12 @@ function StageProfileSourcePicker({
               )}
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-bold">{account.displayName}</span>
-                <span className="block truncate text-xs text-[var(--muted-foreground)]">@{account.handle}</span>
+                <span className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+                  <span className="truncate">@{account.handle}</span>
+                  <span className="shrink-0 rounded-full border border-[var(--noodle-divider)] px-1.5 py-0.5 text-[0.625rem] font-bold capitalize">
+                    {account.kind}
+                  </span>
+                </span>
                 {account.bio && (
                   <span className="mt-1 block truncate text-xs text-[var(--muted-foreground)]">{account.bio}</span>
                 )}

@@ -40,7 +40,8 @@ export const noodleKeys = {
   all: ["noodle"] as const,
   bootstrap: () => [...noodleKeys.all, "bootstrap"] as const,
   privateAccounts: () => [...noodleKeys.all, "private-accounts"] as const,
-  privateEligibleAccounts: () => [...noodleKeys.privateAccounts(), "eligible"] as const,
+  privateEligibleAccounts: (search: string, kind: string) =>
+    [...noodleKeys.privateAccounts(), "eligible", search, kind] as const,
   privatePosts: (accountId: string) => [...noodleKeys.privateAccounts(), accountId, "posts"] as const,
 };
 
@@ -72,13 +73,14 @@ export function useNoodlerAccounts(enabled = true) {
   });
 }
 
-export function useNoodlerEligibleAccounts(enabled = true) {
+export function useNoodlerEligibleAccounts(search: string, kind: "all" | "character" | "persona", enabled = true) {
+  const normalizedSearch = search.trim();
   return useInfiniteQuery({
-    queryKey: noodleKeys.privateEligibleAccounts(),
+    queryKey: noodleKeys.privateEligibleAccounts(normalizedSearch, kind),
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       api.get<{ items: NoodleAccount[]; limit: number; offset: number; hasMore: boolean }>(
-        `/noodle/noodler/eligible-accounts?limit=20&offset=${pageParam}`,
+        `/noodle/noodler/eligible-accounts?limit=20&offset=${pageParam}&search=${encodeURIComponent(normalizedSearch)}${kind === "all" ? "" : `&kind=${kind}`}`,
       ),
     getNextPageParam: (page) => (page.hasMore ? page.offset + page.items.length : undefined),
     enabled,

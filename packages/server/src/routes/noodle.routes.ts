@@ -100,7 +100,7 @@ export async function noodleRoutes(app: FastifyInstance) {
     return noodle.listNoodlerStageProfiles();
   });
 
-  app.get<{ Querystring: { limit?: string; offset?: string; search?: string } }>(
+  app.get<{ Querystring: { limit?: string; offset?: string; search?: string; kind?: string } }>(
     "/noodler/eligible-accounts",
     async (req, reply) => {
       const settings = await noodle.getSettings();
@@ -111,8 +111,12 @@ export async function noodleRoutes(app: FastifyInstance) {
       ]);
       const linkedIds = new Set(privateAccounts.flatMap((account) => account.publicAccountId ?? []));
       const search = (req.query.search ?? "").trim().toLocaleLowerCase();
+      const kind = req.query.kind === "character" || req.query.kind === "persona" ? req.query.kind : null;
       const eligibleAccounts = publicAccounts.filter(
-        (account) => (account.kind === "persona" || account.kind === "character") && !linkedIds.has(account.id),
+        (account) =>
+          (account.kind === "persona" || account.kind === "character") &&
+          (!kind || account.kind === kind) &&
+          !linkedIds.has(account.id),
       );
       const filteredAccounts = search
         ? eligibleAccounts.filter((account) =>
