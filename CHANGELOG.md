@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Routed the Roleplay Gallery's **Background** action through Illustrator's background prompt mode instead of bypassing the agent with a raw scene-generation prompt (#3809).
 - Vertically centered the Character editor's Regex Script edit and delete actions against each script's enable toggle.
 - Restored Character and Persona tracker-card color settings so appearance changes update the card preview immediately and persist when saved.
 - Stopped HTML-escaping angle brackets in prompt leaf content so character card fields, persona, lorebook entries, memories, and scene text now reach the model verbatim — `<thinking>`, `<scenario>`, and inline HTML like `<div>` are passed through as written instead of arriving as `&lt;thinking&gt;`, which had been corrupting cards, breaking roleplay HTML, and showing raw `&lt;` in the editor. This finalizes prompt leaf content as verbatim and **supersedes** the `<`/`&` prompt-boundary escaping added in #3108 (line above) and the untrusted-card-text escaping in the "Hardened prompt assembly" entry below, for Marinara's local single-user threat model. The framework's own structural section wrappers are emitted around this content and are unaffected, and the agent value/attribute escapers are unchanged (they still escape values into machine-parsed XML).

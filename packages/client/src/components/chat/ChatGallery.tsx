@@ -51,7 +51,7 @@ interface ChatGalleryProps {
   /** Generate an on-demand Conversation selfie. */
   onGenerateSelfie?: (characterId?: string) => void | Promise<void>;
   selfieCharacters?: Array<{ id: string; name: string }>;
-  /** Generate and apply a background for the current scene. */
+  /** Run Illustrator in its background prompt mode. */
   onGenerateBackground?: () => void | Promise<void>;
   /** Generate a storyboard for the latest completed Game Mode GM turn. */
   onGenerateStoryboard?: () => void | Promise<void>;
@@ -483,7 +483,7 @@ export function ChatGallery({
               : isGeneratingStoryboard
                 ? "Storyboard generation is running. Keyframes will appear in the game storyboard viewer when ready."
                 : isGeneratingBackground
-                  ? "AI background generation is running. The new background will be applied when it finishes."
+                  ? "Illustrator is generating a background image for this scene."
                   : "AI image generation is running. The new image will appear here when it finishes."}
           </div>
         )}

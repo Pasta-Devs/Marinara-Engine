@@ -1084,6 +1084,21 @@ assert.match(
 );
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.get\(connectionId\)/);
 assert.match(retryAgentsPromptReviewSource, /retryAgentConnectionCache\.set\(connectionId, resolution\)/);
+assert.match(
+  chatAreaPromptReviewSource,
+  /agentPromptTemplateIds:\s*\{\s*illustrator:\s*"background"\s*\}/,
+  "the Gallery Background action should run Illustrator with its background prompt mode",
+);
+assert.doesNotMatch(
+  chatAreaPromptReviewSource,
+  /"\/backgrounds\/generate-scene"/,
+  "the Gallery Background action should not bypass Illustrator through direct scene generation",
+);
+assert.match(
+  retryAgentsPromptReviewSource,
+  /\.\.\.normalizeAgentPromptTemplateSelectionMap\(agentPromptTemplateIds\)/,
+  "manual retries should apply per-run prompt mode overrides",
+);
 
 const sharedGameSetupSource: GameSetupShareSource = {
   gameName: "Tower Run",
