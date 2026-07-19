@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Stopped the macOS/Linux and Termux launchers from sourcing `.env` as Bash code; launcher-owned settings now use Node's non-evaluating dotenv parser while preserving ambient-environment precedence (#3810).
 - Routed the Roleplay Gallery's **Background** action through Illustrator's background prompt mode instead of bypassing the agent with a raw scene-generation prompt (#3809).
 - Vertically centered the Character editor's Regex Script edit and delete actions against each script's enable toggle.
 - Restored Character and Persona tracker-card color settings so appearance changes update the card preview immediately and persist when saved.

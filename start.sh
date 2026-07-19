@@ -28,19 +28,6 @@ for arg in "$@"; do
     esac
 done
 
-# Load launcher settings before the update decision. Server settings are reused below.
-if [ -f .env ]; then
-  set -a
-  . ./.env
-  set +a
-fi
-
-AUTO_UPDATE_ENABLED_NORMALIZED=$(printf '%s' "${AUTO_UPDATE_ENABLED:-true}" | tr '[:upper:]' '[:lower:]' | tr -d '\r ')
-case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
-  0|false|no|off) AUTO_UPDATE_DISABLED=1 ;;
-  *) AUTO_UPDATE_DISABLED=0 ;;
-esac
-
 # ── Check Node.js ──
 if ! command -v node &> /dev/null; then
     echo "  [ERROR] Node.js is not installed."
@@ -57,6 +44,29 @@ if [ "$NODE_VERSION" -lt 24 ]; then
     echo "          Please update Node.js from https://nodejs.org"
     exit 1
 fi
+
+load_launcher_setting() {
+    local setting_name="$1"
+    local setting_value
+    if setting_value=$(node scripts/read-launcher-env.mjs .env "$setting_name"); then
+        printf -v "$setting_name" '%s' "$setting_value"
+        export "$setting_name"
+    fi
+}
+
+# Read only settings used by this launcher. The server loads every other .env
+# value itself. Node parses these as inert dotenv data; no shell code is sourced.
+if [ -f .env ]; then
+    for setting_name in AUTO_UPDATE_ENABLED PORT HOST SSL_CERT SSL_KEY AUTO_OPEN_BROWSER BACKGROUNDREMOVER_AUTO_INSTALL; do
+        load_launcher_setting "$setting_name"
+    done
+fi
+
+AUTO_UPDATE_ENABLED_NORMALIZED=$(printf '%s' "${AUTO_UPDATE_ENABLED:-true}" | tr '[:upper:]' '[:lower:]' | tr -d '\r ')
+case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
+  0|false|no|off) AUTO_UPDATE_DISABLED=1 ;;
+  *) AUTO_UPDATE_DISABLED=0 ;;
+esac
 
 # ── Check pnpm ──
 PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'")
