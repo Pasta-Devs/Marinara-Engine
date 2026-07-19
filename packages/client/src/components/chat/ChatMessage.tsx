@@ -223,7 +223,12 @@ function AIVisibilityAvatar({
   className: string;
 }) {
   return character.avatarUrl ? (
-    <span className={cn("block overflow-hidden rounded-full bg-[var(--marinara-chat-chrome-panel-bg)]", className)}>
+    <span
+      className={cn(
+        "relative isolate block overflow-hidden rounded-full bg-[var(--marinara-chat-chrome-panel-bg)]",
+        className,
+      )}
+    >
       <img
         src={character.avatarUrl}
         alt=""
