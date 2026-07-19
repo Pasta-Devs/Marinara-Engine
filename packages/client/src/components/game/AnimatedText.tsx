@@ -26,6 +26,7 @@
 // ──────────────────────────────────────────────
 import { useMemo } from "react";
 import DOMPurify from "dompurify";
+import { useUIStore } from "../../stores/ui.store";
 
 // ── Effect types & rules ──
 
@@ -122,17 +123,20 @@ const EFFECT_CLASS: Record<TextEffect, string> = {
  * Parse explicit {effect:text} tags, ALL CAPS, and (parenthetical) text.
  * All other effects require the GM to use explicit {effect:text} markup.
  */
-function applyTextEffects(html: string): string {
+function applyTextEffects(html: string, enabled: boolean): string {
   let result = html;
 
   // 1) Explicit tags: {shake:angry words here}
   result = result.replace(
     /\{(shake|shout|whisper|glow|pulse|wave|flicker|drip|bounce|tremble|glitch|expand):([^}]+)\}/gi,
     (_match, effect: string, text: string) => {
+      if (!enabled) return text;
       const cls = EFFECT_CLASS[effect.toLowerCase() as TextEffect];
       return cls ? `<span class="${cls}">${text}</span>` : text;
     },
   );
+
+  if (!enabled) return result;
 
   // 2) ALL CAPS words → shout (skip inside HTML tags)
   result = wrapOutsideTags(result, /\b[A-Z]{3,}\b/g, EFFECT_CLASS.shout);
@@ -220,22 +224,23 @@ interface AnimatedTextProps {
 }
 
 export function AnimatedText({ html, className, style }: AnimatedTextProps) {
+  const textEffectsEnabled = useUIStore((state) => state.gameTextEffectsEnabled);
   const processedHtml = useMemo(() => {
-    let result = applyTextEffects(html);
+    let result = applyTextEffects(html, textEffectsEnabled);
     result = wrapCharactersForWave(result);
     // Re-sanitize after our additions
     return DOMPurify.sanitize(result, {
       ALLOWED_TAGS: ["strong", "em", "br", "span"],
       ALLOWED_ATTR: ["class", "style"],
     });
-  }, [html]);
+  }, [html, textEffectsEnabled]);
 
   return <span className={className} style={style} dangerouslySetInnerHTML={{ __html: processedHtml }} />;
 }
 
 /** Convenience: apply effects to plain text (not pre-formatted HTML). */
-export function animateTextHtml(html: string): string {
-  let result = applyTextEffects(html);
+export function animateTextHtml(html: string, enabled = true): string {
+  let result = applyTextEffects(html, enabled);
   result = wrapCharactersForWave(result);
   return DOMPurify.sanitize(result, {
     ALLOWED_TAGS: ["strong", "em", "br", "span"],
