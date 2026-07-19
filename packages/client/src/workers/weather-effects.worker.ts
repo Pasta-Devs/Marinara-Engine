@@ -173,9 +173,13 @@ self.onmessage = (event: MessageEvent<WeatherWorkerMessage>) => {
     nextLightning = config.lightning ? 200 + Math.random() * 400 : Infinity;
     resizeSurface(message.width, message.height, message.scale);
     populateParticles();
+    drawFrame(performance.now());
     if (timer === null) scheduleFrame();
   } else if (message.type === "resize") {
     resizeSurface(message.width, message.height, message.scale);
+    // Resizing a canvas clears it. Repaint in the same worker task so the
+    // browser never presents a blank weather layer between sidebar layouts.
+    drawFrame(performance.now());
   } else {
     hidden = message.hidden;
     previousTime = performance.now();

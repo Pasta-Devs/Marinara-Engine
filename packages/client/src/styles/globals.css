@@ -2950,13 +2950,6 @@ strong {
    which shows up most clearly on high-DPI displays. Fall back to opaque shell chrome there. */
 @supports (-moz-appearance: none) {
   @media (min-width: 768px) {
-    .mari-background-viewport {
-      right: auto;
-      left: 50%;
-      width: 100vw;
-      transform: translateX(-50%);
-    }
-
     .mari-shell-panel-slot,
     .mari-shell-panel-motion {
       transition: none;
