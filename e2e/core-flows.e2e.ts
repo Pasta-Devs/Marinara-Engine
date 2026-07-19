@@ -5007,7 +5007,9 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
   }
 });
 
-test("Roleplay displays a selected background when its file route is GET-only", async ({ page }) => {
+test("Roleplay keeps a selected background stable while side panels resize the chat", async ({
+  page,
+}, testInfo) => {
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Roleplay Background Smoke", mode: "roleplay", characterIds: [] },
   });
@@ -5074,6 +5076,34 @@ test("Roleplay displays a selected background when its file route is GET-only", 
       .toBe(true);
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");
+
+    const activeBackground = page.locator('.mari-background[style*="opacity: 1"]');
+    await expect(activeBackground).toHaveCount(1);
+    await expect(activeBackground).toHaveCSS("backface-visibility", "hidden");
+    await expect(activeBackground).toHaveCSS("contain", "paint");
+    expect(await activeBackground.evaluate((element) => getComputedStyle(element).willChange)).toContain("transform");
+    await expect(activeBackground).not.toHaveCSS("transform", "none");
+
+    if (testInfo.project.name.includes("desktop")) {
+      await page.getByRole("button", { name: "Close panel" }).click();
+      await expect(page.locator('[data-component="RightPanelDesktopSlot"]')).toHaveCSS("width", "0px");
+      const originalBackground = await activeBackground.elementHandle();
+
+      await page.getByTitle("Characters").click();
+      await expect(page.locator('[data-component="RightPanel"]')).toBeVisible();
+      expect(await activeBackground.evaluate((element, original) => element === original, originalBackground)).toBe(
+        true,
+      );
+      await expect(activeBackground).toHaveCSS("opacity", "1");
+
+      await page.getByRole("button", { name: "Close panel" }).click();
+      await page.locator('[data-tour="sidebar-toggle"]').click();
+      await expect(page.locator('[data-component="ChatSidebarSlot"]')).not.toHaveCSS("width", "0px");
+      expect(await activeBackground.evaluate((element, original) => element === original, originalBackground)).toBe(
+        true,
+      );
+      await expect(activeBackground).toHaveCSS("opacity", "1");
+    }
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
