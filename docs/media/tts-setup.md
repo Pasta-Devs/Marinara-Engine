@@ -35,26 +35,20 @@ Each Source needs a web address and, for most sources, an API key. An API key is
 
 The app fills in these defaults per Source:
 
-| Source | Default Base URL | Default Model | Default voice the app pre-fills |
-| --- | --- | --- | --- |
-| OpenAI-compatible | https://api.openai.com/v1 | tts-1 | alloy |
-| ElevenLabs | https://api.elevenlabs.io | eleven_multilingual_v2 | none (you must pick one) |
-| PocketTTS | http://localhost:8000 | pocket-tts | alba |
-| xAI Voice | https://api.x.ai/v1 | grok-tts | eve |
+| Source            | Default Base URL          | Default Model          | Default voice the app pre-fills |
+| ----------------- | ------------------------- | ---------------------- | ------------------------------- |
+| OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
+| ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | none (you must pick one)        |
+| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 For **ElevenLabs**, the **Model** field offers a dropdown of speech models. Pick a normal speech model. Model IDs that contain `ttv` are voice-design models, not speech models, and they cannot read text out loud. If you choose one by mistake, playback fails with an error that tells you to use a speech model instead.
 
 ### PocketTTS is a separate program
 
-PocketTTS is not built into Marinara Engine. You install and run it yourself, following the PocketTTS project's own instructions. Marinara does not download or manage it for you.
+PocketTTS is not built into Marinara Engine. Marinara's adapter uses the [PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server), which exposes both the speech and voice-list endpoints Marinara needs. Install and run that server by following its instructions; Marinara does not download or manage it for you.
 
-Once you have installed PocketTTS, start its server. The app's help text refers to this command:
-
-```
-pocket-tts serve
-```
-
-After it is running, leave the **Base URL** as `http://localhost:8000` unless you changed the port.
+The compatible server uses `http://localhost:49112` by default. Leave the **Base URL** on that value unless you changed the server port. Existing custom PocketTTS URLs remain unchanged.
 
 ## Step 3: Choose a voice (Voice Option)
 
@@ -65,7 +59,7 @@ The **Voice Option** setting decides how voices are assigned:
 
 ### One voice for all characters
 
-Pick the voice in the **All Characters Voice** field. For most sources this is a dropdown. For PocketTTS it is a text box where you type a built-in voice name or a voice path.
+Pick the voice in the **All Characters Voice** field. PocketTTS shows voices returned by your server in a dropdown and keeps a text field beside it for a custom voice ID, URL, or path.
 
 To load the real voice list from your provider, first save the card with TTS enabled. Then click the **Refresh voices** button (the circular-arrow icon). Before you connect, the app shows a short built-in fallback list so the field is not empty. That fallback list may be out of date, so refresh to get your provider's current voices.
 
@@ -164,7 +158,7 @@ This override is used only during Conversation audio and video calls. The regula
 ## Troubleshooting
 
 - Nothing speaks: confirm the **Enable TTS** switch is on. Then check the right per-mode **Auto-play** toggle, or use the per-message **Speak** button. The **Speak** button and auto-play options only appear after TTS is enabled.
-- No voices in the dropdown: save the card with TTS enabled and a valid API key, then click **Refresh voices**.
+- No voices in the dropdown: save the card with TTS enabled and a valid API key, then click **Refresh voices**. For PocketTTS, also verify that `<Base URL>/v1/voices` responds from the compatible server.
 - ElevenLabs will not speak: make sure you selected a real voice, not the "Select an ElevenLabs voice" placeholder. Also check that the **Model** is a speech model, not a voice-design model whose ID contains `ttv`.
 - A self-hosted TTS server on a local address is blocked: turn on the server setting `TTS_LOCAL_URLS_ENABLED`. It lets the app reach a local or private address for OpenAI-compatible or ElevenLabs-style servers. PocketTTS does not need this setting. See [Server Configuration Reference](../CONFIGURATION.md).
 - Test your setup fast: click the **Preview** button in the card to play a short sample line with your current settings.

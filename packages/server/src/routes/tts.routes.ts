@@ -43,7 +43,7 @@ const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }>
     model: "eleven_multilingual_v2",
   },
   pockettts: {
-    baseUrl: "http://localhost:8000",
+    baseUrl: "http://localhost:49112",
     model: "pocket-tts",
   },
   xai: {
