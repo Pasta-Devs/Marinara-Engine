@@ -12,6 +12,7 @@ export type NoodleCarryoverMode = "off" | "conversation" | "roleplay" | "game" |
 export type NoodleCarryoverTarget = "conversation" | "roleplay" | "game";
 export type NoodleParticipantSelectionMode = "all" | "random_range" | "exact";
 export type NoodleAvatarCrop = PersonaAvatarCrop | LegacyPersonaAvatarCrop;
+export type NoodleIdentityDisclosure = "open" | "hinted" | "secret";
 
 export interface NoodleAccountProfileSettings {
   avatarCrop?: NoodleAvatarCrop | null;
@@ -28,7 +29,10 @@ export interface NoodleAccountSocialSettings {
 }
 
 export type NoodleAccountSchedulerSettings = Record<string, never>;
-export type NoodleAccountPrivacySettings = Record<string, never>;
+export interface NoodleAccountPrivacySettings {
+  identityDisclosure?: NoodleIdentityDisclosure;
+  stagePersonality?: string;
+}
 
 export interface NoodleAccountSettings {
   profile: NoodleAccountProfileSettings;
@@ -92,6 +96,21 @@ export interface NoodleAccount {
   settings: NoodleAccountSettings;
   visibility: NoodleAccountVisibility;
   publicAccountId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NoodlerStageProfile {
+  id: string;
+  publicAccountId: string | null;
+  handle: string;
+  displayName: string;
+  bio: string;
+  avatarUrl: string | null;
+  avatarCrop: NoodleAvatarCrop | null;
+  disclosureMode: NoodleIdentityDisclosure | null;
+  stagePersonality: string;
+  publicIdentity: { displayName: string; handle: string } | null;
   createdAt: string;
   updatedAt: string;
 }

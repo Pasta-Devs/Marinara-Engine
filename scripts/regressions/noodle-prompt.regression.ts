@@ -52,7 +52,11 @@ import { characterAppearanceFromRow } from "../../packages/server/src/services/n
 import { buildNoodleProfileTargetBlock } from "../../packages/server/src/services/noodle/noodle-public-profiles.service.js";
 import { buildOptedInChatContext } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
 import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-generation-log.js";
-import { buildPrivatePostMessages } from "../../packages/server/src/services/noodle/noodle-private-generation.service.js";
+import {
+  buildPrivatePostMessages,
+  protectPrivateGeneratedIdentity,
+  stageProfileContainsPublicIdentity,
+} from "../../packages/server/src/services/noodle/noodle-private-generation.service.js";
 import { resolveStoredMaxTokens } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import {
@@ -375,6 +379,9 @@ assert.equal(
 );
 const privatePostMessages = buildPrivatePostMessages({
   account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },
+  stagePersonality: "Reserved and direct.",
+  disclosureMode: "secret",
+  publicIdentity: { displayName: "Known Public Name", handle: "known_public" },
   recentPosts: [],
   request: {
     privatePostGuide: "Write about tonight.",
@@ -382,11 +389,75 @@ const privatePostMessages = buildPrivatePostMessages({
   },
 });
 assert.match(privatePostMessages[0]?.content ?? "", /exactly one post for one private NoodleR creator page/u);
-assert.match(privatePostMessages[0]?.content ?? "", /Do not infer or reveal a linked public identity/u);
+assert.match(privatePostMessages[0]?.content ?? "", /Disclosure is secret/u);
 assert.match(privatePostMessages[1]?.content ?? "", /Private Name/u);
+assert.match(privatePostMessages[1]?.content ?? "", /Reserved and direct/u);
 assert.match(privatePostMessages[1]?.content ?? "", /Write about tonight\./u);
 assert.match(privatePostMessages[1]?.content ?? "", /Advance the current beat\./u);
-assert.doesNotMatch(privatePostMessages.map((message) => message.content).join("\n"), /subscriber|PPV|disclosure/u);
+assert.doesNotMatch(
+  privatePostMessages.map((message) => message.content).join("\n"),
+  /Known Public Name|known_public/u,
+);
+
+const knownPublicIdentity = { displayName: "Known Public Name", handle: "known_public" };
+const protectedStageProfile = {
+  displayName: "After Hours",
+  handle: "after_hours",
+  bio: "Known Public Name after dark.",
+  stagePersonality: "Reserved.",
+  disclosureMode: "secret" as const,
+};
+assert.equal(stageProfileContainsPublicIdentity(protectedStageProfile, knownPublicIdentity), true);
+assert.equal(
+  stageProfileContainsPublicIdentity({ ...protectedStageProfile, bio: "Anonymous after dark." }, knownPublicIdentity),
+  false,
+);
+assert.equal(
+  stageProfileContainsPublicIdentity({ ...protectedStageProfile, disclosureMode: "open" }, knownPublicIdentity),
+  false,
+);
+const identitySample = "Known Public Name (@known_public) shares a late-night portrait.";
+assert.equal(protectPrivateGeneratedIdentity(identitySample, "open", knownPublicIdentity), identitySample);
+assert.equal(
+  protectPrivateGeneratedIdentity(identitySample, "hinted", knownPublicIdentity),
+  "a public persona shares a late-night portrait.",
+);
+assert.equal(
+  protectPrivateGeneratedIdentity(identitySample, "secret", knownPublicIdentity),
+  "someone shares a late-night portrait.",
+);
+for (const mode of ["hinted", "secret"] as const) {
+  const imagePrompt = protectPrivateGeneratedIdentity(
+    "Editorial portrait of Known Public Name, known online as @known_public.",
+    mode,
+    knownPublicIdentity,
+  );
+  assert.doesNotMatch(imagePrompt ?? "", /Known Public Name|known_public/iu);
+}
+const openMessages = buildPrivatePostMessages({
+  account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },
+  stagePersonality: "Open about the public connection.",
+  disclosureMode: "open",
+  publicIdentity: knownPublicIdentity,
+  recentPosts: [],
+  request: { privatePostGuide: "Mention Known Public Name and @known_public." },
+});
+assert.match(openMessages.map((message) => message.content).join("\n"), /Known Public Name/u);
+assert.match(openMessages.map((message) => message.content).join("\n"), /known_public/u);
+for (const mode of ["hinted", "secret"] as const) {
+  const protectedMessages = buildPrivatePostMessages({
+    account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },
+    stagePersonality: "Never identify Known Public Name or @known_public.",
+    disclosureMode: mode,
+    publicIdentity: knownPublicIdentity,
+    recentPosts: [],
+    request: { privatePostGuide: "Write about Known Public Name (@known_public)." },
+  });
+  assert.doesNotMatch(
+    protectedMessages.map((message) => message.content).join("\n"),
+    /Known Public Name|known_public/u,
+  );
+}
 assert.match(NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION, /controlled exclusively by the user/u);
 assert.match(
   NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION,

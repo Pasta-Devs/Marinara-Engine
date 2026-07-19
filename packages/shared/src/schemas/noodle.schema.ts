@@ -9,6 +9,7 @@ export const noodleParticipantSelectionModeSchema = z.enum(["all", "random_range
 export const noodleCarryoverModeSchema = z.enum(["off", "conversation", "roleplay", "game", "all"]);
 export const noodleCarryoverTargetSchema = z.enum(["conversation", "roleplay", "game"]);
 export const noodleThemeSchema = z.enum(["system", "light", "dark"]);
+export const noodleIdentityDisclosureSchema = z.enum(["open", "hinted", "secret"]);
 
 export const DEFAULT_NOODLE_SETTINGS = {
   refreshesPerDay: 2,
@@ -132,7 +133,12 @@ export const noodleAccountSocialSettingsSchema = z
   .strict();
 
 export const noodleAccountSchedulerSettingsSchema = z.object({}).strict();
-export const noodleAccountPrivacySettingsSchema = z.object({}).strict();
+export const noodleAccountPrivacySettingsSchema = z
+  .object({
+    identityDisclosure: noodleIdentityDisclosureSchema.optional(),
+    stagePersonality: z.string().trim().max(1000).optional(),
+  })
+  .strict();
 
 export const noodleAccountSocialPatchSchema = noodleAccountSocialSettingsSchema.pick({ notificationsReadAt: true });
 
@@ -164,7 +170,17 @@ export const noodleAccountProfileUpdateSchema = z
 
 export const noodleAccountFollowUpdateSchema = z.object({ followed: z.boolean() }).strict();
 
-export const noodlePrivateAccountCreateSchema = z.object({}).strict();
+const noodleStageProfileShape = {
+  displayName: z.string().trim().min(1, "Enter a stage name.").max(120),
+  handle: z.string().trim().min(1, "Enter a stage handle.").max(40),
+  bio: z.string().trim().max(500),
+  stagePersonality: z.string().trim().max(1000),
+  disclosureMode: noodleIdentityDisclosureSchema,
+};
+
+export const noodleStageProfileSchema = z.object(noodleStageProfileShape).strict();
+export const noodlePrivateAccountCreateSchema = z.object({ stageProfile: noodleStageProfileSchema }).strict();
+export const noodleStageProfileUpdateSchema = z.object(noodleStageProfileShape).strict();
 
 export const noodleInviteSchema = z.object({
   characterId: z.string().min(1),
@@ -438,6 +454,7 @@ export type NoodleAccountProfileUpdateInput = z.infer<typeof noodleAccountProfil
 export type NoodleAccountSettingsPatchInput = z.infer<typeof noodleAccountSettingsPatchSchema>;
 export type NoodleAccountFollowUpdateInput = z.infer<typeof noodleAccountFollowUpdateSchema>;
 export type NoodlePrivateAccountCreateInput = z.infer<typeof noodlePrivateAccountCreateSchema>;
+export type NoodleStageProfileInput = z.infer<typeof noodleStageProfileSchema>;
 export type NoodleInviteInput = z.infer<typeof noodleInviteSchema>;
 export type NoodleBulkInviteInput = z.infer<typeof noodleBulkInviteSchema>;
 export type NoodlePollInput = z.infer<typeof noodlePollInputSchema>;

@@ -23,6 +23,7 @@ import {
   noodleRescheduleRefreshSchema,
   noodleGenerationRequestSchema,
   noodleSettingsUpdateSchema,
+  noodleStageProfileUpdateSchema,
   readNoodlePollFromMetadata,
   type NoodleAccount,
   type NoodleInteractionType,
@@ -41,7 +42,10 @@ import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/no
 
 import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
 import { createPublicNoodleImagesService } from "../services/noodle/noodle-public-images.service.js";
-import { generatePrivatePost } from "../services/noodle/noodle-private-generation.service.js";
+import {
+  generatePrivatePost,
+  stageProfileContainsPublicIdentity,
+} from "../services/noodle/noodle-private-generation.service.js";
 import {
   bootstrapVisibleNoodle,
   characterAvatarCrop,
@@ -91,7 +95,17 @@ export async function noodleRoutes(app: FastifyInstance) {
   app.get("/noodler/accounts", async (_req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
-    return noodle.listPrivateAccounts();
+    return noodle.listNoodlerStageProfiles();
+  });
+
+  app.get("/noodler/eligible-accounts", async (_req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const [publicAccounts, privateAccounts] = await Promise.all([noodle.listAccounts(), noodle.listPrivateAccounts()]);
+    const linkedIds = new Set(privateAccounts.flatMap((account) => account.publicAccountId ?? []));
+    return publicAccounts.filter(
+      (account) => (account.kind === "persona" || account.kind === "character") && !linkedIds.has(account.id),
+    );
   });
 
   app.post("/accounts/:id/private", async (req, reply) => {
@@ -100,16 +114,68 @@ export async function noodleRoutes(app: FastifyInstance) {
     const parsed = noodlePrivateAccountCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     const { id } = req.params as { id: string };
+    const publicAccount = await noodle.getAccountById(id);
+    if (
+      publicAccount &&
+      stageProfileContainsPublicIdentity(parsed.data.stageProfile, {
+        displayName: publicAccount.displayName,
+        handle: publicAccount.handle,
+      })
+    ) {
+      return reply.code(400).send({
+        error: "Hinted and secret stage profiles cannot use the linked public name or handle.",
+      });
+    }
     try {
-      const created = await noodle.createPrivateAccount(id);
+      const created = await noodle.createPrivateAccount(id, parsed.data.stageProfile);
       if (!created) return reply.code(404).send({ error: "Noodle account not found" });
-      return reply.code(201).send(created);
+      const profile = (await noodle.listNoodlerStageProfiles()).find((item) => item.id === created.id);
+      if (!profile) throw new Error("Failed to load the created NoodleR stage profile.");
+      return reply.code(201).send(profile);
     } catch (error) {
       if (isFileUniqueConstraintError(error, "noodle_accounts", ["publicAccountId"])) {
         return reply.code(409).send({ error: "A private account already exists for this Noodle account." });
       }
       throw error;
     }
+  });
+
+  app.put("/noodler/accounts/:id/stage-profile", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodleStageProfileUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    const privateAccount = await noodle.getPrivateAccountById(id);
+    const publicAccount = privateAccount?.publicAccountId
+      ? await noodle.getAccountById(privateAccount.publicAccountId)
+      : null;
+    if (
+      publicAccount &&
+      stageProfileContainsPublicIdentity(parsed.data, {
+        displayName: publicAccount.displayName,
+        handle: publicAccount.handle,
+      })
+    ) {
+      return reply.code(400).send({
+        error: "Hinted and secret stage profiles cannot use the linked public name or handle.",
+      });
+    }
+    const updated = await noodle.updateNoodlerStageProfile(id, parsed.data);
+    if (!updated) return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    const profile = (await noodle.listNoodlerStageProfiles()).find((item) => item.id === updated.id);
+    if (!profile) throw new Error("Failed to load the updated NoodleR stage profile.");
+    return profile;
+  });
+
+  app.get("/noodler/accounts/:id/posts", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const { id } = req.params as { id: string };
+    if (!(await noodle.getPrivateAccountById(id))) {
+      return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    }
+    return noodle.listPrivatePostsByAccount(id, 40);
   });
 
   app.put("/refresh-schedule", async (req, reply) => {

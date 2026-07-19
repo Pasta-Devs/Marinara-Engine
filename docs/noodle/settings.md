@@ -16,7 +16,23 @@ All Noodle settings are global. They apply to every persona and every chat, not 
 
 - **Enable NoodleR**: a toggle, default **off**. Turn it on to expose the private account hub. While it is off, opening NoodleR shows the opt-in screen, NoodleR account queries are unavailable, and private account data remains isolated from the public Noodle timeline.
 
-The hub lists the private accounts currently available to the installation, including loading, failure, and empty states. Private profile editing, subscriptions, generation, and other creator tools arrive in later NoodleR slices.
+The hub lists the stage profiles currently available to the installation, including loading, failure, and empty states. A stage profile belongs to one public persona or character account but presents its own name, handle, bio, stage voice, and disclosure mode. Existing private accounts created before stage profiles were introduced show **Setup needed** until their profile is completed.
+
+### Stage identity disclosure
+
+Disclosure controls how the linked public identity may appear in a stage profile and AI-generated post. It does not decide who can view a profile or post.
+
+- **Open**: the stage profile may show its public link, and generated text or image prompts may use the linked public name and handle.
+- **Hinted**: generated content may make a general allusion to a public persona, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved.
+- **Secret**: the linked public identity is withheld from profile presentation and generation context. Exact public names and handles are replaced with non-identifying language if a model returns them.
+
+Use **New profile** in the NoodleR hub to choose an eligible public account and define its stage identity. Open an existing profile and select **Edit profile** to change its presentation or disclosure mode. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
+
+### Guided private posts
+
+Open a stage profile and select **Guide post**. Enter the moment, mood, or idea for the post, then select **Generate post**. NoodleR uses the configured Noodle generation connection and the stage profile's voice and disclosure mode to create one private post. The direction is kept in the modal if generation fails so it can be retried.
+
+Generated private posts can store a disclosure-filtered image prompt, but this slice does not generate or serve private post images. Subscriptions, pay-per-view posts, hidden-from rules, fan activity, automatic posting, cross-mode integration, and creator projects are separate later capabilities.
 
 ## Invites
 

@@ -5,6 +5,7 @@ import { and, desc, eq, gt, inArray, isNull, lt } from "../../db/file-query.js";
 import {
   DEFAULT_NOODLE_SETTINGS,
   noodleAccountProfileSettingsSchema,
+  noodleAccountPrivacySettingsSchema,
   noodleAccountSocialSettingsSchema,
   noodleSettingsSchema,
   readNoodlePollFromMetadata,
@@ -27,6 +28,8 @@ import {
   type NoodlePost,
   type NoodlePostUpdateInput,
   type NoodlePostSource,
+  type NoodleStageProfileInput,
+  type NoodlerStageProfile,
   type NoodleRefreshAttempt,
   type NoodleRefreshRun,
   type NoodleRemoveInteractionInput,
@@ -101,10 +104,17 @@ function validSocialField(key: string, value: unknown): NoodleAccountSettings["s
   return parsed.success ? parsed.data : {};
 }
 
+function validPrivacyField(key: string, value: unknown): NoodleAccountSettings["privacy"] {
+  if (value === undefined) return {};
+  const parsed = noodleAccountPrivacySettingsSchema.safeParse({ [key]: value });
+  return parsed.success ? parsed.data : {};
+}
+
 export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSettings {
   const raw = parseRecord(value);
   const rawProfile = parseRecord(raw.profile);
   const rawSocial = parseRecord(raw.social);
+  const rawPrivacy = parseRecord(raw.privacy);
   const rawAvatarCrop = nestedOrLegacy(rawProfile, raw, "avatarCrop");
   const rawBannerUrl = nestedOrLegacy(rawProfile, raw, "bannerUrl");
   const rawLocation = nestedOrLegacy(rawProfile, raw, "location");
@@ -113,6 +123,8 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
   const rawFollowingAccountIds = nestedOrLegacy(rawSocial, raw, "followingAccountIds");
   const rawFollowingAccountTimestamps = nestedOrLegacy(rawSocial, raw, "followingAccountTimestamps");
   const rawNotificationsReadAt = nestedOrLegacy(rawSocial, raw, "notificationsReadAt");
+  const rawIdentityDisclosure = nestedOrLegacy(rawPrivacy, raw, "identityDisclosure");
+  const rawStagePersonality = nestedOrLegacy(rawPrivacy, raw, "stagePersonality");
   const normalizedAvatarCrop = rawAvatarCrop === null ? null : parseNoodleAvatarCrop(rawAvatarCrop);
   const profile = {
     ...(rawAvatarCrop !== undefined &&
@@ -126,8 +138,9 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
       validProfileField("profileManuallyEdited", normalizePersistedBoolean(rawProfileManuallyEdited))),
   };
   const followingAccountTimestamps = Object.fromEntries(
-    Object.entries(parseRecord(rawFollowingAccountTimestamps)).filter(([accountId, timestamp]) =>
-      noodleAccountSocialSettingsSchema.safeParse({ followingAccountTimestamps: { [accountId]: timestamp } }).success,
+    Object.entries(parseRecord(rawFollowingAccountTimestamps)).filter(
+      ([accountId, timestamp]) =>
+        noodleAccountSocialSettingsSchema.safeParse({ followingAccountTimestamps: { [accountId]: timestamp } }).success,
     ),
   );
   const social = {
@@ -137,11 +150,15 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
       validSocialField("followingAccountTimestamps", followingAccountTimestamps)),
     ...(rawNotificationsReadAt !== undefined && validSocialField("notificationsReadAt", rawNotificationsReadAt)),
   };
+  const privacy = {
+    ...(rawIdentityDisclosure !== undefined && validPrivacyField("identityDisclosure", rawIdentityDisclosure)),
+    ...(rawStagePersonality !== undefined && validPrivacyField("stagePersonality", rawStagePersonality)),
+  };
   return {
     profile,
     social,
     scheduler: {},
-    privacy: {},
+    privacy,
   };
 }
 
@@ -530,27 +547,97 @@ export function createNoodleStorage(db: DB) {
       return rows[0] ? mapAccount(rows[0]) : null;
     },
 
-    async createPrivateAccount(publicAccountId: string): Promise<NoodleAccount | null> {
+    async listNoodlerStageProfiles(): Promise<NoodlerStageProfile[]> {
+      const accounts = await this.listPrivateAccounts();
+      return Promise.all(
+        accounts.map(async (account) => {
+          const disclosureMode = account.settings.privacy.identityDisclosure ?? null;
+          const publicAccount =
+            disclosureMode === "open" && account.publicAccountId
+              ? await this.getAccountById(account.publicAccountId)
+              : null;
+          return {
+            id: account.id,
+            publicAccountId: disclosureMode === "open" ? account.publicAccountId : null,
+            handle: account.handle,
+            displayName: account.displayName,
+            bio: account.bio,
+            avatarUrl: account.avatarUrl,
+            avatarCrop: account.avatarCrop,
+            disclosureMode,
+            stagePersonality: account.settings.privacy.stagePersonality ?? "",
+            publicIdentity: publicAccount
+              ? { displayName: publicAccount.displayName, handle: publicAccount.handle }
+              : null,
+            createdAt: account.createdAt,
+            updatedAt: account.updatedAt,
+          };
+        }),
+      );
+    },
+
+    async createPrivateAccount(
+      publicAccountId: string,
+      stageProfile: NoodleStageProfileInput,
+    ): Promise<NoodleAccount | null> {
       const publicAccount = await this.getAccountById(publicAccountId);
       if (!publicAccount || (publicAccount.kind !== "persona" && publicAccount.kind !== "character")) return null;
       const timestamp = now();
       const id = newId();
+      const accountSettings: NoodleAccountSettings = {
+        ...emptyNoodleAccountSettings(),
+        privacy: {
+          identityDisclosure: stageProfile.disclosureMode,
+          stagePersonality: stageProfile.stagePersonality,
+        },
+      };
       await db.insert(noodleAccounts).values({
         id,
         kind: publicAccount.kind,
         entityId: publicAccount.entityId,
-        handle: `${publicAccount.handle}_private`,
-        displayName: publicAccount.displayName,
-        bio: "",
+        handle: normalizeHandle(stageProfile.handle, publicAccount.entityId),
+        displayName: stageProfile.displayName,
+        bio: stageProfile.bio,
         avatarUrl: null,
         invited: "false",
-        settings: JSON.stringify(emptyNoodleAccountSettings()),
+        settings: JSON.stringify(accountSettings),
         visibility: "private",
         publicAccountId,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
       return this.getPrivateAccountById(id);
+    },
+
+    async updateNoodlerStageProfile(id: string, stageProfile: NoodleStageProfileInput): Promise<NoodleAccount | null> {
+      return db.transaction(async (tx) => {
+        const rows = await tx
+          .select()
+          .from(noodleAccounts)
+          .where(and(eq(noodleAccounts.id, id), eq(noodleAccounts.visibility, "private")));
+        const row = rows[0];
+        if (!row) return null;
+        const settings = normalizeNoodleAccountSettings(row.settings);
+        await tx
+          .update(noodleAccounts)
+          .set({
+            handle: normalizeHandle(stageProfile.handle, row.entityId),
+            displayName: stageProfile.displayName,
+            bio: stageProfile.bio,
+            settings: JSON.stringify({
+              ...settings,
+              privacy: {
+                ...settings.privacy,
+                identityDisclosure: stageProfile.disclosureMode,
+                stagePersonality: stageProfile.stagePersonality,
+              },
+            } satisfies NoodleAccountSettings),
+            updatedAt: now(),
+          })
+          .where(eq(noodleAccounts.id, id));
+        const updatedRows = await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, id));
+        return updatedRows[0] ? mapAccount(updatedRows[0]) : null;
+      });
     },
 
     async upsertAccountFromProfile(input: {
@@ -768,10 +855,7 @@ export function createNoodleStorage(db: DB) {
             .select()
             .from(noodlePosts)
             .where(
-              and(
-                gt(noodlePosts.createdAt, options.since),
-                inArray(noodlePosts.authorAccountId, publicAccountIds),
-              ),
+              and(gt(noodlePosts.createdAt, options.since), inArray(noodlePosts.authorAccountId, publicAccountIds)),
             )
             .orderBy(desc(noodlePosts.createdAt))
             .limit(limit)
@@ -1017,7 +1101,11 @@ export function createNoodleStorage(db: DB) {
           digest.sourcePostId === id ||
           (digest.sourceInteractionId !== null && interactionIds.includes(digest.sourceInteractionId)),
       );
-      if (relatedDigests.some((digest) => !parseStringArray(digest.accountIds).every((accountId) => publicAccountIds.has(accountId)))) {
+      if (
+        relatedDigests.some(
+          (digest) => !parseStringArray(digest.accountIds).every((accountId) => publicAccountIds.has(accountId)),
+        )
+      ) {
         return null;
       }
       await db.transaction(async (tx) => {
@@ -1032,10 +1120,7 @@ export function createNoodleStorage(db: DB) {
       const publicAccountIds = (await this.listAccounts()).map((account) => account.id);
       const publicPosts =
         publicAccountIds.length > 0
-          ? await db
-              .select()
-              .from(noodlePosts)
-              .where(inArray(noodlePosts.authorAccountId, publicAccountIds))
+          ? await db.select().from(noodlePosts).where(inArray(noodlePosts.authorAccountId, publicAccountIds))
           : [];
       const publicPostIds = publicPosts.map((post) => post.id);
       const publicInteractions = await db
