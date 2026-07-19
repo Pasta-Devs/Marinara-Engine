@@ -338,7 +338,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             setProfileDraft(previousDraft);
             setPreviousDraft(null);
           }}
-          onChange={(patch) => setProfileDraft((current) => ({ ...(current ?? EMPTY_STAGE_PROFILE), ...patch }))}
+          onChange={(patch) =>
+            setProfileDraft((current) => ({
+              ...(current ?? { ...EMPTY_STAGE_PROFILE, disclosureMode: creationDisclosure }),
+              ...patch,
+            }))
+          }
           publicAccountId={draftPublicAccountId}
           isEditing={Boolean(editingProfileId)}
           isPending={createProfile.isPending || updateProfile.isPending}

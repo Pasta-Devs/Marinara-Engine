@@ -141,7 +141,7 @@ export async function generateNoodlerStageProfileDraft(
       ].join("\n"),
     },
   ];
-  const debugMode = input.request.currentDraft !== undefined && isDebugAgentsEnabled();
+  const debugMode = isDebugAgentsEnabled();
   logDebugOverride(
     debugMode,
     "[debug/noodler] Stage profile draft prompt:\n%s",
