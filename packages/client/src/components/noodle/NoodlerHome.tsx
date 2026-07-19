@@ -219,6 +219,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           hasMore={Boolean(eligibleAccountsQuery.hasNextPage)}
           isLoadingMore={eligibleAccountsQuery.isFetchingNextPage}
           onLoadMore={() => void eligibleAccountsQuery.fetchNextPage()}
+          onBack={() => setCreationStep(null)}
           onContinue={() => setCreationStep("disclosure")}
         />
       </NoodlerFrame>
@@ -232,6 +233,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           source={selectedSource}
           value={creationDisclosure}
           onChange={setCreationDisclosure}
+          onBack={() => setCreationStep("source")}
           onContinue={() => setCreationStep("draft")}
         />
       </NoodlerFrame>
@@ -262,7 +264,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           isPending={createProfile.isPending || updateProfile.isPending}
           onCancel={() => {
             setProfileDraft(null);
-            setCreationStep(null);
+            setCreationStep(editingProfileId ? null : "disclosure");
           }}
           onSave={saveProfile}
         />
@@ -485,25 +487,21 @@ function StageProfileForm({
           Disclosure was selected earlier and is shown above. You can change it by going back.
         </p>
       </div>
-      <div className="mt-7 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isPending}
-          className="h-10 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)] disabled:opacity-50"
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-          {isPending ? "Saving..." : "Save stage profile"}
-        </button>
-      </div>
+      <WizardFooter
+        step={2}
+        onBack={onCancel}
+        finalAction={
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!canSave}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+            {isPending ? "Saving..." : "Save stage profile"}
+          </button>
+        }
+      />
     </div>
   );
 }
@@ -517,6 +515,7 @@ function StageProfileSourcePicker({
   hasMore,
   isLoadingMore,
   onLoadMore,
+  onBack,
   onContinue,
 }: {
   accounts: Array<{ id: string; displayName: string; handle: string; bio: string; avatarUrl: string | null }>;
@@ -527,6 +526,7 @@ function StageProfileSourcePicker({
   hasMore: boolean;
   isLoadingMore: boolean;
   onLoadMore: () => void;
+  onBack: () => void;
   onContinue: () => void;
 }) {
   const visible = accounts.filter((account) =>
@@ -593,16 +593,7 @@ function StageProfileSourcePicker({
           {isLoadingMore ? "Loading more..." : "Load more characters"}
         </button>
       )}
-      <div className="mt-6 flex justify-end">
-        <button
-          type="button"
-          onClick={onContinue}
-          disabled={!selectedId}
-          className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Continue <ArrowRight size={16} />
-        </button>
-      </div>
+      <WizardFooter step={0} onBack={onBack} onNext={onContinue} nextDisabled={!selectedId} />
     </div>
   );
 }
@@ -611,11 +602,13 @@ function DisclosureStep({
   source,
   value,
   onChange,
+  onBack,
   onContinue,
 }: {
   source: { displayName: string; handle: string } | null;
   value: NoodleIdentityDisclosure;
   onChange: (value: NoodleIdentityDisclosure) => void;
+  onBack: () => void;
   onContinue: () => void;
 }) {
   return (
@@ -651,14 +644,57 @@ function DisclosureStep({
           </button>
         ))}
       </div>
-      <div className="mt-6 flex justify-end">
+      <WizardFooter step={1} onBack={onBack} onNext={onContinue} />
+    </div>
+  );
+}
+
+function WizardFooter({
+  step,
+  onBack,
+  onNext,
+  nextDisabled = false,
+  finalAction,
+}: {
+  step: 0 | 1 | 2;
+  onBack: () => void;
+  onNext?: () => void;
+  nextDisabled?: boolean;
+  finalAction?: ReactNode;
+}) {
+  const labels = ["Source", "Disclosure", "Profile"];
+  return (
+    <div className="sticky bottom-0 z-10 mt-6 border-t border-[var(--noodle-divider)] bg-[var(--background)]/95 py-3 backdrop-blur-sm">
+      <div className="mb-3 flex items-center justify-center gap-1.5" aria-label="Profile setup progress">
+        {labels.map((label, index) => (
+          <span key={label} className="flex items-center gap-1.5">
+            <span
+              aria-current={index === step ? "step" : undefined}
+              title={label}
+              className={`h-1.5 rounded-full transition-all ${index === step ? "w-6 bg-[var(--noodle-blue)]" : index < step ? "w-4 bg-[var(--noodle-blue)]/45" : "w-2 bg-[var(--muted-foreground)]/25"}`}
+            />
+            {index < labels.length - 1 && <span className="sr-only">to</span>}
+          </span>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-3">
         <button
           type="button"
-          onClick={onContinue}
-          className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950"
+          onClick={onBack}
+          className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)]"
         >
-          Continue <ArrowRight size={16} />
+          <ArrowLeft size={15} /> Back
         </button>
+        {finalAction ?? (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={nextDisabled}
+            className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Continue <ArrowRight size={16} />
+          </button>
+        )}
       </div>
     </div>
   );
