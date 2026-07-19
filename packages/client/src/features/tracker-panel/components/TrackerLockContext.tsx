@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import { isTrackerFieldHidden, isTrackerFieldLocked, type TrackerFieldLocks, type TrackerHiddenFields } from "@marinara-engine/shared";
+import { isTrackerFieldLocked, type TrackerFieldLocks, type TrackerHiddenFields } from "@marinara-engine/shared";
 import type { TrackerFieldLocksUpdater } from "../hooks/use-tracker-field-lock-updater";
 
 export type TrackerHiddenFieldsUpdater = (hiddenFields: TrackerHiddenFields | null | undefined) => TrackerHiddenFields;
@@ -10,9 +10,7 @@ interface TrackerLockContextValue {
   lockMode: boolean;
   hideMode?: boolean;
   onSetLockMode?: (enabled: boolean) => void;
-  onSetHideMode?: (enabled: boolean) => void;
   onToggleFieldLock?: (key: string) => void;
-  onToggleFieldHidden?: (key: string) => void;
   onUpdateFieldLocks?: (updater: TrackerFieldLocksUpdater) => void;
   onUpdateHiddenFields?: (updater: TrackerHiddenFieldsUpdater) => void;
 }
@@ -26,9 +24,7 @@ export function TrackerLockProvider({
   lockMode,
   hideMode,
   onSetLockMode,
-  onSetHideMode,
   onToggleFieldLock,
-  onToggleFieldHidden,
   onUpdateFieldLocks,
   onUpdateHiddenFields,
 }: TrackerLockContextValue & { children: ReactNode }) {
@@ -39,9 +35,7 @@ export function TrackerLockProvider({
       lockMode,
       hideMode: hideMode === true,
       onSetLockMode,
-      onSetHideMode,
       onToggleFieldLock,
-      onToggleFieldHidden,
       onUpdateFieldLocks,
       onUpdateHiddenFields,
     }),
@@ -51,9 +45,7 @@ export function TrackerLockProvider({
       lockMode,
       hideMode,
       onSetLockMode,
-      onSetHideMode,
       onToggleFieldLock,
-      onToggleFieldHidden,
       onUpdateFieldLocks,
       onUpdateHiddenFields,
     ],
@@ -74,17 +66,5 @@ export function useTrackerFieldLock(key: string | undefined) {
     locked: key ? isTrackerFieldLocked(fieldLocks, key) : false,
     lockMode,
     onToggleLock: key && onToggleFieldLock ? onToggleLock : undefined,
-  };
-}
-
-export function useTrackerFieldVisibility(key: string | undefined) {
-  const { hiddenTrackerFields, hideMode, onToggleFieldHidden } = useTrackerLockContext();
-  const onToggleHidden = useCallback(() => {
-    if (key) onToggleFieldHidden?.(key);
-  }, [key, onToggleFieldHidden]);
-  return {
-    hidden: key ? isTrackerFieldHidden(hiddenTrackerFields, key) : false,
-    hideMode: hideMode === true,
-    onToggleHidden: key && onToggleFieldHidden ? onToggleHidden : undefined,
   };
 }

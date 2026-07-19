@@ -1,13 +1,9 @@
 import type { CharacterStat } from "@marinara-engine/shared";
 import {
-  FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
   PERSONA_ADD_STAT_DENSITY_HEIGHT_REM,
   PERSONA_STAT_DENSITY_HEIGHT_REM,
-  TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM,
 } from "./tracker-panel.constants";
 import type { TrackerStatDensity, TrackerStatDisplayScale } from "../tracker-panel.types";
-
-const PREFERRED_PERSONA_STAT_DENSITIES = ["normal", "compact"] as const;
 
 export function trackerStatStackHeight(statCount: number, density: TrackerStatDensity, includeAdd: boolean) {
   return (
@@ -16,21 +12,10 @@ export function trackerStatStackHeight(statCount: number, density: TrackerStatDe
   );
 }
 
-export function getPersonaStatDensity(
+export function getTrackerStatDensity(
   statCount: number,
   includeAdd: boolean,
-  allowance = TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM,
-): TrackerStatDensity {
-  for (const density of PREFERRED_PERSONA_STAT_DENSITIES) {
-    if (trackerStatStackHeight(statCount, density, includeAdd) <= allowance) return density;
-  }
-  return "tight";
-}
-
-export function getFeaturedCharacterStatDensity(
-  statCount: number,
-  includeAdd: boolean,
-  allowance = FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
+  allowance: number,
 ): TrackerStatDensity {
   if (trackerStatStackHeight(statCount, "normal", includeAdd) <= allowance) return "normal";
   if (trackerStatStackHeight(statCount, "compact", includeAdd) <= allowance) return "compact";

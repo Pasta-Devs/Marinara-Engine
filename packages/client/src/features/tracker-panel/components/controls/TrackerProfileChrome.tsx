@@ -37,26 +37,6 @@ export const TRACKER_PROFILE_STATUS_STRIP_CLASS =
 export const TRACKER_PROFILE_EMPTY_SURFACE_CLASS =
   "relative overflow-hidden rounded-[5px] border border-dashed border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent)] bg-[image:var(--tracker-profile-field-material)] text-center text-[0.6875rem] text-[color-mix(in_srgb,var(--tracker-profile-muted-text)_58%,transparent)] shadow-[inset_0_1px_5px_color-mix(in_srgb,var(--background)_36%,transparent)] [background-blend-mode:var(--tracker-profile-field-material-blend)] before:pointer-events-none before:absolute before:inset-0 before:opacity-[0.12] before:[background-image:repeating-linear-gradient(135deg,color-mix(in_srgb,var(--foreground)_16%,transparent)_0_1px,transparent_1px_8px)] before:content-['']";
 
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_CLASS =
-  "group/statbox relative isolate flex min-h-0 flex-col overflow-x-hidden border-t border-[color-mix(in_srgb,var(--tracker-profile-rule)_44%,transparent)] bg-[image:var(--tracker-profile-panel-material)] px-1 py-1.5 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_5%,transparent),inset_0_8px_14px_color-mix(in_srgb,var(--background)_32%,transparent),inset_0_-12px_20px_color-mix(in_srgb,var(--background)_40%,transparent)] [background-blend-mode:var(--tracker-profile-panel-material-blend)]";
-
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_LEDGE_CLASS =
-  "pointer-events-none absolute inset-x-0 top-0 z-[1] h-3 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_74%,var(--tracker-profile-surface-solid)_18%),color-mix(in_srgb,var(--background)_42%,transparent)_42%,transparent)] shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_7%,transparent),inset_0_-1px_0_color-mix(in_srgb,var(--tracker-profile-rule)_42%,transparent)]";
-
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_GLEAM_CLASS =
-  "pointer-events-none absolute inset-x-3 top-0 z-[2] h-px bg-[image:var(--tracker-profile-accent-layer)] opacity-[var(--tracker-profile-accent-highlight-opacity,0.32)] [mask-image:linear-gradient(90deg,transparent_0%,black_16%,black_72%,transparent_94%,transparent_100%)]";
-
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_PINLINES_CLASS = cn(
-  TRACKER_PROFILE_SURFACE_TEXTURE_CLASS,
-  "z-0 opacity-[0.2] [mask-image:linear-gradient(180deg,black_0%,black_74%,transparent_100%)]",
-);
-
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_ETCH_CLASS =
-  "pointer-events-none absolute inset-x-2 bottom-1 z-0 h-9 rounded-[4px] opacity-[0.16] [background-image:repeating-linear-gradient(90deg,color-mix(in_srgb,var(--tracker-profile-rule)_36%,transparent)_0_1px,transparent_1px_13px)] [mask-image:linear-gradient(90deg,transparent_0%,black_12%,black_88%,transparent_100%)]";
-
-export const TRACKER_PROFILE_INSTRUMENT_SHELF_BOTTOM_RAIL_CLASS =
-  "pointer-events-none absolute inset-x-6 bottom-1 z-[1] h-px bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-accent-solid)_34%,transparent)_18%,color-mix(in_srgb,var(--tracker-profile-rule)_32%,transparent)_50%,color-mix(in_srgb,var(--tracker-profile-accent-solid)_34%,transparent)_82%,transparent)] opacity-[var(--tracker-profile-accent-highlight-opacity,0.28)]";
-
 export function TrackerReadabilityVeil({ strength = "soft" }: { strength?: "soft" | "strong" }) {
   const background =
     strength === "strong"

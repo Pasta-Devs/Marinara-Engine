@@ -25,8 +25,8 @@ import {
   resolveCharacterCustomFieldName,
 } from "../../lib/character-custom-field-names";
 import {
-  FEATURED_CHARACTER_PORTRAIT_ROOMY_STAGE_REM,
-  FEATURED_CHARACTER_PORTRAIT_STAGE_REM,
+  TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM,
+  TRACKER_PROFILE_PORTRAIT_ROOMY_MEDIA_STAGE_REM,
   TRACKER_PROFILE_PORTRAIT_FRAME_STAGE_MAX_CLASS,
 } from "../../lib/tracker-panel.constants";
 import {
@@ -37,7 +37,7 @@ import {
   getOppositeTrackerProfileSide,
   getTrackerProfilePortraitSide,
 } from "../../lib/tracker-profile-layout";
-import { getFeaturedCharacterStatDensity, trackerStatStackHeight } from "../../lib/tracker-stat-layout";
+import { getTrackerStatDensity, trackerStatStackHeight } from "../../lib/tracker-stat-layout";
 import { getCharacterAmbienceStyle, type TrackerProfileColors } from "../../lib/tracker-profile-style";
 import { InlineAddRow, InlineEdit } from "../controls/InlineControls";
 import {
@@ -97,7 +97,6 @@ export function FeaturedCharacterTrackerCard({
   characterIndex = 0,
   deleteMode,
   addMode,
-  hideMode,
   onToggleFeatured,
   onUploadAvatar,
 }: {
@@ -117,12 +116,18 @@ export function FeaturedCharacterTrackerCard({
   characterIndex?: number;
   deleteMode: boolean;
   addMode: boolean;
-  hideMode: boolean;
   onToggleFeatured?: () => void;
   onUploadAvatar?: () => void;
 }) {
-  const { fieldLocks, hiddenTrackerFields, lockMode, onToggleFieldLock, onUpdateFieldLocks, onUpdateHiddenFields } =
-    useTrackerLockContext();
+  const {
+    fieldLocks,
+    hiddenTrackerFields,
+    hideMode = false,
+    lockMode,
+    onToggleFieldLock,
+    onUpdateFieldLocks,
+    onUpdateHiddenFields,
+  } = useTrackerLockContext();
   const thoughtAnchorRef = useRef<HTMLDivElement | null>(null);
   const thoughtBubbleRef = useRef<HTMLDivElement | null>(null);
   const thoughtControlRef = useRef<HTMLButtonElement | null>(null);
@@ -135,9 +140,9 @@ export function FeaturedCharacterTrackerCard({
   const hasEditableCustomFieldAdd = !!onUpdate && addMode;
   const featuredStatColumnHeightRem =
     trackerPanelSizeProfile === "expanded"
-      ? FEATURED_CHARACTER_PORTRAIT_ROOMY_STAGE_REM
-      : FEATURED_CHARACTER_PORTRAIT_STAGE_REM;
-  const characterStatDensity = getFeaturedCharacterStatDensity(
+      ? TRACKER_PROFILE_PORTRAIT_ROOMY_MEDIA_STAGE_REM
+      : TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM;
+  const characterStatDensity = getTrackerStatDensity(
     characterStats.length,
     hasEditableStatAdd,
     featuredStatColumnHeightRem,
