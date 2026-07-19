@@ -191,12 +191,16 @@ async function generateSelfie(
   const imagePrompt = (promptResult.content ?? "").trim();
   if (!imagePrompt) return;
 
-  const suppressReferencePromptLine = suppressesReferencePromptLine({
-    model: imgConnFull.model,
-    baseUrl: imgConnFull.baseUrl,
-    imageService: imgConnFull.imageService,
-    imageGenerationSource: imgConnFull.imageGenerationSource,
-  });
+  const imageFallback = await resolveImageConnectionFallback(args.connections, imgConnFull.id);
+  const suppressReferencePromptLine = suppressesReferencePromptLine(
+    {
+      model: imgConnFull.model,
+      baseUrl: imgConnFull.baseUrl,
+      imageService: imgConnFull.imageService,
+      imageGenerationSource: imgConnFull.imageGenerationSource,
+    },
+    imageFallback,
+  );
   let finalSelfiePrompt = selfiePositivePrompt ? `${imagePrompt}, ${selfiePositivePrompt}` : imagePrompt;
   let selfieReferenceImages: string[] | undefined;
   const selfieUseAvatarReferences = args.chatMeta.selfieUseAvatarReferences === true;
@@ -247,7 +251,6 @@ async function generateSelfie(
   const selfieRes = typeof args.chatMeta.selfieResolution === "string" ? args.chatMeta.selfieResolution : "";
   const [selfieW, selfieH] = selfieRes.split("x").map(Number) as [number, number];
   const serviceHint = imgConnFull.imageService || "";
-  const imageFallback = await resolveImageConnectionFallback(args.connections, imgConnFull.id);
   const compiledSelfiePrompt = compileImagePrompt({
     kind: "selfie",
     prompt: finalSelfiePrompt,

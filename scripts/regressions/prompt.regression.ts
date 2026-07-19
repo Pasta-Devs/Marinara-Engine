@@ -334,6 +334,7 @@ import {
   normalizeIllustratorAppearance,
   readIllustratorAppearance,
   resolveIllustratorCharacterReferences,
+  suppressesReferencePromptLine,
 } from "../../packages/server/src/routes/generate/illustrator-references.js";
 import {
   OFFICIAL_AGENT_KNOWLEDGE_ENTRIES,
@@ -1693,6 +1694,39 @@ const cases: RegressionCase[] = [
       assert.match(gameSurfaceSource, /setStoryboardViewerPlayingVideoId\(activeStoryboardKeyframe\.video\.id\)/);
       assert.match(backgroundViewerSource, /onEnded=\{\(\) =>/);
       assert.doesNotMatch(backgroundViewerSource, /\bloop\b/);
+    },
+  },
+  {
+    name: "reference prompt suppression requires explicit local providers and fallback-safe routing",
+    run() {
+      for (const service of ["comfyui", "automatic1111", "drawthings"]) {
+        assert.equal(suppressesReferencePromptLine({ imageService: service }), true);
+        assert.equal(suppressesReferencePromptLine({ imageGenerationSource: service }), true);
+      }
+
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://127.0.0.1:8188" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://localhost:7860/sdapi/v1" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://[::1]:8188" }), true);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "https://images.example.com:8188" }), false);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "https://images.example.com/api/:7860" }), false);
+      assert.equal(suppressesReferencePromptLine({ imageService: "proxy:8188" }), false);
+      assert.equal(suppressesReferencePromptLine({ baseUrl: "http://localhost:81880" }), false);
+
+      const localPrimary = { imageService: "comfyui" };
+      assert.equal(
+        suppressesReferencePromptLine(localPrimary, {
+          serviceHint: "openai",
+          baseUrl: "https://api.openai.com/v1",
+        }),
+        false,
+      );
+      assert.equal(
+        suppressesReferencePromptLine(localPrimary, {
+          serviceHint: "automatic1111",
+          baseUrl: "http://localhost:7860",
+        }),
+        true,
+      );
     },
   },
   {

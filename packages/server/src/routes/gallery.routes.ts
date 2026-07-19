@@ -990,12 +990,16 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(502).send({ error: "The conversation model returned an empty selfie prompt." });
     }
 
-    const suppressReferencePromptLine = suppressesReferencePromptLine({
-      model: imageConn.model,
-      baseUrl: imageConn.baseUrl,
-      imageService: imageConn.imageService,
-      imageGenerationSource: imageConn.imageGenerationSource,
-    });
+    const imageFallback = await resolveImageConnectionFallback(connections, imageConn.id);
+    const suppressReferencePromptLine = suppressesReferencePromptLine(
+      {
+        model: imageConn.model,
+        baseUrl: imageConn.baseUrl,
+        imageService: imageConn.imageService,
+        imageGenerationSource: imageConn.imageGenerationSource,
+      },
+      imageFallback,
+    );
     let finalPrompt = selfiePositivePrompt ? `${imagePrompt}, ${selfiePositivePrompt}` : imagePrompt;
     let referenceImages: string[] | undefined;
     const selfieUseAvatarReferences = meta.selfieUseAvatarReferences === true;
@@ -1102,7 +1106,6 @@ export async function galleryRoutes(app: FastifyInstance) {
     }
 
     try {
-      const imageFallback = await resolveImageConnectionFallback(connections, imageConn.id);
       const imageConnectionQueueKey = imageConn.id?.trim() || `${imageServiceHint}:${imageBaseUrl}:${imageModel}`;
       const imageResult = await runImageGenerationRequest({
         connectionKey: imageConnectionQueueKey,

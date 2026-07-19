@@ -7837,14 +7837,17 @@ export async function generateRoutes(app: FastifyInstance) {
                       const imgApiKey = imgConnFull.apiKey || "";
                       const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
                       const imgServiceHint = imgConnFull.imageService || imgSource;
-                      const suppressReferencePromptLine = suppressesReferencePromptLine({
-                        model: imgModel,
-                        baseUrl: imgBaseUrl,
-                        imageService: imgServiceHint,
-                        imageGenerationSource: imgSource,
-                      });
-                      const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
                       const imageFallback = await resolveImageConnectionFallback(connections, imgConnFull.id);
+                      const suppressReferencePromptLine = suppressesReferencePromptLine(
+                        {
+                          model: imgModel,
+                          baseUrl: imgBaseUrl,
+                          imageService: imgServiceHint,
+                          imageGenerationSource: imgSource,
+                        },
+                        imageFallback,
+                      );
+                      const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
                       const imageSettings = await loadImageGenerationUserSettings(app.db);
                       const styleProfileId =
                         ((chatMeta.gameSetupConfig as Record<string, unknown> | undefined)?.imageStyleProfileId as
