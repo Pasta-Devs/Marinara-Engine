@@ -5,17 +5,21 @@ export interface CharacterLookupDisplayRow {
   display: CharacterDisplayInfo;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 export function parseRecord(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
     try {
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+      return isRecord(parsed) ? parsed : {};
     } catch {
       return {};
     }
   }
-  return typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  return isRecord(raw) ? raw : {};
 }
 
 export function normalizeStringArray(value: unknown): string[] {
