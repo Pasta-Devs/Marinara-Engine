@@ -11,6 +11,32 @@ import { createAgentsStorage } from "../services/storage/agents.storage.js";
 
 const packageParams = z.object({ id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(80) });
 
+function removeAgentMapEntries(value: unknown, agentIds: ReadonlySet<string>): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const entries = Object.entries(value as Record<string, unknown>);
+  const filtered = entries.filter(([agentId]) => !agentIds.has(agentId));
+  return filtered.length === entries.length ? null : Object.fromEntries(filtered);
+}
+
+export function buildCapabilityAgentCleanupPatch(
+  metadata: Record<string, unknown>,
+  packageAgentIds: readonly string[],
+): Record<string, unknown> | null {
+  const agentIds = new Set(packageAgentIds);
+  const patch: Record<string, unknown> = {};
+  const activeAgentIds = Array.isArray(metadata.activeAgentIds)
+    ? metadata.activeAgentIds.filter((candidate: unknown): candidate is string => typeof candidate === "string")
+    : [];
+  const filteredActiveAgentIds = activeAgentIds.filter((agentId) => !agentIds.has(agentId));
+  if (filteredActiveAgentIds.length !== activeAgentIds.length) patch.activeAgentIds = filteredActiveAgentIds;
+
+  for (const key of ["agentOverrides", "agentPromptTemplateIds", "knowledgeAgentSources"] as const) {
+    const filtered = removeAgentMapEntries(metadata[key], agentIds);
+    if (filtered) patch[key] = filtered;
+  }
+  return Object.keys(patch).length > 0 ? patch : null;
+}
+
 export async function capabilityPackagesRoutes(app: FastifyInstance) {
   app.get("/catalog", async () => capabilityPackageManager.catalog());
   app.get("/installed", async () => capabilityPackageManager.installed());
@@ -40,6 +66,7 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
     if (!requirePrivilegedAccess(request, reply, { feature: "Agent package removal" })) return;
     const { id } = packageParams.parse(request.params);
     const existing = (await capabilityPackageManager.installed()).find((item) => item.id === id);
+    const packageAgentIds = await capabilityPackageManager.packageAgentIds(id);
     if (existing?.manifest.kind.includes("turn-game")) await capabilityModuleRuntime.deactivatePackage(id);
     const removed = await capabilityPackageManager.uninstall(id);
     if (!removed) return reply.status(404).send({ error: "Package not found" });
@@ -52,16 +79,14 @@ export async function capabilityPackagesRoutes(app: FastifyInstance) {
       } catch {
         continue;
       }
-      const activeAgentIds = Array.isArray(metadata.activeAgentIds)
-        ? metadata.activeAgentIds.filter((candidate: unknown): candidate is string => typeof candidate === "string")
-        : [];
-      if (!activeAgentIds.includes(id)) continue;
-      await chats.patchMetadata(chat.id, { activeAgentIds: activeAgentIds.filter((candidate) => candidate !== id) }, {
-        touchUpdatedAt: false,
-      });
+      const patch = buildCapabilityAgentCleanupPatch(metadata, packageAgentIds);
+      if (patch) await chats.patchMetadata(chat.id, patch, { touchUpdatedAt: false });
     }
-    const agentConfig = await createAgentsStorage(app.db).getByType(id);
-    if (agentConfig) await createAgentsStorage(app.db).remove(agentConfig.id);
+    const agents = createAgentsStorage(app.db);
+    for (const agentId of packageAgentIds) {
+      const agentConfig = await agents.getByType(agentId);
+      if (agentConfig) await agents.remove(agentConfig.id);
+    }
     await refreshCapabilityAgentRegistry();
     return {
       restartRequired:

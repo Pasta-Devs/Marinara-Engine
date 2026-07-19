@@ -2121,14 +2121,14 @@ export function ChatSettingsDrawer({
     [chat.id, updateMeta],
   );
   const renderIllustratorPromptConnectionSelect = () => (
-    <label className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1">
       <span className="text-[0.625rem] font-medium text-[var(--foreground)]">Prompt Model</span>
       <select
         value={illustratorPromptConnectionId}
         onChange={(event) => updateIllustratorPromptConnection(event.target.value)}
         className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50"
       >
-        <option value="">Main chat model</option>
+        <option value="">Agent default</option>
         {selectedIllustratorPromptConnectionMissing && (
           <option value={illustratorPromptConnectionId}>Missing connection</option>
         )}
@@ -2143,7 +2143,11 @@ export function ChatSettingsDrawer({
         Chooses the text model that writes Illustrator/selfie prompts. Image rendering still uses the selected image
         connection for this feature or the agent setup.
       </span>
-    </label>
+      <AgentDefaultStatus
+        overridden={illustratorPromptConnectionId.length > 0}
+        onReset={() => updateIllustratorPromptConnection("")}
+      />
+    </div>
   );
   const toggleIllustratorCharacterAppearance = useCallback(() => {
     updateMeta.mutate({
@@ -2157,6 +2161,12 @@ export function ChatSettingsDrawer({
       illustratorUseAvatarReferences: !illustratorUseAvatarReferences,
     });
   }, [chat.id, illustratorUseAvatarReferences, updateMeta]);
+  const resetIllustratorCharacterAppearance = useCallback(() => {
+    updateMeta.mutate({ id: chat.id, illustratorIncludeCharacterAppearance: null });
+  }, [chat.id, updateMeta]);
+  const resetIllustratorAvatarReferences = useCallback(() => {
+    updateMeta.mutate({ id: chat.id, illustratorUseAvatarReferences: null });
+  }, [chat.id, updateMeta]);
   const proseGuardianBannedWords =
     typeof metadata.proseGuardianBannedWords === "string"
       ? metadata.proseGuardianBannedWords
@@ -3372,6 +3382,10 @@ export function ChatSettingsDrawer({
         ...buildAgentAddMetadataPatch(agent.id, setup, metadata, {
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
           defaultPromptTemplateId: resolveDefaultAgentPromptTemplateId(nextSettings),
+          illustratorDefaults: {
+            includeCharacterAppearance: nextSettings.includeCharacterAppearance === true,
+            useAvatarReferences: nextSettings.useAvatarReferences === true,
+          },
         }),
       });
       toast.success(`Added ${agent.name}! You can access its settings in Agents section in Chat Settings!`);
@@ -3938,6 +3952,7 @@ export function ChatSettingsDrawer({
                 <AgentPromptTemplateSelect
                   options={promptOptions}
                   selectedId={agentPromptTemplateSelections[agent.id] ?? getDefaultPromptTemplateIdForAgent(agent.id)}
+                  overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
                   onChange={(promptTemplateId) => updateAgentPromptTemplateSelection(agent.id, promptTemplateId)}
                 />
               </div>
@@ -7273,6 +7288,7 @@ export function ChatSettingsDrawer({
                               agentPromptTemplateSelections["echo-chamber"] ??
                               getDefaultPromptTemplateIdForAgent("echo-chamber")
                             }
+                            overridden={typeof agentPromptTemplateSelections["echo-chamber"] === "string"}
                             onChange={(promptTemplateId) =>
                               updateAgentPromptTemplateSelection("echo-chamber", promptTemplateId)
                             }
@@ -7311,6 +7327,7 @@ export function ChatSettingsDrawer({
                               agentPromptTemplateSelections["illustrator"] ??
                               getDefaultPromptTemplateIdForAgent("illustrator")
                             }
+                            overridden={typeof agentPromptTemplateSelections["illustrator"] === "string"}
                             onChange={(promptTemplateId) =>
                               updateAgentPromptTemplateSelection("illustrator", promptTemplateId)
                             }
@@ -7321,12 +7338,16 @@ export function ChatSettingsDrawer({
                             description="Append matched character appearance lines to image prompts, using only visible/generated names."
                             enabled={illustratorIncludeCharacterAppearance}
                             onToggle={toggleIllustratorCharacterAppearance}
+                            overridden={typeof metadata.illustratorIncludeCharacterAppearance === "boolean"}
+                            onReset={resetIllustratorCharacterAppearance}
                           />
                           <AgentSettingsToggle
                             label="Send Avatar References"
                             description="Send matching character and persona avatars or sprites as reference images when the provider supports them."
                             enabled={illustratorUseAvatarReferences}
                             onToggle={toggleIllustratorAvatarReferences}
+                            overridden={typeof metadata.illustratorUseAvatarReferences === "boolean"}
+                            onReset={resetIllustratorAvatarReferences}
                           />
                           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
                             <p className="min-w-0 flex-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
@@ -8254,6 +8275,7 @@ export function ChatSettingsDrawer({
                                             agentPromptTemplateSelections[agent.id] ??
                                             getDefaultPromptTemplateIdForAgent(agent.id)
                                           }
+                                          overridden={typeof agentPromptTemplateSelections[agent.id] === "string"}
                                           onChange={(promptTemplateId) =>
                                             updateAgentPromptTemplateSelection(agent.id, promptTemplateId)
                                           }
@@ -8264,12 +8286,18 @@ export function ChatSettingsDrawer({
                                           description="Append matched character appearance lines to image prompts, using only visible/generated names."
                                           enabled={illustratorIncludeCharacterAppearance}
                                           onToggle={toggleIllustratorCharacterAppearance}
+                                          overridden={
+                                            typeof metadata.illustratorIncludeCharacterAppearance === "boolean"
+                                          }
+                                          onReset={resetIllustratorCharacterAppearance}
                                         />
                                         <AgentSettingsToggle
                                           label="Send Avatar References"
                                           description="Send matching character and persona avatars or sprites as reference images when the provider supports them."
                                           enabled={illustratorUseAvatarReferences}
                                           onToggle={toggleIllustratorAvatarReferences}
+                                          overridden={typeof metadata.illustratorUseAvatarReferences === "boolean"}
+                                          onReset={resetIllustratorAvatarReferences}
                                         />
                                       </AgentSettingsCard>
                                     )}
@@ -9444,31 +9472,38 @@ function AgentSettingsToggle({
   description,
   enabled,
   onToggle,
+  overridden = false,
+  onReset,
   surface = "card",
 }: {
   label: string;
   description: string;
   enabled: boolean;
   onToggle: () => void;
+  overridden?: boolean;
+  onReset?: () => void;
   surface?: "card" | "secondary";
 }) {
   return (
-    <SettingsSwitch
-      label={label}
-      description={description}
-      checked={enabled}
-      onChange={() => onToggle()}
-      labelPosition="start"
-      className={cn(
-        "justify-between rounded-lg px-3 py-2.5 text-left",
-        enabled
-          ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-          : surface === "secondary"
-            ? "bg-[var(--secondary)] hover:bg-[var(--accent)]"
-            : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-      )}
-      labelClassName="text-[0.6875rem] font-medium"
-    />
+    <div className="space-y-1">
+      <SettingsSwitch
+        label={label}
+        description={description}
+        checked={enabled}
+        onChange={() => onToggle()}
+        labelPosition="start"
+        className={cn(
+          "justify-between rounded-lg px-3 py-2.5 text-left",
+          enabled
+            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+            : surface === "secondary"
+              ? "bg-[var(--secondary)] hover:bg-[var(--accent)]"
+              : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+        )}
+        labelClassName="text-[0.6875rem] font-medium"
+      />
+      {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
+    </div>
   );
 }
 
@@ -10311,13 +10346,17 @@ function HapticConnectionPanel({
 function AgentPromptTemplateSelect({
   options,
   selectedId,
+  overridden = false,
   onChange,
 }: {
   options: AgentPromptTemplateOption[];
   selectedId: string;
+  overridden?: boolean;
   onChange: (promptTemplateId: string) => void;
 }) {
-  if (options.length <= 1) return null;
+  if (options.length <= 1) {
+    return overridden ? <AgentDefaultStatus overridden onReset={() => onChange("")} /> : null;
+  }
   const activeOption = options.find((option) => option.id === selectedId) ?? options[0];
 
   return (
@@ -10340,6 +10379,24 @@ function AgentPromptTemplateSelect({
         <p className="mt-1.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
           {activeOption.description}
         </p>
+      ) : null}
+      <AgentDefaultStatus overridden={overridden} onReset={() => onChange("")} />
+    </div>
+  );
+}
+
+function AgentDefaultStatus({ overridden, onReset }: { overridden: boolean; onReset: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-2 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+      <span>{overridden ? "Chat override" : "Using agent default"}</span>
+      {overridden ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="font-medium text-[var(--primary)] transition-opacity hover:opacity-80"
+        >
+          Use agent default
+        </button>
       ) : null}
     </div>
   );

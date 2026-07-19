@@ -18,6 +18,7 @@ import {
 } from "@marinara-engine/shared";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
+import { logger } from "../../lib/logger.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
@@ -176,6 +177,20 @@ function supportsEngineVersion(entry: CapabilityCatalogPackage, engineVersion: s
   );
 }
 
+export function getCapabilityPackageInstallIssue(manifest: CapabilityCatalogPackage["manifest"]): string | null {
+  if (manifest.kind.includes("turn-game") && !manifest.entrypoints.server) {
+    return "Turn-game packages require a server entrypoint";
+  }
+  return null;
+}
+
+async function readInstalledAgentDefinitions(installed: InstalledCapabilityPackage) {
+  const entrypoint = installed.manifest.entrypoints.agents;
+  if (!entrypoint) return [];
+  const file = inside(VERSIONS, join(VERSIONS, installed.id, installed.version, normalizeArchivePath(entrypoint)));
+  return packagedAgentDefinitionsSchema.parse(JSON.parse(await readFile(file, "utf8")));
+}
+
 export function findCompatibleCapabilityPackageUpdates(
   installedPackages: InstalledCapabilityPackage[],
   catalog: CapabilityCatalog,
@@ -194,6 +209,8 @@ export function findCompatibleCapabilityPackageUpdates(
 
 async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDuringStartup = false) {
   const { manifest, artifact } = entry;
+  const installIssue = getCapabilityPackageInstallIssue(manifest);
+  if (installIssue) throw new Error(installIssue);
   const initiallyInstalled = (await readRegistry()).packages.find((item) => item.id === manifest.id);
   assertNotDowngrade(initiallyInstalled, manifest.version);
   const capabilityApiIssue = getCapabilityApiCompatibilityIssue(manifest);
@@ -365,10 +382,7 @@ export const capabilityPackageManager = {
     const ids = new Set<string>();
     for (const installed of registry.packages) {
       if (!isInstalledCapabilityReady(installed)) continue;
-      const entrypoint = installed.manifest.entrypoints.agents;
-      if (!entrypoint) continue;
-      const file = inside(VERSIONS, join(VERSIONS, installed.id, installed.version, normalizeArchivePath(entrypoint)));
-      const parsed = packagedAgentDefinitionsSchema.parse(JSON.parse(await readFile(file, "utf8")));
+      const parsed = await readInstalledAgentDefinitions(installed);
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
         ids.add(definition.id);
@@ -376,6 +390,18 @@ export const capabilityPackageManager = {
       }
     }
     return definitions;
+  },
+
+  async packageAgentIds(packageId: string) {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    const ids = new Set([packageId]);
+    if (!installed) return [...ids];
+    try {
+      for (const definition of await readInstalledAgentDefinitions(installed)) ids.add(definition.id);
+    } catch (error) {
+      logger.warn(error, "Could not read agent definitions for package %s during cleanup", packageId);
+    }
+    return [...ids];
   },
 
   async runtimePackages() {

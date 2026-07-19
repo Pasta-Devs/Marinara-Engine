@@ -30,6 +30,11 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import { assertInsideDir, normalizeLoopbackUrl, safeFetch, validateOutboundUrl } from "../../utils/security.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
 import {
+  COMFYUI_MAX_REFERENCE_IMAGES,
+  findMissingComfyReferenceSlots,
+  numberedComfyReferencePlaceholder,
+} from "./comfyui-reference-placeholders.js";
+import {
   buildVeniceApiUrl,
   buildVeniceImageRequest,
   parseVeniceImageResponse,
@@ -2303,7 +2308,6 @@ const DEFAULT_COMFYUI_WORKFLOW: Record<string, unknown> = {
   },
 };
 
-const COMFYUI_MAX_REFERENCE_IMAGES = 4;
 const COMFYUI_OUTPUT_FILE_KEYS = ["gifs", "images"] as const;
 
 interface ComfyUiOutputFile {
@@ -2474,13 +2478,6 @@ function collectComfyReferenceImages(request: ImageGenRequest, defaults: ComfyUi
   return defaults.uploadPlaceholderOnMissingReference ? [COMFYUI_PLACEHOLDER_REFERENCE_BASE64] : [];
 }
 
-function numberedComfyReferencePlaceholder(
-  baseName: "reference_image" | "reference_image_name",
-  index: number,
-): string {
-  return `%${baseName}_${String(index + 1).padStart(2, "0")}%`;
-}
-
 async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promise<ImageGenResult> {
   const base = baseUrl.replace(/\/+$/, "");
   const defaults = resolveComfyUiDefaults(request);
@@ -2521,6 +2518,7 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
   }
   const workflowJson = JSON.stringify(workflow);
   const references = collectComfyReferenceImages(request, defaults);
+  let placeholderUploadedName: string | undefined;
   for (let i = 0; i < references.length; i++) {
     const reference = references[i]!;
     const referenceBase64 = decodeReferenceImage(reference).base64;
@@ -2532,8 +2530,22 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
 
     if (workflowJson.includes(namePlaceholder) || (i === 0 && workflowJson.includes("%reference_image_name%"))) {
       const uploadedName = await uploadComfyReferenceImage(base, reference, request.signal);
+      if (reference === COMFYUI_PLACEHOLDER_REFERENCE_BASE64) placeholderUploadedName = uploadedName;
       replacements[namePlaceholder] = uploadedName;
       if (i === 0) replacements["%reference_image_name%"] = uploadedName;
+    }
+  }
+  if (defaults.uploadPlaceholderOnMissingReference) {
+    for (const index of findMissingComfyReferenceSlots(workflowJson, "reference_image", references.length)) {
+      replacements[numberedComfyReferencePlaceholder("reference_image", index)] = COMFYUI_PLACEHOLDER_REFERENCE_BASE64;
+    }
+    for (const index of findMissingComfyReferenceSlots(workflowJson, "reference_image_name", references.length)) {
+      placeholderUploadedName ??= await uploadComfyReferenceImage(
+        base,
+        COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+        request.signal,
+      );
+      replacements[numberedComfyReferencePlaceholder("reference_image_name", index)] = placeholderUploadedName;
     }
   }
   const resolvedWorkflow = replaceComfyUiPlaceholders(workflow, replacements);

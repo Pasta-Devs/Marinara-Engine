@@ -394,7 +394,11 @@ export function buildAgentAddMetadataPatch(
   agentId: string,
   setup: AgentAddSetupState,
   metadata: Record<string, unknown>,
-  options?: { allowSecretPlot?: boolean; defaultPromptTemplateId?: string },
+  options?: {
+    allowSecretPlot?: boolean;
+    defaultPromptTemplateId?: string;
+    illustratorDefaults?: { includeCharacterAppearance: boolean; useAvatarReferences: boolean };
+  },
 ): Record<string, unknown> {
   const patch: Record<string, unknown> = {};
 
@@ -459,8 +463,17 @@ export function buildAgentAddMetadataPatch(
     patch.spotifyArtist = setup.spotifySourceType === "artist" ? setup.spotifyArtist.trim() || null : null;
   }
   if (agentId === "illustrator") {
-    patch.illustratorIncludeCharacterAppearance = setup.includeCharacterAppearance;
-    patch.illustratorUseAvatarReferences = setup.useAvatarReferences;
+    const defaults = options?.illustratorDefaults;
+    if (!defaults || setup.includeCharacterAppearance !== defaults.includeCharacterAppearance) {
+      patch.illustratorIncludeCharacterAppearance = setup.includeCharacterAppearance;
+    } else if (hasOwn(metadata, "illustratorIncludeCharacterAppearance")) {
+      patch.illustratorIncludeCharacterAppearance = null;
+    }
+    if (!defaults || setup.useAvatarReferences !== defaults.useAvatarReferences) {
+      patch.illustratorUseAvatarReferences = setup.useAvatarReferences;
+    } else if (hasOwn(metadata, "illustratorUseAvatarReferences")) {
+      patch.illustratorUseAvatarReferences = null;
+    }
   }
   if (agentId === "haptic") {
     patch.enableHapticFeedback = setup.hapticFeedbackEnabled;

@@ -2208,6 +2208,10 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         ...buildAgentAddMetadataPatch(agent.id, setup, metadata, {
           allowSecretPlot: supportsNarrativeDirectorSecretPlot,
           defaultPromptTemplateId: resolveDefaultAgentPromptTemplateId(nextSettings),
+          illustratorDefaults: {
+            includeCharacterAppearance: nextSettings.includeCharacterAppearance === true,
+            useAvatarReferences: nextSettings.useAvatarReferences === true,
+          },
         }),
       });
       toast.success(`Added ${agent.name}! You can access its settings in Agents section in Chat Settings!`);

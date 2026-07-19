@@ -116,6 +116,14 @@ import { createAgentsStorage } from "../../packages/server/src/services/storage/
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
+  findMissingComfyReferenceSlots,
+  numberedComfyReferencePlaceholder,
+} from "../../packages/server/src/services/image/comfyui-reference-placeholders.js";
+import {
+  buildAgentAddMetadataPatch,
+  buildInitialAgentAddSetupState,
+} from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
+import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
 } from "../../packages/server/src/services/image/illustrator-prompt-review.js";
@@ -185,6 +193,48 @@ const backgroundOrganization = normalizeBackgroundLibraryOrganization({
     "game:backgrounds:fantasy:castle": "missing-folder",
   },
 });
+
+const comfyReferenceWorkflow = JSON.stringify({
+  first: "%reference_image_01%",
+  second: "%reference_image_02%",
+  thirdName: "%reference_image_name_03%",
+  outsideSupportedRange: "%reference_image_05%",
+});
+assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image", 1), [1]);
+assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
+assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");
+
+const inheritedIllustratorSetup = buildInitialAgentAddSetupState({
+  agentId: "illustrator",
+  settings: { includeCharacterAppearance: true, useAvatarReferences: false },
+  metadata: {},
+  musicPlayerSource: "off",
+  roleplaySpriteScale: 1,
+});
+const inheritedIllustratorPatch = buildAgentAddMetadataPatch(
+  "illustrator",
+  inheritedIllustratorSetup,
+  {},
+  {
+    illustratorDefaults: { includeCharacterAppearance: true, useAvatarReferences: false },
+  },
+);
+assert.equal(Object.hasOwn(inheritedIllustratorPatch, "illustratorIncludeCharacterAppearance"), false);
+assert.equal(Object.hasOwn(inheritedIllustratorPatch, "illustratorUseAvatarReferences"), false);
+
+const staleIllustratorMetadata = {
+  illustratorIncludeCharacterAppearance: true,
+  illustratorUseAvatarReferences: false,
+};
+assert.deepEqual(
+  buildAgentAddMetadataPatch("illustrator", inheritedIllustratorSetup, staleIllustratorMetadata, {
+    illustratorDefaults: { includeCharacterAppearance: true, useAvatarReferences: false },
+  }),
+  {
+    illustratorIncludeCharacterAppearance: null,
+    illustratorUseAvatarReferences: null,
+  },
+);
 assert.equal(backgroundOrganization.folders.length, 1);
 assert.equal(backgroundOrganization.assignments["user:moonlit-garden.jpg"], "folder-night");
 assert.equal(backgroundOrganization.assignments["game:backgrounds:fantasy:castle"], undefined);
