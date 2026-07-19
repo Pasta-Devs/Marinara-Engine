@@ -139,7 +139,7 @@ import {
   validateSpriteExpressionEntries,
 } from "./expression-agent-utils.js";
 import {
-  isNovelAiImageConnection,
+  suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   resolveIllustratorCharacterReferences,
 } from "./illustrator-references.js";
@@ -3026,7 +3026,7 @@ async function applyRetryResultEffects(args: {
             const imgApiKey = imgConnFull.apiKey || "";
             const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
             const imgServiceHint = imgConnFull.imageService || imgSource;
-            const suppressReferencePromptLine = isNovelAiImageConnection({
+            const suppressReferencePromptLine = suppressesReferencePromptLine({
               model: imgModel,
               baseUrl: imgBaseUrl,
               imageService: imgServiceHint,

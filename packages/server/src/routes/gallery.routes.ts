@@ -46,7 +46,7 @@ import {
 } from "../services/generation/media-connection-fallback.js";
 import { resolveIllustratorPromptRuntime } from "../services/generation/illustrator-prompt-runtime.js";
 import { resolveConversationSelfieSystemPrompt } from "../services/conversation/selfie-prompt.js";
-import { isNovelAiImageConnection, resolveIllustratorCharacterReferences } from "./generate/illustrator-references.js";
+import { suppressesReferencePromptLine, resolveIllustratorCharacterReferences } from "./generate/illustrator-references.js";
 import { resolveBaseUrl } from "./generate/generate-route-utils.js";
 import {
   compactVideoPromptText,
@@ -988,7 +988,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       return reply.status(502).send({ error: "The conversation model returned an empty selfie prompt." });
     }
 
-    const suppressReferencePromptLine = isNovelAiImageConnection({
+    const suppressReferencePromptLine = suppressesReferencePromptLine({
       model: imageConn.model,
       baseUrl: imageConn.baseUrl,
       imageService: imageConn.imageService,

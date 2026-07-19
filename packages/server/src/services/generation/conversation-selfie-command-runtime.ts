@@ -2,7 +2,7 @@ import type { DB } from "../../db/connection.js";
 import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import {
-  isNovelAiImageConnection,
+  suppressesReferencePromptLine,
   resolveIllustratorCharacterReferences,
 } from "../image/illustrator-references.js";
 import { compileImagePrompt } from "../image/image-prompt-compiler.js";
@@ -191,7 +191,7 @@ async function generateSelfie(
   const imagePrompt = (promptResult.content ?? "").trim();
   if (!imagePrompt) return;
 
-  const suppressReferencePromptLine = isNovelAiImageConnection({
+  const suppressReferencePromptLine = suppressesReferencePromptLine({
     model: imgConnFull.model,
     baseUrl: imgConnFull.baseUrl,
     imageService: imgConnFull.imageService,

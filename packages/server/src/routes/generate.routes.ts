@@ -137,7 +137,7 @@ import {
   type DirectMessageCommand,
 } from "../services/conversation/character-commands.js";
 import {
-  isNovelAiImageConnection,
+  suppressesReferencePromptLine,
   mergeIllustratorNegativePrompt,
   resolveIllustratorCharacterReferences,
 } from "./generate/illustrator-references.js";
@@ -7837,7 +7837,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       const imgApiKey = imgConnFull.apiKey || "";
                       const imgSource = (imgConnFull as any).imageGenerationSource || imgModel;
                       const imgServiceHint = imgConnFull.imageService || imgSource;
-                      const suppressReferencePromptLine = isNovelAiImageConnection({
+                      const suppressReferencePromptLine = suppressesReferencePromptLine({
                         model: imgModel,
                         baseUrl: imgBaseUrl,
                         imageService: imgServiceHint,

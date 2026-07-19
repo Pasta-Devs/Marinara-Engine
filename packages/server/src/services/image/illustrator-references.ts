@@ -55,6 +55,34 @@ export function isNovelAiImageConnection(args: {
   });
 }
 
+/**
+ * Providers for which the prose "Attached are reference images…" line should be
+ * omitted from the image prompt. NovelAI receives references through its native
+ * character-reference fields, and local Stable Diffusion backends
+ * (ComfyUI / AUTOMATIC1111 / Draw Things on their default ports) receive
+ * reference images out-of-band — in all cases the sentence is invisible to the
+ * image model and only consumes prompt tokens.
+ */
+export function suppressesReferencePromptLine(args: {
+  model?: unknown;
+  baseUrl?: unknown;
+  imageService?: unknown;
+  imageGenerationSource?: unknown;
+}): boolean {
+  if (isNovelAiImageConnection(args)) return true;
+  return [args.baseUrl, args.imageService, args.imageGenerationSource].some((value) => {
+    if (typeof value !== "string") return false;
+    const normalized = value.trim().toLowerCase();
+    return (
+      normalized === "comfyui" ||
+      normalized === "automatic1111" ||
+      normalized === "drawthings" ||
+      normalized.includes(":8188") ||
+      normalized.includes(":7860")
+    );
+  });
+}
+
 const MAX_ILLUSTRATOR_REFERENCE_IMAGES = 6;
 const MAX_ILLUSTRATOR_APPEARANCE_CHARS = 1400;
 const NAME_STOPWORDS = new Set(["the", "a", "an", "il", "la", "le", "de", "van", "von", "dr", "mr", "ms"]);
