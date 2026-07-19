@@ -2546,6 +2546,10 @@ async function applyRetryResultEffects(args: {
       .then((snapshot) => projectGameSnapshotLocation(snapshot, retryOwnerSpatialProjection));
     return retryBaseGameStateSnapshotPromise;
   };
+  const buildSnapshotUpdateOptions = async () => ({
+    baseSnapshot: await loadRetryBaseGameStateSnapshot(),
+    ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
+  });
   const loadRetryTargetGameStateSnapshot = async () => {
     if (!retryMessageId) {
       const latest = await gameStateStore.getLatest(chatId);
@@ -2572,10 +2576,14 @@ async function applyRetryResultEffects(args: {
     }
     const existing = await gameStateStore.getByMessage(retryMessageId, retrySwipeIndex);
     if (existing) return projectGameSnapshotLocation(existing, retryOwnerSpatialProjection);
-    return gameStateStore.updateByMessage(retryMessageId, retrySwipeIndex, chatId, {}, undefined, {
-      baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-      ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-    });
+    return gameStateStore.updateByMessage(
+      retryMessageId,
+      retrySwipeIndex,
+      chatId,
+      {},
+      undefined,
+      await buildSnapshotUpdateOptions(),
+    );
   };
   const updateRetryTargetGameStateSnapshot = async (fields: Record<string, unknown>) => {
     if (retryMessageId) {
@@ -2585,10 +2593,7 @@ async function applyRetryResultEffects(args: {
         chatId,
         fields as any,
         undefined,
-        {
-          baseSnapshot: await loadRetryBaseGameStateSnapshot(),
-          ...(retryCompatibilityLocation !== null ? { compatibilityLocation: retryCompatibilityLocation } : {}),
-        },
+        await buildSnapshotUpdateOptions(),
       );
     }
     await loadRetryTargetGameStateSnapshot();
