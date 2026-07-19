@@ -117,6 +117,16 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
   const eligiblePublicAccounts = eligibleAccountsQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const selectedSource = eligiblePublicAccounts.find((account) => account.id === draftPublicAccountId) ?? null;
+  const sourcePickerLoading = eligibleAccountsQuery.isLoading || eligibleAccountsQuery.isFetching;
+
+  const handleSourceSearch = (value: string) => {
+    setSourceSearch(value);
+    setDraftPublicAccountId(null);
+  };
+  const handleSourceKind = (value: "all" | "character" | "persona") => {
+    setSourceKind(value);
+    setDraftPublicAccountId(null);
+  };
 
   const enableNoodler = () => {
     updateSettings.mutate(
@@ -182,10 +192,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       ...profileDraft,
       handle: profileDraft.handle.replace(/^@+/u, ""),
     };
-    const onSuccess = () => {
+    const onSuccess = (profile: NoodlerStageProfile) => {
       setProfileDraft(null);
       setEditingProfileId(null);
       setDraftPublicAccountId(null);
+      setCreationStep(null);
+      setPreviousDraft(null);
+      setSelectedProfileId(profile.id);
       toast.success(editingProfileId ? "Stage profile updated." : "Stage profile created.");
     };
     const onError = (error: unknown) => toast.error(errorMessage(error, "Could not save the stage profile."));
@@ -239,17 +252,20 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (creationStep === "source") {
     return (
-      <NoodlerFrame onBack={() => setCreationStep(null)} title="Create stage profile">
+      <NoodlerFrame onBack={() => setCreationStep(null)} title="Create stage profile" hideBack>
         <StageProfileSourcePicker
           accounts={eligiblePublicAccounts}
           search={sourceSearch}
           kind={sourceKind}
           selectedId={draftPublicAccountId}
-          onSearch={setSourceSearch}
-          onKindChange={setSourceKind}
+          onSearch={handleSourceSearch}
+          onKindChange={handleSourceKind}
           onSelect={setDraftPublicAccountId}
           hasMore={Boolean(eligibleAccountsQuery.hasNextPage)}
           isLoadingMore={eligibleAccountsQuery.isFetchingNextPage}
+          isLoading={eligibleAccountsQuery.isLoading}
+          isError={eligibleAccountsQuery.isError}
+          onRetry={() => void eligibleAccountsQuery.refetch()}
           onLoadMore={() => void eligibleAccountsQuery.fetchNextPage()}
           onBack={() => setCreationStep(null)}
           onContinue={() => setCreationStep("disclosure")}
@@ -260,7 +276,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (creationStep === "disclosure") {
     return (
-      <NoodlerFrame onBack={() => setCreationStep("source")} title="Set identity disclosure">
+      <NoodlerFrame onBack={() => setCreationStep("source")} title="Set identity disclosure" hideBack>
         <DisclosureStep
           source={selectedSource}
           value={creationDisclosure}
@@ -275,12 +291,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   if (profileDraft || creationStep === "draft") {
     return (
       <NoodlerFrame
-        onBack={() => {
-          setProfileDraft(null);
-          setEditingProfileId(null);
-          setCreationStep(editingProfileId ? null : "disclosure");
-        }}
+        onBack={() => setCreationStep(editingProfileId ? null : "disclosure")}
         title={editingProfileId ? "Edit stage profile" : "Create stage profile"}
+        hideBack
       >
         <StageProfileForm
           draft={profileDraft ?? { ...EMPTY_STAGE_PROFILE, disclosureMode: creationDisclosure }}
@@ -300,10 +313,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           publicAccountId={draftPublicAccountId}
           isEditing={Boolean(editingProfileId)}
           isPending={createProfile.isPending || updateProfile.isPending}
-          onCancel={() => {
-            setProfileDraft(null);
-            setCreationStep(editingProfileId ? null : "disclosure");
-          }}
+          onCancel={() => setCreationStep(editingProfileId ? null : "disclosure")}
           onSave={saveProfile}
         />
       </NoodlerFrame>
@@ -351,9 +361,17 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         <button
           type="button"
           onClick={beginCreate}
-          disabled={eligiblePublicAccounts.length === 0}
-          title={eligiblePublicAccounts.length === 0 ? "Every eligible account already has a stage profile" : undefined}
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={sourcePickerLoading || eligibleAccountsQuery.isError || eligiblePublicAccounts.length === 0}
+          title={
+            sourcePickerLoading
+              ? "Loading eligible sources"
+              : eligibleAccountsQuery.isError
+                ? "Sources unavailable"
+                : eligiblePublicAccounts.length === 0
+                  ? "Every eligible account already has a stage profile"
+                  : undefined
+          }
+          className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus size={15} />
           New profile
@@ -376,7 +394,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
               key={profile.id}
               type="button"
               onClick={() => (profile.disclosureMode ? setSelectedProfileId(profile.id) : beginEdit(profile))}
-              className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-[var(--accent)]"
+              className="flex min-h-16 w-full items-center gap-3 px-4 py-4 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-blue)]"
             >
               <ProfileInitial profile={profile} />
               <div className="min-w-0 flex-1">
@@ -438,7 +456,9 @@ function StageProfileForm({
   onSave: () => void;
 }) {
   const canSave =
-    Boolean((isEditing || publicAccountId) && draft.displayName.trim() && draft.handle.trim()) && !isPending;
+    Boolean((isEditing || publicAccountId) && draft.displayName.trim() && draft.handle.trim()) &&
+    !isPending &&
+    !isGenerating;
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
       <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
@@ -502,6 +522,9 @@ function StageProfileForm({
           <label className="block space-y-2">
             <span className="text-xs font-semibold">Stage name</span>
             <input
+              required
+              aria-required="true"
+              disabled={isGenerating || isPending}
               value={draft.displayName}
               maxLength={120}
               onChange={(event) => onChange({ displayName: event.target.value })}
@@ -511,6 +534,9 @@ function StageProfileForm({
           <label className="block space-y-2">
             <span className="text-xs font-semibold">Stage handle</span>
             <input
+              required
+              aria-required="true"
+              disabled={isGenerating || isPending}
               value={draft.handle}
               maxLength={40}
               onChange={(event) => onChange({ handle: event.target.value })}
@@ -522,6 +548,7 @@ function StageProfileForm({
         <label className="block space-y-2">
           <span className="text-xs font-semibold">Bio</span>
           <textarea
+            disabled={isGenerating || isPending}
             value={draft.bio}
             maxLength={500}
             onChange={(event) => onChange({ bio: event.target.value })}
@@ -531,6 +558,7 @@ function StageProfileForm({
         <label className="block space-y-2">
           <span className="text-xs font-semibold">Stage voice</span>
           <textarea
+            disabled={isGenerating || isPending}
             value={draft.stagePersonality}
             maxLength={1000}
             onChange={(event) => onChange({ stagePersonality: event.target.value })}
@@ -545,6 +573,7 @@ function StageProfileForm({
       <WizardFooter
         step={2}
         onBack={onCancel}
+        disabled={isPending || isGenerating}
         finalAction={
           <button
             type="button"
@@ -571,6 +600,9 @@ function StageProfileSourcePicker({
   onSelect,
   hasMore,
   isLoadingMore,
+  isLoading,
+  isError,
+  onRetry,
   onLoadMore,
   onBack,
   onContinue,
@@ -591,13 +623,16 @@ function StageProfileSourcePicker({
   onSelect: (id: string) => void;
   hasMore: boolean;
   isLoadingMore: boolean;
+  isLoading: boolean;
+  isError: boolean;
+  onRetry: () => void;
   onLoadMore: () => void;
   onBack: () => void;
   onContinue: () => void;
 }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <p className="text-xl font-black">Choose the source character</p>
+      <h2 className="text-xl font-black">Choose a source character or persona</h2>
       <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
         NoodleR will create a separate stage identity from this character or persona. You will choose exactly how much
         of the public identity can carry over next.
@@ -611,22 +646,44 @@ function StageProfileSourcePicker({
           className={`${fieldClass} pl-9`}
         />
       </label>
-      <div
-        className="mt-3 grid grid-cols-3 rounded-lg border border-[var(--noodle-divider)] p-1"
-        aria-label="Filter profile sources"
-      >
-        {(["all", "character", "persona"] as const).map((option) => (
+      {selectedId && !accounts.some((account) => account.id === selectedId) && (
+        <p className="mt-3 rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 p-3 text-xs leading-5 text-[var(--foreground)]">
+          A selected source is hidden by the current search or filter. Clear the search or switch to All to review it.
+        </p>
+      )}
+      {isLoading ? (
+        <div className="mt-4 flex items-center justify-center gap-2 rounded-lg border border-[var(--noodle-divider)] py-12 text-sm text-[var(--muted-foreground)]">
+          <Loader2 size={18} className="animate-spin" /> Loading sources...
+        </div>
+      ) : isError ? (
+        <div className="mt-4 rounded-lg border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 p-6 text-center">
+          <p className="text-sm font-semibold">Sources could not be loaded.</p>
           <button
-            key={option}
             type="button"
-            aria-pressed={kind === option}
-            onClick={() => onKindChange(option)}
-            className={`h-8 rounded-md px-2 text-xs font-semibold capitalize ${kind === option ? "bg-[var(--noodle-blue)] text-zinc-950" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
+            onClick={onRetry}
+            className="mt-3 min-h-11 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)]"
           >
-            {option === "all" ? "All" : option === "character" ? "Characters" : "Personas"}
+            Try again
           </button>
-        ))}
-      </div>
+        </div>
+      ) : (
+        <div
+          className="mt-3 grid grid-cols-3 rounded-lg border border-[var(--noodle-divider)] p-1"
+          aria-label="Filter profile sources"
+        >
+          {(["all", "character", "persona"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={kind === option}
+              onClick={() => onKindChange(option)}
+              className={`h-8 rounded-md px-2 text-xs font-semibold capitalize ${kind === option ? "bg-[var(--noodle-blue)] text-zinc-950" : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"}`}
+            >
+              {option === "all" ? "All" : option === "character" ? "Characters" : "Personas"}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mt-4 divide-y divide-[var(--noodle-divider)] overflow-hidden rounded-lg border border-[var(--noodle-divider)]">
         {accounts.length === 0 ? (
           <p className="p-6 text-center text-sm text-[var(--muted-foreground)]">
@@ -638,7 +695,7 @@ function StageProfileSourcePicker({
               key={account.id}
               type="button"
               onClick={() => onSelect(account.id)}
-              className={`flex w-full items-center gap-3 p-3 text-left ${selectedId === account.id ? "bg-[var(--noodle-blue)]/10" : "hover:bg-[var(--accent)]"}`}
+              className={`flex min-h-16 w-full items-center gap-3 p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-blue)] ${selectedId === account.id ? "bg-[var(--noodle-blue)]/10" : "hover:bg-[var(--accent)]"}`}
             >
               {account.avatarUrl ? (
                 <img src={account.avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
@@ -677,7 +734,12 @@ function StageProfileSourcePicker({
           {isLoadingMore ? "Loading more..." : "Load more characters"}
         </button>
       )}
-      <WizardFooter step={0} onBack={onBack} onNext={onContinue} nextDisabled={!selectedId} />
+      <WizardFooter
+        step={0}
+        onBack={onBack}
+        onNext={onContinue}
+        nextDisabled={!selectedId || !accounts.some((account) => account.id === selectedId)}
+      />
     </div>
   );
 }
@@ -697,7 +759,7 @@ function DisclosureStep({
 }) {
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:px-6">
-      <p className="text-xl font-black">How connected should this feel?</p>
+      <h2 className="text-xl font-black">How connected should this feel?</h2>
       <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
         Choose the relationship between this private stage identity and the character or persona you selected. This is
         about identity disclosure, not access, subscriptions, or who can view posts.
@@ -740,21 +802,28 @@ function WizardFooter({
   onNext,
   nextDisabled = false,
   finalAction,
+  disabled = false,
 }: {
   step: 0 | 1 | 2;
   onBack: () => void;
   onNext?: () => void;
   nextDisabled?: boolean;
   finalAction?: ReactNode;
+  disabled?: boolean;
 }) {
   const labels = ["Source", "Disclosure", "Profile"];
   return (
-    <div className="sticky bottom-0 z-10 mt-6 border-t border-[var(--noodle-divider)] bg-[var(--background)]/95 py-3 backdrop-blur-sm">
-      <div className="mb-3 flex items-center justify-center gap-1.5" aria-label="Profile setup progress">
+    <div className="sticky bottom-0 z-10 mt-6 border-t border-[var(--noodle-divider)] bg-[var(--background)]/95 px-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-sm">
+      <div
+        className="mb-3 flex items-center justify-center gap-1.5"
+        role="status"
+        aria-label={`Step ${step + 1} of ${labels.length}: ${labels[step]}`}
+      >
         {labels.map((label, index) => (
           <span key={label} className="flex items-center gap-1.5">
             <span
               aria-current={index === step ? "step" : undefined}
+              aria-label={`Step ${index + 1}: ${label}${index === step ? ", current" : index < step ? ", complete" : ""}`}
               title={label}
               className={`h-1.5 rounded-full transition-all ${index === step ? "w-6 bg-[var(--noodle-blue)]" : index < step ? "w-4 bg-[var(--noodle-blue)]/45" : "w-2 bg-[var(--muted-foreground)]/25"}`}
             />
@@ -766,7 +835,8 @@ function WizardFooter({
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex h-10 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)]"
+          disabled={disabled}
+          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-4 text-sm font-semibold hover:bg-[var(--accent)] disabled:cursor-wait disabled:opacity-50"
         >
           <ArrowLeft size={15} /> Back
         </button>
@@ -774,8 +844,8 @@ function WizardFooter({
           <button
             type="button"
             onClick={onNext}
-            disabled={nextDisabled}
-            className="inline-flex h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={nextDisabled || disabled}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue <ArrowRight size={16} />
           </button>
@@ -825,7 +895,7 @@ function StageProfileView({
           <button
             type="button"
             onClick={onGuide}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90"
           >
             <Sparkles size={15} />
             Guide post
@@ -833,7 +903,7 @@ function StageProfileView({
           <button
             type="button"
             onClick={onEdit}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-3 text-xs font-bold hover:bg-[var(--accent)]"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-3 text-xs font-bold hover:bg-[var(--accent)]"
           >
             <Pencil size={14} />
             Edit profile
@@ -929,7 +999,17 @@ function EmptyState({
   );
 }
 
-function NoodlerFrame({ children, onBack, title }: { children: ReactNode; onBack: () => void; title: string }) {
+function NoodlerFrame({
+  children,
+  onBack,
+  title,
+  hideBack = false,
+}: {
+  children: ReactNode;
+  onBack: () => void;
+  title: string;
+  hideBack?: boolean;
+}) {
   return (
     <div
       className="mari-chrome-token-scope relative flex h-full min-h-0 flex-col bg-[var(--background)] text-[var(--foreground)]"
@@ -938,14 +1018,16 @@ function NoodlerFrame({ children, onBack, title }: { children: ReactNode; onBack
       }
     >
       <header className="flex h-12 shrink-0 items-center gap-3 border-b border-[var(--noodle-divider)] px-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
-          aria-label="Back"
-        >
-          <ArrowLeft size={18} />
-        </button>
+        {!hideBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
+            aria-label="Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+        )}
         <p className="min-w-0 flex-1 truncate text-sm font-semibold">{title}</p>
         <span className="rounded-full bg-[var(--noodle-blue)]/10 px-2.5 py-1 text-[0.65rem] font-bold text-[var(--noodle-blue)]">
           Private

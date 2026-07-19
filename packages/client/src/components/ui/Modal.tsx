@@ -3,15 +3,7 @@
 // Uses CSS animations instead of framer-motion to
 // avoid double-animation under React.StrictMode.
 // ──────────────────────────────────────────────
-import {
-  useEffect,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-  type Ref,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -40,6 +32,7 @@ interface ModalProps {
   panelClassName?: string;
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
+  closeDisabled?: boolean;
 }
 
 export function Modal({
@@ -56,6 +49,7 @@ export function Modal({
   mobileFullscreen = false,
   panelClassName,
   panelStyle,
+  closeDisabled = false,
 }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -94,11 +88,11 @@ export function Modal({
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !closeDisabled) onClose();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+  }, [open, onClose, closeDisabled]);
 
   // Remove from DOM after exit animation completes
   const handleAnimationEnd = () => {
@@ -144,7 +138,7 @@ export function Modal({
       }}
       onTransitionEnd={handleAnimationEnd}
       onClick={(e) => {
-        if (e.target === overlayRef.current) onClose();
+        if (e.target === overlayRef.current && !closeDisabled) onClose();
       }}
     >
       {/* Backdrop */}
@@ -178,8 +172,9 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
+            disabled={closeDisabled}
             aria-label={`Close ${title}`}
-            className="rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]"
+            className="rounded-lg p-1.5 text-[var(--marinara-chat-chrome-panel-muted)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-wait disabled:opacity-40"
           >
             <X size="1rem" />
           </button>
