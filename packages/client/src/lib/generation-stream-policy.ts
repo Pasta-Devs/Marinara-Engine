@@ -11,6 +11,30 @@ interface TypewriterReplacement {
   pendingText: string;
 }
 
+interface TypewriterRevealRateInput {
+  selectedCharsPerSecond: number;
+  pendingCharacters: number;
+  observedArrivalCharsPerSecond: number | null;
+  streamComplete: boolean;
+}
+
+/**
+ * Keep the reveal slightly behind an open transport so provider-sized bursts
+ * remain a continuous typewriter queue instead of draining into visible gaps.
+ * Once transport completes, return to the user's selected speed so completion
+ * is never artificially delayed.
+ */
+export function getTypewriterRevealCharsPerSecond(input: TypewriterRevealRateInput): number {
+  if (!Number.isFinite(input.selectedCharsPerSecond) || input.streamComplete) {
+    return input.selectedCharsPerSecond;
+  }
+
+  const arrivalRate = input.observedArrivalCharsPerSecond ?? input.pendingCharacters;
+  const initialRateFloor =
+    input.observedArrivalCharsPerSecond === null ? Math.min(12, input.selectedCharsPerSecond) : 1;
+  return Math.max(initialRateFloor, Math.min(input.selectedCharsPerSecond, arrivalRate * 0.95));
+}
+
 /**
  * Reconcile an authoritative replacement with text that the typewriter has
  * already painted. Server cleanup can trim a leading newline, speaker label,
