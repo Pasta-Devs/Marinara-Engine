@@ -27,11 +27,12 @@ const giphyItemSchema = z
       original: giphyImageAssetSchema.optional(),
     }),
   })
-  .transform(({ id, title, images }) => {
+  .transform(({ id, title, images }, ctx) => {
     const preview = images.fixed_height_small?.url ?? images.fixed_height?.url;
     const url = images.original?.url ?? images.fixed_height?.url;
     if (!preview || !url) {
-      throw new Error("Invalid Giphy response body");
+      ctx.addIssue({ code: "custom", message: "Giphy item has no usable image URL" });
+      return z.NEVER;
     }
 
     const width = Number(images.fixed_height?.width);
@@ -47,7 +48,12 @@ const giphyItemSchema = z
   });
 
 const giphyResponseSchema = z.object({
-  data: z.array(giphyItemSchema),
+  data: z.array(z.unknown()).transform((items) =>
+    items.flatMap((item) => {
+      const result = giphyItemSchema.safeParse(item);
+      return result.success ? [result.data] : [];
+    }),
+  ),
   pagination: z.object({
     offset: z.number().finite(),
     count: z.number().finite(),
@@ -98,7 +104,7 @@ export async function gifsRoutes(app: FastifyInstance) {
       return { results, next: hasMore ? String(nextOffset) : "" };
     } catch (error) {
       const timedOut = error instanceof DOMException && error.name === "TimeoutError";
-      req.log.error({ kind: timedOut ? "timeout" : "failure" }, timedOut ? "Giphy API request timed out" : "Giphy API request failed");
+      req.log.error(error, timedOut ? "Giphy API request timed out" : "Giphy API request failed");
       return reply.status(timedOut ? 504 : 502).send({
         error: timedOut ? "Giphy API request timed out" : "Giphy API request failed",
       });

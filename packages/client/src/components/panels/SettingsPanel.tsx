@@ -3318,7 +3318,7 @@ function GameAssetsSettings() {
     openGameAssetsFolder.mutate(subfolder, {
       onError: (error) => {
         if (error instanceof HostDeviceFileManagerError) return;
-        toast.error("Failed to open game assets folder.");
+        toast.error(getPrivilegedActionErrorMessage(error, "Failed to open game assets folder."));
       },
     });
   };

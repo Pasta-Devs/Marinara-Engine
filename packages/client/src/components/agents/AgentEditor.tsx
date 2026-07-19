@@ -7,7 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
-import { api } from "../../lib/api-client";
+import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { HostDeviceFileManagerError } from "../../lib/host-device";
 import {
   agentKeys,
@@ -1338,7 +1338,7 @@ export function AgentEditor() {
       toast.success(`Opened Game Assets/${subfolder}`);
     } catch (error) {
       if (error instanceof HostDeviceFileManagerError) return;
-      toast.error(error instanceof Error ? error.message : "Could not open the Custom music folder.");
+      toast.error(getPrivilegedActionErrorMessage(error, "Could not open the Custom music folder."));
     }
   };
 
