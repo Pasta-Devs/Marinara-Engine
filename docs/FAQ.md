@@ -74,7 +74,7 @@ For chat and roleplay text, the choices are **OpenAI**, **OpenAI (ChatGPT)**, **
 
 For image generation, the choices include **OpenAI (DALL-E)**, **Stability AI**, **Together AI**, **NovelAI**, **OpenRouter Images**, **xAI / Grok Imagine**, **Venice.ai**, **Pollinations**, **Stable Horde**, **SD Web UI (AUTOMATIC1111 / Forge)**, **ComfyUI**, **RunPod Serverless (ComfyUI)**, **Draw Things**, **NanoGPT**, and **Block Entropy**.
 
-For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, and **Seedance 2.0**.
+For video generation, the choices are **Google AI Studio**, **xAI Imagine**, **OpenRouter Video**, **Seedance 2.0**, and local **ComfyUI** API-format workflows.
 
 You can save many connections at once and assign a different one to each chat. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md).
 

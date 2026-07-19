@@ -59,7 +59,7 @@ export interface APIConnection {
   openrouterProvider: string | null;
   /** Explicit image backend selection for image-generation connections (e.g. ComfyUI on a remote host). */
   imageGenerationSource: string | null;
-  /** ComfyUI workflow JSON for image generation */
+  /** ComfyUI workflow JSON for image or video generation */
   comfyuiWorkflow: string | null;
   /** Explicitly selected image generation service ID (e.g. "comfyui", "automatic1111"). Overrides URL inference when set. */
   imageService: string | null;

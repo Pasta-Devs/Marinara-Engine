@@ -161,6 +161,7 @@ type VideoGenerationConnection = {
   model?: string | null;
   videoGenerationSource?: string | null;
   videoService?: string | null;
+  comfyuiWorkflow?: string | null;
   defaultParameters?: string | null;
 };
 
@@ -348,6 +349,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
   const isGoogleVeoVideo = source === "google_veo" || serviceHint === "google_veo";
   const isOpenRouterVideo = source === "openrouter" || serviceHint === "openrouter";
   const isSeedanceVideo = source === "seedance" || serviceHint === "seedance";
+  const isComfyUiVideo = source === "comfyui" || serviceHint === "comfyui";
   return {
     source,
     serviceHint,
@@ -361,7 +363,9 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
             ? "https://openrouter.ai/api/v1"
             : isSeedanceVideo
               ? "https://api.seedance2.ai"
-              : "https://generativelanguage.googleapis.com/v1beta"),
+              : isComfyUiVideo
+                ? "http://127.0.0.1:8188"
+                : "https://generativelanguage.googleapis.com/v1beta"),
     model:
       connection.model ||
       (isXaiVideo
@@ -372,7 +376,9 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
             ? "google/veo-3.1"
             : isSeedanceVideo
               ? "seedance-2-0"
-              : "gemini-omni-flash-preview"),
+              : isComfyUiVideo
+                ? ""
+                : "gemini-omni-flash-preview"),
     resolution: isXaiVideo
       ? videoDefaults.xai.resolution
       : isGoogleVeoVideo
@@ -381,7 +387,10 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
           ? videoDefaults.openrouter.resolution
           : isSeedanceVideo
             ? videoDefaults.seedance.resolution
-            : undefined,
+            : isComfyUiVideo
+              ? videoDefaults.comfyui.resolution
+              : undefined,
+    comfyWorkflow: connection.comfyuiWorkflow || undefined,
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };
 }
@@ -1770,6 +1779,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   durationSeconds,
                   aspectRatio: ANIMATED_EXPRESSION_ASPECT_RATIO,
                   resolution: resolved.resolution,
+                  comfyWorkflow: resolved.comfyWorkflow,
                   referenceImage,
                   publicReferenceUpload: resolved.publicReferenceUpload,
                   fallback: videoFallback,

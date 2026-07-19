@@ -160,9 +160,9 @@ A timeout is the longest time the server waits for a slow job before giving up. 
 | `CHAT_GENERATION_TIMEOUT_MS` | `300000` (5 minutes) | Provider headers/time-to-first-token and inter-chunk timeout for ordinary Conversation, Roleplay, and Game generations. Valid range: `10000`-`3600000`. It does not change Agent, media, embedding, tool, or background-job timeouts. |
 | `EMBEDDING_TIMEOUT_MS` | `300000` (5 minutes) | Time allowed for one embedding request. Higher helps slow local embedding servers. |
 | `IMAGE_GEN_TIMEOUT_MS` | `1800000` (30 minutes) | Time allowed for one image generation request. |
-| `VIDEO_GEN_TIMEOUT_MS` | `1800000` (30 minutes) | Time allowed for one scene video generation request. |
+| `VIDEO_GEN_TIMEOUT_MS` | `1800000` (30 minutes) | Time allowed for one scene video generation request, including local ComfyUI video workflows. |
 | `VIDEO_GEN_MAX_RESPONSE_BYTES` | `167772160` (160 MiB) | Largest scene video download the server will accept. |
-| `COMFYUI_GEN_TIMEOUT` | `2400` (40 minutes, in seconds) | Time allowed for one ComfyUI workflow after it is queued. |
+| `COMFYUI_GEN_TIMEOUT` | `2400` (40 minutes, in seconds) | Time allowed for one ComfyUI image workflow after it is queued. |
 | `SPRITE_GENERATION_TIMEOUT_MS` | falls back to `IMAGE_GEN_TIMEOUT_MS` | Time allowed for one AI sprite generation job. |
 | `CUSTOM_TOOL_TIMEOUT_MS` | `60000` (1 minute) | Time allowed for one custom tool call. |
 | `MAX_TOOL_ROUNDS` | `100` | Most tool-call rounds before the model must give a final answer. |
