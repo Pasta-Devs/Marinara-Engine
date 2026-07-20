@@ -4,6 +4,7 @@ export type ConversationSelfieConnectionOption = {
   defaultForAgents?: boolean | string;
 };
 
+/** Resolve the image connection that Conversation setup should persist for enabled selfies. */
 export function resolveConversationSelfieConnectionId(input: {
   currentConnectionId: unknown;
   selfieCommandEnabled: boolean;
@@ -18,7 +19,7 @@ export function resolveConversationSelfieConnectionId(input: {
     input.connections.find(
       (connection) =>
         connection.provider === "image_generation" &&
-        (connection.defaultForAgents === true || connection.defaultForAgents === "true"),
+        String(connection.defaultForAgents) === "true",
     )?.id ?? null
   );
 }

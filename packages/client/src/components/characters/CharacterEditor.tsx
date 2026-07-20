@@ -102,7 +102,7 @@ import {
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
-import { saveBlobToDevice } from "../../lib/file-download";
+import { downloadSpriteFile } from "../../lib/sprite-download";
 import { ColorPicker } from "../ui/ColorPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
@@ -3346,19 +3346,6 @@ function SpritesTab({
       setDeletingSprites(null);
     }
   }, [characterId, deleteSprite, visibleSprites]);
-
-  const downloadSpriteFile = useCallback(async (sprite: SpriteInfo) => {
-    try {
-      const response = await fetch(sprite.url);
-      if (!response.ok) {
-        throw new Error(`Failed to download ${sprite.expression}`);
-      }
-
-      await saveBlobToDevice(await response.blob(), sprite.filename || `${sprite.expression}.png`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to download sprite.");
-    }
-  }, []);
 
   const handleExportSprites = useCallback(
     async (spritesToExport: SpriteInfo[], modeLabel: "visible" | "all") => {

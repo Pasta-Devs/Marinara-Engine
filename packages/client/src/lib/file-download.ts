@@ -2,11 +2,13 @@ type MarinaraAndroidFileBridge = {
   saveFile?: (base64Data: string, mimeType: string, filename: string) => void;
 };
 
+/** Read the optional Android shell file bridge from the current browser window. */
 function getAndroidFileBridge(): MarinaraAndroidFileBridge | null {
   if (typeof window === "undefined") return null;
   return (window as Window & { MarinaraAndroid?: MarinaraAndroidFileBridge }).MarinaraAndroid ?? null;
 }
 
+/** Encode binary file data for the Android JavaScript bridge without overflowing the call stack. */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   const chunkSize = 0x8000;
@@ -17,6 +19,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return window.btoa(binary);
 }
 
+/** Trigger the standard browser download path and retain the object URL long enough for mobile browsers. */
 function triggerBrowserDownload(blob: Blob, filename: string) {
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

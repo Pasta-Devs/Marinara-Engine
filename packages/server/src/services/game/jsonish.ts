@@ -102,6 +102,7 @@ function collectBalancedJsonRegions(raw: string): Array<{ start: number; end: nu
   return regions;
 }
 
+/** Return top-level balanced JSON regions in source order, excluding nested regions. */
 function collectIndependentJsonRegions(raw: string): Array<{ start: number; end: number }> {
   const regions = collectBalancedJsonRegions(raw).sort(
     (left, right) => left.start - right.start || right.end - left.end,
@@ -345,7 +346,7 @@ export function parseGameJsonish(raw: string): unknown {
  */
 export function parseGameJsonishSequence(raw: string): unknown[] {
   const unfenced = stripFences(raw.trim());
-  const regions = collectIndependentJsonRegions(unfenced).sort((left, right) => left.start - right.start);
+  const regions = collectIndependentJsonRegions(unfenced);
   if (regions.length <= 1) return [parseGameJsonish(raw)];
 
   const parsed: unknown[] = [];

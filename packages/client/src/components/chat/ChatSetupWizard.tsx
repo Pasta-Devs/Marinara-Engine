@@ -704,6 +704,10 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       return !agentId || installedAgentIds.has(agentId);
     });
   }, [installedAgentIds]);
+  const availableConversationCommandIds = useMemo(
+    () => new Set(availableConversationCommandOptions.map((command) => command.id)),
+    [availableConversationCommandOptions],
+  );
   const hasConversationCommands = availableConversationCommandOptions.length > 0;
   const hasInstalledAgents = installedAgentIds.size > 0;
   const openDownloadAgents = useCallback(() => {
@@ -1038,7 +1042,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         : null;
     const selfieCommandEnabled =
       commandsEnabled &&
-      availableConversationCommandOptions.some((command) => command.id === "selfie") &&
+      availableConversationCommandIds.has("selfie") &&
       isConversationCommandToggleEnabled(conversationCommandToggles, "selfie");
     const selfieConnectionId = resolveConversationSelfieConnectionId({
       currentConnectionId: metadata.imageGenConnectionId,
@@ -1095,7 +1099,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     customConversationPromptEnabled,
     conversationSystemPromptDraft,
     baseConversationPrompt,
-    availableConversationCommandOptions,
+    availableConversationCommandIds,
     connectionOptions,
     metadata.imageGenConnectionId,
   ]);

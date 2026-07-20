@@ -709,6 +709,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> showNativeMessageNotification(title, body, tag));
         }
 
+        /** Saves a base64-encoded web download through Android's native storage APIs. */
         @JavascriptInterface
         public void saveFile(String base64Data, String mimeType, String filename) {
             new Thread(() -> {
@@ -754,12 +755,14 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** Removes path separators and reserved characters from a browser-provided filename. */
     private String sanitizeDownloadFilename(String filename) {
         String safe = filename == null ? "" : filename.trim().replaceAll("[\\\\/:*?\"<>|]", "_");
         if (safe.isEmpty()) safe = "marinara-download";
         return safe.length() > 120 ? safe.substring(0, 120) : safe;
     }
 
+    /** Returns a safe MIME type when the browser does not provide a valid media type. */
     private String normalizeDownloadMimeType(String mimeType) {
         if (mimeType == null || !mimeType.matches("^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")) {
             return "application/octet-stream";
@@ -767,11 +770,13 @@ public class MainActivity extends Activity {
         return mimeType;
     }
 
+    /** Produces a user-facing fallback when an exception has no message. */
     private String safeErrorMessage(Exception error) {
         String message = error.getMessage();
         return message == null || message.trim().isEmpty() ? error.getClass().getSimpleName() : message;
     }
 
+    /** Writes a download into the app's Pictures or Downloads collection on Android 10 and newer. */
     private void saveFileToMediaStore(byte[] data, String mimeType, String filename) throws Exception {
         ContentResolver resolver = getContentResolver();
         boolean isImage = mimeType.startsWith("image/");
@@ -808,6 +813,7 @@ public class MainActivity extends Activity {
         ).show());
     }
 
+    /** Opens Android's document picker to save a download on Android 7 through 9. */
     private void beginLegacyFileSave(byte[] data, String mimeType, String filename) {
         if (pendingFileSaveData != null) {
             Toast.makeText(this, "Finish saving the current file first.", Toast.LENGTH_SHORT).show();

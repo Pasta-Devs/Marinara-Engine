@@ -952,6 +952,10 @@ const fileDownloadSource = readFileSync(
   new URL("../../packages/client/src/lib/file-download.ts", import.meta.url),
   "utf8",
 );
+const spriteDownloadSource = readFileSync(
+  new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
+  "utf8",
+);
 const androidMainActivitySource = readFileSync(
   new URL("../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
   "utf8",
@@ -1018,11 +1022,12 @@ assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query a
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
 assert.match(characterEditorSource, /avatar preview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
-assert.match(characterEditorSource, /saveBlobToDevice/u);
-assert.match(personaEditorSource, /saveBlobToDevice/u);
+assert.match(characterEditorSource, /downloadSpriteFile/u);
+assert.match(personaEditorSource, /downloadSpriteFile/u);
 assert.match(characterEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
 assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
 assert.match(fileDownloadSource, /MarinaraAndroid/u);
+assert.match(spriteDownloadSource, /saveBlobToDevice/u);
 assert.match(androidMainActivitySource, /public void saveFile\(String base64Data, String mimeType, String filename\)/u);
 assert.match(androidMainActivitySource, /MediaStore\.Images\.Media\.getContentUri/u);
 assert.match(
