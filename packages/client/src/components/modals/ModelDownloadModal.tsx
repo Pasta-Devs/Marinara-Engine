@@ -32,7 +32,7 @@ import {
   type SidecarRuntimePreference,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
-import { useSidecarStore } from "../../stores/sidecar.store.js";
+import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store.js";
 
 interface Props {
   open: boolean;
@@ -352,7 +352,7 @@ export function ModelDownloadModal({ open, onClose }: Props) {
   const handleCuratedDownload = async () => {
     markPrompted();
     if (await startDownload(selectedQuant)) {
-      toast.success("Gemma downloaded. Completely restart Marinara Engine before using the local model.");
+      toast.success(GEMMA_RESTART_MESSAGE);
     }
   };
 

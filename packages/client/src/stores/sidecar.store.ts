@@ -25,6 +25,9 @@ import { SIDECAR_DEFAULT_CONFIG } from "@marinara-engine/shared";
 import { api } from "../lib/api-client.js";
 import { consumeSidecarDownloadStream } from "../lib/sidecar-download-stream.js";
 
+export const GEMMA_RESTART_MESSAGE =
+  "Gemma downloaded. Completely restart Marinara Engine before using the local model.";
+
 interface SidecarTestMessageResult {
   success: boolean;
   response: string;
