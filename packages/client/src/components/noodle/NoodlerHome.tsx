@@ -933,13 +933,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         isLoading={viewerQuery.isLoading}
         isError={viewerQuery.isError}
         onRetry={() => void viewerQuery.refetch()}
-        subscriptionPending={toggleSubscription.isPending}
         unlockPending={unlockPost.isPending}
         postCardCtx={postCardCtx}
-        onToggleSubscription={(creatorAccountId, subscribed) => {
-          if (!viewerPersonaId) return;
-          toggleSubscription.mutate({ creatorAccountId, personaId: viewerPersonaId, subscribed });
-        }}
         onUnlock={(postId) => {
           if (!viewerPersonaId) return;
           unlockPost.mutate({ postId, personaId: viewerPersonaId });
@@ -1615,10 +1610,8 @@ function ViewerHub({
   isLoading,
   isError,
   onRetry,
-  subscriptionPending,
   unlockPending,
   postCardCtx,
-  onToggleSubscription,
   onUnlock,
   search,
   tab,
@@ -1633,10 +1626,8 @@ function ViewerHub({
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
-  subscriptionPending: boolean;
   unlockPending: boolean;
   postCardCtx: NoodlePostCardCtx;
-  onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   onUnlock: (postId: string) => void;
   search: string;
   tab: "all" | "subscribed";
@@ -1704,22 +1695,6 @@ function ViewerHub({
         <EmptyState title="NoodleR could not be loaded for this persona." action="Try again" onAction={onRetry} />
       ) : scope && scope.creators.length > 0 ? (
         <>
-          <div className="flex gap-3 overflow-x-auto border-b border-[var(--noodle-divider)] px-4 py-3">
-            {scope.creators.map((creator) => (
-              <button
-                key={creator.profile.id}
-                type="button"
-                disabled={subscriptionPending}
-                onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
-                className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--noodle-divider)] px-3 py-1.5 text-xs font-bold"
-              >
-                <ProfileInitial profile={creator.profile} />@{creator.profile.handle}
-                <span className={creator.subscribed ? "text-[var(--muted-foreground)]" : "text-[var(--noodle-blue)]"}>
-                  {creator.subscribed ? "Subscribed" : "Subscribe"}
-                </span>
-              </button>
-            ))}
-          </div>
           {feed.length === 0 ? (
             <p className="px-4 py-8 text-xs text-[var(--muted-foreground)]">No posts yet.</p>
           ) : (
