@@ -943,6 +943,25 @@ assert.deepEqual(
 );
 assert.deepEqual(partiallyInvalidGeneratedProfiles.rejected, [{ index: 0, issueCount: 1 }]);
 
+const singlyWrappedGeneratedProfiles = parseNoodleGeneratedProfiles([
+  {
+    profiles: [
+      {
+        entityId: "wrapped-character",
+        name: "Wrapped Character",
+        handle: "wrapped_character",
+        bio: "Recovered from a one-item array wrapper.",
+        location: "Noodle",
+      },
+    ],
+  },
+]);
+assert.deepEqual(
+  singlyWrappedGeneratedProfiles.profiles.map((profile) => profile.entityId),
+  ["wrapped-character"],
+);
+assert.throws(() => parseNoodleGeneratedProfiles([{ profiles: [] }, { profiles: [] }]));
+
 // sampleNoodlePastMemoriesWeighted should reliably favor a much higher-weighted item over
 // several trials, while still keeping baseline-weighted items reachable (not filtered out).
 let highWeightPicks = 0;

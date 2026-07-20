@@ -511,6 +511,7 @@ import {
   calibrateLorebookSimilarity,
   lorebookSimilarityBaseline,
 } from "../../packages/server/src/services/lorebook/embeddings.js";
+import { resolveAndBudgetActivatedLorebookEntries } from "../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../packages/server/src/services/lorebook/keyword-scanner.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
@@ -5295,7 +5296,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "semantic lorebook scan activates vector matches even when entries have primary keys",
+    name: "semantic lorebook matches share current-context priority with keyword matches",
     run() {
       const entry = {
         id: "entry-semantic",
@@ -5388,6 +5389,45 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(clusteredRelevant.length, 1);
       assert.match(clusteredRelevant[0]?.matchedKeys[0] ?? "", /^\[semantic:0\.66/u);
+
+      const mixedMatches = scanForActivatedEntries(
+        [{ role: "user", content: "exact trigger near the semantic topic" }],
+        [
+          {
+            ...entry,
+            id: "entry-keyword-current",
+            keys: ["exact trigger"],
+            embedding: [0, 1],
+            order: 20,
+            content: "keyword current context",
+          } as any,
+          {
+            ...entry,
+            id: "entry-semantic-current",
+            keys: ["keyword that is absent"],
+            embedding: [1, 0],
+            order: 10,
+            content: "semantic current context",
+          } as any,
+        ],
+        {
+          chatEmbedding: [1, 0],
+          semanticThresholdByLorebookId: new Map([["book-semantic", 0.9]]),
+        },
+      );
+      const semanticCurrent = mixedMatches.find((match) => match.entry.id === "entry-semantic-current");
+      assert.equal(semanticCurrent?.matchedCurrentContext, true);
+
+      const budgetedMixedMatches = resolveAndBudgetActivatedLorebookEntries(
+        mixedMatches,
+        new Map([["book-semantic", { name: "Semantic Book", tokenBudget: 0, entryLimit: 100 }]]),
+        6,
+        0,
+      );
+      assert.deepEqual(
+        budgetedMixedMatches.map((match) => match.entry.id),
+        ["entry-semantic-current"],
+      );
     },
   },
 ];
