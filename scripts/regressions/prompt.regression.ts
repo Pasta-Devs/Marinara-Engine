@@ -354,12 +354,37 @@ assert.deepEqual(
   "merged messages should retain their restricted audience",
 );
 assert.equal(
+  mergeAdjacentMessages([
+    { role: "user", content: "First shared secret", hiddenFromAICharacterIds: ["pantalone", "dottore"] },
+    { role: "user", content: "Second shared secret", hiddenFromAICharacterIds: ["dottore", "pantalone"] },
+  ]).length,
+  1,
+  "equivalent character audiences should merge regardless of selection order",
+);
+assert.equal(
   squashLeadingSystemMessages([
     { role: "system", content: "Visible system context" },
     { role: "system", content: "Private event", hiddenFromAICharacterIds: ["pantalone"] },
   ]).length,
   2,
   "system-message squashing should not combine different character audiences",
+);
+const audienceScopedSystemMessages = squashLeadingSystemMessages([
+  { role: "system", content: "Public setup A" },
+  { role: "system", content: "Public setup B" },
+  { role: "system", content: "Private setup A", hiddenFromAICharacterIds: ["pantalone", "dottore"] },
+  { role: "system", content: "Private setup B", hiddenFromAICharacterIds: ["dottore", "pantalone"] },
+  { role: "user", content: "Continue" },
+]);
+assert.deepEqual(
+  audienceScopedSystemMessages.map((message) => message.content),
+  ["Public setup A\n\nPublic setup B", "Private setup A\n\nPrivate setup B", "Continue"],
+  "leading system messages should squash within contiguous equivalent audience runs",
+);
+assert.deepEqual(
+  audienceScopedSystemMessages[1]!.hiddenFromAICharacterIds,
+  ["pantalone", "dottore"],
+  "squashed system runs should retain their character audience",
 );
 import {
   compactVideoPromptText,

@@ -724,9 +724,15 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? body.forCharacterId
         : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
-    if (promptTargetCharacterId && !impersonate) {
+    const audienceCharacterIds = impersonate
+      ? []
+      : promptTargetCharacterId
+        ? [promptTargetCharacterId]
+        : characterIds;
+    if (audienceCharacterIds.length > 0) {
+      const audience = new Set(audienceCharacterIds);
       mappedMessages = mappedMessages.filter(
-        (message) => !message.hiddenFromAICharacterIds?.includes(promptTargetCharacterId),
+        (message) => !message.hiddenFromAICharacterIds?.some((characterId) => audience.has(characterId)),
       );
     }
 

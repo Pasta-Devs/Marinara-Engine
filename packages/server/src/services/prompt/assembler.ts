@@ -826,9 +826,14 @@ function appendFallbackChatSummaryToSystemPrompt(
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
 
-  const hasSameAudience = (first: ChatMLMessage | undefined, second: ChatMLMessage) =>
-    JSON.stringify(first?.hiddenFromAICharacterIds ?? []) ===
-    JSON.stringify(second.hiddenFromAICharacterIds ?? []);
+  const hasSameAudience = (first: ChatMLMessage | undefined, second: ChatMLMessage) => {
+    const firstAudience = first?.hiddenFromAICharacterIds ?? [];
+    const secondAudience = second.hiddenFromAICharacterIds ?? [];
+    return (
+      firstAudience.length === secondAudience.length &&
+      firstAudience.every((characterId) => secondAudience.includes(characterId))
+    );
+  };
 
   const mergeInto = (target: ChatMLMessage, source: ChatMLMessage) => {
     target.content += "\n\n" + source.content;

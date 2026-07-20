@@ -2261,7 +2261,12 @@ export const ChatMessage = memo(function ChatMessage({
                 <span className="h-px flex-1 bg-amber-400/20" />
               </div>
               {isHiddenCollapsed ? (
-                <HiddenFromAIMessageSummary roleplay onExpand={() => setManuallyExpandedHidden(true)} />
+                <HiddenFromAIMessageSummary
+                  roleplay
+                  onExpand={() => setManuallyExpandedHidden(true)}
+                  recipientAvatars={hiddenFromAIRecipientAvatars}
+                  statusLabel={hiddenFromAIStatusLabel}
+                />
               ) : (
                 <div
                   className={cn("mari-message-content break-words italic", !isHtmlContent && "whitespace-pre-wrap")}
@@ -2965,7 +2970,11 @@ export const ChatMessage = memo(function ChatMessage({
             style={{ ...messageTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
           >
             {isHiddenCollapsed ? (
-              <HiddenFromAIMessageSummary onExpand={() => setManuallyExpandedHidden(true)} />
+              <HiddenFromAIMessageSummary
+                onExpand={() => setManuallyExpandedHidden(true)}
+                recipientAvatars={hiddenFromAIRecipientAvatars}
+                statusLabel={hiddenFromAIStatusLabel}
+              />
             ) : editing ? (
               <EditTextarea
                 initialContent={message.content}

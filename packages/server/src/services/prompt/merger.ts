@@ -3,6 +3,15 @@
 // ──────────────────────────────────────────────
 import type { ChatMLMessage } from "@marinara-engine/shared";
 
+function hasSameAudience(first: ChatMLMessage | undefined, second: ChatMLMessage): boolean {
+  const firstAudience = first?.hiddenFromAICharacterIds ?? [];
+  const secondAudience = second.hiddenFromAICharacterIds ?? [];
+  return (
+    firstAudience.length === secondAudience.length &&
+    firstAudience.every((characterId) => secondAudience.includes(characterId))
+  );
+}
+
 /**
  * Merge consecutive messages that share the same role, with a double-newline separator.
  *
@@ -31,11 +40,7 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
   const canMerge = (a: ChatMLMessage, b: ChatMLMessage) => {
     if (a.role !== b.role) return false;
     if ((a.characterId ?? null) !== (b.characterId ?? null)) return false;
-    if (
-      JSON.stringify(a.hiddenFromAICharacterIds ?? []) !== JSON.stringify(b.hiddenFromAICharacterIds ?? [])
-    ) {
-      return false;
-    }
+    if (!hasSameAudience(a, b)) return false;
     if (!a.contextKind || !b.contextKind) return true;
     return a.contextKind === b.contextKind;
   };
@@ -79,8 +84,8 @@ export function mergeAdjacentMessages(messages: ChatMLMessage[]): ChatMLMessage[
 }
 
 /**
- * Squash all system messages into one (used when `squashSystemMessages` is enabled).
- * Groups all consecutive system messages at the start, then keeps the rest.
+ * Squash contiguous leading system messages with the same character audience
+ * (used when `squashSystemMessages` is enabled), then keep the rest.
  */
 export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return [];
@@ -93,32 +98,32 @@ export function squashLeadingSystemMessages(messages: ChatMLMessage[]): ChatMLMe
 
   if (systemEnd <= 1) return messages; // Nothing to squash
 
-  // Character-scoped visibility must survive until the per-character prompt is
-  // prepared. Combining different audiences here would make that impossible.
   const leadingSystemMessages = messages.slice(0, systemEnd);
-  const firstAudience = JSON.stringify(leadingSystemMessages[0]?.hiddenFromAICharacterIds ?? []);
-  if (
-    leadingSystemMessages.some(
-      (message) => JSON.stringify(message.hiddenFromAICharacterIds ?? []) !== firstAudience,
-    )
-  ) {
-    return messages;
+  const squashRun = (run: ChatMLMessage[]): ChatMLMessage => {
+    if (run.length === 1) return run[0]!;
+    const contextKinds = new Set(run.map((message) => message.contextKind).filter(Boolean));
+    return {
+      role: "system",
+      content: run.map((message) => message.content).join("\n\n"),
+      ...(contextKinds.size === 1 ? { contextKind: [...contextKinds][0] } : {}),
+      ...(run[0]?.hiddenFromAICharacterIds?.length
+        ? { hiddenFromAICharacterIds: run[0].hiddenFromAICharacterIds }
+        : {}),
+    };
+  };
+
+  const squashedSystemMessages: ChatMLMessage[] = [];
+  let runStart = 0;
+  for (let index = 1; index <= leadingSystemMessages.length; index += 1) {
+    if (
+      index < leadingSystemMessages.length &&
+      hasSameAudience(leadingSystemMessages[runStart], leadingSystemMessages[index]!)
+    ) {
+      continue;
+    }
+    squashedSystemMessages.push(squashRun(leadingSystemMessages.slice(runStart, index)));
+    runStart = index;
   }
 
-  const combinedContent = leadingSystemMessages.map((m) => m.content).join("\n\n");
-  const contextKinds = new Set(
-    leadingSystemMessages.map((m) => m.contextKind).filter(Boolean),
-  );
-
-  return [
-    {
-      role: "system",
-      content: combinedContent,
-      ...(contextKinds.size === 1 ? { contextKind: [...contextKinds][0] } : {}),
-      ...(leadingSystemMessages[0]?.hiddenFromAICharacterIds?.length
-        ? { hiddenFromAICharacterIds: leadingSystemMessages[0].hiddenFromAICharacterIds }
-        : {}),
-    },
-    ...messages.slice(systemEnd),
-  ];
+  return [...squashedSystemMessages, ...messages.slice(systemEnd)];
 }
