@@ -33,6 +33,42 @@ export function NoodleLogo({ className, src = NOODLE_LOGO_SRC }: { className?: s
   return <img src={src} alt="" className={cn("object-contain", className)} />;
 }
 
+// Two-way switch between the Noodle and NoodleR apps — reads as picking one of two
+// exclusive modes, not another item in the vertical nav list.
+function NoodleModeToggle({
+  activeView,
+  onOpenHome,
+  onOpenNoodler,
+}: {
+  activeView: NoodleShellView;
+  onOpenHome: () => void;
+  onOpenNoodler: () => void;
+}) {
+  const noodler = activeView === "noodler";
+  const segment = (active: boolean) =>
+    cn(
+      "flex min-h-9 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-bold transition-colors",
+      active
+        ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm"
+        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]",
+    );
+  return (
+    <div
+      className="grid grid-cols-2 gap-1 rounded-full bg-[var(--accent)] p-1"
+      role="tablist"
+      aria-label="Switch between Noodle and NoodleR"
+    >
+      <button type="button" role="tab" aria-selected={!noodler} onClick={onOpenHome} className={segment(!noodler)}>
+        Noodle
+      </button>
+      <button type="button" role="tab" aria-selected={noodler} onClick={onOpenNoodler} className={segment(noodler)}>
+        <NoodleLogo src={NOODLER_LOGO_SRC} className="h-5 w-8 shrink-0" />
+        NoodleR
+      </button>
+    </div>
+  );
+}
+
 export function Avatar({
   account,
   size = "md",
@@ -211,7 +247,10 @@ export function NoodleShell({
                 </button>
               </div>
 
-              <nav className="mt-7 space-y-1" aria-label="Noodle account navigation">
+              <div className="mt-7">
+                <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
+              </div>
+              <nav className="mt-3 space-y-1" aria-label="Noodle account navigation">
                 <button
                   type="button"
                   onClick={onOpenHome}
@@ -219,14 +258,6 @@ export function NoodleShell({
                 >
                   <Home size={23} />
                   Home
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenNoodler}
-                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]"
-                >
-                  <NoodleLogo src={NOODLER_LOGO_SRC} className="h-6 w-9 shrink-0" />
-                  NoodleR
                 </button>
                 <button
                   type="button"
@@ -328,6 +359,9 @@ export function NoodleShell({
               <div className="mb-5 flex h-12 items-center">
                 <NoodleLogo className="h-10 w-16" />
               </div>
+              <div className="mb-3">
+                <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
+              </div>
               <nav className="space-y-1">
                 <button
                   type="button"
@@ -339,17 +373,6 @@ export function NoodleShell({
                 >
                   <Home size={22} className="!text-[var(--noodle-blue)]" />
                   Home
-                </button>
-                <button
-                  type="button"
-                  onClick={onOpenNoodler}
-                  className={cn(
-                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)]",
-                    activeView === "noodler" && "bg-[var(--noodle-blue)]/10",
-                  )}
-                >
-                  <NoodleLogo src={NOODLER_LOGO_SRC} className="h-6 w-9 shrink-0" />
-                  NoodleR
                 </button>
                 <button
                   type="button"
