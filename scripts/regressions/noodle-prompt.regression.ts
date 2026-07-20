@@ -58,6 +58,10 @@ import {
   protectPrivateGeneratedIdentity,
   stageProfileContainsPublicIdentity,
 } from "../../packages/server/src/services/noodle/noodle-private-generation.service.js";
+import {
+  canViewNoodlerPost,
+  isNoodlerHiddenFromViewer,
+} from "../../packages/server/src/services/noodle/noodler-access.js";
 import { resolveStoredMaxTokens } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../../packages/server/src/services/generation/output-token-limits.js";
 import {
@@ -76,7 +80,14 @@ const makeAccount = (id: string): NoodleAccount => ({
   avatarUrl: null,
   avatarCrop: null,
   invited: true,
-  settings: { profile: {}, social: {}, scheduler: {}, privacy: {} },
+  settings: {
+    profile: {},
+    social: {},
+    scheduler: {},
+    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
+  },
+  visibility: "public",
+  publicAccountId: null,
   createdAt: "2026-07-10T10:00:00.000Z",
   updatedAt: "2026-07-10T10:00:00.000Z",
 });
@@ -266,6 +277,8 @@ const repeatPost: NoodlePost = {
   parentPostId: null,
   quotePostId: null,
   source: "generated",
+  access: "public",
+  ppvPrice: null,
   metadata: {},
   authorSnapshot: null,
   createdAt: "2026-07-10T10:00:00.000Z",
@@ -450,6 +463,74 @@ for (const mode of ["hinted", "secret"] as const) {
   );
   assert.doesNotMatch(imagePrompt ?? "", /Known Public Name|known_public/iu);
 }
+const accessCreator = {
+  ...makeAccount("creator-private"),
+  visibility: "private" as const,
+  settings: {
+    ...makeAccount("creator-private").settings,
+    privacy: {
+      access: { hiddenFromAccountIds: ["blocked-viewer"], subscriptionIncludesPpv: false },
+    },
+  },
+};
+assert.equal(isNoodlerHiddenFromViewer(accessCreator, "blocked-viewer"), true);
+assert.equal(isNoodlerHiddenFromViewer(accessCreator, "allowed-viewer"), false);
+const subscriberPost = { id: "subscriber-post", access: "subscriber" as const };
+const ppvPost = { id: "ppv-post", access: "ppv" as const };
+assert.equal(
+  canViewNoodlerPost({
+    post: subscriberPost,
+    subscribed: false,
+    unlockedPostIds: new Set(),
+    subscriptionIncludesPpv: false,
+  }),
+  false,
+);
+assert.equal(
+  canViewNoodlerPost({
+    post: subscriberPost,
+    subscribed: true,
+    unlockedPostIds: new Set(),
+    subscriptionIncludesPpv: false,
+  }),
+  true,
+);
+assert.equal(
+  canViewNoodlerPost({
+    post: ppvPost,
+    subscribed: false,
+    unlockedPostIds: new Set([ppvPost.id]),
+    subscriptionIncludesPpv: false,
+  }),
+  true,
+);
+assert.equal(
+  canViewNoodlerPost({
+    post: ppvPost,
+    subscribed: true,
+    unlockedPostIds: new Set(),
+    subscriptionIncludesPpv: false,
+  }),
+  false,
+);
+assert.equal(
+  canViewNoodlerPost({
+    post: ppvPost,
+    subscribed: true,
+    unlockedPostIds: new Set(),
+    subscriptionIncludesPpv: true,
+  }),
+  true,
+);
+assert.equal(
+  noodleGenerationRequestSchema.safeParse({
+    mode: "private",
+    targetAccountId: "creator-private",
+    access: "subscriber",
+    ppvPrice: 5,
+  }).success,
+  false,
+);
 const openMessages = buildPrivatePostMessages({
   account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },
   stagePersonality: "Open about the public connection.",
