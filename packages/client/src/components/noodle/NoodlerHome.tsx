@@ -4,10 +4,13 @@ import {
   Check,
   ChevronRight,
   Eye,
+  Heart,
   Loader2,
   Lock,
+  MessageCircle,
   Pencil,
   Plus,
+  Repeat2,
   Search,
   Sparkles,
   Trash2,
@@ -20,12 +23,14 @@ import type {
   NoodleIdentityDisclosure,
   NoodleAccount,
   NoodlePostAccess,
+  NoodlerPostView,
   NoodleStageProfileInput,
   NoodlerManagedStageProfile,
   NoodlerStageProfile,
   Persona,
 } from "@marinara-engine/shared";
 import {
+  useCreateNoodlerInteraction,
   useCreateNoodlerStageProfile,
   useDeleteNoodlerStageProfile,
   useGeneratePrivateNoodlePost,
@@ -35,6 +40,7 @@ import {
   useNoodlerEligibleAccounts,
   useNoodlerPosts,
   useNoodlerViewer,
+  useRemoveNoodlerInteraction,
   useToggleNoodlerSubscription,
   useUnlockNoodlerPost,
   useUpdateNoodlerAccess,
@@ -42,9 +48,10 @@ import {
   useUpdateNoodlerStageProfile,
 } from "../../hooks/use-noodle";
 import { useActivePersona, usePersonas } from "../../hooks/use-characters";
+import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
-import { BrowserChrome } from "./NoodleHome";
+import { BrowserChrome, countInteractions, formatTime } from "./NoodleHome";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE } from "./NoodleShell";
 import { Modal } from "../ui/Modal";
 import type { NoodleNavigationState } from "./noodle-navigation.types";
@@ -172,6 +179,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);
   const toggleSubscription = useToggleNoodlerSubscription();
   const unlockPost = useUnlockNoodlerPost();
+  const createInteraction = useCreateNoodlerInteraction();
+  const removeInteraction = useRemoveNoodlerInteraction();
+  const [openPostId, setOpenPostId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
   const updateAccess = useUpdateNoodlerAccess();
   const [sourceSearch, setSourceSearch] = useState("");
   const [sourceKind, setSourceKind] = useState<"all" | "character" | "persona">("all");
@@ -201,6 +212,25 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationStep(null);
     setProfileDraft(null);
     setGuidedProfile(null);
+    setOpenPostId(null);
+  };
+  const toggleLikeOrRepost = (post: NoodlerPostView, type: "like" | "repost") => {
+    if (!viewerPersonaId) return;
+    const alreadyDone = post.interactions.some(
+      (interaction) => interaction.type === type && interaction.actorAccountId === shellPersonaAccount?.id,
+    );
+    if (alreadyDone) {
+      removeInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type });
+    } else {
+      createInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type });
+    }
+  };
+  const submitReply = (postId: string) => {
+    if (!viewerPersonaId || !replyDraft.trim()) return;
+    createInteraction.mutate(
+      { postId, personaId: viewerPersonaId, type: "reply", content: replyDraft.trim() },
+      { onSuccess: () => setReplyDraft("") },
+    );
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const editingProfile = accountsQuery.data?.find((profile) => profile.id === editingProfileId) ?? null;
@@ -624,6 +654,31 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   }
 
+  const allViewerPosts = (viewerQuery.data?.creators ?? []).flatMap((creator) =>
+    creator.posts.map((post) => ({ post, creator })),
+  );
+  const openPost = openPostId ? allViewerPosts.find((entry) => entry.post.id === openPostId) ?? null : null;
+
+  if (openPost) {
+    return (
+      <NoodleShell {...shellProps}>
+        <NoodlerFrame onBack={() => setOpenPostId(null)} title={openPost.creator.profile.displayName}>
+          <PostDetail
+            post={openPost.post}
+            creator={openPost.creator.profile}
+            viewerAccountId={shellPersonaAccount?.id ?? null}
+            replyDraft={replyDraft}
+            onReplyDraftChange={setReplyDraft}
+            onSubmitReply={() => submitReply(openPost.post.id)}
+            replyPending={createInteraction.isPending}
+            onToggleLike={() => toggleLikeOrRepost(openPost.post, "like")}
+            onToggleRepost={() => toggleLikeOrRepost(openPost.post, "repost")}
+          />
+        </NoodlerFrame>
+      </NoodleShell>
+    );
+  }
+
   return (
     <NoodleShell {...shellProps}>
       <NoodlerFrame
@@ -651,6 +706,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           onRetry={() => void viewerQuery.refetch()}
           subscriptionPending={toggleSubscription.isPending}
           unlockPending={unlockPost.isPending}
+          viewerAccountId={shellPersonaAccount?.id ?? null}
           onToggleSubscription={(creatorAccountId, subscribed) => {
             if (!viewerPersonaId) return;
             toggleSubscription.mutate({ creatorAccountId, personaId: viewerPersonaId, subscribed });
@@ -659,9 +715,156 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             if (!viewerPersonaId) return;
             unlockPost.mutate({ postId, personaId: viewerPersonaId });
           }}
+          onOpenPost={setOpenPostId}
+          onToggleLike={(post) => toggleLikeOrRepost(post, "like")}
+          onToggleRepost={(post) => toggleLikeOrRepost(post, "repost")}
         />
       </NoodlerFrame>
     </NoodleShell>
+  );
+}
+
+function PostDetail({
+  post,
+  creator,
+  viewerAccountId,
+  replyDraft,
+  onReplyDraftChange,
+  onSubmitReply,
+  replyPending,
+  onToggleLike,
+  onToggleRepost,
+}: {
+  post: NoodlerPostView;
+  creator: Pick<NoodlerStageProfile, "displayName" | "handle">;
+  viewerAccountId: string | null;
+  replyDraft: string;
+  onReplyDraftChange: (value: string) => void;
+  onSubmitReply: () => void;
+  replyPending: boolean;
+  onToggleLike: () => void;
+  onToggleRepost: () => void;
+}) {
+  const replies = post.interactions.filter((interaction) => interaction.type === "reply");
+  const liked = post.interactions.some(
+    (interaction) => interaction.type === "like" && interaction.actorAccountId === viewerAccountId,
+  );
+  const reposted = post.interactions.some(
+    (interaction) => interaction.type === "repost" && interaction.actorAccountId === viewerAccountId,
+  );
+  return (
+    <div className="mx-auto flex h-full w-full max-w-2xl flex-col">
+      <div className="border-b border-[var(--noodle-divider)] px-4 py-4">
+        <p className="text-sm font-bold">{creator.displayName}</p>
+        <p className="text-xs text-[var(--muted-foreground)]">
+          @{creator.handle} · {formatTime(post.createdAt)}
+        </p>
+        {post.content && <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{post.content}</p>}
+        {post.imageUrl && (
+          <img src={post.imageUrl} alt={post.imagePrompt ?? ""} className="mt-3 max-h-96 w-full rounded-md object-cover" />
+        )}
+        <PostInteractionBar
+          count={countInteractions(post.interactions, "like")}
+          repostCount={countInteractions(post.interactions, "repost")}
+          replyCount={replies.length}
+          liked={liked}
+          reposted={reposted}
+          onToggleLike={onToggleLike}
+          onToggleRepost={onToggleRepost}
+        />
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="border-b border-[var(--noodle-divider)] p-4">
+          <textarea
+            value={replyDraft}
+            onChange={(event) => onReplyDraftChange(event.target.value)}
+            placeholder="Post a reply"
+            className={`${textareaClass} min-h-16`}
+          />
+          <button
+            type="button"
+            disabled={!replyDraft.trim() || replyPending}
+            onClick={onSubmitReply}
+            className="mt-2 inline-flex h-9 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {replyPending ? <Loader2 size={14} className="animate-spin" /> : null}
+            Reply
+          </button>
+        </div>
+        {replies.length === 0 ? (
+          <p className="px-4 py-6 text-xs text-[var(--muted-foreground)]">No replies yet.</p>
+        ) : (
+          <div className="divide-y divide-[var(--noodle-divider)]">
+            {replies.map((reply) => (
+              <div key={reply.id} className="px-4 py-3">
+                <p className="text-xs font-semibold text-[var(--muted-foreground)]">
+                  {reply.actorSnapshot?.displayName ?? "Someone"} · {formatTime(reply.createdAt)}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{reply.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PostInteractionBar({
+  count,
+  repostCount,
+  replyCount,
+  liked,
+  reposted,
+  onToggleLike,
+  onToggleRepost,
+  onOpenReplies,
+}: {
+  count: number;
+  repostCount: number;
+  replyCount: number;
+  liked: boolean;
+  reposted: boolean;
+  onToggleLike: () => void;
+  onToggleRepost: () => void;
+  onOpenReplies?: () => void;
+}) {
+  return (
+    <div className="mt-3 flex items-center gap-5 text-[var(--muted-foreground)]">
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenReplies?.();
+        }}
+        className="flex items-center gap-1.5 text-xs hover:text-[var(--noodle-blue)]"
+      >
+        <MessageCircle size={16} />
+        {replyCount}
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleRepost();
+        }}
+        className={cn("flex items-center gap-1.5 text-xs hover:text-green-500", reposted && "text-green-500")}
+      >
+        <Repeat2 size={17} />
+        {repostCount}
+      </button>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleLike();
+        }}
+        className={cn("flex items-center gap-1.5 text-xs hover:text-pink-500", liked && "text-pink-500")}
+      >
+        <Heart size={16} fill={liked ? "currentColor" : "none"} />
+        {count}
+      </button>
+    </div>
   );
 }
 
@@ -1328,8 +1531,12 @@ function ViewerHub({
   onRetry,
   subscriptionPending,
   unlockPending,
+  viewerAccountId,
   onToggleSubscription,
   onUnlock,
+  onOpenPost,
+  onToggleLike,
+  onToggleRepost,
 }: {
   personas: Persona[];
   personaId: string | null;
@@ -1340,8 +1547,12 @@ function ViewerHub({
   onRetry: () => void;
   subscriptionPending: boolean;
   unlockPending: boolean;
+  viewerAccountId: string | null;
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   onUnlock: (postId: string) => void;
+  onOpenPost: (postId: string) => void;
+  onToggleLike: (post: NoodlerPostView) => void;
+  onToggleRepost: (post: NoodlerPostView) => void;
 }) {
   if (personas.length === 0) {
     return (
@@ -1351,6 +1562,9 @@ function ViewerHub({
       />
     );
   }
+  const feed = (scope?.creators ?? [])
+    .flatMap((creator) => creator.posts.map((post) => ({ post, creator })))
+    .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
     <div>
       <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
@@ -1377,29 +1591,43 @@ function ViewerHub({
       ) : isError ? (
         <EmptyState title="NoodleR could not be loaded for this persona." action="Try again" onAction={onRetry} />
       ) : scope && scope.creators.length > 0 ? (
-        <div className="divide-y divide-[var(--noodle-divider)]">
-          {scope.creators.map((creator) => (
-            <section key={creator.profile.id} className="px-4 py-5">
-              <div className="flex items-center gap-3">
-                <ProfileInitial profile={creator.profile} />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-bold">{creator.profile.displayName}</h3>
-                  <p className="truncate text-xs text-[var(--muted-foreground)]">@{creator.profile.handle}</p>
-                </div>
-                <button
-                  type="button"
-                  disabled={subscriptionPending}
-                  onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
-                  className={`inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-xs font-bold ${creator.subscribed ? "border border-[var(--noodle-divider)]" : "bg-[var(--noodle-blue)] text-zinc-950"}`}
+        <>
+          <div className="flex gap-3 overflow-x-auto border-b border-[var(--noodle-divider)] px-4 py-3">
+            {scope.creators.map((creator) => (
+              <button
+                key={creator.profile.id}
+                type="button"
+                disabled={subscriptionPending}
+                onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--noodle-divider)] px-3 py-1.5 text-xs font-bold"
+              >
+                <ProfileInitial profile={creator.profile} />@{creator.profile.handle}
+                <span className={creator.subscribed ? "text-[var(--muted-foreground)]" : "text-[var(--noodle-blue)]"}>
+                  {creator.subscribed ? "Subscribed" : "Subscribe"}
+                </span>
+              </button>
+            ))}
+          </div>
+          {feed.length === 0 ? (
+            <p className="px-4 py-8 text-xs text-[var(--muted-foreground)]">No posts yet.</p>
+          ) : (
+            <div className="divide-y divide-[var(--noodle-divider)]">
+              {feed.map(({ post, creator }) => (
+                <article
+                  key={post.id}
+                  onClick={() => !post.locked && onOpenPost(post.id)}
+                  className={cn("flex gap-3 px-4 py-4", !post.locked && "cursor-pointer hover:bg-[var(--accent)]/40")}
                 >
-                  <Users size={14} /> {creator.subscribed ? "Subscribed" : "Subscribe"}
-                </button>
-              </div>
-              <div className="mt-4 space-y-3">
-                {creator.posts.map((post) => (
-                  <article key={post.id} className="rounded-md border border-[var(--noodle-divider)] p-4">
+                  <ProfileInitial profile={creator.profile} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-bold">
+                      {creator.profile.displayName}{" "}
+                      <span className="font-normal text-[var(--muted-foreground)]">
+                        @{creator.profile.handle} · {formatTime(post.createdAt)}
+                      </span>
+                    </p>
                     {post.locked ? (
-                      <div className="flex items-center gap-3">
+                      <div className="mt-2 flex items-center gap-3 rounded-md border border-[var(--noodle-divider)] p-3">
                         <Lock size={18} className="shrink-0 text-[var(--noodle-blue)]" />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold">
@@ -1415,7 +1643,10 @@ function ViewerHub({
                           <button
                             type="button"
                             disabled={unlockPending}
-                            onClick={() => onUnlock(post.id)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onUnlock(post.id);
+                            }}
                             className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950"
                           >
                             <Eye size={14} /> Unlock
@@ -1423,15 +1654,37 @@ function ViewerHub({
                         )}
                       </div>
                     ) : (
-                      <p className="whitespace-pre-wrap text-sm leading-6">{post.content}</p>
+                      <>
+                        <p className="mt-1 whitespace-pre-wrap text-sm leading-6">{post.content}</p>
+                        {post.imageUrl && (
+                          <img
+                            src={post.imageUrl}
+                            alt={post.imagePrompt ?? ""}
+                            className="mt-2 max-h-72 w-full rounded-md object-cover"
+                          />
+                        )}
+                        <PostInteractionBar
+                          count={countInteractions(post.interactions, "like")}
+                          repostCount={countInteractions(post.interactions, "repost")}
+                          replyCount={countInteractions(post.interactions, "reply")}
+                          liked={post.interactions.some(
+                            (interaction) => interaction.type === "like" && interaction.actorAccountId === viewerAccountId,
+                          )}
+                          reposted={post.interactions.some(
+                            (interaction) => interaction.type === "repost" && interaction.actorAccountId === viewerAccountId,
+                          )}
+                          onToggleLike={() => onToggleLike(post)}
+                          onToggleRepost={() => onToggleRepost(post)}
+                          onOpenReplies={() => onOpenPost(post.id)}
+                        />
+                      </>
                     )}
-                  </article>
-                ))}
-                {creator.posts.length === 0 && <p className="text-xs text-[var(--muted-foreground)]">No posts yet.</p>}
-              </div>
-            </section>
-          ))}
-        </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       ) : (
         <EmptyState title="No stage profiles are visible to this persona." />
       )}

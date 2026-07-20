@@ -353,7 +353,7 @@ function characterGroupName(group: RawCharacterGroup) {
   return readString(group.name).trim() || "Character folder";
 }
 
-function formatTime(value: string) {
+export function formatTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat(undefined, {
@@ -747,7 +747,7 @@ export function BrowserChrome({
   );
 }
 
-function countInteractions(interactions: NoodleInteraction[], type: NoodleInteractionType) {
+export function countInteractions(interactions: NoodleInteraction[], type: NoodleInteractionType) {
   return interactions.filter((interaction) => interaction.type === type).length;
 }
 
