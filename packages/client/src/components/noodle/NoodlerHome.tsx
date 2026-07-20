@@ -46,6 +46,7 @@ import { useActivePersona, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE } from "./NoodleShell";
+import { Modal } from "../ui/Modal";
 import type { NoodleNavigationState } from "./noodle-navigation.types";
 
 export type NoodlerNotificationItem = {
@@ -1132,6 +1133,7 @@ function StageProfileView({
   deletePending: boolean;
   onAccessChange: (access: NoodlerManagedStageProfile["access"]) => void;
 }) {
+  const [accessSettingsOpen, setAccessSettingsOpen] = useState(false);
   return (
     <>
       <section className="border-b border-[var(--noodle-divider)] px-5 py-6">
@@ -1170,6 +1172,14 @@ function StageProfileView({
           </button>
           <button
             type="button"
+            onClick={() => setAccessSettingsOpen(true)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] px-3 text-xs font-bold hover:bg-[var(--accent)]"
+          >
+            <Lock size={14} />
+            Subscriber access
+          </button>
+          <button
+            type="button"
             onClick={onDelete}
             disabled={deletePending}
             className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--destructive)]/45 px-3 text-xs font-bold text-[var(--destructive)] hover:bg-[var(--destructive)]/10 disabled:cursor-wait disabled:opacity-50"
@@ -1179,62 +1189,67 @@ function StageProfileView({
           </button>
         </div>
       </section>
-      <section className="border-b border-[var(--noodle-divider)] px-5 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold">Subscriber access</h3>
-            <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+      <Modal
+        open={accessSettingsOpen}
+        onClose={() => setAccessSettingsOpen(false)}
+        title="Subscriber access"
+        width="max-w-md"
+        panelStyle={{ "--noodle-blue": "#7EA7FF" } as React.CSSProperties}
+      >
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <p className="text-xs leading-5 text-[var(--muted-foreground)]">
               These rules apply only to this stage profile.
             </p>
+            {accessPending && <Loader2 size={16} className="shrink-0 animate-spin text-[var(--noodle-blue)]" />}
           </div>
-          {accessPending && <Loader2 size={16} className="animate-spin text-[var(--noodle-blue)]" />}
-        </div>
-        <label className="mt-4 flex min-h-11 items-center justify-between gap-4 rounded-md border border-[var(--noodle-divider)] px-3 py-2">
-          <span>
-            <span className="block text-xs font-bold">Subscriptions include PPV</span>
-            <span className="block text-xs text-[var(--muted-foreground)]">
-              Subscribers skip individual PPV unlocks.
+          <label className="flex min-h-11 items-center justify-between gap-4 rounded-md border border-[var(--noodle-divider)] px-3 py-2">
+            <span>
+              <span className="block text-xs font-bold">Subscriptions include PPV</span>
+              <span className="block text-xs text-[var(--muted-foreground)]">
+                Subscribers skip individual PPV unlocks.
+              </span>
             </span>
-          </span>
-          <input
-            type="checkbox"
-            checked={profile.access.subscriptionIncludesPpv}
-            disabled={accessPending}
-            onChange={(event) => onAccessChange({ ...profile.access, subscriptionIncludesPpv: event.target.checked })}
-            className="h-5 w-5 accent-[var(--noodle-blue)]"
-          />
-        </label>
-        {viewerAccounts.length > 0 && (
-          <fieldset className="mt-4">
-            <legend className="text-xs font-bold">Hidden from personas</legend>
-            <div className="mt-2 divide-y divide-[var(--noodle-divider)] rounded-md border border-[var(--noodle-divider)]">
-              {viewerAccounts.map((account) => {
-                const owningAccount = profile.publicAccountId === account.id;
-                const checked = profile.access.hiddenFromAccountIds.includes(account.id);
-                return (
-                  <label key={account.id} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
-                    <span className="truncate text-xs font-semibold">{account.displayName}</span>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={accessPending || owningAccount}
-                      onChange={(event) =>
-                        onAccessChange({
-                          ...profile.access,
-                          hiddenFromAccountIds: event.target.checked
-                            ? [...profile.access.hiddenFromAccountIds, account.id]
-                            : profile.access.hiddenFromAccountIds.filter((id) => id !== account.id),
-                        })
-                      }
-                      className="h-5 w-5 accent-[var(--noodle-blue)]"
-                    />
-                  </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        )}
-      </section>
+            <input
+              type="checkbox"
+              checked={profile.access.subscriptionIncludesPpv}
+              disabled={accessPending}
+              onChange={(event) => onAccessChange({ ...profile.access, subscriptionIncludesPpv: event.target.checked })}
+              className="h-5 w-5 accent-[var(--noodle-blue)]"
+            />
+          </label>
+          {viewerAccounts.length > 0 && (
+            <fieldset>
+              <legend className="text-xs font-bold">Hidden from personas</legend>
+              <div className="mt-2 divide-y divide-[var(--noodle-divider)] rounded-md border border-[var(--noodle-divider)]">
+                {viewerAccounts.map((account) => {
+                  const owningAccount = profile.publicAccountId === account.id;
+                  const checked = profile.access.hiddenFromAccountIds.includes(account.id);
+                  return (
+                    <label key={account.id} className="flex min-h-11 items-center justify-between gap-3 px-3 py-2">
+                      <span className="truncate text-xs font-semibold">{account.displayName}</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={accessPending || owningAccount}
+                        onChange={(event) =>
+                          onAccessChange({
+                            ...profile.access,
+                            hiddenFromAccountIds: event.target.checked
+                              ? [...profile.access.hiddenFromAccountIds, account.id]
+                              : profile.access.hiddenFromAccountIds.filter((id) => id !== account.id),
+                          })
+                        }
+                        className="h-5 w-5 accent-[var(--noodle-blue)]"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+        </div>
+      </Modal>
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 size={24} className="animate-spin text-[var(--noodle-blue)]" />
