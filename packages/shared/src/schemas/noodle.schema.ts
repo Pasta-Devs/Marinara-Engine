@@ -262,9 +262,10 @@ export const noodleCreatePostSchema = z.object({
   poll: noodlePollInputSchema.nullable().optional(),
 });
 
-export const noodlerViewerPersonaSchema = z.object({ personaId: z.string().min(1) }).strict();
-export const noodlerSubscriptionSchema = z.object({ personaId: z.string().min(1) }).strict();
-export const noodlerUnlockSchema = z.object({ personaId: z.string().min(1) }).strict();
+const noodlerPersonaIdSchema = z.object({ personaId: z.string().min(1) }).strict();
+export const noodlerViewerPersonaSchema = noodlerPersonaIdSchema;
+export const noodlerSubscriptionSchema = noodlerPersonaIdSchema;
+export const noodlerUnlockSchema = noodlerPersonaIdSchema;
 
 export const noodlePostUpdateSchema = z.object({
   content: z.string().trim().min(1).max(4000).optional(),
