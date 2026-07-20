@@ -703,7 +703,9 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
     const tracker = page.locator('[data-component="TrackerDataSidebarDesktop.left"]');
     await expect(tracker).toBeVisible();
     await tracker.evaluate(async (element) => {
-      await Promise.all(element.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
+      await Promise.all(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+      );
     });
 
     const [mainBox, chatColumnAfter, trackerBox] = await Promise.all([
@@ -742,10 +744,36 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
 
     await tracker.getByRole("button", { name: "Open tracker settings" }).click();
     await expect(tracker.getByRole("toolbar", { name: "Tracker panel settings" })).toBeVisible();
-    const hasHorizontalOverflow = await trackerContent.evaluate(
-      (element) => element.scrollWidth > element.clientWidth + 1,
-    );
-    expect(hasHorizontalOverflow).toBe(false);
+    await tracker.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+    const horizontalOverflow = await trackerContent.evaluate((root) => {
+      let overflow: { className: string; clientWidth: number; depth: number; scrollWidth: number; tagName: string } | null =
+        null;
+      const scan = (node: Element, depth: number) => {
+        if (overflow || depth > 6) return;
+        const rect = node.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        if (node.scrollWidth > node.clientWidth + 1) {
+          overflow = {
+            className: node.className,
+            clientWidth: node.clientWidth,
+            depth,
+            scrollWidth: node.scrollWidth,
+            tagName: node.tagName,
+          };
+          return;
+        }
+        for (let i = 0; i < node.children.length; i++) {
+          scan(node.children[i]!, depth + 1);
+        }
+      };
+      scan(root, 0);
+      return overflow;
+    });
+    expect(horizontalOverflow).toBeNull();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }

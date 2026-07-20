@@ -852,7 +852,7 @@ export function AppShell() {
   ]);
 
   useLayoutEffect(() => {
-    if (shellOverlayMode || !trackerPanelSurfaceAvailable) {
+    if (shellOverlayMode || !trackerPanelSurfaceAvailable || !trackerPanelAnchoredForMotion) {
       setTrackerPanelResolvedWidth(trackerPanelWidth);
       return;
     }
@@ -915,7 +915,13 @@ export function AppShell() {
       discoveryObserver?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [shellOverlayMode, trackerPanelSide, trackerPanelSurfaceAvailable, trackerPanelWidth]);
+  }, [
+    shellOverlayMode,
+    trackerPanelAnchoredForMotion,
+    trackerPanelSide,
+    trackerPanelSurfaceAvailable,
+    trackerPanelWidth,
+  ]);
 
   const trackerPanelHudClearance =
     !shellOverlayMode && trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
