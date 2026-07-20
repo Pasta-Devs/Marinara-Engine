@@ -2944,6 +2944,13 @@ export function ChatSettingsDrawer({
     await retryAgents(chat.id, ["lorebook-keeper"], { lorebookKeeperBackfill: true });
   }, [chat.id, retryAgents]);
 
+  const handleRerunCustomAgent = useCallback(
+    async (agentId: string) => {
+      await retryAgents(chat.id, [agentId]);
+    },
+    [chat.id, retryAgents],
+  );
+
   const toggleTool = (toolId: string) => {
     const current = [...activeToolIds];
     const idx = current.indexOf(toolId);
@@ -3934,6 +3941,21 @@ export function ChatSettingsDrawer({
                       {agent.description}
                     </span>
                   </div>
+                  <button
+                    onClick={() => {
+                      void handleRerunCustomAgent(agent.id);
+                    }}
+                    disabled={agentProcessing}
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors",
+                      agentProcessing
+                        ? "cursor-not-allowed opacity-40"
+                        : "hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]",
+                    )}
+                    title={`Re-run ${agent.name} on the last message`}
+                  >
+                    <RefreshCw size="0.6875rem" className={cn(agentProcessing && "animate-spin")} />
+                  </button>
                   <button
                     onClick={() => {
                       void toggleAgent(agent.id);
