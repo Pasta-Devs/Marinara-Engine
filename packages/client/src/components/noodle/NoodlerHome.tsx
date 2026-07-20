@@ -50,7 +50,7 @@ import { useActivePersona, usePersonas } from "../../hooks/use-characters";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
-import { BrowserChrome, formatTime, NoodlePostCard, type NoodlePostCardCtx } from "./NoodleHome";
+import { BrowserChrome, formatTime, NoodleComposerShell, NoodlePostCard, type NoodlePostCardCtx } from "./NoodleHome";
 import type { ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE } from "./NoodleShell";
@@ -1783,15 +1783,58 @@ function InlineGuidedComposer({
     setDirection("");
   };
 
+  const activeProfile = managedProfiles.find((profile) => profile.id === activeProfileId) ?? managedProfiles[0];
+
   return (
-    <div
-      className="space-y-3 border-b border-[var(--noodle-divider)] px-4 py-3"
-      data-component="NoodlerHome.InlineComposer"
+    <NoodleComposerShell
+      dataComponent="NoodlerHome.InlineComposer"
+      avatar={activeProfile ? <ProfileInitial profile={activeProfile} /> : null}
+      tools={
+        <>
+          <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--accent)] p-1">
+            {(["public", "subscriber", "ppv"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={access === option}
+                onClick={() => setAccess(option)}
+                className={`min-h-8 rounded px-2 text-xs font-bold capitalize ${access === option ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+              >
+                {option === "subscriber" ? "Subscribers" : option.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          {access === "ppv" && (
+            <input
+              type="number"
+              min="0"
+              max="999999"
+              step="0.01"
+              value={ppvPrice}
+              onChange={(event) => setPpvPrice(event.target.value)}
+              aria-label="PPV price"
+              className="mari-chrome-field h-8 w-24 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
+            />
+          )}
+        </>
+      }
+      action={
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isPosting || direction.trim().length === 0}
+          className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          {isPosting ? "Generating..." : "Post"}
+        </button>
+      }
+      footer={error && <p className="mt-2 pl-14 text-xs text-[var(--destructive)]">{error}</p>}
     >
       <select
         value={activeProfileId}
         onChange={(event) => setProfileId(event.target.value)}
-        className={fieldClass}
+        className={`${fieldClass} mb-2`}
         aria-label="Posting as"
       >
         {managedProfiles.map((profile) => (
@@ -1805,46 +1848,9 @@ function InlineGuidedComposer({
         onChange={(event) => setDirection(event.target.value)}
         maxLength={2000}
         placeholder="What's simmering, privately?"
-        className={textareaClass}
+        className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--accent)] p-1">
-          {(["public", "subscriber", "ppv"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={access === option}
-              onClick={() => setAccess(option)}
-              className={`min-h-9 rounded px-2 text-xs font-bold capitalize ${access === option ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
-            >
-              {option === "subscriber" ? "Subscribers" : option.toUpperCase()}
-            </button>
-          ))}
-        </div>
-        {access === "ppv" && (
-          <input
-            type="number"
-            min="0"
-            max="999999"
-            step="0.01"
-            value={ppvPrice}
-            onChange={(event) => setPpvPrice(event.target.value)}
-            aria-label="PPV price"
-            className="mari-chrome-field h-9 w-28 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
-          />
-        )}
-        <button
-          type="button"
-          onClick={submit}
-          disabled={isPosting || direction.trim().length === 0}
-          className="ml-auto inline-flex min-h-9 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-          {isPosting ? "Generating..." : "Post"}
-        </button>
-      </div>
-      {error && <p className="text-xs text-[var(--destructive)]">{error}</p>}
-    </div>
+    </NoodleComposerShell>
   );
 }
 

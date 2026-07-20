@@ -1652,6 +1652,43 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     );
 }
 
+// Shared composer chrome: avatar gutter, borderless body, divider, and the
+// tools-left / action-right toolbar row. Noodle fills it with its post composer;
+// NoodleR fills it with the guided-generation composer. Keeps both pixel-aligned.
+export function NoodleComposerShell({
+  avatar,
+  children,
+  tools,
+  action,
+  popovers,
+  footer,
+  dataComponent,
+}: {
+  avatar: React.ReactNode;
+  children: React.ReactNode;
+  tools?: React.ReactNode;
+  action: React.ReactNode;
+  popovers?: React.ReactNode;
+  footer?: React.ReactNode;
+  dataComponent?: string;
+}) {
+  return (
+    <div className="border-b border-[var(--noodle-divider)] px-4 py-3" data-component={dataComponent}>
+      <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3">
+        {avatar}
+        <div className="min-w-0">{children}</div>
+      </div>
+      <div className="mt-1 h-px w-full bg-[var(--noodle-divider)]" />
+      <div className="relative mt-3 flex items-center justify-between gap-2 pl-14">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">{tools}</div>
+        {action}
+        {popovers}
+      </div>
+      {footer}
+    </div>
+  );
+}
+
 
 export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const selectedPersonaId = useUIStore((state) => state.noodleSelectedPersonaId) ?? "";
@@ -4838,61 +4875,17 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 ))}
 
               {activeNoodleView === "home" && !isAccountSearch && !composeOpen && (
-                <div
-                  className="border-b border-[var(--noodle-divider)] px-4 py-3"
-                  data-component="NoodleView.InlineComposer"
-                >
-                  <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3">
-                    {personaAccount ? (
+                <NoodleComposerShell
+                  dataComponent="NoodleView.InlineComposer"
+                  avatar={
+                    personaAccount ? (
                       <Avatar account={personaAccount} />
                     ) : (
                       <AtSign size={28} className="text-[var(--noodle-blue)]" />
-                    )}
-                    <div className="min-w-0">
-                      <textarea
-                        ref={inlineComposerRef}
-                        defaultValue={composer}
-                        onChange={handleComposerChange}
-                        onBlur={() => setComposer(composerValueRef.current)}
-                        onKeyDown={handleComposerKeyDown}
-                        disabled={!personaAccount}
-                        placeholder="What's simmering?"
-                        aria-autocomplete="list"
-                        aria-controls={activeMention && !composeOpen ? "noodle-inline-mention-list" : undefined}
-                        aria-expanded={Boolean(activeMention && !composeOpen)}
-                        aria-activedescendant={
-                          activeMention && !composeOpen && mentionSuggestions.length > 0
-                            ? `noodle-inline-mention-list-option-${Math.min(
-                                activeMentionIndex,
-                                mentionSuggestions.length - 1,
-                              )}`
-                            : undefined
-                        }
-                        className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
-                      />
-                      {!composeOpen && renderComposerMentionSuggestions("noodle-inline-mention-list")}
-                      {renderDraftPoll()}
-                      {attachedImageUrl && (
-                        <div className="mb-3 overflow-hidden rounded-xl border border-[var(--noodle-divider)] bg-[var(--noodle-blue)]/10">
-                          <img src={attachedImageUrl} alt="" className="max-h-52 w-full object-cover" />
-                          <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-[var(--noodle-blue)]">
-                            <span className="min-w-0 truncate">Attached image</span>
-                            <button
-                              type="button"
-                              onClick={() => setAttachedImageUrl("")}
-                              className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--noodle-blue)]/15"
-                              title="Remove image"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mt-1 h-px w-full bg-[var(--noodle-divider)]" />
-                  <div className="relative mt-3 flex items-center justify-between gap-2 pl-14">
-                    <div className="flex min-w-0 flex-wrap items-center gap-1">
+                    )
+                  }
+                  tools={
+                    <>
                       <div ref={imageToolRef} className="relative">
                         <NoodleToolButton
                           title="Attach image"
@@ -4920,7 +4913,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                           <Smile size={18} />
                         </NoodleToolButton>
                       </div>
-                    </div>
+                    </>
+                  }
+                  action={
                     <button
                       type="button"
                       onClick={submitPost}
@@ -4929,14 +4924,56 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     >
                       Post
                     </button>
-                    {!composeOpen &&
-                      renderComposerToolPopovers({
-                        imageRef: imageToolRef,
-                        pollRef: pollToolRef,
-                        mediaRef: mediaToolRef,
-                      })}
-                  </div>
-                </div>
+                  }
+                  popovers={
+                    !composeOpen &&
+                    renderComposerToolPopovers({
+                      imageRef: imageToolRef,
+                      pollRef: pollToolRef,
+                      mediaRef: mediaToolRef,
+                    })
+                  }
+                >
+                  <textarea
+                    ref={inlineComposerRef}
+                    defaultValue={composer}
+                    onChange={handleComposerChange}
+                    onBlur={() => setComposer(composerValueRef.current)}
+                    onKeyDown={handleComposerKeyDown}
+                    disabled={!personaAccount}
+                    placeholder="What's simmering?"
+                    aria-autocomplete="list"
+                    aria-controls={activeMention && !composeOpen ? "noodle-inline-mention-list" : undefined}
+                    aria-expanded={Boolean(activeMention && !composeOpen)}
+                    aria-activedescendant={
+                      activeMention && !composeOpen && mentionSuggestions.length > 0
+                        ? `noodle-inline-mention-list-option-${Math.min(
+                            activeMentionIndex,
+                            mentionSuggestions.length - 1,
+                          )}`
+                        : undefined
+                    }
+                    className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
+                  />
+                  {!composeOpen && renderComposerMentionSuggestions("noodle-inline-mention-list")}
+                  {renderDraftPoll()}
+                  {attachedImageUrl && (
+                    <div className="mb-3 overflow-hidden rounded-xl border border-[var(--noodle-divider)] bg-[var(--noodle-blue)]/10">
+                      <img src={attachedImageUrl} alt="" className="max-h-52 w-full object-cover" />
+                      <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-[var(--noodle-blue)]">
+                        <span className="min-w-0 truncate">Attached image</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachedImageUrl("")}
+                          className="flex h-7 w-7 items-center justify-center rounded-full hover:bg-[var(--noodle-blue)]/15"
+                          title="Remove image"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </NoodleComposerShell>
               )}
 
               {activeNoodleView === "home" && !isAccountSearch && (
