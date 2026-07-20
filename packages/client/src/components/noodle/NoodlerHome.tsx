@@ -912,8 +912,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     >
       <ViewerHub
         personas={personas}
-        personaId={viewerPersonaId}
-        onPersonaChange={setStoredPersonaId}
         scope={viewerQuery.data}
         isLoading={viewerQuery.isLoading}
         isError={viewerQuery.isError}
@@ -1597,8 +1595,6 @@ function StageProfileView({
 
 function ViewerHub({
   personas,
-  personaId,
-  onPersonaChange,
   scope,
   isLoading,
   isError,
@@ -1618,8 +1614,6 @@ function ViewerHub({
   postError,
 }: {
   personas: Persona[];
-  personaId: string | null;
-  onPersonaChange: (id: string | null) => void;
   scope: ReturnType<typeof useNoodlerViewer>["data"];
   isLoading: boolean;
   isError: boolean;
@@ -1660,22 +1654,7 @@ function ViewerHub({
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
     <div>
-      <div className="flex items-end justify-between gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
-        <label className="block min-w-0 flex-1 text-xs font-bold" htmlFor="noodler-viewer-persona">
-          Viewer persona
-          <select
-            id="noodler-viewer-persona"
-            value={personaId ?? ""}
-            onChange={(event) => onPersonaChange(event.target.value || null)}
-            className={`${fieldClass} mt-2`}
-          >
-            {personas.map((persona) => (
-              <option key={persona.id} value={persona.id}>
-                {persona.name || persona.convoDisplayName || "Persona"}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="flex items-center justify-end gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
         <button
           type="button"
           onClick={onManageProfiles}
