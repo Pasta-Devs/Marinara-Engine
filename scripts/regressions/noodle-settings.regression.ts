@@ -316,6 +316,28 @@ try {
   ]);
   assert.equal(firstUnlock?.id, duplicateUnlock?.id);
   assert.equal(await firstNoodle.subscribe(creatorSource.id, privateCreator.id), null);
+  const personaCreatorSource = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "access-persona-creator",
+    displayName: "Persona Creator",
+  });
+  const personaPrivateCreator = await firstNoodle.createPrivateAccount(personaCreatorSource.id, {
+    displayName: "Persona After Hours",
+    handle: "persona_after_hours",
+    bio: "",
+    stagePersonality: "Reserved",
+    disclosureMode: "secret",
+  });
+  assert.ok(personaPrivateCreator);
+  const personaPpvPost = await firstNoodle.createPrivatePost({
+    authorAccountId: personaPrivateCreator!.id,
+    content: "Persona locked content",
+    access: "ppv",
+    ppvPrice: 5,
+  });
+  assert.ok(personaPpvPost);
+  assert.equal(await firstNoodle.subscribe(personaCreatorSource.id, personaPrivateCreator!.id), null);
+  assert.equal(await firstNoodle.unlockPost(personaCreatorSource.id, personaPpvPost!.id), null);
   assert.equal(await firstNoodle.unlockPost(viewer.id, "missing-post"), null);
   assert.equal(await firstNoodle.updateAccount(privateCreator.id, { displayName: "Bypassed identity" }), null);
   const deletedPrivateCreator = await firstNoodle.deletePrivateAccount(privateCreator.id);

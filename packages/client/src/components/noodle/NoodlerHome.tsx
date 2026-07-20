@@ -14,7 +14,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import type {
@@ -139,6 +139,34 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     if (mobile) setMobileDrawerOpen(false);
     else setAccountSwitcherOpen(false);
   };
+  useEffect(() => {
+    if (!mobileDrawerOpen) {
+      setMobileAccountSwitcherOpen(false);
+      return;
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileDrawerOpen(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [mobileDrawerOpen]);
+  useEffect(() => {
+    if (!accountSwitcherOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAccountSwitcherOpen(false);
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (accountSwitcherRef.current?.contains(event.target)) return;
+      setAccountSwitcherOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [accountSwitcherOpen]);
   const exitToPublic = () => onNavigate({ mode: "public", view: "home" });
   const [showManageProfiles, setShowManageProfiles] = useState(false);
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);

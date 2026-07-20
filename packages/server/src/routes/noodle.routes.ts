@@ -134,38 +134,41 @@ export async function noodleRoutes(app: FastifyInstance) {
         },
       ]),
     );
-    const creators = await Promise.all(
-      accounts
-        .filter((account) => account.publicAccountId !== viewer.id && !isNoodlerHiddenFromViewer(account, viewer.id))
-        .map(async (account) => {
-          const subscribed = subscribedIds.has(account.id);
-          const posts = await noodle.listPrivatePostsByAccount(account.id, 40);
-          return {
-            profile: profileById.get(account.id)!,
+    const visibleAccounts = accounts.filter(
+      (account) => account.publicAccountId !== viewer.id && !isNoodlerHiddenFromViewer(account, viewer.id),
+    );
+    const postsByAccount = await noodle.listPrivatePostsByAccounts(
+      visibleAccounts.map((account) => account.id),
+      40,
+    );
+    const creators = visibleAccounts.map((account) => {
+      const subscribed = subscribedIds.has(account.id);
+      const posts = postsByAccount.get(account.id) ?? [];
+      return {
+        profile: profileById.get(account.id)!,
+        subscribed,
+        posts: posts.map((post): NoodlerPostView => {
+          const locked = !canViewNoodlerPost({
+            post,
             subscribed,
-            posts: posts.map((post): NoodlerPostView => {
-              const locked = !canViewNoodlerPost({
-                post,
-                subscribed,
-                unlockedPostIds: unlockedIds,
-                subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
-              });
-              return {
-                id: post.id,
-                authorAccountId: post.authorAccountId,
-                access: post.access,
-                ppvPrice: post.ppvPrice,
-                locked,
-                content: locked ? null : post.content,
-                imageUrl: locked ? null : post.imageUrl,
-                imagePrompt: locked ? null : post.imagePrompt,
-                metadata: locked ? null : post.metadata,
-                createdAt: post.createdAt,
-              };
-            }),
+            unlockedPostIds: unlockedIds,
+            subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
+          });
+          return {
+            id: post.id,
+            authorAccountId: post.authorAccountId,
+            access: post.access,
+            ppvPrice: post.ppvPrice,
+            locked,
+            content: locked ? null : post.content,
+            imageUrl: locked ? null : post.imageUrl,
+            imagePrompt: locked ? null : post.imagePrompt,
+            metadata: locked ? null : post.metadata,
+            createdAt: post.createdAt,
           };
         }),
-    );
+      };
+    });
     return { viewer, creators };
   });
 
@@ -179,7 +182,12 @@ export async function noodleRoutes(app: FastifyInstance) {
       resolveViewerPersona(parsed.data.personaId),
       noodle.getPrivateAccountById(id),
     ]);
-    if (!viewer || !creator || isNoodlerHiddenFromViewer(creator, viewer.id)) {
+    if (
+      !viewer ||
+      !creator ||
+      creator.publicAccountId === viewer.id ||
+      isNoodlerHiddenFromViewer(creator, viewer.id)
+    ) {
       return reply.code(404).send({ error: "NoodleR stage profile not found" });
     }
     const subscription = await noodle.subscribe(viewer.id, creator.id);
@@ -210,7 +218,14 @@ export async function noodleRoutes(app: FastifyInstance) {
       noodle.getPrivatePostById(id),
     ]);
     const creator = post ? await noodle.getPrivateAccountById(post.authorAccountId) : null;
-    if (!viewer || !post || !creator || post.access !== "ppv" || isNoodlerHiddenFromViewer(creator, viewer.id)) {
+    if (
+      !viewer ||
+      !post ||
+      !creator ||
+      post.access !== "ppv" ||
+      creator.publicAccountId === viewer.id ||
+      isNoodlerHiddenFromViewer(creator, viewer.id)
+    ) {
       return reply.code(404).send({ error: "NoodleR post not found" });
     }
     const unlock = await noodle.unlockPost(viewer.id, post.id);

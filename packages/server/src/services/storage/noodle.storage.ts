@@ -948,6 +948,27 @@ export function createNoodleStorage(db: DB) {
       return rows.map(mapPost);
     },
 
+    async listPrivatePostsByAccounts(accountIds: string[], limit = 8): Promise<Map<string, NoodlePost[]>> {
+      const boundedLimit = Math.max(1, Math.min(50, Math.floor(limit)));
+      const result = new Map<string, NoodlePost[]>();
+      if (accountIds.length === 0) return result;
+      const rows = await db
+        .select()
+        .from(noodlePosts)
+        .where(inArray(noodlePosts.authorAccountId, accountIds))
+        .orderBy(desc(noodlePosts.createdAt));
+      for (const row of rows) {
+        const post = mapPost(row);
+        const existing = result.get(post.authorAccountId);
+        if (existing) {
+          if (existing.length < boundedLimit) existing.push(post);
+        } else {
+          result.set(post.authorAccountId, [post]);
+        }
+      }
+      return result;
+    },
+
     async getPrivatePostById(id: string): Promise<NoodlePost | null> {
       const rows = await db.select().from(noodlePosts).where(eq(noodlePosts.id, id));
       const row = rows[0];
@@ -1661,7 +1682,14 @@ export function createNoodleStorage(db: DB) {
         this.getAccountById(viewerAccountId),
         this.getPrivateAccountById(creatorAccountId),
       ]);
-      if (!viewer || viewer.kind !== "persona" || viewer.visibility !== "public" || !creator) return null;
+      if (
+        !viewer ||
+        viewer.kind !== "persona" ||
+        viewer.visibility !== "public" ||
+        !creator ||
+        creator.publicAccountId === viewerAccountId
+      )
+        return null;
       const existing = await db
         .select()
         .from(noodleAccountSubscriptions)
@@ -1720,6 +1748,8 @@ export function createNoodleStorage(db: DB) {
     async unlockPost(viewerAccountId: string, postId: string): Promise<NoodlePostUnlock | null> {
       const [viewer, post] = await Promise.all([this.getAccountById(viewerAccountId), this.getPrivatePostById(postId)]);
       if (!viewer || viewer.kind !== "persona" || viewer.visibility !== "public" || post?.access !== "ppv") return null;
+      const author = await this.getPrivateAccountById(post.authorAccountId);
+      if (author?.publicAccountId === viewerAccountId) return null;
       const existing = await db
         .select()
         .from(noodlePostUnlocks)
