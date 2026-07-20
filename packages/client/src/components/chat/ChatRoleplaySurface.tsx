@@ -1503,8 +1503,6 @@ export function ChatRoleplaySurface({
                     <Suspense fallback={null}>
                       <RoleplayHUD
                         chatId={chat.id}
-                        characterCount={chatCharIds.length}
-                        layout="top"
                         isStreaming={isStreaming}
                         onRetriggerTrackers={onRerunTrackers}
                         onRetryFailedAgents={onRetryFailedAgents}
@@ -1606,8 +1604,6 @@ export function ChatRoleplaySurface({
                       <Suspense fallback={null}>
                         <RoleplayHUD
                           chatId={chat.id}
-                          characterCount={chatCharIds.length}
-                          layout="top"
                           isStreaming={isStreaming}
                           onRetriggerTrackers={onRerunTrackers}
                           onRetryFailedAgents={onRetryFailedAgents}

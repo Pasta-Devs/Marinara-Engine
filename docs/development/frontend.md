@@ -69,8 +69,8 @@ The only persisted store (localStorage via the Zustand `persist` middleware). It
 
 - Theme: `visualTheme` ("default" or "sillytavern"), the `data-theme` value (dark or light), and custom color overrides.
 - Appearance: `fontSize`, `chatFontSize`, `fontFamily`, custom fonts, and cursor style.
-- Chat display: `boldDialogue`, `showTimestamps`, `showModelName`, `messageGrouping`, and `messagesPerPage`.
-- Text styling: narration font color and opacity, chat font color and opacity, and text stroke.
+- Chat display: `boldDialogue`, `showTimestamps`, `showModelName`, and `messagesPerPage`.
+- Text styling: chat text color, roleplay message background opacity, and text stroke.
 - Streaming: `enableStreaming` and `streamingSpeed`.
 - Conversation theme: gradient colors for message bubbles.
 - Sound: `convoNotificationSound` and `rpNotificationSound`.

@@ -2,7 +2,12 @@
 // Spotify Game Music — deterministic shortlist + playback
 // ──────────────────────────────────────────────
 import { createHash } from "node:crypto";
-import type { SceneSpotifyTrackCandidate, SceneSpotifyTrackSelection } from "@marinara-engine/shared";
+import type {
+  GameSpotifySourceType,
+  SceneSpotifyTrackCandidate,
+  SceneSpotifyTrackSelection,
+} from "@marinara-engine/shared";
+import { normalizeSpotifySourceType } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
 import type { createAgentsStorage } from "../storage/agents.storage.js";
 import {
@@ -15,8 +20,6 @@ import {
 } from "./spotify.service.js";
 
 type AgentsStorage = ReturnType<typeof createAgentsStorage>;
-
-type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
 type SpotifyTrackIndexCacheEntry = {
   tracks: SceneSpotifyTrackCandidate[];
@@ -121,10 +124,6 @@ export function getGameSpotifyErrorStatus(error: unknown): number {
   return error instanceof GameSpotifyError ? error.status : 500;
 }
 
-function normalizeSourceType(value: unknown): GameSpotifySourceType {
-  return value === "playlist" || value === "artist" || value === "any" || value === "liked" ? value : "liked";
-}
-
 function getGameSpotifySource(meta: Record<string, unknown>):
   | {
       enabled: true;
@@ -138,7 +137,7 @@ function getGameSpotifySource(meta: Record<string, unknown>):
     return { enabled: false, reason: "Spotify music is disabled for this game." };
   }
 
-  const type = normalizeSourceType(meta.gameSpotifySourceType);
+  const type: GameSpotifySourceType = normalizeSpotifySourceType(meta.gameSpotifySourceType);
   const playlistId = typeof meta.gameSpotifyPlaylistId === "string" ? meta.gameSpotifyPlaylistId.trim() : "";
   const playlistName = typeof meta.gameSpotifyPlaylistName === "string" ? meta.gameSpotifyPlaylistName.trim() : "";
   const artist = typeof meta.gameSpotifyArtist === "string" ? meta.gameSpotifyArtist.trim() : "";

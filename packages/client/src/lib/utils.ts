@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { CSSProperties } from "react";
+import type { LegacyPersonaAvatarCrop, PersonaAvatarCrop } from "@marinara-engine/shared";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -41,31 +42,11 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Avatar crop — current format. A rectangular region of the source image,
- *  expressed in coordinates normalized to the source's intrinsic dimensions. The
- *  editor enforces a square crop in source pixels (`srcWidth * sourceW ===
- *  srcHeight * sourceH`); the data shape itself is generic enough to allow
- *  freeform rectangles in the future without a migration. */
-export interface AvatarCrop {
-  /** Crop top-left X, normalized to source width. Range [0, 1 - srcWidth]. */
-  srcX: number;
-  /** Crop top-left Y, normalized to source height. Range [0, 1 - srcHeight]. */
-  srcY: number;
-  /** Crop width, normalized to source width. Range (0, 1]. */
-  srcWidth: number;
-  /** Crop height, normalized to source height. Range (0, 1]. */
-  srcHeight: number;
-}
+/** Client-facing name for the shared current avatar crop contract. */
+export type AvatarCrop = PersonaAvatarCrop;
 
-/** Avatar crop — legacy format (zoom + pan offset). Render-only path so previously
- *  saved crops display unchanged until the user re-edits them, at which point the
- *  editor writes the current AvatarCrop format. No automatic migration on read. */
-export interface LegacyAvatarCrop {
-  zoom: number;
-  offsetX: number;
-  offsetY: number;
-  fullImage?: boolean;
-}
+/** Client-facing name for the shared legacy avatar crop contract. */
+export type LegacyAvatarCrop = LegacyPersonaAvatarCrop;
 
 /** Union alias for either crop shape — handy when threading a value through
  *  type-narrow interfaces that just need "a crop, either format". */

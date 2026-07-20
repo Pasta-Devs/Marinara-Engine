@@ -91,9 +91,7 @@ export interface TrackerCardColorConfig {
 
 /** Avatar crop — current source-rectangle format. A square region of the source
  *  image (`srcWidth * sourceW === srcHeight * sourceH` in editor-enforced data),
- *  expressed in coordinates normalized to the source's intrinsic dimensions.
- *  Mirror of the client `AvatarCrop` declared in `client/src/lib/utils.ts`,
- *  duplicated here so the shared package doesn't depend on client code. */
+ *  expressed in coordinates normalized to the source's intrinsic dimensions. */
 export interface PersonaAvatarCrop {
   srcX: number;
   srcY: number;

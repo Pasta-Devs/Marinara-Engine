@@ -14,7 +14,11 @@
 // edits trigger a push — transient UI state (modal open, detail panels, etc.)
 // is filtered out via `pickSyncedSettings`.
 import { useEffect } from "react";
-import { normalizeImageStyleProfileSettings, normalizeQuoteFormat } from "@marinara-engine/shared";
+import {
+  normalizeImageStyleProfileSettings,
+  normalizeQuoteFormat,
+  type AppSettingsResponse,
+} from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import {
@@ -25,8 +29,6 @@ import {
   pickSyncedSettings,
   useUIStore,
 } from "../stores/ui.store";
-
-type SettingsResponse = { value: string | null };
 
 const SETTINGS_KEY = "ui";
 const SETTINGS_PATH = `/app-settings/${SETTINGS_KEY}`;
@@ -158,7 +160,7 @@ export function useSettingsSync() {
           writeLocalUpdatedAt(localUpdatedAt);
         }
 
-        const data = await api.get<SettingsResponse>(SETTINGS_PATH);
+        const data = await api.get<AppSettingsResponse>(SETTINGS_PATH);
         if (disposed) return;
         if (data.value) {
           try {

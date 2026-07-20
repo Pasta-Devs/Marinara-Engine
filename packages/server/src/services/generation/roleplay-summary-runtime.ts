@@ -1,8 +1,7 @@
 import {
   CHAT_SUMMARY_OUTPUT_TOKENS,
   DEFAULT_CHAT_SUMMARY_PROMPT,
-  type ChatSummaryPromptSettings,
-  type ChatSummaryPromptTemplate,
+  normalizeChatSummaryPromptSettings,
 } from "@marinara-engine/shared";
 
 const RETIRED_CHAT_SUMMARY_AGENT_ID = "chat-summary";
@@ -79,7 +78,7 @@ export function resolveChatSummaryPrompt(args: {
 }): string {
   const hasGlobalSettingsValue =
     typeof args.globalSettingsValue === "string" && args.globalSettingsValue.trim().length > 0;
-  const globalSettings = parseChatSummaryPromptSettings(args.globalSettingsValue);
+  const globalSettings = normalizeChatSummaryPromptSettings(args.globalSettingsValue);
   const requestedId = typeof args.requestedTemplateId === "string" ? args.requestedTemplateId.trim() : "";
   const selectedId =
     requestedId ||
@@ -103,46 +102,6 @@ export function resolveChatSummaryPrompt(args: {
   if (chatPrompt) return chatPrompt;
 
   return DEFAULT_CHAT_SUMMARY_PROMPT;
-}
-
-export function parseChatSummaryPromptSettings(raw: string | null | undefined): ChatSummaryPromptSettings {
-  if (!raw) return { templates: [], activeTemplateId: null };
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return { templates: [], activeTemplateId: null };
-    }
-    const record = parsed as Record<string, unknown>;
-    const templates = normalizeChatSummaryPromptTemplates(record.templates);
-    const activeTemplateIdRaw =
-      typeof record.activeTemplateId === "string" && record.activeTemplateId.trim()
-        ? record.activeTemplateId.trim()
-        : null;
-    const activeTemplateId =
-      activeTemplateIdRaw && templates.some((template) => template.id === activeTemplateIdRaw)
-        ? activeTemplateIdRaw
-        : null;
-    return { templates, activeTemplateId };
-  } catch {
-    return { templates: [], activeTemplateId: null };
-  }
-}
-
-function normalizeChatSummaryPromptTemplates(value: unknown): ChatSummaryPromptTemplate[] {
-  if (!Array.isArray(value)) return [];
-  const templates: ChatSummaryPromptTemplate[] = [];
-  const seen = new Set<string>();
-  for (const item of value) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    const id = typeof record.id === "string" ? record.id.trim() : "";
-    const name = typeof record.name === "string" ? record.name.trim() : "";
-    const prompt = typeof record.prompt === "string" ? record.prompt.trim() : "";
-    if (!id || !name || !prompt || seen.has(id)) continue;
-    seen.add(id);
-    templates.push({ id, name, prompt });
-  }
-  return templates;
 }
 
 function resolvePromptFromTemplates(templates: unknown[], selectedId: string): string | null {

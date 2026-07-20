@@ -44,6 +44,8 @@ import {
   type GameInitialSetupLabels,
   type GameSetupConfig,
   type GameGmMode,
+  type GameSpotifySourceType,
+  normalizeSpotifySourceType,
   type GenerationParameters,
   type SpatialMapGroundingMode,
   type SpatialMapDraftSize,
@@ -244,8 +246,6 @@ const GAME_SETUP_STEPS = [
   },
 ] as const;
 
-type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
-
 function parseCharacterFolderIds(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
@@ -267,10 +267,6 @@ const GAME_SPOTIFY_SOURCE_OPTIONS: Array<{ id: GameSpotifySourceType; label: str
   { id: "artist", label: "Artist", description: "Search only around a named artist, like HOYO-MiX." },
   { id: "any", label: "Any Spotify", description: "Let the DJ use Spotify search when it fits." },
 ];
-
-function normalizeGameSpotifySourceType(value: unknown): GameSpotifySourceType {
-  return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
-}
 
 type LearnedOptionGroup = "genres" | "tones" | "settings" | "goals" | "preferences";
 
@@ -1007,7 +1003,7 @@ export function GameSetupWizard({
           : normalizeGameHudWidgets([createDefaultGameHudWidget("progress_bar", [])]),
       );
       setEnableSpotifyDj(config.enableSpotifyDj === true);
-      setGameSpotifySourceType(normalizeGameSpotifySourceType(config.spotifySourceType));
+      setGameSpotifySourceType(normalizeSpotifySourceType(config.spotifySourceType));
       setGameSpotifyPlaylistId(config.spotifyPlaylistId?.trim() || "");
       setGameSpotifyPlaylistName(config.spotifyPlaylistName?.trim() || "");
       setGameSpotifyArtist(config.spotifyArtist?.trim() || "");
@@ -2016,7 +2012,7 @@ export function GameSetupWizard({
                         <select
                           value={gameSpotifySourceType}
                           onChange={(event) => {
-                            const next = normalizeGameSpotifySourceType(event.target.value);
+                            const next = normalizeSpotifySourceType(event.target.value);
                             setGameSpotifySourceType(next);
                             if (next !== "playlist") {
                               setGameSpotifyPlaylistId("");
