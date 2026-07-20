@@ -18,6 +18,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept each historical user turn under the Persona that sent it when Name Prefix History is enabled, instead of relabeling every user message with the currently selected Persona.
 - Accepted the single-object array wrapper some local models return for generated Noodle profiles, preventing timeline refreshes from failing with HTTP 500 during first-time bio generation (#3871).
 - Gave current semantic lorebook matches the same context-budget priority as current keyword matches, so configured entry order—not activation method—decides which entries are attached when every match cannot fit.
 - Clarified in Peek Prompt when provider formatting has combined several chat turns into one request block, preventing a merged block from looking like missing Hide From AI context.

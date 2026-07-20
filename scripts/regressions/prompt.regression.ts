@@ -498,6 +498,8 @@ import {
   injectIntoOutputFormatOrLastUser,
   isMessageHiddenFromAIForCharacter,
   preserveTrackerCharacterUiFields,
+  prefixGroupIndividualHistorySpeakers,
+  readPersonaSnapshotName,
   resolveActivePersonaCandidate,
   resolveRoleplaySummaryTail,
   shouldEnableAgentsForGeneration,
@@ -838,6 +840,41 @@ const cases: RegressionCase[] = [
       assert.equal(messages[1]?.content, '"An older line."');
       assert.equal(messages[2]?.content, '"A user-authored tag."');
       assert.equal(messages[3]?.content, '<speaker="Pantalone">"The latest example."</speaker>');
+    },
+  },
+  {
+    name: "name-prefixed history preserves each user turn's Persona snapshot",
+    run() {
+      const historicalPersonaName = readPersonaSnapshotName({
+        personaSnapshot: { personaId: "powers-that-be", name: " Powers That Be " },
+      });
+      assert.equal(historicalPersonaName, "Powers That Be");
+      assert.equal(readPersonaSnapshotName({ personaSnapshot: { name: "  " } }), null);
+
+      const messages = prefixGroupIndividualHistorySpeakers(
+        [
+          {
+            role: "user" as const,
+            content: "A decree from the old Persona.",
+            personaSnapshotName: historicalPersonaName,
+          },
+          { role: "assistant" as const, content: "An answer.", characterId: "dottore" },
+          { role: "user" as const, content: "A question from the current Persona." },
+        ],
+        {
+          personaName: "Mari",
+          characterNamesById: new Map([["dottore", "Dottore"]]),
+        },
+      );
+
+      assert.deepEqual(
+        messages.map((message) => message.content),
+        [
+          "Powers That Be: A decree from the old Persona.",
+          "Dottore: An answer.",
+          "Mari: A question from the current Persona.",
+        ],
+      );
     },
   },
   {

@@ -7,6 +7,7 @@ export type GenerationPromptMessage = {
   content: string;
   contextKind?: "prompt" | "history" | "injection";
   characterId?: string | null;
+  personaSnapshotName?: string | null;
   hiddenFromAICharacterIds?: string[];
   images?: string[];
   files?: Array<{ type: string; data: string; filename?: string }>;
