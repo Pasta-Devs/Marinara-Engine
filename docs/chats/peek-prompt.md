@@ -17,7 +17,7 @@ A source badge sits at the top next to the title. It tells you which version of 
 
 Below the badge is a generation info panel. It can show the provider and model name, an estimated token count, and the real prompt token count once a reply has finished. A token is a small chunk of text that models count instead of words. This panel also shows small tags for the values used, such as **Temperature**, **Max Output Tokens**, **Thinking**, **Reasoning**, **Verbosity**, **Service Tier**, and **Assistant Prefill**. Sampling values like **Top P**, **Top K**, and **Min P** can also appear here.
 
-The rest of the window is the prompt itself, split into collapsible sections. Each section has a label and its own rough token estimate. The chat messages are grouped under one **Chat History** section that you can expand to read each message. Click any section header to open or close it.
+The rest of the window is the prompt itself, split into collapsible sections. Each section has a label and its own rough token estimate. The chat messages are grouped under one **Chat History** section. For an exact saved request, the provider may have combined several chat turns into one provider block. Expand each block to inspect all model-visible text inside it. Click any section header to open or close it.
 
 ## Opening Peek Prompt
 
