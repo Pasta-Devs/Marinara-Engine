@@ -16,7 +16,7 @@ The buttons below appear on messages. Some only show up in certain situations, w
 | **Edit** | Opens the message for editing. See below. | Always |
 | **Regenerate** | Creates a new alternate reply (a swipe). See below. | AI messages. In Roleplay mode, also on your messages. In Conversation mode, also on your messages made by Impersonate |
 | **Show original before rewrite** / **Show rewritten version** | Switches between the original and rewritten text. Both versions remain available so you can compare them or keep the one you prefer. | Only after an agent rewrote the message |
-| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the AI on later turns. | Always |
+| **Hide from AI** / **Unhide from AI** | Stops or resumes sending this message to the AI on later turns. In a Roleplay group chat, opens a character chooser. | Always |
 | **Peek prompt** | Shows the exact prompt the AI received for this reply. | Only on the latest AI message |
 | **Stored guidance** | Shows the direction that steered this reply. | Only if the reply used a guided direction or was made by Impersonate |
 | **Branch from here** | Copies the chat up to this message into a new branch. | Always |
@@ -80,6 +80,8 @@ Empty-Send retry starts a fresh reply. If the last message in the chat is yours 
 ## Hiding a message from the AI
 
 The AI context is the set of messages the app sends to the AI on each turn. Click **Hide from AI** to keep a message out of that context on future turns. The message stays visible to you and shows a **Hidden from AI** label. Click **Unhide from AI** to send it again.
+
+In a Roleplay group chat with more than one character, **Hide from AI** opens a compact avatar chooser. Select the group avatar to hide the message from everyone, or select one or more character avatars to hide it only from those characters. Selecting everyone clears individual selections, while selecting an individual character turns off the everyone option. The crossed-eye marker on the message shows the avatars of the characters who cannot see it. In a one-character chat, the button continues to hide or unhide the message directly.
 
 You can also hide or unhide messages by number with the `/hide` and `/unhide` slash commands. Message numbers start at 1, counting from the first message in the chat.
 

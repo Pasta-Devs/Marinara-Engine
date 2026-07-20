@@ -826,6 +826,15 @@ function appendFallbackChatSummaryToSystemPrompt(
 function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   if (messages.length === 0) return messages;
 
+  const hasSameAudience = (first: ChatMLMessage | undefined, second: ChatMLMessage) => {
+    const firstAudience = first?.hiddenFromAICharacterIds ?? [];
+    const secondAudience = second.hiddenFromAICharacterIds ?? [];
+    return (
+      firstAudience.length === secondAudience.length &&
+      firstAudience.every((characterId) => secondAudience.includes(characterId))
+    );
+  };
+
   const mergeInto = (target: ChatMLMessage, source: ChatMLMessage) => {
     target.content += "\n\n" + source.content;
     if (target.contextKind !== source.contextKind) {
@@ -847,8 +856,8 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
   let idx = 0;
   while (idx < messages.length && messages[idx]!.role === "system") {
     const msg = messages[idx]!;
-    const leadingSystem = result[0];
-    if (leadingSystem?.role === "system") {
+    const leadingSystem = result[result.length - 1];
+    if (leadingSystem?.role === "system" && hasSameAudience(leadingSystem, msg)) {
       mergeInto(leadingSystem, msg);
     } else {
       result.push({ ...msg });
@@ -861,14 +870,14 @@ function enforceStrictRoles(messages: ChatMLMessage[]): ChatMLMessage[] {
 
     if (msg.role === "system") {
       const prev = result[result.length - 1];
-      if (prev?.role === "system") mergeInto(prev, msg);
+      if (prev?.role === "system" && hasSameAudience(prev, msg)) mergeInto(prev, msg);
       else result.push({ ...msg });
       continue;
     }
 
     const prev = result[result.length - 1];
     const sameCharacter = (prev?.characterId ?? null) === (msg.characterId ?? null);
-    if (prev && prev.role === msg.role && sameCharacter) {
+    if (prev && prev.role === msg.role && sameCharacter && hasSameAudience(prev, msg)) {
       mergeInto(prev, msg);
     } else {
       result.push({ ...msg });

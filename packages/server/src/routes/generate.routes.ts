@@ -200,6 +200,7 @@ import {
   computeSummaryHideIds,
   selectRollingSummaryMessages,
   injectIntoOutputFormatOrLastUser,
+  getMessageHiddenFromAICharacterIds,
   isManualTrackerCharacterId,
   isMessageHiddenFromAI,
   mergeCustomParameters,
@@ -421,6 +422,7 @@ import {
   type ConversationProfileParticipant,
 } from "../services/conversation/conversation-profiles.js";
 import {
+  filterPromptMessagesForCharacterAudience,
   scopeIndividualGroupMessagesForTarget,
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
@@ -1243,6 +1245,7 @@ export async function generateRoutes(app: FastifyInstance) {
           const photoName = userUploadedImages[0]?.filename ?? userUploadedImages[0]?.name;
           content += `\n[Sent a photo${photoName ? `: ${photoName}` : ""}]`;
         }
+        const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
 
         return {
           id: typeof m.id === "string" ? m.id : null,
@@ -1250,6 +1253,7 @@ export async function generateRoutes(app: FastifyInstance) {
           content,
           contextKind: "history" as const,
           characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
+          ...(hiddenFromAICharacterIds.length ? { hiddenFromAICharacterIds } : {}),
           ...(attachmentInputs.images.length ? { images: attachmentInputs.images } : {}),
           ...(attachmentInputs.files.length ? { files: attachmentInputs.files } : {}),
           ...(Object.keys(providerMetadata).length ? { providerMetadata } : {}),
@@ -4729,6 +4733,17 @@ export async function generateRoutes(app: FastifyInstance) {
               ]);
             }
           }
+          const audienceCharacterIds = input.impersonate
+            ? []
+            : speaksOnlyTargetCharacter
+              ? targetCharId
+                ? [targetCharId]
+                : []
+              : characterIds;
+          gameAwareMessagesForGen = filterPromptMessagesForCharacterAudience(
+            gameAwareMessagesForGen,
+            audienceCharacterIds,
+          );
           const scopedMessagesForGen =
             isGroupChat && usesIndividualGroupGeneration && targetCharId
               ? scopeIndividualGroupMessagesForTarget(gameAwareMessagesForGen, targetCharId, charInfo)

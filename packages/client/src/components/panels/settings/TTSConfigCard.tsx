@@ -38,7 +38,14 @@ import type {
   TTSAudioFormat,
   TTSConversationCallAudioInputMode,
 } from "@marinara-engine/shared";
-import { ELEVENLABS_TTS_LANGUAGE_OPTIONS, TTS_API_KEY_MASK, ttsSourceProfileFromConfig } from "@marinara-engine/shared";
+import {
+  ELEVENLABS_TTS_LANGUAGE_OPTIONS,
+  TTS_API_KEY_MASK,
+  TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS,
+  TTS_DIALOGUE_PAUSE_MAX_SECONDS,
+  TTS_DIALOGUE_PAUSE_MIN_SECONDS,
+  ttsSourceProfileFromConfig,
+} from "@marinara-engine/shared";
 import { HelpTooltip } from "../../ui/HelpTooltip";
 import { SettingsCheckbox, SettingsSwitch } from "./SettingControls";
 
@@ -470,7 +477,7 @@ export function TTSConfigCard() {
   const [autoplayGame, setAutoplayGame] = useState(false);
   const [progressivePlayback, setProgressivePlayback] = useState(false);
   const [dialogueOnly, setDialogueOnly] = useState(false);
-  const [dialoguePauseMs, setDialoguePauseMs] = useState(300);
+  const [dialoguePauseSeconds, setDialoguePauseSeconds] = useState(TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS);
   const [audioFormat, setAudioFormat] = useState<TTSAudioFormat>("mp3");
   const [callAudioEnabled, setCallAudioEnabled] = useState(false);
   const [callAudioInputMode, setCallAudioInputMode] = useState<TTSConversationCallAudioInputMode>("local_whisper");
@@ -526,7 +533,9 @@ export function TTSConfigCard() {
     setAutoplayGame(savedConfig.autoplayGame);
     setProgressivePlayback(savedConfig.progressivePlayback ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
-    setDialoguePauseMs(savedConfig.dialoguePauseMs ?? 300);
+    setDialoguePauseSeconds(
+      (savedConfig.dialoguePauseMs ?? TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000) / 1000,
+    );
     setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setCallAudioEnabled(savedConfig.callAudioEnabled ?? false);
     setCallAudioInputMode(savedConfig.callAudioInputMode ?? "local_whisper");
@@ -596,7 +605,7 @@ export function TTSConfigCard() {
     autoplayGame,
     progressivePlayback,
     dialogueOnly,
-    dialoguePauseMs,
+    dialoguePauseMs: dialoguePauseSeconds * 1000,
     audioFormat,
     callAudioEnabled,
     callSttConnectionId: "",
@@ -1538,25 +1547,26 @@ export function TTSConfigCard() {
             />
             {dialogueOnly && (
               <FieldRow
-                label={`Pause between dialogues — ${dialoguePauseMs} ms`}
+                label={`Pause between dialogues: ${dialoguePauseSeconds} ${dialoguePauseSeconds === 1 ? "second" : "seconds"}`}
                 help="Adds silence between separate dialogue lines in the same message. It does not pause between chunks of the same long dialogue."
               >
                 <input
                   type="range"
-                  min={0}
-                  max={1500}
-                  step={50}
-                  value={dialoguePauseMs}
+                  aria-label="Pause between dialogues in seconds"
+                  min={TTS_DIALOGUE_PAUSE_MIN_SECONDS}
+                  max={TTS_DIALOGUE_PAUSE_MAX_SECONDS}
+                  step={1}
+                  value={dialoguePauseSeconds}
                   onChange={(event) => {
                     const next = Number(event.target.value);
-                    setDialoguePauseMs(next);
-                    mark({ dialoguePauseMs: next });
+                    setDialoguePauseSeconds(next);
+                    mark({ dialoguePauseMs: next * 1000 });
                   }}
-                  className="w-full accent-rose-400"
+                  className="w-full accent-[var(--primary)]"
                 />
                 <div className="flex justify-between text-[0.6rem] text-[var(--muted-foreground)]">
-                  <span>No pause</span>
-                  <span>1500 ms</span>
+                  <span>{TTS_DIALOGUE_PAUSE_MIN_SECONDS} s</span>
+                  <span>{TTS_DIALOGUE_PAUSE_MAX_SECONDS} s</span>
                 </div>
               </FieldRow>
             )}

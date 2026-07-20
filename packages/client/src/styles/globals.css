@@ -2949,6 +2949,13 @@ strong {
 /* Firefox on Windows can rasterize text inside large blurred/translucent layout layers,
    which shows up most clearly on high-DPI displays. Fall back to opaque shell chrome there. */
 @supports (-moz-appearance: none) {
+  @media (min-width: 768px) {
+    .mari-shell-panel-slot,
+    .mari-shell-panel-motion {
+      transition: none;
+    }
+  }
+
   :root {
     --marinara-topbar-surface: var(--card);
   }
@@ -4328,20 +4335,31 @@ strong {
   box-shadow:
     0 0 0 2px rgba(96, 165, 250, 0.25),
     0 0 16px rgba(96, 165, 250, 0.1);
-  animation: rpg-stream-pulse 2s ease-in-out infinite;
+}
+
+.rpg-streaming::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(96, 165, 250, 0.5);
+  border-radius: inherit;
+  box-shadow: inset 0 0 16px rgba(96, 165, 250, 0.18);
+  opacity: 0.25;
+  animation: rpg-stream-pulse 1.6s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate;
+  will-change: opacity;
 }
 
 @keyframes rpg-stream-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 2px rgba(96, 165, 250, 0.25),
-      0 0 16px rgba(96, 165, 250, 0.1);
+  to {
+    opacity: 0.8;
   }
-  50% {
-    box-shadow:
-      0 0 0 3px rgba(96, 165, 250, 0.4),
-      0 0 24px rgba(96, 165, 250, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rpg-streaming::after {
+    animation: none;
+    opacity: 0.45;
   }
 }
 

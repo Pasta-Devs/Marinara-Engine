@@ -10,6 +10,7 @@ import { formatAgentFailuresToast, toAgentFailure, type AgentFailure } from "../
 import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
 import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import {
+  getTypewriterRevealCharsPerSecond,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
 } from "../lib/generation-stream-policy";
@@ -1230,6 +1231,8 @@ export function useGenerate() {
       ]);
       let fullBuffer = ""; // What the user sees (or accumulates silently when streaming is off)
       let pendingText = ""; // Tokens waiting to be typed out
+      let lastVisibleChunkAt = 0;
+      let observedArrivalCharsPerSecond: number | null = null;
       let receivedContent = false; // Whether any actual message content was received
       let receivedThinking = false; // Whether provider-native thinking chunks were received
       let gameTurnLoadedSoundPlayed = false;
@@ -1262,6 +1265,18 @@ export function useGenerate() {
         }
         if (!normalizedChunk) return;
         if (streamingEnabled && shouldDisplayRawStream) {
+          const now = performance.now();
+          if (lastVisibleChunkAt > 0) {
+            const elapsedMs = now - lastVisibleChunkAt;
+            if (elapsedMs >= 16 && elapsedMs <= 5000) {
+              const sampleRate = (normalizedChunk.length * 1000) / elapsedMs;
+              observedArrivalCharsPerSecond =
+                observedArrivalCharsPerSecond === null
+                  ? sampleRate
+                  : observedArrivalCharsPerSecond * 0.5 + sampleRate * 0.5;
+            }
+          }
+          lastVisibleChunkAt = now;
           pendingText += normalizedChunk;
           startTypewriter();
         } else {
@@ -1372,7 +1387,12 @@ export function useGenerate() {
           const elapsedMs = Math.min(TYPEWRITER_MAX_FRAME_MS, Math.max(0, now - lastTypewriterPaintAt));
           lastTypewriterPaintAt = now;
 
-          const charsPerSecond = getCharsPerSecond();
+          const charsPerSecond = getTypewriterRevealCharsPerSecond({
+            selectedCharsPerSecond: getCharsPerSecond(),
+            pendingCharacters: pendingText.length,
+            observedArrivalCharsPerSecond,
+            streamComplete: sawDoneEvent,
+          });
           if (charsPerSecond === Infinity) {
             fullBuffer += pendingText;
             pendingText = "";
