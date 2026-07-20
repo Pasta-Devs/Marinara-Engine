@@ -12,7 +12,6 @@ import {
   Sparkles,
   Trash2,
   UserRound,
-  Users,
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -906,6 +905,24 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
                 <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">You're subscribed to everyone!</p>
               )}
             </section>
+
+            <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+              <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+                <h3 className="text-lg font-bold">Your stage profiles</h3>
+              </div>
+              <div className="px-4 py-3">
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  Private identities and guided posts you publish as.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowManageProfiles(true)}
+                  className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
+                >
+                  Manage stage profiles
+                </button>
+              </div>
+            </section>
           </div>
         </aside>
       }
@@ -927,7 +944,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           if (!viewerPersonaId) return;
           unlockPost.mutate({ postId, personaId: viewerPersonaId });
         }}
-        onManageProfiles={() => setShowManageProfiles(true)}
         search={feedSearch}
         tab={feedTab}
         onTabChange={setFeedTab}
@@ -1604,7 +1620,6 @@ function ViewerHub({
   postCardCtx,
   onToggleSubscription,
   onUnlock,
-  onManageProfiles,
   search,
   tab,
   onTabChange,
@@ -1623,7 +1638,6 @@ function ViewerHub({
   postCardCtx: NoodlePostCardCtx;
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   onUnlock: (postId: string) => void;
-  onManageProfiles: () => void;
   search: string;
   tab: "all" | "subscribed";
   onTabChange: (tab: "all" | "subscribed") => void;
@@ -1654,17 +1668,6 @@ function ViewerHub({
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
     <div>
-      <div className="flex items-center justify-end gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
-        <button
-          type="button"
-          onClick={onManageProfiles}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
-          title="Manage profiles"
-          aria-label="Manage stage profiles"
-        >
-          <Users size={18} />
-        </button>
-      </div>
       <div className="grid grid-cols-2 border-b border-[var(--noodle-divider)]">
         {(
           [
