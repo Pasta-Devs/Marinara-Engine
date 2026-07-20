@@ -310,7 +310,7 @@ export class OpenAIProvider extends BaseLLMProvider {
   }
 
   private shouldSendTopK(): boolean {
-    return this.apiKey === "local-sidecar";
+    return this.apiKey === "local-sidecar" || this.isGenericCustomProvider();
   }
 
   /**
@@ -752,6 +752,13 @@ export class OpenAIProvider extends BaseLLMProvider {
     )
       return;
 
+    if (this.isGenericCustomProvider()) {
+      if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
+        body.reasoning_effort = options.reasoningEffort;
+      }
+      return;
+    }
+
     if (this.isOpenRouterEndpoint() && this.hasActiveReasoningEffort(options.reasoningEffort)) {
       const existingReasoning =
         body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)
@@ -856,9 +863,7 @@ export class OpenAIProvider extends BaseLLMProvider {
 
   private supportsGpt5Verbosity(model: string): boolean {
     if (this.isOpenAIChatGPTProvider()) return false;
-    return (
-      (!this.isGenericCustomProvider() || this.isOpenAIGpt55Or56Model(model)) && model.toLowerCase().startsWith("gpt-5")
-    );
+    return this.isGenericCustomProvider() || model.toLowerCase().startsWith("gpt-5");
   }
 
   private applyResponsesTextOptions(body: Record<string, unknown>, options: ChatOptions): void {

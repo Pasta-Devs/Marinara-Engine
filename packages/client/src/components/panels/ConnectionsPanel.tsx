@@ -36,7 +36,7 @@ import { useAgentConfigs, useCreateAgent, useUpdateAgent } from "../../hooks/use
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore, type ConnectionPanelSort } from "../../stores/ui.store";
-import { useSidecarStore } from "../../stores/sidecar.store";
+import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store";
 import {
   BUILT_IN_AGENTS,
   LOCAL_SIDECAR_CONNECTION_ID,
@@ -319,12 +319,14 @@ function SidecarCard() {
     setShowDownloadModal(true);
   };
 
-  const handleDownloadNow = () => {
+  const handleDownloadNow = async () => {
     const quantization =
       curatedModels.find((model) => model.quantization === "q4_k_m")?.quantization ??
       curatedModels[0]?.quantization ??
       "q4_k_m";
-    void startDownload(quantization);
+    if (await startDownload(quantization)) {
+      toast.success(GEMMA_RESTART_MESSAGE);
+    }
   };
 
   const isDownloading = downloadProgress?.status === "downloading";
@@ -354,9 +356,11 @@ function SidecarCard() {
         : "Not downloaded";
   const speechUnavailableMessage = describeSpeechRuntimeUnavailable(speechRuntime);
 
-  const handleDownloadWhisper = () => {
+  const handleDownloadWhisper = async () => {
     if (!activeSpeechModel || speechDownloading) return;
-    void startSpeechDownload(activeSpeechModel.id);
+    if (await startSpeechDownload(activeSpeechModel.id)) {
+      toast.success("Whisper downloaded. Completely restart Marinara Engine before using Calls or Videos.");
+    }
   };
 
   return (

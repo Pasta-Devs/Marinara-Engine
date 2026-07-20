@@ -246,6 +246,67 @@ function BudgetSkippedEntriesNotice({ entries }: { entries: BudgetSkippedLoreboo
   );
 }
 
+export function ActiveLorebookEntriesContent({ chatId }: { chatId: string }) {
+  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
+  const entries = data?.entries ?? [];
+  const skippedEntries = data?.budgetSkippedEntries ?? [];
+  const currentLocationEntries = entries.filter((entry) => entry.activationSources.includes("current_location"));
+  const otherEntries = entries.filter((entry) => !entry.activationSources.includes("current_location"));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
+        <Loader2 size="0.75rem" className="animate-spin" />
+        Scanning entries...
+      </div>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <>
+        <BudgetSkippedEntriesNotice entries={skippedEntries} />
+        <p className="py-3 text-center text-xs text-[var(--muted-foreground)]">No active entries for this chat</p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="mb-2 text-[0.625rem] text-[var(--muted-foreground)]">
+        {entries.length} active • ~{(data?.totalTokens ?? 0).toLocaleString()} tokens
+      </p>
+      <BudgetSkippedEntriesNotice entries={skippedEntries} />
+      {currentLocationEntries.length > 0 && (
+        <section aria-label="Current location lore">
+          <h4 className="mb-1.5 flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-sky-200">
+            <MapPin size="0.6875rem" /> Current location
+          </h4>
+          <div className="space-y-1.5">
+            {currentLocationEntries.map((entry) => (
+              <ActiveLorebookEntryRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </section>
+      )}
+      {otherEntries.length > 0 && (
+        <section className={cn(currentLocationEntries.length > 0 && "mt-3")} aria-label="Other active lore">
+          {currentLocationEntries.length > 0 && (
+            <h4 className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              Other active lore
+            </h4>
+          )}
+          <div className="space-y-1.5">
+            {otherEntries.map((entry) => (
+              <ActiveLorebookEntryRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
 export function ActiveLorebookEntriesPanel({
   chatId,
   onClose,
@@ -253,12 +314,6 @@ export function ActiveLorebookEntriesPanel({
   chatId: string;
   onClose: () => void;
 }) {
-  const { data, isLoading } = useActiveLorebookEntries(chatId, true);
-  const entries = data?.entries ?? [];
-  const skippedEntries = data?.budgetSkippedEntries ?? [];
-  const currentLocationEntries = entries.filter((entry) => entry.activationSources.includes("current_location"));
-  const otherEntries = entries.filter((entry) => !entry.activationSources.includes("current_location"));
-
   return (
     <>
       <h3 className={cn(ROLEPLAY_POPOVER_TITLE, "mb-2")}>
@@ -273,50 +328,7 @@ export function ActiveLorebookEntriesPanel({
           <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
         </button>
       </h3>
-      {isLoading ? (
-        <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
-          <Loader2 size="0.75rem" className="animate-spin" />
-          Scanning entries...
-        </div>
-      ) : entries.length === 0 ? (
-        <>
-          <BudgetSkippedEntriesNotice entries={skippedEntries} />
-          <p className="py-3 text-center text-xs text-[var(--muted-foreground)]">No active entries for this chat</p>
-        </>
-      ) : (
-        <>
-          <p className="mb-2 text-[0.625rem] text-[var(--muted-foreground)]">
-            {entries.length} active • ~{(data?.totalTokens ?? 0).toLocaleString()} tokens
-          </p>
-          <BudgetSkippedEntriesNotice entries={skippedEntries} />
-          {currentLocationEntries.length > 0 && (
-            <section aria-label="Current location lore">
-              <h4 className="mb-1.5 flex items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-sky-200">
-                <MapPin size="0.6875rem" /> Current location
-              </h4>
-              <div className="space-y-1.5">
-                {currentLocationEntries.map((entry) => (
-                  <ActiveLorebookEntryRow key={entry.id} entry={entry} />
-                ))}
-              </div>
-            </section>
-          )}
-          {otherEntries.length > 0 && (
-            <section className={cn(currentLocationEntries.length > 0 && "mt-3")} aria-label="Other active lore">
-              {currentLocationEntries.length > 0 && (
-                <h4 className="mb-1.5 text-[0.625rem] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                  Other active lore
-                </h4>
-              )}
-              <div className="space-y-1.5">
-                {otherEntries.map((entry) => (
-                  <ActiveLorebookEntryRow key={entry.id} entry={entry} />
-                ))}
-              </div>
-            </section>
-          )}
-        </>
-      )}
+      <ActiveLorebookEntriesContent chatId={chatId} />
     </>
   );
 }

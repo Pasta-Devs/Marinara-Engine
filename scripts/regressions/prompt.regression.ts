@@ -214,6 +214,11 @@ import {
   renderAgentPromptTemplate,
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import { shouldSkipAgentByAssistantInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
+import { filterPromptMessagesForCharacterAudience } from "../../packages/server/src/services/generation/prompt-message-scope.js";
+import {
+  mergeAdjacentMessages,
+  squashLeadingSystemMessages,
+} from "../../packages/server/src/services/prompt/merger.js";
 import type { ResolvedAgent } from "../../packages/server/src/services/agents/agent-pipeline.js";
 import { loadGameVideoPrompt } from "../../packages/server/src/services/video/game-video-prompt.js";
 import { loadGameStoryboardImagePrompt } from "../../packages/server/src/services/image/game-storyboard-image-prompt.js";
@@ -264,6 +269,123 @@ assert.equal(
   true,
   "a swipe or continuation should not count as a new accepted assistant message",
 );
+
+const selectivelyHiddenMessage = {
+  extra: JSON.stringify({ hiddenFromAICharacterIds: ["pantalone", "pantalone", " dottore ", 42] }),
+};
+assert.deepEqual(
+  getMessageHiddenFromAICharacterIds(selectivelyHiddenMessage),
+  ["pantalone", "dottore"],
+  "per-character AI visibility should normalize valid unique character IDs",
+);
+assert.equal(
+  isMessageHiddenFromAIForCharacter(selectivelyHiddenMessage, "pantalone"),
+  true,
+  "a selectively hidden message should be excluded from the selected character's context",
+);
+assert.equal(
+  isMessageHiddenFromAIForCharacter(selectivelyHiddenMessage, "maukie"),
+  false,
+  "a selectively hidden message should remain visible to non-selected characters",
+);
+assert.equal(
+  isMessageHiddenFromAIForCharacter({ extra: { hiddenFromAI: true } }, "maukie"),
+  true,
+  "legacy global AI visibility should continue to hide messages from every character",
+);
+
+const audienceScopedHistory: ChatMLMessage[] = [
+  {
+    role: "user",
+    content: "<chat_history>\nVisible setup\n</chat_history>",
+    contextKind: "history",
+  },
+  {
+    role: "assistant",
+    content: "<last_message>\nPantalone's private clue\n</last_message>",
+    contextKind: "history",
+    characterId: "dottore",
+    hiddenFromAICharacterIds: ["pantalone"],
+  },
+];
+const pantaloneHistory = filterPromptMessagesForCharacterAudience(audienceScopedHistory, ["pantalone"]);
+assert.equal(pantaloneHistory.length, 1, "the selected character should not receive the restricted history message");
+assert.match(
+  pantaloneHistory[0]!.content,
+  /^<last_message>[\s\S]*Visible setup[\s\S]*<\/last_message>$/,
+  "history wrappers should be repaired after a restricted message is removed",
+);
+assert.equal(
+  filterPromptMessagesForCharacterAudience(audienceScopedHistory, ["dottore"]).length,
+  2,
+  "other group characters should keep the restricted message in context",
+);
+assert.equal(
+  mergeAdjacentMessages([
+    { role: "user", content: "Visible", contextKind: "history" },
+    {
+      role: "user",
+      content: "Private",
+      contextKind: "history",
+      hiddenFromAICharacterIds: ["pantalone"],
+    },
+  ]).length,
+  2,
+  "prompt assembly must not merge messages with different character audiences",
+);
+const mergedRestrictedHistory = mergeAdjacentMessages([
+  {
+    role: "user",
+    content: "First private detail",
+    contextKind: "history",
+    hiddenFromAICharacterIds: ["pantalone"],
+  },
+  {
+    role: "user",
+    content: "Second private detail",
+    contextKind: "history",
+    hiddenFromAICharacterIds: ["pantalone"],
+  },
+]);
+assert.equal(mergedRestrictedHistory.length, 1, "messages with the same restricted audience may still merge");
+assert.deepEqual(
+  mergedRestrictedHistory[0]!.hiddenFromAICharacterIds,
+  ["pantalone"],
+  "merged messages should retain their restricted audience",
+);
+assert.equal(
+  mergeAdjacentMessages([
+    { role: "user", content: "First shared secret", hiddenFromAICharacterIds: ["pantalone", "dottore"] },
+    { role: "user", content: "Second shared secret", hiddenFromAICharacterIds: ["dottore", "pantalone"] },
+  ]).length,
+  1,
+  "equivalent character audiences should merge regardless of selection order",
+);
+assert.equal(
+  squashLeadingSystemMessages([
+    { role: "system", content: "Visible system context" },
+    { role: "system", content: "Private event", hiddenFromAICharacterIds: ["pantalone"] },
+  ]).length,
+  2,
+  "system-message squashing should not combine different character audiences",
+);
+const audienceScopedSystemMessages = squashLeadingSystemMessages([
+  { role: "system", content: "Public setup A" },
+  { role: "system", content: "Public setup B" },
+  { role: "system", content: "Private setup A", hiddenFromAICharacterIds: ["pantalone", "dottore"] },
+  { role: "system", content: "Private setup B", hiddenFromAICharacterIds: ["dottore", "pantalone"] },
+  { role: "user", content: "Continue" },
+]);
+assert.deepEqual(
+  audienceScopedSystemMessages.map((message) => message.content),
+  ["Public setup A\n\nPublic setup B", "Private setup A\n\nPrivate setup B", "Continue"],
+  "leading system messages should squash within contiguous equivalent audience runs",
+);
+assert.deepEqual(
+  audienceScopedSystemMessages[1]!.hiddenFromAICharacterIds,
+  ["pantalone", "dottore"],
+  "squashed system runs should retain their character audience",
+);
 import {
   compactVideoPromptText,
   getSceneVideoPromptLimits,
@@ -289,6 +411,7 @@ import {
 } from "../../packages/server/src/services/generation/lorebook-generation-runtime.js";
 import {
   buildGameIllustratorAppearanceContextBlock,
+  buildDynamicGameImagePromptMessages,
   buildIllustrationNarrationSummaryMessages,
   buildStoryboardIllustratorMessages,
   extractCharacterAppearanceText,
@@ -336,7 +459,9 @@ import {
   buildGenerationGuideInstruction,
   appendSeparateAgentInjectionMessage,
   collectLatestTrackerCharacterHistory,
+  getMessageHiddenFromAICharacterIds,
   injectIntoOutputFormatOrLastUser,
+  isMessageHiddenFromAIForCharacter,
   preserveTrackerCharacterUiFields,
   resolveActivePersonaCandidate,
   shouldEnableAgentsForGeneration,
@@ -3025,7 +3150,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(appearance, /^Canonical NPC profile:/);
       assert.match(appearance, /Current outfit: Persimmon kimono/);
       assert.match(appearance, /Current expression or mood: Warm smile/);
-      assert.match(appearance, /Notable details: Carries a debt-scroll/);
+      assert.doesNotMatch(appearance, /debt-scroll|Notable details/);
     },
   },
   {
@@ -3071,7 +3196,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         ...request,
         dynamicPromptGenerator: async () => "Centered portrait of Lyra with a readable expression and clean lighting.",
       });
-      assert.equal(countAppearance(dynamicOmitted.prompt), 1);
+      assert.equal(countAppearance(dynamicOmitted.prompt), 0);
 
       const shortDescription = await buildNpcPortraitProviderPrompt({
         ...request,
@@ -3079,7 +3204,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         dynamicPromptGenerator: async () =>
           "Centered portrait of a woman with clean lighting and a readable expression.",
       });
-      assert.match(shortDescription.prompt, /^Required canonical NPC visual profile: man\./);
+      assert.doesNotMatch(shortDescription.prompt, /canonical NPC visual profile|\bman\b/i);
 
       const narrationDescription = "A rain-soaked courier in a patched green cloak.";
       const narrationAppearance = resolveNpcPortraitAppearance(
@@ -3097,6 +3222,49 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       assert.equal(narrationPrompt.prompt.toLowerCase().split(narrationDescription.toLowerCase()).length - 1, 1);
       assert.doesNotMatch(narrationPrompt.prompt, /Canonical NPC profile:/);
+    },
+  },
+  {
+    name: "custom dynamic portrait instructions remain authoritative",
+    async run() {
+      const override = "Return only a clean comma-separated visual tag list. Never copy prose labels.";
+      const promptOverridesStorage = {
+        async get(key: string) {
+          return key === "game.imagePromptDirector"
+            ? { key, template: override, enabled: true, updatedAt: "2026-07-20T00:00:00.000Z" }
+            : null;
+        },
+        async list() {
+          return [];
+        },
+        async upsert(input) {
+          return {
+            key: input.key,
+            template: input.template,
+            enabled: input.enabled,
+            updatedAt: "2026-07-20T00:00:00.000Z",
+          };
+        },
+        async remove() {},
+      } satisfies PromptOverridesStorage;
+      const messages = await buildDynamicGameImagePromptMessages({
+        promptOverridesStorage,
+        request: {
+          kind: "portrait",
+          title: "Sentinel",
+          sourcePrompt: "One alien sentinel in a bioluminescent hive interior.",
+          assetContext: ["NPC name: Sentinel", "Appearance traits: towering alien, long tail, glowing eyes"],
+          maxCharacters: 1400,
+        },
+        meta: {},
+        setupConfig: null,
+        latestState: null,
+      });
+
+      assert.equal(messages[0]?.content, override);
+      assert.match(messages[1]?.content ?? "", /Appearance traits: towering alien/);
+      assert.doesNotMatch(messages[1]?.content ?? "", /copy the Required canonical NPC visual profile/i);
+      assert.doesNotMatch(messages[1]?.content ?? "", /Return only JSON/i);
     },
   },
   {
@@ -3254,6 +3422,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       assert.equal(countValue(embeddedNegation.prompt, "ornate rococo oil painting"), 1);
       assert.match(embeddedNegation.negativePrompt, /ornate rococo oil painting/i);
+    },
+  },
+  {
+    name: "deprecated image-style rule flags remain provider-visible no-ops",
+    run() {
+      const settings = createDefaultImageStyleProfileSettings();
+      const profile = settings.profiles.find((entry) => entry.id === "anime")!;
+      const compile = (preferTagsOverNarrative: boolean, preserveUserPhrases: boolean) => {
+        const result = compileImagePrompt({
+          kind: "portrait",
+          prompt: "A silver-haired scholar holding a glass vial in a moonlit laboratory.",
+          negativePrompt: "blurry, text",
+          styleProfiles: {
+            ...settings,
+            profiles: [
+              ...settings.profiles.filter((entry) => entry.id !== profile.id),
+              {
+                ...profile,
+                rules: { ...profile.rules, preferTagsOverNarrative, preserveUserPhrases },
+              },
+            ],
+          },
+          styleProfileId: profile.id,
+        });
+        return {
+          prompt: result.prompt,
+          negativePrompt: result.negativePrompt,
+          diagnostics: result.diagnostics,
+        };
+      };
+      const baseline = compile(false, false);
+      assert.deepEqual(compile(false, true), baseline);
+      assert.deepEqual(compile(true, false), baseline);
+      assert.deepEqual(compile(true, true), baseline);
     },
   },
   {

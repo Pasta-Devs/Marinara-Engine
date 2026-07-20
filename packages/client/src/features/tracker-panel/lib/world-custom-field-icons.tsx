@@ -140,7 +140,7 @@ const WORLD_CUSTOM_FIELD_ICONS = {
   zap: Zap,
 } satisfies Record<SupportedWorldCustomFieldIcon, LucideIcon>;
 
-export function getWorldCustomFieldIcon(icon: unknown) {
+function getWorldCustomFieldIcon(icon: unknown) {
   const normalized = normalizeWorldCustomFieldIcon(icon) ?? DEFAULT_WORLD_CUSTOM_FIELD_ICON;
   return WORLD_CUSTOM_FIELD_ICONS[normalized] ?? Tag;
 }

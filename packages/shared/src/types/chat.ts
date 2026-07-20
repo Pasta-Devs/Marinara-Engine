@@ -69,10 +69,8 @@ export const CONVERSATION_COMMAND_AGENT_IDS: Partial<Record<ConversationCommandK
 
 export type ConversationPresenceStatus = "online" | "idle" | "dnd" | "offline";
 
-export type ConversationManualPresenceStatus = ConversationPresenceStatus;
-
 export interface ConversationStatusOverride {
-  status: ConversationManualPresenceStatus;
+  status: ConversationPresenceStatus;
   activity?: string | null;
   createdAt: string;
   expiresAt?: string | null;
@@ -743,6 +741,8 @@ export interface MessageExtra {
   hiddenFromUser?: boolean;
   /** When true, the visible message is excluded from future AI prompt context */
   hiddenFromAI?: boolean;
+  /** Character IDs whose generation context excludes this message. Global hiddenFromAI takes precedence. */
+  hiddenFromAICharacterIds?: string[];
   /** When true, Roleplay renders this generated assistant turn as a fresh bubble instead of grouping with the previous assistant turn. */
   startsNewAssistantBubble?: boolean;
   /** Structured dice roll payload rendered by the chat UI. */

@@ -22,7 +22,7 @@ import { spotifyPlayToolManifest } from "./tools/spotify-play/manifest.js";
 import { spotifySetVolumeToolManifest } from "./tools/spotify-set-volume/manifest.js";
 import { editChatMessageToolManifest } from "./tools/edit-chat-message/manifest.js";
 
-export const BUILT_IN_TOOL_MANIFESTS: readonly ToolDefinition[] = [
+export const BUILT_IN_TOOLS: ToolDefinition[] = [
   rollDiceToolManifest,
   updateGameStateToolManifest,
   setExpressionToolManifest,

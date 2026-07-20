@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -31,7 +32,7 @@ import {
   type SidecarRuntimePreference,
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal.js";
-import { useSidecarStore } from "../../stores/sidecar.store.js";
+import { GEMMA_RESTART_MESSAGE, useSidecarStore } from "../../stores/sidecar.store.js";
 
 interface Props {
   open: boolean;
@@ -348,15 +349,19 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     onClose();
   };
 
-  const handleCuratedDownload = () => {
+  const handleCuratedDownload = async () => {
     markPrompted();
-    void startDownload(selectedQuant);
+    if (await startDownload(selectedQuant)) {
+      toast.success(GEMMA_RESTART_MESSAGE);
+    }
   };
 
-  const handleCustomDownload = () => {
+  const handleCustomDownload = async () => {
     if (!repoInput.trim()) return;
     markPrompted();
-    void startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath);
+    if (await startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath)) {
+      toast.success("Local model downloaded. Completely restart Marinara Engine before using it.");
+    }
   };
 
   const handleListModels = async () => {

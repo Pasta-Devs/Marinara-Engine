@@ -18,7 +18,9 @@ export type ImagePromptKind = "portrait" | "selfie" | "background" | "illustrati
 
 export interface ImageStyleProfileRules {
   dedupeStrength: ImagePromptDedupeStrength;
+  /** @deprecated Compatibility-only no-op. Accepted through 2.x; remove in the next major version. */
   preferTagsOverNarrative: boolean;
+  /** @deprecated Compatibility-only no-op. Accepted through 2.x; remove in the next major version. */
   preserveUserPhrases: boolean;
 }
 

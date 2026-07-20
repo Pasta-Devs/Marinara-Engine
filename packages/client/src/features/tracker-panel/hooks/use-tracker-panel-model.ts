@@ -72,15 +72,14 @@ export function useTrackerPanelModel({
     trackerPanelUseExpressionSprites &&
     expressionAgentEnabled &&
     (personaTrackerEnabled || characterTrackerEnabled);
-  const characterDataLookupEnabled = !!activeChatId && characterTrackerEnabled;
+  const characterTrackerLookupEnabled = !!activeChatId && characterTrackerEnabled;
   const personaDataLookupEnabled = !!activeChatId && personaTrackerEnabled;
-  const agentConfigLookupEnabled = !!activeChatId && characterTrackerEnabled;
   const { data: messageData } = useChatMessages(activeChatId, 20, spriteExpressionLookupEnabled);
-  const { data: agentConfigs } = useAgentConfigs(agentConfigLookupEnabled);
+  const { data: agentConfigs } = useAgentConfigs(characterTrackerLookupEnabled);
   const { data: activePersonaData } = usePersona(personaDataLookupEnabled ? chatPersonaId : null);
   const previewValues = useTrackerCardColorPreviews();
   const { characterSpriteLookup, resolveSpriteCharacterId } = useTrackerSpriteLookup({
-    enabled: characterDataLookupEnabled,
+    enabled: characterTrackerLookupEnabled,
     chatCharacterIds,
     presentCharacters,
   });
@@ -92,13 +91,13 @@ export function useTrackerPanelModel({
     () => parseRecord(characterTrackerConfig?.settings),
     [characterTrackerConfig],
   );
-  const autoGenerateCharacterAvatars = characterTrackerSettings.autoGenerateAvatars === true;
-  const cachedMessages = useMemo(() => messageData?.pages.flat() ?? [], [messageData]);
   const spriteExpressions = useMemo(
     () =>
-      getLatestSpriteExpressionsFromMessages(cachedMessages as Array<{ role?: string; extra?: unknown }>) ??
+      getLatestSpriteExpressionsFromMessages(
+        (messageData?.pages.flat() ?? []) as Array<{ role?: string; extra?: unknown }>,
+      ) ??
       normalizeSpriteExpressionMap(chatMeta.spriteExpressions),
-    [cachedMessages, chatMeta.spriteExpressions],
+    [messageData, chatMeta.spriteExpressions],
   );
   const featuredCharacterCardKeys = useMemo(
     () => new Set(normalizeStringArray(chatMeta[TRACKER_FEATURED_CHARACTER_META_KEY])),
@@ -121,7 +120,6 @@ export function useTrackerPanelModel({
 
   return {
     activePersona,
-    autoGenerateCharacterAvatars,
     characterSpriteLookup,
     characterTrackerConfig,
     characterTrackerSettings,

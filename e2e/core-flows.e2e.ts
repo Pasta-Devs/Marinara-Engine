@@ -661,6 +661,117 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
   }
 });
 
+test("Roleplay Active Context shows rich lorebook activation provenance", async ({ page, request }, testInfo) => {
+  const lorebookId = "roleplay-active-context-smoke-lorebook";
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Roleplay Active Context Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+    data: { activeLorebookIds: [lorebookId] },
+  });
+  expect(metadataResponse.ok()).toBeTruthy();
+
+  await page.route(`**/api/lorebooks/scan/${chat.id}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        entries: [
+          {
+            id: "semantic-entry",
+            name: "Whispered Archive",
+            content: "The archive answers only to a carefully spoken passphrase.",
+            keys: ["archive", "passphrase"],
+            lorebookId,
+            lorebookName: "Archive Codex",
+            activationSources: ["keyword", "semantic"],
+            order: 20,
+            constant: false,
+            selective: false,
+            matchedKeys: ["archive"],
+            matchType: "semantic",
+            semanticScore: 0.864,
+          },
+          {
+            id: "location-entry",
+            name: "Northland Bank",
+            content: "The bank occupies the northern edge of the square.",
+            keys: ["bank"],
+            lorebookId,
+            lorebookName: "Archive Codex",
+            activationSources: ["current_location"],
+            order: 10,
+            constant: false,
+            selective: true,
+            matchedKeys: ["bank"],
+            matchType: "keyword",
+          },
+        ],
+        budgetSkippedEntries: [
+          {
+            id: "skipped-entry",
+            name: "Sealed Annex",
+            lorebookId,
+            lorebookName: "Archive Codex",
+            matchedKeys: ["annex"],
+            activationSources: ["keyword"],
+            matchType: "keyword",
+            estimatedTokens: 144,
+            lorebookBudget: 400,
+            lorebookUsedTokens: 360,
+            chatBudget: 900,
+            chatUsedTokens: 500,
+            blockedBy: "lorebook",
+          },
+        ],
+        totalTokens: 321,
+        totalEntries: 2,
+      }),
+    });
+  });
+  await page.addInitScript((chatId) => {
+    localStorage.setItem("marinara-active-chat-id", chatId);
+  }, chat.id);
+
+  try {
+    await page.goto("/");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options" }).click();
+    }
+    await page.locator('button[aria-label="Active Context"]:visible').click();
+
+    const panel = page.locator('[data-component="RoleplayActiveContextPanel"]');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("2 active • ~321 tokens", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("region", { name: "Current location lore" })).toContainText("Northland Bank");
+    await expect(panel.getByText("Whispered Archive", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Vector 0.864", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Archive Codex · keyword, semantic", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Keys: archive, passphrase", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Matched: archive", { exact: true })).toBeVisible();
+
+    await panel.getByText("Whispered Archive", { exact: true }).click();
+    await expect(panel.getByText("The archive answers only to a carefully spoken passphrase.", { exact: true })).toBeVisible();
+    await panel.getByText("1 matching lore entry was skipped by token budget", { exact: true }).click();
+    await expect(panel.getByText("Sealed Annex", { exact: true })).toBeVisible();
+    await panel.getByText("Sealed Annex", { exact: true }).click();
+    await expect(panel.getByText("Budget used before entry: 360 / 400", { exact: true })).toBeVisible();
+
+    const bounds = await panel.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(testInfo.project.use.viewport!.width);
+    await testInfo.attach("roleplay-active-context.png", {
+      body: await panel.screenshot(),
+      contentType: "image/png",
+    });
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("rewrite shield switches repeatedly between original and rewritten message versions", async ({
   page,
 }, testInfo) => {
@@ -965,6 +1076,24 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
       "Agent Cobra (AgentCobra.wav)",
     );
     await expect(ttsCard.getByText("Loaded 2 voices from PocketTTS server.", { exact: true })).toBeVisible();
+
+    await ttsCard.getByText("Only read dialogues", { exact: true }).click();
+    const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
+    await expect(dialoguePause).toHaveAttribute("min", "1");
+    await expect(dialoguePause).toHaveAttribute("max", "60");
+    await expect(dialoguePause).toHaveAttribute("step", "1");
+    await expect(dialoguePause).toHaveValue("1");
+    await expect(ttsCard.getByText("Pause between dialogues: 1 second", { exact: true })).toBeVisible();
+
+    await dialoguePause.fill("60");
+    await expect(ttsCard.getByText("Pause between dialogues: 60 seconds", { exact: true })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const response = await request.get("/api/tts/config");
+        const config = (await response.json()) as { dialoguePauseMs?: number };
+        return config.dialoguePauseMs;
+      })
+      .toBe(60_000);
   } finally {
     try {
       if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });
@@ -3045,7 +3174,7 @@ test("selected Lorebook entries accept one batch setting update", async ({ page 
   }
 });
 
-test("Lorebook context filter chips keep complete borders inside their scroll areas", async ({ page }, testInfo) => {
+test("Lorebook context filter chips expose Noodle and keep complete borders", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Lorebook filter geometry is covered on desktop.");
 
   const suffix = Date.now();
@@ -3082,6 +3211,7 @@ test("Lorebook context filter chips keep complete borders inside their scroll ar
     },
   });
   expect(entryResponse.ok()).toBeTruthy();
+  const entry = (await entryResponse.json()) as { id: string };
 
   try {
     await page.goto("/");
@@ -3096,6 +3226,18 @@ test("Lorebook context filter chips keep complete borders inside their scroll ar
     await expect(chips.first()).toBeVisible();
     expect(await chips.count()).toBeGreaterThan(8);
     await expect(filterArea.locator("button.mari-editor-chip--accent")).toHaveCount(4);
+
+    const noodleChip = filterArea.getByRole("button", { name: "Noodle", exact: true });
+    await expect(noodleChip).toBeVisible();
+    await noodleChip.click();
+    await expect(noodleChip).toHaveClass(/mari-editor-chip--accent/u);
+    await expect
+      .poll(async () => {
+        const entriesResponse = await page.request.get(`/api/lorebooks/${lorebook.id}/entries`);
+        const entries = (await entriesResponse.json()) as Array<{ id: string; generationTriggerFilters: string[] }>;
+        return entries.find((candidate) => candidate.id === entry.id)?.generationTriggerFilters ?? [];
+      })
+      .toContain("noodle");
 
     const invalidBorders = await chips.evaluateAll((elements) =>
       elements
@@ -5044,7 +5186,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
       await route.fulfill({
         status: 200,
         contentType: "image/svg+xml",
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><path fill="#47234f" d="M0 0h2v2H0z"/></svg>',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="none"><path fill="#8f365f" d="M0 0h800v900H0z"/><path fill="#36548f" d="M800 0h800v900H800z"/></svg>',
       });
     });
     await page.addInitScript((chatId) => {
@@ -5065,13 +5207,42 @@ test("Roleplay displays a selected background when its file route is GET-only", 
             (layers, expectedUrl) =>
               layers.some(
                 (layer) =>
-                  (layer as HTMLElement).style.backgroundImage.includes(expectedUrl) &&
+                  (layer as HTMLImageElement).getAttribute("src")?.includes(expectedUrl) &&
                   (layer as HTMLElement).style.opacity === "1",
               ),
             backgroundUrl,
           ),
       )
       .toBe(true);
+
+    const roleplaySurface = page.locator('[data-chat-mode="roleplay"]');
+    const activeBackground = page.locator(`img.mari-background[src="${backgroundUrl}"]`);
+    await expect(activeBackground).toHaveCSS("object-fit", "fill");
+    const expectBackgroundToFitRoleplaySurface = async () => {
+      await expect
+        .poll(async () => {
+          const [surfaceBox, backgroundBox] = await Promise.all([
+            roleplaySurface.boundingBox(),
+            activeBackground.boundingBox(),
+          ]);
+          if (!surfaceBox || !backgroundBox) return null;
+          return {
+            width: Math.round(backgroundBox.width - surfaceBox.width),
+            height: Math.round(backgroundBox.height - surfaceBox.height),
+          };
+        })
+        .toEqual({ width: 0, height: 0 });
+    };
+
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expectBackgroundToFitRoleplaySurface();
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");
   } finally {

@@ -17,12 +17,12 @@ import {
   parseTrackerCardColorConfig,
   serializeTrackerCardColorConfig,
   setTrackerCardColorPreview,
+  type TrackerCardColorTargetKey,
   type TrackerCardPaintColors,
 } from "../../../lib/tracker-card-colors";
 import { useTrackerGameState } from "../../../features/tracker-panel/hooks/use-tracker-game-state";
 import {
-  addAliasLookups,
-  addExactNameLookups,
+  buildCharacterLookupMap,
   normalizeLookupText,
   normalizeMaybeJsonStringArray,
 } from "../../../features/tracker-panel/lib/tracker-metadata";
@@ -38,7 +38,7 @@ interface CharacterRow {
 }
 
 interface TrackerCardColorTarget {
-  key: string;
+  key: TrackerCardColorTargetKey;
   id: string;
   kind: "persona" | "character";
   entityLabel: TrackerCardColorEntityLabel;
@@ -125,13 +125,13 @@ export function TrackerCardColorSettings() {
   const [draftConfig, setDraftConfig] = useState<TrackerCardColorConfig | null>(null);
   const [saveState, setSaveState] = useState<TrackerCardColorSaveState>("idle");
   const savedConfigRef = useRef<SavedTrackerCardColorConfig | null>(null);
-  const previewSnapshotRef = useRef<TrackerCardColorTarget | null>(null);
+  const previewTargetKeyRef = useRef<TrackerCardColorTargetKey | null>(null);
 
   const restorePreviewSnapshot = useCallback(() => {
-    const previewSnapshot = previewSnapshotRef.current;
-    if (!previewSnapshot) return false;
-    setTrackerCardColorPreview(previewSnapshot.kind, previewSnapshot.id, null);
-    previewSnapshotRef.current = null;
+    const previewTargetKey = previewTargetKeyRef.current;
+    if (!previewTargetKey) return false;
+    setTrackerCardColorPreview(previewTargetKey, null);
+    previewTargetKeyRef.current = null;
     return true;
   }, []);
 
@@ -156,7 +156,6 @@ export function TrackerCardColorSettings() {
       ? (charactersData as CharacterRow[]).filter((character) => typeof character.id === "string" && character.id)
       : [];
     const charactersById = new Map(characterRows.map((character) => [character.id, character]));
-    const idByLookupText = new Map<string, string>();
     const activeChatCharacterIds = normalizeMaybeJsonStringArray(
       (activeChat as { characterIds?: unknown } | null | undefined)?.characterIds,
     );
@@ -168,10 +167,7 @@ export function TrackerCardColorSettings() {
     const chatDisplayRows = displayRows.filter(({ character }) => activeChatCharacterIdSet.has(character.id));
     const fallbackDisplayRows = displayRows.filter(({ character }) => !activeChatCharacterIdSet.has(character.id));
 
-    addExactNameLookups(chatDisplayRows, idByLookupText);
-    addAliasLookups(chatDisplayRows, idByLookupText);
-    addExactNameLookups(fallbackDisplayRows, idByLookupText);
-    addAliasLookups(fallbackDisplayRows, idByLookupText);
+    const idByLookupText = buildCharacterLookupMap(chatDisplayRows, fallbackDisplayRows);
 
     const nextTargets: TrackerCardColorTarget[] = [];
     const chatPersonaId =
@@ -228,13 +224,14 @@ export function TrackerCardColorSettings() {
 
   const selectedTarget = targets.find((target) => target.key === selectedTargetKey) ?? null;
   const getSavedConfigForTarget = useCallback((target: TrackerCardColorTarget): SavedTrackerCardColorConfig => {
+    const targetSavedConfig = getTargetSavedConfig(target);
     if (
       savedConfigRef.current?.key === target.key &&
-      savedConfigRef.current.serializedConfig === serializeTrackerCardColorConfig(target.config)
+      savedConfigRef.current.serializedConfig === targetSavedConfig.serializedConfig
     ) {
       return savedConfigRef.current;
     }
-    return getTargetSavedConfig(target);
+    return targetSavedConfig;
   }, []);
   const draftSerializedConfig = useMemo(
     () => (draftConfig ? serializeTrackerCardColorConfig(draftConfig) : ""),
@@ -264,8 +261,8 @@ export function TrackerCardColorSettings() {
     }
 
     if (savedConfigRef.current?.key !== selectedTarget.key) {
-      const previewSnapshot = previewSnapshotRef.current;
-      if (previewSnapshot && previewSnapshot.key !== selectedTarget.key) {
+      const previewTargetKey = previewTargetKeyRef.current;
+      if (previewTargetKey && previewTargetKey !== selectedTarget.key) {
         restorePreviewSnapshot();
       }
       savedConfigRef.current = getTargetSavedConfig(selectedTarget);
@@ -275,10 +272,9 @@ export function TrackerCardColorSettings() {
     }
 
     const targetSavedConfig = getTargetSavedConfig(selectedTarget);
-    if (previewSnapshotRef.current?.key === selectedTarget.key) {
+    if (previewTargetKeyRef.current === selectedTarget.key) {
       if (savedConfigRef.current?.serializedConfig !== targetSavedConfig.serializedConfig) {
         savedConfigRef.current = targetSavedConfig;
-        previewSnapshotRef.current = selectedTarget;
       }
       return;
     }
@@ -324,16 +320,12 @@ export function TrackerCardColorSettings() {
     const serializedConfig = serializeTrackerCardColorConfig(cleanConfig);
     const savedTargetConfig = getSavedConfigForTarget(selectedTarget);
     const matchesSavedConfig = serializedConfig === savedTargetConfig.serializedConfig;
-    setTrackerCardColorPreview(
-      selectedTarget.kind,
-      selectedTarget.id,
-      matchesSavedConfig ? null : serializedConfig,
-    );
+    setTrackerCardColorPreview(selectedTarget.key, matchesSavedConfig ? null : serializedConfig);
 
     if (matchesSavedConfig) {
-      previewSnapshotRef.current = null;
+      previewTargetKeyRef.current = null;
     } else {
-      previewSnapshotRef.current = selectedTarget;
+      previewTargetKeyRef.current = selectedTarget.key;
     }
     setSaveState("idle");
     setDraftConfig(cleanConfig);
@@ -347,7 +339,7 @@ export function TrackerCardColorSettings() {
     const savedTargetConfig = getSavedConfigForTarget(selectedTarget);
 
     if (serializedConfig === savedTargetConfig.serializedConfig) {
-      previewSnapshotRef.current = null;
+      previewTargetKeyRef.current = null;
       setDraftConfig(savedTargetConfig.config);
       setSaveState("idle");
       return;
@@ -357,13 +349,13 @@ export function TrackerCardColorSettings() {
     try {
       const persistedConfig = await persistTargetConfig(selectedTarget, cleanConfig);
       const persistedSerializedConfig = serializeTrackerCardColorConfig(persistedConfig);
-      setTrackerCardColorPreview(selectedTarget.kind, selectedTarget.id, null);
+      setTrackerCardColorPreview(selectedTarget.key, null);
       savedConfigRef.current = {
         key: selectedTarget.key,
         config: persistedConfig,
         serializedConfig: persistedSerializedConfig,
       };
-      previewSnapshotRef.current = null;
+      previewTargetKeyRef.current = null;
       setDraftConfig(persistedConfig);
       setSaveState("saved");
     } catch (error) {
@@ -376,8 +368,8 @@ export function TrackerCardColorSettings() {
     if (!selectedTarget) return;
 
     const savedTargetConfig = getSavedConfigForTarget(selectedTarget);
-    setTrackerCardColorPreview(selectedTarget.kind, selectedTarget.id, null);
-    previewSnapshotRef.current = null;
+    setTrackerCardColorPreview(selectedTarget.key, null);
+    previewTargetKeyRef.current = null;
     setDraftConfig(savedTargetConfig.config);
     setSaveState("idle");
   }, [getSavedConfigForTarget, selectedTarget]);

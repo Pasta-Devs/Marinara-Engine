@@ -5,31 +5,6 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const srcDir = join(root, "src");
 
-const AGENT_ORDER = [
-  "prose-guardian",
-  "continuity",
-  "director",
-  "echo-chamber",
-  "world-state",
-  "expression",
-  "quest",
-  "background",
-  "character-tracker",
-  "persona-stats",
-  "custom-tracker",
-  "illustrator",
-  "lorebook-keeper",
-  "card-evolution-auditor",
-  "combat",
-  "html",
-  "spotify",
-  "knowledge-retrieval",
-  "knowledge-router",
-  "haptic",
-  "cyoa",
-  "secret-plot-driver",
-];
-
 const TOOL_ORDER = [
   "roll-dice",
   "update-game-state",
@@ -107,7 +82,7 @@ async function writeRegistry({
       ({ folder, exportName }) => `import { ${exportName} } from "${importPrefix}/${folder}/${manifestModule}";`,
     ),
     "",
-    `export const ${arrayName}: readonly ${elementType}[] = [`,
+    `export const ${arrayName}: ${elementType}[] = [`,
     ...manifests.map(({ exportName }) => `  ${exportName},`),
     "];",
     "",
@@ -116,33 +91,12 @@ async function writeRegistry({
   await writeFile(outputPath, `${lines.join("\n")}\n`, "utf8");
 }
 
-const TURN_GAME_ORDER = ["uno", "chess", "poker", "eightball", "tic-tac-toe", "rock-paper-scissors"];
-
-await writeRegistry({
-  baseDir: join(srcDir, "features", "agents"),
-  outputPath: join(srcDir, "features", "agents", "agent-registry.generated.ts"),
-  typeImport: 'import type { BuiltInAgentManifest } from "./agent-manifest.types.js";',
-  arrayName: "BUILT_IN_AGENT_MANIFESTS",
-  elementType: "BuiltInAgentManifest",
-  preferredOrder: AGENT_ORDER,
-});
-
 await writeRegistry({
   baseDir: join(srcDir, "features", "function-calls", "tools"),
   outputPath: join(srcDir, "features", "function-calls", "tool-registry.generated.ts"),
   typeImport: 'import type { ToolDefinition } from "./tool-definitions.js";',
-  arrayName: "BUILT_IN_TOOL_MANIFESTS",
+  arrayName: "BUILT_IN_TOOLS",
   elementType: "ToolDefinition",
   importPrefix: "./tools",
   preferredOrder: TOOL_ORDER,
-});
-
-await writeRegistry({
-  baseDir: join(srcDir, "features", "turn-games"),
-  outputPath: join(srcDir, "features", "turn-games", "registry.generated.ts"),
-  typeImport: 'import type { AnyTurnGameEngine } from "./engine.types.js";',
-  arrayName: "TURN_GAME_ENGINES",
-  elementType: "AnyTurnGameEngine",
-  manifestFile: "engine.manifest.ts",
-  preferredOrder: TURN_GAME_ORDER,
 });

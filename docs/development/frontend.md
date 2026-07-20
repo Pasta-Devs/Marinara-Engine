@@ -400,7 +400,6 @@ Key files in `packages/shared/src/constants/`:
 
 - `defaults.ts`: exports such as `APP_VERSION`, `PROFESSOR_MARI_ID`, `DEFAULT_CONNECTION_ID`, `DEFAULT_GENERATION_PARAMS`, `MAX_FILE_SIZES`, and `LIMITS`. This is the version source and holds default generation settings.
 - `providers.ts`: exports `PROVIDERS`, the API provider configs (OpenAI, Anthropic, Google, and more) with URLs and auth.
-- `chat-modes.ts`: exports `CHAT_MODES`, the definition record for each chat mode.
 - `model-lists.ts`: static model catalogs per provider, plus `IMAGE_GENERATION_SOURCES` for image generation providers.
 - `agent-prompts.ts`: base-only summary and secret-plot prompts plus runtime lookup for prompts supplied by installed agent packages.
 

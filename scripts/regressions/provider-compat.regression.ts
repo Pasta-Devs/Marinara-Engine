@@ -42,6 +42,7 @@ import {
   runWithGenerationFallbackNotifier,
   type GenerationFallbackNotice,
 } from "../../packages/server/src/services/generation/fallback-notification.js";
+import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 
 class RegressionProvider extends BaseLLMProvider {
   calls = 0;
@@ -117,6 +118,79 @@ try {
     gatewayServer.close((error) => (error ? reject(error) : resolve())),
   );
 }
+
+let customParametersRequestBody: Record<string, unknown> | null = null;
+const customParametersServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  customParametersRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ choices: [{ message: { content: "configured" }, finish_reason: "stop" }] }));
+});
+await new Promise<void>((resolve) => customParametersServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = customParametersServer.address();
+  assert.ok(address && typeof address === "object");
+  const provider = new OpenAIProvider(
+    `http://127.0.0.1:${address.port}/v1`,
+    "test",
+    undefined,
+    undefined,
+    undefined,
+    "custom",
+  );
+  await provider.chatComplete([{ role: "user", content: "test" }], {
+    model: "custom-model",
+    stream: false,
+    topK: 44,
+    minP: 0.12,
+    reasoningEffort: "high",
+    verbosity: "low",
+    enabledParameters: { topK: true, reasoningEffort: true, verbosity: true },
+  });
+  assert.ok(customParametersRequestBody);
+  assert.equal(customParametersRequestBody.top_k, 44);
+  assert.equal(customParametersRequestBody.min_p, 0.12);
+  assert.equal(customParametersRequestBody.reasoning_effort, "high");
+  assert.equal(customParametersRequestBody.verbosity, "low");
+} finally {
+  await new Promise<void>((resolve, reject) =>
+    customParametersServer.close((error) => (error ? reject(error) : resolve())),
+  );
+}
+
+assert.deepEqual(
+  resolveStoredChatOptions(
+    JSON.stringify({
+      temperature: 0.31,
+      topP: 0.82,
+      topK: 44,
+      minP: 0.12,
+      frequencyPenalty: 0.2,
+      presencePenalty: -0.1,
+      reasoningEffort: "maximum",
+      verbosity: "low",
+      stopSequences: ["END"],
+      enabledParameters: { topK: true, reasoningEffort: true, verbosity: true },
+    }),
+    "custom",
+    "custom-model",
+  ),
+  {
+    temperature: 0.31,
+    topP: 0.82,
+    topK: 44,
+    minP: 0.12,
+    frequencyPenalty: 0.2,
+    presencePenalty: -0.1,
+    reasoningEffort: "high",
+    verbosity: "low",
+    serviceTier: undefined,
+    stop: ["END"],
+    customParameters: undefined,
+    enabledParameters: { topK: true, reasoningEffort: true, verbosity: true },
+  },
+);
 
 let openRouterRequestBody: Record<string, unknown> | null = null;
 const openRouterServer = createServer(async (request, response) => {

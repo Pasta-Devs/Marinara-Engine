@@ -2019,8 +2019,14 @@ export function ChatArea() {
   );
 
   const handleToggleHiddenFromAI = useCallback(
-    (messageId: string, current: boolean) => {
-      updateMessageExtra.mutate({ messageId, extra: { hiddenFromAI: !current } });
+    (messageId: string, hiddenFromAll: boolean, hiddenFromAICharacterIds?: string[]) => {
+      updateMessageExtra.mutate({
+        messageId,
+        extra:
+          hiddenFromAICharacterIds === undefined
+            ? { hiddenFromAI: !hiddenFromAll, hiddenFromAICharacterIds: [] }
+            : { hiddenFromAI: false, hiddenFromAICharacterIds },
+      });
     },
     [updateMessageExtra],
   );

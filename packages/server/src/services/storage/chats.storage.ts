@@ -189,7 +189,14 @@ function freshSwipeMessageExtra(value: unknown): Record<string, unknown> {
     generationInfo: null,
   };
 
-  for (const key of ["hiddenFromAI", "hiddenFromUser", "isConversationStart", "reactions", "personaSnapshot"]) {
+  for (const key of [
+    "hiddenFromAI",
+    "hiddenFromAICharacterIds",
+    "hiddenFromUser",
+    "isConversationStart",
+    "reactions",
+    "personaSnapshot",
+  ]) {
     if (Object.prototype.hasOwnProperty.call(current, key)) {
       next[key] = current[key];
     }

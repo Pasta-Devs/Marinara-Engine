@@ -25,7 +25,6 @@ import { WorldStatePanel } from "./sections/WorldStatePanel";
 export function TrackerSectionList({
   activeChatId,
   activePersona,
-  autoGenerateCharacterAvatars,
   characterSpriteLookup,
   characterTrackerConfig,
   characterTrackerSettings,
@@ -52,7 +51,6 @@ export function TrackerSectionList({
 }: {
   activeChatId: string;
   activePersona: Persona | null;
-  autoGenerateCharacterAvatars: boolean;
   characterSpriteLookup: TrackerSpriteLookup;
   characterTrackerConfig: AgentConfigRow | null;
   characterTrackerSettings: Record<string, unknown>;
@@ -78,6 +76,7 @@ export function TrackerSectionList({
   addMode: boolean;
 }) {
   const updateAgent = useUpdateAgent();
+  const autoGenerateCharacterAvatars = characterTrackerSettings.autoGenerateAvatars === true;
   const { featuredCharacterCards, removeFeaturedCharacterCard, toggleFeaturedCharacterCard } =
     useFeaturedCharacterCards({
       activeChatId,

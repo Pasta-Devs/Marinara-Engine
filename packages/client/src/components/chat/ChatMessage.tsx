@@ -202,16 +202,279 @@ function isMessageQuickEditIgnoredTarget(target: EventTarget | null): boolean {
   );
 }
 
+type AIVisibilityCharacter = {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  avatarCrop: AvatarCropValue | null | undefined;
+};
+
+type ToggleHiddenFromAI = (
+  messageId: string,
+  hiddenFromAll: boolean,
+  hiddenFromAICharacterIds?: string[],
+) => void;
+
+function AIVisibilityAvatar({
+  character,
+  className,
+}: {
+  character: AIVisibilityCharacter;
+  className: string;
+}) {
+  return character.avatarUrl ? (
+    <span
+      className={cn(
+        "relative isolate block overflow-hidden rounded-full bg-[var(--marinara-chat-chrome-panel-bg)]",
+        className,
+      )}
+    >
+      <img
+        src={character.avatarUrl}
+        alt=""
+        aria-hidden="true"
+        className="h-full w-full object-cover"
+        style={getAvatarCropStyle(character.avatarCrop)}
+      />
+    </span>
+  ) : (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] font-semibold text-[var(--marinara-chat-chrome-highlight-text)]",
+        className,
+      )}
+    >
+      {character.name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+function AIVisibilityGroupAvatar({
+  characters,
+  className = "h-7 w-7",
+}: {
+  characters: AIVisibilityCharacter[];
+  className?: string;
+}) {
+  const visible = characters.slice(0, 2);
+  if (visible.length <= 1) {
+    const character = visible[0];
+    return character ? (
+      <AIVisibilityAvatar character={character} className={className} />
+    ) : (
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex items-center justify-center rounded-full bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-highlight-text)]",
+          className,
+        )}
+      >
+        <User size="55%" />
+      </span>
+    );
+  }
+
+  return (
+    <span aria-hidden="true" className={cn("relative block", className)}>
+      {visible.map((character, index) => (
+        <span
+          key={character.id}
+          className={cn(
+            "absolute h-[72%] w-[72%] rounded-full ring-1 ring-[var(--marinara-chat-chrome-panel-bg)]",
+            index === 0 ? "left-0 top-0 z-10" : "bottom-0 right-0",
+          )}
+        >
+          <AIVisibilityAvatar character={character} className="h-full w-full" />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function AIVisibilityRecipientAvatars({
+  characters,
+  hiddenFromAll,
+  hiddenCharacterIds,
+}: {
+  characters: AIVisibilityCharacter[];
+  hiddenFromAll: boolean;
+  hiddenCharacterIds: string[];
+}) {
+  if (hiddenFromAll) {
+    return (
+      <span className="ml-0.5 inline-flex" title="Hidden from all characters">
+        <AIVisibilityGroupAvatar characters={characters} className="h-4 w-4" />
+      </span>
+    );
+  }
+
+  const recipients = hiddenCharacterIds
+    .map((id) => characters.find((character) => character.id === id))
+    .filter((character): character is AIVisibilityCharacter => Boolean(character));
+  if (recipients.length === 0) return null;
+
+  return (
+    <span className="ml-0.5 inline-flex -space-x-1" title={`Hidden from ${recipients.map((item) => item.name).join(", ")}`}>
+      {recipients.map((character) => (
+        <span key={character.id} className="rounded-full ring-1 ring-[var(--marinara-chat-chrome-panel-bg)]">
+          <AIVisibilityAvatar character={character} className="h-4 w-4 text-[0.45rem]" />
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function HideFromAIAction({
+  messageId,
+  hiddenFromAll,
+  hiddenCharacterIds,
+  characters,
+  onToggle,
+  dark,
+  align = "left",
+}: {
+  messageId: string;
+  hiddenFromAll: boolean;
+  hiddenCharacterIds: string[];
+  characters: AIVisibilityCharacter[];
+  onToggle: ToggleHiddenFromAI;
+  dark?: boolean;
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const isGroupChat = characters.length > 1;
+  const hasRestriction = hiddenFromAll || hiddenCharacterIds.length > 0;
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const toggleCharacter = (characterId: string) => {
+    const next = hiddenFromAll
+      ? [characterId]
+      : hiddenCharacterIds.includes(characterId)
+        ? hiddenCharacterIds.filter((id) => id !== characterId)
+        : [...hiddenCharacterIds, characterId];
+    onToggle(messageId, false, next);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <ActionBtn
+        icon={hasRestriction ? <Eye size={MESSAGE_ACTION_ICON_SIZE} /> : <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />}
+        onClick={() => {
+          if (isGroupChat) {
+            setOpen((value) => !value);
+          } else if (hiddenCharacterIds.length > 0 && !hiddenFromAll) {
+            onToggle(messageId, false, []);
+          } else {
+            onToggle(messageId, hiddenFromAll);
+          }
+        }}
+        title={
+          isGroupChat
+            ? hasRestriction
+              ? "Change who this is hidden from"
+              : "Choose who to hide this from"
+            : hasRestriction
+              ? "Unhide from AI"
+              : "Hide from AI"
+        }
+        className={cn(
+          "[-webkit-tap-highlight-color:transparent]",
+          hasRestriction && MESSAGE_CHROME_ACTIVE_ICON_CLASS,
+          hasRestriction && "mari-accent-animated",
+        )}
+        ariaPressed={hasRestriction}
+        dark={dark}
+      />
+
+      {open && isGroupChat && (
+        <div
+          role="menu"
+          aria-label="Choose which characters cannot see this message"
+          className={cn(
+            "marinara-chat-popover absolute bottom-[calc(100%+0.45rem)] z-[80] flex max-h-36 w-max max-w-[min(22rem,calc(100vw-1rem))] flex-wrap items-center gap-1.5 overflow-x-hidden overflow-y-auto rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-panel-bg)] p-2 shadow-xl",
+            align === "right" ? "right-0" : "left-0",
+          )}
+        >
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={hiddenFromAll}
+            aria-label="Hide from all characters"
+            title="All characters"
+            onClick={() => onToggle(messageId, hiddenFromAll)}
+            className={cn(
+              "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+              hiddenFromAll
+                ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)]"
+                : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
+            )}
+          >
+            <AIVisibilityGroupAvatar characters={characters} className="h-[72%] w-[72%]" />
+          </button>
+
+          <span aria-hidden="true" className="h-7 w-px bg-[var(--marinara-chat-chrome-panel-divider)]" />
+
+          {characters.map((character) => {
+            const selected = !hiddenFromAll && hiddenCharacterIds.includes(character.id);
+            return (
+              <button
+                key={character.id}
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={selected}
+                aria-label={`Hide from ${character.name}`}
+                title={character.name}
+                onClick={() => toggleCharacter(character.id)}
+                className={cn(
+                  "flex aspect-square w-[clamp(1.5rem,8vw,2.25rem)] shrink-0 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
+                  selected
+                    ? "bg-[var(--marinara-chat-chrome-highlight-bg)] opacity-100 ring-2 ring-[var(--marinara-chat-chrome-button-border-active)] brightness-110"
+                    : hiddenFromAll
+                      ? "opacity-35 hover:opacity-80"
+                      : "opacity-55 hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:opacity-100",
+                )}
+              >
+                <AIVisibilityAvatar character={character} className="h-[72%] w-[72%] text-[0.625rem]" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HiddenFromAIMessageButton({
   roleplay,
   canCollapse,
   onExpand,
   isHiddenExpanded,
+  recipientAvatars,
+  statusLabel = "Hidden from AI",
 }: {
   roleplay?: boolean;
   canCollapse: boolean;
   onExpand: () => void;
   isHiddenExpanded: boolean;
+  recipientAvatars?: ReactNode;
+  statusLabel?: string;
 }) {
   const statusClassName = cn(
     "inline-flex items-center gap-1 rounded px-1 py-0.5 text-[0.625rem] font-medium text-[var(--marinara-chat-chrome-highlight-text)]",
@@ -220,8 +483,9 @@ function HiddenFromAIMessageButton({
 
   if (!canCollapse) {
     return (
-      <span className={cn(statusClassName, "align-middle")} title="Hidden from AI">
+      <span className={cn(statusClassName, "align-middle")} title={statusLabel}>
         <EyeOff size="0.7rem" className="shrink-0" />
+        {recipientAvatars}
       </span>
     );
   }
@@ -236,17 +500,28 @@ function HiddenFromAIMessageButton({
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]",
           roleplay && "opacity-80 hover:opacity-100",
         )}
-        aria-label={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
-        title={isHiddenExpanded ? "Collapse hidden from AI message" : "Expand hidden from AI message"}
+        aria-label={`${isHiddenExpanded ? "Collapse" : "Expand"} message. ${statusLabel}`}
+        title={`${statusLabel}. ${isHiddenExpanded ? "Collapse message" : "Expand message"}`}
       >
         <ChevronRight size="0.7rem" className={cn("shrink-0 transition-transform", isHiddenExpanded && "rotate-90")} />
         <EyeOff size="0.7rem" className="shrink-0" />
+        {recipientAvatars}
       </button>
     </span>
   );
 }
 
-function HiddenFromAIMessageSummary({ roleplay, onExpand }: { roleplay?: boolean; onExpand: () => void }) {
+function HiddenFromAIMessageSummary({
+  roleplay,
+  onExpand,
+  recipientAvatars,
+  statusLabel = "Hidden from AI",
+}: {
+  roleplay?: boolean;
+  onExpand: () => void;
+  recipientAvatars?: ReactNode;
+  statusLabel?: string;
+}) {
   return (
     <button
       type="button"
@@ -262,7 +537,8 @@ function HiddenFromAIMessageSummary({ roleplay, onExpand }: { roleplay?: boolean
       aria-label="Expand hidden from AI message"
     >
       <EyeOff size="0.8rem" className="shrink-0" />
-      <span className="min-w-0 flex-1 truncate">Hidden from AI</span>
+      {recipientAvatars}
+      <span className="min-w-0 flex-1 truncate">{statusLabel}</span>
       <span className="shrink-0 text-[0.625rem] opacity-70">Show</span>
     </button>
   );
@@ -357,7 +633,7 @@ interface ChatMessageProps {
   onEdit?: (messageId: string, content: string) => void;
   onSetActiveSwipe?: (messageId: string, index: number) => void;
   onToggleConversationStart?: (messageId: string, current: boolean) => void;
-  onToggleHiddenFromAI?: (messageId: string, current: boolean) => void;
+  onToggleHiddenFromAI?: ToggleHiddenFromAI;
   onPeekPrompt?: () => void;
   onBranch?: (messageId: string) => void;
   onCloneSceneFromHere?: (messageId: string) => void;
@@ -1243,7 +1519,17 @@ export const ChatMessage = memo(function ChatMessage({
     return typeof message.extra === "string" ? JSON.parse(message.extra) : message.extra;
   }, [message.extra]);
   const isConversationStart = !!extra.isConversationStart;
-  const isHiddenFromAI = extra.hiddenFromAI === true;
+  const isHiddenFromAllAI = extra.hiddenFromAI === true;
+  const hiddenFromAICharacterIds: string[] = Array.isArray(extra.hiddenFromAICharacterIds)
+    ? Array.from(
+        new Set<string>(
+          (extra.hiddenFromAICharacterIds as unknown[])
+            .filter((characterId): characterId is string => typeof characterId === "string" && !!characterId.trim())
+            .map((characterId) => characterId.trim()),
+        ),
+      )
+    : [];
+  const isHiddenFromAI = isHiddenFromAllAI || hiddenFromAICharacterIds.length > 0;
   const thinking = extra.thinking as string | undefined;
   const generationReplay = hasGenerationReplayDetails(extra.generationReplay) ? extra.generationReplay : null;
   const diceRollResult = isDiceRollResult(extra.diceRollResult) ? extra.diceRollResult : null;
@@ -1455,6 +1741,20 @@ export const ChatMessage = memo(function ChatMessage({
     if (message.characterId) allowedIds.add(message.characterId);
     return new Map(Array.from(characterMap).filter(([id]) => allowedIds.has(id)));
   }, [characterMap, chatCharacterIds, message.characterId]);
+  const aiVisibilityCharacters = useMemo<AIVisibilityCharacter[]>(() => {
+    const result: AIVisibilityCharacter[] = [];
+    for (const id of chatCharacterIds ?? []) {
+      const character = characterMap?.get(id);
+      if (!character) continue;
+      result.push({
+        id,
+        name: character.name,
+        avatarUrl: character.avatarUrl,
+        avatarCrop: character.avatarCrop,
+      });
+    }
+    return result;
+  }, [characterMap, chatCharacterIds]);
 
   // Resolve character info from characters that actually belong to this chat.
   const charInfo = message.characterId && scopedCharacterMap ? scopedCharacterMap.get(message.characterId) : null;
@@ -1794,16 +2094,38 @@ export const ChatMessage = memo(function ChatMessage({
   const isHiddenExpanded =
     isHiddenFromAI && (!collapseHiddenMessages || manuallyExpandedHidden || editing || !!isStreaming);
   const isHiddenCollapsed = isHiddenFromAI && collapseHiddenMessages && !isHiddenExpanded;
+  const hiddenFromAIRecipientNames = aiVisibilityCharacters
+    .filter((character) => hiddenFromAICharacterIds.includes(character.id))
+    .map((character) => character.name);
+  const hiddenFromAIStatusLabel = isHiddenFromAllAI
+    ? "Hidden from all characters"
+    : hiddenFromAIRecipientNames.length > 0
+      ? `Hidden from ${hiddenFromAIRecipientNames.join(", ")}`
+      : "Hidden from selected characters";
+  const hiddenFromAIRecipientAvatars = (
+    <AIVisibilityRecipientAvatars
+      characters={aiVisibilityCharacters}
+      hiddenFromAll={isHiddenFromAllAI}
+      hiddenCharacterIds={hiddenFromAICharacterIds}
+    />
+  );
   const hiddenFromAIHeader = isHiddenFromAI ? (
     <HiddenFromAIMessageButton
       roleplay={isRoleplay}
       canCollapse={collapseHiddenMessages}
       isHiddenExpanded={isHiddenExpanded}
       onExpand={() => setManuallyExpandedHidden((value) => !value)}
+      recipientAvatars={hiddenFromAIRecipientAvatars}
+      statusLabel={hiddenFromAIStatusLabel}
     />
   ) : null;
   const roleplayBubbleContent = isHiddenCollapsed ? (
-    <HiddenFromAIMessageSummary roleplay={isRoleplay} onExpand={() => setManuallyExpandedHidden(true)} />
+    <HiddenFromAIMessageSummary
+      roleplay={isRoleplay}
+      onExpand={() => setManuallyExpandedHidden(true)}
+      recipientAvatars={hiddenFromAIRecipientAvatars}
+      statusLabel={hiddenFromAIStatusLabel}
+    />
   ) : editing ? (
     <EditTextarea
       initialContent={message.content}
@@ -1939,7 +2261,12 @@ export const ChatMessage = memo(function ChatMessage({
                 <span className="h-px flex-1 bg-amber-400/20" />
               </div>
               {isHiddenCollapsed ? (
-                <HiddenFromAIMessageSummary roleplay onExpand={() => setManuallyExpandedHidden(true)} />
+                <HiddenFromAIMessageSummary
+                  roleplay
+                  onExpand={() => setManuallyExpandedHidden(true)}
+                  recipientAvatars={hiddenFromAIRecipientAvatars}
+                  statusLabel={hiddenFromAIStatusLabel}
+                />
               ) : (
                 <div
                   className={cn("mari-message-content break-words italic", !isHtmlContent && "whitespace-pre-wrap")}
@@ -2377,18 +2704,14 @@ export const ChatMessage = memo(function ChatMessage({
                 dark
               />
               {onToggleHiddenFromAI && (
-                <ActionBtn
-                  icon={
-                    isHiddenFromAI ? (
-                      <Eye size={MESSAGE_ACTION_ICON_SIZE} />
-                    ) : (
-                      <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />
-                    )
-                  }
-                  onClick={() => onToggleHiddenFromAI(message.id, isHiddenFromAI)}
-                  title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
-                  className={isHiddenFromAI ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
+                <HideFromAIAction
+                  messageId={message.id}
+                  hiddenFromAll={isHiddenFromAllAI}
+                  hiddenCharacterIds={hiddenFromAICharacterIds}
+                  characters={isRoleplay ? aiVisibilityCharacters : []}
+                  onToggle={onToggleHiddenFromAI}
                   dark
+                  align={isUser ? "right" : "left"}
                 />
               )}
               {isLastAssistantMessage && !isUser && (
@@ -2647,7 +2970,11 @@ export const ChatMessage = memo(function ChatMessage({
             style={{ ...messageTextStyle, ...(boxBgColor ? { backgroundColor: boxBgColor } : {}) }}
           >
             {isHiddenCollapsed ? (
-              <HiddenFromAIMessageSummary onExpand={() => setManuallyExpandedHidden(true)} />
+              <HiddenFromAIMessageSummary
+                onExpand={() => setManuallyExpandedHidden(true)}
+                recipientAvatars={hiddenFromAIRecipientAvatars}
+                statusLabel={hiddenFromAIStatusLabel}
+              />
             ) : editing ? (
               <EditTextarea
                 initialContent={message.content}
@@ -2859,14 +3186,14 @@ export const ChatMessage = memo(function ChatMessage({
               />
             )}
             {onToggleHiddenFromAI && (
-              <ActionBtn
-                icon={
-                  isHiddenFromAI ? <Eye size={MESSAGE_ACTION_ICON_SIZE} /> : <EyeOff size={MESSAGE_ACTION_ICON_SIZE} />
-                }
-                onClick={() => onToggleHiddenFromAI(message.id, isHiddenFromAI)}
-                title={isHiddenFromAI ? "Unhide from AI" : "Hide from AI"}
-                className={isHiddenFromAI ? MESSAGE_CHROME_ACTIVE_ICON_CLASS : undefined}
+              <HideFromAIAction
+                messageId={message.id}
+                hiddenFromAll={isHiddenFromAllAI}
+                hiddenCharacterIds={hiddenFromAICharacterIds}
+                characters={isRoleplay ? aiVisibilityCharacters : []}
+                onToggle={onToggleHiddenFromAI}
                 dark
+                align={isUser ? "right" : "left"}
               />
             )}
             <ActionBtn

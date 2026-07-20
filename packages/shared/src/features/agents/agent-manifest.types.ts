@@ -1,4 +1,4 @@
-import type { AgentCategory, AgentPhase, AgentPromptTemplateOption, AgentResultType } from "../../types/agent.js";
+import type { AgentCategory, AgentPhase, AgentPromptTemplateOption } from "../../types/agent.js";
 import type { ChatMode } from "../../types/chat.js";
 
 export interface BuiltInAgentManifest {
@@ -14,7 +14,6 @@ export interface BuiltInAgentManifest {
   libraryHidden?: boolean;
   /** Keep legacy configs recognized, but never run this built-in in generation pipelines. */
   runtimeDisabled?: boolean;
-  resultType?: AgentResultType;
   modeAllowlist?: readonly ChatMode[];
   defaultTools?: readonly string[];
   defaultSettings?: Record<string, unknown>;

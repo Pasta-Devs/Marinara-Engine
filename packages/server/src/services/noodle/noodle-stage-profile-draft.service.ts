@@ -9,7 +9,7 @@ import { isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import type { DB } from "../../db/connection.js";
 import { logDebugOverride } from "../../lib/logger.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
-import { resolveStoredMaxTokens } from "../generation/generation-parameters.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseGameJsonish } from "../game/jsonish.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
@@ -176,6 +176,11 @@ export async function generateNoodlerStageProfileDraft(
     }),
     temperature: 0.7,
     topP: 0.9,
+    ...resolveStoredChatOptions(
+      input.connection.defaultParameters,
+      input.connection.provider,
+      input.connection.model,
+    ),
     stream: false,
     debugMode,
     responseFormat: noodleResponseFormat(input.connection.model, "private_profile"),

@@ -8,7 +8,7 @@ import {
 import type { DB } from "../../db/connection.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { resolveBaseUrl } from "../generation/connection-base-url.js";
-import { resolveStoredMaxTokens } from "../generation/generation-parameters.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import type { ImageCaptioningRuntime } from "../generation/image-captioning-runtime.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseGameJsonish } from "../game/jsonish.js";
@@ -301,6 +301,11 @@ export function createPublicNoodleGenerationService(db: DB) {
           maxTokens: timelineMaxTokens,
           temperature: 0.9,
           topP: 0.95,
+          ...resolveStoredChatOptions(
+            input.connection.defaultParameters,
+            input.connection.provider,
+            input.connection.model,
+          ),
           stream: false,
           debugMode,
           responseFormat: noodleResponseFormat(input.connection.model, "timeline"),

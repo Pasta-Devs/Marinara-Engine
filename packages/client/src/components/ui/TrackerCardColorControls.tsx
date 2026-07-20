@@ -7,13 +7,11 @@ import type {
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import {
-  cleanTrackerCardColorConfig,
   getTrackerCardFinish,
   getTrackerCardPaintEnabled,
   getTrackerCardPaintOpacity,
   getTrackerCardPortraitStageBackground,
   normalizeTrackerCardColorMode,
-  parseTrackerCardColorConfig,
   type TrackerCardFinish,
   type TrackerCardPaintColors,
   type TrackerCardPaintEnabled,
@@ -24,7 +22,7 @@ import { ColorPicker } from "./ColorPicker";
 export type TrackerCardColorEntityLabel = "Character" | "Persona";
 
 interface TrackerCardColorControlsProps {
-  value: TrackerCardColorConfig | string | null | undefined;
+  value: TrackerCardColorConfig;
   onChange: (value: TrackerCardColorConfig) => void;
   chatColors: TrackerCardPaintColors;
   entityLabel: TrackerCardColorEntityLabel;
@@ -63,17 +61,17 @@ const FINISH_PRESETS: Array<{
   {
     label: "Soft",
     title: "Brighter material with gentle glow and mild separation",
-    finish: { tintIntensity: 100, materialBrightness: 54, glowIntensity: 24, contrastIntensity: 58 },
+    finish: { materialBrightness: 54, glowIntensity: 24, contrastIntensity: 58 },
   },
   {
     label: "Crisp",
     title: "Neutral material with clearer edges and medium glow",
-    finish: { tintIntensity: 100, materialBrightness: 50, glowIntensity: 46, contrastIntensity: 64 },
+    finish: { materialBrightness: 50, glowIntensity: 46, contrastIntensity: 64 },
   },
   {
     label: "Vivid",
     title: "Darker material with strong glow and high contrast",
-    finish: { tintIntensity: 100, materialBrightness: 44, glowIntensity: 82, contrastIntensity: 86 },
+    finish: { materialBrightness: 44, glowIntensity: 82, contrastIntensity: 86 },
   },
 ];
 
@@ -207,7 +205,7 @@ export function TrackerCardColorControls({
   entityLabel,
   disabled = false,
 }: TrackerCardColorControlsProps) {
-  const config = typeof value === "string" ? parseTrackerCardColorConfig(value) : cleanTrackerCardColorConfig(value);
+  const config = value;
   const mode = normalizeTrackerCardColorMode(config.mode);
   const finish = getTrackerCardFinish(config, mode);
   const paintEnabled = getTrackerCardPaintEnabled(config);
@@ -222,41 +220,39 @@ export function TrackerCardColorControls({
   const paintOpacitySummary = getPaintOpacitySummary(paintOpacity, paintEnabled);
 
   const updateMode = (nextMode: TrackerCardColorMode) => {
-    onChange(
-      cleanTrackerCardColorConfig({
-        ...config,
-        mode: nextMode,
-        ...(nextMode === "custom" && {
-          nameColor: config.nameColor || chatColors.nameColor || "",
-          dialogueColor: config.dialogueColor || chatColors.dialogueColor || "",
-          boxColor: config.boxColor || chatColors.boxColor || "",
-        }),
+    onChange({
+      ...config,
+      mode: nextMode,
+      ...(nextMode === "custom" && {
+        nameColor: config.nameColor || chatColors.nameColor || "",
+        dialogueColor: config.dialogueColor || chatColors.dialogueColor || "",
+        boxColor: config.boxColor || chatColors.boxColor || "",
       }),
-    );
+    });
   };
 
   const updateCustomColor = (key: "nameColor" | "dialogueColor" | "boxColor", color: string) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, mode: "custom", [key]: color }));
+    onChange({ ...config, mode: "custom", [key]: color });
   };
 
   const updateFinish = (key: "materialBrightness" | "glowIntensity" | "contrastIntensity", nextValue: number) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, [key]: nextValue }));
+    onChange({ ...config, [key]: nextValue });
   };
 
   const updateFinishPreset = (nextFinish: TrackerCardFinish) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, ...nextFinish }));
+    onChange({ ...config, ...nextFinish });
   };
 
   const updatePaintOpacity = (key: keyof TrackerCardPaintOpacity, nextValue: number) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, [key]: nextValue }));
+    onChange({ ...config, [key]: nextValue });
   };
 
   const updatePaintEnabled = (key: keyof TrackerCardPaintEnabled, enabled: boolean) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, [key]: enabled }));
+    onChange({ ...config, [key]: enabled });
   };
 
   const updatePortraitStageBackground = (nextBackground: TrackerCardPortraitStageBackground) => {
-    onChange(cleanTrackerCardColorConfig({ ...config, portraitStageBackground: nextBackground }));
+    onChange({ ...config, portraitStageBackground: nextBackground });
   };
 
   return (

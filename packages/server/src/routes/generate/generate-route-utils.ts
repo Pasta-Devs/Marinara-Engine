@@ -509,6 +509,22 @@ export function isMessageHiddenFromAI(message: { extra?: unknown }): boolean {
   return parseExtra(message.extra).hiddenFromAI === true;
 }
 
+export function getMessageHiddenFromAICharacterIds(message: { extra?: unknown }): string[] {
+  const value = parseExtra(message.extra).hiddenFromAICharacterIds;
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean)),
+  );
+}
+
+export function isMessageHiddenFromAIForCharacter(
+  message: { extra?: unknown },
+  characterId: string | null | undefined,
+): boolean {
+  if (isMessageHiddenFromAI(message)) return true;
+  return typeof characterId === "string" && getMessageHiddenFromAICharacterIds(message).includes(characterId);
+}
+
 export function isRoleplaySummaryMode(chatMode: string): boolean {
   return chatMode === "roleplay" || chatMode === "visual_novel";
 }
@@ -836,6 +852,15 @@ export function resolveGroupGenerationMode(
 ): GroupGenerationMode {
   if (chatMode === "conversation") return "merged";
   return configuredMode === "individual" ? "individual" : "merged";
+}
+
+export function shouldRestoreRegenerationCharacterTarget(
+  chatMode: string | null | undefined,
+  configuredMode: unknown,
+  characterIds: string[],
+): boolean {
+  const isRoleplayGroup = chatMode === "roleplay" || chatMode === "visual_novel";
+  return !(isRoleplayGroup && characterIds.length > 1 && resolveGroupGenerationMode(chatMode, configuredMode) === "merged");
 }
 
 export function resolvePromptCharacterIdsForTarget(

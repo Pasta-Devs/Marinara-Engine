@@ -64,6 +64,7 @@ import {
   extractImageAttachmentDataUrls,
   findTrackerContextInsertIndex,
   formatConversationInstructionsForWrap,
+  getMessageHiddenFromAICharacterIds,
   isMessageHiddenFromAI,
   mergeCustomParameters,
   normalizePromptWrapFormat,
@@ -674,6 +675,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       const attachments = extra.attachments as PromptAttachment[] | undefined;
       const images = extractImageAttachmentDataUrls(attachments);
       const files = extractFileAttachmentInputs(attachments);
+      const hiddenFromAICharacterIds = getMessageHiddenFromAICharacterIds(m);
       const geminiParts =
         !excludePastReasoning && isGoogleProvider && m.role === "assistant" && extra.geminiParts
           ? { providerMetadata: { geminiParts: extra.geminiParts } }
@@ -684,6 +686,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         content: appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
         contextKind: "history" as const,
         characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
+        ...(hiddenFromAICharacterIds.length ? { hiddenFromAICharacterIds } : {}),
         ...(images?.length ? { images } : {}),
         ...(files.length ? { files } : {}),
         ...geminiParts,
@@ -721,6 +724,17 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         ? body.forCharacterId
         : null;
     const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
+    const audienceCharacterIds = impersonate
+      ? []
+      : promptTargetCharacterId
+        ? [promptTargetCharacterId]
+        : characterIds;
+    if (audienceCharacterIds.length > 0) {
+      const audience = new Set(audienceCharacterIds);
+      mappedMessages = mappedMessages.filter(
+        (message) => !message.hiddenFromAICharacterIds?.some((characterId) => audience.has(characterId)),
+      );
+    }
 
     // Persona resolution (same strategy as generation; read-only)
     let personaId: string | null = null;

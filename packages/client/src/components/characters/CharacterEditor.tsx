@@ -91,7 +91,14 @@ import {
   Scissors,
   MessageCircle,
 } from "lucide-react";
-import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
+import {
+  cn,
+  copyToClipboard,
+  generateClientId,
+  getAvatarCropStyle,
+  type AvatarCrop,
+  type LegacyAvatarCrop,
+} from "../../lib/utils";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
@@ -1401,9 +1408,10 @@ function MetadataTab({
           </code>
           <button
             type="button"
-            onClick={() => {
-              void navigator.clipboard?.writeText(characterId);
-              toast.success("Character ID copied");
+            onClick={async () => {
+              const copied = await copyToClipboard(characterId);
+              if (copied) toast.success("Character ID copied");
+              else toast.error("Could not copy the character ID");
             }}
             className="mari-editor-action inline-flex h-8 px-2 text-[0.6875rem]"
             title="Copy character ID"

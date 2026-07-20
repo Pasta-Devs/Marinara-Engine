@@ -51,7 +51,7 @@ Streaming shows the reply appearing word by word as it generates, instead of wai
 | **Streaming speed** | 50 | Sets how fast streamed text renders on screen |
 | **Trim incomplete model endings** | Off | Trims a trailing unfinished sentence before saving |
 
-**Streaming speed** is a slider from 1 to 100. A lower value gives a slower typewriter effect so you can read along. A higher value shows text almost instantly. This speed only changes how fast text renders on your screen. It does not change how fast the model itself writes.
+**Streaming speed** is a slider from 1 to 100. A lower value gives a slower typewriter effect so you can read along. A higher value shows text almost instantly. Marinara smooths bursty token delivery while the model is writing, then uses your selected speed to finish the reply. This setting does not change how fast the model itself writes.
 
 When **Enable streaming** is off, the full reply appears all at once after the model finishes.
 

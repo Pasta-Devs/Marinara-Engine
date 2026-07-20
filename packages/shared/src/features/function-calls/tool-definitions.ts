@@ -2,7 +2,7 @@
 // Function Calling / Tool Use Types
 // ──────────────────────────────────────────────
 
-import { BUILT_IN_TOOL_MANIFESTS } from "./tool-registry.generated.js";
+export { BUILT_IN_TOOLS } from "./tool-registry.generated.js";
 
 /** JSON Schema subset for tool parameter definitions. */
 export interface ToolParameterSchema {
@@ -85,6 +85,3 @@ export interface AgentToolConfig {
   /** Whether to allow parallel tool calls */
   parallelCalls: boolean;
 }
-
-/** Built-in tool definitions available to all agents. */
-export const BUILT_IN_TOOLS: ToolDefinition[] = [...BUILT_IN_TOOL_MANIFESTS];
