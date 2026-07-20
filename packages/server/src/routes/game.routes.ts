@@ -1186,6 +1186,58 @@ export async function buildDynamicGameImagePromptMessages(args: {
   ];
 }
 
+type DynamicGamePromptConnections = Pick<
+  ReturnType<typeof createConnectionsStorage>,
+  "getWithKey" | "listRandomPool" | "getDefaultForAgents"
+>;
+
+/** Resolve the configured dynamic-prompt text connection without silently accepting stale fallbacks. */
+export async function resolveDynamicGameImagePromptConnection(args: {
+  connections: DynamicGamePromptConnections;
+  meta: Record<string, unknown>;
+  setupConfig: Record<string, unknown> | null;
+  chatConnectionId: string | null;
+}) {
+  const explicitConnectionId = readTrimmedString(args.meta.illustratorPromptConnectionId);
+  if (explicitConnectionId) {
+    return resolveConnection(args.connections, explicitConnectionId, null);
+  }
+
+  let lastError: unknown;
+  const candidateIds = Array.from(
+    new Set(
+      [
+        readTrimmedString(args.meta.gameSceneConnectionId),
+        readTrimmedString(args.setupConfig?.sceneConnectionId),
+        readTrimmedString(args.chatConnectionId),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  );
+  for (const candidateId of candidateIds) {
+    try {
+      return await resolveConnection(args.connections, candidateId, null);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  const defaultAgentConnection = await args.connections.getDefaultForAgents();
+  if (defaultAgentConnection) {
+    return resolveConnection(args.connections, defaultAgentConnection.id, null);
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("No text connection configured for dynamic image prompts");
+}
+
+/** Build provider options that preserve a custom Prompt Director's output format. */
+export function dynamicGameImagePromptRequestOptions(kind: GameDynamicImagePromptKind, signal?: AbortSignal) {
+  return {
+    stream: false,
+    maxTokens: kind === "illustration" ? 3000 : 1400,
+    signal,
+  };
+}
+
 async function createDynamicGameImagePromptGenerator(args: {
   connections: ReturnType<typeof createConnectionsStorage>;
   promptOverridesStorage?: PromptOverridesStorage;
@@ -1199,15 +1251,12 @@ async function createDynamicGameImagePromptGenerator(args: {
   if (args.meta.gameImageDynamicPromptEnabled !== true) return undefined;
 
   try {
-    const promptConnectionId =
-      readTrimmedString(args.meta.illustratorPromptConnectionId) ??
-      readTrimmedString(args.meta.gameSceneConnectionId) ??
-      readTrimmedString(args.setupConfig?.sceneConnectionId);
-    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
-      args.connections,
-      promptConnectionId,
-      args.chat.connectionId,
-    );
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveDynamicGameImagePromptConnection({
+      connections: args.connections,
+      meta: args.meta,
+      setupConfig: args.setupConfig,
+      chatConnectionId: args.chat.connectionId,
+    });
     const parameters = resolveStoredGameGenerationParameters(args.meta, defaultGenerationParameters);
     const provider = await createGameMainProvider(args.connections, conn, baseUrl);
 
@@ -1233,12 +1282,7 @@ async function createDynamicGameImagePromptGenerator(args: {
         messages,
         gameGenOptions(
           conn.model ?? "",
-          {
-            stream: false,
-            maxTokens: request.kind === "illustration" ? 3000 : 1400,
-            responseFormat: { type: "json_object" },
-            signal: args.signal,
-          },
+          dynamicGameImagePromptRequestOptions(request.kind, args.signal),
           parameters,
           conn.provider,
         ),
@@ -1261,7 +1305,7 @@ async function createDynamicGameImagePromptGenerator(args: {
     };
   } catch (err) {
     logger.warn(err, "[game/dynamic-image-prompt] Failed to initialise dynamic prompt generation");
-    return undefined;
+    throw err;
   }
 }
 
@@ -2657,7 +2701,7 @@ function mergeGameInventoryItems(...sources: ChatInventoryItem[][]): ChatInvento
 }
 
 async function resolveConnection(
-  connections: ReturnType<typeof createConnectionsStorage>,
+  connections: Pick<ReturnType<typeof createConnectionsStorage>, "getWithKey" | "listRandomPool">,
   connId: string | null | undefined,
   chatConnectionId: string | null,
 ) {
@@ -4143,8 +4187,24 @@ function normalizePortraitAppearancePart(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/** Remove legacy journal and reputation metadata before portrait prompt assembly. */
+export function sanitizeNpcPortraitAppearanceText(value: string): string {
+  return value
+    .replace(/(?:^|\s+)Notable details:\s*[\s\S]*$/i, "")
+    .replace(/\s*\breputation\s*:\s*[^,.;\r\n]*\s*[,;]?/gi, " ")
+    .replace(
+      /\[[^\]\r\n]{1,500}\]\s*reputation\s*[+-]?\d+(?:\s*(?:→|->)\s*-?\d+)?(?:\s*\([^)]*\))?/gi,
+      " ",
+    )
+    .replace(/\breputation\s*[+-]?\d+\s*(?:→|->)\s*-?\d+(?:\s*\([^)]*\))?/gi, " ")
+    .replace(/\s+([,.;])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function addPortraitAppearancePart(parts: string[], seenValues: Set<string>, value: unknown, label?: string): void {
-  const trimmed = optionalTrimmedString(value);
+  const raw = optionalTrimmedString(value);
+  const trimmed = raw ? sanitizeNpcPortraitAppearanceText(raw) : null;
   if (!trimmed) return;
 
   const normalizedValue = normalizePortraitAppearancePart(trimmed);

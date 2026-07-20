@@ -116,7 +116,7 @@ The **Maximum output size** field sets how long a generated summary can be. The 
 The **Display** controls in the popover decide how summarized messages appear on screen:
 
 - **Hide summarised messages**: hides the raw messages once a summary covers them. Off by default.
-- **Recent message tail**: keeps this many of the newest messages fully visible even when hiding is on. The default is 10, and the range is 0 to 50. Setting 0 hides the whole summarized batch.
+- **Recent message tail**: keeps this many of the newest messages fully visible even when hiding is on. The default is 10, and any non-negative whole number is accepted. Setting 0 hides the whole summarized batch. Higher values increase prompt size and model cost.
 - **Collapse hidden messages**: controls how hidden messages look in the transcript.
 
 If your chat requires agent write approval (a separate Agents setting), AI-generated summaries wait for your review before they take effect.
@@ -140,7 +140,7 @@ The modal lists week entries first, then any days not yet folded into a week. Ex
 Two settings in the **Automatic Summarization** section shape how days are split:
 
 - **Day Rollover Hour**: the hour when a new day begins for summaries. The default is 4 AM, and you can pick any hour from 12 AM (midnight) through 11 AM. Messages sent before this hour count as part of the previous day. Pick a time when you are never chatting so a late-night session is not cut in half.
-- **Recent Message Tail**: how many of today's newest messages stay word-for-word even after they are summarized. The default is 10, and the range is 0 to 50.
+- **Recent Message Tail**: how many of today's newest messages stay word-for-word even after they are summarized. The default is 10, and any non-negative whole number is accepted. Higher values increase prompt size and model cost.
 
 If you change **Day Rollover Hour** after summaries already exist, Marinara warns you that older summaries used the previous setting.
 

@@ -80,15 +80,17 @@ export const characterBookEntrySchema = z
   })
   .passthrough();
 
-export const characterBookSchema = z.object({
-  name: z.string().default(""),
-  description: z.string().default(""),
-  scan_depth: z.number().default(2),
-  token_budget: z.number().default(512),
-  recursive_scanning: z.boolean().default(false),
-  extensions: z.record(z.unknown()).default({}),
-  entries: z.array(characterBookEntrySchema).default([]),
-});
+export const characterBookSchema = z
+  .object({
+    name: z.string().default(""),
+    description: z.string().default(""),
+    scan_depth: z.number().default(2),
+    token_budget: z.number().default(512),
+    recursive_scanning: z.boolean().default(false),
+    extensions: z.record(z.unknown()).default({}),
+    entries: z.array(characterBookEntrySchema).default([]),
+  })
+  .passthrough();
 
 export const characterDataSchema = z
   .object({
@@ -120,8 +122,18 @@ export const createCharacterSchema = z.object({
   data: characterDataSchema,
 });
 
+const updateCharacterExtensionsSchema = characterExtensionsSchema.partial().extend({
+  // Zod 3 short-circuits these optional wrappers before applying the nested
+  // schema defaults. Revalidate this omission behavior before upgrading to Zod 4.
+  depth_prompt: depthPromptSchema.partial().optional(),
+  convoBehavior: convoBehaviorConfigSchema.partial().optional(),
+});
+
 export const updateCharacterSchema = z.object({
-  data: characterDataSchema.partial(),
+  data: characterDataSchema.partial().extend({
+    extensions: updateCharacterExtensionsSchema.optional(),
+    character_book: characterBookSchema.partial().nullable().optional(),
+  }),
 });
 
 export const createGroupSchema = z.object({

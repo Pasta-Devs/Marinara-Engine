@@ -204,6 +204,7 @@ import {
   LIMITS,
   MIN_AGENT_MAX_TOKENS,
   PROFESSOR_MARI_ID,
+  SUMMARY_TAIL_MESSAGES,
   estimateAgentLoadCost,
   getAgentPromptTemplateOptions,
   includesTextForMatch,
@@ -303,8 +304,6 @@ function normalizeCustomMusicFolder(value: unknown): string {
   if (!normalized || normalized.includes("..")) return "music";
   return normalized.startsWith("music") ? normalized : `music/${normalized}`;
 }
-
-const AUTONOMOUS_DAILY_CAP_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 const DEFAULT_PROSE_GUARDIAN_BANNED_WORDS = "ozone";
 const DEFAULT_PROSE_GUARDIAN_AVOID =
@@ -5389,31 +5388,47 @@ export function ChatSettingsDrawer({
 
                   {metadata.autonomousMessages && (
                     <div className="border-t border-[var(--border)]/50 px-3 pb-2.5 pt-2">
-                      <label className="space-y-1.5">
+                      <div className="space-y-1.5">
                         <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                           Chat Check-In Cap
                         </span>
                         <select
-                          value={autonomousDailyCapOverride ?? ""}
+                          aria-label="Chat check-in cap mode"
+                          value={autonomousDailyCapOverride === null ? "default" : "numeric"}
                           onChange={(e) =>
                             updateMeta.mutate({
                               id: chat.id,
-                              autonomousDailyCapOverride: e.target.value ? Number(e.target.value) : null,
+                              autonomousDailyCapOverride:
+                                e.target.value === "numeric" ? (autonomousDailyCapOverride ?? 8) : null,
                             })
                           }
                           className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                         >
-                          <option value="">Default chat ceiling (talkativeness-based)</option>
-                          {AUTONOMOUS_DAILY_CAP_OPTIONS.map((cap) => (
-                            <option key={cap} value={cap}>
-                              {cap} check-in{cap === 1 ? "" : "s"} / day
-                            </option>
-                          ))}
+                          <option value="default">Default chat ceiling (talkativeness-based)</option>
+                          <option value="numeric">Numeric value</option>
                         </select>
+                        {autonomousDailyCapOverride !== null && (
+                          <label className="flex items-center justify-between gap-3 rounded-md bg-[var(--background)]/35 px-2.5 py-2">
+                            <span className="text-[0.625rem] text-[var(--muted-foreground)]">Check-ins per day</span>
+                            <DraftNumberInput
+                              value={autonomousDailyCapOverride}
+                              min={1}
+                              onCommit={(value) =>
+                                updateMeta.mutate({
+                                  id: chat.id,
+                                  autonomousDailyCapOverride: value,
+                                })
+                              }
+                              ariaLabel="Numeric chat check-in ceiling"
+                              className="w-24 rounded-md bg-[var(--secondary)] px-2 py-1.5 text-right text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
+                            />
+                          </label>
+                        )}
                         <p className="text-[0.55rem] text-[var(--muted-foreground)]">
-                          Sets the chat-wide ceiling; character caps can only lower it.
+                          Sets the chat-wide ceiling; character caps can only lower it. Higher ceilings may create many
+                          model requests and notifications.
                         </p>
-                      </label>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -8638,23 +8653,23 @@ export function ChatSettingsDrawer({
                 {/* Recent message tail */}
                 <div className="space-y-1.5">
                   <span className="text-xs font-medium">Recent Message Tail</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={50}
-                    step={1}
-                    value={(metadata.summaryTailMessages as number | undefined) ?? 10}
-                    onChange={(e) => {
-                      const raw = Number(e.target.value);
-                      const clamped = Number.isFinite(raw) ? Math.max(0, Math.min(50, Math.floor(raw))) : 10;
-                      updateMeta.mutate({ id: chat.id, summaryTailMessages: clamped });
-                    }}
+                  <DraftNumberInput
+                    value={(metadata.summaryTailMessages as number | undefined) ?? SUMMARY_TAIL_MESSAGES.DEFAULT}
+                    min={SUMMARY_TAIL_MESSAGES.MIN}
+                    onCommit={(value) =>
+                      updateMeta.mutate({
+                        id: chat.id,
+                        summaryTailMessages: value,
+                      })
+                    }
+                    ariaLabel="Recent message tail"
                     className="w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                   />
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                     How many recent messages to keep word-for-word, even once they&apos;re summarized. Helps characters
                     pick up the actual flow of last night&apos;s conversation instead of just the gist. Set to{" "}
-                    <span className="font-medium">0</span> to disable.
+                    <span className="font-medium">0</span> to disable. Higher values increase prompt size and model
+                    cost.
                   </p>
                 </div>
               </div>

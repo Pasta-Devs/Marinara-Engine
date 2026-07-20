@@ -386,6 +386,36 @@ assert.deepEqual(
   ["pantalone", "dottore"],
   "squashed system runs should retain their character audience",
 );
+const maukieRestrictedRun: ChatMLMessage[] = [
+  { role: "user", content: "Visible before private run", contextKind: "history" },
+  ...Array.from({ length: 16 }, (_, index) => ({
+    role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    content: `Private run message ${index + 1}`,
+    contextKind: "history" as const,
+    hiddenFromAICharacterIds: ["maukie"],
+  })),
+  { role: "user", content: "Visible after private run", contextKind: "history" },
+];
+assert.deepEqual(
+  filterPromptMessagesForCharacterAudience(maukieRestrictedRun, ["powers-that-be"]).map((message) => message.content),
+  maukieRestrictedRun.map((message) => message.content),
+  "every message in a character-scoped run should remain visible to other responding characters",
+);
+assert.deepEqual(
+  filterPromptMessagesForCharacterAudience(maukieRestrictedRun, ["maukie"]).map((message) => message.content),
+  ["Visible before private run", "Visible after private run"],
+  "every message in a character-scoped run should be removed for the restricted character",
+);
+assert.equal(resolveRoleplaySummaryTail(75), 75, "summary tails should not retain the former 50-message ceiling");
+assert.deepEqual(
+  computeSummaryHideIds({
+    messages: Array.from({ length: 75 }, (_, index) => ({ id: `tail-${index}` })),
+    entryMessageIds: Array.from({ length: 75 }, (_, index) => `tail-${index}`),
+    tail: 75,
+  }),
+  [],
+  "an uncapped roleplay summary tail should protect every requested recent message",
+);
 import {
   compactVideoPromptText,
   getSceneVideoPromptLimits,
@@ -414,8 +444,11 @@ import {
   buildDynamicGameImagePromptMessages,
   buildIllustrationNarrationSummaryMessages,
   buildStoryboardIllustratorMessages,
+  dynamicGameImagePromptRequestOptions,
   extractCharacterAppearanceText,
+  resolveDynamicGameImagePromptConnection,
   resolveNpcPortraitAppearance,
+  sanitizeNpcPortraitAppearanceText,
   selectStoryboardAppearanceCharacterNames,
 } from "../../packages/server/src/routes/game.routes.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
@@ -459,11 +492,13 @@ import {
   buildGenerationGuideInstruction,
   appendSeparateAgentInjectionMessage,
   collectLatestTrackerCharacterHistory,
+  computeSummaryHideIds,
   getMessageHiddenFromAICharacterIds,
   injectIntoOutputFormatOrLastUser,
   isMessageHiddenFromAIForCharacter,
   preserveTrackerCharacterUiFields,
   resolveActivePersonaCandidate,
+  resolveRoleplaySummaryTail,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   stripSpeakerTagsExceptLastAssistant,
@@ -3151,6 +3186,25 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(appearance, /Current outfit: Persimmon kimono/);
       assert.match(appearance, /Current expression or mood: Warm smile/);
       assert.doesNotMatch(appearance, /debt-scroll|Notable details/);
+
+      const legacyPollutedAppearance = resolveNpcPortraitAppearance(
+        { description: null },
+        {
+          description:
+            "A nine-foot Xenomorph with a biomechanical black carapace. Notable details: [helped] reputation +15 → 15 (neutral)",
+          descriptionSource: "model",
+          notes: [],
+        } as any,
+        null,
+      );
+      assert.match(legacyPollutedAppearance, /nine-foot Xenomorph with a biomechanical black carapace/i);
+      assert.doesNotMatch(legacyPollutedAppearance, /Notable details|reputation|\[helped\]/i);
+      assert.equal(sanitizeNpcPortraitAppearanceText("[helped] reputation +15 → 15 (neutral)"), "");
+      assert.equal(sanitizeNpcPortraitAppearanceText("Notable details: reputation: trusted"), "");
+      assert.equal(
+        sanitizeNpcPortraitAppearanceText("Black carapace. Reputation: trusted, elongated skull"),
+        "Black carapace. elongated skull",
+      );
     },
   },
   {
@@ -3222,6 +3276,30 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       assert.equal(narrationPrompt.prompt.toLowerCase().split(narrationDescription.toLowerCase()).length - 1, 1);
       assert.doesNotMatch(narrationPrompt.prompt, /Canonical NPC profile:/);
+
+      let xenomorphSourcePrompt = "";
+      await buildNpcPortraitProviderPrompt({
+        ...request,
+        npcName: "Xenomorph Drone",
+        appearance: "A nine-foot biomechanical hunter with an elongated skull and black carapace.",
+        dynamicPromptGenerator: async (dynamicRequest) => {
+          xenomorphSourcePrompt = dynamicRequest.sourcePrompt;
+          return "xenomorph, biomechanical black carapace, elongated skull, solo portrait";
+        },
+      });
+      assert.match(xenomorphSourcePrompt, /Appearance: xenomorph/i);
+      assert.doesNotMatch(xenomorphSourcePrompt, /human or humanoid person/i);
+
+      await assert.rejects(
+        () =>
+          buildNpcPortraitProviderPrompt({
+            ...request,
+            dynamicPromptGenerator: async () => {
+              throw new Error("prompt director unavailable");
+            },
+          }),
+        /prompt director unavailable/,
+      );
     },
   },
   {
@@ -3265,6 +3343,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(messages[1]?.content ?? "", /Appearance traits: towering alien/);
       assert.doesNotMatch(messages[1]?.content ?? "", /copy the Required canonical NPC visual profile/i);
       assert.doesNotMatch(messages[1]?.content ?? "", /Return only JSON/i);
+
+      const requestOptions = dynamicGameImagePromptRequestOptions("portrait");
+      assert.equal("responseFormat" in requestOptions, false);
+    },
+  },
+  {
+    name: "dynamic image prompts fall back to the default agent text connection",
+    async run() {
+      const defaultAgentConnection = {
+        id: "agent-default",
+        provider: "openai",
+        model: "prompt-model",
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "test-key",
+      };
+      const connections = {
+        async listRandomPool() {
+          return [];
+        },
+        async getWithKey(id: string) {
+          return id === defaultAgentConnection.id ? defaultAgentConnection : null;
+        },
+        async getDefaultForAgents() {
+          return defaultAgentConnection;
+        },
+      } as unknown as Parameters<typeof resolveDynamicGameImagePromptConnection>[0]["connections"];
+      const resolved = await resolveDynamicGameImagePromptConnection({
+        connections,
+        meta: { gameSceneConnectionId: "deleted-scene-connection" },
+        setupConfig: null,
+        chatConnectionId: null,
+      });
+
+      assert.equal(resolved.conn.id, defaultAgentConnection.id);
     },
   },
   {
@@ -4783,6 +4895,68 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, new RegExp(authoredSystemInstruction, "u"));
       assert.equal(promptText.includes(legacySetupMembership), false, promptText);
       assert.match(promptText, new RegExp(currentMembership, "u"));
+    },
+  },
+  {
+    name: "Conversation recent-message tails accept values above the former ceiling",
+    async run() {
+      const olderMessages = Array.from({ length: 55 }, (_, index) => ({
+        id: `uncapped-tail-${index}`,
+        role: "user" as const,
+        content: `UNCAPPED_TAIL_MESSAGE_${index}`,
+        createdAt: new Date(Date.UTC(2026, 6, 14, 10, index)).toISOString(),
+      }));
+      const currentMessage = {
+        id: "uncapped-tail-current",
+        role: "user" as const,
+        content: "CURRENT_CONVERSATION_MESSAGE",
+        createdAt: "2026-07-15T12:00:00.000Z",
+      };
+      const chatMessages = [...olderMessages, currentMessage];
+      const prepared = await prepareConversationPromptHistory({
+        finalMessages: chatMessages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          contextKind: "history" as const,
+        })),
+        chatMessages,
+        scopedMessages: chatMessages,
+        chatMeta: {
+          summaryTailMessages: olderMessages.length,
+          daySummaries: {
+            "14.07.2026": { summary: "Compact prior-day summary.", keyDetails: [] },
+          },
+          weekSummaries: {},
+        },
+        chatId: "conversation-uncapped-tail-regression",
+        chats: {
+          async patchMetadata() {
+            throw new Error("An existing prior-day summary should not require a metadata patch");
+          },
+        },
+        chars: {
+          async getById() {
+            return null;
+          },
+        },
+        characterIds: ["char-echo"],
+        allCharacterIds: ["char-echo"],
+        convoCharInfo: [{ name: "Echo" }],
+        convoCharNames: ["Echo"],
+        personaName: "User",
+        nowInstant: new Date("2026-07-15T18:00:00.000Z"),
+        promptTimeZone: "UTC",
+        wrapFormat: "xml",
+        connection: { provider: "openai", apiKey: "", model: "regression-model" },
+        connectionId: "regression-connection",
+        baseUrl: "https://example.invalid/v1",
+      });
+      const promptText = prepared.finalMessages.map((message) => message.content).join("\n");
+
+      assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_0/u);
+      assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_54/u);
+      assert.match(promptText, /CURRENT_CONVERSATION_MESSAGE/u);
     },
   },
   {

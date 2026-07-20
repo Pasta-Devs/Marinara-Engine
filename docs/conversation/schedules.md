@@ -26,10 +26,10 @@ In the new-chat setup wizard, **Autonomous Messages** is on by default. You can 
 
 ### Chat Check-In Cap
 
-Below the toggle, the **Chat Check-In Cap** dropdown limits how many times per day characters may reach out in this chat.
+Below the toggle, **Chat Check-In Cap** limits how many times per day characters may reach out in this chat.
 
 - The default option is **Default chat ceiling (talkativeness-based)**. The limit comes from each character's talkativeness.
-- You can instead pick a fixed number from **1 check-in / day** up to **8 check-ins / day**.
+- Choose **Numeric value** to show a number field and enter any positive whole-number ceiling. Higher ceilings can create many model requests and notifications.
 
 This cap is a ceiling for the whole chat. A character's own limit, set in its schedule, can only lower this number, never raise it.
 
