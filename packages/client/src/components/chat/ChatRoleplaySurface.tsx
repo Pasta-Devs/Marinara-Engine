@@ -28,7 +28,6 @@ import {
   FileText,
   Image,
   Loader2,
-  MapPin,
   PenLine,
   ScrollText,
   Settings2,
@@ -86,37 +85,6 @@ import type {
 import type { ChatImage } from "../../hooks/use-gallery";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
-type LorebookEntryStatus = "normal" | "constant" | "selective";
-
-const ACTIVE_CONTEXT_STATUS_STYLE: Record<
-  LorebookEntryStatus,
-  { label: string; dot: string; row: string; badge: string }
-> = {
-  normal: {
-    label: "NORMAL",
-    dot: "bg-emerald-400",
-    row: "border-emerald-400/20 bg-emerald-400/10",
-    badge: "bg-emerald-400/15 text-emerald-300 ring-1 ring-emerald-400/20",
-  },
-  constant: {
-    label: "CONST",
-    dot: "bg-yellow-300",
-    row: "border-yellow-300/25 bg-yellow-300/10",
-    badge: "bg-yellow-300/15 text-yellow-200 ring-1 ring-yellow-300/20",
-  },
-  selective: {
-    label: "SELECT",
-    dot: "bg-red-400",
-    row: "border-red-400/25 bg-red-400/10",
-    badge: "bg-red-400/15 text-red-200 ring-1 ring-red-400/20",
-  },
-};
-
-function getActiveContextEntryStatus(entry: { constant?: boolean; selective?: boolean }): LorebookEntryStatus {
-  if (entry.constant) return "constant";
-  if (entry.selective) return "selective";
-  return "normal";
-}
 
 const RoleplayHUD = lazy(async () => {
   const module = await import("./RoleplayHUD");
@@ -151,6 +119,11 @@ const SummaryPopover = lazy(async () => {
 const AuthorNotesPanel = lazy(async () => {
   const module = await import("./ChatRoleplayPanels");
   return { default: module.AuthorNotesPanel };
+});
+
+const ActiveLorebookEntriesContent = lazy(async () => {
+  const module = await import("./ChatRoleplayPanels");
+  return { default: module.ActiveLorebookEntriesContent };
 });
 
 const TRACKER_FOREGROUND_AVOIDANCE_CLASS =
@@ -489,7 +462,7 @@ function ActiveContextLinksButton({
       setMobileFrame(null);
       return;
     }
-    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 288));
+    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 320));
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
@@ -523,9 +496,6 @@ function ActiveContextLinksButton({
   const promptPresetId = typeof chat.promptPresetId === "string" ? chat.promptPresetId : null;
   const triggeredEntries = activeLorebookScan?.entries ?? [];
   const skippedLorebookEntries = activeLorebookScan?.budgetSkippedEntries ?? [];
-  const currentLocationEntryCount = triggeredEntries.filter((entry) =>
-    entry.activationSources.includes("current_location"),
-  ).length;
   const visibleLorebookIds = Array.from(
     new Set([
       ...activeLorebookIds,
@@ -538,12 +508,6 @@ function ActiveContextLinksButton({
     const current = triggeredEntriesByLorebook.get(entry.lorebookId) ?? [];
     current.push(entry);
     triggeredEntriesByLorebook.set(entry.lorebookId, current);
-  }
-  const skippedEntriesByLorebook = new Map<string, typeof skippedLorebookEntries>();
-  for (const entry of skippedLorebookEntries) {
-    const current = skippedEntriesByLorebook.get(entry.lorebookId) ?? [];
-    current.push(entry);
-    skippedEntriesByLorebook.set(entry.lorebookId, current);
   }
   const hasLinks =
     characterIds.length > 0 ||
@@ -573,8 +537,6 @@ function ActiveContextLinksButton({
   const itemClassName =
     "marinara-chat-popover__item flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]";
   const iconClassName = "shrink-0 text-[var(--marinara-chat-chrome-panel-muted)]";
-  const entryClassName =
-    "flex min-w-0 items-center gap-1.5 rounded-md bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1 text-[0.625rem] text-[var(--marinara-chat-chrome-panel-muted)] ring-1 ring-[var(--marinara-chat-chrome-panel-divider)]";
   const activeContextContent = (
     <>
       <div className="flex items-center gap-2 px-2 pb-1">
@@ -599,67 +561,36 @@ function ActiveContextLinksButton({
             <span className="shrink-0 text-[0.625rem] text-foreground/45">Card</span>
           </button>
         ))}
-        {currentLocationEntryCount > 0 && (
-          <div className="flex items-center gap-1.5 rounded-md bg-sky-400/10 px-2 py-1.5 text-[0.625rem] font-semibold text-sky-200 ring-1 ring-sky-400/20">
-            <MapPin size="0.6875rem" /> Current location · {currentLocationEntryCount}{" "}
-            {currentLocationEntryCount === 1 ? "entry" : "entries"}
-          </div>
-        )}
         {visibleLorebookIds.map((id, index) => {
           const entries = triggeredEntriesByLorebook.get(id) ?? [];
-          const skippedEntries = skippedEntriesByLorebook.get(id) ?? [];
           return (
-            <div key={id} className="space-y-1">
-              <button type="button" role="menuitem" className={itemClassName} onClick={() => openLorebook(id)}>
-                <BookOpen size="0.8125rem" className={iconClassName} />
-                <span className="min-w-0 flex-1 truncate">{lorebookNameById.get(id) ?? `Lorebook ${index + 1}`}</span>
-                <span className="shrink-0 text-[0.625rem] text-foreground/45">
-                  {entries.length > 0 ? `${entries.length} hit${entries.length === 1 ? "" : "s"}` : "Lorebook"}
-                </span>
-              </button>
-              {entries.length > 0 && (
-                <div className="ml-6 space-y-1 border-l border-foreground/10 pl-2">
-                  {entries.map((entry) => {
-                    const statusStyle = ACTIVE_CONTEXT_STATUS_STYLE[getActiveContextEntryStatus(entry)];
-                    return (
-                      <div
-                        key={entry.id}
-                        className={cn(entryClassName, "border", statusStyle.row)}
-                        title={entry.content || entry.name}
-                      >
-                        <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", statusStyle.dot)} />
-                        <span className="min-w-0 flex-1 truncate">{entry.name}</span>
-                        <span
-                          className={cn("shrink-0 rounded px-1 py-0.5 text-[0.5rem] font-semibold", statusStyle.badge)}
-                        >
-                          {statusStyle.label}
-                        </span>
-                        {entry.activationSources.includes("current_location") && (
-                          <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-sky-400/15 px-1 py-0.5 text-[0.5rem] font-semibold text-sky-200">
-                            <MapPin size="0.5rem" /> Location
-                          </span>
-                        )}
-                        <span className="shrink-0 text-foreground/40">#{entry.order}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              {skippedEntries.length > 0 && (
-                <div className="ml-6 rounded-md bg-amber-500/10 px-2 py-1 text-[0.625rem] leading-relaxed text-amber-100/80 ring-1 ring-amber-500/20">
-                  {skippedEntries.length} matching {skippedEntries.length === 1 ? "entry was" : "entries were"} skipped
-                  {skippedEntries.some((entry) => entry.blockedBy === "location")
-                    ? " by the current-location context cap."
-                    : " by token budget."}
-                </div>
-              )}
-            </div>
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              className={itemClassName}
+              onClick={() => openLorebook(id)}
+            >
+              <BookOpen size="0.8125rem" className={iconClassName} />
+              <span className="min-w-0 flex-1 truncate">{lorebookNameById.get(id) ?? `Lorebook ${index + 1}`}</span>
+              <span className="shrink-0 text-[0.625rem] text-foreground/45">
+                {entries.length > 0 ? `${entries.length} hit${entries.length === 1 ? "" : "s"}` : "Lorebook"}
+              </span>
+            </button>
           );
         })}
-        {activeLorebookScanLoading && visibleLorebookIds.length > 0 && (
-          <div className="flex items-center gap-2 px-2 py-1.5 text-[0.625rem] text-foreground/50">
-            <Loader2 size="0.6875rem" className="animate-spin" />
-            Scanning active lorebook entries...
+        {(activeLorebookScanLoading || visibleLorebookIds.length > 0) && (
+          <div className="mt-2 border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2">
+            <Suspense
+              fallback={
+                <div className="flex items-center gap-2 py-4 text-xs text-[var(--muted-foreground)]">
+                  <Loader2 size="0.75rem" className="animate-spin" />
+                  Loading active context...
+                </div>
+              }
+            >
+              <ActiveLorebookEntriesContent chatId={chat.id} />
+            </Suspense>
           </div>
         )}
         {promptPresetId && (
@@ -680,7 +611,7 @@ function ActiveContextLinksButton({
         onClick={() => {
           setOpen((prev) => {
             const nextOpen = !prev;
-            setMobileFrame(nextOpen && isMobile ? getMobileFloatingPanelFrame(buttonRef.current, 288) : null);
+            setMobileFrame(nextOpen && isMobile ? getMobileFloatingPanelFrame(buttonRef.current, 320) : null);
             return nextOpen;
           });
         }}
@@ -699,6 +630,8 @@ function ActiveContextLinksButton({
             <div
               ref={panelRef}
               role="menu"
+              data-chat-floating-panel
+              data-component="RoleplayActiveContextPanel"
               className={cn(ROLEPLAY_POPOVER_SHELL, ROLEPLAY_POPOVER_SCROLL_AREA, "fixed z-[9999] overflow-y-auto p-2")}
               style={{
                 top: mobileFrame.top,
@@ -715,10 +648,12 @@ function ActiveContextLinksButton({
           <div
             ref={panelRef}
             role="menu"
+            data-chat-floating-panel
+            data-component="RoleplayActiveContextPanel"
             className={cn(
               ROLEPLAY_POPOVER_SHELL,
               ROLEPLAY_POPOVER_SCROLL_AREA,
-              "absolute right-0 top-full z-50 mt-2 max-h-[min(32rem,calc(100vh-6rem))] w-72 overflow-y-auto p-2",
+              "absolute right-0 top-full z-50 mt-2 max-h-[min(32rem,calc(100vh-6rem))] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-2",
             )}
           >
             {activeContextContent}

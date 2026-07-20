@@ -661,6 +661,117 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
   }
 });
 
+test("Roleplay Active Context shows rich lorebook activation provenance", async ({ page, request }, testInfo) => {
+  const lorebookId = "roleplay-active-context-smoke-lorebook";
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Roleplay Active Context Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+    data: { activeLorebookIds: [lorebookId] },
+  });
+  expect(metadataResponse.ok()).toBeTruthy();
+
+  await page.route(`**/api/lorebooks/scan/${chat.id}`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        entries: [
+          {
+            id: "semantic-entry",
+            name: "Whispered Archive",
+            content: "The archive answers only to a carefully spoken passphrase.",
+            keys: ["archive", "passphrase"],
+            lorebookId,
+            lorebookName: "Archive Codex",
+            activationSources: ["keyword", "semantic"],
+            order: 20,
+            constant: false,
+            selective: false,
+            matchedKeys: ["archive"],
+            matchType: "semantic",
+            semanticScore: 0.864,
+          },
+          {
+            id: "location-entry",
+            name: "Northland Bank",
+            content: "The bank occupies the northern edge of the square.",
+            keys: ["bank"],
+            lorebookId,
+            lorebookName: "Archive Codex",
+            activationSources: ["current_location"],
+            order: 10,
+            constant: false,
+            selective: true,
+            matchedKeys: ["bank"],
+            matchType: "keyword",
+          },
+        ],
+        budgetSkippedEntries: [
+          {
+            id: "skipped-entry",
+            name: "Sealed Annex",
+            lorebookId,
+            lorebookName: "Archive Codex",
+            matchedKeys: ["annex"],
+            activationSources: ["keyword"],
+            matchType: "keyword",
+            estimatedTokens: 144,
+            lorebookBudget: 400,
+            lorebookUsedTokens: 360,
+            chatBudget: 900,
+            chatUsedTokens: 500,
+            blockedBy: "lorebook",
+          },
+        ],
+        totalTokens: 321,
+        totalEntries: 2,
+      }),
+    });
+  });
+  await page.addInitScript((chatId) => {
+    localStorage.setItem("marinara-active-chat-id", chatId);
+  }, chat.id);
+
+  try {
+    await page.goto("/");
+    if (testInfo.project.name.includes("mobile")) {
+      await page.getByRole("button", { name: "More options" }).click();
+    }
+    await page.locator('button[aria-label="Active Context"]:visible').click();
+
+    const panel = page.locator('[data-component="RoleplayActiveContextPanel"]');
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("2 active • ~321 tokens", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("region", { name: "Current location lore" })).toContainText("Northland Bank");
+    await expect(panel.getByText("Whispered Archive", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Vector 0.864", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Archive Codex · keyword, semantic", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Keys: archive, passphrase", { exact: true })).toBeVisible();
+    await expect(panel.getByText("Matched: archive", { exact: true })).toBeVisible();
+
+    await panel.getByText("Whispered Archive", { exact: true }).click();
+    await expect(panel.getByText("The archive answers only to a carefully spoken passphrase.", { exact: true })).toBeVisible();
+    await panel.getByText("1 matching lore entry was skipped by token budget", { exact: true }).click();
+    await expect(panel.getByText("Sealed Annex", { exact: true })).toBeVisible();
+    await panel.getByText("Sealed Annex", { exact: true }).click();
+    await expect(panel.getByText("Budget used before entry: 360 / 400", { exact: true })).toBeVisible();
+
+    const bounds = await panel.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(testInfo.project.use.viewport!.width);
+    await testInfo.attach("roleplay-active-context.png", {
+      body: await panel.screenshot(),
+      contentType: "image/png",
+    });
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("rewrite shield switches repeatedly between original and rewritten message versions", async ({
   page,
 }, testInfo) => {
