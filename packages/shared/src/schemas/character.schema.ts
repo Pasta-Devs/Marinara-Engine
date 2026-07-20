@@ -123,6 +123,8 @@ export const createCharacterSchema = z.object({
 });
 
 const updateCharacterExtensionsSchema = characterExtensionsSchema.partial().extend({
+  // Zod 3 short-circuits these optional wrappers before applying the nested
+  // schema defaults. Revalidate this omission behavior before upgrading to Zod 4.
   depth_prompt: depthPromptSchema.partial().optional(),
   convoBehavior: convoBehaviorConfigSchema.partial().optional(),
 });

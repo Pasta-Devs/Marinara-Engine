@@ -495,9 +495,9 @@ export async function chatsRoutes(app: FastifyInstance) {
     return Promise.all(
       allChats.map(async (chat) => {
         const metadata = parseChatMetadata(chat.metadata);
-        return sanitizeChatGameNpcAvatars({
+        return normalizeChatForResponse({
           ...chat,
-          metadata: JSON.stringify(metadata),
+          metadata,
           messageCount: await storage.countMessages(chat.id),
         });
       }),
@@ -531,7 +531,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         characterExchanges: false,
         tags: ["internal"],
       });
-      return sanitizeChatGameNpcAvatars(updated ?? existing);
+      return normalizeChatForResponse(updated ?? existing);
     }
 
     const created = await storage.create({
@@ -553,7 +553,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       characterExchanges: false,
       tags: ["internal"],
     });
-    return sanitizeChatGameNpcAvatars(updated ?? created);
+    return normalizeChatForResponse(updated ?? created);
   });
 
   app.post<{ Querystring: { connectionId?: string; personaId?: string } }>(
@@ -618,7 +618,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         characterExchanges: false,
         tags: ["internal"],
       });
-      return sanitizeChatGameNpcAvatars(updated ?? created);
+      return normalizeChatForResponse(updated ?? created);
     },
   );
 
@@ -642,7 +642,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       characterIds: [PROFESSOR_MARI_ID],
       promptPresetId: null,
     });
-    return sanitizeChatGameNpcAvatars(updated ?? target);
+    return normalizeChatForResponse(updated ?? target);
   });
 
   app.patch<{ Params: { id: string }; Body: { name?: unknown } }>(
@@ -653,7 +653,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
       if (!name) return reply.status(400).send({ error: "Name is required" });
       const updated = await storage.update(target.id, { name });
-      return sanitizeChatGameNpcAvatars(updated ?? target);
+      return normalizeChatForResponse(updated ?? target);
     },
   );
 
@@ -847,7 +847,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       Object.prototype.hasOwnProperty.call(incoming, "hideSummarisedMessages") &&
       typeof incoming.hideSummarisedMessages === "boolean"
     ) {
-      return storage.patchMetadata(req.params.id, async (freshMeta) => {
+      const updated = await storage.patchMetadata(req.params.id, async (freshMeta) => {
         const previousHideEnabled = freshMeta.hideSummarisedMessages === true;
         if (previousHideEnabled === incoming.hideSummarisedMessages) {
           return incoming;
@@ -903,8 +903,10 @@ export async function chatsRoutes(app: FastifyInstance) {
           summary: compileChatSummaryEntries(nextEntries),
         };
       });
+      return updated ? normalizeChatForResponse(updated) : updated;
     }
-    return storage.patchMetadata(req.params.id, incoming);
+    const updated = await storage.patchMetadata(req.params.id, incoming);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Mark a chat as having autonomous messages the user has not viewed yet.
@@ -912,14 +914,16 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const input = markAutonomousUnreadSchema.parse(req.body ?? {});
-    return storage.markAutonomousUnread(req.params.id, input);
+    const updated = await storage.markAutonomousUnread(req.params.id, input);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Clear autonomous unread state when the user views the relevant chat.
   app.delete<{ Params: { id: string } }>("/:id/autonomous-unread", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    return storage.clearAutonomousUnread(req.params.id);
+    const updated = await storage.clearAutonomousUnread(req.params.id);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Update chat summaries (entry-level merge for day/week summaries).
@@ -944,7 +948,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       },
     }));
     if (!updated) return reply.status(404).send({ error: "Chat not found" });
-    return updated;
+    return normalizeChatForResponse(updated);
   });
 
   // Update rolling summary entries without replacing unrelated chat metadata.
@@ -1046,7 +1050,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
 
     if (!updated) return reply.status(404).send({ error: "Chat not found" });
-    return updated;
+    return normalizeChatForResponse(updated);
   });
 
   app.post<{
@@ -3613,7 +3617,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
 
     // Return the fully-updated chat (including copied metadata)
-    return storage.getById(newChat.id);
+    const branchedChat = await storage.getById(newChat.id);
+    return branchedChat ? normalizeChatForResponse(branchedChat) : branchedChat;
   });
 
   // ── Generate Summary ──
