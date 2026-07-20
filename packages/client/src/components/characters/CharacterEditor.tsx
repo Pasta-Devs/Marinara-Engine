@@ -3281,8 +3281,9 @@ function SpritesTab({
     e.target.value = "";
   };
 
+  /** Open the sprite picker unless another single-file upload is already running. */
   const startUpload = (expression: string) => {
-    if (!expression) return;
+    if (uploading || !expression) return;
     pendingExpressionRef.current = expression;
     fileInputRef.current?.click();
   };
