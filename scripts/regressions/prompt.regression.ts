@@ -386,6 +386,36 @@ assert.deepEqual(
   ["pantalone", "dottore"],
   "squashed system runs should retain their character audience",
 );
+const maukieRestrictedRun: ChatMLMessage[] = [
+  { role: "user", content: "Visible before private run", contextKind: "history" },
+  ...Array.from({ length: 16 }, (_, index) => ({
+    role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+    content: `Private run message ${index + 1}`,
+    contextKind: "history" as const,
+    hiddenFromAICharacterIds: ["maukie"],
+  })),
+  { role: "user", content: "Visible after private run", contextKind: "history" },
+];
+assert.deepEqual(
+  filterPromptMessagesForCharacterAudience(maukieRestrictedRun, ["powers-that-be"]).map((message) => message.content),
+  maukieRestrictedRun.map((message) => message.content),
+  "every message in a character-scoped run should remain visible to other responding characters",
+);
+assert.deepEqual(
+  filterPromptMessagesForCharacterAudience(maukieRestrictedRun, ["maukie"]).map((message) => message.content),
+  ["Visible before private run", "Visible after private run"],
+  "every message in a character-scoped run should be removed for the restricted character",
+);
+assert.equal(resolveRoleplaySummaryTail(75), 75, "summary tails should not retain the former 50-message ceiling");
+assert.deepEqual(
+  computeSummaryHideIds({
+    messages: Array.from({ length: 75 }, (_, index) => ({ id: `tail-${index}` })),
+    entryMessageIds: Array.from({ length: 75 }, (_, index) => `tail-${index}`),
+    tail: 75,
+  }),
+  [],
+  "an uncapped roleplay summary tail should protect every requested recent message",
+);
 import {
   compactVideoPromptText,
   getSceneVideoPromptLimits,
@@ -462,11 +492,13 @@ import {
   buildGenerationGuideInstruction,
   appendSeparateAgentInjectionMessage,
   collectLatestTrackerCharacterHistory,
+  computeSummaryHideIds,
   getMessageHiddenFromAICharacterIds,
   injectIntoOutputFormatOrLastUser,
   isMessageHiddenFromAIForCharacter,
   preserveTrackerCharacterUiFields,
   resolveActivePersonaCandidate,
+  resolveRoleplaySummaryTail,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
   stripSpeakerTagsExceptLastAssistant,
@@ -4863,6 +4895,68 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, new RegExp(authoredSystemInstruction, "u"));
       assert.equal(promptText.includes(legacySetupMembership), false, promptText);
       assert.match(promptText, new RegExp(currentMembership, "u"));
+    },
+  },
+  {
+    name: "Conversation recent-message tails accept values above the former ceiling",
+    async run() {
+      const olderMessages = Array.from({ length: 55 }, (_, index) => ({
+        id: `uncapped-tail-${index}`,
+        role: "user" as const,
+        content: `UNCAPPED_TAIL_MESSAGE_${index}`,
+        createdAt: new Date(Date.UTC(2026, 6, 14, 10, index)).toISOString(),
+      }));
+      const currentMessage = {
+        id: "uncapped-tail-current",
+        role: "user" as const,
+        content: "CURRENT_CONVERSATION_MESSAGE",
+        createdAt: "2026-07-15T12:00:00.000Z",
+      };
+      const chatMessages = [...olderMessages, currentMessage];
+      const prepared = await prepareConversationPromptHistory({
+        finalMessages: chatMessages.map((message) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          contextKind: "history" as const,
+        })),
+        chatMessages,
+        scopedMessages: chatMessages,
+        chatMeta: {
+          summaryTailMessages: olderMessages.length,
+          daySummaries: {
+            "14.07.2026": { summary: "Compact prior-day summary.", keyDetails: [] },
+          },
+          weekSummaries: {},
+        },
+        chatId: "conversation-uncapped-tail-regression",
+        chats: {
+          async patchMetadata() {
+            throw new Error("An existing prior-day summary should not require a metadata patch");
+          },
+        },
+        chars: {
+          async getById() {
+            return null;
+          },
+        },
+        characterIds: ["char-echo"],
+        allCharacterIds: ["char-echo"],
+        convoCharInfo: [{ name: "Echo" }],
+        convoCharNames: ["Echo"],
+        personaName: "User",
+        nowInstant: new Date("2026-07-15T18:00:00.000Z"),
+        promptTimeZone: "UTC",
+        wrapFormat: "xml",
+        connection: { provider: "openai", apiKey: "", model: "regression-model" },
+        connectionId: "regression-connection",
+        baseUrl: "https://example.invalid/v1",
+      });
+      const promptText = prepared.finalMessages.map((message) => message.content).join("\n");
+
+      assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_0/u);
+      assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_54/u);
+      assert.match(promptText, /CURRENT_CONVERSATION_MESSAGE/u);
     },
   },
   {

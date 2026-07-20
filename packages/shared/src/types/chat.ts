@@ -209,12 +209,20 @@ export interface ChatMemoryChunk {
 }
 
 /**
- * Bounds for `ChatMetadata.summaryTailMessages` — the single source of truth for
- * the tail limits, shared by the server resolver (read) and the popover slider
- * (write) so display and persistence can't drift. `DEFAULT` applies only when the
- * value is unset; an explicit `MIN` (0) means "hide the whole batch".
+ * Defaults for `ChatMetadata.summaryTailMessages`. `DEFAULT` applies only when
+ * the value is unset; an explicit `MIN` (0) means "hide the whole batch".
+ * There is intentionally no upper limit because the user controls the context
+ * and model budget for this local app.
  */
-export const SUMMARY_TAIL_MESSAGES = { MIN: 0, MAX: 50, DEFAULT: 10 } as const;
+export const SUMMARY_TAIL_MESSAGES = { MIN: 0, DEFAULT: 10 } as const;
+
+export function normalizeSummaryTailMessages(value: unknown): number {
+  const { MIN, DEFAULT } = SUMMARY_TAIL_MESSAGES;
+  if (value === undefined || value === null) return DEFAULT;
+  const parsed = Math.floor(Number(value));
+  if (!Number.isFinite(parsed) || parsed < MIN) return MIN;
+  return parsed;
+}
 export const CHAT_SUMMARY_OUTPUT_TOKENS = { MIN: 1, MAX: 32768, DEFAULT: 4096 } as const;
 
 export type GameStoryboardViewerDisplayMode = "floating" | "background";
@@ -614,7 +622,7 @@ export interface ChatMetadata {
    * gist. In roleplay/visual-novel mode it is the protected tail for
    * `hideSummarisedMessages`: the last N messages stay visible (never hidden)
    * when the auto-summary hides the rest. 0 disables (hide the whole batch).
-   * Valid range: 0-50. Default: 10.
+   * Any non-negative whole number is accepted. Default: 10.
    */
   summaryTailMessages?: number;
   /** When true or omitted, prior provider reasoning metadata is not replayed into future prompts. */

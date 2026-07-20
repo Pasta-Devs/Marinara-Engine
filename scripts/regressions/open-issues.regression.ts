@@ -155,6 +155,7 @@ import {
 import {
   checkAutonomousMessaging,
   clearChatActivity,
+  dailyCapForCharacter,
   initializeActivityFromMessages,
   isAutonomousDailyBudgetExhausted,
 } from "../../packages/server/src/services/conversation/autonomous.service.js";
@@ -796,6 +797,16 @@ const autonomousSchedule = (talkativeness: number, cap: number): WeekSchedule =>
   autonomousDailyCapOverride: cap,
   talkativeness,
 });
+assert.equal(
+  dailyCapForCharacter(undefined, { autonomousDailyCapOverride: 75 }),
+  75,
+  "chat-level autonomous ceilings should accept numeric overrides above the former limit",
+);
+assert.equal(
+  dailyCapForCharacter(autonomousSchedule(90, 8), { autonomousDailyCapOverride: 75 }),
+  8,
+  "per-character safety limits should still be able to lower a numeric chat ceiling",
+);
 const autonomousChatId = "regression-autonomous-candidates";
 initializeActivityFromMessages(autonomousChatId, [
   { role: "user", createdAt: new Date(Date.now() - 5 * 60_000).toISOString() },
