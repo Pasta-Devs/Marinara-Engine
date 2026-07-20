@@ -3174,7 +3174,7 @@ test("selected Lorebook entries accept one batch setting update", async ({ page 
   }
 });
 
-test("Lorebook context filter chips keep complete borders inside their scroll areas", async ({ page }, testInfo) => {
+test("Lorebook context filter chips expose Noodle and keep complete borders", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Lorebook filter geometry is covered on desktop.");
 
   const suffix = Date.now();
@@ -3211,6 +3211,7 @@ test("Lorebook context filter chips keep complete borders inside their scroll ar
     },
   });
   expect(entryResponse.ok()).toBeTruthy();
+  const entry = (await entryResponse.json()) as { id: string };
 
   try {
     await page.goto("/");
@@ -3225,6 +3226,18 @@ test("Lorebook context filter chips keep complete borders inside their scroll ar
     await expect(chips.first()).toBeVisible();
     expect(await chips.count()).toBeGreaterThan(8);
     await expect(filterArea.locator("button.mari-editor-chip--accent")).toHaveCount(4);
+
+    const noodleChip = filterArea.getByRole("button", { name: "Noodle", exact: true });
+    await expect(noodleChip).toBeVisible();
+    await noodleChip.click();
+    await expect(noodleChip).toHaveClass(/mari-editor-chip--accent/u);
+    await expect
+      .poll(async () => {
+        const entriesResponse = await page.request.get(`/api/lorebooks/${lorebook.id}/entries`);
+        const entries = (await entriesResponse.json()) as Array<{ id: string; generationTriggerFilters: string[] }>;
+        return entries.find((candidate) => candidate.id === entry.id)?.generationTriggerFilters ?? [];
+      })
+      .toContain("noodle");
 
     const invalidBorders = await chips.evaluateAll((elements) =>
       elements

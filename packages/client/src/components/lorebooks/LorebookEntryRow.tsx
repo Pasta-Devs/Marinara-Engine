@@ -186,6 +186,7 @@ const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "test_scan", label: "Test scan" },
   { value: "game_setup", label: "Game setup" },
   { value: "lorebook_assistant", label: "Lorebook Assistant" },
+  { value: "noodle", label: "Noodle" },
 ];
 
 /** A compact lorebook-entry list row with inline-editable status / position / depth / order /

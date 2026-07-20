@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added **Noodle** to Lorebook entry Generation filters so entries can target Noodle context without being injected into other generation paths (#3842).
 - Added per-character **Hide From AI** controls to Roleplay group chats, with avatar-based multi-selection, recipient markers, and character-scoped prompt history while preserving the existing global hide option.
 - Added `||` (OR), `&&` (AND), parentheses, and equality-list shorthand to conditional prompt macros, with matching in-app and documentation examples.
 - Added the `{{group}}` prompt macro for listing every other active chat character, including during targeted Roleplay group generation.
@@ -15,6 +16,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Updated the curated Gemma GGUF download sizes to match the current upstream files, preventing false file-size mismatch failures after their metadata changed (#3843).
 - Matched Roleplay's Active Context lorebook details to Conversation and Game, including activation sources, matched keys, semantic scores, current-location grouping, budget skips, and expandable entry content (#3840).
 - Kept the Roleplay **Hide From AI** action on the selected chroma/accent color and suppressed the browser's transient tap-highlight color.
 - Smoothed Roleplay typing and streamed replies by batching draft-state publication, pacing the Typewriter effect against bursty provider delivery, and replacing the repaint-heavy streaming glow with an opacity pulse (#3836).
