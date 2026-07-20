@@ -10,6 +10,8 @@ import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,9 +19,12 @@ import android.content.pm.PackageInstaller;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Base64;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -56,6 +61,7 @@ public class MainActivity extends Activity {
     private static final int UNKNOWN_APP_SOURCES_REQUEST = 1003;
     private static final int TERMUX_INSTALL_STATUS_REQUEST = 1004;
     private static final int NOTIFICATION_PERMISSION_REQUEST = 1005;
+    private static final int FILE_SAVE_REQUEST = 1006;
     private static final String NOTIFICATION_PERMISSION_PREFS = "marinara_notification_permission";
     private static final String NOTIFICATION_PERMISSION_REQUESTED = "requested";
     private static final String MESSAGE_NOTIFICATION_CHANNEL_ID = "marinara_messages";
@@ -76,6 +82,8 @@ public class MainActivity extends Activity {
     private ProgressBar spinner;
     private TextView statusText;
     private ValueCallback<Uri[]> fileUploadCallback;
+    private byte[] pendingFileSaveData;
+    private String pendingFileSaveName;
     private boolean isDownloadingTermux;
     private boolean pendingStartAfterTermuxInstall;
     private boolean isCheckingServer;
@@ -701,6 +709,29 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> showNativeMessageNotification(title, body, tag));
         }
 
+        /** Saves a base64-encoded web download through Android's native storage APIs. */
+        @JavascriptInterface
+        public void saveFile(String base64Data, String mimeType, String filename) {
+            new Thread(() -> {
+                try {
+                    byte[] data = Base64.decode(base64Data, Base64.DEFAULT);
+                    String safeFilename = sanitizeDownloadFilename(filename);
+                    String safeMimeType = normalizeDownloadMimeType(mimeType);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        saveFileToMediaStore(data, safeMimeType, safeFilename);
+                    } else {
+                        runOnUiThread(() -> beginLegacyFileSave(data, safeMimeType, safeFilename));
+                    }
+                } catch (Exception error) {
+                    runOnUiThread(() -> Toast.makeText(
+                            MainActivity.this,
+                            "Could not save the file: " + safeErrorMessage(error),
+                            Toast.LENGTH_LONG
+                    ).show());
+                }
+            }).start();
+        }
+
         @JavascriptInterface
         public void openConsole() {
             runOnUiThread(() -> {
@@ -722,6 +753,83 @@ public class MainActivity extends Activity {
                 }
             });
         }
+    }
+
+    /** Removes path separators and reserved characters from a browser-provided filename. */
+    private String sanitizeDownloadFilename(String filename) {
+        String safe = filename == null ? "" : filename.trim().replaceAll("[\\\\/:*?\"<>|]", "_");
+        if (safe.isEmpty()) safe = "marinara-download";
+        return safe.length() > 120 ? safe.substring(0, 120) : safe;
+    }
+
+    /** Returns a safe MIME type when the browser does not provide a valid media type. */
+    private String normalizeDownloadMimeType(String mimeType) {
+        if (mimeType == null || !mimeType.matches("^[A-Za-z0-9.+-]+/[A-Za-z0-9.+-]+$")) {
+            return "application/octet-stream";
+        }
+        return mimeType;
+    }
+
+    /** Produces a user-facing fallback when an exception has no message. */
+    private String safeErrorMessage(Exception error) {
+        String message = error.getMessage();
+        return message == null || message.trim().isEmpty() ? error.getClass().getSimpleName() : message;
+    }
+
+    /** Writes a download into the app's Pictures or Downloads collection on Android 10 and newer. */
+    private void saveFileToMediaStore(byte[] data, String mimeType, String filename) throws Exception {
+        ContentResolver resolver = getContentResolver();
+        boolean isImage = mimeType.startsWith("image/");
+        Uri collection = isImage
+                ? MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                : MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        String directory = (isImage ? Environment.DIRECTORY_PICTURES : Environment.DIRECTORY_DOWNLOADS)
+                + "/Marinara";
+        ContentValues values = new ContentValues();
+        values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+        values.put(MediaStore.MediaColumns.MIME_TYPE, mimeType);
+        values.put(MediaStore.MediaColumns.RELATIVE_PATH, directory);
+        values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+        Uri target = resolver.insert(collection, values);
+        if (target == null) throw new IllegalStateException("Android did not create a destination file");
+
+        try {
+            try (OutputStream output = resolver.openOutputStream(target)) {
+                if (output == null) throw new IllegalStateException("Android did not open the destination file");
+                output.write(data);
+            }
+            ContentValues complete = new ContentValues();
+            complete.put(MediaStore.MediaColumns.IS_PENDING, 0);
+            resolver.update(target, complete, null, null);
+        } catch (Exception error) {
+            resolver.delete(target, null, null);
+            throw error;
+        }
+
+        runOnUiThread(() -> Toast.makeText(
+                MainActivity.this,
+                "Saved " + filename + " to " + directory,
+                Toast.LENGTH_LONG
+        ).show());
+    }
+
+    /** Opens Android's document picker to save a download on Android 7 through 9. */
+    private void beginLegacyFileSave(byte[] data, String mimeType, String filename) {
+        if (pendingFileSaveData != null) {
+            Toast.makeText(this, "Finish saving the current file first.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mimeType);
+        intent.putExtra(Intent.EXTRA_TITLE, filename);
+        if (intent.resolveActivity(getPackageManager()) == null) {
+            Toast.makeText(this, "No Android file picker is available.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        pendingFileSaveData = data;
+        pendingFileSaveName = filename;
+        startActivityForResult(intent, FILE_SAVE_REQUEST);
     }
 
     private void createMessageNotificationChannel() {
@@ -880,6 +988,31 @@ public class MainActivity extends Activity {
                 Uri[] result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
                 fileUploadCallback.onReceiveValue(result);
                 fileUploadCallback = null;
+            }
+        } else if (requestCode == FILE_SAVE_REQUEST) {
+            byte[] fileData = pendingFileSaveData;
+            String fileName = pendingFileSaveName;
+            pendingFileSaveData = null;
+            pendingFileSaveName = null;
+            Uri destination = resultCode == RESULT_OK && data != null ? data.getData() : null;
+            if (fileData != null && destination != null) {
+                new Thread(() -> {
+                    try (OutputStream output = getContentResolver().openOutputStream(destination)) {
+                        if (output == null) throw new IllegalStateException("Android did not open the destination file");
+                        output.write(fileData);
+                        runOnUiThread(() -> Toast.makeText(
+                                MainActivity.this,
+                                "Saved " + fileName,
+                                Toast.LENGTH_LONG
+                        ).show());
+                    } catch (Exception error) {
+                        runOnUiThread(() -> Toast.makeText(
+                                MainActivity.this,
+                                "Could not save the file: " + safeErrorMessage(error),
+                                Toast.LENGTH_LONG
+                        ).show());
+                    }
+                }).start();
             }
         } else if (requestCode == UNKNOWN_APP_SOURCES_REQUEST) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getPackageManager().canRequestPackageInstalls()) {

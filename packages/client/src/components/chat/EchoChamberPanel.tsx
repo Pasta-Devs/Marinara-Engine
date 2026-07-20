@@ -28,6 +28,7 @@ import {
   getEchoChamberMessageInterval,
   resolveEchoChamberPersistedBaseline,
 } from "../../lib/echo-chamber-queue";
+import { resolveEchoChamberTopLayout } from "../../lib/echo-chamber-layout";
 
 const NAME_COLORS = [
   "text-red-400",
@@ -51,14 +52,17 @@ const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.7
 const INPUT_BOX_H = 72; // bottom chat input area height
 const HUD_EDGE_GAP = 16; // Aligns with the roleplay HUD edge padding.
 const FLOATING_EDGE_GAP = 16;
+const FLOATING_PANEL_STACK_GAP = 8;
 const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
 const DESKTOP_PANEL_WIDTH = 236;
+const DEFAULT_DESKTOP_PANEL_MAX_HEIGHT = 352;
 const MIN_PANEL_WIDTH = 176;
 const MIN_PANEL_HEIGHT = 96;
 const RESIZE_KEYBOARD_STEP = 24;
 const ROLEPLAY_AREA_SELECTOR = ".rpg-chat-area";
 const ROLEPLAY_TOP_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
 const ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR = '[data-roleplay-top-controls="right"]';
+const TRACKER_PANEL_SELECTOR_PREFIX = '[data-component="TrackerDataSidebarDesktop.';
 
 interface EchoChamberPanelProps {
   hiddenOnMobile?: boolean;
@@ -96,6 +100,10 @@ function getDesktopAlignmentElement(isLeft: boolean) {
     : findVisibleElement(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR);
 }
 
+function getDesktopTrackerPanel(isLeft: boolean) {
+  return document.querySelector<HTMLElement>(`${TRACKER_PANEL_SELECTOR_PREFIX}${isLeft ? "left" : "right"}"]`);
+}
+
 function getTopChromeBottomOffset(containerRect: DOMRect, alignmentRect: DOMRect | null) {
   const candidates: number[] = [];
   const anchors = Array.from(document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_ANCHOR_SELECTOR));
@@ -108,17 +116,39 @@ function getTopChromeBottomOffset(containerRect: DOMRect, alignmentRect: DOMRect
   return candidates.length > 0 ? Math.max(TOP_BUTTON_GAP, ...candidates) : WIDGET_BAR_H + TOP_BUTTON_GAP;
 }
 
-function getDesktopPanelPosition(isTop: boolean, isLeft: boolean): CSSProperties {
+function getDesktopPanelPosition(isTop: boolean, isLeft: boolean, stackBelowTracker: boolean): CSSProperties {
   const containerRect = getRoleplayAreaRect();
   const alignmentElement = getDesktopAlignmentElement(isLeft);
   const alignmentRect = alignmentElement ? readVisibleRect(alignmentElement) : null;
-  const edgeOffset = alignmentRect && containerRect ? Math.max(0, Math.round(alignmentRect.left - containerRect.left)) : null;
+  const trackerPanel = isTop && stackBelowTracker ? getDesktopTrackerPanel(isLeft) : null;
+  const edgeOffset =
+    trackerPanel && containerRect
+      ? Math.max(0, Math.round(trackerPanel.offsetLeft - containerRect.left))
+      : alignmentRect && containerRect
+        ? Math.max(0, Math.round(alignmentRect.left - containerRect.left))
+        : null;
   const rightEdgeOffset =
-    alignmentRect && containerRect ? Math.max(0, Math.round(containerRect.right - alignmentRect.right)) : null;
-  const topOffset = isTop && containerRect ? getTopChromeBottomOffset(containerRect, alignmentRect) : undefined;
+    trackerPanel && containerRect
+      ? Math.max(0, Math.round(containerRect.right - trackerPanel.offsetLeft - trackerPanel.offsetWidth))
+      : alignmentRect && containerRect
+        ? Math.max(0, Math.round(containerRect.right - alignmentRect.right))
+        : null;
+  const baseTop = isTop && containerRect ? getTopChromeBottomOffset(containerRect, alignmentRect) : undefined;
+  const topLayout =
+    baseTop !== undefined && containerRect
+      ? resolveEchoChamberTopLayout({
+          baseTop,
+          containerTop: containerRect.top,
+          containerBottom: containerRect.bottom,
+          viewportBottom: window.innerHeight,
+          bottomClearance: INPUT_BOX_H + FLOATING_EDGE_GAP,
+          trackerBottom: trackerPanel ? trackerPanel.offsetTop + trackerPanel.offsetHeight : null,
+          stackGap: FLOATING_PANEL_STACK_GAP,
+        })
+      : null;
 
   return {
-    ...(topOffset !== undefined && { top: topOffset }),
+    ...(topLayout && { top: topLayout.top, maxHeight: topLayout.maxHeight }),
     ...(!isTop && { bottom: INPUT_BOX_H + FLOATING_EDGE_GAP }),
     ...(isLeft && {
       left: edgeOffset !== null ? `${edgeOffset}px` : `calc(${HUD_EDGE_GAP}px + var(--tracker-panel-hud-clear-left, 0px))`,
@@ -160,6 +190,9 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   const setEchoChamberSide = useUIStore((s) => s.setEchoChamberSide);
   const echoChamberOpen = useUIStore((s) => s.echoChamberOpen);
   const toggleEchoChamber = useUIStore((s) => s.toggleEchoChamber);
+  const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
+  const trackerPanelOpen = useUIStore((s) => s.trackerPanelOpen);
+  const trackerPanelSide = useUIStore((s) => s.trackerPanelSide);
   const echoMessages = useAgentStore((s) => s.echoMessages);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -380,8 +413,10 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     // Desktop: position within the chat area container (absolute, not fixed)
     const isTop = echoChamberSide.startsWith("top");
     const isLeft = echoChamberSide.endsWith("left");
+    const stackBelowTracker =
+      isTop && trackerPanelEnabled && trackerPanelOpen && trackerPanelSide === (isLeft ? "left" : "right");
     const update = () => {
-      setPosStyle(getDesktopPanelPosition(isTop, isLeft));
+      setPosStyle(getDesktopPanelPosition(isTop, isLeft, stackBelowTracker));
     };
 
     update();
@@ -397,13 +432,22 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
         document.querySelectorAll<HTMLElement>(ROLEPLAY_TOP_RIGHT_CONTROLS_SELECTOR),
       );
       const huds = Array.from(document.querySelectorAll<HTMLElement>(".rpg-hud"));
-      const targets = [...roleplayAreas, ...topAnchors, ...topRightControls, ...huds];
+      const trackerPanels = stackBelowTracker
+        ? Array.from(
+            document.querySelectorAll<HTMLElement>(`${TRACKER_PANEL_SELECTOR_PREFIX}${isLeft ? "left" : "right"}"]`),
+          )
+        : [];
+      const targets = [...roleplayAreas, ...topAnchors, ...topRightControls, ...huds, ...trackerPanels];
       targets.forEach((target) => {
         if (observedTargets.has(target)) return;
         observer.observe(target);
         observedTargets.add(target);
       });
-      return roleplayAreas.length > 0 && (isLeft ? huds.length > 0 : topRightControls.length > 0);
+      return (
+        roleplayAreas.length > 0 &&
+        (isLeft ? huds.length > 0 : topRightControls.length > 0) &&
+        (!stackBelowTracker || trackerPanels.length > 0)
+      );
     };
     function scheduleUpdate() {
       if (frame) window.cancelAnimationFrame(frame);
@@ -428,7 +472,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
       discoveryObserver?.disconnect();
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [echoEnabled, echoChamberSide]);
+  }, [echoEnabled, echoChamberSide, trackerPanelEnabled, trackerPanelOpen, trackerPanelSide]);
 
   useEffect(() => {
     if (!echoEnabled || (isMobile && hiddenOnMobile)) return;
@@ -449,6 +493,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   if (!echoChamberOpen) {
     const collapsedStyle = { ...posStyle };
     delete collapsedStyle.width;
+    delete collapsedStyle.maxHeight;
     return (
       <button
         type="button"
@@ -476,6 +521,15 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
     );
   }
 
+  const availableHeight = typeof posStyle.maxHeight === "number" ? posStyle.maxHeight : null;
+  const expandedPanelStyle: CSSProperties = {
+    ...posStyle,
+    ...(availableHeight !== null && {
+      maxHeight: Math.min(availableHeight, panelSize?.height ?? DEFAULT_DESKTOP_PANEL_MAX_HEIGHT),
+    }),
+    ...(panelSize && { width: panelSize.width, height: panelSize.height }),
+  };
+
   return (
     <div
       ref={panelRef}
@@ -485,7 +539,7 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
         "pointer-events-auto max-md:w-auto md:w-[14.75rem]",
         !panelSize && "max-md:max-h-28 md:max-h-[22rem]",
       )}
-      style={{ ...posStyle, ...(panelSize && { width: panelSize.width, height: panelSize.height }) }}
+      style={expandedPanelStyle}
     >
       {/* Header — live dot, corner picker, close */}
       <div className="flex items-center justify-between px-2 py-1">

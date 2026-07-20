@@ -401,8 +401,8 @@ function resolveFinalLorebookContent(
 function lorebookSelectionOrder(a: ActivatedEntry, b: ActivatedEntry): number {
   if (a.entry.constant && !b.entry.constant) return -1;
   if (!a.entry.constant && b.entry.constant) return 1;
-  if (a.matchedLatestUserMessage && !b.matchedLatestUserMessage) return -1;
-  if (!a.matchedLatestUserMessage && b.matchedLatestUserMessage) return 1;
+  if (a.matchedCurrentContext && !b.matchedCurrentContext) return -1;
+  if (!a.matchedCurrentContext && b.matchedCurrentContext) return 1;
   return a.injectionOrder - b.injectionOrder;
 }
 
@@ -565,7 +565,7 @@ function mergeActivatedEntries(...groups: ActivatedEntry[][]): ActivatedEntry[] 
         ...existing.activationSources,
         ...candidate.activationSources,
       ]) as LorebookActivationSource[],
-      matchedLatestUserMessage: existing.matchedLatestUserMessage || candidate.matchedLatestUserMessage,
+      matchedCurrentContext: existing.matchedCurrentContext || candidate.matchedCurrentContext,
       sticky: existing.sticky || candidate.sticky,
     });
   }

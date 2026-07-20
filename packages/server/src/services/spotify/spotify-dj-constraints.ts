@@ -1,12 +1,7 @@
 // ──────────────────────────────────────────────
 // Music DJ Spotify prompt constraints
 // ──────────────────────────────────────────────
-
-type SpotifyDjSourceType = "liked" | "playlist" | "artist" | "any";
-
-function normalizeSourceType(value: unknown): SpotifyDjSourceType {
-  return value === "playlist" || value === "artist" || value === "any" || value === "liked" ? value : "liked";
-}
+import { normalizeSpotifySourceType } from "@marinara-engine/shared";
 
 function cleanString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -19,7 +14,7 @@ export function buildSpotifyDjConstraints(args: {
   forceFreshPick?: boolean;
 }): Record<string, unknown> {
   const isGame = args.chatMode === "game";
-  const sourceType = normalizeSourceType(
+  const sourceType = normalizeSpotifySourceType(
     isGame ? args.chatMeta.gameSpotifySourceType : args.chatMeta.spotifySourceType,
   );
   const playlistId = cleanString(isGame ? args.chatMeta.gameSpotifyPlaylistId : args.chatMeta.spotifyPlaylistId);

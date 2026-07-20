@@ -59,7 +59,6 @@ function normalizeConnectionPanelSort(value: unknown): ConnectionPanelSort {
 type FontSize = 12 | 14 | 16 | 17 | 19 | 22;
 export type VisualTheme = "default" | "sillytavern";
 export type ConversationMessageStyle = "classic" | "bubble";
-export type HudPosition = "top" | "left" | "right";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
@@ -454,7 +453,6 @@ interface UIState {
   theme: "dark" | "light";
   appBackgroundColor: string;
   appAccentColor: string;
-  appAccentColorBeforeRgbMode: string | null;
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
@@ -590,7 +588,6 @@ interface UIState {
   imageSelfieHeight: number;
   imageStyleProfiles: ImageStyleProfileSettings;
 
-  messageGrouping: boolean;
   conversationMessageStyle: ConversationMessageStyle;
   showTimestamps: boolean;
   showModelName: boolean;
@@ -628,10 +625,6 @@ interface UIState {
   musicPlayerEnabled: boolean;
   /** Which Music Player surface to show. */
   musicPlayerSource: MusicPlayerSource;
-  /** When true, show the global Spotify mini player in the app chrome. */
-  spotifyPlayerEnabled: boolean;
-  /** When true, show the Music DJ YouTube mini player when Music DJ plays a track. */
-  youtubePlayerEnabled: boolean;
   /** User-set YouTube player volume (0–100). The DJ can also steer this. */
   youtubePlayerVolume: number;
   /** User-set local Custom music player volume (0–100). The DJ can also steer this. */
@@ -658,10 +651,6 @@ interface UIState {
   scenePromptPreferences: ScenePromptPreferences;
 
   // ── Text Appearance ──
-  /** Color for narrator text in RP mode (empty = default amber) */
-  narrationFontColor: string;
-  /** Opacity for narrator text (0–100) */
-  narrationOpacity: number;
   /** Color for chat message text (empty = theme default) */
   chatFontColor: string;
   /** Color for non-action chrome copy in tracker widgets, folder labels, settings descriptors, and popovers (empty = scheme default) */
@@ -730,9 +719,6 @@ interface UIState {
   // ── Roleplay Effects ──
   weatherEffects: boolean;
 
-  // ── HUD Layout ──
-  hudPosition: HudPosition;
-
   // ── Legacy Custom Themes & Extensions ──
   /** Legacy active custom theme id (null = built-in default). Migration only. */
   activeCustomTheme: string | null;
@@ -770,8 +756,6 @@ interface UIState {
   // ── Impersonate Settings ──
   /** Custom prompt template for /impersonate (empty = use server default). Persisted. */
   impersonatePromptTemplate: string;
-  /** Show a quick /impersonate button in the chat input toolbar. Persisted. */
-  impersonateShowQuickButton: boolean;
   /** When true, CYOA choices generate impersonate requests instead of normal user messages. Persisted. */
   impersonateCyoaChoices: boolean;
   /** Override preset used when impersonating (null = use chat default). Persisted. */
@@ -803,7 +787,6 @@ interface UIState {
   setTrackerPanelBackgroundColor: (color: string) => void;
   setTrackerTemperatureUnit: (unit: TrackerTemperatureUnit) => void;
   setTrackerPanelSectionOrder: (order: TrackerPanelSectionOrder) => void;
-  setTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection, collapsed: boolean) => void;
   toggleTrackerPanelSectionCollapsed: (section: TrackerDataPanelSection) => void;
   openRightPanel: (panel: Panel) => void;
   closeRightPanel: () => void;
@@ -814,7 +797,6 @@ interface UIState {
   setTheme: (theme: "dark" | "light") => void;
   setAppBackgroundColor: (color: string) => void;
   setAppAccentColor: (color: string) => void;
-  setAppAccentColorBeforeRgbMode: (color: string | null) => void;
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
@@ -906,7 +888,6 @@ interface UIState {
   setImageSelfieDimensions: (width: number, height: number) => void;
   setImageStyleProfiles: (settings: ImageStyleProfileSettings) => void;
 
-  setMessageGrouping: (v: boolean) => void;
   setConversationMessageStyle: (v: ConversationMessageStyle) => void;
   setShowTimestamps: (v: boolean) => void;
   setShowModelName: (v: boolean) => void;
@@ -931,8 +912,6 @@ interface UIState {
   setAchievementsEnabled: (v: boolean) => void;
   setMusicPlayerEnabled: (v: boolean) => void;
   setMusicPlayerSource: (v: MusicPlayerSource) => void;
-  setSpotifyPlayerEnabled: (v: boolean) => void;
-  setYoutubePlayerEnabled: (v: boolean) => void;
   setYoutubePlayerVolume: (v: number) => void;
   setLocalMusicPlayerVolume: (v: number) => void;
   setConversationCallVoiceVolume: (v: number) => void;
@@ -945,8 +924,6 @@ interface UIState {
   setEditMessageOnDoubleClick: (v: boolean) => void;
   setSummaryPopoverSettings: (settings: Partial<SummaryPopoverSettings>) => void;
   setScenePromptPreferences: (preferences: ScenePromptPreferences) => void;
-  setNarrationFontColor: (v: string) => void;
-  setNarrationOpacity: (v: number) => void;
   setChatFontColor: (v: string) => void;
   setChatChromeTextColor: (v: string) => void;
   setChatFontOpacity: (v: number) => void;
@@ -985,11 +962,8 @@ interface UIState {
   setEnterToSendConvo: (v: boolean) => void;
   setEnterToSendGame: (v: boolean) => void;
   setWeatherEffects: (v: boolean) => void;
-  setHudPosition: (v: HudPosition) => void;
-
   // Impersonate settings actions
   setImpersonatePromptTemplate: (v: string) => void;
-  setImpersonateShowQuickButton: (v: boolean) => void;
   setImpersonateCyoaChoices: (v: boolean) => void;
   setImpersonatePresetId: (id: string | null) => void;
   setImpersonateConnectionId: (id: string | null) => void;
@@ -998,10 +972,6 @@ interface UIState {
   /** Legacy migration helpers for browser-local custom themes. */
   setHasMigratedCustomThemesToServer: (v: boolean) => void;
   clearLegacyCustomThemes: () => void;
-  setActiveCustomTheme: (id: string | null) => void;
-  addCustomTheme: (theme: CustomTheme) => void;
-  updateCustomTheme: (id: string, patch: Partial<Pick<CustomTheme, "name" | "css">>) => void;
-  removeCustomTheme: (id: string) => void;
   /** Legacy migration helpers for browser-local extensions. */
   setHasMigratedExtensionsToServer: (v: boolean) => void;
   clearLegacyExtensions: () => void;
@@ -1115,7 +1085,6 @@ export function pickSyncedSettings(state: UIState) {
     imageSelfieHeight: state.imageSelfieHeight,
     [IMAGE_STYLE_PROFILES_STORAGE_KEY]: state.imageStyleProfiles,
 
-    messageGrouping: state.messageGrouping,
     conversationMessageStyle: state.conversationMessageStyle,
     showTimestamps: state.showTimestamps,
     showModelName: state.showModelName,
@@ -1140,8 +1109,6 @@ export function pickSyncedSettings(state: UIState) {
     achievementsEnabled: state.achievementsEnabled,
     musicPlayerEnabled: state.musicPlayerEnabled,
     musicPlayerSource: state.musicPlayerSource,
-    spotifyPlayerEnabled: state.spotifyPlayerEnabled,
-    youtubePlayerEnabled: state.youtubePlayerEnabled,
     youtubePlayerVolume: state.youtubePlayerVolume,
     localMusicPlayerVolume: state.localMusicPlayerVolume,
     conversationCallVoiceVolume: state.conversationCallVoiceVolume,
@@ -1154,8 +1121,6 @@ export function pickSyncedSettings(state: UIState) {
     editMessageOnDoubleClick: state.editMessageOnDoubleClick,
     summaryPopoverSettings: state.summaryPopoverSettings,
     scenePromptPreferences: state.scenePromptPreferences,
-    narrationFontColor: state.narrationFontColor,
-    narrationOpacity: state.narrationOpacity,
     chatFontColor: state.chatFontColor,
     chatChromeTextColor: state.chatChromeTextColor,
     chatFontOpacity: state.chatFontOpacity,
@@ -1172,7 +1137,6 @@ export function pickSyncedSettings(state: UIState) {
     enterToSendRP: state.enterToSendRP,
     enterToSendConvo: state.enterToSendConvo,
     weatherEffects: state.weatherEffects,
-    hudPosition: state.hudPosition,
     hasCompletedOnboarding: state.hasCompletedOnboarding,
     gameTutorialDisabled: state.gameTutorialDisabled,
     linkApiBannerDismissed: state.linkApiBannerDismissed,
@@ -1193,7 +1157,6 @@ export function pickSyncedSettings(state: UIState) {
     scheduleGenerationPreferences: state.scheduleGenerationPreferences,
     conversationTimeZone: state.conversationTimeZone,
     impersonatePromptTemplate: state.impersonatePromptTemplate,
-    impersonateShowQuickButton: state.impersonateShowQuickButton,
     impersonateCyoaChoices: state.impersonateCyoaChoices,
     impersonatePresetId: state.impersonatePresetId,
     impersonateConnectionId: state.impersonateConnectionId,
@@ -1230,7 +1193,6 @@ export const useUIStore = create<UIState>()(
       theme: "dark" as const,
       appBackgroundColor: "",
       appAccentColor: "",
-      appAccentColorBeforeRgbMode: null,
       appAccentPulseMode: false,
       appAccentRgbMode: false,
       customCursorEnabled: true,
@@ -1306,7 +1268,6 @@ export const useUIStore = create<UIState>()(
       imageSelfieHeight: 1152,
       imageStyleProfiles: normalizeImageStyleProfileSettings(null),
 
-      messageGrouping: true,
       conversationMessageStyle: "classic" as ConversationMessageStyle,
       showTimestamps: false,
       showModelName: false,
@@ -1331,8 +1292,6 @@ export const useUIStore = create<UIState>()(
       achievementsEnabled: true,
       musicPlayerEnabled: true,
       musicPlayerSource: "youtube" as MusicPlayerSource,
-      spotifyPlayerEnabled: false,
-      youtubePlayerEnabled: true,
       youtubePlayerVolume: 70,
       localMusicPlayerVolume: 70,
       conversationCallVoiceVolume: 100,
@@ -1345,8 +1304,6 @@ export const useUIStore = create<UIState>()(
       editMessageOnDoubleClick: true,
       summaryPopoverSettings: DEFAULT_SUMMARY_POPOVER_SETTINGS,
       scenePromptPreferences: DEFAULT_SCENE_PROMPT_PREFERENCES,
-      narrationFontColor: "",
-      narrationOpacity: 80,
       chatFontColor: "",
       chatChromeTextColor: "",
       chatFontOpacity: 90,
@@ -1382,7 +1339,6 @@ export const useUIStore = create<UIState>()(
       enterToSendConvo: true,
       enterToSendGame: true,
       weatherEffects: true,
-      hudPosition: "top" as HudPosition,
       activeCustomTheme: null,
       customThemes: [],
       hasMigratedCustomThemesToServer: false,
@@ -1402,7 +1358,6 @@ export const useUIStore = create<UIState>()(
 
       // Impersonate settings defaults
       impersonatePromptTemplate: "",
-      impersonateShowQuickButton: false,
       impersonateCyoaChoices: false,
       impersonatePresetId: null,
       impersonateConnectionId: null,
@@ -1453,16 +1408,6 @@ export const useUIStore = create<UIState>()(
       setTrackerTemperatureUnit: (unit) => set({ trackerTemperatureUnit: normalizeTrackerTemperatureUnit(unit) }),
       setTrackerPanelSectionOrder: (order) =>
         set({ trackerPanelSectionOrder: normalizeTrackerPanelSectionOrder(order) }),
-      setTrackerPanelSectionCollapsed: (section, collapsed) =>
-        set((s) => {
-          const next = { ...s.trackerPanelCollapsedSections };
-          if (collapsed) {
-            next[section] = true;
-          } else {
-            delete next[section];
-          }
-          return { trackerPanelCollapsedSections: next };
-        }),
       toggleTrackerPanelSectionCollapsed: (section) =>
         set((s) => {
           const next = { ...s.trackerPanelCollapsedSections };
@@ -1503,8 +1448,6 @@ export const useUIStore = create<UIState>()(
       setTheme: (theme) => set({ theme }),
       setAppBackgroundColor: (color) => set({ appBackgroundColor: normalizeAppBackgroundColor(color) }),
       setAppAccentColor: (color) => set({ appAccentColor: normalizeAppAccentColor(color) }),
-      setAppAccentColorBeforeRgbMode: (color) =>
-        set({ appAccentColorBeforeRgbMode: color === null ? null : normalizeAppAccentColor(color) }),
       setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
       setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
       setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
@@ -2031,7 +1974,6 @@ export const useUIStore = create<UIState>()(
         }),
       setImageStyleProfiles: (settings) => set({ imageStyleProfiles: normalizeImageStyleProfileSettings(settings) }),
 
-      setMessageGrouping: (v) => set({ messageGrouping: v }),
       setConversationMessageStyle: (v) => set({ conversationMessageStyle: normalizeConversationMessageStyle(v) }),
       setShowTimestamps: (v) => set({ showTimestamps: v }),
       setShowModelName: (v) => set({ showModelName: v }),
@@ -2054,21 +1996,12 @@ export const useUIStore = create<UIState>()(
       setChibiProfessorMariEnabled: (v) => set({ chibiProfessorMariEnabled: v }),
       setProfessorMariSuggestionsEnabled: (v) => set({ professorMariSuggestionsEnabled: v }),
       setAchievementsEnabled: (v) => set({ achievementsEnabled: v }),
-      setMusicPlayerEnabled: (v) =>
-        set((state) => ({
-          musicPlayerEnabled: v,
-          spotifyPlayerEnabled: v && state.musicPlayerSource === "spotify",
-          youtubePlayerEnabled: v && state.musicPlayerSource === "youtube",
-        })),
+      setMusicPlayerEnabled: (v) => set({ musicPlayerEnabled: v }),
       setMusicPlayerSource: (v) =>
         set({
           musicPlayerEnabled: true,
           musicPlayerSource: v,
-          spotifyPlayerEnabled: v === "spotify",
-          youtubePlayerEnabled: v === "youtube",
         }),
-      setSpotifyPlayerEnabled: (v) => set({ spotifyPlayerEnabled: v }),
-      setYoutubePlayerEnabled: (v) => set({ youtubePlayerEnabled: v }),
       setYoutubePlayerVolume: (v) => set({ youtubePlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setLocalMusicPlayerVolume: (v) => set({ localMusicPlayerVolume: Math.max(0, Math.min(100, Math.round(v))) }),
       setConversationCallVoiceVolume: (v) =>
@@ -2095,8 +2028,6 @@ export const useUIStore = create<UIState>()(
         })),
       setScenePromptPreferences: (preferences) =>
         set({ scenePromptPreferences: normalizeScenePromptPreferences(preferences) }),
-      setNarrationFontColor: (v) => set({ narrationFontColor: v }),
-      setNarrationOpacity: (v) => set({ narrationOpacity: Math.max(0, Math.min(100, v)) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
       setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
       setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
@@ -2147,8 +2078,6 @@ export const useUIStore = create<UIState>()(
           chatFontSize: 16,
           fontFamily: "",
           conversationMessageStyle: "classic" as ConversationMessageStyle,
-          narrationFontColor: "",
-          narrationOpacity: 80,
           chatFontColor: "",
           chatChromeTextColor: "",
           chatFontOpacity: 90,
@@ -2169,7 +2098,6 @@ export const useUIStore = create<UIState>()(
             light: { from: "#f2eff7", to: "#eae6f0" },
           },
           weatherEffects: true,
-          hudPosition: "top" as HudPosition,
         }),
       setConvoNotificationSound: (v) => set({ convoNotificationSound: v }),
       setRpNotificationSound: (v) => set({ rpNotificationSound: v }),
@@ -2223,26 +2151,13 @@ export const useUIStore = create<UIState>()(
       setEnterToSendConvo: (v) => set({ enterToSendConvo: v }),
       setEnterToSendGame: (v) => set({ enterToSendGame: v }),
       setWeatherEffects: (v) => set({ weatherEffects: v }),
-      setHudPosition: (v) => set({ hudPosition: v }),
       setImpersonatePromptTemplate: (v) => set({ impersonatePromptTemplate: v }),
-      setImpersonateShowQuickButton: (v) => set({ impersonateShowQuickButton: v }),
       setImpersonateCyoaChoices: (v) => set({ impersonateCyoaChoices: v }),
       setImpersonatePresetId: (id) => set({ impersonatePresetId: id }),
       setImpersonateConnectionId: (id) => set({ impersonateConnectionId: id }),
       setImpersonateBlockAgents: (v) => set({ impersonateBlockAgents: v }),
       setHasMigratedCustomThemesToServer: (v) => set({ hasMigratedCustomThemesToServer: v }),
       clearLegacyCustomThemes: () => set({ customThemes: [], activeCustomTheme: null }),
-      setActiveCustomTheme: (id) => set({ activeCustomTheme: id }),
-      addCustomTheme: (theme) => set((s) => ({ customThemes: [...s.customThemes, theme] })),
-      updateCustomTheme: (id, patch) =>
-        set((s) => ({
-          customThemes: s.customThemes.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-        })),
-      removeCustomTheme: (id) =>
-        set((s) => ({
-          customThemes: s.customThemes.filter((t) => t.id !== id),
-          activeCustomTheme: s.activeCustomTheme === id ? null : s.activeCustomTheme,
-        })),
       setHasMigratedExtensionsToServer: (v) => set({ hasMigratedExtensionsToServer: v }),
       clearLegacyExtensions: () => set({ installedExtensions: [] }),
       setHasCompletedOnboarding: (v) => set({ hasCompletedOnboarding: v }),
@@ -2360,8 +2275,6 @@ export const useUIStore = create<UIState>()(
         }
         // v5 → v6: add text appearance settings
         if (version <= 5) {
-          if (persisted.narrationFontColor === undefined) persisted.narrationFontColor = "";
-          if (persisted.narrationOpacity === undefined) persisted.narrationOpacity = 80;
           if (persisted.chatFontColor === undefined) persisted.chatFontColor = "";
           if (persisted.chatFontOpacity === undefined) persisted.chatFontOpacity = 90;
           if (persisted.textStrokeWidth === undefined) persisted.textStrokeWidth = 0.5;
@@ -2442,7 +2355,6 @@ export const useUIStore = create<UIState>()(
         // v15 -> v16: add impersonate settings and opt-in output cleanup for incomplete final sentences.
         if (version <= 15) {
           if (persisted.impersonatePromptTemplate === undefined) persisted.impersonatePromptTemplate = "";
-          if (persisted.impersonateShowQuickButton === undefined) persisted.impersonateShowQuickButton = false;
           if (persisted.impersonatePresetId === undefined) persisted.impersonatePresetId = null;
           if (persisted.impersonateConnectionId === undefined) persisted.impersonateConnectionId = null;
           if (persisted.impersonateBlockAgents === undefined) persisted.impersonateBlockAgents = false;
@@ -2474,7 +2386,6 @@ export const useUIStore = create<UIState>()(
         }
         // v19 -> v20: add global Spotify mini player controls.
         if (version <= 19) {
-          if (persisted.spotifyPlayerEnabled === undefined) persisted.spotifyPlayerEnabled = false;
           if (persisted.spotifyMobileWidgetCollapsed === undefined) persisted.spotifyMobileWidgetCollapsed = true;
           if (persisted.spotifyMobileWidgetPosition === undefined) {
             persisted.spotifyMobileWidgetPosition = { x: 16, y: 96 };
@@ -2681,9 +2592,6 @@ export const useUIStore = create<UIState>()(
         // v69 -> v70: remember scene prompt setup choices.
         persisted.scenePromptPreferences = normalizeScenePromptPreferences(persisted.scenePromptPreferences);
         // v42 -> v44: reconcile parallel v43 UI preference additions.
-        if (version <= 43 && persisted.youtubePlayerEnabled === undefined) {
-          persisted.youtubePlayerEnabled = true;
-        }
         if (version <= 43) {
           persisted.trackerPanelBackgroundColor = normalizeTrackerPanelBackgroundColor(
             persisted.trackerPanelBackgroundColor,
@@ -2705,8 +2613,6 @@ export const useUIStore = create<UIState>()(
           if (persisted.musicPlayerEnabled === undefined) {
             persisted.musicPlayerEnabled = spotifyEnabled || youtubeEnabled;
           }
-          persisted.spotifyPlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "spotify";
-          persisted.youtubePlayerEnabled = persisted.musicPlayerEnabled && persisted.musicPlayerSource === "youtube";
         }
         if (version <= 45) {
           persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
@@ -2738,22 +2644,20 @@ export const useUIStore = create<UIState>()(
         if (version <= 59 && persisted.appAccentRgbMode === undefined) {
           persisted.appAccentRgbMode = false;
         }
-        if (version <= 60 && persisted.appAccentColorBeforeRgbMode === undefined) {
-          persisted.appAccentColorBeforeRgbMode = null;
-        }
         if (version <= 60 && persisted.appAccentPulseMode === undefined) {
           persisted.appAccentPulseMode = false;
         }
+        const legacyAccentBeforeRgb = persisted.appAccentColorBeforeRgbMode;
         if (
           version <= 61 &&
           persisted.appAccentRgbMode === true &&
           persisted.appAccentColor === RAINBOW_GRADIENT_PRESET &&
-          persisted.appAccentColorBeforeRgbMode !== null &&
-          persisted.appAccentColorBeforeRgbMode !== undefined
+          legacyAccentBeforeRgb !== null &&
+          legacyAccentBeforeRgb !== undefined
         ) {
-          persisted.appAccentColor = persisted.appAccentColorBeforeRgbMode;
-          persisted.appAccentColorBeforeRgbMode = null;
+          persisted.appAccentColor = legacyAccentBeforeRgb;
         }
+        delete persisted.appAccentColorBeforeRgbMode;
         persisted.characterLibrarySort = normalizeCharacterLibrarySort(persisted.characterLibrarySort);
         persisted.cardLibraryKind = persisted.cardLibraryKind === "personas" ? "personas" : "characters";
         persisted.personaLibrarySort = normalizeBasicPanelSort(persisted.personaLibrarySort);
@@ -2790,10 +2694,6 @@ export const useUIStore = create<UIState>()(
           persisted.recentUserActivities = [];
         }
         persisted.appAccentColor = normalizeAppAccentColor(persisted.appAccentColor);
-        persisted.appAccentColorBeforeRgbMode =
-          persisted.appAccentColorBeforeRgbMode === null
-            ? null
-            : normalizeAppAccentColor(persisted.appAccentColorBeforeRgbMode);
         persisted.appBackgroundColor = normalizeAppBackgroundColor(persisted.appBackgroundColor);
         persisted.appAccentPulseMode = persisted.appAccentPulseMode === true;
         if (version <= 60 && persisted.appAccentRgbMode === true) {
@@ -2891,7 +2791,6 @@ export const useUIStore = create<UIState>()(
         theme: state.theme,
         appBackgroundColor: state.appBackgroundColor,
         appAccentColor: state.appAccentColor,
-        appAccentColorBeforeRgbMode: state.appAccentColorBeforeRgbMode,
         appAccentPulseMode: state.appAccentPulseMode,
         appAccentRgbMode: state.appAccentRgbMode,
         customCursorEnabled: state.customCursorEnabled,
@@ -2922,7 +2821,6 @@ export const useUIStore = create<UIState>()(
         imageSelfieHeight: state.imageSelfieHeight,
         imageStyleProfiles: state.imageStyleProfiles,
 
-        messageGrouping: state.messageGrouping,
         conversationMessageStyle: state.conversationMessageStyle,
         showTimestamps: state.showTimestamps,
         showModelName: state.showModelName,
@@ -2947,8 +2845,6 @@ export const useUIStore = create<UIState>()(
         achievementsEnabled: state.achievementsEnabled,
         musicPlayerEnabled: state.musicPlayerEnabled,
         musicPlayerSource: state.musicPlayerSource,
-        spotifyPlayerEnabled: state.spotifyPlayerEnabled,
-        youtubePlayerEnabled: state.youtubePlayerEnabled,
         youtubePlayerVolume: state.youtubePlayerVolume,
         localMusicPlayerVolume: state.localMusicPlayerVolume,
         conversationCallVoiceVolume: state.conversationCallVoiceVolume,
@@ -2961,8 +2857,6 @@ export const useUIStore = create<UIState>()(
         editMessageOnDoubleClick: state.editMessageOnDoubleClick,
         summaryPopoverSettings: state.summaryPopoverSettings,
         scenePromptPreferences: state.scenePromptPreferences,
-        narrationFontColor: state.narrationFontColor,
-        narrationOpacity: state.narrationOpacity,
         chatFontColor: state.chatFontColor,
         chatChromeTextColor: state.chatChromeTextColor,
         chatFontOpacity: state.chatFontOpacity,
@@ -2982,7 +2876,6 @@ export const useUIStore = create<UIState>()(
         enterToSendConvo: state.enterToSendConvo,
         enterToSendGame: state.enterToSendGame,
         weatherEffects: state.weatherEffects,
-        hudPosition: state.hudPosition,
         hasMigratedCustomThemesToServer: state.hasMigratedCustomThemesToServer,
         activeCustomTheme: state.activeCustomTheme,
         customThemes: state.customThemes,
@@ -3008,7 +2901,6 @@ export const useUIStore = create<UIState>()(
         scheduleGenerationPreferences: state.scheduleGenerationPreferences,
         conversationTimeZone: state.conversationTimeZone,
         impersonatePromptTemplate: state.impersonatePromptTemplate,
-        impersonateShowQuickButton: state.impersonateShowQuickButton,
         impersonateCyoaChoices: state.impersonateCyoaChoices,
         impersonatePresetId: state.impersonatePresetId,
         impersonateConnectionId: state.impersonateConnectionId,

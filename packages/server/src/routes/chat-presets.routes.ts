@@ -8,11 +8,10 @@ import {
   updateChatPresetSchema,
   chatPresetSettingsSchema,
   type ChatMode,
-  type ChatPreset,
   type ChatPresetSettings,
   type ExportEnvelope,
 } from "@marinara-engine/shared";
-import { createChatPresetsStorage, sanitizePresetSettings } from "../services/storage/chat-presets.storage.js";
+import { createChatPresetsStorage } from "../services/storage/chat-presets.storage.js";
 
 function toSafeExportName(name: string, fallback: string) {
   const sanitized = name
@@ -154,12 +153,11 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     if (typeof data.name !== "string" || !data.name.trim()) {
       return reply.status(400).send({ error: "Preset name is required" });
     }
-    const settings = sanitizePresetSettings(data.settings ?? {}, modeParsed.data);
-    const created = (await storage.importPreset({
+    const created = await storage.create({
       name: data.name.trim().slice(0, 120),
       mode: modeParsed.data,
-      settings,
-    })) as ChatPreset | null;
+      settings: data.settings ?? {},
+    });
     return created;
   });
 }

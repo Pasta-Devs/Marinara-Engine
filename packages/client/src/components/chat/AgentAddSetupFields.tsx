@@ -5,6 +5,7 @@ import {
   DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
   getDefaultBuiltInAgentSettings,
   normalizeAgentPromptTemplateSelectionMap,
+  normalizeSpotifySourceType,
   resolveDefaultAgentPromptTemplateId,
   type AgentPromptTemplateOption,
   type HapticFeedbackSensitivity,
@@ -125,10 +126,6 @@ function normalizeStringArray(value: unknown): string[] {
 
 function readString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
-}
-
-function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
-  return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
 }
 
 function normalizeMusicProvider(value: unknown, fallback: MusicProvider): MusicProvider {

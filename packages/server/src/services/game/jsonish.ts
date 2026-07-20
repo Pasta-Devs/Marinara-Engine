@@ -102,7 +102,8 @@ function collectBalancedJsonRegions(raw: string): Array<{ start: number; end: nu
   return regions;
 }
 
-function parseEmbeddedJson(raw: string): unknown | undefined {
+/** Return top-level balanced JSON regions in source order, excluding nested regions. */
+function collectIndependentJsonRegions(raw: string): Array<{ start: number; end: number }> {
   const regions = collectBalancedJsonRegions(raw).sort(
     (left, right) => left.start - right.start || right.end - left.end,
   );
@@ -113,6 +114,11 @@ function parseEmbeddedJson(raw: string): unknown | undefined {
     independentRegions.push(region);
     enclosingEnd = region.end;
   }
+  return independentRegions;
+}
+
+function parseEmbeddedJson(raw: string): unknown | undefined {
+  const independentRegions = collectIndependentJsonRegions(raw);
   independentRegions.sort((left, right) => right.start - left.start);
   for (const region of independentRegions) {
     try {
@@ -330,6 +336,29 @@ export function parseGameJsonish(raw: string): unknown {
   } catch {
     return unwrapJsonString(JSON.parse(candidate));
   }
+}
+
+/**
+ * Parse every independent JSON-ish value emitted in one model response. Some
+ * local models serialize a requested object as adjacent collection fragments
+ * instead of one enclosing object. Callers that support fragment merging can
+ * use this without changing the single-value behavior of parseGameJsonish.
+ */
+export function parseGameJsonishSequence(raw: string): unknown[] {
+  const unfenced = stripFences(raw.trim());
+  const regions = collectIndependentJsonRegions(unfenced);
+  if (regions.length <= 1) return [parseGameJsonish(raw)];
+
+  const parsed: unknown[] = [];
+  for (const region of regions) {
+    try {
+      parsed.push(parseGameJsonish(unfenced.slice(region.start, region.end)));
+    } catch {
+      // Keep other complete fragments usable. If every fragment fails, the
+      // normal parser below retains its existing error and repair behavior.
+    }
+  }
+  return parsed.length > 0 ? parsed : [parseGameJsonish(raw)];
 }
 
 export function jsonishLooksTruncated(raw: string): boolean {

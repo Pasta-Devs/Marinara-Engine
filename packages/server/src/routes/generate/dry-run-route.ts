@@ -71,6 +71,7 @@ import {
   parseExtra,
   parseStoredGenerationParameters,
   prefixGroupIndividualHistorySpeakers,
+  readPersonaSnapshotName,
   resolveActiveCharacterIds,
   resolveActivePersonaCandidate,
   resolvePromptCharacterIdsForTarget,
@@ -98,6 +99,7 @@ type DryRunPromptMessage = {
   files?: Array<{ type: string; data: string; filename?: string }>;
   contextKind?: "prompt" | "history" | "injection";
   characterId?: string | null;
+  personaSnapshotName?: string | null;
   providerMetadata?: Record<string, unknown>;
 };
 
@@ -672,6 +674,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     const excludePastReasoning = chatMeta.excludePastReasoning !== false;
     let mappedMessages = chatMessages.map((m: any) => {
       const extra = parseExtra(m.extra);
+      const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
       const attachments = extra.attachments as PromptAttachment[] | undefined;
       const images = extractImageAttachmentDataUrls(attachments);
       const files = extractFileAttachmentInputs(attachments);
@@ -686,6 +689,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         content: appendReadableAttachmentsToContent((m.content as string) ?? "", attachments),
         contextKind: "history" as const,
         characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
+        ...(personaSnapshotName ? { personaSnapshotName } : {}),
         ...(hiddenFromAICharacterIds.length ? { hiddenFromAICharacterIds } : {}),
         ...(images?.length ? { images } : {}),
         ...(files.length ? { files } : {}),

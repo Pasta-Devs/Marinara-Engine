@@ -170,8 +170,10 @@ import type {
   KnowledgeAgentSourceSettings,
   Message,
   PromptPreset,
+  SpotifySourceType,
   WeekSchedule,
 } from "@marinara-engine/shared";
+import { normalizeSpotifySourceType } from "@marinara-engine/shared";
 import { useAgentConfigs, useCreateAgent, useUpdateAgent, type AgentConfigRow } from "../../hooks/use-agents";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -284,8 +286,6 @@ interface ChatSettingsDrawerProps {
   onSpriteVisualSettingsChange?: (patch: Partial<LocalSpriteVisualSettings>) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
 }
-
-type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
 const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
   { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
@@ -694,10 +694,6 @@ const CONVERSATION_COMMAND_TOGGLE_OPTIONS: Array<{
     description: "Let characters accept a one-on-one rock-paper-scissors match at the table.",
   },
 ];
-
-function normalizeSpotifySourceType(value: unknown): SpotifySourceType {
-  return value === "playlist" || value === "artist" || value === "any" ? value : "liked";
-}
 
 function readConversationCommandToggles(value: unknown): Partial<Record<ConversationCommandKey, boolean>> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -1329,7 +1325,7 @@ export function ChatSettingsDrawer({
   const spotifyPlaylistId = typeof metadata.spotifyPlaylistId === "string" ? metadata.spotifyPlaylistId : "";
   const spotifyArtist = typeof metadata.spotifyArtist === "string" ? metadata.spotifyArtist : "";
   const gameUseSpotifyMusic = metadata.gameUseSpotifyMusic === true;
-  const gameSpotifySourceType = normalizeSpotifySourceType(metadata.gameSpotifySourceType);
+  const gameSpotifySourceType = metadata.gameSpotifySourceType ?? "liked";
   const gameSpotifyPlaylistId =
     typeof metadata.gameSpotifyPlaylistId === "string" ? metadata.gameSpotifyPlaylistId : "";
   const gameSpotifyArtist = typeof metadata.gameSpotifyArtist === "string" ? metadata.gameSpotifyArtist : "";
@@ -2948,6 +2944,13 @@ export function ChatSettingsDrawer({
     await retryAgents(chat.id, ["lorebook-keeper"], { lorebookKeeperBackfill: true });
   }, [chat.id, retryAgents]);
 
+  const handleRerunCustomAgent = useCallback(
+    async (agentId: string) => {
+      await retryAgents(chat.id, [agentId]);
+    },
+    [chat.id, retryAgents],
+  );
+
   const toggleTool = (toolId: string) => {
     const current = [...activeToolIds];
     const idx = current.indexOf(toolId);
@@ -3938,6 +3941,21 @@ export function ChatSettingsDrawer({
                       {agent.description}
                     </span>
                   </div>
+                  <button
+                    onClick={() => {
+                      void handleRerunCustomAgent(agent.id);
+                    }}
+                    disabled={agentProcessing}
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors",
+                      agentProcessing
+                        ? "cursor-not-allowed opacity-40"
+                        : "hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]",
+                    )}
+                    title={`Re-run ${agent.name} on the last message`}
+                  >
+                    <RefreshCw size="0.6875rem" className={cn(agentProcessing && "animate-spin")} />
+                  </button>
                   <button
                     onClick={() => {
                       void toggleAgent(agent.id);

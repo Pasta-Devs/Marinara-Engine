@@ -30,6 +30,10 @@ import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
+import {
+  resolveTrackerPanelContentScale,
+  resolveTrackerPanelDesktopWidth,
+} from "../../lib/tracker-panel-layout";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   lazy,
@@ -98,12 +102,14 @@ const SHARED_SIDEBAR_WIDTH_MIN = Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_M
 const SHARED_SIDEBAR_WIDTH_MAX = Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX);
 const TRACKER_PANEL_EDGE_OFFSET = 8;
 const TRACKER_PANEL_HUD_GAP = 6;
+const TRACKER_PANEL_CHAT_GAP = 8;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
 const TRACKER_PANEL_DESKTOP_EXIT_MS = 240;
 const TRACKER_PANEL_DESKTOP_EASE = [0.16, 1, 0.3, 1] as const;
 const TRACKER_PANEL_DESKTOP_EXIT_EASE = [0.4, 0, 1, 1] as const;
 const TRACKER_PANEL_TOGGLE_SELECTOR = '[data-tracker-panel-toggle="roleplay-hud"]';
 const TRACKER_PANEL_ANCHOR_SELECTOR = '[data-tracker-panel-anchor="roleplay-hud"]';
+const ROLEPLAY_CHAT_COLUMN_SELECTOR = '[data-roleplay-chat-column="true"]';
 const TOP_BAR_SELECTOR = '[data-component="TopBar"]';
 const MOBILE_SHELL_PANEL_TOP_CLASS = "top-[calc(env(safe-area-inset-top)_+_3rem)]";
 const CENTER_COMPACT_WIDTH = 768;
@@ -265,6 +271,7 @@ export function AppShell() {
   const liveSidebarWidth = sidebarDragWidth ?? rightPanelDragWidth ?? sharedSidebarWidth;
   const liveRightPanelWidth = rightPanelDragWidth ?? sidebarDragWidth ?? sharedSidebarWidth;
   const trackerPanelWidth = getTrackerPanelWidthForProfile(trackerPanelSizeProfile);
+  const [trackerPanelResolvedWidth, setTrackerPanelResolvedWidth] = useState(trackerPanelWidth);
   const trackerPanelHasCustomBackground =
     trackerPanelBackgroundColor.trim().toLowerCase() !== TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
   const trackerPanelBackgroundStyle = trackerPanelHasCustomBackground
@@ -844,14 +851,83 @@ export function AppShell() {
     updateTrackerPanelTop,
   ]);
 
-  const trackerPanelChatAvoidance =
-    !shellOverlayMode && trackerPanelAnchoredForMotion && trackerPanelSurfaceAvailable
-      ? Math.round(trackerPanelWidth * 0.62)
-      : 0;
+  useLayoutEffect(() => {
+    if (shellOverlayMode || !trackerPanelSurfaceAvailable || !trackerPanelAnchoredForMotion) {
+      setTrackerPanelResolvedWidth(trackerPanelWidth);
+      return;
+    }
+
+    let frame = 0;
+    let discoveryObserver: MutationObserver | null = null;
+    let observedChatColumn: HTMLElement | null = null;
+    const observer = new ResizeObserver(() => scheduleUpdate());
+    const update = () => {
+      const main = mainRef.current;
+      const chatColumn = main?.querySelector<HTMLElement>(ROLEPLAY_CHAT_COLUMN_SELECTOR) ?? null;
+      const mainRect = main ? readVisibleElementRect(main) : null;
+      const chatColumnRect = chatColumn ? readVisibleElementRect(chatColumn) : null;
+
+      if (!mainRect || !chatColumn || !chatColumnRect) {
+        setTrackerPanelResolvedWidth(trackerPanelWidth);
+        return false;
+      }
+
+      const nextWidth = resolveTrackerPanelDesktopWidth({
+        preferredWidth: trackerPanelWidth,
+        mainLeft: mainRect.left,
+        mainRight: mainRect.right,
+        chatColumnLeft: chatColumnRect.left,
+        chatColumnRight: chatColumnRect.right,
+        side: trackerPanelSide,
+        gap: TRACKER_PANEL_CHAT_GAP,
+      });
+      setTrackerPanelResolvedWidth((current) => (current === nextWidth ? current : nextWidth));
+
+      if (observedChatColumn !== chatColumn) {
+        if (observedChatColumn) observer.unobserve(observedChatColumn);
+        observer.observe(chatColumn);
+        observedChatColumn = chatColumn;
+      }
+      return true;
+    };
+    function scheduleUpdate() {
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const foundChatColumn = update();
+        if (foundChatColumn) {
+          discoveryObserver?.disconnect();
+          discoveryObserver = null;
+        }
+      });
+    }
+
+    if (mainRef.current) observer.observe(mainRef.current);
+    scheduleUpdate();
+    if (mainRef.current) {
+      discoveryObserver = new MutationObserver(() => scheduleUpdate());
+      discoveryObserver.observe(mainRef.current, { childList: true, subtree: true });
+    }
+    window.addEventListener("resize", scheduleUpdate);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      discoveryObserver?.disconnect();
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [
+    shellOverlayMode,
+    trackerPanelAnchoredForMotion,
+    trackerPanelSide,
+    trackerPanelSurfaceAvailable,
+    trackerPanelWidth,
+  ]);
+
   const trackerPanelHudClearance =
     !shellOverlayMode && trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
-      ? trackerPanelWidth + TRACKER_PANEL_HUD_GAP
+      ? trackerPanelResolvedWidth + TRACKER_PANEL_HUD_GAP
       : 0;
+  const trackerPanelContentScale = resolveTrackerPanelContentScale(trackerPanelWidth, trackerPanelResolvedWidth);
 
   const trackerPanelDesktop = (side: "left" | "right") =>
     trackerPanelVisible && trackerPanelSide === side ? (
@@ -894,7 +970,7 @@ export function AppShell() {
         style={{
           top: trackerPanelTop,
           maxHeight: `calc(100vh - ${trackerPanelTop + TRACKER_PANEL_EDGE_OFFSET}px)`,
-          width: trackerPanelWidth,
+          width: trackerPanelResolvedWidth,
           transformOrigin: `${side === "left" ? "left" : "right"} ${Math.max(
             -56,
             Math.min(56, (trackerPanelToggleAnchorY ?? trackerPanelTop) - trackerPanelTop),
@@ -905,7 +981,12 @@ export function AppShell() {
           ...(trackerPanelBackgroundStyle ?? {}),
         }}
       >
-        <div className="mari-tracker-panel-scroll max-h-[inherit] overflow-x-hidden overflow-y-auto">
+        <div
+          data-tracker-content-scale={trackerPanelContentScale.toFixed(4)}
+          data-tracker-content-constrained={trackerPanelContentScale < 1 ? "true" : undefined}
+          className="mari-tracker-panel-scroll max-h-[inherit] overflow-x-hidden overflow-y-auto"
+          style={{ "--tracker-panel-font-scale": trackerPanelContentScale } as CSSProperties}
+        >
           <Suspense fallback={<SidePanelFallback />}>
             <TrackerDataSidebar />
           </Suspense>
@@ -1025,8 +1106,6 @@ export function AppShell() {
             )}
             style={
               {
-                "--tracker-chat-avoid-left": `${trackerPanelSide === "left" ? trackerPanelChatAvoidance : 0}px`,
-                "--tracker-chat-avoid-right": `${trackerPanelSide === "right" ? trackerPanelChatAvoidance : 0}px`,
                 "--tracker-panel-hud-clear-left": `${trackerPanelSide === "left" ? trackerPanelHudClearance : 0}px`,
                 "--tracker-panel-hud-clear-right": `${trackerPanelSide === "right" ? trackerPanelHudClearance : 0}px`,
               } as CSSProperties

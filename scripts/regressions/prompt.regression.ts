@@ -18,6 +18,7 @@ import {
   isAgentAvailableInChatMode,
   isPatternSafe,
   normalizeChatSummaryEntries,
+  normalizeChatSummaryPromptSettings,
   normalizeWorldCustomFields,
   LIMITS,
   resolveRegexPatternLiteralMacros,
@@ -497,6 +498,8 @@ import {
   injectIntoOutputFormatOrLastUser,
   isMessageHiddenFromAIForCharacter,
   preserveTrackerCharacterUiFields,
+  prefixGroupIndividualHistorySpeakers,
+  readPersonaSnapshotName,
   resolveActivePersonaCandidate,
   resolveRoleplaySummaryTail,
   shouldEnableAgentsForGeneration,
@@ -510,6 +513,7 @@ import {
   calibrateLorebookSimilarity,
   lorebookSimilarityBaseline,
 } from "../../packages/server/src/services/lorebook/embeddings.js";
+import { resolveAndBudgetActivatedLorebookEntries } from "../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../packages/server/src/services/lorebook/keyword-scanner.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
@@ -836,6 +840,41 @@ const cases: RegressionCase[] = [
       assert.equal(messages[1]?.content, '"An older line."');
       assert.equal(messages[2]?.content, '"A user-authored tag."');
       assert.equal(messages[3]?.content, '<speaker="Pantalone">"The latest example."</speaker>');
+    },
+  },
+  {
+    name: "name-prefixed history preserves each user turn's Persona snapshot",
+    run() {
+      const historicalPersonaName = readPersonaSnapshotName({
+        personaSnapshot: { personaId: "powers-that-be", name: " Powers That Be " },
+      });
+      assert.equal(historicalPersonaName, "Powers That Be");
+      assert.equal(readPersonaSnapshotName({ personaSnapshot: { name: "  " } }), null);
+
+      const messages = prefixGroupIndividualHistorySpeakers(
+        [
+          {
+            role: "user" as const,
+            content: "A decree from the old Persona.",
+            personaSnapshotName: historicalPersonaName,
+          },
+          { role: "assistant" as const, content: "An answer.", characterId: "dottore" },
+          { role: "user" as const, content: "A question from the current Persona." },
+        ],
+        {
+          personaName: "Mari",
+          characterNamesById: new Map([["dottore", "Dottore"]]),
+        },
+      );
+
+      assert.deepEqual(
+        messages.map((message) => message.content),
+        [
+          "Powers That Be: A decree from the old Persona.",
+          "Dottore: An answer.",
+          "Mari: A question from the current Persona.",
+        ],
+      );
     },
   },
   {
@@ -3799,6 +3838,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
+    name: "chat summary prompt settings reject malformed values and preserve only valid active templates",
+    run() {
+      const emptySettings = { templates: [], activeTemplateId: null };
+      assert.deepEqual(normalizeChatSummaryPromptSettings("{not json"), emptySettings);
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({
+          templates: { id: "summary", name: "Summary", prompt: "Summarize the chat." },
+          activeTemplateId: "summary",
+        }),
+        emptySettings,
+      );
+
+      const templates = [
+        { id: "summary", name: "Summary", prompt: "Summarize the chat." },
+        { id: "other", name: "Other", prompt: "Use another format." },
+      ];
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({
+          templates: [
+            { id: " summary ", name: " Summary ", prompt: " Summarize the chat. " },
+            { id: "summary", name: "Duplicate", prompt: "Ignore this duplicate." },
+            templates[1],
+          ],
+          activeTemplateId: " summary ",
+        }),
+        { templates, activeTemplateId: "summary" },
+      );
+      assert.deepEqual(normalizeChatSummaryPromptSettings({ templates, activeTemplateId: "missing" }), {
+        templates,
+        activeTemplateId: null,
+      });
+    },
+  },
+  {
     name: "chat summaries normalize legacy data and compile enabled entries only",
     run() {
       const legacyEntries = normalizeChatSummaryEntries([], {
@@ -5260,7 +5333,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     },
   },
   {
-    name: "semantic lorebook scan activates vector matches even when entries have primary keys",
+    name: "semantic lorebook matches share current-context priority with keyword matches",
     run() {
       const entry = {
         id: "entry-semantic",
@@ -5353,6 +5426,45 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(clusteredRelevant.length, 1);
       assert.match(clusteredRelevant[0]?.matchedKeys[0] ?? "", /^\[semantic:0\.66/u);
+
+      const mixedMatches = scanForActivatedEntries(
+        [{ role: "user", content: "exact trigger near the semantic topic" }],
+        [
+          {
+            ...entry,
+            id: "entry-keyword-current",
+            keys: ["exact trigger"],
+            embedding: [0, 1],
+            order: 20,
+            content: "keyword current context",
+          } as any,
+          {
+            ...entry,
+            id: "entry-semantic-current",
+            keys: ["keyword that is absent"],
+            embedding: [1, 0],
+            order: 10,
+            content: "semantic current context",
+          } as any,
+        ],
+        {
+          chatEmbedding: [1, 0],
+          semanticThresholdByLorebookId: new Map([["book-semantic", 0.9]]),
+        },
+      );
+      const semanticCurrent = mixedMatches.find((match) => match.entry.id === "entry-semantic-current");
+      assert.equal(semanticCurrent?.matchedCurrentContext, true);
+
+      const budgetedMixedMatches = resolveAndBudgetActivatedLorebookEntries(
+        mixedMatches,
+        new Map([["book-semantic", { name: "Semantic Book", tokenBudget: 0, entryLimit: 100 }]]),
+        6,
+        0,
+      );
+      assert.deepEqual(
+        budgetedMixedMatches.map((match) => match.entry.id),
+        ["entry-semantic-current"],
+      );
     },
   },
 ];

@@ -17,12 +17,20 @@ export function parseNoodleGeneratedProfiles(value: unknown): {
   profiles: NoodleGeneratedProfile[];
   rejected: RejectedNoodleGeneratedProfile[];
 } {
-  const record = value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+  const normalizedValue =
+    Array.isArray(value) && value.length === 1 && value[0] && typeof value[0] === "object" && !Array.isArray(value[0])
+      ? value[0]
+      : value;
+  const record =
+    normalizedValue && typeof normalizedValue === "object" && !Array.isArray(normalizedValue)
+      ? (normalizedValue as Record<string, unknown>)
+      : null;
   const rawProfiles = record?.profiles;
   if (!Array.isArray(rawProfiles)) {
     // Preserve the useful top-level validation error for a wholly malformed
-    // response. Only individual profile failures are recoverable.
-    noodleGeneratedProfilesSchema.parse(value);
+    // response. Only a single object wrapper and individual profile failures
+    // are recoverable.
+    noodleGeneratedProfilesSchema.parse(normalizedValue);
     return { profiles: [], rejected: [] };
   }
 

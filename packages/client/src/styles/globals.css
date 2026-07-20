@@ -2851,6 +2851,100 @@ strong {
   scrollbar-color: color-mix(in srgb, var(--primary) 42%, transparent) transparent;
 }
 
+/* Keep constrained desktop Tracker typography in normal layout flow. Scaling the
+   panel's whole rendering canvas causes its far edge to be clipped by the shell. */
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] {
+  font-size: calc(1rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.5625rem]"] {
+  font-size: calc(0.5625rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.59375rem]"] {
+  font-size: calc(0.59375rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.625rem]"] {
+  font-size: calc(0.625rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.6875rem]"] {
+  font-size: calc(0.6875rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.75rem]"] {
+  font-size: calc(0.75rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[0.8125rem]"] {
+  font-size: calc(0.8125rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[1.0625rem]"] {
+  font-size: calc(1.0625rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="text-[1.1875rem]"] {
+  font-size: calc(1.1875rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] :is(.text-xs, .text-sm, .text-lg, .text-2xl) {
+  font-size: calc(var(--tracker-panel-base-font-size) * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .text-xs {
+  --tracker-panel-base-font-size: 0.75rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .text-sm {
+  --tracker-panel-base-font-size: 0.875rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .text-lg {
+  --tracker-panel-base-font-size: 1.125rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .text-2xl {
+  --tracker-panel-base-font-size: 1.5rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="leading-[0.6875rem]"] {
+  line-height: calc(0.6875rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="leading-[0.875rem]"] {
+  line-height: calc(0.875rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="leading-[0.95rem]"] {
+  line-height: calc(0.95rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] [class~="leading-[1.35rem]"] {
+  line-height: calc(1.35rem * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] :is(.leading-3, .leading-4, .leading-5, .leading-6) {
+  line-height: calc(var(--tracker-panel-base-line-height) * var(--tracker-panel-font-scale));
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .leading-3 {
+  --tracker-panel-base-line-height: 0.75rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .leading-4 {
+  --tracker-panel-base-line-height: 1rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .leading-5 {
+  --tracker-panel-base-line-height: 1.25rem;
+}
+
+.mari-tracker-panel-scroll[data-tracker-content-constrained="true"] .leading-6 {
+  --tracker-panel-base-line-height: 1.5rem;
+}
+
 .mari-tracker-panel-scroll::-webkit-scrollbar {
   width: 0.25rem;
 }

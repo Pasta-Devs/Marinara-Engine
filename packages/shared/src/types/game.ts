@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { GenerationParameters } from "./prompt.js";
 import type { CombatItemEffect, CombatMechanic, CombatDialogueCue } from "./combat-encounter.js";
+import type { SpotifySourceType } from "./spotify.js";
 
 /** The four main states a game can be in during a session. */
 export type GameActiveState = "exploration" | "dialogue" | "combat" | "travel_rest";
@@ -21,7 +22,7 @@ export type GameCombatStyle = "classic" | "tactical";
 export type GameSessionStatus = "setup" | "active" | "concluded";
 
 /** Spotify source constraints for Game Mode DJ selection. */
-export type GameSpotifySourceType = "liked" | "playlist" | "artist" | "any";
+export type GameSpotifySourceType = SpotifySourceType;
 
 // ── Maps ──
 

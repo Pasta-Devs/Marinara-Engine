@@ -12,6 +12,8 @@ This works using embeddings. An embedding is a list of numbers that captures the
 
 Keyword matching still works when semantic search is on. Semantic search adds extra matches. It does not replace your keywords.
 
+Keyword and semantic matches have equal priority when Marinara applies lorebook entry and token budgets. If every matching entry cannot fit, the entry order you configured decides between current keyword and semantic matches; the activation method itself does not win.
+
 ## Before you start: pick an embedding source
 
 Semantic search needs a model that can create embeddings. You have two options.

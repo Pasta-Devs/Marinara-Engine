@@ -661,6 +661,124 @@ test("Roleplay side panels synchronize their slide with the desktop shell resize
   }
 });
 
+test("desktop Tracker stays in the Roleplay gutter without shifting the chat column", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Desktop Tracker gutter behavior is covered on desktop.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Tracker Gutter Layout Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.setViewportSize({ width: 1200, height: 900 });
+    const metadataResponse = await page.request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: [] },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+    await page.addInitScript((chatId) => {
+      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
+        state: Record<string, unknown>;
+        version: number;
+      };
+      persisted.state.trackerPanelEnabled = true;
+      persisted.state.trackerPanelOpen = false;
+      persisted.state.trackerPanelSide = "left";
+      persisted.state.trackerPanelSizeProfile = "expanded";
+      persisted.state.trackerPanelHideHudWidgets = false;
+      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+    await page.goto("/");
+
+    const main = page.locator('[data-component="CenterContent"]');
+    const chatColumn = page.locator('[data-roleplay-chat-column="true"]');
+    const trackerToggle = page.locator('[data-tracker-panel-toggle="roleplay-hud"]:visible').first();
+    await expect(chatColumn).toBeVisible();
+    await expect(trackerToggle).toBeVisible();
+    const chatColumnBefore = await chatColumn.boundingBox();
+    expect(chatColumnBefore).not.toBeNull();
+
+    await trackerToggle.click();
+    const tracker = page.locator('[data-component="TrackerDataSidebarDesktop.left"]');
+    await expect(tracker).toBeVisible();
+    await tracker.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+
+    const [mainBox, chatColumnAfter, trackerBox] = await Promise.all([
+      main.boundingBox(),
+      chatColumn.boundingBox(),
+      tracker.boundingBox(),
+    ]);
+    expect(mainBox).not.toBeNull();
+    expect(chatColumnAfter).not.toBeNull();
+    expect(trackerBox).not.toBeNull();
+    expect(Math.abs(chatColumnAfter!.x - chatColumnBefore!.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(chatColumnAfter!.width - chatColumnBefore!.width)).toBeLessThanOrEqual(1);
+
+    const expectedWidth = Math.min(420, Math.floor(chatColumnAfter!.x - mainBox!.x - 8));
+    expect(Math.abs(trackerBox!.width - expectedWidth)).toBeLessThanOrEqual(1);
+    expect(trackerBox!.x + trackerBox!.width).toBeLessThanOrEqual(chatColumnAfter!.x - 7);
+
+    const trackerContent = tracker.locator(".mari-tracker-panel-scroll");
+    const expectedScale = Math.max(0.65, expectedWidth / 420);
+    const appliedScale = Number(await trackerContent.getAttribute("data-tracker-content-scale"));
+    expect(Math.abs(appliedScale - expectedScale)).toBeLessThanOrEqual(0.001);
+    const emptyTrackerText = tracker.getByText("No tracker data yet.", { exact: true });
+    await expect(emptyTrackerText).toBeVisible();
+    const [emptyTextFontSize, rootFontSize] = await emptyTrackerText.evaluate((element) => [
+      parseFloat(getComputedStyle(element).fontSize),
+      parseFloat(getComputedStyle(document.documentElement).fontSize),
+    ]);
+    expect(Math.abs(emptyTextFontSize - rootFontSize * 0.6875 * expectedScale)).toBeLessThanOrEqual(0.1);
+
+    const trackerContentBox = await trackerContent.boundingBox();
+    expect(trackerContentBox).not.toBeNull();
+    expect(trackerContentBox!.x).toBeGreaterThanOrEqual(trackerBox!.x - 1);
+    expect(trackerContentBox!.x + trackerContentBox!.width).toBeLessThanOrEqual(
+      trackerBox!.x + trackerBox!.width + 1,
+    );
+
+    await tracker.getByRole("button", { name: "Open tracker settings" }).click();
+    await expect(tracker.getByRole("toolbar", { name: "Tracker panel settings" })).toBeVisible();
+    await tracker.evaluate(async (element) => {
+      await Promise.all(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)),
+      );
+    });
+    const horizontalOverflow = await trackerContent.evaluate((root) => {
+      let overflow: { className: string; clientWidth: number; depth: number; scrollWidth: number; tagName: string } | null =
+        null;
+      const scan = (node: Element, depth: number) => {
+        if (overflow || depth > 6) return;
+        const rect = node.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        if (node.scrollWidth > node.clientWidth + 1) {
+          overflow = {
+            className: node.className,
+            clientWidth: node.clientWidth,
+            depth,
+            scrollWidth: node.scrollWidth,
+            tagName: node.tagName,
+          };
+          return;
+        }
+        for (let i = 0; i < node.children.length; i++) {
+          scan(node.children[i]!, depth + 1);
+        }
+      };
+      scan(root, 0);
+      return overflow;
+    });
+    expect(horizontalOverflow).toBeNull();
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("Roleplay Active Context shows rich lorebook activation provenance", async ({ page, request }, testInfo) => {
   const lorebookId = "roleplay-active-context-smoke-lorebook";
   const chatResponse = await request.post("/api/chats", {

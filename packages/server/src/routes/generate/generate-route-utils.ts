@@ -58,6 +58,7 @@ export type SimpleMessage = {
 export type SpeakerPrefixMessage = SimpleMessage & {
   characterId?: string | null;
   name?: string | null;
+  personaSnapshotName?: string | null;
   providerMetadata?: Record<string, unknown>;
 };
 export type StoredGenerationParameters = Partial<GenerationParameters>;
@@ -668,6 +669,13 @@ function prefixSpeakerName(content: string, speakerName: string): string {
   return trimmed ? `${speaker}: ${trimmed}` : `${speaker}:`;
 }
 
+export function readPersonaSnapshotName(extra: unknown): string | null {
+  const snapshot = parseExtra(extra).personaSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const name = (snapshot as { name?: unknown }).name;
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
 export function prefixGroupIndividualHistorySpeakers<T extends SpeakerPrefixMessage>(
   messages: T[],
   options: {
@@ -680,7 +688,7 @@ export function prefixGroupIndividualHistorySpeakers<T extends SpeakerPrefixMess
   return messages.map((message) => {
     let speakerName: string | null = null;
     if (message.role === "user") {
-      speakerName = personaName;
+      speakerName = message.personaSnapshotName?.trim() || personaName;
     } else if (message.role === "assistant") {
       speakerName =
         (message.characterId ? (options.characterNamesById.get(message.characterId) ?? null) : null) ??

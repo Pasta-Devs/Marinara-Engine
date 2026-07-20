@@ -52,6 +52,7 @@ import {
   getFolderImportEntries,
   getFolderManifestConfig,
   isJsonRecord,
+  type AppSettingsResponse,
   type ConversationCallCharacterVideoClipKind,
   type ImagePromptKind,
   type ImagePromptMode,
@@ -3094,8 +3095,6 @@ function ImageGenerationSettings() {
   );
 }
 
-type AppSettingsValueResponse = { value: string | null };
-
 const VIDEO_GENERATION_SETTINGS_QUERY_KEY = ["app-settings", VIDEO_GENERATION_SETTINGS_KEY] as const;
 
 function serializeVideoGenerationSettings(settings: VideoGenerationUserSettings): string {
@@ -3104,7 +3103,7 @@ function serializeVideoGenerationSettings(settings: VideoGenerationUserSettings)
 
 function VideoGenerationSettings() {
   const qc = useQueryClient();
-  const videoSettingsQuery = useQuery<AppSettingsValueResponse>({
+  const videoSettingsQuery = useQuery<AppSettingsResponse>({
     queryKey: VIDEO_GENERATION_SETTINGS_QUERY_KEY,
     queryFn: () => api.get(`/app-settings/${VIDEO_GENERATION_SETTINGS_KEY}`),
     staleTime: 60_000,
@@ -3119,9 +3118,9 @@ function VideoGenerationSettings() {
     setDraft(savedSettings);
   }, [savedSettings]);
 
-  const saveVideoSettings = useMutation<AppSettingsValueResponse, Error, VideoGenerationUserSettings>({
+  const saveVideoSettings = useMutation<AppSettingsResponse, Error, VideoGenerationUserSettings>({
     mutationFn: (next) =>
-      api.put<AppSettingsValueResponse>(`/app-settings/${VIDEO_GENERATION_SETTINGS_KEY}`, {
+      api.put<AppSettingsResponse>(`/app-settings/${VIDEO_GENERATION_SETTINGS_KEY}`, {
         value: serializeVideoGenerationSettings(next),
       }),
     onSuccess: (data) => {

@@ -7,6 +7,9 @@ import type { GenerationGuideSource } from "../utils/generation-guide.js";
 import type { HapticFeedbackSensitivity } from "./haptic.js";
 import type { CustomEmojiSelectionPrefs } from "../schemas/custom-emoji.schema.js";
 import type { DiceRollResult } from "./game.js";
+import type { SpotifySourceType } from "./spotify.js";
+
+export type { SpotifySourceType } from "./spotify.js";
 
 /** The four primary chat modes the engine supports. */
 export type ChatMode = "conversation" | "roleplay" | "visual_novel" | "game";
@@ -16,9 +19,6 @@ export type GroupChatMode = "merged" | "individual";
 
 /** How individual-mode group chats decide response order. */
 export type GroupResponseOrder = "sequential" | "smart" | "manual";
-
-/** Spotify source constraints used by Music DJ. */
-export type SpotifySourceType = "liked" | "playlist" | "artist" | "any";
 
 export interface KnowledgeAgentSourceSettings {
   /** When true/omitted, this agent uses the chat's active lorebooks unless fixed sources are selected. */
@@ -359,9 +359,7 @@ export interface ChatMetadata {
   spritePlacements?: Record<string, SpritePlacement>;
   /** When true, roleplay message avatars use the per-message Expression Engine sprite when one is available. */
   expressionAvatarsEnabled?: boolean;
-  /** When true, a shared group scenario replaces individual character card scenarios */
-  groupScenarioOverride?: boolean;
-  /** The shared scenario text used when groupScenarioOverride is enabled */
+  /** Non-empty text replaces individual character card scenarios for this group chat. */
   groupScenarioText?: string;
   /** Prose Guardian per-chat banned words/settings applied to the rewrite prompt. */
   proseGuardianBannedWords?: string | null;

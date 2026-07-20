@@ -31,6 +31,12 @@ import {
   shouldExecuteQuickPostAsCommand,
 } from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
+import { resolveEchoChamberTopLayout } from "../../packages/client/src/lib/echo-chamber-layout.js";
+import { resolveConversationSelfieConnectionId } from "../../packages/client/src/lib/conversation-selfie-setup.js";
+import {
+  resolveTrackerPanelContentScale,
+  resolveTrackerPanelDesktopWidth,
+} from "../../packages/client/src/lib/tracker-panel-layout.js";
 import { getApiErrorMessage } from "../../packages/client/src/lib/api-client.js";
 import { parseCustomParametersDraft } from "../../packages/client/src/lib/generation-custom-parameters.js";
 import { parseGenerationParameterDraft } from "../../packages/client/src/lib/generation-parameter-draft.js";
@@ -895,6 +901,35 @@ const serverPackageJson = JSON.parse(
 assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
 assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
 assert.equal(resolveDevSharedBuildScript({}), "build");
+const conversationImageConnections = [
+  { id: "text", provider: "openai", defaultForAgents: true },
+  { id: "image-secondary", provider: "image_generation", defaultForAgents: false },
+  { id: "image-default", provider: "image_generation", defaultForAgents: "true" },
+];
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: null,
+    selfieCommandEnabled: true,
+    connections: conversationImageConnections,
+  }),
+  "image-default",
+);
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: "image-explicit",
+    selfieCommandEnabled: true,
+    connections: conversationImageConnections,
+  }),
+  "image-explicit",
+);
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: null,
+    selfieCommandEnabled: false,
+    connections: conversationImageConnections,
+  }),
+  null,
+);
 const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
   : playwrightConfig.webServer;
@@ -907,6 +942,22 @@ const agentEditorSource = readFileSync(
 );
 const characterEditorSource = readFileSync(
   new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
+  "utf8",
+);
+const personaEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
+  "utf8",
+);
+const fileDownloadSource = readFileSync(
+  new URL("../../packages/client/src/lib/file-download.ts", import.meta.url),
+  "utf8",
+);
+const spriteDownloadSource = readFileSync(
+  new URL("../../packages/client/src/lib/sprite-download.ts", import.meta.url),
+  "utf8",
+);
+const androidMainActivitySource = readFileSync(
+  new URL("../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
   "utf8",
 );
 const gameJournalSource = readFileSync(
@@ -971,6 +1022,16 @@ assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query a
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
 assert.match(characterEditorSource, /avatar preview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
+assert.match(characterEditorSource, /downloadSpriteFile/u);
+assert.match(personaEditorSource, /downloadSpriteFile/u);
+assert.match(characterEditorSource, /if \(uploading \|\| !expression\) return;/u);
+assert.match(personaEditorSource, /if \(uploading \|\| !expression\) return;/u);
+assert.match(characterEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(fileDownloadSource, /MarinaraAndroid/u);
+assert.match(spriteDownloadSource, /saveBlobToDevice/u);
+assert.match(androidMainActivitySource, /public void saveFile\(String base64Data, String mimeType, String filename\)/u);
+assert.match(androidMainActivitySource, /MediaStore\.Images\.Media\.getContentUri/u);
 assert.match(
   characterEditorSource,
   /"relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl/u,
@@ -2191,5 +2252,88 @@ try {
   if (originalCustomRepositoryFlag === undefined) delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
   else process.env.ENABLE_CUSTOM_AGENT_REPOS = originalCustomRepositoryFlag;
 }
+
+const unstackedEchoLayout = resolveEchoChamberTopLayout({
+  baseTop: 96,
+  containerTop: 40,
+  containerBottom: 840,
+  viewportBottom: 800,
+  bottomClearance: 88,
+});
+assert.deepEqual(unstackedEchoLayout, { top: 96, maxHeight: 576 });
+const stackedEchoLayout = resolveEchoChamberTopLayout({
+  baseTop: 96,
+  containerTop: 40,
+  containerBottom: 840,
+  viewportBottom: 800,
+  bottomClearance: 88,
+  trackerBottom: 420,
+  stackGap: 8,
+});
+assert.deepEqual(stackedEchoLayout, { top: 388, maxHeight: 284 });
+assert.equal(
+  40 + stackedEchoLayout.top + stackedEchoLayout.maxHeight + 88,
+  800,
+  "A stacked Echo Chamber must remain inside the visible roleplay area",
+);
+assert.equal(
+  resolveEchoChamberTopLayout({
+    baseTop: 96,
+    containerTop: 40,
+    containerBottom: 840,
+    viewportBottom: 800,
+    bottomClearance: 88,
+    trackerBottom: 760,
+    stackGap: 8,
+  }).maxHeight,
+  0,
+  "Echo Chamber height must not become negative when the Tracker consumes the available corner",
+);
+assert.equal(
+  resolveTrackerPanelDesktopWidth({
+    preferredWidth: 340,
+    mainLeft: 280,
+    mainRight: 1920,
+    chatColumnLeft: 636,
+    chatColumnRight: 1564,
+    side: "left",
+    gap: 8,
+  }),
+  340,
+  "The Tracker should retain its selected width when it fits beside the chat column",
+);
+assert.equal(
+  resolveTrackerPanelDesktopWidth({
+    preferredWidth: 420,
+    mainLeft: 280,
+    mainRight: 1480,
+    chatColumnLeft: 416,
+    chatColumnRight: 1344,
+    side: "left",
+    gap: 8,
+  }),
+  128,
+  "The Tracker should shrink to the narrower left chat gutter",
+);
+assert.equal(
+  resolveTrackerPanelDesktopWidth({
+    preferredWidth: 340,
+    mainLeft: 0,
+    mainRight: 1200,
+    chatColumnLeft: 136,
+    chatColumnRight: 1064,
+    side: "right",
+    gap: 8,
+  }),
+  128,
+  "The Tracker should use the matching right chat gutter",
+);
+assert.equal(resolveTrackerPanelContentScale(340, 340), 1);
+assert.equal(resolveTrackerPanelContentScale(340, 255), 0.75);
+assert.equal(
+  resolveTrackerPanelContentScale(420, 128),
+  0.65,
+  "Severely constrained Tracker contents should reflow before their text becomes unreadably small",
+);
 
 console.info("Open-issue regressions passed.");

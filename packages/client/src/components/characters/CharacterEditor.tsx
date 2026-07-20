@@ -102,6 +102,7 @@ import {
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
+import { downloadSpriteFile } from "../../lib/sprite-download";
 import { ColorPicker } from "../ui/ColorPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
@@ -3280,8 +3281,9 @@ function SpritesTab({
     e.target.value = "";
   };
 
+  /** Open the sprite picker unless another single-file upload is already running. */
   const startUpload = (expression: string) => {
-    if (!expression) return;
+    if (uploading || !expression) return;
     pendingExpressionRef.current = expression;
     fileInputRef.current?.click();
   };
@@ -3345,23 +3347,6 @@ function SpritesTab({
       setDeletingSprites(null);
     }
   }, [characterId, deleteSprite, visibleSprites]);
-
-  const downloadSpriteFile = useCallback(async (sprite: SpriteInfo) => {
-    const response = await fetch(sprite.url);
-    if (!response.ok) {
-      throw new Error(`Failed to download ${sprite.expression}`);
-    }
-
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = sprite.filename || `${sprite.expression}.png`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(objectUrl);
-  }, []);
 
   const handleExportSprites = useCallback(
     async (spritesToExport: SpriteInfo[], modeLabel: "visible" | "all") => {
@@ -3679,7 +3664,7 @@ function SpritesTab({
             {backgroundCleanupReason}
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={newExpression}
             onChange={(e) => setNewExpression(e.target.value)}
@@ -3688,7 +3673,7 @@ function SpritesTab({
                 ? "Pose name (e.g. idle, walk, battle_stance)…"
                 : "Expression name (e.g. happy, sad, angry)…"
             }
-            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             onKeyDown={(e) => {
               if (e.key === "Enter" && newExpression.trim()) {
                 startUpload(normalizeExpressionForCategory(newExpression));
@@ -3699,7 +3684,7 @@ function SpritesTab({
             type="button"
             onClick={() => newExpression.trim() && startUpload(normalizeExpressionForCategory(newExpression))}
             disabled={!newExpression.trim() || uploading}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:shadow-md disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:shadow-md disabled:opacity-40 sm:w-auto"
           >
             <Plus size="0.8125rem" />
             Upload

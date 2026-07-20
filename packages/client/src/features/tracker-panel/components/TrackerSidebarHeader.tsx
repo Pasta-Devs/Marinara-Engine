@@ -139,7 +139,7 @@ export function TrackerSidebarHeader({
   );
 
   const outerHeaderControls = (
-    <div className="flex w-full items-center justify-between gap-2">
+    <div className="flex w-full flex-wrap items-center justify-center gap-1 @min-[220px]:justify-between @min-[220px]:gap-2">
       <div
         role="group"
         aria-label="Tracker display settings"
@@ -184,7 +184,7 @@ export function TrackerSidebarHeader({
       <div
         role="group"
         aria-label="Tracker editing modes"
-        className="flex items-center gap-0.5 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]/45 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
+        className="flex max-w-full flex-wrap items-center justify-center gap-0.5 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]/45 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
       >
         <button
           {...getToolbarItemProps("hide")}
