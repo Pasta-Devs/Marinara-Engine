@@ -3656,6 +3656,62 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(natural.prompt, /holding flowers/);
       assert.match(natural.prompt, /smiling/);
 
+      const inlineAvoid = compileImagePrompt({
+        kind: "selfie",
+        prompt: "A woman, avoid makeup, holding flowers, smiling",
+        styleProfiles,
+        styleProfileId: "realistic",
+      });
+
+      assert.match(inlineAvoid.negativePrompt, /\bmakeup\b/);
+      assert.doesNotMatch(inlineAvoid.negativePrompt, /holding flowers|smiling/);
+      assert.match(inlineAvoid.prompt, /holding flowers/);
+      assert.match(inlineAvoid.prompt, /smiling/);
+
+      const standaloneAvoid = compileImagePrompt({
+        kind: "portrait",
+        prompt:
+          "Avoid text, letters, captions, UI, watermarks, logos, speech bubbles, split panels, collage, contact sheet, multiple portraits, duplicated faces, and four-image grids.",
+        styleProfiles,
+        styleProfileId: "z-image-turbo",
+      });
+
+      for (const artifact of [
+        "text",
+        "letters",
+        "captions",
+        "UI",
+        "watermarks",
+        "logos",
+        "speech bubbles",
+        "split panels",
+        "collage",
+        "contact sheet",
+        "multiple portraits",
+        "duplicated faces",
+        "four-image grids",
+      ]) {
+        assert.doesNotMatch(standaloneAvoid.prompt, new RegExp(`\\b${artifact}\\b`, "i"));
+        assert.ok(
+          standaloneAvoid.diagnostics.movedNegativeFragments.some((fragment) =>
+            new RegExp(`^avoid ${artifact}$`, "i").test(fragment),
+          ),
+          `${artifact} was not routed to the negative path`,
+        );
+      }
+      assert.match(standaloneAvoid.negativePrompt, /text|UI|watermarks|logos|collage/i);
+
+      const standaloneAvoidWithFollowingSentence = compileImagePrompt({
+        kind: "portrait",
+        prompt: "Avoid text, captions, watermarks. A woman with auburn hair and green eyes.",
+        styleProfiles,
+        styleProfileId: "z-image-turbo",
+      });
+
+      assert.match(standaloneAvoidWithFollowingSentence.negativePrompt, /text|captions|watermarks/i);
+      assert.match(standaloneAvoidWithFollowingSentence.prompt, /auburn hair|green eyes/i);
+      assert.doesNotMatch(standaloneAvoidWithFollowingSentence.prompt, /avoid text|captions|watermarks/i);
+
       const groupedNatural = compileImagePrompt({
         kind: "selfie",
         prompt: 'A cafe sign says "no shoes, no service", no (bad hands, extra fingers:1.2), holding flowers',
