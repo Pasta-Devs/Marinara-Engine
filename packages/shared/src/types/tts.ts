@@ -12,6 +12,17 @@ export type TTSAudioFormat = z.infer<typeof ttsAudioFormatSchema>;
 export const ttsVoiceModeSchema = z.enum(["single", "per-character"]);
 export type TTSVoiceMode = z.infer<typeof ttsVoiceModeSchema>;
 
+export const TTS_DIALOGUE_PAUSE_MIN_SECONDS = 1;
+export const TTS_DIALOGUE_PAUSE_MAX_SECONDS = 60;
+export const TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS = 1;
+
+function normalizeDialoguePauseMs(value: number): number {
+  const wholeSeconds = Math.round(value / 1000);
+  return (
+    Math.min(TTS_DIALOGUE_PAUSE_MAX_SECONDS, Math.max(TTS_DIALOGUE_PAUSE_MIN_SECONDS, wholeSeconds)) * 1000
+  );
+}
+
 export const ttsConversationCallAudioInputModeSchema = z.enum(["system", "auto", "transcribe", "local_whisper"]);
 export type TTSConversationCallAudioInputMode = z.infer<typeof ttsConversationCallAudioInputModeSchema>;
 
@@ -126,7 +137,13 @@ const ttsConfigBaseSchema = z.object({
   autoplayGame: z.boolean().default(false),
   progressivePlayback: z.boolean().default(false),
   dialogueOnly: z.boolean().default(false),
-  dialoguePauseMs: z.number().min(0).max(1500).default(300),
+  /** Stored in milliseconds for backward compatibility; the setting is configured in whole seconds. */
+  dialoguePauseMs: z
+    .number()
+    .min(0)
+    .max(TTS_DIALOGUE_PAUSE_MAX_SECONDS * 1000)
+    .default(TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000)
+    .transform(normalizeDialoguePauseMs),
   audioFormat: ttsAudioFormatSchema.default("mp3"),
   /** Global gate for Conversation-mode calls. Individual chats opt in separately. */
   callAudioEnabled: z.boolean().default(false),

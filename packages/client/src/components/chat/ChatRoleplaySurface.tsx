@@ -277,25 +277,29 @@ function CrossfadeBackground({
 
   return (
     <>
-      <div
+      <img
+        src={bgA ?? undefined}
+        alt=""
+        draggable={false}
         className={cn(
-          "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
+          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center",
           className,
         )}
         style={{
-          backgroundImage: bgA ? `url(${bgA})` : "none",
           opacity: aActive ? 1 : 0,
           transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
           ...backgroundBlurStyle,
         }}
       />
-      <div
+      <img
+        src={bgB ?? undefined}
+        alt=""
+        draggable={false}
         className={cn(
-          "mari-background absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out",
+          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center",
           className,
         )}
         style={{
-          backgroundImage: bgB ? `url(${bgB})` : "none",
           opacity: aActive ? 0 : 1,
           transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
           ...backgroundBlurStyle,

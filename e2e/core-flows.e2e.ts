@@ -965,6 +965,24 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
       "Agent Cobra (AgentCobra.wav)",
     );
     await expect(ttsCard.getByText("Loaded 2 voices from PocketTTS server.", { exact: true })).toBeVisible();
+
+    await ttsCard.getByText("Only read dialogues", { exact: true }).click();
+    const dialoguePause = ttsCard.getByLabel("Pause between dialogues in seconds");
+    await expect(dialoguePause).toHaveAttribute("min", "1");
+    await expect(dialoguePause).toHaveAttribute("max", "60");
+    await expect(dialoguePause).toHaveAttribute("step", "1");
+    await expect(dialoguePause).toHaveValue("1");
+    await expect(ttsCard.getByText("Pause between dialogues: 1 second", { exact: true })).toBeVisible();
+
+    await dialoguePause.fill("60");
+    await expect(ttsCard.getByText("Pause between dialogues: 60 seconds", { exact: true })).toBeVisible();
+    await expect
+      .poll(async () => {
+        const response = await request.get("/api/tts/config");
+        const config = (await response.json()) as { dialoguePauseMs?: number };
+        return config.dialoguePauseMs;
+      })
+      .toBe(60_000);
   } finally {
     try {
       if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });
@@ -5044,7 +5062,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
       await route.fulfill({
         status: 200,
         contentType: "image/svg+xml",
-        body: '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><path fill="#47234f" d="M0 0h2v2H0z"/></svg>',
+        body: '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" preserveAspectRatio="none"><path fill="#8f365f" d="M0 0h800v900H0z"/><path fill="#36548f" d="M800 0h800v900H800z"/></svg>',
       });
     });
     await page.addInitScript((chatId) => {
@@ -5065,13 +5083,42 @@ test("Roleplay displays a selected background when its file route is GET-only", 
             (layers, expectedUrl) =>
               layers.some(
                 (layer) =>
-                  (layer as HTMLElement).style.backgroundImage.includes(expectedUrl) &&
+                  (layer as HTMLImageElement).getAttribute("src")?.includes(expectedUrl) &&
                   (layer as HTMLElement).style.opacity === "1",
               ),
             backgroundUrl,
           ),
       )
       .toBe(true);
+
+    const roleplaySurface = page.locator('[data-chat-mode="roleplay"]');
+    const activeBackground = page.locator(`img.mari-background[src="${backgroundUrl}"]`);
+    await expect(activeBackground).toHaveCSS("object-fit", "fill");
+    const expectBackgroundToFitRoleplaySurface = async () => {
+      await expect
+        .poll(async () => {
+          const [surfaceBox, backgroundBox] = await Promise.all([
+            roleplaySurface.boundingBox(),
+            activeBackground.boundingBox(),
+          ]);
+          if (!surfaceBox || !backgroundBox) return null;
+          return {
+            width: Math.round(backgroundBox.width - surfaceBox.width),
+            height: Math.round(backgroundBox.height - surfaceBox.height),
+          };
+        })
+        .toEqual({ width: 0, height: 0 });
+    };
+
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expectBackgroundToFitRoleplaySurface();
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    await expectBackgroundToFitRoleplaySurface();
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");
   } finally {

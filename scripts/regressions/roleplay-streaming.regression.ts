@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  getTypewriterRevealCharsPerSecond,
   isMessageShadowedByLiveStream,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
@@ -63,6 +64,37 @@ assert.equal(
   "object-shaped tracker values must become editable text instead of invalid React children",
 );
 assert.equal(trackerEditableText({ nested: true }), '{"nested":true}');
+
+assert.equal(
+  getTypewriterRevealCharsPerSecond({
+    selectedCharsPerSecond: 90,
+    pendingCharacters: 45,
+    observedArrivalCharsPerSecond: null,
+    streamComplete: false,
+  }),
+  42.75,
+  "the first provider burst should be spread across roughly one second instead of draining immediately",
+);
+assert.equal(
+  getTypewriterRevealCharsPerSecond({
+    selectedCharsPerSecond: 90,
+    pendingCharacters: 20,
+    observedArrivalCharsPerSecond: 40,
+    streamComplete: false,
+  }),
+  38,
+  "an open stream should reveal slightly behind its observed arrival rate to absorb chunk gaps",
+);
+assert.equal(
+  getTypewriterRevealCharsPerSecond({
+    selectedCharsPerSecond: 90,
+    pendingCharacters: 200,
+    observedArrivalCharsPerSecond: 40,
+    streamComplete: true,
+  }),
+  90,
+  "a completed stream should drain at the user's selected speed",
+);
 
 assert.equal(
   shouldKeepStreamLiveThroughPostProcessing({
