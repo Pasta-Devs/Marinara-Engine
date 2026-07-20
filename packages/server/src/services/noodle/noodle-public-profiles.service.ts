@@ -2,7 +2,7 @@ import { basename } from "path";
 import { type APIProvider, type NoodleAccount } from "@marinara-engine/shared";
 import { logger, logDebugOverride } from "../../lib/logger.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
-import { resolveStoredMaxTokens } from "../generation/generation-parameters.js";
+import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import { parseGameJsonish } from "../game/jsonish.js";
 import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { createCharacterGalleryStorage } from "../storage/character-gallery.storage.js";
@@ -141,6 +141,11 @@ export async function generateMissingNoodleProfiles(input: {
     maxTokens,
     temperature: 0.55,
     topP: 0.9,
+    ...resolveStoredChatOptions(
+      input.connection.defaultParameters,
+      input.connection.provider,
+      input.connection.model,
+    ),
     stream: false,
     debugMode: input.debugMode,
     responseFormat: noodleResponseFormat(input.connection.model, "profiles"),

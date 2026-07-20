@@ -13,7 +13,6 @@ export * from "./types/agent.js";
 export * from "./types/game-state.js";
 export * from "./types/combat-encounter.js";
 export * from "./types/scene.js";
-export * from "./types/vn.js";
 export * from "./types/persona.js";
 export * from "./types/regex.js";
 export * from "./types/export.js";
@@ -59,7 +58,6 @@ export * from "./schemas/scene-analysis.schema.js";
 // Constants
 export * from "./constants/providers.js";
 export * from "./constants/defaults.js";
-export * from "./constants/chat-modes.js";
 export * from "./constants/chat-mode-capabilities.js";
 export * from "./constants/model-lists.js"; // also exports IMAGE_GENERATION_SOURCES
 export * from "./constants/agent-prompts.js";
@@ -81,13 +79,23 @@ export * from "./constants/tracker-custom-field-icons.js";
 
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
-export * from "./features/agents/agent-registry.js";
+export {
+  BUILT_IN_AGENT_MANIFESTS,
+  getBuiltInAgentDefaultPrompt,
+  isBuiltInAgentRuntimeDisabled,
+} from "./features/agents/agent-registry.js";
 export * from "./features/function-calls/tool-definitions.js";
 export * from "./features/folder-packages/manifest-package.js";
 
 // Turn-game framework (UNO and future turn-based games)
 export * from "./features/turn-games/engine.types.js";
-export * from "./features/turn-games/registry.js";
+export {
+  registerTurnGameEngine,
+  resetTurnGameRegistry,
+  getTurnGameEngine,
+  listTurnGames,
+  type TurnGameSummary,
+} from "./features/turn-games/registry.js";
 
 // Tactical (grid) combat for Game Mode (classic combat's alternative style)
 export * from "./features/tactical-combat/index.js";

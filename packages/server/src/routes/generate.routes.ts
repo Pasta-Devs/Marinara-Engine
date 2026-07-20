@@ -229,6 +229,7 @@ import {
   shouldAbortOnPassiveGenerationDisconnect,
   shouldEnableAgentsForGeneration,
   shouldInjectIdentityFallback,
+  shouldRestoreRegenerationCharacterTarget,
   stripSpeakerTagsExceptLastAssistant,
   type PromptAttachment,
   type SimpleMessage,
@@ -750,7 +751,16 @@ export async function generateRoutes(app: FastifyInstance) {
       if (regenCandidate?.chatId === input.chatId) {
         const replay = normalizeGenerationReplay(parseExtra(regenCandidate.extra).generationReplay);
         applyGenerationReplayToRegenerateInput(input, replay);
-        if (!input.forCharacterId && regenCandidate.characterId) {
+        const regenerationCharacterIds = parseJsonField<string[]>(chat.characterIds, []);
+        if (
+          !input.forCharacterId &&
+          regenCandidate.characterId &&
+          shouldRestoreRegenerationCharacterTarget(
+            requestChatMode,
+            earlyMeta.groupChatMode,
+            regenerationCharacterIds,
+          )
+        ) {
           input.forCharacterId = regenCandidate.characterId;
         }
       }

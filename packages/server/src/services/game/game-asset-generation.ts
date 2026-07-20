@@ -566,7 +566,13 @@ export async function buildNpcPortraitProviderPrompt(req: NpcPortraitRequest): P
       req.artStyle ? `Art style: ${req.artStyle}` : "",
     ],
   });
-  return compileGameImagePrompt(req, "portrait", prompt, 1400, GAME_PORTRAIT_NEGATIVE_PROMPT);
+  return compileGameImagePrompt(
+    req.dynamicPromptGenerator ? { ...req, appearance: null } : req,
+    "portrait",
+    prompt,
+    1400,
+    GAME_PORTRAIT_NEGATIVE_PROMPT,
+  );
 }
 
 export async function buildNpcPortraitImagePrompt(req: NpcPortraitRequest): Promise<string> {

@@ -151,6 +151,7 @@ export const packagedAgentDefinitionSchema = z.object({
   category: z.enum(["writer", "tracker", "misc"]),
   libraryHidden: z.boolean().optional(),
   runtimeDisabled: z.boolean().optional(),
+  /** @deprecated Legacy package compatibility; author resultType in defaultSettings instead. */
   resultType: agentResultTypeSchema.optional(),
   modeAllowlist: z.array(z.enum(["conversation", "roleplay", "visual_novel", "game"])).optional(),
   defaultTools: z.array(z.string()).optional(),

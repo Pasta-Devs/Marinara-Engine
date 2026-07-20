@@ -166,7 +166,10 @@ import type {
   ChatMessage,
   ChatOptions,
 } from "../../packages/server/src/services/llm/base-provider.js";
-import { resolveGroupGenerationMode } from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import {
+  resolveGroupGenerationMode,
+  shouldRestoreRegenerationCharacterTarget,
+} from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
 import {
   moveBackgroundAssignment,
@@ -301,6 +304,10 @@ assert.equal(resolveGroupGenerationMode("conversation", "individual"), "merged")
 assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
+assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
+assert.equal(shouldRestoreRegenerationCharacterTarget("visual_novel", undefined, ["a", "b"]), false);
+assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "individual", ["a", "b"]), true);
+assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a"]), true);
 
 const minimalProfessorMariPersona = buildPersonaCreateRow(
   { name: "Minimal helper persona" },

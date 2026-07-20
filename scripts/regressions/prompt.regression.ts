@@ -3149,7 +3149,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(appearance, /^Canonical NPC profile:/);
       assert.match(appearance, /Current outfit: Persimmon kimono/);
       assert.match(appearance, /Current expression or mood: Warm smile/);
-      assert.match(appearance, /Notable details: Carries a debt-scroll/);
+      assert.doesNotMatch(appearance, /debt-scroll|Notable details/);
     },
   },
   {
@@ -3195,7 +3195,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         ...request,
         dynamicPromptGenerator: async () => "Centered portrait of Lyra with a readable expression and clean lighting.",
       });
-      assert.equal(countAppearance(dynamicOmitted.prompt), 1);
+      assert.equal(countAppearance(dynamicOmitted.prompt), 0);
 
       const shortDescription = await buildNpcPortraitProviderPrompt({
         ...request,
@@ -3203,7 +3203,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         dynamicPromptGenerator: async () =>
           "Centered portrait of a woman with clean lighting and a readable expression.",
       });
-      assert.match(shortDescription.prompt, /^Required canonical NPC visual profile: man\./);
+      assert.doesNotMatch(shortDescription.prompt, /canonical NPC visual profile|\bman\b/i);
 
       const narrationDescription = "A rain-soaked courier in a patched green cloak.";
       const narrationAppearance = resolveNpcPortraitAppearance(
@@ -3378,6 +3378,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       assert.equal(countValue(embeddedNegation.prompt, "ornate rococo oil painting"), 1);
       assert.match(embeddedNegation.negativePrompt, /ornate rococo oil painting/i);
+    },
+  },
+  {
+    name: "deprecated image-style rule flags remain provider-visible no-ops",
+    run() {
+      const settings = createDefaultImageStyleProfileSettings();
+      const profile = settings.profiles.find((entry) => entry.id === "anime")!;
+      const compile = (preferTagsOverNarrative: boolean, preserveUserPhrases: boolean) => {
+        const result = compileImagePrompt({
+          kind: "portrait",
+          prompt: "A silver-haired scholar holding a glass vial in a moonlit laboratory.",
+          negativePrompt: "blurry, text",
+          styleProfiles: {
+            ...settings,
+            profiles: [
+              ...settings.profiles.filter((entry) => entry.id !== profile.id),
+              {
+                ...profile,
+                rules: { ...profile.rules, preferTagsOverNarrative, preserveUserPhrases },
+              },
+            ],
+          },
+          styleProfileId: profile.id,
+        });
+        return {
+          prompt: result.prompt,
+          negativePrompt: result.negativePrompt,
+          diagnostics: result.diagnostics,
+        };
+      };
+      const baseline = compile(false, false);
+      assert.deepEqual(compile(false, true), baseline);
+      assert.deepEqual(compile(true, false), baseline);
+      assert.deepEqual(compile(true, true), baseline);
     },
   },
   {

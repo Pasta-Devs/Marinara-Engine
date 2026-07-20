@@ -16,6 +16,13 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Applied enabled Connection generation defaults across every Noodle text-generation path and allowed custom OpenAI-compatible endpoints to receive explicitly enabled top-k, reasoning-effort, and verbosity parameters (#3845).
+- Kept dynamic NPC portrait prompt rewrites authoritative and excluded non-visual NPC history notes from portrait appearance context (#3846).
+- Removed unused agent/turn-game contract members, obsolete generated registries, duplicate tool arrays, Visual Novel types, chat-mode definitions, and redundant public aliases while preserving legacy downloadable-agent package parsing (#3847, #3848).
+- Regenerated merged Roleplay group replies with the full active character roster instead of narrowing the prompt to the previously saved speaker (#3850).
+- Made the Character editor's **Copy ID** action work on mobile and non-secure browser contexts and report only confirmed clipboard success (#3851).
+- Deprecated the two provider-visible no-op image-style rule flags while retaining their normalized persisted shape throughout 2.x for compatibility (#3852).
+- Added successful-download notices asking users to completely restart Marinara Engine after installing the local Gemma model or Local Whisper for Calls and Videos.
 - Updated the curated Gemma GGUF download sizes to match the current upstream files, preventing false file-size mismatch failures after their metadata changed (#3843).
 - Matched Roleplay's Active Context lorebook details to Conversation and Game, including activation sources, matched keys, semantic scores, current-location grouping, budget skips, and expandable entry content (#3840).
 - Kept the Roleplay **Hide From AI** action on the selected chroma/accent color and suppressed the browser's transient tap-highlight color.

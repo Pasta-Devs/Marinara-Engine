@@ -2,8 +2,6 @@
 // Turn-Game Runtime Registry
 // ──────────────────────────────────────────────
 import type { AnyTurnGameEngine } from "./engine.types.js";
-/** The base Engine intentionally ships no games. Installed packages populate the runtime registry. */
-export const BUNDLED_TURN_GAME_ENGINES: readonly AnyTurnGameEngine[] = [];
 const activeEngines = new Map<string, AnyTurnGameEngine>();
 
 export function registerTurnGameEngine(engine: AnyTurnGameEngine): () => void {
@@ -14,11 +12,8 @@ export function registerTurnGameEngine(engine: AnyTurnGameEngine): () => void {
   };
 }
 
-export function resetTurnGameRegistry(includeBundled = false): void {
+export function resetTurnGameRegistry(): void {
   activeEngines.clear();
-  if (includeBundled) {
-    for (const engine of BUNDLED_TURN_GAME_ENGINES) activeEngines.set(engine.gameType, engine);
-  }
 }
 
 export function getTurnGameEngine(gameType: string): AnyTurnGameEngine | null {
@@ -39,8 +34,4 @@ export function listTurnGames(): TurnGameSummary[] {
     minPlayers: engine.minPlayers,
     maxPlayers: engine.maxPlayers,
   }));
-}
-
-export function listTurnGameTypes(): string[] {
-  return [...activeEngines.keys()];
 }

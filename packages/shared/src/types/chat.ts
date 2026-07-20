@@ -69,10 +69,8 @@ export const CONVERSATION_COMMAND_AGENT_IDS: Partial<Record<ConversationCommandK
 
 export type ConversationPresenceStatus = "online" | "idle" | "dnd" | "offline";
 
-export type ConversationManualPresenceStatus = ConversationPresenceStatus;
-
 export interface ConversationStatusOverride {
-  status: ConversationManualPresenceStatus;
+  status: ConversationPresenceStatus;
   activity?: string | null;
   createdAt: string;
   expiresAt?: string | null;

@@ -4174,8 +4174,7 @@ export function ChatSettingsDrawer({
             </div>
           )}
 
-          {/* Hardcoded — CHAT_MODES.defaultAgents looks like the source of truth but is currently
-              unused, and wouldn't cover non-agent built-ins (GM pipeline, autonomous messaging, etc.) anyway. */}
+          {/* Keep this display tied to the runtime defaults below. */}
           {MODE_INTROS[chatMode as ChatMode] && (
             <div
               style={{ order: CHAT_SETTINGS_ORDER.modeIntro }}

@@ -4162,16 +4162,6 @@ function addPortraitAppearancePart(parts: string[], seenValues: Set<string>, val
   parts.push(part);
 }
 
-function addPortraitAppearanceNotes(parts: string[], seenValues: Set<string>, notes: unknown): void {
-  if (!Array.isArray(notes)) return;
-
-  const noteText = notes
-    .map((note) => optionalTrimmedString(note))
-    .filter((note): note is string => Boolean(note))
-    .join("; ");
-  addPortraitAppearancePart(parts, seenValues, noteText, "Notable details");
-}
-
 function addPresentCharacterPortraitAppearance(
   parts: string[],
   seenValues: Set<string>,
@@ -4223,7 +4213,6 @@ export function resolveNpcPortraitAppearance(
   }
 
   addPresentCharacterPortraitAppearance(parts, seenValues, presentCharacter);
-  addPortraitAppearanceNotes(parts, seenValues, metadataNpc?.notes);
 
   return parts.join(" ");
 }

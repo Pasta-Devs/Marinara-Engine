@@ -138,7 +138,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       }
     }
   }
-  resetTurnGameRegistry(false);
+  resetTurnGameRegistry();
 
   // ── Seed defaults ──
   await seedDefaultPreset(db);

@@ -854,6 +854,15 @@ export function resolveGroupGenerationMode(
   return configuredMode === "individual" ? "individual" : "merged";
 }
 
+export function shouldRestoreRegenerationCharacterTarget(
+  chatMode: string | null | undefined,
+  configuredMode: unknown,
+  characterIds: string[],
+): boolean {
+  const isRoleplayGroup = chatMode === "roleplay" || chatMode === "visual_novel";
+  return !(isRoleplayGroup && characterIds.length > 1 && resolveGroupGenerationMode(chatMode, configuredMode) === "merged");
+}
+
 export function resolvePromptCharacterIdsForTarget(
   characterIds: string[],
   targetCharacterId: string | null | undefined,

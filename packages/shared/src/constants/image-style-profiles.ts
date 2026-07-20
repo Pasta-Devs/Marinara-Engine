@@ -326,6 +326,7 @@ function normalizeRules(raw: unknown, fallback: ImageStyleProfileRules): ImageSt
       ["light", "normal", "strict"] satisfies ImagePromptDedupeStrength[],
       fallback.dedupeStrength,
     ),
+    // Legacy no-op fields remain normalized through 2.x so persisted profiles and external consumers keep their shape.
     preferTagsOverNarrative: readBoolean(record.preferTagsOverNarrative, fallback.preferTagsOverNarrative),
     preserveUserPhrases: readBoolean(record.preserveUserPhrases, fallback.preserveUserPhrases),
   };

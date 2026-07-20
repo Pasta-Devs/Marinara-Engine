@@ -109,8 +109,6 @@ export interface TurnGameEngine<TState, TMove, TConfig, TPublic = unknown> {
 
   /** Whose turn it is, or `null` once the game is finished. */
   currentSeat(state: TState): string | null;
-  /** Seats that may act OUT OF TURN right now (e.g. UNO jump-in / catch). Empty by default. */
-  interruptibleSeats(state: TState): string[];
 
   /** Every legal move for `seatId` in the current state (empty if it isn't their turn / they can't act). */
   legalMoves(state: TState, seatId: string): TMove[];

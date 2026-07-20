@@ -319,12 +319,14 @@ function SidecarCard() {
     setShowDownloadModal(true);
   };
 
-  const handleDownloadNow = () => {
+  const handleDownloadNow = async () => {
     const quantization =
       curatedModels.find((model) => model.quantization === "q4_k_m")?.quantization ??
       curatedModels[0]?.quantization ??
       "q4_k_m";
-    void startDownload(quantization);
+    if (await startDownload(quantization)) {
+      toast.success("Gemma downloaded. Completely restart Marinara Engine before using the local model.");
+    }
   };
 
   const isDownloading = downloadProgress?.status === "downloading";
@@ -354,9 +356,11 @@ function SidecarCard() {
         : "Not downloaded";
   const speechUnavailableMessage = describeSpeechRuntimeUnavailable(speechRuntime);
 
-  const handleDownloadWhisper = () => {
+  const handleDownloadWhisper = async () => {
     if (!activeSpeechModel || speechDownloading) return;
-    void startSpeechDownload(activeSpeechModel.id);
+    if (await startSpeechDownload(activeSpeechModel.id)) {
+      toast.success("Whisper downloaded. Completely restart Marinara Engine before using Calls or Videos.");
+    }
   };
 
   return (

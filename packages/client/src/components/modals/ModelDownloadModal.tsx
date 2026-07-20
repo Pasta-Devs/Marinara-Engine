@@ -7,6 +7,7 @@
 // ──────────────────────────────────────────────
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -348,15 +349,19 @@ export function ModelDownloadModal({ open, onClose }: Props) {
     onClose();
   };
 
-  const handleCuratedDownload = () => {
+  const handleCuratedDownload = async () => {
     markPrompted();
-    void startDownload(selectedQuant);
+    if (await startDownload(selectedQuant)) {
+      toast.success("Gemma downloaded. Completely restart Marinara Engine before using the local model.");
+    }
   };
 
-  const handleCustomDownload = () => {
+  const handleCustomDownload = async () => {
     if (!repoInput.trim()) return;
     markPrompted();
-    void startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath);
+    if (await startCustomDownload(repoInput.trim(), isAppleSilicon ? undefined : selectedCustomPath)) {
+      toast.success("Local model downloaded. Completely restart Marinara Engine before using it.");
+    }
   };
 
   const handleListModels = async () => {

@@ -84,9 +84,9 @@ interface SidecarState {
 
   fetchStatus: () => Promise<void>;
   fetchSpeechStatus: () => Promise<void>;
-  startDownload: (quantization: SidecarQuantization) => Promise<void>;
-  startSpeechDownload: (modelId: SidecarSpeechModelId) => Promise<void>;
-  startCustomDownload: (repo: string, modelPath?: string) => Promise<void>;
+  startDownload: (quantization: SidecarQuantization) => Promise<boolean>;
+  startSpeechDownload: (modelId: SidecarSpeechModelId) => Promise<boolean>;
+  startCustomDownload: (repo: string, modelPath?: string) => Promise<boolean>;
   listHuggingFaceModels: (repo: string) => Promise<SidecarCustomModelEntry[]>;
   clearCustomModels: () => void;
   cancelDownload: () => Promise<void>;
@@ -156,12 +156,13 @@ async function consumeDownloadStream(
   body: unknown,
   set: (partial: Partial<SidecarState>) => void,
   get: () => SidecarState,
-): Promise<void> {
+): Promise<boolean> {
   activeDownloadController?.abort();
   const controller = new AbortController();
   activeDownloadController = controller;
   downloadCancelRequested = false;
   let terminalEventHandled = false;
+  let succeeded = false;
 
   try {
     await consumeSidecarDownloadStream({
@@ -172,6 +173,7 @@ async function consumeDownloadStream(
       onEvent: async (data) => {
         if (data.done) {
           terminalEventHandled = true;
+          succeeded = true;
           set({ downloadProgress: null });
           await get().fetchStatus();
           return true;
@@ -213,14 +215,15 @@ async function consumeDownloadStream(
       },
     });
 
-    if (terminalEventHandled) return;
+    if (terminalEventHandled) return succeeded;
     set({ downloadProgress: null });
     await get().fetchStatus();
+    return false;
   } catch (error) {
     if (controller.signal.aborted || downloadCancelRequested) {
       set({ downloadProgress: null });
       await get().fetchStatus();
-      return;
+      return false;
     }
     throw error;
   } finally {
@@ -236,11 +239,12 @@ async function consumeSpeechDownloadStream(
   body: unknown,
   set: (partial: Partial<SidecarState>) => void,
   get: () => SidecarState,
-): Promise<void> {
+): Promise<boolean> {
   activeSpeechDownloadController?.abort();
   const controller = new AbortController();
   activeSpeechDownloadController = controller;
   let terminalEventHandled = false;
+  let succeeded = false;
 
   try {
     await consumeSidecarDownloadStream({
@@ -251,6 +255,7 @@ async function consumeSpeechDownloadStream(
       onEvent: async (data) => {
         if (data.done) {
           terminalEventHandled = true;
+          succeeded = true;
           set({ speechDownloadProgress: null });
           await get().fetchSpeechStatus();
           return true;
@@ -290,14 +295,15 @@ async function consumeSpeechDownloadStream(
       },
     });
 
-    if (terminalEventHandled) return;
+    if (terminalEventHandled) return succeeded;
     set({ speechDownloadProgress: null });
     await get().fetchSpeechStatus();
+    return false;
   } catch (error) {
     if (controller.signal.aborted) {
       set({ speechDownloadProgress: null });
       await get().fetchSpeechStatus();
-      return;
+      return false;
     }
     throw error;
   } finally {
@@ -409,7 +415,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
     });
 
     try {
-      await consumeDownloadStream("/api/sidecar/download", { quantization }, set, get);
+      return await consumeDownloadStream("/api/sidecar/download", { quantization }, set, get);
     } catch (error) {
       await get().fetchStatus();
       set({
@@ -422,6 +428,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
           error: error instanceof Error ? error.message : "Download failed",
         },
       });
+      return false;
     }
   },
 
@@ -439,7 +446,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
     });
 
     try {
-      await consumeSpeechDownloadStream("/api/sidecar/speech/download", { modelId }, set, get);
+      return await consumeSpeechDownloadStream("/api/sidecar/speech/download", { modelId }, set, get);
     } catch (error) {
       await get().fetchSpeechStatus();
       set({
@@ -454,6 +461,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
           error: error instanceof Error ? error.message : "Local Whisper download failed",
         },
       });
+      return false;
     }
   },
 
@@ -473,7 +481,12 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
     });
 
     try {
-      await consumeDownloadStream("/api/sidecar/download/custom", modelPath ? { repo, modelPath } : { repo }, set, get);
+      return await consumeDownloadStream(
+        "/api/sidecar/download/custom",
+        modelPath ? { repo, modelPath } : { repo },
+        set,
+        get,
+      );
     } catch (error) {
       await get().fetchStatus();
       set({
@@ -486,6 +499,7 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
           error: error instanceof Error ? error.message : "Download failed",
         },
       });
+      return false;
     }
   },
 
