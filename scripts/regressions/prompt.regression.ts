@@ -3168,6 +3168,11 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(legacyPollutedAppearance, /nine-foot Xenomorph with a biomechanical black carapace/i);
       assert.doesNotMatch(legacyPollutedAppearance, /Notable details|reputation|\[helped\]/i);
       assert.equal(sanitizeNpcPortraitAppearanceText("[helped] reputation +15 → 15 (neutral)"), "");
+      assert.equal(sanitizeNpcPortraitAppearanceText("Notable details: reputation: trusted"), "");
+      assert.equal(
+        sanitizeNpcPortraitAppearanceText("Black carapace. Reputation: trusted, elongated skull"),
+        "Black carapace. elongated skull",
+      );
     },
   },
   {

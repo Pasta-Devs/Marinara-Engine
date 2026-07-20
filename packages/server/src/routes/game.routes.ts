@@ -1191,6 +1191,7 @@ type DynamicGamePromptConnections = Pick<
   "getWithKey" | "listRandomPool" | "getDefaultForAgents"
 >;
 
+/** Resolve the configured dynamic-prompt text connection without silently accepting stale fallbacks. */
 export async function resolveDynamicGameImagePromptConnection(args: {
   connections: DynamicGamePromptConnections;
   meta: Record<string, unknown>;
@@ -1228,6 +1229,7 @@ export async function resolveDynamicGameImagePromptConnection(args: {
   throw lastError instanceof Error ? lastError : new Error("No text connection configured for dynamic image prompts");
 }
 
+/** Build provider options that preserve a custom Prompt Director's output format. */
 export function dynamicGameImagePromptRequestOptions(kind: GameDynamicImagePromptKind, signal?: AbortSignal) {
   return {
     stream: false,
@@ -1236,7 +1238,7 @@ export function dynamicGameImagePromptRequestOptions(kind: GameDynamicImagePromp
   };
 }
 
-export async function createDynamicGameImagePromptGenerator(args: {
+async function createDynamicGameImagePromptGenerator(args: {
   connections: ReturnType<typeof createConnectionsStorage>;
   promptOverridesStorage?: PromptOverridesStorage;
   chat: NonNullable<StoredChatRecord>;
@@ -4185,9 +4187,11 @@ function normalizePortraitAppearancePart(value: string): string {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+/** Remove legacy journal and reputation metadata before portrait prompt assembly. */
 export function sanitizeNpcPortraitAppearanceText(value: string): string {
   return value
-    .replace(/\s+Notable details:\s*[\s\S]*$/i, "")
+    .replace(/(?:^|\s+)Notable details:\s*[\s\S]*$/i, "")
+    .replace(/\s*\breputation\s*:\s*[^,.;\r\n]*\s*[,;]?/gi, " ")
     .replace(
       /\[[^\]\r\n]{1,500}\]\s*reputation\s*[+-]?\d+(?:\s*(?:→|->)\s*-?\d+)?(?:\s*\([^)]*\))?/gi,
       " ",
