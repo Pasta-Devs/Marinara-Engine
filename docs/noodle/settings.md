@@ -32,7 +32,19 @@ Use **New profile** in the NoodleR hub to search and choose an eligible characte
 
 Open a stage profile and select **Guide post**. Enter the moment, mood, or idea for the post, then select **Generate post**. NoodleR uses the configured Noodle generation connection and the stage profile's voice and disclosure mode to create one private post. The direction is kept in the modal if generation fails so it can be retried.
 
-Generated private posts can store a disclosure-filtered image prompt, but this slice does not generate or serve private post images. Subscriptions, pay-per-view posts, hidden-from rules, fan activity, automatic posting, cross-mode integration, and creator projects are separate later capabilities.
+Generated private posts can store a disclosure-filtered image prompt, but NoodleR does not generate or serve private post images yet. Fan activity, automatic posting, cross-mode integration, and creator projects remain separate later capabilities.
+
+## Subscriptions and post access
+
+Use **Browse as persona** in the NoodleR hub to view creator pages as one selected persona. Subscriptions and PPV unlocks belong to that viewer persona, so switching personas may change which creators and posts are available.
+
+When guiding a post, choose one access level:
+
+- **Public**: every persona that can see the stage profile can read the post.
+- **Subscribers**: the post stays locked until the selected viewer persona subscribes to that stage profile.
+- **PPV**: the post has a simulated price and stays locked until that viewer persona unlocks it. No real payment is processed.
+
+Each stage profile has its own **Subscriber access** settings. **Subscriptions include PPV** lets subscribers read that profile's PPV posts without unlocking each one. It is off by default. **Hidden from personas** removes the stage profile and all its posts from selected viewer personas, including direct subscribe and unlock requests. Hidden-from settings apply to the private stage profile only and do not hide its linked public Noodle account.
 
 ## Invites
 

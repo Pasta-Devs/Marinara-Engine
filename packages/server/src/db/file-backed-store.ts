@@ -166,6 +166,8 @@ export const FILE_BACKED_TABLES = [
   "persona_groups",
   "noodle_accounts",
   "noodle_posts",
+  "noodle_account_subscriptions",
+  "noodle_post_unlocks",
   "noodle_interactions",
   "noodle_activity_digests",
   "noodle_refresh_runs",
@@ -224,6 +226,22 @@ const warnedFlushFailures = new Set<string>();
 // dangling-reference validator, so every new relation added here reaches both.
 export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentKey: string; childKey: string }> =
   [
+    {
+      parent: "noodle_accounts",
+      child: "noodle_account_subscriptions",
+      parentKey: "id",
+      childKey: "viewerAccountId",
+    },
+    {
+      parent: "noodle_accounts",
+      child: "noodle_account_subscriptions",
+      parentKey: "id",
+      childKey: "creatorAccountId",
+    },
+    { parent: "noodle_accounts", child: "noodle_post_unlocks", parentKey: "id", childKey: "viewerAccountId" },
+    { parent: "noodle_accounts", child: "noodle_accounts", parentKey: "id", childKey: "publicAccountId" },
+    { parent: "noodle_accounts", child: "noodle_posts", parentKey: "id", childKey: "authorAccountId" },
+    { parent: "noodle_posts", child: "noodle_post_unlocks", parentKey: "id", childKey: "postId" },
     { parent: "chats", child: "messages", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_sessions", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_messages", parentKey: "id", childKey: "chatId" },
