@@ -38,6 +38,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
 import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
+import { resolveConversationSelfieConnectionId } from "../../lib/conversation-selfie-setup";
 import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
@@ -215,6 +216,7 @@ type ConnectionSetupOption = {
   name: string;
   provider?: string;
   defaultParameters?: unknown;
+  defaultForAgents?: boolean | string;
 };
 
 function parseCharacterFolderIds(value: unknown): string[] {
@@ -1034,6 +1036,15 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       trimmedConversationSystemPrompt !== baseConversationPromptText
         ? trimmedConversationSystemPrompt
         : null;
+    const selfieCommandEnabled =
+      commandsEnabled &&
+      availableConversationCommandOptions.some((command) => command.id === "selfie") &&
+      isConversationCommandToggleEnabled(conversationCommandToggles, "selfie");
+    const selfieConnectionId = resolveConversationSelfieConnectionId({
+      currentConnectionId: metadata.imageGenConnectionId,
+      selfieCommandEnabled,
+      connections: connectionOptions,
+    });
     await updateMeta.mutateAsync({
       id: chat.id,
       autonomousMessages: autonomousEnabled,
@@ -1043,6 +1054,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       conversationSetupComplete: true,
       chatParameters: customizeParameters ? generationParameters : null,
       customSystemPrompt,
+      ...(selfieConnectionId ? { imageGenConnectionId: selfieConnectionId } : {}),
     });
     if (autonomousEnabled && generateSchedule) {
       setScheduleState("generating");
@@ -1083,6 +1095,9 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
     customConversationPromptEnabled,
     conversationSystemPromptDraft,
     baseConversationPrompt,
+    availableConversationCommandOptions,
+    connectionOptions,
+    metadata.imageGenConnectionId,
   ]);
 
   const renderConnectionStep = () => (

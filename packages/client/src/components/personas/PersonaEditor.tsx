@@ -72,6 +72,7 @@ import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
 import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { api } from "../../lib/api-client";
+import { saveBlobToDevice } from "../../lib/file-download";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
 import { estimateTextTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import {
@@ -1689,20 +1690,16 @@ function PersonaSpritesTab({
   }, [deleteSprite, personaId, visibleSprites]);
 
   const downloadSpriteFile = useCallback(async (sprite: SpriteInfo) => {
-    const response = await fetch(sprite.url);
-    if (!response.ok) {
-      throw new Error(`Failed to download ${sprite.expression}`);
-    }
+    try {
+      const response = await fetch(sprite.url);
+      if (!response.ok) {
+        throw new Error(`Failed to download ${sprite.expression}`);
+      }
 
-    const blob = await response.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = objectUrl;
-    anchor.download = sprite.filename || `${sprite.expression}.png`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(objectUrl);
+      await saveBlobToDevice(await response.blob(), sprite.filename || `${sprite.expression}.png`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to download sprite.");
+    }
   }, []);
 
   const handleExportSprites = useCallback(
@@ -2020,7 +2017,7 @@ function PersonaSpritesTab({
             {backgroundCleanupReason}
           </div>
         )}
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <input
             value={newExpression}
             onChange={(e) => setNewExpression(e.target.value)}
@@ -2029,7 +2026,7 @@ function PersonaSpritesTab({
                 ? "Pose name (e.g. idle, walk, battle_stance)…"
                 : "Expression name (e.g. happy, sad, angry)…"
             }
-            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+            className="min-w-0 flex-1 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
             onKeyDown={(e) => {
               if (e.key === "Enter" && newExpression.trim()) {
                 startUpload(normalizeExpressionForCategory(newExpression));
@@ -2040,7 +2037,7 @@ function PersonaSpritesTab({
             type="button"
             onClick={() => newExpression.trim() && startUpload(normalizeExpressionForCategory(newExpression))}
             disabled={!newExpression.trim() || uploading}
-            className="flex items-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:shadow-md disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] shadow-sm transition-all hover:shadow-md disabled:opacity-40 sm:w-auto"
           >
             <Plus size="0.8125rem" />
             Upload

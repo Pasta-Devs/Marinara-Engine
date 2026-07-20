@@ -11,7 +11,6 @@ import { resolveBaseUrl } from "../generation/connection-base-url.js";
 import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/generation-parameters.js";
 import type { ImageCaptioningRuntime } from "../generation/image-captioning-runtime.js";
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
-import { parseGameJsonish } from "../game/jsonish.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
 import type { ChatMessage } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
@@ -23,7 +22,7 @@ import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createNoodleStorage } from "../storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { commitGeneratedNoodleActivity, prepareGeneratedNoodleMedia } from "./noodle-generated-activity.service.js";
-import { parseNoodleGeneratedRefresh, validateNoodleGeneratedRefresh } from "./noodle-generated-refresh.js";
+import { parseNoodleGeneratedRefreshResponse, validateNoodleGeneratedRefresh } from "./noodle-generated-refresh.js";
 import { normalizeNoodleHandle } from "./noodle-handle.js";
 import { chooseNoodleParticipantAccounts, collectNoodlePriorityAccountIds } from "./noodle-participant-selection.js";
 import { buildRefreshPrompt } from "./noodle-public-prompt.service.js";
@@ -338,14 +337,14 @@ export function createPublicNoodleGenerationService(db: DB) {
           1,
           content,
         );
-        let parsedGenerated: ReturnType<typeof parseNoodleGeneratedRefresh> | null = null;
+        let parsedGenerated: ReturnType<typeof parseNoodleGeneratedRefreshResponse> | null = null;
         let retryReason: string | null = null;
         const allowedActorHandles = new Set(
           selectedParticipants.map((account) => normalizeNoodleHandle(account.handle)),
         );
         const knownHandles = new Set(activeAccounts.map((account) => normalizeNoodleHandle(account.handle)));
         try {
-          parsedGenerated = parseNoodleGeneratedRefresh(parseGameJsonish(content));
+          parsedGenerated = parseNoodleGeneratedRefreshResponse(content);
           retryReason = validateNoodleGeneratedRefresh(parsedGenerated.refresh, allowedActorHandles, knownHandles);
         } catch (error) {
           retryReason = `the response was not valid timeline JSON (${getErrorMessage(error)})`;
@@ -386,7 +385,7 @@ export function createPublicNoodleGenerationService(db: DB) {
           parsedGenerated = null;
           let correctedRetryReason: string | null = null;
           try {
-            parsedGenerated = parseNoodleGeneratedRefresh(parseGameJsonish(content));
+            parsedGenerated = parseNoodleGeneratedRefreshResponse(content);
             correctedRetryReason = validateNoodleGeneratedRefresh(
               parsedGenerated.refresh,
               allowedActorHandles,

@@ -46,6 +46,7 @@ import { canCreateGeneratedNoodleInteraction } from "../../packages/server/src/s
 import { parseNoodleGeneratedProfiles } from "../../packages/server/src/services/noodle/noodle-generated-profiles.js";
 import {
   parseNoodleGeneratedRefresh,
+  parseNoodleGeneratedRefreshResponse,
   validateNoodleGeneratedRefresh,
 } from "../../packages/server/src/services/noodle/noodle-generated-refresh.js";
 import { normalizeNoodleImagePrompt } from "../../packages/server/src/services/noodle/noodle-image-prompt.js";
@@ -747,6 +748,15 @@ const resilientRefresh = parseNoodleGeneratedRefresh({
 assert.equal(resilientRefresh.refresh.posts.length, 1);
 assert.equal(resilientRefresh.refresh.interactions.length, 0);
 assert.deepEqual(resilientRefresh.rejected, [{ collection: "interactions", index: 0, issueCount: 1 }]);
+const adjacentRefresh = parseNoodleGeneratedRefreshResponse(`
+{"posts":[{"authorHandle":"alpha","content":"A recovered post."}]}
+{"interactions":[{"actorHandle":"beta","targetTempId":"post-alpha","type":"like"}]}
+{"follows":[{"actorHandle":"alpha","targetHandle":"beta"}]}
+`);
+assert.equal(adjacentRefresh.refresh.posts.length, 1);
+assert.equal(adjacentRefresh.refresh.interactions.length, 1);
+assert.equal(adjacentRefresh.refresh.follows.length, 1);
+assert.deepEqual(adjacentRefresh.rejected, []);
 assert.equal(
   validateNoodleGeneratedRefresh(
     { posts: [], interactions: [], follows: [], digests: [] },

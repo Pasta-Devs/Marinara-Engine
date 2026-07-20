@@ -18,6 +18,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Made Conversation setup connect enabled Illustrator selfies to the default image-generation connection instead of leaving Generated Selfies inactive (#3880).
+- Recovered every Noodle timeline collection when local models return adjacent JSON objects, preserving posts and interactions alongside follows instead of parsing only the final object (#3881).
+- Routed Character and Persona sprite downloads through the Android shell's native file saver and stacked the sprite Upload action beneath its expression field on mobile so it stays inside the card (#3884).
 - Kept the desktop Tracker Panel out of the centered Roleplay chat column, shrinking it, responsively reflowing its controls, and proportionally scaling its typography to the available side gutter on narrower screens instead of shifting messages and the composer sideways or clipping its contents.
 - Stacked a top-corner Echo Chamber below the open Tracker Panel on the same desktop side and constrained its message area to the remaining visible height instead of letting the two panels overlap or spill below the screen.
 - Kept each historical user turn under the Persona that sent it when Name Prefix History is enabled, instead of relabeling every user message with the currently selected Persona.

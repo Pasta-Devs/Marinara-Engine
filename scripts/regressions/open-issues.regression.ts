@@ -32,6 +32,7 @@ import {
 } from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
 import { resolveEchoChamberTopLayout } from "../../packages/client/src/lib/echo-chamber-layout.js";
+import { resolveConversationSelfieConnectionId } from "../../packages/client/src/lib/conversation-selfie-setup.js";
 import {
   resolveTrackerPanelContentScale,
   resolveTrackerPanelDesktopWidth,
@@ -900,6 +901,35 @@ const serverPackageJson = JSON.parse(
 assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
 assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
 assert.equal(resolveDevSharedBuildScript({}), "build");
+const conversationImageConnections = [
+  { id: "text", provider: "openai", defaultForAgents: true },
+  { id: "image-secondary", provider: "image_generation", defaultForAgents: false },
+  { id: "image-default", provider: "image_generation", defaultForAgents: "true" },
+];
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: null,
+    selfieCommandEnabled: true,
+    connections: conversationImageConnections,
+  }),
+  "image-default",
+);
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: "image-explicit",
+    selfieCommandEnabled: true,
+    connections: conversationImageConnections,
+  }),
+  "image-explicit",
+);
+assert.equal(
+  resolveConversationSelfieConnectionId({
+    currentConnectionId: null,
+    selfieCommandEnabled: false,
+    connections: conversationImageConnections,
+  }),
+  null,
+);
 const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
   : playwrightConfig.webServer;
@@ -912,6 +942,18 @@ const agentEditorSource = readFileSync(
 );
 const characterEditorSource = readFileSync(
   new URL("../../packages/client/src/components/characters/CharacterEditor.tsx", import.meta.url),
+  "utf8",
+);
+const personaEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
+  "utf8",
+);
+const fileDownloadSource = readFileSync(
+  new URL("../../packages/client/src/lib/file-download.ts", import.meta.url),
+  "utf8",
+);
+const androidMainActivitySource = readFileSync(
+  new URL("../../android/app/src/main/java/com/marinara/engine/MainActivity.java", import.meta.url),
   "utf8",
 );
 const gameJournalSource = readFileSync(
@@ -976,6 +1018,13 @@ assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query a
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
 assert.match(characterEditorSource, /avatar preview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
+assert.match(characterEditorSource, /saveBlobToDevice/u);
+assert.match(personaEditorSource, /saveBlobToDevice/u);
+assert.match(characterEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(personaEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);
+assert.match(fileDownloadSource, /MarinaraAndroid/u);
+assert.match(androidMainActivitySource, /public void saveFile\(String base64Data, String mimeType, String filename\)/u);
+assert.match(androidMainActivitySource, /MediaStore\.Images\.Media\.getContentUri/u);
 assert.match(
   characterEditorSource,
   /"relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl/u,
