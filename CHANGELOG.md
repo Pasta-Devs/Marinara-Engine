@@ -16,6 +16,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Returned parsed chat metadata and character IDs from public chat reads so fresh sidebar tag filters match the shared API contract (#3857).
+- Deep-merged partial nested Character PATCH fields without materializing destructive defaults, preserving omitted extensions and embedded-lorebook data (#3858).
+- Validated and normalized native Marinara character cards before persistence while preserving unknown embedded-lorebook properties (#3859).
 - Applied enabled Connection generation defaults across every Noodle text-generation path and allowed custom OpenAI-compatible endpoints to receive explicitly enabled top-k, reasoning-effort, and verbosity parameters (#3845).
 - Kept dynamic NPC portrait prompt rewrites authoritative, resolved a usable text connection instead of silently bypassing enabled rewrites, allowed custom non-JSON output, removed legacy reputation-note leakage, and preserved explicit non-human species cues (#3846).
 - Removed unused agent/turn-game contract members, obsolete generated registries, duplicate tool arrays, Visual Novel types, chat-mode definitions, and redundant public aliases while preserving legacy downloadable-agent package parsing (#3847, #3848).

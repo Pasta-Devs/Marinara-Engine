@@ -286,6 +286,15 @@ function sanitizeChatGameNpcAvatars<T extends { metadata?: unknown }>(chat: T): 
     metadata: typeof chat.metadata === "string" ? JSON.stringify(sanitizedMetadata) : sanitizedMetadata,
   };
 }
+
+/** Convert storage-encoded chat JSON columns to the shared public Chat shape. */
+export function normalizeChatForResponse<T extends { metadata?: unknown; characterIds?: unknown }>(chat: T) {
+  return sanitizeChatGameNpcAvatars({
+    ...chat,
+    characterIds: resolveChatCharacterIds(chat.characterIds),
+    metadata: parseChatMetadata(chat.metadata),
+  });
+}
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId: string }
@@ -478,7 +487,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get("/", async () => {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(sanitizeChatGameNpcAvatars);
+    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
   });
 
   app.get("/internal/professor-mari/chats", async () => {
@@ -671,7 +680,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List chats by group
   app.get<{ Params: { groupId: string } }>("/group/:groupId", async (req) => {
     const chats = await storage.listByGroup(req.params.groupId);
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(sanitizeChatGameNpcAvatars);
+    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
   });
 
   // Get single chat
@@ -680,7 +689,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat || isHomeProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
-    return sanitizeChatGameNpcAvatars(chat);
+    return normalizeChatForResponse(chat);
   });
 
   // Create chat
@@ -699,7 +708,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     );
     if (!chat) return chat;
 
-    return chat;
+    return normalizeChatForResponse(chat);
   });
 
   // Update chat
@@ -767,7 +776,8 @@ export async function chatsRoutes(app: FastifyInstance) {
         }
       }
     }
-    return storage.update(req.params.id, data);
+    const updated = await storage.update(req.params.id, data);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
@@ -775,7 +785,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat || isHomeProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
-    return storage.touch(req.params.id);
+    const updated = await storage.touch(req.params.id);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Update chat metadata (partial merge)
