@@ -5416,7 +5416,7 @@ export function ChatSettingsDrawer({
                               onCommit={(value) =>
                                 updateMeta.mutate({
                                   id: chat.id,
-                                  autonomousDailyCapOverride: Math.max(1, Math.floor(value)),
+                                  autonomousDailyCapOverride: value,
                                 })
                               }
                               ariaLabel="Numeric chat check-in ceiling"
@@ -8659,7 +8659,7 @@ export function ChatSettingsDrawer({
                     onCommit={(value) =>
                       updateMeta.mutate({
                         id: chat.id,
-                        summaryTailMessages: Math.max(SUMMARY_TAIL_MESSAGES.MIN, Math.floor(value)),
+                        summaryTailMessages: value,
                       })
                     }
                     ariaLabel="Recent message tail"

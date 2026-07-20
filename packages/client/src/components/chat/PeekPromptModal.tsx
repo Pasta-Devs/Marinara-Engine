@@ -432,8 +432,7 @@ function ChatHistorySection({
           Chat History
         </span>
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-          {entries.length} {providerBlocks ? "provider block" : "message"}
-          {entries.length !== 1 ? "s" : ""}
+          {`${entries.length} ${providerBlocks ? "provider block" : "message"}${entries.length !== 1 ? "s" : ""}`}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
           ~{fmtTokens(tokens)} token{tokens !== 1 ? "s" : ""}
@@ -610,8 +609,8 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
             </div>
           )}
           {data.exact && (
-            <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/25 px-3 py-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)]">
-              <Info size="0.75rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+            <div className="flex items-start gap-2 rounded-lg border border-(--border) bg-(--secondary)/25 px-3 py-2 text-[0.6875rem] leading-snug text-(--muted-foreground)">
+              <Info size="0.75rem" className="mt-0.5 shrink-0 text-(--primary)" />
               <span>
                 Providers may combine several chat turns into one request block. Expand Chat History to inspect all
                 model-visible text inside each block.

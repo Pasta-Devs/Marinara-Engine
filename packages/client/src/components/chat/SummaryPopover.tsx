@@ -1026,7 +1026,7 @@ export function SummaryPopover({
                         onCommit={(value) =>
                           updateMeta.mutate({
                             id: chatId,
-                            summaryTailMessages: Math.max(SUMMARY_TAIL_MESSAGES.MIN, Math.floor(value)),
+                            summaryTailMessages: value,
                           })
                         }
                         className="w-16 rounded-md bg-[var(--secondary)] px-2 py-1 text-right text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
