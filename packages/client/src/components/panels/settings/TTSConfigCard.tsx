@@ -534,13 +534,7 @@ export function TTSConfigCard() {
     setProgressivePlayback(savedConfig.progressivePlayback ?? false);
     setDialogueOnly(savedConfig.dialogueOnly ?? false);
     setDialoguePauseSeconds(
-      Math.min(
-        TTS_DIALOGUE_PAUSE_MAX_SECONDS,
-        Math.max(
-          TTS_DIALOGUE_PAUSE_MIN_SECONDS,
-          Math.round((savedConfig.dialoguePauseMs ?? TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000) / 1000),
-        ),
-      ),
+      (savedConfig.dialoguePauseMs ?? TTS_DIALOGUE_PAUSE_DEFAULT_SECONDS * 1000) / 1000,
     );
     setAudioFormat(savedConfig.audioFormat ?? "mp3");
     setCallAudioEnabled(savedConfig.callAudioEnabled ?? false);
