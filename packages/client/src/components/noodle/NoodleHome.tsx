@@ -4543,6 +4543,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       notificationCount={notificationCount}
       onOpenHome={openHomeTimeline}
       onOpenMobileHome={openMobileHomeTimeline}
+      onOpenNoodler={openNoodler}
       onOpenSearch={openSearch}
       onOpenNotifications={openNotifications}
       onOpenProfile={openOwnProfile}

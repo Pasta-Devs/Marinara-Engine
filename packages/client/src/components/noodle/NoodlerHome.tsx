@@ -16,6 +16,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -176,6 +177,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   }, [accountSwitcherOpen]);
   const exitToPublic = () => onNavigate({ mode: "public", view: "home" });
   const [showManageProfiles, setShowManageProfiles] = useState(false);
+  const [feedSearch, setFeedSearch] = useState("");
+  const [feedTab, setFeedTab] = useState<"all" | "subscribed">("all");
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);
   const toggleSubscription = useToggleNoodlerSubscription();
   const unlockPost = useUnlockNoodlerPost();
@@ -385,8 +388,35 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   };
 
+  const submitInlinePost = ({
+    profileId,
+    direction,
+    access,
+    ppvPrice,
+  }: {
+    profileId: string;
+    direction: string;
+    access: NoodlePostAccess;
+    ppvPrice: number | null;
+  }) => {
+    setGenerationError(null);
+    generatePost.mutate(
+      {
+        mode: "private",
+        targetAccountId: profileId,
+        privatePostGuide: direction.trim(),
+        access,
+        ...(access === "ppv" ? { ppvPrice } : {}),
+      },
+      {
+        onSuccess: () => toast.success("Private post generated."),
+        onError: (error) => setGenerationError(errorMessage(error, "Could not generate this post.")),
+      },
+    );
+  };
+
   const shellProps = {
-    activeView: null,
+    activeView: "noodler" as const,
     personaAccount: shellPersonaAccount,
     sortedPersonaAccounts: viewerAccounts,
     visiblePersonaAccounts,
@@ -403,6 +433,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     notificationCount: 0,
     onOpenHome: goToHub,
     onOpenMobileHome: goToHub,
+    onOpenNoodler: goToHub,
     onOpenSettings: () => onNavigate({ mode: "settings" }),
     overlays: (
       <BrowserChrome
@@ -679,47 +710,106 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   }
 
+  const suggestedCreators = (viewerQuery.data?.creators ?? []).filter((creator) => !creator.subscribed);
+
   return (
-    <NoodleShell {...shellProps}>
-      <NoodlerFrame
-        onBack={exitToPublic}
-        title="NoodleR"
-        action={
-          <button
-            type="button"
-            onClick={() => setShowManageProfiles(true)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
-            title="Manage profiles"
-            aria-label="Manage stage profiles"
-          >
-            <Users size={18} />
-          </button>
-        }
-      >
-        <ViewerHub
-          personas={personas}
-          personaId={viewerPersonaId}
-          onPersonaChange={setStoredPersonaId}
-          scope={viewerQuery.data}
-          isLoading={viewerQuery.isLoading}
-          isError={viewerQuery.isError}
-          onRetry={() => void viewerQuery.refetch()}
-          subscriptionPending={toggleSubscription.isPending}
-          unlockPending={unlockPost.isPending}
-          viewerAccountId={shellPersonaAccount?.id ?? null}
-          onToggleSubscription={(creatorAccountId, subscribed) => {
-            if (!viewerPersonaId) return;
-            toggleSubscription.mutate({ creatorAccountId, personaId: viewerPersonaId, subscribed });
-          }}
-          onUnlock={(postId) => {
-            if (!viewerPersonaId) return;
-            unlockPost.mutate({ postId, personaId: viewerPersonaId });
-          }}
-          onOpenPost={setOpenPostId}
-          onToggleLike={(post) => toggleLikeOrRepost(post, "like")}
-          onToggleRepost={(post) => toggleLikeOrRepost(post, "repost")}
-        />
-      </NoodlerFrame>
+    <NoodleShell
+      {...shellProps}
+      rightRail={
+        <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
+          <div className="sticky top-3 space-y-4">
+            <label className="flex h-11 items-center gap-2 rounded-full border border-[var(--noodle-divider)] bg-[var(--background)] px-4 text-sm transition-colors focus-within:border-[var(--noodle-blue)]">
+              <Search size={17} className="shrink-0 text-[var(--noodle-blue)]" />
+              <input
+                value={feedSearch}
+                onChange={(event) => setFeedSearch(event.target.value)}
+                placeholder="Search posts or @creators"
+                className="min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+              />
+              {feedSearch.trim() && (
+                <button
+                  type="button"
+                  onClick={() => setFeedSearch("")}
+                  className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
+                  title="Clear search"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </label>
+
+            <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+              <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+                <h3 className="text-lg font-bold">Who to subscribe to</h3>
+              </div>
+              {suggestedCreators.length > 0 ? (
+                <div className="divide-y divide-[var(--noodle-divider)]">
+                  {suggestedCreators.map((creator) => (
+                    <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
+                      <ProfileInitial profile={creator.profile} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
+                        <span className="block truncate text-xs text-[var(--muted-foreground)]">
+                          @{creator.profile.handle}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        disabled={toggleSubscription.isPending}
+                        onClick={() => {
+                          if (!viewerPersonaId) return;
+                          toggleSubscription.mutate({
+                            creatorAccountId: creator.profile.id,
+                            personaId: viewerPersonaId,
+                            subscribed: false,
+                          });
+                        }}
+                        className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Subscribe
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">You're subscribed to everyone!</p>
+              )}
+            </section>
+          </div>
+        </aside>
+      }
+    >
+      <ViewerHub
+        personas={personas}
+        personaId={viewerPersonaId}
+        onPersonaChange={setStoredPersonaId}
+        scope={viewerQuery.data}
+        isLoading={viewerQuery.isLoading}
+        isError={viewerQuery.isError}
+        onRetry={() => void viewerQuery.refetch()}
+        subscriptionPending={toggleSubscription.isPending}
+        unlockPending={unlockPost.isPending}
+        viewerAccountId={shellPersonaAccount?.id ?? null}
+        onToggleSubscription={(creatorAccountId, subscribed) => {
+          if (!viewerPersonaId) return;
+          toggleSubscription.mutate({ creatorAccountId, personaId: viewerPersonaId, subscribed });
+        }}
+        onUnlock={(postId) => {
+          if (!viewerPersonaId) return;
+          unlockPost.mutate({ postId, personaId: viewerPersonaId });
+        }}
+        onOpenPost={setOpenPostId}
+        onToggleLike={(post) => toggleLikeOrRepost(post, "like")}
+        onToggleRepost={(post) => toggleLikeOrRepost(post, "repost")}
+        onManageProfiles={() => setShowManageProfiles(true)}
+        search={feedSearch}
+        tab={feedTab}
+        onTabChange={setFeedTab}
+        managedProfiles={accountsQuery.data ?? []}
+        onSubmitPost={submitInlinePost}
+        isPosting={generatePost.isPending}
+        postError={generationError}
+      />
     </NoodleShell>
   );
 }
@@ -1537,6 +1627,14 @@ function ViewerHub({
   onOpenPost,
   onToggleLike,
   onToggleRepost,
+  onManageProfiles,
+  search,
+  tab,
+  onTabChange,
+  managedProfiles,
+  onSubmitPost,
+  isPosting,
+  postError,
 }: {
   personas: Persona[];
   personaId: string | null;
@@ -1553,6 +1651,14 @@ function ViewerHub({
   onOpenPost: (postId: string) => void;
   onToggleLike: (post: NoodlerPostView) => void;
   onToggleRepost: (post: NoodlerPostView) => void;
+  onManageProfiles: () => void;
+  search: string;
+  tab: "all" | "subscribed";
+  onTabChange: (tab: "all" | "subscribed") => void;
+  managedProfiles: NoodlerManagedStageProfile[];
+  onSubmitPost: (input: { profileId: string; direction: string; access: NoodlePostAccess; ppvPrice: number | null }) => void;
+  isPosting: boolean;
+  postError: string | null;
 }) {
   if (personas.length === 0) {
     return (
@@ -1562,28 +1668,74 @@ function ViewerHub({
       />
     );
   }
+  const searchTerm = search.trim().toLowerCase();
   const feed = (scope?.creators ?? [])
+    .filter((creator) => tab === "all" || creator.subscribed)
     .flatMap((creator) => creator.posts.map((post) => ({ post, creator })))
+    .filter(
+      ({ post, creator }) =>
+        !searchTerm ||
+        (post.content ?? "").toLowerCase().includes(searchTerm) ||
+        creator.profile.handle.toLowerCase().includes(searchTerm) ||
+        creator.profile.displayName.toLowerCase().includes(searchTerm),
+    )
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
     <div>
-      <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-        <label className="block text-xs font-bold" htmlFor="noodler-viewer-persona">
+      <div className="flex items-end justify-between gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
+        <label className="block min-w-0 flex-1 text-xs font-bold" htmlFor="noodler-viewer-persona">
           Viewer persona
+          <select
+            id="noodler-viewer-persona"
+            value={personaId ?? ""}
+            onChange={(event) => onPersonaChange(event.target.value || null)}
+            className={`${fieldClass} mt-2`}
+          >
+            {personas.map((persona) => (
+              <option key={persona.id} value={persona.id}>
+                {persona.name || persona.convoDisplayName || "Persona"}
+              </option>
+            ))}
+          </select>
         </label>
-        <select
-          id="noodler-viewer-persona"
-          value={personaId ?? ""}
-          onChange={(event) => onPersonaChange(event.target.value || null)}
-          className={`${fieldClass} mt-2`}
+        <button
+          type="button"
+          onClick={onManageProfiles}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
+          title="Manage profiles"
+          aria-label="Manage stage profiles"
         >
-          {personas.map((persona) => (
-            <option key={persona.id} value={persona.id}>
-              {persona.name || persona.convoDisplayName || "Persona"}
-            </option>
-          ))}
-        </select>
+          <Users size={18} />
+        </button>
       </div>
+      <div className="grid grid-cols-2 border-b border-[var(--noodle-divider)]">
+        {(
+          [
+            { id: "all", label: "All creators" },
+            { id: "subscribed", label: "Subscribed" },
+          ] as const
+        ).map((option) => (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onTabChange(option.id)}
+            className={cn(
+              "flex h-12 items-center justify-center text-sm font-bold transition-colors hover:bg-[var(--accent)]",
+              tab === option.id
+                ? "border-b-2 border-[var(--noodle-blue)] text-[var(--foreground)]"
+                : "text-[var(--muted-foreground)]",
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <InlineGuidedComposer
+        managedProfiles={managedProfiles}
+        onSubmit={onSubmitPost}
+        isPosting={isPosting}
+        error={postError}
+      />
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 size={24} className="animate-spin text-[var(--noodle-blue)]" />
@@ -1688,6 +1840,105 @@ function ViewerHub({
       ) : (
         <EmptyState title="No stage profiles are visible to this persona." />
       )}
+    </div>
+  );
+}
+
+function InlineGuidedComposer({
+  managedProfiles,
+  onSubmit,
+  isPosting,
+  error,
+}: {
+  managedProfiles: NoodlerManagedStageProfile[];
+  onSubmit: (input: { profileId: string; direction: string; access: NoodlePostAccess; ppvPrice: number | null }) => void;
+  isPosting: boolean;
+  error: string | null;
+}) {
+  const [profileId, setProfileId] = useState(managedProfiles[0]?.id ?? "");
+  const [direction, setDirection] = useState("");
+  const [access, setAccess] = useState<NoodlePostAccess>("public");
+  const [ppvPrice, setPpvPrice] = useState("5");
+  const activeProfileId = managedProfiles.some((profile) => profile.id === profileId)
+    ? profileId
+    : (managedProfiles[0]?.id ?? "");
+  const parsedPrice = Number(ppvPrice);
+
+  if (managedProfiles.length === 0) return null;
+
+  const submit = () => {
+    if (!activeProfileId || direction.trim().length === 0) return;
+    if (access === "ppv" && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) return;
+    onSubmit({
+      profileId: activeProfileId,
+      direction,
+      access,
+      ppvPrice: access === "ppv" ? parsedPrice : null,
+    });
+    setDirection("");
+  };
+
+  return (
+    <div
+      className="space-y-3 border-b border-[var(--noodle-divider)] px-4 py-3"
+      data-component="NoodlerHome.InlineComposer"
+    >
+      <select
+        value={activeProfileId}
+        onChange={(event) => setProfileId(event.target.value)}
+        className={fieldClass}
+        aria-label="Posting as"
+      >
+        {managedProfiles.map((profile) => (
+          <option key={profile.id} value={profile.id}>
+            Post as @{profile.handle}
+          </option>
+        ))}
+      </select>
+      <textarea
+        value={direction}
+        onChange={(event) => setDirection(event.target.value)}
+        maxLength={2000}
+        placeholder="What's simmering, privately?"
+        className={textareaClass}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--accent)] p-1">
+          {(["public", "subscriber", "ppv"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={access === option}
+              onClick={() => setAccess(option)}
+              className={`min-h-9 rounded px-2 text-xs font-bold capitalize ${access === option ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+            >
+              {option === "subscriber" ? "Subscribers" : option.toUpperCase()}
+            </button>
+          ))}
+        </div>
+        {access === "ppv" && (
+          <input
+            type="number"
+            min="0"
+            max="999999"
+            step="0.01"
+            value={ppvPrice}
+            onChange={(event) => setPpvPrice(event.target.value)}
+            aria-label="PPV price"
+            className="mari-chrome-field h-9 w-28 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
+          />
+        )}
+        <button
+          type="button"
+          onClick={submit}
+          disabled={isPosting || direction.trim().length === 0}
+          className="ml-auto inline-flex min-h-9 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+          {isPosting ? "Generating..." : "Post"}
+        </button>
+      </div>
+      {error && <p className="text-xs text-[var(--destructive)]">{error}</p>}
     </div>
   );
 }

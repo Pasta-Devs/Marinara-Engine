@@ -13,6 +13,7 @@ import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 export const NOODLE_BLUE = "#7EA7FF";
 export const NOODLE_ICON_SCOPE_CLASS = "[&_svg]:!text-[var(--noodle-blue)]";
 export const NOODLE_LOGO_SRC = "/noodle-klusek.png";
+export const NOODLER_LOGO_SRC = "/noodler-klusek.png";
 export const NOODLE_PERSONA_SWITCHER_PAGE_SIZE = 5;
 
 const labelClass = "text-[0.68rem] font-semibold uppercase tracking-normal text-[var(--marinara-chat-chrome-panel-muted)]";
@@ -28,8 +29,8 @@ export function initials(name: string) {
   );
 }
 
-export function NoodleLogo({ className }: { className?: string }) {
-  return <img src={NOODLE_LOGO_SRC} alt="" className={cn("object-contain", className)} />;
+export function NoodleLogo({ className, src = NOODLE_LOGO_SRC }: { className?: string; src?: string }) {
+  return <img src={src} alt="" className={cn("object-contain", className)} />;
 }
 
 export function Avatar({
@@ -69,7 +70,7 @@ export function Avatar({
   );
 }
 
-export type NoodleShellView = "home" | "search" | "notifications" | "profile" | "settings" | null;
+export type NoodleShellView = "home" | "noodler" | "search" | "notifications" | "profile" | "settings" | null;
 
 export interface NoodleShellProps {
   activeView: NoodleShellView;
@@ -89,6 +90,8 @@ export interface NoodleShellProps {
   onOpenHome: () => void;
   /** Mobile bottom-nav "Home" tap — distinct from onOpenHome because it also clears any active post search. */
   onOpenMobileHome: () => void;
+  /** "NoodleR" nav item — a peer to Home, not a sub-page reached through Home. */
+  onOpenNoodler: () => void;
   /** Omit on surfaces with no scoped equivalent (e.g. NoodleR has no search) — renders disabled instead of navigating. */
   onOpenSearch?: () => void;
   /** Omit on surfaces with no scoped equivalent — renders disabled instead of navigating. */
@@ -122,6 +125,7 @@ export function NoodleShell({
   notificationCount,
   onOpenHome,
   onOpenMobileHome,
+  onOpenNoodler,
   onOpenSearch,
   onOpenNotifications,
   onOpenProfile,
@@ -215,6 +219,14 @@ export function NoodleShell({
                 >
                   <Home size={23} />
                   Home
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenNoodler}
+                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]"
+                >
+                  <NoodleLogo src={NOODLER_LOGO_SRC} className="h-6 w-9 shrink-0" />
+                  NoodleR
                 </button>
                 <button
                   type="button"
@@ -327,6 +339,17 @@ export function NoodleShell({
                 >
                   <Home size={22} className="!text-[var(--noodle-blue)]" />
                   Home
+                </button>
+                <button
+                  type="button"
+                  onClick={onOpenNoodler}
+                  className={cn(
+                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)]",
+                    activeView === "noodler" && "bg-[var(--noodle-blue)]/10",
+                  )}
+                >
+                  <NoodleLogo src={NOODLER_LOGO_SRC} className="h-6 w-9 shrink-0" />
+                  NoodleR
                 </button>
                 <button
                   type="button"
