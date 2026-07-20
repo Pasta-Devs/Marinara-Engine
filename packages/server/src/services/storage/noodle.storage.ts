@@ -42,6 +42,7 @@ import {
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { isFileUniqueConstraintError } from "../../db/file-schema.js";
+import { isNoodlerHiddenFromViewer } from "../noodle/noodler-access.js";
 import {
   noodleAccounts,
   noodleAccountSubscriptions,
@@ -1678,52 +1679,60 @@ export function createNoodleStorage(db: DB) {
 
     async subscribe(viewerAccountId: string, creatorAccountId: string): Promise<NoodleAccountSubscription | null> {
       if (viewerAccountId === creatorAccountId) return null;
-      const [viewer, creator] = await Promise.all([
-        this.getAccountById(viewerAccountId),
-        this.getPrivateAccountById(creatorAccountId),
-      ]);
-      if (
-        !viewer ||
-        viewer.kind !== "persona" ||
-        viewer.visibility !== "public" ||
-        !creator ||
-        creator.publicAccountId === viewerAccountId
-      )
-        return null;
-      const existing = await db
-        .select()
-        .from(noodleAccountSubscriptions)
-        .where(
-          and(
-            eq(noodleAccountSubscriptions.viewerAccountId, viewerAccountId),
-            eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
-          ),
-        );
-      if (existing[0]) return mapSubscription(existing[0]);
-      try {
-        await db.insert(noodleAccountSubscriptions).values({
-          id: newId(),
-          viewerAccountId,
-          creatorAccountId,
-          createdAt: now(),
-        });
-      } catch (error) {
+      return db.transaction(async (tx) => {
+        const [viewerRows, creatorRows] = await Promise.all([
+          tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, viewerAccountId)),
+          tx
+            .select()
+            .from(noodleAccounts)
+            .where(and(eq(noodleAccounts.id, creatorAccountId), eq(noodleAccounts.visibility, "private"))),
+        ]);
+        const viewer = viewerRows[0] ? mapAccount(viewerRows[0]) : null;
+        const creator = creatorRows[0] ? mapAccount(creatorRows[0]) : null;
         if (
-          !isFileUniqueConstraintError(error, "noodle_account_subscriptions", ["viewerAccountId", "creatorAccountId"])
-        ) {
-          throw error;
+          !viewer ||
+          viewer.kind !== "persona" ||
+          viewer.visibility !== "public" ||
+          !creator ||
+          creator.publicAccountId === viewerAccountId ||
+          isNoodlerHiddenFromViewer(creator, viewerAccountId)
+        )
+          return null;
+        const existing = await tx
+          .select()
+          .from(noodleAccountSubscriptions)
+          .where(
+            and(
+              eq(noodleAccountSubscriptions.viewerAccountId, viewerAccountId),
+              eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
+            ),
+          );
+        if (existing[0]) return mapSubscription(existing[0]);
+        try {
+          await tx.insert(noodleAccountSubscriptions).values({
+            id: newId(),
+            viewerAccountId,
+            creatorAccountId,
+            createdAt: now(),
+          });
+        } catch (error) {
+          if (
+            !isFileUniqueConstraintError(error, "noodle_account_subscriptions", ["viewerAccountId", "creatorAccountId"])
+          ) {
+            throw error;
+          }
         }
-      }
-      const rows = await db
-        .select()
-        .from(noodleAccountSubscriptions)
-        .where(
-          and(
-            eq(noodleAccountSubscriptions.viewerAccountId, viewerAccountId),
-            eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
-          ),
-        );
-      return rows[0] ? mapSubscription(rows[0]) : null;
+        const rows = await tx
+          .select()
+          .from(noodleAccountSubscriptions)
+          .where(
+            and(
+              eq(noodleAccountSubscriptions.viewerAccountId, viewerAccountId),
+              eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
+            ),
+          );
+        return rows[0] ? mapSubscription(rows[0]) : null;
+      });
     },
 
     async unsubscribe(viewerAccountId: string, creatorAccountId: string): Promise<void> {
@@ -1746,25 +1755,44 @@ export function createNoodleStorage(db: DB) {
     },
 
     async unlockPost(viewerAccountId: string, postId: string): Promise<NoodlePostUnlock | null> {
-      const [viewer, post] = await Promise.all([this.getAccountById(viewerAccountId), this.getPrivatePostById(postId)]);
-      if (!viewer || viewer.kind !== "persona" || viewer.visibility !== "public" || post?.access !== "ppv") return null;
-      const author = await this.getPrivateAccountById(post.authorAccountId);
-      if (author?.publicAccountId === viewerAccountId) return null;
-      const existing = await db
-        .select()
-        .from(noodlePostUnlocks)
-        .where(and(eq(noodlePostUnlocks.viewerAccountId, viewerAccountId), eq(noodlePostUnlocks.postId, postId)));
-      if (existing[0]) return mapPostUnlock(existing[0]);
-      try {
-        await db.insert(noodlePostUnlocks).values({ id: newId(), viewerAccountId, postId, createdAt: now() });
-      } catch (error) {
-        if (!isFileUniqueConstraintError(error, "noodle_post_unlocks", ["viewerAccountId", "postId"])) throw error;
-      }
-      const rows = await db
-        .select()
-        .from(noodlePostUnlocks)
-        .where(and(eq(noodlePostUnlocks.viewerAccountId, viewerAccountId), eq(noodlePostUnlocks.postId, postId)));
-      return rows[0] ? mapPostUnlock(rows[0]) : null;
+      return db.transaction(async (tx) => {
+        const [viewerRows, postRows] = await Promise.all([
+          tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, viewerAccountId)),
+          tx.select().from(noodlePosts).where(eq(noodlePosts.id, postId)),
+        ]);
+        const viewer = viewerRows[0] ? mapAccount(viewerRows[0]) : null;
+        const postRow = postRows[0];
+        if (!viewer || viewer.kind !== "persona" || viewer.visibility !== "public" || postRow?.access !== "ppv") {
+          return null;
+        }
+        const authorRows = await tx
+          .select()
+          .from(noodleAccounts)
+          .where(and(eq(noodleAccounts.id, postRow.authorAccountId), eq(noodleAccounts.visibility, "private")));
+        const author = authorRows[0] ? mapAccount(authorRows[0]) : null;
+        if (
+          !author ||
+          author.publicAccountId === viewerAccountId ||
+          isNoodlerHiddenFromViewer(author, viewerAccountId)
+        ) {
+          return null;
+        }
+        const existing = await tx
+          .select()
+          .from(noodlePostUnlocks)
+          .where(and(eq(noodlePostUnlocks.viewerAccountId, viewerAccountId), eq(noodlePostUnlocks.postId, postId)));
+        if (existing[0]) return mapPostUnlock(existing[0]);
+        try {
+          await tx.insert(noodlePostUnlocks).values({ id: newId(), viewerAccountId, postId, createdAt: now() });
+        } catch (error) {
+          if (!isFileUniqueConstraintError(error, "noodle_post_unlocks", ["viewerAccountId", "postId"])) throw error;
+        }
+        const rows = await tx
+          .select()
+          .from(noodlePostUnlocks)
+          .where(and(eq(noodlePostUnlocks.viewerAccountId, viewerAccountId), eq(noodlePostUnlocks.postId, postId)));
+        return rows[0] ? mapPostUnlock(rows[0]) : null;
+      });
     },
 
     async listPostUnlocksForViewer(viewerAccountId: string): Promise<NoodlePostUnlock[]> {

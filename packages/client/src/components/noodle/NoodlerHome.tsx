@@ -140,6 +140,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     else setAccountSwitcherOpen(false);
   };
   useEffect(() => {
+    if (accountSwitcherOpen) setPersonaAccountLimit(NOODLE_PERSONA_SWITCHER_PAGE_SIZE);
+  }, [accountSwitcherOpen]);
+  useEffect(() => {
     if (!mobileDrawerOpen) {
       setMobileAccountSwitcherOpen(false);
       return;
