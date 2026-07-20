@@ -170,6 +170,37 @@ export type CapabilityCatalog = z.infer<typeof capabilityCatalogSchema>;
 export type InstalledCapabilityPackage = z.infer<typeof installedCapabilityPackageSchema>;
 export type PackagedAgentDefinition = z.infer<typeof packagedAgentDefinitionSchema>;
 
+export interface CustomAgentRepository {
+  id: string;
+  url: string;
+  owner: string;
+  name: string;
+  lastDigest: string | null;
+  lastSyncedAt: string | null;
+  agentCount: number;
+}
+
+export type CustomAgentRepositoryChangeStatus = "new" | "updated" | "unchanged" | "removed";
+
+export interface CustomAgentRepositoryChange {
+  agentId: string;
+  name: string;
+  status: CustomAgentRepositoryChangeStatus;
+  changedFields: string[];
+  definition?: PackagedAgentDefinition;
+}
+
+export interface CustomAgentRepositoryPreview {
+  repository: Pick<CustomAgentRepository, "id" | "url" | "owner" | "name">;
+  digest: string;
+  changes: CustomAgentRepositoryChange[];
+}
+
+export interface CustomAgentRepositoryState {
+  enabled: boolean;
+  repositories: CustomAgentRepository[];
+}
+
 export function getCapabilityApiCompatibilityIssue(manifest: CapabilityPackageManifest): string | null {
   if (manifest.schemaVersion === 1) return null;
   const required = manifest.capabilityApi;

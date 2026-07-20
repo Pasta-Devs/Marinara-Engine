@@ -1376,6 +1376,46 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   await page.route("**/api/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
+  await page.route("**/api/custom-agent-repositories", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ enabled: true, repositories: [] }),
+    });
+  });
+  await page.route("**/api/custom-agent-repositories/preview", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        repository: {
+          id: "0123456789abcdef",
+          url: "https://github.com/example/community-agents",
+          owner: "example",
+          name: "community-agents",
+        },
+        digest: "a".repeat(64),
+        changes: [
+          {
+            agentId: "continuity-helper",
+            name: "Continuity Helper",
+            status: "new",
+            changedFields: [],
+            definition: {
+              id: "continuity-helper",
+              name: "Continuity Helper",
+              description: "Checks recent turns for contradictions.",
+              phase: "post_processing",
+              enabledByDefault: false,
+              category: "writer",
+              defaultTools: ["search_messages"],
+              defaultPromptTemplate: "Check {{messages}} for continuity errors.",
+            },
+          },
+        ],
+      }),
+    });
+  });
   await page.goto("/");
   await page.locator('[data-tour="panel-characters"]').click();
   await page.getByRole("button", { name: "Open Full Library" }).click();
@@ -1426,6 +1466,18 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
     "https://github.com/Pasta-Devs/Marinara-Agents#uno",
   );
   await expect(catalogView.getByRole("button", { name: "Install", exact: true })).toBeVisible();
+  await catalogView.getByRole("button", { name: "Custom Sources" }).click();
+  const customSources = page.getByRole("dialog", { name: "Custom Agent Repositories" });
+  await expect(customSources.getByText(/not affiliated with or vetted by PastaDevs/u)).toBeVisible();
+  await customSources.getByLabel("GitHub agent repository URL").fill("https://github.com/example/community-agents");
+  await customSources.getByRole("button", { name: "Preview", exact: true }).click();
+  await expect(customSources.getByRole("heading", { name: "example/community-agents" })).toBeVisible();
+  await expect(customSources.getByText("Continuity Helper", { exact: true })).toBeVisible();
+  await customSources.getByRole("button", { name: "Add Repository" }).click();
+  const trustConfirmation = page.getByRole("dialog", { name: "Add this custom repository?" });
+  await expect(trustConfirmation.getByText(/Custom agents can run tools/u)).toBeVisible();
+  await trustConfirmation.getByRole("button", { name: "Cancel" }).click();
+  await expect(customSources).toBeVisible();
   expect(errors).toEqual([]);
 });
 
