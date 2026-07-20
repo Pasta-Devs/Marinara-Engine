@@ -64,6 +64,7 @@ import {
   type ChatSummaryPromptTemplate,
 } from "@marinara-engine/shared";
 import { showConfirmDialog } from "../../lib/app-dialogs";
+import { DraftNumberInput } from "../ui/DraftNumberInput";
 
 interface SummaryPopoverProps {
   chatId: string;
@@ -1018,25 +1019,23 @@ export function SummaryPopover({
                   <div className="space-y-1 px-1 pb-0.5">
                     <label className="flex items-center justify-between gap-2 text-[0.6875rem] font-medium text-[var(--popover-foreground)]">
                       <span>Recent message tail</span>
-                      <input
-                        type="number"
+                      <DraftNumberInput
+                        ariaLabel="Recent message tail"
                         min={SUMMARY_TAIL_MESSAGES.MIN}
-                        max={SUMMARY_TAIL_MESSAGES.MAX}
-                        step={1}
                         value={summaryTailMessages ?? SUMMARY_TAIL_MESSAGES.DEFAULT}
-                        onChange={(event) => {
-                          const raw = Number(event.target.value);
-                          const clamped = Number.isFinite(raw)
-                            ? Math.max(SUMMARY_TAIL_MESSAGES.MIN, Math.min(SUMMARY_TAIL_MESSAGES.MAX, Math.floor(raw)))
-                            : SUMMARY_TAIL_MESSAGES.DEFAULT;
-                          updateMeta.mutate({ id: chatId, summaryTailMessages: clamped });
-                        }}
+                        onCommit={(value) =>
+                          updateMeta.mutate({
+                            id: chatId,
+                            summaryTailMessages: value,
+                          })
+                        }
                         className="w-16 rounded-md bg-[var(--secondary)] px-2 py-1 text-right text-xs outline-none ring-1 ring-transparent transition-shadow focus:ring-[var(--primary)]/40"
                       />
                     </label>
                     <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                       Most recent messages kept word-for-word when auto-hiding summarised ones. Set to{" "}
-                      <span className="font-medium">0</span> to hide the whole batch.
+                      <span className="font-medium">0</span> to hide the whole batch. Higher values increase prompt size
+                      and model cost.
                     </p>
                   </div>
                 )}

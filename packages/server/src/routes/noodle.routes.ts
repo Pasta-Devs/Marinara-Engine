@@ -19,6 +19,9 @@ import {
   noodleInteractionUpdateSchema,
   noodlePostUpdateSchema,
   noodlePrivateAccountCreateSchema,
+  noodlerSubscriptionSchema,
+  noodlerUnlockSchema,
+  noodlerViewerPersonaSchema,
   noodleRemoveInteractionSchema,
   noodleRescheduleRefreshSchema,
   noodleGenerationRequestSchema,
@@ -28,6 +31,7 @@ import {
   readNoodlePollFromMetadata,
   type NoodleAccount,
   type NoodleInteractionType,
+  type NoodlerPostView,
 } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -48,6 +52,7 @@ import {
   stageProfileContainsPublicIdentity,
 } from "../services/noodle/noodle-private-generation.service.js";
 import { generateNoodlerStageProfileDraft } from "../services/noodle/noodle-stage-profile-draft.service.js";
+import { canViewNoodlerPost, isNoodlerHiddenFromViewer } from "../services/noodle/noodler-access.js";
 import {
   bootstrapVisibleNoodle,
   characterAvatarCrop,
@@ -98,6 +103,134 @@ export async function noodleRoutes(app: FastifyInstance) {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     return noodle.listNoodlerStageProfiles();
+  });
+
+  async function resolveViewerPersona(personaId: string) {
+    const account = await noodle.getAccountByEntity("persona", personaId);
+    return account?.visibility === "public" ? account : null;
+  }
+
+  app.get("/noodler/viewer", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerViewerPersonaSchema.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const viewer = await resolveViewerPersona(parsed.data.personaId);
+    if (!viewer) return reply.code(404).send({ error: "Noodle persona not found" });
+    const [accounts, profiles, subscriptions, unlocks] = await Promise.all([
+      noodle.listPrivateAccounts(),
+      noodle.listNoodlerStageProfiles(),
+      noodle.listSubscriptionsForViewer(viewer.id),
+      noodle.listPostUnlocksForViewer(viewer.id),
+    ]);
+    const subscribedIds = new Set(subscriptions.map((item) => item.creatorAccountId));
+    const unlockedIds = new Set(unlocks.map((item) => item.postId));
+    const profileById = new Map(
+      profiles.map(({ access: _access, ...profile }) => [
+        profile.id,
+        {
+          ...profile,
+          publicAccountId: profile.disclosureMode === "open" ? profile.publicAccountId : null,
+        },
+      ]),
+    );
+    const visibleAccounts = accounts.filter(
+      (account) => account.publicAccountId !== viewer.id && !isNoodlerHiddenFromViewer(account, viewer.id),
+    );
+    const postsByAccount = await noodle.listPrivatePostsByAccounts(
+      visibleAccounts.map((account) => account.id),
+      40,
+    );
+    const creators = visibleAccounts.map((account) => {
+      const subscribed = subscribedIds.has(account.id);
+      const posts = postsByAccount.get(account.id) ?? [];
+      return {
+        profile: profileById.get(account.id)!,
+        subscribed,
+        posts: posts.map((post): NoodlerPostView => {
+          const locked = !canViewNoodlerPost({
+            post,
+            subscribed,
+            unlockedPostIds: unlockedIds,
+            subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
+          });
+          return {
+            id: post.id,
+            authorAccountId: post.authorAccountId,
+            access: post.access,
+            ppvPrice: post.ppvPrice,
+            locked,
+            content: locked ? null : post.content,
+            imageUrl: locked ? null : post.imageUrl,
+            imagePrompt: locked ? null : post.imagePrompt,
+            metadata: locked ? null : post.metadata,
+            createdAt: post.createdAt,
+          };
+        }),
+      };
+    });
+    return { viewer, creators };
+  });
+
+  app.post("/noodler/accounts/:id/subscribe", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerSubscriptionSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    const [viewer, creator] = await Promise.all([
+      resolveViewerPersona(parsed.data.personaId),
+      noodle.getPrivateAccountById(id),
+    ]);
+    if (
+      !viewer ||
+      !creator ||
+      creator.publicAccountId === viewer.id ||
+      isNoodlerHiddenFromViewer(creator, viewer.id)
+    ) {
+      return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    }
+    const subscription = await noodle.subscribe(viewer.id, creator.id);
+    if (!subscription) return reply.code(400).send({ error: "Could not subscribe to this stage profile" });
+    return reply.code(201).send(subscription);
+  });
+
+  app.delete("/noodler/accounts/:id/subscribe", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerSubscriptionSchema.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const viewer = await resolveViewerPersona(parsed.data.personaId);
+    if (!viewer) return reply.code(404).send({ error: "Noodle persona not found" });
+    const { id } = req.params as { id: string };
+    await noodle.unsubscribe(viewer.id, id);
+    return { ok: true };
+  });
+
+  app.post("/noodler/posts/:id/unlock", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerUnlockSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    const [viewer, post] = await Promise.all([
+      resolveViewerPersona(parsed.data.personaId),
+      noodle.getPrivatePostById(id),
+    ]);
+    const creator = post ? await noodle.getPrivateAccountById(post.authorAccountId) : null;
+    if (
+      !viewer ||
+      !post ||
+      !creator ||
+      post.access !== "ppv" ||
+      creator.publicAccountId === viewer.id ||
+      isNoodlerHiddenFromViewer(creator, viewer.id)
+    ) {
+      return reply.code(404).send({ error: "NoodleR post not found" });
+    }
+    const unlock = await noodle.unlockPost(viewer.id, post.id);
+    if (!unlock) return reply.code(400).send({ error: "Could not unlock this post" });
+    return reply.code(201).send(unlock);
   });
 
   app.get<{ Querystring: { limit?: string; offset?: string; search?: string; kind?: string } }>(
@@ -209,6 +342,15 @@ export async function noodleRoutes(app: FastifyInstance) {
     const profile = (await noodle.listNoodlerStageProfiles()).find((item) => item.id === updated.id);
     if (!profile) throw new Error("Failed to load the updated NoodleR stage profile.");
     return profile;
+  });
+
+  app.delete("/noodler/accounts/:id", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const { id } = req.params as { id: string };
+    const deleted = await noodle.deletePrivateAccount(id);
+    if (!deleted) return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    return deleted;
   });
 
   app.get("/noodler/accounts/:id/posts", async (req, reply) => {

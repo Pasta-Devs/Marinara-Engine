@@ -56,6 +56,7 @@ import { csrfDiagnosticsRoutes } from "./csrf-diagnostics.routes.js";
 import { professorMariWorkspaceRoutes } from "./professor-mari-workspace.routes.js";
 import { noodleRoutes } from "./noodle.routes.js";
 import { capabilityPackagesRoutes } from "./capability-packages.routes.js";
+import { customAgentRepositoriesRoutes } from "./custom-agent-repositories.routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(chatsRoutes, { prefix: "/api/chats" });
@@ -111,6 +112,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(professorMariWorkspaceRoutes, { prefix: "/api/professor-mari/workspace" });
   await app.register(noodleRoutes, { prefix: "/api/noodle" });
   await app.register(capabilityPackagesRoutes, { prefix: "/api/capability-packages" });
+  await app.register(customAgentRepositoriesRoutes, { prefix: "/api/custom-agent-repositories" });
   if (process.env.MARINARA_LITE !== "true" && process.env.MARINARA_LITE !== "1") {
     await app.register(sidecarRoutes, { prefix: "/api/sidecar" });
   }

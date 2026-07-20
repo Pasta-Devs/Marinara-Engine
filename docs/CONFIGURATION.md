@@ -26,6 +26,28 @@ Package lifecycle and storage:
 - **Persistence:** Packages live under `DATA_DIR/capability-packages`. Docker volumes, custom data directories, backups, and normal upgrades preserve them.
 - **Offline resilience:** Existing packages continue working at their installed version when outbound GitHub HTTPS is unavailable or an update fails verification.
 
+### Custom agent repositories
+
+Custom repositories are disabled by default because their prompts and tool selections are unvetted third-party content. Set `ENABLE_CUSTOM_AGENT_REPOS=true`, then open **Agents → Download Agents → Custom Sources** to preview a public GitHub repository. Adding a source and applying any later content change both require explicit confirmation. Synchronization is manual; Marinara does not clone repositories or poll them in the background.
+
+The repository root must contain an `agents.json` array using the same agent-definition format as downloadable agent packages. A minimal file looks like this:
+
+```json
+[
+  {
+    "id": "continuity-helper",
+    "name": "Continuity Helper",
+    "description": "Checks recent turns for contradictions.",
+    "phase": "post_processing",
+    "enabledByDefault": false,
+    "category": "writer",
+    "defaultPromptTemplate": "Check {{messages}} for continuity errors."
+  }
+]
+```
+
+Marinara accepts GitHub repository-root URLs only and validates the bounded archive plus every agent definition before showing the preview. During synchronization, remote prompt, settings, and tool values replace the repository-managed values shown in that preview. Connection and artwork choices remain local. If an agent disappears upstream, Marinara keeps it as a normal local custom agent and removes only its repository link. Removing a source follows the same keep-local policy.
+
 ## Where the .env file is
 
 Configuration lives in a file named `.env`. This is a plain text file with one setting per line, in the form `KEY=value`. Lines that start with `#` are comments and the server ignores them.
@@ -193,6 +215,7 @@ Related privileged settings:
 | `UPDATES_ALLOW_REMOTE_APPLY` | `false` | Allows a remote device to apply updates, with a valid secret. |
 | `HAPTICS_ALLOW_REMOTE` | `false` | Allows haptic device actions from a remote device, with a valid secret. |
 | `CUSTOM_TOOL_SCRIPT_ENABLED` | `false` | Enables custom script tools. Keep off for untrusted or imported tools. |
+| `ENABLE_CUSTOM_AGENT_REPOS` | `false` | Enables manual GitHub agent-repository preview and sync in Agents Manager. Third-party agents are unvetted and require explicit confirmation before import or update. |
 | `IMPORT_ALLOWED_ROOTS` | empty | Filesystem folders that bulk import may read without a picker token. |
 | `PROFILE_EXPORT_JSON_LIMIT_BYTES` | `268435456` (256 MiB) | Largest single JSON profile export the server will build. |
 

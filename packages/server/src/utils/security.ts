@@ -34,6 +34,8 @@ export interface OutboundUrlPolicy {
   allowLoopback?: boolean;
   allowMdns?: boolean;
   allowedProtocols?: string[];
+  /** Restrict every request and redirect hop to these exact hostnames. */
+  allowedHostnames?: string[];
   maxRedirects?: number;
   /**
    * Optional name of the env var that, when set to true, would allow this
@@ -324,6 +326,13 @@ export async function validateOutboundUrl(url: string | URL, policy: OutboundUrl
     throw new Error(
       `Refused to fetch ${original}: protocol '${parsed.protocol.replace(/:$/, "")}' is not allowed (allowed: ${allowedProtocols.map((proto) => proto.replace(/:$/, "")).join(", ")}).`,
     );
+  }
+
+  if (
+    policy.allowedHostnames?.length &&
+    !policy.allowedHostnames.some((hostname) => hostname.toLowerCase() === parsed.hostname.toLowerCase())
+  ) {
+    throw new Error(`Refused to fetch ${original}: hostname '${parsed.hostname}' is not allowed.`);
   }
 
   if (!policy.allowLocal) {

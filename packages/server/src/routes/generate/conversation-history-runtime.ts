@@ -1,5 +1,9 @@
 import type { WrapFormat } from "@marinara-engine/shared";
-import { normalizeTextForMatch, stripLeadingMessageTimestamps } from "@marinara-engine/shared";
+import {
+  normalizeSummaryTailMessages,
+  normalizeTextForMatch,
+  stripLeadingMessageTimestamps,
+} from "@marinara-engine/shared";
 
 import { logger } from "../../lib/logger.js";
 import {
@@ -249,10 +253,7 @@ export async function prepareConversationPromptHistory(args: {
     fmtDateKey,
   });
 
-  const tailCount = Math.max(
-    0,
-    Math.min(50, Math.floor((args.chatMeta.summaryTailMessages as number | undefined) ?? 10)),
-  );
+  const tailCount = normalizeSummaryTailMessages(args.chatMeta.summaryTailMessages);
   const tailEntries = collectConversationSummaryTail({
     buckets,
     tailCount,
