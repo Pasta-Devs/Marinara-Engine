@@ -65,7 +65,6 @@ export const GAME_NPC_PORTRAIT: PromptOverrideKeyDef<GameNpcPortraitCtx> = {
       ctx.compositionRule,
       `SD/Illustrious tags: solo, single character, portrait, upper body, centered composition, clean readable avatar.`,
       `Single subject only, one portrait, one face, one frame. High quality game avatar, clear readable design.`,
-      `Avoid text, letters, captions, UI, watermarks, logos, signatures, speech bubbles, split panels, collage, contact sheet, multiple portraits, duplicated faces, and four-image grids.`,
     ]
       .filter(Boolean)
       .join(" "),
