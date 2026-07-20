@@ -1489,6 +1489,116 @@ export function createNoodleStorage(db: DB) {
       return mapInteraction(existing);
     },
 
+    async listPrivateInteractions(postIds: string[] = []): Promise<NoodleInteraction[]> {
+      if (postIds.length === 0) return [];
+      const privatePostIds = new Set(
+        (await Promise.all(postIds.map((postId) => this.getPrivatePostById(postId))))
+          .filter((post): post is NoodlePost => post !== null)
+          .map((post) => post.id),
+      );
+      if (privatePostIds.size === 0) return [];
+      const rows = await db
+        .select()
+        .from(noodleInteractions)
+        .where(inArray(noodleInteractions.postId, [...privatePostIds]))
+        .orderBy(noodleInteractions.createdAt);
+      return rows.map(mapInteraction);
+    },
+
+    async createPrivateInteraction(
+      postId: string,
+      input: {
+        actorAccountId: string;
+        type: Exclude<NoodleInteractionType, "vote">;
+        content?: string | null;
+        parentInteractionId?: string | null;
+      },
+    ): Promise<NoodleInteraction | null> {
+      const [post, actor] = await Promise.all([this.getPrivatePostById(postId), this.getAccountById(input.actorAccountId)]);
+      if (!post || !actor) return null;
+
+      const parentInteractionId = input.parentInteractionId ?? null;
+      if (parentInteractionId) {
+        const parentRows = await db
+          .select()
+          .from(noodleInteractions)
+          .where(eq(noodleInteractions.id, parentInteractionId));
+        const parent = parentRows[0];
+        if (!parent || parent.postId !== postId || parent.type !== "reply") return null;
+      }
+
+      const readExistingToggleInteraction = async () => {
+        if (!isToggleInteractionType(input.type)) return null;
+        const existing = await db
+          .select()
+          .from(noodleInteractions)
+          .where(
+            and(
+              eq(noodleInteractions.postId, postId),
+              eq(noodleInteractions.actorAccountId, input.actorAccountId),
+              eq(noodleInteractions.type, input.type),
+              parentInteractionId
+                ? eq(noodleInteractions.parentInteractionId, parentInteractionId)
+                : isNull(noodleInteractions.parentInteractionId),
+            ),
+          );
+        return existing[0] ? mapInteraction(existing[0]) : null;
+      };
+
+      const existingToggleInteraction = await readExistingToggleInteraction();
+      if (existingToggleInteraction) return existingToggleInteraction;
+
+      const id = newId();
+      try {
+        await db.insert(noodleInteractions).values({
+          id,
+          postId,
+          parentInteractionId,
+          actorAccountId: input.actorAccountId,
+          type: input.type,
+          content: input.content?.trim() || null,
+          imageUrl: null,
+          actorSnapshot: JSON.stringify(snapshotForAccount(actor)),
+          createdAt: now(),
+        });
+      } catch (error) {
+        const toggleKeys = ["postId", "actorAccountId", "type", "parentInteractionId"];
+        if (isToggleInteractionType(input.type) && isFileUniqueConstraintError(error, "noodle_interactions", toggleKeys)) {
+          const existing = await readExistingToggleInteraction();
+          if (existing) return existing;
+        }
+        throw error;
+      }
+      const rows = await db.select().from(noodleInteractions).where(eq(noodleInteractions.id, id));
+      return rows[0] ? mapInteraction(rows[0]) : null;
+    },
+
+    async deletePrivateInteraction(
+      postId: string,
+      input: { actorAccountId: string; type: Exclude<NoodleInteractionType, "vote">; parentInteractionId?: string | null },
+    ): Promise<NoodleInteraction | null> {
+      const post = await this.getPrivatePostById(postId);
+      if (!post) return null;
+      const parentInteractionId = input.parentInteractionId ?? null;
+      const rows = await db
+        .select()
+        .from(noodleInteractions)
+        .where(
+          and(
+            eq(noodleInteractions.postId, postId),
+            eq(noodleInteractions.actorAccountId, input.actorAccountId),
+            eq(noodleInteractions.type, input.type),
+            parentInteractionId
+              ? eq(noodleInteractions.parentInteractionId, parentInteractionId)
+              : isNull(noodleInteractions.parentInteractionId),
+          ),
+        );
+      const existing = rows[0];
+      if (!existing) return null;
+      await db.delete(noodleInteractions).where(eq(noodleInteractions.id, existing.id));
+      return mapInteraction(existing);
+    },
+
     async createDigest(input: {
       accountIds: string[];
       content: string;

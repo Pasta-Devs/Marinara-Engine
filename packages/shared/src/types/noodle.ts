@@ -188,6 +188,7 @@ export interface NoodlerPostView {
   imagePrompt: string | null;
   metadata: Record<string, unknown> | null;
   createdAt: string;
+  interactions: NoodleInteraction[];
 }
 
 export interface NoodlerViewerCreator {
