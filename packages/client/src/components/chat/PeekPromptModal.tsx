@@ -2,7 +2,7 @@
 // Peek Prompt Modal — collapsible section viewer
 // ──────────────────────────────────────────────
 import { useState, useMemo } from "react";
-import { X, ChevronRight, ChevronDown } from "lucide-react";
+import { X, ChevronRight, ChevronDown, Info } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
   NEUTRAL_PANEL_HEADER,
@@ -395,7 +395,15 @@ function CollapsibleBlock({
   );
 }
 
-function ChatHistorySection({ entries, rawContent }: { entries: ChatHistoryEntry[]; rawContent: string }) {
+function ChatHistorySection({
+  entries,
+  rawContent,
+  providerBlocks = false,
+}: {
+  entries: ChatHistoryEntry[];
+  rawContent: string;
+  providerBlocks?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const tokens = estimateTokens(rawContent);
 
@@ -424,7 +432,7 @@ function ChatHistorySection({ entries, rawContent }: { entries: ChatHistoryEntry
           Chat History
         </span>
         <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-          {entries.length} message{entries.length !== 1 ? "s" : ""}
+          {`${entries.length} ${providerBlocks ? "provider block" : "message"}${entries.length !== 1 ? "s" : ""}`}
         </span>
         <span className="ml-auto text-[0.625rem] text-[var(--muted-foreground)]">
           ~{fmtTokens(tokens)} token{tokens !== 1 ? "s" : ""}
@@ -600,9 +608,18 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
               Note: {data.agentNote}
             </div>
           )}
+          {data.exact && (
+            <div className="flex items-start gap-2 rounded-lg border border-(--border) bg-(--secondary)/25 px-3 py-2 text-[0.6875rem] leading-snug text-(--muted-foreground)">
+              <Info size="0.75rem" className="mt-0.5 shrink-0 text-(--primary)" />
+              <span>
+                Providers may combine several chat turns into one request block. Expand Chat History to inspect all
+                model-visible text inside each block.
+              </span>
+            </div>
+          )}
           {sections.map((s, i) =>
             s.kind === "chat-history" ? (
-              <ChatHistorySection key={i} entries={s.entries} rawContent={s.rawContent} />
+              <ChatHistorySection key={i} entries={s.entries} rawContent={s.rawContent} providerBlocks={data.exact} />
             ) : (
               <CollapsibleBlock
                 key={i}
