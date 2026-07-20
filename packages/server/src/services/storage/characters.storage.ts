@@ -12,7 +12,14 @@ import {
   personaGroups,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
-import { PROFESSOR_MARI_ID, type CharacterData, type PersonaCardSnapshot } from "@marinara-engine/shared";
+import {
+  PROFESSOR_MARI_ID,
+  characterBookSchema,
+  characterExtensionsSchema,
+  type CharacterData,
+  type PersonaCardSnapshot,
+  type UpdateCharacterInput,
+} from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
 
@@ -45,26 +52,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+function mergeNestedRecord(current: Record<string, unknown>, patch: Record<string, unknown>): Record<string, unknown> {
+  const merged = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) {
+      delete merged[key];
+    } else if (isRecord(value) && isRecord(merged[key])) {
+      merged[key] = mergeNestedRecord(merged[key], value);
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+type CharacterDataUpdate = Partial<CharacterData> | UpdateCharacterInput["data"];
+const defaultCharacterExtensions = characterExtensionsSchema.parse({});
+const defaultCharacterBook = characterBookSchema.parse({});
+
 function mergeCharacterData(
   current: CharacterData,
-  data: Partial<CharacterData>,
+  data: CharacterDataUpdate,
   options?: { mergeExtensions?: boolean },
 ): CharacterData {
-  const merged = { ...current, ...data };
-  if ((options?.mergeExtensions ?? true) === false || !isRecord(data.extensions)) return merged;
-
-  const extensions = {
-    ...(isRecord(current.extensions) ? current.extensions : {}),
-    ...data.extensions,
-  };
-  for (const [key, value] of Object.entries(data.extensions)) {
-    if (value === undefined) delete extensions[key];
+  const merged = { ...current, ...data } as CharacterData;
+  if ((options?.mergeExtensions ?? true) !== false && isRecord(data.extensions)) {
+    merged.extensions = mergeNestedRecord(
+      isRecord(current.extensions) ? current.extensions : defaultCharacterExtensions,
+      data.extensions,
+    ) as CharacterData["extensions"];
+  }
+  if (isRecord(data.character_book)) {
+    merged.character_book = mergeNestedRecord(
+      isRecord(current.character_book) ? current.character_book : defaultCharacterBook,
+      data.character_book,
+    ) as unknown as CharacterData["character_book"];
   }
 
-  return {
-    ...merged,
-    extensions: extensions as CharacterData["extensions"],
-  };
+  return merged;
 }
 
 type CharacterRow = typeof characters.$inferSelect;
@@ -378,7 +403,7 @@ export function createCharactersStorage(db: DB) {
 
     async update(
       id: string,
-      data: Partial<CharacterData>,
+      data: CharacterDataUpdate,
       avatarPath?: string,
       options?: {
         updatedAt?: string | null;

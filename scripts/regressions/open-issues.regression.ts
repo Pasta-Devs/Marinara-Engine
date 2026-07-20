@@ -20,6 +20,7 @@ import {
   normalizeLorebookCategory,
   updateLorebookSchema,
 } from "../../packages/shared/src/schemas/lorebook.schema.js";
+import { characterDataSchema, updateCharacterSchema } from "../../packages/shared/src/schemas/character.schema.js";
 import { buildLorebookDuplicateInput } from "../../packages/client/src/lib/lorebook-duplicate.js";
 import { appendLorebookActivationKeys } from "../../packages/client/src/lib/lorebook-keys.js";
 import { arePresetChoiceSelectionsComplete } from "../../packages/client/src/lib/preset-choice-selection.js";
@@ -114,6 +115,7 @@ import {
 } from "../../packages/server/src/services/sidecar/scene-analyzer.js";
 import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
+import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
   findMissingComfyReferenceSlots,
@@ -170,6 +172,8 @@ import {
   resolveGroupGenerationMode,
   shouldRestoreRegenerationCharacterTarget,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
+import { normalizeChatForResponse } from "../../packages/server/src/routes/chats.routes.js";
+import { normalizeNativeCharacterData } from "../../packages/server/src/services/import/marinara.importer.js";
 import { parseDockerDefaultGatewayIp } from "../../packages/server/src/middleware/ip-allowlist.js";
 import {
   moveBackgroundAssignment,
@@ -350,6 +354,55 @@ assert.deepEqual(
   "Partial character updates must not synthesize undefined fields that deepMerge treats as deletions",
 );
 
+assert.deepEqual(
+  normalizeChatForResponse({
+    id: "fresh-chat",
+    characterIds: '["character-a","character-b"]',
+    metadata: '{"tags":["saved-tag"],"gameNpcs":[]}',
+  }),
+  {
+    id: "fresh-chat",
+    characterIds: ["character-a", "character-b"],
+    metadata: { tags: ["saved-tag"], gameNpcs: [] },
+  },
+  "Fresh chat responses must expose parsed tags and character IDs",
+);
+
+assert.deepEqual(
+  updateCharacterSchema.parse({
+    data: {
+      extensions: { fav: true, depth_prompt: { prompt: "Updated only" } },
+      character_book: { name: "Renamed" },
+    },
+  }).data,
+  {
+    extensions: { fav: true, depth_prompt: { prompt: "Updated only" } },
+    character_book: { name: "Renamed" },
+  },
+  "Character PATCH parsing must not materialize omitted nested defaults",
+);
+
+assert.equal(
+  normalizeNativeCharacterData({}),
+  null,
+  "A native character import without the required name must fail before persistence",
+);
+const normalizedNativeCharacter = normalizeNativeCharacterData({
+  name: "Legacy",
+  character_book: {
+    name: "Archive",
+    custom_top_level_property: "preserved",
+  },
+});
+assert.ok(normalizedNativeCharacter);
+assert.equal(normalizedNativeCharacter.description, "");
+assert.equal(normalizedNativeCharacter.character_book?.entries.length, 0);
+assert.equal(
+  (normalizedNativeCharacter.character_book as Record<string, unknown>).custom_top_level_property,
+  "preserved",
+  "Native import normalization must preserve unknown embedded-lorebook properties",
+);
+
 const characterUpdateStorageRoot = mkdtempSync(join(tmpdir(), "marinara-character-update-preservation-"));
 const previousFileStorageDir = process.env.FILE_STORAGE_DIR;
 process.env.FILE_STORAGE_DIR = characterUpdateStorageRoot;
@@ -358,6 +411,73 @@ try {
   const { closeDB, getDB } = await import("../../packages/server/src/db/connection.js");
   closeCharacterUpdateDb = closeDB;
   const db = await getDB();
+  const characterStorage = createCharactersStorage(db);
+  const patchFixture = characterDataSchema.parse({
+    name: "Nested patch fixture",
+    extensions: {
+      fav: false,
+      depth_prompt: { prompt: "Original", depth: 7, role: "assistant" },
+      thirdParty: { retained: true },
+    },
+    character_book: {
+      name: "Original book",
+      description: "Keep this description",
+      entries: [{ id: 9, content: "Keep this entry" }],
+      custom_top_level_property: "preserved",
+    },
+  });
+  const createdPatchFixture = await characterStorage.create(patchFixture);
+  assert.ok(createdPatchFixture);
+  const nestedPatch = updateCharacterSchema.parse({
+    data: {
+      extensions: { fav: true, depth_prompt: { prompt: "Updated only" } },
+      character_book: { name: "Renamed" },
+    },
+  });
+  const patchedFixture = await characterStorage.update(createdPatchFixture.id, nestedPatch.data);
+  assert.ok(patchedFixture);
+  const patchedFixtureData = JSON.parse(patchedFixture.data) as {
+    extensions: Record<string, unknown> & {
+      fav: boolean;
+      depth_prompt: { prompt: string; depth: number; role: string };
+      thirdParty: { retained: boolean };
+    };
+    character_book: Record<string, unknown> & {
+      name: string;
+      description: string;
+      entries: Array<{ content: string }>;
+    };
+  };
+  assert.equal(patchedFixtureData.extensions.fav, true);
+  assert.deepEqual(patchedFixtureData.extensions.depth_prompt, {
+    prompt: "Updated only",
+    depth: 7,
+    role: "assistant",
+  });
+  assert.deepEqual(patchedFixtureData.extensions.thirdParty, { retained: true });
+  assert.equal(patchedFixtureData.character_book.name, "Renamed");
+  assert.equal(patchedFixtureData.character_book.description, "Keep this description");
+  assert.equal(patchedFixtureData.character_book.entries[0]!.content, "Keep this entry");
+  assert.equal(patchedFixtureData.character_book.custom_top_level_property, "preserved");
+
+  const emptyBookFixture = await characterStorage.create(characterDataSchema.parse({ name: "Empty book fixture" }));
+  assert.ok(emptyBookFixture);
+  const createdBookFixture = await characterStorage.update(
+    emptyBookFixture.id,
+    updateCharacterSchema.parse({ data: { character_book: { name: "New book" } } }).data,
+  );
+  assert.ok(createdBookFixture);
+  const createdBookData = JSON.parse(createdBookFixture.data) as { character_book: Record<string, unknown> };
+  assert.deepEqual(createdBookData.character_book, {
+    name: "New book",
+    description: "",
+    scan_depth: 2,
+    token_budget: 512,
+    recursive_scanning: false,
+    extensions: {},
+    entries: [],
+  });
+
   const mariDb = new MariDbService(db);
   const customToolsStore = createCustomToolsStorage(db);
   const agentsStore = createAgentsStorage(db);

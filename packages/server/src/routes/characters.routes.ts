@@ -786,7 +786,6 @@ export async function charactersRoutes(app: FastifyInstance) {
         versionSource,
         versionReason,
         skipVersionSnapshot,
-        mergeExtensions: false,
       }),
     );
   });
