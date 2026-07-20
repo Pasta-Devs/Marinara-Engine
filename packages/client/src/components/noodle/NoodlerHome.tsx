@@ -15,7 +15,6 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import type {
   NoodleIdentityDisclosure,
@@ -130,9 +129,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [mobileAccountSwitcherOpen, setMobileAccountSwitcherOpen] = useState(false);
   const [personaAccountLimit, setPersonaAccountLimit] = useState(NOODLE_PERSONA_SWITCHER_PAGE_SIZE);
   const accountSwitcherRef = useRef<HTMLDivElement | null>(null);
-  const mobileDrawerRef = useRef<HTMLElement | null>(null);
-  const mobileDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
-  const prefersReducedMotion = Boolean(useReducedMotion());
   const visiblePersonaAccounts = viewerAccounts.slice(0, personaAccountLimit);
   const switchViewerPersona = (account: NoodleAccount, mobile: boolean) => {
     setStoredPersonaId(account.entityId);
@@ -356,7 +352,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     personaAccount: shellPersonaAccount,
     sortedPersonaAccounts: viewerAccounts,
     visiblePersonaAccounts,
-    hasMorePersonaAccounts: visiblePersonaAccounts.length < viewerAccounts.length,
     onLoadMorePersonaAccounts: () =>
       setPersonaAccountLimit((current) => current + NOODLE_PERSONA_SWITCHER_PAGE_SIZE),
     onSwitchPersona: switchViewerPersona,
@@ -365,13 +360,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     accountSwitcherRef,
     mobileDrawerOpen,
     onMobileDrawerOpenChange: setMobileDrawerOpen,
-    mobileDrawerRef,
-    mobileDrawerCloseRef,
     mobileAccountSwitcherOpen,
     onMobileAccountSwitcherOpenChange: setMobileAccountSwitcherOpen,
-    prefersReducedMotion,
     notificationCount: 0,
-    notificationBadgeLabel: "0",
     onOpenHome: exitToPublic,
     onOpenMobileHome: exitToPublic,
     onOpenSearch: exitToPublic,

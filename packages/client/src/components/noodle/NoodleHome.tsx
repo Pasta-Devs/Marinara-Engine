@@ -957,8 +957,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const replyMediaToolRef = useRef<HTMLDivElement | null>(null);
   const accountSwitcherRef = useRef<HTMLDivElement | null>(null);
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
-  const mobileDrawerRef = useRef<HTMLElement | null>(null);
-  const mobileDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
   const mobileDrawerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const composerRestoreFocusRef = useRef<HTMLElement | null>(null);
   const profileDraftAccountIdRef = useRef<string | null>(null);
@@ -1105,7 +1103,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     () => sortedPersonaAccounts.slice(0, personaAccountLimit),
     [personaAccountLimit, sortedPersonaAccounts],
   );
-  const hasMorePersonaAccounts = visiblePersonaAccounts.length < sortedPersonaAccounts.length;
   const posts = useMemo(() => data?.posts ?? [], [data?.posts]);
   const interactions = useMemo(() => data?.interactions ?? [], [data?.interactions]);
   const scheduler = data?.scheduler;
@@ -1975,7 +1972,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     notificationLikes.filter((item) => new Date(item.interaction.createdAt).getTime() > notificationReadTime).length +
     notificationFollowAccounts.filter((item) => (Date.parse(item.followedAt) || 0) > notificationReadTime).length +
     notificationReplyItems.filter((item) => new Date(item.createdAt).getTime() > notificationReadTime).length;
-  const notificationBadgeLabel = notificationCount > 99 ? "99+" : String(notificationCount);
   const followableCharacterAccounts = useMemo(
     () =>
       accounts
@@ -4525,7 +4521,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       personaAccount={personaAccount}
       sortedPersonaAccounts={sortedPersonaAccounts}
       visiblePersonaAccounts={visiblePersonaAccounts}
-      hasMorePersonaAccounts={hasMorePersonaAccounts}
       onLoadMorePersonaAccounts={() =>
         setPersonaAccountLimit((current) => current + NOODLE_PERSONA_SWITCHER_PAGE_SIZE)
       }
@@ -4535,13 +4530,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       accountSwitcherRef={accountSwitcherRef}
       mobileDrawerOpen={mobileDrawerOpen}
       onMobileDrawerOpenChange={setMobileDrawerOpen}
-      mobileDrawerRef={mobileDrawerRef}
-      mobileDrawerCloseRef={mobileDrawerCloseRef}
       mobileAccountSwitcherOpen={mobileAccountSwitcherOpen}
       onMobileAccountSwitcherOpenChange={setMobileAccountSwitcherOpen}
-      prefersReducedMotion={Boolean(prefersReducedMotion)}
       notificationCount={notificationCount}
-      notificationBadgeLabel={notificationBadgeLabel}
       onOpenHome={openHomeTimeline}
       onOpenMobileHome={openMobileHomeTimeline}
       onOpenSearch={openSearch}

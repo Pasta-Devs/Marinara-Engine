@@ -4,8 +4,8 @@
 // so every Noodle surface keeps the same primary navigation.
 // ──────────────────────────────────────────────
 import { AtSign, Bell, Home, MoreHorizontal, Pencil, Search, Settings2, User, X } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
-import { type CSSProperties, type ReactNode, type RefObject } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { type CSSProperties, type ReactNode, type RefObject, useRef } from "react";
 import type { NoodleAccount } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
@@ -76,7 +76,6 @@ export interface NoodleShellProps {
   personaAccount: NoodleAccount | null;
   sortedPersonaAccounts: NoodleAccount[];
   visiblePersonaAccounts: NoodleAccount[];
-  hasMorePersonaAccounts: boolean;
   onLoadMorePersonaAccounts: () => void;
   onSwitchPersona: (account: NoodleAccount, mobile: boolean) => void;
   accountSwitcherOpen: boolean;
@@ -84,13 +83,9 @@ export interface NoodleShellProps {
   accountSwitcherRef: RefObject<HTMLDivElement | null>;
   mobileDrawerOpen: boolean;
   onMobileDrawerOpenChange: (open: boolean) => void;
-  mobileDrawerRef: RefObject<HTMLElement | null>;
-  mobileDrawerCloseRef: RefObject<HTMLButtonElement | null>;
   mobileAccountSwitcherOpen: boolean;
   onMobileAccountSwitcherOpenChange: (open: boolean) => void;
-  prefersReducedMotion: boolean;
   notificationCount: number;
-  notificationBadgeLabel: string;
   onOpenHome: () => void;
   /** Mobile bottom-nav "Home" tap — distinct from onOpenHome because it also clears any active post search. */
   onOpenMobileHome: () => void;
@@ -111,7 +106,6 @@ export function NoodleShell({
   personaAccount,
   sortedPersonaAccounts,
   visiblePersonaAccounts,
-  hasMorePersonaAccounts,
   onLoadMorePersonaAccounts,
   onSwitchPersona,
   accountSwitcherOpen,
@@ -119,13 +113,9 @@ export function NoodleShell({
   accountSwitcherRef,
   mobileDrawerOpen,
   onMobileDrawerOpenChange,
-  mobileDrawerRef,
-  mobileDrawerCloseRef,
   mobileAccountSwitcherOpen,
   onMobileAccountSwitcherOpenChange,
-  prefersReducedMotion,
   notificationCount,
-  notificationBadgeLabel,
   onOpenHome,
   onOpenMobileHome,
   onOpenSearch,
@@ -137,6 +127,11 @@ export function NoodleShell({
   overlays,
   children,
 }: NoodleShellProps) {
+  const mobileDrawerRef = useRef<HTMLElement | null>(null);
+  const mobileDrawerCloseRef = useRef<HTMLButtonElement | null>(null);
+  const prefersReducedMotion = Boolean(useReducedMotion());
+  const hasMorePersonaAccounts = visiblePersonaAccounts.length < sortedPersonaAccounts.length;
+  const notificationBadgeLabel = notificationCount > 99 ? "99+" : String(notificationCount);
   useDialogFocusScope(mobileDrawerOpen, mobileDrawerRef, mobileDrawerCloseRef);
 
   return (
@@ -455,7 +450,21 @@ export function NoodleShell({
         aria-label="Noodle mobile navigation"
         data-component="NoodleView.MobileBottomNav"
       >
-        <div className="grid h-[52px] grid-cols-3">
+        <div className="grid h-[52px] grid-cols-4">
+          <button
+            type="button"
+            onClick={() => onMobileDrawerOpenChange(true)}
+            aria-label="Open Noodle account menu"
+            className="flex items-center justify-center transition-colors hover:bg-[var(--accent)]"
+          >
+            {personaAccount ? (
+              <Avatar account={personaAccount} size="sm" />
+            ) : (
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 ring-1 ring-[var(--noodle-blue)]/25">
+                <AtSign size={18} />
+              </span>
+            )}
+          </button>
           <button
             type="button"
             onClick={onOpenMobileHome}

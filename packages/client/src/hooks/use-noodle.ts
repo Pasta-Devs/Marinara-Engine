@@ -213,7 +213,6 @@ export function useUpdateNoodlerAccess() {
       } satisfies NoodleAccountSettingsPatchInput),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: noodleKeys.privateAccounts() });
-      qc.invalidateQueries({ queryKey: [...noodleKeys.privateAccounts(), "viewer"] });
     },
   });
 }
