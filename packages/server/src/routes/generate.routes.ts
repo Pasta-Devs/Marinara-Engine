@@ -212,6 +212,7 @@ import {
   isRoleplaySummaryMode,
   preserveTrackerCharacterUiFields,
   prefixGroupIndividualHistorySpeakers,
+  readPersonaSnapshotName,
   resolveActiveCharacterIds,
   resolveActivePersonaCandidate,
   resolveBaseUrl,
@@ -1218,6 +1219,7 @@ export async function generateRoutes(app: FastifyInstance) {
       };
       const mapChatHistoryMessageForPrompt = async (m: any): Promise<GenerationPromptMessage> => {
         const extra = parseExtra(m.extra);
+        const personaSnapshotName = m.role === "user" ? readPersonaSnapshotName(extra) : null;
         const attachments = normalizePromptAttachments(m.extra);
         const providerMetadata: Record<string, unknown> = {};
         // For Google connections, carry stored Gemini parts (thought signatures) on assistant messages
@@ -1263,6 +1265,7 @@ export async function generateRoutes(app: FastifyInstance) {
           content,
           contextKind: "history" as const,
           characterId: typeof m.characterId === "string" && m.characterId ? m.characterId : null,
+          ...(personaSnapshotName ? { personaSnapshotName } : {}),
           ...(hiddenFromAICharacterIds.length ? { hiddenFromAICharacterIds } : {}),
           ...(attachmentInputs.images.length ? { images: attachmentInputs.images } : {}),
           ...(attachmentInputs.files.length ? { files: attachmentInputs.files } : {}),
