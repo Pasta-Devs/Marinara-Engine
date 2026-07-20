@@ -89,11 +89,15 @@ export interface NoodleShellProps {
   onOpenHome: () => void;
   /** Mobile bottom-nav "Home" tap — distinct from onOpenHome because it also clears any active post search. */
   onOpenMobileHome: () => void;
-  onOpenSearch: () => void;
-  onOpenNotifications: () => void;
-  onOpenProfile: () => void;
+  /** Omit on surfaces with no scoped equivalent (e.g. NoodleR has no search) — renders disabled instead of navigating. */
+  onOpenSearch?: () => void;
+  /** Omit on surfaces with no scoped equivalent — renders disabled instead of navigating. */
+  onOpenNotifications?: () => void;
+  /** Omit on surfaces with no scoped equivalent — renders disabled instead of navigating. */
+  onOpenProfile?: () => void;
   onOpenSettings: () => void;
-  onCompose: (opener: HTMLElement) => void;
+  /** Omit on surfaces with no scoped equivalent — renders disabled instead of navigating. */
+  onCompose?: (opener: HTMLElement) => void;
   /** Optional right-hand rail (search box, suggestions, etc). Omitted entirely on surfaces that don't need one. */
   rightRail?: ReactNode;
   /** Theme-dependent overlays (browser chrome strip, lightboxes, modals) that must render inside the token scope. */
@@ -215,7 +219,9 @@ export function NoodleShell({
                 <button
                   type="button"
                   onClick={onOpenProfile}
-                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]"
+                  disabled={!onOpenProfile}
+                  aria-disabled={!onOpenProfile}
+                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <User size={23} />
                   Profile
@@ -230,8 +236,10 @@ export function NoodleShell({
                 </button>
                 <button
                   type="button"
-                  onClick={(event) => onCompose(event.currentTarget)}
-                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]"
+                  onClick={(event) => onCompose?.(event.currentTarget)}
+                  disabled={!onCompose}
+                  aria-disabled={!onCompose}
+                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <Pencil size={23} />
                   Post
@@ -323,8 +331,10 @@ export function NoodleShell({
                 <button
                   type="button"
                   onClick={onOpenNotifications}
+                  disabled={!onOpenNotifications}
+                  aria-disabled={!onOpenNotifications}
                   className={cn(
-                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)]",
+                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
                     activeView === "notifications" && "bg-[var(--noodle-blue)]/10",
                   )}
                 >
@@ -344,8 +354,10 @@ export function NoodleShell({
                 <button
                   type="button"
                   onClick={onOpenProfile}
+                  disabled={!onOpenProfile}
+                  aria-disabled={!onOpenProfile}
                   className={cn(
-                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)]",
+                    "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
                     activeView === "profile" && "bg-[var(--noodle-blue)]/10",
                   )}
                 >
@@ -366,8 +378,10 @@ export function NoodleShell({
               </nav>
               <button
                 type="button"
-                onClick={(event) => onCompose(event.currentTarget)}
-                className="mt-5 h-12 rounded-full bg-[var(--noodle-blue)] px-6 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
+                onClick={(event) => onCompose?.(event.currentTarget)}
+                disabled={!onCompose}
+                aria-disabled={!onCompose}
+                className="mt-5 h-12 rounded-full bg-[var(--noodle-blue)] px-6 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Post
               </button>
@@ -478,9 +492,11 @@ export function NoodleShell({
           <button
             type="button"
             onClick={onOpenSearch}
+            disabled={!onOpenSearch}
+            aria-disabled={!onOpenSearch}
             aria-label="Search Noodle"
             aria-current={activeView === "search" ? "page" : undefined}
-            className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)]"
+            className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <Search size={22} strokeWidth={activeView === "search" ? 2.8 : 2} />
             {activeView === "search" && <span className="absolute top-1 h-1 w-1 rounded-full bg-[var(--noodle-blue)]" />}
@@ -488,9 +504,11 @@ export function NoodleShell({
           <button
             type="button"
             onClick={onOpenNotifications}
+            disabled={!onOpenNotifications}
+            aria-disabled={!onOpenNotifications}
             aria-label="Noodle notifications"
             aria-current={activeView === "notifications" ? "page" : undefined}
-            className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)]"
+            className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <span className="relative flex h-6 w-6 items-center justify-center">
               <Bell size={22} strokeWidth={activeView === "notifications" ? 2.8 : 2} />

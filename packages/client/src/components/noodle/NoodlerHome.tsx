@@ -195,6 +195,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const goToHub = () => {
+    setSelectedProfileId(null);
+    setShowManageProfiles(false);
+    setCreationStep(null);
+    setProfileDraft(null);
+    setGuidedProfile(null);
+  };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const editingProfile = accountsQuery.data?.find((profile) => profile.id === editingProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
@@ -364,13 +371,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     mobileAccountSwitcherOpen,
     onMobileAccountSwitcherOpenChange: setMobileAccountSwitcherOpen,
     notificationCount: 0,
-    onOpenHome: exitToPublic,
-    onOpenMobileHome: exitToPublic,
-    onOpenSearch: exitToPublic,
-    onOpenNotifications: exitToPublic,
-    onOpenProfile: exitToPublic,
+    onOpenHome: goToHub,
+    onOpenMobileHome: goToHub,
     onOpenSettings: () => onNavigate({ mode: "settings" }),
-    onCompose: exitToPublic,
     overlays: (
       <BrowserChrome
         badgeLabel="Private"
@@ -383,7 +386,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   if (navigation.mode === "verification" || !enabled) {
     return (
       <NoodleShell {...shellProps}>
-      <NoodlerFrame onBack={() => onNavigate({ mode: "public", view: "home" })} title="About NoodleR">
+      <NoodlerFrame onBack={exitToPublic} title="About NoodleR">
         <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-16 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
             <Lock size={28} />
@@ -624,7 +627,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   return (
     <NoodleShell {...shellProps}>
       <NoodlerFrame
-        onBack={() => onNavigate({ mode: "public", view: "home" })}
+        onBack={exitToPublic}
         title="NoodleR"
         action={
           <button
