@@ -3228,13 +3228,27 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
     name: "custom dynamic portrait instructions remain authoritative",
     async run() {
       const override = "Return only a clean comma-separated visual tag list. Never copy prose labels.";
+      const promptOverridesStorage = {
+        async get(key: string) {
+          return key === "game.imagePromptDirector"
+            ? { key, template: override, enabled: true, updatedAt: "2026-07-20T00:00:00.000Z" }
+            : null;
+        },
+        async list() {
+          return [];
+        },
+        async upsert(input) {
+          return {
+            key: input.key,
+            template: input.template,
+            enabled: input.enabled,
+            updatedAt: "2026-07-20T00:00:00.000Z",
+          };
+        },
+        async remove() {},
+      } satisfies PromptOverridesStorage;
       const messages = await buildDynamicGameImagePromptMessages({
-        promptOverridesStorage: {
-          get: async (key: string) =>
-            key === "game.imagePromptDirector"
-              ? { key, template: override, enabled: true, updatedAt: "2026-07-20T00:00:00.000Z" }
-              : null,
-        } as any,
+        promptOverridesStorage,
         request: {
           kind: "portrait",
           title: "Sentinel",
@@ -3250,6 +3264,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(messages[0]?.content, override);
       assert.match(messages[1]?.content ?? "", /Appearance traits: towering alien/);
       assert.doesNotMatch(messages[1]?.content ?? "", /copy the Required canonical NPC visual profile/i);
+      assert.doesNotMatch(messages[1]?.content ?? "", /Return only JSON/i);
     },
   },
   {

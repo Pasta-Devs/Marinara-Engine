@@ -1176,7 +1176,6 @@ export async function buildDynamicGameImagePromptMessages(args: {
         [
           `Rewrite this into one positive prompt for a ${gameDynamicImagePromptKindLabel(args.request.kind)}.`,
           `Maximum length: ${args.request.maxCharacters} characters.`,
-          'Return only JSON: {"prompt":"..."}.',
         ]
           .filter(Boolean)
           .join("\n"),
