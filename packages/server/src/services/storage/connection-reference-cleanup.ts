@@ -29,6 +29,8 @@ import type { DB } from "../../db/connection.js";
 import { apiConnections, chats, agentConfigs } from "../../db/schema/index.js";
 import { now } from "../../utils/id-generator.js";
 
+const CLEANUP_BATCH_SIZE = 250;
+
 export type ConnectionReferenceCleanupResult = {
   chatsUpdated: number;
   agentsUpdated: number;
@@ -107,44 +109,61 @@ export async function sweepDanglingConnectionReferences(
   if (danglingEmbeddingRefs.length > 0) {
     await db
       .update(apiConnections)
-      .set({ embeddingConnectionId: null })
+      .set({ embeddingConnectionId: null, updatedAt: now() })
       .where(eq(apiConnections.embeddingConnectionId, deletedConnectionId));
     result.connectionsUpdated = danglingEmbeddingRefs.length;
   }
 
-  const chatRows = await db.select().from(chats);
-  for (const chat of chatRows) {
-    const metadata = parseJsonObject(chat.metadata);
-    const swept = nullifyConnectionIdReferences(metadata, deletedConnectionId);
-    const directMatch = chat.connectionId === deletedConnectionId;
-    if (!swept.changed && !directMatch) continue;
+  for (let offset = 0; ; offset += CLEANUP_BATCH_SIZE) {
+    const chatRows = await db
+      .select()
+      .from(chats)
+      .orderBy(chats.id)
+      .limit(CLEANUP_BATCH_SIZE)
+      .offset(offset);
+    for (const chat of chatRows) {
+      const metadata = parseJsonObject(chat.metadata);
+      const swept = nullifyConnectionIdReferences(metadata, deletedConnectionId);
+      const directMatch = chat.connectionId === deletedConnectionId;
+      if (!swept.changed && !directMatch) continue;
 
-    await db
-      .update(chats)
-      .set({
-        connectionId: directMatch ? null : chat.connectionId,
-        metadata: swept.changed ? JSON.stringify(swept.value) : chat.metadata,
-        updatedAt: now(),
-      })
-      .where(eq(chats.id, chat.id));
-    result.chatsUpdated += 1;
+      await db
+        .update(chats)
+        .set({
+          connectionId: directMatch ? null : chat.connectionId,
+          metadata: swept.changed ? JSON.stringify(swept.value) : chat.metadata,
+          updatedAt: now(),
+        })
+        .where(eq(chats.id, chat.id));
+      result.chatsUpdated += 1;
+    }
+    if (chatRows.length < CLEANUP_BATCH_SIZE) break;
   }
 
-  const agentRows = await db.select().from(agentConfigs);
-  for (const agent of agentRows) {
-    const settings = parseJsonObject(agent.settings);
-    const swept = nullifyConnectionIdReferences(settings, deletedConnectionId);
-    const directMatch = agent.connectionId === deletedConnectionId;
-    if (!swept.changed && !directMatch) continue;
+  for (let offset = 0; ; offset += CLEANUP_BATCH_SIZE) {
+    const agentRows = await db
+      .select()
+      .from(agentConfigs)
+      .orderBy(agentConfigs.id)
+      .limit(CLEANUP_BATCH_SIZE)
+      .offset(offset);
+    for (const agent of agentRows) {
+      const settings = parseJsonObject(agent.settings);
+      const swept = nullifyConnectionIdReferences(settings, deletedConnectionId);
+      const directMatch = agent.connectionId === deletedConnectionId;
+      if (!swept.changed && !directMatch) continue;
 
-    await db
-      .update(agentConfigs)
-      .set({
-        connectionId: directMatch ? null : agent.connectionId,
-        settings: swept.changed ? JSON.stringify(swept.value) : agent.settings,
-      })
-      .where(eq(agentConfigs.id, agent.id));
-    result.agentsUpdated += 1;
+      await db
+        .update(agentConfigs)
+        .set({
+          connectionId: directMatch ? null : agent.connectionId,
+          settings: swept.changed ? JSON.stringify(swept.value) : agent.settings,
+          updatedAt: now(),
+        })
+        .where(eq(agentConfigs.id, agent.id));
+      result.agentsUpdated += 1;
+    }
+    if (agentRows.length < CLEANUP_BATCH_SIZE) break;
   }
 
   return result;
