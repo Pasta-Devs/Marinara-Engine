@@ -414,8 +414,11 @@ import {
   buildDynamicGameImagePromptMessages,
   buildIllustrationNarrationSummaryMessages,
   buildStoryboardIllustratorMessages,
+  dynamicGameImagePromptRequestOptions,
   extractCharacterAppearanceText,
+  resolveDynamicGameImagePromptConnection,
   resolveNpcPortraitAppearance,
+  sanitizeNpcPortraitAppearanceText,
   selectStoryboardAppearanceCharacterNames,
 } from "../../packages/server/src/routes/game.routes.js";
 import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/services/agents/default-prompt-migration.js";
@@ -3151,6 +3154,20 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(appearance, /Current outfit: Persimmon kimono/);
       assert.match(appearance, /Current expression or mood: Warm smile/);
       assert.doesNotMatch(appearance, /debt-scroll|Notable details/);
+
+      const legacyPollutedAppearance = resolveNpcPortraitAppearance(
+        { description: null },
+        {
+          description:
+            "A nine-foot Xenomorph with a biomechanical black carapace. Notable details: [helped] reputation +15 → 15 (neutral)",
+          descriptionSource: "model",
+          notes: [],
+        } as any,
+        null,
+      );
+      assert.match(legacyPollutedAppearance, /nine-foot Xenomorph with a biomechanical black carapace/i);
+      assert.doesNotMatch(legacyPollutedAppearance, /Notable details|reputation|\[helped\]/i);
+      assert.equal(sanitizeNpcPortraitAppearanceText("[helped] reputation +15 → 15 (neutral)"), "");
     },
   },
   {
@@ -3222,6 +3239,30 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       });
       assert.equal(narrationPrompt.prompt.toLowerCase().split(narrationDescription.toLowerCase()).length - 1, 1);
       assert.doesNotMatch(narrationPrompt.prompt, /Canonical NPC profile:/);
+
+      let xenomorphSourcePrompt = "";
+      await buildNpcPortraitProviderPrompt({
+        ...request,
+        npcName: "Xenomorph Drone",
+        appearance: "A nine-foot biomechanical hunter with an elongated skull and black carapace.",
+        dynamicPromptGenerator: async (dynamicRequest) => {
+          xenomorphSourcePrompt = dynamicRequest.sourcePrompt;
+          return "xenomorph, biomechanical black carapace, elongated skull, solo portrait";
+        },
+      });
+      assert.match(xenomorphSourcePrompt, /Appearance: xenomorph/i);
+      assert.doesNotMatch(xenomorphSourcePrompt, /human or humanoid person/i);
+
+      await assert.rejects(
+        () =>
+          buildNpcPortraitProviderPrompt({
+            ...request,
+            dynamicPromptGenerator: async () => {
+              throw new Error("prompt director unavailable");
+            },
+          }),
+        /prompt director unavailable/,
+      );
     },
   },
   {
@@ -3265,6 +3306,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(messages[1]?.content ?? "", /Appearance traits: towering alien/);
       assert.doesNotMatch(messages[1]?.content ?? "", /copy the Required canonical NPC visual profile/i);
       assert.doesNotMatch(messages[1]?.content ?? "", /Return only JSON/i);
+
+      const requestOptions = dynamicGameImagePromptRequestOptions("portrait");
+      assert.equal("responseFormat" in requestOptions, false);
+    },
+  },
+  {
+    name: "dynamic image prompts fall back to the default agent text connection",
+    async run() {
+      const defaultAgentConnection = {
+        id: "agent-default",
+        provider: "openai",
+        model: "prompt-model",
+        baseUrl: "https://example.invalid/v1",
+        apiKey: "test-key",
+      };
+      const connections = {
+        async listRandomPool() {
+          return [];
+        },
+        async getWithKey(id: string) {
+          return id === defaultAgentConnection.id ? defaultAgentConnection : null;
+        },
+        async getDefaultForAgents() {
+          return defaultAgentConnection;
+        },
+      } as unknown as Parameters<typeof resolveDynamicGameImagePromptConnection>[0]["connections"];
+      const resolved = await resolveDynamicGameImagePromptConnection({
+        connections,
+        meta: { gameSceneConnectionId: "deleted-scene-connection" },
+        setupConfig: null,
+        chatConnectionId: null,
+      });
+
+      assert.equal(resolved.conn.id, defaultAgentConnection.id);
     },
   },
   {
