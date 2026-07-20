@@ -44,6 +44,7 @@ import {
 import { useActivePersona, usePersonas } from "../../hooks/use-characters";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
+import { BrowserChrome } from "./NoodleHome";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE } from "./NoodleShell";
 import { Modal } from "../ui/Modal";
 import type { NoodleNavigationState } from "./noodle-navigation.types";
@@ -370,6 +371,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     onOpenProfile: exitToPublic,
     onOpenSettings: () => onNavigate({ mode: "settings" }),
     onCompose: exitToPublic,
+    overlays: (
+      <BrowserChrome
+        badgeLabel="Private"
+        url="https://noodler.local"
+        mobileUrl="noodle.marinara.local/noodler"
+      />
+    ),
   } as const;
 
   if (navigation.mode === "verification" || !enabled) {

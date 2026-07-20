@@ -707,7 +707,15 @@ function ToggleSetting({
   );
 }
 
-function BrowserChrome() {
+export function BrowserChrome({
+  url = "https://noodle.local",
+  mobileUrl = "noodle.marinara.local/home",
+  badgeLabel = "Noodle",
+}: {
+  url?: string;
+  mobileUrl?: string;
+  badgeLabel?: string;
+}) {
   return (
     <div className="hidden h-11 shrink-0 items-center gap-2 border-b border-[var(--noodle-divider)] bg-[var(--background)] px-3 lg:flex">
       <div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">
@@ -729,10 +737,10 @@ function BrowserChrome() {
       <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--card)] px-3 text-xs shadow-sm">
         <Lock size={13} className="hidden shrink-0 text-[var(--noodle-blue)] sm:block" />
         <Search size={14} className="shrink-0 text-[var(--noodle-blue)] sm:hidden" />
-        <span className="truncate text-[var(--foreground)] sm:hidden">noodle.marinara.local/home</span>
-        <span className="hidden truncate text-[var(--foreground)] sm:inline">https://noodle.local</span>
+        <span className="truncate text-[var(--foreground)] sm:hidden">{mobileUrl}</span>
+        <span className="hidden truncate text-[var(--foreground)] sm:inline">{url}</span>
         <span className="hidden rounded-full bg-[var(--noodle-blue)]/15 px-2 py-0.5 font-semibold text-[var(--noodle-blue)] sm:inline-flex">
-          Noodle
+          {badgeLabel}
         </span>
       </div>
     </div>
