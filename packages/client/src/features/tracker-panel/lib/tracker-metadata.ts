@@ -1,6 +1,6 @@
 import { getCharacterLookupAliases, type CharacterDisplayInfo } from "../../../lib/character-display";
 
-export interface CharacterLookupDisplayRow {
+interface CharacterLookupDisplayRow {
   character: { id: string };
   display: CharacterDisplayInfo;
 }
@@ -50,26 +50,23 @@ export function normalizeLookupText(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
-export function addExactNameLookups(
-  candidates: readonly CharacterLookupDisplayRow[],
-  idByLookupText: Map<string, string>,
-) {
-  for (const { character, display } of candidates) {
-    const nameKey = normalizeLookupText(display.name);
-    if (nameKey && !idByLookupText.has(nameKey)) idByLookupText.set(nameKey, character.id);
-  }
-}
+export function buildCharacterLookupMap(...candidateGroups: Array<readonly CharacterLookupDisplayRow[]>) {
+  const idByLookupText = new Map<string, string>();
 
-export function addAliasLookups(
-  candidates: readonly CharacterLookupDisplayRow[],
-  idByLookupText: Map<string, string>,
-) {
-  for (const { character, display } of candidates) {
-    const nameKey = normalizeLookupText(display.name);
-    for (const alias of getCharacterLookupAliases(display)) {
-      const aliasKey = normalizeLookupText(alias);
-      if (aliasKey === nameKey) continue;
-      if (aliasKey && !idByLookupText.has(aliasKey)) idByLookupText.set(aliasKey, character.id);
+  for (const candidates of candidateGroups) {
+    for (const { character, display } of candidates) {
+      const nameKey = normalizeLookupText(display.name);
+      if (nameKey && !idByLookupText.has(nameKey)) idByLookupText.set(nameKey, character.id);
+    }
+    for (const { character, display } of candidates) {
+      const nameKey = normalizeLookupText(display.name);
+      for (const alias of getCharacterLookupAliases(display)) {
+        const aliasKey = normalizeLookupText(alias);
+        if (aliasKey === nameKey) continue;
+        if (aliasKey && !idByLookupText.has(aliasKey)) idByLookupText.set(aliasKey, character.id);
+      }
     }
   }
+
+  return idByLookupText;
 }

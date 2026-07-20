@@ -78,7 +78,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
     : [];
   const {
     activePersona,
-    autoGenerateCharacterAvatars,
     characterSpriteLookup,
     characterTrackerConfig,
     characterTrackerSettings,
@@ -182,7 +181,6 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
               <TrackerSectionList
                 activeChatId={activeChatId}
                 activePersona={activePersona}
-                autoGenerateCharacterAvatars={autoGenerateCharacterAvatars}
                 characterSpriteLookup={characterSpriteLookup}
                 characterTrackerConfig={characterTrackerConfig}
                 characterTrackerSettings={characterTrackerSettings}

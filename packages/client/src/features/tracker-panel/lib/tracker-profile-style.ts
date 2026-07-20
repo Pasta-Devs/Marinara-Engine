@@ -26,10 +26,6 @@ const TRACKER_CARD_NEUTRAL_MATERIAL =
 const TRACKER_CARD_NEUTRAL_LIFT =
   "var(--tracker-card-neutral-lift, color-mix(in srgb, var(--muted-foreground) 78%, var(--foreground) 22%))";
 
-export function getSolidCssColor(value: string | null | undefined) {
-  return getTrackerCardSolidColor(value);
-}
-
 function clampPercent(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
@@ -230,20 +226,16 @@ function withTrackerProfileStyle(palette: TrackerProfilePalette, background?: st
   return style;
 }
 
-export function getPersonaProfileColors(persona: Persona | null): TrackerProfileColors {
-  return {
-    dialogueColor: persona?.dialogueColor,
-    nameColor: persona?.nameColor,
-    boxColor: persona?.boxColor,
-    trackerCardColors: parseTrackerCardColorConfig(persona?.trackerCardColors),
-  };
-}
-
 export function getPersonaAmbienceStyle(
   persona: Persona | null,
   options: { paintBackground?: boolean } = {},
 ): CSSProperties {
-  const palette = getTrackerProfilePalette(getPersonaProfileColors(persona));
+  const palette = getTrackerProfilePalette({
+    dialogueColor: persona?.dialogueColor,
+    nameColor: persona?.nameColor,
+    boxColor: persona?.boxColor,
+    trackerCardColors: parseTrackerCardColorConfig(persona?.trackerCardColors),
+  });
   const style = withTrackerProfileStyle(palette);
 
   if (options.paintBackground === false) {
@@ -296,7 +288,7 @@ export function getCharacterAmbienceStyle(
   const stats = Array.isArray(character.stats) ? character.stats : [];
   const palette = getTrackerProfilePalette(
     profileColors,
-    getSolidCssColor(stats.find((stat) => stat.color)?.color) ?? DEFAULT_TRACKER_CARD_ACCENT,
+    getTrackerCardSolidColor(stats.find((stat) => stat.color)?.color) ?? DEFAULT_TRACKER_CARD_ACCENT,
   );
   const finish = getTrackerCardSkinFinish(palette.finish);
   const surfaceOpacity = palette.hasSurfacePaint ? palette.opacity.boxColorOpacity : 0;

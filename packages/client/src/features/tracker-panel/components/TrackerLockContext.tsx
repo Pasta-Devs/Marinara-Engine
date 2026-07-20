@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { isTrackerFieldLocked, type TrackerFieldLocks, type TrackerHiddenFields } from "@marinara-engine/shared";
 import type { TrackerFieldLocksUpdater } from "../hooks/use-tracker-field-lock-updater";
 
-export type TrackerHiddenFieldsUpdater = (hiddenFields: TrackerHiddenFields | null | undefined) => TrackerHiddenFields;
+type TrackerHiddenFieldsUpdater = (hiddenFields: TrackerHiddenFields | null | undefined) => TrackerHiddenFields;
 
 interface TrackerLockContextValue {
   fieldLocks?: TrackerFieldLocks | null;

@@ -16,12 +16,13 @@ export const MAX_TRACKER_CARD_PORTRAIT_ZOOM = 2.35;
 let trackerCardColorPreviewValues = new Map<string, string>();
 const trackerCardColorPreviewListeners = new Set<() => void>();
 
+export type TrackerCardColorTargetKey = `${"persona" | "character"}:${string}`;
+
 function notifyTrackerCardColorPreviewListeners() {
   for (const listener of trackerCardColorPreviewListeners) listener();
 }
 
-export function setTrackerCardColorPreview(kind: "character" | "persona", id: string, serializedConfig: string | null) {
-  const key = `${kind}:${id}`;
+export function setTrackerCardColorPreview(key: TrackerCardColorTargetKey, serializedConfig: string | null) {
   const currentValue = trackerCardColorPreviewValues.get(key);
   if (serializedConfig === null ? currentValue === undefined : currentValue === serializedConfig) return;
 
@@ -59,7 +60,6 @@ const TRACKER_CARD_FIXED_TINT_INTENSITY = 100;
 const DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS = 50;
 
 export interface TrackerCardFinish {
-  tintIntensity: number;
   materialBrightness: number;
   glowIntensity: number;
   contrastIntensity: number;
@@ -115,7 +115,6 @@ export interface TrackerCardPaintColors {
 export interface TrackerCardStylePalette {
   accent: string;
   accentLayer: string;
-  accentGradientLayer: string | null;
   displayLayer: string;
   displayGradientLayer: string | null;
   displaySolid: string;
@@ -230,19 +229,16 @@ export interface TrackerCardSkinFinish {
 
 export const TRACKER_CARD_FINISH_DEFAULTS: Record<TrackerCardColorMode, TrackerCardFinish> = {
   default: {
-    tintIntensity: TRACKER_CARD_FIXED_TINT_INTENSITY,
     materialBrightness: DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS,
     glowIntensity: 25,
     contrastIntensity: 55,
   },
   chat: {
-    tintIntensity: TRACKER_CARD_FIXED_TINT_INTENSITY,
     materialBrightness: DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS,
     glowIntensity: 45,
     contrastIntensity: 55,
   },
   custom: {
-    tintIntensity: TRACKER_CARD_FIXED_TINT_INTENSITY,
     materialBrightness: DEFAULT_TRACKER_CARD_MATERIAL_BRIGHTNESS,
     glowIntensity: 45,
     contrastIntensity: 55,
@@ -431,7 +427,6 @@ export function getTrackerCardFinish(
   const defaults = TRACKER_CARD_FINISH_DEFAULTS[mode];
 
   return {
-    tintIntensity: TRACKER_CARD_FIXED_TINT_INTENSITY,
     materialBrightness: getClampedFinishValue(config?.materialBrightness) ?? defaults.materialBrightness,
     glowIntensity: getClampedFinishValue(config?.glowIntensity) ?? defaults.glowIntensity,
     contrastIntensity: getClampedFinishValue(config?.contrastIntensity) ?? defaults.contrastIntensity,
@@ -766,18 +761,15 @@ export function getTrackerCardStylePalette({
     ]),
     boxColorOpacity: opacity.boxColorOpacity,
   };
-  const surfaceFillOpacity = scalePercent(effectiveOpacity.boxColorOpacity, finish.tintIntensity);
-
   return {
     accent,
     accentLayer: getTrackerCardBackgroundPaintLayer(accentPaint ?? accent, effectiveOpacity.dialogueColorOpacity),
-    accentGradientLayer: getTrackerCardGradientPaintLayer(accentPaint, effectiveOpacity.dialogueColorOpacity),
     displayLayer: getTrackerCardBackgroundPaintLayer(displayPaint ?? displaySolid, effectiveOpacity.nameColorOpacity),
     displayGradientLayer: getTrackerCardGradientPaintLayer(displayPaint, effectiveOpacity.nameColorOpacity),
     displaySolid,
     box: materialBox,
     boxLayer: getTrackerCardBackgroundPaintLayer(materialSurfacePaint ?? materialBox, effectiveOpacity.boxColorOpacity),
-    boxGradientLayer: getTrackerCardGradientPaintLayer(materialSurfacePaint, surfaceFillOpacity),
+    boxGradientLayer: getTrackerCardGradientPaintLayer(materialSurfacePaint, effectiveOpacity.boxColorOpacity),
     finish,
     hasSurfacePaint: !!surfacePaint,
     opacity: effectiveOpacity,
@@ -1155,7 +1147,7 @@ function getOpacity(base: number, value: number, scale: number, max: number) {
 }
 
 export function getTrackerCardSkinFinish(finish: TrackerCardFinish): TrackerCardSkinFinish {
-  const tint = finish.tintIntensity;
+  const tint = TRACKER_CARD_FIXED_TINT_INTENSITY;
   const glow = finish.glowIntensity;
   const contrast = finish.contrastIntensity;
 

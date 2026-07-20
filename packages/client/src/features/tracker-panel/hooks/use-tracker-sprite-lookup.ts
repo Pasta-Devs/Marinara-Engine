@@ -11,7 +11,7 @@ import {
 } from "../../../lib/tracker-card-colors";
 import type { TrackerSpriteLookup } from "../tracker-panel.types";
 import { isSpriteLookupCharacterId } from "../lib/sprite-expressions";
-import { addAliasLookups, addExactNameLookups, normalizeLookupText } from "../lib/tracker-metadata";
+import { buildCharacterLookupMap, normalizeLookupText } from "../lib/tracker-metadata";
 import { getCharacterProfileColors } from "../lib/tracker-profile-style";
 
 interface UseTrackerSpriteLookupOptions {
@@ -75,13 +75,13 @@ export function useTrackerSpriteLookup({ enabled, chatCharacterIds, presentChara
       .map((query) => query.data)
       .filter(isTrackerLookupCharacterRow);
     const knownIds = new Set(rows.map((character) => character.id));
-    const idByName = new Map<string, string>();
     const pictureById: Record<string, string> = {};
     const profileColorsById: TrackerSpriteLookup["profileColorsById"] = {};
     const displayRows = rows.map((character) => ({
       character,
       display: parseCharacterDisplayData(character),
     }));
+    const idByName = buildCharacterLookupMap(displayRows);
 
     for (const character of rows) {
       if (character.avatarPath) pictureById[character.id] = character.avatarPath;
@@ -97,9 +97,6 @@ export function useTrackerSpriteLookup({ enabled, chatCharacterIds, presentChara
       }
       if (profileColors) profileColorsById[character.id] = profileColors;
     }
-
-    addExactNameLookups(displayRows, idByName);
-    addAliasLookups(displayRows, idByName);
 
     return { knownIds, idByName, pictureById, profileColorsById };
   }, [characterQueries, previewValues]);

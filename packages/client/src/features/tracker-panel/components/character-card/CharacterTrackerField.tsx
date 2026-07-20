@@ -4,7 +4,7 @@ import { visibleText } from "../../lib/tracker-display";
 import { InlineEdit } from "../controls/InlineControls";
 import { useTrackerFieldLock } from "../TrackerLockContext";
 
-export type CompactCharacterFieldTone = "mood" | "appearance" | "outfit" | "thoughts";
+type CompactCharacterFieldTone = "mood" | "appearance" | "outfit" | "thoughts";
 
 const COMPACT_CHARACTER_FIELD_TONE_CLASSES: Record<CompactCharacterFieldTone, { icon: string }> = {
   mood: {
