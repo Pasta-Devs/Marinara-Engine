@@ -286,6 +286,15 @@ function sanitizeChatGameNpcAvatars<T extends { metadata?: unknown }>(chat: T): 
     metadata: typeof chat.metadata === "string" ? JSON.stringify(sanitizedMetadata) : sanitizedMetadata,
   };
 }
+
+/** Convert storage-encoded chat JSON columns to the shared public Chat shape. */
+export function normalizeChatForResponse<T extends { metadata?: unknown; characterIds?: unknown }>(chat: T) {
+  return sanitizeChatGameNpcAvatars({
+    ...chat,
+    characterIds: resolveChatCharacterIds(chat.characterIds),
+    metadata: parseChatMetadata(chat.metadata),
+  });
+}
 type SummaryEntriesPatchBody =
   | { operation: "replace"; entry: Partial<ChatSummaryEntry> & { id: string; content: string } }
   | { operation: "delete"; entryId: string }
@@ -478,7 +487,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   app.get("/", async () => {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(sanitizeChatGameNpcAvatars);
+    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
   });
 
   app.get("/internal/professor-mari/chats", async () => {
@@ -486,9 +495,9 @@ export async function chatsRoutes(app: FastifyInstance) {
     return Promise.all(
       allChats.map(async (chat) => {
         const metadata = parseChatMetadata(chat.metadata);
-        return sanitizeChatGameNpcAvatars({
+        return normalizeChatForResponse({
           ...chat,
-          metadata: JSON.stringify(metadata),
+          metadata,
           messageCount: await storage.countMessages(chat.id),
         });
       }),
@@ -522,7 +531,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         characterExchanges: false,
         tags: ["internal"],
       });
-      return sanitizeChatGameNpcAvatars(updated ?? existing);
+      return normalizeChatForResponse(updated ?? existing);
     }
 
     const created = await storage.create({
@@ -544,7 +553,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       characterExchanges: false,
       tags: ["internal"],
     });
-    return sanitizeChatGameNpcAvatars(updated ?? created);
+    return normalizeChatForResponse(updated ?? created);
   });
 
   app.post<{ Querystring: { connectionId?: string; personaId?: string } }>(
@@ -609,7 +618,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         characterExchanges: false,
         tags: ["internal"],
       });
-      return sanitizeChatGameNpcAvatars(updated ?? created);
+      return normalizeChatForResponse(updated ?? created);
     },
   );
 
@@ -633,7 +642,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       characterIds: [PROFESSOR_MARI_ID],
       promptPresetId: null,
     });
-    return sanitizeChatGameNpcAvatars(updated ?? target);
+    return normalizeChatForResponse(updated ?? target);
   });
 
   app.patch<{ Params: { id: string }; Body: { name?: unknown } }>(
@@ -644,7 +653,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
       if (!name) return reply.status(400).send({ error: "Name is required" });
       const updated = await storage.update(target.id, { name });
-      return sanitizeChatGameNpcAvatars(updated ?? target);
+      return normalizeChatForResponse(updated ?? target);
     },
   );
 
@@ -671,7 +680,7 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List chats by group
   app.get<{ Params: { groupId: string } }>("/group/:groupId", async (req) => {
     const chats = await storage.listByGroup(req.params.groupId);
-    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(sanitizeChatGameNpcAvatars);
+    return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
   });
 
   // Get single chat
@@ -680,7 +689,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat || isHomeProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
-    return sanitizeChatGameNpcAvatars(chat);
+    return normalizeChatForResponse(chat);
   });
 
   // Create chat
@@ -699,7 +708,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     );
     if (!chat) return chat;
 
-    return chat;
+    return normalizeChatForResponse(chat);
   });
 
   // Update chat
@@ -767,7 +776,8 @@ export async function chatsRoutes(app: FastifyInstance) {
         }
       }
     }
-    return storage.update(req.params.id, data);
+    const updated = await storage.update(req.params.id, data);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   app.post<{ Params: { id: string } }>("/:id/touch", async (req, reply) => {
@@ -775,7 +785,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     if (!chat || isHomeProfessorMariChat(chat)) {
       return reply.status(404).send({ error: "Chat not found" });
     }
-    return storage.touch(req.params.id);
+    const updated = await storage.touch(req.params.id);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Update chat metadata (partial merge)
@@ -836,7 +847,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       Object.prototype.hasOwnProperty.call(incoming, "hideSummarisedMessages") &&
       typeof incoming.hideSummarisedMessages === "boolean"
     ) {
-      return storage.patchMetadata(req.params.id, async (freshMeta) => {
+      const updated = await storage.patchMetadata(req.params.id, async (freshMeta) => {
         const previousHideEnabled = freshMeta.hideSummarisedMessages === true;
         if (previousHideEnabled === incoming.hideSummarisedMessages) {
           return incoming;
@@ -892,8 +903,10 @@ export async function chatsRoutes(app: FastifyInstance) {
           summary: compileChatSummaryEntries(nextEntries),
         };
       });
+      return updated ? normalizeChatForResponse(updated) : updated;
     }
-    return storage.patchMetadata(req.params.id, incoming);
+    const updated = await storage.patchMetadata(req.params.id, incoming);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Mark a chat as having autonomous messages the user has not viewed yet.
@@ -901,14 +914,16 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
     const input = markAutonomousUnreadSchema.parse(req.body ?? {});
-    return storage.markAutonomousUnread(req.params.id, input);
+    const updated = await storage.markAutonomousUnread(req.params.id, input);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Clear autonomous unread state when the user views the relevant chat.
   app.delete<{ Params: { id: string } }>("/:id/autonomous-unread", async (req, reply) => {
     const chat = await storage.getById(req.params.id);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
-    return storage.clearAutonomousUnread(req.params.id);
+    const updated = await storage.clearAutonomousUnread(req.params.id);
+    return updated ? normalizeChatForResponse(updated) : updated;
   });
 
   // Update chat summaries (entry-level merge for day/week summaries).
@@ -933,7 +948,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       },
     }));
     if (!updated) return reply.status(404).send({ error: "Chat not found" });
-    return updated;
+    return normalizeChatForResponse(updated);
   });
 
   // Update rolling summary entries without replacing unrelated chat metadata.
@@ -1035,7 +1050,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     });
 
     if (!updated) return reply.status(404).send({ error: "Chat not found" });
-    return updated;
+    return normalizeChatForResponse(updated);
   });
 
   app.post<{
@@ -3602,7 +3617,8 @@ export async function chatsRoutes(app: FastifyInstance) {
     }
 
     // Return the fully-updated chat (including copied metadata)
-    return storage.getById(newChat.id);
+    const branchedChat = await storage.getById(newChat.id);
+    return branchedChat ? normalizeChatForResponse(branchedChat) : branchedChat;
   });
 
   // ── Generate Summary ──
