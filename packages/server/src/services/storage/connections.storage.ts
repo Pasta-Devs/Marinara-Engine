@@ -7,6 +7,8 @@ import { apiConnections } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import { encryptApiKey, decryptApiKey } from "../../utils/crypto.js";
 import type { CreateConnectionInput } from "@marinara-engine/shared";
+import { sweepDanglingConnectionReferences } from "./connection-reference-cleanup.js";
+import { logger } from "../../lib/logger.js";
 
 type ConnectionDefaultCategory = "image_generation" | "video_generation" | "language";
 
@@ -433,6 +435,18 @@ export function createConnectionsStorage(db: DB) {
 
     async remove(id: string) {
       await db.delete(apiConnections).where(eq(apiConnections.id, id));
+
+      const cleanup = await sweepDanglingConnectionReferences(db, id);
+      const totalCleaned = cleanup.chatsUpdated + cleanup.agentsUpdated + cleanup.connectionsUpdated;
+      if (totalCleaned > 0) {
+        logger.info(
+          "[connections] Cleared dangling references to deleted connection %s: %d chat(s), %d agent(s), %d connection(s)",
+          id,
+          cleanup.chatsUpdated,
+          cleanup.agentsUpdated,
+          cleanup.connectionsUpdated,
+        );
+      }
     },
 
     async updateDefaultParameters(id: string, params: Record<string, unknown> | null) {

@@ -479,6 +479,10 @@ export function isCustomToolScriptEnabled() {
   return isEnabledFlag(process.env.CUSTOM_TOOL_SCRIPT_ENABLED);
 }
 
+export function isCustomAgentRepositoriesEnabled() {
+  return isEnabledFlag(process.env.ENABLE_CUSTOM_AGENT_REPOS);
+}
+
 export function isSidecarRuntimeInstallEnabled() {
   return isEnabledFlag(process.env.SIDECAR_RUNTIME_INSTALL_ENABLED);
 }

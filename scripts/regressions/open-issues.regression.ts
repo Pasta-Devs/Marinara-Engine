@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, w
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import AdmZip from "adm-zip";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
@@ -88,11 +89,17 @@ import {
 } from "../../packages/client/src/lib/emoji-shortcodes.js";
 import { persistGeneratedImageToEntityGalleries } from "../../packages/server/src/services/image/generated-image-entity-gallery.js";
 import { fetchBotBrowserJson } from "../../packages/server/src/services/bot-browser/fetch-json.js";
-import { isAllowedResponseContentType } from "../../packages/server/src/utils/security.js";
+import { isAllowedResponseContentType, validateOutboundUrl } from "../../packages/server/src/utils/security.js";
 import {
   DEFAULT_CHAT_GENERATION_TIMEOUT_MS,
   getChatGenerationTimeoutMs,
+  isCustomAgentRepositoriesEnabled,
 } from "../../packages/server/src/config/runtime-config.js";
+import {
+  buildRepositoryAgentInput,
+  normalizeCustomAgentRepositoryUrl,
+  parseCustomAgentRepositoryArchive,
+} from "../../packages/server/src/services/agents/custom-agent-repositories.service.js";
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   detectNovelAiSubjectCount,
@@ -2123,5 +2130,66 @@ process.env.CHAT_GENERATION_TIMEOUT_MS = "3600001";
 assert.equal(getChatGenerationTimeoutMs(), DEFAULT_CHAT_GENERATION_TIMEOUT_MS);
 if (originalChatGenerationTimeout === undefined) delete process.env.CHAT_GENERATION_TIMEOUT_MS;
 else process.env.CHAT_GENERATION_TIMEOUT_MS = originalChatGenerationTimeout;
+
+const customRepository = normalizeCustomAgentRepositoryUrl("https://github.com/Pasta-Devs/Example-Agents.git/");
+assert.equal(customRepository.url, "https://github.com/pasta-devs/example-agents");
+assert.throws(
+  () => normalizeCustomAgentRepositoryUrl("https://github.com/Pasta-Devs/Example-Agents/tree/staging"),
+  /repository root URL/u,
+);
+assert.throws(() => normalizeCustomAgentRepositoryUrl("https://example.com/agents"), /public GitHub repository/u);
+await assert.rejects(
+  validateOutboundUrl("https://example.com/archive.zip", {
+    allowedHostnames: ["github.com", "codeload.github.com"],
+  }),
+  /hostname 'example\.com' is not allowed/u,
+);
+const repositoryDefinition = {
+  id: "continuity-helper",
+  name: "Continuity Helper",
+  description: "Checks recent turns for contradictions.",
+  author: "Mari",
+  phase: "post_processing" as const,
+  enabledByDefault: false,
+  defaultInjectAsSection: true,
+  category: "writer" as const,
+  defaultTools: ["search_messages"],
+  defaultSettings: { maxTokens: 900 },
+  modeAllowlist: ["roleplay" as const],
+  defaultPromptTemplate: "Check {{messages}} for continuity errors.",
+};
+const repositoryArchive = new AdmZip();
+repositoryArchive.addFile("example-agents-main/agents.json", Buffer.from(JSON.stringify([repositoryDefinition])));
+assert.deepEqual(parseCustomAgentRepositoryArchive(repositoryArchive.toBuffer()), [repositoryDefinition]);
+const importedRepositoryAgent = buildRepositoryAgentInput(customRepository, repositoryDefinition);
+assert.equal(importedRepositoryAgent.type, `repo-${customRepository.id}-continuity-helper`);
+assert.deepEqual(importedRepositoryAgent.settings.enabledTools, ["search_messages"]);
+assert.deepEqual(importedRepositoryAgent.settings.customAgentRepositorySource, {
+  repositoryId: customRepository.id,
+  repositoryUrl: customRepository.url,
+  agentId: repositoryDefinition.id,
+});
+const duplicateRepositoryArchive = new AdmZip();
+duplicateRepositoryArchive.addFile(
+  "example-agents-main/agents.json",
+  Buffer.from(JSON.stringify([repositoryDefinition, repositoryDefinition])),
+);
+assert.throws(() => parseCustomAgentRepositoryArchive(duplicateRepositoryArchive.toBuffer()), /duplicate agent id/u);
+const featureRepositoryArchive = new AdmZip();
+featureRepositoryArchive.addFile(
+  "example-agents-main/agents.json",
+  Buffer.from(JSON.stringify([{ ...repositoryDefinition, execution: "feature" }])),
+);
+assert.throws(() => parseCustomAgentRepositoryArchive(featureRepositoryArchive.toBuffer()), /requires a package runtime/u);
+const originalCustomRepositoryFlag = process.env.ENABLE_CUSTOM_AGENT_REPOS;
+try {
+  delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
+  assert.equal(isCustomAgentRepositoriesEnabled(), false);
+  process.env.ENABLE_CUSTOM_AGENT_REPOS = "true";
+  assert.equal(isCustomAgentRepositoriesEnabled(), true);
+} finally {
+  if (originalCustomRepositoryFlag === undefined) delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
+  else process.env.ENABLE_CUSTOM_AGENT_REPOS = originalCustomRepositoryFlag;
+}
 
 console.info("Open-issue regressions passed.");

@@ -4,6 +4,7 @@ import {
   Check,
   Download,
   ExternalLink,
+  GitFork,
   HardDrive,
   Loader2,
   RefreshCw,
@@ -23,12 +24,14 @@ import {
   useUninstallAllCapabilityPackages,
   useUninstallCapabilityPackage,
 } from "../../hooks/use-capability-packages";
+import { useCustomAgentRepositories } from "../../hooks/use-custom-agent-repositories";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../lib/api-client";
 import { isAgentCatalogKindBadgeVisible } from "../../lib/agent-catalog-kind-badges";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { AgentArtwork } from "./AgentArtwork";
+import { CustomAgentRepositoriesModal } from "./CustomAgentRepositoriesModal";
 
 const CATEGORY_SECTIONS = [
   { id: "writer", label: "Writer Agents" },
@@ -127,10 +130,12 @@ export function AgentCatalogView() {
   const uninstall = useUninstallCapabilityPackage();
   const installAll = useInstallAllCapabilityPackages();
   const uninstallAll = useUninstallAllCapabilityPackages();
+  const customRepositories = useCustomAgentRepositories();
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileDetail, setMobileDetail] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<BulkActionProgress | null>(null);
+  const [customRepositoriesOpen, setCustomRepositoriesOpen] = useState(false);
 
   const installedById = useMemo(() => new Map((installed.data ?? []).map((item) => [item.id, item])), [installed.data]);
   const packages = useMemo(() => {
@@ -320,6 +325,17 @@ export function AgentCatalogView() {
             {catalog.data?.packages.length ?? 0} available • {installed.data?.length ?? 0} installed
           </p>
         </div>
+        {customRepositories.data?.enabled && (
+          <button
+            type="button"
+            className="mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4"
+            onClick={() => setCustomRepositoriesOpen(true)}
+            aria-label="Custom Sources"
+          >
+            <GitFork size="0.85rem" />
+            <span className="max-sm:hidden">Custom Sources</span>
+          </button>
+        )}
         <button
           type="button"
           className="mari-chrome-control h-9 shrink-0 px-3 text-xs md:h-10 md:px-4"
@@ -661,6 +677,7 @@ export function AgentCatalogView() {
           </main>
         )}
       </div>
+      <CustomAgentRepositoriesModal open={customRepositoriesOpen} onClose={() => setCustomRepositoriesOpen(false)} />
     </div>
   );
 }

@@ -54,7 +54,7 @@ const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
   ),
 ]);
 
-function normalizeArchivePath(value: string): string {
+export function normalizeArchivePath(value: string): string {
   if (!value || value.includes("\\") || value.startsWith("/") || value.includes("\0")) {
     throw new Error("Package contains an unsafe path");
   }
@@ -67,6 +67,21 @@ function normalizeArchivePath(value: string): string {
 
 function isSymlink(entry: AdmZip.IZipEntry): boolean {
   return ((entry.attr >>> 16) & 0o170000) === 0o120000;
+}
+
+export function validatePackageArchiveEntries(zip: AdmZip, maximumExpandedBytes = MAX_EXPANDED_BYTES) {
+  const entries = zip.getEntries().filter((item) => !item.isDirectory);
+  const names = new Set<string>();
+  let expandedBytes = 0;
+  for (const item of entries) {
+    const name = normalizeArchivePath(item.entryName);
+    if (names.has(name)) throw new Error(`Package contains duplicate file ${name}`);
+    if (isSymlink(item)) throw new Error("Package links are not allowed");
+    names.add(name);
+    expandedBytes += item.header.size;
+    if (expandedBytes > maximumExpandedBytes) throw new Error("Expanded package is too large");
+  }
+  return entries;
 }
 
 function inside(root: string, candidate: string): string {
@@ -234,17 +249,7 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
   if (digest !== artifact.sha256) throw new Error("Downloaded package checksum does not match the catalog");
 
   const zip = new AdmZip(archive);
-  const entries = zip.getEntries().filter((item) => !item.isDirectory);
-  const names = new Set<string>();
-  let expandedBytes = 0;
-  for (const item of entries) {
-    const name = normalizeArchivePath(item.entryName);
-    if (names.has(name)) throw new Error(`Package contains duplicate file ${name}`);
-    if (isSymlink(item)) throw new Error("Package links are not allowed");
-    names.add(name);
-    expandedBytes += item.header.size;
-    if (expandedBytes > MAX_EXPANDED_BYTES) throw new Error("Expanded package is too large");
-  }
+  const entries = validatePackageArchiveEntries(zip);
   const manifestEntry = entries.find((item) => item.entryName === "manifest.json");
   if (!manifestEntry || manifestEntry.header.size > MAX_MANIFEST_BYTES) {
     throw new Error("Package manifest is missing or too large");

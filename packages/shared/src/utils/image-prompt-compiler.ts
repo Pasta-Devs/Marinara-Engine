@@ -325,9 +325,15 @@ function splitPromptListItems(value: string): string[] {
   return parts;
 }
 
-function splitNaturalPromptClauses(value: string): string[] {
-  const parts: string[] = [];
+type NaturalPromptClause = {
+  value: string;
+  startsAtBoundary: boolean;
+};
+
+function splitNaturalPromptClauses(value: string): NaturalPromptClause[] {
+  const parts: NaturalPromptClause[] = [];
   let current = "";
+  let startsAtBoundary = true;
   let parenDepth = 0;
   let bracketDepth = 0;
   let braceDepth = 0;
@@ -336,7 +342,7 @@ function splitNaturalPromptClauses(value: string): string[] {
 
   const pushCurrent = () => {
     const clean = current.trim();
-    if (clean) parts.push(clean);
+    if (clean) parts.push({ value: clean, startsAtBoundary });
     current = "";
   };
 
@@ -375,10 +381,20 @@ function splitNaturalPromptClauses(value: string): string[] {
     else if (char === "}" && braceDepth > 0) braceDepth -= 1;
 
     const insideGroup = parenDepth > 0 || bracketDepth > 0 || braceDepth > 0;
-    const startsNegativeClause = /^\s*(?:avoid|no|without)\b/i.test(value.slice(index + 1));
-    if (!insideGroup && (char === "\n" || (char === "," && startsNegativeClause))) {
+    if (!insideGroup && char === "\n") {
       pushCurrent();
+      startsAtBoundary = true;
       continue;
+    }
+    if (!insideGroup && char === ",") {
+      const startsNegativeClause = /^\s*(?:avoid|no|without|exclude|do not include|don't include)\b/i.test(
+        value.slice(index + 1),
+      );
+      if (startsNegativeClause) {
+        pushCurrent();
+        startsAtBoundary = false;
+        continue;
+      }
     }
 
     current += char;
@@ -386,6 +402,71 @@ function splitNaturalPromptClauses(value: string): string[] {
 
   pushCurrent();
   return parts;
+}
+
+function isStandaloneNegativeListInstruction(value: string): boolean {
+  return /^(?:avoid|exclude|do not include|don't include)\b/i.test(value.trim());
+}
+
+function splitStandaloneNegativeInstruction(value: string): string[] {
+  const clean = value.trim();
+  const match = clean.match(/^(?:avoid|exclude|do not include|don't include)\s+(.+)$/i);
+  if (!match?.[1]) return [clean];
+
+  const body = match[1].trim();
+  const sentenceBoundary = findTopLevelSentenceBoundary(body);
+  const listText = (sentenceBoundary >= 0 ? body.slice(0, sentenceBoundary) : body)
+    .replace(/[.!?]+$/g, "")
+    .trim();
+  const trailingText = sentenceBoundary >= 0 ? body.slice(sentenceBoundary + 1).trim() : "";
+  const negativeItems = splitPromptListItems(listText)
+    .map((item) => item.replace(/^(?:and|or)\s+/i, "").trim())
+    .filter(Boolean)
+    .map((item) => `avoid ${item}`);
+
+  return [...negativeItems, ...(trailingText ? [trailingText] : [])];
+}
+
+function findTopLevelSentenceBoundary(value: string): number {
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let braceDepth = 0;
+  let quote: '"' | null = null;
+  let escaped = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]!;
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"') {
+      quote = char;
+      continue;
+    }
+
+    if (char === "(") parenDepth += 1;
+    else if (char === ")" && parenDepth > 0) parenDepth -= 1;
+    else if (char === "[") bracketDepth += 1;
+    else if (char === "]" && bracketDepth > 0) bracketDepth -= 1;
+    else if (char === "{") braceDepth += 1;
+    else if (char === "}" && braceDepth > 0) braceDepth -= 1;
+
+    const insideGroup = parenDepth > 0 || bracketDepth > 0 || braceDepth > 0;
+    if (!insideGroup && /[.!?]/.test(char) && (!value[index + 1] || /\s/.test(value[index + 1]!))) {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 export function mergeCompiledPromptMeta(
@@ -430,10 +511,16 @@ function splitPromptFragments(
   if (promptMode === "natural") {
     const fragments: string[] = [];
     for (const part of splitNaturalPromptClauses(normalized)) {
-      const clean = part.trim();
+      const clean = part.value.trim();
       if (!clean) continue;
       if (hasAvoidInstructionPrefix(clean)) {
-        fragments.push(...splitPromptListItems(clean));
+        // Generated prompts use sentence-level avoid lists; inline clauses must retain the
+        // one-item negation behavior that keeps following positive descriptors intact.
+        const listItems =
+          part.startsAtBoundary && isStandaloneNegativeListInstruction(clean)
+            ? splitStandaloneNegativeInstruction(clean)
+            : splitPromptListItems(clean);
+        fragments.push(...listItems);
       } else {
         fragments.push(clean);
       }

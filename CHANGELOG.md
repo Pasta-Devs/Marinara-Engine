@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added disabled-by-default custom GitHub agent repositories to Agents Manager, with manual preview/apply, explicit trust confirmation, stable sync identity, and bounded SSRF-safe archive validation (#3861).
 - Added explicit numeric overrides for Conversation chat check-in ceilings and removed the 50-message ceiling from Conversation and Roleplay recent-summary tails, while retaining conservative defaults and cost guidance (#3864).
 - Added **Noodle** to Lorebook entry Generation filters so entries can target Noodle context without being injected into other generation paths (#3842).
 - Added per-character **Hide From AI** controls to Roleplay group chats, with avatar-based multi-selection, recipient markers, and character-scoped prompt history while preserving the existing global hide option.
