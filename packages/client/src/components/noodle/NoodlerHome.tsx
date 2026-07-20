@@ -431,8 +431,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     mobileAccountSwitcherOpen,
     onMobileAccountSwitcherOpenChange: setMobileAccountSwitcherOpen,
     notificationCount: 0,
-    onOpenHome: goToHub,
-    onOpenMobileHome: goToHub,
+    onOpenHome: exitToPublic,
+    onOpenMobileHome: exitToPublic,
     onOpenNoodler: goToHub,
     onOpenSettings: () => onNavigate({ mode: "settings" }),
     overlays: (
