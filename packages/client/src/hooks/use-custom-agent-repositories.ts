@@ -45,8 +45,8 @@ export function usePreviewCustomAgentRepository() {
 export function useAddCustomAgentRepository() {
   const invalidate = useInvalidateCustomAgentRepositories();
   return useMutation({
-    mutationFn: ({ url, digest }: { url: string; digest: string }) =>
-      api.post<CustomAgentRepository>("/custom-agent-repositories", { url, digest, confirmed: true }),
+    mutationFn: ({ url, digest, confirmed }: { url: string; digest: string; confirmed: boolean }) =>
+      api.post<CustomAgentRepository>("/custom-agent-repositories", { url, digest, confirmed }),
     onSuccess: invalidate,
   });
 }

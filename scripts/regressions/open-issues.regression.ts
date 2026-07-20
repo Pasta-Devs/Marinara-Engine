@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, w
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import AdmZip from "../../packages/server/node_modules/adm-zip/adm-zip.js";
+import AdmZip from "adm-zip";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
@@ -2182,11 +2182,14 @@ featureRepositoryArchive.addFile(
 );
 assert.throws(() => parseCustomAgentRepositoryArchive(featureRepositoryArchive.toBuffer()), /requires a package runtime/u);
 const originalCustomRepositoryFlag = process.env.ENABLE_CUSTOM_AGENT_REPOS;
-delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
-assert.equal(isCustomAgentRepositoriesEnabled(), false);
-process.env.ENABLE_CUSTOM_AGENT_REPOS = "true";
-assert.equal(isCustomAgentRepositoriesEnabled(), true);
-if (originalCustomRepositoryFlag === undefined) delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
-else process.env.ENABLE_CUSTOM_AGENT_REPOS = originalCustomRepositoryFlag;
+try {
+  delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
+  assert.equal(isCustomAgentRepositoriesEnabled(), false);
+  process.env.ENABLE_CUSTOM_AGENT_REPOS = "true";
+  assert.equal(isCustomAgentRepositoriesEnabled(), true);
+} finally {
+  if (originalCustomRepositoryFlag === undefined) delete process.env.ENABLE_CUSTOM_AGENT_REPOS;
+  else process.env.ENABLE_CUSTOM_AGENT_REPOS = originalCustomRepositoryFlag;
+}
 
 console.info("Open-issue regressions passed.");

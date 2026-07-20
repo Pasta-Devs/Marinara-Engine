@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { isCustomAgentRepositoriesEnabled } from "../config/runtime-config.js";
+import { logger } from "../lib/logger.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { createCustomAgentRepositoriesService } from "../services/agents/custom-agent-repositories.service.js";
 
@@ -44,6 +45,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
       const { url } = repositoryUrlSchema.parse(request.body);
       return await service.preview(url);
     } catch (error) {
+      logger.error(error, "Custom agent repository preview failed");
       return reply.status(400).send({ error: errorMessage(error) });
     }
   });
@@ -55,6 +57,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
       const { url, digest, confirmed } = applyRepositorySchema.parse(request.body);
       return await service.add(url, digest, confirmed);
     } catch (error) {
+      logger.error(error, "Custom agent repository installation failed");
       return reply.status(400).send({ error: errorMessage(error) });
     }
   });
@@ -68,6 +71,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
       if (!repository) return reply.status(404).send({ error: "Custom agent repository not found" });
       return await service.preview(repository.url);
     } catch (error) {
+      logger.error(error, "Saved custom agent repository preview failed");
       return reply.status(400).send({ error: errorMessage(error) });
     }
   });
@@ -80,6 +84,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
       const { digest, confirmed } = syncRepositorySchema.parse(request.body);
       return await service.sync(id, digest, confirmed);
     } catch (error) {
+      logger.error(error, "Custom agent repository synchronization failed");
       return reply.status(400).send({ error: errorMessage(error) });
     }
   });
@@ -92,6 +97,7 @@ export async function customAgentRepositoriesRoutes(app: FastifyInstance) {
       if (!(await service.remove(id))) return reply.status(404).send({ error: "Custom agent repository not found" });
       return reply.status(204).send();
     } catch (error) {
+      logger.error(error, "Custom agent repository removal failed");
       return reply.status(400).send({ error: errorMessage(error) });
     }
   });

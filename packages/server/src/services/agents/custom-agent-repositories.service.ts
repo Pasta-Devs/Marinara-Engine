@@ -15,6 +15,7 @@ import {
   type PackagedAgentDefinition,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
+import { logger } from "../../lib/logger.js";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
 import { createAgentsStorage } from "../storage/agents.storage.js";
@@ -27,6 +28,22 @@ const MAX_DEFINITIONS_BYTES = 1024 * 1024;
 const MAX_AGENT_DEFINITIONS = 100;
 const SOURCE_SETTINGS_KEY = "customAgentRepositorySource";
 const ALLOWED_ARCHIVE_HOSTS = ["github.com", "codeload.github.com"];
+
+let registryMutationQueue = Promise.resolve();
+
+async function withRegistryMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+  const previousOperation = registryMutationQueue;
+  let release: () => void = () => undefined;
+  registryMutationQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previousOperation;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
 
 const repositorySchema = z
   .object({
@@ -144,30 +161,37 @@ export function parseCustomAgentRepositoryArchive(archive: Buffer): PackagedAgen
 
 async function fetchRepositorySnapshot(value: string): Promise<RepositorySnapshot> {
   const repository = normalizeCustomAgentRepositoryUrl(value);
-  const archiveUrl = `${repository.url}/archive/HEAD.zip`;
-  const response = await safeFetch(archiveUrl, {
-    policy: {
-      allowedProtocols: ["https:"],
-      allowedHostnames: ALLOWED_ARCHIVE_HOSTS,
-      maxRedirects: 5,
-    },
-    maxResponseBytes: MAX_ARCHIVE_BYTES,
-    allowedContentTypes: ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
-    allowMissingContentType: true,
-    headers: {
-      Accept: "application/zip, application/octet-stream;q=0.9",
-      "User-Agent": `MarinaraEngine/${APP_VERSION}`,
-    },
-    signal: AbortSignal.timeout(30_000),
-    agentOptions: { bodyTimeout: 30_000, headersTimeout: 15_000 },
-  });
-  if (!response.ok) throw new Error(`Repository download failed with HTTP ${response.status}`);
-  const archive = Buffer.from(await response.arrayBuffer());
-  return {
-    repository,
-    digest: createHash("sha256").update(archive).digest("hex"),
-    definitions: parseCustomAgentRepositoryArchive(archive),
-  };
+  try {
+    const archiveUrl = `${repository.url}/archive/HEAD.zip`;
+    const response = await safeFetch(archiveUrl, {
+      policy: {
+        allowedProtocols: ["https:"],
+        allowedHostnames: ALLOWED_ARCHIVE_HOSTS,
+        maxRedirects: 5,
+      },
+      maxResponseBytes: MAX_ARCHIVE_BYTES,
+      allowedContentTypes: ["application/zip", "application/x-zip-compressed", "application/octet-stream"],
+      allowMissingContentType: true,
+      headers: {
+        Accept: "application/zip, application/octet-stream;q=0.9",
+        "User-Agent": `MarinaraEngine/${APP_VERSION}`,
+      },
+      signal: AbortSignal.timeout(30_000),
+      agentOptions: { bodyTimeout: 30_000, headersTimeout: 15_000 },
+    });
+    if (!response.ok) throw new Error(`Repository download failed with HTTP ${response.status}`);
+    const archive = Buffer.from(await response.arrayBuffer());
+    const definitions = parseCustomAgentRepositoryArchive(archive);
+    logger.info("Fetched %d custom agent definitions from repository %s", definitions.length, repository.url);
+    return {
+      repository,
+      digest: createHash("sha256").update(archive).digest("hex"),
+      definitions,
+    };
+  } catch (error) {
+    logger.error(error, "Failed to fetch custom agent repository %s", repository.url);
+    throw error;
+  }
 }
 
 async function readRegistry() {
@@ -321,53 +345,73 @@ export function createCustomAgentRepositoriesService(db: DB) {
     },
 
     async add(url: string, expectedDigest: string, confirmed: boolean) {
-      if (!confirmed) throw new Error("Explicit trust confirmation is required before adding a repository");
-      const registry = await readRegistry();
-      const { snapshot } = await previewSnapshot(url);
-      if (registry.repositories.some((entry) => entry.id === snapshot.repository.id)) {
-        throw new Error("This repository is already configured");
-      }
-      if (snapshot.digest !== expectedDigest) throw new Error("Repository changed after preview; preview it again");
-      await applySnapshot(snapshot);
-      const repository: CustomAgentRepository = {
-        ...snapshot.repository,
-        lastDigest: snapshot.digest,
-        lastSyncedAt: new Date().toISOString(),
-        agentCount: snapshot.definitions.length,
-      };
-      await writeRegistry([...registry.repositories, repository]);
-      return repository;
+      return withRegistryMutationLock(async () => {
+        if (!confirmed) {
+          logger.warn("Rejected custom agent repository add without trust confirmation for %s", url);
+          throw new Error("Explicit trust confirmation is required before adding a repository");
+        }
+        const registry = await readRegistry();
+        const { snapshot } = await previewSnapshot(url);
+        if (registry.repositories.some((entry) => entry.id === snapshot.repository.id)) {
+          throw new Error("This repository is already configured");
+        }
+        if (snapshot.digest !== expectedDigest) {
+          logger.warn("Rejected changed custom agent repository %s after preview", snapshot.repository.url);
+          throw new Error("Repository changed after preview; preview it again");
+        }
+        await applySnapshot(snapshot);
+        const repository: CustomAgentRepository = {
+          ...snapshot.repository,
+          lastDigest: snapshot.digest,
+          lastSyncedAt: new Date().toISOString(),
+          agentCount: snapshot.definitions.length,
+        };
+        await writeRegistry([...registry.repositories, repository]);
+        logger.info("Added custom agent repository %s with %d agents", repository.url, repository.agentCount);
+        return repository;
+      });
     },
 
     async sync(repositoryId: string, expectedDigest: string, confirmed: boolean) {
-      const registry = await readRegistry();
-      const current = registry.repositories.find((entry) => entry.id === repositoryId);
-      if (!current) throw new Error("Custom agent repository not found");
-      const { snapshot, preview } = await previewSnapshot(current.url);
-      if (snapshot.digest !== expectedDigest) throw new Error("Repository changed after preview; preview it again");
-      if (hasContentChanges(preview) && !confirmed) {
-        throw new Error("Explicit trust confirmation is required before applying repository changes");
-      }
-      await applySnapshot(snapshot);
-      const repository: CustomAgentRepository = {
-        ...current,
-        lastDigest: snapshot.digest,
-        lastSyncedAt: new Date().toISOString(),
-        agentCount: snapshot.definitions.length,
-      };
-      await writeRegistry(registry.repositories.map((entry) => (entry.id === repositoryId ? repository : entry)));
-      return repository;
+      return withRegistryMutationLock(async () => {
+        const registry = await readRegistry();
+        const current = registry.repositories.find((entry) => entry.id === repositoryId);
+        if (!current) throw new Error("Custom agent repository not found");
+        const { snapshot, preview } = await previewSnapshot(current.url);
+        if (snapshot.digest !== expectedDigest) {
+          logger.warn("Rejected changed custom agent repository %s after preview", snapshot.repository.url);
+          throw new Error("Repository changed after preview; preview it again");
+        }
+        if (hasContentChanges(preview) && !confirmed) {
+          logger.warn("Rejected custom agent repository sync without trust confirmation for %s", current.url);
+          throw new Error("Explicit trust confirmation is required before applying repository changes");
+        }
+        await applySnapshot(snapshot);
+        const repository: CustomAgentRepository = {
+          ...current,
+          lastDigest: snapshot.digest,
+          lastSyncedAt: new Date().toISOString(),
+          agentCount: snapshot.definitions.length,
+        };
+        await writeRegistry(registry.repositories.map((entry) => (entry.id === repositoryId ? repository : entry)));
+        logger.info("Synced custom agent repository %s with %d agents", repository.url, repository.agentCount);
+        return repository;
+      });
     },
 
     async remove(repositoryId: string) {
-      const registry = await readRegistry();
-      if (!registry.repositories.some((entry) => entry.id === repositoryId)) return false;
-      const agents = managedAgentsForRepository(await storage.list(), repositoryId);
-      for (const agent of agents.values()) {
-        await storage.update(agent.id, { settings: withoutSource(agent.settings) });
-      }
-      await writeRegistry(registry.repositories.filter((entry) => entry.id !== repositoryId));
-      return true;
+      return withRegistryMutationLock(async () => {
+        const registry = await readRegistry();
+        const repository = registry.repositories.find((entry) => entry.id === repositoryId);
+        if (!repository) return false;
+        const agents = managedAgentsForRepository(await storage.list(), repositoryId);
+        for (const agent of agents.values()) {
+          await storage.update(agent.id, { settings: withoutSource(agent.settings) });
+        }
+        await writeRegistry(registry.repositories.filter((entry) => entry.id !== repositoryId));
+        logger.info("Removed custom agent repository %s", repository.url);
+        return true;
+      });
     },
   };
 }

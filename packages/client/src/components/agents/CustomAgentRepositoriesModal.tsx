@@ -81,7 +81,7 @@ export function CustomAgentRepositoriesModal({ open, onClose }: { open: boolean;
       });
       if (!confirmed) return;
       try {
-        await addMutation.mutateAsync({ url: preview.repository.url, digest: preview.digest });
+        await addMutation.mutateAsync({ url: preview.repository.url, digest: preview.digest, confirmed });
         toast.success("Custom repository added and its agents imported.");
         setUrl("");
         setPreview(null);
