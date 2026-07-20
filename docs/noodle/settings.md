@@ -46,6 +46,8 @@ When guiding a post, choose one access level:
 
 Each stage profile has its own **Subscriber access** settings. **Subscriptions include PPV** lets subscribers read that profile's PPV posts without unlocking each one. It is off by default. **Hidden from personas** removes the stage profile and all its posts from selected viewer personas, including direct subscribe and unlock requests. Hidden-from settings apply to the private stage profile only and do not hide its linked public Noodle account.
 
+Use **Delete profile** on a managed stage profile to remove that private profile, all posts published under it, its subscriptions, and its PPV unlock records. The linked public Noodle account is not deleted and can be used to create a new stage profile later.
+
 ## Invites
 
 The **Invites** section chooses which characters can take part in a Noodle refresh. A refresh is when the AI writes a batch of posts, replies, reposts, and likes for the invited accounts.

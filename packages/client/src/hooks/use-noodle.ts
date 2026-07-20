@@ -126,6 +126,18 @@ export function useUpdateNoodlerStageProfile() {
   });
 }
 
+export function useDeleteNoodlerStageProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      api.delete<NoodleAccount>(`/noodle/noodler/accounts/${encodeURIComponent(accountId)}`),
+    onSuccess: (_account, accountId) => {
+      qc.removeQueries({ queryKey: noodleKeys.privatePosts(accountId) });
+      qc.invalidateQueries({ queryKey: noodleKeys.privateAccounts() });
+    },
+  });
+}
+
 export function useGenerateNoodlerStageProfileDraft() {
   return useMutation({
     mutationFn: (input: NoodleStageProfileDraftRequest) =>

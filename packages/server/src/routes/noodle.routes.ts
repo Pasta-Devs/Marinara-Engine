@@ -329,6 +329,15 @@ export async function noodleRoutes(app: FastifyInstance) {
     return profile;
   });
 
+  app.delete("/noodler/accounts/:id", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const { id } = req.params as { id: string };
+    const deleted = await noodle.deletePrivateAccount(id);
+    if (!deleted) return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    return deleted;
+  });
+
   app.get("/noodler/accounts/:id/posts", async (req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });

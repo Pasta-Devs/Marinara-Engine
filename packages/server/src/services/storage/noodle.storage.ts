@@ -581,6 +581,13 @@ export function createNoodleStorage(db: DB) {
       return rows[0] ? mapAccount(rows[0]) : null;
     },
 
+    async deletePrivateAccount(id: string): Promise<NoodleAccount | null> {
+      const existing = await this.getPrivateAccountById(id);
+      if (!existing) return null;
+      await db.delete(noodleAccounts).where(and(eq(noodleAccounts.id, id), eq(noodleAccounts.visibility, "private")));
+      return existing;
+    },
+
     async listNoodlerStageProfiles(): Promise<NoodlerManagedStageProfile[]> {
       const accounts = await this.listPrivateAccounts();
       return Promise.all(

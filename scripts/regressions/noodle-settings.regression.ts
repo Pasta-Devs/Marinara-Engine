@@ -318,6 +318,13 @@ try {
   assert.equal(await firstNoodle.subscribe(creatorSource.id, privateCreator.id), null);
   assert.equal(await firstNoodle.unlockPost(viewer.id, "missing-post"), null);
   assert.equal(await firstNoodle.updateAccount(privateCreator.id, { displayName: "Bypassed identity" }), null);
+  const deletedPrivateCreator = await firstNoodle.deletePrivateAccount(privateCreator.id);
+  assert.equal(deletedPrivateCreator?.id, privateCreator.id);
+  assert.equal(await firstNoodle.getPrivateAccountById(privateCreator.id), null);
+  assert.equal(await firstNoodle.getPrivatePostById(ppvPost.id), null);
+  assert.equal((await firstNoodle.listSubscriptionsForViewer(viewer.id)).length, 0);
+  assert.equal((await firstNoodle.listPostUnlocksForViewer(viewer.id)).length, 0);
+  assert.ok(await firstNoodle.getAccountById(creatorSource.id));
   await firstDb._fileStore.close();
 
   const refreshRunsPath = join(storageDir, "tables", "noodle_refresh_runs.json");
@@ -333,8 +340,8 @@ try {
   assert.equal(reopenedSettings.maxImagesPerRefresh, 9);
   assert.equal(reopenedSettings.allowRandomUsers, true);
   assert.equal(reopenedSettings.maxGeneratedPostsPerRefresh, 11);
-  assert.equal((await reopenedNoodle.listSubscriptionsForViewer(viewer.id)).length, 1);
-  assert.equal((await reopenedNoodle.listPostUnlocksForViewer(viewer.id)).length, 1);
+  assert.equal((await reopenedNoodle.listSubscriptionsForViewer(viewer.id)).length, 0);
+  assert.equal((await reopenedNoodle.listPostUnlocksForViewer(viewer.id)).length, 0);
   const reopenedConcurrentAccount = await reopenedNoodle.getAccountById(concurrentAccount.id);
   assert.equal(reopenedConcurrentAccount?.settings.profile.bannerUrl, "/banner.png");
   assert.deepEqual(

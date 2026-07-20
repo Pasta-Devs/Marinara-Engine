@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
   UserRound,
   Users,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import type {
 } from "@marinara-engine/shared";
 import {
   useCreateNoodlerStageProfile,
+  useDeleteNoodlerStageProfile,
   useGeneratePrivateNoodlePost,
   useGenerateNoodlerStageProfileDraft,
   useNoodle,
@@ -132,6 +134,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     navigation.mode === "private" && enabled,
   );
   const createProfile = useCreateNoodlerStageProfile();
+  const deleteProfile = useDeleteNoodlerStageProfile();
   const updateProfile = useUpdateNoodlerStageProfile();
   const generatePost = useGeneratePrivateNoodlePost();
   const generateProfileDraft = useGenerateNoodlerStageProfileDraft();
@@ -411,11 +414,24 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           isError={postsQuery.isError}
           onRetry={() => void postsQuery.refetch()}
           onEdit={() => beginEdit(selectedProfile)}
+          onDelete={() => {
+            if (!window.confirm(`Delete ${selectedProfile.displayName} and all of this NoodleR profile's posts?`)) {
+              return;
+            }
+            deleteProfile.mutate(selectedProfile.id, {
+              onSuccess: () => {
+                setSelectedProfileId(null);
+                toast.success("Stage profile deleted.");
+              },
+              onError: (error) => toast.error(errorMessage(error, "Could not delete the stage profile.")),
+            });
+          }}
           onGuide={() => {
             setGenerationError(null);
             setGuidedProfile(selectedProfile);
           }}
           accessPending={updateAccess.isPending}
+          deletePending={deleteProfile.isPending}
           onAccessChange={(access) =>
             updateAccess.mutate(
               { accountId: selectedProfile.id, ...access },
@@ -1039,8 +1055,10 @@ function StageProfileView({
   isError,
   onRetry,
   onEdit,
+  onDelete,
   onGuide,
   accessPending,
+  deletePending,
   onAccessChange,
 }: {
   profile: NoodlerManagedStageProfile;
@@ -1050,8 +1068,10 @@ function StageProfileView({
   isError: boolean;
   onRetry: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onGuide: () => void;
   accessPending: boolean;
+  deletePending: boolean;
   onAccessChange: (access: NoodlerManagedStageProfile["access"]) => void;
 }) {
   return (
@@ -1089,6 +1109,15 @@ function StageProfileView({
           >
             <Pencil size={14} />
             Edit profile
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deletePending}
+            className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[var(--destructive)]/45 px-3 text-xs font-bold text-[var(--destructive)] hover:bg-[var(--destructive)]/10 disabled:cursor-wait disabled:opacity-50"
+          >
+            {deletePending ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            {deletePending ? "Deleting..." : "Delete profile"}
           </button>
         </div>
       </section>
