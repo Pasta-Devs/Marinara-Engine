@@ -381,16 +381,20 @@ function splitNaturalPromptClauses(value: string): NaturalPromptClause[] {
     else if (char === "}" && braceDepth > 0) braceDepth -= 1;
 
     const insideGroup = parenDepth > 0 || bracketDepth > 0 || braceDepth > 0;
-    const startsNegativeClause = /^\s*(?:avoid|no|without)\b/i.test(value.slice(index + 1));
     if (!insideGroup && char === "\n") {
       pushCurrent();
       startsAtBoundary = true;
       continue;
     }
-    if (!insideGroup && char === "," && startsNegativeClause) {
-      pushCurrent();
-      startsAtBoundary = false;
-      continue;
+    if (!insideGroup && char === ",") {
+      const startsNegativeClause = /^\s*(?:avoid|no|without|exclude|do not include|don't include)\b/i.test(
+        value.slice(index + 1),
+      );
+      if (startsNegativeClause) {
+        pushCurrent();
+        startsAtBoundary = false;
+        continue;
+      }
     }
 
     current += char;

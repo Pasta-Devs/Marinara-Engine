@@ -3668,6 +3668,20 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(inlineAvoid.prompt, /holding flowers/);
       assert.match(inlineAvoid.prompt, /smiling/);
 
+      for (const instruction of ["exclude makeup", "do not include makeup", "don't include makeup"]) {
+        const inlineNegativeInstruction = compileImagePrompt({
+          kind: "selfie",
+          prompt: `A woman, ${instruction}, holding flowers, smiling`,
+          styleProfiles,
+          styleProfileId: "realistic",
+        });
+
+        assert.match(inlineNegativeInstruction.negativePrompt, /\bmakeup\b/);
+        assert.doesNotMatch(inlineNegativeInstruction.negativePrompt, /holding flowers|smiling/);
+        assert.match(inlineNegativeInstruction.prompt, /holding flowers/);
+        assert.match(inlineNegativeInstruction.prompt, /smiling/);
+      }
+
       const standaloneAvoid = compileImagePrompt({
         kind: "portrait",
         prompt:
