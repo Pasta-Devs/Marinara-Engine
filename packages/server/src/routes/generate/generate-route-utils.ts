@@ -5,6 +5,7 @@ import {
   applyTrackerFieldLocksToGameStatePatch,
   generationParametersSchema,
   normalizeTextForMatch,
+  normalizeSummaryTailMessages,
   normalizeWorldCustomFields,
   normalizeThinkingTagPairs,
   parseTrackerFieldLocks,
@@ -535,14 +536,10 @@ export function isRoleplaySummaryMode(chatMode: string): boolean {
  * `DEFAULT` only when the value is genuinely unset; an explicit `MIN` (0) means
  * "hide the whole batch". A present-but-invalid value (NaN, negative) fails
  * closed to `MIN` so corrupt metadata hides more rather than silently leaking
- * extra context. Clamped to [MIN, MAX].
+ * extra context. There is intentionally no upper cap.
  */
 export function resolveRoleplaySummaryTail(value: unknown): number {
-  const { MIN, MAX, DEFAULT } = SUMMARY_TAIL_MESSAGES;
-  if (value === undefined || value === null) return DEFAULT;
-  const n = Math.floor(Number(value));
-  if (!Number.isFinite(n) || n < MIN) return MIN;
-  return Math.min(MAX, n);
+  return normalizeSummaryTailMessages(value);
 }
 
 /**
@@ -558,8 +555,8 @@ export function computeSummaryHideIds(args: {
 }): string[] {
   const { messages, entryMessageIds, tail } = args;
   if (entryMessageIds.length === 0) return [];
-  const { MIN, MAX } = SUMMARY_TAIL_MESSAGES;
-  const clampedTail = Number.isFinite(tail) ? Math.max(MIN, Math.min(MAX, Math.floor(tail))) : MIN;
+  const { MIN } = SUMMARY_TAIL_MESSAGES;
+  const clampedTail = Number.isFinite(tail) ? Math.max(MIN, Math.floor(tail)) : MIN;
   const visible = messages.filter((message) => !isMessageHiddenFromAI(message));
   const tailIdSet = new Set(clampedTail > 0 ? visible.slice(-clampedTail).map((message) => message.id) : []);
   const entryIdSet = new Set(entryMessageIds);

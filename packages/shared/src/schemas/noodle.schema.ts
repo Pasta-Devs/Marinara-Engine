@@ -5,6 +5,7 @@ import { z } from "zod";
 
 export const noodleAccountKindSchema = z.enum(["persona", "character", "random_user"]);
 export const noodleInteractionTypeSchema = z.enum(["like", "repost", "reply", "vote"]);
+export const noodlePostAccessSchema = z.enum(["public", "subscriber", "ppv"]);
 export const noodleParticipantSelectionModeSchema = z.enum(["all", "random_range", "exact"]);
 export const noodleCarryoverModeSchema = z.enum(["off", "conversation", "roleplay", "game", "all"]);
 export const noodleCarryoverTargetSchema = z.enum(["conversation", "roleplay", "game"]);
@@ -133,11 +134,27 @@ export const noodleAccountSocialSettingsSchema = z
   .strict();
 
 export const noodleAccountSchedulerSettingsSchema = z.object({}).strict();
+export const noodleAccountAccessSettingsSchema = z
+  .object({
+    hiddenFromAccountIds: z.array(z.string().min(1)).default([]),
+    subscriptionIncludesPpv: z.boolean().default(false),
+  })
+  .strict();
+
 export const noodleAccountPrivacySettingsSchema = z
   .object({
     identityDisclosure: noodleIdentityDisclosureSchema.optional(),
     stagePersonality: z.string().trim().max(1000).optional(),
+    access: noodleAccountAccessSettingsSchema.default({
+      hiddenFromAccountIds: [],
+      subscriptionIncludesPpv: false,
+    }),
   })
+  .strict();
+
+export const noodleAccountPrivacyPatchSchema = noodleAccountPrivacySettingsSchema
+  .omit({ access: true })
+  .extend({ access: noodleAccountAccessSettingsSchema.partial().optional() })
   .strict();
 
 export const noodleAccountSocialPatchSchema = noodleAccountSocialSettingsSchema.pick({ notificationsReadAt: true });
@@ -145,7 +162,7 @@ export const noodleAccountSocialPatchSchema = noodleAccountSocialSettingsSchema.
 export const noodleAccountSettingsPatchSchema = z.discriminatedUnion("subtree", [
   z.object({ subtree: z.literal("social"), patch: noodleAccountSocialPatchSchema }).strict(),
   z.object({ subtree: z.literal("scheduler"), patch: noodleAccountSchedulerSettingsSchema }).strict(),
-  z.object({ subtree: z.literal("privacy"), patch: noodleAccountPrivacySettingsSchema }).strict(),
+  z.object({ subtree: z.literal("privacy"), patch: noodleAccountPrivacyPatchSchema }).strict(),
 ]);
 
 const noodleAccountIdentityUpdateShape = {
@@ -245,6 +262,11 @@ export const noodleCreatePostSchema = z.object({
   poll: noodlePollInputSchema.nullable().optional(),
 });
 
+const noodlerPersonaIdSchema = z.object({ personaId: z.string().min(1) }).strict();
+export const noodlerViewerPersonaSchema = noodlerPersonaIdSchema;
+export const noodlerSubscriptionSchema = noodlerPersonaIdSchema;
+export const noodlerUnlockSchema = noodlerPersonaIdSchema;
+
 export const noodlePostUpdateSchema = z.object({
   content: z.string().trim().min(1).max(4000).optional(),
   imageUrl: z.string().max(2000).nullable().optional(),
@@ -339,17 +361,27 @@ export const noodlePrivatePostGuideSchema = z.string().trim().min(1).max(2000);
 
 export const noodlePrivateProjectWorkSchema = z.string().trim().min(1).max(4000);
 
-export const noodlePrivateGenerationRequestSchema = z
-  .object({
-    mode: z.literal("private"),
-    ...noodleGenerationConnectionShape,
-    targetAccountId: z.string().min(1),
-    privatePostGuide: noodlePrivatePostGuideSchema.optional(),
-    privateProjectWork: noodlePrivateProjectWorkSchema.optional(),
-  })
-  .strict();
+const noodlePrivateGenerationRequestShape = {
+  mode: z.literal("private"),
+  ...noodleGenerationConnectionShape,
+  targetAccountId: z.string().min(1),
+  privatePostGuide: noodlePrivatePostGuideSchema.optional(),
+  privateProjectWork: noodlePrivateProjectWorkSchema.optional(),
+};
 
-export const noodleGenerationRequestSchema = z.discriminatedUnion("mode", [
+export const noodlePrivateGenerationRequestSchema = z.union([
+  z.object({ ...noodlePrivateGenerationRequestShape, access: z.literal("public").default("public") }).strict(),
+  z.object({ ...noodlePrivateGenerationRequestShape, access: z.literal("subscriber") }).strict(),
+  z
+    .object({
+      ...noodlePrivateGenerationRequestShape,
+      access: z.literal("ppv"),
+      ppvPrice: z.number().finite().min(0).max(999_999).nullable().optional(),
+    })
+    .strict(),
+]);
+
+export const noodleGenerationRequestSchema = z.union([
   noodlePublicGenerationRequestSchema,
   noodlePrivateGenerationRequestSchema,
 ]);

@@ -7,12 +7,18 @@ export type NoodleAccountKind = "persona" | "character" | "random_user";
 export type NoodleAccountVisibility = "public" | "private";
 export type NoodleInteractionType = "like" | "repost" | "reply" | "vote";
 export type NoodlePostSource = "manual" | "generated";
+export type NoodlePostAccess = "public" | "subscriber" | "ppv";
 export type NoodleTheme = "system" | "light" | "dark";
 export type NoodleCarryoverMode = "off" | "conversation" | "roleplay" | "game" | "all";
 export type NoodleCarryoverTarget = "conversation" | "roleplay" | "game";
 export type NoodleParticipantSelectionMode = "all" | "random_range" | "exact";
 export type NoodleAvatarCrop = PersonaAvatarCrop | LegacyPersonaAvatarCrop;
 export type NoodleIdentityDisclosure = "open" | "hinted" | "secret";
+
+export interface NoodleAccountAccessSettings {
+  hiddenFromAccountIds: string[];
+  subscriptionIncludesPpv: boolean;
+}
 
 export interface NoodleAccountProfileSettings {
   avatarCrop?: NoodleAvatarCrop | null;
@@ -32,6 +38,7 @@ export type NoodleAccountSchedulerSettings = Record<string, never>;
 export interface NoodleAccountPrivacySettings {
   identityDisclosure?: NoodleIdentityDisclosure;
   stagePersonality?: string;
+  access: NoodleAccountAccessSettings;
 }
 
 export interface NoodleAccountSettings {
@@ -115,6 +122,10 @@ export interface NoodlerStageProfile {
   updatedAt: string;
 }
 
+export interface NoodlerManagedStageProfile extends NoodlerStageProfile {
+  access: NoodleAccountAccessSettings;
+}
+
 export interface NoodlerProfileSource {
   id: string;
   kind: NoodleAccountKind;
@@ -144,10 +155,50 @@ export interface NoodlePost {
   parentPostId: string | null;
   quotePostId: string | null;
   source: NoodlePostSource;
+  access: NoodlePostAccess;
+  ppvPrice: number | null;
   metadata: Record<string, unknown>;
   authorSnapshot: NoodleAuthorSnapshot | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface NoodleAccountSubscription {
+  id: string;
+  viewerAccountId: string;
+  creatorAccountId: string;
+  createdAt: string;
+}
+
+export interface NoodlePostUnlock {
+  id: string;
+  viewerAccountId: string;
+  postId: string;
+  createdAt: string;
+}
+
+export interface NoodlerPostView {
+  id: string;
+  authorAccountId: string;
+  access: NoodlePostAccess;
+  ppvPrice: number | null;
+  locked: boolean;
+  content: string | null;
+  imageUrl: string | null;
+  imagePrompt: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface NoodlerViewerCreator {
+  profile: NoodlerStageProfile;
+  subscribed: boolean;
+  posts: NoodlerPostView[];
+}
+
+export interface NoodlerViewerScope {
+  viewer: NoodleAccount;
+  creators: NoodlerViewerCreator[];
 }
 
 export interface NoodleInteraction {

@@ -91,7 +91,9 @@ try {
   assert.equal(concurrentlyUpdatedAccount?.settings.profile.bannerUrl, "/banner.png");
   assert.equal(concurrentlyUpdatedAccount?.settings.social.notificationsReadAt, "2026-07-17T09:00:00.000Z");
   assert.deepEqual(concurrentlyUpdatedAccount?.settings.scheduler, {});
-  assert.deepEqual(concurrentlyUpdatedAccount?.settings.privacy, {});
+  assert.deepEqual(concurrentlyUpdatedAccount?.settings.privacy, {
+    access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false },
+  });
   assert.equal(
     noodleAccountSettingsPatchSchema.safeParse({ subtree: "social", patch: { followingAccountIds: ["blocked"] } })
       .success,
@@ -137,7 +139,7 @@ try {
       notificationsReadAt: "2026-07-17T11:00:00.000Z",
     },
     scheduler: {},
-    privacy: {},
+    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
   });
   await firstDb
     .update(noodleAccounts)
@@ -163,7 +165,7 @@ try {
       followingAccountTimestamps: { "valid-follow": "2026-07-17T12:00:00.000Z" },
     },
     scheduler: {},
-    privacy: {},
+    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
   });
   const followTargetA = await firstNoodle.upsertAccountFromProfile({
     kind: "character",
@@ -180,10 +182,10 @@ try {
     firstNoodle.updateAccountFollow(concurrentAccount.id, followTargetB.id, true, "2026-07-17T13:00:01.000Z"),
   ]);
   const concurrentlyFollowedAccount = await firstNoodle.getAccountById(concurrentAccount.id);
-  assert.deepEqual(new Set(concurrentlyFollowedAccount?.settings.social.followingAccountIds), new Set([
-    followTargetA.id,
-    followTargetB.id,
-  ]));
+  assert.deepEqual(
+    new Set(concurrentlyFollowedAccount?.settings.social.followingAccountIds),
+    new Set([followTargetA.id, followTargetB.id]),
+  );
   assert.equal(
     concurrentlyFollowedAccount?.settings.social.followingAccountTimestamps?.[followTargetA.id],
     "2026-07-17T13:00:00.000Z",
@@ -276,8 +278,75 @@ try {
     profile: { profileGenerated: true, location: "Snezhnaya" },
     social: {},
     scheduler: {},
-    privacy: {},
+    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
   });
+  const creatorSource = await firstNoodle.upsertAccountFromProfile({
+    kind: "character",
+    entityId: "access-creator",
+    displayName: "Access Creator",
+  });
+  const privateCreator = await firstNoodle.createPrivateAccount(creatorSource.id, {
+    displayName: "After Hours",
+    handle: "after_hours",
+    bio: "",
+    stagePersonality: "Reserved",
+    disclosureMode: "secret",
+  });
+  assert.ok(privateCreator);
+  const viewer = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "access-viewer",
+    displayName: "Access Viewer",
+  });
+  const ppvPost = await firstNoodle.createPrivatePost({
+    authorAccountId: privateCreator.id,
+    content: "Locked content",
+    access: "ppv",
+    ppvPrice: 5,
+  });
+  assert.ok(ppvPost);
+  const [firstSubscription, duplicateSubscription] = await Promise.all([
+    firstNoodle.subscribe(viewer.id, privateCreator.id),
+    firstNoodle.subscribe(viewer.id, privateCreator.id),
+  ]);
+  assert.equal(firstSubscription?.id, duplicateSubscription?.id);
+  const [firstUnlock, duplicateUnlock] = await Promise.all([
+    firstNoodle.unlockPost(viewer.id, ppvPost.id),
+    firstNoodle.unlockPost(viewer.id, ppvPost.id),
+  ]);
+  assert.equal(firstUnlock?.id, duplicateUnlock?.id);
+  assert.equal(await firstNoodle.subscribe(creatorSource.id, privateCreator.id), null);
+  const personaCreatorSource = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "access-persona-creator",
+    displayName: "Persona Creator",
+  });
+  const personaPrivateCreator = await firstNoodle.createPrivateAccount(personaCreatorSource.id, {
+    displayName: "Persona After Hours",
+    handle: "persona_after_hours",
+    bio: "",
+    stagePersonality: "Reserved",
+    disclosureMode: "secret",
+  });
+  assert.ok(personaPrivateCreator);
+  const personaPpvPost = await firstNoodle.createPrivatePost({
+    authorAccountId: personaPrivateCreator!.id,
+    content: "Persona locked content",
+    access: "ppv",
+    ppvPrice: 5,
+  });
+  assert.ok(personaPpvPost);
+  assert.equal(await firstNoodle.subscribe(personaCreatorSource.id, personaPrivateCreator!.id), null);
+  assert.equal(await firstNoodle.unlockPost(personaCreatorSource.id, personaPpvPost!.id), null);
+  assert.equal(await firstNoodle.unlockPost(viewer.id, "missing-post"), null);
+  assert.equal(await firstNoodle.updateAccount(privateCreator.id, { displayName: "Bypassed identity" }), null);
+  const deletedPrivateCreator = await firstNoodle.deletePrivateAccount(privateCreator.id);
+  assert.equal(deletedPrivateCreator?.id, privateCreator.id);
+  assert.equal(await firstNoodle.getPrivateAccountById(privateCreator.id), null);
+  assert.equal(await firstNoodle.getPrivatePostById(ppvPost.id), null);
+  assert.equal((await firstNoodle.listSubscriptionsForViewer(viewer.id)).length, 0);
+  assert.equal((await firstNoodle.listPostUnlocksForViewer(viewer.id)).length, 0);
+  assert.ok(await firstNoodle.getAccountById(creatorSource.id));
   await firstDb._fileStore.close();
 
   const refreshRunsPath = join(storageDir, "tables", "noodle_refresh_runs.json");
@@ -293,12 +362,14 @@ try {
   assert.equal(reopenedSettings.maxImagesPerRefresh, 9);
   assert.equal(reopenedSettings.allowRandomUsers, true);
   assert.equal(reopenedSettings.maxGeneratedPostsPerRefresh, 11);
+  assert.equal((await reopenedNoodle.listSubscriptionsForViewer(viewer.id)).length, 0);
+  assert.equal((await reopenedNoodle.listPostUnlocksForViewer(viewer.id)).length, 0);
   const reopenedConcurrentAccount = await reopenedNoodle.getAccountById(concurrentAccount.id);
   assert.equal(reopenedConcurrentAccount?.settings.profile.bannerUrl, "/banner.png");
-  assert.deepEqual(new Set(reopenedConcurrentAccount?.settings.social.followingAccountIds), new Set([
-    followTargetA.id,
-    followTargetB.id,
-  ]));
+  assert.deepEqual(
+    new Set(reopenedConcurrentAccount?.settings.social.followingAccountIds),
+    new Set([followTargetA.id, followTargetB.id]),
+  );
   const reopenedRuns = await reopenedNoodle.listRefreshRuns({ status: "completed", limit: 2 });
   const reopenedRun = reopenedRuns.find((entry) => entry.id === refreshRun.id);
   assert.equal(reopenedRun?.result, correctedResponse);
@@ -318,10 +389,7 @@ try {
       createdAt: "2026-07-15T19:00:01.000Z",
     },
   ]);
-  assert.deepEqual(
-    reopenedRuns.find((entry) => entry.id === legacyRefreshRun.id)?.attempts,
-    [],
-  );
+  assert.deepEqual(reopenedRuns.find((entry) => entry.id === legacyRefreshRun.id)?.attempts, []);
   await reopenedDb._fileStore.close();
 } finally {
   rmSync(storageDir, { recursive: true, force: true });

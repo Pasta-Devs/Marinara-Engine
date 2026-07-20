@@ -252,6 +252,8 @@ export async function generatePrivatePost(
       protectPrivateGeneratedIdentity(generated.imagePrompt, disclosureMode, publicIdentity),
     ),
     source: "generated",
+    access: input.request.access,
+    ppvPrice: input.request.access === "ppv" ? (input.request.ppvPrice ?? null) : null,
     metadata: { ...(poll ? { poll } : {}) },
   });
   if (!post) throw new Error("Failed to persist the generated private NoodleR post.");

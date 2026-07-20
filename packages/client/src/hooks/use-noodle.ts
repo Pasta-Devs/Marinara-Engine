@@ -27,6 +27,8 @@ import type {
   NoodlePrivateGenerationRequest,
   NoodleStageProfileDraftRequest,
   NoodlerStageProfile,
+  NoodlerManagedStageProfile,
+  NoodlerViewerScope,
 } from "@marinara-engine/shared";
 import { mergeNoodlePollVoteInteractions } from "@marinara-engine/shared";
 import type { ImagePromptOverride, ImagePromptReviewItem } from "../components/ui/ImagePromptReviewModal";
@@ -43,6 +45,7 @@ export const noodleKeys = {
   privateEligibleAccounts: (search: string, kind: string) =>
     [...noodleKeys.privateAccounts(), "eligible", search, kind] as const,
   privatePosts: (accountId: string) => [...noodleKeys.privateAccounts(), accountId, "posts"] as const,
+  viewer: (personaId: string) => [...noodleKeys.privateAccounts(), "viewer", personaId] as const,
 };
 
 function preservePollVotes(current: NoodleBootstrap | undefined, next: NoodleBootstrap): NoodleBootstrap {
@@ -67,7 +70,7 @@ export function useNoodle(enabled = true) {
 export function useNoodlerAccounts(enabled = true) {
   return useQuery({
     queryKey: noodleKeys.privateAccounts(),
-    queryFn: () => api.get<NoodlerStageProfile[]>("/noodle/noodler/accounts"),
+    queryFn: () => api.get<NoodlerManagedStageProfile[]>("/noodle/noodler/accounts"),
     enabled,
     staleTime: 10_000,
   });
@@ -123,6 +126,18 @@ export function useUpdateNoodlerStageProfile() {
   });
 }
 
+export function useDeleteNoodlerStageProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) =>
+      api.delete<NoodleAccount>(`/noodle/noodler/accounts/${encodeURIComponent(accountId)}`),
+    onSuccess: (_account, accountId) => {
+      qc.removeQueries({ queryKey: noodleKeys.privatePosts(accountId) });
+      qc.invalidateQueries({ queryKey: noodleKeys.privateAccounts() });
+    },
+  });
+}
+
 export function useGenerateNoodlerStageProfileDraft() {
   return useMutation({
     mutationFn: (input: NoodleStageProfileDraftRequest) =>
@@ -133,13 +148,72 @@ export function useGenerateNoodlerStageProfileDraft() {
 export function useGeneratePrivateNoodlePost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: Pick<NoodlePrivateGenerationRequest, "targetAccountId" | "privatePostGuide">) =>
+    mutationFn: (input: NoodlePrivateGenerationRequest) =>
       api.post<NoodlePost>("/noodle/refresh", {
-        mode: "private",
         ...input,
         debugMode: useUIStore.getState().debugMode,
       } satisfies NoodlePrivateGenerationRequest),
     onSuccess: (_post, input) => qc.invalidateQueries({ queryKey: noodleKeys.privatePosts(input.targetAccountId) }),
+  });
+}
+
+export function useNoodlerViewer(personaId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: noodleKeys.viewer(personaId ?? "none"),
+    queryFn: () => api.get<NoodlerViewerScope>(`/noodle/noodler/viewer?personaId=${encodeURIComponent(personaId!)}`),
+    enabled: enabled && Boolean(personaId),
+    staleTime: 10_000,
+  });
+}
+
+export function useToggleNoodlerSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      creatorAccountId,
+      personaId,
+      subscribed,
+    }: {
+      creatorAccountId: string;
+      personaId: string;
+      subscribed: boolean;
+    }) =>
+      subscribed
+        ? api.delete<{ ok: true }>(
+            `/noodle/noodler/accounts/${encodeURIComponent(creatorAccountId)}/subscribe?personaId=${encodeURIComponent(personaId)}`,
+          )
+        : api.post(`/noodle/noodler/accounts/${encodeURIComponent(creatorAccountId)}/subscribe`, { personaId }),
+    onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: noodleKeys.viewer(input.personaId) }),
+  });
+}
+
+export function useUnlockNoodlerPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ postId, personaId }: { postId: string; personaId: string }) =>
+      api.post(`/noodle/noodler/posts/${encodeURIComponent(postId)}/unlock`, { personaId }),
+    onSuccess: (_result, input) => qc.invalidateQueries({ queryKey: noodleKeys.viewer(input.personaId) }),
+  });
+}
+
+export function useUpdateNoodlerAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      ...access
+    }: {
+      accountId: string;
+      hiddenFromAccountIds: string[];
+      subscriptionIncludesPpv: boolean;
+    }) =>
+      api.patch<NoodleAccount>(`/noodle/accounts/${encodeURIComponent(accountId)}/settings`, {
+        subtree: "privacy",
+        patch: { access },
+      } satisfies NoodleAccountSettingsPatchInput),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: noodleKeys.privateAccounts() });
+    },
   });
 }
 
