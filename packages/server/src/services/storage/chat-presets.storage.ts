@@ -97,7 +97,7 @@ function sanitizePresetMetadata(metadata: Record<string, unknown> | undefined | 
 
 /** Strip chat-specific keys from a settings object before saving into a preset. */
 function sanitizePresetSettings(input: ChatPresetSettings | undefined | null): ChatPresetSettings {
-  if (!input) return {};
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const out: ChatPresetSettings = {};
   if ("connectionId" in input) out.connectionId = input.connectionId ?? null;
   if ("promptPresetId" in input) out.promptPresetId = input.promptPresetId ?? null;

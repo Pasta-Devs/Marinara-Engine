@@ -18,6 +18,7 @@ import {
   isAgentAvailableInChatMode,
   isPatternSafe,
   normalizeChatSummaryEntries,
+  normalizeChatSummaryPromptSettings,
   normalizeWorldCustomFields,
   LIMITS,
   resolveRegexPatternLiteralMacros,
@@ -3724,6 +3725,40 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.equal(resolveActivePersonaCandidate(personas, null, "game"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "conversation")?.id, "active-persona");
       assert.equal(resolveActivePersonaCandidate(personas, "selected-persona", "roleplay")?.id, "selected-persona");
+    },
+  },
+  {
+    name: "chat summary prompt settings reject malformed values and preserve only valid active templates",
+    run() {
+      const emptySettings = { templates: [], activeTemplateId: null };
+      assert.deepEqual(normalizeChatSummaryPromptSettings("{not json"), emptySettings);
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({
+          templates: { id: "summary", name: "Summary", prompt: "Summarize the chat." },
+          activeTemplateId: "summary",
+        }),
+        emptySettings,
+      );
+
+      const templates = [
+        { id: "summary", name: "Summary", prompt: "Summarize the chat." },
+        { id: "other", name: "Other", prompt: "Use another format." },
+      ];
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({
+          templates: [
+            { id: " summary ", name: " Summary ", prompt: " Summarize the chat. " },
+            { id: "summary", name: "Duplicate", prompt: "Ignore this duplicate." },
+            templates[1],
+          ],
+          activeTemplateId: " summary ",
+        }),
+        { templates, activeTemplateId: "summary" },
+      );
+      assert.deepEqual(normalizeChatSummaryPromptSettings({ templates, activeTemplateId: "missing" }), {
+        templates,
+        activeTemplateId: null,
+      });
     },
   },
   {
