@@ -972,6 +972,10 @@ export interface NoodlePostCardCtx {
   updateInteraction: { isPending: boolean };
   deleteInteraction: { isPending: boolean };
   uploadGlobalImages: { isPending: boolean };
+  /** Gate the three-dot post menu (Edit/Delete). Omit to always show (Noodle default). */
+  canManagePost?: (post: NoodlePost) => boolean;
+  /** Gate reply Edit/Delete. Omit for the default author-based check. */
+  canManageReply?: (reply: NoodleInteraction) => boolean;
 }
 
 export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePostCardCtx }) {
@@ -1037,6 +1041,8 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     updateInteraction,
     deleteInteraction,
     uploadGlobalImages,
+    canManagePost,
+    canManageReply: canManageReplyOverride,
   } = ctx;
 
     const authorAccount = accountById.get(post.authorAccountId) ?? null;
@@ -1285,6 +1291,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
                 <span className="text-xs text-[var(--muted-foreground)]">@{author?.handle ?? "noodle"}</span>
                 <span className="text-xs text-[var(--muted-foreground)]">{formatTime(post.createdAt)}</span>
               </div>
+              {(canManagePost ? canManagePost(post) : true) && (
               <div className="relative shrink-0">
                 <button
                   type="button"
@@ -1316,6 +1323,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
                   </div>
                 )}
               </div>
+              )}
             </div>
             {editingPostId === post.id ? (
               <div className="mt-2 space-y-2">
@@ -1453,14 +1461,16 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
                   const likedReplyByPersona = personaAccount
                     ? replyLikes.some((interaction) => interaction.actorAccountId === personaAccount.id)
                     : false;
-                  const canManageReply = Boolean(
-                    personaAccount &&
-                    canManageNoodleReply({
-                      actorKind: actorAccount?.kind ?? reply.actorSnapshot?.kind,
-                      actorAccountId: reply.actorAccountId,
-                      personaAccountId: personaAccount.id,
-                    }),
-                  );
+                  const canManageReply = canManageReplyOverride
+                    ? canManageReplyOverride(reply)
+                    : Boolean(
+                        personaAccount &&
+                          canManageNoodleReply({
+                            actorKind: actorAccount?.kind ?? reply.actorSnapshot?.kind,
+                            actorAccountId: reply.actorAccountId,
+                            personaAccountId: personaAccount.id,
+                          }),
+                      );
                   return (
                     <Fragment key={reply.id}>
                       <div
