@@ -17,7 +17,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Applied enabled Connection generation defaults across every Noodle text-generation path and allowed custom OpenAI-compatible endpoints to receive explicitly enabled top-k, reasoning-effort, and verbosity parameters (#3845).
-- Kept dynamic NPC portrait prompt rewrites authoritative and excluded non-visual NPC history notes from portrait appearance context (#3846).
+- Kept dynamic NPC portrait prompt rewrites authoritative, removed host instructions that forced custom directors to echo raw canonical prose labels, and excluded non-visual NPC history notes from portrait appearance context (#3846).
 - Removed unused agent/turn-game contract members, obsolete generated registries, duplicate tool arrays, Visual Novel types, chat-mode definitions, and redundant public aliases while preserving legacy downloadable-agent package parsing (#3847, #3848).
 - Regenerated merged Roleplay group replies with the full active character roster instead of narrowing the prompt to the previously saved speaker (#3850).
 - Made the Character editor's **Copy ID** action work on mobile and non-secure browser contexts and report only confirmed clipboard success (#3851).

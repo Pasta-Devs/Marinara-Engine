@@ -1119,7 +1119,7 @@ function sanitizeDynamicGameImagePromptResponse(raw: string, maxCharacters: numb
   return candidate.slice(0, maxCharacters).trim() || null;
 }
 
-async function buildDynamicGameImagePromptMessages(args: {
+export async function buildDynamicGameImagePromptMessages(args: {
   promptOverridesStorage?: PromptOverridesStorage;
   request: GameDynamicImagePromptRequest;
   meta: Record<string, unknown>;
@@ -1165,11 +1165,6 @@ async function buildDynamicGameImagePromptMessages(args: {
   const systemPrompt = args.promptOverridesStorage
     ? await loadPrompt(args.promptOverridesStorage, GAME_IMAGE_PROMPT_DIRECTOR, vars)
     : GAME_IMAGE_PROMPT_DIRECTOR.defaultBuilder(vars);
-  const portraitIdentityInstruction =
-    args.request.kind === "portrait"
-      ? "For NPC portraits, copy the Required canonical NPC visual profile / Appearance traits from <asset_context> and <draft_prompt> into the returned prompt. Do not replace them with a generic character design."
-      : "";
-
   return [
     { role: "system", content: systemPrompt },
     {
@@ -1180,7 +1175,6 @@ async function buildDynamicGameImagePromptMessages(args: {
         `<draft_prompt>\n${sourcePrompt}\n</draft_prompt>`,
         [
           `Rewrite this into one positive prompt for a ${gameDynamicImagePromptKindLabel(args.request.kind)}.`,
-          portraitIdentityInstruction,
           `Maximum length: ${args.request.maxCharacters} characters.`,
           'Return only JSON: {"prompt":"..."}.',
         ]

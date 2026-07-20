@@ -560,7 +560,7 @@ export async function buildNpcPortraitProviderPrompt(req: NpcPortraitRequest): P
     maxCharacters: 1400,
     assetContext: [
       `NPC name: ${req.npcName}`,
-      req.appearance ? `Required canonical NPC visual profile: ${req.appearance}` : "",
+      req.appearance ? `Appearance traits: ${req.appearance}` : "",
       req.gender ? `Gender: ${req.gender}` : "",
       req.pronouns ? `Pronouns: ${req.pronouns}` : "",
       req.artStyle ? `Art style: ${req.artStyle}` : "",
