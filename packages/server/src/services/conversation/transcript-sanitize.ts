@@ -15,6 +15,7 @@ const SPEAKER_TIMESTAMP_RE = new RegExp(`^(\\s*(?:[-*]\\s*)?[^:\\n]{1,80}:\\s*)(
 const CONVERSATION_REPEAT_MIN_LENGTH = 40;
 
 type ConversationResponseHistoryMessage = {
+  id?: unknown;
   role?: unknown;
   characterId?: unknown;
   content?: unknown;
@@ -29,12 +30,14 @@ export function isRepeatedConversationResponse(
   messages: readonly ConversationResponseHistoryMessage[],
   characterId: string | null,
   content: string,
+  options: { excludeMessageId?: string | null } = {},
 ): boolean {
   const normalizedContent = normalizeTextForMatch(content);
   if (normalizedContent.length < CONVERSATION_REPEAT_MIN_LENGTH) return false;
 
   for (let index = messages.length - 1; index >= 0; index--) {
     const message = messages[index]!;
+    if (options.excludeMessageId && message.id === options.excludeMessageId) continue;
     if (message.role !== "assistant" || (message.characterId ?? null) !== characterId) continue;
     return normalizeTextForMatch(message.content) === normalizedContent;
   }

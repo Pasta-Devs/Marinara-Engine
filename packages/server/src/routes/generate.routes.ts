@@ -5918,11 +5918,10 @@ export async function generateRoutes(app: FastifyInstance) {
             );
             fullResponse = "";
             if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });
-            sendSseEvent(reply, { type: "generation_discarded", data: { reason: "duplicate_response" } });
-            if (input.autonomous) {
-              recordAssistantActivity(input.chatId, targetCharId ?? undefined);
-              await recordSavedAutonomousGeneration(targetCharId);
-            }
+            sendSseEvent(reply, {
+              type: "generation_discarded",
+              data: { reason: "duplicate_response", characterId: targetCharId },
+            });
             return null;
           }
 
@@ -8301,9 +8300,34 @@ export async function generateRoutes(app: FastifyInstance) {
                       messageId,
                     );
                   }
+                  const rewriteCharacterId =
+                    typeof (lastSavedMsg as { characterId?: unknown } | null)?.characterId === "string"
+                      ? (lastSavedMsg as { characterId: string }).characterId
+                      : null;
+                  const repeatsPriorConversationResponse =
+                    rewriteAllowed &&
+                    !strictEditNeeded &&
+                    chatMode === "conversation" &&
+                    !input.impersonate &&
+                    !input.regenerateMessageId &&
+                    !input.continueMessageId &&
+                    editedText.trim().length > 0 &&
+                    isRepeatedConversationResponse(
+                      await chats.listMessages(input.chatId),
+                      rewriteCharacterId,
+                      editedText,
+                      { excludeMessageId: messageId },
+                    );
+                  if (repeatsPriorConversationResponse) {
+                    logger.warn(
+                      { chatId: input.chatId, characterId: rewriteCharacterId, messageId },
+                      "[text-rewrite] Skipping custom rewrite because it repeated a prior Conversation response",
+                    );
+                  }
                   const changedMessage =
                     rewriteAllowed &&
                     !droppedProtectedMarkup &&
+                    !repeatsPriorConversationResponse &&
                     editedText.trim().length > 0 &&
                     editedText !== currentResponseForRewrite;
                   if (changedMessage) {
