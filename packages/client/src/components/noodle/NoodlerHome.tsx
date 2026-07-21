@@ -440,6 +440,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     highlightedInteractionId: null,
     mediaPickerTab,
     setMediaPickerTab,
+    // ponytail: fake media plumbing kept only to satisfy the shared ctx type — setImageLightbox
+    // discards its state (no lightbox host), replyImageFileRef points at no input, and
+    // uploadGlobalImages below is a no-op mutation. disableReplyImage hides the UI that drives
+    // these; making reply images real means replacing these stubs, not just flipping the flag.
     setImageLightbox,
     replyComposerRef,
     replyValueRef,
@@ -477,6 +481,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     canManageReply: () => false,
     // NoodleR replies are text-only: submitReply omits imageUrl and no upload input is
     // rendered, so hide the attach-image tool, upload, and GIF affordances.
+    // ponytail: boolean gate is right for one host + one capability. To actually support
+    // reply images, make the stubbed plumbing real (imageUrl in noodlerCreateInteractionSchema
+    // + createPrivateInteraction, a genuine upload mutation, a real file input) and flip this
+    // flag LAST — removing it alone lets the UI attach an image that submitReply silently
+    // drops. If a second capability needs gating or a third host reuses NoodlePostCard,
+    // stop adding booleans and split the ctx into discriminated capability groups (Finding 2)
+    // so unsupported groups pass no plumbing and the stubs below disappear by construction.
     disableReplyImage: true,
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
