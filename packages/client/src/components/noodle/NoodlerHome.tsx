@@ -65,7 +65,6 @@ import {
   type NoodlePostCardCtx,
 } from "./NoodleHome";
 import { ConversationMediaPickerPanel, type ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
-import type { ChatImage } from "../../hooks/use-gallery";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE, NOODLE_PINK, useNoodleAccent } from "./NoodleShell";
 import { Modal } from "../ui/Modal";
 import type { NoodleNavigationState } from "./noodle-navigation.types";
@@ -245,17 +244,11 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [replyParentInteractionId, setReplyParentInteractionId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [replyHasText, setReplyHasText] = useState(false);
-  const [replyImageUrl, setReplyImageUrl] = useState("");
-  const [replyImageUrlDraft, setReplyImageUrlDraft] = useState("");
   const [activeReplyComposerTool, setActiveReplyComposerTool] = useState<"image" | "media" | null>(null);
   const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
-  // ponytail: NoodleR has no fullscreen lightbox host; setter satisfies the shared card, images stay inline.
-  const [, setImageLightbox] = useState<ChatImage | null>(null);
   const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
   const replyValueRef = useRef("");
-  const replyImageToolRef = useRef<HTMLDivElement | null>(null);
   const replyMediaToolRef = useRef<HTMLDivElement | null>(null);
-  const replyImageFileRef = useRef<HTMLInputElement | null>(null);
   const updateAccess = useUpdateNoodlerAccess();
   const [sourceSearch, setSourceSearch] = useState("");
   const [sourceKind, setSourceKind] = useState<"all" | "character" | "persona">("all");
@@ -314,7 +307,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setReplyText("");
     replyValueRef.current = "";
     setReplyHasText(false);
-    setReplyImageUrl("");
     if (replyComposerRef.current) replyComposerRef.current.value = "";
   };
   const clearReplyComposer = () => {
@@ -323,7 +315,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setReplyText("");
     replyValueRef.current = "";
     setReplyHasText(false);
-    setReplyImageUrl("");
     if (replyComposerRef.current) replyComposerRef.current.value = "";
   };
   const handleReplyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -337,12 +328,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setReplyText(next);
     setReplyHasText(next.trim().length > 0);
     if (replyComposerRef.current) replyComposerRef.current.value = next;
-  };
-  const applyReplyImageUrl = () => {
-    const url = replyImageUrlDraft.trim();
-    if (url) setReplyImageUrl(url);
-    setReplyImageUrlDraft("");
-    setActiveReplyComposerTool(null);
   };
   const reactToPost = (post: NoodlePost, type: "like" | "repost", active = false) => {
     if (!viewerPersonaId) return;
@@ -409,7 +394,11 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const allViewerInteractions = (viewerQuery.data?.creators ?? [])
     .flatMap((creator) => creator.posts)
     .flatMap((post) => post.interactions);
-  const noop = () => {};
+  // NoodleR is a text-only roleplay sandbox: it supports post edit/delete, reactions, and
+  // text replies, but not reply images, reply editing/deletion, @mentions, polls, or profile
+  // navigation. It therefore omits the media/replyManagement/mentions/voteInPoll/openProfile
+  // capability groups entirely — the shared card supplies the no-op defaults and hides the
+  // corresponding UI, so NoodleR passes no discarded setters, dangling refs, or fake mutations.
   const postCardCtx: NoodlePostCardCtx = {
     accountById: new Map(),
     accountByHandle: new Map(),
@@ -420,75 +409,33 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     editingPostId,
     editingPostContent,
     setEditingPostContent,
-    editingReplyId: null,
-    editingReplyContent: "",
-    setEditingReplyContent: noop,
     replyPostId,
     replyParentInteractionId,
     replyText,
     replyHasText,
     setReplyText,
-    replyImageUrl,
-    setReplyImageUrl,
-    replyImageUrlDraft,
-    setReplyImageUrlDraft,
-    activeReplyMention: null,
-    activeReplyMentionIndex: 0,
-    replyMentionSuggestions: [],
     activeReplyComposerTool,
     setActiveReplyComposerTool,
     highlightedInteractionId: null,
     mediaPickerTab,
     setMediaPickerTab,
-    // ponytail: fake media plumbing kept only to satisfy the shared ctx type — setImageLightbox
-    // discards its state (no lightbox host), replyImageFileRef points at no input, and
-    // uploadGlobalImages below is a no-op mutation. disableReplyImage hides the UI that drives
-    // these; making reply images real means replacing these stubs, not just flipping the flag.
-    setImageLightbox,
     replyComposerRef,
     replyValueRef,
-    replyImageToolRef,
     replyMediaToolRef,
-    replyImageFileRef,
-    openProfile: noop,
     startEditingPost,
     deleteNoodlePost,
     cancelEditingPost,
     saveEditedPost,
-    startEditingReply: noop,
-    cancelEditingReply: noop,
-    saveEditedReply: noop,
-    deleteNoodleReply: noop,
     reactToPost,
     reactToReply,
-    voteInPoll: noop,
     openReplyComposer,
     handleReplyChange,
-    handleReplyKeyDown: noop,
-    selectReplyMention: noop,
     clearReplyComposer,
-    applyReplyImageUrl,
     submitReply,
     appendToReply,
     reactionPendingFor: () => false,
     createInteractionPendingFor: (_postId, type) => type === "reply" && createInteraction.isPending,
     updatePost: { isPending: updatePost.isPending },
-    updateInteraction: { isPending: false },
-    deleteInteraction: { isPending: false },
-    uploadGlobalImages: { isPending: false },
-    // Roleplay sandbox: the user owns every stage profile, so they can edit/delete
-    // any creator post. Reply edit/delete stays off — there's no NoodleR reply-edit path yet.
-    canManageReply: () => false,
-    // NoodleR replies are text-only: submitReply omits imageUrl and no upload input is
-    // rendered, so hide the attach-image tool, upload, and GIF affordances.
-    // ponytail: boolean gate is right for one host + one capability. To actually support
-    // reply images, make the stubbed plumbing real (imageUrl in noodlerCreateInteractionSchema
-    // + createPrivateInteraction, a genuine upload mutation, a real file input) and flip this
-    // flag LAST — removing it alone lets the UI attach an image that submitReply silently
-    // drops. If a second capability needs gating or a third host reuses NoodlePostCard,
-    // stop adding booleans and split the ctx into discriminated capability groups (Finding 2)
-    // so unsupported groups pass no plumbing and the stubs below disappear by construction.
-    disableReplyImage: true,
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);

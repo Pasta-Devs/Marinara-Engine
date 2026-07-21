@@ -976,6 +976,46 @@ interface NoodleHomeProps {
   onNavigate: (destination: NoodleNavigationState) => void;
 }
 
+/**
+ * Reply image attach/upload/lightbox. Hosts that persist reply images pass this; hosts that
+ * don't (NoodleR) omit it — the card then hides the attach-image tool, upload, GIF tab, and
+ * lightbox instead of the host having to pass discarded setters and dangling refs.
+ */
+export interface NoodlePostCardMediaCap {
+  setImageLightbox: React.Dispatch<React.SetStateAction<ChatImage | null>>;
+  replyImageUrl: string;
+  setReplyImageUrl: React.Dispatch<React.SetStateAction<string>>;
+  replyImageUrlDraft: string;
+  setReplyImageUrlDraft: React.Dispatch<React.SetStateAction<string>>;
+  replyImageToolRef: RefObject<HTMLDivElement | null>;
+  replyImageFileRef: RefObject<HTMLInputElement | null>;
+  applyReplyImageUrl: () => void;
+  uploadGlobalImages: { isPending: boolean };
+}
+
+/** Editing/deleting replies. Omit on hosts without a reply-management path (NoodleR). */
+export interface NoodlePostCardReplyManagementCap {
+  editingReplyId: string | null;
+  editingReplyContent: string;
+  setEditingReplyContent: React.Dispatch<React.SetStateAction<string>>;
+  startEditingReply: (reply: NoodleInteraction) => void;
+  cancelEditingReply: () => void;
+  saveEditedReply: (post: NoodlePost, reply: NoodleInteraction) => void;
+  deleteNoodleReply: (post: NoodlePost, reply: NoodleInteraction) => void;
+  updateInteraction: { isPending: boolean };
+  deleteInteraction: { isPending: boolean };
+  /** Gate reply Edit/Delete. Omit for the default author-based check. */
+  canManageReply?: (reply: NoodleInteraction) => boolean;
+}
+
+/** @mention autocomplete in the reply composer. Omit on hosts without mentions (NoodleR). */
+export interface NoodlePostCardMentionsCap {
+  activeReplyMention: ActiveComposerMention | null;
+  activeReplyMentionIndex: number;
+  replyMentionSuggestions: NoodleAccount[];
+  selectReplyMention: (account: NoodleAccount) => void;
+}
+
 export interface NoodlePostCardCtx {
   accountById: Map<string, NoodleAccount>;
   accountByHandle: Map<string, NoodleAccount>;
@@ -986,68 +1026,46 @@ export interface NoodlePostCardCtx {
   editingPostId: string | null;
   editingPostContent: string;
   setEditingPostContent: React.Dispatch<React.SetStateAction<string>>;
-  editingReplyId: string | null;
-  editingReplyContent: string;
-  setEditingReplyContent: React.Dispatch<React.SetStateAction<string>>;
   replyPostId: string | null;
   replyParentInteractionId: string | null;
   replyText: string;
   replyHasText: boolean;
   setReplyText: React.Dispatch<React.SetStateAction<string>>;
-  replyImageUrl: string;
-  setReplyImageUrl: React.Dispatch<React.SetStateAction<string>>;
-  replyImageUrlDraft: string;
-  setReplyImageUrlDraft: React.Dispatch<React.SetStateAction<string>>;
-  activeReplyMention: ActiveComposerMention | null;
-  activeReplyMentionIndex: number;
-  replyMentionSuggestions: NoodleAccount[];
   activeReplyComposerTool: ReplyComposerTool | null;
   setActiveReplyComposerTool: React.Dispatch<React.SetStateAction<ReplyComposerTool | null>>;
   highlightedInteractionId: string | null;
   mediaPickerTab: ConversationMediaPickerTabId;
   setMediaPickerTab: React.Dispatch<React.SetStateAction<ConversationMediaPickerTabId>>;
-  setImageLightbox: React.Dispatch<React.SetStateAction<ChatImage | null>>;
   replyComposerRef: RefObject<HTMLTextAreaElement | null>;
   replyValueRef: RefObject<string>;
-  replyImageToolRef: RefObject<HTMLDivElement | null>;
   replyMediaToolRef: RefObject<HTMLDivElement | null>;
-  replyImageFileRef: RefObject<HTMLInputElement | null>;
-  openProfile: (account: NoodleAccount | null) => void;
   startEditingPost: (post: NoodlePost) => void;
   deleteNoodlePost: (post: NoodlePost) => void;
   cancelEditingPost: () => void;
   saveEditedPost: (post: NoodlePost) => void;
-  startEditingReply: (reply: NoodleInteraction) => void;
-  cancelEditingReply: () => void;
-  saveEditedReply: (post: NoodlePost, reply: NoodleInteraction) => void;
-  deleteNoodleReply: (post: NoodlePost, reply: NoodleInteraction) => void;
   reactToPost: (post: NoodlePost, type: "like" | "repost", active?: boolean) => void;
   reactToReply: (post: NoodlePost, target: NoodleInteraction, active: boolean) => void;
-  voteInPoll: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void;
   openReplyComposer: (postId: string, parentInteractionId?: string | null) => void;
   handleReplyChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   handleReplyKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  selectReplyMention: (account: NoodleAccount) => void;
   clearReplyComposer: () => void;
-  applyReplyImageUrl: () => void;
   submitReply: (post: NoodlePost) => void;
   appendToReply: (text: string) => void;
   reactionPendingFor: (postId: string, type: "like" | "repost", parentInteractionId?: string | null) => boolean;
   createInteractionPendingFor: (postId: string, type: NoodleInteractionType, parentInteractionId?: string | null) => boolean;
   updatePost: { isPending: boolean };
-  updateInteraction: { isPending: boolean };
-  deleteInteraction: { isPending: boolean };
-  uploadGlobalImages: { isPending: boolean };
   /** Gate the three-dot post menu (Edit/Delete). Omit to always show (Noodle default). */
   canManagePost?: (post: NoodlePost) => boolean;
-  /** Gate reply Edit/Delete. Omit for the default author-based check. */
-  canManageReply?: (reply: NoodleInteraction) => boolean;
-  /**
-   * Hide reply image affordances (attach-image tool, upload, GIF tab) on hosts that don't
-   * persist reply images. NoodleR sets this: its submit omits imageUrl and it renders no
-   * upload input, so these controls would silently do nothing. Omit for the Noodle default.
-   */
-  disableReplyImage?: boolean;
+  /** Navigate to an author/mention profile. Omit on hosts without profile navigation (NoodleR). */
+  openProfile?: (account: NoodleAccount | null) => void;
+  /** Vote in a post's poll. Omit on hosts without polls (NoodleR); pollless posts never call it. */
+  voteInPoll?: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void;
+  /** Reply image/upload capability. Absent → the card hides all reply-image affordances. */
+  media?: NoodlePostCardMediaCap;
+  /** Reply edit/delete capability. Absent → reply management UI stays hidden. */
+  replyManagement?: NoodlePostCardReplyManagementCap;
+  /** @mention autocomplete capability. Absent → no mention suggestions. */
+  mentions?: NoodlePostCardMentionsCap;
 }
 
 export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePostCardCtx }) {
@@ -1061,62 +1079,79 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     editingPostId,
     editingPostContent,
     setEditingPostContent,
-    editingReplyId,
-    editingReplyContent,
-    setEditingReplyContent,
     replyPostId,
     replyParentInteractionId,
     replyText,
     replyHasText,
     setReplyText,
-    replyImageUrl,
-    setReplyImageUrl,
-    replyImageUrlDraft,
-    setReplyImageUrlDraft,
-    activeReplyMention,
-    activeReplyMentionIndex,
-    replyMentionSuggestions,
     activeReplyComposerTool,
     setActiveReplyComposerTool,
     highlightedInteractionId,
     mediaPickerTab,
     setMediaPickerTab,
-    setImageLightbox,
     replyComposerRef,
     replyValueRef,
-    replyImageToolRef,
     replyMediaToolRef,
-    replyImageFileRef,
-    openProfile,
     startEditingPost,
     deleteNoodlePost,
     cancelEditingPost,
     saveEditedPost,
-    startEditingReply,
-    cancelEditingReply,
-    saveEditedReply,
-    deleteNoodleReply,
     reactToPost,
     reactToReply,
-    voteInPoll,
     openReplyComposer,
     handleReplyChange,
     handleReplyKeyDown,
-    selectReplyMention,
     clearReplyComposer,
-    applyReplyImageUrl,
     submitReply,
     appendToReply,
     reactionPendingFor,
     createInteractionPendingFor,
     updatePost,
-    updateInteraction,
-    deleteInteraction,
-    uploadGlobalImages,
     canManagePost,
-    canManageReply: canManageReplyOverride,
-    disableReplyImage,
+    media,
+    replyManagement,
+    mentions,
   } = ctx;
+
+  // Card-owned defaults for absent capability groups. Hosts pass only the capabilities they
+  // support (NoodleR omits media/replyManagement/mentions/poll/profile); the card fills the
+  // rest with no-ops and empty state, and gates the corresponding UI on group presence — so
+  // no host has to hand over discarded setters, dangling refs, or fake mutations. Annotations
+  // keep the () => {} fallbacks callable with their real signatures.
+  const fallbackDivRef = useRef<HTMLDivElement | null>(null);
+  const fallbackFileRef = useRef<HTMLInputElement | null>(null);
+  const openProfile: (account: NoodleAccount | null) => void = ctx.openProfile ?? (() => {});
+  const voteInPoll: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void =
+    ctx.voteInPoll ?? (() => {});
+  const disableReplyImage = !media;
+  const setImageLightbox: React.Dispatch<React.SetStateAction<ChatImage | null>> =
+    media?.setImageLightbox ?? (() => {});
+  const replyImageUrl = media?.replyImageUrl ?? "";
+  const setReplyImageUrl: React.Dispatch<React.SetStateAction<string>> = media?.setReplyImageUrl ?? (() => {});
+  const replyImageUrlDraft = media?.replyImageUrlDraft ?? "";
+  const setReplyImageUrlDraft: React.Dispatch<React.SetStateAction<string>> =
+    media?.setReplyImageUrlDraft ?? (() => {});
+  const replyImageToolRef = media?.replyImageToolRef ?? fallbackDivRef;
+  const replyImageFileRef = media?.replyImageFileRef ?? fallbackFileRef;
+  const applyReplyImageUrl: () => void = media?.applyReplyImageUrl ?? (() => {});
+  const uploadGlobalImages = media?.uploadGlobalImages ?? { isPending: false };
+  const editingReplyId = replyManagement?.editingReplyId ?? null;
+  const editingReplyContent = replyManagement?.editingReplyContent ?? "";
+  const setEditingReplyContent: React.Dispatch<React.SetStateAction<string>> =
+    replyManagement?.setEditingReplyContent ?? (() => {});
+  const startEditingReply: (reply: NoodleInteraction) => void = replyManagement?.startEditingReply ?? (() => {});
+  const cancelEditingReply: () => void = replyManagement?.cancelEditingReply ?? (() => {});
+  const saveEditedReply: (post: NoodlePost, reply: NoodleInteraction) => void =
+    replyManagement?.saveEditedReply ?? (() => {});
+  const deleteNoodleReply: (post: NoodlePost, reply: NoodleInteraction) => void =
+    replyManagement?.deleteNoodleReply ?? (() => {});
+  const updateInteraction = replyManagement?.updateInteraction ?? { isPending: false };
+  const deleteInteraction = replyManagement?.deleteInteraction ?? { isPending: false };
+  const canManageReplyOverride = replyManagement ? replyManagement.canManageReply : () => false;
+  const activeReplyMention = mentions?.activeReplyMention ?? null;
+  const activeReplyMentionIndex = mentions?.activeReplyMentionIndex ?? 0;
+  const replyMentionSuggestions = mentions?.replyMentionSuggestions ?? [];
+  const selectReplyMention: (account: NoodleAccount) => void = mentions?.selectReplyMention ?? (() => {});
 
     const authorAccount = accountById.get(post.authorAccountId) ?? null;
     const author = authorAccount ?? post.authorSnapshot;
@@ -4346,58 +4381,64 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         editingPostId,
         editingPostContent,
         setEditingPostContent,
-        editingReplyId,
-        editingReplyContent,
-        setEditingReplyContent,
         replyPostId,
         replyParentInteractionId,
         replyText,
         replyHasText,
         setReplyText,
-        replyImageUrl,
-        setReplyImageUrl,
-        replyImageUrlDraft,
-        setReplyImageUrlDraft,
-        activeReplyMention,
-        activeReplyMentionIndex,
-        replyMentionSuggestions,
         activeReplyComposerTool,
         setActiveReplyComposerTool,
         highlightedInteractionId,
         mediaPickerTab,
         setMediaPickerTab,
-        setImageLightbox,
         replyComposerRef,
         replyValueRef,
-        replyImageToolRef,
         replyMediaToolRef,
-        replyImageFileRef,
         openProfile,
         startEditingPost,
         deleteNoodlePost,
         cancelEditingPost,
         saveEditedPost,
-        startEditingReply,
-        cancelEditingReply,
-        saveEditedReply,
-        deleteNoodleReply,
         reactToPost,
         reactToReply,
         voteInPoll,
         openReplyComposer,
         handleReplyChange,
         handleReplyKeyDown,
-        selectReplyMention,
         clearReplyComposer,
-        applyReplyImageUrl,
         submitReply,
         appendToReply,
         reactionPendingFor,
         createInteractionPendingFor,
         updatePost,
-        updateInteraction,
-        deleteInteraction,
-        uploadGlobalImages,
+        media: {
+          setImageLightbox,
+          replyImageUrl,
+          setReplyImageUrl,
+          replyImageUrlDraft,
+          setReplyImageUrlDraft,
+          replyImageToolRef,
+          replyImageFileRef,
+          applyReplyImageUrl,
+          uploadGlobalImages,
+        },
+        replyManagement: {
+          editingReplyId,
+          editingReplyContent,
+          setEditingReplyContent,
+          startEditingReply,
+          cancelEditingReply,
+          saveEditedReply,
+          deleteNoodleReply,
+          updateInteraction,
+          deleteInteraction,
+        },
+        mentions: {
+          activeReplyMention,
+          activeReplyMentionIndex,
+          replyMentionSuggestions,
+          selectReplyMention,
+        },
       }} />
   );
 
