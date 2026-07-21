@@ -171,6 +171,13 @@ const NOODLE_MEDIA_PICKER_TABS: ConversationMediaPickerTab[] = [
   { id: "stickers", label: "Stickers" },
 ];
 
+// Text-only subset (no GIFs) for hosts that can't persist reply images — emoji and
+// stickers both resolve to text, GIFs would set a discarded image URL.
+const NOODLE_TEXT_MEDIA_PICKER_TABS: ConversationMediaPickerTab[] = [
+  { id: "emoji", label: "Emoji" },
+  { id: "stickers", label: "Stickers" },
+];
+
 type ComposerTool = "image" | "poll" | "media";
 type ReplyComposerTool = "image" | "media";
 type ProfileTab = "posts" | "likes" | "media";
@@ -860,13 +867,11 @@ export function NoodleAnchoredPopover({
   anchorRef,
   children,
   wide,
-  className,
   modalOwned = false,
 }: {
   anchorRef: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
   wide?: boolean;
-  className?: string;
   modalOwned?: boolean;
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -910,7 +915,6 @@ export function NoodleAnchoredPopover({
         modalOwned ? "z-[10001]" : "z-[80]",
         NOODLE_ICON_SCOPE_CLASS,
         wide ? "w-[18rem] sm:w-[24rem]" : "w-[19rem]",
-        className,
       )}
       style={
         {
@@ -1038,6 +1042,12 @@ export interface NoodlePostCardCtx {
   canManagePost?: (post: NoodlePost) => boolean;
   /** Gate reply Edit/Delete. Omit for the default author-based check. */
   canManageReply?: (reply: NoodleInteraction) => boolean;
+  /**
+   * Hide reply image affordances (attach-image tool, upload, GIF tab) on hosts that don't
+   * persist reply images. NoodleR sets this: its submit omits imageUrl and it renders no
+   * upload input, so these controls would silently do nothing. Omit for the Noodle default.
+   */
+  disableReplyImage?: boolean;
 }
 
 export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePostCardCtx }) {
@@ -1105,6 +1115,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     uploadGlobalImages,
     canManagePost,
     canManageReply: canManageReplyOverride,
+    disableReplyImage,
   } = ctx;
 
     const authorAccount = accountById.get(post.authorAccountId) ?? null;
@@ -1216,15 +1227,17 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
         )}
         <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1">
-            <div ref={replyImageToolRef} className="relative">
-              <NoodleToolButton
-                title="Attach image"
-                active={activeReplyComposerTool === "image"}
-                onClick={() => setActiveReplyComposerTool((current) => (current === "image" ? null : "image"))}
-              >
-                <ImageIcon size={17} />
-              </NoodleToolButton>
-            </div>
+            {!disableReplyImage && (
+              <div ref={replyImageToolRef} className="relative">
+                <NoodleToolButton
+                  title="Attach image"
+                  active={activeReplyComposerTool === "image"}
+                  onClick={() => setActiveReplyComposerTool((current) => (current === "image" ? null : "image"))}
+                >
+                  <ImageIcon size={17} />
+                </NoodleToolButton>
+              </div>
+            )}
             <div ref={replyMediaToolRef} className="relative">
               <NoodleToolButton
                 title="Emoji, GIFs and stickers"
@@ -1253,7 +1266,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
             </button>
           </div>
         </div>
-        {activeReplyComposerTool === "image" && (
+        {!disableReplyImage && activeReplyComposerTool === "image" && (
           <NoodleToolPopover
             title="Attach image"
             anchorRef={replyImageToolRef}
@@ -1299,7 +1312,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
         {activeReplyComposerTool === "media" && (
           <NoodleAnchoredPopover anchorRef={replyMediaToolRef} wide>
             <ConversationMediaPickerPanel
-              tabs={NOODLE_MEDIA_PICKER_TABS}
+              tabs={disableReplyImage ? NOODLE_TEXT_MEDIA_PICKER_TABS : NOODLE_MEDIA_PICKER_TABS}
               activeTab={mediaPickerTab}
               onActiveTabChange={setMediaPickerTab}
               onClose={() => setActiveReplyComposerTool(null)}

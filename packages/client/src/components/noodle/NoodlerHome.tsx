@@ -475,6 +475,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     // Roleplay sandbox: the user owns every stage profile, so they can edit/delete
     // any creator post. Reply edit/delete stays off — there's no NoodleR reply-edit path yet.
     canManageReply: () => false,
+    // NoodleR replies are text-only: submitReply omits imageUrl and no upload input is
+    // rendered, so hide the attach-image tool, upload, and GIF affordances.
+    disableReplyImage: true,
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);

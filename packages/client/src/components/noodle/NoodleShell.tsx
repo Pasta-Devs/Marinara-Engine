@@ -16,11 +16,11 @@ export const NOODLE_PINK = "#FF7EC1";
 // The accent hex that drives `--noodle-blue` for every reused Noodle surface.
 // Provided at the shell root so descendants inherit via CSS var, and read here
 // so portaled popovers/modals (which escape the shell's CSS scope) can re-apply it.
-export const NoodleAccentContext = createContext<string>(NOODLE_BLUE);
+const NoodleAccentContext = createContext<string>(NOODLE_BLUE);
 export const useNoodleAccent = () => useContext(NoodleAccentContext);
 export const NOODLE_ICON_SCOPE_CLASS = "[&_svg]:!text-[var(--noodle-blue)]";
 export const NOODLE_LOGO_SRC = "/noodle-klusek.png";
-export const NOODLER_LOGO_SRC = "/noodler-klusek.png";
+const NOODLER_LOGO_SRC = "/noodler-klusek.png";
 export const NOODLE_PERSONA_SWITCHER_PAGE_SIZE = 5;
 
 const labelClass = "text-[0.68rem] font-semibold uppercase tracking-normal text-[var(--marinara-chat-chrome-panel-muted)]";
@@ -221,15 +221,11 @@ export function NoodleShell({
               aria-label="Noodle account menu"
               tabIndex={-1}
               className={cn(
+                // --noodle-blue / --noodle-divider inherit from the outer scope; the nested
+                // mari-chrome-token-scope only resets generic Marinara tokens, so no redeclaration.
                 "mari-chrome-token-scope flex h-full w-full flex-col overflow-y-auto bg-[var(--background)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 text-[var(--foreground)]",
                 NOODLE_ICON_SCOPE_CLASS,
               )}
-              style={
-                {
-                  "--noodle-blue": accent,
-                  "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)",
-                } as CSSProperties
-              }
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -273,7 +269,6 @@ export function NoodleShell({
                   type="button"
                   onClick={onOpenProfile}
                   disabled={!onOpenProfile}
-                  aria-disabled={!onOpenProfile}
                   className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <User size={23} />
@@ -291,7 +286,6 @@ export function NoodleShell({
                   type="button"
                   onClick={(event) => onCompose?.(event.currentTarget)}
                   disabled={!onCompose}
-                  aria-disabled={!onCompose}
                   className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <Pencil size={23} />
@@ -391,7 +385,6 @@ export function NoodleShell({
                   type="button"
                   onClick={onOpenNotifications}
                   disabled={!onOpenNotifications}
-                  aria-disabled={!onOpenNotifications}
                   className={cn(
                     "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
                     activeView === "notifications" && "bg-[var(--noodle-blue)]/10",
@@ -414,7 +407,6 @@ export function NoodleShell({
                   type="button"
                   onClick={onOpenProfile}
                   disabled={!onOpenProfile}
-                  aria-disabled={!onOpenProfile}
                   className={cn(
                     "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent",
                     activeView === "profile" && "bg-[var(--noodle-blue)]/10",
@@ -439,7 +431,6 @@ export function NoodleShell({
                 type="button"
                 onClick={(event) => onCompose?.(event.currentTarget)}
                 disabled={!onCompose}
-                aria-disabled={!onCompose}
                 className="mt-5 h-12 rounded-full bg-[var(--noodle-blue)] px-6 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Post
@@ -552,7 +543,6 @@ export function NoodleShell({
             type="button"
             onClick={onOpenSearch}
             disabled={!onOpenSearch}
-            aria-disabled={!onOpenSearch}
             aria-label="Search Noodle"
             aria-current={activeView === "search" ? "page" : undefined}
             className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
@@ -564,7 +554,6 @@ export function NoodleShell({
             type="button"
             onClick={onOpenNotifications}
             disabled={!onOpenNotifications}
-            aria-disabled={!onOpenNotifications}
             aria-label="Noodle notifications"
             aria-current={activeView === "notifications" ? "page" : undefined}
             className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
