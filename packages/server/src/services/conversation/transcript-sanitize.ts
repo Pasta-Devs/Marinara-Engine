@@ -14,9 +14,8 @@ export function collapseDuplicateConversationSpeakerPrefixes(
   speakerNames: readonly string[],
 ): string {
   let cleaned = content;
-  for (const rawName of speakerNames) {
-    const speakerName = rawName.trim();
-    if (!speakerName) continue;
+  const uniqueSpeakerNames = new Set(speakerNames.map((speakerName) => speakerName.trim()).filter(Boolean));
+  for (const speakerName of uniqueSpeakerNames) {
     const escapedName = speakerName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     cleaned = cleaned.replace(
       new RegExp(`(^|\\n)(\\s*(?:[-*]\\s*)?)(${escapedName}\\s*:\\s*)(?:${escapedName}\\s*:\\s*)+`, "gi"),

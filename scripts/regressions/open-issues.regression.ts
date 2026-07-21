@@ -1249,7 +1249,7 @@ assert.equal(
 assert.equal(
   collapseDuplicateConversationSpeakerPrefixes(
     "Dottore: Dottore: The procedure is complete.\nPantalone: Pantalone: At what cost?",
-    ["Dottore", "Pantalone"],
+    ["Dottore", " Pantalone ", "Dottore"],
   ),
   "Dottore: The procedure is complete.\nPantalone: At what cost?",
 );

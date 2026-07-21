@@ -4896,6 +4896,13 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "utf8",
       );
       assert.equal(contextSource.includes(instruction), false);
+
+      const routeSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(routeSource, /groupTurnPromptEnabled && chatMode === "roleplay"/u);
+      assert.doesNotMatch(routeSource, /groupTurnPromptEnabled && chatMode !== "conversation"/u);
     },
   },
   {

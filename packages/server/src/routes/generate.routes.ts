@@ -6101,7 +6101,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const generationGuideInstruction = buildGenerationGuideInstruction(input.generationGuide, promptMacroContext);
         const buildRoleplayCharacterInstruction = (charName: string) =>
-          groupTurnPromptEnabled && chatMode !== "conversation" ? `Respond ONLY as ${charName}.` : null;
+          groupTurnPromptEnabled && chatMode === "roleplay" ? `Respond ONLY as ${charName}.` : null;
 
         if (useIndividualLoop) {
           // Individual group mode: generate one response per character
