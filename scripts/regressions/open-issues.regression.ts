@@ -51,6 +51,7 @@ import {
 } from "../../packages/client/src/lib/game-npc-avatar.js";
 import { characterMatchesSearch, parseCharacterDisplayData } from "../../packages/client/src/lib/character-display.js";
 import { DEFAULT_GENERATION_PARAMS } from "../../packages/shared/src/constants/defaults.js";
+import { getChatModeCapabilities } from "../../packages/shared/src/constants/chat-mode-capabilities.js";
 import { mergeNoodleCustomEmojiMap } from "../../packages/client/src/hooks/use-noodle-custom-emojis.js";
 import {
   isBundledGameAssetFolderPath,
@@ -318,6 +319,8 @@ assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFla
 
 assert.equal(resolveGroupGenerationMode("conversation", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
+assert.equal(getChatModeCapabilities("conversation").supportsGroupChatControls, true);
+assert.equal(getChatModeCapabilities("conversation").modeSections.includes("group-chat"), true);
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);

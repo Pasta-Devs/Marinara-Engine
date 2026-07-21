@@ -116,6 +116,7 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
     modeSections: [
       "prompt-preset",
       "manual-replies",
+      "group-chat",
       "autonomous-messaging",
       "conversation-commands",
       "cross-chat-awareness",
@@ -123,7 +124,7 @@ export const CHAT_MODE_CAPABILITIES: Record<ChatMode, ChatModeCapabilities> = {
     ],
     supportsChatSettingsPresets: true,
     supportsPromptPresets: true,
-    supportsGroupChatControls: false,
+    supportsGroupChatControls: true,
     supportsSceneInstructions: false,
     supportsConnectedChat: true,
   },
