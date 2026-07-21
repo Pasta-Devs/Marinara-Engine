@@ -561,9 +561,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     ),
   } as const;
 
+  // Reserve the same rail width as the feed view (see NoodleHome's "settings" rail) so
+  // non-feed screens don't stretch the shell wider and look like a different layout.
+  const emptyRightRail = <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block" aria-hidden="true" />;
+
   if (!data && !isError) {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
         <NoodlerFrame onBack={exitToPublic} title="NoodleR">
           <div className="flex justify-center py-16">
             <Loader2 size={24} className="animate-spin text-[var(--noodle-blue)]" />
@@ -575,7 +579,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (!data && isError) {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
         <NoodlerFrame onBack={exitToPublic} title="NoodleR">
           <EmptyState title="NoodleR could not be loaded." action="Try again" onAction={() => void refetch()} />
         </NoodlerFrame>
@@ -585,7 +589,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (navigation.mode === "verification" || (data && !enabled)) {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
       <NoodlerFrame onBack={exitToPublic} title="About NoodleR">
         <div className="mx-auto flex max-w-xl flex-col items-center px-6 py-16 text-center">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
@@ -613,7 +617,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (creationStep === "source") {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
       <NoodlerFrame onBack={() => setCreationStep(null)} title="Create stage profile" hideBack>
         <StageProfileSourcePicker
           accounts={eligiblePublicAccounts}
@@ -639,7 +643,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (creationStep === "disclosure") {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
       <NoodlerFrame onBack={() => setCreationStep("source")} title="Set identity disclosure" hideBack>
         <DisclosureStep
           source={selectedSource}
@@ -655,7 +659,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (profileDraft || creationStep === "draft") {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
       <NoodlerFrame
         onBack={editingProfileId ? closeProfileEditor : () => setCreationStep("disclosure")}
         title={editingProfileId ? "Edit stage profile" : "Create stage profile"}
@@ -698,7 +702,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (selectedProfile) {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
       <NoodlerFrame onBack={() => setSelectedProfileId(null)} title={selectedProfile.displayName}>
         <StageProfileView
           profile={selectedProfile}
@@ -799,7 +803,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   if (navigation.mode === "private" && navigation.view === "profiles") {
     return (
-      <NoodleShell {...shellProps}>
+      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
         <div className="flex h-full min-h-0 flex-col">
           <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
