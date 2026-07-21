@@ -9,7 +9,9 @@ import {
 import { wrapContent } from "../../services/prompt/format-engine.js";
 
 type ConversationContextCharacter = {
+  charId?: string;
   name: string;
+  displayName?: string;
   status: string;
   activity: string;
   todaySchedule?: string | null;
@@ -30,6 +32,8 @@ export function buildConversationCurrentContextBlock(args: {
   userActivity?: string | null;
   mentionedCharacterNames?: string[] | null;
   autonomousIntentKey?: unknown;
+  /** Character receiving this prompt in Individual group mode. */
+  primaryCharacterId?: string | null;
   /** @deprecated Group behavior is derived from convoCharInfo. Kept for caller compatibility. */
   isGroup?: boolean;
   /** @deprecated Conversation mode no longer has a separate early-group mode. */
@@ -51,7 +55,7 @@ export function buildConversationCurrentContextBlock(args: {
     }
   }
 
-  const statusLine = buildConversationStatusLine(args.convoCharInfo);
+  const statusLines = buildConversationStatusLines(args.convoCharInfo, args.primaryCharacterId);
 
   const userStatusLabels: Record<string, string> = {
     active: "online",
@@ -80,7 +84,7 @@ export function buildConversationCurrentContextBlock(args: {
   const intentHint = isMessageIntent(autonomousIntentKey) ? getIntentHint(autonomousIntentKey) : "";
 
   const contextLines = [
-    `Your current status: ${statusLine}.`,
+    ...statusLines,
     ...(shouldIncludeUserStatus ? [`${args.personaName}'s status: ${userStatusLine}.`] : []),
     ...(proactiveTurnLine ? [proactiveTurnLine] : []),
     ...(mentionLine ? [mentionLine] : []),
@@ -92,7 +96,10 @@ export function buildConversationCurrentContextBlock(args: {
   return wrapContent(contextLines.join("\n"), "Context", args.wrapFormat);
 }
 
-function buildConversationStatusLine(convoCharInfo: ConversationContextCharacter[]): string {
+function buildConversationStatusLines(
+  convoCharInfo: ConversationContextCharacter[],
+  primaryCharacterId?: string | null,
+): string[] {
   const statusLabels: Record<string, string> = {
     online: "online",
     idle: "idle / away",
@@ -103,9 +110,36 @@ function buildConversationStatusLine(convoCharInfo: ConversationContextCharacter
     const label = statusLabels[character.status] ?? "online";
     return character.activity ? `${label} (${character.activity})` : label;
   };
-  return convoCharInfo.length === 1
-    ? buildCharStatus(convoCharInfo[0]!)
-    : convoCharInfo.map((character) => `${character.name}: ${buildCharStatus(character)}`).join("; ");
+  const promptName = (character: ConversationContextCharacter) => character.displayName?.trim() || character.name;
+  const primaryCharacter = primaryCharacterId
+    ? convoCharInfo.find((character) => character.charId === primaryCharacterId)
+    : null;
+
+  if (!primaryCharacter || convoCharInfo.length === 1) {
+    const statusLine =
+      convoCharInfo.length === 1
+        ? buildCharStatus(convoCharInfo[0]!)
+        : convoCharInfo.map((character) => `${character.name}: ${buildCharStatus(character)}`).join("; ");
+    return [`Your current status: ${statusLine}.`];
+  }
+
+  return [
+    `Your current status: ${promptName(primaryCharacter)}: ${buildCharStatus(primaryCharacter)}.`,
+    ...convoCharInfo
+      .filter((character) => character !== primaryCharacter)
+      .map((character) => `${promptName(character)}'s status: ${buildCharStatus(character)}.`),
+  ];
+}
+
+export function replaceConversationContextBlockForTarget(
+  content: string,
+  sharedContextBlock: string,
+  targetContextBlock: string,
+): string {
+  if (!sharedContextBlock || sharedContextBlock === targetContextBlock || !content.includes(sharedContextBlock)) {
+    return content;
+  }
+  return content.split(sharedContextBlock).join(targetContextBlock);
 }
 
 function buildMentionLine(args: {

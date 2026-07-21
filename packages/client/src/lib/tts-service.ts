@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // TTS Service — Server-proxied audio playback
 // ──────────────────────────────────────────────
+import { TTS_DIALOGUE_PAUSE_MAX_SECONDS } from "@marinara-engine/shared";
 import { getOrCreateCachedTTSAudioBlob } from "./tts-audio-cache";
 
 export type TTSState = "idle" | "loading" | "playing" | "paused" | "error";
@@ -68,8 +69,15 @@ function playbackAbortError(): DOMException {
   return new DOMException("TTS playback aborted", "AbortError");
 }
 
+export function normalizeTTSPlaybackDelayMs(delayMs: number | undefined): number {
+  const maximumDelayMs = TTS_DIALOGUE_PAUSE_MAX_SECONDS * 1000;
+  return typeof delayMs === "number" && Number.isFinite(delayMs)
+    ? Math.max(0, Math.min(maximumDelayMs, delayMs))
+    : 0;
+}
+
 function waitForPlaybackDelay(delayMs: number | undefined, signal: AbortSignal): Promise<void> {
-  const ms = typeof delayMs === "number" && Number.isFinite(delayMs) ? Math.max(0, Math.min(1500, delayMs)) : 0;
+  const ms = normalizeTTSPlaybackDelayMs(delayMs);
 
   if (ms <= 0) return Promise.resolve();
   if (signal.aborted) return Promise.reject(playbackAbortError());

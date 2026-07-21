@@ -434,9 +434,10 @@ export function createConnectionsStorage(db: DB) {
     },
 
     async remove(id: string) {
-      await db.delete(apiConnections).where(eq(apiConnections.id, id));
-
-      const cleanup = await sweepDanglingConnectionReferences(db, id);
+      const cleanup = await db.transaction(async (tx) => {
+        await tx.delete(apiConnections).where(eq(apiConnections.id, id));
+        return sweepDanglingConnectionReferences(tx, id);
+      });
       const totalCleaned = cleanup.chatsUpdated + cleanup.agentsUpdated + cleanup.connectionsUpdated;
       if (totalCleaned > 0) {
         logger.info(
