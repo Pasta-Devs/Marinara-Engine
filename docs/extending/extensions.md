@@ -97,7 +97,7 @@ Deleting is permanent. It removes the saved extension code from the server. Dele
 
 ## Changing an extension
 
-There is no way to edit an installed extension's code inside Marinara. To change one, delete it and import the new version. Importing a changed file creates a new entry rather than updating the old one, so delete the old entry to avoid duplicates.
+There is no way to edit an installed extension's code inside Marinara. Import the new version using the same extension name, and Marinara updates the existing entry while preserving whether you enabled or disabled it. If the extension declares a numeric release version and the imported release is older than the installed one, Marinara asks before replacing it.
 
 ## Why some actions need Admin Access
 

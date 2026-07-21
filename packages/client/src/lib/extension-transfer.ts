@@ -4,6 +4,7 @@ import { reservePackageFolderSegment } from "./folder-package-transfer";
 
 export type ExtensionTransferConfig = {
   name: string;
+  version?: string | null;
   description?: string | null;
   runtime?: "client" | "server";
   css?: string | null;
@@ -25,6 +26,7 @@ export function createExtensionFolderPackageFiles(extensions: ExtensionTransferC
       runtime === "server"
         ? {
             name: extension.name,
+            ...(extension.version ? { version: extension.version } : {}),
             description: extension.description ?? "",
             runtime,
             serverJs,
@@ -33,6 +35,7 @@ export function createExtensionFolderPackageFiles(extensions: ExtensionTransferC
           }
         : {
             name: extension.name,
+            ...(extension.version ? { version: extension.version } : {}),
             description: extension.description ?? "",
             runtime,
             css,

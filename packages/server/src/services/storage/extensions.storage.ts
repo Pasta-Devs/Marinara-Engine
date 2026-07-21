@@ -13,6 +13,7 @@ function mapExtension(row: ExtensionRow): InstalledExtension {
   return {
     id: row.id,
     name: row.name,
+    version: row.version ?? null,
     description: row.description,
     runtime: row.runtime === "server" ? "server" : "client",
     css: row.css ?? null,
@@ -34,6 +35,14 @@ export function createExtensionsStorage(db: DB) {
     return row ? mapExtension(row) : null;
   };
 
+  const getByName = async (name: string) => {
+    const normalizedName = name.trim().toLowerCase();
+    if (!normalizedName) return null;
+    const extensions = await db.select().from(installedExtensions).orderBy(desc(installedExtensions.installedAt));
+    const row = extensions.find((extension) => extension.name.trim().toLowerCase() === normalizedName);
+    return row ? mapExtension(row) : null;
+  };
+
   return {
     async list() {
       const rows = await db.select().from(installedExtensions).orderBy(desc(installedExtensions.installedAt));
@@ -41,6 +50,7 @@ export function createExtensionsStorage(db: DB) {
     },
 
     getById,
+    getByName,
 
     async create(input: CreateExtensionInput) {
       const id = newId();
@@ -48,6 +58,7 @@ export function createExtensionsStorage(db: DB) {
       await db.insert(installedExtensions).values({
         id,
         name: input.name,
+        version: input.version == null ? null : String(input.version),
         description: input.description ?? "",
         runtime: input.runtime === "server" ? "server" : "client",
         css: input.runtime === "server" ? null : (input.css ?? null),
@@ -66,6 +77,7 @@ export function createExtensionsStorage(db: DB) {
         updatedAt: now(),
       };
       if (data.name !== undefined) updateFields.name = data.name;
+      if (data.version !== undefined) updateFields.version = data.version;
       if (data.description !== undefined) updateFields.description = data.description;
       if (data.runtime !== undefined) updateFields.runtime = data.runtime === "server" ? "server" : "client";
       if (data.css !== undefined) updateFields.css = data.css;
