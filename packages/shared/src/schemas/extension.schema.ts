@@ -40,6 +40,9 @@ const jsByteLimit = (value: string | null | undefined) =>
 
 const jsByteMessage = `JS must be at most ${MAX_EXTENSION_JS_BYTES} bytes`;
 const extensionRuntimeSchema = z.enum(["client", "server"]);
+const extensionVersionSchema = z
+  .union([z.string().trim().min(1).max(64), z.number().finite().nonnegative().transform(String)])
+  .nullable();
 const MAX_EXTENSION_STORAGE_BYTES = 1_000_000;
 const extensionStorageByteMessage = `Extension storage must be at most ${MAX_EXTENSION_STORAGE_BYTES} bytes`;
 
@@ -60,7 +63,8 @@ export const extensionStorageResponseSchema = z.object({
 });
 
 export const createExtensionSchema = z.object({
-  name: z.string().min(1).max(200),
+  name: z.string().trim().min(1).max(200),
+  version: extensionVersionSchema.optional(),
   description: z.string().max(2000).default(""),
   runtime: extensionRuntimeSchema.optional().default("client"),
   css: z.string().nullable().optional().refine(cssByteLimit, { message: cssByteMessage }),
@@ -80,7 +84,8 @@ export const createExtensionSchema = z.object({
 
 export const updateExtensionSchema = z
   .object({
-    name: z.string().min(1).max(200).optional(),
+    name: z.string().trim().min(1).max(200).optional(),
+    version: extensionVersionSchema.optional(),
     description: z.string().max(2000).optional(),
     runtime: extensionRuntimeSchema.optional(),
     css: z.string().nullable().optional().refine(cssByteLimit, { message: cssByteMessage }),

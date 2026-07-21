@@ -138,6 +138,11 @@ import { inspectCharacterFilesForEmbeddedLorebooks } from "../../lib/character-i
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 import { downloadZipFile } from "../../lib/download-zip";
+import {
+  compareExtensionVersions,
+  findExtensionsByName,
+  normalizeExtensionVersion,
+} from "../../lib/extension-install";
 import { createExtensionFolderPackageFilename, createExtensionFolderPackageFiles } from "../../lib/extension-transfer";
 import {
   collectFolderPackageEntries,
@@ -5395,6 +5400,7 @@ function normalizeExtensionImportEntry(entry: FolderPackageImportEntry, fallback
   const name = typeof record.name === "string" && record.name.trim() ? record.name.trim() : folderName;
   if (!name) return null;
   const runtime = getExtensionImportRuntime(entry.raw, record);
+  const version = normalizeExtensionVersion(record.version);
 
   if (runtime === "server") {
     const serverJsFromFiles = resolvePackageTextPaths(
@@ -5403,6 +5409,7 @@ function normalizeExtensionImportEntry(entry: FolderPackageImportEntry, fallback
     );
     return {
       name,
+      version,
       description: typeof record.description === "string" ? record.description : "",
       runtime,
       css: null,
@@ -5416,6 +5423,7 @@ function normalizeExtensionImportEntry(entry: FolderPackageImportEntry, fallback
 
   return {
     name,
+    version,
     description: typeof record.description === "string" ? record.description : "",
     runtime,
     css:
@@ -5547,15 +5555,53 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
   const updateExtension = useUpdateExtension();
   const deleteExtension = useDeleteExtension();
 
+  const installOrUpdateExtension = async (
+    normalized: NonNullable<ReturnType<typeof normalizeExtensionImportEntry>>,
+    installedAt: string,
+    candidates = extensionList,
+  ) => {
+    const matches = findExtensionsByName(candidates, normalized.name);
+    const existing = matches[0];
+    if (!existing) {
+      return {
+        extension: await createExtension.mutateAsync({ ...normalized, installedAt }),
+        status: "installed" as const,
+      };
+    }
+
+    if (compareExtensionVersions(normalized.version, existing.version) === -1) {
+      const confirmed = await showConfirmDialog({
+        title: "Install Older Extension Version?",
+        message: `Version ${normalized.version} of "${normalized.name}" is older than the installed version ${existing.version}. Replace it anyway?`,
+        confirmLabel: "Install Older Version",
+        tone: "destructive",
+      });
+      if (!confirmed) return { extension: existing, status: "cancelled" as const };
+    }
+
+    const updated = await updateExtension.mutateAsync({
+      id: existing.id,
+      ...normalized,
+      version: normalized.version ?? existing.version ?? null,
+      enabled: existing.runtime === normalized.runtime ? existing.enabled : false,
+    });
+    for (const duplicate of matches.slice(1)) {
+      await deleteExtension.mutateAsync(duplicate.id);
+    }
+    return { extension: updated, status: "updated" as const };
+  };
+
   const importExtensionEntries = async (
     entries: FolderPackageImportEntry[],
     installedAt: string,
     fallbackName: string,
   ) => {
-    let imported = 0;
+    let installed = 0;
+    let updated = 0;
     let importedEnabled = 0;
     let failed = 0;
     let skipped = 0;
+    let workingExtensions = extensionList;
     const failureMessages: string[] = [];
     for (const entry of entries) {
       const normalized = normalizeExtensionImportEntry(entry, fallbackName);
@@ -5565,38 +5611,54 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
         continue;
       }
       try {
-        await createExtension.mutateAsync({
-          ...normalized,
-          installedAt,
-        });
-        imported++;
-        if (normalized.enabled) importedEnabled++;
+        const result = await installOrUpdateExtension(normalized, installedAt, workingExtensions);
+        if (result.status === "cancelled") {
+          skipped++;
+          failureMessages.push(`Kept the installed version of "${normalized.name}".`);
+          continue;
+        }
+        if (result.status === "updated") updated++;
+        else installed++;
+        if (result.extension.enabled) importedEnabled++;
+        workingExtensions = [
+          result.extension,
+          ...workingExtensions.filter(
+            (extension) => extension.name.trim().toLowerCase() !== normalized.name.trim().toLowerCase(),
+          ),
+        ];
       } catch (err) {
         failed++;
         failureMessages.push(describeExtensionImportError(err, normalized.name));
         console.warn("[ExtensionsSettings] Failed to import extension entry:", normalized.name, err);
       }
     }
-    if (imported === 0 && failed === 0 && skipped === 0) throw new Error("No valid extensions found in file");
-    const skipNote = skipped > 0 ? ` (${skipped} skipped — no importable entry)` : "";
+    const completed = installed + updated;
+    if (completed === 0 && failed === 0 && skipped === 0) throw new Error("No valid extensions found in file");
+    const skipNote = skipped > 0 ? ` (${skipped} skipped)` : "";
+    const successSummary = [
+      installed > 0 ? `Installed ${installed} extension${installed === 1 ? "" : "s"}` : "",
+      updated > 0 ? `updated ${updated} extension${updated === 1 ? "" : "s"}` : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
     // "Review before enabling" would be misleading when a manifest imported
     // with enabled:true — those extensions are already running.
     const reviewNote =
       importedEnabled > 0
-        ? ` ${importedEnabled === imported ? "They are" : `${importedEnabled} of them are`} already enabled — review in the Extension Library.`
+        ? ` ${importedEnabled === completed ? "They are" : `${importedEnabled} of them are`} already enabled — review in the Extension Library.`
         : " Review before enabling.";
     if (failed > 0) {
       const more = failureMessages.length > 1 ? ` (+${failureMessages.length - 1} more)` : "";
       toast.error(
-        imported > 0
-          ? `Imported ${imported} extension${imported === 1 ? "" : "s"}${skipNote}; ${failed} failed — ${failureMessages[0]}${more}`
+        completed > 0
+          ? `${successSummary}${skipNote}; ${failed} failed — ${failureMessages[0]}${more}`
           : `Failed to import ${failed} extension${failed === 1 ? "" : "s"}${skipNote} — ${failureMessages[0]}${more}`,
         { duration: 12_000 },
       );
     } else if (skipped > 0) {
       toast.warning(
-        imported > 0
-          ? `Imported ${imported} extension${imported === 1 ? "" : "s"}${skipNote}.${reviewNote}`
+        completed > 0
+          ? `${successSummary}${skipNote}.${reviewNote}`
           : `Skipped ${skipped} extension entr${skipped === 1 ? "y" : "ies"}.`,
         {
           description: failureMessages[0],
@@ -5604,7 +5666,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
         },
       );
     } else {
-      toast.success(`Imported ${imported} extension${imported === 1 ? "" : "s"}${skipNote}.${reviewNote}`);
+      toast.success(`${successSummary}${skipNote}.${reviewNote}`);
     }
   };
 
@@ -5637,51 +5699,60 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
       } else if (/\.server\.(js|mjs|cjs)$/i.test(lowerName)) {
         const text = await file.text();
         const name = file.name.replace(/\.server\.(js|mjs|cjs)$/i, "");
-        try {
-          await createExtension.mutateAsync({
-            name,
-            description: "Server extension imported from file",
-            runtime: "server",
-            serverJs: text,
-            enabled: false,
-            installedAt,
-          });
-        } catch (err) {
-          throw new Error(describeExtensionImportError(err, name));
-        }
-        toast.success(`Server extension "${name}" imported and left disabled for review`);
+        await importExtensionEntries(
+          [
+            createInlineFolderPackageImportEntry(
+              {
+                name,
+                description: "Server extension imported from file",
+                runtime: "server",
+                serverJs: text,
+                enabled: false,
+              },
+              file.name,
+            ),
+          ],
+          installedAt,
+          name,
+        );
       } else if (/\.(js|mjs|cjs)$/i.test(lowerName)) {
         const text = await file.text();
         const name = file.name.replace(/\.(js|mjs|cjs)$/i, "");
-        try {
-          await createExtension.mutateAsync({
-            name,
-            description: "JS extension imported from file",
-            runtime: "client",
-            js: text,
-            enabled: false,
-            installedAt,
-          });
-        } catch (err) {
-          throw new Error(describeExtensionImportError(err, name));
-        }
-        toast.success(`Extension "${name}" imported and left disabled for review`);
+        await importExtensionEntries(
+          [
+            createInlineFolderPackageImportEntry(
+              {
+                name,
+                description: "JS extension imported from file",
+                runtime: "client",
+                js: text,
+                enabled: false,
+              },
+              file.name,
+            ),
+          ],
+          installedAt,
+          name,
+        );
       } else if (lowerName.endsWith(".css")) {
         const text = await file.text();
         const name = file.name.replace(/\.css$/i, "");
-        try {
-          await createExtension.mutateAsync({
-            name,
-            description: "CSS extension imported from file",
-            runtime: "client",
-            css: text,
-            enabled: false,
-            installedAt,
-          });
-        } catch (err) {
-          throw new Error(describeExtensionImportError(err, name));
-        }
-        toast.success(`Extension "${name}" imported and left disabled for review`);
+        await importExtensionEntries(
+          [
+            createInlineFolderPackageImportEntry(
+              {
+                name,
+                description: "CSS extension imported from file",
+                runtime: "client",
+                css: text,
+                enabled: false,
+              },
+              file.name,
+            ),
+          ],
+          installedAt,
+          name,
+        );
       } else {
         toast.error(
           "Only .zip, .json, .css, .js, .mjs, .cjs, .server.js, .server.mjs, and .server.cjs files are supported.",
@@ -5826,6 +5897,11 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex min-w-0 items-center gap-1.5">
                     <span className="mari-chrome-text truncate font-medium">{ext.name}</span>
+                    {ext.version && (
+                      <span className="shrink-0 text-[0.5625rem] text-[var(--muted-foreground)]">
+                        v{ext.version}
+                      </span>
+                    )}
                     <span
                       className={cn(
                         "shrink-0 rounded px-1 py-px text-[0.5625rem] font-semibold",
@@ -5868,6 +5944,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
                       createExtensionFolderPackageFiles([
                         {
                           name: ext.name,
+                          version: ext.version ?? null,
                           description: ext.description ?? "",
                           runtime: ext.runtime,
                           css: ext.css ?? null,

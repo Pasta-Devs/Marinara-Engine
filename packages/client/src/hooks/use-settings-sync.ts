@@ -40,11 +40,11 @@ type SyncedSettingsObject = ReturnType<typeof pickSyncedSettings>;
 type ServerSettingsPayload = SyncedSettingsObject & { __updatedAt?: number };
 type ParsedSettings = Partial<SyncedSettingsObject> & Record<string, unknown>;
 
-const DEVICE_LOCAL_SETTING_KEYS = ["fontSize", "chatFontSize"] as const;
+const LOCAL_ONLY_SETTING_KEYS = ["fontSize", "chatFontSize", "trackerPanelOpen"] as const;
 
-export function omitDeviceLocalSettings(settings: ParsedSettings): ParsedSettings {
+export function omitLocalOnlySettings(settings: ParsedSettings): ParsedSettings {
   const sanitized = { ...settings };
-  for (const key of DEVICE_LOCAL_SETTING_KEYS) {
+  for (const key of LOCAL_ONLY_SETTING_KEYS) {
     delete sanitized[key];
   }
   return sanitized;
@@ -166,8 +166,8 @@ export function useSettingsSync() {
           try {
             const parsed = parseServerSettingsValue(data.value);
             if (parsed.settings && typeof parsed.settings === "object") {
-              const hadDeviceLocalSettings = DEVICE_LOCAL_SETTING_KEYS.some((key) => key in parsed.settings);
-              parsed.settings = omitDeviceLocalSettings(parsed.settings);
+              const hadLocalOnlySettings = LOCAL_ONLY_SETTING_KEYS.some((key) => key in parsed.settings);
+              parsed.settings = omitLocalOnlySettings(parsed.settings);
 
               // Migrate old flat gradient fields → per-scheme nested (v10 → v11).
               if ("convoGradientFrom" in parsed.settings || "convoGradientTo" in parsed.settings) {
@@ -221,7 +221,7 @@ export function useSettingsSync() {
                 useUIStore.setState(parsed.settings);
                 lastPushed = serialize();
                 if (serverUpdatedAt !== null) writeLocalUpdatedAt(serverUpdatedAt);
-                if (hadDeviceLocalSettings) {
+                if (hadLocalOnlySettings) {
                   try {
                     await api.put(SETTINGS_PATH, {
                       value: buildServerSettingsValue(
@@ -231,7 +231,7 @@ export function useSettingsSync() {
                     });
                   } catch {
                     // Cleanup is best-effort; this browser still ignores
-                    // legacy size values from the server blob.
+                    // legacy local-only values from the server blob.
                   }
                 }
               }
