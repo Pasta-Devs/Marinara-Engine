@@ -1080,9 +1080,14 @@ assert.equal(
   3,
   "theme installation, editing, and deletion should remain privileged while activation works from mobile clients",
 );
-assert.match(
-  themesRouteSource,
-  /app\.put\("\/active", async \(req, reply\) => \{\s*const input = setActiveThemeSchema\.parse\(req\.body\);/u,
+const activeThemeHandler = themesRouteSource.match(
+  /app\.put\("\/active", async \(req, reply\) => \{([\s\S]*?)\n  \}\);/u,
+)?.[1];
+assert.ok(activeThemeHandler, "the active theme handler should remain available");
+assert.match(activeThemeHandler, /const input = setActiveThemeSchema\.parse\(req\.body\);/u);
+assert.doesNotMatch(
+  activeThemeHandler,
+  /requirePrivilegedAccess/u,
   "selecting an already-installed theme should not require privileged loopback access",
 );
 assert.equal(
