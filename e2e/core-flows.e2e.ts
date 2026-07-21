@@ -774,6 +774,14 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
       return overflow;
     });
     expect(horizontalOverflow).toBeNull();
+
+    await page.reload();
+    await expect(tracker).toBeVisible();
+
+    await tracker.getByRole("button", { name: "Close tracker panel" }).click();
+    await expect(tracker).toBeHidden();
+    await page.reload();
+    await expect(tracker).toBeHidden();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
   }
