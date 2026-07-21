@@ -13,6 +13,8 @@
 export interface InstalledExtension {
   id: string;
   name: string;
+  /** Optional author-declared release version used for update and downgrade notices. */
+  version?: string | null;
   description: string;
   /** Where the extension executes. Existing/legacy extensions default to "client". */
   runtime: "client" | "server";

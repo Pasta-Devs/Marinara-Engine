@@ -439,6 +439,7 @@ interface UIState {
   rightPanel: Panel;
   trackerPanelEnabled: boolean;
   trackerPanelOpen: boolean;
+  trackerPanelOpenByChatId: Record<string, boolean>;
   trackerPanelSide: TrackerPanelSide;
   trackerPanelHideHudWidgets: boolean;
   trackerPanelUseExpressionSprites: boolean;
@@ -778,9 +779,10 @@ interface UIState {
   setSidebarOpen: (open: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setRightPanelWidth: (width: number) => void;
-  toggleTrackerPanel: () => void;
+  toggleTrackerPanel: (chatId?: string | null) => void;
   setTrackerPanelEnabled: (enabled: boolean) => void;
-  setTrackerPanelOpen: (open: boolean) => void;
+  setTrackerPanelOpen: (open: boolean, chatId?: string | null) => void;
+  restoreTrackerPanelOpenForChat: (chatId: string | null) => void;
   setTrackerPanelSide: (side: TrackerPanelSide) => void;
   setTrackerPanelHideHudWidgets: (hidden: boolean) => void;
   setTrackerPanelUseExpressionSprites: (enabled: boolean) => void;
@@ -1051,7 +1053,6 @@ export function pickSyncedSettings(state: UIState) {
     sidebarOpen: state.sidebarOpen,
     sidebarWidth: state.sidebarWidth,
     trackerPanelEnabled: state.trackerPanelEnabled,
-    trackerPanelOpen: state.trackerPanelOpen,
     trackerPanelSide: state.trackerPanelSide,
     trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
     trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
@@ -1182,6 +1183,7 @@ export const useUIStore = create<UIState>()(
       rightPanel: "chat" as Panel,
       trackerPanelEnabled: true,
       trackerPanelOpen: false,
+      trackerPanelOpenByChatId: {},
       trackerPanelSide: "right" as TrackerPanelSide,
       trackerPanelHideHudWidgets: false,
       trackerPanelUseExpressionSprites: false,
@@ -1386,19 +1388,45 @@ export const useUIStore = create<UIState>()(
         set({ sidebarWidth: Math.max(SIDEBAR_WIDTH_MIN, Math.min(SIDEBAR_WIDTH_MAX, width)) }),
       setRightPanelWidth: (width) =>
         set({ rightPanelWidth: Math.max(RIGHT_PANEL_WIDTH_MIN, Math.min(RIGHT_PANEL_WIDTH_MAX, width)) }),
-      toggleTrackerPanel: () =>
-        set((s) => ({
-          trackerPanelOpen: s.trackerPanelEnabled ? !s.trackerPanelOpen : false,
-        })),
+      toggleTrackerPanel: (chatId) =>
+        set((s) => {
+          const trackerPanelOpen = s.trackerPanelEnabled ? !s.trackerPanelOpen : false;
+          return {
+            trackerPanelOpen,
+            ...(chatId
+              ? { trackerPanelOpenByChatId: { ...s.trackerPanelOpenByChatId, [chatId]: trackerPanelOpen } }
+              : {}),
+          };
+        }),
       setTrackerPanelEnabled: (enabled) =>
         set({
           trackerPanelEnabled: enabled,
           trackerPanelOpen: enabled ? get().trackerPanelOpen : false,
         }),
-      setTrackerPanelOpen: (open) =>
-        set((s) => ({
-          trackerPanelOpen: s.trackerPanelEnabled ? open : false,
-        })),
+      setTrackerPanelOpen: (open, chatId) =>
+        set((s) => {
+          const trackerPanelOpen = s.trackerPanelEnabled ? open : false;
+          return {
+            trackerPanelOpen,
+            ...(chatId
+              ? { trackerPanelOpenByChatId: { ...s.trackerPanelOpenByChatId, [chatId]: trackerPanelOpen } }
+              : {}),
+          };
+        }),
+      restoreTrackerPanelOpenForChat: (chatId) => {
+        if (!chatId) return;
+        set((s) => {
+          const hasRememberedState = Object.prototype.hasOwnProperty.call(s.trackerPanelOpenByChatId, chatId);
+          const legacyOpen = Object.keys(s.trackerPanelOpenByChatId).length === 0 && s.trackerPanelOpen;
+          const rememberedOpen = hasRememberedState ? s.trackerPanelOpenByChatId[chatId] === true : legacyOpen;
+          return {
+            trackerPanelOpen: s.trackerPanelEnabled && rememberedOpen,
+            ...(hasRememberedState
+              ? {}
+              : { trackerPanelOpenByChatId: { ...s.trackerPanelOpenByChatId, [chatId]: rememberedOpen } }),
+          };
+        });
+      },
       setTrackerPanelSide: (side) => set({ trackerPanelSide: side }),
       setTrackerPanelHideHudWidgets: (hidden) => set({ trackerPanelHideHudWidgets: hidden }),
       setTrackerPanelUseExpressionSprites: (enabled) => set({ trackerPanelUseExpressionSprites: enabled }),
@@ -2062,6 +2090,7 @@ export const useUIStore = create<UIState>()(
         set({
           trackerPanelEnabled: true,
           trackerPanelOpen: false,
+          trackerPanelOpenByChatId: {},
           trackerPanelSide: "right" as TrackerPanelSide,
           trackerPanelHideHudWidgets: false,
           trackerPanelUseExpressionSprites: false,
@@ -2188,7 +2217,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 78,
+      version: 79,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2733,6 +2762,22 @@ export const useUIStore = create<UIState>()(
         if (version <= 77 && persisted.gameTextEffectsEnabled === undefined) {
           persisted.gameTextEffectsEnabled = true;
         }
+        if (version <= 78) {
+          persisted.trackerPanelOpenByChatId = {};
+        }
+        if (
+          !persisted.trackerPanelOpenByChatId ||
+          typeof persisted.trackerPanelOpenByChatId !== "object" ||
+          Array.isArray(persisted.trackerPanelOpenByChatId)
+        ) {
+          persisted.trackerPanelOpenByChatId = {};
+        } else {
+          persisted.trackerPanelOpenByChatId = Object.fromEntries(
+            Object.entries(persisted.trackerPanelOpenByChatId).filter(
+              ([chatId, open]) => chatId.trim().length > 0 && typeof open === "boolean",
+            ),
+          );
+        }
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
         persisted.professorMariSuggestionsEnabled = persisted.professorMariSuggestionsEnabled !== false;
@@ -2788,6 +2833,7 @@ export const useUIStore = create<UIState>()(
         agentPanelSort: state.agentPanelSort,
         trackerPanelEnabled: state.trackerPanelEnabled,
         trackerPanelOpen: state.trackerPanelOpen,
+        trackerPanelOpenByChatId: state.trackerPanelOpenByChatId,
         trackerPanelSide: state.trackerPanelSide,
         trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
         trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
