@@ -7963,6 +7963,10 @@ export async function generateRoutes(app: FastifyInstance) {
                 imgConnFull ??= await connections.getDefaultForImageGeneration();
                 if (imgConnFull) {
                   const resolvedImageConnection = imgConnFull;
+                  trySendSseEvent(reply, {
+                    type: "illustration_queued",
+                    data: { messageId },
+                  });
                   // Queue image generation to run after the result loop so it doesn't
                   // block other agents (game state, trackers, rewrite agents).
                   pendingIllustration = (async () => {
