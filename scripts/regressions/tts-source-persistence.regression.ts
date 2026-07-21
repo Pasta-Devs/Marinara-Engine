@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import { buildTTSVoiceRequests } from "../../packages/client/src/lib/tts-dialogue.ts";
+import { normalizeTTSPlaybackDelayMs } from "../../packages/client/src/lib/tts-service.ts";
 import { maskTTSConfigForResponse, prepareTTSConfigForStorage } from "../../packages/server/src/routes/tts.routes.ts";
 
 const encryptForTest = (value: string) => (value ? `encrypted:${value}` : "");
@@ -48,6 +49,10 @@ assert.deepEqual(
   maximumPauseRequests.map((request) => request.pauseAfterMs),
   [60_000, undefined],
 );
+assert.equal(normalizeTTSPlaybackDelayMs(60_000), 60_000);
+assert.equal(normalizeTTSPlaybackDelayMs(60_001), 60_000);
+assert.equal(normalizeTTSPlaybackDelayMs(-1), 0);
+assert.equal(normalizeTTSPlaybackDelayMs(Number.NaN), 0);
 assert.throws(() => ttsConfigSchema.parse({ dialoguePauseMs: 60_001 }));
 
 const legacyOpenAiConfig = ttsConfigSchema.parse({
