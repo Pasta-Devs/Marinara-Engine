@@ -16,6 +16,7 @@ import {
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import { startSceneWithPromptPreferences } from "../lib/scene-generation";
+import { waitForPendingChatMetadataSaves } from "../lib/chat-metadata-save-barrier";
 import { agentKeys } from "./use-agents";
 import { discardPendingGameStatePatch } from "./use-game-state-patcher";
 import { spatialContextKeys } from "./use-spatial-context";
@@ -1485,6 +1486,8 @@ export function useGenerate() {
         // Flush any pending game-state widget edits so the server sees them before committing
         const flushPatch = useGameStateStore.getState().flushPatch;
         if (flushPatch) await flushPatch();
+
+        await waitForPendingChatMetadataSaves(params.chatId);
 
         for await (const event of api.streamEvents(
           "/generate",
@@ -2968,6 +2971,8 @@ export function useGenerate() {
             throw new Error(`Failed to flush pending game-state edits${detail}`, { cause: error });
           }
         }
+
+        await waitForPendingChatMetadataSaves(chatId);
 
         let agentResultCount = 0;
         let trackerPatchCount = 0;

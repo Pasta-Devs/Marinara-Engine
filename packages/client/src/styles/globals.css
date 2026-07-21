@@ -2502,6 +2502,12 @@ strong {
 }
 
 /* Chat message narration text color */
+.mari-message-body,
+.mari-message-bubble {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .mari-message-content {
   min-width: 0;
   max-width: 100%;
@@ -2582,6 +2588,9 @@ strong {
 /* Fenced code blocks */
 .mari-message-content .mari-md-codeblock {
   position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
   font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 0.85em;
   line-height: 1.45;

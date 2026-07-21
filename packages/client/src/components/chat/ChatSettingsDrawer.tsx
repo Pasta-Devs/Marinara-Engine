@@ -118,6 +118,10 @@ import {
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { api } from "../../lib/api-client";
+import {
+  trackChatMetadataSave,
+  waitForPendingChatMetadataSaves,
+} from "../../lib/chat-metadata-save-barrier";
 import { appendLocalSidecarConnectionOption, filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import {
   deriveActiveLorebookViews,
@@ -2200,11 +2204,19 @@ export function ChatSettingsDrawer({
     setProseGuardianStyleDraft(proseGuardianStyleInstructions);
   }, [proseGuardianStyleInstructions]);
 
+  const updateMetaAsync = updateMeta.mutateAsync;
+  const saveProseGuardianSettings = useCallback(
+    (patch: Record<string, unknown>) =>
+      trackChatMetadataSave(chat.id, () => updateMetaAsync({ id: chat.id, ...patch })),
+    [chat.id, updateMetaAsync],
+  );
   const commitProseGuardianSettings = useCallback(
     (patch: Record<string, unknown>) => {
-      updateMeta.mutate({ id: chat.id, ...patch });
+      void saveProseGuardianSettings(patch).catch(() => {
+        toast.error("Failed to save Prose Guardian changes.");
+      });
     },
-    [chat.id, updateMeta],
+    [saveProseGuardianSettings],
   );
   const flushProseGuardianDrafts = useCallback(async () => {
     const patch: Record<string, unknown> = {};
@@ -2215,10 +2227,13 @@ export function ChatSettingsDrawer({
     if (banned !== proseGuardianBannedWords) patch.proseGuardianBannedWords = banned;
     if (avoid !== proseGuardianAvoidInstructions) patch.proseGuardianAvoidInstructions = avoid;
     if (prefer !== proseGuardianStyleInstructions) patch.proseGuardianStyleInstructions = prefer;
-    if (Object.keys(patch).length === 0) return true;
+    if (Object.keys(patch).length === 0) {
+      await waitForPendingChatMetadataSaves(chat.id);
+      return true;
+    }
 
     try {
-      await updateMeta.mutateAsync({ id: chat.id, ...patch });
+      await saveProseGuardianSettings(patch);
       return true;
     } catch {
       toast.error("Failed to save Prose Guardian changes.");
@@ -2232,7 +2247,7 @@ export function ChatSettingsDrawer({
     proseGuardianBannedWords,
     proseGuardianStyleDraft,
     proseGuardianStyleInstructions,
-    updateMeta,
+    saveProseGuardianSettings,
   ]);
   const getKnowledgeAgentSourceSettings = useCallback(
     (agentType: KnowledgeAgentType) => {

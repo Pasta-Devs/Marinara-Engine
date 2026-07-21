@@ -31,6 +31,10 @@ import {
   shouldExecuteQuickPostAsCommand,
 } from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
+import {
+  trackChatMetadataSave,
+  waitForPendingChatMetadataSaves,
+} from "../../packages/client/src/lib/chat-metadata-save-barrier.js";
 import { resolveEchoChamberTopLayout } from "../../packages/client/src/lib/echo-chamber-layout.js";
 import {
   resolveConversationSelfieConnectionId,
@@ -973,6 +977,10 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
+const clientGenerationSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
+  "utf8",
+);
 const conversationPresenceSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/conversation-presence-runtime.ts", import.meta.url),
   "utf8",
@@ -989,6 +997,33 @@ assert.match(
   /if \(!\(await flushProseGuardianDrafts\(\)\)\) return;[\s\S]{0,250}onClose\(\)/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
+assert.match(
+  clientGenerationSource,
+  /await waitForPendingChatMetadataSaves\(params\.chatId\);[\s\S]{0,250}api\.streamEvents\(\s*"\/generate"/u,
+  "swipe generation must wait for Prose Guardian settings blurred from the open drawer",
+);
+
+const metadataSaveOrder: string[] = [];
+let releaseFirstMetadataSave!: () => void;
+const firstMetadataSaveBlocker = new Promise<void>((resolve) => {
+  releaseFirstMetadataSave = resolve;
+});
+const firstMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
+  await firstMetadataSaveBlocker;
+  metadataSaveOrder.push("first");
+});
+const secondMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
+  metadataSaveOrder.push("second");
+});
+let metadataWaitFinished = false;
+const pendingMetadataWait = waitForPendingChatMetadataSaves("chat-prose-swipe").then(() => {
+  metadataWaitFinished = true;
+});
+await Promise.resolve();
+assert.equal(metadataWaitFinished, false, "swipe generation should remain blocked while preferences are saving");
+releaseFirstMetadataSave();
+await Promise.all([firstMetadataSave, secondMetadataSave, pendingMetadataWait]);
+assert.deepEqual(metadataSaveOrder, ["first", "second"]);
 assert.match(
   conversationGroupSettingsSource,
   /\{!isConversation && \(\s*<button[\s\S]{0,1500}Name Prefix History/u,
@@ -1172,11 +1207,17 @@ const markdownBlockquoteStyles =
 assert.match(markdownBlockquoteStyles, /color:\s*inherit;/u);
 assert.doesNotMatch(markdownBlockquoteStyles, /color:\s*var\(--muted-foreground\);/u);
 const markdownMessageStyles = globalStyles.match(/\.mari-message-content \{[\s\S]*?\}/u)?.[0] ?? "";
+const markdownMessageContainerStyles =
+  globalStyles.match(/\.mari-message-body,\s*\.mari-message-bubble \{[\s\S]*?\}/u)?.[0] ?? "";
 const markdownCodeBlockStyles =
   globalStyles.match(/\.mari-message-content \.mari-md-codeblock \{[\s\S]*?\}/u)?.[0] ?? "";
 assert.match(markdownMessageStyles, /min-width:\s*0;/u);
 assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
 assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
+assert.match(markdownMessageContainerStyles, /min-width:\s*0;/u);
+assert.match(markdownMessageContainerStyles, /max-width:\s*100%;/u);
+assert.match(markdownCodeBlockStyles, /box-sizing:\s*border-box;/u);
+assert.match(markdownCodeBlockStyles, /width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
 assert.match(markdownCodeBlockStyles, /overflow-x:\s*auto;/u);
 
