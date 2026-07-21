@@ -142,8 +142,16 @@ export function useDeleteNoodlerStageProfile() {
 
 export function useGenerateNoodlerStageProfileDraft() {
   return useMutation({
-    mutationFn: (input: NoodleStageProfileDraftRequest) =>
-      api.post<NoodleStageProfileInput>("/noodle/noodler/stage-profile-draft", input),
+    mutationFn: (input: NoodleStageProfileDraftRequest) => {
+      const controller = new AbortController();
+      // ponytail: fixed 60s ceiling, no per-provider tuning — raise if real drafts routinely take longer
+      const timer = setTimeout(() => controller.abort(), 60_000);
+      return api
+        .post<NoodleStageProfileInput>("/noodle/noodler/stage-profile-draft", input, {
+          signal: controller.signal,
+        })
+        .finally(() => clearTimeout(timer));
+    },
   });
 }
 

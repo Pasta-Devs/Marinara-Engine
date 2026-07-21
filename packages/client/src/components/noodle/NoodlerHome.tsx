@@ -51,6 +51,7 @@ import {
   useUpdateNoodlerStageProfile,
 } from "../../hooks/use-noodle";
 import { useActivePersona, usePersonas } from "../../hooks/use-characters";
+import { useConnections } from "../../hooks/use-connections";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
@@ -246,6 +247,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const updateProfile = useUpdateNoodlerStageProfile();
   const generatePost = useGeneratePrivateNoodlePost();
   const generateProfileDraft = useGenerateNoodlerStageProfileDraft();
+  const connectionsQuery = useConnections();
+  const connections = (connectionsQuery.data ?? []) as Array<{ id: string; name: string; model?: string }>;
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   // Keep the posting identity above ViewerHub: profile management unmounts the inline
   // composer, but it must not reset the author to the most recently edited profile.
@@ -255,6 +258,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [creationStep, setCreationStep] = useState<"source" | "disclosure" | "draft" | null>(null);
   const [creationDisclosure, setCreationDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
   const [draftGuidance, setDraftGuidance] = useState("");
+  const [draftConnectionId, setDraftConnectionId] = useState("");
   const [previousDraft, setPreviousDraft] = useState<NoodleStageProfileInput | null>(null);
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
@@ -389,6 +393,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationStep("source");
     setCreationDisclosure("hinted");
     setDraftGuidance("");
+    setDraftConnectionId("");
     setPreviousDraft(null);
     setSourceSearch("");
     setSourceKind("all");
@@ -400,6 +405,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationDisclosure(profile.disclosureMode ?? "hinted");
     setCreationStep("draft");
     setDraftGuidance("");
+    setDraftConnectionId("");
     setPreviousDraft(null);
     setProfileDraft({
       displayName: profile.displayName,
@@ -425,12 +431,17 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   const generateDraft = () => {
     if (!draftPublicAccountId && !editingProfileId) return;
+    if (connections.length === 0) {
+      toast.error("No connections configured. Add one in Settings → Connections.");
+      return;
+    }
     generateProfileDraft.mutate(
       {
         ...(editingProfileId ? { privateAccountId: editingProfileId } : { publicAccountId: draftPublicAccountId! }),
         disclosureMode: creationDisclosure,
         guidance: draftGuidance,
         currentDraft: profileDraft ?? undefined,
+        connectionId: draftConnectionId || undefined,
       },
       {
         onSuccess: (draft) => {
@@ -657,6 +668,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           onDisclosureChange={changeDisclosure}
           guidance={draftGuidance}
           onGuidanceChange={setDraftGuidance}
+          connections={connections}
+          connectionId={draftConnectionId}
+          onConnectionChange={setDraftConnectionId}
           onGenerate={generateDraft}
           isGenerating={generateProfileDraft.isPending}
           previousDraft={previousDraft}
@@ -901,6 +915,9 @@ function StageProfileForm({
   onDisclosureChange,
   guidance,
   onGuidanceChange,
+  connections,
+  connectionId,
+  onConnectionChange,
   onGenerate,
   isGenerating,
   previousDraft,
@@ -918,6 +935,9 @@ function StageProfileForm({
   onDisclosureChange: (value: NoodleIdentityDisclosure) => void;
   guidance: string;
   onGuidanceChange: (value: string) => void;
+  connections: Array<{ id: string; name: string; model?: string }>;
+  connectionId: string;
+  onConnectionChange: (value: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
   previousDraft: NoodleStageProfileInput | null;
@@ -977,10 +997,33 @@ function StageProfileForm({
                 className={`${textareaClass} min-h-20`}
               />
             </label>
+            {connections.length > 0 && (
+              <label className="mt-3 block space-y-2">
+                <span className="text-xs font-semibold">Model</span>
+                <select
+                  value={connectionId}
+                  disabled={isGenerating || isPending}
+                  onChange={(event) => onConnectionChange(event.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Default connection</option>
+                  {connections.map((connection) => (
+                    <option key={connection.id} value={connection.id}>
+                      {connection.model ? `${connection.name} — ${connection.model}` : connection.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {connections.length === 0 && (
+              <p className="mt-3 rounded-md border border-[var(--destructive)]/30 bg-[var(--destructive)]/5 p-3 text-xs leading-5">
+                No connections configured. Add one in Settings → Connections.
+              </p>
+            )}
             <button
               type="button"
               onClick={onGenerate}
-              disabled={isGenerating || isPending}
+              disabled={isGenerating || isPending || connections.length === 0}
               className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:opacity-50"
             >
               {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
@@ -1324,7 +1367,7 @@ function WizardFooter({
 }) {
   const labels = ["Source", "Disclosure", "Profile"];
   return (
-    <div className="z-10 shrink-0 border-t border-[var(--noodle-divider)] bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+    <div className="z-[60] shrink-0 border-t border-[var(--noodle-divider)] bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
       {showProgress && (
         <div
           className="mb-3 flex items-center justify-center gap-1.5"
@@ -1614,7 +1657,7 @@ function ViewerHub({
     )
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
-    <div>
+    <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
       <div className="grid grid-cols-2 border-b border-[var(--noodle-divider)]">
         {(
           [
@@ -2042,7 +2085,9 @@ function NoodlerFrame({
           Private
         </span>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
+      <main className="min-h-0 flex-1 overflow-y-auto pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
+        {children}
+      </main>
     </div>
   );
 }

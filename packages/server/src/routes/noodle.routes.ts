@@ -380,7 +380,7 @@ export async function noodleRoutes(app: FastifyInstance) {
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     const parsed = noodleStageProfileDraftRequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const connectionId = settings.generationConnectionId;
+    const connectionId = parsed.data.connectionId || settings.generationConnectionId;
     if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
     const connection = await connections.getWithKey(connectionId);
     if (!connection) return reply.code(404).send({ error: "Noodle generation connection not found" });

@@ -208,6 +208,7 @@ export const noodleStageProfileDraftRequestSchema = z
     disclosureMode: noodleIdentityDisclosureSchema,
     guidance: z.string().trim().max(2000).default(""),
     currentDraft: noodleStageProfileSchema.partial().optional(),
+    connectionId: z.string().min(1).optional(),
   })
   .strict()
   .refine((input) => Boolean(input.publicAccountId || input.privateAccountId), {
