@@ -627,11 +627,11 @@ export const ChatInput = memo(function ChatInput({
   const isReadingAttachments = pendingAttachmentReads > 0;
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
   const requiresManualGuideTarget = groupResponseOrder === "manual" && activeCharacterNames.length > 1;
-  const inputBusyReason = isStreaming
-    ? "Wait for the current stream to finish."
-    : interactionsLocked
-      ? "Wait for agents to finish."
-      : null;
+  const inputBusyReason = isInputBusy
+    ? isStreaming
+      ? "Wait for the current stream to finish."
+      : "Wait for agents to finish."
+    : null;
 
   const removeAttachment = (idx: number) => {
     updateAttachments((prev) => prev.filter((_, i) => i !== idx));

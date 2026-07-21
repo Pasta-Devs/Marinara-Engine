@@ -49,6 +49,10 @@ const chatInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
   "utf8",
 );
+const conversationInputSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
+  "utf8",
+);
 const gameInputSource = readFileSync(
   new URL("../../packages/client/src/components/game/GameInput.tsx", import.meta.url),
   "utf8",
@@ -69,6 +73,12 @@ assert.doesNotMatch(
   chatTextareaSource,
   /disabled=\{[^}]*isInputBusy/u,
   "agent work should guard sending without disabling preparation of the next draft",
+);
+const conversationTextareaSource = conversationInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
+assert.doesNotMatch(
+  conversationTextareaSource,
+  /disabled=/u,
+  "Conversation drafts should remain editable regardless of send-blocking state",
 );
 const gameTextareaSource = gameInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
 assert.match(
