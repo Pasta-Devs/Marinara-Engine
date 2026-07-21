@@ -51,6 +51,7 @@ type PublicGenerationInput = {
   imageCaptioning: ImageCaptioningRuntime;
   settings: NoodleSettings;
   personaId?: string;
+  timeZone?: string;
   debugMode: boolean;
   reviewImagePromptsBeforeSend: boolean;
 };
@@ -257,6 +258,7 @@ export function createPublicNoodleGenerationService(db: DB) {
           activeAccounts: selectedParticipants,
           personaAccount,
           settings,
+          timeZone: input.timeZone,
           imageCaptioning,
           debugMode,
         });

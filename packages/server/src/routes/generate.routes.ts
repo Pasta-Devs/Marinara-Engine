@@ -94,7 +94,10 @@ import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
 import { createLLMProvider } from "../services/llm/provider-registry.js";
 import { resolveChatSummaryConnection } from "../services/chat-summary/connection-resolution.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
-import { loadImageGenerationUserSettings } from "../services/image/image-generation-settings.js";
+import {
+  loadImageGenerationUserSettings,
+  resolveIllustratorImageSize,
+} from "../services/image/image-generation-settings.js";
 import { textRewriteDropsProtectedMarkup } from "../services/generation/text-rewrite-safety.js";
 import { compileImagePrompt } from "../services/image/image-prompt-compiler.js";
 import { persistGeneratedImageToEntityGalleries } from "../services/image/generated-image-entity-gallery.js";
@@ -4625,14 +4628,11 @@ export async function generateRoutes(app: FastifyInstance) {
         const useIndividualLoop =
           isGroupChat && usesIndividualGroupGeneration && !input.regenerateMessageId && !input.impersonate;
         const regenGroupChatIndividual = isGroupChat && usesIndividualGroupGeneration && input.regenerateMessageId;
-        const mentionedConversationCharacters =
-          chatMode === "conversation" && isGroupChat && !input.impersonate
-            ? charInfo.filter((character) =>
-                (input.mentionedCharacterNames ?? []).some(
-                  (name: string) => normalizeTextForMatch(name) === normalizeTextForMatch(character.name),
-                ),
-              )
-            : [];
+        const explicitlyMentionedConversationCharacterIds =
+          chatMode === "conversation" && isGroupChat && !input.impersonate ? getExplicitlyMentionedCharacterIds() : [];
+        const mentionedConversationCharacters = charInfo.filter((character) =>
+          explicitlyMentionedConversationCharacterIds.includes(character.id),
+        );
 
         const hasExplicitGenerationDirective = input.impersonate === true || Boolean(input.generationGuide?.trim());
         const selectExplicitOrFallbackSmartGroupResponder = (): string[] => {
@@ -4700,13 +4700,15 @@ export async function generateRoutes(app: FastifyInstance) {
         const respondingCharIds = useIndividualLoop
           ? input.forCharacterId && characterIds.includes(input.forCharacterId)
             ? [input.forCharacterId]
-            : groupResponseOrder === "manual"
-              ? [] // manual mode without forCharacterId: no auto-generation
-              : groupResponseOrder === "sequential"
-                ? [...characterIds]
-                : smartResponseQueue?.[0]
-                  ? [smartResponseQueue[0]]
-                  : []
+            : explicitlyMentionedConversationCharacterIds.length > 0
+              ? explicitlyMentionedConversationCharacterIds
+              : groupResponseOrder === "manual"
+                ? [] // manual mode without forCharacterId or a mention: no auto-generation
+                : groupResponseOrder === "sequential"
+                  ? [...characterIds]
+                  : smartResponseQueue?.[0]
+                    ? [smartResponseQueue[0]]
+                    : []
           : [characterIds[0] ?? null];
 
         /** Generate a single response for a given character and save it. */
@@ -7890,8 +7892,12 @@ export async function generateRoutes(app: FastifyInstance) {
                         (chatMeta.imageStyleProfileId as string | undefined) ??
                         null;
 
-                      const imgWidth = imageSettings.illustration.width;
-                      const imgHeight = imageSettings.illustration.height;
+                      const illustrationSize = resolveIllustratorImageSize(
+                        imageSettings.illustration,
+                        illData.aspectRatio,
+                      );
+                      const imgWidth = illustrationSize.width;
+                      const imgHeight = illustrationSize.height;
 
                       // Prepend style to the prompt for better results
                       let fullPrompt = style ? `${style}, ${imagePrompt}` : imagePrompt;

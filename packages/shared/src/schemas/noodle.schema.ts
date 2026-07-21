@@ -32,6 +32,7 @@ export const DEFAULT_NOODLE_SETTINGS = {
   imageCaptioningEnabled: false,
   imageCaptioningConnectionId: null,
   enableLorebookContext: false,
+  includeCharacterSchedules: false,
   enableEnhancedTimelineWriting: false,
   allowProfessorMari: true,
   allowRandomUsers: false,
@@ -79,6 +80,7 @@ export const noodleSettingsSchema = z.object({
     .nullable()
     .default(DEFAULT_NOODLE_SETTINGS.imageCaptioningConnectionId),
   enableLorebookContext: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableLorebookContext),
+  includeCharacterSchedules: z.boolean().default(DEFAULT_NOODLE_SETTINGS.includeCharacterSchedules),
   enableEnhancedTimelineWriting: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableEnhancedTimelineWriting),
   allowProfessorMari: z.boolean().default(DEFAULT_NOODLE_SETTINGS.allowProfessorMari),
   allowRandomUsers: z.boolean().default(DEFAULT_NOODLE_SETTINGS.allowRandomUsers),
@@ -353,6 +355,7 @@ export const noodlePublicGenerationRequestSchema = z
     mode: z.literal("public"),
     ...noodleGenerationConnectionShape,
     personaId: z.string().min(1).optional(),
+    timeZone: z.string().min(1).max(100).optional(),
     reviewImagePromptsBeforeSend: z.boolean().optional(),
   })
   .strict();

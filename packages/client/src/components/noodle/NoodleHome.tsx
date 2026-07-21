@@ -3339,6 +3339,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 disabled={updateSettings.isPending}
                 onChange={(checked) => saveSettings({ enableEnhancedTimelineWriting: checked })}
               />
+              <ToggleSetting
+                label="Use generated character schedules"
+                help="Includes each participating character's already-generated Conversation schedule for today when one is available. Current time is always included even when this is off."
+                checked={settings.includeCharacterSchedules}
+                disabled={updateSettings.isPending}
+                onChange={(checked) => saveSettings({ includeCharacterSchedules: checked })}
+              />
             </div>
           </Section>
 

@@ -28,7 +28,6 @@ import {
   CalendarClock,
   RefreshCw,
   Settings2,
-  Link,
   ArrowRightLeft,
   Unlink,
   Brain,
@@ -5129,40 +5128,54 @@ export function ChatSettingsDrawer({
               icon={<Users size="0.875rem" />}
               help={
                 isConversation
-                  ? "Configure whether group conversations reply automatically or wait for a manually triggered character response."
+                  ? "Choose one grouped response or separate character turns. Individual replies use a separate model request for every responding character."
                   : "Configure how multiple characters interact. Merged mode combines all characters into one narrator; Individual mode has each character respond separately."
               }
             >
               {/* Mode selector */}
-              {!isConversation && (
-                <div className="space-y-2">
-                  <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Mode</label>
-                  <div className="flex rounded-lg ring-1 ring-[var(--border)]">
-                    <button
-                      onClick={() => updateMeta.mutate({ id: chat.id, groupChatMode: "merged" })}
-                      className={cn(
-                        "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
-                        (metadata.groupChatMode ?? "merged") === "merged"
-                          ? "bg-[var(--primary)] text-white"
-                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      Merged (Narrator)
-                    </button>
-                    <button
-                      onClick={() => updateMeta.mutate({ id: chat.id, groupChatMode: "individual" })}
-                      className={cn(
-                        "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
-                        metadata.groupChatMode === "individual"
-                          ? "bg-[var(--primary)] text-white"
-                          : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      Individual
-                    </button>
-                  </div>
+              <div className="space-y-2">
+                <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Mode</label>
+                <div className="flex rounded-lg ring-1 ring-[var(--border)]">
+                  <button
+                    onClick={() => updateMeta.mutate({ id: chat.id, groupChatMode: "merged" })}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-l-lg",
+                      (metadata.groupChatMode ?? "merged") === "merged"
+                        ? "bg-[var(--primary)] text-white"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    {isConversation ? "Grouped" : "Merged (Narrator)"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (metadata.groupChatMode === "individual") return;
+                      updateMeta.mutate({
+                        id: chat.id,
+                        groupChatMode: "individual",
+                        ...(isConversation && metadata.groupResponseOrder === "manual"
+                          ? { groupResponseOrder: "sequential" as const }
+                          : {}),
+                      });
+                      if (isConversation) {
+                        toast.warning("Individual replies can use many tokens", {
+                          description:
+                            "Each responding character uses a separate model request. Large groups with Autonomous Messaging can increase token use quickly.",
+                          duration: 12_000,
+                        });
+                      }
+                    }}
+                    className={cn(
+                      "flex-1 px-3 py-2 text-[0.6875rem] font-medium transition-colors rounded-r-lg",
+                      metadata.groupChatMode === "individual"
+                        ? "bg-[var(--primary)] text-white"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    Individual
+                  </button>
                 </div>
-              )}
+              </div>
 
               {/* Merged mode: speaker color option */}
               {!isConversation && (metadata.groupChatMode ?? "merged") === "merged" && (
@@ -5199,7 +5212,7 @@ export function ChatSettingsDrawer({
               )}
 
               {/* Individual mode: response order */}
-              {!isConversation && metadata.groupChatMode === "individual" && (
+              {metadata.groupChatMode === "individual" && (
                 <div className="mt-2 space-y-2">
                   <label className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Response Order</label>
                   <div className="flex rounded-lg ring-1 ring-[var(--border)]">
@@ -5239,7 +5252,9 @@ export function ChatSettingsDrawer({
                   </div>
                   <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                     {metadata.groupResponseOrder === "manual"
-                      ? "No automatic responses — use the character picker in the input bar to trigger responses one at a time."
+                      ? isConversation
+                        ? "No automatic responses — @mention one or more characters to call them into the conversation."
+                        : "No automatic responses — use the character picker in the input bar to trigger responses one at a time."
                       : metadata.groupResponseOrder === "smart"
                         ? "An AI agent decides which characters should respond based on the scene context."
                         : "Characters respond one by one in their listed order."}
@@ -5450,40 +5465,6 @@ export function ChatSettingsDrawer({
                     </div>
                   )}
                 </div>
-
-                <button
-                  onClick={() => {
-                    const onlyWhenMentioned = metadata.groupResponseOrder === "manual";
-                    updateMeta.mutate({
-                      id: chat.id,
-                      groupResponseOrder: onlyWhenMentioned ? "sequential" : "manual",
-                    });
-                  }}
-                  className={cn(
-                    "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                    metadata.groupResponseOrder === "manual" && "mari-chat-option-field--active",
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-medium">Reply When Mentioned</span>
-                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                      Characters wait for direct mentions or manual response triggers
-                    </p>
-                  </div>
-                  <div
-                    className={cn(
-                      "mari-chat-option-switch h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                      metadata.groupResponseOrder === "manual" && "mari-chat-option-switch--active",
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                        metadata.groupResponseOrder === "manual" && "translate-x-3.5",
-                      )}
-                    />
-                  </div>
-                </button>
 
                 {/* Character exchanges toggle (group chats only) */}
                 {chatCharIds.length > 1 && (
@@ -5920,59 +5901,51 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {/* Cross-Chat Awareness — conversation mode only */}
-          {isConversation && (
-            <Section
-              label="Cross-Chat Awareness"
-              icon={<Link size="0.875rem" />}
-              help="Characters remember and reference conversations from other chats they're in. Pulls recent messages from sibling chats and injects them as context."
-            >
-              <button
-                onClick={() => {
-                  updateMeta.mutate({
-                    id: chat.id,
-                    crossChatAwareness: metadata.crossChatAwareness === false ? true : false,
-                  });
-                }}
-                className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                  metadata.crossChatAwareness !== false
-                    ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                    : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs font-medium">Cross-Chat Awareness</span>
-                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    Characters know what happens in their other chats
-                  </p>
-                </div>
-                <div
-                  className={cn(
-                    "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                    metadata.crossChatAwareness !== false ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                      metadata.crossChatAwareness !== false && "translate-x-3.5",
-                    )}
-                  />
-                </div>
-              </button>
-            </Section>
-          )}
-
           {/* Connected Roleplay — conversation mode: link to a roleplay or game chat */}
           {isConversation && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.connectedChat }}
               label="Connected Chats"
               icon={<ArrowRightLeft size="0.875rem" />}
-              help="Link this conversation to a roleplay or game. Recent messages from the linked chat are pulled into context here automatically. To send something the other direction, the character uses `<influence>` (steers the next linked turn, one-shot) or `<note>` (persists on every future linked turn until cleared)."
+              help="Control awareness of sibling chats or link this conversation to a roleplay or game. Linked messages are pulled into context automatically; `<influence>` steers one linked turn and `<note>` persists until cleared."
             >
               <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    updateMeta.mutate({
+                      id: chat.id,
+                      crossChatAwareness: metadata.crossChatAwareness === false ? true : false,
+                    });
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                    metadata.crossChatAwareness !== false
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-medium">Cross-Chat Awareness</span>
+                    <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                      Characters know what happens in their other chats
+                    </p>
+                  </div>
+                  <div
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      metadata.crossChatAwareness !== false
+                        ? "bg-[var(--primary)]"
+                        : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                        metadata.crossChatAwareness !== false && "translate-x-3.5",
+                      )}
+                    />
+                  </div>
+                </button>
                 {chat.connectedChatId ? (
                   (() => {
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);

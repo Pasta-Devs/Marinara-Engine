@@ -68,10 +68,12 @@ try {
   const updated = await firstNoodle.updateSettings({
     maxImagesPerRefresh: 9,
     allowRandomUsers: true,
+    includeCharacterSchedules: true,
     maxGeneratedPostsPerRefresh: 11,
   });
   assert.equal(updated.maxImagesPerRefresh, 9);
   assert.equal(updated.allowRandomUsers, true);
+  assert.equal(updated.includeCharacterSchedules, true);
   assert.equal(updated.maxGeneratedPostsPerRefresh, 11);
   const concurrentAccount = await firstNoodle.upsertAccountFromProfile({
     kind: "persona",
@@ -361,6 +363,7 @@ try {
   const reopenedSettings = await reopenedNoodle.getSettings();
   assert.equal(reopenedSettings.maxImagesPerRefresh, 9);
   assert.equal(reopenedSettings.allowRandomUsers, true);
+  assert.equal(reopenedSettings.includeCharacterSchedules, true);
   assert.equal(reopenedSettings.maxGeneratedPostsPerRefresh, 11);
   assert.equal((await reopenedNoodle.listSubscriptionsForViewer(viewer.id)).length, 0);
   assert.equal((await reopenedNoodle.listPostUnlocksForViewer(viewer.id)).length, 0);

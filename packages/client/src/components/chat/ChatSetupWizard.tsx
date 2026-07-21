@@ -38,7 +38,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { api } from "../../lib/api-client";
 import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
-import { resolveConversationSelfieConnectionId } from "../../lib/conversation-selfie-setup";
+import { resolveConversationSelfieSetup } from "../../lib/conversation-selfie-setup";
 import { getAgentRunIntervalMeta } from "../../lib/agent-cadence";
 import { characterMatchesSearch, getCharacterTitle, parseCharacterDisplayData } from "../../lib/character-display";
 import { addSilentGreetingSwipes } from "../../lib/message-swipes";
@@ -1044,7 +1044,9 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       commandsEnabled &&
       availableConversationCommandIds.has("selfie") &&
       isConversationCommandToggleEnabled(conversationCommandToggles, "selfie");
-    const selfieConnectionId = resolveConversationSelfieConnectionId({
+    const selfieSetup = resolveConversationSelfieSetup({
+      commandToggles: conversationCommandToggles,
+      selfieCommandAvailable: availableConversationCommandIds.has("selfie"),
       currentConnectionId: metadata.imageGenConnectionId,
       selfieCommandEnabled,
       connections: connectionOptions,
@@ -1054,11 +1056,11 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       autonomousMessages: autonomousEnabled,
       conversationSchedulesEnabled: autonomousEnabled && generateSchedule,
       characterCommands: hasConversationCommands && commandsEnabled,
-      conversationCommandToggles,
+      conversationCommandToggles: selfieSetup.conversationCommandToggles,
       conversationSetupComplete: true,
       chatParameters: customizeParameters ? generationParameters : null,
       customSystemPrompt,
-      ...(selfieConnectionId ? { imageGenConnectionId: selfieConnectionId } : {}),
+      ...(selfieSetup.imageGenConnectionId ? { imageGenConnectionId: selfieSetup.imageGenConnectionId } : {}),
     });
     if (autonomousEnabled && generateSchedule) {
       setScheduleState("generating");

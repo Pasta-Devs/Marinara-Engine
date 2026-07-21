@@ -52,7 +52,11 @@ import {
 import { normalizeNoodleImagePrompt } from "../../packages/server/src/services/noodle/noodle-image-prompt.js";
 import { characterAppearanceFromRow } from "../../packages/server/src/services/noodle/noodle-public-images.service.js";
 import { buildNoodleProfileTargetBlock } from "../../packages/server/src/services/noodle/noodle-public-profiles.service.js";
-import { buildOptedInChatContext } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
+import {
+  buildGeneratedCharacterScheduleContext,
+  buildOptedInChatContext,
+  formatNoodleCurrentTime,
+} from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
 import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-generation-log.js";
 import {
   buildPrivatePostMessages,
@@ -350,6 +354,7 @@ assert.equal(
   true,
 );
 assert.equal(noodleGenerationRequestSchema.safeParse({ mode: "public", personaId: "persona-1" }).success, true);
+assert.equal(noodleGenerationRequestSchema.safeParse({ mode: "public", timeZone: "Europe/Warsaw" }).success, true);
 assert.equal(
   noodleGenerationRequestSchema.safeParse({
     mode: "private",
@@ -859,6 +864,40 @@ const optedInChatContext = await buildOptedInChatContext(
 assert.doesNotMatch(optedInChatContext, /chat-0/u);
 assert.match(optedInChatContext, /chat-8/u);
 assert.equal((optedInChatContext.match(/<chat_context /gu) ?? []).length, 8);
+
+const noodleScheduleNow = new Date("2026-07-21T10:30:00.000Z");
+const generatedScheduleContext = await buildGeneratedCharacterScheduleContext(
+  {
+    list: async () => [
+      {
+        id: "schedule-chat",
+        mode: "conversation",
+        metadata: {
+          conversationSchedulesEnabled: true,
+          conversationTimeZone: "Europe/Warsaw",
+          characterSchedules: {
+            "character-alpha": {
+              weekStart: "2026-07-20T00:00:00.000Z",
+              days: {
+                Tuesday: [
+                  { time: "08:00-12:00", status: "dnd", activity: "laboratory work" },
+                  { time: "12:00-13:00", status: "idle", activity: "lunch" },
+                ],
+              },
+              inactivityThresholdMinutes: 60,
+              talkativeness: 50,
+            },
+          },
+        },
+      },
+    ],
+  } as never,
+  new Map([["character-alpha", "Alpha"]]),
+  "UTC",
+  noodleScheduleNow,
+);
+assert.match(generatedScheduleContext, /Alpha: 08:00-12:00: laboratory work, 12:00-13:00: lunch/u);
+assert.match(formatNoodleCurrentTime(noodleScheduleNow, "Europe/Warsaw"), /12:30/u);
 
 const correctionMessages = [
   { role: "system" as const, content: "system prompt" },

@@ -2,7 +2,7 @@
 // Peek Prompt Modal — collapsible section viewer
 // ──────────────────────────────────────────────
 import { useState, useMemo } from "react";
-import { X, ChevronRight, ChevronDown, Info } from "lucide-react";
+import { X, ChevronRight, ChevronDown } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
   NEUTRAL_PANEL_HEADER,
@@ -606,15 +606,6 @@ export function PeekPromptModal({ data, onClose }: PeekPromptModalProps) {
           {data.agentNote && (
             <div className="rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-text)]">
               Note: {data.agentNote}
-            </div>
-          )}
-          {data.exact && (
-            <div className="flex items-start gap-2 rounded-lg border border-(--border) bg-(--secondary)/25 px-3 py-2 text-[0.6875rem] leading-snug text-(--muted-foreground)">
-              <Info size="0.75rem" className="mt-0.5 shrink-0 text-(--primary)" />
-              <span>
-                Providers may combine several chat turns into one request block. Expand Chat History to inspect all
-                model-visible text inside each block.
-              </span>
             </div>
           )}
           {sections.map((s, i) =>

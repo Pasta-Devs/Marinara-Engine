@@ -43,6 +43,7 @@ import {
 } from "../services/noodle/noodle-refresh-schedule.js";
 import { isFileUniqueConstraintError } from "../db/file-schema.js";
 import { resolveImageCaptioningRuntime } from "./generate/image-captioning-runtime.js";
+import { normalizePromptTimeZone } from "../services/conversation/timezone.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/noodle-profile-avatar.js";
 
 import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
@@ -789,6 +790,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         imageCaptioning,
         settings,
         personaId: parsed.data.personaId,
+        timeZone: normalizePromptTimeZone(parsed.data.timeZone),
         debugMode: parsed.data.debugMode === true,
         reviewImagePromptsBeforeSend: parsed.data.reviewImagePromptsBeforeSend === true,
       });
