@@ -508,6 +508,7 @@ import {
   type SimpleMessage,
 } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { formatRoleplaySummaryChatLog } from "../../packages/server/src/services/generation/roleplay-summary-runtime.js";
+import { scopeIndividualGroupMessagesForTarget } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
 import {
   calibrateLorebookSimilarity,
@@ -4895,6 +4896,39 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         "utf8",
       );
       assert.equal(contextSource.includes(instruction), false);
+    },
+  },
+  {
+    name: "individual Conversation turns attach only the responding character card",
+    run() {
+      const scoped = scopeIndividualGroupMessagesForTarget(
+        [
+          {
+            role: "system",
+            content: [
+              "<Dottore>\n<description>Dottore card only.</description>\n</Dottore>",
+              "<Pantalone>\n<description>Pantalone card only.</description>\n</Pantalone>",
+            ].join("\n"),
+            contextKind: "prompt",
+          },
+          {
+            role: "assistant",
+            content: "Pantalone spoke earlier and remains visible as shared history.",
+            contextKind: "history",
+            characterId: "pantalone",
+          },
+        ],
+        "dottore",
+        [
+          { id: "dottore", name: "Dottore", description: "Dottore card only." },
+          { id: "pantalone", name: "Pantalone", description: "Pantalone card only." },
+        ],
+      );
+
+      assert.match(scoped[0]?.content ?? "", /Dottore card only\./u);
+      assert.doesNotMatch(scoped[0]?.content ?? "", /Pantalone card only\./u);
+      assert.equal(scoped[1]?.role, "user");
+      assert.match(scoped[1]?.content ?? "", /Pantalone spoke earlier/u);
     },
   },
   {
