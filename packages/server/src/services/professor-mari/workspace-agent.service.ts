@@ -7,6 +7,7 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
+import { jsonrepair } from "jsonrepair";
 import type {
   BaseLLMProvider,
   ChatCompletionResult,
@@ -842,18 +843,19 @@ function closeOpenJsonContainers(raw: string): string | null {
   );
 }
 
-function repairJsonSyntax(raw: string): string {
-  return raw
-    .replace(/[‘’]/g, "'")
-    .replace(/[“”]/g, '"')
-    .replace(/([{,]\s*)([A-Za-z_][\w.-]*)\s*:/g, '$1"$2":')
-    .replace(/:\s*'([^']*)'/g, (_match, value: string) => `: ${JSON.stringify(value)}`)
-    .replace(/,\s*([\]}])/g, "$1");
-}
-
 function tryParseJsonPayload(raw: string): Record<string, unknown> | null {
-  const repaired = repairJsonSyntax(raw);
-  const candidates = [raw, repaired, closeOpenJsonContainers(raw), closeOpenJsonContainers(repaired)];
+  let repaired: string | null = null;
+  try {
+    repaired = jsonrepair(raw);
+  } catch {
+    // Fall through to the conservative container-closing recovery.
+  }
+  const candidates = [
+    raw,
+    repaired,
+    closeOpenJsonContainers(raw),
+    repaired && closeOpenJsonContainers(repaired),
+  ];
   for (const candidate of candidates) {
     if (!candidate) continue;
     try {
@@ -882,6 +884,7 @@ function findJsonPayloadMatch(content: string): JsonPayloadMatch | null {
     let depth = 0;
     let inString = false;
     let escaped = false;
+    let closedWithoutAction = false;
     for (let index = start; index < content.length; index += 1) {
       const char = content[index];
       if (inString) {
@@ -901,9 +904,11 @@ function findJsonPayloadMatch(content: string): JsonPayloadMatch | null {
         const raw = content.slice(start, index + 1);
         const payload = tryParseJsonPayload(raw);
         if (payload && hasActionPayload(payload)) return { payload, raw, start, end: index + 1 };
+        closedWithoutAction = true;
         break;
       }
     }
+    if (closedWithoutAction) continue;
     const incompleteRaw = content.slice(start).trim();
     const incompletePayload = tryParseJsonPayload(incompleteRaw);
     if (incompletePayload && hasActionPayload(incompletePayload)) {
@@ -1100,9 +1105,8 @@ export function parseAssistantWorkspaceAction(content: string): AssistantWorkspa
   const jsonCommands = matches.flatMap((match) => parseJsonCommandCallsFromPayload(match.payload));
   const textualCommands = parseTextualWorkspaceCommandCalls(contentWithoutJson);
   // If JSON frames are present, treat all prose outside them as protocol leakage.
-  // Visible text must come from the frame's say/message/final field only.
-  const inlineVisibleText =
-    matches.length > 0 || textualCommands.length > 0 ? "" : stripWorkspaceCommands(contentWithoutJson);
+  // Textual calls have no visible-text field, so retain their surrounding prose.
+  const inlineVisibleText = matches.length > 0 ? "" : stripWorkspaceCommands(contentWithoutJson);
   const frameVisibleText = matches
     .map((match) => jsonPayloadVisibleText(match.payload))
     .filter(Boolean)

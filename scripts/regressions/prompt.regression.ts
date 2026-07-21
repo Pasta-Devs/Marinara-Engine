@@ -5567,6 +5567,17 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(actionUsedAsToolName.commands[0]?.name, "app_data");
       assert.equal(actionUsedAsToolName.commands[0]?.arguments.action, "persona.create");
+
+      const textualCallWithProse = parseAssistantWorkspaceAction(
+        "Let me check that for you.\n<tool_call>mari status</tool_call>",
+      );
+      assert.equal(textualCallWithProse.commands.length, 1);
+      assert.match(textualCallWithProse.visibleText, /^Let me check that for you\./u);
+
+      const repairedProse = parseAssistantWorkspaceAction(
+        '{say: "I noticed, name: value in prose", commands: [], stop: true}',
+      );
+      assert.equal(repairedProse.visibleText, "I noticed, name: value in prose");
     },
   },
   {

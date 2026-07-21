@@ -123,9 +123,7 @@ export async function scopeLorebookScanResultToCharacter(
     ...result.activatedEntryIds,
     ...result.budgetSkippedEntries.map((entry) => entry.id),
   ]);
-  const entries = (await Promise.all(entryIds.map((entryId) => lorebooks.getEntry(entryId)))).filter(
-    (entry): entry is NonNullable<typeof entry> => !!entry,
-  ) as unknown as LorebookEntry[];
+  const entries = await lorebooks.listEligibleEntriesByIds(entryIds);
   const character = await characters.getById(characterId);
   const data = character ? safeJsonParse<CharacterData | null>((character as { data?: unknown }).data, null) : null;
 
