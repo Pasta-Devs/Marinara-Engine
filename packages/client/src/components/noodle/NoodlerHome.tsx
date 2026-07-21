@@ -619,11 +619,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     direction,
     access,
     ppvPrice,
+    onSuccess,
   }: {
     profileId: string;
     direction: string;
     access: NoodlePostAccess;
     ppvPrice: number | null;
+    onSuccess?: () => void;
   }) => {
     setGenerationError(null);
     generatePost.mutate(
@@ -635,7 +637,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         ...(access === "ppv" ? { ppvPrice } : {}),
       },
       {
-        onSuccess: () => toast.success("Private post generated."),
+        // The visible feed reads the viewer query, not the profile-post query the mutation
+        // invalidates, so refetch it here or the new post won't appear until manual refresh.
+        // Only clear the composer after success so a failed generation keeps the draft.
+        onSuccess: () => {
+          onSuccess?.();
+          void viewerQuery.refetch();
+          toast.success("Private post generated.");
+        },
         onError: (error) => setGenerationError(errorMessage(error, "Could not generate this post.")),
       },
     );
@@ -838,10 +847,19 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   }
 
-  const suggestedCreators = (viewerQuery.data?.creators ?? []).filter((creator) => !creator.subscribed);
+  // A viewer persona linked to the creator's own public account cannot subscribe (the
+  // server rejects it), so pass current-subscribed state through and let the toggle flip it.
+  const toggleCreatorSubscription = (creatorAccountId: string, subscribed: boolean) => {
+    if (!viewerPersonaId) return;
+    toggleSubscription.mutate(
+      { creatorAccountId, personaId: viewerPersonaId, subscribed },
+      { onError: (error) => toast.error(errorMessage(error, "Could not update your subscription.")) },
+    );
+  };
 
   // Shared right rail for every private hub surface (feed + manage) so the shell
-  // stays identical across them — no view loses a sidebar.
+  // stays identical across them — no view loses a sidebar. The same subscription/manage
+  // controls are also rendered inline in the feed below xl, where this rail is hidden.
   const feedRightRail = (
     <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
       <div className="sticky top-3 space-y-4">
@@ -865,62 +883,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           )}
         </label>
 
-        <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-          <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-            <h3 className="text-lg font-bold">Who to subscribe to</h3>
-          </div>
-          {suggestedCreators.length > 0 ? (
-            <div className="divide-y divide-[var(--noodle-divider)]">
-              {suggestedCreators.map((creator) => (
-                <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
-                  <ProfileInitial profile={creator.profile} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
-                    <span className="block truncate text-xs text-[var(--muted-foreground)]">
-                      @{creator.profile.handle}
-                    </span>
-                  </span>
-                  <button
-                    type="button"
-                    disabled={toggleSubscription.isPending}
-                    onClick={() => {
-                      if (!viewerPersonaId) return;
-                      toggleSubscription.mutate(
-                        {
-                          creatorAccountId: creator.profile.id,
-                          personaId: viewerPersonaId,
-                          subscribed: false,
-                        },
-                        { onError: (error) => toast.error(errorMessage(error, "Could not update your subscription.")) },
-                      );
-                    }}
-                    className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    Subscribe
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">You're subscribed to everyone!</p>
-          )}
-        </section>
-
-        <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-          <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-            <h3 className="text-lg font-bold">Your stage profiles</h3>
-          </div>
-          <div className="px-4 py-3">
-            <p className="text-sm text-[var(--muted-foreground)]">Private identities and guided posts you publish as.</p>
-            <button
-              type="button"
-              onClick={() => setShowManageProfiles(true)}
-              className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
-            >
-              Manage stage profiles
-            </button>
-          </div>
-        </section>
+        <SubscriptionSections
+          creators={viewerQuery.data?.creators ?? []}
+          onToggleSubscription={toggleCreatorSubscription}
+          togglePending={toggleSubscription.isPending}
+          onManageProfiles={() => setShowManageProfiles(true)}
+        />
       </div>
     </aside>
   );
@@ -1027,6 +995,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         onSubmitPost={submitInlinePost}
         isPosting={generatePost.isPending}
         postError={generationError}
+        onToggleSubscription={toggleCreatorSubscription}
+        togglePending={toggleSubscription.isPending}
+        onManageProfiles={() => setShowManageProfiles(true)}
       />
     </NoodleShell>
   );
@@ -1704,6 +1675,9 @@ function ViewerHub({
   onSubmitPost,
   isPosting,
   postError,
+  onToggleSubscription,
+  togglePending,
+  onManageProfiles,
 }: {
   personas: Persona[];
   scope: ReturnType<typeof useNoodlerViewer>["data"];
@@ -1719,9 +1693,18 @@ function ViewerHub({
   tab: "all" | "subscribed";
   onTabChange: (tab: "all" | "subscribed") => void;
   managedProfiles: NoodlerManagedStageProfile[];
-  onSubmitPost: (input: { profileId: string; direction: string; access: NoodlePostAccess; ppvPrice: number | null }) => void;
+  onSubmitPost: (input: {
+    profileId: string;
+    direction: string;
+    access: NoodlePostAccess;
+    ppvPrice: number | null;
+    onSuccess?: () => void;
+  }) => void;
   isPosting: boolean;
   postError: string | null;
+  onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
+  togglePending: boolean;
+  onManageProfiles: () => void;
 }) {
   if (personas.length === 0) {
     return (
@@ -1766,6 +1749,15 @@ function ViewerHub({
             {option.label}
           </button>
         ))}
+      </div>
+      {/* Below xl the right rail is hidden, so surface the same subscribe/manage controls here. */}
+      <div className="space-y-4 border-b border-[var(--noodle-divider)] px-4 py-3 xl:hidden">
+        <SubscriptionSections
+          creators={scope?.creators ?? []}
+          onToggleSubscription={onToggleSubscription}
+          togglePending={togglePending}
+          onManageProfiles={onManageProfiles}
+        />
       </div>
       <InlineGuidedComposer
         managedProfiles={managedProfiles}
@@ -1825,7 +1817,7 @@ function ViewerHub({
                               : "Subscribe to reveal this post."}
                           </p>
                         </div>
-                        {post.access === "ppv" && (
+                        {post.access === "ppv" ? (
                           <button
                             type="button"
                             disabled={unlockPending}
@@ -1833,6 +1825,15 @@ function ViewerHub({
                             className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950"
                           >
                             <Eye size={14} /> Unlock
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={togglePending}
+                            onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Subscribe
                           </button>
                         )}
                       </div>
@@ -1861,7 +1862,13 @@ function InlineGuidedComposer({
   error,
 }: {
   managedProfiles: NoodlerManagedStageProfile[];
-  onSubmit: (input: { profileId: string; direction: string; access: NoodlePostAccess; ppvPrice: number | null }) => void;
+  onSubmit: (input: {
+    profileId: string;
+    direction: string;
+    access: NoodlePostAccess;
+    ppvPrice: number | null;
+    onSuccess?: () => void;
+  }) => void;
   isPosting: boolean;
   error: string | null;
 }) {
@@ -1870,13 +1877,15 @@ function InlineGuidedComposer({
   const [ppvPrice, setPpvPrice] = useState("5");
   const [activeTool, setActiveTool] = useState<InlineComposerTool | null>(null);
   const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
+  // Explicit posting identity. Stage profiles are ordered updatedAt DESC, so deriving the
+  // author from managedProfiles[0] silently changes it whenever any profile is edited —
+  // track the choice instead and only fall back to the first when nothing is selected.
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const mediaToolRef = useRef<HTMLDivElement | null>(null);
   const coinToolRef = useRef<HTMLDivElement | null>(null);
   const parsedPrice = Number(ppvPrice);
 
-  // Posting always uses the active/default stage profile — the per-post identity
-  // picker is deferred to the scheduler/cross-mode slices, not a composer dropdown.
-  const activeProfile = managedProfiles[0];
+  const activeProfile = managedProfiles.find((profile) => profile.id === selectedProfileId) ?? managedProfiles[0];
 
   if (managedProfiles.length === 0) return null;
 
@@ -1888,8 +1897,8 @@ function InlineGuidedComposer({
       direction,
       access,
       ppvPrice: access === "ppv" ? parsedPrice : null,
+      onSuccess: () => setDirection(""),
     });
-    setDirection("");
   };
 
   const toggleTool = (tool: InlineComposerTool) => setActiveTool((current) => (current === tool ? null : tool));
@@ -1984,6 +1993,23 @@ function InlineGuidedComposer({
       }
       footer={error && <p className="mt-2 pl-14 text-xs text-[var(--destructive)]">{error}</p>}
     >
+      {managedProfiles.length > 1 && (
+        <label className="mb-1 flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+          <span className="font-semibold">Posting as</span>
+          <select
+            value={activeProfile?.id ?? ""}
+            onChange={(event) => setSelectedProfileId(event.target.value)}
+            aria-label="Posting stage profile"
+            className="min-w-0 flex-1 rounded-md border border-[var(--noodle-divider)] bg-[var(--background)] px-2 py-1 text-xs font-semibold text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
+          >
+            {managedProfiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.displayName} · @{profile.handle}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <textarea
         value={direction}
         onChange={(event) => setDirection(event.target.value)}
@@ -1992,6 +2018,77 @@ function InlineGuidedComposer({
         className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
       />
     </NoodleComposerShell>
+  );
+}
+
+// Creator subscribe/unsubscribe toggles + Manage-profiles entry. Rendered both in the
+// xl right rail and inline in the feed below xl, so these controls are reachable at every
+// width (previously the rail — and thus subscribe/manage — vanished under xl).
+function SubscriptionSections({
+  creators,
+  onToggleSubscription,
+  togglePending,
+  onManageProfiles,
+}: {
+  creators: NonNullable<ReturnType<typeof useNoodlerViewer>["data"]>["creators"];
+  onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
+  togglePending: boolean;
+  onManageProfiles: () => void;
+}) {
+  return (
+    <>
+      <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+        <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+          <h3 className="text-lg font-bold">Creators</h3>
+        </div>
+        {creators.length > 0 ? (
+          <div className="divide-y divide-[var(--noodle-divider)]">
+            {creators.map((creator) => (
+              <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
+                <ProfileInitial profile={creator.profile} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
+                  <span className="block truncate text-xs text-[var(--muted-foreground)]">
+                    @{creator.profile.handle}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  disabled={togglePending}
+                  onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                  className={cn(
+                    "h-8 rounded-full px-4 text-xs font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
+                    creator.subscribed
+                      ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
+                      : "bg-[var(--foreground)] text-[var(--background)]",
+                  )}
+                >
+                  {creator.subscribed ? "Unsubscribe" : "Subscribe"}
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">No creators are visible to this persona yet.</p>
+        )}
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+        <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+          <h3 className="text-lg font-bold">Your stage profiles</h3>
+        </div>
+        <div className="px-4 py-3">
+          <p className="text-sm text-[var(--muted-foreground)]">Private identities and guided posts you publish as.</p>
+          <button
+            type="button"
+            onClick={onManageProfiles}
+            className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
+          >
+            Manage stage profiles
+          </button>
+        </div>
+      </section>
+    </>
   );
 }
 
