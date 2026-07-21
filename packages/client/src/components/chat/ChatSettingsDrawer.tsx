@@ -1634,7 +1634,6 @@ export function ChatSettingsDrawer({
       const cfg = agentConfigsByType.get(id);
       const settings = mergeBuiltInAgentSettings(id, cfg?.settings);
       const promptTemplate = resolveAgentPromptTemplate({
-        agentType: id,
         promptTemplate: cfg?.promptTemplate || "",
         fallbackPromptTemplate: getDefaultAgentPrompt(id),
         settings,

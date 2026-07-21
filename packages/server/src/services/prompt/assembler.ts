@@ -220,6 +220,8 @@ export interface AssemblerOutput {
   lorebookActivatedEntries?: LorebookScanResult["activatedEntries"];
   /** Lorebook entries matched but excluded by token budgets while expanding lorebook markers. */
   lorebookBudgetSkippedEntries?: LorebookScanResult["budgetSkippedEntries"];
+  /** Full lorebook scan used to replace shared group lore with responder-scoped lore. */
+  lorebookScanResult?: LorebookScanResult;
   /** Agent types whose runtime data was consumed by enabled agent_data sections. */
   runtimeAgentTypesUsed?: string[];
 }
@@ -569,6 +571,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       : {}),
     ...(markerCtx.lorebookScanResult
       ? {
+          lorebookScanResult: markerCtx.lorebookScanResult,
           lorebookActivatedEntries: markerCtx.lorebookScanResult.activatedEntries,
           lorebookBudgetSkippedEntries: markerCtx.lorebookScanResult.budgetSkippedEntries,
         }

@@ -519,8 +519,12 @@ import {
   calibrateLorebookSimilarity,
   lorebookSimilarityBaseline,
 } from "../../packages/server/src/services/lorebook/embeddings.js";
-import { resolveAndBudgetActivatedLorebookEntries } from "../../packages/server/src/services/lorebook/index.js";
+import {
+  resolveAndBudgetActivatedLorebookEntries,
+  scopeLorebookScanResultToCharacterContext,
+} from "../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../packages/server/src/services/lorebook/keyword-scanner.js";
+import { parseAssistantWorkspaceAction } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
   assemblePrompt,
@@ -602,7 +606,6 @@ function makeRegressionAgentContext(overrides: Partial<AgentContext> = {}): Agen
     characters: [{ id: "char-dottore", name: "Dottore", description: "A precise researcher." }],
     persona: { name: "Mari", description: "The active user persona." },
     memory: {},
-    activatedLorebookEntries: null,
     writableLorebookIds: null,
     chatSummary: null,
     wrapFormat: "markdown",
@@ -2550,12 +2553,10 @@ const cases: RegressionCase[] = [
       );
       const settings = getDefaultBuiltInAgentSettings("illustrator");
       const illustrationPrompt = resolveAgentPromptTemplate({
-        agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
       });
       const explicitBackgroundPrompt = resolveAgentPromptTemplate({
-        agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
         selectedPromptTemplateId: "background",
@@ -3072,7 +3073,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           appearance: "Red dress.",
         },
         memory: {},
-        activatedLorebookEntries: null,
         writableLorebookIds: null,
         chatSummary: null,
       };
@@ -5517,6 +5517,123 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(system, /<character_tracker_history>/u);
       assert.match(system, /this list does not mean everyone is present now/u);
       assert.match(system, /"value":72/u);
+    },
+  },
+  {
+    name: "individual group lorebook filters are scoped to the responding character",
+    run() {
+      const makeEntry = (id: string, content: string, tag: string | null, order: number) =>
+        ({
+          id,
+          lorebookId: "book-pasta",
+          enabled: true,
+          constant: false,
+          selective: false,
+          keys: ["pasta"],
+          secondaryKeys: [],
+          selectiveLogic: "and",
+          useRegex: false,
+          matchWholeWords: false,
+          caseSensitive: false,
+          locked: false,
+          preventRecursion: false,
+          excludeRecursion: false,
+          delayUntilRecursion: false,
+          excludeFromVectorization: false,
+          embedding: null,
+          position: 0,
+          depth: 4,
+          role: "system",
+          order,
+          group: null,
+          groupWeight: 100,
+          probability: 100,
+          sticky: null,
+          cooldown: null,
+          delay: null,
+          activationConditions: [],
+          schedule: null,
+          characterFilterMode: "any",
+          characterFilterIds: [],
+          characterTagFilterMode: tag ? "include" : "any",
+          characterTagFilters: tag ? [tag] : [],
+          generationTriggerFilterMode: "any",
+          generationTriggerFilters: [],
+          additionalMatchingSources: [],
+          scanDepth: null,
+          content,
+          name: id,
+        }) as any;
+      const entries = [
+        makeEntry("generic-pasta", "Pasta is a food.", null, 0),
+        makeEntry("loves-pasta", "{{char}} loves pasta.", "loves_pasta", 1),
+        makeEntry("hates-pasta", "{{char}} hates pasta.", "hates_pasta", 2),
+      ];
+      const scanResult = {
+        worldInfoBefore: "Pasta is a food.\n\n{{char}} loves pasta.\n\n{{char}} hates pasta.",
+        worldInfoAfter: "",
+        depthEntries: [],
+        totalEntries: 3,
+        totalTokensEstimate: 16,
+        activatedEntryIds: entries.map((entry) => entry.id),
+        activatedEntries: entries.map((entry) => ({
+          id: entry.id,
+          content: entry.content,
+          matchedKeys: ["pasta"],
+          activationSources: ["keyword"],
+          matchType: "keyword",
+        })),
+        budgetSkippedEntries: [],
+      } as any;
+
+      const loverLore = scopeLorebookScanResultToCharacterContext(scanResult, entries, {
+        characterId: "lover",
+        characterTags: ["loves_pasta"],
+      });
+      assert.equal(loverLore.worldInfoBefore, "Pasta is a food.\n\n{{char}} loves pasta.");
+      assert.deepEqual(loverLore.activatedEntryIds, ["generic-pasta", "loves-pasta"]);
+
+      const haterLore = scopeLorebookScanResultToCharacterContext(scanResult, entries, {
+        characterId: "hater",
+        characterTags: ["hates_pasta"],
+      });
+      assert.equal(haterLore.worldInfoBefore, "Pasta is a food.\n\n{{char}} hates pasta.");
+      assert.deepEqual(haterLore.activatedEntryIds, ["generic-pasta", "hates-pasta"]);
+    },
+  },
+  {
+    name: "Professor Mari recovers malformed small-model app-data calls",
+    run() {
+      const missingEnvelopeClosers = parseAssistantWorkspaceAction(
+        '{"say":"","commands":[{"name":"app_data","arguments":{"action":"character.create","data":{"name":"Stheno Test"},"apply":true}}',
+      );
+      assert.equal(missingEnvelopeClosers.commands.length, 1);
+      assert.equal(missingEnvelopeClosers.commands[0]?.name, "app_data");
+      assert.equal(missingEnvelopeClosers.commands[0]?.arguments.action, "character.create");
+      assert.equal((missingEnvelopeClosers.commands[0]?.arguments.data as { name?: string })?.name, "Stheno Test");
+
+      const actionWithoutToolName = parseAssistantWorkspaceAction(
+        '{"say":"","commands":[{"action":"lorebook.create","data":{"name":"Recovered Lore"},"apply":true}],"stop":false}',
+      );
+      assert.equal(actionWithoutToolName.commands[0]?.name, "app_data");
+      assert.equal(actionWithoutToolName.commands[0]?.arguments.action, "lorebook.create");
+
+      const actionUsedAsToolName = parseAssistantWorkspaceAction(
+        '<|tool_call|>{"name":"app_data","arguments":{"action":"persona.create","data":{"name":"Recovered Persona"},"apply":true}}',
+      );
+      assert.equal(actionUsedAsToolName.commands[0]?.name, "app_data");
+      assert.equal(actionUsedAsToolName.commands[0]?.arguments.action, "persona.create");
+
+      const textualCallWithProse = parseAssistantWorkspaceAction(
+        "Let me check that for you.\n<tool_call>mari status</tool_call>",
+      );
+      assert.equal(textualCallWithProse.commands.length, 1);
+      assert.match(textualCallWithProse.visibleText, /^Let me check that for you\./u);
+
+      const repairedProse = parseAssistantWorkspaceAction(
+        '{say: "I noticed, name: value in prose", commands: [], stop: true}',
+      );
+      assert.equal(repairedProse.visibleText, "I noticed, name: value in prose");
     },
   },
   {

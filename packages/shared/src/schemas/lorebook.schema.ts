@@ -105,90 +105,53 @@ export const createLorebookFolderSchema = z.object({
   order: z.number().int().default(0),
 });
 
-export const updateLorebookFolderSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  enabled: z.boolean().optional(),
-  parentFolderId: z.string().nullable().optional(),
-  order: z.number().int().optional(),
+export const updateLorebookFolderSchema = createLorebookFolderSchema.partial();
+
+const lorebookBaseSchema = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().default(""),
+  category: lorebookCategorySchema.default("uncategorized"),
+  imagePath: z.string().nullable().default(null),
+  scanDepth: z.number().int().min(0).default(2),
+  tokenBudget: z.number().int().min(0).default(2048),
+  entryLimit: z
+    .number()
+    .int()
+    .min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN)
+    .max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX)
+    .default(LIMITS.LOREBOOK_ENTRY_LIMIT_DEFAULT),
+  recursiveScanning: z.boolean().default(false),
+  maxRecursionDepth: z.number().int().min(1).max(10).default(3),
+  excludeFromVectorization: z.boolean().default(true),
+  vectorQueryDepth: z
+    .number()
+    .int()
+    .min(0)
+    .max(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX)
+    .default(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_DEFAULT),
+  vectorScoreThreshold: z.number().min(0).max(1).default(LIMITS.LOREBOOK_VECTOR_SCORE_THRESHOLD_DEFAULT),
+  vectorMaxResults: z
+    .number()
+    .int()
+    .min(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN)
+    .max(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX)
+    .default(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT),
+  characterId: z.string().nullable().default(null),
+  characterIds: z.array(z.string()).default([]),
+  personaId: z.string().nullable().default(null),
+  personaIds: z.array(z.string()).default([]),
+  chatId: z.string().nullable().default(null),
+  isGlobal: z.boolean().default(false),
+  enabled: z.boolean().default(true),
+  scope: lorebookScopeSchema.default({ mode: "all", chatIds: [] }),
+  tags: z.array(z.string()).default([]),
+  generatedBy: lorebookGeneratedBySchema.default(null),
+  sourceAgentId: z.string().nullable().default(null),
 });
 
-export const createLorebookSchema = z
-  .object({
-    name: z.string().min(1).max(200),
-    description: z.string().default(""),
-    category: lorebookCategorySchema.default("uncategorized"),
-    imagePath: z.string().nullable().default(null),
-    scanDepth: z.number().int().min(0).default(2),
-    tokenBudget: z.number().int().min(0).default(2048),
-    entryLimit: z
-      .number()
-      .int()
-      .min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN)
-      .max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX)
-      .default(LIMITS.LOREBOOK_ENTRY_LIMIT_DEFAULT),
-    recursiveScanning: z.boolean().default(false),
-    maxRecursionDepth: z.number().int().min(1).max(10).default(3),
-    excludeFromVectorization: z.boolean().default(true),
-    vectorQueryDepth: z
-      .number()
-      .int()
-      .min(0)
-      .max(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX)
-      .default(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_DEFAULT),
-    vectorScoreThreshold: z.number().min(0).max(1).default(LIMITS.LOREBOOK_VECTOR_SCORE_THRESHOLD_DEFAULT),
-    vectorMaxResults: z
-      .number()
-      .int()
-      .min(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN)
-      .max(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX)
-      .default(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_DEFAULT),
-    characterId: z.string().nullable().default(null),
-    characterIds: z.array(z.string()).default([]),
-    personaId: z.string().nullable().default(null),
-    personaIds: z.array(z.string()).default([]),
-    chatId: z.string().nullable().default(null),
-    isGlobal: z.boolean().default(false),
-    enabled: z.boolean().default(true),
-    scope: lorebookScopeSchema.default({ mode: "all", chatIds: [] }),
-    tags: z.array(z.string()).default([]),
-    generatedBy: lorebookGeneratedBySchema.default(null),
-    sourceAgentId: z.string().nullable().default(null),
-  })
-  .superRefine(addLorebookScopeConflictIssues);
+export const createLorebookSchema = lorebookBaseSchema.superRefine(addLorebookScopeConflictIssues);
 
-export const updateLorebookSchema = z
-  .object({
-    name: z.string().min(1).max(200).optional(),
-    description: z.string().optional(),
-    category: lorebookCategorySchema.optional(),
-    imagePath: z.string().nullable().optional(),
-    scanDepth: z.number().int().min(0).optional(),
-    tokenBudget: z.number().int().min(0).optional(),
-    entryLimit: z.number().int().min(LIMITS.LOREBOOK_ENTRY_LIMIT_MIN).max(LIMITS.LOREBOOK_ENTRY_LIMIT_MAX).optional(),
-    recursiveScanning: z.boolean().optional(),
-    maxRecursionDepth: z.number().int().min(1).max(10).optional(),
-    excludeFromVectorization: z.boolean().optional(),
-    vectorQueryDepth: z.number().int().min(0).max(LIMITS.LOREBOOK_VECTOR_QUERY_DEPTH_MAX).optional(),
-    vectorScoreThreshold: z.number().min(0).max(1).optional(),
-    vectorMaxResults: z
-      .number()
-      .int()
-      .min(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MIN)
-      .max(LIMITS.LOREBOOK_VECTOR_MAX_RESULTS_MAX)
-      .optional(),
-    characterId: z.string().nullable().optional(),
-    characterIds: z.array(z.string()).optional(),
-    personaId: z.string().nullable().optional(),
-    personaIds: z.array(z.string()).optional(),
-    chatId: z.string().nullable().optional(),
-    isGlobal: z.boolean().optional(),
-    enabled: z.boolean().optional(),
-    scope: lorebookScopeSchema.optional(),
-    tags: z.array(z.string()).optional(),
-    generatedBy: lorebookGeneratedBySchema.optional(),
-    sourceAgentId: z.string().nullable().optional(),
-  })
-  .superRefine(addLorebookScopeConflictIssues);
+export const updateLorebookSchema = lorebookBaseSchema.partial().superRefine(addLorebookScopeConflictIssues);
 
 export const createLorebookEntrySchema = z.object({
   lorebookId: z.string(),
@@ -237,50 +200,7 @@ export const createLorebookEntrySchema = z.object({
   excludeFromVectorization: z.boolean().default(false),
 });
 
-export const updateLorebookEntrySchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  content: z.string().optional(),
-  description: z.string().optional(),
-  keys: z.array(z.string()).optional(),
-  secondaryKeys: z.array(z.string()).optional(),
-  enabled: z.boolean().optional(),
-  constant: z.boolean().optional(),
-  selective: z.boolean().optional(),
-  selectiveLogic: selectiveLogicSchema.optional(),
-  probability: z.number().nullable().optional(),
-  scanDepth: z.number().nullable().optional(),
-  matchWholeWords: z.boolean().optional(),
-  caseSensitive: z.boolean().optional(),
-  useRegex: z.boolean().optional(),
-  characterFilterMode: lorebookFilterModeSchema.optional(),
-  characterFilterIds: z.array(z.string()).optional(),
-  characterTagFilterMode: lorebookFilterModeSchema.optional(),
-  characterTagFilters: z.array(z.string()).optional(),
-  generationTriggerFilterMode: lorebookFilterModeSchema.optional(),
-  generationTriggerFilters: z.array(z.string()).optional(),
-  additionalMatchingSources: z.array(lorebookMatchingSourceSchema).optional(),
-  position: z.number().int().min(0).max(2).optional(),
-  depth: z.number().int().min(0).optional(),
-  order: z.number().int().optional(),
-  role: z.enum(["system", "user", "assistant"]).optional(),
-  sticky: z.number().nullable().optional(),
-  cooldown: z.number().nullable().optional(),
-  delay: z.number().nullable().optional(),
-  ephemeral: z.number().int().min(0).nullable().optional(),
-  group: z.string().optional(),
-  groupWeight: z.number().nullable().optional(),
-  folderId: z.string().nullable().optional(),
-  preventRecursion: z.boolean().optional(),
-  excludeRecursion: z.boolean().optional(),
-  delayUntilRecursion: z.boolean().optional(),
-  locked: z.boolean().optional(),
-  tag: z.string().optional(),
-  relationships: z.record(z.string()).optional(),
-  dynamicState: z.record(z.unknown()).optional(),
-  activationConditions: z.array(activationConditionSchema).optional(),
-  schedule: lorebookScheduleSchema.nullable().optional(),
-  excludeFromVectorization: z.boolean().optional(),
-});
+export const updateLorebookEntrySchema = createLorebookEntrySchema.omit({ lorebookId: true }).partial();
 
 const bulkUpdateLorebookEntryChangesSchema = updateLorebookEntrySchema
   .pick({

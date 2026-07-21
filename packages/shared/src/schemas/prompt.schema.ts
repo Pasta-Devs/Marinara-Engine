@@ -111,21 +111,7 @@ export const createChoiceBlockSchema = z.object({
   optionSort: choiceOptionSortSchema.default("manual"),
 });
 
-export const updateChoiceBlockSchema = z.object({
-  variableName: z
-    .string()
-    .min(1)
-    .max(100)
-    .regex(/^\w+$/, "Variable name must be alphanumeric/underscores only")
-    .optional(),
-  question: z.string().min(1).max(500).optional(),
-  options: z.array(choiceOptionSchema).min(1).optional(),
-  multiSelect: z.boolean().optional(),
-  separator: z.string().max(20).optional(),
-  randomPick: z.boolean().optional(),
-  displayMode: choiceDisplayModeSchema.optional(),
-  optionSort: choiceOptionSortSchema.optional(),
-});
+export const updateChoiceBlockSchema = createChoiceBlockSchema.omit({ presetId: true }).partial();
 
 // ── Groups ──
 
@@ -137,12 +123,7 @@ export const createPromptGroupSchema = z.object({
   enabled: z.boolean().default(true),
 });
 
-export const updatePromptGroupSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  parentGroupId: z.string().nullable().optional(),
-  order: z.number().int().optional(),
-  enabled: z.boolean().optional(),
-});
+export const updatePromptGroupSchema = createPromptGroupSchema.omit({ presetId: true }).partial();
 
 // ── Presets ──
 
@@ -192,18 +173,9 @@ export const createPromptSectionSchema = z.object({
   forbidOverrides: z.boolean().default(false),
 });
 
-export const updatePromptSectionSchema = z.object({
-  name: z.string().min(1).max(200).optional(),
-  content: z.string().optional(),
-  role: promptRoleSchema.optional(),
-  enabled: z.boolean().optional(),
-  groupId: z.string().nullable().optional(),
-  markerConfig: markerConfigSchema.nullable().optional(),
-  injectionPosition: injectionPositionSchema.optional(),
-  injectionDepth: z.number().int().min(0).optional(),
-  injectionOrder: z.number().int().optional(),
-  forbidOverrides: z.boolean().optional(),
-});
+export const updatePromptSectionSchema = createPromptSectionSchema
+  .omit({ presetId: true, identifier: true, isMarker: true })
+  .partial();
 
 // ── Exported input types ──
 

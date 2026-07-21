@@ -2,7 +2,6 @@ import {
   BUILT_IN_AGENTS,
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
-  getBuiltInAgentDefaultPrompt,
   getDefaultBuiltInAgentSettings,
   isBuiltInAgentRuntimeDisabled,
   isAgentConfigDeleted,
@@ -115,10 +114,6 @@ export type ResolvedAgentPipelineAgents = {
   agentConnectionWarnings: AgentConnectionWarning[];
 };
 
-function resolveAgentRuntimePhase(_agentType: string, configuredPhase: string): string {
-  return normalizeAgentPhaseValue(configuredPhase);
-}
-
 function parseAgentSettings(settings: unknown): Record<string, unknown> {
   if (!settings) return {};
   if (typeof settings === "string") {
@@ -152,14 +147,18 @@ function applyMusicPlayerSourceToMusicDjSettings(
   };
 }
 
+function musicAgentUsesSource(settings: Record<string, unknown>, source: "youtube" | "custom"): boolean {
+  return settings.musicProvider === source || settings.musicPlayerSource === source;
+}
+
 function getAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
-  if (agentType === "spotify" && (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube")) {
+  if (agentType === "spotify" && musicAgentUsesSource(settings, "youtube")) {
     return getDefaultAgentPrompt("youtube");
   }
-  if (agentType === "spotify" && (settings.musicProvider === "custom" || settings.musicPlayerSource === "custom")) {
+  if (agentType === "spotify" && musicAgentUsesSource(settings, "custom")) {
     return getDefaultAgentPrompt("local-music");
   }
-  return getBuiltInAgentDefaultPrompt(agentType) || getDefaultAgentPrompt(agentType);
+  return getDefaultAgentPrompt(agentType);
 }
 
 function resolveConnectionCustomParameters(connection: { defaultParameters?: unknown }): Record<string, unknown> {
@@ -375,7 +374,6 @@ export async function resolveAgentPipelineAgents({
       settings.enabledTools = [...DEFAULT_AGENT_TOOLS[cfg.type as string]!];
     }
     let selectedPromptTemplate = resolveAgentPromptTemplate({
-      agentType: cfg.type as string,
       promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
       fallbackPromptTemplate: getAgentFallbackPrompt(cfg.type as string, settings),
       settings,
@@ -435,7 +433,7 @@ export async function resolveAgentPipelineAgents({
       id: cfg.id,
       type: cfg.type,
       name: cfg.name,
-      phase: resolveAgentRuntimePhase(cfg.type as string, cfg.phase as string),
+      phase: normalizeAgentPhaseValue(cfg.phase),
       promptTemplate: selectedPromptTemplate,
       connectionId: effectiveConnectionId,
       settings,
@@ -533,7 +531,6 @@ export async function resolveAgentPipelineAgents({
       builtInSettings.enabledTools = [...DEFAULT_AGENT_TOOLS[builtIn.id]!];
     }
     let selectedPromptTemplate = resolveAgentPromptTemplate({
-      agentType: builtIn.id,
       promptTemplate: "",
       fallbackPromptTemplate: getAgentFallbackPrompt(builtIn.id, builtInSettings),
       settings: builtInSettings,
@@ -543,7 +540,7 @@ export async function resolveAgentPipelineAgents({
       id: `builtin:${builtIn.id}`,
       type: builtIn.id,
       name: builtIn.name,
-      phase: resolveAgentRuntimePhase(builtIn.id, builtIn.phase),
+      phase: normalizeAgentPhaseValue(builtIn.phase),
       promptTemplate: selectedPromptTemplate,
       connectionId: builtInConnectionId,
       settings: builtInSettings,

@@ -35,7 +35,10 @@ interface GameInputProps {
   pendingMoveLabel?: string | null;
   /** Clear the staged destination without sending it. */
   onClearPendingMove?: () => void;
+  /** Blocks turn submission and turn-mutating controls while generation is active. */
   disabled: boolean;
+  /** Blocks drafting only when the current game view itself is not interactive. */
+  draftDisabled: boolean;
   isStreaming: boolean;
   /** When true, renders without the bottom-bar chrome (for embedding inside narration box) */
   inline?: boolean;
@@ -112,6 +115,7 @@ export function GameInput({
   pendingMoveLabel,
   onClearPendingMove,
   disabled,
+  draftDisabled,
   isStreaming,
   inline,
   draftKey,
@@ -171,17 +175,15 @@ export function GameInput({
     setAddressMode("scene");
   }, [addressMode, hasPartyMembers]);
 
-  // Honors focus requests even if the input was disabled at the time the
-  // token bumped (e.g. Interrupt clicked while `isStreaming` is still true) —
-  // we re-attempt the focus once `disabled` flips to false.
+  // A reviewed/history game state can still disable drafting entirely.
   const lastFocusedTokenRef = useRef(0);
   useEffect(() => {
     if (!focusToken) return;
     if (lastFocusedTokenRef.current === focusToken) return;
-    if (disabled) return;
+    if (draftDisabled) return;
     inputRef.current?.focus();
     lastFocusedTokenRef.current = focusToken;
-  }, [focusToken, disabled]);
+  }, [focusToken, draftDisabled]);
 
   useEffect(() => {
     if (!addressMenuOpen) return;
@@ -615,7 +617,7 @@ export function GameInput({
           onKeyDown={handleKeyDown}
           placeholder={
             isStreaming
-              ? "Waiting for the Game Master..."
+              ? "Prepare your next move..."
               : addressMode === "party"
                 ? "Say to party..."
                 : addressMode === "gm"
@@ -624,7 +626,7 @@ export function GameInput({
                     ? "What do you do when you arrive?"
                     : "What do you do?"
           }
-          disabled={disabled}
+          disabled={draftDisabled}
           rows={1}
           className="min-w-0 flex-1 resize-none bg-transparent px-2 py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-foreground/30 disabled:opacity-50"
           style={{ minHeight: 36, maxHeight: 120 }}

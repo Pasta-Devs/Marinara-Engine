@@ -7,13 +7,16 @@ import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { FastifyInstance } from "fastify";
+import { jsonrepair } from "jsonrepair";
 import type {
   BaseLLMProvider,
   ChatCompletionResult,
   ChatMessage,
   ChatOptions,
+  LLMToolDefinition,
   LLMUsage,
 } from "../llm/base-provider.js";
+import { parseTextualToolCalls } from "../llm/textual-tool-call-parser.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createChatsStorage } from "../storage/chats.storage.js";
@@ -309,6 +312,15 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
     },
   },
 ];
+
+const WORKSPACE_TEXTUAL_TOOL_DEFINITIONS: LLMToolDefinition[] = WORKSPACE_TOOL_DEFINITIONS.map((tool) => ({
+  type: "function",
+  function: {
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+  },
+}));
 
 function getPathEnvKey(env: NodeJS.ProcessEnv) {
   return Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH";
@@ -779,7 +791,7 @@ function createProviderForConnection(connection: WorkspaceConnection): BaseLLMPr
 
 function parseToolArgumentsValue(value: unknown): Record<string, unknown> {
   if (isRecord(value)) return value;
-  if (typeof value === "string") return parseJsonObject(value) ?? {};
+  if (typeof value === "string") return tryParseJsonPayload(value) ?? {};
   return {};
 }
 
@@ -798,25 +810,62 @@ function hasActionPayload(payload: Record<string, unknown>): boolean {
   );
 }
 
+function closeOpenJsonContainers(raw: string): string | null {
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  for (const char of raw) {
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === "{" || char === "[") {
+      stack.push(char);
+      continue;
+    }
+    if (char !== "}" && char !== "]") continue;
+    const expected = char === "}" ? "{" : "[";
+    if (stack.pop() !== expected) return null;
+  }
+  if (inString) return null;
+  return (
+    raw +
+    stack
+      .reverse()
+      .map((opening) => (opening === "{" ? "}" : "]"))
+      .join("")
+  );
+}
+
 function tryParseJsonPayload(raw: string): Record<string, unknown> | null {
+  let repaired: string | null = null;
   try {
-    const parsed = JSON.parse(raw) as unknown;
-    return isRecord(parsed) ? parsed : null;
+    repaired = jsonrepair(raw);
   } catch {
-    // A single stray comma or smart-quote anywhere in the envelope (most often inside the
-    // optional `suggestions` array) would otherwise fail the entire { say, commands, stop }
-    // object, not just the chips - repair the common near-miss cases before giving up.
+    // Fall through to the conservative container-closing recovery.
+  }
+  const candidates = [
+    raw,
+    repaired,
+    closeOpenJsonContainers(raw),
+    repaired && closeOpenJsonContainers(repaired),
+  ];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
     try {
-      const repaired = raw
-        .replace(/[‘’]/g, "'")
-        .replace(/[“”]/g, '"')
-        .replace(/,\s*([\]}])/g, "$1");
-      const parsed = JSON.parse(repaired) as unknown;
+      const parsed = JSON.parse(candidate) as unknown;
       return isRecord(parsed) ? parsed : null;
     } catch {
-      return null;
+      // Try the next conservative repair candidate.
     }
   }
+  return null;
 }
 
 function findJsonPayloadMatch(content: string): JsonPayloadMatch | null {
@@ -835,6 +884,7 @@ function findJsonPayloadMatch(content: string): JsonPayloadMatch | null {
     let depth = 0;
     let inString = false;
     let escaped = false;
+    let closedWithoutAction = false;
     for (let index = start; index < content.length; index += 1) {
       const char = content[index];
       if (inString) {
@@ -854,11 +904,25 @@ function findJsonPayloadMatch(content: string): JsonPayloadMatch | null {
         const raw = content.slice(start, index + 1);
         const payload = tryParseJsonPayload(raw);
         if (payload && hasActionPayload(payload)) return { payload, raw, start, end: index + 1 };
+        closedWithoutAction = true;
         break;
       }
     }
+    if (closedWithoutAction) continue;
+    const incompleteRaw = content.slice(start).trim();
+    const incompletePayload = tryParseJsonPayload(incompleteRaw);
+    if (incompletePayload && hasActionPayload(incompletePayload)) {
+      return { payload: incompletePayload, raw: incompleteRaw, start, end: content.length };
+    }
   }
   return null;
+}
+
+function isAppDataActionName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^(?:characters?|personas?|lorebooks?|themes?|agents?|presets?|promptpresets?)\./i.test(value.trim())
+  );
 }
 
 function rawJsonToolCalls(payload: Record<string, unknown>): unknown[] {
@@ -866,19 +930,52 @@ function rawJsonToolCalls(payload: Record<string, unknown>): unknown[] {
   if (Array.isArray(plural)) return plural;
   const single = payload.tool_call ?? payload.toolCall ?? payload.command;
   if (single !== undefined) return [single];
-  if (typeof payload.name === "string") return [payload];
+  if (typeof payload.name === "string" || isAppDataActionName(payload.action)) return [payload];
   return [];
 }
 
 function parseJsonCommandCallsFromPayload(payload: Record<string, unknown>): WorkspaceCommandCall[] {
   const calls: WorkspaceCommandCall[] = [];
   rawJsonToolCalls(payload).forEach((raw, index) => {
-    if (!isRecord(raw) || typeof raw.name !== "string" || !isWorkspaceToolName(raw.name)) return;
-    const args = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? {});
-    const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : newToolCallId(raw.name, index);
-    calls.push({ id, name: raw.name, arguments: args });
+    if (!isRecord(raw)) return;
+    const requestedName = typeof raw.name === "string" ? raw.name.trim() : "";
+    const directAction = isAppDataActionName(raw.action) ? raw.action.trim() : null;
+    const nameAsAction = isAppDataActionName(requestedName) ? requestedName : null;
+    const workspaceName = isWorkspaceToolName(requestedName)
+      ? requestedName
+      : directAction || nameAsAction
+        ? "app_data"
+        : null;
+    if (!workspaceName) return;
+
+    const parsedArguments = parseToolArgumentsValue(raw.arguments ?? raw.args ?? raw.input ?? {});
+    const argumentsWithRecoveredAction =
+      workspaceName === "app_data" && (directAction || nameAsAction)
+        ? {
+            ...(directAction ? raw : parsedArguments),
+            ...parsedArguments,
+            action: directAction ?? nameAsAction,
+          }
+        : parsedArguments;
+    const id = typeof raw.id === "string" && raw.id.trim() ? raw.id.trim() : newToolCallId(workspaceName, index);
+    calls.push({ id, name: workspaceName, arguments: argumentsWithRecoveredAction });
   });
   return calls;
+}
+
+function parseTextualWorkspaceCommandCalls(content: string): WorkspaceCommandCall[] {
+  return parseTextualToolCalls(content, WORKSPACE_TEXTUAL_TOOL_DEFINITIONS).flatMap((call) => {
+    const name = call.function.name;
+    if (!isWorkspaceToolName(name)) return [];
+    return [
+      {
+        id: call.id,
+        name,
+        arguments: parseToolArgumentsValue(call.function.arguments),
+        raw: content,
+      },
+    ];
+  });
 }
 
 function jsonPayloadVisibleText(payload: Record<string, unknown>): string {
@@ -908,7 +1005,7 @@ function parseXmlCommandCalls(content: string): WorkspaceCommandCall[] {
     const name = match[1];
     if (!name || !isWorkspaceToolName(name)) continue;
     const rawBody = match[2]?.trim() ?? "{}";
-    let args = parseJsonObject(rawBody) ?? {};
+    let args = tryParseJsonPayload(rawBody) ?? {};
     if (name === "bash" && !args.command && rawBody && !rawBody.startsWith("{")) args = { command: rawBody };
     calls.push({ id: newToolCallId(name, index), name, arguments: args, raw: match[0] });
   }
@@ -1003,11 +1100,12 @@ function stripWorkspaceCommands(content: string): string {
     .trim();
 }
 
-function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
+export function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceAction {
   const { content: contentWithoutJson, matches } = removeJsonActionFrames(content);
   const jsonCommands = matches.flatMap((match) => parseJsonCommandCallsFromPayload(match.payload));
+  const textualCommands = parseTextualWorkspaceCommandCalls(contentWithoutJson);
   // If JSON frames are present, treat all prose outside them as protocol leakage.
-  // Visible text must come from the frame's say/message/final field only.
+  // Textual calls have no visible-text field, so retain their surrounding prose.
   const inlineVisibleText = matches.length > 0 ? "" : stripWorkspaceCommands(contentWithoutJson);
   const frameVisibleText = matches
     .map((match) => jsonPayloadVisibleText(match.payload))
@@ -1019,6 +1117,7 @@ function parseAssistantWorkspaceAction(content: string): AssistantWorkspaceActio
   const commands = dedupeWorkspaceCommandCalls([
     ...parseXmlCommandCalls(contentWithoutJson),
     ...jsonCommands,
+    ...textualCommands,
     ...parseBracketCommandCalls(contentWithoutJson),
   ]);
   const protocolValid = matches.length > 0;
