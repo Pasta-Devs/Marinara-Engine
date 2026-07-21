@@ -2325,6 +2325,23 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</game_image_instructions>`);
   }
 
+  if (agentTypes.includes("illustrator") && context.memory._illustratorBackgroundGenerationEnabled === true) {
+    parts.push(`<illustrator_background_generation enabled="true">`);
+    parts.push(
+      `Independently set the Illustrator JSON field "generateBackground" to true only when the latest assistant scene enters a meaningfully different reusable location or setting. This decision is separate from "shouldGenerate"; both may be true on the same turn.`,
+    );
+    parts.push(
+      `Prefer a changed location in current or committed tracker state. When tracker location is unavailable, infer conservatively from recent scene context. Keep generateBackground false for movement within the same place, camera changes, mood, weather, lighting, or time-of-day changes alone.`,
+    );
+    if (typeof context.memory._currentBackground === "string" && context.memory._currentBackground.trim()) {
+      parts.push(`Currently active background: ${escapeXml(context.memory._currentBackground.trim())}`);
+    } else {
+      parts.push(`Currently active background: none`);
+    }
+    parts.push(`The host writes a separate background-only prompt after this decision; do not replace the normal illustration prompt.`);
+    parts.push(`</illustrator_background_generation>`);
+  }
+
   if (agentTypes.includes("expression")) {
     const availableSpritesBlock = buildAvailableSpritesBlock(context);
     if (availableSpritesBlock) parts.push(availableSpritesBlock);

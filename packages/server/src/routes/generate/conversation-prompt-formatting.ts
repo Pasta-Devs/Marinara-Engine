@@ -5,6 +5,8 @@ import { wrapContent } from "../../services/prompt/format-engine.js";
 import { parseExtra } from "./generate-route-utils.js";
 
 export const CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION = "Remember to prefix messages with `Name: message`!";
+export const CONVERSATION_NO_REPEAT_INSTRUCTION =
+  "Do not repeat a message you already sent in the recent conversation. If your first draft repeats one, write a genuinely different response.";
 
 export function formatConversationGroupOutputFormat(args: {
   wrapFormat: WrapFormat;

@@ -42,6 +42,71 @@ export function validateNoodleGeneratedRefresh(
   return hasUsableAttribution ? null : "the response used no selected participant handle";
 }
 
+function normalizedGeneratedContentKey(handle: string, content: string): string {
+  const normalizedContent = content.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+  return `${normalizeNoodleHandle(handle)}\u0000${normalizedContent}`;
+}
+
+/**
+ * Keep the first generated post or reply for each account and discard later
+ * copies. Posts take precedence because the response groups posts before
+ * interactions. Filtering before media preparation ensures a copy never
+ * reaches image generation or persistence.
+ */
+export function deduplicateGeneratedNoodleContent(generated: NoodleGeneratedRefresh): {
+  generated: NoodleGeneratedRefresh;
+  removedCount: number;
+} {
+  const seenContent = new Set<string>();
+  const retainedPosts = new Map<string, { index: number; tempId: string | undefined }>();
+  const tempIdAliases = new Map<string, string>();
+  let removedCount = 0;
+  const keepFirst = (key: string): boolean => {
+    if (seenContent.has(key)) {
+      removedCount += 1;
+      return false;
+    }
+    seenContent.add(key);
+    return true;
+  };
+
+  const posts: NoodleGeneratedRefresh["posts"] = [];
+  for (const post of generated.posts) {
+    const key = normalizedGeneratedContentKey(post.authorHandle, post.content);
+    if (keepFirst(key)) {
+      retainedPosts.set(key, { index: posts.length, tempId: post.tempId });
+      posts.push(post);
+      continue;
+    }
+    if (!post.tempId) continue;
+
+    const retained = retainedPosts.get(key);
+    if (!retained) continue;
+    if (!retained.tempId) {
+      const retainedPost = posts[retained.index];
+      if (!retainedPost) continue;
+      retained.tempId = post.tempId;
+      posts[retained.index] = { ...retainedPost, tempId: retained.tempId };
+    }
+    tempIdAliases.set(post.tempId, retained.tempId);
+  }
+
+  const interactions = generated.interactions
+    .filter((interaction) => {
+      if (interaction.type !== "reply" || !interaction.content?.trim()) return true;
+      return keepFirst(normalizedGeneratedContentKey(interaction.actorHandle, interaction.content));
+    })
+    .map((interaction) => {
+      const targetTempId = interaction.targetTempId && tempIdAliases.get(interaction.targetTempId);
+      return targetTempId ? { ...interaction, targetTempId } : interaction;
+    });
+
+  return {
+    generated: { ...generated, posts, interactions },
+    removedCount,
+  };
+}
+
 const collectionSchemas = {
   posts: noodleGeneratedPostSchema,
   interactions: noodleGeneratedInteractionSchema,

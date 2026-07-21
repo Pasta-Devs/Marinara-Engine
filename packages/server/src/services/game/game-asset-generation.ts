@@ -280,9 +280,9 @@ function writeChatBackgroundMeta(meta: ChatBackgroundMeta): void {
   atomicWriteText(CHAT_BACKGROUND_META_PATH, JSON.stringify(meta, null, 2));
 }
 
-function chatBackgroundTags(req: ChatBackgroundGenRequest, slug: string): string[] {
-  const tags = new Set<string>(["generated", req.sourceMode === "game" ? "game" : "roleplay", slug.replace(/-/g, " ")]);
-  for (const value of [req.locationSlug, req.reason]) {
+export function chatBackgroundTags(req: ChatBackgroundGenRequest, slug: string): string[] {
+  const tags = new Set<string>(["generated", req.sourceMode ?? "roleplay", slug.replace(/-/g, " ")]);
+  for (const value of [req.locationSlug, req.reason, ...(req.tags ?? [])]) {
     if (!value) continue;
     const clean = value.trim().replace(/\s+/g, " ");
     if (clean) tags.add(clean.slice(0, 80));
@@ -844,6 +844,8 @@ export interface BackgroundGenRequest {
 export interface ChatBackgroundGenRequest extends BackgroundGenRequest {
   /** Why the background agent asked for generation. Stored as background metadata. */
   reason?: string;
+  /** Searchable library tags supplied by the prompt writer. */
+  tags?: string[];
   /** Source chat mode used for library tags. */
   sourceMode?: "roleplay" | "visual_novel" | "game";
 }

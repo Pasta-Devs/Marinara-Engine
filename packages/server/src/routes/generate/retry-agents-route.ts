@@ -152,6 +152,12 @@ import {
   normalizeProseGuardianPromptTemplate,
 } from "../../services/generation/prose-guardian-settings.js";
 import { applyKnowledgeAgentChatSettings } from "../../services/generation/knowledge-agent-settings.js";
+import {
+  generateIllustratorSceneBackground,
+  illustratorBackgroundGenerationEnabled,
+  illustratorRequestedBackground,
+  illustratorTrackerLocationChanged,
+} from "../../services/generation/illustrator-background-generation.js";
 import { normalizeContextInjections } from "./agent-normalizers.js";
 import { executeToolCalls, type MetadataPatchInput } from "../../services/tools/tool-executor.js";
 
@@ -928,6 +934,14 @@ async function buildRetryAgentContext(args: {
     } catch (err) {
       logger.warn(err, "[retry-agents] Failed to load available backgrounds for retry");
     }
+  }
+
+  if (
+    resolvedAgentTypes.has("illustrator") &&
+    illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta)
+  ) {
+    agentContext.memory._illustratorBackgroundGenerationEnabled = true;
+    agentContext.memory._currentBackground = chatMeta.background ?? null;
   }
 
   const spotifyRetryConfig = enabledConfigs.find((config) => config.type === "spotify");
@@ -3337,6 +3351,134 @@ async function applyRetryResultEffects(args: {
       } catch (err) {
         logger.warn(err, "[retry-agents] Failed to persist validated sprite expressions");
       }
+    }
+  }
+
+  const illustratorResult = sortedResults.find(
+    (result) =>
+      result.success &&
+      result.type === "image_prompt" &&
+      result.data &&
+      typeof result.data === "object" &&
+      (result.agentType === "illustrator" ||
+        resolvedAgents.some((entry) => entry.resolved.id === result.agentId && entry.resolved.type === "illustrator")),
+  );
+  const resultEntry = illustratorResult
+    ? resolvedAgents.find((entry) => entry.resolved.id === illustratorResult.agentId)
+    : null;
+  const illustratorEntry = illustratorResult
+    ? resultEntry?.resolved.type === "illustrator"
+      ? resultEntry
+      : resolvedAgents.find((entry) => entry.resolved.type === "illustrator")
+    : null;
+  if (
+    illustratorResult &&
+    illustratorEntry &&
+    !illustratorPromptReviewOverride &&
+    illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta)
+  ) {
+    const backgroundAtDecision =
+      typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
+    try {
+      const freshChat = await chats.getById(chatId);
+      const freshMeta = parseExtra(freshChat?.metadata) as Record<string, unknown>;
+      const backgroundBeforeGeneration =
+        typeof freshMeta.background === "string" && freshMeta.background.trim() ? freshMeta.background.trim() : null;
+      if (backgroundBeforeGeneration !== backgroundAtDecision) {
+        logger.info(
+          "[retry-agents/illustrator-background] Skipping automatic background because the active background changed after the Illustrator decision",
+        );
+        return;
+      }
+
+      const latestSnapshot = await loadRetryTargetGameStateSnapshot();
+      const latestGameState = latestSnapshot
+        ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
+        : agentContext.gameState;
+      const illData = illustratorResult.data as Record<string, unknown>;
+      const requestedBackground = illustratorRequestedBackground(illData.generateBackground);
+      const trackerLocationChanged = illustratorTrackerLocationChanged(
+        agentContext.gameState?.location,
+        latestGameState?.location,
+      );
+      if (!requestedBackground && !trackerLocationChanged) return;
+      const backgroundDecisionReason = requestedBackground
+        ? typeof illData.reason === "string"
+          ? illData.reason
+          : undefined
+        : `Tracker location changed from ${agentContext.gameState?.location || "an unspecified location"} to ${latestGameState?.location}.`;
+      if (trackerLocationChanged && !requestedBackground) {
+        logger.info(
+          '[retry-agents/illustrator-background] Tracker location changed from "%s" to "%s"; generating despite a false Illustrator background decision',
+          agentContext.gameState?.location || "(none)",
+          latestGameState?.location,
+        );
+      }
+      const generated = await generateIllustratorSceneBackground({
+        db: app.db,
+        chatId,
+        chatName: chat.name,
+        chatMode: (chat as { mode?: unknown }).mode === "visual_novel" ? "visual_novel" : "roleplay",
+        chatMetadata: freshMeta,
+        illustratorAgent: illustratorEntry.resolved,
+        assistantResponse: agentContext.mainResponse ?? "",
+        decisionReason: backgroundDecisionReason,
+        gameState: latestGameState,
+        recentMessages: agentContext.recentMessages,
+        signal: agentContext.signal,
+        debugLog: (message, ...values) =>
+          logDebugOverride(debugMode || isDebugAgentsEnabled(), message, ...values),
+      });
+
+      const chatAfterGeneration = await chats.getById(chatId);
+      const metaAfterGeneration = parseExtra(chatAfterGeneration?.metadata) as Record<string, unknown>;
+      const backgroundAfterGeneration =
+        typeof metaAfterGeneration.background === "string" && metaAfterGeneration.background.trim()
+          ? metaAfterGeneration.background.trim()
+          : null;
+      if (backgroundAfterGeneration !== backgroundAtDecision) {
+        logger.info(
+          "[retry-agents/illustrator-background] Saved %s without activating it because the background changed during generation",
+          generated.filename,
+        );
+        return;
+      }
+
+      await chats.patchMetadata(chatId, { background: generated.filename });
+      sendSseEvent(reply, {
+        type: "agent_result",
+        data: {
+          agentType: "illustrator",
+          agentName: illustratorEntry.cfg?.name ?? illustratorEntry.resolved.name ?? "Illustrator",
+          resultType: "background_change",
+          data: {
+            chosen: generated.filename,
+            generated: true,
+            location: generated.locationName,
+            reason: generated.reason,
+            tags: generated.tags,
+          },
+          success: true,
+          error: null,
+        },
+      });
+      logger.info(
+        '[retry-agents/illustrator-background] Generated and activated "%s" for %s',
+        generated.filename,
+        generated.locationName,
+      );
+    } catch (backgroundError) {
+      logger.error(backgroundError, "[retry-agents/illustrator-background] Automatic scene background failed");
+      sendSseEvent(reply, {
+        type: "agent_error",
+        data: {
+          agentType: "illustrator",
+          agentName: illustratorEntry.cfg?.name ?? illustratorEntry.resolved.name ?? "Illustrator",
+          error: `Background generation failed: ${
+            backgroundError instanceof Error ? backgroundError.message : String(backgroundError)
+          }`,
+        },
+      });
     }
   }
 }

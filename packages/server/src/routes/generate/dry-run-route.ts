@@ -86,6 +86,7 @@ import {
   type PromptAttachment,
 } from "../generate/generate-route-utils.js";
 import { buildGenerationPromptPresetCandidates, type PromptPresetCandidateSource } from "./prompt-preset-selection.js";
+import { CONVERSATION_NO_REPEAT_INSTRUCTION } from "./conversation-prompt-formatting.js";
 import { createGameStateStorage, type GameStateVisibleAnchor } from "../../services/storage/game-state.storage.js";
 import { buildCommittedTrackerContextBlock } from "../../services/generation/committed-tracker-context.js";
 import { logger } from "../../lib/logger.js";
@@ -1360,7 +1361,13 @@ export async function registerDryRunRoute(app: FastifyInstance) {
         conversationPromptTemplate.replace(/\{\{charName\}\}/g, charNameList).replace(/\{\{userName\}\}/g, personaName),
       );
       finalMessages = [
-        { role: "system", content: formatConversationInstructionsForWrap(renderedConversationPrompt, wrapFormat) },
+        {
+          role: "system",
+          content: formatConversationInstructionsForWrap(
+            `${renderedConversationPrompt}\n${CONVERSATION_NO_REPEAT_INSTRUCTION}`,
+            wrapFormat,
+          ),
+        },
         ...finalMessages,
       ];
     }

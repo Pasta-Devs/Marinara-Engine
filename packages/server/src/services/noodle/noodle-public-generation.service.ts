@@ -22,7 +22,11 @@ import { createGalleryStorage } from "../storage/gallery.storage.js";
 import { createNoodleStorage } from "../storage/noodle.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { commitGeneratedNoodleActivity, prepareGeneratedNoodleMedia } from "./noodle-generated-activity.service.js";
-import { parseNoodleGeneratedRefreshResponse, validateNoodleGeneratedRefresh } from "./noodle-generated-refresh.js";
+import {
+  deduplicateGeneratedNoodleContent,
+  parseNoodleGeneratedRefreshResponse,
+  validateNoodleGeneratedRefresh,
+} from "./noodle-generated-refresh.js";
 import { normalizeNoodleHandle } from "./noodle-handle.js";
 import { chooseNoodleParticipantAccounts, collectNoodlePriorityAccountIds } from "./noodle-participant-selection.js";
 import { buildRefreshPrompt } from "./noodle-public-prompt.service.js";
@@ -416,6 +420,14 @@ export function createPublicNoodleGenerationService(db: DB) {
             rejected.issueCount === 1 ? "" : "s",
           );
         }
+        const deduplicated = deduplicateGeneratedNoodleContent(parsedGenerated.refresh);
+        if (deduplicated.removedCount > 0) {
+          logger.warn(
+            "[noodle] Removed %d duplicate generated post/reply item%s",
+            deduplicated.removedCount,
+            deduplicated.removedCount === 1 ? "" : "s",
+          );
+        }
         const preparedMedia = await prepareGeneratedNoodleMedia({
           db,
           characters,
@@ -423,7 +435,7 @@ export function createPublicNoodleGenerationService(db: DB) {
           gallery,
           characterGallery,
           promptOverrides,
-          generated: parsedGenerated.refresh,
+          generated: deduplicated.generated,
           selectedParticipants,
           personaAccount,
           settings,
@@ -433,7 +445,7 @@ export function createPublicNoodleGenerationService(db: DB) {
         });
         const activity = await commitGeneratedNoodleActivity({
           db,
-          generated: parsedGenerated.refresh,
+          generated: deduplicated.generated,
           selectedParticipants,
           personaAccount,
           settings,

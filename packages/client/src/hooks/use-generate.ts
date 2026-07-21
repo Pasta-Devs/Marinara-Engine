@@ -256,15 +256,18 @@ function resolveCachedCharacterIdentity(
   };
 }
 
-function latestAssistantMessage(messages: Iterable<Message>): Message | null {
+function latestMessage(messages: Iterable<Message>): Message | null {
   let latest: Message | null = null;
   for (const message of messages) {
-    if (message.role !== "assistant") continue;
     if (!latest || new Date(message.createdAt).getTime() >= new Date(latest.createdAt).getTime()) {
       latest = message;
     }
   }
   return latest;
+}
+
+function latestAssistantMessage(messages: Iterable<Message>): Message | null {
+  return latestMessage([...messages].filter((message) => message.role === "assistant"));
 }
 
 function resolveNotifiedCharacterId(
@@ -289,27 +292,39 @@ function assistantMessageFingerprint(message: Message): string {
   ]);
 }
 
-type AssistantMessageSnapshot = {
+type MessageSnapshot = {
   cacheWasLoaded: boolean;
   fingerprints: ReadonlyMap<string, string>;
 };
 
-function snapshotAssistantMessages(qc: QueryClient, chatId: string): AssistantMessageSnapshot {
+function snapshotMessagesByRole(qc: QueryClient, chatId: string, role: Message["role"]): MessageSnapshot {
   const cached = qc.getQueryData<InfiniteData<Message[]>>(chatKeys.messages(chatId));
   return {
     cacheWasLoaded: cached !== undefined,
     fingerprints: new Map(
       (cached?.pages.flat() ?? [])
-        .filter((message) => message.role === "assistant")
+        .filter((message) => message.role === role)
         .map((message) => [message.id, assistantMessageFingerprint(message)]),
     ),
   };
 }
 
+function latestNewMessageByRole(
+  qc: QueryClient,
+  chatId: string,
+  role: Message["role"],
+  snapshot: MessageSnapshot,
+): Message | null {
+  if (!snapshot.cacheWasLoaded) return null;
+  return latestMessage(
+    getCachedMessages(qc, chatId).filter((message) => message.role === role && !snapshot.fingerprints.has(message.id)),
+  );
+}
+
 function latestChangedAssistantMessage(
   qc: QueryClient,
   chatId: string,
-  snapshot: AssistantMessageSnapshot,
+  snapshot: MessageSnapshot,
 ): Message | null {
   if (!snapshot.cacheWasLoaded) return null;
   return latestAssistantMessage(
@@ -318,6 +333,30 @@ function latestChangedAssistantMessage(
         message.role === "assistant" && snapshot.fingerprints.get(message.id) !== assistantMessageFingerprint(message),
     ),
   );
+}
+
+function createCacheOnlyPartialMessage(params: {
+  chatId: string;
+  role: Message["role"];
+  characterId: string | null;
+  content: string;
+  createdAt: string;
+}): Message {
+  return {
+    id: `__partial_${params.chatId}_${Date.now()}`,
+    chatId: params.chatId,
+    role: params.role,
+    characterId: params.characterId,
+    content: params.content,
+    activeSwipeIndex: 0,
+    extra: {
+      displayText: null,
+      isGenerated: params.role === "assistant",
+      tokenCount: null,
+      generationInfo: null,
+    },
+    createdAt: params.createdAt,
+  };
 }
 
 function replyNotificationTitle(mode: Chat["mode"] | undefined, characterName: string | null): string | undefined {
@@ -627,12 +666,12 @@ async function refreshMessagesAuthoritatively(
   await qc.cancelQueries({ queryKey: msgKey, exact: true });
 
   try {
-    await qc.refetchQueries({ queryKey: msgKey, exact: true, type: "all" });
+    await qc.refetchQueries({ queryKey: msgKey, exact: true, type: "all" }, { throwOnError: true });
     refetchSucceeded = true;
   } catch {
     try {
       await new Promise((resolve) => setTimeout(resolve, 250));
-      await qc.refetchQueries({ queryKey: msgKey, exact: true, type: "all" });
+      await qc.refetchQueries({ queryKey: msgKey, exact: true, type: "all" }, { throwOnError: true });
       refetchSucceeded = true;
     } catch {
       /* best-effort — keep any persisted messages we already have */
@@ -650,6 +689,7 @@ async function refreshMessagesAuthoritatively(
     }
   }
   preserveRecentMessageContentEditsInCache(qc, chatId);
+  return refetchSucceeded;
 }
 
 function parseChatMetadata(metadata: Chat["metadata"] | string | null | undefined): Record<string, unknown> {
@@ -1139,7 +1179,12 @@ export function useGenerate() {
       // message after it is upserted into the cache. Cancel early so the
       // post-save refresh owns the query lifecycle for this generation.
       await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
-      const assistantMessagesBeforeGeneration = snapshotAssistantMessages(qc, params.chatId);
+      const assistantMessagesBeforeGeneration = snapshotMessagesByRole(qc, params.chatId, "assistant");
+      const expectedPersistedRole: Message["role"] = params.impersonate ? "user" : "assistant";
+      const expectedMessagesBeforeGeneration =
+        expectedPersistedRole === "assistant"
+          ? assistantMessagesBeforeGeneration
+          : snapshotMessagesByRole(qc, params.chatId, expectedPersistedRole);
       if (params.regenerateMessageId) {
         forgetRecentMessageContentEdit(params.chatId, params.regenerateMessageId);
       }
@@ -1253,10 +1298,13 @@ export function useGenerate() {
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let passiveStreamSettled = false;
+      let passiveRecoveryDurableMessage: Message | null = null;
       let typingActive = false;
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
       const persistedMessages = new Map<string, Message>();
+      let sawGroupTurn = false;
+      let currentGroupTurnSavedMessage: Message | null = null;
       let heldTextRewriteMessage: Message | null = null;
       let holdingTextRewrite = false;
       let gameStatePatchAnchor: { messageId: string; swipeIndex: number } | null = null;
@@ -1751,9 +1799,12 @@ export function useGenerate() {
 
               // Apply background change — validate the resolved background URL before applying
               if (result.success && result.resultType === "background_change" && result.data) {
-                const bg = result.data as { chosen?: string | null };
+                const bg = result.data as { chosen?: string | null; generated?: boolean };
                 if (bg.chosen) {
                   applyAgentBackgroundChoice(bg.chosen);
+                }
+                if (bg.generated) {
+                  qc.invalidateQueries({ queryKey: ["backgrounds"] });
                 }
               }
 
@@ -1850,6 +1901,7 @@ export function useGenerate() {
 
             case "group_turn": {
               const turn = event.data as { characterId: string; characterName: string; index: number };
+              sawGroupTurn = true;
               leadingSpeakerPrefixFilter.addLabels([turn.characterName]);
 
               // If this isn't the first character, flush the previous one's content
@@ -1857,13 +1909,13 @@ export function useGenerate() {
                 flushLeadingSpeakerPrefix();
                 // Drain typewriter for the previous character (only if streaming)
                 await waitForTypewriterDrain();
-                const previousGroupMessage = latestAssistantMessage(persistedMessages.values());
+                const previousGroupMessage = currentGroupTurnSavedMessage;
 
                 // Pick up the just-saved message from the previous character
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
                 // Increment unread if user navigated away during group generation
                 const activeNow = useChatStore.getState().activeChatId;
-                if (activeNow !== params.chatId) {
+                if (previousGroupMessage && activeNow !== params.chatId) {
                   useChatStore.getState().incrementUnread(params.chatId);
                   const identity = resolveCachedCharacterIdentity(
                     qc,
@@ -1903,6 +1955,7 @@ export function useGenerate() {
               } else {
                 setStreamedMessageId(params.chatId, null);
               }
+              currentGroupTurnSavedMessage = null;
 
               if (streamingEnabled) setStreamCommitted(params.chatId, false);
               if (isActiveChat()) setStreamingCharacterId(turn.characterId);
@@ -2033,6 +2086,9 @@ export function useGenerate() {
                   };
                   rememberContinuedMessageContent(updatedMessage);
                   persistedMessages.set(updatedMessage.id, updatedMessage);
+                  if (currentGroupTurnSavedMessage?.id === updatedMessage.id) {
+                    currentGroupTurnSavedMessage = updatedMessage;
+                  }
                   // Keep the final rewritten text as the live stream until the
                   // full generation lifecycle finishes. The durable row is
                   // primed during final cleanup so there is no full-text flash.
@@ -2064,6 +2120,9 @@ export function useGenerate() {
                     };
                     rememberContinuedMessageContent(updatedMessage);
                     persistedMessages.set(updatedMessage.id, updatedMessage);
+                    if (currentGroupTurnSavedMessage?.id === updatedMessage.id) {
+                      currentGroupTurnSavedMessage = updatedMessage;
+                    }
                     upsertPersistedMessages(qc, params.chatId, [updatedMessage]);
                   }
                 }
@@ -2080,11 +2139,28 @@ export function useGenerate() {
               break;
             }
 
+            case "generation_discarded": {
+              const discarded = event.data as { characterId?: unknown } | null;
+              const discardedCharacterId =
+                discarded && typeof discarded.characterId === "string" ? discarded.characterId : null;
+              if (discardedCharacterId) {
+                completeQueuedResponse(params.chatId, discardedCharacterId);
+              }
+              currentGroupTurnSavedMessage = null;
+              receivedContent = latestAssistantMessage(persistedMessages.values()) !== null;
+              replaceGeneratedContentWithTypewriter("");
+              if (!params.autonomous) {
+                toast.info("The model repeated its previous message, so it was not posted.");
+              }
+              break;
+            }
+
             case "message_saved": {
               flushLeadingSpeakerPrefix();
               const savedMessage = event.data as Message;
               if (savedMessage.role === "assistant") {
                 completeQueuedResponse(params.chatId, savedMessage.characterId);
+                currentGroupTurnSavedMessage = savedMessage;
               }
               await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
               persistedMessages.set(savedMessage.id, savedMessage);
@@ -2585,7 +2661,22 @@ export function useGenerate() {
           const settled = await waitForServerGenerationToSettle(params.chatId, abortController.signal);
           passiveStreamSettled = settled;
           if (!abortController.signal.aborted) {
-            await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
+            const recoveryRefetchSucceeded = await refreshMessagesAuthoritatively(
+              qc,
+              params.chatId,
+              persistedMessages.values(),
+            );
+            if (recoveryRefetchSucceeded) {
+              passiveRecoveryDurableMessage = latestNewMessageByRole(
+                qc,
+                params.chatId,
+                expectedPersistedRole,
+                expectedMessagesBeforeGeneration,
+              );
+              if (passiveRecoveryDurableMessage) {
+                persistedMessages.set(passiveRecoveryDurableMessage.id, passiveRecoveryDurableMessage);
+              }
+            }
             if (!settled) {
               toast.info(
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
@@ -2669,7 +2760,12 @@ export function useGenerate() {
         // increment unread badge + play notification sound so they know.
         // Only notify if actual content was produced (skip offline/error cases).
         const currentActive = useChatStore.getState().activeChatId;
-        if (receivedContent && currentActive !== params.chatId) {
+        const hasDurableAssistantReply = latestAssistantMessage(persistedMessages.values()) !== null;
+        const notificationEligibleContent =
+          receivedContent &&
+          (!passiveStreamRecovered || hasDurableAssistantReply) &&
+          (!sawGroupTurn || currentGroupTurnSavedMessage !== null);
+        if (notificationEligibleContent && currentActive !== params.chatId) {
           useChatStore.getState().incrementUnread(params.chatId);
           // Show floating avatar notification bubble — look up character from cache
           const chatList = qc.getQueryData<Chat[]>(chatKeys.list());
@@ -2729,36 +2825,40 @@ export function useGenerate() {
           const partialCharacterId = params.impersonate
             ? null
             : (params.forCharacterId ?? useChatStore.getState().streamingCharacterId ?? null);
-          try {
-            const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
-              role: partialRole,
-              characterId: partialCharacterId,
-              content: partialContent,
-              createdAt,
-              updatedAt: createdAt,
-            });
-            unpersistedPartialMessage = created;
-            persistedMessages.set(created.id, created);
-          } catch (error) {
-            console.warn(
-              "[use-generate] Failed to persist stopped partial message; keeping cache-only fallback",
-              error,
-            );
-            unpersistedPartialMessage = {
-              id: `__partial_${params.chatId}_${Date.now()}`,
-              chatId: params.chatId,
-              role: partialRole,
-              characterId: partialCharacterId,
-              content: partialContent,
-              activeSwipeIndex: 0,
-              extra: {
-                displayText: null,
-                isGenerated: !params.impersonate,
-                tokenCount: null,
-                generationInfo: null,
-              },
-              createdAt,
-            };
+          if (passiveStreamRecovered) {
+            if (!passiveRecoveryDurableMessage) {
+              unpersistedPartialMessage = createCacheOnlyPartialMessage({
+                chatId: params.chatId,
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                createdAt,
+              });
+            }
+          } else {
+            try {
+              const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                createdAt,
+                updatedAt: createdAt,
+              });
+              unpersistedPartialMessage = created;
+              persistedMessages.set(created.id, created);
+            } catch (error) {
+              console.warn(
+                "[use-generate] Failed to persist stopped partial message; keeping cache-only fallback",
+                error,
+              );
+              unpersistedPartialMessage = createCacheOnlyPartialMessage({
+                chatId: params.chatId,
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                createdAt,
+              });
+            }
           }
         }
         const persistedForRefresh = [
@@ -2828,7 +2928,8 @@ export function useGenerate() {
           !abortController.signal.aborted &&
           !params.impersonate &&
           !params.turnGameBots &&
-          ((sawDoneEvent && receivedContent) || passiveStreamSettled);
+          ((sawDoneEvent && receivedContent) ||
+            (passiveStreamSettled && passiveRecoveryDurableMessage?.role === "assistant"));
         if (completedReply) {
           const notifiedMessage =
             latestAssistantMessage(persistedForRefresh) ??
@@ -3156,9 +3257,12 @@ export function useGenerate() {
                   }
                 }
                 if (result.resultType === "background_change") {
-                  const bg = result.data as { chosen?: string | null };
+                  const bg = result.data as { chosen?: string | null; generated?: boolean };
                   if (bg.chosen) {
                     applyAgentBackgroundChoice(bg.chosen);
+                  }
+                  if (bg.generated) {
+                    qc.invalidateQueries({ queryKey: ["backgrounds"] });
                   }
                 }
                 // Apply quest updates directly so the widget updates immediately

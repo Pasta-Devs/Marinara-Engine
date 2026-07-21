@@ -26,6 +26,7 @@ import {
   NOODLE_LEGACY_RECALLED_MEMORY_INSTRUCTION,
   NOODLE_PERSONA_IDENTITY_INSTRUCTION,
   NOODLE_RECALLED_MEMORY_INSTRUCTION,
+  NOODLE_UNIQUE_CONTENT_INSTRUCTION,
   noodleTimelineFeatureInstructions,
   sampleNoodlePastMemories,
   sampleNoodlePastMemoriesWeighted,
@@ -578,6 +579,9 @@ export async function buildRefreshPrompt(input: {
   const textOnlyContext = buildContext(new Set(), "", captionedImages);
 
   const outputFormat = [
+    "# Content Uniqueness",
+    NOODLE_UNIQUE_CONTENT_INSTRUCTION,
+    "",
     NOODLE_JSON_OUTPUT_HEADING,
     JSON.stringify(
       {

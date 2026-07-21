@@ -439,7 +439,16 @@ import {
 import {
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
+  chatBackgroundTags,
+  safeGeneratedAssetSlug,
 } from "../../packages/server/src/services/game/game-asset-generation.js";
+import {
+  buildIllustratorBackgroundPlanUserPrompt,
+  illustratorBackgroundGenerationEnabled,
+  illustratorRequestedBackground,
+  illustratorTrackerLocationChanged,
+  parseIllustratorBackgroundPlan,
+} from "../../packages/server/src/services/generation/illustrator-background-generation.js";
 import {
   buildLorebookScanMessagesWithGenerationGuide,
   resolveLorebookTokenBudget,
@@ -2586,6 +2595,87 @@ const cases: RegressionCase[] = [
       assert.match(executorSource, /Follow the selected Illustrator prompt mode exactly/);
       assert.match(executorSource, /Background stays an environment-only plate/);
       assert.doesNotMatch(executorSource, /not a selfie, comic page, manga panel, or background-only plate/);
+    },
+  },
+  {
+    name: "Roleplay Illustrator background decisions are gated and produce reusable library metadata",
+    run() {
+      assert.equal(illustratorBackgroundGenerationEnabled("roleplay", { illustratorAutoBackgroundsEnabled: true }), true);
+      assert.equal(
+        illustratorBackgroundGenerationEnabled("visual_novel", { illustratorAutoBackgroundsEnabled: true }),
+        true,
+      );
+      assert.equal(illustratorBackgroundGenerationEnabled("game", { illustratorAutoBackgroundsEnabled: true }), false);
+      assert.equal(illustratorBackgroundGenerationEnabled("roleplay", {}), false);
+      assert.equal(illustratorRequestedBackground(true), true);
+      assert.equal(illustratorRequestedBackground("yes"), true);
+      assert.equal(illustratorRequestedBackground("no"), false);
+      assert.equal(illustratorTrackerLocationChanged("Royal Archive", "Enchanted Forest Clearing"), true);
+      assert.equal(illustratorTrackerLocationChanged("  ROYAL   ARCHIVE ", "royal archive"), false);
+      assert.equal(illustratorTrackerLocationChanged("Royal Archive", ""), false);
+
+      const plan = parseIllustratorBackgroundPlan(
+        '```json\n{"locationName":"Enchanted Forest Clearing","prompt":"Wide moonlit forest clearing with ancient trees and a readable path layout.","tags":["Forest","moonlit!","forest"],"reason":"The party entered the clearing."}\n```',
+      );
+      assert.deepEqual(plan, {
+        locationName: "Enchanted Forest Clearing",
+        prompt: "Wide moonlit forest clearing with ancient trees and a readable path layout.",
+        tags: ["forest", "moonlit"],
+        reason: "The party entered the clearing.",
+      });
+      assert.equal(safeGeneratedAssetSlug(plan!.locationName), "enchanted-forest-clearing");
+
+      const prompt = buildIllustratorBackgroundPlanUserPrompt({
+        chatName: "Moonlit Expedition",
+        currentBackground: "old-library.png",
+        assistantResponse: "They cross the threshold into an enchanted forest clearing.",
+        decisionReason: "The scene moved outdoors.",
+        gameState: { location: "Enchanted Forest Clearing", weather: "clear", time: "midnight" } as any,
+        recentMessages: [
+          {
+            role: "assistant",
+            content: "The group leaves the archive.",
+            gameState: { location: "Royal Archive" } as any,
+          },
+          {
+            role: "assistant",
+            content: "They follow the moonlit road.",
+            gameState: { location: "Moonlit Road" } as any,
+          },
+          {
+            role: "assistant",
+            content: "They briefly return through the archive gate.",
+            gameState: { location: "Royal Archive" } as any,
+          },
+        ],
+      });
+      assert.match(prompt, /Current tracker state:.*Enchanted Forest Clearing/u);
+      assert.match(prompt, /Recent committed tracker locations: Moonlit Road -> Royal Archive/u);
+      assert.match(prompt, /Currently active background: old-library\.png/u);
+
+      const visualNovelTags = chatBackgroundTags(
+        {
+          sourceMode: "visual_novel",
+          locationSlug: "moonlit-garden",
+          tags: ["garden"],
+        } as any,
+        "moonlit-garden",
+      );
+      assert.ok(visualNovelTags.includes("visual_novel"));
+      assert.ok(!visualNovelTags.includes("roleplay"));
+
+      const drawerSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+        "utf8",
+      );
+      const executorSource = readFileSync(
+        new URL("../../packages/server/src/services/agents/agent-executor.ts", import.meta.url),
+        "utf8",
+      );
+      assert.match(drawerSource, /label="Generate Scene Backgrounds"/u);
+      assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\)/u);
+      assert.match(executorSource, /<illustrator_background_generation enabled="true">/u);
+      assert.match(executorSource, /"generateBackground"/u);
     },
   },
   {
