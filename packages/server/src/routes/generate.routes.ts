@@ -247,7 +247,10 @@ import {
 import { appendConversationCustomAssetAdvertisements } from "./generate/conversation-custom-assets.js";
 import { injectConnectedConversationPromptBlocks } from "./generate/connected-conversation-injections.js";
 import { resolveConversationConnectedChatContext } from "./generate/conversation-connected-context.js";
-import { buildConversationCurrentContextBlock } from "./generate/conversation-context-block.js";
+import {
+  buildConversationCurrentContextBlock,
+  replaceConversationContextBlockForTarget,
+} from "./generate/conversation-context-block.js";
 import { prepareConversationPromptHistory } from "./generate/conversation-history-runtime.js";
 import { resolveConversationPresenceRuntime } from "./generate/conversation-presence-runtime.js";
 import { resolveProfessorMariPromptContext } from "./generate/professor-mari-prompt-context.js";
@@ -1463,6 +1466,7 @@ export async function generateRoutes(app: FastifyInstance) {
         // Relocation-macro content captured for the deferred-{{#if}} decode pass
         // (#3448) — set where each is computed, read after all are known.
         let conversationContextBlockValue = "";
+        let conversationContextBlocksByCharacterId = new Map<string, string>();
         let conversationLorebookBlockValue = "";
         let conversationMemoriesBlockValue = "";
         let conversationReplyRulesBlockValue = "";
@@ -1587,7 +1591,7 @@ export async function generateRoutes(app: FastifyInstance) {
         const deferCharacterMacros =
           characterIds.length > 1 &&
           promptGroupChatMode === "individual" &&
-          promptGroupResponseOrder !== "manual" &&
+          (promptGroupResponseOrder !== "manual" || chatMode === "conversation") &&
           input.impersonate !== true;
         const shouldPrefixGroupHistorySpeakers =
           chatMeta.groupSpeakerNamesInHistory === true &&
@@ -2121,14 +2125,21 @@ export async function generateRoutes(app: FastifyInstance) {
             customPrompt ?? (selectedConversationPrompt || DEFAULT_CONVERSATION_PROMPT);
           identityFallbackPromptTemplateSources.push(conversationPromptTemplate);
           conversationContextMacroSlots = resolveConversationContextMacroSlots(conversationPromptTemplate);
+          const individualConversationGroup = isGroup && promptGroupChatMode === "individual";
+          const aliasedConversationPrompt = (
+            individualConversationGroup
+              ? conversationPromptTemplate
+              : conversationPromptTemplate.replace(/\{\{charName\}\}/g, charNameList)
+          ).replace(/\{\{userName\}\}/g, personaName);
           const renderedConversationPrompt = resolveMacros(
-            conversationPromptTemplate
-              .replace(/\{\{charName\}\}/g, charNameList)
-              .replace(/\{\{userName\}\}/g, personaName),
+            aliasedConversationPrompt,
             promptMacroContext,
             // Defer {{#if}} blocks that test a relocation macro — their value is
             // filled in later; the decode pass below evaluates them (#3448).
-            { deferConditionalOperand: isRelocationConditionOperand },
+            {
+              deferConditionalOperand: isRelocationConditionOperand,
+              ...(deferCharacterMacros ? { deferCharacterMacros: "names" as const } : {}),
+            },
           );
           // Mark each relocation macro a deferred conditional actually references
           // as "used" so its retrieval runs and its value is captured for the
@@ -2140,14 +2151,15 @@ export async function generateRoutes(app: FastifyInstance) {
           }
           const conversationInstructionParts = [unwrapConversationInstructions(renderedConversationPrompt)];
 
-          if (isGroup) {
+          if (individualConversationGroup) {
+            conversationInstructionParts.push("This is a group DM with other participants.");
+          } else if (isGroup) {
             conversationInstructionParts.push(
               [
                 `This is a group DM. Each character responds in their own voice and personality. Not every character needs to respond every time; only those who would naturally react.`,
                 `IMPORTANT: Prefix each character's line with their name. Example:`,
                 `${convoCharNames[0] ?? "Alice"}: hey whats up`,
                 `${convoCharNames[1] ?? "Bob"}: not much lol`,
-                ``,
                 `If a character sends multiple lines in a row, only prefix the first line:`,
                 `${convoCharNames[0] ?? "Alice"}: so anyway`,
                 `i was thinking about that`,
@@ -2157,7 +2169,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           let conversationSystemPrompt = formatConversationInstructionsForWrap(
-            conversationInstructionParts.filter((part) => part.trim().length > 0).join("\n\n"),
+            conversationInstructionParts.filter((part) => part.trim().length > 0).join("\n"),
             wrapFormat,
           );
 
@@ -2199,6 +2211,27 @@ export async function generateRoutes(app: FastifyInstance) {
             wrapFormat,
           });
           conversationContextBlockValue = contextBlock ?? "";
+          if (individualConversationGroup) {
+            conversationContextBlocksByCharacterId = new Map(
+              convoCharInfo.map((character) => [
+                character.charId,
+                buildConversationCurrentContextBlock({
+                  nowInstant,
+                  promptTimeZone,
+                  convoCharInfo,
+                  finalMessages,
+                  personaName,
+                  userMessage: input.userMessage,
+                  userStatus: input.userStatus,
+                  userActivity: input.userActivity,
+                  mentionedCharacterNames: input.mentionedCharacterNames,
+                  autonomousIntentKey: input.autonomousIntentKey,
+                  primaryCharacterId: character.charId,
+                  wrapFormat,
+                }),
+              ]),
+            );
+          }
 
           // ── Cross-chat awareness: show messages from other chats this character is in ──
           // (awarenessBlock is injected later, after persona info)
@@ -4812,6 +4845,19 @@ export async function generateRoutes(app: FastifyInstance) {
             gameAwareMessagesForGen,
             audienceCharacterIds,
           );
+          const targetContextBlock = targetCharId
+            ? conversationContextBlocksByCharacterId.get(targetCharId)
+            : undefined;
+          if (isGroupChat && usesIndividualGroupGeneration && targetContextBlock && conversationContextBlockValue) {
+            gameAwareMessagesForGen = gameAwareMessagesForGen.map((message) => ({
+              ...message,
+              content: replaceConversationContextBlockForTarget(
+                message.content,
+                conversationContextBlockValue,
+                targetContextBlock,
+              ),
+            }));
+          }
           const scopedMessagesForGen =
             isGroupChat && usesIndividualGroupGeneration && targetCharId
               ? scopeIndividualGroupMessagesForTarget(gameAwareMessagesForGen, targetCharId, charInfo)
@@ -4855,16 +4901,18 @@ export async function generateRoutes(app: FastifyInstance) {
               usesIndividualGroupGeneration && groupTurnPromptEnabled && speaksOnlyTargetCharacter && targetCharId
                 ? (charInfo.find((character) => character.id === targetCharId)?.name ?? null)
                 : null;
-            preparedMessagesForGen.push({
-              role: "user",
-              content: formatConversationGroupOutputFormat({
-                wrapFormat,
-                characterNames: conversationCharacterNames,
-                userName: personaName,
-                turnCharacterName,
-              }),
-              contextKind: "injection",
-            });
+            if (!usesIndividualGroupGeneration || turnCharacterName) {
+              preparedMessagesForGen.push({
+                role: "user",
+                content: formatConversationGroupOutputFormat({
+                  wrapFormat,
+                  characterNames: conversationCharacterNames,
+                  userName: personaName,
+                  turnCharacterName,
+                }),
+                contextKind: "injection",
+              });
+            }
           }
           // Defense in depth: the relocation decode pass should have consumed
           // every token already; strip any that slipped through so no control

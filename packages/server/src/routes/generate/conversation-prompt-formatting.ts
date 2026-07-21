@@ -4,8 +4,7 @@ import type { GenerationPromptMessage } from "../../services/generation/prompt-m
 import { wrapContent } from "../../services/prompt/format-engine.js";
 import { parseExtra } from "./generate-route-utils.js";
 
-export const CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION =
-  "Remember to prefix messages with `Name: message`!";
+export const CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION = "Remember to prefix messages with `Name: message`!";
 
 export function formatConversationGroupOutputFormat(args: {
   wrapFormat: WrapFormat;
@@ -18,13 +17,9 @@ export function formatConversationGroupOutputFormat(args: {
   const responseBoundary = `Only respond for these characters: ${characterList || "the listed characters"}. Never respond for ${userName} or write ${userName}'s messages.`;
   const turnCharacterName = args.turnCharacterName?.trim();
   return wrapContent(
-    [
-      CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION,
-      responseBoundary,
-      turnCharacterName ? `Respond as ${turnCharacterName} alone.` : null,
-    ]
-      .filter((line): line is string => line !== null)
-      .join("\n"),
+    turnCharacterName
+      ? `Respond only as ${turnCharacterName}.`
+      : [CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION, responseBoundary].join("\n"),
     "Output Format",
     args.wrapFormat,
   );

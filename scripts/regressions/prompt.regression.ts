@@ -429,6 +429,10 @@ import {
 } from "../../packages/server/src/routes/generate/conversation-history-runtime.js";
 import { formatConversationGroupOutputFormat } from "../../packages/server/src/routes/generate/conversation-prompt-formatting.js";
 import {
+  buildConversationCurrentContextBlock,
+  replaceConversationContextBlockForTarget,
+} from "../../packages/server/src/routes/generate/conversation-context-block.js";
+import {
   LEGACY_DEFAULT_CONVERSATION_PROMPT_LEAD,
   migrateLegacyDefaultConversationPromptLead,
 } from "../../packages/server/src/db/default-conversation-prompt-migration.js";
@@ -4888,8 +4892,76 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           userName: "Mari",
           turnCharacterName: "Dottore",
         }),
-        `## Output Format\n${instruction}\n${responseBoundary}\nRespond as Dottore alone.`,
+        `## Output Format\nRespond only as Dottore.`,
       );
+
+      const individualOutput = formatConversationGroupOutputFormat({
+        wrapFormat: "xml",
+        characterNames: ["Dottore", "Pantalone"],
+        userName: "Mari",
+        turnCharacterName: "Dottore",
+      });
+      assert.match(individualOutput, /Respond only as Dottore\./u);
+      assert.doesNotMatch(individualOutput, /prefix messages|Pantalone|Never respond for Mari/u);
+
+      const contextCharacters = [
+        {
+          charId: "dottore",
+          name: "Dottore",
+          displayName: "Dottore",
+          status: "online",
+          activity: "",
+        },
+        {
+          charId: "pantalone",
+          name: "Pantalone",
+          displayName: "Pantalone",
+          status: "online",
+          activity: "",
+        },
+      ];
+      const sharedContext = buildConversationCurrentContextBlock({
+        nowInstant: new Date("2026-07-21T13:58:00.000Z"),
+        promptTimeZone: "Europe/Warsaw",
+        convoCharInfo: contextCharacters,
+        finalMessages: [{ role: "user" }],
+        personaName: "Mari",
+        userStatus: "active",
+        mentionedCharacterNames: ["Dottore"],
+        wrapFormat: "none",
+      });
+      const dottoreContext = buildConversationCurrentContextBlock({
+        nowInstant: new Date("2026-07-21T13:58:00.000Z"),
+        promptTimeZone: "Europe/Warsaw",
+        convoCharInfo: contextCharacters,
+        finalMessages: [{ role: "user" }],
+        personaName: "Mari",
+        userStatus: "active",
+        mentionedCharacterNames: ["Dottore"],
+        primaryCharacterId: "dottore",
+        wrapFormat: "none",
+      });
+      assert.match(sharedContext, /Your current status: Dottore: online; Pantalone: online\./u);
+      assert.match(dottoreContext, /^Your current status: Dottore: online\.\nPantalone's status: online\./u);
+      assert.doesNotMatch(dottoreContext, /Your current status:.*Pantalone/u);
+      assert.match(dottoreContext, /Mari @mentioned: Dottore/u);
+      assert.equal(
+        replaceConversationContextBlockForTarget(`Before\n${sharedContext}\nAfter`, sharedContext, dottoreContext),
+        `Before\n${dottoreContext}\nAfter`,
+      );
+
+      const deferredIdentity = resolveMacros(
+        "You are {{charName}}.",
+        {
+          user: "Mari",
+          char: "Dottore",
+          characters: ["Dottore", "Pantalone"],
+          groupCharacters: ["Dottore", "Pantalone"],
+          variables: {},
+        },
+        { deferCharacterMacros: "names" },
+      );
+      assert.equal(resolveDeferredCharacterMacros(deferredIdentity, { name: "Pantalone" }), "You are Pantalone.");
 
       const contextSource = readFileSync(
         new URL("../../packages/server/src/routes/generate/conversation-context-block.ts", import.meta.url),
@@ -4903,6 +4975,11 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.match(routeSource, /groupTurnPromptEnabled && chatMode === "roleplay"/u);
       assert.doesNotMatch(routeSource, /groupTurnPromptEnabled && chatMode !== "conversation"/u);
+      assert.match(
+        routeSource,
+        /if \(individualConversationGroup\) \{\s+conversationInstructionParts\.push\("This is a group DM with other participants\."\);\s+\} else if \(isGroup\)/u,
+      );
+      assert.doesNotMatch(routeSource, /conversationInstructionParts[^;]+\.join\("\\n\\n"\)/su);
     },
   },
   {
