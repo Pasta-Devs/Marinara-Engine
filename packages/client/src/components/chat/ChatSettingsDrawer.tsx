@@ -5256,8 +5256,12 @@ export function ChatSettingsDrawer({
                         ? "No automatic responses — @mention one or more characters to call them into the conversation."
                         : "No automatic responses — use the character picker in the input bar to trigger responses one at a time."
                       : metadata.groupResponseOrder === "smart"
-                        ? "An AI agent decides which characters should respond based on the scene context."
-                        : "Characters respond one by one in their listed order."}
+                        ? isConversation
+                          ? "Smart chooses one or more available characters using the conversation, schedule status, and talkativeness."
+                          : "An AI agent decides which characters should respond based on the scene context."
+                        : isConversation
+                          ? "Available characters respond one by one in their listed order; offline characters are skipped."
+                          : "Characters respond one by one in their listed order."}
                   </p>
                   <button
                     onClick={() =>
@@ -5293,40 +5297,42 @@ export function ChatSettingsDrawer({
                       />
                     </div>
                   </button>
-                  <button
-                    onClick={() =>
-                      updateMeta.mutate({
-                        id: chat.id,
-                        groupSpeakerNamesInHistory: metadata.groupSpeakerNamesInHistory !== true,
-                      })
-                    }
-                    className={cn(
-                      "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
-                      metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-field--active",
-                    )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[0.6875rem] font-medium">Name Prefix History</span>
-                      <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                        {metadata.groupSpeakerNamesInHistory === true
-                          ? "History turns are sent as Name: message before merged role blocks."
-                          : "History turns keep their stored text before role merging."}
-                      </p>
-                    </div>
-                    <div
+                  {!isConversation && (
+                    <button
+                      onClick={() =>
+                        updateMeta.mutate({
+                          id: chat.id,
+                          groupSpeakerNamesInHistory: metadata.groupSpeakerNamesInHistory !== true,
+                        })
+                      }
                       className={cn(
-                        "mari-chat-option-switch ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                        metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-switch--active",
+                        "mari-chat-option-field flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-all",
+                        metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-field--active",
                       )}
                     >
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[0.6875rem] font-medium">Name Prefix History</span>
+                        <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                          {metadata.groupSpeakerNamesInHistory === true
+                            ? "History turns are sent as Name: message before merged role blocks."
+                            : "History turns keep their stored text before role merging."}
+                        </p>
+                      </div>
                       <div
                         className={cn(
-                          "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
-                          metadata.groupSpeakerNamesInHistory === true && "translate-x-3.5",
+                          "mari-chat-option-switch ml-3 h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                          metadata.groupSpeakerNamesInHistory === true && "mari-chat-option-switch--active",
                         )}
-                      />
-                    </div>
-                  </button>
+                      >
+                        <div
+                          className={cn(
+                            "h-4 w-4 rounded-full bg-white shadow-sm transition-transform",
+                            metadata.groupSpeakerNamesInHistory === true && "translate-x-3.5",
+                          )}
+                        />
+                      </div>
+                    </button>
+                  )}
                 </div>
               )}
 

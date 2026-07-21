@@ -29,6 +29,8 @@ export type ConversationPromptCharacterInfo = {
   status: string;
   activity: string;
   todaySchedule: string;
+  /** Conversation schedule talkativeness (0–100), used by Smart group response selection. */
+  talkativeness: number;
 };
 
 type ConversationPresenceChatsStore = {
@@ -75,6 +77,7 @@ export async function resolveConversationPresenceRuntime(args: {
   convoCharNames: string[];
   charNameList: string;
   isGroup: boolean;
+  respondingCharacterIds: string[];
   chatMessages: any[];
   finalMessages: GenerationPromptMessage[];
 }> {
@@ -122,24 +125,42 @@ export async function resolveConversationPresenceRuntime(args: {
     if (respondingConvoCharInfo.length === 0) {
       args.writeSse({ type: "done" });
       args.endSse();
-      return buildPresenceResult({ ended: true, convoCharInfo, convoCharNames, charNameList, args });
+      return buildPresenceResult({
+        ended: true,
+        convoCharInfo,
+        convoCharNames,
+        charNameList,
+        respondingCharacterIds: [],
+        args,
+      });
     }
   }
 
-  const respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+  const requestedResponderNames = respondingConvoCharInfo.map((character) => character.displayName);
   const seatedGameCharIds = await resolveSeatedTurnGameCharacterIds(args.db, args.chatId);
   const effectiveStatus = (character: { charId: string; status: string }): string =>
     seatedGameCharIds.has(character.charId) ? "online" : character.status;
 
-  const allOffline =
-    respondingConvoCharInfo.length > 0 &&
-    respondingConvoCharInfo.every((character) => effectiveStatus(character) === "offline");
-  if (allOffline && !args.regenerateMessageId && !args.impersonate) {
-    args.writeSse({ type: "offline", characters: respondingConvoCharNames });
+  if (!args.regenerateMessageId && !args.impersonate) {
+    respondingConvoCharInfo = respondingConvoCharInfo.filter(
+      (character) => effectiveStatus(character) !== "offline",
+    );
+  }
+  if (respondingConvoCharInfo.length === 0 && !args.regenerateMessageId && !args.impersonate) {
+    args.writeSse({ type: "offline", characters: requestedResponderNames });
     args.writeSse({ type: "done" });
     args.endSse();
-    return buildPresenceResult({ ended: true, convoCharInfo, convoCharNames, charNameList, args });
+    return buildPresenceResult({
+      ended: true,
+      convoCharInfo,
+      convoCharNames,
+      charNameList,
+      respondingCharacterIds: [],
+      args,
+    });
   }
+  const respondingConvoCharNames = respondingConvoCharInfo.map((character) => character.displayName);
+  const respondingCharacterIds = respondingConvoCharInfo.map((character) => character.charId);
 
   let chatMessages = args.chatMessages;
   let finalMessages = args.finalMessages;
@@ -179,6 +200,7 @@ export async function resolveConversationPresenceRuntime(args: {
           convoCharInfo,
           convoCharNames,
           charNameList,
+          respondingCharacterIds,
           args,
           chatMessages,
           finalMessages,
@@ -205,7 +227,16 @@ export async function resolveConversationPresenceRuntime(args: {
     args.writeSse({ type: "typing", characters: convoCharNames });
   }
 
-  return buildPresenceResult({ ended: false, convoCharInfo, convoCharNames, charNameList, args, chatMessages, finalMessages });
+  return buildPresenceResult({
+    ended: false,
+    convoCharInfo,
+    convoCharNames,
+    charNameList,
+    respondingCharacterIds,
+    args,
+    chatMessages,
+    finalMessages,
+  });
 }
 
 async function resolveConversationPromptCharacters(args: {
@@ -234,12 +265,14 @@ async function resolveConversationPromptCharacters(args: {
     let status = fallback.status;
     let activity = fallback.activity;
     let todaySchedule = "";
+    let talkativeness = 50;
     const schedule = args.schedules[cid];
     if (schedule) {
       const derived = getEffectiveCurrentStatus(schedule, override, args.actualNow, "free time", args.promptNow);
       status = derived.status;
       activity = derived.activity;
       todaySchedule = getTodaySchedule(schedule, args.promptNow);
+      talkativeness = schedule.talkativeness;
     }
     const characterData = data as { name?: string; extensions?: Record<string, unknown> } | null;
     const name = characterData?.name?.trim() || "Unknown";
@@ -254,6 +287,7 @@ async function resolveConversationPromptCharacters(args: {
       status,
       activity,
       todaySchedule,
+      talkativeness,
     });
   }
   return convoCharInfo;
@@ -324,6 +358,7 @@ function buildPresenceResult(args: {
   convoCharInfo: ConversationPromptCharacterInfo[];
   convoCharNames: string[];
   charNameList: string;
+  respondingCharacterIds: string[];
   args: { chatMessages: any[]; finalMessages: GenerationPromptMessage[] };
   chatMessages?: any[];
   finalMessages?: GenerationPromptMessage[];
@@ -335,6 +370,7 @@ function buildPresenceResult(args: {
     convoCharNames: args.convoCharNames,
     charNameList: args.charNameList,
     isGroup: args.convoCharNames.length > 1,
+    respondingCharacterIds: args.respondingCharacterIds,
     chatMessages: args.chatMessages ?? args.args.chatMessages,
     finalMessages: args.finalMessages ?? args.args.finalMessages,
   };

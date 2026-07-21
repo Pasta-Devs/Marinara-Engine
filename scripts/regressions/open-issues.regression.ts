@@ -973,6 +973,10 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
+const conversationPresenceSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate/conversation-presence-runtime.ts", import.meta.url),
+  "utf8",
+);
 const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
@@ -980,6 +984,26 @@ const professorMariHomeSource = readFileSync(
 assert.doesNotMatch(conversationGroupSettingsSource, /Reply When Mentioned/u);
 assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awareness"/u);
 assert.match(conversationGroupSettingsSource, /Individual replies can use many tokens/u);
+assert.match(
+  conversationGroupSettingsSource,
+  /\{!isConversation && \(\s*<button[\s\S]{0,1500}Name Prefix History/u,
+  "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
+);
+assert.match(
+  conversationPresenceSource,
+  /respondingConvoCharInfo = respondingConvoCharInfo\.filter\(\s*\(character\) => effectiveStatus\(character\) !== "offline"/u,
+  "Conversation response selection should remove offline characters before Sequential or Smart ordering",
+);
+assert.match(
+  conversationGenerationSource,
+  /Choose one or more available characters[\s\S]{0,500}current schedule status[\s\S]{0,500}talkativeness/u,
+  "Conversation Smart ordering should use a schedule-aware selector prompt",
+);
+assert.match(
+  conversationGenerationSource,
+  /smartResponseQueue\?\.length\s*\? \[\.\.\.smartResponseQueue\]/u,
+  "Smart ordering should generate every character selected by the responder queue",
+);
 assert.match(
   conversationGenerationSource,
   /explicitlyMentionedConversationCharacterIds\.length > 0\s*\? explicitlyMentionedConversationCharacterIds/u,

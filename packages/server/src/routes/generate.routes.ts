@@ -1454,6 +1454,11 @@ export async function generateRoutes(app: FastifyInstance) {
         };
         let conversationIsGroup = false;
         let conversationCharacterNames: string[] = [];
+        let conversationRespondingCharacterIds: Set<string> | null = null;
+        let conversationCharacterPresenceById = new Map<
+          string,
+          { displayName: string; status: string; activity: string; talkativeness: number }
+        >();
         let conversationImportantMemoryBlock: string | null = null;
         // Relocation-macro content captured for the deferred-{{#if}} decode pass
         // (#3448) — set where each is computed, read after all are known.
@@ -1999,6 +2004,18 @@ export async function generateRoutes(app: FastifyInstance) {
           const { convoCharInfo, convoCharNames, charNameList, isGroup } = presenceRuntime;
           conversationIsGroup = isGroup;
           conversationCharacterNames = convoCharNames;
+          conversationRespondingCharacterIds = new Set(presenceRuntime.respondingCharacterIds);
+          conversationCharacterPresenceById = new Map(
+            convoCharInfo.map((character) => [
+              character.charId,
+              {
+                displayName: character.displayName,
+                status: character.status,
+                activity: character.activity,
+                talkativeness: character.talkativeness,
+              },
+            ]),
+          );
 
           const nowInstant = new Date();
           const conversationSummaryFallback = await connections.getFallbackForAgents();
@@ -2583,6 +2600,13 @@ export async function generateRoutes(app: FastifyInstance) {
           character.postHistoryInstructions = resolveCharacterPromptText(character.postHistoryInstructions);
         }
         const characterMacroProfilesById = buildCharacterMacroProfilesById(charInfo);
+        const isAvailableGroupResponder = (characterId: string): boolean =>
+          chatMode !== "conversation" || conversationRespondingCharacterIds?.has(characterId) === true;
+        const availableGroupCharacters = charInfo.filter((character) => isAvailableGroupResponder(character.id));
+        const groupResponderName = (characterId: string): string =>
+          conversationCharacterPresenceById.get(characterId)?.displayName ??
+          charInfo.find((character) => character.id === characterId)?.name ??
+          "Character";
 
         await appendConversationCustomAssetAdvertisements({
           chatMode,
@@ -4463,11 +4487,17 @@ export async function generateRoutes(app: FastifyInstance) {
             (input.mentionedCharacterNames ?? []).map((name: string) => normalizeTextForMatch(name)),
           );
 
-          return charInfo
+          return availableGroupCharacters
             .filter((character) => {
-              if (requestedNames.has(normalizeTextForMatch(character.name))) return true;
-              const escaped = character.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-              return new RegExp(`@${escaped}(?=$|[\\s\\p{P}\\p{S}])`, "iu").test(latestUserText);
+              const names = [
+                character.name,
+                conversationCharacterPresenceById.get(character.id)?.displayName,
+              ].filter((name): name is string => typeof name === "string" && name.trim().length > 0);
+              if (names.some((name) => requestedNames.has(normalizeTextForMatch(name)))) return true;
+              return names.some((name) => {
+                const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                return new RegExp(`@${escaped}(?=$|[\\s\\p{P}\\p{S}])`, "iu").test(latestUserText);
+              });
             })
             .map((character) => character.id);
         };
@@ -4496,9 +4526,14 @@ export async function generateRoutes(app: FastifyInstance) {
               : Array.isArray(parsedRecord.characters)
                 ? parsedRecord.characters
                 : [];
-          const validIds = new Set(characterIds);
+          const validIds = new Set(availableGroupCharacters.map((character) => character.id));
           const namesByLower = new Map(
-            charInfo.map((character) => [normalizeTextForMatch(character.name), character.id]),
+            availableGroupCharacters.flatMap((character) => {
+              const displayName = conversationCharacterPresenceById.get(character.id)?.displayName;
+              return [character.name, displayName]
+                .filter((name): name is string => typeof name === "string" && name.trim().length > 0)
+                .map((name) => [normalizeTextForMatch(name), character.id] as const);
+            }),
           );
           const selected: string[] = [];
 
@@ -4529,28 +4564,44 @@ export async function generateRoutes(app: FastifyInstance) {
             .filter(Boolean)
             .join("\n");
 
-          const candidates = charInfo
-            .map((character) =>
-              [
+          const candidates = availableGroupCharacters
+            .map((character) => {
+              const presence = conversationCharacterPresenceById.get(character.id);
+              return [
                 `- id: ${character.id}`,
-                `  name: ${character.name}`,
-                `  talkativeness: ${Math.round(character.talkativeness * 100)}%`,
+                `  name: ${presence?.displayName ?? character.name}`,
+                `  talkativeness: ${presence?.talkativeness ?? Math.round(character.talkativeness * 100)}%`,
+                presence ? `  current status: ${presence.status}` : null,
+                presence?.activity ? `  current activity: ${presence.activity}` : null,
                 character.personality ? `  personality: ${character.personality.slice(0, 500)}` : null,
                 character.description ? `  description: ${character.description.slice(0, 500)}` : null,
               ]
                 .filter(Boolean)
-                .join("\n"),
-            )
+                .join("\n");
+            })
             .join("\n\n");
+
+          const selectorInstructions =
+            chatMode === "conversation"
+              ? [
+                  `You are a hidden response orchestrator for a Conversation-mode group chat.`,
+                  `Choose one or more available characters to respond next, based on the latest message, recent conversation, relevance, personality, current schedule status, activity, talkativeness, and who has spoken recently.`,
+                  `Usually choose exactly one character. Choose multiple only when multiple characters have a strong immediate reason to answer.`,
+                  `Prefer an online character over an idle or do-not-disturb character unless the conversation clearly calls for someone else.`,
+                  `Do not always choose the first character. Avoid making the same character speak twice in a row unless the context clearly calls for it.`,
+                ]
+              : [
+                  `You are a hidden response orchestrator for a roleplay group chat.`,
+                  `Choose which character or characters should respond next, based on the latest user message, recent scene context, relevance, personality, and who has spoken recently.`,
+                  `Usually choose exactly one character. Choose multiple only when multiple characters have a strong immediate reason to answer.`,
+                  `Do not always choose the first character. Avoid making the same character speak twice in a row unless the context clearly calls for it.`,
+                ];
 
           const selectionPrompt: ChatMessage[] = [
             {
               role: "system",
               content: [
-                `You are a hidden response orchestrator for a roleplay group chat.`,
-                `Choose which character or characters should respond next, based on the latest user message, recent scene context, relevance, personality, and who has spoken recently.`,
-                `Usually choose exactly one character. Choose multiple only when multiple characters have a strong immediate reason to answer.`,
-                `Do not always choose the first character. Avoid making the same character speak twice in a row unless the context clearly calls for it.`,
+                ...selectorInstructions,
                 `Return ONLY a valid JSON array of character IDs, such as ["character-id"]. No prose, no object wrapper, no markdown.`,
               ].join("\n"),
             },
@@ -4617,7 +4668,9 @@ export async function generateRoutes(app: FastifyInstance) {
             .find((message: any) => message.role === "assistant" && typeof message.characterId === "string")
             ?.characterId as string | undefined;
           const fallback =
-            charInfo.find((character) => character.id !== lastAssistantCharacterId)?.id ?? charInfo[0]?.id ?? null;
+            availableGroupCharacters.find((character) => character.id !== lastAssistantCharacterId)?.id ??
+            availableGroupCharacters[0]?.id ??
+            null;
           return fallback ? [fallback] : [];
         };
 
@@ -4669,7 +4722,7 @@ export async function generateRoutes(app: FastifyInstance) {
               characterIds: smartResponseQueue,
               characters: smartResponseQueue.map((id, index) => ({
                 id,
-                name: charInfo.find((character) => character.id === id)?.name ?? "Character",
+                name: groupResponderName(id),
                 order: index + 1,
               })),
             },
@@ -4695,8 +4748,8 @@ export async function generateRoutes(app: FastifyInstance) {
         const turnGameContextForSeat =
           chatMode === "conversation" ? await getTurnGameContextBuilder(app.db, input.chatId) : null;
 
-        // Manual mode with forCharacterId: only generate for the specified character
-        // Sequential: all characters respond. Smart: generate the first queued character only.
+        // Manual mode with forCharacterId: only generate for the specified character.
+        // Sequential: all available characters respond. Smart: generate the selected queue in order.
         const respondingCharIds = useIndividualLoop
           ? input.forCharacterId && characterIds.includes(input.forCharacterId)
             ? [input.forCharacterId]
@@ -4705,9 +4758,9 @@ export async function generateRoutes(app: FastifyInstance) {
               : groupResponseOrder === "manual"
                 ? [] // manual mode without forCharacterId or a mention: no auto-generation
                 : groupResponseOrder === "sequential"
-                  ? [...characterIds]
-                  : smartResponseQueue?.[0]
-                    ? [smartResponseQueue[0]]
+                  ? availableGroupCharacters.map((character) => character.id)
+                  : smartResponseQueue?.length
+                    ? [...smartResponseQueue]
                     : []
           : [characterIds[0] ?? null];
 
