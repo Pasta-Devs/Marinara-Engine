@@ -253,7 +253,7 @@ function CrossfadeBackground({
         alt=""
         draggable={false}
         className={cn(
-          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center",
+          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center max-md:object-cover",
           className,
         )}
         style={{
@@ -267,7 +267,7 @@ function CrossfadeBackground({
         alt=""
         draggable={false}
         className={cn(
-          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center",
+          "mari-background pointer-events-none absolute inset-0 h-full w-full select-none object-fill object-center max-md:object-cover",
           className,
         )}
         style={{

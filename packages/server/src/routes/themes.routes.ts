@@ -35,8 +35,9 @@ export async function themesRoutes(app: FastifyInstance) {
     return reply.status(204).send();
   });
 
+  // Activation only selects CSS that a privileged user already installed, so
+  // keep it available to same-origin LAN clients such as mobile browsers.
   app.put("/active", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Theme install/update/delete" })) return;
     const input = setActiveThemeSchema.parse(req.body);
     if (input.id !== null) {
       const existing = await storage.getById(input.id);

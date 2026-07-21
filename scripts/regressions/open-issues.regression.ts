@@ -995,6 +995,14 @@ const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
 );
+const roleplaySurfaceSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
+  "utf8",
+);
+const themesRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
+  "utf8",
+);
 assert.doesNotMatch(conversationGroupSettingsSource, /Reply When Mentioned/u);
 assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awareness"/u);
 assert.match(conversationGroupSettingsSource, /Individual replies can use many tokens/u);
@@ -1066,6 +1074,27 @@ assert.match(
   "automatic Illustrator generation should use the same orientation resolver as manual Gallery generation",
 );
 assert.match(professorMariHomeSource, /Math\.min\(textarea\.scrollHeight, 128\)/u);
+assert.equal(
+  themesRouteSource.match(/requirePrivilegedAccess\(req, reply, \{ feature: "Theme install\/update\/delete" \}\)/gu)
+    ?.length,
+  3,
+  "theme installation, editing, and deletion should remain privileged while activation works from mobile clients",
+);
+const activeThemeHandler = themesRouteSource.match(
+  /app\.put\("\/active", async \(req, reply\) => \{([\s\S]*?)\n  \}\);/u,
+)?.[1];
+assert.ok(activeThemeHandler, "the active theme handler should remain available");
+assert.match(activeThemeHandler, /const input = setActiveThemeSchema\.parse\(req\.body\);/u);
+assert.doesNotMatch(
+  activeThemeHandler,
+  /requirePrivilegedAccess/u,
+  "selecting an already-installed theme should not require privileged loopback access",
+);
+assert.equal(
+  roleplaySurfaceSource.match(/object-fill object-center max-md:object-cover/gu)?.length,
+  2,
+  "both crossfade slots should preserve mobile background proportions without changing desktop sizing",
+);
 const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
   : playwrightConfig.webServer;

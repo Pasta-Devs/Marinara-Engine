@@ -5319,7 +5319,7 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
   }
 });
 
-test("Roleplay displays a selected background when its file route is GET-only", async ({ page }) => {
+test("Roleplay displays a selected background when its file route is GET-only", async ({ page }, testInfo) => {
   const chatResponse = await page.request.post("/api/chats", {
     data: { name: "Roleplay Background Smoke", mode: "roleplay", characterIds: [] },
   });
@@ -5398,7 +5398,10 @@ test("Roleplay displays a selected background when its file route is GET-only", 
 
     const roleplaySurface = page.locator('[data-chat-mode="roleplay"]');
     const activeBackground = page.locator(`img.mari-background[src="${backgroundUrl}"]`);
-    await expect(activeBackground).toHaveCSS("object-fit", "fill");
+    await expect(activeBackground).toHaveCSS(
+      "object-fit",
+      testInfo.project.name.includes("mobile") ? "cover" : "fill",
+    );
     const expectBackgroundToFitRoleplaySurface = async () => {
       await expect
         .poll(async () => {
