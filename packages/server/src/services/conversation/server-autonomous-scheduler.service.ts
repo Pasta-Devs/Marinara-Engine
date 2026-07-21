@@ -85,8 +85,9 @@ function shouldConsiderChat(chat: RawChat): boolean {
   return meta.autonomousMessages === true && meta.sceneStatus !== "active";
 }
 
-function parseSsePayload(payload: string): { done: boolean; error: string | null } {
+function parseSsePayload(payload: string): { done: boolean; discarded: boolean; error: string | null } {
   let done = false;
+  let discarded = false;
   let error: string | null = null;
 
   for (const block of payload.split(/\n\n/u)) {
@@ -99,6 +100,7 @@ function parseSsePayload(payload: string): { done: boolean; error: string | null
     try {
       const event = JSON.parse(line) as { type?: string; data?: unknown };
       if (event.type === "done") done = true;
+      if (event.type === "generation_discarded") discarded = true;
       if (event.type === "error") {
         error = typeof event.data === "string" ? event.data : "Generation failed";
       }
@@ -107,7 +109,7 @@ function parseSsePayload(payload: string): { done: boolean; error: string | null
     }
   }
 
-  return { done, error };
+  return { done, discarded, error };
 }
 
 function isHardGenerationFailure(error: string, statusCode?: number): boolean {
@@ -231,6 +233,11 @@ export function startServerAutonomousScheduler(app: FastifyInstance) {
     if (!result.done) {
       clearGenerationInProgress(chatId, claimedAt);
       logger.warn("[autonomous-scheduler] Generate ended without a done event for chat %s", chatId);
+      return false;
+    }
+
+    if (result.discarded) {
+      clearFailureBackoff(chatId);
       return false;
     }
 

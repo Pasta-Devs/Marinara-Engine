@@ -23,6 +23,8 @@ export const NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION =
   "- The user persona is controlled exclusively by the user. Never generate posts, replies, likes, reposts, poll votes, or follows as a persona. Personas may only be mentioned or targeted by other accounts.";
 export const NOODLE_PERSONA_IDENTITY_INSTRUCTION =
   "- Every persona account is a separate user identity. Preserve the accountKey on historical posts and replies: changing the currently selected persona never changes, merges, or reattributes activity created by another persona.";
+export const NOODLE_UNIQUE_CONTENT_INSTRUCTION =
+  "- Never reuse the same message text for more than one post or reply by the same account. In particular, do not copy a new post's content into a reply or duplicate a reply as a new post.";
 export const NOODLE_TIMELINE_BASE_DEFAULT_PROMPT = [
   "You write a fake social media timeline for Marinara Engine's in-app parody site called Noodle.",
   NOODLE_ADULT_PLATFORM_POLICY,
@@ -31,6 +33,7 @@ export const NOODLE_TIMELINE_BASE_DEFAULT_PROMPT = [
   "- To respond directly to an existing comment, create a reply interaction for its post and set parentInteractionId to that comment's exact replyId.",
   "- Do not make an account interact with the same existing post again when it has already liked, reposted, voted, or replied there, unless that account was tagged or is answering a direct response to its own comment. Never make an account reply to its own comment.",
   "- Avoid repeating an account's recent post topic or phrasing. Continue an existing thread only when new activity gives the account a reason to return.",
+  NOODLE_UNIQUE_CONTENT_INSTRUCTION,
   NOODLE_PERSONA_AUTHORSHIP_INSTRUCTION,
   NOODLE_PERSONA_IDENTITY_INSTRUCTION,
   "- For each interaction, set either targetTempId or targetPostId and set the unused target field to null.",

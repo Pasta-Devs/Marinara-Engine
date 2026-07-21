@@ -42,6 +42,51 @@ export function validateNoodleGeneratedRefresh(
   return hasUsableAttribution ? null : "the response used no selected participant handle";
 }
 
+function normalizedGeneratedContentKey(handle: string, content: string): string {
+  const normalizedContent = content.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+  return `${normalizeNoodleHandle(handle)}\u0000${normalizedContent}`;
+}
+
+/**
+ * Keep the first generated post or reply for each account and discard later
+ * copies. Posts take precedence because the response groups posts before
+ * interactions. Filtering before media preparation ensures a copy never
+ * reaches image generation or persistence.
+ */
+export function deduplicateGeneratedNoodleContent(generated: NoodleGeneratedRefresh): {
+  generated: NoodleGeneratedRefresh;
+  removedCount: number;
+} {
+  const seenContent = new Set<string>();
+  let removedCount = 0;
+
+  const posts = generated.posts.filter((post) => {
+    const key = normalizedGeneratedContentKey(post.authorHandle, post.content);
+    if (seenContent.has(key)) {
+      removedCount += 1;
+      return false;
+    }
+    seenContent.add(key);
+    return true;
+  });
+
+  const interactions = generated.interactions.filter((interaction) => {
+    if (interaction.type !== "reply" || !interaction.content?.trim()) return true;
+    const key = normalizedGeneratedContentKey(interaction.actorHandle, interaction.content);
+    if (seenContent.has(key)) {
+      removedCount += 1;
+      return false;
+    }
+    seenContent.add(key);
+    return true;
+  });
+
+  return {
+    generated: { ...generated, posts, interactions },
+    removedCount,
+  };
+}
+
 const collectionSchemas = {
   posts: noodleGeneratedPostSchema,
   interactions: noodleGeneratedInteractionSchema,

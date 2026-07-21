@@ -154,6 +154,7 @@ import {
 import { buildIntentCooldownPatch, isMessageIntent } from "../services/conversation/intent.service.js";
 import { buildImpersonateInstruction } from "../services/conversation/impersonate-prompt.js";
 import {
+  isRepeatedConversationResponse,
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../services/conversation/transcript-sanitize.js";
@@ -256,6 +257,7 @@ import { resolveConversationPresenceRuntime } from "./generate/conversation-pres
 import { resolveProfessorMariPromptContext } from "./generate/professor-mari-prompt-context.js";
 import {
   appendToFirstSystemMessage,
+  CONVERSATION_NO_REPEAT_INSTRUCTION,
   conversationPromptHistoryContent,
   formatConversationGroupOutputFormat,
   latestHistoryUserContent,
@@ -2167,6 +2169,7 @@ export async function generateRoutes(app: FastifyInstance) {
               ].join("\n"),
             );
           }
+          conversationInstructionParts.push(CONVERSATION_NO_REPEAT_INSTRUCTION);
 
           let conversationSystemPrompt = formatConversationInstructionsForWrap(
             conversationInstructionParts.filter((part) => part.trim().length > 0).join("\n"),
@@ -5899,6 +5902,27 @@ export async function generateRoutes(app: FastifyInstance) {
             reply.raw.write(
               `data: ${JSON.stringify({ type: "error", data: "The AI returned an empty response. Try sending your message again." })}\n\n`,
             );
+            return null;
+          }
+
+          if (
+            chatMode === "conversation" &&
+            !input.impersonate &&
+            !input.regenerateMessageId &&
+            !input.continueMessageId &&
+            isRepeatedConversationResponse(await chats.listMessages(input.chatId), targetCharId, fullResponse)
+          ) {
+            logger.warn(
+              { chatId: input.chatId, characterId: targetCharId, responseLength: fullResponse.length },
+              "[generate] Discarding repeated Conversation response",
+            );
+            fullResponse = "";
+            if (!holdForTextRewrite) sendSseEvent(reply, { type: "content_replace", data: "" });
+            sendSseEvent(reply, { type: "generation_discarded", data: { reason: "duplicate_response" } });
+            if (input.autonomous) {
+              recordAssistantActivity(input.chatId, targetCharId ?? undefined);
+              await recordSavedAutonomousGeneration(targetCharId);
+            }
             return null;
           }
 

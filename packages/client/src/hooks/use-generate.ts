@@ -649,6 +649,7 @@ async function refreshMessagesAuthoritatively(
     }
   }
   preserveRecentMessageContentEditsInCache(qc, chatId);
+  return refetchSucceeded;
 }
 
 function parseChatMetadata(metadata: Chat["metadata"] | string | null | undefined): Record<string, unknown> {
@@ -1241,6 +1242,7 @@ export function useGenerate() {
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let passiveStreamSettled = false;
+      let passiveRecoveryRefetchSucceeded = false;
       let typingActive = false;
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
@@ -2068,6 +2070,15 @@ export function useGenerate() {
               break;
             }
 
+            case "generation_discarded": {
+              receivedContent = false;
+              replaceGeneratedContentWithTypewriter("");
+              if (!params.autonomous) {
+                toast.info("The model repeated its previous message, so it was not posted.");
+              }
+              break;
+            }
+
             case "message_saved": {
               flushLeadingSpeakerPrefix();
               const savedMessage = event.data as Message;
@@ -2562,7 +2573,11 @@ export function useGenerate() {
           const settled = await waitForServerGenerationToSettle(params.chatId, abortController.signal);
           passiveStreamSettled = settled;
           if (!abortController.signal.aborted) {
-            await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
+            passiveRecoveryRefetchSucceeded = await refreshMessagesAuthoritatively(
+              qc,
+              params.chatId,
+              persistedMessages.values(),
+            );
             if (!settled) {
               toast.info(
                 "Generation is still finishing in the background. Refresh the chat in a moment if it has not appeared.",
@@ -2705,36 +2720,56 @@ export function useGenerate() {
           const partialCharacterId = params.impersonate
             ? null
             : (params.forCharacterId ?? useChatStore.getState().streamingCharacterId ?? null);
-          try {
-            const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
-              role: partialRole,
-              characterId: partialCharacterId,
-              content: partialContent,
-              createdAt,
-              updatedAt: createdAt,
-            });
-            unpersistedPartialMessage = created;
-            persistedMessages.set(created.id, created);
-          } catch (error) {
-            console.warn(
-              "[use-generate] Failed to persist stopped partial message; keeping cache-only fallback",
-              error,
-            );
-            unpersistedPartialMessage = {
-              id: `__partial_${params.chatId}_${Date.now()}`,
-              chatId: params.chatId,
-              role: partialRole,
-              characterId: partialCharacterId,
-              content: partialContent,
-              activeSwipeIndex: 0,
-              extra: {
-                displayText: null,
-                isGenerated: !params.impersonate,
-                tokenCount: null,
-                generationInfo: null,
-              },
-              createdAt,
-            };
+          if (passiveStreamRecovered) {
+            if (!passiveRecoveryRefetchSucceeded) {
+              unpersistedPartialMessage = {
+                id: `__partial_${params.chatId}_${Date.now()}`,
+                chatId: params.chatId,
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                activeSwipeIndex: 0,
+                extra: {
+                  displayText: null,
+                  isGenerated: !params.impersonate,
+                  tokenCount: null,
+                  generationInfo: null,
+                },
+                createdAt,
+              };
+            }
+          } else {
+            try {
+              const created = await api.post<Message>(`/chats/${params.chatId}/messages`, {
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                createdAt,
+                updatedAt: createdAt,
+              });
+              unpersistedPartialMessage = created;
+              persistedMessages.set(created.id, created);
+            } catch (error) {
+              console.warn(
+                "[use-generate] Failed to persist stopped partial message; keeping cache-only fallback",
+                error,
+              );
+              unpersistedPartialMessage = {
+                id: `__partial_${params.chatId}_${Date.now()}`,
+                chatId: params.chatId,
+                role: partialRole,
+                characterId: partialCharacterId,
+                content: partialContent,
+                activeSwipeIndex: 0,
+                extra: {
+                  displayText: null,
+                  isGenerated: !params.impersonate,
+                  tokenCount: null,
+                  generationInfo: null,
+                },
+                createdAt,
+              };
+            }
           }
         }
         const persistedForRefresh = [

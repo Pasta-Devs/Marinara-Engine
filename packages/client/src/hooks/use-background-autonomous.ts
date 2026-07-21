@@ -182,7 +182,9 @@ export function useBackgroundAutonomousPolling() {
                     },
                     abortController.signal,
                   )) {
-                    if ((_event as { type: string }).type === "token") receivedTokens = true;
+                    const eventType = (_event as { type: string }).type;
+                    if (eventType === "token") receivedTokens = true;
+                    else if (eventType === "generation_discarded") receivedTokens = false;
                   }
                 } finally {
                   if (useChatStore.getState().abortControllers.get(chat.id) === abortController) {
