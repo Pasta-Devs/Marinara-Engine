@@ -48,9 +48,13 @@ export async function extensionsRoutes(app: FastifyInstance) {
   app.post("/", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Extension install/update/delete" })) return;
     const input = createExtensionSchema.parse(req.body);
-    const created = await storage.create(input);
-    if (created?.runtime === "server") await serverExtensionRuntime.reloadExtension(created.id);
-    return withStatus(created);
+    const existing = await storage.getByName(input.name);
+    const installed = existing ? await storage.update(existing.id, input) : await storage.create(input);
+    if (!installed) throw new Error(`Failed to install extension ${input.name}`);
+    if (existing?.runtime === "server" || installed?.runtime === "server") {
+      await serverExtensionRuntime.reloadExtension(installed.id);
+    }
+    return withStatus(installed);
   });
 
   app.get<{ Params: { extensionRef: string } }>("/:extensionRef/storage", async (req, reply) => {

@@ -1,5 +1,37 @@
 import type { ConversationStatusOverride } from "@marinara-engine/shared";
 
+export interface SmartGroupCandidatePromptData {
+  id: string;
+  name: string;
+  talkativeness: number;
+  status?: string;
+  activity?: string;
+  personality?: string;
+  description?: string;
+}
+
+export function formatSmartGroupCandidates(
+  candidates: SmartGroupCandidatePromptData[],
+  useCandidateBlocks: boolean,
+): string {
+  return candidates
+    .map((candidate) => {
+      const fields = [
+        `id: ${candidate.id}`,
+        `name: ${candidate.name}`,
+        `talkativeness: ${candidate.talkativeness}%`,
+        candidate.status !== undefined ? `current status: ${candidate.status}` : null,
+        candidate.activity ? `current activity: ${candidate.activity}` : null,
+        candidate.personality ? `personality: ${candidate.personality}` : null,
+        candidate.description ? `description: ${candidate.description}` : null,
+      ].filter((field): field is string => field !== null);
+
+      if (useCandidateBlocks) return ["<candidate>", ...fields, "</candidate>"].join("\n");
+      return fields.map((field, index) => `${index === 0 ? "- " : "  "}${field}`).join("\n");
+    })
+    .join("\n\n");
+}
+
 export function hasConversationSchedules(value: unknown): value is Record<string, any> {
   return !!value && typeof value === "object" && Object.keys(value as Record<string, unknown>).length > 0;
 }

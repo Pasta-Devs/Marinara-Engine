@@ -3,6 +3,7 @@
   "version": 1,
   "config": {
     "name": "Example Accent Glow",
+    "version": "1.0.0",
     "description": "Example extension package for Marinara Engine.",
     "enabled": true,
     "cssPath": "extension.css",

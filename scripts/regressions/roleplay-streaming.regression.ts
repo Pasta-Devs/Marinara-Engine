@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   getTypewriterRevealCharsPerSecond,
+  isGenerationSendBlocked,
+  isGenerationStartBlocked,
   isMessageShadowedByLiveStream,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
@@ -38,6 +40,77 @@ import type { AgentCallDebugEvent, AgentContext } from "../../packages/shared/sr
 const retryAgentRouteSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
+);
+const generateRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+  "utf8",
+);
+const chatInputSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatInput.tsx", import.meta.url),
+  "utf8",
+);
+const conversationInputSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
+  "utf8",
+);
+const gameInputSource = readFileSync(
+  new URL("../../packages/client/src/components/game/GameInput.tsx", import.meta.url),
+  "utf8",
+);
+assert.match(
+  generateRouteSource,
+  /type: "illustration_queued"/u,
+  "automatic Illustrator runs should announce their background-only tail before generation completes",
+);
+assert.match(
+  retryAgentRouteSource,
+  /type: "illustration_queued"/u,
+  "an Illustrator-only retry should expose the same background handoff",
+);
+const chatTextareaSource = chatInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
+assert.match(chatTextareaSource, /disabled=\{!activeChatId\}/u);
+assert.doesNotMatch(
+  chatTextareaSource,
+  /disabled=\{[^}]*isInputBusy/u,
+  "agent work should guard sending without disabling preparation of the next draft",
+);
+const conversationTextareaSource = conversationInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
+assert.doesNotMatch(
+  conversationTextareaSource,
+  /disabled=/u,
+  "Conversation drafts should remain editable regardless of send-blocking state",
+);
+const gameTextareaSource = gameInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
+assert.match(
+  gameTextareaSource,
+  /disabled=\{draftDisabled\}/u,
+  "Game mode should keep its draft field separate from the generation send lock",
+);
+
+assert.equal(
+  isGenerationSendBlocked({ streamActive: true, agentsProcessing: true, backgroundIllustration: false }),
+  true,
+  "ordinary streaming and agent work should keep send actions guarded",
+);
+assert.equal(
+  isGenerationSendBlocked({ streamActive: false, agentsProcessing: true, backgroundIllustration: false }),
+  true,
+  "agent-only retries should guard sending without locking the draft field",
+);
+assert.equal(
+  isGenerationSendBlocked({ streamActive: true, agentsProcessing: true, backgroundIllustration: true }),
+  false,
+  "an Illustrator-only tail should permit the next message to be sent",
+);
+assert.equal(
+  isGenerationStartBlocked({ setupLocked: false, activeController: true, backgroundIllustration: false }),
+  true,
+  "ordinary same-chat generations must remain exclusive",
+);
+assert.equal(
+  isGenerationStartBlocked({ setupLocked: false, activeController: true, backgroundIllustration: true }),
+  false,
+  "the next same-chat generation should be allowed while Illustrator finishes",
 );
 assert.match(
   retryAgentRouteSource,
