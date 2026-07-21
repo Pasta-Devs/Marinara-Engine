@@ -55,7 +55,7 @@ function serializeNullifiedConnectionIdReferences(
   let changed = false;
   try {
     const parsed = JSON.parse(serialized, (key, value: unknown) => {
-      if (/ConnectionId$/.test(key) && value === deletedConnectionId) {
+      if (/[Cc]onnectionId$/.test(key) && value === deletedConnectionId) {
         changed = true;
         return null;
       }
