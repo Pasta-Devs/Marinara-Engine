@@ -601,7 +601,6 @@ function makeRegressionAgentContext(overrides: Partial<AgentContext> = {}): Agen
     characters: [{ id: "char-dottore", name: "Dottore", description: "A precise researcher." }],
     persona: { name: "Mari", description: "The active user persona." },
     memory: {},
-    activatedLorebookEntries: null,
     writableLorebookIds: null,
     chatSummary: null,
     wrapFormat: "markdown",
@@ -2490,12 +2489,10 @@ const cases: RegressionCase[] = [
       );
       const settings = getDefaultBuiltInAgentSettings("illustrator");
       const illustrationPrompt = resolveAgentPromptTemplate({
-        agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
       });
       const explicitBackgroundPrompt = resolveAgentPromptTemplate({
-        agentType: "illustrator",
         promptTemplate: "BASE ILLUSTRATION PROMPT",
         settings,
         selectedPromptTemplateId: "background",
@@ -3012,7 +3009,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
           appearance: "Red dress.",
         },
         memory: {},
-        activatedLorebookEntries: null,
         writableLorebookIds: null,
         chatSummary: null,
       };

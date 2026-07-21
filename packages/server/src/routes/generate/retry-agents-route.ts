@@ -5,7 +5,6 @@ import {
   BUILT_IN_TOOLS,
   DEFAULT_AGENT_TOOLS,
   getDefaultAgentPrompt,
-  getBuiltInAgentDefaultPrompt,
   applyQuestUpdatesToPlayerStats,
   applyTrackerFieldLocksToGameStatePatch,
   getDefaultBuiltInAgentSettings,
@@ -434,10 +433,6 @@ function applyRetryMusicPlayerSource(
   };
 }
 
-function resolveRetryAgentRuntimePhase(_agentType: string, configuredPhase: string): string {
-  return normalizeAgentPhaseValue(configuredPhase);
-}
-
 function getRetryAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
   if (agentType === "spotify" && musicAgentUsesYoutube(settings)) {
     return getDefaultAgentPrompt("youtube");
@@ -445,7 +440,7 @@ function getRetryAgentFallbackPrompt(agentType: string, settings: Record<string,
   if (agentType === "spotify" && musicAgentUsesCustom(settings)) {
     return getDefaultAgentPrompt("local-music");
   }
-  return getBuiltInAgentDefaultPrompt(agentType) || getDefaultAgentPrompt(agentType);
+  return getDefaultAgentPrompt(agentType);
 }
 
 function getGameImageStylePrompt(chat: any, chatMeta: Record<string, unknown>): string {
@@ -740,7 +735,6 @@ async function buildRetryAgentContext(args: {
             ...(personaContext.rpgStats ? { rpgStats: personaContext.rpgStats } : {}),
           }
         : null,
-    activatedLorebookEntries: null,
     writableLorebookIds: null,
     chatSummary: resolveRoleplayChatSummary(chatMode, chatMeta),
     streaming,
@@ -1280,7 +1274,6 @@ async function resolveRetryAgents(args: {
     settings = applyTextRewriteAgentChatSettings(cfg.type as string, settings, chatMeta);
     settings = applyKnowledgeAgentChatSettings(cfg.type as string, settings, chatMeta);
     const selectedPromptTemplate = resolveAgentPromptTemplate({
-      agentType: cfg.type as string,
       promptTemplate: normalizeProseGuardianPromptTemplate(cfg.type as string, cfg.promptTemplate),
       fallbackPromptTemplate: getRetryAgentFallbackPrompt(cfg.type as string, settings),
       settings,
@@ -1293,7 +1286,7 @@ async function resolveRetryAgents(args: {
         id: cfg.id,
         type: cfg.type,
         name: cfg.name,
-        phase: resolveRetryAgentRuntimePhase(cfg.type as string, cfg.phase as string),
+        phase: normalizeAgentPhaseValue(cfg.phase),
         promptTemplate: selectedPromptTemplate,
         connectionId: effectiveConnectionId,
         settings,
@@ -1354,7 +1347,6 @@ async function resolveRetryAgents(args: {
     settings = applyTextRewriteAgentChatSettings(builtIn.id, settings, chatMeta);
     settings = applyKnowledgeAgentChatSettings(builtIn.id, settings, chatMeta);
     const selectedPromptTemplate = resolveAgentPromptTemplate({
-      agentType: builtIn.id,
       promptTemplate: "",
       fallbackPromptTemplate: getRetryAgentFallbackPrompt(builtIn.id, settings),
       settings,
@@ -1367,7 +1359,7 @@ async function resolveRetryAgents(args: {
         id: `builtin:${builtIn.id}`,
         type: builtIn.id,
         name: builtIn.name,
-        phase: resolveRetryAgentRuntimePhase(builtIn.id, builtIn.phase),
+        phase: normalizeAgentPhaseValue(builtIn.phase),
         promptTemplate: selectedPromptTemplate,
         connectionId: builtInConnection.entry.connectionId,
         settings,

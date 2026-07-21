@@ -241,7 +241,6 @@ export function normalizeAgentPromptTemplateSelectionMap(value: unknown): Record
 }
 
 export function resolveAgentPromptTemplate(input: {
-  agentType: string;
   promptTemplate?: string | null;
   fallbackPromptTemplate?: string | null;
   settings?: unknown;
@@ -387,8 +386,6 @@ export interface AgentContext {
   } | null;
   /** The agent's own persistent memory (key-value) */
   memory: Record<string, unknown>;
-  /** Lorebook entries activated for this generation (read context) */
-  activatedLorebookEntries: Array<{ id: string; name: string; content: string; tag: string }> | null;
   /** All lorebook IDs the agent can write to */
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */
@@ -488,8 +485,6 @@ function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
 }
 
 export const BUILT_IN_AGENTS: BuiltInAgentMeta[] = [];
-
-export const BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS: Record<string, number> = {};
 
 export const DEFAULT_AGENT_CONTEXT_SIZE = 5;
 export const DEFAULT_AGENT_MAX_TOKENS = 4096;
@@ -641,10 +636,8 @@ export const DEFAULT_AGENT_TOOLS: Record<string, string[]> = {};
 export function replaceBuiltInAgentDefinitions(manifests: readonly BuiltInAgentManifest[]): void {
   replaceBuiltInAgentManifestRegistry(manifests);
   BUILT_IN_AGENTS.splice(0, BUILT_IN_AGENTS.length, ...manifests.map(toBuiltInAgentMeta));
-  for (const key of Object.keys(BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS)) delete BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[key];
   for (const key of Object.keys(DEFAULT_AGENT_TOOLS)) delete DEFAULT_AGENT_TOOLS[key];
   for (const agent of manifests) {
-    if (agent.runInterval !== undefined) BUILT_IN_AGENT_RUN_INTERVAL_DEFAULTS[agent.id] = agent.runInterval;
     DEFAULT_AGENT_TOOLS[agent.id] = [...(agent.defaultTools ?? [])];
   }
 }
