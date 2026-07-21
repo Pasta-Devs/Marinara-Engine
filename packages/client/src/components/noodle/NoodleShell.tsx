@@ -69,7 +69,6 @@ function NoodleModeToggle({
         Noodle
       </button>
       <button type="button" role="tab" aria-selected={noodler} onClick={onOpenNoodler} className={segment(noodler)}>
-        <NoodleLogo src={NOODLER_LOGO_SRC} className="h-5 w-8 shrink-0" />
         NoodleR
       </button>
     </div>
@@ -368,7 +367,10 @@ export function NoodleShell({
           <aside className="hidden w-[17rem] shrink-0 border-r border-[var(--noodle-divider)] bg-[var(--background)] lg:flex lg:flex-col [&_svg]:!text-[var(--noodle-blue)]">
             <div className="flex min-h-0 flex-1 flex-col px-5 py-4">
               <div className="mb-5 flex h-12 items-center">
-                <NoodleLogo className="h-10 w-16" />
+                <NoodleLogo
+                  src={activeView === "noodler" ? NOODLER_LOGO_SRC : NOODLE_LOGO_SRC}
+                  className="h-10 w-16"
+                />
               </div>
               <div className="mb-3">
                 <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
