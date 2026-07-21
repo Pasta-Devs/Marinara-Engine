@@ -221,6 +221,22 @@ export function useRemoveNoodlerInteraction() {
   });
 }
 
+/** Edit a NoodleR (private stage-profile) post. Hits the private-only endpoint; the
+ * caller refetches the affected viewer feed on success. */
+export function useUpdateNoodlerPost() {
+  return useMutation({
+    mutationFn: ({ id, ...input }: { id: string } & NoodlePostUpdateInput) =>
+      api.patch<NoodlePost>(`/noodle/noodler/posts/${encodeURIComponent(id)}`, input),
+  });
+}
+
+/** Delete a NoodleR (private stage-profile) post. */
+export function useDeleteNoodlerPost() {
+  return useMutation({
+    mutationFn: (id: string) => api.delete<NoodlePost>(`/noodle/noodler/posts/${encodeURIComponent(id)}`),
+  });
+}
+
 export function useUpdateNoodlerAccess() {
   const qc = useQueryClient();
   return useMutation({

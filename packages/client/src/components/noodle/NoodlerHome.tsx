@@ -33,7 +33,7 @@ import type {
 import {
   useCreateNoodlerInteraction,
   useCreateNoodlerStageProfile,
-  useDeleteNoodlePost,
+  useDeleteNoodlerPost,
   useDeleteNoodlerStageProfile,
   useGeneratePrivateNoodlePost,
   useGenerateNoodlerStageProfileDraft,
@@ -45,7 +45,7 @@ import {
   useRemoveNoodlerInteraction,
   useToggleNoodlerSubscription,
   useUnlockNoodlerPost,
-  useUpdateNoodlePost,
+  useUpdateNoodlerPost,
   useUpdateNoodlerAccess,
   useUpdateNoodleSettings,
   useUpdateNoodlerStageProfile,
@@ -181,6 +181,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const accountSwitcherRef = useRef<HTMLDivElement | null>(null);
   const visiblePersonaAccounts = viewerAccounts.slice(0, personaAccountLimit);
   const switchViewerPersona = (account: NoodleAccount, mobile: boolean) => {
+    // A reply/edit composed as the previous persona must not carry over and submit as the
+    // newly-selected one, so discard in-flight composer, tool, and post-menu state first.
+    clearReplyComposer();
+    setActiveReplyComposerTool(null);
+    setPostMenuId(null);
+    cancelEditingPost();
     setStoredPersonaId(account.entityId);
     if (mobile) setMobileDrawerOpen(false);
     else setAccountSwitcherOpen(false);
@@ -226,11 +232,11 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const createInteraction = useCreateNoodlerInteraction();
   const removeInteraction = useRemoveNoodlerInteraction();
   // NoodleR is a roleplay sandbox — the user owns every stage profile, so they
-  // can edit/delete creator posts just like their own Noodle timeline. These
-  // hit the shared /noodle/posts endpoints (NoodleR posts are real Noodle posts)
-  // and update the Noodle bootstrap cache, so refetch the viewer feed on success.
-  const updatePost = useUpdateNoodlePost();
-  const deletePost = useDeleteNoodlePost();
+  // can edit/delete creator posts just like their own Noodle timeline. NoodleR
+  // posts are private, so these route through the private-only endpoints; the
+  // viewer feed is refetched on success.
+  const updatePost = useUpdateNoodlerPost();
+  const deletePost = useDeleteNoodlerPost();
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingPostContent, setEditingPostContent] = useState("");
   // State backing the shared NoodlePostCard's reply composer / interaction chrome.
@@ -273,12 +279,34 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  // Returns false (and blocks navigation) when there is an unsaved create/edit draft the
+  // user chose to keep. Covers both new drafts and changed edits so no surface silently
+  // discards work.
+  const confirmDiscardProfileDraft = (): boolean => {
+    if (!profileDraft) return true;
+    const editing = editingProfileId
+      ? accountsQuery.data?.find((profile) => profile.id === editingProfileId) ?? null
+      : null;
+    if (editing) {
+      const savedDraft: NoodleStageProfileInput = {
+        displayName: editing.displayName,
+        handle: editing.handle,
+        bio: editing.bio,
+        stagePersonality: editing.stagePersonality,
+        disclosureMode: editing.disclosureMode ?? "hinted",
+      };
+      if (JSON.stringify(profileDraft) === JSON.stringify(savedDraft)) return true;
+    }
+    return window.confirm("Discard unsaved profile changes?");
+  };
   const goToHub = () => {
+    if (!confirmDiscardProfileDraft()) return;
     setSelectedProfileId(null);
     setShowManageProfiles(false);
     setCreationStep(null);
     setProfileDraft(null);
     setGuidedProfile(null);
+    setEditingProfileId(null);
   };
   const openReplyComposer = (postId: string, parentInteractionId: string | null = null) => {
     setReplyPostId(postId);
@@ -318,14 +346,17 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   };
   const reactToPost = (post: NoodlePost, type: "like" | "repost", active = false) => {
     if (!viewerPersonaId) return;
-    if (active) removeInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type });
-    else createInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type });
+    const onError = (error: unknown) =>
+      toast.error(errorMessage(error, active ? "Could not undo that reaction." : "Could not react to this post."));
+    if (active) removeInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type }, { onError });
+    else createInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type }, { onError });
   };
   const reactToReply = (post: NoodlePost, reply: NoodleInteraction, active: boolean) => {
     if (!viewerPersonaId) return;
     const payload = { postId: post.id, personaId: viewerPersonaId, type: "like" as const, parentInteractionId: reply.id };
-    if (active) removeInteraction.mutate(payload);
-    else createInteraction.mutate(payload);
+    const onError = (error: unknown) => toast.error(errorMessage(error, "Could not react to this reply."));
+    if (active) removeInteraction.mutate(payload, { onError });
+    else createInteraction.mutate(payload, { onError });
   };
   const submitReply = (post: NoodlePost) => {
     const content = replyValueRef.current.trim();
@@ -338,7 +369,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         content,
         ...(replyParentInteractionId ? { parentInteractionId: replyParentInteractionId } : {}),
       },
-      { onSuccess: clearReplyComposer },
+      {
+        onSuccess: clearReplyComposer,
+        onError: (error) => toast.error(errorMessage(error, "Could not post this reply.")),
+      },
     );
   };
   const startEditingPost = (post: NoodlePost) => {
@@ -366,6 +400,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   };
   const deleteNoodlePost = (post: NoodlePost) => {
     setPostMenuId(null);
+    if (!window.confirm("Delete this NoodleR post along with its likes, reposts, and replies?")) return;
     deletePost.mutate(post.id, {
       onSuccess: () => void viewerQuery.refetch(),
       onError: (error) => toast.error(errorMessage(error, "Could not delete this post.")),
@@ -442,7 +477,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     canManageReply: () => false,
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
-  const editingProfile = accountsQuery.data?.find((profile) => profile.id === editingProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
   const eligiblePublicAccounts = eligibleAccountsQuery.data?.pages.flatMap((page) => page.items) ?? [];
   const selectedSource = eligiblePublicAccounts.find((account) => account.id === draftPublicAccountId) ?? null;
@@ -496,21 +530,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   };
 
   const closeProfileEditor = () => {
-    if (editingProfileId && profileDraft && editingProfile) {
-      const savedDraft: NoodleStageProfileInput = {
-        displayName: editingProfile.displayName,
-        handle: editingProfile.handle,
-        bio: editingProfile.bio,
-        stagePersonality: editingProfile.stagePersonality,
-        disclosureMode: editingProfile.disclosureMode ?? "hinted",
-      };
-      if (
-        JSON.stringify(profileDraft) !== JSON.stringify(savedDraft) &&
-        !window.confirm("Discard unsaved profile changes?")
-      ) {
-        return;
-      }
-    }
+    if (!confirmDiscardProfileDraft()) return;
     setProfileDraft(null);
     setPreviousDraft(null);
     setEditingProfileId(null);
@@ -865,11 +885,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
                     disabled={toggleSubscription.isPending}
                     onClick={() => {
                       if (!viewerPersonaId) return;
-                      toggleSubscription.mutate({
-                        creatorAccountId: creator.profile.id,
-                        personaId: viewerPersonaId,
-                        subscribed: false,
-                      });
+                      toggleSubscription.mutate(
+                        {
+                          creatorAccountId: creator.profile.id,
+                          personaId: viewerPersonaId,
+                          subscribed: false,
+                        },
+                        { onError: (error) => toast.error(errorMessage(error, "Could not update your subscription.")) },
+                      );
                     }}
                     className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -992,7 +1015,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         postCardCtx={postCardCtx}
         onUnlock={(postId) => {
           if (!viewerPersonaId) return;
-          unlockPost.mutate({ postId, personaId: viewerPersonaId });
+          unlockPost.mutate(
+            { postId, personaId: viewerPersonaId },
+            { onError: (error) => toast.error(errorMessage(error, "Could not unlock this post.")) },
+          );
         }}
         search={feedSearch}
         tab={feedTab}
