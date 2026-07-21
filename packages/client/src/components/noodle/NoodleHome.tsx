@@ -1395,7 +1395,7 @@ export function NoodlePostCard({
             <button
               type="button"
               onClick={() => setReplyImageUrl("")}
-              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white transition-colors hover:bg-black/80"
+              className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/65 text-white [&_svg]:!text-white transition-colors hover:bg-black/80"
               title="Remove image"
               aria-label="Remove reply image"
             >
@@ -1944,7 +1944,7 @@ export function NoodleComposerShell({
 export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const selectedPersonaId = useUIStore((state) => state.noodleSelectedPersonaId) ?? "";
   const setSelectedPersonaId = useUIStore((state) => state.setNoodleSelectedPersonaId);
-  const { data, isLoading } = useNoodle();
+  const { data, isLoading, isError } = useNoodle();
   const { data: activePersona } = useActivePersona();
   const { data: personasRaw } = usePersonas();
   const { data: charactersRaw } = useCharacters();
@@ -1999,6 +1999,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const mobileDrawerTriggerRef = useRef<HTMLButtonElement | null>(null);
   const composerRestoreFocusRef = useRef<HTMLElement | null>(null);
   const profileDraftAccountIdRef = useRef<string | null>(null);
+  const notificationReadEntryRef = useRef<string | null>(null);
 
   const characters = useMemo(
     () => (Array.isArray(charactersRaw) ? charactersRaw.filter(isRawCharacter) : []),
@@ -2181,7 +2182,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     [personaAccounts, selectedPersonaId, sortedPersonaAccounts],
   );
   const viewedProfileAccount = useMemo(
-    () => (viewedProfileAccountId ? (accountById.get(viewedProfileAccountId) ?? personaAccount) : personaAccount),
+    () => (viewedProfileAccountId ? (accountById.get(viewedProfileAccountId) ?? null) : personaAccount),
     [accountById, personaAccount, viewedProfileAccountId],
   );
   const noodleCustomEmojiMap = useNoodleCustomEmojiMap(viewedProfileAccount);
@@ -2189,6 +2190,51 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const canEditViewedProfile = Boolean(
     viewingOwnProfile || (viewedProfileAccount?.kind === "character" && viewedProfileAccount.invited),
   );
+
+  useEffect(() => {
+    if (activeNoodleView !== "notifications" || !personaAccount) {
+      notificationReadEntryRef.current = null;
+      return;
+    }
+
+    const accountId = personaAccount.id;
+    if (notificationReadEntryRef.current === accountId) return;
+    notificationReadEntryRef.current = accountId;
+
+    const previousOverride = notificationReadOverrides[accountId];
+    const readAt = new Date().toISOString();
+    setNotificationReadOverrides((current) => ({ ...current, [accountId]: readAt }));
+    void patchAccountSettings
+      .mutateAsync({
+        id: accountId,
+        subtree: "social",
+        patch: { notificationsReadAt: readAt },
+      })
+      .then(() => {
+        setNotificationReadOverrides((current) => {
+          if (current[accountId] !== readAt) return current;
+          const next = { ...current };
+          delete next[accountId];
+          return next;
+        });
+      })
+      .catch((error: unknown) => {
+        setNotificationReadOverrides((current) => {
+          if (current[accountId] !== readAt) return current;
+          const next = { ...current };
+          if (previousOverride) next[accountId] = previousOverride;
+          else delete next[accountId];
+          return next;
+        });
+        toast.error(error instanceof Error ? error.message : "Could not mark Noodle notifications as read.");
+      });
+  }, [activeNoodleView, notificationReadOverrides, patchAccountSettings, personaAccount]);
+
+  useEffect(() => {
+    if (navigation.mode !== "public" || navigation.view !== "profile" || !viewedProfileAccountId) return;
+    if (isLoading || !data || isError || accountById.has(viewedProfileAccountId)) return;
+    onNavigate({ mode: "public", view: "home" });
+  }, [accountById, data, isError, isLoading, navigation, onNavigate, viewedProfileAccountId]);
 
   useEffect(() => {
     // Do not erase the persisted choice while the account/persona queries are
@@ -3595,39 +3641,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   };
 
   const openNotifications = () => {
-    if (personaAccount) {
-      const accountId = personaAccount.id;
-      const previousOverride = notificationReadOverrides[accountId];
-      const readAt = new Date().toISOString();
-      setNotificationReadOverrides((current) => ({ ...current, [accountId]: readAt }));
-      patchAccountSettings.mutate(
-        {
-          id: accountId,
-          subtree: "social",
-          patch: { notificationsReadAt: readAt },
-        },
-        {
-          onSuccess: () => {
-            setNotificationReadOverrides((current) => {
-              if (current[accountId] !== readAt) return current;
-              const next = { ...current };
-              delete next[accountId];
-              return next;
-            });
-          },
-          onError: (error) => {
-            setNotificationReadOverrides((current) => {
-              if (current[accountId] !== readAt) return current;
-              const next = { ...current };
-              if (previousOverride) next[accountId] = previousOverride;
-              else delete next[accountId];
-              return next;
-            });
-            toast.error(error instanceof Error ? error.message : "Could not mark Noodle notifications as read.");
-          },
-        },
-      );
-    }
     onNavigate({ mode: "public", view: "notifications" });
     setAccountSwitcherOpen(false);
     setMobileDrawerOpen(false);
@@ -4486,13 +4499,23 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 or feature requests for it while it is in development.
               </p>
               {settings.enableNoodler && (
-                <button
-                  type="button"
-                  onClick={openNoodler}
-                  className="flex min-h-10 w-full items-center justify-center rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 px-3 text-xs font-semibold text-[var(--noodle-blue)] transition-colors hover:bg-[var(--noodle-blue)]/15"
-                >
-                  Open NoodleR
-                </button>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={openNoodler}
+                    className="flex min-h-10 w-full items-center justify-center rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 px-3 text-xs font-semibold text-[var(--noodle-blue)] transition-colors hover:bg-[var(--noodle-blue)]/15"
+                  >
+                    Open NoodleR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate({ mode: "private", view: "profiles" })}
+                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-blue)]/40 bg-[var(--noodle-blue)]/10 px-3 text-xs font-semibold text-[var(--noodle-blue)] transition-colors hover:bg-[var(--noodle-blue)]/15"
+                  >
+                    <Settings2 size={15} />
+                    Manage stage profiles
+                  </button>
+                </div>
               )}
             </div>
           </Section>
@@ -5818,7 +5841,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   saveNoodlePrompt.isPending ||
                   resetNoodlePrompt.isPending
                 }
-                className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
+                className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
               >
                 {saveNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                 Save prompt
@@ -5858,8 +5881,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   confirmAction.kind === "delete-post" ||
                   confirmAction.kind === "delete-reply" ||
                   confirmAction.kind === "reset-timeline"
-                    ? "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:opacity-90"
-                    : "border border-[var(--noodle-blue)]/45 bg-[var(--noodle-blue)] text-[var(--background)] hover:bg-[var(--noodle-blue)]/85",
+                    ? "bg-[var(--destructive)] text-[var(--destructive-foreground)] [&_svg]:!text-[var(--destructive-foreground)] hover:opacity-90"
+                    : "border border-[var(--noodle-blue)]/45 bg-[var(--noodle-blue)] text-zinc-950 [&_svg]:!text-zinc-950 hover:bg-[var(--noodle-blue)]/85",
                 )}
               >
                 {confirmActionPending && <Loader2 size={14} className="animate-spin" />}

@@ -16,7 +16,7 @@ All Noodle settings are global. They apply to every persona and every chat, not 
 
 - **Enable NoodleR**: a toggle, default **off**. Turn it on to expose the private account hub. While it is off, opening NoodleR shows the opt-in screen, NoodleR account queries are unavailable, and private account data remains isolated from the public Noodle timeline.
 
-The **Manage profiles** screen, reached from the button in the NoodleR header, lists the stage profiles currently available to the installation, including loading, failure, and empty states. A stage profile belongs to one public persona or character account but presents its own name, handle, bio, stage voice, and disclosure mode. Existing private accounts created before stage profiles were introduced show **Setup needed** until their profile is completed.
+The **Manage stage profiles** screen, reached from **Noodle Settings** > **NoodleR Access**, lists the stage profiles currently available to the installation, including loading, failure, and empty states. A stage profile belongs to one public persona or character account but presents its own name, handle, bio, stage voice, and disclosure mode. Existing private accounts created before stage profiles were introduced show **Setup needed** until their profile is completed.
 
 ### Stage identity disclosure
 
@@ -26,7 +26,7 @@ Disclosure controls how the linked public identity may appear in a stage profile
 - **Inspired alter ego (Hinted)**: broad personality, interests, and themes may carry over, but the exact public name and handle are removed from generation context and filtered from generated text and image prompts before the post is saved. Distinctive traits may still feel recognizable.
 - **Separate persona (Secret)**: the linked identity is treated as private authoring inspiration only. Profile generation receives a reduced, non-identifying brief and avoids canonical occupations, relationships, locations, signature phrases, and distinctive details. Exact identifiers are also filtered from generated output. This is not a formal anonymity guarantee; review the draft before saving.
 
-Use **New profile** in **Manage profiles** to search and choose an eligible character or persona. The setup then explains disclosure and asks you to choose Open, Hinted, or Secret before showing the editable stage-profile form. You can fill the form yourself or ask AI to generate an editable draft from the source character, disclosure choice, and optional guidance. AI never saves the draft automatically; review the fields and select **Save stage profile** yourself. Open an existing profile and select **Edit profile** to change its presentation or use AI to refill the current draft. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
+Use **New profile** in **Manage stage profiles** to search and choose an eligible character or persona. The setup then explains disclosure and asks you to choose Open, Hinted, or Secret before showing the editable stage-profile form. You can fill the form yourself or ask AI to generate an editable draft from the source character, disclosure choice, and optional guidance. AI never saves the draft automatically; review the fields and select **Save stage profile** yourself. Open an existing profile and select **Edit profile** to change its presentation or use AI to refill the current draft. Profiles with hinted or secret disclosure do not expose their linked public account through NoodleR profile metadata.
 
 ### Guided private posts
 
@@ -36,7 +36,7 @@ Generated private posts can store a disclosure-filtered image prompt, but Noodle
 
 ## Subscriptions and post access
 
-The NoodleR hub always shows creator pages as whichever persona is currently selected globally. Subscriptions and PPV unlocks belong to that viewer persona, so switching your active persona may change which creators and posts are available. Use the **Manage profiles** button in the NoodleR header to create, edit, or delete your own stage profiles instead.
+The NoodleR hub always shows creator pages as whichever persona is currently selected globally. Subscriptions and PPV unlocks belong to that viewer persona, so switching your active persona may change which creators and posts are available. Use **Noodle Settings** > **NoodleR Access** > **Manage stage profiles** to create, edit, or delete your own stage profiles instead.
 
 When guiding a post, choose one access level:
 

@@ -7,6 +7,7 @@ import {
   Eye,
   Loader2,
   Lock,
+  Minus,
   Pencil,
   Plus,
   RefreshCw,
@@ -157,7 +158,7 @@ function errorMessage(error: unknown, fallback: string) {
 }
 
 export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
-  const { data } = useNoodle();
+  const { data, isError, refetch } = useNoodle();
   const updateSettings = useUpdateNoodleSettings();
   const enabled = data?.settings.enableNoodler === true;
   const accountsQuery = useNoodlerAccounts(navigation.mode === "private" && enabled);
@@ -219,7 +220,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     };
   }, [accountSwitcherOpen]);
   const exitToPublic = () => onNavigate({ mode: "public", view: "home" });
-  const [showManageProfiles, setShowManageProfiles] = useState(false);
   const [feedSearch, setFeedSearch] = useState("");
   const [feedTab, setFeedTab] = useState<"all" | "subscribed">("all");
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);
@@ -288,11 +288,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const goToHub = () => {
     if (!confirmDiscardProfileDraft()) return;
     setSelectedProfileId(null);
-    setShowManageProfiles(false);
     setCreationStep(null);
     setProfileDraft(null);
     setGuidedProfile(null);
     setEditingProfileId(null);
+    if (enabled) {
+      onNavigate({ mode: "private", view: "hub" });
+      setMobileDrawerOpen(false);
+    }
   };
   const reactToPost = (post: NoodlePostCardModel, type: "like" | "repost", active = false) => {
     if (!viewerPersonaId) return;
@@ -518,6 +521,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   const shellProps = {
     activeView: "noodler" as const,
+    homeActive: navigation.mode === "private" && navigation.view === "hub",
     accent: NOODLE_PINK,
     personaAccount: shellPersonaAccount,
     sortedPersonaAccounts: viewerAccounts,
@@ -546,7 +550,29 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     ),
   } as const;
 
-  if (navigation.mode === "verification" || !enabled) {
+  if (!data && !isError) {
+    return (
+      <NoodleShell {...shellProps}>
+        <NoodlerFrame onBack={exitToPublic} title="NoodleR">
+          <div className="flex justify-center py-16">
+            <Loader2 size={24} className="animate-spin text-[var(--noodle-blue)]" />
+          </div>
+        </NoodlerFrame>
+      </NoodleShell>
+    );
+  }
+
+  if (!data && isError) {
+    return (
+      <NoodleShell {...shellProps}>
+        <NoodlerFrame onBack={exitToPublic} title="NoodleR">
+          <EmptyState title="NoodleR could not be loaded." action="Try again" onAction={() => void refetch()} />
+        </NoodlerFrame>
+      </NoodleShell>
+    );
+  }
+
+  if (navigation.mode === "verification" || (data && !enabled)) {
     return (
       <NoodleShell {...shellProps}>
       <NoodlerFrame onBack={exitToPublic} title="About NoodleR">
@@ -563,7 +589,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             type="button"
             onClick={enableNoodler}
             disabled={!data?.settings || updateSettings.isPending}
-            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-6 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-6 text-sm font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {updateSettings.isPending ? <Loader2 size={17} className="animate-spin" /> : <Check size={17} />}
             {updateSettings.isPending ? "Enabling..." : "I am 18+ and want to enable NoodleR"}
@@ -723,9 +749,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   };
 
-  // Shared right rail for every private hub surface (feed + manage) so the shell
-  // stays identical across them — no view loses a sidebar. The same subscription/manage
-  // controls are also rendered inline in the feed below xl, where this rail is hidden.
+  // Creator discovery stays in the wide-screen rail. Narrow layouts omit it so the
+  // timeline remains the primary surface instead of stacking sidebar content above it.
   const feedRightRail = (
     <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
       <div className="sticky top-3 space-y-4">
@@ -753,15 +778,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           creators={viewerQuery.data?.creators ?? []}
           onToggleSubscription={toggleCreatorSubscription}
           togglePending={toggleSubscription.isPending}
-          onManageProfiles={() => setShowManageProfiles(true)}
         />
       </div>
     </aside>
   );
 
-  if (showManageProfiles) {
+  if (navigation.mode === "private" && navigation.view === "profiles") {
     return (
-      <NoodleShell {...shellProps} rightRail={feedRightRail}>
+      <NoodleShell {...shellProps}>
         <div className="flex h-full min-h-0 flex-col">
           <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
@@ -782,7 +806,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
                       ? "Every eligible account already has a stage profile"
                       : undefined
               }
-              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Plus size={15} />
               New profile
@@ -865,7 +889,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         postError={generationError}
         onToggleSubscription={toggleCreatorSubscription}
         togglePending={toggleSubscription.isPending}
-        onManageProfiles={() => setShowManageProfiles(true)}
       />
     </NoodleShell>
   );
@@ -958,7 +981,7 @@ function StageProfileForm({
               type="button"
               onClick={onGenerate}
               disabled={isGenerating || isPending}
-              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:opacity-50"
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:opacity-50"
             >
               {isGenerating ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}{" "}
               {isGenerating
@@ -1057,7 +1080,7 @@ function StageProfileForm({
             type="button"
             onClick={onSave}
             disabled={!canSave}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
             {isPending ? "Saving..." : isEditing ? "Save changes" : "Create stage profile"}
@@ -1264,7 +1287,7 @@ function DisclosureStep({
               <span
                 className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${value === option.value ? "border-[var(--noodle-blue)] bg-[var(--noodle-blue)]" : "border-[var(--noodle-divider)]"}`}
               >
-                {value === option.value && <Check size={13} className="text-zinc-950" />}
+                {value === option.value && <Check size={13} className="!text-zinc-950" />}
               </span>
               <span>
                 <span className="block text-sm font-bold">{option.label}</span>
@@ -1335,7 +1358,7 @@ function WizardFooter({
             type="button"
             onClick={onNext}
             disabled={nextDisabled || disabled}
-            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-5 text-sm font-bold text-zinc-950 [&_svg]:!text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Continue <ArrowRight size={16} />
           </button>
@@ -1397,7 +1420,7 @@ function StageProfileView({
           <button
             type="button"
             onClick={onGuide}
-            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 hover:opacity-90"
+            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90"
           >
             <Sparkles size={15} />
             Guide post
@@ -1547,7 +1570,6 @@ function ViewerHub({
   postError,
   onToggleSubscription,
   togglePending,
-  onManageProfiles,
 }: {
   personas: Persona[];
   scope: ReturnType<typeof useNoodlerViewer>["data"];
@@ -1570,7 +1592,6 @@ function ViewerHub({
   postError: string | null;
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   togglePending: boolean;
-  onManageProfiles: () => void;
 }) {
   if (personas.length === 0) {
     return (
@@ -1606,23 +1627,23 @@ function ViewerHub({
             type="button"
             onClick={() => onTabChange(option.id)}
             className={cn(
-              "flex h-12 items-center justify-center text-sm font-bold transition-colors hover:bg-[var(--accent)]",
-              tab === option.id
-                ? "border-b-2 border-[var(--noodle-blue)] text-[var(--foreground)]"
-                : "text-[var(--muted-foreground)]",
+              "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              tab === option.id && "text-[var(--foreground)]",
             )}
+            aria-pressed={tab === option.id}
           >
             {option.label}
+            {tab === option.id && (
+              <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-blue)]" />
+            )}
           </button>
         ))}
       </div>
-      {/* Below xl the right rail is hidden, so surface the same subscribe/manage controls here. */}
-      <div className="space-y-4 border-b border-[var(--noodle-divider)] px-4 py-3 xl:hidden">
+      <div className="hidden border-b border-[var(--noodle-divider)] px-4 py-3 lg:block xl:hidden">
         <SubscriptionSections
           creators={scope?.creators ?? []}
           onToggleSubscription={onToggleSubscription}
           togglePending={togglePending}
-          onManageProfiles={onManageProfiles}
         />
       </div>
       <InlineGuidedComposer
@@ -1690,7 +1711,7 @@ function ViewerHub({
                             type="button"
                             disabled={unlockPending}
                             onClick={() => onUnlock(post.id)}
-                            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950"
+                            className="inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-blue)] px-3 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950"
                           >
                             <Eye size={14} /> Unlock
                           </button>
@@ -1796,7 +1817,7 @@ function InlineGuidedComposer({
           type="button"
           onClick={submit}
           disabled={isPosting || direction.trim().length === 0}
-          className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-8 items-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isPosting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
           {isPosting ? "Generating..." : "Post"}
@@ -1887,74 +1908,51 @@ function InlineGuidedComposer({
   );
 }
 
-// Creator subscribe/unsubscribe toggles + Manage-profiles entry. Rendered both in the
-// xl right rail and inline in the feed below xl, so these controls are reachable at every
-// width (previously the rail — and thus subscribe/manage — vanished under xl).
+// Creator subscribe/unsubscribe suggestions for desktop layouts.
 function SubscriptionSections({
   creators,
   onToggleSubscription,
   togglePending,
-  onManageProfiles,
 }: {
   creators: NonNullable<ReturnType<typeof useNoodlerViewer>["data"]>["creators"];
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   togglePending: boolean;
-  onManageProfiles: () => void;
 }) {
   return (
-    <>
-      <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-        <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-          <h3 className="text-lg font-bold">Creators</h3>
+    <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+      <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+        <h3 className="text-lg font-bold">Creators</h3>
+      </div>
+      {creators.length > 0 ? (
+        <div className="divide-y divide-[var(--noodle-divider)]">
+          {creators.map((creator) => (
+            <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
+              <ProfileInitial profile={creator.profile} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
+                <span className="block truncate text-xs text-[var(--muted-foreground)]">@{creator.profile.handle}</span>
+              </span>
+              <button
+                type="button"
+                disabled={togglePending}
+                onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-full px-4 text-xs font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
+                  creator.subscribed
+                    ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
+                    : "bg-[var(--foreground)] text-[var(--background)] [&_svg]:!text-[var(--background)]",
+                )}
+              >
+                {creator.subscribed ? <Minus size={14} /> : <Plus size={14} />}
+                {creator.subscribed ? "Unsubscribe" : "Subscribe"}
+              </button>
+            </div>
+          ))}
         </div>
-        {creators.length > 0 ? (
-          <div className="divide-y divide-[var(--noodle-divider)]">
-            {creators.map((creator) => (
-              <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
-                <ProfileInitial profile={creator.profile} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
-                  <span className="block truncate text-xs text-[var(--muted-foreground)]">
-                    @{creator.profile.handle}
-                  </span>
-                </span>
-                <button
-                  type="button"
-                  disabled={togglePending}
-                  onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
-                  className={cn(
-                    "h-8 rounded-full px-4 text-xs font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50",
-                    creator.subscribed
-                      ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
-                      : "bg-[var(--foreground)] text-[var(--background)]",
-                  )}
-                >
-                  {creator.subscribed ? "Unsubscribe" : "Subscribe"}
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">No creators are visible to this persona yet.</p>
-        )}
-      </section>
-
-      <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-        <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-          <h3 className="text-lg font-bold">Your stage profiles</h3>
-        </div>
-        <div className="px-4 py-3">
-          <p className="text-sm text-[var(--muted-foreground)]">Private identities and guided posts you publish as.</p>
-          <button
-            type="button"
-            onClick={onManageProfiles}
-            className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
-          >
-            Manage stage profiles
-          </button>
-        </div>
-      </section>
-    </>
+      ) : (
+        <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">No creators are visible to this persona yet.</p>
+      )}
+    </section>
   );
 }
 

@@ -18,7 +18,7 @@ export const NOODLE_PINK = "#FF7EC1";
 // so portaled popovers/modals (which escape the shell's CSS scope) can re-apply it.
 const NoodleAccentContext = createContext<string>(NOODLE_BLUE);
 export const useNoodleAccent = () => useContext(NoodleAccentContext);
-export const NOODLE_ICON_SCOPE_CLASS = "[&_svg]:!text-[var(--noodle-blue)]";
+export const NOODLE_ICON_SCOPE_CLASS = "[&_:where(svg)]:text-[var(--noodle-blue)]";
 export const NOODLE_LOGO_SRC = "/noodle-klusek.png";
 const NOODLER_LOGO_SRC = "/noodler-klusek.png";
 export const NOODLE_PERSONA_SWITCHER_PAGE_SIZE = 5;
@@ -116,6 +116,8 @@ export type NoodleShellView = "home" | "noodler" | "search" | "notifications" | 
 
 export interface NoodleShellProps {
   activeView: NoodleShellView;
+  /** Overrides whether the Home/Hub destination is selected when app mode and subview are separate. */
+  homeActive?: boolean;
   personaAccount: NoodleAccount | null;
   sortedPersonaAccounts: NoodleAccount[];
   visiblePersonaAccounts: NoodleAccount[];
@@ -130,7 +132,7 @@ export interface NoodleShellProps {
   onMobileAccountSwitcherOpenChange: (open: boolean) => void;
   notificationCount: number;
   onOpenHome: () => void;
-  /** Mobile bottom-nav "Home" tap — distinct from onOpenHome because it also clears any active post search. */
+  /** Mobile bottom-nav home/hub tap — distinct from onOpenHome because it also clears any active post search. */
   onOpenMobileHome: () => void;
   /** "NoodleR" nav item — a peer to Home, not a sub-page reached through Home. */
   onOpenNoodler: () => void;
@@ -154,6 +156,7 @@ export interface NoodleShellProps {
 
 export function NoodleShell({
   activeView,
+  homeActive: homeActiveOverride,
   personaAccount,
   sortedPersonaAccounts,
   visiblePersonaAccounts,
@@ -185,6 +188,10 @@ export function NoodleShell({
   const prefersReducedMotion = Boolean(useReducedMotion());
   const hasMorePersonaAccounts = visiblePersonaAccounts.length < sortedPersonaAccounts.length;
   const notificationBadgeLabel = notificationCount > 99 ? "99+" : String(notificationCount);
+  const homeLabel = activeView === "noodler" ? "Hub" : "Home";
+  const homeActive = homeActiveOverride ?? (activeView === "home" || activeView === "noodler");
+  const onOpenHomeDestination = activeView === "noodler" ? onOpenNoodler : onOpenHome;
+  const onOpenMobileHomeDestination = activeView === "noodler" ? onOpenNoodler : onOpenMobileHome;
   useDialogFocusScope(mobileDrawerOpen, mobileDrawerRef, mobileDrawerCloseRef);
 
   return (
@@ -220,12 +227,7 @@ export function NoodleShell({
               aria-modal="true"
               aria-label="Noodle account menu"
               tabIndex={-1}
-              className={cn(
-                // --noodle-blue / --noodle-divider inherit from the outer scope; the nested
-                // mari-chrome-token-scope only resets generic Marinara tokens, so no redeclaration.
-                "mari-chrome-token-scope flex h-full w-full flex-col overflow-y-auto bg-[var(--background)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 text-[var(--foreground)]",
-                NOODLE_ICON_SCOPE_CLASS,
-              )}
+              className="mari-chrome-token-scope flex h-full w-full flex-col overflow-y-auto bg-[var(--background)] px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 text-[var(--foreground)]"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -259,11 +261,15 @@ export function NoodleShell({
               <nav className="mt-3 space-y-1" aria-label="Noodle account navigation">
                 <button
                   type="button"
-                  onClick={onOpenHome}
-                  className="flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]"
+                  onClick={onOpenHomeDestination}
+                  aria-current={homeActive ? "page" : undefined}
+                  className={cn(
+                    "flex min-h-12 w-full items-center gap-4 rounded-xl px-2 text-left text-base font-bold transition-colors hover:bg-[var(--accent)]",
+                    homeActive && "bg-[var(--noodle-blue)]/10",
+                  )}
                 >
                   <Home size={23} />
-                  Home
+                  {homeLabel}
                 </button>
                 <button
                   type="button"
@@ -358,7 +364,7 @@ export function NoodleShell({
       </AnimatePresence>
       <div className="flex min-h-0 flex-1 justify-center overflow-hidden">
         <div className="flex min-h-0 w-full max-w-[1264px] justify-center">
-          <aside className="hidden w-[17rem] shrink-0 border-r border-[var(--noodle-divider)] bg-[var(--background)] lg:flex lg:flex-col [&_svg]:!text-[var(--noodle-blue)]">
+          <aside className="hidden w-[17rem] shrink-0 border-r border-[var(--noodle-divider)] bg-[var(--background)] lg:flex lg:flex-col">
             <div className="flex min-h-0 flex-1 flex-col px-5 py-4">
               <div className="mb-5 flex h-12 items-center">
                 <NoodleLogo
@@ -372,14 +378,15 @@ export function NoodleShell({
               <nav className="space-y-1">
                 <button
                   type="button"
-                  onClick={onOpenHome}
+                  onClick={onOpenHomeDestination}
+                  aria-current={homeActive ? "page" : undefined}
                   className={cn(
                     "flex min-h-11 w-full items-center gap-4 rounded-full px-3 text-left text-[0.95rem] font-semibold hover:bg-[var(--accent)]",
-                    activeView === "home" && "bg-[var(--noodle-blue)]/10",
+                    homeActive && "bg-[var(--noodle-blue)]/10",
                   )}
                 >
                   <Home size={22} className="!text-[var(--noodle-blue)]" />
-                  Home
+                  {homeLabel}
                 </button>
                 <button
                   type="button"
@@ -531,13 +538,13 @@ export function NoodleShell({
           </button>
           <button
             type="button"
-            onClick={onOpenMobileHome}
-            aria-label="Noodle home"
-            aria-current={activeView === "home" ? "page" : undefined}
+            onClick={onOpenMobileHomeDestination}
+            aria-label={`Noodle ${homeLabel.toLowerCase()}`}
+            aria-current={homeActive ? "page" : undefined}
             className="relative flex items-center justify-center transition-colors hover:bg-[var(--accent)]"
           >
-            <Home size={22} strokeWidth={activeView === "home" ? 2.8 : 2} />
-            {activeView === "home" && <span className="absolute top-1 h-1 w-1 rounded-full bg-[var(--noodle-blue)]" />}
+            <Home size={22} strokeWidth={homeActive ? 2.8 : 2} />
+            {homeActive && <span className="absolute top-1 h-1 w-1 rounded-full bg-[var(--noodle-blue)]" />}
           </button>
           <button
             type="button"

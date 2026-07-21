@@ -13,6 +13,7 @@ import {
   type QuoteFormat,
   type ScenePromptPreferences,
 } from "@marinara-engine/shared";
+import type { NoodleNavigationState } from "../components/noodle/noodle-navigation.types";
 import { isCssGradient, RAINBOW_GRADIENT_PRESET } from "../lib/css-colors";
 import { announceChatFloatingUiDismiss } from "../lib/chat-floating-ui-events";
 import { detectConversationTimeZone, normalizeConversationTimeZone } from "../lib/conversation-time-zone";
@@ -495,6 +496,8 @@ interface UIState {
   noodleOpen: boolean;
   /** Last persona selected inside Noodle, persisted per browser. */
   noodleSelectedPersonaId: string | null;
+  /** Last stable surface viewed inside Noodle or NoodleR, persisted per browser. */
+  noodleNavigation: NoodleNavigationState;
   /** When true, the main area shows the full-page character library */
   characterLibraryOpen: boolean;
   /** Which resource collection the shared full-page card library displays */
@@ -859,6 +862,7 @@ interface UIState {
   openNoodle: () => void;
   closeNoodle: () => void;
   setNoodleSelectedPersonaId: (id: string | null) => void;
+  setNoodleNavigation: (navigation: NoodleNavigationState) => void;
 
   /** Returns true if any full-page detail editor is currently open */
   hasAnyDetailOpen: () => boolean;
@@ -1216,6 +1220,7 @@ export const useUIStore = create<UIState>()(
       gameAssetsBrowserOpen: false,
       noodleOpen: false,
       noodleSelectedPersonaId: null,
+      noodleNavigation: { mode: "public", view: "home" },
       characterLibraryOpen: false,
       cardLibraryKind: "characters" as CardLibraryKind,
       agentCatalogOpen: false,
@@ -1871,6 +1876,7 @@ export const useUIStore = create<UIState>()(
         }),
       closeNoodle: () => set({ noodleOpen: false }),
       setNoodleSelectedPersonaId: (id) => set({ noodleSelectedPersonaId: id }),
+      setNoodleNavigation: (navigation) => set({ noodleNavigation: navigation }),
 
       hasAnyDetailOpen: () => {
         const s = get();
@@ -2758,6 +2764,10 @@ export const useUIStore = create<UIState>()(
         gameAssetsBrowserOpen: state.gameAssetsBrowserOpen,
         noodleOpen: state.noodleOpen,
         noodleSelectedPersonaId: state.noodleSelectedPersonaId,
+        noodleNavigation:
+          state.noodleNavigation.mode === "verification"
+            ? { mode: "private", view: "hub" }
+            : state.noodleNavigation,
         characterLibraryOpen: state.characterLibraryOpen,
         cardLibraryKind: state.cardLibraryKind,
         agentCatalogOpen: state.agentCatalogOpen,
