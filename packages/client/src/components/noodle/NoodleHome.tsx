@@ -5082,6 +5082,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       mobileAccountSwitcherOpen={mobileAccountSwitcherOpen}
       onMobileAccountSwitcherOpenChange={setMobileAccountSwitcherOpen}
       notificationCount={notificationCount}
+      enableNoodler={settings?.enableNoodler ?? false}
       onOpenHome={openHomeTimeline}
       onOpenMobileHome={openMobileHomeTimeline}
       onOpenNoodler={openNoodler}

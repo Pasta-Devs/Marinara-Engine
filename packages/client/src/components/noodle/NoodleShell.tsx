@@ -145,6 +145,8 @@ export interface NoodleShellProps {
   onOpenSettings: () => void;
   /** Omit on surfaces with no scoped equivalent — renders disabled instead of navigating. */
   onCompose?: (opener: HTMLElement) => void;
+  /** Shows the Noodle/NoodleR mode toggle only once the user has turned NoodleR on in settings. */
+  enableNoodler?: boolean;
   /** Optional right-hand rail (search box, suggestions, etc). Omitted entirely on surfaces that don't need one. */
   rightRail?: ReactNode;
   /** Theme-dependent overlays (browser chrome strip, lightboxes, modals) that must render inside the token scope. */
@@ -178,6 +180,7 @@ export function NoodleShell({
   onOpenProfile,
   onOpenSettings,
   onCompose,
+  enableNoodler = false,
   rightRail,
   overlays,
   accent = NOODLE_BLUE,
@@ -255,9 +258,11 @@ export function NoodleShell({
                 </button>
               </div>
 
-              <div className="mt-7">
-                <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
-              </div>
+              {enableNoodler && (
+                <div className="mt-7">
+                  <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
+                </div>
+              )}
               <nav className="mt-3 space-y-1" aria-label="Noodle account navigation">
                 <button
                   type="button"
@@ -372,9 +377,11 @@ export function NoodleShell({
                   className="h-10 w-16"
                 />
               </div>
-              <div className="mb-3">
-                <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
-              </div>
+              {enableNoodler && (
+                <div className="mb-3">
+                  <NoodleModeToggle activeView={activeView} onOpenHome={onOpenHome} onOpenNoodler={onOpenNoodler} />
+                </div>
+              )}
               <nav className="space-y-1">
                 <button
                   type="button"

@@ -534,6 +534,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     activeView: "noodler" as const,
     homeActive: navigation.mode === "private" && navigation.view === "hub",
     accent: NOODLE_PINK,
+    enableNoodler: enabled,
     personaAccount: shellPersonaAccount,
     sortedPersonaAccounts: viewerAccounts,
     visiblePersonaAccounts,
