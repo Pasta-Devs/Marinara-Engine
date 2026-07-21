@@ -3182,6 +3182,10 @@ async function applyRetryResultEffects(args: {
               queueImageGenerationRequests ? "enabled" : "disabled",
               imageConnectionQueueKey,
             );
+            sendSseEvent(reply, {
+              type: "illustration_queued",
+              data: { messageId: retryMessageId },
+            });
             const imageResult = await runImageGenerationRequest({
               connectionKey: imageConnectionQueueKey,
               queue: queueImageGenerationRequests,

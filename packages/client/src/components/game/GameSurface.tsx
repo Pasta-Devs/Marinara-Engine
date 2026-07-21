@@ -26,6 +26,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
+import { useAgentStore } from "../../stores/agent.store";
 import {
   useSyncGameState,
   useCreateGame,
@@ -74,6 +75,7 @@ import { spriteKeys, type SpriteInfo } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { api, getJsonRepairRequest, type JsonRepairRequest } from "../../lib/api-client";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
+import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import {
@@ -2361,6 +2363,15 @@ function GameSurfaceComponent({
   isMessagesLoading,
 }: GameSurfaceProps) {
   useRenderTimer("game-surface"); // [#3104 diagnostic]
+  const backgroundIllustration = useChatStore((state) =>
+    state.backgroundIllustrationChatIds.has(activeChatId),
+  );
+  const agentsProcessing = useAgentStore((state) => state.processingChatIds.includes(activeChatId));
+  const gameInputGenerationBlocked = isGenerationSendBlocked({
+    streamActive: isStreaming,
+    agentsProcessing,
+    backgroundIllustration,
+  });
   // Sync game metadata → store
   useSyncGameState(activeChatId, chatMeta);
   const hierarchicalMapsActive =
@@ -11623,8 +11634,9 @@ function GameSurfaceComponent({
                               hasPartyMembers={partyMembers.length > 0}
                               pendingMoveLabel={pendingMapMove?.label ?? null}
                               onClearPendingMove={() => setPendingMapMove(null)}
-                              disabled={isStreaming || !sessionInteractive}
-                              isStreaming={isStreaming}
+                              disabled={gameInputGenerationBlocked || !sessionInteractive}
+                              draftDisabled={!sessionInteractive}
+                              isStreaming={gameInputGenerationBlocked}
                               inline
                               draftKey={activeChatId}
                               focusToken={gameInputFocusToken}
@@ -11711,8 +11723,9 @@ function GameSurfaceComponent({
                           hasPartyMembers={partyMembers.length > 0}
                           pendingMoveLabel={pendingMapMove?.label ?? null}
                           onClearPendingMove={() => setPendingMapMove(null)}
-                          disabled={isStreaming || !sessionInteractive}
-                          isStreaming={isStreaming}
+                          disabled={gameInputGenerationBlocked || !sessionInteractive}
+                          draftDisabled={!sessionInteractive}
+                          isStreaming={gameInputGenerationBlocked}
                           inline
                           draftKey={activeChatId}
                           focusToken={gameInputFocusToken}

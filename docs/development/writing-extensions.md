@@ -36,6 +36,7 @@ A minimal browser manifest that points at those two files:
   "version": 1,
   "config": {
     "name": "My Extension",
+    "version": "1.0.0",
     "description": "Adds custom UI behavior and styling.",
     "enabled": true,
     "cssPath": "extension.css",
@@ -54,6 +55,7 @@ You can also put the code inline instead of in separate files:
   "version": 1,
   "config": {
     "name": "Inline Example",
+    "version": "1.0.0",
     "description": "Small inline extension.",
     "enabled": true,
     "css": ".my-class { color: var(--primary); }",
@@ -71,6 +73,7 @@ A manifest can supply both a file path and inline content for the same slot (for
 | `kind` | Recommended | Use `marinara.extension` for a browser extension or `marinara.server-extension` for a server extension. The importer does not require this field. When both `kind` and `config.runtime` are missing, Marinara imports the extension as a browser extension. |
 | `version` | Recommended | Use `1`. The importer does not read or validate this field. Marinara writes it when it exports an extension, so include it to match the standard format. |
 | `config.name` | Yes | Display name. 1 to 200 characters. |
+| `config.version` | No | Extension release version, such as `1.2.0`. Marinara uses numeric dotted versions to warn before replacing a newer installed release with an older one. |
 | `config.description` | No | Up to 2000 characters. Defaults to an empty string. |
 | `config.runtime` | No | Use `client` for a browser extension or `server` for a server extension. Defaults to `client`. If `runtime` is `server`, the extension is treated as a server extension even when `kind` says otherwise. |
 | `config.enabled` | No | For a browser extension, whether it runs right after import. If you omit it, Marinara imports the extension disabled so you can review it first. A server extension is always imported disabled no matter what you set here. |
@@ -100,6 +103,7 @@ To ship more than one extension in a single folder, add a root file named `marin
         "version": 1,
         "config": {
           "name": "Accent Glow",
+          "version": "1.0.0",
           "description": "Adds a small accent glow.",
           "enabled": true,
           "cssPath": "extension.css"

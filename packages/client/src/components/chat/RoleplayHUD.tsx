@@ -283,7 +283,9 @@ export function RoleplayHUD({
           mobileCompact && "min-w-0",
         )}
       >
-        {trackerPanelEnabled && !trackerPanelOpen && <TrackerPanelToggleButton onToggle={toggleTrackerPanel} />}
+        {trackerPanelEnabled && !trackerPanelOpen && (
+          <TrackerPanelToggleButton onToggle={() => toggleTrackerPanel(chatId)} />
+        )}
 
         {/* Actions (Agents + Clear) */}
         <ActionsGroup
