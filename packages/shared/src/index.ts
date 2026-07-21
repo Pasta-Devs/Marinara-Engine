@@ -82,7 +82,6 @@ export * from "./constants/tracker-custom-field-icons.js";
 export * from "./features/agents/agent-manifest.types.js";
 export {
   BUILT_IN_AGENT_MANIFESTS,
-  getBuiltInAgentDefaultPrompt,
   isBuiltInAgentRuntimeDisabled,
 } from "./features/agents/agent-registry.js";
 export * from "./features/function-calls/tool-definitions.js";

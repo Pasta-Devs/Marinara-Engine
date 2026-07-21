@@ -382,7 +382,6 @@ const trackerBatchResults = await executeAgentBatch(
     characters: [],
     persona: null,
     memory: {},
-    activatedLorebookEntries: null,
     writableLorebookIds: null,
     chatSummary: null,
     streaming: false,
