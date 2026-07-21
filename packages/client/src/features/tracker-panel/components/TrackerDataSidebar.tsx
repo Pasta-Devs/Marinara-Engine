@@ -172,7 +172,7 @@ export function TrackerDataSidebar({ fillHeight = false }: { fillHeight?: boolea
           onSetEditMode={setActiveEditMode}
           onSetSide={setTrackerPanelSide}
           onSetSizeProfile={setTrackerPanelSizeProfile}
-          onClose={() => setTrackerPanelOpen(false)}
+          onClose={() => setTrackerPanelOpen(false, activeChatId)}
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>

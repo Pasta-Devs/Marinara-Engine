@@ -460,6 +460,7 @@ import { buildLegacyDefaultAgentConfigUpdate } from "../../packages/server/src/s
 import { buildMemoryRecallBlock } from "../../packages/server/src/services/generation/memory-recall-context.js";
 import { truncateRecalledMemory } from "../../packages/server/src/services/generation/memory-recall-pack.js";
 import { mergeConversationCharacterMemories } from "../../packages/server/src/services/generation/conversation-memory-context.js";
+import { formatSmartGroupCandidates } from "../../packages/server/src/services/generation/conversation-context-utils.js";
 import {
   formatAwarenessContextBlock,
   formatAwarenessConversationBlock,
@@ -660,6 +661,65 @@ const keywordOptions = {
 };
 
 const cases: RegressionCase[] = [
+  {
+    name: "Conversation smart sorting separates each character candidate without changing Roleplay formatting",
+    run() {
+      const candidates = [
+        {
+          id: "dottore",
+          name: "Dottore",
+          talkativeness: 70,
+          status: "online",
+          personality: "Core Traits:\n- precise\n- merciless",
+        },
+        {
+          id: "pantalone",
+          name: "Pantalone",
+          talkativeness: 45,
+          activity: "Reviewing the ledgers",
+        },
+      ];
+
+      assert.equal(
+        formatSmartGroupCandidates(candidates, true),
+        [
+          "<candidate>",
+          "id: dottore",
+          "name: Dottore",
+          "talkativeness: 70%",
+          "current status: online",
+          "personality: Core Traits:",
+          "- precise",
+          "- merciless",
+          "</candidate>",
+          "",
+          "<candidate>",
+          "id: pantalone",
+          "name: Pantalone",
+          "talkativeness: 45%",
+          "current activity: Reviewing the ledgers",
+          "</candidate>",
+        ].join("\n"),
+      );
+      assert.equal(
+        formatSmartGroupCandidates(candidates, false),
+        [
+          "- id: dottore",
+          "  name: Dottore",
+          "  talkativeness: 70%",
+          "  current status: online",
+          "  personality: Core Traits:",
+          "- precise",
+          "- merciless",
+          "",
+          "- id: pantalone",
+          "  name: Pantalone",
+          "  talkativeness: 45%",
+          "  current activity: Reviewing the ledgers",
+        ].join("\n"),
+      );
+    },
+  },
   {
     name: "installed Conversation feature commands do not require per-chat agent attachment",
     run() {
