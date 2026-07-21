@@ -954,8 +954,8 @@ function StageProfileForm({
     !isPending &&
     !isGenerating;
   return (
-    <div className="mx-auto flex h-full w-full max-w-4xl flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col">
+      <div className="px-4 py-5 sm:px-6 lg:py-6">
         <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-blue)]/15 text-[var(--noodle-blue)]">
@@ -1175,8 +1175,8 @@ function StageProfileSourcePicker({
   onContinue: () => void;
 }) {
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col">
+      <div className="px-4 py-5 sm:px-6 lg:py-6">
         <h2 className="text-xl font-black">Choose a source character or persona</h2>
         <p className="mt-2 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
           NoodleR will create a separate stage identity from this character or persona. You will choose exactly how much
@@ -1306,8 +1306,8 @@ function DisclosureStep({
   onContinue: () => void;
 }) {
   return (
-    <div className="mx-auto flex h-full w-full max-w-2xl flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:py-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col">
+      <div className="px-4 py-5 sm:px-6 lg:py-6">
         <h2 className="text-xl font-black">How connected should this feel?</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
           Choose the relationship between this private stage identity and the character or persona you selected. This is
@@ -1367,7 +1367,7 @@ function WizardFooter({
 }) {
   const labels = ["Source", "Disclosure", "Profile"];
   return (
-    <div className="z-[60] shrink-0 border-t border-[var(--noodle-divider)] bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
+    <div className="sticky bottom-0 z-[60] shrink-0 border-t border-[var(--noodle-divider)] bg-[var(--background)] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6">
       {showProgress && (
         <div
           className="mb-3 flex items-center justify-center gap-1.5"
@@ -1657,7 +1657,7 @@ function ViewerHub({
     )
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
+    <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="grid grid-cols-2 border-b border-[var(--noodle-divider)]">
         {(
           [
@@ -2085,9 +2085,7 @@ function NoodlerFrame({
           Private
         </span>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
-        {children}
-      </main>
+      <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
     </div>
   );
 }

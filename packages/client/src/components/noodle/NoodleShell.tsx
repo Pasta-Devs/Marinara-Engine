@@ -511,7 +511,9 @@ export function NoodleShell({
             </div>
           </aside>
 
-          <main className="flex min-h-0 w-full flex-1 flex-col lg:max-w-[640px]">{children}</main>
+          <main className="flex min-h-0 w-full flex-1 flex-col pb-[calc(52px+env(safe-area-inset-bottom))] lg:max-w-[640px] lg:pb-0">
+            {children}
+          </main>
           {rightRail}
         </div>
       </div>

@@ -5114,7 +5114,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       }
     >
       <div ref={timelineScrollRef} className="min-h-0 flex-1 overflow-y-auto">
-            <div className="min-h-full w-full border-x border-[var(--noodle-divider)] bg-[var(--background)] pb-[calc(52px+env(safe-area-inset-bottom))] lg:pb-0">
+            <div className="min-h-full w-full border-x border-[var(--noodle-divider)] bg-[var(--background)]">
               {activeNoodleView === "home" && (
                 <div
                   className="sticky top-0 z-30 grid h-14 grid-cols-[3rem_minmax(0,1fr)_3rem] items-center border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-3 backdrop-blur lg:hidden"
