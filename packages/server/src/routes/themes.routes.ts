@@ -36,7 +36,6 @@ export async function themesRoutes(app: FastifyInstance) {
   });
 
   app.put("/active", async (req, reply) => {
-    if (!requirePrivilegedAccess(req, reply, { feature: "Theme install/update/delete" })) return;
     const input = setActiveThemeSchema.parse(req.body);
     if (input.id !== null) {
       const existing = await storage.getById(input.id);
