@@ -72,6 +72,7 @@ import { sanitizeExampleDialoguePromptLeaf } from "../../packages/server/src/ser
 import { parseCharacterCommands } from "../../packages/server/src/services/conversation/character-commands.js";
 import {
   collapseDuplicateConversationSpeakerPrefixes,
+  isRepeatedConversationResponse,
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
@@ -1322,6 +1323,25 @@ assert.match(markdownCodeBlockStyles, /overflow-x:\s*auto;/u);
 assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripConversationPromptTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
+assert.equal(
+  isRepeatedConversationResponse(
+    [
+      {
+        role: "assistant",
+        characterId: "dottore",
+        content: "The experiment remains stable after every measured interval.",
+      },
+      {
+        role: "assistant",
+        characterId: "dottore",
+        content: "A different observation separates the two matching responses.",
+      },
+    ],
+    "dottore",
+    "The experiment remains stable after every measured interval.",
+  ),
+  true,
+);
 assert.equal(
   stripConversationResponseEnvelope("[11.07 15:53] Character: Hello!", { speakerName: "Character" }),
   "Hello!",

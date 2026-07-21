@@ -2071,6 +2071,9 @@ export function useGenerate() {
                   };
                   rememberContinuedMessageContent(updatedMessage);
                   persistedMessages.set(updatedMessage.id, updatedMessage);
+                  if (currentGroupTurnSavedMessage?.id === updatedMessage.id) {
+                    currentGroupTurnSavedMessage = updatedMessage;
+                  }
                   // Keep the final rewritten text as the live stream until the
                   // full generation lifecycle finishes. The durable row is
                   // primed during final cleanup so there is no full-text flash.
@@ -2102,6 +2105,9 @@ export function useGenerate() {
                     };
                     rememberContinuedMessageContent(updatedMessage);
                     persistedMessages.set(updatedMessage.id, updatedMessage);
+                    if (currentGroupTurnSavedMessage?.id === updatedMessage.id) {
+                      currentGroupTurnSavedMessage = updatedMessage;
+                    }
                     upsertPersistedMessages(qc, params.chatId, [updatedMessage]);
                   }
                 }

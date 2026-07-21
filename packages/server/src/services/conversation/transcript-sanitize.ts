@@ -39,7 +39,7 @@ export function isRepeatedConversationResponse(
     const message = messages[index]!;
     if (options.excludeMessageId && message.id === options.excludeMessageId) continue;
     if (message.role !== "assistant" || (message.characterId ?? null) !== characterId) continue;
-    return normalizeTextForMatch(message.content) === normalizedContent;
+    if (normalizeTextForMatch(message.content) === normalizedContent) return true;
   }
   return false;
 }
