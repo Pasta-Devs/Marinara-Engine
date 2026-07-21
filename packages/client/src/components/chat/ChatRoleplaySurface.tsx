@@ -257,7 +257,7 @@ function CrossfadeBackground({
           className,
         )}
         style={{
-          opacity: aActive ? 1 : 0,
+          opacity: aActive && bgA ? 1 : 0,
           transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
           ...backgroundBlurStyle,
         }}
@@ -271,7 +271,7 @@ function CrossfadeBackground({
           className,
         )}
         style={{
-          opacity: aActive ? 0 : 1,
+          opacity: !aActive && bgB ? 1 : 0,
           transition: "opacity 700ms ease-in-out, filter 180ms ease-out, transform 180ms ease-out",
           ...backgroundBlurStyle,
         }}
