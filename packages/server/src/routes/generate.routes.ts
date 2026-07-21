@@ -395,6 +395,7 @@ import {
 } from "../services/generation/generation-text-utils.js";
 import {
   areConversationSchedulesEnabled,
+  formatSmartGroupCandidates,
   parsePromptPresetChoices,
 } from "../services/generation/conversation-context-utils.js";
 import { recoverImplicitSelfieCommand } from "../services/generation/selfie-command-recovery.js";
@@ -4597,22 +4598,21 @@ export async function generateRoutes(app: FastifyInstance) {
             .filter(Boolean)
             .join("\n");
 
-          const candidates = availableGroupCharacters
-            .map((character) => {
+          const candidates = formatSmartGroupCandidates(
+            availableGroupCharacters.map((character) => {
               const presence = conversationCharacterPresenceById.get(character.id);
-              return [
-                `- id: ${character.id}`,
-                `  name: ${presence?.displayName ?? character.name}`,
-                `  talkativeness: ${presence?.talkativeness ?? Math.round(character.talkativeness * 100)}%`,
-                presence ? `  current status: ${presence.status}` : null,
-                presence?.activity ? `  current activity: ${presence.activity}` : null,
-                character.personality ? `  personality: ${character.personality.slice(0, 500)}` : null,
-                character.description ? `  description: ${character.description.slice(0, 500)}` : null,
-              ]
-                .filter(Boolean)
-                .join("\n");
-            })
-            .join("\n\n");
+              return {
+                id: character.id,
+                name: presence?.displayName ?? character.name,
+                talkativeness: presence?.talkativeness ?? Math.round(character.talkativeness * 100),
+                status: presence?.status,
+                activity: presence?.activity,
+                personality: character.personality?.slice(0, 500),
+                description: character.description?.slice(0, 500),
+              };
+            }),
+            chatMode === "conversation",
+          );
 
           const selectorInstructions =
             chatMode === "conversation"
