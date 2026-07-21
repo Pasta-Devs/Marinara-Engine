@@ -1477,6 +1477,16 @@ export async function generateRoutes(app: FastifyInstance) {
         let conversationLorebookBlockValue = "";
         let conversationMemoriesBlockValue = "";
         let conversationReplyRulesBlockValue = "";
+        const buildConversationRelocationValues = (
+          lorebook: string,
+        ): Record<ConversationRelocationMacroKey, string> => ({
+          context: conversationContextBlockValue,
+          commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
+          reactRules: "",
+          replyRules: conversationReplyRulesBlockValue,
+          memories: conversationMemoriesBlockValue,
+          lorebook,
+        });
         const identityFallbackPromptTemplateSources: string[] = [];
         const conversationCommandsEnabled = chatMode === "conversation" && chatMeta.characterCommands !== false;
         let temperature: number | undefined = 1;
@@ -3009,14 +3019,7 @@ export async function generateRoutes(app: FastifyInstance) {
         if (chatMode === "conversation") {
           decodeDeferredRelocationConditionals(
             finalMessages,
-            {
-              context: conversationContextBlockValue,
-              commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
-              reactRules: "",
-              replyRules: conversationReplyRulesBlockValue,
-              memories: conversationMemoriesBlockValue,
-              lorebook: conversationLorebookBlockValue,
-            },
+            buildConversationRelocationValues(conversationLorebookBlockValue),
             promptMacroContext,
             deferConversationLorebookScanToResponder ? { preserveKeys: new Set(["lorebook"]) } : undefined,
           );
@@ -4884,14 +4887,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
           decodeDeferredRelocationConditionals(
             prepared,
-            {
-              context: conversationContextBlockValue,
-              commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
-              reactRules: "",
-              replyRules: conversationReplyRulesBlockValue,
-              memories: conversationMemoriesBlockValue,
-              lorebook: loreBlock,
-            },
+            buildConversationRelocationValues(loreBlock),
             promptMacroContext,
           );
           return prepared;
