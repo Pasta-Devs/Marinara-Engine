@@ -147,11 +147,15 @@ function applyMusicPlayerSourceToMusicDjSettings(
   };
 }
 
+function musicAgentUsesSource(settings: Record<string, unknown>, source: "youtube" | "custom"): boolean {
+  return settings.musicProvider === source || settings.musicPlayerSource === source;
+}
+
 function getAgentFallbackPrompt(agentType: string, settings: Record<string, unknown>): string {
-  if (agentType === "spotify" && (settings.musicProvider === "youtube" || settings.musicPlayerSource === "youtube")) {
+  if (agentType === "spotify" && musicAgentUsesSource(settings, "youtube")) {
     return getDefaultAgentPrompt("youtube");
   }
-  if (agentType === "spotify" && (settings.musicProvider === "custom" || settings.musicPlayerSource === "custom")) {
+  if (agentType === "spotify" && musicAgentUsesSource(settings, "custom")) {
     return getDefaultAgentPrompt("local-music");
   }
   return getDefaultAgentPrompt(agentType);
