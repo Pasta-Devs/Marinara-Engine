@@ -2503,6 +2503,9 @@ strong {
 
 /* Chat message narration text color */
 .mari-message-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--foreground);
 }
 
@@ -2566,6 +2569,7 @@ strong {
   border-radius: 4px;
   padding: 0.1em 0.35em;
   color: #e8e6e3;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -2586,7 +2590,10 @@ strong {
   border-radius: 8px;
   padding: 0.75em 1em;
   margin: 0.5em 0;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   white-space: pre;
   color: #d4d4d4;
 }

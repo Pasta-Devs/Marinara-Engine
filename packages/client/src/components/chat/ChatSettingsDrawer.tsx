@@ -2206,6 +2206,34 @@ export function ChatSettingsDrawer({
     },
     [chat.id, updateMeta],
   );
+  const flushProseGuardianDrafts = useCallback(async () => {
+    const patch: Record<string, unknown> = {};
+    const banned = proseGuardianBannedDraft.trim();
+    const avoid = proseGuardianAvoidDraft.trim();
+    const prefer = proseGuardianStyleDraft.trim();
+
+    if (banned !== proseGuardianBannedWords) patch.proseGuardianBannedWords = banned;
+    if (avoid !== proseGuardianAvoidInstructions) patch.proseGuardianAvoidInstructions = avoid;
+    if (prefer !== proseGuardianStyleInstructions) patch.proseGuardianStyleInstructions = prefer;
+    if (Object.keys(patch).length === 0) return true;
+
+    try {
+      await updateMeta.mutateAsync({ id: chat.id, ...patch });
+      return true;
+    } catch {
+      toast.error("Failed to save Prose Guardian changes.");
+      return false;
+    }
+  }, [
+    chat.id,
+    proseGuardianAvoidDraft,
+    proseGuardianAvoidInstructions,
+    proseGuardianBannedDraft,
+    proseGuardianBannedWords,
+    proseGuardianStyleDraft,
+    proseGuardianStyleInstructions,
+    updateMeta,
+  ]);
   const getKnowledgeAgentSourceSettings = useCallback(
     (agentType: KnowledgeAgentType) => {
       const config = agentConfigsByType.get(agentType);
@@ -3075,13 +3103,14 @@ export function ChatSettingsDrawer({
         const canCloseAgentSuite =
           !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
         if (!canCloseAgentSuite) return;
+        if (!(await flushProseGuardianDrafts())) return;
         setShowAgentSuiteModal(false);
         onClose();
       } finally {
         drawerClosingRef.current = false;
       }
     })();
-  }, [onClose, showAgentSuiteModal]);
+  }, [flushProseGuardianDrafts, onClose, showAgentSuiteModal]);
   // Session-ephemeral: did the user change Day Rollover Hour in this drawer mount?
   // Used to gate the "transitional duplication" warning so it only appears
   // immediately after a change (when the warning is operationally useful) and

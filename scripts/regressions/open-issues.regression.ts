@@ -986,6 +986,11 @@ assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awarenes
 assert.match(conversationGroupSettingsSource, /Individual replies can use many tokens/u);
 assert.match(
   conversationGroupSettingsSource,
+  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return;[\s\S]{0,250}onClose\(\)/u,
+  "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
+);
+assert.match(
+  conversationGroupSettingsSource,
   /\{!isConversation && \(\s*<button[\s\S]{0,1500}Name Prefix History/u,
   "Conversation group settings should not show the roleplay-only Name Prefix History toggle",
 );
@@ -1166,6 +1171,14 @@ const markdownBlockquoteStyles =
   globalStyles.match(/\.mari-message-content \.mari-md-blockquote \{[\s\S]*?\}/u)?.[0] ?? "";
 assert.match(markdownBlockquoteStyles, /color:\s*inherit;/u);
 assert.doesNotMatch(markdownBlockquoteStyles, /color:\s*var\(--muted-foreground\);/u);
+const markdownMessageStyles = globalStyles.match(/\.mari-message-content \{[\s\S]*?\}/u)?.[0] ?? "";
+const markdownCodeBlockStyles =
+  globalStyles.match(/\.mari-message-content \.mari-md-codeblock \{[\s\S]*?\}/u)?.[0] ?? "";
+assert.match(markdownMessageStyles, /min-width:\s*0;/u);
+assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
+assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
+assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
+assert.match(markdownCodeBlockStyles, /overflow-x:\s*auto;/u);
 
 assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
