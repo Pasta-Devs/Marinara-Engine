@@ -9,6 +9,7 @@ import {
   Lock,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Sparkles,
   Trash2,
@@ -817,10 +818,95 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     );
   }
 
+  const suggestedCreators = (viewerQuery.data?.creators ?? []).filter((creator) => !creator.subscribed);
+
+  // Shared right rail for every private hub surface (feed + manage) so the shell
+  // stays identical across them — no view loses a sidebar.
+  const feedRightRail = (
+    <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
+      <div className="sticky top-3 space-y-4">
+        <label className="flex h-11 items-center gap-2 rounded-full border border-[var(--noodle-divider)] bg-[var(--background)] px-4 text-sm transition-colors focus-within:border-[var(--noodle-blue)]">
+          <Search size={17} className="shrink-0 text-[var(--noodle-blue)]" />
+          <input
+            value={feedSearch}
+            onChange={(event) => setFeedSearch(event.target.value)}
+            placeholder="Search posts or @creators"
+            className="min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+          />
+          {feedSearch.trim() && (
+            <button
+              type="button"
+              onClick={() => setFeedSearch("")}
+              className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
+              title="Clear search"
+            >
+              <X size={13} />
+            </button>
+          )}
+        </label>
+
+        <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+          <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+            <h3 className="text-lg font-bold">Who to subscribe to</h3>
+          </div>
+          {suggestedCreators.length > 0 ? (
+            <div className="divide-y divide-[var(--noodle-divider)]">
+              {suggestedCreators.map((creator) => (
+                <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
+                  <ProfileInitial profile={creator.profile} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
+                    <span className="block truncate text-xs text-[var(--muted-foreground)]">
+                      @{creator.profile.handle}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={toggleSubscription.isPending}
+                    onClick={() => {
+                      if (!viewerPersonaId) return;
+                      toggleSubscription.mutate({
+                        creatorAccountId: creator.profile.id,
+                        personaId: viewerPersonaId,
+                        subscribed: false,
+                      });
+                    }}
+                    className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Subscribe
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">You're subscribed to everyone!</p>
+          )}
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+          <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+            <h3 className="text-lg font-bold">Your stage profiles</h3>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-sm text-[var(--muted-foreground)]">Private identities and guided posts you publish as.</p>
+            <button
+              type="button"
+              onClick={() => setShowManageProfiles(true)}
+              className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
+            >
+              Manage stage profiles
+            </button>
+          </div>
+        </section>
+      </div>
+    </aside>
+  );
+
   if (showManageProfiles) {
     return (
-      <NoodleShell {...shellProps}>
-        <NoodlerFrame onBack={() => setShowManageProfiles(false)} title="Manage profiles">
+      <NoodleShell {...shellProps} rightRail={feedRightRail}>
+        <div className="flex h-full min-h-0 flex-col">
+          <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold">Stage profiles</p>
@@ -886,104 +972,22 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
               onAction={eligiblePublicAccounts.length > 0 ? beginCreate : undefined}
             />
           )}
-        </NoodlerFrame>
+          </main>
+        </div>
       </NoodleShell>
     );
   }
 
-  const suggestedCreators = (viewerQuery.data?.creators ?? []).filter((creator) => !creator.subscribed);
-
   return (
-    <NoodleShell
-      {...shellProps}
-      rightRail={
-        <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
-          <div className="sticky top-3 space-y-4">
-            <label className="flex h-11 items-center gap-2 rounded-full border border-[var(--noodle-divider)] bg-[var(--background)] px-4 text-sm transition-colors focus-within:border-[var(--noodle-blue)]">
-              <Search size={17} className="shrink-0 text-[var(--noodle-blue)]" />
-              <input
-                value={feedSearch}
-                onChange={(event) => setFeedSearch(event.target.value)}
-                placeholder="Search posts or @creators"
-                className="min-w-0 flex-1 border-0 bg-transparent text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
-              />
-              {feedSearch.trim() && (
-                <button
-                  type="button"
-                  onClick={() => setFeedSearch("")}
-                  className="flex h-6 w-6 items-center justify-center rounded-full text-[var(--noodle-blue)] hover:bg-[var(--noodle-blue)]/10"
-                  title="Clear search"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </label>
-
-            <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-              <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-                <h3 className="text-lg font-bold">Who to subscribe to</h3>
-              </div>
-              {suggestedCreators.length > 0 ? (
-                <div className="divide-y divide-[var(--noodle-divider)]">
-                  {suggestedCreators.map((creator) => (
-                    <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
-                      <ProfileInitial profile={creator.profile} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
-                        <span className="block truncate text-xs text-[var(--muted-foreground)]">
-                          @{creator.profile.handle}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        disabled={toggleSubscription.isPending}
-                        onClick={() => {
-                          if (!viewerPersonaId) return;
-                          toggleSubscription.mutate({
-                            creatorAccountId: creator.profile.id,
-                            personaId: viewerPersonaId,
-                            subscribed: false,
-                          });
-                        }}
-                        className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        Subscribe
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">You're subscribed to everyone!</p>
-              )}
-            </section>
-
-            <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
-              <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-                <h3 className="text-lg font-bold">Your stage profiles</h3>
-              </div>
-              <div className="px-4 py-3">
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Private identities and guided posts you publish as.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowManageProfiles(true)}
-                  className="mt-3 inline-flex h-9 w-full items-center justify-center gap-2 rounded-full bg-[var(--noodle-blue)] px-4 text-sm font-bold text-zinc-950 transition-opacity hover:opacity-90"
-                >
-                  Manage stage profiles
-                </button>
-              </div>
-            </section>
-          </div>
-        </aside>
-      }
-    >
+    <NoodleShell {...shellProps} rightRail={feedRightRail}>
       <ViewerHub
         personas={personas}
         scope={viewerQuery.data}
         isLoading={viewerQuery.isLoading}
         isError={viewerQuery.isError}
         onRetry={() => void viewerQuery.refetch()}
+        onRefresh={() => void viewerQuery.refetch()}
+        isRefreshing={viewerQuery.isFetching}
         unlockPending={unlockPost.isPending}
         postCardCtx={postCardCtx}
         onUnlock={(postId) => {
@@ -1662,6 +1666,8 @@ function ViewerHub({
   isLoading,
   isError,
   onRetry,
+  onRefresh,
+  isRefreshing,
   unlockPending,
   postCardCtx,
   onUnlock,
@@ -1678,6 +1684,8 @@ function ViewerHub({
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
+  onRefresh: () => void;
+  isRefreshing: boolean;
   unlockPending: boolean;
   postCardCtx: NoodlePostCardCtx;
   onUnlock: (postId: string) => void;
@@ -1739,6 +1747,23 @@ function ViewerHub({
         isPosting={isPosting}
         error={postError}
       />
+      <div className="border-b border-[var(--noodle-divider)] px-4 py-2">
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="flex h-9 w-full items-center justify-center gap-2 rounded-full text-sm font-bold text-[var(--noodle-blue)] transition-colors hover:bg-[var(--noodle-blue)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+          title="Refresh timeline"
+          aria-label="Refresh timeline"
+        >
+          {isRefreshing ? (
+            <Loader2 size={17} className="!text-[var(--noodle-blue)] animate-spin" />
+          ) : (
+            <RefreshCw size={17} className="!text-[var(--noodle-blue)]" />
+          )}
+          {isRefreshing ? "Refreshing" : "Refresh timeline"}
+        </button>
+      </div>
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 size={24} className="animate-spin text-[var(--noodle-blue)]" />
