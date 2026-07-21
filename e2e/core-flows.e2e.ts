@@ -137,6 +137,105 @@ test("turning off the custom mouse pointer persists immediately and after reload
     .toBeNull();
 });
 
+test("default dialogue color fills only cards without their own dialogue color", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Dialogue color precedence is covered on desktop.");
+
+  const uncoloredCharacterResponse = await page.request.post("/api/characters", {
+    data: { data: { name: "Global Dialogue Color" } },
+  });
+  expect(uncoloredCharacterResponse.ok()).toBeTruthy();
+  const uncoloredCharacter = (await uncoloredCharacterResponse.json()) as { id: string };
+
+  const coloredCharacterResponse = await page.request.post("/api/characters", {
+    data: {
+      data: {
+        name: "Card Dialogue Color",
+        extensions: { dialogueColor: "#22c55e" },
+      },
+    },
+  });
+  expect(coloredCharacterResponse.ok()).toBeTruthy();
+  const coloredCharacter = (await coloredCharacterResponse.json()) as { id: string };
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: {
+      name: "Default Dialogue Color Smoke",
+      mode: "roleplay",
+      characterIds: [uncoloredCharacter.id, coloredCharacter.id],
+    },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const uncoloredMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        characterId: uncoloredCharacter.id,
+        content: '"Use the global fallback."',
+      },
+    });
+    expect(uncoloredMessageResponse.ok()).toBeTruthy();
+    const uncoloredMessage = (await uncoloredMessageResponse.json()) as { id: string };
+
+    const coloredMessageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: {
+        role: "assistant",
+        characterId: coloredCharacter.id,
+        content: '"Keep the card override."',
+      },
+    });
+    expect(coloredMessageResponse.ok()).toBeTruthy();
+    const coloredMessage = (await coloredMessageResponse.json()) as { id: string };
+
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    const uncoloredDialogue = page
+      .locator(`[data-message-id="${uncoloredMessage.id}"] .mari-message-content strong`)
+      .first();
+    const coloredDialogue = page
+      .locator(`[data-message-id="${coloredMessage.id}"] .mari-message-content strong`)
+      .first();
+    await expect(uncoloredDialogue).toBeVisible();
+    await expect(coloredDialogue).toHaveCSS("color", "rgb(34, 197, 94)");
+
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Appearance" }).click();
+    const dialogueColorControl = page.locator("#settings-control-default-dialogue-color");
+    await dialogueColorControl.scrollIntoViewIfNeeded();
+    const dialogueColorToggle = dialogueColorControl.locator('input[type="checkbox"]');
+    await dialogueColorControl.locator("label[for]").first().click();
+    await expect(dialogueColorToggle).toBeChecked();
+    await dialogueColorControl.getByRole("button", { name: /Scheme default/ }).click();
+    await dialogueColorControl.getByLabel("Default Dialogue Color hex or CSS color").fill("#d946ef");
+
+    await expect(uncoloredDialogue).toHaveCSS("color", "rgb(217, 70, 239)");
+    await expect(coloredDialogue).toHaveCSS("color", "rgb(34, 197, 94)");
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{}}') as {
+            state?: { defaultDialogueColorEnabled?: unknown; defaultDialogueColor?: unknown };
+          };
+          return [persisted.state?.defaultDialogueColorEnabled, persisted.state?.defaultDialogueColor];
+        }),
+      )
+      .toEqual([true, "#d946ef"]);
+
+    await dialogueColorControl.locator("label[for]").first().click();
+    await expect(dialogueColorToggle).not.toBeChecked();
+    await expect(uncoloredDialogue).not.toHaveCSS("color", "rgb(217, 70, 239)");
+    await expect(coloredDialogue).toHaveCSS("color", "rgb(34, 197, 94)");
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+    await Promise.all([
+      page.request.delete(`/api/characters/${uncoloredCharacter.id}`).catch(() => undefined),
+      page.request.delete(`/api/characters/${coloredCharacter.id}`).catch(() => undefined),
+    ]);
+  }
+});
+
 test("Convo About Me keeps manual editing and native expanded-editor keyboard behavior", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "The shared Convo profile fields are covered on desktop.");
 

@@ -189,7 +189,7 @@ const CHARACTER_STATS_HELP =
   "HP is injected into the prompt so the AI knows the character's current health. Attributes are custom stats, like STR or DEX, that define the character's capabilities. The Character Tracker agent can adjust values based on combat, healing, and narrative events. Values set here serve as the initial/default state for new conversations.";
 
 const CHARACTER_COLORS_HELP =
-  "Name color is applied to the character's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of the character's message bubble in roleplay mode. Leave any field empty to use the default theme colors.";
+  "Name color is applied to the character's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of the character's message bubble in roleplay mode. An empty dialogue color uses the default from Settings > Appearance when enabled; other empty fields use theme colors.";
 
 const CHARACTER_LOREBOOK_HELP =
   "Attach lorebook/world-info entries to this character. Entries trigger from keywords during conversation; embedded card lorebooks can be imported into Marinara as linked lorebooks for deeper editing.";

@@ -49,7 +49,7 @@ import { chatKeys, rememberRecentMessageContentEdit } from "../../hooks/use-chat
 import { useShallow } from "zustand/react/shallow";
 import { createMessageMacroResolver } from "../../lib/chat-macros";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
-import { useUIStore } from "../../stores/ui.store";
+import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { useTranslate } from "../../hooks/use-translate";
@@ -1203,6 +1203,9 @@ export const ChatMessage = memo(function ChatMessage({
   const {
     chatFontSize,
     chatFontColor,
+    defaultDialogueColorEnabled,
+    defaultDialogueColor,
+    theme,
     chatFontOpacity,
     roleplayAvatarStyle,
     roleplayAvatarScale,
@@ -1222,6 +1225,9 @@ export const ChatMessage = memo(function ChatMessage({
     useShallow((s) => ({
       chatFontSize: s.chatFontSize,
       chatFontColor: s.chatFontColor,
+      defaultDialogueColorEnabled: s.defaultDialogueColorEnabled,
+      defaultDialogueColor: s.defaultDialogueColor,
+      theme: s.theme,
       chatFontOpacity: s.chatFontOpacity,
       roleplayAvatarStyle: s.roleplayAvatarStyle,
       roleplayAvatarScale: s.roleplayAvatarScale,
@@ -1881,7 +1887,10 @@ export const ChatMessage = memo(function ChatMessage({
         }
       : personaInfo
     : resolvedCharacterInfo;
-  const dialogueColor = msgColors?.dialogueColor;
+  const fallbackDialogueColor = defaultDialogueColorEnabled
+    ? defaultDialogueColor || getDefaultChatTextColor(theme)
+    : undefined;
+  const dialogueColor = msgColors?.dialogueColor || fallbackDialogueColor;
   const boxBgColor = msgColors?.boxColor;
   const msgNameColor = msgColors?.nameColor;
   const roleplayBubbleBg = boxBgColor ? boxBgColor : isUser ? userBubbleBg : assistantBubbleBg;

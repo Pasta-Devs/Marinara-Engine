@@ -62,7 +62,7 @@ import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useGameAssetManifest } from "../../hooks/use-game-assets";
 import { useGameModeStore } from "../../stores/game-mode.store";
-import { useUIStore } from "../../stores/ui.store";
+import { getDefaultChatTextColor, useUIStore } from "../../stores/ui.store";
 import { useChatStore } from "../../stores/chat.store";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
@@ -1012,6 +1012,14 @@ export function GameNarration({
   const gameDialogueDisplayMode = useUIStore((s) => s.gameDialogueDisplayMode);
   const gameTextEffectsEnabled = useUIStore((s) => s.gameTextEffectsEnabled);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
+  const defaultDialogueColorEnabled = useUIStore((s) => s.defaultDialogueColorEnabled);
+  const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
+  const theme = useUIStore((s) => s.theme);
+  const fallbackDialogueColor = defaultDialogueColorEnabled
+    ? defaultDialogueColor || getDefaultChatTextColor(theme)
+    : undefined;
+  const personaDialogueColor =
+    personaInfo?.dialogueColor || fallbackDialogueColor || personaInfo?.nameColor || "#a5b4fc";
   const useStackedLogDisplay = gameDialogueDisplayMode === "stacked";
   const showLogsButton = !useStackedLogDisplay;
   const [editingContent, setEditingContent] = useState<string | null>(null);
@@ -1105,20 +1113,20 @@ export function GameNarration({
   const speakerColors = useMemo(() => {
     const byName = new Map<string, string>();
     for (const [, c] of activeCharacterEntries) {
-      const color = c.dialogueColor || c.nameColor;
+      const color = c.dialogueColor || fallbackDialogueColor || c.nameColor;
       if (color) byName.set(normalizeTextForMatch(c.name), color);
     }
     if (speakerAvatarMap) {
       for (const [name, info] of speakerAvatarMap) {
-        const color = info.dialogueColor || info.nameColor;
+        const color = info.dialogueColor || fallbackDialogueColor || info.nameColor;
         if (color) byName.set(normalizeTextForMatch(name), color);
       }
     }
-    if (personaInfo?.name && (personaInfo.dialogueColor || personaInfo.nameColor)) {
-      byName.set(normalizeTextForMatch(personaInfo.name), personaInfo.dialogueColor || personaInfo.nameColor || "");
+    if (personaInfo?.name) {
+      byName.set(normalizeTextForMatch(personaInfo.name), personaDialogueColor);
     }
     return byName;
-  }, [activeCharacterEntries, personaInfo, speakerAvatarMap]);
+  }, [activeCharacterEntries, fallbackDialogueColor, personaDialogueColor, personaInfo?.name, speakerAvatarMap]);
 
   /** Name-display colors (prefers nameColor which may be a gradient). */
   const speakerNameColors = useMemo(() => {
@@ -1310,7 +1318,7 @@ export function GameNarration({
         if (!msg.content?.trim()) continue;
         if (isSyntheticGameStartMessage(msg)) continue;
         const playerName = personaInfo?.name || "You";
-        const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+        const color = personaDialogueColor;
         out.push({
           kind: "user",
           messageId: msg.id,
@@ -1337,7 +1345,7 @@ export function GameNarration({
       }
     }
     return out;
-  }, [messages, personaInfo, speakerColors, segmentDeletes]);
+  }, [messages, personaDialogueColor, personaInfo, speakerColors, segmentDeletes]);
 
   // Past-review entry the player is currently looking at. Each wheel-up bumps
   // `messageOffset`; we step back that many entries from the most recent log entry.
@@ -1530,7 +1538,7 @@ export function GameNarration({
     // Prepend the user's action as a player dialogue segment when we're streaming or just got a response
     if (latestUserMessage?.content && latestAssistant) {
       const playerName = personaInfo?.name || "You";
-      const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+      const color = personaDialogueColor;
       result.push({
         id: `${latestUserMessage.id}-player`,
         type: "dialogue",
@@ -1570,7 +1578,7 @@ export function GameNarration({
       // Prepend the player's party-chat input as a dialogue segment
       if (partyChatInput) {
         const playerName = personaInfo?.name || "You";
-        const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+        const color = personaDialogueColor;
         result.push({
           id: `party-chat-input-${result.length}`,
           type: "dialogue",
@@ -1715,6 +1723,7 @@ export function GameNarration({
     speakerColors,
     latestUserMessage,
     personaInfo,
+    personaDialogueColor,
     partyDialogue,
     partyChatInput,
     partyChatInputMessageId,
@@ -2375,7 +2384,7 @@ export function GameNarration({
       if (showUserMessages && msg.role === "user" && msg.content.trim()) {
         if (isSyntheticGameStartMessage(msg)) continue;
         const playerName = personaInfo?.name || "You";
-        const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+        const color = personaDialogueColor;
         entries.push({
           messageId: msg.id,
           segments: [
@@ -2481,7 +2490,7 @@ export function GameNarration({
       // Prepend the player's party-chat input
       if (partyChatInput) {
         const playerName = personaInfo?.name || "You";
-        const color = personaInfo?.dialogueColor || personaInfo?.nameColor || "#a5b4fc";
+        const color = personaDialogueColor;
         partySegs.push({
           id: "party-log-player-input",
           type: "dialogue" as const,
@@ -2585,6 +2594,7 @@ export function GameNarration({
     segments,
     showUserMessages,
     personaInfo,
+    personaDialogueColor,
     partyChatInput,
     partyChatInputMessageId,
     partyChatMessageId,
