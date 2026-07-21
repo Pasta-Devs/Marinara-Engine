@@ -769,15 +769,17 @@ function createNoodleLightboxImage(id: string, url: string, prompt = ""): ChatIm
   };
 }
 
-function NoodleToolButton({
+export function NoodleToolButton({
   active,
   title,
   onClick,
+  disabled,
   children,
 }: {
   active: boolean;
   title: string;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -786,9 +788,14 @@ function NoodleToolButton({
       onClick={onClick}
       title={title}
       aria-label={title}
+      disabled={disabled}
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-full p-0 !text-[var(--noodle-blue)] transition-colors active:scale-95 [&_svg]:!text-[var(--noodle-blue)]",
-        active ? "bg-[var(--noodle-blue)]/15 ring-1 ring-[var(--noodle-blue)]/25" : "hover:bg-[var(--noodle-blue)]/10",
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : active
+            ? "bg-[var(--noodle-blue)]/15 ring-1 ring-[var(--noodle-blue)]/25"
+            : "hover:bg-[var(--noodle-blue)]/10",
       )}
     >
       {children}
@@ -796,7 +803,60 @@ function NoodleToolButton({
   );
 }
 
-function NoodleAnchoredPopover({
+type NoodleComposerTool = { ref?: RefObject<HTMLDivElement | null>; active?: boolean; disabled?: boolean; onClick?: () => void };
+
+// Shared composer icon row (image / poll / emoji) so every Noodle surface renders
+// the identical toolbar. NoodleR disables image/poll (no attach path) and passes
+// a trailing coin control for monetization settings.
+export function NoodleComposerToolRow({
+  image,
+  poll,
+  media,
+  trailing,
+}: {
+  image: NoodleComposerTool;
+  poll: NoodleComposerTool;
+  media: NoodleComposerTool;
+  trailing?: React.ReactNode;
+}) {
+  return (
+    <>
+      <div ref={image.ref} className="relative">
+        <NoodleToolButton
+          title="Attach image"
+          active={Boolean(image.active)}
+          disabled={image.disabled}
+          onClick={() => image.onClick?.()}
+        >
+          <ImageIcon size={18} />
+        </NoodleToolButton>
+      </div>
+      <div ref={poll.ref} className="relative">
+        <NoodleToolButton
+          title={poll.active ? "Edit poll" : "Create poll"}
+          active={Boolean(poll.active)}
+          disabled={poll.disabled}
+          onClick={() => poll.onClick?.()}
+        >
+          <ListChecks size={18} />
+        </NoodleToolButton>
+      </div>
+      <div ref={media.ref} className="relative">
+        <NoodleToolButton
+          title="Emoji, GIFs and stickers"
+          active={Boolean(media.active)}
+          disabled={media.disabled}
+          onClick={() => media.onClick?.()}
+        >
+          <Smile size={18} />
+        </NoodleToolButton>
+      </div>
+      {trailing}
+    </>
+  );
+}
+
+export function NoodleAnchoredPopover({
   anchorRef,
   children,
   wide,
@@ -4887,35 +4947,23 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     )
                   }
                   tools={
-                    <>
-                      <div ref={imageToolRef} className="relative">
-                        <NoodleToolButton
-                          title="Attach image"
-                          active={activeComposerTool === "image"}
-                          onClick={() => setActiveComposerTool((current) => (current === "image" ? null : "image"))}
-                        >
-                          <ImageIcon size={18} />
-                        </NoodleToolButton>
-                      </div>
-                      <div ref={pollToolRef} className="relative">
-                        <NoodleToolButton
-                          title={draftPoll ? "Edit poll" : "Create poll"}
-                          active={activeComposerTool === "poll" || Boolean(draftPoll)}
-                          onClick={togglePollComposer}
-                        >
-                          <ListChecks size={18} />
-                        </NoodleToolButton>
-                      </div>
-                      <div ref={mediaToolRef} className="relative">
-                        <NoodleToolButton
-                          title="Emoji, GIFs and stickers"
-                          active={activeComposerTool === "media"}
-                          onClick={() => setActiveComposerTool((current) => (current === "media" ? null : "media"))}
-                        >
-                          <Smile size={18} />
-                        </NoodleToolButton>
-                      </div>
-                    </>
+                    <NoodleComposerToolRow
+                      image={{
+                        ref: imageToolRef,
+                        active: activeComposerTool === "image",
+                        onClick: () => setActiveComposerTool((current) => (current === "image" ? null : "image")),
+                      }}
+                      poll={{
+                        ref: pollToolRef,
+                        active: activeComposerTool === "poll" || Boolean(draftPoll),
+                        onClick: togglePollComposer,
+                      }}
+                      media={{
+                        ref: mediaToolRef,
+                        active: activeComposerTool === "media",
+                        onClick: () => setActiveComposerTool((current) => (current === "media" ? null : "media")),
+                      }}
+                    />
                   }
                   action={
                     <button

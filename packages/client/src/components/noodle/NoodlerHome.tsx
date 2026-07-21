@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
+  Coins,
   Eye,
   Loader2,
   Lock,
@@ -50,8 +51,17 @@ import { useActivePersona, usePersonas } from "../../hooks/use-characters";
 import { cn } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
 import { GuidedPostModal } from "./GuidedPostModal";
-import { BrowserChrome, formatTime, NoodleComposerShell, NoodlePostCard, type NoodlePostCardCtx } from "./NoodleHome";
-import type { ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
+import {
+  BrowserChrome,
+  formatTime,
+  NoodleAnchoredPopover,
+  NoodleComposerShell,
+  NoodleComposerToolRow,
+  NoodlePostCard,
+  NoodleToolButton,
+  type NoodlePostCardCtx,
+} from "./NoodleHome";
+import { ConversationMediaPickerPanel, type ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE, NOODLE_PINK, useNoodleAccent } from "./NoodleShell";
 import { Modal } from "../ui/Modal";
@@ -1751,6 +1761,8 @@ function ViewerHub({
   );
 }
 
+type InlineComposerTool = "media" | "coin";
+
 function InlineGuidedComposer({
   managedProfiles,
   onSubmit,
@@ -1762,22 +1774,26 @@ function InlineGuidedComposer({
   isPosting: boolean;
   error: string | null;
 }) {
-  const [profileId, setProfileId] = useState(managedProfiles[0]?.id ?? "");
   const [direction, setDirection] = useState("");
   const [access, setAccess] = useState<NoodlePostAccess>("public");
   const [ppvPrice, setPpvPrice] = useState("5");
-  const activeProfileId = managedProfiles.some((profile) => profile.id === profileId)
-    ? profileId
-    : (managedProfiles[0]?.id ?? "");
+  const [activeTool, setActiveTool] = useState<InlineComposerTool | null>(null);
+  const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
+  const mediaToolRef = useRef<HTMLDivElement | null>(null);
+  const coinToolRef = useRef<HTMLDivElement | null>(null);
   const parsedPrice = Number(ppvPrice);
+
+  // Posting always uses the active/default stage profile — the per-post identity
+  // picker is deferred to the scheduler/cross-mode slices, not a composer dropdown.
+  const activeProfile = managedProfiles[0];
 
   if (managedProfiles.length === 0) return null;
 
   const submit = () => {
-    if (!activeProfileId || direction.trim().length === 0) return;
+    if (!activeProfile || direction.trim().length === 0) return;
     if (access === "ppv" && (!Number.isFinite(parsedPrice) || parsedPrice < 0)) return;
     onSubmit({
-      profileId: activeProfileId,
+      profileId: activeProfile.id,
       direction,
       access,
       ppvPrice: access === "ppv" ? parsedPrice : null,
@@ -1785,40 +1801,29 @@ function InlineGuidedComposer({
     setDirection("");
   };
 
-  const activeProfile = managedProfiles.find((profile) => profile.id === activeProfileId) ?? managedProfiles[0];
+  const toggleTool = (tool: InlineComposerTool) => setActiveTool((current) => (current === tool ? null : tool));
 
   return (
     <NoodleComposerShell
       dataComponent="NoodlerHome.InlineComposer"
       avatar={activeProfile ? <ProfileInitial profile={activeProfile} /> : null}
       tools={
-        <>
-          <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--accent)] p-1">
-            {(["public", "subscriber", "ppv"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={access === option}
-                onClick={() => setAccess(option)}
-                className={`min-h-8 rounded px-2 text-xs font-bold capitalize ${access === option ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+        <NoodleComposerToolRow
+          image={{ disabled: true }}
+          poll={{ disabled: true }}
+          media={{ ref: mediaToolRef, active: activeTool === "media", onClick: () => toggleTool("media") }}
+          trailing={
+            <div ref={coinToolRef} className="relative">
+              <NoodleToolButton
+                title="Post visibility & price"
+                active={activeTool === "coin" || access !== "public"}
+                onClick={() => toggleTool("coin")}
               >
-                {option === "subscriber" ? "Subscribers" : option.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          {access === "ppv" && (
-            <input
-              type="number"
-              min="0"
-              max="999999"
-              step="0.01"
-              value={ppvPrice}
-              onChange={(event) => setPpvPrice(event.target.value)}
-              aria-label="PPV price"
-              className="mari-chrome-field h-8 w-24 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
-            />
-          )}
-        </>
+                <Coins size={18} />
+              </NoodleToolButton>
+            </div>
+          }
+        />
       }
       action={
         <button
@@ -1831,20 +1836,63 @@ function InlineGuidedComposer({
           {isPosting ? "Generating..." : "Post"}
         </button>
       }
+      popovers={
+        <>
+          {activeTool === "media" && (
+            <NoodleAnchoredPopover anchorRef={mediaToolRef} wide>
+              <ConversationMediaPickerPanel
+                tabs={[{ id: "emoji", label: "Emoji" }]}
+                activeTab={mediaPickerTab}
+                onActiveTabChange={setMediaPickerTab}
+                onClose={() => setActiveTool(null)}
+                onEmojiSelect={(emoji) => setDirection((current) => current + emoji)}
+                onGifSelect={() => {}}
+                onStickerSelect={(name) => setDirection((current) => `${current}sticker:${name}:`)}
+                className="w-full !border-[var(--marinara-chat-chrome-panel-border)] !bg-[var(--background)] !text-[var(--foreground)] shadow-2xl shadow-black/35"
+              />
+            </NoodleAnchoredPopover>
+          )}
+          {activeTool === "coin" && (
+            <NoodleAnchoredPopover anchorRef={coinToolRef}>
+              <div className="marinara-chat-popover space-y-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] p-3 text-[var(--foreground)] shadow-2xl shadow-black/35">
+                <p className="text-xs font-bold">Who can see this post</p>
+                <div className="grid grid-cols-3 gap-1 rounded-md bg-[var(--accent)] p-1">
+                  {(["public", "subscriber", "ppv"] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={access === option}
+                      onClick={() => setAccess(option)}
+                      className={`min-h-8 rounded px-2 text-xs font-bold capitalize ${access === option ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"}`}
+                    >
+                      {option === "subscriber" ? "Subscribers" : option.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                {access === "ppv" && (
+                  <label className="block space-y-1">
+                    <span className="text-[0.68rem] font-semibold uppercase tracking-normal text-[var(--marinara-chat-chrome-panel-muted)]">
+                      Unlock price (credits)
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="999999"
+                      step="0.01"
+                      value={ppvPrice}
+                      onChange={(event) => setPpvPrice(event.target.value)}
+                      aria-label="PPV price"
+                      className="mari-chrome-field h-9 w-full rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
+                    />
+                  </label>
+                )}
+              </div>
+            </NoodleAnchoredPopover>
+          )}
+        </>
+      }
       footer={error && <p className="mt-2 pl-14 text-xs text-[var(--destructive)]">{error}</p>}
     >
-      <select
-        value={activeProfileId}
-        onChange={(event) => setProfileId(event.target.value)}
-        className={`${fieldClass} mb-2`}
-        aria-label="Posting as"
-      >
-        {managedProfiles.map((profile) => (
-          <option key={profile.id} value={profile.id}>
-            Post as @{profile.handle}
-          </option>
-        ))}
-      </select>
       <textarea
         value={direction}
         onChange={(event) => setDirection(event.target.value)}
