@@ -38,9 +38,10 @@ export function resolveConversationSelfieSetup(input: {
   imageGenConnectionId: string | null;
 } {
   return {
-    conversationCommandToggles: input.selfieCommandAvailable
-      ? { ...input.commandToggles, selfie: input.selfieCommandEnabled }
-      : { ...input.commandToggles },
+    conversationCommandToggles: {
+      ...input.commandToggles,
+      ...(input.selfieCommandAvailable ? { selfie: input.selfieCommandEnabled } : {}),
+    },
     imageGenConnectionId: resolveConversationSelfieConnectionId({
       currentConnectionId: input.currentConnectionId,
       selfieCommandEnabled: input.selfieCommandEnabled,

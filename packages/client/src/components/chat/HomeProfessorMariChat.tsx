@@ -3100,7 +3100,6 @@ export function HomeProfessorMariChat({
             value={draft}
             onChange={(event) => {
               setDraft(event.target.value);
-              resizeComposer(event.currentTarget);
               if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
             }}
             onKeyDown={(event) => {
@@ -3111,7 +3110,7 @@ export function HomeProfessorMariChat({
             }}
             rows={1}
             placeholder="Ask Professor Mari..."
-            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isBusy}
           />
           <button
@@ -3723,7 +3722,6 @@ export function HomeProfessorMariChat({
                             value={draft}
                             onChange={(event) => {
                               setDraft(event.target.value);
-                              resizeComposer(event.currentTarget);
                               if (mobileFocusMode) event.currentTarget.scrollIntoView({ block: "end" });
                             }}
                             onKeyDown={(event) => {
@@ -3734,7 +3732,7 @@ export function HomeProfessorMariChat({
                             }}
                             rows={1}
                             placeholder="Ask Professor Mari..."
-                            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
                             disabled={isBusy}
                           />
                           <button
