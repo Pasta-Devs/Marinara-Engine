@@ -144,9 +144,24 @@ export async function noodleRoutes(app: FastifyInstance) {
       visibleAccounts.map((account) => account.id),
       40,
     );
-    const allPostIds = [...postsByAccount.values()].flatMap((posts) => posts.map((post) => post.id));
+    const viewablePostIds = new Set<string>();
+    for (const account of visibleAccounts) {
+      const subscribed = subscribedIds.has(account.id);
+      for (const post of postsByAccount.get(account.id) ?? []) {
+        if (
+          canViewNoodlerPost({
+            post,
+            subscribed,
+            unlockedPostIds: unlockedIds,
+            subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
+          })
+        ) {
+          viewablePostIds.add(post.id);
+        }
+      }
+    }
     const interactionsByPostId = new Map<string, NoodlerPostView["interactions"]>();
-    for (const interaction of await noodle.listPrivateInteractions(allPostIds)) {
+    for (const interaction of await noodle.listPrivateInteractions([...viewablePostIds])) {
       const existing = interactionsByPostId.get(interaction.postId) ?? [];
       existing.push(interaction);
       interactionsByPostId.set(interaction.postId, existing);
@@ -158,12 +173,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         profile: profileById.get(account.id)!,
         subscribed,
         posts: posts.map((post): NoodlerPostView => {
-          const locked = !canViewNoodlerPost({
-            post,
-            subscribed,
-            unlockedPostIds: unlockedIds,
-            subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
-          });
+          const locked = !viewablePostIds.has(post.id);
           return {
             id: post.id,
             authorAccountId: post.authorAccountId,

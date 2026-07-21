@@ -1000,8 +1000,8 @@ export interface NoodlePostCardReplyManagementCap {
   setEditingReplyContent: React.Dispatch<React.SetStateAction<string>>;
   startEditingReply: (reply: NoodleInteraction) => void;
   cancelEditingReply: () => void;
-  saveEditedReply: (post: NoodlePost, reply: NoodleInteraction) => void;
-  deleteNoodleReply: (post: NoodlePost, reply: NoodleInteraction) => void;
+  saveEditedReply: (post: NoodlePostCardModel, reply: NoodleInteraction) => void;
+  deleteNoodleReply: (post: NoodlePostCardModel, reply: NoodleInteraction) => void;
   updateInteraction: { isPending: boolean };
   deleteInteraction: { isPending: boolean };
   /** Gate reply Edit/Delete. Omit for the default author-based check. */
@@ -1016,10 +1016,18 @@ export interface NoodlePostCardMentionsCap {
   selectReplyMention: (account: NoodleAccount) => void;
 }
 
-export interface NoodlePostCardCtx {
-  accountById: Map<string, NoodleAccount>;
-  accountByHandle: Map<string, NoodleAccount>;
-  interactions: NoodleInteraction[];
+type NoodlePostCardAuthor = Pick<
+  NonNullable<NoodlePost["authorSnapshot"]>,
+  "id" | "handle" | "displayName" | "avatarUrl" | "avatarCrop"
+>;
+export type NoodlePostCardModel = Pick<
+  NoodlePost,
+  "id" | "authorAccountId" | "content" | "imageUrl" | "imagePrompt" | "metadata" | "createdAt"
+> & { authorSnapshot: NoodlePostCardAuthor | null; interactions: NoodleInteraction[] };
+
+interface NoodlePostCardCtx {
+  accountById?: Map<string, NoodleAccount>;
+  accountByHandle?: Map<string, NoodleAccount>;
   personaAccount: NoodleAccount | null;
   postMenuId: string | null;
   setPostMenuId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1039,28 +1047,26 @@ export interface NoodlePostCardCtx {
   replyComposerRef: RefObject<HTMLTextAreaElement | null>;
   replyValueRef: RefObject<string>;
   replyMediaToolRef: RefObject<HTMLDivElement | null>;
-  startEditingPost: (post: NoodlePost) => void;
-  deleteNoodlePost: (post: NoodlePost) => void;
+  startEditingPost: (post: NoodlePostCardModel) => void;
+  deleteNoodlePost: (post: NoodlePostCardModel) => void;
   cancelEditingPost: () => void;
-  saveEditedPost: (post: NoodlePost) => void;
-  reactToPost: (post: NoodlePost, type: "like" | "repost", active?: boolean) => void;
-  reactToReply: (post: NoodlePost, target: NoodleInteraction, active: boolean) => void;
+  saveEditedPost: (post: NoodlePostCardModel) => void;
+  reactToPost: (post: NoodlePostCardModel, type: "like" | "repost", active?: boolean) => void;
+  reactToReply: (post: NoodlePostCardModel, target: NoodleInteraction, active: boolean) => void;
   openReplyComposer: (postId: string, parentInteractionId?: string | null) => void;
   handleReplyChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
   /** Reply composer keydown (mention nav / submit shortcuts). Omit on hosts without them. */
   handleReplyKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   clearReplyComposer: () => void;
-  submitReply: (post: NoodlePost) => void;
+  submitReply: (post: NoodlePostCardModel) => void;
   appendToReply: (text: string) => void;
   reactionPendingFor: (postId: string, type: "like" | "repost", parentInteractionId?: string | null) => boolean;
   createInteractionPendingFor: (postId: string, type: NoodleInteractionType, parentInteractionId?: string | null) => boolean;
   updatePost: { isPending: boolean };
-  /** Gate the three-dot post menu (Edit/Delete). Omit to always show (Noodle default). */
-  canManagePost?: (post: NoodlePost) => boolean;
   /** Navigate to an author/mention profile. Omit on hosts without profile navigation (NoodleR). */
   openProfile?: (account: NoodleAccount | null) => void;
   /** Vote in a post's poll. Omit on hosts without polls (NoodleR); pollless posts never call it. */
-  voteInPoll?: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void;
+  voteInPoll?: (post: NoodlePostCardModel, optionId: string, selectedOptionId: string | null) => void;
   /** Reply image/upload capability. Absent → the card hides all reply-image affordances. */
   media?: NoodlePostCardMediaCap;
   /** Reply edit/delete capability. Absent → reply management UI stays hidden. */
@@ -1069,11 +1075,145 @@ export interface NoodlePostCardCtx {
   mentions?: NoodlePostCardMentionsCap;
 }
 
-export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePostCardCtx }) {
+interface NoodlePostCardControllerOptions {
+  personaAccount: NoodleAccount | null;
+  savePost: (post: NoodlePostCardModel, content: string) => Promise<void>;
+  deletePost: (post: NoodlePostCardModel) => void;
+  reactToPost: (post: NoodlePostCardModel, type: "like" | "repost", active?: boolean) => void;
+  reactToReply: (post: NoodlePostCardModel, target: NoodleInteraction, active: boolean) => void;
+  submitReply: (
+    post: NoodlePostCardModel,
+    input: { content: string; parentInteractionId: string | null },
+  ) => Promise<void>;
+  reactionPendingFor: (postId: string, type: "like" | "repost", parentInteractionId?: string | null) => boolean;
+  createInteractionPendingFor: (
+    postId: string,
+    type: NoodleInteractionType,
+    parentInteractionId?: string | null,
+  ) => boolean;
+  updatePostPending: boolean;
+}
+
+export function useNoodlePostCardController(options: NoodlePostCardControllerOptions) {
+  const [postMenuId, setPostMenuId] = useState<string | null>(null);
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostContent, setEditingPostContent] = useState("");
+  const [replyPostId, setReplyPostId] = useState<string | null>(null);
+  const [replyParentInteractionId, setReplyParentInteractionId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [replyHasText, setReplyHasText] = useState(false);
+  const [activeReplyComposerTool, setActiveReplyComposerTool] = useState<ReplyComposerTool | null>(null);
+  const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
+  const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
+  const replyValueRef = useRef("");
+  const replyMediaToolRef = useRef<HTMLDivElement | null>(null);
+
+  const clearReplyComposer = () => {
+    setReplyPostId(null);
+    setReplyParentInteractionId(null);
+    setReplyText("");
+    replyValueRef.current = "";
+    setReplyHasText(false);
+    setActiveReplyComposerTool(null);
+    if (replyComposerRef.current) replyComposerRef.current.value = "";
+  };
+  const cancelEditingPost = () => {
+    setEditingPostId(null);
+    setEditingPostContent("");
+  };
+  const reset = () => {
+    clearReplyComposer();
+    setPostMenuId(null);
+    cancelEditingPost();
+  };
+  const openReplyComposer = (postId: string, parentInteractionId: string | null = null) => {
+    clearReplyComposer();
+    setReplyPostId(postId);
+    setReplyParentInteractionId(parentInteractionId);
+  };
+  const handleReplyChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    replyValueRef.current = event.target.value;
+    setReplyHasText(event.target.value.trim().length > 0);
+  };
+  const appendToReply = (text: string) => {
+    const next = replyValueRef.current + text;
+    replyValueRef.current = next;
+    setReplyText(next);
+    setReplyHasText(next.trim().length > 0);
+    if (replyComposerRef.current) replyComposerRef.current.value = next;
+  };
+  const startEditingPost = (post: NoodlePostCardModel) => {
+    setPostMenuId(null);
+    setEditingPostId(post.id);
+    setEditingPostContent(post.content);
+  };
+  const saveEditedPost = (post: NoodlePostCardModel) => {
+    const content = editingPostContent.trim();
+    if (!content) return;
+    void options
+      .savePost(post, content)
+      .then(cancelEditingPost)
+      .catch(() => {});
+  };
+  const submitReply = (post: NoodlePostCardModel) => {
+    const content = replyValueRef.current.trim();
+    if (!content) return;
+    void options
+      .submitReply(post, { content, parentInteractionId: replyParentInteractionId })
+      .then(clearReplyComposer)
+      .catch(() => {});
+  };
+  const deletePost = (post: NoodlePostCardModel) => {
+    setPostMenuId(null);
+    options.deletePost(post);
+  };
+
+  const ctx: NoodlePostCardCtx = {
+    personaAccount: options.personaAccount,
+    postMenuId,
+    setPostMenuId,
+    editingPostId,
+    editingPostContent,
+    setEditingPostContent,
+    replyPostId,
+    replyParentInteractionId,
+    replyText,
+    replyHasText,
+    setReplyText,
+    activeReplyComposerTool,
+    setActiveReplyComposerTool,
+    highlightedInteractionId: null,
+    mediaPickerTab,
+    setMediaPickerTab,
+    replyComposerRef,
+    replyValueRef,
+    replyMediaToolRef,
+    startEditingPost,
+    deleteNoodlePost: deletePost,
+    cancelEditingPost,
+    saveEditedPost,
+    reactToPost: options.reactToPost,
+    reactToReply: options.reactToReply,
+    openReplyComposer,
+    handleReplyChange,
+    clearReplyComposer,
+    submitReply,
+    appendToReply,
+    reactionPendingFor: options.reactionPendingFor,
+    createInteractionPendingFor: options.createInteractionPendingFor,
+    updatePost: { isPending: options.updatePostPending },
+  };
+  return { ctx, reset };
+}
+
+export function NoodlePostCard({
+  post,
+  ctx,
+}: {
+  post: NoodlePostCardModel;
+  ctx: NoodlePostCardCtx;
+}) {
   const {
-    accountById,
-    accountByHandle,
-    interactions,
     personaAccount,
     postMenuId,
     setPostMenuId,
@@ -1107,11 +1247,12 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     reactionPendingFor,
     createInteractionPendingFor,
     updatePost,
-    canManagePost,
     media,
     replyManagement,
     mentions,
   } = ctx;
+  const accountById = ctx.accountById ?? new Map<string, NoodleAccount>();
+  const accountByHandle = ctx.accountByHandle ?? new Map<string, NoodleAccount>();
 
   // Card-owned defaults for absent capability groups. Hosts pass only the capabilities they
   // support (NoodleR omits media/replyManagement/mentions/poll/profile); the card fills the
@@ -1123,7 +1264,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
   const openProfile: (account: NoodleAccount | null) => void = ctx.openProfile ?? (() => {});
   const handleReplyKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void =
     ctx.handleReplyKeyDown ?? (() => {});
-  const voteInPoll: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void =
+  const voteInPoll: (post: NoodlePostCardModel, optionId: string, selectedOptionId: string | null) => void =
     ctx.voteInPoll ?? (() => {});
   const disableReplyImage = !media;
   const setImageLightbox: React.Dispatch<React.SetStateAction<ChatImage | null>> =
@@ -1143,9 +1284,9 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     replyManagement?.setEditingReplyContent ?? (() => {});
   const startEditingReply: (reply: NoodleInteraction) => void = replyManagement?.startEditingReply ?? (() => {});
   const cancelEditingReply: () => void = replyManagement?.cancelEditingReply ?? (() => {});
-  const saveEditedReply: (post: NoodlePost, reply: NoodleInteraction) => void =
+  const saveEditedReply: (post: NoodlePostCardModel, reply: NoodleInteraction) => void =
     replyManagement?.saveEditedReply ?? (() => {});
-  const deleteNoodleReply: (post: NoodlePost, reply: NoodleInteraction) => void =
+  const deleteNoodleReply: (post: NoodlePostCardModel, reply: NoodleInteraction) => void =
     replyManagement?.deleteNoodleReply ?? (() => {});
   const updateInteraction = replyManagement?.updateInteraction ?? { isPending: false };
   const deleteInteraction = replyManagement?.deleteInteraction ?? { isPending: false };
@@ -1157,7 +1298,7 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
 
     const authorAccount = accountById.get(post.authorAccountId) ?? null;
     const author = authorAccount ?? post.authorSnapshot;
-    const postInteractions = interactions.filter((interaction) => interaction.postId === post.id);
+    const postInteractions = post.interactions;
     const rootPostInteractions = postInteractions.filter((interaction) => !interaction.parentInteractionId);
     const poll = readNoodlePollFromMetadata(post.metadata);
     const pollVotes = poll
@@ -1403,7 +1544,6 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
                 <span className="text-xs text-[var(--muted-foreground)]">@{author?.handle ?? "noodle"}</span>
                 <span className="text-xs text-[var(--muted-foreground)]">{formatTime(post.createdAt)}</span>
               </div>
-              {(canManagePost ? canManagePost(post) : true) && (
               <div className="relative shrink-0">
                 <button
                   type="button"
@@ -1435,7 +1575,6 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
                   </div>
                 )}
               </div>
-              )}
             </div>
             {editingPostId === post.id ? (
               <div className="mt-2 space-y-2">
@@ -2005,6 +2144,15 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   );
   const posts = useMemo(() => data?.posts ?? [], [data?.posts]);
   const interactions = useMemo(() => data?.interactions ?? [], [data?.interactions]);
+  const interactionsByPostId = useMemo(() => {
+    const grouped = new Map<string, NoodleInteraction[]>();
+    for (const interaction of interactions) {
+      const postInteractions = grouped.get(interaction.postId) ?? [];
+      postInteractions.push(interaction);
+      grouped.set(interaction.postId, postInteractions);
+    }
+    return grouped;
+  }, [interactions]);
   const scheduler = data?.scheduler;
   const accountById = useMemo(() => new Map(accounts.map((account) => [account.id, account])), [accounts]);
   const accountByHandle = useMemo(
@@ -3097,7 +3245,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     );
   };
 
-  const reactToPost = (post: NoodlePost, type: "like" | "repost", active = false) => {
+  const reactToPost = (post: NoodlePostCardModel, type: "like" | "repost", active = false) => {
     if (!personaAccount) return;
     if (active) {
       removeInteraction.mutate(
@@ -3127,7 +3275,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     );
   };
 
-  const voteInPoll = (post: NoodlePost, optionId: string, selectedOptionId: string | null) => {
+  const voteInPoll = (post: NoodlePostCardModel, optionId: string, selectedOptionId: string | null) => {
     if (!personaAccount || optionId === selectedOptionId) return;
     createInteraction.mutate(
       {
@@ -3143,7 +3291,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     );
   };
 
-  const submitReply = (post: NoodlePost) => {
+  const submitReply = (post: NoodlePostCardModel) => {
     const replyContent = replyValueRef.current.trim();
     if (!personaAccount || (!replyContent && !replyImageUrl.trim())) return;
     createInteraction.mutate(
@@ -3187,7 +3335,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     createInteractionPendingFor(postId, type, parentInteractionId) ||
     removeInteractionPendingFor(postId, type, parentInteractionId);
 
-  const reactToReply = (post: NoodlePost, target: NoodleInteraction, active: boolean) => {
+  const reactToReply = (post: NoodlePostCardModel, target: NoodleInteraction, active: boolean) => {
     if (!personaAccount) return;
     const input = {
       postId: post.id,
@@ -3210,7 +3358,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     );
   };
 
-  const startEditingPost = (post: NoodlePost) => {
+  const startEditingPost = (post: NoodlePostCardModel) => {
     setEditingPostId(post.id);
     setEditingPostContent(post.content);
     setPostMenuId(null);
@@ -3221,7 +3369,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     setEditingPostContent("");
   };
 
-  const saveEditedPost = (post: NoodlePost) => {
+  const saveEditedPost = (post: NoodlePostCardModel) => {
     const content = editingPostContent.trim();
     if (!content) {
       toast.error("Posts cannot be empty.");
@@ -3246,7 +3394,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     setEditingReplyContent("");
   };
 
-  const saveEditedReply = (post: NoodlePost, reply: NoodleInteraction) => {
+  const saveEditedReply = (post: NoodlePostCardModel, reply: NoodleInteraction) => {
     if (!personaAccount) return;
     const content = editingReplyContent.trim();
     if (!content && !reply.imageUrl) {
@@ -3267,7 +3415,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     );
   };
 
-  const deleteNoodleReply = (post: NoodlePost, reply: NoodleInteraction) => {
+  const deleteNoodleReply = (post: NoodlePostCardModel, reply: NoodleInteraction) => {
     setConfirmAction({
       kind: "delete-reply",
       postId: post.id,
@@ -3278,7 +3426,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     });
   };
 
-  const deleteNoodlePost = (post: NoodlePost) => {
+  const deleteNoodlePost = (post: NoodlePostCardModel) => {
     setPostMenuId(null);
     setConfirmAction({
       kind: "delete-post",
@@ -4373,10 +4521,12 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   );
 
   const renderPostArticle = (post: NoodlePost) => (
-    <NoodlePostCard key={post.id} post={post} ctx={{
+    <NoodlePostCard
+      key={post.id}
+      post={{ ...post, interactions: interactionsByPostId.get(post.id) ?? [] }}
+      ctx={{
         accountById,
         accountByHandle,
-        interactions,
         personaAccount,
         postMenuId,
         setPostMenuId,
@@ -4441,7 +4591,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           replyMentionSuggestions,
           selectReplyMention,
         },
-      }} />
+      }}
+    />
   );
 
   const renderAccountRow = (account: NoodleAccount, options?: { showFollowButton?: boolean }) => {

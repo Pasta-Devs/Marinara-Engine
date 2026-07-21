@@ -22,7 +22,6 @@ import type {
   NoodleIdentityDisclosure,
   NoodleAccount,
   NoodleInteraction,
-  NoodlePost,
   NoodlePostAccess,
   NoodlerPostView,
   NoodleStageProfileInput,
@@ -62,7 +61,8 @@ import {
   NoodleComposerToolRow,
   NoodlePostCard,
   NoodleToolButton,
-  type NoodlePostCardCtx,
+  type NoodlePostCardModel,
+  useNoodlePostCardController,
 } from "./NoodleHome";
 import { ConversationMediaPickerPanel, type ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
 import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE, NOODLE_PINK, useNoodleAccent } from "./NoodleShell";
@@ -81,31 +81,31 @@ interface NoodlerHomeProps {
   onNavigate: (destination: NoodleNavigationState) => void;
 }
 
-// Adapts a NoodlerPostView + creator profile into the NoodlePost shape the shared card renders.
-function toNoodlePost(view: NoodlerPostView, profile: NoodlerStageProfile): NoodlePost {
+interface PrivatePostSubmission {
+  profileId: string;
+  direction: string;
+  access: NoodlePostAccess;
+  ppvPrice: number | null;
+  onSuccess?: () => void;
+}
+
+function toNoodlePostCardModel(view: NoodlerPostView, profile: NoodlerStageProfile): NoodlePostCardModel {
   return {
     id: view.id,
     authorAccountId: view.authorAccountId,
     content: view.content ?? "",
     imageUrl: view.imageUrl,
     imagePrompt: view.imagePrompt,
-    parentPostId: null,
-    quotePostId: null,
-    source: "generated",
-    access: view.access,
-    ppvPrice: view.ppvPrice,
     metadata: view.metadata ?? {},
     authorSnapshot: {
       id: profile.id,
-      kind: "character",
-      entityId: profile.id,
       handle: profile.handle,
       displayName: profile.displayName,
       avatarUrl: profile.avatarUrl,
       avatarCrop: profile.avatarCrop,
     },
     createdAt: view.createdAt,
-    updatedAt: view.createdAt,
+    interactions: view.interactions,
   };
 }
 
@@ -182,10 +182,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const switchViewerPersona = (account: NoodleAccount, mobile: boolean) => {
     // A reply/edit composed as the previous persona must not carry over and submit as the
     // newly-selected one, so discard in-flight composer, tool, and post-menu state first.
-    clearReplyComposer();
-    setActiveReplyComposerTool(null);
-    setPostMenuId(null);
-    cancelEditingPost();
+    postCardController.reset();
     setStoredPersonaId(account.entityId);
     if (mobile) setMobileDrawerOpen(false);
     else setAccountSwitcherOpen(false);
@@ -236,19 +233,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   // viewer feed is refetched on success.
   const updatePost = useUpdateNoodlerPost();
   const deletePost = useDeleteNoodlerPost();
-  const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [editingPostContent, setEditingPostContent] = useState("");
-  // State backing the shared NoodlePostCard's reply composer / interaction chrome.
-  const [postMenuId, setPostMenuId] = useState<string | null>(null);
-  const [replyPostId, setReplyPostId] = useState<string | null>(null);
-  const [replyParentInteractionId, setReplyParentInteractionId] = useState<string | null>(null);
-  const [replyText, setReplyText] = useState("");
-  const [replyHasText, setReplyHasText] = useState(false);
-  const [activeReplyComposerTool, setActiveReplyComposerTool] = useState<"image" | "media" | null>(null);
-  const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
-  const replyComposerRef = useRef<HTMLTextAreaElement | null>(null);
-  const replyValueRef = useRef("");
-  const replyMediaToolRef = useRef<HTMLDivElement | null>(null);
   const updateAccess = useUpdateNoodlerAccess();
   const [sourceSearch, setSourceSearch] = useState("");
   const [sourceKind, setSourceKind] = useState<"all" | "character" | "persona">("all");
@@ -263,6 +247,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const generatePost = useGeneratePrivateNoodlePost();
   const generateProfileDraft = useGenerateNoodlerStageProfileDraft();
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  // Keep the posting identity above ViewerHub: profile management unmounts the inline
+  // composer, but it must not reset the author to the most recently edited profile.
+  const [postingProfileId, setPostingProfileId] = useState<string | null>(null);
   const [profileDraft, setProfileDraft] = useState<NoodleStageProfileInput | null>(null);
   const [draftPublicAccountId, setDraftPublicAccountId] = useState<string | null>(null);
   const [creationStep, setCreationStep] = useState<"source" | "disclosure" | "draft" | null>(null);
@@ -272,6 +259,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [guidedProfile, setGuidedProfile] = useState<NoodlerStageProfile | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  useEffect(() => {
+    const profiles = accountsQuery.data;
+    if (!profiles) return;
+    const currentStillExists = postingProfileId && profiles.some((profile) => profile.id === postingProfileId);
+    if (!currentStillExists) setPostingProfileId(profiles[0]?.id ?? null);
+  }, [accountsQuery.data, postingProfileId]);
   // Returns false (and blocks navigation) when there is an unsaved create/edit draft the
   // user chose to keep. Covers both new drafts and changed edits so no surface silently
   // discards work.
@@ -301,142 +294,66 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setGuidedProfile(null);
     setEditingProfileId(null);
   };
-  const openReplyComposer = (postId: string, parentInteractionId: string | null = null) => {
-    setReplyPostId(postId);
-    setReplyParentInteractionId(parentInteractionId);
-    setReplyText("");
-    replyValueRef.current = "";
-    setReplyHasText(false);
-    if (replyComposerRef.current) replyComposerRef.current.value = "";
-  };
-  const clearReplyComposer = () => {
-    setReplyPostId(null);
-    setReplyParentInteractionId(null);
-    setReplyText("");
-    replyValueRef.current = "";
-    setReplyHasText(false);
-    if (replyComposerRef.current) replyComposerRef.current.value = "";
-  };
-  const handleReplyChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    replyValueRef.current = event.target.value;
-    const hasText = event.target.value.trim().length > 0;
-    if (hasText !== replyHasText) setReplyHasText(hasText);
-  };
-  const appendToReply = (text: string) => {
-    const next = replyValueRef.current + text;
-    replyValueRef.current = next;
-    setReplyText(next);
-    setReplyHasText(next.trim().length > 0);
-    if (replyComposerRef.current) replyComposerRef.current.value = next;
-  };
-  const reactToPost = (post: NoodlePost, type: "like" | "repost", active = false) => {
+  const reactToPost = (post: NoodlePostCardModel, type: "like" | "repost", active = false) => {
     if (!viewerPersonaId) return;
     const onError = (error: unknown) =>
       toast.error(errorMessage(error, active ? "Could not undo that reaction." : "Could not react to this post."));
     if (active) removeInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type }, { onError });
     else createInteraction.mutate({ postId: post.id, personaId: viewerPersonaId, type }, { onError });
   };
-  const reactToReply = (post: NoodlePost, reply: NoodleInteraction, active: boolean) => {
+  const reactToReply = (post: NoodlePostCardModel, reply: NoodleInteraction, active: boolean) => {
     if (!viewerPersonaId) return;
     const payload = { postId: post.id, personaId: viewerPersonaId, type: "like" as const, parentInteractionId: reply.id };
     const onError = (error: unknown) => toast.error(errorMessage(error, "Could not react to this reply."));
     if (active) removeInteraction.mutate(payload, { onError });
     else createInteraction.mutate(payload, { onError });
   };
-  const submitReply = (post: NoodlePost) => {
-    const content = replyValueRef.current.trim();
-    if (!viewerPersonaId || !content) return;
-    createInteraction.mutate(
+  const submitReply = async (
+    post: NoodlePostCardModel,
+    input: { content: string; parentInteractionId: string | null },
+  ) => {
+    if (!viewerPersonaId) return;
+    await createInteraction.mutateAsync(
       {
         postId: post.id,
         personaId: viewerPersonaId,
         type: "reply",
-        content,
-        ...(replyParentInteractionId ? { parentInteractionId: replyParentInteractionId } : {}),
+        content: input.content,
+        ...(input.parentInteractionId ? { parentInteractionId: input.parentInteractionId } : {}),
       },
       {
-        onSuccess: clearReplyComposer,
         onError: (error) => toast.error(errorMessage(error, "Could not post this reply.")),
       },
     );
   };
-  const startEditingPost = (post: NoodlePost) => {
-    setPostMenuId(null);
-    setEditingPostId(post.id);
-    setEditingPostContent(post.content);
-  };
-  const cancelEditingPost = () => {
-    setEditingPostId(null);
-    setEditingPostContent("");
-  };
-  const saveEditedPost = (post: NoodlePost) => {
-    const content = editingPostContent.trim();
-    if (!content) return;
-    updatePost.mutate(
+  const savePost = async (post: NoodlePostCardModel, content: string) => {
+    await updatePost.mutateAsync(
       { id: post.id, content },
       {
-        onSuccess: () => {
-          cancelEditingPost();
-          void viewerQuery.refetch();
-        },
+        onSuccess: () => void viewerQuery.refetch(),
         onError: (error) => toast.error(errorMessage(error, "Could not update this post.")),
       },
     );
   };
-  const deleteNoodlePost = (post: NoodlePost) => {
-    setPostMenuId(null);
+  const deleteNoodlePost = (post: NoodlePostCardModel) => {
     if (!window.confirm("Delete this NoodleR post along with its likes, reposts, and replies?")) return;
     deletePost.mutate(post.id, {
       onSuccess: () => void viewerQuery.refetch(),
       onError: (error) => toast.error(errorMessage(error, "Could not delete this post.")),
     });
   };
-  const allViewerInteractions = (viewerQuery.data?.creators ?? [])
-    .flatMap((creator) => creator.posts)
-    .flatMap((post) => post.interactions);
-  // NoodleR is a text-only roleplay sandbox: it supports post edit/delete, reactions, and
-  // text replies, but not reply images, reply editing/deletion, @mentions, polls, or profile
-  // navigation. It therefore omits the media/replyManagement/mentions/voteInPoll/openProfile
-  // capability groups entirely — the shared card supplies the no-op defaults and hides the
-  // corresponding UI, so NoodleR passes no discarded setters, dangling refs, or fake mutations.
-  const postCardCtx: NoodlePostCardCtx = {
-    accountById: new Map(),
-    accountByHandle: new Map(),
-    interactions: allViewerInteractions,
+  const postCardController = useNoodlePostCardController({
     personaAccount: shellPersonaAccount,
-    postMenuId,
-    setPostMenuId,
-    editingPostId,
-    editingPostContent,
-    setEditingPostContent,
-    replyPostId,
-    replyParentInteractionId,
-    replyText,
-    replyHasText,
-    setReplyText,
-    activeReplyComposerTool,
-    setActiveReplyComposerTool,
-    highlightedInteractionId: null,
-    mediaPickerTab,
-    setMediaPickerTab,
-    replyComposerRef,
-    replyValueRef,
-    replyMediaToolRef,
-    startEditingPost,
-    deleteNoodlePost,
-    cancelEditingPost,
-    saveEditedPost,
+    savePost,
+    deletePost: deleteNoodlePost,
     reactToPost,
     reactToReply,
-    openReplyComposer,
-    handleReplyChange,
-    clearReplyComposer,
     submitReply,
-    appendToReply,
     reactionPendingFor: () => false,
     createInteractionPendingFor: (_postId, type) => type === "reply" && createInteraction.isPending,
-    updatePost: { isPending: updatePost.isPending },
-  };
+    updatePostPending: updatePost.isPending,
+  });
+  const postCardCtx = postCardController.ctx;
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
   const postsQuery = useNoodlerPosts(selectedProfile?.id ?? null);
   const eligiblePublicAccounts = eligibleAccountsQuery.data?.pages.flatMap((page) => page.items) ?? [];
@@ -546,48 +463,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     }
   };
 
-  const submitGuidedPost = ({
-    direction,
-    access,
-    ppvPrice,
-  }: {
-    direction: string;
-    access: NoodlePostAccess;
-    ppvPrice: number | null;
-  }) => {
-    if (!guidedProfile) return;
-    setGenerationError(null);
-    generatePost.mutate(
-      {
-        mode: "private",
-        targetAccountId: guidedProfile.id,
-        privatePostGuide: direction.trim(),
-        access,
-        ...(access === "ppv" ? { ppvPrice } : {}),
-      },
-      {
-        onSuccess: () => {
-          setGuidedProfile(null);
-          toast.success("Private post generated.");
-        },
-        onError: (error) => setGenerationError(errorMessage(error, "Could not generate this post.")),
-      },
-    );
-  };
-
-  const submitInlinePost = ({
+  const generatePrivatePost = ({
     profileId,
     direction,
     access,
     ppvPrice,
     onSuccess,
-  }: {
-    profileId: string;
-    direction: string;
-    access: NoodlePostAccess;
-    ppvPrice: number | null;
-    onSuccess?: () => void;
-  }) => {
+  }: PrivatePostSubmission) => {
     setGenerationError(null);
     generatePost.mutate(
       {
@@ -598,17 +480,40 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         ...(access === "ppv" ? { ppvPrice } : {}),
       },
       {
-        // The visible feed reads the viewer query, not the profile-post query the mutation
-        // invalidates, so refetch it here or the new post won't appear until manual refresh.
-        // Only clear the composer after success so a failed generation keeps the draft.
         onSuccess: () => {
           onSuccess?.();
-          void viewerQuery.refetch();
           toast.success("Private post generated.");
         },
         onError: (error) => setGenerationError(errorMessage(error, "Could not generate this post.")),
       },
     );
+  };
+
+  const submitGuidedPost = ({ direction, access, ppvPrice }: Omit<PrivatePostSubmission, "profileId">) => {
+    if (!guidedProfile) return;
+    generatePrivatePost({
+      profileId: guidedProfile.id,
+      direction,
+      access,
+      ppvPrice,
+      onSuccess: () => setGuidedProfile(null),
+    });
+  };
+
+  const submitInlinePost = ({ profileId, direction, access, ppvPrice, onSuccess }: PrivatePostSubmission) => {
+    generatePrivatePost({
+      profileId,
+      direction,
+      access,
+      ppvPrice,
+      // The visible feed reads the viewer query, not the profile-post query the mutation
+      // invalidates, so refetch it here or the new post won't appear until manual refresh.
+      // Only clear the composer after success so a failed generation keeps the draft.
+      onSuccess: () => {
+        onSuccess?.();
+        void viewerQuery.refetch();
+      },
+    });
   };
 
   const shellProps = {
@@ -953,6 +858,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         tab={feedTab}
         onTabChange={setFeedTab}
         managedProfiles={accountsQuery.data ?? []}
+        postingProfileId={postingProfileId}
+        onPostingProfileChange={setPostingProfileId}
         onSubmitPost={submitInlinePost}
         isPosting={generatePost.isPending}
         postError={generationError}
@@ -1633,6 +1540,8 @@ function ViewerHub({
   tab,
   onTabChange,
   managedProfiles,
+  postingProfileId,
+  onPostingProfileChange,
   onSubmitPost,
   isPosting,
   postError,
@@ -1648,19 +1557,15 @@ function ViewerHub({
   onRefresh: () => void;
   isRefreshing: boolean;
   unlockPending: boolean;
-  postCardCtx: NoodlePostCardCtx;
+  postCardCtx: ReturnType<typeof useNoodlePostCardController>["ctx"];
   onUnlock: (postId: string) => void;
   search: string;
   tab: "all" | "subscribed";
   onTabChange: (tab: "all" | "subscribed") => void;
   managedProfiles: NoodlerManagedStageProfile[];
-  onSubmitPost: (input: {
-    profileId: string;
-    direction: string;
-    access: NoodlePostAccess;
-    ppvPrice: number | null;
-    onSuccess?: () => void;
-  }) => void;
+  postingProfileId: string | null;
+  onPostingProfileChange: (profileId: string) => void;
+  onSubmitPost: (input: PrivatePostSubmission) => void;
   isPosting: boolean;
   postError: string | null;
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
@@ -1722,6 +1627,8 @@ function ViewerHub({
       </div>
       <InlineGuidedComposer
         managedProfiles={managedProfiles}
+        selectedProfileId={postingProfileId}
+        onSelectedProfileChange={onPostingProfileChange}
         onSubmit={onSubmitPost}
         isPosting={isPosting}
         error={postError}
@@ -1801,7 +1708,11 @@ function ViewerHub({
                     </div>
                   </article>
                 ) : (
-                  <NoodlePostCard key={post.id} post={toNoodlePost(post, creator.profile)} ctx={postCardCtx} />
+                  <NoodlePostCard
+                    key={post.id}
+                    post={toNoodlePostCardModel(post, creator.profile)}
+                    ctx={postCardCtx}
+                  />
                 ),
               )}
             </div>
@@ -1818,18 +1729,16 @@ type InlineComposerTool = "media" | "coin";
 
 function InlineGuidedComposer({
   managedProfiles,
+  selectedProfileId,
+  onSelectedProfileChange,
   onSubmit,
   isPosting,
   error,
 }: {
   managedProfiles: NoodlerManagedStageProfile[];
-  onSubmit: (input: {
-    profileId: string;
-    direction: string;
-    access: NoodlePostAccess;
-    ppvPrice: number | null;
-    onSuccess?: () => void;
-  }) => void;
+  selectedProfileId: string | null;
+  onSelectedProfileChange: (profileId: string) => void;
+  onSubmit: (input: PrivatePostSubmission) => void;
   isPosting: boolean;
   error: string | null;
 }) {
@@ -1838,10 +1747,6 @@ function InlineGuidedComposer({
   const [ppvPrice, setPpvPrice] = useState("5");
   const [activeTool, setActiveTool] = useState<InlineComposerTool | null>(null);
   const [mediaPickerTab, setMediaPickerTab] = useState<ConversationMediaPickerTabId>("emoji");
-  // Explicit posting identity. Stage profiles are ordered updatedAt DESC, so deriving the
-  // author from managedProfiles[0] silently changes it whenever any profile is edited —
-  // track the choice instead and only fall back to the first when nothing is selected.
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const mediaToolRef = useRef<HTMLDivElement | null>(null);
   const coinToolRef = useRef<HTMLDivElement | null>(null);
   const parsedPrice = Number(ppvPrice);
@@ -1959,7 +1864,7 @@ function InlineGuidedComposer({
           <span className="font-semibold">Posting as</span>
           <select
             value={activeProfile?.id ?? ""}
-            onChange={(event) => setSelectedProfileId(event.target.value)}
+            onChange={(event) => onSelectedProfileChange(event.target.value)}
             aria-label="Posting stage profile"
             className="min-w-0 flex-1 rounded-md border border-[var(--noodle-divider)] bg-[var(--background)] px-2 py-1 text-xs font-semibold text-[var(--foreground)] outline-none focus:border-[var(--noodle-blue)]"
           >
