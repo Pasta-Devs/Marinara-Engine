@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Installed Extensions
 // ──────────────────────────────────────────────
-import { desc, eq } from "../../db/file-query.js";
+import { desc, eq, like } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { installedExtensions } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
@@ -38,7 +38,11 @@ export function createExtensionsStorage(db: DB) {
   const getByName = async (name: string) => {
     const normalizedName = name.trim().toLowerCase();
     if (!normalizedName) return null;
-    const extensions = await db.select().from(installedExtensions).orderBy(desc(installedExtensions.installedAt));
+    const extensions = await db
+      .select()
+      .from(installedExtensions)
+      .where(like(installedExtensions.name, `%${normalizedName}%`))
+      .orderBy(desc(installedExtensions.installedAt));
     const row = extensions.find((extension) => extension.name.trim().toLowerCase() === normalizedName);
     return row ? mapExtension(row) : null;
   };

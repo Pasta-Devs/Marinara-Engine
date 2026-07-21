@@ -5582,6 +5582,7 @@ function ExtensionsSettings({ showIntro = true }: { showIntro?: boolean } = {}) 
     const updated = await updateExtension.mutateAsync({
       id: existing.id,
       ...normalized,
+      version: normalized.version ?? existing.version ?? null,
       enabled: existing.runtime === normalized.runtime ? existing.enabled : false,
     });
     for (const duplicate of matches.slice(1)) {
