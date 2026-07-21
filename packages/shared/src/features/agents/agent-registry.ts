@@ -11,10 +11,6 @@ export function getBuiltInAgentManifest(agentId: string): BuiltInAgentManifest |
   return BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentId) ?? null;
 }
 
-export function getBuiltInAgentDefaultPrompt(agentId: string): string {
-  return getBuiltInAgentManifest(agentId)?.defaultPromptTemplate ?? "";
-}
-
 export function isBuiltInAgentRuntimeDisabled(agentId: string): boolean {
   return getBuiltInAgentManifest(agentId)?.runtimeDisabled === true;
 }

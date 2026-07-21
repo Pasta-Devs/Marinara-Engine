@@ -42,6 +42,7 @@ import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
+import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { searchStandardEmojiShortcodes, type StandardEmojiShortcode } from "../../lib/emoji-shortcodes";
 import { QuickConnectionSwitcher } from "./QuickConnectionSwitcher";
@@ -386,7 +387,19 @@ export function ConversationInput({
   const chatName = activeChat?.name;
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
-  const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
+  const isBackgroundIllustration = useChatStore((s) =>
+    activeChatId ? s.backgroundIllustrationChatIds.has(activeChatId) : false,
+  );
+  const agentsProcessing = useAgentStore((s) =>
+    activeChatId ? s.processingChatIds.includes(activeChatId) : s.isProcessing,
+  );
+  const hasActiveStream = isStreamingGlobal && streamingChatId === activeChatId;
+  const isStreaming = hasActiveStream && !isBackgroundIllustration;
+  const isSendBlocked = isGenerationSendBlocked({
+    streamActive: hasActiveStream,
+    agentsProcessing,
+    backgroundIllustration: isBackgroundIllustration,
+  });
   const delayedCharacterInfo = useChatStore((s) => s.delayedCharacterInfo);
   // Show stop button only during actual generation, not during busy delay
   const isActuallyGenerating = isStreaming && !delayedCharacterInfo;
@@ -415,7 +428,7 @@ export function ConversationInput({
     !hasInput &&
     attachments.length === 0 &&
     !isReadingAttachments &&
-    !isStreaming &&
+    !isSendBlocked &&
     !mobilePickerOpen;
   const chatMetadata = useMemo(() => parseChatMetadata(activeChat?.metadata), [activeChat?.metadata]);
   const inactiveCharacterIds = useMemo(
@@ -479,10 +492,16 @@ export function ConversationInput({
     return null;
   }, [messagesData]);
   const lastMessageRole = lastMessage?.role ?? null;
-  const canRetry = !isStreaming && lastMessageRole === "user";
+  const canRetry = !isSendBlocked && lastMessageRole === "user";
   const canSubmit = hasInput || attachments.length > 0 || canRetry;
   const showRetrySendState = canRetry && !hasInput && attachments.length === 0;
-  const sendButtonTitle = isActuallyGenerating ? "Stop generating" : showRetrySendState ? "Retry generation" : "Send";
+  const sendButtonTitle = isActuallyGenerating
+    ? "Stop generating"
+    : isSendBlocked
+      ? "Wait for agents to finish"
+      : showRetrySendState
+        ? "Retry generation"
+        : "Send";
 
   const syncInputState = useCallback(
     (value: string) => {
@@ -864,7 +883,7 @@ export function ConversationInput({
   );
 
   const handleSend = useCallback(async () => {
-    if (!activeChatId) return;
+    if (!activeChatId || isSendBlocked) return;
     if (isReadingAttachments) {
       toast.info("Still reading attached files. Send will be ready in a moment.");
       return;
@@ -891,59 +910,6 @@ export function ConversationInput({
       syncInputState("");
       replaceAttachments([]);
       onPeekPrompt?.();
-      return;
-    }
-
-    // If already generating for this chat, just save the message without
-    // triggering another generation — the in-progress generation will see
-    // it (server re-reads messages after any busy delay).
-    if (isStreaming) {
-      const activeChatData = useChatStore.getState().activeChat;
-      const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-      const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
-      const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
-      const streamMeta = parseChatMetadata(activeChatData?.metadata);
-      // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
-      let message = applyToUserInput(raw, {
-        resolveMacros: resolveInputMacros,
-        scopedMode: streamMeta.scopedRegexMode,
-      });
-      // Input translation for streaming path too
-      if (streamMeta.translateInput && message.trim()) {
-        try {
-          const { translateText } = await import("../../lib/translate-text");
-          const translated = await translateText(message);
-          if (translated.trim()) message = translated;
-        } catch {
-          toast.error("Failed to translate message — sending original");
-        }
-      }
-      // Final pass: resolve macros introduced by translation while {{input}} still points to raw.
-      message = resolveInputMacros(message);
-      if (textareaRef.current) {
-        textareaRef.current.value = "";
-        textareaRef.current.style.height = "auto";
-      }
-      clearInputDraft(activeChatId);
-      syncInputState("");
-      const currentAttachments = attachments.map((a) => ({
-        type: a.type,
-        data: a.data,
-        filename: a.name,
-        name: a.name,
-      }));
-      replaceAttachments([]);
-      const created = await createMessage.mutateAsync({
-        role: "user",
-        content: message,
-        characterId: null,
-      });
-      if (currentAttachments.length) {
-        await updateMessageExtra.mutateAsync({
-          messageId: created.id,
-          extra: { attachments: currentAttachments },
-        });
-      }
       return;
     }
 
@@ -1097,13 +1063,12 @@ export function ConversationInput({
     attachments,
     canRetry,
     isReadingAttachments,
-    isStreaming,
+    isSendBlocked,
     generate,
     applyToUserInput,
     extractMentions,
     clearInputDraft,
     createMessage,
-    updateMessageExtra,
     activeCharacterNames,
     completions,
     _mentionQuery,
@@ -1231,7 +1196,7 @@ export function ConversationInput({
   );
 
   const handlePostOnlyButton = useCallback(async () => {
-    if (!activeChatId || isStreaming) return;
+    if (!activeChatId || isSendBlocked) return;
     const submittingChatId = activeChatId;
     if (isReadingAttachments) {
       toast.info("Still reading attached files. Post will be ready in a moment.");
@@ -1350,7 +1315,7 @@ export function ConversationInput({
     }
   }, [
     activeChatId,
-    isStreaming,
+    isSendBlocked,
     isReadingAttachments,
     attachments,
     completions,
@@ -1372,7 +1337,7 @@ export function ConversationInput({
   ]);
 
   const handleGuidedGenerationButton = useCallback(async () => {
-    if (!activeChatId || isStreaming) return;
+    if (!activeChatId || isSendBlocked) return;
     if (hasPendingAttachments) {
       toast.info("Clear or send attachments before using guided generation.");
       return;
@@ -1380,20 +1345,20 @@ export function ConversationInput({
     const text = textareaRef.current?.value?.trim() ?? "";
     if (!text) return;
     await runQuickSlashCommand(`/guided ${text}`, "Guided generation failed");
-  }, [activeChatId, isStreaming, hasPendingAttachments, runQuickSlashCommand]);
+  }, [activeChatId, isSendBlocked, hasPendingAttachments, runQuickSlashCommand]);
 
   const quickReplyActions = useMemo<QuickReplyAction[]>(() => {
     const actions: QuickReplyAction[] = [];
     const getPostOnlyDisabledReason = () => {
       if (!activeChatId) return "Select or create a chat first.";
-      if (isStreaming) return "Wait for the current stream to finish.";
+      if (isSendBlocked) return "Wait for the current agents to finish.";
       if (isReadingAttachments) return "Still reading attached files.";
       if (!hasInput && attachments.length === 0) return "Type a draft first.";
       return undefined;
     };
     const getGuideDisabledReason = () => {
       if (!activeChatId) return "Select or create a chat first.";
-      if (isStreaming) return "Wait for the current stream to finish.";
+      if (isSendBlocked) return "Wait for the current agents to finish.";
       if (hasPendingAttachments) return "Clear or post attachments first.";
       if (!hasInput) return "Type a direction first.";
       return undefined;
@@ -1404,7 +1369,7 @@ export function ConversationInput({
         label: "Post only",
         description: "Add your message without a reply",
         icon: <FileText size="0.875rem" />,
-        disabled: !activeChatId || isStreaming || isReadingAttachments || (!hasInput && attachments.length === 0),
+        disabled: !activeChatId || isSendBlocked || isReadingAttachments || (!hasInput && attachments.length === 0),
         disabledReason: getPostOnlyDisabledReason(),
         onSelect: handlePostOnlyButton,
       });
@@ -1415,7 +1380,7 @@ export function ConversationInput({
         label: "Guide reply",
         description: "Send as /guided direction",
         icon: <WandSparkles size="0.875rem" />,
-        disabled: !activeChatId || isStreaming || !hasInput || hasPendingAttachments,
+        disabled: !activeChatId || isSendBlocked || !hasInput || hasPendingAttachments,
         disabledReason: getGuideDisabledReason(),
         onSelect: handleGuidedGenerationButton,
       });
@@ -1423,7 +1388,7 @@ export function ConversationInput({
     return actions;
   }, [
     activeChatId,
-    isStreaming,
+    isSendBlocked,
     isReadingAttachments,
     hasInput,
     attachments.length,
@@ -1705,11 +1670,7 @@ export function ConversationInput({
         // If fetch fails (CORS etc.), send without attachment — still shows as image in chat
       }
 
-      // If already streaming for this chat, just save the message
-      if (isStreaming) {
-        createMessage.mutate({ role: "user", content: gifUrl, characterId: null });
-        return;
-      }
+      if (isSendBlocked) return;
 
       await generate({
         chatId: activeChatId,
@@ -1718,7 +1679,7 @@ export function ConversationInput({
         ...(gifAttachments ? { attachments: gifAttachments } : {}),
       });
     },
-    [activeChatId, isStreaming, generate, createMessage],
+    [activeChatId, isSendBlocked, generate],
   );
 
   const handleStickerSelect = useCallback(
@@ -1740,14 +1701,10 @@ export function ConversationInput({
       }
       if (choice !== "send") return; // dismissed
 
-      // "Send & reply" — post the sticker as its own message (mirror the GIF send guards).
-      if (isStreaming) {
-        createMessage.mutate({ role: "user", content: token, characterId: null });
-        return;
-      }
+      if (isSendBlocked) return;
       await generate({ chatId: activeChatId, connectionId: null, userMessage: token });
     },
-    [activeChatId, isStreaming, generate, createMessage, insertStickerToken],
+    [activeChatId, isSendBlocked, generate, insertStickerToken],
   );
   const showDraftTranslateButton = chatMetadata.showInputTranslateButton === true;
   const showMobileToolsTab =
@@ -2091,7 +2048,7 @@ export function ConversationInput({
           <span>{chipRowHint}</span>
         </p>
       )}
-      <MariSuggestionChips chips={chipRowChips} onSelect={handleMariChipSelect} disabled={isStreaming} />
+      <MariSuggestionChips chips={chipRowChips} onSelect={handleMariChipSelect} disabled={isSendBlocked} />
 
       {/* Input bar */}
       <div
@@ -2264,13 +2221,15 @@ export function ConversationInput({
                 ? () => useChatStore.getState().stopGeneration(activeChatId ?? undefined)
                 : handleSend
             }
-            disabled={!isActuallyGenerating && (isReadingAttachments || !activeChatId || !canSubmit)}
+            disabled={
+              !isActuallyGenerating && (isSendBlocked || isReadingAttachments || !activeChatId || !canSubmit)
+            }
             aria-label={sendButtonTitle}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200 sm:h-8 sm:w-8",
               isActuallyGenerating
                 ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90"
-                : canSubmit && !isReadingAttachments
+                : canSubmit && !isSendBlocked && !isReadingAttachments
                   ? "text-foreground/75 hover:bg-foreground/10 hover:text-foreground/90 active:scale-90"
                   : "text-foreground/20",
             )}

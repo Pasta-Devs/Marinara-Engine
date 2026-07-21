@@ -864,6 +864,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Picker",
   },
   {
+    id: "default-dialogue-color",
+    sectionId: "text-scale",
+    label: "Default Dialogue Color",
+    description: "Choose the dialogue highlight used by cards without their own dialogue color.",
+    aliases: ["quote color", "character dialogue", "persona dialogue"],
+    kind: "Toggle",
+  },
+  {
     id: "chat-chrome-text-color",
     sectionId: "text-scale",
     label: "Chat Chrome Text Color",
@@ -3702,6 +3710,10 @@ function AppearanceSettings() {
   // Text appearance
   const chatFontColor = useUIStore((s) => s.chatFontColor);
   const setChatFontColor = useUIStore((s) => s.setChatFontColor);
+  const defaultDialogueColorEnabled = useUIStore((s) => s.defaultDialogueColorEnabled);
+  const setDefaultDialogueColorEnabled = useUIStore((s) => s.setDefaultDialogueColorEnabled);
+  const defaultDialogueColor = useUIStore((s) => s.defaultDialogueColor);
+  const setDefaultDialogueColor = useUIStore((s) => s.setDefaultDialogueColor);
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const setChatChromeTextColor = useUIStore((s) => s.setChatChromeTextColor);
   const chatFontOpacity = useUIStore((s) => s.chatFontOpacity);
@@ -4070,6 +4082,32 @@ function AppearanceSettings() {
               emptyText={`Scheme default ${getDefaultChatTextColor(theme)}`}
               emptyPreviewValue={getDefaultChatTextColor(theme)}
               clearLabel="Reset to default"
+            />
+          </SearchableSettingTarget>
+
+          <SearchableSettingTarget controlId="default-dialogue-color">
+            <ColorPicker
+              value={defaultDialogueColor}
+              onChange={setDefaultDialogueColor}
+              compact
+              label="Default Dialogue Color"
+              helpText="When enabled, this colors dialogue for character and persona cards that do not have their own Dialogue Highlight Color. A card's own dialogue color always overrides it."
+              emptyText={`Scheme default ${getDefaultChatTextColor(theme)}`}
+              emptyPreviewValue={getDefaultChatTextColor(theme)}
+              clearLabel="Reset to scheme default"
+              disabled={!defaultDialogueColorEnabled}
+              headerAction={
+                <SettingsSwitch
+                  checked={defaultDialogueColorEnabled}
+                  onChange={setDefaultDialogueColorEnabled}
+                  ariaLabel={
+                    defaultDialogueColorEnabled
+                      ? "Disable the default dialogue color"
+                      : "Enable the default dialogue color"
+                  }
+                  className="p-0 hover:bg-transparent"
+                />
+              }
             />
           </SearchableSettingTarget>
 

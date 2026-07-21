@@ -11,6 +11,7 @@ import { chatBackgroundMetadataToUrl } from "../lib/backgrounds";
 import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import {
   getTypewriterRevealCharsPerSecond,
+  isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
 } from "../lib/generation-stream-policy";
@@ -1085,7 +1086,15 @@ export function useGenerate() {
       // keep generating in the background while the user navigates elsewhere.
       // Uses the shared abortControllers map as the source of truth so ALL callers
       // of useGenerate() coordinate (the old per-instance useRef could diverge).
-      if (activeGenerateLocks.has(params.chatId) || useChatStore.getState().abortControllers.has(params.chatId)) {
+      const generationState = useChatStore.getState();
+      const existingGenerationIsIllustrationOnly = generationState.backgroundIllustrationChatIds.has(params.chatId);
+      if (
+        isGenerationStartBlocked({
+          setupLocked: activeGenerateLocks.has(params.chatId),
+          activeController: generationState.abortControllers.has(params.chatId),
+          backgroundIllustration: existingGenerationIsIllustrationOnly,
+        })
+      ) {
         console.warn("[Generate] Skipped — generation already in progress for this chat");
         return false;
       }
@@ -1095,6 +1104,7 @@ export function useGenerate() {
       const abortController = new AbortController();
       try {
         useChatStore.getState().setAbortController(params.chatId, abortController);
+        useChatStore.getState().setBackgroundIllustration(params.chatId, false);
       } finally {
         activeGenerateLocks.delete(params.chatId);
       }
@@ -1238,6 +1248,8 @@ export function useGenerate() {
       let receivedThinking = false; // Whether provider-native thinking chunks were received
       let gameTurnLoadedSoundPlayed = false;
       let sawDoneEvent = false;
+      let illustrationQueued = false;
+      let illustrationSettled = false;
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
       let passiveStreamSettled = false;
@@ -2269,6 +2281,7 @@ export function useGenerate() {
             }
 
             case "illustration": {
+              illustrationSettled = true;
               const illData = event.data as {
                 messageId: string;
                 imageUrl: string;
@@ -2282,11 +2295,18 @@ export function useGenerate() {
               if (!streamingEnabled) {
                 await refreshMessagesAuthoritatively(qc, params.chatId, persistedMessages.values());
               }
+              void qc.invalidateQueries({ queryKey: ["gallery", params.chatId] });
+              break;
+            }
+
+            case "illustration_queued": {
+              illustrationQueued = true;
               break;
             }
 
             case "agent_error": {
               const errData = event.data as { agentType: string; agentName?: string | null; error: string };
+              if (errData.agentType === "illustrator") illustrationSettled = true;
               const failure = toAgentFailure(errData);
               setFailedAgentFailures([failure], params.chatId);
               showAgentFailuresError([failure], () => {
@@ -2442,6 +2462,9 @@ export function useGenerate() {
 
             case "done": {
               sawDoneEvent = true;
+              if (illustrationQueued && !illustrationSettled) {
+                useChatStore.getState().setBackgroundIllustration(params.chatId, true);
+              }
               if (spriteChangeReceived) {
                 qc.invalidateQueries({ queryKey: chatKeys.messages(params.chatId) });
               }
@@ -2627,6 +2650,7 @@ export function useGenerate() {
         if (stillOwnerAtCleanupStart) {
           useChatStore.getState().clearPerChatState(params.chatId);
           useChatStore.getState().setAbortController(params.chatId, null);
+          useChatStore.getState().setBackgroundIllustration(params.chatId, false);
         }
 
         if (shouldRefreshGameState) {
@@ -2951,6 +2975,8 @@ export function useGenerate() {
         return false;
       }
       useChatStore.getState().setAbortController(chatId, abortController);
+      useChatStore.getState().setBackgroundIllustration(chatId, false);
+      const isIllustratorOnlyRetry = agentTypes.length === 1 && agentTypes[0] === "illustrator";
       const isTrackerRetry = agentTypes.some(
         (agentType) => isBuiltInTrackerAgentType(agentType) || !isBuiltInAgentType(agentType),
       );
@@ -3231,6 +3257,12 @@ export function useGenerate() {
               }
               break;
             }
+            case "illustration_queued": {
+              if (isIllustratorOnlyRetry) {
+                useChatStore.getState().setBackgroundIllustration(chatId, true);
+              }
+              break;
+            }
             case "image_prompt_review": {
               imagePromptReviewRequested = true;
               window.dispatchEvent(
@@ -3285,9 +3317,11 @@ export function useGenerate() {
             : "Agent retry failed";
         showError(msg);
       } finally {
-        setProcessing(false, chatId);
-        if (useChatStore.getState().abortControllers.get(chatId) === abortController) {
+        const stillOwner = useChatStore.getState().abortControllers.get(chatId) === abortController;
+        if (stillOwner) {
+          setProcessing(false, chatId);
           useChatStore.getState().setAbortController(chatId, null);
+          useChatStore.getState().setBackgroundIllustration(chatId, false);
         }
         if (isTrackerRetry) useGameStateStore.getState().clearRefreshingChat(chatId);
         if (hasError && isActiveChat()) {

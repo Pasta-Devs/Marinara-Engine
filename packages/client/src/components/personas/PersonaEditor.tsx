@@ -167,7 +167,7 @@ const PERSONA_SPRITES_HELP =
   "Upload sprites one by one, or use Upload Folder to bulk-import a folder of PNGs. Each filename becomes the expression name, for example admiration.png becomes admiration. To rotate variants, share a prefix before an underscore, for example happy_01.png and happy_blush.png. Persona sprites can be used in Game Mode and roleplay with the Expression Engine. Use transparent PNGs for best results.";
 
 const PERSONA_COLORS_HELP =
-  "Name color is applied to your persona's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of your persona's message bubble. Leave any field empty to use the default theme colors.";
+  "Name color is applied to your persona's display name in chat. Gradients use CSS linear-gradient. Dialogue color applies to text inside dialogue quotation marks and can optionally be bolded from Settings. Box color sets the background color of your persona's message bubble. An empty dialogue color uses the default from Settings > Appearance when enabled; other empty fields use theme colors.";
 
 const PERSONA_STATS_HELP =
   "Status bars represent your persona's physical and mental state, such as hunger, energy, or mood. The Persona Stats agent adjusts values realistically based on what happens in the narrative. Bars are displayed in the HUD widget during chat with color-coded gradients. Values set here serve as the initial defaults for new conversations.";

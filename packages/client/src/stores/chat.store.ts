@@ -178,6 +178,8 @@ interface ChatState {
   thinkingBuffers: Map<string, string>;
   /** Per-chat AbortControllers for active generations — keyed by chatId. */
   abortControllers: Map<string, AbortController>;
+  /** Chats whose reply is complete while an Illustrator image finishes on the existing SSE tail. */
+  backgroundIllustrationChatIds: Set<string>;
   /** When regenerating, the ID of the message being regenerated (so streaming shows in-place). */
   regenerateMessageId: string | null;
   /** During group chat individual mode, the character currently streaming. */
@@ -245,6 +247,7 @@ interface ChatState {
   setStreamedMessageId: (chatId: string, messageId: string | null) => void;
   setMariPhase: (chatId: string, phase: "thinking" | "updating" | "idle") => void;
   setAbortController: (chatId: string, controller: AbortController | null) => void;
+  setBackgroundIllustration: (chatId: string, pending: boolean) => void;
   stopGeneration: (chatId?: string) => void;
   appendStreamBuffer: (text: string, chatId?: string) => void;
   setStreamBuffer: (text: string, chatId?: string) => void;
@@ -334,6 +337,7 @@ export const useChatStore = create<ChatState>()(
     thinkingBuffer: "",
     thinkingBuffers: new Map(),
     abortControllers: new Map(),
+    backgroundIllustrationChatIds: new Set(),
     regenerateMessageId: null,
     streamingCharacterId: null,
     responseQueues: new Map(),
@@ -491,6 +495,13 @@ export const useChatStore = create<ChatState>()(
         if (controller) m.set(chatId, controller);
         else m.delete(chatId);
         return { abortControllers: m };
+      }),
+    setBackgroundIllustration: (chatId, pending) =>
+      set((state) => {
+        const next = new Set(state.backgroundIllustrationChatIds);
+        if (pending) next.add(chatId);
+        else next.delete(chatId);
+        return { backgroundIllustrationChatIds: next };
       }),
     stopGeneration: (chatId) => {
       const { activeChatId, streamingChatId, abortControllers } = useChatStore.getState();
@@ -918,6 +929,7 @@ export const useChatStore = create<ChatState>()(
         thinkingBuffer: "",
         thinkingBuffers: new Map(),
         abortControllers: new Map(),
+        backgroundIllustrationChatIds: new Set(),
         regenerateMessageId: null,
         streamingCharacterId: null,
         responseQueues: new Map(),
