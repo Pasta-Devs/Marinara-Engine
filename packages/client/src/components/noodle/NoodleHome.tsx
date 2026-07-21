@@ -717,7 +717,7 @@ function ToggleSetting({
 
 export function BrowserChrome({
   url = "https://noodle.local",
-  mobileUrl = "noodle.marinara.local/home",
+  mobileUrl = "noodle.local/home",
   badgeLabel = "Noodle",
 }: {
   url?: string;
