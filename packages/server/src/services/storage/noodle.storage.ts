@@ -1202,6 +1202,37 @@ export function createNoodleStorage(db: DB) {
       return existing;
     },
 
+    async updatePrivatePost(id: string, input: NoodlePostUpdateInput): Promise<NoodlePost | null> {
+      const existing = await this.getPrivatePostById(id);
+      if (!existing) return null;
+      await db
+        .update(noodlePosts)
+        .set({
+          ...(input.content !== undefined && { content: input.content.trim().slice(0, 4000) }),
+          ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+          ...(input.imagePrompt !== undefined && { imagePrompt: input.imagePrompt }),
+          ...((input.imageUrl !== undefined || input.imagePrompt !== undefined) && {
+            imageClaimToken: null,
+            imageClaimLeaseUntil: null,
+          }),
+          updatedAt: now(),
+        })
+        .where(eq(noodlePosts.id, id));
+      return this.getPrivatePostById(id);
+    },
+
+    async deletePrivatePost(id: string): Promise<NoodlePost | null> {
+      const existing = await this.getPrivatePostById(id);
+      if (!existing) return null;
+      await db.transaction(async (tx) => {
+        await tx.delete(noodlePostUnlocks).where(eq(noodlePostUnlocks.postId, id));
+        await tx.delete(noodleInteractions).where(eq(noodleInteractions.postId, id));
+        await tx.delete(noodleActivityDigests).where(eq(noodleActivityDigests.sourcePostId, id));
+        await tx.delete(noodlePosts).where(eq(noodlePosts.id, id));
+      });
+      return existing;
+    },
+
     async resetTimeline(): Promise<void> {
       const publicAccountIds = (await this.listAccounts()).map((account) => account.id);
       const publicPosts =
@@ -1489,18 +1520,15 @@ export function createNoodleStorage(db: DB) {
       return mapInteraction(existing);
     },
 
-    async listPrivateInteractions(postIds: string[] = []): Promise<NoodleInteraction[]> {
-      if (postIds.length === 0) return [];
-      const privatePostIds = new Set(
-        (await Promise.all(postIds.map((postId) => this.getPrivatePostById(postId))))
-          .filter((post): post is NoodlePost => post !== null)
-          .map((post) => post.id),
-      );
-      if (privatePostIds.size === 0) return [];
+    // Callers pass post IDs already resolved from private-account queries
+    // (listPrivatePostsByAccounts), so this trusts them and issues a single bulk
+    // read instead of re-validating each ID with getPrivatePostById (2N reads).
+    async listPrivateInteractions(privatePostIds: string[] = []): Promise<NoodleInteraction[]> {
+      if (privatePostIds.length === 0) return [];
       const rows = await db
         .select()
         .from(noodleInteractions)
-        .where(inArray(noodleInteractions.postId, [...privatePostIds]))
+        .where(inArray(noodleInteractions.postId, privatePostIds))
         .orderBy(noodleInteractions.createdAt);
       return rows.map(mapInteraction);
     },
@@ -1509,7 +1537,7 @@ export function createNoodleStorage(db: DB) {
       postId: string,
       input: {
         actorAccountId: string;
-        type: Exclude<NoodleInteractionType, "vote">;
+        type: "like" | "repost" | "reply";
         content?: string | null;
         parentInteractionId?: string | null;
       },
@@ -1575,7 +1603,7 @@ export function createNoodleStorage(db: DB) {
 
     async deletePrivateInteraction(
       postId: string,
-      input: { actorAccountId: string; type: Exclude<NoodleInteractionType, "vote">; parentInteractionId?: string | null },
+      input: { actorAccountId: string; type: "like" | "repost"; parentInteractionId?: string | null },
     ): Promise<NoodleInteraction | null> {
       const post = await this.getPrivatePostById(postId);
       if (!post) return null;

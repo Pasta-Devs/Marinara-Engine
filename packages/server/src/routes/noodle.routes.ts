@@ -187,7 +187,16 @@ export async function noodleRoutes(app: FastifyInstance) {
     const viewer = await resolveViewerPersona(personaId);
     const post = viewer ? await noodle.getPrivatePostById(postId) : null;
     const creator = post ? await noodle.getPrivateAccountById(post.authorAccountId) : null;
-    if (!viewer || !post || !creator || isNoodlerHiddenFromViewer(creator, viewer.id)) return null;
+    // Mirror the feed/subscribe/unlock rule: a viewer persona linked to the creator's own
+    // public account is not an audience member and must not persist self-interactions.
+    if (
+      !viewer ||
+      !post ||
+      !creator ||
+      creator.publicAccountId === viewer.id ||
+      isNoodlerHiddenFromViewer(creator, viewer.id)
+    )
+      return null;
     const [subscriptions, unlocks] = await Promise.all([
       noodle.listSubscriptionsForViewer(viewer.id),
       noodle.listPostUnlocksForViewer(viewer.id),
@@ -236,6 +245,29 @@ export async function noodleRoutes(app: FastifyInstance) {
     });
     if (!interaction) return reply.code(404).send({ error: "NoodleR interaction not found" });
     return interaction;
+  });
+
+  // NoodleR posts are private stage-profile posts the user fully owns, so edit/delete
+  // route through the private-only storage methods (getPrivatePostById) rather than the
+  // public /posts endpoints, which reject any post whose author is not a public account.
+  app.patch("/noodler/posts/:id", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlePostUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    const post = await noodle.updatePrivatePost(id, parsed.data);
+    if (!post) return reply.code(404).send({ error: "NoodleR post not found" });
+    return post;
+  });
+
+  app.delete("/noodler/posts/:id", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const { id } = req.params as { id: string };
+    const deleted = await noodle.deletePrivatePost(id);
+    if (!deleted) return reply.code(404).send({ error: "NoodleR post not found" });
+    return deleted;
   });
 
   app.post("/noodler/accounts/:id/subscribe", async (req, reply) => {
