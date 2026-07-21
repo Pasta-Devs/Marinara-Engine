@@ -288,10 +288,20 @@ export const noodlerCreateInteractionSchema = noodlerPersonaIdSchema
     }
   });
 
-export const noodlerRemoveInteractionSchema = noodlerPersonaIdSchema.extend({
-  type: z.enum(["like", "repost"]),
-  parentInteractionId: z.string().min(1).nullable().optional(),
-});
+export const noodlerRemoveInteractionSchema = noodlerPersonaIdSchema
+  .extend({
+    type: z.enum(["like", "repost"]),
+    parentInteractionId: z.string().min(1).nullable().optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (input.type === "repost" && input.parentInteractionId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["parentInteractionId"],
+        message: "Reposts cannot target a reply.",
+      });
+    }
+  });
 
 export const noodlePostUpdateSchema = z.object({
   content: z.string().trim().min(1).max(4000).optional(),
