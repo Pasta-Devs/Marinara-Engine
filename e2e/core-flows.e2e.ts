@@ -774,8 +774,132 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
       return overflow;
     });
     expect(horizontalOverflow).toBeNull();
+
+    await page.reload();
+    await expect(tracker).toBeVisible();
+
+    await tracker.getByRole("button", { name: "Close tracker panel" }).click();
+    await expect(tracker).toBeHidden();
+    await page.reload();
+    await expect(tracker).toBeHidden();
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
+test("reinstalling an extension updates the existing record instead of creating a duplicate", async ({ page }) => {
+  const name = "Extension Reinstall Smoke";
+  let extensionId: string | null = null;
+
+  try {
+    const firstResponse = await page.request.post("/api/extensions", {
+      data: {
+        name,
+        version: "2.0.0",
+        description: "First install",
+        runtime: "client",
+        css: ".extension-reinstall-smoke { color: red; }",
+        enabled: false,
+      },
+    });
+    expect(firstResponse.ok()).toBeTruthy();
+    const first = (await firstResponse.json()) as { id: string; version?: string | null };
+    extensionId = first.id;
+
+    const replacementResponse = await page.request.post("/api/extensions", {
+      data: {
+        name: name.toLowerCase(),
+        version: "3.0.0",
+        description: "Replacement install",
+        runtime: "client",
+        css: ".extension-reinstall-smoke { color: blue; }",
+        enabled: false,
+      },
+    });
+    expect(replacementResponse.ok()).toBeTruthy();
+    const replacement = (await replacementResponse.json()) as { id: string; version?: string | null };
+    expect(replacement.id).toBe(first.id);
+    expect(replacement.version).toBe("3.0.0");
+
+    const listResponse = await page.request.get("/api/extensions");
+    expect(listResponse.ok()).toBeTruthy();
+    const extensions = (await listResponse.json()) as Array<{ id: string; name: string }>;
+    expect(extensions.filter((extension) => extension.name.trim().toLowerCase() === name.toLowerCase())).toEqual([
+      expect.objectContaining({ id: first.id }),
+    ]);
+  } finally {
+    if (extensionId) await page.request.delete(`/api/extensions/${extensionId}`);
+  }
+});
+
+test("extension import warns before replacing a newer installed version", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The Add-ons downgrade confirmation is covered on desktop.");
+
+  const name = "Extension Downgrade Warning Smoke";
+  let extensionId: string | null = null;
+  const importFile = {
+    name: "extension-downgrade-warning.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify({
+        kind: "marinara.extension",
+        version: 1,
+        config: {
+          name,
+          version: "1.0.0",
+          description: "Older release",
+          enabled: false,
+          css: ".extension-downgrade-warning { color: blue; }",
+        },
+      }),
+    ),
+  };
+
+  try {
+    const installResponse = await page.request.post("/api/extensions", {
+      data: {
+        name,
+        version: "2.0.0",
+        description: "Newer release",
+        runtime: "client",
+        css: ".extension-downgrade-warning { color: red; }",
+        enabled: false,
+      },
+    });
+    expect(installResponse.ok()).toBeTruthy();
+    extensionId = ((await installResponse.json()) as { id: string }).id;
+
+    await page.goto("/");
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Addons" }).click();
+    const importButton = page.getByRole("button", { name: /Import Extension File/ });
+
+    let fileChooserPromise = page.waitForEvent("filechooser");
+    await importButton.click();
+    await (await fileChooserPromise).setFiles(importFile);
+    let downgradeDialog = page.getByRole("dialog", { name: "Install Older Extension Version?" });
+    await expect(downgradeDialog).toBeVisible();
+    await downgradeDialog.getByRole("button", { name: "Cancel" }).click();
+
+    let extensionResponse = await page.request.get("/api/extensions");
+    let extensions = (await extensionResponse.json()) as Array<{ name: string; version?: string | null }>;
+    expect(extensions.find((extension) => extension.name === name)?.version).toBe("2.0.0");
+
+    fileChooserPromise = page.waitForEvent("filechooser");
+    await importButton.click();
+    await (await fileChooserPromise).setFiles(importFile);
+    downgradeDialog = page.getByRole("dialog", { name: "Install Older Extension Version?" });
+    await downgradeDialog.getByRole("button", { name: "Install Older Version" }).click();
+
+    await expect
+      .poll(async () => {
+        extensionResponse = await page.request.get("/api/extensions");
+        extensions = (await extensionResponse.json()) as Array<{ name: string; version?: string | null }>;
+        return extensions.find((extension) => extension.name === name)?.version;
+      })
+      .toBe("1.0.0");
+  } finally {
+    if (extensionId) await page.request.delete(`/api/extensions/${extensionId}`);
   }
 });
 

@@ -259,6 +259,7 @@ export function AppShell() {
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
+  const restoreTrackerPanelOpenForChat = useUIStore((s) => s.restoreTrackerPanelOpenForChat);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const sidebarDragWidthRef = useRef<number | null>(null);
@@ -679,9 +680,12 @@ export function AppShell() {
   const professorMariFloatingActive = hasDetailView && hasProfessorMariFloatingFollowup();
 
   useEffect(() => {
+    restoreTrackerPanelOpenForChat(activeChatId);
+  }, [activeChatId, restoreTrackerPanelOpenForChat, trackerPanelEnabled]);
+  useEffect(() => {
     if (!trackerPanelOpen || !activeChat?.mode || trackerPanelModeAvailable) return;
-    setTrackerPanelOpen(false);
-  }, [activeChat?.mode, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
+    setTrackerPanelOpen(false, activeChatId);
+  }, [activeChat?.mode, activeChatId, setTrackerPanelOpen, trackerPanelModeAvailable, trackerPanelOpen]);
   useEffect(() => {
     if (trackerPanelVisible) {
       trackerPanelWasActiveRef.current = true;
@@ -1140,7 +1144,7 @@ export function AppShell() {
       {trackerPanelVisible && shellOverlayMode && (
         <div
           className={cn("fixed inset-x-0 bottom-0 z-30 bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
-          onClick={() => setTrackerPanelOpen(false)}
+          onClick={() => setTrackerPanelOpen(false, activeChatId)}
         />
       )}
 
