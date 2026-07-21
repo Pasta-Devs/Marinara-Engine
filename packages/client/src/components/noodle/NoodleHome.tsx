@@ -122,6 +122,7 @@ import {
   NOODLE_BLUE,
   NOODLE_ICON_SCOPE_CLASS,
   NOODLE_PERSONA_SWITCHER_PAGE_SIZE,
+  useNoodleAccent,
 } from "./NoodleShell";
 import type {
   NoodleNavigationState,
@@ -810,6 +811,7 @@ function NoodleAnchoredPopover({
 }) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const accent = useNoodleAccent();
 
   useLayoutEffect(() => {
     const updatePosition = () => {
@@ -852,7 +854,7 @@ function NoodleAnchoredPopover({
       )}
       style={
         {
-          "--noodle-blue": NOODLE_BLUE,
+          "--noodle-blue": accent,
           "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)",
           left: position?.left ?? -9999,
           top: position?.top ?? -9999,

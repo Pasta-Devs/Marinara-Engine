@@ -5,12 +5,19 @@
 // ──────────────────────────────────────────────
 import { AtSign, Bell, Home, MoreHorizontal, Pencil, Search, Settings2, User, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { type CSSProperties, type ReactNode, type RefObject, useRef } from "react";
+import { createContext, type CSSProperties, type ReactNode, type RefObject, useContext, useRef } from "react";
 import type { NoodleAccount } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 
 export const NOODLE_BLUE = "#7EA7FF";
+export const NOODLE_PINK = "#FF7EC1";
+
+// The accent hex that drives `--noodle-blue` for every reused Noodle surface.
+// Provided at the shell root so descendants inherit via CSS var, and read here
+// so portaled popovers/modals (which escape the shell's CSS scope) can re-apply it.
+export const NoodleAccentContext = createContext<string>(NOODLE_BLUE);
+export const useNoodleAccent = () => useContext(NoodleAccentContext);
 export const NOODLE_ICON_SCOPE_CLASS = "[&_svg]:!text-[var(--noodle-blue)]";
 export const NOODLE_LOGO_SRC = "/noodle-klusek.png";
 export const NOODLER_LOGO_SRC = "/noodler-klusek.png";
@@ -141,6 +148,8 @@ export interface NoodleShellProps {
   rightRail?: ReactNode;
   /** Theme-dependent overlays (browser chrome strip, lightboxes, modals) that must render inside the token scope. */
   overlays?: ReactNode;
+  /** Accent hex driving `--noodle-blue` for every reused surface. NoodleR passes NOODLE_PINK; defaults to Noodle blue. */
+  accent?: string;
   children: ReactNode;
 }
 
@@ -169,6 +178,7 @@ export function NoodleShell({
   onCompose,
   rightRail,
   overlays,
+  accent = NOODLE_BLUE,
   children,
 }: NoodleShellProps) {
   const mobileDrawerRef = useRef<HTMLElement | null>(null);
@@ -179,6 +189,7 @@ export function NoodleShell({
   useDialogFocusScope(mobileDrawerOpen, mobileDrawerRef, mobileDrawerCloseRef);
 
   return (
+    <NoodleAccentContext.Provider value={accent}>
     <div
       className={cn(
         "mari-chrome-token-scope relative flex h-full min-h-0 flex-col bg-[var(--background)] text-[var(--foreground)]",
@@ -187,7 +198,7 @@ export function NoodleShell({
       data-component="NoodleView"
       style={
         {
-          "--noodle-blue": NOODLE_BLUE,
+          "--noodle-blue": accent,
           "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)",
         } as CSSProperties
       }
@@ -216,7 +227,7 @@ export function NoodleShell({
               )}
               style={
                 {
-                  "--noodle-blue": NOODLE_BLUE,
+                  "--noodle-blue": accent,
                   "--noodle-divider": "var(--marinara-chat-chrome-panel-divider)",
                 } as CSSProperties
               }
@@ -574,5 +585,6 @@ export function NoodleShell({
         </div>
       </nav>
     </div>
+    </NoodleAccentContext.Provider>
   );
 }

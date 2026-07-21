@@ -2,6 +2,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import type { NoodlePostAccess, NoodlerStageProfile } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
+import { useNoodleAccent } from "./NoodleShell";
 
 function disclosureLabel(mode: NoodlerStageProfile["disclosureMode"]) {
   if (mode === "open") return "Publicly connected";
@@ -23,6 +24,7 @@ export function GuidedPostModal({ profile, isPending, error, onClose, onGenerate
   const [access, setAccess] = useState<NoodlePostAccess>("public");
   const [ppvPrice, setPpvPrice] = useState("5");
   const parsedPrice = Number(ppvPrice);
+  const accent = useNoodleAccent();
 
   return (
     <Modal
@@ -34,7 +36,7 @@ export function GuidedPostModal({ profile, isPending, error, onClose, onGenerate
       width="max-w-lg"
       mobileFullscreen
       closeDisabled={isPending}
-      panelStyle={{ "--noodle-blue": "#7EA7FF" } as React.CSSProperties}
+      panelStyle={{ "--noodle-blue": accent } as React.CSSProperties}
     >
       <div className="space-y-5">
         <div className="flex items-center gap-3 border-b border-[var(--marinara-chat-chrome-panel-divider)] pb-4">

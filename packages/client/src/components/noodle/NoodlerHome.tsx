@@ -53,7 +53,7 @@ import { GuidedPostModal } from "./GuidedPostModal";
 import { BrowserChrome, formatTime, NoodleComposerShell, NoodlePostCard, type NoodlePostCardCtx } from "./NoodleHome";
 import type { ConversationMediaPickerTabId } from "../chat/ConversationMediaPickerPanel";
 import type { ChatImage } from "../../hooks/use-gallery";
-import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE } from "./NoodleShell";
+import { NoodleShell, NOODLE_PERSONA_SWITCHER_PAGE_SIZE, NOODLE_PINK, useNoodleAccent } from "./NoodleShell";
 import { Modal } from "../ui/Modal";
 import type { NoodleNavigationState } from "./noodle-navigation.types";
 
@@ -572,6 +572,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   const shellProps = {
     activeView: "noodler" as const,
+    accent: NOODLE_PINK,
     personaAccount: shellPersonaAccount,
     sortedPersonaAccounts: viewerAccounts,
     visiblePersonaAccounts,
@@ -1453,6 +1454,7 @@ function StageProfileView({
   onAccessChange: (access: NoodlerManagedStageProfile["access"]) => void;
 }) {
   const [accessSettingsOpen, setAccessSettingsOpen] = useState(false);
+  const accent = useNoodleAccent();
   return (
     <>
       <section className="border-b border-[var(--noodle-divider)] px-5 py-6">
@@ -1513,7 +1515,7 @@ function StageProfileView({
         onClose={() => setAccessSettingsOpen(false)}
         title="Subscriber access"
         width="max-w-md"
-        panelStyle={{ "--noodle-blue": "#7EA7FF" } as React.CSSProperties}
+        panelStyle={{ "--noodle-blue": accent } as React.CSSProperties}
       >
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
