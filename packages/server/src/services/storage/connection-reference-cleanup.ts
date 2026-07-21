@@ -31,60 +31,41 @@ import { now } from "../../utils/id-generator.js";
 
 const CLEANUP_BATCH_SIZE = 250;
 
-export type ConnectionReferenceCleanupResult = {
+type ConnectionReferenceCleanupResult = {
   chatsUpdated: number;
   agentsUpdated: number;
   connectionsUpdated: number;
 };
 
-function parseJsonObject(raw: unknown): Record<string, unknown> {
-  if (typeof raw !== "string") {
-    return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-  }
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
-
 /**
- * Recursively replaces any `"...ConnectionId": "<deletedId>"` entry, at any
- * nesting depth, with `null`. Returns the (possibly new) value plus whether
- * anything changed, so callers can skip writing back unchanged rows.
+ * Returns rewritten serialized JSON only when an object contains a matching
+ * `*ConnectionId` reference. Malformed and non-object roots are left alone.
  */
-export function nullifyConnectionIdReferences(
-  value: unknown,
+function serializeNullifiedConnectionIdReferences(
+  raw: unknown,
   deletedConnectionId: string,
-): { value: unknown; changed: boolean } {
-  if (Array.isArray(value)) {
-    let changed = false;
-    const next = value.map((item) => {
-      const result = nullifyConnectionIdReferences(item, deletedConnectionId);
-      if (result.changed) changed = true;
-      return result.value;
-    });
-    return changed ? { value: next, changed: true } : { value, changed: false };
+): string | undefined {
+  if (typeof raw !== "string" && (!raw || typeof raw !== "object" || Array.isArray(raw))) {
+    return undefined;
   }
 
-  if (value && typeof value === "object") {
-    let changed = false;
-    const next: Record<string, unknown> = {};
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-      if (/ConnectionId$/.test(key) && entry === deletedConnectionId) {
-        next[key] = null;
+  const serialized = typeof raw === "string" ? raw : JSON.stringify(raw);
+  if (serialized === undefined || !serialized.trimStart().startsWith("{")) return undefined;
+
+  let changed = false;
+  try {
+    const parsed = JSON.parse(serialized, (key, value: unknown) => {
+      if (/[Cc]onnectionId$/.test(key) && value === deletedConnectionId) {
         changed = true;
-        continue;
+        return null;
       }
-      const result = nullifyConnectionIdReferences(entry, deletedConnectionId);
-      if (result.changed) changed = true;
-      next[key] = result.value;
-    }
-    return changed ? { value: next, changed: true } : { value, changed: false };
+      return value;
+    }) as unknown;
+    return changed ? JSON.stringify(parsed) : undefined;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
   }
-
-  return { value, changed: false };
 }
 
 /**
@@ -122,16 +103,15 @@ export async function sweepDanglingConnectionReferences(
       .limit(CLEANUP_BATCH_SIZE)
       .offset(offset);
     for (const chat of chatRows) {
-      const metadata = parseJsonObject(chat.metadata);
-      const swept = nullifyConnectionIdReferences(metadata, deletedConnectionId);
+      const metadata = serializeNullifiedConnectionIdReferences(chat.metadata, deletedConnectionId);
       const directMatch = chat.connectionId === deletedConnectionId;
-      if (!swept.changed && !directMatch) continue;
+      if (metadata === undefined && !directMatch) continue;
 
       await db
         .update(chats)
         .set({
           connectionId: directMatch ? null : chat.connectionId,
-          metadata: swept.changed ? JSON.stringify(swept.value) : chat.metadata,
+          metadata: metadata ?? chat.metadata,
           updatedAt: now(),
         })
         .where(eq(chats.id, chat.id));
@@ -148,16 +128,15 @@ export async function sweepDanglingConnectionReferences(
       .limit(CLEANUP_BATCH_SIZE)
       .offset(offset);
     for (const agent of agentRows) {
-      const settings = parseJsonObject(agent.settings);
-      const swept = nullifyConnectionIdReferences(settings, deletedConnectionId);
+      const settings = serializeNullifiedConnectionIdReferences(agent.settings, deletedConnectionId);
       const directMatch = agent.connectionId === deletedConnectionId;
-      if (!swept.changed && !directMatch) continue;
+      if (settings === undefined && !directMatch) continue;
 
       await db
         .update(agentConfigs)
         .set({
           connectionId: directMatch ? null : agent.connectionId,
-          settings: swept.changed ? JSON.stringify(swept.value) : agent.settings,
+          settings: settings ?? agent.settings,
           updatedAt: now(),
         })
         .where(eq(agentConfigs.id, agent.id));

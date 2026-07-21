@@ -2921,7 +2921,7 @@ export const ChatMessage = memo(function ChatMessage({
 
         <div
           className={cn(
-            "mari-message-body flex flex-col gap-0.5",
+            "mari-message-body flex min-w-0 max-w-full flex-col gap-0.5",
             isUser ? "items-end" : "items-start",
             editing && "w-full",
           )}

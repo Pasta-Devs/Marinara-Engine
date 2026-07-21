@@ -118,6 +118,10 @@ import {
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { api } from "../../lib/api-client";
+import {
+  trackChatMetadataSave,
+  waitForPendingChatMetadataSaves,
+} from "../../lib/chat-metadata-save-barrier";
 import { appendLocalSidecarConnectionOption, filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import {
   deriveActiveLorebookViews,
@@ -2200,12 +2204,51 @@ export function ChatSettingsDrawer({
     setProseGuardianStyleDraft(proseGuardianStyleInstructions);
   }, [proseGuardianStyleInstructions]);
 
+  const updateMetaAsync = updateMeta.mutateAsync;
+  const saveProseGuardianSettings = useCallback(
+    (patch: Record<string, unknown>) =>
+      trackChatMetadataSave(chat.id, () => updateMetaAsync({ id: chat.id, ...patch })),
+    [chat.id, updateMetaAsync],
+  );
   const commitProseGuardianSettings = useCallback(
     (patch: Record<string, unknown>) => {
-      updateMeta.mutate({ id: chat.id, ...patch });
+      void saveProseGuardianSettings(patch).catch(() => {
+        toast.error("Failed to save Prose Guardian changes.");
+      });
     },
-    [chat.id, updateMeta],
+    [saveProseGuardianSettings],
   );
+  const flushProseGuardianDrafts = useCallback(async () => {
+    const patch: Record<string, unknown> = {};
+    const banned = proseGuardianBannedDraft.trim();
+    const avoid = proseGuardianAvoidDraft.trim();
+    const prefer = proseGuardianStyleDraft.trim();
+
+    if (banned !== proseGuardianBannedWords) patch.proseGuardianBannedWords = banned;
+    if (avoid !== proseGuardianAvoidInstructions) patch.proseGuardianAvoidInstructions = avoid;
+    if (prefer !== proseGuardianStyleInstructions) patch.proseGuardianStyleInstructions = prefer;
+    if (Object.keys(patch).length === 0) {
+      await waitForPendingChatMetadataSaves(chat.id);
+      return true;
+    }
+
+    try {
+      await saveProseGuardianSettings(patch);
+      return true;
+    } catch {
+      toast.error("Failed to save Prose Guardian changes.");
+      return false;
+    }
+  }, [
+    chat.id,
+    proseGuardianAvoidDraft,
+    proseGuardianAvoidInstructions,
+    proseGuardianBannedDraft,
+    proseGuardianBannedWords,
+    proseGuardianStyleDraft,
+    proseGuardianStyleInstructions,
+    saveProseGuardianSettings,
+  ]);
   const getKnowledgeAgentSourceSettings = useCallback(
     (agentType: KnowledgeAgentType) => {
       const config = agentConfigsByType.get(agentType);
@@ -3075,13 +3118,14 @@ export function ChatSettingsDrawer({
         const canCloseAgentSuite =
           !showAgentSuiteModal || (await (agentSuiteCloseGuardRef.current?.() ?? Promise.resolve(true)));
         if (!canCloseAgentSuite) return;
+        if (!(await flushProseGuardianDrafts())) return;
         setShowAgentSuiteModal(false);
         onClose();
       } finally {
         drawerClosingRef.current = false;
       }
     })();
-  }, [onClose, showAgentSuiteModal]);
+  }, [flushProseGuardianDrafts, onClose, showAgentSuiteModal]);
   // Session-ephemeral: did the user change Day Rollover Hour in this drawer mount?
   // Used to gate the "transitional duplication" warning so it only appears
   // immediately after a change (when the warning is operationally useful) and
@@ -5120,7 +5164,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {/* Group Chat Settings — only when 2+ characters, game mode handles it internally */}
+          {/* Every existing and new multi-character chat gets this section. Missing mode metadata means Grouped. */}
           {chatCharIds.length > 1 && modeCapabilities.supportsGroupChatControls && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.groupChat }}

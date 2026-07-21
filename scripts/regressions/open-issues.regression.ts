@@ -31,6 +31,10 @@ import {
   shouldExecuteQuickPostAsCommand,
 } from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
+import {
+  trackChatMetadataSave,
+  waitForPendingChatMetadataSaves,
+} from "../../packages/client/src/lib/chat-metadata-save-barrier.js";
 import { resolveEchoChamberTopLayout } from "../../packages/client/src/lib/echo-chamber-layout.js";
 import {
   resolveConversationSelfieConnectionId,
@@ -62,6 +66,7 @@ import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storag
 import { sanitizeExampleDialoguePromptLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
 import { parseCharacterCommands } from "../../packages/server/src/services/conversation/character-commands.js";
 import {
+  collapseDuplicateConversationSpeakerPrefixes,
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
@@ -319,6 +324,11 @@ assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFla
 
 assert.equal(resolveGroupGenerationMode("conversation", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
+assert.equal(
+  resolveGroupGenerationMode("conversation", undefined),
+  "merged",
+  "pre-existing Conversation groups without mode metadata must retain Grouped behavior",
+);
 assert.equal(getChatModeCapabilities("conversation").supportsGroupChatControls, true);
 assert.equal(getChatModeCapabilities("conversation").modeSections.includes("group-chat"), true);
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
@@ -973,6 +983,10 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
+const clientGenerationSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
+  "utf8",
+);
 const conversationPresenceSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/conversation-presence-runtime.ts", import.meta.url),
   "utf8",
@@ -981,9 +995,54 @@ const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
 );
+const roleplaySurfaceSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
+  "utf8",
+);
+const themesRouteSource = readFileSync(
+  new URL("../../packages/server/src/routes/themes.routes.ts", import.meta.url),
+  "utf8",
+);
 assert.doesNotMatch(conversationGroupSettingsSource, /Reply When Mentioned/u);
 assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awareness"/u);
 assert.match(conversationGroupSettingsSource, /Individual replies can use many tokens/u);
+assert.match(
+  conversationGroupSettingsSource,
+  /chatCharIds\.length > 1 && modeCapabilities\.supportsGroupChatControls/u,
+  "pre-existing multi-character Conversation chats must show Group Chat settings without requiring mode metadata",
+);
+assert.match(
+  conversationGroupSettingsSource,
+  /if \(!\(await flushProseGuardianDrafts\(\)\)\) return;[\s\S]{0,250}onClose\(\)/u,
+  "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
+);
+assert.match(
+  clientGenerationSource,
+  /await waitForPendingChatMetadataSaves\(params\.chatId\);[\s\S]{0,250}api\.streamEvents\(\s*"\/generate"/u,
+  "swipe generation must wait for Prose Guardian settings blurred from the open drawer",
+);
+
+const metadataSaveOrder: string[] = [];
+let releaseFirstMetadataSave!: () => void;
+const firstMetadataSaveBlocker = new Promise<void>((resolve) => {
+  releaseFirstMetadataSave = resolve;
+});
+const firstMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
+  await firstMetadataSaveBlocker;
+  metadataSaveOrder.push("first");
+});
+const secondMetadataSave = trackChatMetadataSave("chat-prose-swipe", async () => {
+  metadataSaveOrder.push("second");
+});
+let metadataWaitFinished = false;
+const pendingMetadataWait = waitForPendingChatMetadataSaves("chat-prose-swipe").then(() => {
+  metadataWaitFinished = true;
+});
+await Promise.resolve();
+assert.equal(metadataWaitFinished, false, "swipe generation should remain blocked while preferences are saving");
+releaseFirstMetadataSave();
+await Promise.all([firstMetadataSave, secondMetadataSave, pendingMetadataWait]);
+assert.deepEqual(metadataSaveOrder, ["first", "second"]);
 assert.match(
   conversationGroupSettingsSource,
   /\{!isConversation && \(\s*<button[\s\S]{0,1500}Name Prefix History/u,
@@ -1015,6 +1074,27 @@ assert.match(
   "automatic Illustrator generation should use the same orientation resolver as manual Gallery generation",
 );
 assert.match(professorMariHomeSource, /Math\.min\(textarea\.scrollHeight, 128\)/u);
+assert.equal(
+  themesRouteSource.match(/requirePrivilegedAccess\(req, reply, \{ feature: "Theme install\/update\/delete" \}\)/gu)
+    ?.length,
+  3,
+  "theme installation, editing, and deletion should remain privileged while activation works from mobile clients",
+);
+const activeThemeHandler = themesRouteSource.match(
+  /app\.put\("\/active", async \(req, reply\) => \{([\s\S]*?)\n  \}\);/u,
+)?.[1];
+assert.ok(activeThemeHandler, "the active theme handler should remain available");
+assert.match(activeThemeHandler, /const input = setActiveThemeSchema\.parse\(req\.body\);/u);
+assert.doesNotMatch(
+  activeThemeHandler,
+  /requirePrivilegedAccess/u,
+  "selecting an already-installed theme should not require privileged loopback access",
+);
+assert.equal(
+  roleplaySurfaceSource.match(/object-fill object-center max-md:object-cover/gu)?.length,
+  2,
+  "both crossfade slots should preserve mobile background proportions without changing desktop sizing",
+);
 const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
   : playwrightConfig.webServer;
@@ -1166,6 +1246,20 @@ const markdownBlockquoteStyles =
   globalStyles.match(/\.mari-message-content \.mari-md-blockquote \{[\s\S]*?\}/u)?.[0] ?? "";
 assert.match(markdownBlockquoteStyles, /color:\s*inherit;/u);
 assert.doesNotMatch(markdownBlockquoteStyles, /color:\s*var\(--muted-foreground\);/u);
+const markdownMessageStyles = globalStyles.match(/\.mari-message-content \{[\s\S]*?\}/u)?.[0] ?? "";
+const markdownMessageContainerStyles =
+  globalStyles.match(/\.mari-message-body,\s*\.mari-message-bubble \{[\s\S]*?\}/u)?.[0] ?? "";
+const markdownCodeBlockStyles =
+  globalStyles.match(/\.mari-message-content \.mari-md-codeblock \{[\s\S]*?\}/u)?.[0] ?? "";
+assert.match(markdownMessageStyles, /min-width:\s*0;/u);
+assert.match(markdownMessageStyles, /max-width:\s*100%;/u);
+assert.match(markdownMessageStyles, /overflow-wrap:\s*anywhere;/u);
+assert.match(markdownMessageContainerStyles, /min-width:\s*0;/u);
+assert.match(markdownMessageContainerStyles, /max-width:\s*100%;/u);
+assert.match(markdownCodeBlockStyles, /box-sizing:\s*border-box;/u);
+assert.match(markdownCodeBlockStyles, /width:\s*100%;/u);
+assert.match(markdownCodeBlockStyles, /max-width:\s*100%;/u);
+assert.match(markdownCodeBlockStyles, /overflow-x:\s*auto;/u);
 
 assert.equal(stripLeadingMessageTimestamps("[11.07 15:53] Character: Hello!"), "Character: Hello!");
 assert.equal(stripLeadingMessageTimestamps("[11.07.2026 15:53] Character: Hello!"), "Character: Hello!");
@@ -1180,6 +1274,20 @@ assert.equal(
     preserveSpeakerPrefix: true,
   }),
   "Character: Hello!",
+);
+assert.equal(
+  collapseDuplicateConversationSpeakerPrefixes(
+    "Dottore: Dottore: The procedure is complete.\nPantalone: Pantalone: At what cost?",
+    ["Dottore", " Pantalone ", "Dottore"],
+  ),
+  "Dottore: The procedure is complete.\nPantalone: At what cost?",
+);
+assert.equal(
+  stripConversationResponseEnvelope("Dottore: Dottore: The procedure is complete.", {
+    speakerName: "Dottore",
+    speakerNames: ["Dottore", "Pantalone"],
+  }),
+  "The procedure is complete.",
 );
 assert.equal(
   stripLeadingMessageTimestamps("We meet at [11.07 15:53] by the station."),

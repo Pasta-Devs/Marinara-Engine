@@ -2502,7 +2502,16 @@ strong {
 }
 
 /* Chat message narration text color */
+.mari-message-body,
+.mari-message-bubble {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .mari-message-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   color: var(--foreground);
 }
 
@@ -2566,6 +2575,7 @@ strong {
   border-radius: 4px;
   padding: 0.1em 0.35em;
   color: #e8e6e3;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -2578,6 +2588,9 @@ strong {
 /* Fenced code blocks */
 .mari-message-content .mari-md-codeblock {
   position: relative;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
   font-family: "Consolas", "Monaco", "Courier New", monospace;
   font-size: 0.85em;
   line-height: 1.45;
@@ -2586,7 +2599,10 @@ strong {
   border-radius: 8px;
   padding: 0.75em 1em;
   margin: 0.5em 0;
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   white-space: pre;
   color: #d4d4d4;
 }
