@@ -1915,6 +1915,17 @@ export function HomeProfessorMariChat({
   const pendingConnectionPersistRef = useRef<string | null>(null);
   const connectionPersistInFlightRef = useRef(false);
 
+  const resizeComposer = useCallback((textarea: HTMLTextAreaElement | null) => {
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+  }, []);
+
+  useLayoutEffect(() => {
+    resizeComposer(embeddedTextareaRef.current);
+    resizeComposer(floatingTextareaRef.current);
+  }, [draft, resizeComposer]);
+
   const hasActiveGeneration = useChatStore((state) => (chatId ? state.abortControllers.has(chatId) : false));
   const mariPhase = useChatStore((state) => (chatId ? (state.mariPhaseByChatId.get(chatId) ?? null) : null));
   const mariChips = useAgentStore((state) => state.mariChips);
@@ -3099,7 +3110,7 @@ export function HomeProfessorMariChat({
             }}
             rows={1}
             placeholder="Ask Professor Mari..."
-            className="mari-chat-input-textarea h-8 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
             disabled={isBusy}
           />
           <button
@@ -3721,7 +3732,7 @@ export function HomeProfessorMariChat({
                             }}
                             rows={1}
                             placeholder="Ask Professor Mari..."
-                            className="mari-chat-input-textarea h-8 min-h-8 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-none placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
+                            className="mari-chat-input-textarea min-h-8 max-h-32 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-normal text-foreground/90 outline-hidden placeholder:text-foreground/30 disabled:cursor-not-allowed disabled:opacity-40"
                             disabled={isBusy}
                           />
                           <button

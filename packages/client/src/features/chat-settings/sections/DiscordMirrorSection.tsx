@@ -9,7 +9,7 @@ interface DiscordMirrorControlsProps {
 export function DiscordMirrorControls({
   webhookUrl,
   onWebhookUrlChange,
-  className = "space-y-2 pt-2.5",
+  className = "space-y-2",
 }: DiscordMirrorControlsProps) {
   const webhookInputId = useId();
   const webhookErrorId = useId();

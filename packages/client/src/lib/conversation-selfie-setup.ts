@@ -1,3 +1,5 @@
+import type { ConversationCommandToggles } from "@marinara-engine/shared";
+
 export type ConversationSelfieConnectionOption = {
   id: string;
   provider?: string;
@@ -22,4 +24,28 @@ export function resolveConversationSelfieConnectionId(input: {
         String(connection.defaultForAgents) === "true",
     )?.id ?? null
   );
+}
+
+/** Build the chat metadata that setup must persist for the Selfie command. */
+export function resolveConversationSelfieSetup(input: {
+  commandToggles: ConversationCommandToggles;
+  selfieCommandAvailable: boolean;
+  selfieCommandEnabled: boolean;
+  currentConnectionId: unknown;
+  connections: readonly ConversationSelfieConnectionOption[];
+}): {
+  conversationCommandToggles: ConversationCommandToggles;
+  imageGenConnectionId: string | null;
+} {
+  return {
+    conversationCommandToggles: {
+      ...input.commandToggles,
+      ...(input.selfieCommandAvailable ? { selfie: input.selfieCommandEnabled } : {}),
+    },
+    imageGenConnectionId: resolveConversationSelfieConnectionId({
+      currentConnectionId: input.currentConnectionId,
+      selfieCommandEnabled: input.selfieCommandEnabled,
+      connections: input.connections,
+    }),
+  };
 }

@@ -4,6 +4,7 @@ import {
   type NoodleAccount,
   type NoodlePost,
   type NoodleSettings,
+  type WeekSchedule,
 } from "@marinara-engine/shared";
 import type { ChatMessage } from "../llm/base-provider.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -42,6 +43,13 @@ import {
   type NoodleVisionAttachment,
 } from "./noodle-vision.js";
 import { characterNameFromRow, parseRecord } from "./noodle-public-support.js";
+import { areConversationSchedulesEnabled } from "../generation/conversation-context-utils.js";
+import { getTodaySchedule, scheduleNeedsRefresh } from "../conversation/schedule.service.js";
+import {
+  normalizePromptTimeZone,
+  resolveConversationTimeZone,
+  toZonedWallClockDate,
+} from "../conversation/timezone.js";
 
 function parseStringArray(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.length > 0);
@@ -58,6 +66,58 @@ function parseStringArray(value: unknown): string[] {
 
 function escapePromptAttribute(value: string) {
   return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function parseWeekSchedule(value: unknown): WeekSchedule | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const schedule = value as Record<string, unknown>;
+  if (typeof schedule.weekStart !== "string" || !schedule.days || typeof schedule.days !== "object") return null;
+  return value as WeekSchedule;
+}
+
+export function formatNoodleCurrentTime(now: Date = new Date(), timeZone?: string): string {
+  const normalizedTimeZone = normalizePromptTimeZone(timeZone);
+  return new Intl.DateTimeFormat("en-US", {
+    ...(normalizedTimeZone ? { timeZone: normalizedTimeZone } : {}),
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(now);
+}
+
+export async function buildGeneratedCharacterScheduleContext(
+  chats: ReturnType<typeof createChatsStorage>,
+  characterNamesById: ReadonlyMap<string, string>,
+  fallbackTimeZone?: string,
+  now: Date = new Date(),
+): Promise<string> {
+  const missingCharacterIds = new Set(characterNamesById.keys());
+  if (missingCharacterIds.size === 0) return "No active character schedules are available.";
+
+  const scheduleLines: string[] = [];
+  for (const chat of await chats.list()) {
+    if (chat.mode !== "conversation" || missingCharacterIds.size === 0) continue;
+    const metadata = parseRecord(chat.metadata);
+    if (!areConversationSchedulesEnabled(metadata)) continue;
+    const schedules = parseRecord(metadata.characterSchedules);
+    const timeZone = resolveConversationTimeZone(metadata) ?? normalizePromptTimeZone(fallbackTimeZone);
+    const scheduleNow = toZonedWallClockDate(now, timeZone);
+
+    for (const characterId of missingCharacterIds) {
+      const schedule = parseWeekSchedule(schedules[characterId]);
+      if (!schedule || scheduleNeedsRefresh(schedule, scheduleNow)) continue;
+      const today = getTodaySchedule(schedule, scheduleNow);
+      if (!today) continue;
+      scheduleLines.push(`- ${characterNamesById.get(characterId) ?? "Character"}: ${today}`);
+      missingCharacterIds.delete(characterId);
+    }
+  }
+
+  return scheduleLines.length > 0 ? scheduleLines.join("\n") : "No generated schedules are available for today.";
 }
 
 /**
@@ -259,6 +319,7 @@ export async function buildRefreshPrompt(input: {
   activeAccounts: NoodleAccount[];
   personaAccount: NoodleAccount | null;
   settings: NoodleSettings;
+  timeZone?: string;
   imageCaptioning: ImageCaptioningRuntime;
   debugMode: boolean;
 }) {
@@ -266,6 +327,9 @@ export async function buildRefreshPrompt(input: {
   const activeRandomUsers = input.activeAccounts.filter((account) => account.kind === "random_user");
   const selectedCharacterIds = activeCharacters.map((account) => account.entityId);
   const characterRows = await Promise.all(selectedCharacterIds.map((id) => input.characters.getById(id)));
+  const characterNamesById = new Map(
+    activeCharacters.map((account) => [account.entityId, account.displayName] as const),
+  );
   const personaRow = input.personaAccount ? await input.characters.getPersona(input.personaAccount.entityId) : null;
   const recentCutoff = sinceHoursIso(48);
   const [recentCreatedPosts, recentPersonaComments] = await Promise.all([
@@ -316,8 +380,11 @@ export async function buildRefreshPrompt(input: {
   } else {
     recalledPosts = sampleNoodlePastMemories(olderPosts, pastMemorySampleSize);
   }
-  const [chatContext, recentInteractions, recalledInteractions] = await Promise.all([
+  const [chatContext, characterScheduleContext, recentInteractions, recalledInteractions] = await Promise.all([
     buildOptedInChatContext(input.chats, input.characters, selectedCharacterIds),
+    input.settings.includeCharacterSchedules
+      ? buildGeneratedCharacterScheduleContext(input.chats, characterNamesById, input.timeZone)
+      : Promise.resolve(""),
     input.noodle.listInteractions(recentPosts.map((post) => post.id)),
     input.noodle.listInteractions(recalledPosts.map((post) => post.id)),
   ]);
@@ -448,6 +515,7 @@ export async function buildRefreshPrompt(input: {
     [
       "# Active Noodle Accounts",
       activeAccountList || "No active accounts.",
+      `Current user time: ${formatNoodleCurrentTime(new Date(), input.timeZone)}`,
       "",
       "# User Persona",
       personaContext,
@@ -459,6 +527,7 @@ export async function buildRefreshPrompt(input: {
       "# Character Profiles",
       characterContext || "No character profiles.",
       "",
+      ...(characterScheduleContext ? ["# Today's Generated Character Schedules", characterScheduleContext, ""] : []),
       ...(loreContext ? ["# World / Lore", loreContext, ""] : []),
       ...(randomUserContext ? ["# Random User Profiles", randomUserContext, ""] : []),
       "# Opted-In Chat Context",

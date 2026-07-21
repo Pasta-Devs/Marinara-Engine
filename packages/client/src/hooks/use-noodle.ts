@@ -564,6 +564,7 @@ export function useRefreshNoodle() {
       api.post<NoodleRefreshResult>("/noodle/refresh", {
         mode: "public",
         ...input,
+        timeZone: useUIStore.getState().conversationTimeZone,
         debugMode: useUIStore.getState().debugMode,
         reviewImagePromptsBeforeSend: useUIStore.getState().reviewImagePromptsBeforeSend,
       }),

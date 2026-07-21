@@ -131,7 +131,11 @@ export function isAutonomousDailyBudgetExhausted(
   now: Date = new Date(),
 ): boolean {
   const budget = getAutonomousDailyBudget(chatMeta, now);
-  return (budget.counts[characterId] ?? 0) >= dailyCapForCharacter(schedule, chatMeta);
+  const checkInCount =
+    chatMeta.groupChatMode === "individual"
+      ? Object.values(budget.counts).reduce((total, count) => total + count, 0)
+      : (budget.counts[characterId] ?? 0);
+  return checkInCount >= dailyCapForCharacter(schedule, chatMeta);
 }
 
 export function buildAutonomousDailyBudgetPatch(

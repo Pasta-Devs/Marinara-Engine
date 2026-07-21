@@ -77,6 +77,7 @@ export interface NoodleSettings {
   imageCaptioningEnabled: boolean;
   imageCaptioningConnectionId: string | null;
   enableLorebookContext: boolean;
+  includeCharacterSchedules: boolean;
   enableEnhancedTimelineWriting: boolean;
   allowProfessorMari: boolean;
   allowRandomUsers: boolean;

@@ -5367,6 +5367,17 @@ test("Roleplay displays a selected background when its file route is GET-only", 
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByPlaceholder("Search settings").fill("Backgrounds");
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+    await page.getByRole("button", { name: "Remove" }).click();
+    await expect
+      .poll(async () =>
+        page
+          .locator("img.mari-background:not([src])")
+          .evaluateAll(
+            (layers) =>
+              layers.length > 0 && layers.every((layer) => (layer as HTMLElement).style.opacity === "0"),
+          ),
+      )
+      .toBe(true);
     await page.locator(`img[src="${backgroundUrl}"]`).locator("..").click();
 
     await expect

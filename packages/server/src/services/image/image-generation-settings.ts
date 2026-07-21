@@ -40,6 +40,23 @@ export function clampImageDimension(value: unknown, fallback: number) {
   return Math.max(IMAGE_DIMENSION_MIN, Math.min(IMAGE_DIMENSION_MAX, Math.round(numeric)));
 }
 
+export function resolveIllustratorImageSize(size: ImageGenerationSize, aspectRatio: unknown): ImageGenerationSize {
+  const width = Math.max(1, Math.round(size.width));
+  const height = Math.max(1, Math.round(size.height));
+  const aspect = typeof aspectRatio === "string" ? aspectRatio.trim().toLowerCase() : "";
+  if (aspect === "portrait") {
+    return width <= height ? { width, height } : { width: height, height: width };
+  }
+  if (aspect === "landscape") {
+    return width >= height ? { width, height } : { width: height, height: width };
+  }
+  if (aspect === "square") {
+    const side = Math.min(width, height);
+    return { width: side, height: side };
+  }
+  return { width, height };
+}
+
 function readSize(raw: Record<string, unknown>, widthKey: string, heightKey: string, fallback: ImageGenerationSize) {
   return {
     width: clampImageDimension(raw[widthKey], fallback.width),

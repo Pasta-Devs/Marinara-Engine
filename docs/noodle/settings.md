@@ -123,6 +123,7 @@ The template Noodle uses to write these image prompts is called **Noodle Post Im
 The **Timeline Writing** section tunes the refresh writer's tone and long-term memory behavior.
 
 - **Enhanced tone & continuity**: a toggle, default **off**. When on, each account's voice is grounded more strongly in its own Personality/Description/Backstory instead of a default upbeat tone, accounts are encouraged to react to, quote, or argue with each other's posts within the same refresh, older-post recall happens more often (and favors posts relevant to currently active accounts instead of picking purely at random), and the recall instruction allows rather than discourages references. Off reproduces Noodle's original tone and recall behavior exactly, so turning this on is the only way your timelines change.
+- **Use generated character schedules**: a toggle, default **off**. When on, Noodle includes today's existing generated Conversation schedule for each participating character when available. Noodle does not generate or refresh schedules itself. The user's current local date and time are included in every timeline refresh whether this toggle is on or off.
 
 ## Customizing the timeline writer's voice
 

@@ -66,7 +66,10 @@ import { createPromptsStorage } from "../../services/storage/prompts.storage.js"
 import { findLastUserMessageIdBefore } from "../../services/generation/message-history.js";
 import { textRewriteDropsProtectedMarkup } from "../../services/generation/text-rewrite-safety.js";
 import { resolveConnectionImageDefaults } from "../../services/image/image-generation-defaults.js";
-import { loadImageGenerationUserSettings } from "../../services/image/image-generation-settings.js";
+import {
+  loadImageGenerationUserSettings,
+  resolveIllustratorImageSize,
+} from "../../services/image/image-generation-settings.js";
 import { compileImagePrompt } from "../../services/image/image-prompt-compiler.js";
 import { persistGeneratedImageToEntityGalleries } from "../../services/image/generated-image-entity-gallery.js";
 import { resolveImageConnectionFallback } from "../../services/generation/media-connection-fallback.js";
@@ -162,26 +165,6 @@ type PersonaContext = {
   personaStats: any;
   rpgStats: any;
 };
-
-function resolveIllustratorImageSize(
-  size: { width: number; height: number },
-  aspectRatio: unknown,
-): { width: number; height: number } {
-  const width = Math.max(1, Math.round(size.width));
-  const height = Math.max(1, Math.round(size.height));
-  const aspect = typeof aspectRatio === "string" ? aspectRatio.trim().toLowerCase() : "";
-  if (aspect === "portrait") {
-    return width <= height ? { width, height } : { width: height, height: width };
-  }
-  if (aspect === "landscape") {
-    return width >= height ? { width, height } : { width: height, height: width };
-  }
-  if (aspect === "square") {
-    const side = Math.min(width, height);
-    return { width: side, height: side };
-  }
-  return { width, height };
-}
 
 function cardPromptText(value: unknown): string {
   return typeof value === "string" ? stripMacroComments(value).trim() : "";
