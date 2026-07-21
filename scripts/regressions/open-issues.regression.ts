@@ -988,6 +988,18 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
+const foregroundAutonomousSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
+  "utf8",
+);
+const backgroundAutonomousSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-background-autonomous.ts", import.meta.url),
+  "utf8",
+);
+const serverAutonomousSchedulerSource = readFileSync(
+  new URL("../../packages/server/src/services/conversation/server-autonomous-scheduler.service.ts", import.meta.url),
+  "utf8",
+);
 const clientGenerationSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
   "utf8",
@@ -1067,6 +1079,47 @@ assert.match(
   conversationGenerationSource,
   /smartResponseQueue\?\.length\s*\? \[\.\.\.smartResponseQueue\]/u,
   "Smart ordering should generate every character selected by the responder queue",
+);
+assert.match(
+  conversationGenerationSource,
+  /In a larger group, do not default to one responder merely because the group is large/u,
+  "Conversation Smart ordering should not bias larger groups toward one responder",
+);
+assert.match(
+  conversationGenerationSource,
+  /scanConversationLorebooks[\s\S]{0,1000}characterIds: targetCharacterIds/u,
+  "Individual Conversation lorebook scans should use only the current responder's character tags",
+);
+assert.match(
+  conversationGenerationSource,
+  /prepareConversationLorebookForResponder[\s\S]{0,1000}scanConversationLorebooks\(\[targetCharId\], \{ previewOnly: true \}\)/u,
+  "Individual Conversation lorebook scans should receive only the current responder ID",
+);
+assert.match(
+  conversationGenerationSource,
+  /let gameAwareMessagesForGen = await prepareConversationLorebookForResponder\(targetCharId, messagesForGen\)/u,
+  "Individual Conversation lorebook injection should happen separately for each provider generation",
+);
+assert.match(
+  conversationGenerationSource,
+  /chatMode === "conversation" && otherNames\.length > 0[\s\S]{0,500}fullResponse = fullResponse\.slice\(0, nextSpeakerMatch\.index\)/u,
+  "Individual Conversation generations should discard an extra character turn returned in the same completion",
+);
+for (const [source, lane] of [
+  [foregroundAutonomousSource, "foreground"],
+  [backgroundAutonomousSource, "background"],
+  [serverAutonomousSchedulerSource, "server scheduler"],
+] as const) {
+  assert.match(
+    source,
+    /forCharacterId: characterId/u,
+    `Conversation ${lane} autonomous generation must target one character`,
+  );
+}
+assert.match(
+  foregroundAutonomousSource,
+  /triggerAutonomousGeneration\(exchange\.characterIds\[0\]!\)/u,
+  "Character Exchanges should start a separate targeted Individual generation",
 );
 assert.match(
   conversationGenerationSource,

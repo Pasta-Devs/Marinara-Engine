@@ -485,6 +485,7 @@ import {
 } from "./generate/agent-write-approval.js";
 
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
+const INDIVIDUAL_CONVERSATION_LOREBOOK_TOKEN = "__MARINARA_INDIVIDUAL_CONVERSATION_LOREBOOK__";
 type ConversationContextMacroKey =
   | "context"
   | "commands"
@@ -587,6 +588,7 @@ function decodeDeferredRelocationConditionals(
   messages: GenerationPromptMessage[],
   relocationValues: Record<ConversationRelocationMacroKey, string>,
   baseContext: MacroContext,
+  options: { preserveKeys?: ReadonlySet<ConversationRelocationMacroKey> } = {},
 ): void {
   if (!messages.some((message) => hasDeferredRelocationConditionals(message.content))) return;
 
@@ -608,12 +610,17 @@ function decodeDeferredRelocationConditionals(
     if (!hasDeferredRelocationConditionals(message.content)) continue;
     messages[index] = {
       ...message,
-      content: message.content.replace(DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE, (_match, encoded: string) => {
+      content: message.content.replace(DEFERRED_RELOCATION_CONDITIONAL_TOKEN_RE, (match, encoded: string) => {
         const payload = parseDeferredConditionalPayload(encoded);
         if (!payload) {
           logger.error("[generate/conversation] Malformed deferred relocation conditional token; dropping block");
           return "";
         }
+        const preserved = collectDeferredRelocationConditionOperands(match).some((operand) => {
+          const key = relocationKeyForOperand(operand);
+          return key ? options.preserveKeys?.has(key) === true : false;
+        });
+        if (preserved) return match;
         const selected = selectConditionalPayloadBranch(payload, evalContext, { trimResult: false });
         return resolveMacros(selected, evalContext, { trimResult: false });
       }),
@@ -1471,6 +1478,16 @@ export async function generateRoutes(app: FastifyInstance) {
         let conversationLorebookBlockValue = "";
         let conversationMemoriesBlockValue = "";
         let conversationReplyRulesBlockValue = "";
+        const buildConversationRelocationValues = (
+          lorebook: string,
+        ): Record<ConversationRelocationMacroKey, string> => ({
+          context: conversationContextBlockValue,
+          commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
+          reactRules: "",
+          replyRules: conversationReplyRulesBlockValue,
+          memories: conversationMemoriesBlockValue,
+          lorebook,
+        });
         const identityFallbackPromptTemplateSources: string[] = [];
         const conversationCommandsEnabled = chatMode === "conversation" && chatMeta.characterCommands !== false;
         let temperature: number | undefined = 1;
@@ -1588,6 +1605,12 @@ export async function generateRoutes(app: FastifyInstance) {
             ? input.forCharacterId
             : null;
         const promptCharacterIds = resolvePromptCharacterIdsForTarget(characterIds, promptTargetCharacterId);
+        const deferConversationLorebookScanToResponder =
+          chatMode === "conversation" &&
+          characterIds.length > 1 &&
+          promptGroupChatMode === "individual" &&
+          !promptTargetCharacterId &&
+          input.impersonate !== true;
         const characterAdvancedPromptIds = resolveCharacterAdvancedPromptIds(promptCharacterIds, chatMode, chatMeta);
         const deferCharacterMacros =
           characterIds.length > 1 &&
@@ -1723,6 +1746,67 @@ export async function generateRoutes(app: FastifyInstance) {
             input,
             resolvePromptMacrosWithoutVariableWrites,
           );
+        const deferredLorebookEntryStateBaseline = deferConversationLorebookScanToResponder
+          ? ((chatMeta.entryStateOverrides as Record<
+              string,
+              { ephemeral?: number | null; enabled?: boolean }
+            >) ?? undefined)
+          : undefined;
+        const deferredLorebookTimingStateBaseline = deferConversationLorebookScanToResponder
+          ? ((chatMeta.entryTimingStates as Record<string, LorebookEntryTimingState>) ?? undefined)
+          : undefined;
+        const scanConversationLorebooks = async (
+          targetCharacterIds: string[],
+          options: { previewOnly?: boolean; recordSnapshot?: boolean } = {},
+        ) => {
+          sendProgress("lorebooks");
+          const lorebookResult = await processLorebooks(app.db, toLorebookScanMessages(), null, {
+            chatId: input.chatId,
+            characterIds: targetCharacterIds,
+            personaId,
+            activeLorebookIds: chatActiveLorebookIds,
+            excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
+            excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
+            tokenBudget: resolveLorebookTokenBudget(chatMeta),
+            chatEmbedding: chatContextEmbedding,
+            semanticEmbeddingsByLorebookId: lorebookSemanticEmbeddingsById,
+            semanticSimilarityBaseline: lorebookSemanticSimilarityBaseline,
+            entryStateOverrides: options.previewOnly
+              ? deferredLorebookEntryStateBaseline
+              : ((chatMeta.entryStateOverrides as Record<
+                  string,
+                  { ephemeral?: number | null; enabled?: boolean }
+                >) ?? undefined),
+            entryTimingStates: options.previewOnly
+              ? deferredLorebookTimingStateBaseline
+              : ((chatMeta.entryTimingStates as Record<string, LorebookEntryTimingState>) ?? undefined),
+            previewOnly: options.previewOnly,
+            generationTriggers: lorebookGenerationTriggers,
+            resolveContent: resolvePromptMacrosForLorebook,
+          });
+          if (options.recordSnapshot !== false) lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
+          rememberKnowledgeRouterActivatedLorebookIds(
+            knowledgeRouterActivatedLorebookEntryIds,
+            knowledgeRouterExcludedLorebookEntryIds,
+            lorebookResult,
+          );
+          knowledgeRouterActivationPassCompleted = true;
+
+          if (!options.previewOnly) {
+            if (lorebookResult.updatedEntryStateOverrides)
+              chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
+            if (lorebookResult.updatedEntryTimingStates)
+              chatMeta.entryTimingStates = lorebookResult.updatedEntryTimingStates;
+            await persistLorebookRuntimeState({
+              chats,
+              chatId: input.chatId,
+              fallbackMeta: chatMeta,
+              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
+              entryTimingStates: lorebookResult.updatedEntryTimingStates,
+            });
+          }
+          return lorebookResult;
+        };
         const injectCharacterAdvancedPrompts = async () => {
           if (characterAdvancedPromptsInjected) return;
           const entries = await collectCharacterAdvancedPromptEntries(
@@ -2326,64 +2410,36 @@ export async function generateRoutes(app: FastifyInstance) {
 
           // ── Lorebook injection for conversation mode ──
           {
-            sendProgress("lorebooks");
-            const lorebookResult = await processLorebooks(app.db, toLorebookScanMessages(), null, {
-              chatId: input.chatId,
-              characterIds: promptCharacterIds,
-              personaId,
-              activeLorebookIds: chatActiveLorebookIds,
-              excludedLorebookIds: lorebookScopeExclusions.excludedLorebookIds,
-              excludedSourceAgentIds: lorebookScopeExclusions.excludedSourceAgentIds,
-              tokenBudget: resolveLorebookTokenBudget(chatMeta),
-              chatEmbedding: chatContextEmbedding,
-              semanticEmbeddingsByLorebookId: lorebookSemanticEmbeddingsById,
-              semanticSimilarityBaseline: lorebookSemanticSimilarityBaseline,
-              entryStateOverrides:
-                (chatMeta.entryStateOverrides as Record<string, { ephemeral?: number | null; enabled?: boolean }>) ??
-                undefined,
-              entryTimingStates: (chatMeta.entryTimingStates as Record<string, LorebookEntryTimingState>) ?? undefined,
-              generationTriggers: lorebookGenerationTriggers,
-              resolveContent: resolvePromptMacrosForLorebook,
-            });
-            lorebookScanSnapshot = toLorebookScanSnapshot(lorebookResult);
-            rememberKnowledgeRouterActivatedLorebookIds(
-              knowledgeRouterActivatedLorebookEntryIds,
-              knowledgeRouterExcludedLorebookEntryIds,
-              lorebookResult,
-            );
-            knowledgeRouterActivationPassCompleted = true;
-
-            if (lorebookResult.updatedEntryStateOverrides)
-              chatMeta.entryStateOverrides = lorebookResult.updatedEntryStateOverrides;
-            if (lorebookResult.updatedEntryTimingStates)
-              chatMeta.entryTimingStates = lorebookResult.updatedEntryTimingStates;
-            await persistLorebookRuntimeState({
-              chats,
-              chatId: input.chatId,
-              fallbackMeta: chatMeta,
-              entryStateOverrides: lorebookResult.updatedEntryStateOverrides,
-              entryTimingStates: lorebookResult.updatedEntryTimingStates,
-            });
-            const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
-              .filter(Boolean)
-              .join("\n");
-            if (loreContent) {
-              const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
-              conversationLorebookBlockValue = loreBlock;
+            if (deferConversationLorebookScanToResponder) {
+              // Smart and Sequential Individual generations do not know the responder yet.
+              // Preserve the requested prompt location and scan with only the target
+              // character once each separate provider generation begins.
               if (conversationContextMacroSlots.lorebook) {
-                replaceConversationContextMacro(finalMessages, "lorebook", loreBlock);
-              } else {
-                // Inject before the awareness block (or before first user/assistant message)
-                const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
-                const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
-                finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+                replaceConversationContextMacro(finalMessages, "lorebook", INDIVIDUAL_CONVERSATION_LOREBOOK_TOKEN);
               }
-            } else if (conversationContextMacroSlots.lorebook) {
-              replaceConversationContextMacro(finalMessages, "lorebook", "");
-            }
-            // Inject depth-based lorebook entries into the message array
-            if (lorebookResult.depthEntries.length > 0) {
-              finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
+            } else {
+              const lorebookResult = await scanConversationLorebooks(promptCharacterIds);
+              const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
+                .filter(Boolean)
+                .join("\n");
+              if (loreContent) {
+                const loreBlock = wrapContent(loreContent, "Lore", wrapFormat);
+                conversationLorebookBlockValue = loreBlock;
+                if (conversationContextMacroSlots.lorebook) {
+                  replaceConversationContextMacro(finalMessages, "lorebook", loreBlock);
+                } else {
+                  // Inject before the awareness block (or before first user/assistant message)
+                  const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
+                  const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;
+                  finalMessages.splice(insertAt, 0, { role: "system" as const, content: loreBlock });
+                }
+              } else if (conversationContextMacroSlots.lorebook) {
+                replaceConversationContextMacro(finalMessages, "lorebook", "");
+              }
+              // Inject depth-based lorebook entries into the message array
+              if (lorebookResult.depthEntries.length > 0) {
+                finalMessages = injectAtDepth(finalMessages, lorebookResult.depthEntries);
+              }
             }
           }
         }
@@ -2964,15 +3020,9 @@ export async function generateRoutes(app: FastifyInstance) {
         if (chatMode === "conversation") {
           decodeDeferredRelocationConditionals(
             finalMessages,
-            {
-              context: conversationContextBlockValue,
-              commands: !input.impersonate ? (conversationCommandsReminder ?? "") : "",
-              reactRules: "",
-              replyRules: conversationReplyRulesBlockValue,
-              memories: conversationMemoriesBlockValue,
-              lorebook: conversationLorebookBlockValue,
-            },
+            buildConversationRelocationValues(conversationLorebookBlockValue),
             promptMacroContext,
+            deferConversationLorebookScanToResponder ? { preserveKeys: new Set(["lorebook"]) } : undefined,
           );
         }
 
@@ -4619,7 +4669,8 @@ export async function generateRoutes(app: FastifyInstance) {
               ? [
                   `You are a hidden response orchestrator for a Conversation-mode group chat.`,
                   `Choose one or more available characters to respond next, based on the latest message, recent conversation, relevance, personality, current schedule status, activity, talkativeness, and who has spoken recently.`,
-                  `Usually choose exactly one character. Choose multiple only when multiple characters have a strong immediate reason to answer.`,
+                  `Select every character who has a natural immediate reason to respond. One or several responders are equally valid.`,
+                  `In a larger group, do not default to one responder merely because the group is large; include multiple characters when several are directly involved or independently motivated, without forcing uninvolved characters to speak.`,
                   `Prefer an online character over an idle or do-not-disturb character unless the conversation clearly calls for someone else.`,
                   `Do not always choose the first character. Avoid making the same character speak twice in a row unless the context clearly calls for it.`,
                 ]
@@ -4797,6 +4848,51 @@ export async function generateRoutes(app: FastifyInstance) {
                     : []
           : [characterIds[0] ?? null];
 
+        if (deferConversationLorebookScanToResponder && respondingCharIds.length > 0) {
+          await scanConversationLorebooks(
+            respondingCharIds.filter((characterId): characterId is string => typeof characterId === "string"),
+            { recordSnapshot: false },
+          );
+        }
+
+        const prepareConversationLorebookForResponder = async (
+          targetCharId: string | null,
+          messages: GenerationPromptMessage[],
+        ): Promise<GenerationPromptMessage[]> => {
+          if (!deferConversationLorebookScanToResponder || !targetCharId) return messages;
+
+          const lorebookResult = await scanConversationLorebooks([targetCharId], { previewOnly: true });
+
+          const loreContent = [lorebookResult.worldInfoBefore, lorebookResult.worldInfoAfter]
+            .filter(Boolean)
+            .join("\n");
+          const loreBlock = loreContent ? wrapContent(loreContent, "Lore", wrapFormat) : "";
+          let prepared = messages.map((message) => ({
+            ...message,
+            content: message.content.split(INDIVIDUAL_CONVERSATION_LOREBOOK_TOKEN).join(loreBlock),
+          }));
+
+          if (loreBlock && !conversationContextMacroSlots.lorebook) {
+            const firstUserIdx = prepared.findIndex(
+              (message) => message.role === "user" || message.role === "assistant",
+            );
+            prepared.splice(firstUserIdx >= 0 ? firstUserIdx : prepared.length, 0, {
+              role: "system" as const,
+              content: loreBlock,
+            });
+          }
+          if (lorebookResult.depthEntries.length > 0) {
+            prepared = injectAtDepth(prepared, lorebookResult.depthEntries);
+          }
+
+          decodeDeferredRelocationConditionals(
+            prepared,
+            buildConversationRelocationValues(loreBlock),
+            promptMacroContext,
+          );
+          return prepared;
+        };
+
         /** Generate a single response for a given character and save it. */
         const generateForCharacter = async (
           targetCharId: string | null,
@@ -4820,7 +4916,7 @@ export async function generateRoutes(app: FastifyInstance) {
           // into another responder's prompt; impersonation gets the human seat,
           // and a merged generation that may voice several characters at once
           // stays on the hand-free spectator view.
-          let gameAwareMessagesForGen = messagesForGen;
+          let gameAwareMessagesForGen = await prepareConversationLorebookForResponder(targetCharId, messagesForGen);
           if (turnGameContextForSeat) {
             const viewerSeatId = input.impersonate
               ? chat.personaId || "human"
@@ -5767,6 +5863,13 @@ export async function generateRoutes(app: FastifyInstance) {
                 }
                 fullResponse = fullResponse.slice(paragraphBreak).trimStart();
                 stripTargetPrefix();
+              }
+              if (chatMode === "conversation" && otherNames.length > 0) {
+                const nextSpeakerPrefix = new RegExp(`\\n\\s*(?:${otherNames.join("|")})\\s*:\\s*`, "i");
+                const nextSpeakerMatch = fullResponse.match(nextSpeakerPrefix);
+                if (nextSpeakerMatch?.index != null) {
+                  fullResponse = fullResponse.slice(0, nextSpeakerMatch.index).trimEnd();
+                }
               }
               if (fullResponse !== beforeNamePrefixStrip) {
                 contentReplaced = true;
