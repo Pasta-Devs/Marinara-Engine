@@ -4880,6 +4880,15 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       );
       assert.equal(formatOutput("markdown"), `## Output Format\n${instruction}\n${responseBoundary}`);
       assert.equal(formatOutput("none"), `${instruction}\n${responseBoundary}`);
+      assert.equal(
+        formatConversationGroupOutputFormat({
+          wrapFormat: "markdown",
+          characterNames: ["Dottore", "Pantalone"],
+          userName: "Mari",
+          turnCharacterName: "Dottore",
+        }),
+        `## Output Format\n${instruction}\n${responseBoundary}\nRespond as Dottore alone.`,
+      );
 
       const contextSource = readFileSync(
         new URL("../../packages/server/src/routes/generate/conversation-context-block.ts", import.meta.url),

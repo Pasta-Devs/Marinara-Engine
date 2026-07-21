@@ -4851,12 +4851,17 @@ export async function generateRoutes(app: FastifyInstance) {
             historyMacroProfilesById,
           );
           if (chatMode === "conversation" && conversationIsGroup && !input.impersonate) {
+            const turnCharacterName =
+              usesIndividualGroupGeneration && groupTurnPromptEnabled && speaksOnlyTargetCharacter && targetCharId
+                ? (charInfo.find((character) => character.id === targetCharId)?.name ?? null)
+                : null;
             preparedMessagesForGen.push({
               role: "user",
               content: formatConversationGroupOutputFormat({
                 wrapFormat,
                 characterNames: conversationCharacterNames,
                 userName: personaName,
+                turnCharacterName,
               }),
               contextKind: "injection",
             });
@@ -5732,6 +5737,7 @@ export async function generateRoutes(app: FastifyInstance) {
               : null;
             fullResponse = stripConversationResponseEnvelope(fullResponse, {
               speakerName: conversationSpeakerName,
+              speakerNames: charInfo.map((character) => character.name),
               preserveSpeakerPrefix: isGroupChat && !usesIndividualGroupGeneration,
             });
             if (fullResponse !== beforeStrip) {
@@ -6094,8 +6100,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // are declared above the follow-up loop so they survive iterations.)
 
         const generationGuideInstruction = buildGenerationGuideInstruction(input.generationGuide, promptMacroContext);
-        const buildCharacterInstruction = (charName: string) =>
-          groupTurnPromptEnabled ? `Respond ONLY as ${charName}.` : null;
+        const buildRoleplayCharacterInstruction = (charName: string) =>
+          groupTurnPromptEnabled && chatMode !== "conversation" ? `Respond ONLY as ${charName}.` : null;
 
         if (useIndividualLoop) {
           // Individual group mode: generate one response per character
@@ -6116,8 +6122,9 @@ export async function generateRoutes(app: FastifyInstance) {
               `data: ${JSON.stringify({ type: "group_turn", data: { characterId: charId, characterName: charName, index: ci } })}\n\n`,
             );
 
-            // Append "Respond ONLY as [name]" instruction
-            const charInstruction = buildCharacterInstruction(charName);
+            // Conversation puts its short turn instruction in Output Format.
+            // Keep the established Roleplay instruction placement unchanged.
+            const charInstruction = buildRoleplayCharacterInstruction(charName);
             const messagesWithInstruction = [...runningMessages];
             // Add as a system message at the end (just before any trailing user message)
             if (charInstruction) {
@@ -6206,14 +6213,10 @@ export async function generateRoutes(app: FastifyInstance) {
               return;
             }
 
-            // Get character of regenerated message and append "Respond ONLY as [name]" instruction
+            // Conversation puts its short turn instruction in Output Format.
             targetCharId = regenMsg?.characterId ?? null;
             const targetCharName = charInfo.find((c) => c.id === targetCharId)?.name ?? "Character";
-            const charInstruction = targetCharId
-              ? buildCharacterInstruction(targetCharName)
-              : groupTurnPromptEnabled
-                ? `Respond ONLY as ${targetCharName}.`
-                : null;
+            const charInstruction = buildRoleplayCharacterInstruction(targetCharName);
             if (charInstruction) {
               sentMessages.push({ role: "system", content: charInstruction });
             }

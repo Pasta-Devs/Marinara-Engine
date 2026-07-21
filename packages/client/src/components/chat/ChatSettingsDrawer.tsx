@@ -5164,7 +5164,7 @@ export function ChatSettingsDrawer({
             </Section>
           )}
 
-          {/* Group Chat Settings — only when 2+ characters, game mode handles it internally */}
+          {/* Every existing and new multi-character chat gets this section. Missing mode metadata means Grouped. */}
           {chatCharIds.length > 1 && modeCapabilities.supportsGroupChatControls && (
             <Section
               style={{ order: CHAT_SETTINGS_ORDER.groupChat }}

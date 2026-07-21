@@ -11,12 +11,20 @@ export function formatConversationGroupOutputFormat(args: {
   wrapFormat: WrapFormat;
   characterNames: string[];
   userName: string;
+  turnCharacterName?: string | null;
 }): string {
   const characterList = Array.from(new Set(args.characterNames.map((name) => name.trim()).filter(Boolean))).join(", ");
   const userName = args.userName.trim() || "the user";
   const responseBoundary = `Only respond for these characters: ${characterList || "the listed characters"}. Never respond for ${userName} or write ${userName}'s messages.`;
+  const turnCharacterName = args.turnCharacterName?.trim();
   return wrapContent(
-    [CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION, responseBoundary].join("\n"),
+    [
+      CONVERSATION_GROUP_NAME_PREFIX_INSTRUCTION,
+      responseBoundary,
+      turnCharacterName ? `Respond as ${turnCharacterName} alone.` : null,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n"),
     "Output Format",
     args.wrapFormat,
   );

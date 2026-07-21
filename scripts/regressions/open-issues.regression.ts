@@ -66,6 +66,7 @@ import { parseNoodleAvatarCrop } from "../../packages/server/src/services/storag
 import { sanitizeExampleDialoguePromptLeaf } from "../../packages/server/src/services/prompt/prompt-escaping.js";
 import { parseCharacterCommands } from "../../packages/server/src/services/conversation/character-commands.js";
 import {
+  collapseDuplicateConversationSpeakerPrefixes,
   stripConversationPromptTimestamps,
   stripConversationResponseEnvelope,
 } from "../../packages/server/src/services/conversation/transcript-sanitize.js";
@@ -323,6 +324,11 @@ assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFla
 
 assert.equal(resolveGroupGenerationMode("conversation", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
+assert.equal(
+  resolveGroupGenerationMode("conversation", undefined),
+  "merged",
+  "pre-existing Conversation groups without mode metadata must retain Grouped behavior",
+);
 assert.equal(getChatModeCapabilities("conversation").supportsGroupChatControls, true);
 assert.equal(getChatModeCapabilities("conversation").modeSections.includes("group-chat"), true);
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
@@ -994,6 +1000,11 @@ assert.doesNotMatch(conversationGroupSettingsSource, /label="Cross-Chat Awarenes
 assert.match(conversationGroupSettingsSource, /Individual replies can use many tokens/u);
 assert.match(
   conversationGroupSettingsSource,
+  /chatCharIds\.length > 1 && modeCapabilities\.supportsGroupChatControls/u,
+  "pre-existing multi-character Conversation chats must show Group Chat settings without requiring mode metadata",
+);
+assert.match(
+  conversationGroupSettingsSource,
   /if \(!\(await flushProseGuardianDrafts\(\)\)\) return;[\s\S]{0,250}onClose\(\)/u,
   "Closing Chat Settings must persist changed Prose Guardian preferences before unmounting the drawer",
 );
@@ -1234,6 +1245,20 @@ assert.equal(
     preserveSpeakerPrefix: true,
   }),
   "Character: Hello!",
+);
+assert.equal(
+  collapseDuplicateConversationSpeakerPrefixes(
+    "Dottore: Dottore: The procedure is complete.\nPantalone: Pantalone: At what cost?",
+    ["Dottore", "Pantalone"],
+  ),
+  "Dottore: The procedure is complete.\nPantalone: At what cost?",
+);
+assert.equal(
+  stripConversationResponseEnvelope("Dottore: Dottore: The procedure is complete.", {
+    speakerName: "Dottore",
+    speakerNames: ["Dottore", "Pantalone"],
+  }),
+  "The procedure is complete.",
 );
 assert.equal(
   stripLeadingMessageTimestamps("We meet at [11.07 15:53] by the station."),
