@@ -654,6 +654,10 @@ interface UIState {
   // ── Text Appearance ──
   /** Color for chat message text (empty = theme default) */
   chatFontColor: string;
+  /** Whether cards without their own dialogue color use the global dialogue color */
+  defaultDialogueColorEnabled: boolean;
+  /** Default dialogue highlight color for cards without one (empty = theme default) */
+  defaultDialogueColor: string;
   /** Color for non-action chrome copy in tracker widgets, folder labels, settings descriptors, and popovers (empty = scheme default) */
   chatChromeTextColor: string;
   /** Opacity for roleplay message backgrounds (0–100) */
@@ -927,6 +931,8 @@ interface UIState {
   setSummaryPopoverSettings: (settings: Partial<SummaryPopoverSettings>) => void;
   setScenePromptPreferences: (preferences: ScenePromptPreferences) => void;
   setChatFontColor: (v: string) => void;
+  setDefaultDialogueColorEnabled: (v: boolean) => void;
+  setDefaultDialogueColor: (v: string) => void;
   setChatChromeTextColor: (v: string) => void;
   setChatFontOpacity: (v: number) => void;
   setRoleplayReducedPaintEffects: (v: boolean) => void;
@@ -1123,6 +1129,8 @@ export function pickSyncedSettings(state: UIState) {
     summaryPopoverSettings: state.summaryPopoverSettings,
     scenePromptPreferences: state.scenePromptPreferences,
     chatFontColor: state.chatFontColor,
+    defaultDialogueColorEnabled: state.defaultDialogueColorEnabled,
+    defaultDialogueColor: state.defaultDialogueColor,
     chatChromeTextColor: state.chatChromeTextColor,
     chatFontOpacity: state.chatFontOpacity,
     roleplayAvatarStyle: state.roleplayAvatarStyle,
@@ -1307,6 +1315,8 @@ export const useUIStore = create<UIState>()(
       summaryPopoverSettings: DEFAULT_SUMMARY_POPOVER_SETTINGS,
       scenePromptPreferences: DEFAULT_SCENE_PROMPT_PREFERENCES,
       chatFontColor: "",
+      defaultDialogueColorEnabled: false,
+      defaultDialogueColor: "",
       chatChromeTextColor: "",
       chatFontOpacity: 90,
       roleplayReducedPaintEffects: false,
@@ -2057,6 +2067,8 @@ export const useUIStore = create<UIState>()(
       setScenePromptPreferences: (preferences) =>
         set({ scenePromptPreferences: normalizeScenePromptPreferences(preferences) }),
       setChatFontColor: (v) => set({ chatFontColor: v }),
+      setDefaultDialogueColorEnabled: (v) => set({ defaultDialogueColorEnabled: v }),
+      setDefaultDialogueColor: (v) => set({ defaultDialogueColor: v }),
       setChatChromeTextColor: (v) => set({ chatChromeTextColor: normalizeChatChromeTextColor(v) }),
       setChatFontOpacity: (v) => set({ chatFontOpacity: Math.max(0, Math.min(100, v)) }),
       setRoleplayReducedPaintEffects: (v) => set({ roleplayReducedPaintEffects: v }),
@@ -2108,6 +2120,8 @@ export const useUIStore = create<UIState>()(
           fontFamily: "",
           conversationMessageStyle: "classic" as ConversationMessageStyle,
           chatFontColor: "",
+          defaultDialogueColorEnabled: false,
+          defaultDialogueColor: "",
           chatChromeTextColor: "",
           chatFontOpacity: 90,
           roleplayReducedPaintEffects: false,
@@ -2211,7 +2225,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 79,
+      version: 80,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2772,12 +2786,23 @@ export const useUIStore = create<UIState>()(
             ),
           );
         }
+        if (version <= 79) {
+          if (persisted.defaultDialogueColorEnabled === undefined) {
+            persisted.defaultDialogueColorEnabled = false;
+          }
+          if (persisted.defaultDialogueColor === undefined) {
+            persisted.defaultDialogueColor = "";
+          }
+        }
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
         persisted.professorMariSuggestionsEnabled = persisted.professorMariSuggestionsEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.roleplayReducedPaintEffects = persisted.roleplayReducedPaintEffects === true;
         persisted.gameTextEffectsEnabled = persisted.gameTextEffectsEnabled !== false;
+        persisted.defaultDialogueColorEnabled = persisted.defaultDialogueColorEnabled === true;
+        persisted.defaultDialogueColor =
+          typeof persisted.defaultDialogueColor === "string" ? persisted.defaultDialogueColor : "";
         persisted.chatChromeTextColor = normalizeChatChromeTextColor(persisted.chatChromeTextColor);
         persisted.defaultRoleplayBackground = normalizeDefaultRoleplayBackground(persisted.defaultRoleplayBackground);
         delete persisted.trackerPanelWidth;
@@ -2904,6 +2929,8 @@ export const useUIStore = create<UIState>()(
         summaryPopoverSettings: state.summaryPopoverSettings,
         scenePromptPreferences: state.scenePromptPreferences,
         chatFontColor: state.chatFontColor,
+        defaultDialogueColorEnabled: state.defaultDialogueColorEnabled,
+        defaultDialogueColor: state.defaultDialogueColor,
         chatChromeTextColor: state.chatChromeTextColor,
         chatFontOpacity: state.chatFontOpacity,
         roleplayReducedPaintEffects: state.roleplayReducedPaintEffects,

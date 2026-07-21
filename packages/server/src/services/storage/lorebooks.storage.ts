@@ -22,6 +22,7 @@ import {
   type UpdateLorebookEntryInput,
   type BulkUpdateLorebookEntriesInput,
   type CreateLorebookFolderInput,
+  type LorebookEntry,
   type UpdateLorebookFolderInput,
 } from "@marinara-engine/shared";
 import { collectEffectivelyDisabledFolderIds, collectFolderSubtreeIds } from "@marinara-engine/shared";
@@ -612,7 +613,7 @@ export function createLorebooksStorage(db: DB) {
     async listEligibleEntriesByIds(
       entryIds: string[],
       filters?: { excludedLorebookIds?: string[]; excludedSourceAgentIds?: string[] },
-    ) {
+    ): Promise<LorebookEntry[]> {
       const requestedIds = uniqueStrings(entryIds).slice(0, LIMITS.MAX_LOREBOOK_ENTRIES);
       if (requestedIds.length === 0) return [];
 
@@ -669,7 +670,9 @@ export function createLorebooksStorage(db: DB) {
             allowedBookIds.has(entry.lorebookId) &&
             (!entry.folderId || !disabledFolderIds.has(entry.folderId as string)),
         )
-        .sort((left, right) => (requestedOrder.get(left.id) ?? 0) - (requestedOrder.get(right.id) ?? 0));
+        .sort(
+          (left, right) => (requestedOrder.get(left.id) ?? 0) - (requestedOrder.get(right.id) ?? 0),
+        ) as unknown as LorebookEntry[];
     },
 
     /**

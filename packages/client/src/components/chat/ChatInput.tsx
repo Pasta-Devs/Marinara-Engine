@@ -51,6 +51,7 @@ import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
+import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { EmojiPicker } from "../ui/EmojiPicker";
 import { SpeechToTextButton } from "../ui/SpeechToTextButton";
@@ -228,9 +229,6 @@ export const ChatInput = memo(function ChatInput({
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const inputBarRef = useRef<HTMLDivElement>(null);
   const focusAfterMobileRestoreRef = useRef(false);
-  const textareaFocusedRef = useRef(false);
-  const restoreFocusAfterBusyRef = useRef(false);
-  const wasInputBusyRef = useRef(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentInputFrameRef = useRef<number | null>(null);
   const pendingCurrentInputRef = useRef("");
@@ -247,8 +245,16 @@ export const ChatInput = memo(function ChatInput({
   const professorMariSuggestionsEnabled = useUIStore((s) => s.professorMariSuggestionsEnabled);
   const streamingChatId = useChatStore((s) => s.streamingChatId);
   const isStreamingGlobal = useChatStore((s) => s.isStreaming);
-  const isStreaming = isStreamingGlobal && streamingChatId === activeChatId;
-  const isInputBusy = isStreaming || interactionsLocked;
+  const isBackgroundIllustration = useChatStore((s) =>
+    activeChatId ? s.backgroundIllustrationChatIds.has(activeChatId) : false,
+  );
+  const hasActiveStream = isStreamingGlobal && streamingChatId === activeChatId;
+  const isStreaming = hasActiveStream && !isBackgroundIllustration;
+  const isInputBusy = isGenerationSendBlocked({
+    streamActive: hasActiveStream,
+    agentsProcessing: interactionsLocked,
+    backgroundIllustration: isBackgroundIllustration,
+  });
   const responseQueue = useChatStore((s) =>
     activeChatId ? (s.responseQueues.get(activeChatId) ?? EMPTY_RESPONSE_QUEUE) : EMPTY_RESPONSE_QUEUE,
   );
@@ -621,11 +627,11 @@ export const ChatInput = memo(function ChatInput({
   const isReadingAttachments = pendingAttachmentReads > 0;
   const hasPendingAttachments = isReadingAttachments || attachments.length > 0;
   const requiresManualGuideTarget = groupResponseOrder === "manual" && activeCharacterNames.length > 1;
-  const inputBusyReason = isStreaming
-    ? "Wait for the current stream to finish."
-    : interactionsLocked
-      ? "Wait for agents to finish."
-      : null;
+  const inputBusyReason = isInputBusy
+    ? isStreaming
+      ? "Wait for the current stream to finish."
+      : "Wait for agents to finish."
+    : null;
 
   const removeAttachment = (idx: number) => {
     updateAttachments((prev) => prev.filter((_, i) => i !== idx));
@@ -1589,32 +1595,6 @@ export const ChatInput = memo(function ChatInput({
   }, []);
 
   useEffect(() => {
-    const wasInputBusy = wasInputBusyRef.current;
-    wasInputBusyRef.current = isInputBusy;
-
-    if (isInputBusy) {
-      if (textareaFocusedRef.current) restoreFocusAfterBusyRef.current = true;
-      return;
-    }
-
-    if (!wasInputBusy || !restoreFocusAfterBusyRef.current) return;
-    restoreFocusAfterBusyRef.current = false;
-    if (!activeChatId || shouldShowMobileCollapsedComposer) return;
-
-    const focus = () => {
-      const textarea = textareaRef.current;
-      if (!textarea || textarea.disabled) return;
-      const activeElement = document.activeElement;
-      if (activeElement && activeElement !== document.body && activeElement !== textarea) return;
-      textarea.focus({ preventScroll: true });
-      textareaFocusedRef.current = true;
-      ensureInputVisible();
-    };
-
-    requestAnimationFrame(focus);
-  }, [activeChatId, ensureInputVisible, isInputBusy, shouldShowMobileCollapsedComposer]);
-
-  useEffect(() => {
     if (mobileHistoryCollapsed || !focusAfterMobileRestoreRef.current) return;
     focusAfterMobileRestoreRef.current = false;
     const focus = () => {
@@ -1839,14 +1819,10 @@ export const ChatInput = memo(function ChatInput({
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           onFocus={() => {
-            textareaFocusedRef.current = true;
             ensureInputVisible();
           }}
-          onBlur={() => {
-            if (!isInputBusy) textareaFocusedRef.current = false;
-          }}
           placeholder={inputPlaceholder}
-          disabled={!activeChatId || isInputBusy}
+          disabled={!activeChatId}
           rows={1}
           spellCheck
           autoCorrect="on"
