@@ -32,6 +32,7 @@ import type {
 import {
   useCreateNoodlerInteraction,
   useCreateNoodlerStageProfile,
+  useDeleteNoodlePost,
   useDeleteNoodlerStageProfile,
   useGeneratePrivateNoodlePost,
   useGenerateNoodlerStageProfileDraft,
@@ -43,6 +44,7 @@ import {
   useRemoveNoodlerInteraction,
   useToggleNoodlerSubscription,
   useUnlockNoodlerPost,
+  useUpdateNoodlePost,
   useUpdateNoodlerAccess,
   useUpdateNoodleSettings,
   useUpdateNoodlerStageProfile,
@@ -222,6 +224,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const unlockPost = useUnlockNoodlerPost();
   const createInteraction = useCreateNoodlerInteraction();
   const removeInteraction = useRemoveNoodlerInteraction();
+  // NoodleR is a roleplay sandbox — the user owns every stage profile, so they
+  // can edit/delete creator posts just like their own Noodle timeline. These
+  // hit the shared /noodle/posts endpoints (NoodleR posts are real Noodle posts)
+  // and update the Noodle bootstrap cache, so refetch the viewer feed on success.
+  const updatePost = useUpdateNoodlePost();
+  const deletePost = useDeleteNoodlePost();
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingPostContent, setEditingPostContent] = useState("");
   // State backing the shared NoodlePostCard's reply composer / interaction chrome.
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [replyPostId, setReplyPostId] = useState<string | null>(null);
@@ -330,6 +340,36 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       { onSuccess: clearReplyComposer },
     );
   };
+  const startEditingPost = (post: NoodlePost) => {
+    setPostMenuId(null);
+    setEditingPostId(post.id);
+    setEditingPostContent(post.content);
+  };
+  const cancelEditingPost = () => {
+    setEditingPostId(null);
+    setEditingPostContent("");
+  };
+  const saveEditedPost = (post: NoodlePost) => {
+    const content = editingPostContent.trim();
+    if (!content) return;
+    updatePost.mutate(
+      { id: post.id, content },
+      {
+        onSuccess: () => {
+          cancelEditingPost();
+          void viewerQuery.refetch();
+        },
+        onError: (error) => toast.error(errorMessage(error, "Could not update this post.")),
+      },
+    );
+  };
+  const deleteNoodlePost = (post: NoodlePost) => {
+    setPostMenuId(null);
+    deletePost.mutate(post.id, {
+      onSuccess: () => void viewerQuery.refetch(),
+      onError: (error) => toast.error(errorMessage(error, "Could not delete this post.")),
+    });
+  };
   const allViewerInteractions = (viewerQuery.data?.creators ?? [])
     .flatMap((creator) => creator.posts)
     .flatMap((post) => post.interactions);
@@ -341,9 +381,9 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     personaAccount: shellPersonaAccount,
     postMenuId,
     setPostMenuId,
-    editingPostId: null,
-    editingPostContent: "",
-    setEditingPostContent: noop,
+    editingPostId,
+    editingPostContent,
+    setEditingPostContent,
     editingReplyId: null,
     editingReplyContent: "",
     setEditingReplyContent: noop,
@@ -371,10 +411,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     replyMediaToolRef,
     replyImageFileRef,
     openProfile: noop,
-    startEditingPost: noop,
-    deleteNoodlePost: noop,
-    cancelEditingPost: noop,
-    saveEditedPost: noop,
+    startEditingPost,
+    deleteNoodlePost,
+    cancelEditingPost,
+    saveEditedPost,
     startEditingReply: noop,
     cancelEditingReply: noop,
     saveEditedReply: noop,
@@ -392,12 +432,12 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     appendToReply,
     reactionPendingFor: () => false,
     createInteractionPendingFor: (_postId, type) => type === "reply" && createInteraction.isPending,
-    updatePost: { isPending: false },
+    updatePost: { isPending: updatePost.isPending },
     updateInteraction: { isPending: false },
     deleteInteraction: { isPending: false },
     uploadGlobalImages: { isPending: false },
-    // NoodleR viewers don't author the creator posts/replies they browse.
-    canManagePost: () => false,
+    // Roleplay sandbox: the user owns every stage profile, so they can edit/delete
+    // any creator post. Reply edit/delete stays off — there's no NoodleR reply-edit path yet.
     canManageReply: () => false,
   };
   const selectedProfile = accountsQuery.data?.find((profile) => profile.id === selectedProfileId) ?? null;
