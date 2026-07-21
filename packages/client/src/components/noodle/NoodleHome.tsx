@@ -1047,7 +1047,8 @@ export interface NoodlePostCardCtx {
   reactToReply: (post: NoodlePost, target: NoodleInteraction, active: boolean) => void;
   openReplyComposer: (postId: string, parentInteractionId?: string | null) => void;
   handleReplyChange: (event: ChangeEvent<HTMLTextAreaElement>) => void;
-  handleReplyKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Reply composer keydown (mention nav / submit shortcuts). Omit on hosts without them. */
+  handleReplyKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   clearReplyComposer: () => void;
   submitReply: (post: NoodlePost) => void;
   appendToReply: (text: string) => void;
@@ -1100,7 +1101,6 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
     reactToReply,
     openReplyComposer,
     handleReplyChange,
-    handleReplyKeyDown,
     clearReplyComposer,
     submitReply,
     appendToReply,
@@ -1121,6 +1121,8 @@ export function NoodlePostCard({ post, ctx }: { post: NoodlePost; ctx: NoodlePos
   const fallbackDivRef = useRef<HTMLDivElement | null>(null);
   const fallbackFileRef = useRef<HTMLInputElement | null>(null);
   const openProfile: (account: NoodleAccount | null) => void = ctx.openProfile ?? (() => {});
+  const handleReplyKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void =
+    ctx.handleReplyKeyDown ?? (() => {});
   const voteInPoll: (post: NoodlePost, optionId: string, selectedOptionId: string | null) => void =
     ctx.voteInPoll ?? (() => {});
   const disableReplyImage = !media;
