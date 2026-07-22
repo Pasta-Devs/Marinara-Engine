@@ -89,6 +89,35 @@ const MARI_AVATAR_URL = "/sprites/mari/Mari_profile.png";
 const MARI_CHIBI_URL = "/sprites/mari/chibi-professor-mari.png";
 const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id";
 const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
+const WORKSPACE_SETTLE_POLL_MS = 1_500;
+const WORKSPACE_SETTLE_MAX_WAIT_MS = 30 * 60_000;
+
+// After the SSE stream detaches on tab resume, the run keeps going server-side.
+// Poll the workspace status until it is no longer active so the caller reloads
+// the fully persisted reply and approvals rather than a half-written state.
+async function waitForWorkspaceRunToSettle(connectionId: string | null, signal: AbortSignal): Promise<void> {
+  const query = connectionId ? `?connectionId=${encodeURIComponent(connectionId)}` : "";
+  const startedAt = Date.now();
+  while (!signal.aborted && Date.now() - startedAt < WORKSPACE_SETTLE_MAX_WAIT_MS) {
+    try {
+      const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query}`);
+      if (!status.active) return;
+    } catch {
+      // The resumed tab may still be restoring network access; keep polling.
+    }
+    await new Promise<void>((resolve) => {
+      const timer = window.setTimeout(resolve, WORKSPACE_SETTLE_POLL_MS);
+      signal.addEventListener(
+        "abort",
+        () => {
+          window.clearTimeout(timer);
+          resolve();
+        },
+        { once: true },
+      );
+    });
+  }
+}
 const PROFESSOR_MARI_NO_CONNECTION_TOAST =
   "You haven't set up a connection yet! Click the link icon beside the paperclip to select one.";
 const MARI_WELCOME =
@@ -2904,8 +2933,11 @@ export function HomeProfessorMariChat({
       } catch (error) {
         if (!(error instanceof StreamResumeDisconnectError)) throw error;
         // Detached by backgrounding, not a failure — the run continues and
-        // persists server-side. Report success so handleSubmit reloads the
-        // saved result and refreshes workspace status/approvals on return.
+        // persists server-side. Wait for it to actually settle before reporting
+        // success, so handleSubmit reloads the finished reply and approvals
+        // rather than a half-written state.
+        setWorkspaceActivity("Finishing in the background…");
+        await waitForWorkspaceRunToSettle(effectiveConnectionId, controller.signal);
         received = true;
       } finally {
         workspaceAbortRef.current = null;
