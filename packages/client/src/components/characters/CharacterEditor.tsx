@@ -944,7 +944,7 @@ export function CharacterEditor() {
               <img
                 src={avatarPreview}
                 alt={formData.name}
-                className="h-full w-full object-cover"
+                className="pointer-events-none h-full w-full object-cover"
                 style={getAvatarCropStyle(formData.extensions.avatarCrop as AvatarCrop | LegacyAvatarCrop | undefined)}
               />
             ) : (
@@ -1373,7 +1373,7 @@ function MetadataTab({
               <img
                 src={avatarPreview}
                 alt=""
-                className="h-full w-full object-cover"
+                className="pointer-events-none h-full w-full object-cover"
                 style={getAvatarCropStyle(savedCrop ?? undefined)}
               />
             ) : (

@@ -1350,7 +1350,7 @@ export function PersonaEditor() {
               <img
                 src={avatarPreview}
                 alt={formData.name}
-                className="h-full w-full object-cover"
+                className="pointer-events-none h-full w-full object-cover"
                 style={getAvatarCropStyle(formData.avatarCrop)}
               />
             ) : (
