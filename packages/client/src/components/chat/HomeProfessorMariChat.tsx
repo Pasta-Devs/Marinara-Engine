@@ -70,6 +70,7 @@ import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { useUIStore } from "../../stores/ui.store";
+import { showLocalMessageNotification, showNativeMessageNotification } from "../../lib/local-notifications";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { cn } from "../../lib/utils";
@@ -1896,6 +1897,7 @@ export function HomeProfessorMariChat({
   const [floatingSmallViewport, setFloatingSmallViewport] = useState(() => !isProfessorMariDesktopViewport());
   const [floatingPosition, setFloatingPosition] = useState<{ x: number; y: number } | null>(null);
   const hasLoadedRef = useRef(false);
+  const notifiedApprovalIdsRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
   const floatingSurfaceRef = useRef<HTMLDivElement>(null);
   const floatingButtonRef = useRef<HTMLDivElement>(null);
@@ -2195,6 +2197,27 @@ export function HomeProfessorMariChat({
   }, [selectedSkill]);
 
   const pendingChangeReviews = workspaceStatus?.pendingApprovals ?? [];
+
+  // Alert the user when Professor Mari finished her work and is now blocked
+  // waiting on an approval. The notification helpers no-op while the app is
+  // focused, so a present user just sees the in-app review card. Approvals are
+  // DB-backed and re-fetched on re-entry, so the card is already waiting too.
+  useEffect(() => {
+    const fresh = pendingChangeReviews.filter((approval) => !notifiedApprovalIdsRef.current.has(approval.id));
+    const liveIds = new Set(pendingChangeReviews.map((approval) => approval.id));
+    for (const id of notifiedApprovalIdsRef.current) if (!liveIds.has(id)) notifiedApprovalIdsRef.current.delete(id);
+    if (fresh.length === 0) return;
+    for (const approval of fresh) notifiedApprovalIdsRef.current.add(approval.id);
+    const uiState = useUIStore.getState();
+    const notification = {
+      characterName: "Professor Mari",
+      title: "Professor Mari needs your approval",
+      tag: "marinara-mari-approval",
+    };
+    void showLocalMessageNotification({ ...notification, enabled: uiState.generationBrowserNotifications });
+    showNativeMessageNotification({ ...notification, enabled: uiState.generationMobileNotifications });
+  }, [pendingChangeReviews]);
+
   const workspaceTimelineActive = workspaceActive || hasActiveGeneration;
   const workspaceHasResponseText = workspaceTimeline.some((item) => item.type === "text" && item.content.trim());
   const showDottoreSupport = workspaceTimelineActive && !workspaceHasResponseText;

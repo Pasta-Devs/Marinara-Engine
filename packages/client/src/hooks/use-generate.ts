@@ -1589,6 +1589,10 @@ export function useGenerate() {
             streaming: transportStreaming,
           },
           abortController.signal,
+          // Backgrounded tabs can leave the stream socket half-open; treat a
+          // resume as a disconnect so the passive-recovery path refetches the
+          // reply the server finished while we were away instead of hanging.
+          { disconnectOnResume: true },
         )) {
           switch (event.type) {
             case "spatial_transition_committed": {
