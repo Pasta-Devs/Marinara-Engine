@@ -164,11 +164,10 @@ function readTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-async function readAgentImageConnectionId(
+async function readIllustratorImageConnectionId(
   agents: ReturnType<typeof createAgentsStorage>,
-  type: "background" | "illustrator",
 ): Promise<string | null> {
-  const agent = await agents.getByType(type);
+  const agent = await agents.getByType("illustrator");
   return readTrimmedString(parseRecord(agent?.settings).imageConnectionId);
 }
 
@@ -185,11 +184,8 @@ async function resolveSceneBackgroundImageConnection(
 
   if (mode === "game") {
     pushCandidate(readTrimmedString(metadata.gameImageConnectionId));
-    pushCandidate(await readAgentImageConnectionId(agents, "illustrator"));
-  } else {
-    pushCandidate(await readAgentImageConnectionId(agents, "background"));
-    pushCandidate(await readAgentImageConnectionId(agents, "illustrator"));
   }
+  pushCandidate(await readIllustratorImageConnectionId(agents));
 
   for (const id of candidates) {
     const conn = await connections.getWithKey(id);
@@ -402,8 +398,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     if (!imgConn) {
       return {
         response: reply.status(400).send({
-          error:
-            "Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents.",
+          error: "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.",
         }),
       };
     }

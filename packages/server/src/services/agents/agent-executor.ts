@@ -2378,41 +2378,6 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     }
   }
 
-  if (agentTypes.includes("background") && context.memory._backgroundGenerationEnabled === true) {
-    parts.push(`<background_generation enabled="true">`);
-    parts.push(
-      `If no listed background fits a changed or new location, request a generated reusable location background instead of forcing a weak match.`,
-    );
-    const worldContext =
-      context.memory._backgroundWorldContext &&
-      typeof context.memory._backgroundWorldContext === "object" &&
-      !Array.isArray(context.memory._backgroundWorldContext)
-        ? (context.memory._backgroundWorldContext as Record<string, unknown>)
-        : null;
-    if (worldContext) {
-      const fields = [
-        ["genre", worldContext.genre],
-        ["setting", worldContext.setting],
-        ["location", worldContext.location],
-        ["weather", worldContext.weather],
-        ["timeOfDay", worldContext.timeOfDay],
-        ["world", worldContext.worldOverview],
-      ]
-        .map(([label, value]) => {
-          const text = typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, 180) : "";
-          return text ? `${label}: ${escapeXml(text)}` : "";
-        })
-        .filter(Boolean);
-      if (fields.length > 0) {
-        parts.push(`World context for generated backgrounds: ${fields.join("; ")}.`);
-        parts.push(
-          `Generated background prompts must include the setting era/genre and concrete location details. Do not request modern scenery, technology, signage, UI, or objects unless this world context supports them.`,
-        );
-      }
-    }
-    parts.push(`</background_generation>`);
-  }
-
   if (agentTypes.includes("spotify") && context.memory._spotifyDjConstraints) {
     parts.push(`<spotify_dj_constraints>`);
     parts.push(JSON.stringify(context.memory._spotifyDjConstraints));

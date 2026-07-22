@@ -544,6 +544,7 @@ async function buildRetryAgentContext(args: {
   lorebooksStore: ReturnType<typeof createLorebooksStorage>;
   streaming: boolean;
   wrapFormat: WrapFormat;
+  forceIllustratorBackgroundGeneration: boolean;
   /**
    * When retrying agents for a specific assistant message (e.g. refreshing cached prompt injections),
    * use the game-state snapshot committed for that message+swipe — not the latest chat snapshot.
@@ -568,6 +569,7 @@ async function buildRetryAgentContext(args: {
     lorebooksStore,
     streaming,
     wrapFormat,
+    forceIllustratorBackgroundGeneration,
     historicalGameStateAnchor,
     useLatestGameStateFallback = true,
   } = args;
@@ -945,7 +947,8 @@ async function buildRetryAgentContext(args: {
 
   if (
     resolvedAgentTypes.has("illustrator") &&
-    illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta)
+    (forceIllustratorBackgroundGeneration ||
+      illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta))
   ) {
     agentContext.memory._illustratorBackgroundGenerationEnabled = true;
     agentContext.memory._currentBackground = currentBackground;
@@ -2513,6 +2516,8 @@ async function applyRetryResultEffects(args: {
   const chats = createChatsStorage(app.db);
   const agentsStore = createAgentsStorage(app.db);
   const chatMeta = parseExtra(chat.metadata) as Record<string, unknown>;
+  const isManualIllustratorBackgroundRequest =
+    illustratorRetryTargets?.length === 1 && illustratorRetryTargets[0] === "background";
   let currentResponseForRewrite = agentContext.mainResponse;
   const retryOwnerSpatialProjection =
     (retryMessageId
@@ -3393,7 +3398,8 @@ async function applyRetryResultEffects(args: {
     illustratorEntry &&
     !illustratorPromptReviewOverride &&
     shouldRetryIllustratorTarget(illustratorRetryTargets, "background") &&
-    illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta)
+    (isManualIllustratorBackgroundRequest ||
+      illustratorBackgroundGenerationEnabled((chat as { mode?: unknown }).mode, chatMeta))
   ) {
     const backgroundAtDecision =
       typeof chatMeta.background === "string" && chatMeta.background.trim() ? chatMeta.background.trim() : null;
@@ -3414,13 +3420,16 @@ async function applyRetryResultEffects(args: {
         ? parseGameStateRow(latestSnapshot as Record<string, unknown>)
         : agentContext.gameState;
       const illData = illustratorResult.data as Record<string, unknown>;
-      const requestedBackground = illustratorRequestedBackground(illData.generateBackground);
+      const requestedBackground =
+        isManualIllustratorBackgroundRequest || illustratorRequestedBackground(illData.generateBackground);
       const trackerLocationChanged = illustratorTrackerLocationChanged(
         agentContext.gameState?.location,
         latestGameState?.location,
       );
       if (!requestedBackground && !trackerLocationChanged) return;
-      const backgroundDecisionReason = requestedBackground
+      const backgroundDecisionReason = isManualIllustratorBackgroundRequest
+        ? "Manual Gallery background request"
+        : requestedBackground
         ? typeof illData.reason === "string"
           ? illData.reason
           : undefined
@@ -3576,6 +3585,8 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
     if (illustratorRetryTargets && !agentTypes.includes("illustrator")) {
       return reply.status(400).send({ error: "Illustrator retry targets require an Illustrator retry" });
     }
+    const isManualIllustratorBackgroundRequest =
+      illustratorRetryTargets?.length === 1 && illustratorRetryTargets[0] === "background";
 
     startSseReply(reply, { "X-Accel-Buffering": "no" });
     const onFallback = createReplyFallbackNotifier(reply);
@@ -3732,6 +3743,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         lorebooksStore,
         streaming,
         wrapFormat: retryWrapFormat,
+        forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
         historicalGameStateAnchor,
       });
       agentContext.signal = abortController.signal;
@@ -3754,6 +3766,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
               lorebooksStore,
               streaming,
               wrapFormat: retryWrapFormat,
+              forceIllustratorBackgroundGeneration: isManualIllustratorBackgroundRequest,
               historicalGameStateAnchor: preGenerationGameStateAnchor,
               useLatestGameStateFallback: false,
             })

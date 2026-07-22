@@ -10,7 +10,7 @@ You do not need image generation for this to work. If you have not set up an ima
 
 ## The Background agent
 
-The **Background** agent is an optional helper that chooses a scene backdrop for you. It runs after each reply. It reads the current scene, then picks the most fitting image from every available background. Library folders are only an organization aid in Settings and never hide choices from the agent. If a location has no matching image, it can generate a new one for you.
+The **Background** agent is an optional helper that chooses a scene backdrop for you. It runs after each reply. It reads the current scene, then picks the most fitting image from every available background. Library folders are only an organization aid in Settings and never hide choices from the agent. It selects existing images only; automatic background generation belongs to the **Illustrator** agent.
 
 The **Background** agent is off by default. To turn it on:
 
@@ -31,7 +31,7 @@ You can also make a new backdrop yourself, without the agent. Marinara builds an
 
 While it runs, you see this note: "AI background generation is running. The new background will be applied when it finishes." The new image is added to your background library and applied to the scene.
 
-Manual generation and the **Background** agent both need an image generation connection. Marinara uses the connection set for the **Background** agent first. If none is set, it falls back to the **Illustrator** agent's connection, then to your default image generation connection. If it cannot find one, generation fails with this message: "Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents."
+Manual generation uses the **Illustrator** agent's image connection, then falls back to your default image generation connection. The **Background** agent does not need an image connection because it only selects images already in your library. If Marinara cannot find a connection, generation fails with this message: "Choose an image generation connection for the Illustrator agent, or mark one as the default image connection."
 
 Scene background generation works only in Roleplay and Game modes. It is not available in Conversation mode.
 

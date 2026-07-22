@@ -1235,6 +1235,7 @@ export function ChatArea() {
     if (!activeChatId) return;
     await retryAgents(activeChatId, ["illustrator"], {
       agentPromptTemplateIds: { illustrator: "background" },
+      illustratorRetryTargets: ["background"],
     });
   }, [activeChatId, retryAgents]);
 

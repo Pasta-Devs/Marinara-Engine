@@ -31,10 +31,10 @@ The background is built from your current scene. In a game, this includes the ge
 If Marinara cannot find an image connection to use, the generate step fails with this message:
 
 ```
-Choose an image generation connection for the Background/Illustrator agent, or mark an image generation connection as the default for agents.
+Choose an image generation connection for the Illustrator agent, or mark one as the default image connection.
 ```
 
-To fix this, open the **Connections** panel, expand **Defaults**, and choose an image connection under **Images**, or set a connection for the **Background** agent.
+To fix this, open the **Connections** panel, expand **Defaults**, and choose an image connection under **Images**, or set an image connection override on the **Illustrator** agent.
 
 ## The Gallery panel
 

@@ -82,7 +82,7 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     name: "Background",
     category: "tracker",
     modes: "Roleplay",
-    summary: "selects a fitting scene background and can generate missing locations when configured",
+    summary: "selects a fitting scene background from the existing background library",
   },
   {
     id: "character-tracker",

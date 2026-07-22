@@ -2673,10 +2673,43 @@ const cases: RegressionCase[] = [
         new URL("../../packages/server/src/services/agents/agent-executor.ts", import.meta.url),
         "utf8",
       );
+      const agentEditorSource = readFileSync(
+        new URL("../../packages/client/src/components/agents/AgentEditor.tsx", import.meta.url),
+        "utf8",
+      );
+      const generationRoutesSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
+        "utf8",
+      );
+      const retryAgentsRouteSource = readFileSync(
+        new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
+        "utf8",
+      );
+      const chatAreaSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
+        "utf8",
+      );
+      const backgroundsRoutesSource = readFileSync(
+        new URL("../../packages/server/src/routes/backgrounds.routes.ts", import.meta.url),
+        "utf8",
+      );
       assert.match(drawerSource, /label="Generate Scene Backgrounds"/u);
       assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\)/u);
       assert.match(executorSource, /<illustrator_background_generation enabled="true">/u);
       assert.match(executorSource, /"generateBackground"/u);
+      assert.doesNotMatch(executorSource, /<background_generation enabled=/u);
+      assert.doesNotMatch(agentEditorSource, /Background Image Generation|autoGenerateBackgrounds/u);
+      assert.doesNotMatch(generationRoutesSource, /autoGenerateBackgrounds|bgData\.generate/u);
+      assert.match(chatAreaSource, /illustratorRetryTargets: \["background"\]/u);
+      assert.match(
+        retryAgentsRouteSource,
+        /isManualIllustratorBackgroundRequest\s+\|\|\s+illustratorRequestedBackground/u,
+      );
+      assert.doesNotMatch(backgroundsRoutesSource, /getByType\("background"\)/u);
+      assert.match(
+        backgroundsRoutesSource,
+        /Choose an image generation connection for the Illustrator agent, or mark one as the default image connection\./u,
+      );
     },
   },
   {

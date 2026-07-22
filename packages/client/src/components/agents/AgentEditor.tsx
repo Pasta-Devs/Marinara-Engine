@@ -531,7 +531,6 @@ export function AgentEditor() {
   const [localUseChatActiveLorebooks, setLocalUseChatActiveLorebooks] = useState(false);
   const [localSourceFileIds, setLocalSourceFileIds] = useState<string[]>([]);
   const [localAutoGenerateAvatars, setLocalAutoGenerateAvatars] = useState(false);
-  const [localAutoGenerateBackgrounds, setLocalAutoGenerateBackgrounds] = useState(false);
   const [localUseAvatarReferences, setLocalUseAvatarReferences] = useState(false);
   const [localIncludeCharacterAppearance, setLocalIncludeCharacterAppearance] = useState(false);
   const [localImagePositivePrompt, setLocalImagePositivePrompt] = useState("");
@@ -589,7 +588,9 @@ export function AgentEditor() {
       setLocalPromptTemplates(normalizeAgentPromptTemplateOptions(promptTemplateSource));
       setLocalContextSize(normalizeOptionalNumber(settings.contextSize));
       setLocalMaxTokens(normalizeOptionalNumber(settings.maxTokens) || (defaultSettings.maxTokens as number) || "");
-      setLocalImageConnectionId(normalizeImageConnectionOverride(settings.imageConnectionId));
+      setLocalImageConnectionId(
+        agentType === "background" ? "" : normalizeImageConnectionOverride(settings.imageConnectionId),
+      );
       setLocalRunInterval(
         (settings.runInterval as number | undefined) ?? (defaultSettings.runInterval as number) ?? "",
       );
@@ -641,7 +642,6 @@ export function AgentEditor() {
       );
       setLocalSourceFileIds(normalizeStringArray(settings.sourceFileIds));
       setLocalAutoGenerateAvatars(settings.autoGenerateAvatars === true);
-      setLocalAutoGenerateBackgrounds(settings.autoGenerateBackgrounds === true);
       setLocalUseAvatarReferences(
         (settings.useAvatarReferences as boolean | undefined) ?? defaultSettings.useAvatarReferences === true,
       );
@@ -707,7 +707,6 @@ export function AgentEditor() {
       setLocalUseChatActiveLorebooks(defaultSettings.useChatActiveLorebooks === true);
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
-      setLocalAutoGenerateBackgrounds(false);
       setLocalUseAvatarReferences(defaultSettings.useAvatarReferences === true);
       setLocalIncludeCharacterAppearance(defaultSettings.includeCharacterAppearance === true);
       setLocalImagePositivePrompt("");
@@ -763,7 +762,6 @@ export function AgentEditor() {
       setLocalUseChatActiveLorebooks(false);
       setLocalSourceFileIds([]);
       setLocalAutoGenerateAvatars(false);
-      setLocalAutoGenerateBackgrounds(false);
       setLocalUseAvatarReferences(false);
       setLocalIncludeCharacterAppearance(false);
       setLocalImagePositivePrompt("");
@@ -837,8 +835,6 @@ export function AgentEditor() {
   const isKnowledgeRetrievalAgent = agentDetailId === "knowledge-retrieval" || dbConfig?.type === "knowledge-retrieval";
   // Knowledge Router agent — also uses the lorebook source selector (file picker stays Retrieval-only)
   const isKnowledgeRouterAgent = agentDetailId === "knowledge-router" || dbConfig?.type === "knowledge-router";
-  // Background agent — can optionally generate missing roleplay backgrounds.
-  const isBackgroundAgent = agentDetailId === "background" || dbConfig?.type === "background";
   // Prose Guardian agent — exposes macro defaults used by its rewrite prompt.
   const isProseGuardianAgent = agentDetailId === "prose-guardian" || dbConfig?.type === "prose-guardian";
   // Continuity Checker agent — shares the rewrite reveal timing control.
@@ -1020,7 +1016,8 @@ export function AgentEditor() {
       if (currentSettings[key] !== undefined) preservedSpotifyFields[key] = currentSettings[key];
     }
     const savedConnectionId = normalizeTextConnectionOverride(localConnectionId);
-    const savedImageConnectionId = normalizeImageConnectionOverride(localImageConnectionId);
+    const savedImageConnectionId =
+      agentType === "background" ? "" : normalizeImageConnectionOverride(localImageConnectionId);
 
     const payload = {
       name: localName,
@@ -1073,7 +1070,6 @@ export function AgentEditor() {
         ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
         ...(savedImageConnectionId ? { imageConnectionId: savedImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
-        ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
         ...(isIllustratorAgent
           ? {
               useAvatarReferences: localUseAvatarReferences,
@@ -1155,7 +1151,6 @@ export function AgentEditor() {
     localSourceLorebookIds,
     localSourceFileIds,
     localAutoGenerateAvatars,
-    localAutoGenerateBackgrounds,
     localUseAvatarReferences,
     localIncludeCharacterAppearance,
     localProseGuardianBanned,
@@ -1251,9 +1246,8 @@ export function AgentEditor() {
         : {}),
       ...(localSourceLorebookIds.length > 0 ? { sourceLorebookIds: localSourceLorebookIds } : {}),
       ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
-      ...(localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
+      ...(agentType !== "background" && localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
-      ...(localAutoGenerateBackgrounds ? { autoGenerateBackgrounds: true } : {}),
       ...(isIllustratorAgent
         ? {
             useAvatarReferences: localUseAvatarReferences,
@@ -1980,68 +1974,6 @@ export function AgentEditor() {
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
-            </FieldGroup>
-          )}
-
-          {/* ── Missing Background Generation (Background agent only) ── */}
-          {isBackgroundAgent && (
-            <FieldGroup
-              label="Background Image Generation"
-              icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
-              help="When enabled, the Background agent can generate a new reusable roleplay background when none of your existing backgrounds fit the scene."
-            >
-              <EditorSwitchRow
-                label={localAutoGenerateBackgrounds ? "Generate missing backgrounds" : "Only pick existing backgrounds"}
-                checked={localAutoGenerateBackgrounds}
-                onChange={() => {
-                  setLocalAutoGenerateBackgrounds(!localAutoGenerateBackgrounds);
-                  markDirty();
-                }}
-                description={
-                  localAutoGenerateBackgrounds
-                    ? "If nothing fits a changed location, the agent can request a new background image."
-                    : "The agent will choose the closest uploaded background and never create a new one."
-                }
-                labelClassName="text-sm"
-              />
-
-              {localAutoGenerateBackgrounds && (
-                <div className="mt-3 space-y-2">
-                  <div>
-                    <label className="mb-1 block text-xs text-[var(--muted-foreground)]">
-                      Image Generation Connection
-                    </label>
-                    <select
-                      value={localImageConnectionId}
-                      onChange={(e) => {
-                        setLocalImageConnectionId(e.target.value);
-                        markDirty();
-                      }}
-                      className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-                    >
-                      <option value="">
-                        {defaultAgentImageConn
-                          ? `Agent image default (${defaultAgentImageConn.name})`
-                          : "None (select a connection)"}
-                      </option>
-                      {imageConnections.map((conn) => (
-                        <option key={conn.id} value={conn.id}>
-                          {conn.name} ({conn.provider})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-[0.625rem] text-[var(--muted-foreground)]">
-                    Generated images are saved into your normal Backgrounds library, so later runs can reuse them
-                    instead of regenerating the same place.
-                  </p>
-                  {!localImageConnectionId && !defaultAgentImageConn && (
-                    <p className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-3 py-2 text-[0.625rem] text-amber-300">
-                      Add an image generation connection here or choose one under Defaults → Images in Connections.
-                    </p>
-                  )}
                 </div>
               )}
             </FieldGroup>

@@ -38,7 +38,6 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   normalizeTextForMatch,
   normalizeGameStoryboardKeyframeCount,
-  resolveGameSetupArtStylePrompt,
   type APIProvider,
   type MacroContext,
 } from "@marinara-engine/shared";
@@ -79,7 +78,6 @@ import { createPersonaGalleryStorage } from "../services/storage/persona-gallery
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { buildLorebookSemanticEmbeddingsById, warmLorebookEntryEmbeddings } from "../services/lorebook/embeddings.js";
 import { applyRegexScriptsToPromptMessages } from "../services/regex/regex-application.js";
-import { createPromptOverridesStorage } from "../services/storage/prompt-overrides.storage.js";
 import {
   filterRelevantLorebooks,
   processLorebooks,
@@ -130,7 +128,6 @@ import { DATA_DIR } from "../utils/data-dir.js";
 import { executeAgent, normalizeAgentContextSize, resolveAgentResultType } from "../services/agents/agent-executor.js";
 import { matchCustomAgentActivation } from "./generate/agent-activation.js";
 import { listCharacterSprites } from "../services/game/sprite.service.js";
-import { generateChatBackground } from "../services/game/game-asset-generation.js";
 import {
   generateIllustratorSceneBackground,
   illustratorBackgroundGenerationEnabled,
@@ -3488,30 +3485,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // If the background agent is enabled, load available backgrounds + tags into context
         const backgroundAgent = resolvedAgents.find((a) => a.type === "background");
         if (backgroundAgent) {
-          const backgroundGenerationEnabled =
-            backgroundAgent.settings?.autoGenerateBackgrounds === true &&
-            chatMeta.gameStoryboardViewerDisplayMode !== "background";
           agentContext.memory._availableBackgrounds = [];
           agentContext.memory._currentBackground = currentBackground;
-          if (backgroundGenerationEnabled) {
-            agentContext.memory._backgroundGenerationEnabled = true;
-          }
-          if (backgroundGenerationEnabled) {
-            const setupConfigForBackground =
-              chatMeta.gameSetupConfig &&
-              typeof chatMeta.gameSetupConfig === "object" &&
-              !Array.isArray(chatMeta.gameSetupConfig)
-                ? (chatMeta.gameSetupConfig as Record<string, unknown>)
-                : null;
-            agentContext.memory._backgroundWorldContext = {
-              genre: (setupConfigForBackground?.genre as string | undefined) ?? null,
-              setting: (setupConfigForBackground?.setting as string | undefined) ?? null,
-              location: gameState?.location ?? null,
-              weather: gameState?.weather ?? null,
-              timeOfDay: gameState?.time ?? null,
-              worldOverview: (chatMeta.gameWorldOverview as string | undefined) ?? null,
-            };
-          }
           try {
             const { readdirSync, readFileSync, existsSync } = await import("fs");
             const { join, extname } = await import("path");
@@ -6991,18 +6966,6 @@ export async function generateRoutes(app: FastifyInstance) {
             return trackerFieldLocksAreEmpty(locks) ? null : JSON.stringify(locks);
           };
 
-          const resolveAgentImageConnectionId = async (agent: ResolvedAgent | undefined): Promise<string | null> => {
-            let imgConnId = (agent?.settings?.imageConnectionId as string) ?? null;
-            if (!imgConnId) {
-              const defaultImageConn = (await connections.list()).find(
-                (c) =>
-                  c.provider === "image_generation" && (c.defaultForAgents === true || c.defaultForAgents === "true"),
-              );
-              imgConnId = defaultImageConn?.id ?? null;
-            }
-            return imgConnId;
-          };
-
           for (const result of sortedResults) {
             const resultMessageId =
               result.agentType === "lorebook-keeper" && lorebookKeeperProcessedMessageId
@@ -7018,16 +6981,6 @@ export async function generateRoutes(app: FastifyInstance) {
             ) {
               const bgData = result.data as {
                 chosen?: string | null;
-                generate?: {
-                  location?: unknown;
-                  locationSlug?: unknown;
-                  slug?: unknown;
-                  prompt?: unknown;
-                  description?: unknown;
-                  reason?: unknown;
-                } | null;
-                generated?: boolean;
-                error?: string;
               };
               if (typeof bgData.chosen === "string") {
                 bgData.chosen = bgData.chosen.trim() || null;
@@ -7043,143 +6996,6 @@ export async function generateRoutes(app: FastifyInstance) {
                   if (!valid) {
                     logger.warn(`[generate] Background agent chose "${bgData.chosen}" which doesn't exist — rejecting`);
                     bgData.chosen = null;
-                  }
-                }
-              }
-
-              const generationRequest =
-                bgData.generate && typeof bgData.generate === "object" && !Array.isArray(bgData.generate)
-                  ? bgData.generate
-                  : null;
-              const currentBackgroundAgent = resolvedAgents.find(
-                (a) => a.id === result.agentId || a.type === "background",
-              );
-              const canGenerateBackground =
-                currentBackgroundAgent?.settings?.autoGenerateBackgrounds === true &&
-                chatMeta.gameStoryboardViewerDisplayMode !== "background";
-              if (!bgData.chosen && canGenerateBackground && generationRequest) {
-                const promptText =
-                  typeof generationRequest.prompt === "string" && generationRequest.prompt.trim()
-                    ? generationRequest.prompt.trim()
-                    : typeof generationRequest.description === "string"
-                      ? generationRequest.description.trim()
-                      : "";
-                const locationSource =
-                  typeof generationRequest.location === "string" && generationRequest.location.trim()
-                    ? generationRequest.location
-                    : typeof generationRequest.locationSlug === "string" && generationRequest.locationSlug.trim()
-                      ? generationRequest.locationSlug
-                      : typeof generationRequest.slug === "string" && generationRequest.slug.trim()
-                        ? generationRequest.slug
-                        : typeof generationRequest.reason === "string" && generationRequest.reason.trim()
-                          ? generationRequest.reason
-                          : promptText;
-                const locationText = locationSource.trim();
-                if (promptText && locationText) {
-                  try {
-                    const imgConnId = await resolveAgentImageConnectionId(currentBackgroundAgent);
-                    if (!imgConnId) {
-                      bgData.error =
-                        "No image generation connection set on the Background agent, and no default agent image connection is configured.";
-                      trySendSseEvent(reply, {
-                        type: "agent_error",
-                        data: {
-                          agentType: "background",
-                          agentName: currentBackgroundAgent?.name ?? "Background",
-                          error:
-                            "No image generation connection set on the Background agent, and no default agent image connection is configured. Assign one in Settings → Agents → Background.",
-                        },
-                      });
-                    } else {
-                      const imgConnFull = await connections.getWithKey(imgConnId);
-                      if (!imgConnFull) throw new Error("Cannot resolve Background agent image connection");
-
-                      const imageDefaults = resolveConnectionImageDefaults(imgConnFull);
-                      const imageFallback = await resolveImageConnectionFallback(connections, imgConnFull.id);
-                      const imageSettings = await loadImageGenerationUserSettings(app.db);
-                      const promptOverridesStorage = createPromptOverridesStorage(app.db);
-                      const setupConfigForImage =
-                        chatMeta.gameSetupConfig &&
-                        typeof chatMeta.gameSetupConfig === "object" &&
-                        !Array.isArray(chatMeta.gameSetupConfig)
-                          ? (chatMeta.gameSetupConfig as Record<string, unknown>)
-                          : null;
-                      const styleProfileId =
-                        (setupConfigForImage?.imageStyleProfileId as string | undefined) ??
-                        (chatMeta.imageStyleProfileId as string | undefined) ??
-                        null;
-                      const generatedFilename = await generateChatBackground({
-                        chatId: input.chatId,
-                        locationSlug: locationText.slice(0, 120),
-                        sceneDescription: promptText.slice(0, 1000),
-                        genre: (setupConfigForImage?.genre as string | undefined) ?? undefined,
-                        setting: (setupConfigForImage?.setting as string | undefined) ?? undefined,
-                        currentLocation: gameState?.location ?? null,
-                        currentWeather: gameState?.weather ?? null,
-                        currentTimeOfDay: gameState?.time ?? null,
-                        worldOverview: (chatMeta.gameWorldOverview as string | undefined) ?? null,
-                        artStyle: resolveGameSetupArtStylePrompt(setupConfigForImage) || undefined,
-                        reason:
-                          typeof generationRequest.reason === "string"
-                            ? generationRequest.reason.trim().slice(0, 300)
-                            : undefined,
-                        imgModel: imgConnFull.model || "",
-                        imgBaseUrl: imgConnFull.baseUrl || "https://image.pollinations.ai",
-                        imgApiKey: imgConnFull.apiKey || "",
-                        imgSource: (imgConnFull as any).imageGenerationSource || imgConnFull.model || "",
-                        imgService: imgConnFull.imageService || (imgConnFull as any).imageGenerationSource || "",
-                        imgEndpointId: imgConnFull.imageEndpointId || undefined,
-                        imgComfyWorkflow: imgConnFull.comfyuiWorkflow || undefined,
-                        imgDefaults: imageDefaults,
-                        imgFallback: imageFallback,
-                        styleProfiles: imageSettings.styleProfiles,
-                        styleProfileId,
-                        promptOverridesStorage,
-                        size: {
-                          width: imageSettings.background.width,
-                          height: imageSettings.background.height,
-                        },
-                        debugLog,
-                      });
-                      if (generatedFilename) {
-                        bgData.chosen = generatedFilename;
-                        bgData.generated = true;
-                        trySendSseEvent(reply, {
-                          type: "agent_result",
-                          data: {
-                            agentType: result.agentType,
-                            agentName: currentBackgroundAgent?.name ?? "Background",
-                            resultType: result.type,
-                            data: bgData,
-                            tokensUsed: result.tokensUsed,
-                            success: result.success,
-                            error: result.error,
-                            durationMs: result.durationMs,
-                          },
-                        });
-                      } else {
-                        bgData.error = "Background image generation failed";
-                        trySendSseEvent(reply, {
-                          type: "agent_error",
-                          data: {
-                            agentType: "background",
-                            agentName: currentBackgroundAgent?.name ?? "Background",
-                            error: "Background image generation failed. Check the image connection and server logs.",
-                          },
-                        });
-                      }
-                    }
-                  } catch (bgErr) {
-                    logger.error(bgErr, "[background-agent] Image generation failed");
-                    bgData.error = bgErr instanceof Error ? bgErr.message : "Background image generation failed";
-                    trySendSseEvent(reply, {
-                      type: "agent_error",
-                      data: {
-                        agentType: "background",
-                        agentName: currentBackgroundAgent?.name ?? "Background",
-                        error: `Background image generation failed: ${bgData.error}`,
-                      },
-                    });
                   }
                 }
               }
