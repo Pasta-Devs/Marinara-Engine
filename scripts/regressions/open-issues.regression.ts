@@ -31,6 +31,7 @@ import {
   shouldExecuteQuickPostAsCommand,
 } from "../../packages/client/src/lib/slash-commands.js";
 import { getAvatarCropStyle } from "../../packages/client/src/lib/utils.js";
+import { filterCustomEmojisByName } from "../../packages/client/src/lib/custom-emoji.js";
 import {
   trackChatMetadataSave,
   waitForPendingChatMetadataSaves,
@@ -121,6 +122,7 @@ import { shouldAutomaticallyRetryAgentResult } from "../../packages/server/src/r
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   detectNovelAiSubjectCount,
+  openRouterModalities,
   resolveNovelAiDefaults,
   resolveNovelAiRequestSize,
   resolveNovelAiSize,
@@ -1668,6 +1670,11 @@ const retryAgentsPromptReviewSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
 );
+const uiStoreSource = readFileSync(new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url), "utf8");
+const syncedSettingsSource = uiStoreSource.slice(
+  uiStoreSource.indexOf("export function pickSyncedSettings"),
+  uiStoreSource.indexOf("export const useUIStore"),
+);
 assert.equal(
   shouldAutomaticallyRetryAgentResult({ success: false, error: "The operation was aborted due to timeout" }),
   false,
@@ -1682,6 +1689,24 @@ assert.equal(
   shouldAutomaticallyRetryAgentResult({ success: true, error: null }),
   false,
   "successful agents should never enter the automatic retry queue",
+);
+assert.deepEqual(openRouterModalities("krea/krea-2-large"), ["image"]);
+assert.deepEqual(openRouterModalities(" KREA/krea-2-medium-turbo "), ["image"]);
+assert.deepEqual(openRouterModalities("google/gemini-3.1-flash-image-preview"), ["image", "text"]);
+assert.deepEqual(
+  filterCustomEmojisByName(
+    [
+      { name: "MariWave", id: "wave" },
+      { name: "dottore_stare", id: "stare" },
+    ],
+    "mari",
+  ),
+  [{ name: "MariWave", id: "wave" }],
+);
+assert.match(
+  syncedSettingsSource,
+  /gameTextEffectsEnabled: state\.gameTextEffectsEnabled/,
+  "Game text effects must remain off after synced settings are restored",
 );
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
 assert.match(chatAreaPromptReviewSource, /confirmRoleplayVideoPromptReview/);

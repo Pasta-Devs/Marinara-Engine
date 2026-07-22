@@ -1149,7 +1149,12 @@ interface EmojiPickerProps {
   /** Container (e.g. input bar) whose top edge determines vertical placement */
   containerRef?: React.RefObject<HTMLElement | null>;
   /** Optional extra tab (e.g. custom emojis) shown after the standard categories. */
-  customTab?: { icon: React.ReactNode; label?: string; render: (query: string) => React.ReactNode };
+  customTab?: {
+    icon: React.ReactNode;
+    label?: string;
+    render: (query: string) => React.ReactNode;
+    renderSearch?: (query: string) => React.ReactNode;
+  };
   /** Render inline to fill a parent (no portal/positioning) — e.g. inside the mobile composer sheet. */
   embedded?: boolean;
 }
@@ -1289,8 +1294,8 @@ export function EmojiPicker({
 
   if (!open) return null;
 
-  // Filter emojis by search
-  const filteredCategories = search.trim()
+  const searching = search.trim().length > 0;
+  const filteredCategories = searching
     ? (() => {
         const q = search.trim().toLowerCase();
         return CATEGORIES.map((cat) => ({
@@ -1302,10 +1307,13 @@ export function EmojiPicker({
         })).filter((cat) => cat.emojis.length > 0);
       })()
     : CATEGORIES;
+  const visibleStandardCategories = searching
+    ? filteredCategories
+    : [CATEGORIES[typeof activeCategory === "number" ? activeCategory : 0]];
 
   const content = (
     <>
-      {/* Search — filters the active standard category, or the custom tab's emojis */}
+      {/* Search spans every standard category and custom emojis, regardless of the selected tab. */}
       <div className="border-b border-foreground/10 px-3 py-2">
         <input
           type="text"
@@ -1359,32 +1367,34 @@ export function EmojiPicker({
 
       {/* Emoji grid (or the custom-emoji tab content) */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
-        {activeCategory === "custom" && customTab
+        {!searching && activeCategory === "custom" && customTab
           ? customTab.render(search)
-          : (search.trim()
-              ? filteredCategories
-              : [CATEGORIES[typeof activeCategory === "number" ? activeCategory : 0]]
-            ).map((cat) => (
-              <div key={cat.label}>
-                <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
-                  {cat.label}
-                </p>
-                <div className="grid grid-cols-8 gap-0.5">
-                  {cat.emojis.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => handleSelect(emoji)}
-                      aria-label={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
-                      title={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
-                      className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+          : (
+              <>
+                {visibleStandardCategories.map((cat) => (
+                  <div key={cat.label}>
+                    <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
+                      {cat.label}
+                    </p>
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {cat.emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => handleSelect(emoji)}
+                          aria-label={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
+                          title={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
+                          className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {searching && customTab && (customTab.renderSearch?.(search) ?? customTab.render(search))}
+              </>
+            )}
       </div>
     </>
   );

@@ -304,6 +304,7 @@ export function AboutMeViewerModal({
         icon: "⭐",
         label: "Custom emojis",
         render: (query) => <CustomEmojiTab onInsert={insertEmoji} query={query} />,
+        renderSearch: (query) => <CustomEmojiTab onInsert={insertEmoji} query={query} searchResultsOnly />,
       }}
     />
   );

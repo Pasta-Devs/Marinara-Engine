@@ -133,6 +133,7 @@ export function getCurrentStatus(
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   for (const block of daySchedule) {
+    if (!block || typeof block.time !== "string") continue;
     const [startStr, endStr] = block.time.split("-");
     if (!startStr || !endStr) continue;
 

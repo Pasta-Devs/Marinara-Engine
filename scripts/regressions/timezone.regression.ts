@@ -54,6 +54,14 @@ assert.equal(
   getEffectiveCurrentStatus(timeZoneSchedule, null, scheduleInstant, "free time", tokyoScheduleNow).status,
   "idle",
 );
+const malformedSchedule = {
+  ...timeZoneSchedule,
+  days: { Tuesday: [{ activity: "missing time", status: "dnd" }] },
+} as unknown as WeekSchedule;
+assert.deepEqual(
+  getEffectiveCurrentStatus(malformedSchedule, null, scheduleInstant, "free time", newYorkScheduleNow),
+  { status: "online", activity: "free time" },
+);
 assert.equal(
   getEffectiveCurrentStatus(
     timeZoneSchedule,

@@ -15,13 +15,26 @@ import {
 } from "../../hooks/use-custom-emojis";
 import { useConversationCustomEmojis, type ConversationCustomEmoji } from "../../hooks/use-conversation-custom-emojis";
 import { CustomEmojiSelectionSettings } from "./CustomEmojiSelectionSettings";
-import { readImageDimensions, validateDimensionsForKind, slugifyCustomName } from "../../lib/custom-emoji";
+import {
+  filterCustomEmojisByName,
+  readImageDimensions,
+  validateDimensionsForKind,
+  slugifyCustomName,
+} from "../../lib/custom-emoji";
 import { showPromptDialog, showConfirmDialog } from "../../lib/app-dialogs";
 import { downloadJsonFile } from "../../lib/download-json";
 import { api } from "../../lib/api-client";
 import { cn } from "../../lib/utils";
 
-export function CustomEmojiTab({ onInsert, query }: { onInsert: (token: string) => void; query: string }) {
+export function CustomEmojiTab({
+  onInsert,
+  query,
+  searchResultsOnly = false,
+}: {
+  onInsert: (token: string) => void;
+  query: string;
+  searchResultsOnly?: boolean;
+}) {
   const { data: emojis } = useCustomEmojis();
   const upload = useUploadCustomEmoji();
   const rename = useRenameCustomEmoji();
@@ -52,12 +65,12 @@ export function CustomEmojiTab({ onInsert, query }: { onInsert: (token: string) 
     conversationEmojis.filter((emoji) => emoji.source === "Global").map((emoji) => emoji.name),
   );
   const visibleGlobal = editing ? list : list.filter((emoji) => insertableGlobalNames.has(emoji.name));
-  const filteredGlobal = q ? visibleGlobal.filter((emoji) => emoji.name.toLowerCase().includes(q)) : visibleGlobal;
+  const filteredGlobal = filterCustomEmojisByName(visibleGlobal, q);
   const filteredGroups: [string, ConversationCustomEmoji[]][] = q
     ? sourceGroups
         .map(
           ([source, emojis]) =>
-            [source, emojis.filter((emoji) => emoji.name.toLowerCase().includes(q))] as [
+            [source, filterCustomEmojisByName(emojis, q)] as [
               string,
               ConversationCustomEmoji[],
             ],
@@ -166,73 +179,83 @@ export function CustomEmojiTab({ onInsert, query }: { onInsert: (token: string) 
     [importEmojis],
   );
 
+  if (searchResultsOnly && filteredGlobal.length === 0 && filteredGroups.length === 0) return null;
+
   return (
     <div className="px-1">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
-          >
-            <ImagePlus size="0.875rem" /> Upload
-          </button>
-          {editing && (
-            <>
-              <button
-                type="button"
-                onClick={() => importFileRef.current?.click()}
-                className="rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
-              >
-                Import
-              </button>
-              {list.length > 0 && (
+      {!searchResultsOnly && (
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="inline-flex items-center gap-1.5 rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
+            >
+              <ImagePlus size="0.875rem" /> Upload
+            </button>
+            {editing && (
+              <>
                 <button
                   type="button"
-                  onClick={() => void handleExport()}
+                  onClick={() => importFileRef.current?.click()}
                   className="rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
                 >
-                  Export
+                  Import
                 </button>
+                {list.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => void handleExport()}
+                    className="rounded-md bg-foreground/5 px-2 py-1 text-xs text-foreground/70 ring-1 ring-foreground/10 transition-colors hover:bg-foreground/10 hover:text-foreground/90"
+                  >
+                    Export
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json,application/json"
+            className="hidden"
+            onChange={handleImportFile}
+          />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setShowSettings((v) => !v)}
+              title="Selection preferences"
+              aria-label="Selection preferences"
+              className={cn(
+                "flex items-center rounded-md px-1.5 py-1 text-xs transition-colors",
+                showSettings
+                  ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
+                  : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
               )}
-            </>
-          )}
+            >
+              <Settings size="0.875rem" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditing((v) => !v)}
+              className={cn(
+                "rounded-md px-2 py-1 text-xs transition-colors",
+                editing
+                  ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
+                  : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
+              )}
+            >
+              {editing ? "Done" : "Edit"}
+            </button>
+          </div>
         </div>
-        <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFiles} />
-        <input ref={importFileRef} type="file" accept=".json,application/json" className="hidden" onChange={handleImportFile} />
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setShowSettings((v) => !v)}
-            title="Selection preferences"
-            aria-label="Selection preferences"
-            className={cn(
-              "flex items-center rounded-md px-1.5 py-1 text-xs transition-colors",
-              showSettings
-                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
-                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
-            )}
-          >
-            <Settings size="0.875rem" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditing((v) => !v)}
-            className={cn(
-              "rounded-md px-2 py-1 text-xs transition-colors",
-              editing
-                ? "bg-foreground/10 text-foreground/80 ring-1 ring-foreground/15"
-                : "text-foreground/45 hover:bg-foreground/10 hover:text-foreground/70",
-            )}
-          >
-            {editing ? "Done" : "Edit"}
-          </button>
-        </div>
-      </div>
+      )}
 
-      {showSettings && <CustomEmojiSelectionSettings />}
+      {!searchResultsOnly && showSettings && <CustomEmojiSelectionSettings />}
 
-      {error && <p className="mb-2 px-1 text-[0.6875rem] text-red-400">{error}</p>}
+      {!searchResultsOnly && error && <p className="mb-2 px-1 text-[0.6875rem] text-red-400">{error}</p>}
 
       {filteredGlobal.length === 0 && filteredGroups.length === 0 ? (
         <p className="px-1 py-6 text-center text-[0.6875rem] text-foreground/45">
@@ -248,9 +271,9 @@ export function CustomEmojiTab({ onInsert, query }: { onInsert: (token: string) 
         <>
           {filteredGlobal.length > 0 && (
             <>
-              {filteredGroups.length > 0 && (
+              {(searchResultsOnly || filteredGroups.length > 0) && (
                 <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/40">
-                  Global
+                  {searchResultsOnly ? "Custom" : "Global"}
                 </p>
               )}
               <div className="grid grid-cols-6 gap-1">

@@ -2105,9 +2105,14 @@ function openRouterAspectRatio(width?: number, height?: number): string | null {
   )[0];
 }
 
-function openRouterModalities(model?: string): string[] {
+export function openRouterModalities(model?: string): string[] {
   const lower = model?.trim().toLowerCase() ?? "";
-  if (lower.startsWith("black-forest-labs/") || lower.startsWith("sourceful/") || lower.startsWith("recraft/")) {
+  if (
+    lower.startsWith("black-forest-labs/") ||
+    lower.startsWith("sourceful/") ||
+    lower.startsWith("recraft/") ||
+    lower.startsWith("krea/")
+  ) {
     return ["image"];
   }
   return ["image", "text"];

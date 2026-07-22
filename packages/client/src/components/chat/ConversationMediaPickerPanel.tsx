@@ -66,6 +66,9 @@ export function ConversationMediaPickerPanel({
               icon: "⭐",
               label: "Custom emojis",
               render: (query) => <CustomEmojiTab onInsert={onEmojiSelect} query={query} />,
+              renderSearch: (query) => (
+                <CustomEmojiTab onInsert={onEmojiSelect} query={query} searchResultsOnly />
+              ),
             }}
           />
         )}

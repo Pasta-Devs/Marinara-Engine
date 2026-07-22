@@ -32,6 +32,13 @@ export function slugifyCustomName(raw: string): string {
     .slice(0, CUSTOM_NAME_MAX_LENGTH);
 }
 
+/** Match custom emoji names consistently across composer and reaction searches. */
+export function filterCustomEmojisByName<T extends { name: string }>(emojis: T[], query: string): T[] {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return emojis;
+  return emojis.filter((emoji) => emoji.name.toLowerCase().includes(normalizedQuery));
+}
+
 /** Reject an image whose width or height exceeds the kind's max dimension. */
 export function validateDimensionsForKind(width: number, height: number, kind: CustomKind): CustomKindValidation {
   const max = CUSTOM_KIND_MAX_DIMENSION[kind];
