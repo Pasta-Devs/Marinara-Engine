@@ -1270,6 +1270,21 @@ assert.match(
   /"relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl/u,
   "The Metadata avatar preview must contain absolutely positioned saved crops",
 );
+assert.match(
+  globalStyles,
+  /\.mari-editor-avatar-tile \{\s*position: relative;\s*cursor: pointer;/u,
+  "The shared editor avatar upload target must contain absolutely positioned crops",
+);
+assert.equal(
+  characterEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
+  2,
+  "Character avatar images inside upload targets must not intercept page clicks",
+);
+assert.equal(
+  personaEditorSource.match(/className="pointer-events-none h-full w-full object-cover"/gu)?.length,
+  1,
+  "The Persona header avatar inside its upload target must not intercept page clicks",
+);
 assert.match(gameJournalSource, /data-game-journal-scroll/u);
 assert.match(gameSurfaceSource, /h-\[min\(42rem,calc\(100dvh-6rem\)\)\]/u);
 assert.match(gameAssetHooksSource, /export function useGameAssetManifest/u);
