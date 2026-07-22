@@ -119,8 +119,10 @@ export async function professorMariWorkspaceRoutes(app: FastifyInstance) {
     let clientDisconnected = false;
     const onClose = () => {
       if (complete) return;
+      // Passive disconnect (backgrounded tab, switched view): let the run finish
+      // and persist so the user sees the result and any pending approvals when
+      // they return. Intentional stops go through POST /abort, not this path.
       clientDisconnected = true;
-      void service.abort();
     };
     reply.raw.on("close", onClose);
 

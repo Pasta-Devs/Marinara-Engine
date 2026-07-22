@@ -64,7 +64,7 @@ import { useConnections } from "../../hooks/use-connections";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { chatKeys } from "../../hooks/use-chats";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
-import { api, getPrivilegedActionErrorMessage } from "../../lib/api-client";
+import { api, getPrivilegedActionErrorMessage, StreamResumeDisconnectError } from "../../lib/api-client";
 import { formatGenerationParameterError } from "../../lib/generation-parameter-errors";
 import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
@@ -2821,6 +2821,10 @@ export function HomeProfessorMariChat({
           "/professor-mari/workspace/prompt",
           { chatId: chat.id, message: text, connectionId: effectiveConnectionId, attachments },
           controller.signal,
+          // Backgrounding leaves the socket half-open; detach on resume. The
+          // server keeps the run going and persists it, so we reload the result
+          // (and pending approvals) on return instead of hanging.
+          { disconnectOnResume: true },
         )) {
           if (event.type === "token" && typeof event.data === "string") {
             received = true;
@@ -2897,6 +2901,12 @@ export function HomeProfessorMariChat({
             throw new Error(typeof event.data === "string" ? event.data : "Workspace generation failed");
           }
         }
+      } catch (error) {
+        if (!(error instanceof StreamResumeDisconnectError)) throw error;
+        // Detached by backgrounding, not a failure — the run continues and
+        // persists server-side. Report success so handleSubmit reloads the
+        // saved result and refreshes workspace status/approvals on return.
+        received = true;
       } finally {
         workspaceAbortRef.current = null;
         setWorkspaceActive(false);

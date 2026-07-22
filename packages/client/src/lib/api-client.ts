@@ -30,6 +30,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Thrown by `streamEvents({ disconnectOnResume })` when the tab resumes from the
+ * background mid-stream. The socket is likely half-open, so the caller should
+ * fall back to a refetch of the server-persisted result rather than treating it
+ * as a real failure.
+ */
+export class StreamResumeDisconnectError extends Error {
+  constructor() {
+    super("Stream disconnected while the tab was in the background");
+    this.name = "StreamResumeDisconnectError";
+  }
+}
+
 export const PRIVILEGED_ACCESS_HINT =
   "This action needs loopback access or admin access. Open the app through localhost, or set ADMIN_SECRET=<secret> in the server .env and paste the same value in Settings → Advanced → Admin Access. Marinara sends it as the X-Admin-Secret header.";
 
@@ -457,7 +470,7 @@ export const api = {
       : null;
     const onVisibility = () => {
       if (document.visibilityState === "hidden") wasHidden = true;
-      else if (wasHidden) rejectOnResume?.(new Error("Stream disconnected while the tab was in the background"));
+      else if (wasHidden) rejectOnResume?.(new StreamResumeDisconnectError());
     };
     if (watchResume) document.addEventListener("visibilitychange", onVisibility);
 
