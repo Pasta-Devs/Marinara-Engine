@@ -10,6 +10,11 @@ export function isAbortLikeError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
 }
 
+export function shouldAutomaticallyRetryAgentResult(result: Pick<AgentResult, "success" | "error">): boolean {
+  if (result.success) return false;
+  return !/\b(?:timed?\s*out|timeout|etimedout|deadline exceeded)\b/i.test(result.error ?? "");
+}
+
 export function customAgentCanApplyResult(
   result: AgentResult,
   agents: ResolvedAgent[],

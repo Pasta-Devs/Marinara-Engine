@@ -117,6 +117,7 @@ import {
   normalizeCustomAgentRepositoryUrl,
   parseCustomAgentRepositoryArchive,
 } from "../../packages/server/src/services/agents/custom-agent-repositories.service.js";
+import { shouldAutomaticallyRetryAgentResult } from "../../packages/server/src/routes/generate/agent-result-capabilities.js";
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   detectNovelAiSubjectCount,
@@ -1666,6 +1667,21 @@ const imagePromptReviewModalSource = readFileSync(
 const retryAgentsPromptReviewSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
+);
+assert.equal(
+  shouldAutomaticallyRetryAgentResult({ success: false, error: "The operation was aborted due to timeout" }),
+  false,
+  "timed-out agents should settle as failures instead of starting another full timeout window",
+);
+assert.equal(
+  shouldAutomaticallyRetryAgentResult({ success: false, error: "Agent returned invalid JSON" }),
+  true,
+  "ordinary agent failures should retain the existing one-time automatic retry",
+);
+assert.equal(
+  shouldAutomaticallyRetryAgentResult({ success: true, error: null }),
+  false,
+  "successful agents should never enter the automatic retry queue",
 );
 assert.match(chatAreaPromptReviewSource, /MEDIA_PROMPT_PREVIEW_TIMEOUT_MS/);
 assert.match(chatAreaPromptReviewSource, /confirmRoleplayVideoPromptReview/);
