@@ -1,0 +1,12 @@
+interface:
+  display_name: Build HumanOS Personas
+  short_description: Create portable, layered AI roleplay personas
+  default_prompt: Use $build-humanos-personas to build a portable HumanOS persona
+    for my new roleplay character.
+policy:
+  products:
+    - chatgpt
+    - codex
+    - api
+    - atlas
+  allow_implicit_invocation: true
