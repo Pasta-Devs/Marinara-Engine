@@ -120,6 +120,7 @@ function ExpandedMacroEditor({
     <MacroModalPortal>
       <div
         data-component="ExpandedMacroEditor"
+        data-macro-modal="true"
         className={cn(
           "fixed inset-0 z-[140] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,
@@ -187,6 +188,8 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
   return (
     <MacroModalPortal>
       <div
+        data-component="MacroReference"
+        data-macro-modal="true"
         className={cn(
           "fixed inset-0 z-[145] flex items-center justify-center bg-black/70 p-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-[max(env(safe-area-inset-top),0.75rem)] backdrop-blur-sm sm:p-4",
           EDITOR_MODAL_SURFACE_VARIABLES,

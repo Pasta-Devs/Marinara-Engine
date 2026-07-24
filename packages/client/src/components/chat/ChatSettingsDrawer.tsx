@@ -4120,6 +4120,10 @@ export function ChatSettingsDrawer({
       if (!(target instanceof Node)) return;
       if (panelRef.current?.contains(target)) return;
       if (target instanceof Element && target.closest("[data-chat-floating-panel]")) return;
+      // The expanded prompt editor and the macro reference render in a portal
+      // outside the drawer panel; interacting with them must not close Chat
+      // Settings — only their own close controls should.
+      if (target instanceof Element && target.closest("[data-macro-modal]")) return;
       requestClose();
     };
 

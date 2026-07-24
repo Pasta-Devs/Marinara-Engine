@@ -95,17 +95,19 @@ export function ConversationPromptSection({
           </div>
         </div>
 
-        <MacroTextarea
-          value={draft}
-          onChange={setDraft}
-          onBlur={commitDraft}
-          onExpandedClose={commitDraft}
-          title="Edit Conversation Prompt"
-          placeholder="Enter your custom conversation prompt..."
-          rows={6}
-          className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
-          spellCheck={false}
-        />
+        <div className="mari-quick-preset-editor">
+          <MacroTextarea
+            value={draft}
+            onChange={setDraft}
+            onBlur={commitDraft}
+            onExpandedClose={commitDraft}
+            title="Edit Conversation Prompt"
+            placeholder="Enter your custom conversation prompt..."
+            rows={6}
+            className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
+            spellCheck={false}
+          />
+        </div>
       </div>
     </ChatSettingsSection>
   );

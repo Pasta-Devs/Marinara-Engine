@@ -124,17 +124,19 @@ export function GameExtraPromptSection({
           </div>
         </div>
 
-        <MacroTextarea
-          value={draft}
-          onChange={setDraft}
-          onBlur={commitDraft}
-          onExpandedClose={commitDraft}
-          title="Edit Game Prompt"
-          placeholder="Enter your custom Game Master prompt..."
-          rows={6}
-          className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
-          spellCheck={false}
-        />
+        <div className="mari-quick-preset-editor">
+          <MacroTextarea
+            value={draft}
+            onChange={setDraft}
+            onBlur={commitDraft}
+            onExpandedClose={commitDraft}
+            title="Edit Game Prompt"
+            placeholder="Enter your custom Game Master prompt..."
+            rows={6}
+            className="mari-editor-field min-h-[9rem] w-full p-3 font-mono text-xs"
+            spellCheck={false}
+          />
+        </div>
 
         <label className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">Extra instructions</span>
