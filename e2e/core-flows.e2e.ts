@@ -7063,6 +7063,94 @@ test("memory recall modal accepts clicks from chat settings", async ({ page }, t
   await expect(drawer.getByRole("heading", { name: "Chat Settings" })).toBeVisible();
 });
 
+test("mobile chat composer follows the visual viewport above the software keyboard", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Software-keyboard viewport behavior is mobile-only.");
+
+  const response = await page.request.post("/api/chats", {
+    data: {
+      name: "Mobile Keyboard Viewport Smoke",
+      mode: "roleplay",
+      characterIds: [],
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+
+  await page.addInitScript(() => {
+    const state = {
+      height: window.innerHeight,
+      offsetTop: 0,
+    };
+    const viewport = new EventTarget();
+    Object.defineProperties(viewport, {
+      height: { configurable: true, get: () => state.height },
+      offsetTop: { configurable: true, get: () => state.offsetTop },
+      offsetLeft: { configurable: true, get: () => 0 },
+      pageLeft: { configurable: true, get: () => 0 },
+      pageTop: { configurable: true, get: () => state.offsetTop },
+      scale: { configurable: true, get: () => 1 },
+      width: { configurable: true, get: () => window.innerWidth },
+    });
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+    Object.defineProperty(window, "__setMarinaraVisualViewport", {
+      configurable: true,
+      value: (height: number, offsetTop: number) => {
+        state.height = height;
+        state.offsetTop = offsetTop;
+        viewport.dispatchEvent(new Event("resize"));
+        viewport.dispatchEvent(new Event("scroll"));
+      },
+    });
+  });
+  await page.addInitScript((chatId) => {
+    localStorage.setItem("marinara-active-chat-id", chatId);
+  }, chat.id);
+
+  try {
+    await page.goto("/");
+
+    const viewportMeta = page.locator('meta[name="viewport"]');
+    await expect(viewportMeta).toHaveAttribute("content", /interactive-widget=resizes-content/);
+
+    const shell = page.locator('[data-component="AppShell"]');
+    const composer = page.locator(".chat-input-container:visible");
+    const textarea = composer.locator("textarea:visible");
+    await expect(textarea).toBeVisible();
+    await textarea.focus();
+
+    await page.evaluate(() => {
+      (
+        window as typeof window & {
+          __setMarinaraVisualViewport: (height: number, offsetTop: number) => void;
+        }
+      ).__setMarinaraVisualViewport(360, 72);
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          height: getComputedStyle(document.documentElement).getPropertyValue("--mari-visual-viewport-height").trim(),
+          top: getComputedStyle(document.documentElement)
+            .getPropertyValue("--mari-visual-viewport-offset-top")
+            .trim(),
+        })),
+      )
+      .toEqual({ height: "360px", top: "72px" });
+
+    const [shellBox, composerBox] = await Promise.all([shell.boundingBox(), composer.boundingBox()]);
+    expect(shellBox).not.toBeNull();
+    expect(composerBox).not.toBeNull();
+    expect(Math.abs(shellBox!.y - 72)).toBeLessThanOrEqual(1);
+    expect(Math.abs(shellBox!.height - 360)).toBeLessThanOrEqual(1);
+    expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(432);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
 test("mobile topbar remains reachable while sidebars switch", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "Mobile shell smoke only runs in the mobile project.");
 

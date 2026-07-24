@@ -4758,6 +4758,13 @@ strong {
     padding-right: env(safe-area-inset-right);
   }
 
+  .mari-app {
+    top: var(--mari-visual-viewport-offset-top, 0px);
+    bottom: auto;
+    height: var(--mari-visual-viewport-height, 100dvh);
+    min-height: 0;
+  }
+
   .app-sidebar-mobile {
     position: fixed !important;
     inset: 0 !important;

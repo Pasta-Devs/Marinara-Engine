@@ -211,27 +211,51 @@ export function AppShell() {
     if (typeof window === "undefined" || typeof document === "undefined") return;
     const root = document.documentElement;
     let frame = 0;
-    const updateVisualViewportHeight = () => {
+    let focusTimers: number[] = [];
+    const updateVisualViewportGeometry = () => {
       if (frame) cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        const height = window.visualViewport?.height ?? window.innerHeight;
+        frame = 0;
+        const viewport = window.visualViewport;
+        const heightCandidates = [viewport?.height, window.innerHeight, root.clientHeight].filter(
+          (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
+        );
+        const height = heightCandidates.length > 0 ? Math.min(...heightCandidates) : window.innerHeight;
+        const maxOffsetTop = Math.max(0, window.innerHeight - height);
+        const offsetTop = Math.min(maxOffsetTop, Math.max(0, viewport?.offsetTop ?? 0));
         root.style.setProperty("--mari-visual-viewport-height", `${Math.max(0, Math.round(height))}px`);
+        root.style.setProperty("--mari-visual-viewport-offset-top", `${Math.round(offsetTop)}px`);
       });
     };
+    const refreshAfterFocusChange = () => {
+      focusTimers.forEach((timer) => window.clearTimeout(timer));
+      focusTimers = [];
+      updateVisualViewportGeometry();
+      // Android browsers can publish the keyboard-adjusted viewport after the
+      // focus event. Re-sample both the early animation and settled geometry.
+      focusTimers.push(window.setTimeout(updateVisualViewportGeometry, 80));
+      focusTimers.push(window.setTimeout(updateVisualViewportGeometry, 320));
+    };
 
-    updateVisualViewportHeight();
-    window.visualViewport?.addEventListener("resize", updateVisualViewportHeight);
-    window.visualViewport?.addEventListener("scroll", updateVisualViewportHeight);
-    window.addEventListener("resize", updateVisualViewportHeight);
-    window.addEventListener("orientationchange", updateVisualViewportHeight);
+    updateVisualViewportGeometry();
+    window.visualViewport?.addEventListener("resize", updateVisualViewportGeometry);
+    window.visualViewport?.addEventListener("scroll", updateVisualViewportGeometry);
+    window.addEventListener("resize", updateVisualViewportGeometry);
+    window.addEventListener("orientationchange", updateVisualViewportGeometry);
+    document.addEventListener("focusin", refreshAfterFocusChange);
+    document.addEventListener("focusout", refreshAfterFocusChange);
 
     return () => {
       if (frame) cancelAnimationFrame(frame);
-      window.visualViewport?.removeEventListener("resize", updateVisualViewportHeight);
-      window.visualViewport?.removeEventListener("scroll", updateVisualViewportHeight);
-      window.removeEventListener("resize", updateVisualViewportHeight);
-      window.removeEventListener("orientationchange", updateVisualViewportHeight);
+      focusTimers.forEach((timer) => window.clearTimeout(timer));
+      window.visualViewport?.removeEventListener("resize", updateVisualViewportGeometry);
+      window.visualViewport?.removeEventListener("scroll", updateVisualViewportGeometry);
+      window.removeEventListener("resize", updateVisualViewportGeometry);
+      window.removeEventListener("orientationchange", updateVisualViewportGeometry);
+      document.removeEventListener("focusin", refreshAfterFocusChange);
+      document.removeEventListener("focusout", refreshAfterFocusChange);
       root.style.removeProperty("--mari-visual-viewport-height");
+      root.style.removeProperty("--mari-visual-viewport-offset-top");
     };
   }, []);
 
