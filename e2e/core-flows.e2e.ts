@@ -7145,6 +7145,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
     expect(composerBox).not.toBeNull();
     expect(Math.abs(shellBox!.y - 72)).toBeLessThanOrEqual(1);
     expect(Math.abs(shellBox!.height - 360)).toBeLessThanOrEqual(1);
+    expect(composerBox!.y).toBeGreaterThanOrEqual(72);
     expect(composerBox!.y + composerBox!.height).toBeLessThanOrEqual(432);
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
