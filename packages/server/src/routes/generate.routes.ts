@@ -5405,6 +5405,26 @@ export async function generateRoutes(app: FastifyInstance) {
                           // Send game_state_patch so HUD updates live
                           logger.debug("[game_state_patch] tool update_game_state: %j", updates);
                           reply.raw.write(`data: ${JSON.stringify({ type: "game_state_patch", data: updates })}\n\n`);
+                          const updatedLocation = coerceGameStateTextValue(lockedUpdates.location);
+                          if (updatedLocation) {
+                            const freshChat = await chats.getById(input.chatId);
+                            const freshMeta = freshChat
+                              ? (parseExtra(freshChat.metadata) as Record<string, unknown>)
+                              : chatMeta;
+                            const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;
+                            const syncedMeta = syncGameMapMetaPartyPosition(freshMeta, updatedLocation);
+                            const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
+                            if (syncedGameMap && syncedGameMap !== existingGameMap) {
+                              await chats.updateMetadata(input.chatId, {
+                                ...freshMeta,
+                                gameMap: syncedMeta.gameMap,
+                                gameMaps: syncedMeta.gameMaps,
+                                activeGameMapId: syncedMeta.activeGameMapId,
+                              });
+                              Object.assign(chatMeta, syncedMeta);
+                              sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
+                            }
+                          }
                         }
                       }
                     }
