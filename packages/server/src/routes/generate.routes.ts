@@ -6222,9 +6222,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
             if (chatMode === "game" && !input.impersonate) {
               const mapUpdates =
-                ownerSpatialProjection?.ownerMode === "game" || gameMap?.type !== "node"
-                  ? []
-                  : parseMapUpdateCommands(fullResponse);
+                ownerSpatialProjection?.ownerMode === "game" ? [] : parseMapUpdateCommands(fullResponse);
               if (mapUpdates.length > 0) {
                 try {
                   const persistedMsg = refreshedMsg ?? savedMsg;

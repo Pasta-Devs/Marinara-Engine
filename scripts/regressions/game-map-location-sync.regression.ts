@@ -96,7 +96,7 @@ const mapHandlerStart = routeSource.indexOf("const mapUpdates =", handlerEnd);
 const mapHandlerEnd = routeSource.indexOf("// Evict cachedPrompt", mapHandlerStart);
 assert.ok(mapHandlerStart >= 0 && mapHandlerEnd > mapHandlerStart, "map_update handler must remain discoverable");
 const mapHandler = routeSource.slice(mapHandlerStart, mapHandlerEnd);
-assert.match(mapHandler, /ownerSpatialProjection\?\.ownerMode === "game" \|\| gameMap\?\.type !== "node"/u);
+assert.match(mapHandler, /ownerSpatialProjection\?\.ownerMode === "game" \? \[\]/u);
 assert.match(mapHandler, /originalMap\?\.type !== "node"/u);
 assert.match(mapHandler, /isTrackerFieldLocked\(effectiveLocks, worldTrackerLockKey\("location"\)\)/u);
 assert.match(mapHandler, /updateChatMetadataForTools\(\(freshMeta\) =>/u);
