@@ -403,6 +403,7 @@ import { buildGmFormatReminder } from "../services/game/gm-prompts.js";
 import {
   areGameMapLocationsEquivalent,
   applyMapUpdateCommand,
+  doGameMapLocationsResolveToSamePosition,
   getGameMapsFromMeta,
   parseMapUpdateCommands,
   syncGameMapMetaPartyPosition,
@@ -5411,6 +5412,11 @@ export async function generateRoutes(app: FastifyInstance) {
                           if (updatedLocation && !areGameMapLocationsEquivalent(previousLocation, updatedLocation)) {
                             let syncedGameMap: GameMap | null = null;
                             await updateChatMetadataForTools((freshMeta) => {
+                              if (
+                                doGameMapLocationsResolveToSamePosition(freshMeta, previousLocation, updatedLocation)
+                              ) {
+                                return {};
+                              }
                               const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;
                               const syncedMeta = syncGameMapMetaPartyPosition(freshMeta, updatedLocation);
                               const nextGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;

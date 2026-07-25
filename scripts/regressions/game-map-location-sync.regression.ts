@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import type { GameMap } from "../../packages/shared/src/types/game.js";
 import {
   areGameMapLocationsEquivalent,
+  doGameMapLocationsResolveToSamePosition,
   syncGameMapMetaPartyPosition,
 } from "../../packages/server/src/services/game/map-position.service.js";
 
@@ -30,6 +31,13 @@ assert.equal(areGameMapLocationsEquivalent("The Silver-Inn", "silver_inn"), true
 assert.equal(areGameMapLocationsEquivalent("King's Landing", "kings_landing"), true);
 assert.equal(areGameMapLocationsEquivalent("Town Square", "Silver Inn"), false);
 
+const numberedMap: GameMap = {
+  ...map,
+  nodes: [...(map.nodes ?? []), { id: "level2", label: "Level 2", emoji: "2", x: 50, y: 25, discovered: true }],
+};
+assert.equal(doGameMapLocationsResolveToSamePosition({ gameMap: numberedMap }, "Level 2", "level2"), true);
+assert.equal(doGameMapLocationsResolveToSamePosition({ gameMap: numberedMap }, "Town Square", "level2"), false);
+
 const routeSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
@@ -43,6 +51,7 @@ assert.match(handler, /applyTrackerFieldLocksToGameStatePatch\(/u);
 assert.match(handler, /coerceGameStateTextValue\(lockedUpdates\.location\)/u);
 assert.match(handler, /syncGameMapMetaPartyPosition\(freshMeta, updatedLocation\)/u);
 assert.match(handler, /!areGameMapLocationsEquivalent\(previousLocation, updatedLocation\)/u);
+assert.match(handler, /doGameMapLocationsResolveToSamePosition\(freshMeta, previousLocation, updatedLocation\)/u);
 assert.match(handler, /updateChatMetadataForTools\(\(freshMeta\) =>/u);
 assert.match(handler, /type: "game_map_update"/u);
 assert.ok(

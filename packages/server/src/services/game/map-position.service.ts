@@ -213,6 +213,54 @@ export function getGameMapsFromMeta(meta: Record<string, unknown>): GameMap[] {
   return activeMap ? upsertGameMap(maps, activeMap) : maps;
 }
 
+function orderGameMapsForLocationLookup(meta: Record<string, unknown>, maps: readonly GameMap[]): GameMap[] {
+  const activeId =
+    typeof meta.activeGameMapId === "string"
+      ? meta.activeGameMapId
+      : getGameMapId(isGameMap(meta.gameMap) ? meta.gameMap : null);
+  const activeIndex = activeId ? maps.findIndex((map, index) => getGameMapId(map, index) === activeId) : -1;
+  return activeIndex >= 0 ? [maps[activeIndex]!, ...maps.filter((_, index) => index !== activeIndex)] : [...maps];
+}
+
+export function doGameMapLocationsResolveToSamePosition(
+  meta: Record<string, unknown>,
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const leftLocation = left?.trim();
+  const rightLocation = right?.trim();
+  if (!leftLocation || !rightLocation) return false;
+
+  const maps = getGameMapsFromMeta(meta);
+  const orderedMaps = orderGameMapsForLocationLookup(meta, maps);
+  const resolve = (location: string): { map: GameMap; position: string } | null => {
+    for (const map of orderedMaps) {
+      if (map.type === "node") {
+        const node = findBestMatch(location, map.nodes ?? [], (entry) => [entry.id, entry.label])?.entry;
+        if (node) return { map, position: `node:${node.id}` };
+        continue;
+      }
+
+      const cell = findBestMatch(location, map.cells ?? [], (entry) => [
+        entry.label,
+        `${entry.x},${entry.y}`,
+        `${entry.x}:${entry.y}`,
+      ])?.entry;
+      if (cell) return { map, position: `cell:${cell.x},${cell.y}` };
+    }
+    return null;
+  };
+
+  const leftPosition = resolve(leftLocation);
+  const rightPosition = resolve(rightLocation);
+  return Boolean(
+    leftPosition &&
+    rightPosition &&
+    leftPosition.map === rightPosition.map &&
+    leftPosition.position === rightPosition.position,
+  );
+}
+
 export function withActiveGameMapMeta(meta: Record<string, unknown>, map: GameMap): Record<string, unknown> {
   const maps = upsertGameMap(getGameMapsFromMeta(meta), map);
   const mapId = getGameMapId(map);
@@ -372,13 +420,7 @@ export function syncGameMapMetaPartyPosition(
   const maps = getGameMapsFromMeta(meta);
   if (maps.length === 0) return meta;
 
-  const activeId =
-    typeof meta.activeGameMapId === "string"
-      ? meta.activeGameMapId
-      : getGameMapId(isGameMap(meta.gameMap) ? meta.gameMap : null);
-  const activeIndex = activeId ? maps.findIndex((map, index) => getGameMapId(map, index) === activeId) : -1;
-  const orderedMaps =
-    activeIndex >= 0 ? [maps[activeIndex]!, ...maps.filter((_, index) => index !== activeIndex)] : maps;
+  const orderedMaps = orderGameMapsForLocationLookup(meta, maps);
 
   for (const map of orderedMaps) {
     if (!gameMapContainsLocation(map, location)) continue;
@@ -386,7 +428,7 @@ export function syncGameMapMetaPartyPosition(
     return withActiveGameMapMeta({ ...meta, gameMaps: maps }, syncedMap);
   }
 
-  const activeMap = activeIndex >= 0 ? maps[activeIndex]! : maps[0]!;
+  const activeMap = orderedMaps[0]!;
   return {
     ...meta,
     gameMap: activeMap,
