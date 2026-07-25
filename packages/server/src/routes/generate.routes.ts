@@ -5386,6 +5386,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       const latest = await gameStateStore.getLatest(input.chatId);
                       if (latest) {
                         const u = parsed.update;
+                        const previousLocation = coerceGameStateTextValue(latest.location);
                         let updates: Record<string, unknown> = {};
                         if (u.type === "location_change") updates.location = u.value;
                         if (u.type === "time_advance") updates.time = u.value;
@@ -5406,22 +5407,21 @@ export async function generateRoutes(app: FastifyInstance) {
                           logger.debug("[game_state_patch] tool update_game_state: %j", updates);
                           reply.raw.write(`data: ${JSON.stringify({ type: "game_state_patch", data: updates })}\n\n`);
                           const updatedLocation = coerceGameStateTextValue(lockedUpdates.location);
-                          if (updatedLocation) {
-                            const freshChat = await chats.getById(input.chatId);
-                            const freshMeta = freshChat
-                              ? (parseExtra(freshChat.metadata) as Record<string, unknown>)
-                              : chatMeta;
-                            const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;
-                            const syncedMeta = syncGameMapMetaPartyPosition(freshMeta, updatedLocation);
-                            const syncedGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
-                            if (syncedGameMap && syncedGameMap !== existingGameMap) {
-                              await chats.updateMetadata(input.chatId, {
-                                ...freshMeta,
+                          if (updatedLocation && updatedLocation !== previousLocation) {
+                            let syncedGameMap: GameMap | null = null;
+                            await updateChatMetadataForTools((freshMeta) => {
+                              const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;
+                              const syncedMeta = syncGameMapMetaPartyPosition(freshMeta, updatedLocation);
+                              const nextGameMap = (syncedMeta.gameMap as GameMap | null) ?? null;
+                              if (!nextGameMap || nextGameMap === existingGameMap) return {};
+                              syncedGameMap = nextGameMap;
+                              return {
                                 gameMap: syncedMeta.gameMap,
                                 gameMaps: syncedMeta.gameMaps,
                                 activeGameMapId: syncedMeta.activeGameMapId,
-                              });
-                              Object.assign(chatMeta, syncedMeta);
+                              };
+                            });
+                            if (syncedGameMap) {
                               sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
                             }
                           }

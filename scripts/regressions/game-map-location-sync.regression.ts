@@ -36,6 +36,8 @@ assert.match(handler, /omitAuthoritativeGameLocation\(updates, ownerSpatialProje
 assert.match(handler, /applyTrackerFieldLocksToGameStatePatch\(/u);
 assert.match(handler, /coerceGameStateTextValue\(lockedUpdates\.location\)/u);
 assert.match(handler, /syncGameMapMetaPartyPosition\(freshMeta, updatedLocation\)/u);
+assert.match(handler, /updatedLocation && updatedLocation !== previousLocation/u);
+assert.match(handler, /updateChatMetadataForTools\(\(freshMeta\) =>/u);
 assert.match(handler, /type: "game_map_update"/u);
 assert.ok(
   handler.indexOf("applyTrackerFieldLocksToGameStatePatch") <
