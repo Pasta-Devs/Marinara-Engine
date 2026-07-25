@@ -401,6 +401,7 @@ import { addLocationEntry, addInventoryEntry, upsertQuest, addNpcEntry } from ".
 import { updateJournal } from "../services/generation/game-journal-runtime.js";
 import { buildGmFormatReminder } from "../services/game/gm-prompts.js";
 import {
+  areGameMapLocationsEquivalent,
   applyMapUpdateCommand,
   getGameMapsFromMeta,
   parseMapUpdateCommands,
@@ -5407,7 +5408,7 @@ export async function generateRoutes(app: FastifyInstance) {
                           logger.debug("[game_state_patch] tool update_game_state: %j", updates);
                           reply.raw.write(`data: ${JSON.stringify({ type: "game_state_patch", data: updates })}\n\n`);
                           const updatedLocation = coerceGameStateTextValue(lockedUpdates.location);
-                          if (updatedLocation && updatedLocation !== previousLocation) {
+                          if (updatedLocation && !areGameMapLocationsEquivalent(previousLocation, updatedLocation)) {
                             let syncedGameMap: GameMap | null = null;
                             await updateChatMetadataForTools((freshMeta) => {
                               const existingGameMap = (freshMeta.gameMap as GameMap | null) ?? null;

@@ -49,6 +49,15 @@ function normalizeLocationValue(value: string): string {
     .trim();
 }
 
+export function areGameMapLocationsEquivalent(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): boolean {
+  const leftKey = left ? normalizeLocationValue(left) : "";
+  const rightKey = right ? normalizeLocationValue(right) : "";
+  return leftKey !== "" && leftKey === rightKey;
+}
+
 function scoreAliasMatch(location: string, alias: string): number {
   const locationKey = normalizeLocationValue(location);
   const aliasKey = normalizeLocationValue(alias);

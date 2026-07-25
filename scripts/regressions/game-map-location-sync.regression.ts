@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { GameMap } from "../../packages/shared/src/types/game.js";
-import { syncGameMapMetaPartyPosition } from "../../packages/server/src/services/game/map-position.service.js";
+import {
+  areGameMapLocationsEquivalent,
+  syncGameMapMetaPartyPosition,
+} from "../../packages/server/src/services/game/map-position.service.js";
 
 const map: GameMap = {
   id: "village",
@@ -23,6 +26,8 @@ assert.equal(syncedMap.nodes?.find((node) => node.id === "inn")?.discovered, tru
 
 const unmatched = syncGameMapMetaPartyPosition({ gameMap: map }, "Moonlit Orchard");
 assert.equal((unmatched.gameMap as GameMap).partyPosition, "square");
+assert.equal(areGameMapLocationsEquivalent("The Silver-Inn", "silver_inn"), true);
+assert.equal(areGameMapLocationsEquivalent("Town Square", "Silver Inn"), false);
 
 const routeSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
@@ -36,7 +41,7 @@ assert.match(handler, /omitAuthoritativeGameLocation\(updates, ownerSpatialProje
 assert.match(handler, /applyTrackerFieldLocksToGameStatePatch\(/u);
 assert.match(handler, /coerceGameStateTextValue\(lockedUpdates\.location\)/u);
 assert.match(handler, /syncGameMapMetaPartyPosition\(freshMeta, updatedLocation\)/u);
-assert.match(handler, /updatedLocation && updatedLocation !== previousLocation/u);
+assert.match(handler, /!areGameMapLocationsEquivalent\(previousLocation, updatedLocation\)/u);
 assert.match(handler, /updateChatMetadataForTools\(\(freshMeta\) =>/u);
 assert.match(handler, /type: "game_map_update"/u);
 assert.ok(
