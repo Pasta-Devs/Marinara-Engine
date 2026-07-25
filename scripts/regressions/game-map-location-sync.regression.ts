@@ -27,6 +27,7 @@ assert.equal(syncedMap.nodes?.find((node) => node.id === "inn")?.discovered, tru
 const unmatched = syncGameMapMetaPartyPosition({ gameMap: map }, "Moonlit Orchard");
 assert.equal((unmatched.gameMap as GameMap).partyPosition, "square");
 assert.equal(areGameMapLocationsEquivalent("The Silver-Inn", "silver_inn"), true);
+assert.equal(areGameMapLocationsEquivalent("King's Landing", "kings_landing"), true);
 assert.equal(areGameMapLocationsEquivalent("Town Square", "Silver Inn"), false);
 
 const routeSource = readFileSync(

@@ -42,6 +42,7 @@ function normalizeLocationValue(value: string): string {
   return value
     .normalize("NFKD")
     .toLowerCase()
+    .replace(/['\u2019]/gu, "")
     .replace(/[_-]+/g, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .replace(/\b(?:the|a|an)\b/gu, " ")
