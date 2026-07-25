@@ -762,7 +762,7 @@ export function buildGmFormatReminder(
     `- [qte: action1|action2|action3, timer: 6s] - only as the final thing in the turn when the player must react to an immediate timed prompt or split-second action. Stop immediately after this tag: choosing an action commits the player's next turn.`,
     ...(ctx.map?.type === "node"
       ? [
-          `- [map_update: new_location="Location Name" connected_to="Previous Location Name" node_emoji="emoji"] - only when the party arrives at an entirely new location on the current node map.`,
+          `- [map_update: new_location="Location Name" connected_to="Previous Location Name" node_emoji="emoji"] - on every real arrival at a different location on the current node map, including an existing node. Use the existing node's exact label when available; omit only when the party remains in the same location.`,
         ]
       : []),
     `- [inventory: action="add|remove" item="Item A, Item B" count="3"] - every real item gain or loss, keep names short and use count/quantity for stacked items.`,

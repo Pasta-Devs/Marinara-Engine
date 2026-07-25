@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { GameMap } from "../../packages/shared/src/types/game.js";
+import { buildGmFormatReminder } from "../../packages/server/src/services/game/gm-prompts.js";
 import {
   areGameMapLocationsEquivalent,
   doGameMapLocationsResolveToSamePosition,
@@ -37,6 +38,17 @@ const numberedMap: GameMap = {
 };
 assert.equal(doGameMapLocationsResolveToSamePosition({ gameMap: numberedMap }, "Level 2", "level2"), true);
 assert.equal(doGameMapLocationsResolveToSamePosition({ gameMap: numberedMap }, "Town Square", "level2"), false);
+
+const gmReminder = buildGmFormatReminder({
+  gameActiveState: "exploration",
+  sessionNumber: 1,
+  map,
+  partyNames: [],
+  playerName: "Player",
+});
+assert.match(gmReminder, /\[map_update:.*on every real arrival at a different location/u);
+assert.match(gmReminder, /including an existing node/u);
+assert.doesNotMatch(gmReminder, /only when the party arrives at an entirely new location/u);
 
 const routeSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
