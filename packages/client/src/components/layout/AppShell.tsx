@@ -1028,10 +1028,11 @@ export function AppShell() {
     trackerPanelWidth,
   ]);
 
-  const trackerPanelHudClearance =
-    !shellOverlayMode && trackerPanelAnchoredForMotion && trackerPanelHideHudWidgets && trackerPanelSurfaceAvailable
+  const trackerPanelOverlayClearance =
+    !shellOverlayMode && trackerPanelAnchoredForMotion && trackerPanelSurfaceAvailable
       ? trackerPanelResolvedWidth + TRACKER_PANEL_HUD_GAP
       : 0;
+  const trackerPanelHudClearance = trackerPanelHideHudWidgets ? trackerPanelOverlayClearance : 0;
   const trackerPanelContentScale = resolveTrackerPanelContentScale(trackerPanelWidth, trackerPanelResolvedWidth);
   const trackerPanelPortal =
     trackerPanelActive &&
@@ -1238,6 +1239,7 @@ export function AppShell() {
               {
                 "--tracker-panel-hud-clear-left": `${trackerPanelSide === "left" ? trackerPanelHudClearance : 0}px`,
                 "--tracker-panel-hud-clear-right": `${trackerPanelSide === "right" ? trackerPanelHudClearance : 0}px`,
+                "--tracker-panel-overlay-clearance": `${trackerPanelOverlayClearance}px`,
               } as CSSProperties
             }
           >

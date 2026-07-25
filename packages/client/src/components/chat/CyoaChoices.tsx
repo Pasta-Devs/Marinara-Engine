@@ -8,6 +8,7 @@ import { useAgentStore } from "../../stores/agent.store";
 import { useGenerate } from "../../hooks/use-generate";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
+import { cn } from "../../lib/utils";
 import type { Message } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -15,6 +16,9 @@ type CyoaChoice = {
   label: string;
   text: string;
 };
+
+const TRACKER_SAFE_MAX_WIDTH =
+  "min(85%, calc(100% - var(--tracker-panel-overlay-clearance, 0px) - var(--tracker-panel-overlay-clearance, 0px)))";
 
 interface Props {
   messages?: Message[];
@@ -39,6 +43,7 @@ export function CyoaChoices({ messages }: Props) {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const isStreaming = useChatStore((s) => s.isStreaming);
   const impersonateCyoaChoices = useUIStore((s) => s.impersonateCyoaChoices);
+  const setImpersonateCyoaChoices = useUIStore((s) => s.setImpersonateCyoaChoices);
   const updateMessageExtra = useUpdateMessageExtra(activeChatId);
   const [isEditing, setIsEditing] = useState(false);
   const [isRerolling, setIsRerolling] = useState(false);
@@ -215,22 +220,45 @@ export function CyoaChoices({ messages }: Props) {
     setDraftChoices([]);
   }, [draftChoices, persistedChoiceState?.messageId, setChoicesForActiveChat, updateMessageExtra]);
 
+  const controlsBusy = isStreaming || isRerolling || updateMessageExtra.isPending;
+
   if (choices.length === 0) return null;
 
   return (
     <div className="flex flex-col items-center gap-2 px-4 py-3 animate-message-in">
-      <div className="flex items-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]/60">
+      <div
+        className="flex flex-wrap items-center justify-center gap-2 text-[0.625rem] text-[var(--muted-foreground)]/60"
+        style={{ maxWidth: TRACKER_SAFE_MAX_WIDTH }}
+      >
         <div className="flex items-center gap-1.5">
           <Sparkles size="0.625rem" />
           <span>{localizeUi("ui.chat.cyoachoices.whatWillYouDo")}</span>
         </div>
-        {impersonateCyoaChoices && (
-          <span className="mari-chrome-accent-surface mari-accent-animated rounded-full px-1.5 py-0.5 text-[0.5625rem] font-semibold">{localizeUi("settings.quickReplies.impersonate.label")}</span>
-        )}
+        <button
+          type="button"
+          aria-pressed={impersonateCyoaChoices}
+          onClick={() => setImpersonateCyoaChoices(!impersonateCyoaChoices)}
+          disabled={controlsBusy}
+          className={cn(
+            "inline-flex items-center rounded-full border px-2 py-1 text-[0.5625rem] font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40",
+            impersonateCyoaChoices
+              ? "mari-chrome-accent-surface mari-accent-animated border-[var(--marinara-chat-chrome-button-border-active)]"
+              : "border-[var(--border)] bg-[var(--muted)]/20 text-[var(--foreground)]/60 hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] dark:border-white/10 dark:bg-black/35 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80",
+          )}
+          title={localizeUi(
+            impersonateCyoaChoices
+              ? "ui.chat.cyoachoices.switchToSendingChoicesNormally"
+              : "ui.chat.cyoachoices.switchToImpersonatingChoices",
+          )}
+        >
+          {localizeUi(
+            impersonateCyoaChoices ? "settings.quickReplies.impersonate.label" : "ui.chat.cyoachoices.sendNormally",
+          )}
+        </button>
         <button
           type="button"
           onClick={isEditing ? handleCancelEdit : handleStartEdit}
-          disabled={isStreaming || isRerolling || updateMessageExtra.isPending}
+          disabled={controlsBusy}
           className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)]/20 px-2 py-1 text-[0.5625rem] text-[var(--foreground)]/60 transition-all hover:border-[var(--border)] hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-black/35 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80"
           title={isEditing ?localizeUi("ui.chat.cyoachoices.cancelEditingChoices") :localizeUi("ui.chat.cyoachoices.editCyoaChoices")}
         >
@@ -242,7 +270,7 @@ export function CyoaChoices({ messages }: Props) {
           onClick={() => {
             void handleReroll();
           }}
-          disabled={isStreaming || isEditing || isRerolling || updateMessageExtra.isPending}
+          disabled={controlsBusy || isEditing}
           className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--muted)]/20 px-2 py-1 text-[0.5625rem] text-[var(--foreground)]/60 transition-all hover:border-[var(--border)] hover:bg-[var(--muted)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-black/35 dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white/80"
           title={localizeUi("ui.chat.cyoachoices.reRollCyoaChoicesUsingTheLatestChatContext")}
         >
@@ -251,7 +279,10 @@ export function CyoaChoices({ messages }: Props) {
         </button>
       </div>
       {isEditing ? (
-        <div className="w-full max-w-[85%] space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 backdrop-blur-md dark:border-white/10 dark:bg-black/45">
+        <div
+          className="w-full space-y-2 rounded-2xl border border-[var(--border)] bg-[var(--card)]/90 p-3 backdrop-blur-md dark:border-white/10 dark:bg-black/45"
+          style={{ maxWidth: TRACKER_SAFE_MAX_WIDTH }}
+        >
           {draftChoices.map((choice, index) => (
             <div
               key={index}
@@ -301,7 +332,10 @@ export function CyoaChoices({ messages }: Props) {
           </div>
         </div>
       ) : (
-        <div className="flex max-w-[85%] flex-wrap justify-center gap-2">
+        <div
+          className="flex flex-wrap justify-center gap-2"
+          style={{ maxWidth: TRACKER_SAFE_MAX_WIDTH }}
+        >
           {choices.map((choice, i) => (
             <button
               key={i}
