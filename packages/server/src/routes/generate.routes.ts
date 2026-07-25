@@ -2956,6 +2956,7 @@ export async function generateRoutes(app: FastifyInstance) {
               gameSpecialInstructions: gmCtx.gameSpecialInstructions,
               canGenerateBackgrounds: gmCtx.canGenerateBackgrounds,
               artStylePrompt: gmCtx.artStylePrompt,
+              hierarchicalMapOwnsLocation: ownerSpatialProjection?.ownerMode === "game",
               addressMode,
               playerDiceRollSubmitted,
               playerInventory: (() => {
@@ -6218,20 +6219,47 @@ export async function generateRoutes(app: FastifyInstance) {
             });
 
             if (chatMode === "game" && !input.impersonate) {
-              const mapUpdates = parseMapUpdateCommands(fullResponse);
+              const mapUpdates =
+                ownerSpatialProjection?.ownerMode === "game" ? [] : parseMapUpdateCommands(fullResponse);
               if (mapUpdates.length > 0) {
                 try {
                   const freshChat = await chats.getById(input.chatId);
                   const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
                   const originalMap = (freshMeta.gameMap as GameMap | null) ?? null;
+                  const persistedMsg = refreshedMsg ?? savedMsg;
+                  const persistedSwipeIndex = persistedMsg?.activeSwipeIndex ?? 0;
+                  const targetSnapshot = persistedMsg?.id
+                    ? ((await gameStateStore.getByMessage(persistedMsg.id, persistedSwipeIndex)) ??
+                      baseGameStateSnapshot)
+                    : baseGameStateSnapshot;
                   let nextMap = originalMap;
                   let latestLocation: string | null = null;
+                  let latestLocationPatch: Record<string, unknown> | null = null;
+                  let appliedMapUpdates = 0;
 
                   for (const command of mapUpdates) {
-                    const updatedMap = applyMapUpdateCommand(nextMap, command);
+                    const locationPatch = applyTrackerFieldLocksToGameStatePatch(
+                      { location: command.newLocation },
+                      targetSnapshot ? parseGameStateRow(targetSnapshot as Record<string, unknown>) : null,
+                    );
+                    const effectiveLocation = coerceGameStateTextValue(locationPatch.location);
+                    latestLocationPatch = locationPatch;
+                    latestLocation = effectiveLocation;
+                    if (
+                      !effectiveLocation ||
+                      (!areGameMapLocationsEquivalent(command.newLocation, effectiveLocation) &&
+                        !doGameMapLocationsResolveToSamePosition(freshMeta, command.newLocation, effectiveLocation))
+                    ) {
+                      continue;
+                    }
+
+                    const updatedMap = applyMapUpdateCommand(nextMap, {
+                      ...command,
+                      newLocation: effectiveLocation,
+                    });
                     if (!updatedMap) continue;
                     nextMap = updatedMap;
-                    latestLocation = command.newLocation;
+                    appliedMapUpdates++;
                   }
 
                   if (nextMap && nextMap !== originalMap) {
@@ -6241,35 +6269,27 @@ export async function generateRoutes(app: FastifyInstance) {
                     chatMeta.gameMaps = nextMeta.gameMaps;
                     chatMeta.activeGameMapId = nextMeta.activeGameMapId;
                     sendSseEvent(reply, { type: "game_map_update", data: nextMeta.gameMap });
-
-                    const persistedMsg = refreshedMsg ?? savedMsg;
-                    if (latestLocation && persistedMsg?.id && ownerSpatialProjection?.ownerMode !== "game") {
-                      const persistedSwipeIndex = persistedMsg.activeSwipeIndex ?? 0;
-                      const targetSnapshot =
-                        (await gameStateStore.getByMessage(persistedMsg.id, persistedSwipeIndex)) ??
-                        baseGameStateSnapshot;
-                      const locationPatch = applyTrackerFieldLocksToGameStatePatch(
-                        { location: latestLocation },
-                        targetSnapshot ? parseGameStateRow(targetSnapshot as Record<string, unknown>) : null,
-                      );
-                      await gameStateStore.updateByMessage(
-                        persistedMsg.id,
-                        persistedSwipeIndex,
-                        input.chatId,
-                        locationPatch,
-                        undefined,
-                        { baseSnapshot: baseGameStateSnapshot },
-                      );
-                      sendSseEvent(reply, { type: "game_state_patch", data: locationPatch });
-                    }
-
-                    logger.info(
-                      "[generate/game/map_update] chatId=%s applied=%d location=%s",
-                      input.chatId,
-                      mapUpdates.length,
-                      latestLocation ?? "",
-                    );
                   }
+
+                  if (latestLocationPatch && persistedMsg?.id) {
+                    await gameStateStore.updateByMessage(
+                      persistedMsg.id,
+                      persistedSwipeIndex,
+                      input.chatId,
+                      latestLocationPatch,
+                      undefined,
+                      { baseSnapshot: baseGameStateSnapshot },
+                    );
+                    sendSseEvent(reply, { type: "game_state_patch", data: latestLocationPatch });
+                  }
+
+                  logger.info(
+                    "[generate/game/map_update] chatId=%s received=%d applied=%d location=%s",
+                    input.chatId,
+                    mapUpdates.length,
+                    appliedMapUpdates,
+                    latestLocation ?? "",
+                  );
                 } catch (err) {
                   logger.warn(err, "[generate/game/map_update] Failed to apply map_update");
                 }

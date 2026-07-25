@@ -48,7 +48,18 @@ const gmReminder = buildGmFormatReminder({
 });
 assert.match(gmReminder, /\[map_update:.*on every real arrival at a different location/u);
 assert.match(gmReminder, /including an existing node/u);
+assert.match(gmReminder, /correct stale map state/u);
 assert.doesNotMatch(gmReminder, /only when the party arrives at an entirely new location/u);
+
+const hierarchicalReminder = buildGmFormatReminder({
+  gameActiveState: "exploration",
+  sessionNumber: 1,
+  map,
+  partyNames: [],
+  playerName: "Player",
+  hierarchicalMapOwnsLocation: true,
+});
+assert.doesNotMatch(hierarchicalReminder, /\[map_update:/u);
 
 const routeSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
@@ -70,6 +81,20 @@ assert.ok(
   handler.indexOf("applyTrackerFieldLocksToGameStatePatch") <
     handler.indexOf("coerceGameStateTextValue(lockedUpdates.location)"),
   "map sync must consume the post-lock location",
+);
+
+const mapHandlerStart = routeSource.indexOf("const mapUpdates =", handlerEnd);
+const mapHandlerEnd = routeSource.indexOf("// Evict cachedPrompt", mapHandlerStart);
+assert.ok(mapHandlerStart >= 0 && mapHandlerEnd > mapHandlerStart, "map_update handler must remain discoverable");
+const mapHandler = routeSource.slice(mapHandlerStart, mapHandlerEnd);
+assert.match(mapHandler, /ownerSpatialProjection\?\.ownerMode === "game" \? \[\]/u);
+assert.ok(
+  mapHandler.indexOf("applyTrackerFieldLocksToGameStatePatch") < mapHandler.indexOf("applyMapUpdateCommand"),
+  "tracker locks must be applied before a map_update can move the marker",
+);
+assert.ok(
+  mapHandler.indexOf("gameStateStore.updateByMessage") > mapHandler.indexOf("if (nextMap && nextMap !== originalMap)"),
+  "map_update must anchor the message snapshot even when the map was already positioned",
 );
 
 process.stdout.write("Game map tool location sync regression passed.\n");
