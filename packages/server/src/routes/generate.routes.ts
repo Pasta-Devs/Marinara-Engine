@@ -26,9 +26,11 @@ import {
   normalizeManualTrackerAgentTypes,
   normalizeThinkingTagPairs,
   applyTrackerFieldLocksToGameStatePatch,
+  isTrackerFieldLocked,
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocksForState,
   trackerFieldLocksAreEmpty,
+  worldTrackerLockKey,
   customAgentHasCapability,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   DEFAULT_CONVERSATION_PROMPT,
@@ -6220,55 +6222,70 @@ export async function generateRoutes(app: FastifyInstance) {
 
             if (chatMode === "game" && !input.impersonate) {
               const mapUpdates =
-                ownerSpatialProjection?.ownerMode === "game" ? [] : parseMapUpdateCommands(fullResponse);
+                ownerSpatialProjection?.ownerMode === "game" || gameMap?.type !== "node"
+                  ? []
+                  : parseMapUpdateCommands(fullResponse);
               if (mapUpdates.length > 0) {
                 try {
-                  const freshChat = await chats.getById(input.chatId);
-                  const freshMeta = freshChat ? (parseExtra(freshChat.metadata) as Record<string, unknown>) : chatMeta;
-                  const originalMap = (freshMeta.gameMap as GameMap | null) ?? null;
                   const persistedMsg = refreshedMsg ?? savedMsg;
                   const persistedSwipeIndex = persistedMsg?.activeSwipeIndex ?? 0;
                   const targetSnapshot = persistedMsg?.id
                     ? ((await gameStateStore.getByMessage(persistedMsg.id, persistedSwipeIndex)) ??
                       baseGameStateSnapshot)
                     : baseGameStateSnapshot;
-                  let nextMap = originalMap;
+                  const targetState = targetSnapshot
+                    ? parseGameStateRow(targetSnapshot as Record<string, unknown>)
+                    : null;
+                  const effectiveLocks = normalizeTrackerFieldLocksForState(targetState?.fieldLocks, targetState);
+                  const locationLocked = isTrackerFieldLocked(effectiveLocks, worldTrackerLockKey("location"));
                   let latestLocation: string | null = null;
                   let latestLocationPatch: Record<string, unknown> | null = null;
                   let appliedMapUpdates = 0;
+                  let syncedGameMap: GameMap | null = null;
 
-                  for (const command of mapUpdates) {
-                    const locationPatch = applyTrackerFieldLocksToGameStatePatch(
-                      { location: command.newLocation },
-                      targetSnapshot ? parseGameStateRow(targetSnapshot as Record<string, unknown>) : null,
-                    );
-                    const effectiveLocation = coerceGameStateTextValue(locationPatch.location);
-                    latestLocationPatch = locationPatch;
-                    latestLocation = effectiveLocation;
-                    if (
-                      !effectiveLocation ||
-                      (!areGameMapLocationsEquivalent(command.newLocation, effectiveLocation) &&
-                        !doGameMapLocationsResolveToSamePosition(freshMeta, command.newLocation, effectiveLocation))
-                    ) {
-                      continue;
+                  const metadataPatch = await updateChatMetadataForTools((freshMeta) => {
+                    const originalMap = (freshMeta.gameMap as GameMap | null) ?? null;
+                    if (originalMap?.type !== "node") return {};
+
+                    let nextMap = originalMap;
+                    for (const command of mapUpdates) {
+                      const locationPatch = applyTrackerFieldLocksToGameStatePatch(
+                        { location: command.newLocation },
+                        targetState,
+                      );
+                      const effectiveLocation = coerceGameStateTextValue(locationPatch.location);
+                      latestLocationPatch = locationPatch;
+                      latestLocation = effectiveLocation;
+                      if (
+                        locationLocked ||
+                        !effectiveLocation ||
+                        (!areGameMapLocationsEquivalent(command.newLocation, effectiveLocation) &&
+                          !doGameMapLocationsResolveToSamePosition(freshMeta, command.newLocation, effectiveLocation))
+                      ) {
+                        continue;
+                      }
+
+                      const updatedMap = applyMapUpdateCommand(nextMap, {
+                        ...command,
+                        newLocation: effectiveLocation,
+                      });
+                      if (!updatedMap) continue;
+                      nextMap = updatedMap;
+                      appliedMapUpdates++;
                     }
 
-                    const updatedMap = applyMapUpdateCommand(nextMap, {
-                      ...command,
-                      newLocation: effectiveLocation,
-                    });
-                    if (!updatedMap) continue;
-                    nextMap = updatedMap;
-                    appliedMapUpdates++;
-                  }
-
-                  if (nextMap && nextMap !== originalMap) {
+                    if (nextMap === originalMap) return {};
                     const nextMeta = withActiveGameMapMeta(freshMeta, nextMap);
-                    await chats.updateMetadata(input.chatId, nextMeta);
-                    chatMeta.gameMap = nextMeta.gameMap;
-                    chatMeta.gameMaps = nextMeta.gameMaps;
-                    chatMeta.activeGameMapId = nextMeta.activeGameMapId;
-                    sendSseEvent(reply, { type: "game_map_update", data: nextMeta.gameMap });
+                    syncedGameMap = (nextMeta.gameMap as GameMap | null) ?? null;
+                    return {
+                      gameMap: nextMeta.gameMap,
+                      gameMaps: nextMeta.gameMaps,
+                      activeGameMapId: nextMeta.activeGameMapId,
+                    };
+                  });
+                  Object.assign(chatMeta, metadataPatch);
+                  if (syncedGameMap) {
+                    sendSseEvent(reply, { type: "game_map_update", data: syncedGameMap });
                   }
 
                   if (latestLocationPatch && persistedMsg?.id) {

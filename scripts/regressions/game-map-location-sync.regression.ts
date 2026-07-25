@@ -61,6 +61,15 @@ const hierarchicalReminder = buildGmFormatReminder({
 });
 assert.doesNotMatch(hierarchicalReminder, /\[map_update:/u);
 
+const gridReminder = buildGmFormatReminder({
+  gameActiveState: "exploration",
+  sessionNumber: 1,
+  map: { id: "grid", type: "grid", name: "Grid", width: 1, height: 1, cells: [] },
+  partyNames: [],
+  playerName: "Player",
+});
+assert.doesNotMatch(gridReminder, /\[map_update:/u);
+
 const routeSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
@@ -87,13 +96,16 @@ const mapHandlerStart = routeSource.indexOf("const mapUpdates =", handlerEnd);
 const mapHandlerEnd = routeSource.indexOf("// Evict cachedPrompt", mapHandlerStart);
 assert.ok(mapHandlerStart >= 0 && mapHandlerEnd > mapHandlerStart, "map_update handler must remain discoverable");
 const mapHandler = routeSource.slice(mapHandlerStart, mapHandlerEnd);
-assert.match(mapHandler, /ownerSpatialProjection\?\.ownerMode === "game" \? \[\]/u);
+assert.match(mapHandler, /ownerSpatialProjection\?\.ownerMode === "game" \|\| gameMap\?\.type !== "node"/u);
+assert.match(mapHandler, /originalMap\?\.type !== "node"/u);
+assert.match(mapHandler, /isTrackerFieldLocked\(effectiveLocks, worldTrackerLockKey\("location"\)\)/u);
+assert.match(mapHandler, /updateChatMetadataForTools\(\(freshMeta\) =>/u);
 assert.ok(
   mapHandler.indexOf("applyTrackerFieldLocksToGameStatePatch") < mapHandler.indexOf("applyMapUpdateCommand"),
   "tracker locks must be applied before a map_update can move the marker",
 );
 assert.ok(
-  mapHandler.indexOf("gameStateStore.updateByMessage") > mapHandler.indexOf("if (nextMap && nextMap !== originalMap)"),
+  mapHandler.indexOf("gameStateStore.updateByMessage") > mapHandler.indexOf("Object.assign(chatMeta, metadataPatch)"),
   "map_update must anchor the message snapshot even when the map was already positioned",
 );
 
