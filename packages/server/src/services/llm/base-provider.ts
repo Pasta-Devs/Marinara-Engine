@@ -415,11 +415,21 @@ export function fitMessagesToContext(
       : Math.max(1, Math.min(requestedMaxTokens, Math.max(1, usableWindow - reservedInputFloor)));
   let inputBudget = Math.max(0, usableWindow - (maxTokens ?? 0));
 
+  // Single-shot prompts (Noodle refreshes, summarizers, other one-off builders) carry no
+  // messages marked as history, so there is nothing in them that is safe to drop: the trimmer
+  // below would delete the prompt body itself and leave only the trailing instruction. Give the
+  // output budget back instead, and let the later passes handle a prompt that still cannot fit.
+  const hasRemovableHistory = messages.some((message) => message.contextKind === "history");
+
   // If the requested output budget consumes nearly the whole context window,
   // make room for the prompt before trimming. Otherwise, prefer trimming old
   // history first so a large-but-valid response budget does not collapse to the
   // 128-token floor just because the prompt is slightly over budget.
-  if (estimatedTokensBefore > inputBudget && maxTokens !== undefined && inputBudget <= reservedInputFloor) {
+  if (
+    estimatedTokensBefore > inputBudget &&
+    maxTokens !== undefined &&
+    (inputBudget <= reservedInputFloor || !hasRemovableHistory)
+  ) {
     const minimumOutputBudget = Math.min(MIN_OUTPUT_BUDGET_TOKENS, Math.max(1, usableWindow - 1));
     const headroom = Math.min(OUTPUT_BUDGET_REDUCTION_HEADROOM_TOKENS, Math.max(0, usableWindow - 1));
     const maxTokensThatFitPrompt = Math.max(1, usableWindow - estimatedTokensBefore - headroom);
@@ -445,7 +455,7 @@ export function fitMessagesToContext(
 
   const fittedMessages = cloneMessages(messages);
   let estimatedTokensAfter = estimateMessagesTokens(fittedMessages);
-  const hasAnnotatedHistory = fittedMessages.some((message) => message.contextKind === "history");
+  const hasAnnotatedHistory = hasRemovableHistory;
 
   while (estimatedTokensAfter > inputBudget && fittedMessages.length > 1) {
     const block = findOldestRemovableConversationBlock(fittedMessages, "history");
