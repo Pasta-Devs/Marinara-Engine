@@ -295,27 +295,6 @@ export function GenerationParametersFields({
           step={1}
         />
       </div>
-      {managedDefinitions.length > 0 && (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {managedDefinitions.map((definition) => {
-            const stored = value.managedCustomParameters[definition.id];
-            return (
-              <ParamInput
-                key={definition.id}
-                label={definition.name}
-                help={definition.tooltip}
-                value={stored?.value ?? definition.min}
-                onChange={(nextValue) => setManagedParameter(definition, { value: nextValue })}
-                sendEnabled={stored?.enabled === true}
-                onSendChange={(enabled) => setManagedParameter(definition, { enabled })}
-                min={definition.min}
-                max={definition.max}
-                step={Math.max(0.001, Math.min(1, (definition.max - definition.min) / 100))}
-              />
-            );
-          })}
-        </div>
-      )}
       <div className="grid grid-cols-2 gap-2">
         <ParamInput
           label={localizeUi("ui.ui.generationparametersfields.frequency")}
@@ -340,6 +319,27 @@ export function GenerationParametersFields({
           step={0.05}
         />
       </div>
+      {managedDefinitions.length > 0 && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {managedDefinitions.map((definition) => {
+            const stored = value.managedCustomParameters[definition.id];
+            return (
+              <ParamInput
+                key={definition.id}
+                label={definition.name}
+                help={definition.tooltip}
+                value={stored?.value ?? definition.min}
+                onChange={(nextValue) => setManagedParameter(definition, { value: nextValue })}
+                sendEnabled={stored?.enabled === true}
+                onSendChange={(enabled) => setManagedParameter(definition, { enabled })}
+                min={definition.min}
+                max={definition.max}
+                step={Math.max(0.001, Math.min(1, (definition.max - definition.min) / 100))}
+              />
+            );
+          })}
+        </div>
+      )}
       <div className="space-y-2">
         <div>
           <span className="inline-flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.ui.generationparametersfields.assistantPrefill")}<HelpTooltip
@@ -352,7 +352,10 @@ export function GenerationParametersFields({
             onCommit={(nextValue) => set("assistantPrefill", nextValue)}
             rows={3}
             className={PARAM_TEXTAREA_CLASS}
-            placeholder={localizeUi("ui.ui.generationparametersfields.thinking").trimStart()}
+            placeholder={localizeUi("ui.ui.generationparametersfields.thinking", {
+              value1: "<",
+              value2: ">",
+            }).trimStart()}
           />
         </div>
         <ThinkingTagsInput

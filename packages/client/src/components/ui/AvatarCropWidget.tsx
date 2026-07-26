@@ -223,14 +223,14 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
           <button
             type="button"
             onClick={() => setShowFullView(true)}
-            className="inline-flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+            className="mari-editor-action mari-editor-action--compact inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
             title={localizeUi("ui.ui.avatarcropwidget.openFullImage")}
           >
             <Maximize2 size="0.625rem" /> {localizeUi("ui.ui.avatarcropwidget.fullImage")}</button>
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
+            className="mari-editor-action mari-editor-action--compact inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
             title={localizeUi("ui.ui.avatarcropwidget.resetToCenteredMaxSquareCrop")}
           >
             <RotateCcw size="0.625rem" /> {localizeUi("ui.characters.charactercliptrimmodal.reset")}</button>
@@ -239,7 +239,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
               type="button"
               onClick={onRemove}
               disabled={removing}
-              className="mari-chrome-accent-surface mari-accent-animated inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[0.625rem] font-medium transition-colors disabled:opacity-45"
+              className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex gap-1 rounded-lg px-2 py-1 text-[0.625rem]"
               title={localizeUi("ui.ui.avatarcropwidget.removeAvatar")}
             >
               <Trash2 size="0.625rem" /> {removing ?localizeUi("ui.ui.avatarcropwidget.removing") :localizeUi("settings.notifications.customSound.actions.remove")}

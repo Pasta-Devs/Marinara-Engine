@@ -1736,7 +1736,7 @@ function CharacterVersionHistoryPanel({
           <History size="0.75rem" />
           {localizeUi("ui.characters.characterversionhistorypanel.versionHistory")}
         </span>
-        <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+        <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
           {isLoading
             ? localizeUi("ui.characters.characterversionhistorypanel.loading")
             : localizeUi("ui.characters.characterversionhistorypanel.value1Saved", { value1: savedVersionCount })}
@@ -1783,7 +1783,7 @@ function CharacterVersionHistoryPanel({
                     type="button"
                     onClick={() => handleRestore(version)}
                     disabled={restoreVersion.isPending || deleteVersion.isPending}
-                    className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                    className="mari-editor-action mari-editor-action--compact inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.characters.characterversionhistorypanel.restoreThisVersion")}
                   >
                     {restoreVersion.isPending ? (
@@ -1796,7 +1796,7 @@ function CharacterVersionHistoryPanel({
                     type="button"
                     onClick={() => handleDeleteVersion(version)}
                     disabled={restoreVersion.isPending || deleteVersion.isPending}
-                    className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                    className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.characters.characterversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
@@ -1966,7 +1966,7 @@ function DialogueTab({
   };
 
   const greetingActionButtonClassName =
-    "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] transition-all hover:border-[var(--primary)]/40 hover:text-[var(--foreground)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[var(--border)] disabled:hover:text-[var(--muted-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]";
+    "mari-editor-action mari-editor-action--compact inline-flex h-8 w-8 rounded-lg p-0 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
     <div className="space-y-6">
@@ -2005,7 +2005,7 @@ function DialogueTab({
           <button
             type="button"
             onClick={addGreeting}
-            className="rounded-xl bg-[var(--primary)]/15 px-3 py-1 text-xs font-medium text-[var(--primary)] transition-all hover:bg-[var(--primary)]/25"
+            className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1 text-xs"
           >
             {localizeUi("ui.characters.dialoguetab.add")}
           </button>
@@ -2046,10 +2046,7 @@ function DialogueTab({
                 <button
                   type="button"
                   onClick={() => removeGreeting(i)}
-                  className={cn(
-                    greetingActionButtonClassName,
-                    "hover:border-[var(--border)] hover:text-[var(--foreground)]",
-                  )}
+                  className={cn(greetingActionButtonClassName, "mari-editor-action--danger")}
                   aria-label={localizeUi("ui.characters.dialoguetab.removeAlternateGreetingValue1", { value1: i + 1 })}
                   title={localizeUi("ui.characters.dialoguetab.removeGreeting")}
                 >
@@ -4429,12 +4426,7 @@ function ColorsTab({
         type="button"
         disabled={!avatarUrl || extracting}
         onClick={handleExtract}
-        className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all",
-          avatarUrl
-            ? "mari-chrome-accent-surface mari-accent-animated active:scale-[0.98]"
-            : "cursor-not-allowed bg-white/5 text-[var(--muted-foreground)]/50",
-        )}
+        className="mari-editor-action mari-editor-action--accent mari-editor-action--primary flex w-full rounded-xl px-4 py-2.5 text-xs"
       >
         {extracting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Palette size="0.875rem" />}
         {extracting

@@ -64,24 +64,12 @@ export function useFolderRenameGesture() {
         return;
       }
 
-      const now = Date.now();
-      const pending = pendingGesturesRef.current.get(key);
-
-      if (pending) {
-        window.clearTimeout(pending.timeout);
-        pendingGesturesRef.current.delete(key);
-      }
-
-      if (pending && now - pending.lastClickAt < delayMs) {
+      if (event.detail > 1) {
         onRename();
         return;
       }
 
-      const timeout = window.setTimeout(() => {
-        pendingGesturesRef.current.delete(key);
-        onSingleClick();
-      }, delayMs);
-      pendingGesturesRef.current.set(key, { lastClickAt: now, timeout });
+      onSingleClick();
     },
     [],
   );

@@ -1570,10 +1570,11 @@ assert.match(
 );
 assert.equal(englishLocale["ui.characters.colorstab.ldquoHelloThereRdquo"], "“Hello there.”");
 assert.equal(englishLocale["ui.personas.personacolorstab.ldquoGeneralKenobiRdquo"], "“General Kenobi.”");
+assert.equal(englishLocale["ui.ui.generationparametersfields.thinking"], "{{value1}}thinking{{value2}}");
 assert.match(
   generationParametersEditorSource,
-  /placeholder=\{localizeUi\("ui\.ui\.generationparametersfields\.thinking"\)\.trimStart\(\)\}/u,
-  "Assistant Prefill must strip accidental leading localization whitespace",
+  /placeholder=\{localizeUi\("ui\.ui\.generationparametersfields\.thinking", \{\s*value1: "<",\s*value2: ">",\s*\}\)\.trimStart\(\)\}/u,
+  "Assistant Prefill must render literal angle brackets without unbalanced localization markup",
 );
 assert.match(generationParametersEditorSource, /placeholder:\[text-indent:0\]/u);
 assert.match(

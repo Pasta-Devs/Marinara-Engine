@@ -110,6 +110,7 @@
   "home.professorMari.send": "Wyślij do Profesor Mari",
   "home.professorMari.skills.close": "Zamknij umiejętności Profesor Mari",
   "home.recentChats.empty": "Nie ma jeszcze czatów",
+  "lorebook.editor.batch.hint": "Użyj przycisku Wybierz powyżej, aby włączyć tryb edycji zbiorczej i edytować wiele wpisów jednocześnie.",
   "navigation.chatSidebar.empty.filtered.conversation": "Żadna rozmowa nie pasuje do obecnych filtrów",
   "navigation.chatSidebar.empty.filtered.game": "Żadna gra nie pasuje do obecnych filtrów",
   "navigation.chatSidebar.empty.filtered.roleplay": "Żadne odgrywanie roli nie pasuje do obecnych filtrów",
@@ -300,6 +301,7 @@
   "settings.controls.useExpressionSprites.help": "Portrety trackera mogą przełączać się na sprite’y Agenta Expression Engine, jeśli Agent jest włączony dla czatu, a postać ma pasujące obrazy.",
   "settings.controls.useExpressionSprites.label": "Używaj sprite’ów ekspresji w portretach trackera",
   "settings.controls.weatherEffects.label": "Dynamiczne efekty pogody (deszcz, śnieg, mgła itd.)",
+  "settings.customGenerationParameters.help": "Twórz tutaj własne parametry numeryczne dostawcy. Po dodaniu będą dostępne w Ustawieniach czatu i domyślnych ustawieniach połączeń.",
   "settings.modes.conversation": "Rozmowa",
   "settings.modes.conversations": "Rozmowy",
   "settings.modes.game": "Gra",
@@ -435,6 +437,7 @@
   "settings.tabs.generations.label": "Generowanie",
   "settings.tabs.imports.description": "Import, foldery zasobów i przenoszenie danych.",
   "settings.tabs.imports.label": "Import",
+  "settings.transfer.automaticBackup.location": "Kopia jest zapisywana na urządzeniu, na którym działa Marinara, w DATA_DIR/backups/marinara-automatic-backup.zip. Aktywny DATA_DIR znajdziesz w logu uruchamiania; Docker domyślnie używa /app/data. W Androidzie pamięć aplikacji jest zwykle niedostępna, dlatego użyj przycisku Pobierz kopię zapasową, aby zapisać kopię w dostępnym miejscu.",
   "settings.transfer.exportProfile.description": "Tryb natywny tworzy profil Marinary w formacie JSON. Jeśli plik byłby zbyt duży, Marinara zaproponuje profil ZIP.",
   "settings.transfer.exportProfile.title": "Eksportuj profil",
   "settings.transfer.fullBackup.help": "Pobierz pełną kopię zapasową jako archiwum .zip: dane, awatary, sprite’y, tła, galerię, czcionki i źródła wiedzy. Import profilu może bezpośrednio przywrócić ZIP. Surowe foldery służą do ręcznego odzyskiwania.",
@@ -463,5 +466,6 @@
   "ui.help.show": "Pokaż pomoc",
   "ui.modes.conversationShort": "ROZM.",
   "ui.modes.gameMasterShort": "MG",
-  "ui.modes.roleplayShort": "RP"
+  "ui.modes.roleplayShort": "RP",
+  "ui.ui.generationparametersfields.thinking": "{{value1}}thinking{{value2}}"
 }

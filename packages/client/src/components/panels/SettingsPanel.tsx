@@ -7215,6 +7215,7 @@ function AdvancedSettings() {
       <SettingsSection
         title={localizeUi("settings.customGenerationParameters.title")}
         description={localizeUi("settings.customGenerationParameters.sectionDescription")}
+        help={localizeUi("settings.customGenerationParameters.help")}
         icon={<SlidersHorizontal size="0.875rem" />}
         {...getSettingsSectionAnchorProps("parameters")}
       >
@@ -7344,6 +7345,10 @@ function AdvancedSettings() {
                       ? localizeUi("ui.panels.advancedsettings.automaticBackupWillBeCreatedShortly")
                       : localizeUi("ui.panels.advancedsettings.automaticBackupsAreOff")}
               </p>
+              <div className="mt-2 flex items-start gap-1.5 rounded-md bg-[var(--background)]/45 px-2 py-1.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/60">
+                <FolderOpen size="0.75rem" className="mt-0.5 shrink-0 text-[var(--primary)]" aria-hidden="true" />
+                <p>{localizeUi("settings.transfer.automaticBackup.location")}</p>
+              </div>
             </div>
           )}
           <button onClick={handleCreateBackup} disabled={creatingBackup} className={SETTINGS_PRIMARY_BUTTON_CLASS}>

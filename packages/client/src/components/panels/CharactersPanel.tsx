@@ -1048,7 +1048,7 @@ export function CharactersPanel() {
                       role="button"
                       tabIndex={0}
                       className={cn(
-                        "group group/member flex touch-pan-y cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
+                        "group group/member relative flex touch-pan-y cursor-pointer items-center gap-2 rounded-lg p-1.5 transition-all hover:bg-[var(--sidebar-accent)]",
                         selectionMode &&
                           isBulkSelected &&
                           "bg-[var(--marinara-chat-chrome-highlight-bg)] ring-1 ring-[var(--marinara-chat-chrome-button-border-active)]",
@@ -1115,7 +1115,7 @@ export function CharactersPanel() {
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-24")}>
                         <span
                           className="block truncate text-[0.75rem] font-medium"
                           style={
@@ -1181,7 +1181,55 @@ export function CharactersPanel() {
                         )}
                       </div>
                       {!selectionMode && (
-                        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover/member:opacity-100 max-md:opacity-100">
+                        <div
+                          data-character-row-actions
+                          className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] p-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover/member:opacity-100 max-md:opacity-100"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              duplicateCharacter.mutate(memberId, {
+                                onSuccess: () => {
+                                  toast.success(
+                                    localizeUi("ui.panels.characterspanel.duplicatedValue1", {
+                                      value1: memberName,
+                                    }),
+                                  );
+                                },
+                              });
+                            }}
+                            className="mari-chrome-control flex h-5 min-h-5 w-5 items-center justify-center rounded-md p-0 active:scale-90"
+                            title={localizeUi("ui.presets.sectionstab.duplicate")}
+                            aria-label={localizeUi("ui.presets.sectionstab.duplicate")}
+                          >
+                            <Copy size="0.625rem" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (
+                                !(await showConfirmDialog({
+                                  title: localizeUi("ui.panels.characterspanel.deleteCharacter"),
+                                  message: localizeUi(
+                                    "ui.panels.characterspanel.deleteValue1ThisCannotBeUndone",
+                                    { value1: memberName },
+                                  ),
+                                  confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                                  tone: "destructive",
+                                }))
+                              ) {
+                                return;
+                              }
+                              deleteCharacter.mutate(memberId);
+                            }}
+                            className="mari-chrome-control flex h-5 min-h-5 w-5 items-center justify-center rounded-md p-0 text-[var(--destructive)] active:scale-90"
+                            title={localizeUi("lorebook.editor.batch.delete")}
+                            aria-label={localizeUi("lorebook.editor.batch.delete")}
+                          >
+                            <Trash2 size="0.625rem" />
+                          </button>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1191,7 +1239,7 @@ export function CharactersPanel() {
                                 characterName: memberName,
                               });
                             }}
-                            className="mari-chrome-control mari-chrome-control--small flex h-6 min-h-6 w-6 items-center justify-center p-0"
+                            className="mari-chrome-control flex h-5 min-h-5 w-5 items-center justify-center rounded-md border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] p-0 text-[var(--marinara-chat-chrome-button-text-active)] active:scale-90"
                             title={localizeUi("ui.panels.characterspanel.startNewChatWithValue1", {
                               value1: memberName,
                             })}
@@ -1199,7 +1247,7 @@ export function CharactersPanel() {
                               value1: memberName,
                             })}
                           >
-                            <MessageCircle size="0.6875rem" />
+                            <MessageCircle size="0.625rem" />
                           </button>
                           <button
                             type="button"
@@ -1207,10 +1255,11 @@ export function CharactersPanel() {
                               e.stopPropagation();
                               void moveCharactersToFolder([memberId], null);
                             }}
-                            className="rounded p-0.5 transition-all hover:bg-[var(--destructive)]/15"
+                            className="mari-chrome-control flex h-5 min-h-5 w-5 items-center justify-center rounded-md p-0 text-[var(--muted-foreground)] active:scale-90"
                             title={localizeUi("ui.panels.characterspanel.removeFromFolder")}
+                            aria-label={localizeUi("ui.panels.characterspanel.removeFromFolder")}
                           >
-                            <UserMinus size="0.6875rem" className="text-[var(--destructive)]" />
+                            <UserMinus size="0.625rem" />
                           </button>
                         </div>
                       )}

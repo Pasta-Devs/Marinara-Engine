@@ -1834,6 +1834,17 @@
   color: var(--destructive);
 }
 
+.mari-editor-action--accent {
+  border-color: var(--marinara-editor-border-strong);
+  background: color-mix(in srgb, var(--marinara-editor-accent) 13%, transparent);
+  color: var(--marinara-editor-accent);
+}
+
+.mari-editor-action--accent:hover {
+  background: color-mix(in srgb, var(--marinara-editor-accent) 18%, transparent);
+  color: var(--marinara-editor-text);
+}
+
 .mari-editor-action--favorite[data-favorite="true"],
 .mari-editor-action--favorite:hover {
   color: var(--marinara-editor-accent);

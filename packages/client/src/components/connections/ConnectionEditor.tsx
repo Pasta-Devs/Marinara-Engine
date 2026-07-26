@@ -1218,11 +1218,11 @@ export function ConnectionEditor() {
           <div className="flex gap-2">
             <button
               onClick={() => setShowUnsavedWarning(false)}
-              className="rounded-lg px-3 py-1 hover:bg-[var(--accent)]"
+              className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
             >{localizeUi("ui.connections.connectioneditor.keepEditing")}</button>
             <button
               onClick={() => closeConnectionDetail()}
-              className="rounded-lg px-3 py-1 text-[var(--destructive)] hover:bg-[var(--destructive)]/15"
+              className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
             >{localizeUi("ui.connections.connectioneditor.discard")}</button>
             <button
               onClick={async () => {
@@ -1233,7 +1233,7 @@ export function ConnectionEditor() {
                   // Keep the editor open so the user can fix the failed save.
                 }
               }}
-              className="rounded-lg bg-amber-500/20 px-3 py-1 hover:bg-amber-500/30"
+              className="mari-editor-action mari-editor-action--primary mari-editor-action--compact inline-flex rounded-lg px-3 py-1"
             >{localizeUi("ui.connections.connectioneditor.saveClose")}</button>
           </div>
         </div>

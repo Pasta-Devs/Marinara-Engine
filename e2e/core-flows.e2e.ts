@@ -1037,6 +1037,50 @@ test("connection model fetch errors inherit the configured chroma text color", a
   }
 });
 
+test("Connection Discard uses the configured editor accent", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop connection editor guard chrome is covered here.");
+
+  const connectionResponse = await page.request.post("/api/connections", {
+    data: {
+      name: "Connection Discard Accent",
+      provider: "custom",
+    },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+  const accentColor = "rgb(20, 184, 166)";
+
+  try {
+    await page.goto("/");
+    await page.evaluate((accent) => {
+      document.documentElement.style.setProperty("--marinara-chat-chrome-accent", accent);
+      document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
+    }, accentColor);
+
+    await page.locator('[data-tour="panel-connections"]').click();
+    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
+    await rightPanel
+      .getByText("Connection Discard Accent", { exact: true })
+      .first()
+      .evaluate((element) => (element as HTMLElement).click());
+
+    const editor = page.locator(".mari-editor-shell");
+    await expect(editor).toBeVisible();
+    await editor.locator(".mari-editor-title-input").fill("Connection Discard Accent Edited");
+    await editor.locator(".mari-editor-header .mari-editor-action").first().click();
+
+    const discardButton = editor.getByRole("button", { name: "Discard", exact: true });
+    await expect(discardButton).toBeVisible();
+    await expect(discardButton).toHaveClass(/mari-editor-action--accent/u);
+    await expect(discardButton).toHaveCSS("color", accentColor);
+    expect(await discardButton.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+    await discardButton.click();
+    await expect(editor).toHaveCount(0);
+  } finally {
+    await page.request.delete(`/api/connections/${connection.id}`).catch(() => undefined);
+  }
+});
+
 test("Character favorite tags and stars inherit the configured accent color", async ({ page, request }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop Character favorite chrome is covered here.");
 
@@ -1101,7 +1145,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
   page,
   request,
 }, testInfo) => {
-  const suffix = Date.now().toString(36);
+  const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
   const characterName = `Character Chat Launcher ${suffix}`;
   const characterResponse = await request.post("/api/characters", {
     data: {
@@ -1116,6 +1160,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
   const character = (await characterResponse.json()) as { id: string };
   const createdChatIds = new Set<string>();
   const createdCharacterIds = new Set([character.id]);
+  let createdGroupId: string | null = null;
   const mobile = testInfo.project.name.includes("mobile");
   const rightPanel = page.locator(`[data-component="${mobile ? "RightPanelMobile" : "RightPanelDesktop"}"]`);
 
@@ -1260,7 +1305,74 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     expect(chatIconBox!.width / chatIconBox!.height).toBeGreaterThan(0.9);
     expect(chatBox!.y).toBeGreaterThan(duplicateBox!.y);
 
-    await chatButton.click();
+    const folderName = `Character Actions ${suffix}`;
+    const groupResponse = await request.post("/api/characters/groups", {
+      data: { name: folderName, characterIds: [character.id] },
+    });
+    expect(groupResponse.ok()).toBeTruthy();
+    const group = (await groupResponse.json()) as { id: string };
+    createdGroupId = group.id;
+
+    await page.reload();
+    await ensureCharacterPanelOpen();
+    const folderRow = rightPanel.locator(`[data-character-folder-id="${group.id}"]`);
+    await expect(folderRow).toBeVisible();
+    const folderHeader = folderRow.locator(':scope > [role="button"]');
+    await expect(folderHeader).toBeVisible();
+    await expect(folderHeader).toHaveAttribute("aria-expanded", "false");
+
+    await folderHeader.evaluate((element) => (element as HTMLElement).click());
+    await expect(folderHeader).toHaveAttribute("aria-expanded", "true", { timeout: 300 });
+
+    if (!mobile) {
+      await page.waitForTimeout(400);
+      await folderHeader.evaluate((element) => (element as HTMLElement).click());
+      await expect(folderHeader).toHaveAttribute("aria-expanded", "false", { timeout: 300 });
+
+      await page.waitForTimeout(400);
+      await folderHeader.evaluate((element) => (element as HTMLElement).click());
+      await expect(folderHeader).toHaveAttribute("aria-expanded", "true", { timeout: 300 });
+    }
+
+    const folderCharacterRow = folderRow.locator('[data-touch-drag-card="character"]').filter({
+      hasText: characterName,
+    });
+    await expect(folderCharacterRow).toBeVisible();
+
+    const folderActions = folderCharacterRow.locator("[data-character-row-actions]");
+    const folderActionButtons = folderActions.locator(":scope > button");
+    const folderDuplicateButton = folderActionButtons.nth(0);
+    const folderDeleteButton = folderActionButtons.nth(1);
+    const folderChatButton = folderActionButtons.nth(2);
+    const folderRemoveButton = folderActionButtons.nth(3);
+    await expect(folderActions).toBeAttached();
+    await expect(folderActionButtons).toHaveCount(4);
+    await expect(folderDuplicateButton).toHaveAttribute("aria-label", "Duplicate");
+    await expect(folderDeleteButton).toHaveAttribute("aria-label", "Delete");
+    await expect(folderChatButton).toHaveAttribute("aria-label", `Start a new chat with ${characterName}`);
+    await expect(folderRemoveButton).toHaveAttribute("aria-label", "Remove from folder");
+
+    const [folderRowBox, folderActionsBox, ...folderActionBoxes] = await Promise.all([
+      folderCharacterRow.boundingBox(),
+      folderActions.boundingBox(),
+      folderDuplicateButton.boundingBox(),
+      folderDeleteButton.boundingBox(),
+      folderChatButton.boundingBox(),
+      folderRemoveButton.boundingBox(),
+    ]);
+    expect(folderRowBox).not.toBeNull();
+    expect(folderActionsBox).not.toBeNull();
+    expect(folderActionBoxes.every((box) => box !== null)).toBeTruthy();
+    expect(folderActionsBox!.x + folderActionsBox!.width).toBeLessThanOrEqual(
+      folderRowBox!.x + folderRowBox!.width,
+    );
+    const folderActionYPositions = folderActionBoxes.map((box) => box!.y);
+    expect(Math.max(...folderActionYPositions) - Math.min(...folderActionYPositions)).toBeLessThan(0.1);
+    expect(folderActionBoxes.map((box) => box!.x)).toEqual(
+      [...folderActionBoxes].map((box) => box!.x).sort((left, right) => left - right),
+    );
+
+    await folderChatButton.evaluate((element) => (element as HTMLElement).click());
     const panelModeSelector = await expectModeSelector();
     await panelModeSelector.getByRole("button", { name: /^Roleplay/u }).click();
     await expect.poll(readActiveChatId).not.toBeNull();
@@ -1290,6 +1402,9 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     await Promise.all(
       [...createdChatIds].map((chatId) => request.delete(`/api/chats/${chatId}`).catch(() => undefined)),
     );
+    if (createdGroupId) {
+      await request.delete(`/api/characters/groups/${createdGroupId}`).catch(() => undefined);
+    }
     await Promise.all(
       [...createdCharacterIds].map((characterId) =>
         request.delete(`/api/characters/${characterId}`).catch(() => undefined),
@@ -1324,6 +1439,13 @@ test("Character and Persona avatar actions stay separated and visually balanced"
   });
   expect(characterResponse.ok()).toBeTruthy();
   const character = (await characterResponse.json()) as { id: string };
+  const characterAvatarResponse = await page.request.post(`/api/characters/${character.id}/avatar`, {
+    data: {
+      avatar: `data:image/gif;base64,${TRANSPARENT_GIF_BASE64}`,
+      filename: "character-avatar.gif",
+    },
+  });
+  expect(characterAvatarResponse.ok()).toBeTruthy();
 
   const personaName = `Avatar Persona ${suffix}`;
   const personaCreator = "Professor Mari and the Snezhnayan Institute";
@@ -1337,6 +1459,13 @@ test("Character and Persona avatar actions stay separated and visually balanced"
   });
   expect(personaResponse.ok()).toBeTruthy();
   const persona = (await personaResponse.json()) as { id: string };
+  const personaAvatarResponse = await page.request.post(`/api/characters/personas/${persona.id}/avatar`, {
+    data: {
+      avatar: `data:image/gif;base64,${TRANSPARENT_GIF_BASE64}`,
+      filename: "persona-avatar.gif",
+    },
+  });
+  expect(personaAvatarResponse.ok()).toBeTruthy();
 
   const verifyEditor = async (
     panel: "characters" | "personas",
@@ -1411,6 +1540,12 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await expect(uploadButton).toHaveClass(/mari-chrome-control--small/);
     await expect(metadataGenerateButton).toHaveClass(/mari-chrome-control--small/);
+    const fullImageButton = editor.getByRole("button", { name: "Full image", exact: true });
+    const resetCropButton = editor.getByRole("button", { name: "Reset", exact: true });
+    await expect(fullImageButton).toHaveClass(/mari-editor-action/u);
+    await expect(resetCropButton).toHaveClass(/mari-editor-action/u);
+    await expect(editor.getByText(/^\d+ saved$/u).first()).toHaveClass(/mari-editor-chip--accent/u);
+
     const touchHoverActive = await metadataGenerateButton.evaluate((element) => element.matches(":hover"));
     if (!touchHoverActive) {
       await expect
@@ -1431,6 +1566,24 @@ test("Character and Persona avatar actions stay separated and visually balanced"
         })
         .toBe(true);
     }
+
+    const editorSections = editor.getByRole("navigation", { name: "Editor sections" });
+    if (panel === "characters") {
+      await editorSections.getByRole("button", { name: "Card", exact: true }).click();
+      const addGreetingButton = editor.getByRole("button", { name: "+ Add", exact: true });
+      await expect(addGreetingButton).toHaveClass(/mari-editor-action--accent/u);
+    }
+
+    await editorSections.getByRole("button", { name: "Lorebook", exact: true }).click();
+    await expect(editor.getByRole("button", { name: "New", exact: true })).toHaveClass(/mari-editor-action/u);
+    await expect(editor.getByRole("button", { name: "Assign Lorebook", exact: true })).toHaveClass(
+      /mari-editor-action--accent/u,
+    );
+
+    await editorSections.getByRole("button", { name: "Colors", exact: true }).click();
+    await expect(editor.getByRole("button", { name: "Extract Colors from Avatar", exact: true })).toHaveClass(
+      /mari-editor-action--accent/u,
+    );
 
     await editor
       .locator(".mari-editor-header .mari-editor-action")
@@ -3919,6 +4072,23 @@ test("settings search divider stays aligned with editor headers across text scal
   }
 });
 
+test("Backup & Export identifies the automatic backup location", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByPlaceholder("Search settings").fill("automatic backups");
+  await page
+    .locator(".mari-settings-search-header button")
+    .filter({ hasText: "Automatic backups" })
+    .first()
+    .click();
+
+  const backupSection = page.locator("#settings-section-backup-export");
+  await expect(backupSection).toBeVisible();
+  await expect(backupSection).toContainText("DATA_DIR/backups/marinara-automatic-backup.zip");
+  await expect(backupSection).toContainText("Docker defaults to /app/data");
+  await expect(backupSection).toContainText("On Android, app storage is usually inaccessible");
+});
+
 test("custom generation parameters become reusable chat controls", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Reusable parameter authoring is covered on desktop.");
 
@@ -3961,6 +4131,17 @@ test("custom generation parameters become reusable chat controls", async ({ page
 
     const parameterSettings = page.locator("#settings-control-custom-generation-parameters");
     await expect(parameterSettings).toBeVisible();
+    const parametersSection = page.locator("#settings-section-parameters");
+    const parametersHelp = parametersSection.getByRole("button", { name: "Show help" });
+    await parametersHelp.click();
+    await expect(
+      page.getByText(
+        "Create reusable numeric provider parameters here. Once added, they become available in Chat Settings and connection defaults.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await parametersHelp.click();
+
     await parameterSettings.getByRole("button", { name: "Add parameter" }).click();
     await parameterSettings.getByLabel("Name").fill("Min P");
     await parameterSettings.getByLabel("Value", { exact: true }).fill("min_p");
@@ -3970,6 +4151,19 @@ test("custom generation parameters become reusable chat controls", async ({ page
     await parameterSettings.getByRole("button", { name: "Save parameter" }).click();
 
     await expect(parameterSettings.getByText("min_p", { exact: true })).toBeVisible();
+    const editParameterButton = parameterSettings.getByRole("button", { name: "Edit Min P" });
+    const deleteParameterButton = parameterSettings.getByRole("button", { name: "Delete Min P" });
+    const [editParameterIconBox, deleteParameterIconBox] = await Promise.all([
+      editParameterButton.locator("svg").boundingBox(),
+      deleteParameterButton.locator("svg").boundingBox(),
+    ]);
+    expect(editParameterIconBox).not.toBeNull();
+    expect(deleteParameterIconBox).not.toBeNull();
+    expect(editParameterIconBox!.width).toBeGreaterThanOrEqual(16);
+    expect(editParameterIconBox!.height).toBeGreaterThanOrEqual(16);
+    expect(deleteParameterIconBox!.width).toBeGreaterThanOrEqual(16);
+    expect(deleteParameterIconBox!.height).toBeGreaterThanOrEqual(16);
+
     const savedDefinitions = JSON.parse(storedDefinitions) as Array<{
       name: string;
       requestKey: string;
@@ -3986,8 +4180,20 @@ test("custom generation parameters become reusable chat controls", async ({ page
     await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
     const drawer = page.locator(".mari-chat-settings-drawer");
     await drawer.getByText("Advanced Parameters", { exact: true }).click();
+    await expect(drawer.locator('textarea[placeholder="<thinking>"]')).toHaveAttribute("placeholder", "<thinking>");
     await expect(drawer.getByText("Min P", { exact: true })).toBeVisible();
     const minPInput = drawer.getByRole("textbox", { name: "Min P", exact: true });
+    const [frequencyInputBox, presenceInputBox, minPInputBox] = await Promise.all([
+      drawer.getByRole("textbox", { name: "Frequency", exact: true }).boundingBox(),
+      drawer.getByRole("textbox", { name: "Presence", exact: true }).boundingBox(),
+      minPInput.boundingBox(),
+    ]);
+    expect(frequencyInputBox).not.toBeNull();
+    expect(presenceInputBox).not.toBeNull();
+    expect(minPInputBox).not.toBeNull();
+    expect(minPInputBox!.y).toBeGreaterThan(frequencyInputBox!.y + frequencyInputBox!.height);
+    expect(minPInputBox!.y).toBeGreaterThan(presenceInputBox!.y + presenceInputBox!.height);
+
     await minPInput.fill("0,35");
     await minPInput.blur();
     const minPSendToggle = drawer.getByRole("checkbox", { name: "Send Min P parameter" });
@@ -6719,6 +6925,12 @@ test("selected Lorebook entries mirror safe edits and choose a move destination 
     await page.locator('[data-tour="panel-lorebooks"]').click();
     await page.getByText(name, { exact: true }).click();
     await page.getByRole("button", { name: /^Entries/ }).click();
+    await expect(
+      page.getByText(
+        "Use the Select button above to enter batch editing mode and edit multiple entries at once.",
+        { exact: true },
+      ),
+    ).toBeVisible();
     await page.getByTitle("Select entries for batch editing, copying, moving, or deletion").click();
     await page.getByRole("button", { name: "Select all", exact: true }).click();
     await expect(page.getByText("2 selected", { exact: true })).toBeVisible();

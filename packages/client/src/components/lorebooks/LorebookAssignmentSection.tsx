@@ -214,14 +214,14 @@ export function LorebookAssignmentSection({
             type="button"
             onClick={handleCreateLorebook}
             disabled={!ownerId}
-            className="mari-chrome-control mari-chrome-control--compact gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
           >
             <Plus size="0.75rem" />{localizeUi("ui.lorebooks.lorebookassignmentsection.new")}</button>
           <button
             type="button"
             onClick={() => openAssignment()}
             disabled={!ownerId}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)]/15 px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:opacity-50"
+            className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex gap-1.5 rounded-lg px-3 py-1.5 text-xs"
           >
             <BookOpen size="0.75rem" />{localizeUi("ui.lorebooks.lorebookassignmentsection.assignLorebook")}</button>
         </div>
@@ -255,7 +255,7 @@ export function LorebookAssignmentSection({
                 <button
                   type="button"
                   onClick={() => openAssignment(lorebook)}
-                  className="rounded-lg px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+                  className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
                 >{localizeUi("ui.lorebooks.lorebookassignmentsection.scope")}</button>
                 {ownerType === "character" &&
                   (lorebook.id === embeddedLorebookId ? (
@@ -265,7 +265,7 @@ export function LorebookAssignmentSection({
                         type="button"
                         onClick={() => handleEmbed(lorebook)}
                         disabled={embedLorebook.isPending}
-                        className="rounded-lg px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                        className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
                         title={localizeUi("ui.lorebooks.lorebookassignmentsection.rewriteTheCardSEmbeddedCopyFromThisLorebook")}
                       >{localizeUi("ui.noodle.noodlehome.refresh")}</button>
                     </>
@@ -273,7 +273,7 @@ export function LorebookAssignmentSection({
                     <button
                       type="button"
                       disabled
-                      className="cursor-not-allowed rounded-lg px-2 py-1 text-[0.625rem] font-medium text-[var(--muted-foreground)] opacity-50"
+                      className="mari-editor-action mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
                       title={localizeUi("ui.lorebooks.lorebookassignmentsection.removeTheCurrentEmbeddedLorebookFirst")}
                     >{localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}</button>
                   ) : (
@@ -281,7 +281,7 @@ export function LorebookAssignmentSection({
                       type="button"
                       onClick={() => handleEmbed(lorebook)}
                       disabled={embedLorebook.isPending}
-                      className="rounded-lg px-2 py-1 text-[0.625rem] font-medium text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/15 disabled:opacity-50"
+                      className="mari-editor-action mari-editor-action--accent mari-editor-action--compact inline-flex rounded-lg px-2 py-1 text-[0.625rem]"
                       title={localizeUi("ui.lorebooks.lorebookassignmentsection.writeThisLorebookIntoTheCharacterCardSoIt")}
                     >{localizeUi("ui.lorebooks.lorebookassignmentsection.embedIntoCard")}</button>
                   ))}
@@ -289,7 +289,7 @@ export function LorebookAssignmentSection({
                   type="button"
                   onClick={() => unassignLorebook(lorebook)}
                   disabled={updateLorebook.isPending}
-                  className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                  className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
                   title={
                     ownerType === "character" && lorebook.id === embeddedLorebookId
                       ?localizeUi("ui.lorebooks.lorebookassignmentsection.unlinkLorebookTheCardSEmbeddedCopyStaysUse")

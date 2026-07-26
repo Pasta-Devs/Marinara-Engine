@@ -2421,6 +2421,14 @@ export function LorebookEditor() {
                     <Plus size="0.8125rem" />{localizeUi("ui.lorebooks.lorebookeditor.addEntry")}</button>
                 </div>
 
+                <p
+                  role="note"
+                  className="flex items-start gap-1.5 px-1 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]"
+                >
+                  <Info size="0.6875rem" aria-hidden="true" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+                  <span>{t("lorebook.editor.batch.hint")}</span>
+                </p>
+
                 {entrySelectionMode && (
                   <div className="mari-editor-toolbar flex flex-wrap items-center gap-2 px-3 py-2">
                     <div

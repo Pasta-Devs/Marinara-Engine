@@ -176,7 +176,7 @@ export function CustomGenerationParametersSettings() {
                   aria-label={t("settings.customGenerationParameters.editAction", { name: definition.name })}
                   title={t("settings.customGenerationParameters.editAction", { name: definition.name })}
                 >
-                  <Pencil size="0.75rem" />
+                  <Pencil size="1rem" className="shrink-0" />
                 </button>
                 <button
                   type="button"
@@ -186,7 +186,7 @@ export function CustomGenerationParametersSettings() {
                   aria-label={t("settings.customGenerationParameters.deleteActionNamed", { name: definition.name })}
                   title={t("settings.customGenerationParameters.deleteActionNamed", { name: definition.name })}
                 >
-                  <Trash2 size="0.75rem" />
+                  <Trash2 size="1rem" className="shrink-0 text-[var(--destructive)]" />
                 </button>
               </div>
             </div>

@@ -2468,12 +2468,7 @@ function PersonaColorsTab({
         type="button"
         disabled={!avatarUrl || extracting}
         onClick={handleExtract}
-        className={cn(
-          "flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition-all",
-          avatarUrl
-            ? "mari-chrome-accent-surface mari-accent-animated active:scale-[0.98]"
-            : "cursor-not-allowed bg-white/5 text-[var(--muted-foreground)]/50",
-        )}
+        className="mari-editor-action mari-editor-action--accent mari-editor-action--primary flex w-full rounded-xl px-4 py-2.5 text-xs"
       >
         {extracting ? <Loader2 size="0.875rem" className="animate-spin" /> : <Palette size="0.875rem" />}
         {extracting
@@ -3303,7 +3298,7 @@ function PersonaVersionHistoryPanel({
           <History size="0.75rem" />
           {localizeUi("ui.personas.personaversionhistorypanel.versionHistory")}
         </span>
-        <span className="rounded-full bg-[var(--accent)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+        <span className="mari-editor-chip mari-editor-chip--accent px-2 py-0.5 text-[0.625rem]">
           {isLoading
             ? localizeUi("ui.personas.personaversionhistorypanel.loading")
             : localizeUi("ui.personas.personaversionhistorypanel.value1Saved", { value1: savedVersionCount })}
@@ -3350,7 +3345,7 @@ function PersonaVersionHistoryPanel({
                     type="button"
                     onClick={() => handleRestore(version)}
                     disabled={restoreVersion.isPending || deleteVersion.isPending}
-                    className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                    className="mari-editor-action mari-editor-action--compact inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.personas.personaversionhistorypanel.restoreThisVersion")}
                   >
                     {restoreVersion.isPending ? (
@@ -3363,7 +3358,7 @@ function PersonaVersionHistoryPanel({
                     type="button"
                     onClick={() => handleDeleteVersion(version)}
                     disabled={restoreVersion.isPending || deleteVersion.isPending}
-                    className="rounded-lg p-1.5 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+                    className="mari-editor-action mari-editor-action--compact mari-editor-action--danger inline-flex h-7 w-7 rounded-lg p-0"
                     title={localizeUi("ui.personas.personaversionhistorypanel.deleteThisSavedVersion")}
                   >
                     {deleteVersion.isPending && deleteVersion.variables?.versionId === version.id ? (
