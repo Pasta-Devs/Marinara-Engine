@@ -29,6 +29,8 @@ export const sceneAnalysisContextSchema = z.object({
   currentMusic: z.string().nullable(),
   recentMusic: z.array(z.string().max(500)).max(20).optional().default([]),
   useSpotifyMusic: z.boolean().optional().default(false),
+  generateSoundEffects: z.boolean().optional().default(false),
+  generateMusic: z.boolean().optional().default(false),
   availableSpotifyTracks: z.array(sceneSpotifyTrackCandidateSchema).max(50).optional().default([]),
   currentSpotifyTrack: z.string().max(300).nullable().optional().default(null),
   recentSpotifyTracks: z.array(z.string().max(300)).max(20).optional().default([]),

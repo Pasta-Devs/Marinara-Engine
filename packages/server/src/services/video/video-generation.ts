@@ -8,6 +8,7 @@ import { assertInsideDir, safeFetch } from "../../utils/security.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
 import { runMediaGenerationRequest } from "../image/image-generation-queue.js";
 import { buildAtlasCloudVideoRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
+import { buildComfyUiLoraWorkflowReplacements, type ComfyUiLoraSetting } from "@marinara-engine/shared";
 
 export interface VideoReferenceImage {
   base64: string;
@@ -40,6 +41,8 @@ export interface VideoGenerationRequest {
   comfyWorkflow?: string;
   /** Optional LTX Director global/local prompt inputs for workflows using the matching placeholders. */
   ltxDirectorPrompt?: LtxDirectorPromptInput;
+  /** Up to five connection-scoped LoRAs for custom ComfyUI workflow placeholders. */
+  comfyLoras?: ComfyUiLoraSetting[];
   lastFrameImage?: VideoReferenceImage | null;
   publicReferenceUpload?: VideoReferencePublicUploadOptions | null;
   signal?: AbortSignal;
@@ -61,6 +64,7 @@ export interface VideoGenerationRequest {
     serviceHint: string;
     model: string;
     comfyWorkflow?: string;
+    comfyLoras?: ComfyUiLoraSetting[];
   };
 }
 
@@ -195,6 +199,7 @@ async function generateVideoUnqueued(
       fallback: undefined,
       model: fallback.model,
       comfyWorkflow: fallback.comfyWorkflow,
+      comfyLoras: fallback.comfyLoras,
       connectionKey: fallback.connectionId,
     });
   }
@@ -348,7 +353,7 @@ function resolveComfyUiVideoFrameLength(durationSeconds: number): number {
 
 export function resolveComfyUiVideoWorkflowPlaceholders(
   workflow: unknown,
-  request: Pick<VideoGenerationRequest, "prompt" | "model" | "durationSeconds" | "ltxDirectorPrompt">,
+  request: Pick<VideoGenerationRequest, "prompt" | "model" | "durationSeconds" | "ltxDirectorPrompt" | "comfyLoras">,
   runtime: { seed: number; width: number; height: number; referenceImageName?: string },
 ): unknown {
   const ltxDirectorPrompt = resolveLtxDirectorPromptInput(request);
@@ -363,6 +368,7 @@ export function resolveComfyUiVideoWorkflowPlaceholders(
     "%local_prompts%": ltxDirectorPrompt.localPrompts,
     "%segment_lengths%": ltxDirectorPrompt.segmentLengths,
   };
+  Object.assign(replacements, buildComfyUiLoraWorkflowReplacements(request.comfyLoras));
   if (request.model?.trim()) replacements["%model%"] = request.model.trim();
   if (runtime.referenceImageName) replacements["%reference_image_name%"] = runtime.referenceImageName;
   return replaceComfyUiVideoPlaceholders(workflow, replacements);

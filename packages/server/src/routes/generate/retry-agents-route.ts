@@ -156,6 +156,7 @@ import {
 } from "./illustrator-references.js";
 import {
   applyTextRewriteAgentChatSettings,
+  explicitlyRequestsTextRewrite,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
   normalizeProseGuardianPromptTemplate,
@@ -2702,7 +2703,12 @@ async function applyRetryResultEffects(args: {
           : [{ description: "Rewrote the assistant response." }];
         const editNeededValue = rewriteData.editNeeded;
         const strictEditNeeded = isBuiltInTextRewriteAgentType(result.agentType);
-        const rewriteAllowed = editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
+        const rewriteAllowed =
+          editNeededValue === false
+            ? false
+            : strictEditNeeded
+              ? explicitlyRequestsTextRewrite(editNeededValue)
+              : true;
         const droppedProtectedMarkup =
           strictEditNeeded && textRewriteDropsProtectedMarkup(currentResponseForRewrite, editedText);
         if (droppedProtectedMarkup) {

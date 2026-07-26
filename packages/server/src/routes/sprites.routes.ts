@@ -398,6 +398,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
                 ? videoDefaults.comfyui.resolution
                 : undefined,
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
+    comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };
 }
@@ -1787,6 +1788,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   aspectRatio: ANIMATED_EXPRESSION_ASPECT_RATIO,
                   resolution: resolved.resolution,
                   comfyWorkflow: resolved.comfyWorkflow,
+                  comfyLoras: resolved.comfyLoras,
                   referenceImage,
                   publicReferenceUpload: resolved.publicReferenceUpload,
                   fallback: videoFallback,

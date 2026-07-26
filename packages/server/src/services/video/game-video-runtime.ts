@@ -50,6 +50,7 @@ export interface GameVideoRuntime {
   apiKey: string;
   model: string;
   comfyWorkflow?: string;
+  comfyLoras: VideoGenerationDefaultsProfile["comfyui"]["loras"];
   resolution?: VideoResolution;
   promptLimits: SceneVideoPromptLimits;
   minDurationSeconds: number;
@@ -161,6 +162,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
                   ? ""
                   : DEFAULT_GEMINI_OMNI_MODEL),
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
+    comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
     minDurationSeconds: isGoogleVeo || isSeedance ? 4 : 1,

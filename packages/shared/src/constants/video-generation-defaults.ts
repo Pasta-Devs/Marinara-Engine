@@ -12,6 +12,7 @@ import type {
   VideoResolution,
   XaiVideoDefaults,
 } from "../types/video-generation-defaults.js";
+import { normalizeComfyUiLoraSettings } from "./image-generation-defaults.js";
 
 export const VIDEO_DEFAULTS_STORAGE_KEY = "videoGeneration";
 export const VIDEO_GENERATION_DEFAULTS_VERSION = 1 as const;
@@ -67,6 +68,7 @@ export const DEFAULT_COMFYUI_VIDEO_DEFAULTS: ComfyUiVideoDefaults = {
   durationSeconds: 5,
   aspectRatio: "16:9",
   resolution: "720p",
+  loras: [],
 };
 
 export function createDefaultVideoGenerationProfile(
@@ -81,7 +83,7 @@ export function createDefaultVideoGenerationProfile(
     openrouter: { ...DEFAULT_OPENROUTER_VIDEO_DEFAULTS },
     atlas: { ...DEFAULT_ATLAS_CLOUD_VIDEO_DEFAULTS },
     seedance: { ...DEFAULT_SEEDANCE_VIDEO_DEFAULTS },
-    comfyui: { ...DEFAULT_COMFYUI_VIDEO_DEFAULTS },
+    comfyui: { ...DEFAULT_COMFYUI_VIDEO_DEFAULTS, loras: [] },
   };
 }
 
@@ -146,6 +148,7 @@ export function normalizeVideoGenerationProfile(rawProfile: unknown): {
     durationSeconds: readInteger(rawComfyUi.durationSeconds, DEFAULT_COMFYUI_VIDEO_DEFAULTS.durationSeconds, 1, 60),
     aspectRatio: readAspectRatio(rawComfyUi.aspectRatio, DEFAULT_COMFYUI_VIDEO_DEFAULTS.aspectRatio),
     resolution: readResolution(rawComfyUi.resolution, DEFAULT_COMFYUI_VIDEO_DEFAULTS.resolution),
+    loras: normalizeComfyUiLoraSettings(rawComfyUi.loras),
   };
   const changed = JSON.stringify(profile) !== JSON.stringify(rawProfile);
   return { profile, changed };

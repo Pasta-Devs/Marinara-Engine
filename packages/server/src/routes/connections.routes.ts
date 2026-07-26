@@ -789,8 +789,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
           status: 0,
           names: null,
         }));
+        const loraModels = await fetchComfyLoaderModelNames("LoraLoader", "lora_name").catch(() => ({
+          status: 0,
+          names: null,
+        }));
         const names = [...new Set([...checkpoints.names, ...(diffusionModels.names ?? [])])];
-        return { models: names.map((name: string) => ({ id: name, name })) };
+        const loras = [...new Set(loraModels.names ?? [])];
+        return {
+          models: names.map((name: string) => ({ id: name, name })),
+          loras: loras.map((name: string) => ({ id: name, name })),
+        };
       }
 
       // AUTOMATIC1111 / SD Web UI: fetch models from /sdapi/v1/sd-models
@@ -1172,6 +1180,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                     ? defaults.comfyui.resolution
                     : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
+        comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
       });
       return {
         success: true,

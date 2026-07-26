@@ -117,6 +117,8 @@ function defaultSourceProfile(source: TTSSource): TTSSourceProfile {
     speed: 1,
     elevenLabsStability: 0.5,
     elevenLabsLanguageCode: "",
+    elevenLabsGameSoundEffects: false,
+    elevenLabsGameMusic: false,
     voiceMode: "single",
     voiceAssignments: [],
     narratorVoiceEnabled: false,
@@ -474,6 +476,8 @@ export function TTSConfigCard() {
   const [speed, setSpeed] = useState(1.0);
   const [elevenLabsStability, setElevenLabsStability] = useState(0.5);
   const [elevenLabsLanguageCode, setElevenLabsLanguageCode] = useState("");
+  const [elevenLabsGameSoundEffects, setElevenLabsGameSoundEffects] = useState(false);
+  const [elevenLabsGameMusic, setElevenLabsGameMusic] = useState(false);
   const [autoplayRP, setAutoplayRP] = useState(false);
   const [autoplayConvo, setAutoplayConvo] = useState(false);
   const [autoplayGame, setAutoplayGame] = useState(false);
@@ -530,6 +534,8 @@ export function TTSConfigCard() {
     setSpeed(savedConfig.speed);
     setElevenLabsStability(savedConfig.elevenLabsStability ?? 0.5);
     setElevenLabsLanguageCode(savedConfig.elevenLabsLanguageCode ?? "");
+    setElevenLabsGameSoundEffects(savedConfig.elevenLabsGameSoundEffects ?? false);
+    setElevenLabsGameMusic(savedConfig.elevenLabsGameMusic ?? false);
     setAutoplayRP(savedConfig.autoplayRP);
     setAutoplayConvo(savedConfig.autoplayConvo);
     setAutoplayGame(savedConfig.autoplayGame);
@@ -602,6 +608,8 @@ export function TTSConfigCard() {
     speed,
     elevenLabsStability,
     elevenLabsLanguageCode,
+    elevenLabsGameSoundEffects,
+    elevenLabsGameMusic,
     autoplayRP,
     autoplayConvo,
     autoplayGame,
@@ -678,6 +686,8 @@ export function TTSConfigCard() {
     setSpeed(nextProfile.speed);
     setElevenLabsStability(nextProfile.elevenLabsStability);
     setElevenLabsLanguageCode(nextProfile.elevenLabsLanguageCode);
+    setElevenLabsGameSoundEffects(nextProfile.elevenLabsGameSoundEffects);
+    setElevenLabsGameMusic(nextProfile.elevenLabsGameMusic);
     setAudioFormat(nextProfile.audioFormat);
     mark({
       source: nextSource,
@@ -1473,6 +1483,33 @@ export function TTSConfigCard() {
                 <span>{localizeUi("ui.panels.ttsconfigcard.robust")}</span>
               </div>
             </FieldRow>
+          )}
+
+          {source === "elevenlabs" && (
+            <div className="space-y-1">
+              <span className="text-xs font-medium">
+                {localizeUi("ui.panels.ttsconfigcard.gameAudioGeneration")}
+              </span>
+              <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.ttsconfigcard.gameAudioGenerationHelp")}
+              </p>
+              <ToggleRow
+                label={localizeUi("ui.panels.ttsconfigcard.generateGameSoundEffects")}
+                checked={elevenLabsGameSoundEffects}
+                onChange={(value) => {
+                  setElevenLabsGameSoundEffects(value);
+                  mark({ elevenLabsGameSoundEffects: value });
+                }}
+              />
+              <ToggleRow
+                label={localizeUi("ui.panels.ttsconfigcard.generateGameMusic")}
+                checked={elevenLabsGameMusic}
+                onChange={(value) => {
+                  setElevenLabsGameMusic(value);
+                  mark({ elevenLabsGameMusic: value });
+                }}
+              />
+            </div>
           )}
 
           {/* Auto-play */}

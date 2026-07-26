@@ -10306,6 +10306,8 @@ export async function gameRoutes(app: FastifyInstance) {
         availableBackgrounds: input.context.availableBackgrounds,
         availableSfx: input.context.availableSfx,
         useSpotifyMusic: input.context.useSpotifyMusic,
+        generateSoundEffects: input.context.generateSoundEffects,
+        generateMusic: input.context.generateMusic,
         availableSpotifyTracks: input.context.availableSpotifyTracks,
         canGenerateBackgrounds: !!sceneCtx.canGenerateBackgrounds,
         validWidgetIds: new Set(
@@ -10329,7 +10331,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
       if (input.context.useSpotifyMusic) {
         parsed.music = null;
-      } else {
+      } else if (!input.context.generateMusic) {
         const scoredMusic = scoreMusic({
           state: (input.context.currentState as GameActiveState) ?? "exploration",
           weather: parsed.weather ?? input.context.currentWeather,
@@ -11249,6 +11251,7 @@ export async function gameRoutes(app: FastifyInstance) {
                   aspectRatio: plannedFrame.aspectRatio,
                   resolution: videoRuntime.resolution,
                   comfyWorkflow: videoRuntime.comfyWorkflow,
+                  comfyLoras: videoRuntime.comfyLoras,
                   referenceImage,
                   publicReferenceUpload: videoRuntime.publicReferenceUpload,
                   fallback: videoFallback,
@@ -11515,6 +11518,7 @@ export async function gameRoutes(app: FastifyInstance) {
       maxDurationSeconds,
       publicReferenceUpload,
       comfyWorkflow,
+      comfyLoras,
       activeDefaults: activeVideoDefaults,
       hasStoredDefaults,
     } = videoRuntime;
@@ -11620,6 +11624,7 @@ export async function gameRoutes(app: FastifyInstance) {
         aspectRatio,
         resolution,
         comfyWorkflow,
+        comfyLoras,
         referenceImage,
         publicReferenceUpload,
         queue: input.queueMediaGenerationRequests,

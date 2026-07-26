@@ -82,6 +82,10 @@ export function isBuiltInTextRewriteAgentType(agentType: string | null | undefin
   return typeof agentType === "string" && REWRITE_AGENT_TYPES.has(agentType);
 }
 
+export function explicitlyRequestsTextRewrite(value: unknown): boolean {
+  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+}
+
 export function shouldHoldForTextRewrite(agents: ResolvedAgent[]): boolean {
   return agents.some((agent) => REWRITE_AGENT_TYPES.has(agent.type) && agent.settings.holdForRewrite !== false);
 }
