@@ -6,7 +6,7 @@
 // The active chat's autonomous messaging is handled by ConversationView.
 
 import { useEffect, useRef } from "react";
-import type { Chat } from "@marinara-engine/shared";
+import type { Chat, Message } from "@marinara-engine/shared";
 import type { AvatarCropValue } from "../lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { showLocalMessageNotification, showNativeMessageNotification } from "../
 import { playConfiguredNotificationPing } from "../lib/notification-sound";
 import { chatKeys } from "./use-chats";
 import { characterKeys } from "./use-characters";
+import { upsertPersistedMessages } from "./use-generate";
 
 interface AutonomousCheckResult {
   shouldTrigger: boolean;
@@ -149,6 +150,7 @@ export function useBackgroundAutonomousPolling() {
             generatingForRef.current.add(chat.id);
             const doGenerate = async () => {
               let receivedTokens = false;
+              const savedMessages = new Map<string, Message>();
               let shouldClearAutonomousFlag = true;
               try {
                 const currentUserStatus = useUIStore.getState().userStatus;
@@ -180,7 +182,7 @@ export function useBackgroundAutonomousPolling() {
                 useChatStore.getState().setAbortController(chat.id, abortController);
                 // Use streamEvents to drain the SSE — tokens aren't needed for background chats
                 try {
-                  for await (const _event of api.streamEvents(
+                  for await (const event of api.streamEvents(
                     "/generate",
                     {
                       chatId: chat.id,
@@ -193,9 +195,37 @@ export function useBackgroundAutonomousPolling() {
                     },
                     abortController.signal,
                   )) {
-                    const eventType = (_event as { type: string }).type;
+                    const streamEvent = event as { type: string; data?: unknown };
+                    const eventType = streamEvent.type;
                     if (eventType === "token") receivedTokens = true;
-                    else if (eventType === "generation_discarded") receivedTokens = false;
+                    else if (eventType === "message_saved") {
+                      const savedMessage = streamEvent.data as Message;
+                      if (savedMessage?.id && savedMessage.chatId === chat.id) {
+                        savedMessages.set(savedMessage.id, savedMessage);
+                        if (savedMessage.role === "assistant") receivedTokens = true;
+                      }
+                    } else if (eventType === "text_rewrite") {
+                      const rewrite = streamEvent.data as { editedText?: unknown };
+                      if (typeof rewrite.editedText === "string") {
+                        const latestAssistant = Array.from(savedMessages.values())
+                          .reverse()
+                          .find((message) => message.role === "assistant");
+                        if (latestAssistant) {
+                          const nextExtra = {
+                            ...((latestAssistant.extra ?? {}) as unknown as Record<string, unknown>),
+                          };
+                          delete nextExtra.postProcessingPending;
+                          savedMessages.set(latestAssistant.id, {
+                            ...latestAssistant,
+                            content: rewrite.editedText,
+                            extra: nextExtra as unknown as Message["extra"],
+                          });
+                        }
+                      }
+                    } else if (eventType === "generation_discarded") {
+                      receivedTokens = false;
+                      savedMessages.clear();
+                    }
                   }
                 } finally {
                   if (useChatStore.getState().abortControllers.get(chat.id) === abortController) {
@@ -206,12 +236,11 @@ export function useBackgroundAutonomousPolling() {
                 // Only notify if the generation actually produced a message
                 if (!receivedTokens) return;
 
-                // Reset + refetch messages so the cache has fresh data when the
-                // user navigates to this chat. Without this, TanStack Query
-                // would show stale cached data (missing the new message) until
-                // the background refetch completes — making it look like the
-                // message isn't there even though it was saved.
-                qc.resetQueries({ queryKey: chatKeys.messages(chat.id) });
+                // Paint the exact persisted SSE row before notifying. A reset
+                // leaves a window where the sound and unread badge arrive while
+                // the cached chat still has no message.
+                upsertPersistedMessages(qc, chat.id, Array.from(savedMessages.values()));
+                void qc.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
                 qc.invalidateQueries({ queryKey: characterKeys.list() });
                 void api
                   .post<Chat>(`/chats/${chat.id}/autonomous-unread`, { characterId })

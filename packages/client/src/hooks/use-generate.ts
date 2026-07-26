@@ -594,7 +594,7 @@ function mergeCachedGeneratedMessage(existing: Message, incoming: Message): Mess
   return merged;
 }
 
-function upsertPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
+export function upsertPersistedMessages(qc: QueryClient, chatId: string, incoming: Message[]) {
   if (incoming.length === 0) return;
 
   const sortedIncoming = sortMessagesByCreatedAt(
@@ -1186,8 +1186,11 @@ export function useGenerate() {
       // Background generations (e.g. autonomous messaging) run silently,
       // tracked only by abortControllers.
       if (isActiveChat()) {
-        setStreaming(true, params.chatId);
+        // Remove any completed response before exposing the next streaming state.
+        // Otherwise the old buffer can render beneath the new user message until
+        // the first token of the new response arrives.
         clearStreamBuffer(params.chatId);
+        setStreaming(true, params.chatId);
         clearThoughtBubbles();
         clearCyoaChoices();
         clearMariChips();

@@ -21,7 +21,12 @@ import { useShallow } from "zustand/react/shallow";
 import { toast } from "sonner";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useGameAssetStore } from "../../stores/game-asset.store";
-import { gameAssetKeys, useGameAssetManifest, type GameAssetManifest } from "../../hooks/use-game-assets";
+import {
+  gameAssetKeys,
+  useGameAssetManifest,
+  type GameAssetEntry,
+  type GameAssetManifest,
+} from "../../hooks/use-game-assets";
 import { cleanNpcAvatarDisplayName, isSameNpcAvatarResource, normalizeNpcAvatarName } from "../../lib/game-npc-avatar";
 import { useChatStore } from "../../stores/chat.store";
 import { useUIStore } from "../../stores/ui.store";
@@ -108,6 +113,7 @@ import { characterNamesMatch, findNamedEntry } from "../../lib/game-character-na
 import { normalizeGameSegmentEdit, serializeGameSegmentEdit, type GameSegmentEdit } from "../../lib/game-segment-edits";
 import { findReplayStoryboardKeyframe } from "../../lib/game-storyboard-keyframes";
 import { useSceneAnalysis } from "../../hooks/use-scene-analysis";
+import { useTTSConfig } from "../../hooks/use-tts";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { parsePartyDialogue } from "../../lib/party-dialogue-parser";
 import { dispatchSpotifySceneTrackChange } from "../../lib/spotify-playback-events";
@@ -134,6 +140,7 @@ import type {
   HudWidget,
   SceneSpotifyTrackCandidate,
   SceneSpotifyTrackSelection,
+  SceneAnalysis,
   SpatialMapGroundingMode,
   SpatialMapDraftSize,
   PendingSpatialTransition,
@@ -505,6 +512,7 @@ function getConfiguredGameAssetImageSizes(): NonNullable<GameAssetGenerationPayl
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 240_000;
 const GAME_ASSET_PREVIEW_TIMEOUT_MS = 180_000;
 const GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS = 180_000;
+const GAME_AUDIO_GENERATION_TIMEOUT_MS = 190_000;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 1_800_000;
 const IMAGE_PROMPT_REVIEW_TIMED_OUT = Symbol("IMAGE_PROMPT_REVIEW_TIMED_OUT");
 
@@ -2427,6 +2435,11 @@ function GameSurfaceComponent({
   const useCustomGameMusic = gameMusicDjEnabled && musicPlayerSource === "custom";
   const useJsonMusicDjGameMusic = useYoutubeGameMusic || useCustomGameMusic;
   const useMusicDjPlayerMusic = useSpotifyGameMusic || useJsonMusicDjGameMusic;
+  const { data: ttsConfig } = useTTSConfig();
+  const generateGameSoundEffects =
+    ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameSoundEffects === true;
+  const generateGameMusic =
+    ttsConfig?.source === "elevenlabs" && ttsConfig.elevenLabsGameMusic === true && !useMusicDjPlayerMusic;
   const activeGameMetaId = typeof chatMeta.gameId === "string" ? chatMeta.gameId : "";
   const sceneRuntimeScopeKey = `${activeChatId}:${activeGameMetaId}`;
   const { data: connectionsList } = useConnections();
@@ -2585,19 +2598,85 @@ function GameSurfaceComponent({
     [activeChatId, queryClient],
   );
   const { data: assetManifest, refetch: fetchManifest } = useGameAssetManifest();
+  const generatedAudioAssetsRef = useRef<Record<string, GameAssetEntry>>({});
   const currentBackground = useGameAssetStore((s) => s.currentBackground);
   const gameAssetExcludedFolders = useMemo(
     () => parseGameAssetExcludedFolders(chatMeta.gameAssetSelection),
     [chatMeta.gameAssetSelection],
   );
   const scopedAssetMap = useMemo(
-    () => filterGameAssetMap(assetManifest?.assets ?? null, gameAssetExcludedFolders),
+    () => ({
+      ...(filterGameAssetMap(assetManifest?.assets ?? null, gameAssetExcludedFolders) ?? {}),
+      ...generatedAudioAssetsRef.current,
+    }),
     [assetManifest?.assets, gameAssetExcludedFolders],
   );
   const getScopedAssetMap = useCallback(() => {
     const manifest = queryClient.getQueryData<GameAssetManifest>(gameAssetKeys.manifest());
-    return filterGameAssetMap(manifest?.assets ?? null, gameAssetExcludedFolders);
+    return {
+      ...(filterGameAssetMap(manifest?.assets ?? null, gameAssetExcludedFolders) ?? {}),
+      ...generatedAudioAssetsRef.current,
+    };
   }, [gameAssetExcludedFolders, queryClient]);
+  const generateGameAudioAsset = useCallback(
+    async (kind: "sfx" | "music", prompt: string): Promise<string | null> => {
+      const category = kind === "sfx" ? "sfx" : "music";
+      if (prompt.startsWith(`${category}:generated:`)) return prompt;
+      try {
+        const generated = await withTimeout(
+          (signal) => api.post<{ tag: string; path: string }>("/tts/game-audio", { kind, prompt }, { signal }),
+          GAME_AUDIO_GENERATION_TIMEOUT_MS,
+        );
+        generatedAudioAssetsRef.current[generated.tag] = {
+          tag: generated.tag,
+          category,
+          subcategory: "generated",
+          name: generated.tag.split(":").at(-1) ?? generated.tag,
+          path: generated.path,
+          ext: ".mp3",
+        };
+        return generated.tag;
+      } catch (error) {
+        console.warn(`[game-audio] Failed to generate ${kind}:`, error);
+        return null;
+      }
+    },
+    [],
+  );
+  const materializeGeneratedGameAudio = useCallback(
+    async (input: SceneAnalysis): Promise<SceneAnalysis> => {
+      if (!generateGameSoundEffects && !generateGameMusic) return input;
+      const result: SceneAnalysis = {
+        ...input,
+        segmentEffects: input.segmentEffects?.map((effect) => ({
+          ...effect,
+          sfx: effect.sfx ? [...effect.sfx] : undefined,
+        })),
+      };
+      if (generateGameMusic && result.music) {
+        result.music = await generateGameAudioAsset("music", result.music);
+      }
+      if (result.segmentEffects?.length) {
+        result.segmentEffects = await Promise.all(
+          result.segmentEffects.map(async (effect) => {
+            const next = { ...effect };
+            if (generateGameMusic && next.music) {
+              next.music = (await generateGameAudioAsset("music", next.music)) ?? undefined;
+            }
+            if (generateGameSoundEffects && next.sfx?.length) {
+              const generated = await Promise.all(
+                next.sfx.map((prompt) => generateGameAudioAsset("sfx", prompt)),
+              );
+              next.sfx = generated.filter((tag): tag is string => !!tag);
+            }
+            return next;
+          }),
+        );
+      }
+      return result;
+    },
+    [generateGameAudioAsset, generateGameMusic, generateGameSoundEffects],
+  );
   const audioMuted = useGameAssetStore((s) => s.audioMuted);
 
   useEffect(() => {
@@ -3235,7 +3314,7 @@ function GameSurfaceComponent({
         .map((entry) => entry.update);
       if (effects.length === 0 && inventoryUpdates.length === 0) return;
 
-      const assetMap = scopedAssetMap;
+      const assetMap = getScopedAssetMap();
       if (effects.length > 0) {
         appliedSegmentsRef.current.add(segmentIndex);
         for (const fx of effects) {
@@ -3274,7 +3353,7 @@ function GameSurfaceComponent({
     [
       pendingSegmentEffects,
       pendingInventorySegmentUpdates,
-      scopedAssetMap,
+      getScopedAssetMap,
       applyInventoryUpdates,
       playDirections,
       useMusicDjPlayerMusic,
@@ -4812,7 +4891,9 @@ function GameSurfaceComponent({
       currentState: sceneAnalysisState,
       turnNumber: Math.max(1, assistantTurnCount),
       availableBackgrounds: bgTags,
-      availableSfx: sfxTags,
+      availableSfx: generateGameSoundEffects ? [] : sfxTags,
+      generateSoundEffects: generateGameSoundEffects,
+      generateMusic: generateGameMusic,
       activeWidgets: hudWidgets,
       trackedNpcs: npcs,
       characterNames: sceneWrapCharacterNames,
@@ -5213,9 +5294,10 @@ function GameSurfaceComponent({
   );
 
   async function applySceneResult(
-    result: import("@marinara-engine/shared").SceneAnalysis,
+    incomingResult: SceneAnalysis,
     msg: { id: string; content?: string | null },
   ) {
+    const result = await materializeGeneratedGameAudio(incomingResult);
     setSceneAnalysisFailed(false);
     // NOTE: Game state transitions are owned exclusively by the GM model via [state: ...] tags.
     // The scene model no longer emits stateChange to avoid conflicting state flips.
@@ -9543,7 +9625,9 @@ function GameSurfaceComponent({
       currentState: gameState,
       turnNumber: Math.max(1, assistantTurnCount),
       availableBackgrounds: bgTags,
-      availableSfx: sfxTags,
+      availableSfx: generateGameSoundEffects ? [] : sfxTags,
+      generateSoundEffects: generateGameSoundEffects,
+      generateMusic: generateGameMusic,
       activeWidgets: hudWidgets,
       trackedNpcs: npcs,
       characterNames: sceneWrapCharacterNames,
@@ -9597,6 +9681,8 @@ function GameSurfaceComponent({
     currentBackground,
     gameBackgroundAutoGenerationEnabled,
     gameImageAutoGenerationEnabled,
+    generateGameSoundEffects,
+    generateGameMusic,
     gameSnapshot,
     chatMeta,
     activeChatId,

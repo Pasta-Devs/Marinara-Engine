@@ -94,6 +94,7 @@ import {
   sanitizeVideoGenerationProfile,
   suggestImageStyleProfileIdForModel,
   type APIProvider,
+  type ComfyUiLoraSetting,
   type ImageDefaultsService,
   type ImageGenerationDefaultsProfile,
   type ImageStyleProfileSettings,
@@ -341,6 +342,7 @@ export function ConnectionEditor() {
 
   // Remote models fetched from provider API
   const [remoteModels, setRemoteModels] = useState<RemoteConnectionModel[]>([]);
+  const [remoteLoras, setRemoteLoras] = useState<RemoteConnectionModel[]>([]);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const baseUrlValidation = useMemo(
     () =>
@@ -596,6 +598,7 @@ export function ConnectionEditor() {
   // Clear remote models when provider changes
   useEffect(() => {
     setRemoteModels([]);
+    setRemoteLoras([]);
     setFetchError(null);
   }, [localProvider]);
 
@@ -1056,8 +1059,9 @@ export function ConnectionEditor() {
     }
     fetchModels.mutate(connectionDetailId, {
       onSuccess: (data) => {
-        const result = data as { models: RemoteConnectionModel[] };
+        const result = data as { models: RemoteConnectionModel[]; loras?: RemoteConnectionModel[] };
         setRemoteModels(result.models);
+        setRemoteLoras(result.loras ?? []);
         setShowModelDropdown(true);
         requestAnimationFrame(() => {
           modelSearchInputRef.current?.focus();
@@ -1913,6 +1917,7 @@ export function ConnectionEditor() {
               source={selectedImageService}
               value={localImageDefaults}
               styleProfiles={imageStyleProfiles}
+              remoteLoras={remoteLoras}
               expanded={imageDefaultsExpanded}
               onExpandedChange={setImageDefaultsExpanded}
               onChange={(next) => {
@@ -1929,6 +1934,7 @@ export function ConnectionEditor() {
           {localProvider === "video_generation" && localVideoDefaults && (
             <VideoGenerationDefaultsPanel
               value={localVideoDefaults}
+              remoteLoras={remoteLoras}
               expanded={videoDefaultsExpanded}
               onExpandedChange={setVideoDefaultsExpanded}
               onChange={(next) => {
@@ -2665,6 +2671,7 @@ function ImageGenerationDefaultsPanel({
   source,
   value,
   styleProfiles,
+  remoteLoras,
   expanded,
   onExpandedChange,
   onChange,
@@ -2675,6 +2682,7 @@ function ImageGenerationDefaultsPanel({
   source?: string | null;
   value: ImageGenerationDefaultsProfile;
   styleProfiles: ImageStyleProfileSettings;
+  remoteLoras: RemoteConnectionModel[];
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onChange: (next: ImageGenerationDefaultsProfile) => void;
@@ -2997,6 +3005,12 @@ function ImageGenerationDefaultsPanel({
                   className="bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]"
                   labelClassName="text-[var(--foreground)]"
                 />
+                <ComfyUiLoraSettings
+                  idPrefix="image-comfyui"
+                  value={comfyui.loras}
+                  availableLoras={remoteLoras}
+                  onChange={(loras) => updateComfyUi({ loras })}
+                />
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.connections.imagegenerationdefaultspanel.customComfyuiWorkflowsCanUseStepsCfgSamplerScheduler")}</p>
               </>
             ) : (
@@ -3124,12 +3138,14 @@ function TextSetting({
 
 function VideoGenerationDefaultsPanel({
   value,
+  remoteLoras,
   expanded,
   onExpandedChange,
   onChange,
   onReset,
 }: {
   value: VideoGenerationDefaultsProfile;
+  remoteLoras: RemoteConnectionModel[];
   expanded: boolean;
   onExpandedChange: (expanded: boolean) => void;
   onChange: (next: VideoGenerationDefaultsProfile) => void;
@@ -3382,6 +3398,14 @@ function VideoGenerationDefaultsPanel({
                     </select>
                   </label>
                 </div>
+                {service === "comfyui" && (
+                  <ComfyUiLoraSettings
+                    idPrefix="video-comfyui"
+                    value={value.comfyui.loras}
+                    availableLoras={remoteLoras}
+                    onChange={(loras) => updateComfyUi({ loras })}
+                  />
+                )}
                 <p className="text-[0.55rem] text-[var(--muted-foreground)]">
                   {service === "xai"
                     ?localizeUi("ui.connections.videogenerationdefaultspanel.theseValuesAreSentToTheXaiVideosApi")
@@ -3424,6 +3448,75 @@ function VideoGenerationDefaultsPanel({
         )}
       </div>
     </FieldGroup>
+  );
+}
+
+function ComfyUiLoraSettings({
+  idPrefix,
+  value,
+  availableLoras,
+  onChange,
+}: {
+  idPrefix: string;
+  value: ComfyUiLoraSetting[];
+  availableLoras: RemoteConnectionModel[];
+  onChange: (value: ComfyUiLoraSetting[]) => void;
+}) {
+  const { t: localizeUi } = useUiTranslation();
+  const datalistId = `${idPrefix}-lora-models`;
+  const slots = Array.from({ length: 5 }, (_, index) => value[index] ?? { model: "", strength: 1 });
+  const updateSlot = (index: number, patch: Partial<ComfyUiLoraSetting>) => {
+    const next = slots.map((slot, slotIndex) => (slotIndex === index ? { ...slot, ...patch } : slot));
+    while (next.length > 0 && !next[next.length - 1]!.model.trim()) next.pop();
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-2 rounded-lg bg-[var(--card)] px-3 py-2 ring-1 ring-[var(--border)]">
+      <div>
+        <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
+          {localizeUi("ui.connections.comfyuilorasettings.loras")}
+        </p>
+        <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+          {localizeUi("ui.connections.comfyuilorasettings.chooseUpToFiveLoras")}
+        </p>
+      </div>
+      <datalist id={datalistId}>
+        {availableLoras.map((lora) => (
+          <option key={lora.id} value={lora.id}>
+            {lora.name}
+          </option>
+        ))}
+      </datalist>
+      {slots.map((slot, index) => (
+        <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_8rem]">
+          <label className="block">
+            <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.connections.comfyuilorasettings.loraNumber", { value1: index + 1 })}
+            </span>
+            <input
+              type="text"
+              list={datalistId}
+              value={slot.model}
+              onChange={(event) => updateSlot(index, { model: event.target.value })}
+              placeholder={localizeUi("ui.connections.comfyuilorasettings.selectOrEnterLora")}
+              className="mt-1 w-full rounded-lg bg-[var(--secondary)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-sky-400/50"
+            />
+          </label>
+          <NumberSetting
+            label={localizeUi("ui.connections.comfyuilorasettings.strength")}
+            value={slot.strength}
+            min={-2}
+            max={2}
+            integer={false}
+            onCommit={(strength) => updateSlot(index, { strength })}
+          />
+        </div>
+      ))}
+      <p className="text-[0.55rem] text-[var(--muted-foreground)]">
+        {localizeUi("ui.connections.comfyuilorasettings.workflowPlaceholders")}
+      </p>
+    </div>
   );
 }
 

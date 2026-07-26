@@ -489,6 +489,8 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
         availableBackgrounds: bgTags,
         availableSfx: sfxTags,
         useSpotifyMusic: !!body.context.useSpotifyMusic,
+        generateSoundEffects: !!body.context.generateSoundEffects,
+        generateMusic: !!body.context.generateMusic,
         availableSpotifyTracks: body.context.availableSpotifyTracks ?? [],
         canGenerateBackgrounds: !!body.context.canGenerateBackgrounds,
         validWidgetIds: new Set(
@@ -513,7 +515,7 @@ export const sidecarRoutes: FastifyPluginAsync = async (app) => {
 
       if (body.context.useSpotifyMusic) {
         result.music = null;
-      } else {
+      } else if (!body.context.generateMusic) {
         const scoredMusic = scoreMusic({
           state: (body.context.currentState as GameActiveState) ?? "exploration",
           weather: result.weather ?? body.context.currentWeather ?? null,

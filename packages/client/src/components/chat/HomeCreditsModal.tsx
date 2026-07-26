@@ -62,6 +62,8 @@ const CONTRIBUTORS = [
 ];
 
 const SPECIAL_THANKS = [
+  "DSBwizzard",
+  "Nevi",
   "Xel",
   "Jorge",
   "Cha1latte",

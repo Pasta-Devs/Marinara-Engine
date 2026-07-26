@@ -37,6 +37,7 @@ export const DEFAULT_COMFYUI_DEFAULTS: ComfyUiDefaults = {
   denoisingStrength: 1,
   clipSkip: null,
   uploadPlaceholderOnMissingReference: false,
+  loras: [],
 };
 
 export const DEFAULT_NOVELAI_DEFAULTS: NovelAiDefaults = {
@@ -162,7 +163,7 @@ export function createDefaultImageGenerationProfile(service: ImageDefaultsServic
     styleProfileId: null,
   };
   if (service === "automatic1111") profile.automatic1111 = { ...DEFAULT_AUTOMATIC1111_DEFAULTS };
-  if (service === "comfyui") profile.comfyui = { ...DEFAULT_COMFYUI_DEFAULTS };
+  if (service === "comfyui") profile.comfyui = { ...DEFAULT_COMFYUI_DEFAULTS, loras: [] };
   if (service === "novelai") profile.novelai = { ...DEFAULT_NOVELAI_DEFAULTS };
   return profile;
 }
@@ -284,7 +285,32 @@ function normalizeComfyUiDefaults(rawDefaults: unknown): ComfyUiDefaults {
       raw.uploadPlaceholderOnMissingReference,
       DEFAULT_COMFYUI_DEFAULTS.uploadPlaceholderOnMissingReference,
     ),
+    loras: normalizeComfyUiLoraSettings(raw.loras),
   };
+}
+
+export function normalizeComfyUiLoraSettings(rawLoras: unknown): ComfyUiDefaults["loras"] {
+  if (!Array.isArray(rawLoras)) return [];
+  return rawLoras.slice(0, 5).map((entry) => {
+    const raw = isRecord(entry) ? entry : {};
+    return {
+      model: readString(raw.model, "").trim(),
+      strength: readNumber(raw.strength, 1, -2, 2),
+    };
+  });
+}
+
+export function buildComfyUiLoraWorkflowReplacements(
+  loras: ComfyUiDefaults["loras"] | null | undefined,
+): Record<string, string | number> {
+  const replacements: Record<string, string | number> = {};
+  for (let index = 0; index < 5; index++) {
+    const number = index + 1;
+    const lora = loras?.[index];
+    replacements[`%LORA_${number}%`] = lora?.model ?? "";
+    replacements[`%LORA_${number}_strength%`] = lora?.strength ?? 1;
+  }
+  return replacements;
 }
 
 function normalizeNovelAiDefaults(rawDefaults: unknown): NovelAiDefaults {

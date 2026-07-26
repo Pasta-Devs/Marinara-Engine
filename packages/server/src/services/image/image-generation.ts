@@ -12,6 +12,7 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { newId } from "../../utils/id-generator.js";
 import {
   COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
+  buildComfyUiLoraWorkflowReplacements,
   DEFAULT_AUTOMATIC1111_DEFAULTS,
   DEFAULT_COMFYUI_DEFAULTS,
   DEFAULT_NOVELAI_DEFAULTS,
@@ -2661,6 +2662,7 @@ async function generateComfyUI(baseUrl: string, request: ImageGenRequest): Promi
     "%denoising_strength%": defaults.denoisingStrength,
     "%clip_skip%": defaults.clipSkip ?? 0,
   };
+  Object.assign(replacements, buildComfyUiLoraWorkflowReplacements(defaults.loras));
   if (request.model) {
     replacements["%model%"] = request.model;
   }

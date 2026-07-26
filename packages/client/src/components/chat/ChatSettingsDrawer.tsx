@@ -3813,6 +3813,9 @@ export function ChatSettingsDrawer({
     return (
       <div className="space-y-2">
         <button
+          type="button"
+          role="checkbox"
+          aria-checked={effectiveValue}
           onClick={() => {
             updateMeta.mutate({ id: chat.id, enableMemoryRecall: !effectiveValue });
           }}

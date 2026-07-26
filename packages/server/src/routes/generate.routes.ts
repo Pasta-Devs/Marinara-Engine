@@ -465,6 +465,7 @@ import {
 } from "../services/generation/agent-event-dispatcher.js";
 import { findLastUserMessageIdBefore } from "../services/generation/message-history.js";
 import {
+  explicitlyRequestsTextRewrite,
   getTextRewritePendingState,
   isBuiltInTextRewriteAgentType,
   mergePairedBuiltInRewriteAgents,
@@ -8639,7 +8640,11 @@ export async function generateRoutes(app: FastifyInstance) {
                   const editNeededValue = edData.editNeeded;
                   const strictEditNeeded = isBuiltInTextRewriteAgentType(editorResult.agentType);
                   const rewriteAllowed =
-                    editNeededValue === false ? false : strictEditNeeded ? editNeededValue === true : true;
+                    editNeededValue === false
+                      ? false
+                      : strictEditNeeded
+                        ? explicitlyRequestsTextRewrite(editNeededValue)
+                        : true;
                   const droppedProtectedMarkup =
                     strictEditNeeded && textRewriteDropsProtectedMarkup(currentResponseForRewrite, editedText);
                   if (droppedProtectedMarkup) {

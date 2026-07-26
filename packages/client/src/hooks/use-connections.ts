@@ -195,7 +195,8 @@ export type RemoteConnectionModel = {
 
 export function useFetchModels() {
   return useMutation({
-    mutationFn: (id: string) => api.get<{ models: RemoteConnectionModel[] }>(`/connections/${id}/models`),
+    mutationFn: (id: string) =>
+      api.get<{ models: RemoteConnectionModel[]; loras?: RemoteConnectionModel[] }>(`/connections/${id}/models`),
   });
 }
 

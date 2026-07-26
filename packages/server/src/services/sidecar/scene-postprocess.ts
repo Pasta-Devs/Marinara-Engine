@@ -196,6 +196,8 @@ export interface PostProcessContext {
   availableBackgrounds: string[];
   availableSfx: string[];
   useSpotifyMusic?: boolean;
+  generateSoundEffects?: boolean;
+  generateMusic?: boolean;
   availableSpotifyTracks?: SceneSpotifyTrackCandidate[];
   validWidgetIds: Set<string>;
   characterNames: string[];
@@ -240,22 +242,30 @@ function postProcessSegment(seg: SceneSegmentEffect, ctx: PostProcessContext): S
 
   // SFX
   if (out.sfx?.length) {
-    const matched: string[] = [];
-    for (const item of out.sfx) {
-      if (ctx.availableSfx.includes(item)) {
-        matched.push(item);
-      } else {
-        const m = bestMatch(item, ctx.availableSfx);
-        if (m && !matched.includes(m)) {
-          logger.debug(`[postprocess] seg[${seg.segment}] sfx: "${item}" → "${m}"`);
-          matched.push(m);
+    if (ctx.generateSoundEffects) {
+      out.sfx = Array.from(
+        new Set(out.sfx.map((item) => sanitizeGeneratedAudioPrompt(item)).filter((item): item is string => !!item)),
+      ).slice(0, 3);
+    } else {
+      const matched: string[] = [];
+      for (const item of out.sfx) {
+        if (ctx.availableSfx.includes(item)) {
+          matched.push(item);
         } else {
-          logger.debug(`[postprocess] seg[${seg.segment}] sfx: "${item}" → dropped`);
+          const m = bestMatch(item, ctx.availableSfx);
+          if (m && !matched.includes(m)) {
+            logger.debug(`[postprocess] seg[${seg.segment}] sfx: "${item}" → "${m}"`);
+            matched.push(m);
+          } else {
+            logger.debug(`[postprocess] seg[${seg.segment}] sfx: "${item}" → dropped`);
+          }
         }
       }
+      out.sfx = matched;
     }
-    out.sfx = matched;
   }
+  out.music =
+    ctx.generateMusic && !ctx.useSpotifyMusic ? (sanitizeGeneratedAudioPrompt(out.music) ?? undefined) : undefined;
 
   // Widget Updates
   const outWithWidgets = out as SceneSegmentEffect & { widgetUpdates?: Array<{ widgetId?: string }> };
@@ -324,9 +334,10 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
   if (result.background === "null") result.background = null;
   if (result.weather === "null") result.weather = null;
   result.timeOfDay = normalizeSceneTimeOfDay(rawRecord.timeOfDay);
-  result.music = null;
+  result.music =
+    ctx.generateMusic && !ctx.useSpotifyMusic ? sanitizeGeneratedAudioPrompt(rawRecord.music) : null;
   result.ambient = null;
-  if (ctx.useSpotifyMusic) {
+  if (ctx.useSpotifyMusic || ctx.generateMusic) {
     result.musicGenre = null;
     result.musicIntensity = null;
   } else {
@@ -414,4 +425,10 @@ export function postProcessSceneResult(raw: SceneAnalysis, ctx: PostProcessConte
   result.illustration = sanitizeIllustration((result as unknown as Record<string, unknown>).illustration);
 
   return result;
+}
+
+function sanitizeGeneratedAudioPrompt(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const prompt = value.replace(/[\u0000-\u001f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 500);
+  return prompt && prompt.toLowerCase() !== "null" ? prompt : null;
 }

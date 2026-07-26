@@ -1,4 +1,9 @@
-import { inferImageSource, inferVideoSource } from "@marinara-engine/shared";
+import {
+  inferImageSource,
+  inferVideoSource,
+  normalizeVideoGenerationProfile,
+  VIDEO_DEFAULTS_STORAGE_KEY,
+} from "@marinara-engine/shared";
 import type { ImageGenRequest } from "../image/image-generation.js";
 import { resolveConnectionImageDefaults } from "../image/image-generation-defaults.js";
 import type { VideoGenerationRequest } from "../video/video-generation.js";
@@ -11,6 +16,20 @@ type ImageFallbackStore = {
 type VideoFallbackStore = {
   getFallbackForVideoGeneration(): Promise<any | null>;
 };
+
+function resolveConnectionVideoComfyLoras(connection: { defaultParameters?: unknown }) {
+  let root = connection.defaultParameters;
+  if (typeof root === "string") {
+    try {
+      root = JSON.parse(root) as unknown;
+    } catch {
+      return [];
+    }
+  }
+  if (!root || typeof root !== "object" || Array.isArray(root)) return [];
+  return normalizeVideoGenerationProfile((root as Record<string, unknown>)[VIDEO_DEFAULTS_STORAGE_KEY]).profile.comfyui
+    .loras;
+}
 
 export async function resolveImageConnectionFallback(
   connections: ImageFallbackStore,
@@ -58,5 +77,6 @@ export async function resolveVideoConnectionFallback(
     serviceHint: String(connection.videoService ?? connection.videoGenerationSource ?? source),
     model,
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
+    comfyLoras: resolveConnectionVideoComfyLoras(connection),
   };
 }

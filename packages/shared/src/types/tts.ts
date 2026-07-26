@@ -125,6 +125,10 @@ const ttsConfigBaseSchema = z.object({
   elevenLabsStability: z.number().min(0).max(1).default(0.5),
   /** ElevenLabs only: optional language_code. Empty means automatic language detection. */
   elevenLabsLanguageCode: z.string().max(8).default(""),
+  /** ElevenLabs only: generate scene-specific Game Mode sound effects. */
+  elevenLabsGameSoundEffects: z.boolean().default(false),
+  /** ElevenLabs only: generate scene-specific Game Mode music. */
+  elevenLabsGameMusic: z.boolean().default(false),
   voiceMode: ttsVoiceModeSchema.default("single"),
   voiceAssignments: z.array(ttsVoiceAssignmentSchema).default([]),
   narratorVoiceEnabled: z.boolean().default(false),
@@ -173,6 +177,8 @@ export const ttsSourceProfileSchema = ttsConfigBaseSchema.pick({
   speed: true,
   elevenLabsStability: true,
   elevenLabsLanguageCode: true,
+  elevenLabsGameSoundEffects: true,
+  elevenLabsGameMusic: true,
   voiceMode: true,
   voiceAssignments: true,
   narratorVoiceEnabled: true,
@@ -210,6 +216,8 @@ export function ttsSourceProfileFromConfig(config: TTSConfig): TTSSourceProfile 
     speed: config.speed,
     elevenLabsStability: config.elevenLabsStability,
     elevenLabsLanguageCode: config.elevenLabsLanguageCode,
+    elevenLabsGameSoundEffects: config.elevenLabsGameSoundEffects,
+    elevenLabsGameMusic: config.elevenLabsGameMusic,
     voiceMode: config.voiceMode,
     voiceAssignments: config.voiceAssignments,
     narratorVoiceEnabled: config.narratorVoiceEnabled,

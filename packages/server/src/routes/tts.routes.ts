@@ -3,6 +3,9 @@
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { createHash, randomUUID } from "crypto";
+import { access, mkdir, rename, unlink, writeFile } from "fs/promises";
+import { join } from "path";
 import {
   ttsConfigSchema,
   ttsSourceProfileFromConfig,
@@ -18,6 +21,7 @@ import { encryptApiKey, decryptApiKey } from "../utils/crypto.js";
 import { isTtsLocalUrlsEnabled } from "../config/runtime-config.js";
 import { safeFetch } from "../utils/security.js";
 import { logger } from "../lib/logger.js";
+import { buildAssetManifest, GAME_ASSETS_DIR } from "../services/game/asset-manifest.service.js";
 
 // OpenAI built-in voices used as fallback when the provider has no /audio/voices endpoint
 const OPENAI_FALLBACK_VOICES = ["alloy", "ash", "coral", "echo", "fable", "nova", "onyx", "sage", "shimmer"];
@@ -117,6 +121,9 @@ const NANOGPT_ELEVENLABS_VOICES = [
   "Will",
 ];
 const MAX_TTS_AUDIO_BYTES = 20 * 1024 * 1024;
+const MAX_GAME_AUDIO_BYTES = 60 * 1024 * 1024;
+const gameAudioGenerationLocks = new Map<string, Promise<{ tag: string; path: string; cached: boolean }>>();
+let gameAssetManifestRebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
 const speakSchema = z.object({
   text: z.string().min(1).max(4096),
@@ -125,7 +132,88 @@ const speakSchema = z.object({
   voice: z.string().max(200).optional(),
 });
 
+const gameAudioSchema = z.object({
+  kind: z.enum(["sfx", "music"]),
+  prompt: z.string().trim().min(1).max(4_100),
+});
+
 type VoiceOption = NonNullable<TTSVoicesResponse["voiceOptions"]>[number];
+
+function normalizeGameAudioPrompt(prompt: string): string {
+  return prompt.trim().replace(/\s+/g, " ");
+}
+
+function scheduleGameAssetManifestRebuild(): void {
+  if (gameAssetManifestRebuildTimer) clearTimeout(gameAssetManifestRebuildTimer);
+  gameAssetManifestRebuildTimer = setTimeout(() => {
+    gameAssetManifestRebuildTimer = null;
+    try {
+      buildAssetManifest();
+    } catch (error) {
+      logger.error(error, "Failed to rebuild the game asset manifest after generating audio");
+    }
+  }, 500);
+  gameAssetManifestRebuildTimer.unref();
+}
+
+async function generateElevenLabsGameAudio(
+  cfg: TTSConfig,
+  kind: "sfx" | "music",
+  prompt: string,
+): Promise<{ tag: string; path: string; cached: boolean }> {
+  const normalizedPrompt = normalizeGameAudioPrompt(prompt);
+  const hash = createHash("sha256").update(`${kind}\0${normalizedPrompt.toLowerCase()}`).digest("hex");
+  const category = kind === "sfx" ? "sfx" : "music";
+  const relativePath = `${category}/generated/${hash}.mp3`;
+  const targetDirectory = join(GAME_ASSETS_DIR, category, "generated");
+  const targetPath = join(GAME_ASSETS_DIR, relativePath);
+  const tag = `${category}:generated:${hash}`;
+
+  try {
+    await access(targetPath);
+    return { tag, path: relativePath, cached: true };
+  } catch {
+    // Generate below.
+  }
+
+  const endpoint = kind === "sfx" ? "/v1/sound-generation" : "/v1/music";
+  const response = await safeFetch(`${elevenLabsApiRoot(configuredBaseUrl(cfg))}${endpoint}`, {
+    method: "POST",
+    headers: elevenLabsHeaders(cfg.apiKey),
+    body: JSON.stringify(
+      kind === "sfx"
+        ? { text: normalizedPrompt, prompt_influence: 0.3 }
+        : { prompt: normalizedPrompt, music_length_ms: 30_000, force_instrumental: true },
+    ),
+    signal: AbortSignal.timeout(180_000),
+    policy: {
+      allowLocal: false,
+      allowedProtocols: ["https:"],
+    },
+    maxResponseBytes: MAX_GAME_AUDIO_BYTES,
+  });
+  if (!response.ok) {
+    const detail = readProviderErrorDetail(await response.text().catch(() => ""));
+    throw new Error(detail || `ElevenLabs returned ${response.status}`);
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (!resolveTTSAudioResponseContentType(response.headers.get("content-type"), bytes)) {
+    throw new Error("ElevenLabs returned a non-audio response");
+  }
+
+  await mkdir(targetDirectory, { recursive: true });
+  const temporaryPath = join(targetDirectory, `.${hash}.${randomUUID()}.tmp`);
+  try {
+    await writeFile(temporaryPath, bytes);
+    await rename(temporaryPath, targetPath);
+  } catch (error) {
+    await unlink(temporaryPath).catch(() => {});
+    throw error;
+  }
+  scheduleGameAssetManifestRebuild();
+  return { tag, path: relativePath, cached: false };
+}
 
 // ── Helpers ─────────────────────────────────────
 
@@ -718,6 +806,42 @@ export async function ttsRoutes(app: FastifyInstance) {
       return await fetchProviderVoices(cfg);
     } catch {
       return fallbackVoices(cfg.source);
+    }
+  });
+
+  /**
+   * POST /api/tts/game-audio
+   * Generates and caches scene-specific Game Mode music or sound effects.
+   */
+  app.post("/game-audio", async (req, reply) => {
+    const { kind, prompt } = gameAudioSchema.parse(req.body);
+    const cfg = await loadConfig(storage);
+    const enabled =
+      kind === "sfx" ? cfg.elevenLabsGameSoundEffects === true : cfg.elevenLabsGameMusic === true;
+    if (cfg.source !== "elevenlabs" || !enabled) {
+      return reply.status(400).send({ error: `ElevenLabs game ${kind} generation is not enabled` });
+    }
+    if (!cfg.apiKey) {
+      return reply.status(400).send({ error: "ElevenLabs API key is not configured" });
+    }
+
+    const normalizedPrompt = normalizeGameAudioPrompt(prompt);
+    const lockKey = `${kind}\0${normalizedPrompt.toLowerCase()}`;
+    let generation = gameAudioGenerationLocks.get(lockKey);
+    if (!generation) {
+      generation = generateElevenLabsGameAudio(cfg, kind, normalizedPrompt).finally(() => {
+        gameAudioGenerationLocks.delete(lockKey);
+      });
+      gameAudioGenerationLocks.set(lockKey, generation);
+    }
+    try {
+      return await generation;
+    } catch (error) {
+      logger.error(error, "ElevenLabs game %s generation failed", kind);
+      return reply.status(502).send({
+        error: `ElevenLabs game ${kind} generation failed`,
+        detail: error instanceof Error ? error.message : "Unknown provider error",
+      });
     }
   });
 

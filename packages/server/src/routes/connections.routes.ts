@@ -647,13 +647,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
         return { models };
       }
 
+      const videoSource =
+        conn.provider === "video_generation" ? resolveVideoGenerationSource(conn as any, conn.baseUrl || "") : "";
       if (conn.provider === "video_generation") {
-        const source = resolveVideoGenerationSource(conn as any, conn.baseUrl || "");
-        if (source === "atlas") {
+        if (videoSource === "atlas") {
           return { models: ATLAS_CLOUD_VIDEO_MODELS.map((model) => ({ id: model.id, name: model.name })) };
         }
-        const models = MODEL_LISTS.video_generation.map((m) => ({ id: m.id, name: m.name }));
-        return { models };
+        if (videoSource !== "comfyui") {
+          const models = MODEL_LISTS.video_generation.map((m) => ({ id: m.id, name: m.name }));
+          return { models };
+        }
       }
 
       const { PROVIDERS } = await import("@marinara-engine/shared");
@@ -683,6 +686,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
       // ── Special handling for local image gen services ──
       const imageSource =
         conn.provider === "image_generation" ? resolveImageGenerationSource(conn as any, baseUrl) : "";
+      const mediaSource = imageSource || videoSource;
       if (conn.provider === "image_generation" && imageSource === "atlas") {
         return { models: ATLAS_CLOUD_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
       }
@@ -759,10 +763,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
       }
 
       // ComfyUI: fetch checkpoints and diffusion models from object_info
-      if (conn.provider === "image_generation" && imageSource === "comfyui") {
+      if (
+        (conn.provider === "image_generation" || conn.provider === "video_generation") &&
+        mediaSource === "comfyui"
+      ) {
         const fetchComfyLoaderModelNames = async (nodeName: string, inputName: string) => {
           const res = await safeFetch(`${baseUrl}/object_info/${nodeName}`, {
-            policy: localUrlPolicyForProvider(conn.provider, imageSource),
+            policy: localUrlPolicyForProvider(conn.provider, mediaSource),
             maxResponseBytes: 5 * 1024 * 1024,
             decodeCompressedResponse: true,
           });
@@ -789,8 +796,16 @@ export async function connectionsRoutes(app: FastifyInstance) {
           status: 0,
           names: null,
         }));
+        const loraModels = await fetchComfyLoaderModelNames("LoraLoader", "lora_name").catch(() => ({
+          status: 0,
+          names: null,
+        }));
         const names = [...new Set([...checkpoints.names, ...(diffusionModels.names ?? [])])];
-        return { models: names.map((name: string) => ({ id: name, name })) };
+        const loras = [...new Set(loraModels.names ?? [])];
+        return {
+          models: names.map((name: string) => ({ id: name, name })),
+          loras: loras.map((name: string) => ({ id: name, name })),
+        };
       }
 
       // AUTOMATIC1111 / SD Web UI: fetch models from /sdapi/v1/sd-models
@@ -1172,6 +1187,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
                     ? defaults.comfyui.resolution
                     : undefined,
         comfyWorkflow: conn.comfyuiWorkflow || undefined,
+        comfyLoras: isComfyUiVideo ? defaults.comfyui.loras : [],
       });
       return {
         success: true,

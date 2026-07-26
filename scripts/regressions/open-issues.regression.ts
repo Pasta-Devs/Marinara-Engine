@@ -149,8 +149,10 @@ import {
   usesOpenRouterImagesApi,
 } from "../../packages/server/src/services/image/image-generation.js";
 import {
+  buildComfyUiLoraWorkflowReplacements,
   COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
   DEFAULT_NOVELAI_DEFAULTS,
+  normalizeComfyUiLoraSettings,
 } from "../../packages/shared/src/constants/image-generation-defaults.js";
 import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
 import {
@@ -161,6 +163,9 @@ import {
   buildSceneAnalyzerUserPrompt,
   fitSceneAnalyzerNarrationBeats,
 } from "../../packages/server/src/services/sidecar/scene-analyzer.js";
+import { postProcessSceneResult } from "../../packages/server/src/services/sidecar/scene-postprocess.js";
+import { explicitlyRequestsTextRewrite } from "../../packages/server/src/services/generation/prose-guardian-settings.js";
+import { ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
 import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
@@ -1497,6 +1502,10 @@ const sidecarStoreSource = readFileSync(
   new URL("../../packages/client/src/stores/sidecar.store.ts", import.meta.url),
   "utf8",
 );
+const sidecarProcessSource = readFileSync(
+  new URL("../../packages/server/src/services/sidecar/sidecar-process.service.ts", import.meta.url),
+  "utf8",
+);
 const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
@@ -1654,7 +1663,13 @@ assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKey
 assert.doesNotMatch(gameAssetStoreSource, /api\.|fetchManifest|rescanAssets|\/game-assets\/manifest/u);
 assert.match(sidecarStoreSource, /consumeSidecarDownloadStream/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
+assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
+assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
+assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
+assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
+assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
+assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
 assert.match(presetsPanelSource, /MARINARA_UNIVERSAL_PRESET_ARTWORK/u);
 assert.match(
   presetsPanelSource,
@@ -3271,6 +3286,196 @@ try {
     100,
     "Managed parameter parsing must enforce the declared definition ceiling",
   );
+}
+
+// Issues #4114-#4119 and the Prose Guardian staging regression — keep the
+// focused UI/cache ordering fixes from being lost in future refactors.
+{
+  const chatSettingsSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"),
+    "utf8",
+  );
+  assert.match(
+    chatSettingsSource,
+    /role="checkbox"[\s\S]{0,100}aria-checked=\{effectiveValue\}/u,
+    "Memory Recall must expose its switch state to assistive technology",
+  );
+
+  const generateHookSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/hooks/use-generate.ts"),
+    "utf8",
+  );
+  const clearStreamIndex = generateHookSource.indexOf("clearStreamBuffer(params.chatId);");
+  const exposeStreamingIndex = generateHookSource.indexOf("setStreaming(true, params.chatId);", clearStreamIndex);
+  assert.ok(
+    clearStreamIndex >= 0 && exposeStreamingIndex > clearStreamIndex,
+    "A completed response must be cleared before the next streaming state is exposed",
+  );
+
+  const chatsHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-chats.ts"), "utf8");
+  assert.match(
+    chatsHookSource,
+    /recentMessageContentEdits[\s\S]+preserveRecentMessageContentEdit/u,
+    "Recent user edits must survive authoritative generation refreshes",
+  );
+  assert.match(
+    chatsHookSource,
+    /cancelQueries\([\s\S]{0,180}revert:\s*false/u,
+    "Saving a message edit must not revert the immediately painted cache value",
+  );
+  const roleplaySurfaceSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ChatRoleplaySurface.tsx"),
+    "utf8",
+  );
+  assert.match(roleplaySurfaceSource, /key=\{msg\.id\}/u, "Roleplay message editors must keep a stable message key");
+
+  const connectionEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/connections/ConnectionEditor.tsx"),
+    "utf8",
+  );
+  const saveDefaultsIndex = connectionEditorSource.indexOf("await saveConnectionDefaults.mutateAsync");
+  const saveConnectionIndex = connectionEditorSource.indexOf("await updateConnection.mutateAsync", saveDefaultsIndex);
+  assert.ok(
+    saveDefaultsIndex >= 0 && saveConnectionIndex > saveDefaultsIndex,
+    "Connection defaults must finish saving before the connection snapshot is persisted",
+  );
+  assert.match(
+    connectionEditorSource,
+    /setRemoteModels\(\[\]\);\s*setRemoteLoras\(\[\]\);\s*setFetchError\(null\);/u,
+    "Changing media providers must clear stale remote LoRA choices",
+  );
+
+  const backgroundAutonomousSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/hooks/use-background-autonomous.ts"),
+    "utf8",
+  );
+  const savedEventIndex = backgroundAutonomousSource.indexOf('eventType === "message_saved"');
+  const cachePaintIndex = backgroundAutonomousSource.indexOf("upsertPersistedMessages(", savedEventIndex);
+  const notificationIndex = backgroundAutonomousSource.indexOf("playConfiguredNotificationPing(", cachePaintIndex);
+  assert.ok(
+    savedEventIndex >= 0 && cachePaintIndex > savedEventIndex && notificationIndex > cachePaintIndex,
+    "Background messages must be painted from message_saved before the notification fires",
+  );
+  assert.match(
+    backgroundAutonomousSource,
+    /typeof rewrite\.editedText === "string"[\s\S]{0,500}delete nextExtra\.postProcessingPending/u,
+    "Background no-op rewrite events must paint the final text and clear the pending marker",
+  );
+
+  assert.equal(explicitlyRequestsTextRewrite(true), true);
+  assert.equal(explicitlyRequestsTextRewrite(" TRUE "), true);
+  assert.equal(explicitlyRequestsTextRewrite("false"), false);
+  assert.equal(explicitlyRequestsTextRewrite(undefined), false);
+}
+
+// Issue #4118 — ComfyUI exposes up to five LoRAs consistently to image and
+// video API-format workflows.
+{
+  const normalized = normalizeComfyUiLoraSettings([
+    { model: "style-a.safetensors", strength: 1.25 },
+    { model: "style-b.safetensors", strength: 99 },
+    { model: "style-c.safetensors", strength: -99 },
+    { model: "style-d.safetensors", strength: 0.5 },
+    { model: "style-e.safetensors", strength: 1 },
+    { model: "ignored.safetensors", strength: 1 },
+  ]);
+  assert.equal(normalized.length, 5);
+  assert.equal(normalized[0]?.strength, 1.25);
+  assert.equal(normalized[1]?.strength, 2);
+  assert.equal(normalized[2]?.strength, -2);
+  assert.deepEqual(buildComfyUiLoraWorkflowReplacements(normalized), {
+    "%LORA_1%": "style-a.safetensors",
+    "%LORA_1_strength%": 1.25,
+    "%LORA_2%": "style-b.safetensors",
+    "%LORA_2_strength%": 2,
+    "%LORA_3%": "style-c.safetensors",
+    "%LORA_3_strength%": -2,
+    "%LORA_4%": "style-d.safetensors",
+    "%LORA_4_strength%": 0.5,
+    "%LORA_5%": "style-e.safetensors",
+    "%LORA_5_strength%": 1,
+  });
+}
+
+// Issue #4120 — generated ElevenLabs game audio is opt-in, requested as free
+// text by scene analysis, and retained by post-processing for caching.
+{
+  assert.match(
+    gameSurfaceSource,
+    /withTimeout\(\s*\(signal\) => api\.post<\{ tag: string; path: string \}>\("\/tts\/game-audio"[\s\S]{0,150}GAME_AUDIO_GENERATION_TIMEOUT_MS/u,
+    "Generated game audio must not leave scene preparation waiting indefinitely",
+  );
+
+  const ttsDefaults = ttsConfigSchema.parse({});
+  assert.equal(ttsDefaults.elevenLabsGameSoundEffects, false);
+  assert.equal(ttsDefaults.elevenLabsGameMusic, false);
+  const enabled = ttsConfigSchema.parse({
+    source: "elevenlabs",
+    elevenLabsGameSoundEffects: true,
+    elevenLabsGameMusic: true,
+  });
+  assert.equal(enabled.elevenLabsGameSoundEffects, true);
+  assert.equal(enabled.elevenLabsGameMusic, true);
+
+  const generatedAudioContext = {
+    currentState: "exploration" as const,
+    turnNumber: 2,
+    availableBackgrounds: ["backgrounds:fantasy:forest"],
+    availableSfx: [],
+    activeWidgets: [],
+    trackedNpcs: [],
+    characterNames: [],
+    currentBackground: "backgrounds:fantasy:forest",
+    currentMusic: null,
+    currentWeather: null,
+    currentTimeOfDay: null,
+    generateSoundEffects: true,
+    generateMusic: true,
+  };
+  const prompt = buildSceneAnalyzerUserPrompt("Boots cross the wet stones.", undefined, generatedAudioContext);
+  assert.match(prompt, /short sound description/u);
+  assert.match(prompt, /concise instrumental scene music prompt/u);
+
+  const processed = postProcessSceneResult(
+    {
+      background: null,
+      music: " tense strings <then> a hopeful transition ",
+      ambient: null,
+      weather: null,
+      timeOfDay: null,
+      reputationChanges: [],
+      segmentEffects: [{ segment: 0, sfx: [" quiet footsteps <on> wet stone "], music: "low suspense pulse" }],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: true,
+      generateMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  assert.equal(processed.music, "tense strings then a hopeful transition");
+  assert.deepEqual(processed.segmentEffects?.[0]?.sfx, ["quiet footsteps on wet stone"]);
+  assert.equal(processed.segmentEffects?.[0]?.music, "low suspense pulse");
+
+  const spotifyProcessed = postProcessSceneResult(
+    {
+      ...processed,
+      segmentEffects: [{ segment: 0, music: "generated music prompt" }],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: false,
+      generateMusic: true,
+      useSpotifyMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  assert.equal(spotifyProcessed.music, null);
+  assert.equal(spotifyProcessed.segmentEffects?.[0]?.music, undefined);
 }
 
 // Issue #4002 — Character Tavern stores card JSON in zTXt (zlib-compressed)

@@ -1,3 +1,5 @@
+import type { ComfyUiLoraSetting } from "./image-generation-defaults.js";
+
 export type VideoDefaultsService =
   | "gemini_omni"
   | "google_veo"
@@ -50,6 +52,7 @@ export interface ComfyUiVideoDefaults {
   durationSeconds: number;
   aspectRatio: VideoAspectRatio;
   resolution: VideoResolution;
+  loras: ComfyUiLoraSetting[];
 }
 
 export interface SeedanceVideoDefaults {

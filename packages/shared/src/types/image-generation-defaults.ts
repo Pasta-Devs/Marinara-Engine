@@ -12,6 +12,11 @@ export interface Automatic1111Defaults {
   denoisingStrength: number;
 }
 
+export interface ComfyUiLoraSetting {
+  model: string;
+  strength: number;
+}
+
 export interface ComfyUiDefaults {
   promptPrefix: string;
   negativePromptPrefix: string;
@@ -22,6 +27,7 @@ export interface ComfyUiDefaults {
   denoisingStrength: number;
   clipSkip: number | null;
   uploadPlaceholderOnMissingReference: boolean;
+  loras: ComfyUiLoraSetting[];
 }
 
 export interface NovelAiDefaults {
