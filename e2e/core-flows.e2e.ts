@@ -594,6 +594,26 @@ test("settings profile exports use the new identity and legacy exports still imp
     expect(activeListResponse.ok()).toBeTruthy();
     const activeProfiles = (await activeListResponse.json()) as Array<{ isActive: boolean }>;
     expect(activeProfiles.filter((candidate) => candidate.isActive)).toHaveLength(1);
+
+    const raceProfileResponse = await request.post("/api/chat-presets", {
+      data: {
+        name: `Activation Removal Race ${suffix}`,
+        mode: "roleplay",
+        settings: {},
+      },
+    });
+    expect(raceProfileResponse.ok()).toBeTruthy();
+    const raceProfile = (await raceProfileResponse.json()) as { id: string };
+    const [raceActivationResponse, raceRemovalResponse] = await Promise.all([
+      request.post(`/api/chat-presets/${raceProfile.id}/set-active`),
+      request.delete(`/api/chat-presets/${raceProfile.id}`),
+    ]);
+    expect([200, 404]).toContain(raceActivationResponse.status());
+    expect(raceRemovalResponse.status()).toBe(204);
+    const postRaceListResponse = await request.get("/api/chat-presets?mode=roleplay");
+    expect(postRaceListResponse.ok()).toBeTruthy();
+    const postRaceProfiles = (await postRaceListResponse.json()) as Array<{ isActive: boolean }>;
+    expect(postRaceProfiles.filter((candidate) => candidate.isActive)).toHaveLength(1);
   } finally {
     await Promise.allSettled([...createdIds].map((id) => request.delete(`/api/chat-presets/${id}`)));
   }
