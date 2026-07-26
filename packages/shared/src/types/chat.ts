@@ -397,7 +397,7 @@ export interface ChatMetadata {
    *  user turned off via the chat Lorebooks panel land here; the scope filter
    *  drops them before injection without unbinding the book. */
   excludedLorebookIds?: string[];
-  /** ID of the chat preset most recently applied to this chat (drives the preset bar dropdown). */
+  /** ID of the settings profile most recently applied to this chat (drives the profile dropdown). */
   appliedChatPresetId?: string | null;
   /** Custom prompt prefix used by the /impersonate slash command. */
   impersonatePrompt?: string | null;

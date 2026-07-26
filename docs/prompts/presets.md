@@ -171,6 +171,6 @@ To confirm which preset and sections actually reached the AI, use **Peek Prompt*
 - [Preset Variables](preset-variables.md)
 - [Prompt Macros](macros.md)
 - [Generation Parameters](generation-parameters.md)
-- [Chat Settings Presets](chat-settings-presets.md)
+- [Settings Profiles](../chats/settings-profiles.md)
 - [Chat Settings Overview](../chats/chat-settings.md)
 - [Peek Prompt: See What the AI Received](../chats/peek-prompt.md)

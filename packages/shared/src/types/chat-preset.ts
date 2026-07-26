@@ -1,22 +1,23 @@
 // ──────────────────────────────────────────────
-// Chat Preset Types
+// Chat Settings Profile Types
+// Legacy exported type names retain "ChatPreset" for storage/API compatibility.
 // ──────────────────────────────────────────────
 // Reusable bundles of chat settings that the user can apply as defaults
-// when creating new chats. One "active" preset per chat mode determines
+// when creating new chats. One "active" profile per chat mode determines
 // the starting state for any newly created chat in that mode.
 //
-// What presets DO carry: connection, prompt preset selection, and most metadata
+// What profiles DO carry: connection, prompt preset selection, and most metadata
 // (agents, tools, lorebook settings, translation, advanced parameters,
 // context limit, memory recall, discord mirror, etc.).
 //
-// What presets DO NOT carry: per-chat identity (name, characters,
+// What profiles DO NOT carry: per-chat identity (name, characters,
 // persona, group, sprites, scene prompt, generated summaries, tags,
 // ephemeral lorebook overrides, generated schedules, scene lifecycle
 // state, connected chat link, folder/sort placement).
 
 import type { ChatMode, ChatMetadata } from "./chat.js";
 
-/** Settings stored in a chat preset. All fields optional — only set ones override defaults. */
+/** Settings stored in a chat settings profile. All fields optional; only set ones override defaults. */
 export interface ChatPresetSettings {
   /** Top-level chat fields */
   connectionId?: string | null;
@@ -25,15 +26,15 @@ export interface ChatPresetSettings {
   metadata?: Partial<ChatMetadata>;
 }
 
-/** A chat preset stored in the database. */
+/** A chat settings profile stored in the database. */
 export interface ChatPreset {
   id: string;
   name: string;
-  /** Which chat mode this preset applies to. */
+  /** Which chat mode this profile applies to. */
   mode: ChatMode;
-  /** True for the built-in "Default" preset (cannot be deleted, renamed, or saved into). */
+  /** True for the built-in "Default" profile (cannot be deleted, renamed, or saved into). */
   isDefault: boolean;
-  /** True for the preset currently used as the starting state for new chats of this mode. */
+  /** True for the profile currently used as the starting state for new chats of this mode. */
   isActive: boolean;
   /** Bundled chat settings (JSON). */
   settings: ChatPresetSettings;
@@ -41,9 +42,9 @@ export interface ChatPreset {
   updatedAt: string;
 }
 
-/** Metadata keys that must NOT be saved into a preset (chat-specific). */
+/** Metadata keys that must NOT be saved into a profile (chat-specific). */
 export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
-  // Generated summaries stay with the chat; summary settings can still be preset.
+  // Generated summaries stay with the chat; summary settings can still be profiled.
   "summary",
   "summaryEntries",
   "lastAutomaticSummaryMessageId",
@@ -77,7 +78,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "sceneBackground",
   "activeSceneChatId",
   "sceneBusyCharIds",
-  // Lorebooks are owned by the chat, never by the preset.
+  // Lorebooks are owned by the chat, never by the profile.
   "activeLorebookIds",
   // Generated Game state is session identity/history, not reusable setup.
   "gameId",
@@ -112,5 +113,5 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "lastMapPosition",
 ] as const;
 
-/** Top-level chat keys that CAN be saved into a preset. */
+/** Top-level chat keys that CAN be saved into a profile. */
 export const CHAT_PRESET_INCLUDED_CHAT_KEYS: readonly string[] = ["connectionId", "promptPresetId"] as const;

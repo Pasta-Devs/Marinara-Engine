@@ -286,7 +286,9 @@ export function ToolEditor() {
     if (
       !(await showConfirmDialog({
         title:localizeUi("ui.agents.tooleditor.deleteTool"),
-        message:localizeUi("ui.agents.tooleditor.deleteThisCustomToolThisCannotBeUndone"),
+        message: localizeUi("dialog.delete.namedPermanent", {
+          name: localName.trim() || dbTool.name,
+        }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))

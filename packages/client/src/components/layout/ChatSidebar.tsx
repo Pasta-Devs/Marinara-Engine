@@ -245,6 +245,7 @@ export function ChatSidebar() {
   const [visibleChatLimit, setVisibleChatLimit] = useState(CHAT_LIST_PAGE_SIZE);
   const [deleteTarget, setDeleteTarget] = useState<{
     chatId: string;
+    chatName: string;
     groupId: string | null;
     branchCount: number;
   } | null>(null);
@@ -607,7 +608,7 @@ export function ChatSidebar() {
       if (hasAnyDetailOpen()) {
         closeAllDetails();
       }
-      // Resolve the user's starred default preset for this mode (only modes with presets).
+      // Resolve the user's starred default settings profile for this mode.
       const presets = chatPresetsData ?? [];
       const presetMode: ChatMode | null = mode === "conversation" || mode === "roleplay" ? mode : null;
       const starred = presetMode
@@ -1086,15 +1087,21 @@ export function ChatSidebar() {
         {/* Delete button */}
         {!multiSelectMode && (
           <button
+            aria-label={localizeUi("chat.branches.deleteLabel", { name: chat.name })}
             onClick={async (e) => {
               e.stopPropagation();
               if (branchCount > 1 && chat.groupId) {
-                setDeleteTarget({ chatId: chat.id, groupId: chat.groupId, branchCount });
+                setDeleteTarget({
+                  chatId: chat.id,
+                  chatName: chat.name,
+                  groupId: chat.groupId,
+                  branchCount,
+                });
               } else {
                 if (
                   await showConfirmDialog({
                     title:localizeUi("ui.layout.chatsidebar.deleteChat"),
-                    message:localizeUi("ui.layout.chatsidebar.deleteThisChat"),
+                    message: localizeUi("dialog.delete.namedPermanent", { name: chat.name }),
                     confirmLabel:localizeUi("lorebook.editor.batch.delete"),
                     tone: "destructive",
                   })
@@ -1494,8 +1501,12 @@ export function ChatSidebar() {
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--destructive)]/10">
                 <AlertTriangle size="1.125rem" className="text-[var(--destructive)]" />
               </div>
-              <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.layout.chatsidebar.thisConversationHas")}{" "}
-                <strong className="text-[var(--foreground)]">{deleteTarget.branchCount} {localizeUi("ui.layout.chatsidebar.branches")}</strong>{localizeUi("ui.layout.chatsidebar.whatWouldYouLikeToDelete")}</p>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {localizeUi("chat.delete.branchChoice", {
+                  name: deleteTarget.chatName,
+                  count: deleteTarget.branchCount,
+                })}
+              </p>
             </div>
             <div className="flex flex-col gap-2">
               <button

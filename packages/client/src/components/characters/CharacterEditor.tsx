@@ -656,7 +656,9 @@ export function CharacterEditor() {
     if (
       !(await showConfirmDialog({
         title: localizeUi("ui.characters.charactereditor.deleteCharacter_07d0983"),
-        message: localizeUi("ui.characters.charactereditor.areYouSureYouWantToDeleteThisCharacter"),
+        message: localizeUi("dialog.delete.namedPermanent", {
+          name: formData?.name?.trim() || localizeUi("ui.characters.charactereditor.thisCharacter"),
+        }),
         confirmLabel: localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))

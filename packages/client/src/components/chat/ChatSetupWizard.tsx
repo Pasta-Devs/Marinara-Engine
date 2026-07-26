@@ -1664,7 +1664,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const { data: agentConfigs, isLoading: agentConfigsLoading } = useAgentConfigs();
   const { data: installedAgentManifests = [], isLoading: installedAgentsLoading } = useCapabilityAgentRegistry();
 
-  // Chat-settings presets for the shortcut view
+  // Chat settings profiles for the shortcut view (legacy hooks/types still use "chat preset").
   const supportsNarrativeDirectorSecretPlot = (chat as unknown as { mode?: string }).mode === "roleplay";
   const chatPresetMode = (
     (chat as unknown as { mode?: string }).mode === "visual_novel" ? "roleplay" : "roleplay"
@@ -2011,10 +2011,10 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     [chat.id, activeLorebookIds, updateMeta],
   );
 
-  // Default the shortcut dropdown once presets load. Prefer (in order):
-  //  1) the preset already applied to this chat,
-  //  2) the user's starred / active preset for the mode,
-  //  3) the built-in Default preset.
+  // Default the shortcut dropdown once profiles load. Prefer (in order):
+  //  1) the profile already applied to this chat,
+  //  2) the user's starred / active profile for the mode,
+  //  3) the built-in Default profile.
   useEffect(() => {
     if (shortcutPresetId) return;
     if (chatPresetList.length === 0) return;
@@ -2879,16 +2879,17 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
 
   const shortcutStep: WizardStep = {
     key: "shortcut",
-    title: "Use Settings Presets",
-    body: "Pick a saved chat-settings preset, your persona, and any characters in one compact setup pass.",
+    title: localizeUi("chat.settingsProfile.wizard.title"),
+    body: localizeUi("chat.settingsProfile.wizard.description"),
   };
   const shortcutContent = (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <label className={WIZARD_FIELD_LABEL}>{localizeUi("ui.chat.roleplaysetupwizard.chatPreset")}</label>
+        <label className={WIZARD_FIELD_LABEL}>{localizeUi("chat.settingsProfile.label")}</label>
         <select
           value={shortcutPresetId}
           onChange={(event) => setShortcutPresetId(event.target.value)}
+          aria-label={localizeUi("chat.settingsProfile.label")}
           className={WIZARD_INPUT_CLASS}
         >
           {chatPresetList.length === 0 && <option value="">{localizeUi("ui.characters.characterlibraryview.loading")}</option>}
@@ -2973,11 +2974,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
               <button
                 type="button"
                 onClick={() => setShortcutMode(true)}
-                title={localizeUi("ui.chat.roleplaysetupwizard.applyASavedChatSettingsPresetAndPickA")}
+                title={localizeUi("chat.settingsProfile.wizard.applyDescription")}
                 className={WIZARD_SECONDARY_BUTTON_CLASS}
               >
-                <span className="hidden xs:inline sm:inline">{localizeUi("ui.chat.roleplaysetupwizard.useSettingsPresets")}</span>
-                <span className="inline xs:hidden sm:hidden">{localizeUi("navigation.topbar.presets")}</span>
+                <span className="hidden xs:inline sm:inline">{localizeUi("chat.settingsProfile.wizard.action")}</span>
+                <span className="inline xs:hidden sm:hidden">{localizeUi("chat.settingsProfile.label")}</span>
               </button>
             }
           >

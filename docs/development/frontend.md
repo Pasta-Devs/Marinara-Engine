@@ -425,7 +425,7 @@ All input validation uses Zod schemas from `packages/shared/src/schemas/`. Repre
 | `regex.schema.ts`       | Regex script create and update                                     |
 | `personal-extension.schema.ts` | Personal Extension drafts, exact-hash approval, rollback, and private storage |
 
-The folder also holds schemas for app settings, chat presets, conversation calls, custom emojis and stickers, Noodle, and themes.
+The folder also holds schemas for app settings, chat settings profiles, conversation calls, custom emojis and stickers, Noodle, and themes.
 
 ### Types
 
@@ -537,7 +537,7 @@ Agent memory tools use `/api/agents/memory/:agentType/:chatId`, where `agentType
 | `/api/personal-extensions`      | Sandboxed extension policy, drafts, approval, runtime, and private storage |
 | `/api/app-settings`             | Server-side app settings                |
 | `/api/sidecar`                  | Local model runtime                     |
-| `/api/chat-presets`             | Chat settings presets                   |
+| `/api/chat-presets`             | Chat settings profiles (legacy endpoint name) |
 | `/api/connection-folders`       | Connection folders                      |
 | `/api/prompt-overrides`         | Built-in prompt overrides               |
 | `/api/achievements`             | Achievement unlocks                     |

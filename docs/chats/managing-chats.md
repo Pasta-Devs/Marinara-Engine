@@ -26,7 +26,7 @@ The new chat is named **New Conversation**, **New Roleplay**, or **New Game**. Y
 
 You need at least one connection before a chat will open. A connection links Marinara to an AI provider. If you have no connection yet, a **Set Up** window appears instead of the chat. It asks you to choose a connection first. If you have none at all, it shows **No connections found** with an **Open Connections** button. To set one up, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-If you saved a starred default Chat Settings Preset for that mode, Marinara applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
+If you saved a starred default settings profile for that mode, Marinara applies it to the new chat automatically. See [Chat Settings Overview](chat-settings.md).
 
 ## Importing a chat
 

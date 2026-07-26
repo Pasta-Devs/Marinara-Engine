@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Chat Preset Zod Schemas
+// Chat settings profile Zod schemas (legacy exported names retain "ChatPreset")
 // ──────────────────────────────────────────────
 import { z } from "zod";
 import { chatModeSchema } from "./chat.schema.js";

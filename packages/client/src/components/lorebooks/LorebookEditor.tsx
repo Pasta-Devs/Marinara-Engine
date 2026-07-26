@@ -1560,7 +1560,9 @@ export function LorebookEditor() {
     if (
       !(await showConfirmDialog({
         title:localizeUi("ui.lorebooks.lorebookeditor.deleteLorebook_570bd40"),
-        message:localizeUi("ui.lorebooks.lorebookeditor.deleteThisLorebookAllEntriesWillBeLost"),
+        message: localizeUi("dialog.delete.namedContents", {
+          name: formName.trim() || lorebook?.name || localizeUi("ui.lorebooks.lorebookeditor.deleteLorebook"),
+        }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))
@@ -1569,7 +1571,7 @@ export function LorebookEditor() {
     }
     await deleteLorebook.mutateAsync(lorebookId);
     closeDetail();
-  }, [lorebookId, deleteLorebook, closeDetail, localizeUi]);
+  }, [closeDetail, deleteLorebook, formName, lorebook?.name, lorebookId, localizeUi]);
 
   // ── Loading ──
   if (isLoading || !lorebook) {

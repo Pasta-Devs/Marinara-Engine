@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Schema: Chat Presets
+// Schema: chat settings profiles (legacy table name retained for compatibility)
 // ──────────────────────────────────────────────
 import { fileTable, text } from "../file-schema.js";
 
@@ -7,11 +7,11 @@ import { fileTable, text } from "../file-schema.js";
 export const chatPresets = fileTable("chat_presets", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  /** Which chat mode this preset applies to. */
+  /** Which chat mode this profile applies to. */
   mode: text("mode", { enum: ["conversation", "roleplay", "visual_novel", "game"] }).notNull(),
-  /** "true" for the built-in default preset (cannot be deleted, renamed, or saved into). */
+  /** "true" for the built-in Default profile (cannot be deleted, renamed, or saved into). */
   isDefault: text("is_default").notNull().default("false"),
-  /** "true" for the active preset of its mode (used as starting state for new chats). */
+  /** "true" for the active profile of its mode (used as starting state for new chats). */
   isActive: text("is_active").notNull().default("false"),
   /** JSON-serialized ChatPresetSettings. */
   settings: text("settings").notNull().default("{}"),

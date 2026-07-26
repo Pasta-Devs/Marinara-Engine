@@ -350,7 +350,12 @@ export function PresetEditor() {
     if (
       !(await showConfirmDialog({
         title:localizeUi("ui.presets.preseteditor.deletePreset"),
-        message:localizeUi("ui.presets.preseteditor.deleteThisPreset"),
+        message: localizeUi("dialog.delete.namedPermanent", {
+          name:
+            localName.trim() ||
+            (data?.preset as { name?: string } | undefined)?.name ||
+            localizeUi("chat.toolbar.preset"),
+        }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))
@@ -358,7 +363,7 @@ export function PresetEditor() {
       return;
     }
     deletePreset.mutate(presetDetailId, { onSuccess: () => closePresetDetail() });
-  }, [presetDetailId, deletePreset, closePresetDetail, localizeUi]);
+  }, [closePresetDetail, data?.preset, deletePreset, localName, localizeUi, presetDetailId]);
 
   const markDirty = useCallback(() => setDirty(true), []);
 

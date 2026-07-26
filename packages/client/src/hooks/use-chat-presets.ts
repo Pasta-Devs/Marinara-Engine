@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// React Query: Chat Preset hooks
+// React Query: chat settings profiles (legacy hook/route names retain "ChatPreset")
 // ──────────────────────────────────────────────
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api-client";
@@ -70,7 +70,7 @@ export function useImportChatPreset() {
   });
 }
 
-/** Apply a preset's settings to an existing chat. */
+/** Apply a settings profile to an existing chat. */
 export function useApplyChatPreset() {
   const qc = useQueryClient();
   return useMutation({

@@ -793,7 +793,9 @@ export function ConnectionEditor() {
     if (
       !(await showConfirmDialog({
         title:localizeUi("ui.connections.connectioneditor.deleteConnection_bb12f0e"),
-        message:localizeUi("ui.connections.connectioneditor.deleteThisConnection"),
+        message: localizeUi("dialog.delete.namedPermanent", {
+          name: localName.trim() || conn?.name || localizeUi("ui.connections.connectioneditor.connection"),
+        }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))
@@ -801,7 +803,7 @@ export function ConnectionEditor() {
       return;
     }
     deleteConnection.mutate(connectionDetailId, { onSuccess: () => closeConnectionDetail() });
-  }, [connectionDetailId, deleteConnection, closeConnectionDetail, localizeUi]);
+  }, [closeConnectionDetail, conn?.name, connectionDetailId, deleteConnection, localName, localizeUi]);
 
   const handleExportConnection = useCallback(async () => {
     if (!conn) return;

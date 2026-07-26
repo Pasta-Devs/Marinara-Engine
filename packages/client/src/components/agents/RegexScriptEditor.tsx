@@ -421,7 +421,9 @@ export function RegexScriptEditor() {
     if (
       !(await showConfirmDialog({
         title:localizeUi("ui.agents.regexscripteditor.deleteRegexScript_d694998"),
-        message:localizeUi("ui.agents.regexscripteditor.deleteThisRegexScriptThisCannotBeUndone"),
+        message: localizeUi("dialog.delete.namedPermanent", {
+          name: localName.trim() || dbRow.name,
+        }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))

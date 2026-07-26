@@ -31,28 +31,28 @@ Pick a saved connection from the dropdown. You can also pick **Random**. It choo
 
 To learn how to create a connection in the first place, see [Connecting to an AI Provider](../connections/connecting-to-a-provider.md).
 
-## Chat Settings Presets
+## Settings Profiles
 
-At the top of the panel is a **Chat Settings Presets** bar. A Chat Settings Preset is a saved bundle of a chat's settings that you can reuse on other chats. Choose a saved preset from the dropdown to apply it to the current chat.
+At the top of the panel is the **Profile** control. A settings profile is a saved bundle of chat settings that you can reuse on other chats. Choose a profile from the dropdown to apply it to the current chat.
 
-A preset bundles this chat's connection, prompt preset, agents, tools, translation, memory recall, advanced parameters, and other settings. It never touches your characters, persona, lorebooks, sprites, summary, tags, or scene prompt. Those stay tied to the chat itself.
+A profile bundles this chat's connection, prompt preset, agents, tools, translation, memory recall, advanced parameters, and other settings. It never changes your characters, persona, lorebooks, sprites, summary, tags, or scene prompt. Those stay tied to the chat itself.
 
 The bar has a row of small icon buttons with no text labels. Each button shows its name in a tooltip when you hover over it:
 
-- The disk icon (**Save current chat settings into this preset**) writes the current chat's settings into the selected preset.
-- The pencil icon (**Rename preset**) renames the selected preset.
-- The file-plus icon (**Save current chat settings as a new preset**) saves the current chat's settings as a brand new preset.
-- The down-arrow icon (**Import preset (.json)**) loads a preset from a `.json` file.
-- The up-arrow icon (**Export preset (.json)**) saves the selected preset to a `.json` file.
-- The trash icon (**Delete preset**) removes the selected preset.
+- The disk icon (**Save current chat settings into this profile**) writes the current chat's settings into the selected profile.
+- The pencil icon (**Rename profile**) renames the selected profile.
+- The file-plus icon (**Save current chat settings as a new profile**) saves the current chat's settings as a new profile.
+- The down-arrow icon (**Import settings profile (.json)**) loads a profile from a `.json` file.
+- The up-arrow icon (**Export settings profile (.json)**) saves the selected profile to a `.json` file.
+- The trash icon (**Delete profile**) removes the selected profile.
 
-Next to the dropdown is a star button. Click it to mark a preset as the default for new chats in this mode. When you create a new chat in that mode, Marinara applies the starred preset for you. Only one preset per mode can be the starred default at a time.
+Next to the dropdown is a star button. Click it to make a profile the default for new chats in this mode. When you create a new chat in that mode, Marinara applies the starred profile for you. Only one profile per mode can be the default.
 
-Each mode that supports this feature has a built-in **Default** preset. You cannot rename, save into, or delete the **Default** preset. Applying it resets the chat's preset-controlled settings back to the app defaults.
+Each mode that supports this feature has a built-in **Default** profile. You cannot rename, save into, or delete the **Default** profile. Applying it resets the profile-controlled settings to the app defaults.
 
-The **Chat Settings Presets** bar does not appear in Game mode.
+The profile controls do not appear in Game mode.
 
-Chat Settings Presets are a different system from prompt presets. A prompt preset shapes the system prompt structure and generation parameters. A Chat Settings Preset only bundles the settings listed above. For the full rules, see [Chat Settings Presets](../prompts/chat-settings-presets.md).
+Marinara reserves **preset** for prompt presets. A prompt preset shapes the system prompt structure and generation parameters; a settings profile bundles the reusable chat configuration listed above. For the full rules, see [Settings Profiles](settings-profiles.md).
 
 ## Other sections in the panel
 
@@ -74,5 +74,5 @@ Which sections you see depends on the chat mode. Some sections appear only in Ro
 - [Choosing Your Persona in a Chat](../characters/choosing-your-persona.md)
 - [Lorebooks Overview](../lorebooks/overview.md)
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)
-- [Chat Settings Presets](../prompts/chat-settings-presets.md)
+- [Settings Profiles](settings-profiles.md)
 - [Generation Parameters](../prompts/generation-parameters.md)

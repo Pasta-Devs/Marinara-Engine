@@ -1,5 +1,5 @@
 // ──────────────────────────────────────────────
-// Routes: Chat Presets
+// Routes: Chat settings profiles (legacy route/storage names use "chat preset")
 // ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import {
@@ -21,7 +21,7 @@ function toSafeExportName(name: string, fallback: string) {
   return sanitized || fallback;
 }
 
-interface ChatPresetExportPayload {
+interface ChatSettingsProfileExportPayload {
   name: string;
   mode: ChatMode;
   settings: ChatPresetSettings;
@@ -52,7 +52,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Chat preset not found" });
+    if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
     return preset;
   });
 
@@ -66,40 +66,40 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const input = updateChatPresetSchema.parse(req.body);
     const updated = await storage.update(req.params.id, input);
-    if (!updated) return reply.status(404).send({ error: "Chat preset not found" });
+    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
     return updated;
   });
 
-  /** Save a settings snapshot into a preset (the "Save" button). */
+  /** Save a settings snapshot into a profile (the "Save" button). */
   app.put<{ Params: { id: string } }>("/:id/settings", async (req, reply) => {
     const input = chatPresetSettingsSchema.parse(req.body ?? {});
     const updated = await storage.saveSettings(req.params.id, input);
-    if (!updated) return reply.status(404).send({ error: "Chat preset not found" });
+    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
     return updated;
   });
 
-  /** Duplicate a preset (the "Save As" button). */
+  /** Duplicate a profile (the "Save As" button). */
   app.post<{ Params: { id: string } }>("/:id/duplicate", async (req, reply) => {
     const body = (req.body ?? {}) as { name?: string };
     const duplicated = await storage.duplicate(req.params.id, body.name);
-    if (!duplicated) return reply.status(404).send({ error: "Chat preset not found" });
+    if (!duplicated) return reply.status(404).send({ error: "Settings profile not found" });
     return duplicated;
   });
 
-  /** Mark a preset as the active one for its mode. */
+  /** Mark a profile as the active one for its mode. */
   app.post<{ Params: { id: string } }>("/:id/set-active", async (req, reply) => {
     const updated = await storage.setActive(req.params.id);
-    if (!updated) return reply.status(404).send({ error: "Chat preset not found" });
+    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
     return updated;
   });
 
-  /** Apply a preset's settings to an existing chat (replaces preset-controlled settings). */
+  /** Apply a profile's settings to an existing chat (replaces profile-controlled settings). */
   app.post<{ Params: { id: string; chatId: string } }>("/:id/apply/:chatId", async (req, reply) => {
     const body = (req.body ?? {}) as { connectionId?: unknown };
     const connectionId =
       typeof body.connectionId === "string" ? body.connectionId : body.connectionId === null ? null : undefined;
     const updated = await storage.applyToChat(req.params.id, req.params.chatId, { connectionId });
-    if (!updated) return reply.status(404).send({ error: "Preset or chat not found" });
+    if (!updated) return reply.status(404).send({ error: "Settings profile or chat not found" });
     return updated;
   });
 
@@ -109,8 +109,8 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     const removed = await storage.remove(req.params.id);
     if (!removed) {
       const existing = await storage.getById(req.params.id);
-      if (!existing) return reply.status(404).send({ error: "Chat preset not found" });
-      return reply.status(400).send({ error: "Cannot delete the default preset" });
+      if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+      return reply.status(400).send({ error: "Cannot delete the default settings profile" });
     }
     return reply.status(204).send();
   });
@@ -119,14 +119,14 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   app.get<{ Params: { id: string } }>("/:id/export", async (req, reply) => {
     const preset = await storage.getById(req.params.id);
-    if (!preset) return reply.status(404).send({ error: "Chat preset not found" });
-    const payload: ChatPresetExportPayload = {
+    if (!preset) return reply.status(404).send({ error: "Settings profile not found" });
+    const payload: ChatSettingsProfileExportPayload = {
       name: preset.name,
       mode: preset.mode,
       settings: preset.settings,
     };
-    const envelope: ExportEnvelope<ChatPresetExportPayload> = {
-      type: "marinara_chat_preset",
+    const envelope: ExportEnvelope<ChatSettingsProfileExportPayload> = {
+      type: "marinara_chat_settings_profile",
       version: 1,
       exportedAt: new Date().toISOString(),
       data: payload,
@@ -134,7 +134,7 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     return reply
       .header(
         "Content-Disposition",
-        `attachment; filename="${encodeURIComponent(toSafeExportName(preset.name, "chat-preset"))}.marinara-chat-preset.json"`,
+        `attachment; filename="${encodeURIComponent(toSafeExportName(preset.name, "settings-profile"))}.marinara-settings-profile.json"`,
       )
       .header("Content-Type", "application/json")
       .send(envelope);
@@ -143,15 +143,19 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
   // ── Import ──
 
   app.post("/import", async (req, reply) => {
-    const body = req.body as Partial<ExportEnvelope<ChatPresetExportPayload>> | null;
-    if (!body || body.type !== "marinara_chat_preset" || !body.data) {
-      return reply.status(400).send({ error: "Invalid chat preset envelope" });
+    const body = req.body as Partial<ExportEnvelope<ChatSettingsProfileExportPayload>> | null;
+    if (
+      !body ||
+      (body.type !== "marinara_chat_settings_profile" && body.type !== "marinara_chat_preset") ||
+      !body.data
+    ) {
+      return reply.status(400).send({ error: "Invalid settings profile file" });
     }
     const data = body.data;
     const modeParsed = chatModeSchema.safeParse(data.mode);
     if (!modeParsed.success) return reply.status(400).send({ error: "Invalid chat mode in envelope" });
     if (typeof data.name !== "string" || !data.name.trim()) {
-      return reply.status(400).send({ error: "Preset name is required" });
+      return reply.status(400).send({ error: "Profile name is required" });
     }
     const created = await storage.create({
       name: data.name.trim().slice(0, 120),

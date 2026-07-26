@@ -11,6 +11,7 @@ export type ExportType =
   | "marinara_lorebook"
   | "marinara_preset"
   | "marinara_chat_preset"
+  | "marinara_chat_settings_profile"
   | "marinara_memory_recall"
   | "marinara_profile";
 

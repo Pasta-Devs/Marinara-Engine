@@ -102,7 +102,7 @@ The **Scenario Override** box lets you give the whole group one shared scenario.
 
 There is no on and off switch. Typing text turns it on. Clearing the text turns it off. To edit in a bigger window, click the expand icon (tooltip **Expand editor**). The larger editor is titled **Group Scenario Override**.
 
-One note for reuse: the **Scenario Override** text is tied to this one chat. It is left out of Chat Settings Presets, so it will not follow a preset to a new chat.
+One note for reuse: the **Scenario Override** text is tied to this one chat. It is left out of settings profiles, so it will not follow a profile to a new chat.
 
 ### Settings and defaults (Roleplay)
 
@@ -115,7 +115,7 @@ One note for reuse: the **Scenario Override** text is tied to this one chat. It 
 | **Name Prefix History** | Group Chat section, Individual mode | Off |
 | **Scenario Override** | Group Chat section | Empty (off) |
 
-Most of these settings are saved into Chat Settings Presets, so you can reuse them. The one exception is **Scenario Override**, which stays with the single chat.
+Most of these settings are saved into settings profiles, so you can reuse them. The one exception is **Scenario Override**, which stays with the single chat.
 
 ## Who speaks: Conversation mode
 

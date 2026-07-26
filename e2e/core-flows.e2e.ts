@@ -398,10 +398,35 @@ test("Chat Settings adds a formatted greeting after the setup wizard is skipped"
       useChatStore.getState().setShouldOpenSettings(true);
     });
     await expect(page.getByRole("heading", { name: "New Roleplay", exact: true })).toBeVisible();
+    const setupWizard = page.locator('[data-component="ChatSetupWizard"]');
+    const profileShortcut = setupWizard.getByRole("button", { name: "Use a Profile", exact: true });
+    await expect(profileShortcut).toHaveAttribute(
+      "title",
+      "Apply a saved settings profile and pick a persona plus characters in one step",
+    );
+    await profileShortcut.click();
+    await expect(setupWizard.getByRole("heading", { name: "Use a Profile", exact: true })).toBeVisible();
+    await expect(
+      setupWizard.getByText(
+        "Pick a saved settings profile, your persona, and any characters in one compact setup pass.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(setupWizard.getByLabel("Profile", { exact: true })).toBeVisible();
+    await setupWizard.getByRole("button", { name: "Back", exact: true }).click();
     await page.getByRole("button", { name: "Skip", exact: true }).click();
 
     const drawer = page.locator(".mari-chat-settings-drawer");
     await expect(drawer).toBeVisible();
+    const settingsProfileSelect = drawer.getByLabel("Profile", { exact: true });
+    await expect(settingsProfileSelect).toHaveAttribute("title", "Apply a settings profile to this chat");
+    await expect(settingsProfileSelect.locator("option:checked")).toHaveText("Custom settings profile");
+    await expect(drawer.getByTitle("Cannot save into the Default profile")).toBeDisabled();
+    await expect(drawer.getByTitle("Cannot rename the Default profile")).toBeDisabled();
+    await expect(drawer.getByTitle("Save current chat settings as a new profile")).toBeEnabled();
+    await expect(drawer.getByTitle("Import settings profile (.json)")).toBeEnabled();
+    await expect(drawer.getByTitle("Export settings profile (.json)")).toBeEnabled();
+    await expect(drawer.getByTitle("Cannot delete the Default profile")).toBeDisabled();
     await expect(
       drawer.locator('[data-chat-settings-section="roleplay-persona"] [role="button"]').first().locator("svg").first(),
     ).toHaveClass(/lucide-venetian-mask/u);
@@ -465,6 +490,67 @@ test("Chat Settings adds a formatted greeting after the setup wizard is skipped"
       request.delete(`/api/chats/${chat.id}`),
       request.delete(`/api/characters/${character.id}`),
     ]);
+  }
+});
+
+test("settings profile exports use the new identity and legacy exports still import", async ({
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Settings profile transfer contract is covered once.");
+
+  const suffix = Date.now().toString(36);
+  const createdIds = new Set<string>();
+  const profileResponse = await request.post("/api/chat-presets", {
+    data: {
+      name: `Profile Transfer ${suffix}`,
+      mode: "roleplay",
+      settings: {},
+    },
+  });
+  expect(profileResponse.ok()).toBeTruthy();
+  const profile = (await profileResponse.json()) as { id: string };
+  createdIds.add(profile.id);
+
+  try {
+    const exportResponse = await request.get(`/api/chat-presets/${profile.id}/export`);
+    expect(exportResponse.ok()).toBeTruthy();
+    expect(exportResponse.headers()["content-disposition"]).toContain(".marinara-settings-profile.json");
+    const envelope = (await exportResponse.json()) as {
+      type: string;
+      version: number;
+      exportedAt: string;
+      data: { name: string; mode: string; settings: Record<string, unknown> };
+    };
+    expect(envelope.type).toBe("marinara_chat_settings_profile");
+
+    const currentImportResponse = await request.post("/api/chat-presets/import", {
+      data: {
+        ...envelope,
+        data: { ...envelope.data, name: `Current Profile Import ${suffix}` },
+      },
+    });
+    expect(currentImportResponse.ok()).toBeTruthy();
+    const currentImport = (await currentImportResponse.json()) as { id: string };
+    createdIds.add(currentImport.id);
+
+    const legacyImportResponse = await request.post("/api/chat-presets/import", {
+      data: {
+        ...envelope,
+        type: "marinara_chat_preset",
+        data: { ...envelope.data, name: `Legacy Profile Import ${suffix}` },
+      },
+    });
+    expect(legacyImportResponse.ok()).toBeTruthy();
+    const legacyImport = (await legacyImportResponse.json()) as { id: string };
+    createdIds.add(legacyImport.id);
+
+    const invalidImportResponse = await request.post("/api/chat-presets/import", {
+      data: { type: "unknown", data: envelope.data },
+    });
+    expect(invalidImportResponse.status()).toBe(400);
+    expect(await invalidImportResponse.json()).toEqual({ error: "Invalid settings profile file" });
+  } finally {
+    await Promise.allSettled([...createdIds].map((id) => request.delete(`/api/chat-presets/${id}`)));
   }
 });
 
@@ -832,8 +918,9 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
   test.skip(testInfo.project.name.includes("mobile"), "Desktop chat-sidebar selection chrome is covered here.");
 
   const accentColor = "rgb(20, 184, 166)";
+  const chatNames = ["Bulk Delete Chroma One", "Bulk Delete Chroma Two"];
   const chatResponses = await Promise.all(
-    ["Bulk Delete Chroma One", "Bulk Delete Chroma Two"].map((name) =>
+    chatNames.map((name) =>
       page.request.post("/api/chats", {
         data: { name, mode: "roleplay", characterIds: [] },
       }),
@@ -864,6 +951,15 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
 
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
+    const firstChatRow = sidebar.locator(`[data-chat-id="${chats[0]!.id}"]`);
+    await firstChatRow.hover();
+    await firstChatRow.getByRole("button", { name: `Delete ${chatNames[0]}`, exact: true }).click();
+    const namedDeleteDialog = page.getByRole("dialog", { name: "Delete Chat" });
+    await expect(namedDeleteDialog).toContainText(
+      `Are you sure you want to delete ${chatNames[0]}? This cannot be undone.`,
+    );
+    await namedDeleteDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+
     await sidebar.getByRole("button", { name: "Select chats" }).click();
     for (const chat of chats) {
       await sidebar.locator(`[data-chat-id="${chat.id}"]`).click();
@@ -2866,8 +2962,15 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
     await drawer.getByText("Prompt Preset", { exact: true }).click();
 
     const quickEditor = drawer.locator(".mari-quick-preset-editor");
+    const quickEditorDisclosure = drawer.locator("[data-prompt-preset-quick-editor-disclosure]");
+    const quickEditorToggle = quickEditorDisclosure.locator(":scope > button");
+    await expect(quickEditor).toBeHidden();
+    await expect(quickEditorToggle).toContainText("Edit preset");
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "false");
+
+    await quickEditorToggle.click();
     await expect(quickEditor).toBeVisible();
-    await expect(drawer.getByText("Preset sections", { exact: true })).toBeVisible();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
     await expect(drawer.locator('[data-prompt-preset-chevron="select"]')).toBeVisible();
 
     const toolbar = quickEditor.locator(".mari-editor-toolbar");
@@ -2896,6 +2999,24 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
         }),
       )
       .toBe(true);
+
+    await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
+    await expect(drawer).toHaveCount(0);
+    await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
+    await expect(drawer).toBeVisible();
+    await expect(quickEditor).toBeVisible();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
+
+    await quickEditorToggle.click();
+    await expect(quickEditor).toBeHidden();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "false");
+
+    await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
+    await expect(drawer).toHaveCount(0);
+    await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
+    await expect(drawer).toBeVisible();
+    await expect(quickEditor).toBeHidden();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "false");
   } finally {
     await Promise.all([request.delete(`/api/chats/${chat.id}`), request.delete(`/api/prompts/${preset.id}`)]);
   }
@@ -2975,7 +3096,14 @@ test("mobile roleplay quick preset editor keeps marker and metadata controls com
     await drawer.getByText("Prompt Preset", { exact: true }).click();
 
     const quickEditor = drawer.locator(".mari-quick-preset-editor");
+    const quickEditorToggle = drawer
+      .locator("[data-prompt-preset-quick-editor-disclosure]")
+      .locator(":scope > button");
+    await expect(quickEditor).toBeHidden();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "false");
+    await quickEditorToggle.click();
     await expect(quickEditor).toBeVisible();
+    await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
     const markerSection = quickEditor.locator('[data-preset-marker-section="true"]');
     const regularSection = quickEditor.locator('[data-touch-reorder-item="preset-section"]').filter({
       hasText: "Regular Section",
