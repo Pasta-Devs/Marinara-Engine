@@ -102,7 +102,7 @@ La casilla **Scenario Override** te permite dar a todo el grupo un mismo escenar
 
 No hay un interruptor de activado y desactivado. Escribir texto lo activa. Borrar el texto lo desactiva. Para editar en una ventana más grande, haz clic en el icono de expandir (tooltip **Expand editor**). El editor más grande se titula **Group Scenario Override**.
 
-Una nota sobre la reutilización: el texto de **Scenario Override** está ligado a este único chat. Queda fuera de los Chat Settings Presets, así que no seguirá a un preset (un ajuste guardado) hacia un chat nuevo.
+Una nota sobre la reutilización: el texto de **Scenario Override** está ligado a este único chat. Queda fuera de los perfiles de ajustes, así que no seguirá a un perfil hacia un chat nuevo.
 
 ### Ajustes y valores predeterminados (Roleplay)
 
@@ -115,7 +115,7 @@ Una nota sobre la reutilización: el texto de **Scenario Override** está ligado
 | **Name Prefix History** | Sección Group Chat, modo Individual | Off |
 | **Scenario Override** | Sección Group Chat | Vacío (off) |
 
-La mayoría de estos ajustes se guardan en los Chat Settings Presets, así que puedes reutilizarlos. La única excepción es **Scenario Override**, que se queda con el chat individual.
+La mayoría de estos ajustes se guardan en perfiles de ajustes, así que puedes reutilizarlos. La única excepción es **Scenario Override**, que se queda con el chat individual.
 
 ## Quién habla: modo Conversation
 

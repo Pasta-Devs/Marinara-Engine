@@ -171,6 +171,6 @@ Para confirmar qué preset y qué secciones llegaron realmente a la IA, usa **Pe
 - [Variables de preset](preset-variables.md)
 - [Macros de prompt](macros.md)
 - [Parámetros de generación](generation-parameters.md)
-- [Chat Settings Presets](chat-settings-presets.md)
+- [Perfiles de ajustes](../chats/settings-profiles.md)
 - [Introducción a Chat Settings](../chats/chat-settings.md)
 - [Peek Prompt: ver qué recibió la IA](../chats/peek-prompt.md)

@@ -425,7 +425,7 @@ Toda la validación de entrada usa esquemas de Zod desde `packages/shared/src/sc
 | `regex.schema.ts`       | Creación y actualización de scripts de regex                       |
 | `personal-extension.schema.ts` | Borradores de Personal Extension, aprobación por hash exacto, reversión y almacenamiento privado |
 
-La carpeta también contiene esquemas para los ajustes de la app, los Chat Settings Preset, las llamadas de conversación, los emojis y stickers personalizados, Noodle y los temas.
+La carpeta también contiene esquemas para los ajustes de la app, los perfiles de ajustes del chat, las llamadas de conversación, los emojis y stickers personalizados, Noodle y los temas.
 
 ### Tipos
 
@@ -537,7 +537,7 @@ Las herramientas de memoria de los agentes usan `/api/agents/memory/:agentType/:
 | `/api/personal-extensions`      | Política de extensiones en zona protegida, borradores, aprobación, runtime y almacenamiento privado |
 | `/api/app-settings`             | Ajustes de la app del lado del servidor |
 | `/api/sidecar`                  | Runtime del modelo local                |
-| `/api/chat-presets`             | Chat Settings Preset                    |
+| `/api/chat-presets`             | Perfiles de ajustes del chat (nombre heredado del endpoint) |
 | `/api/connection-folders`       | Carpetas de conexiones                  |
 | `/api/prompt-overrides`         | Anulaciones de prompts integrados       |
 | `/api/achievements`             | Desbloqueo de logros                    |

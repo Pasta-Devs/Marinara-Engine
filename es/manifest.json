@@ -1,6 +1,5 @@
 {
   "language": "es",
-  "sourceCommit": "12195c81b7002a4c95a1e4ca32e90faa1cec8676",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -144,8 +143,8 @@
     },
     {
       "path": "chats/chat-settings.md",
-      "sha256": "3aa47cd9fd9f6b5c3bd25c7e8c7cd7a9a6828af682e5fee94221fce2f8376ea6",
-      "bytes": 6362
+      "sha256": "427e793a259f83607fadff097d4712faea706084a4d67724d014bb32be19ee5e",
+      "bytes": 6161
     },
     {
       "path": "chats/connected-chats.md",
@@ -159,8 +158,8 @@
     },
     {
       "path": "chats/group-chats.md",
-      "sha256": "bb2638a6a5e9fc1c5b201b74ce136e5fdf462fe63cf529b663dd2b9e660fe84b",
-      "bytes": 12593
+      "sha256": "1ffae4b5f541174a9aa7657f67a98d2b31598230d97116e4b68694c552c865d0",
+      "bytes": 12564
     },
     {
       "path": "chats/guided-and-impersonate.md",
@@ -169,8 +168,8 @@
     },
     {
       "path": "chats/managing-chats.md",
-      "sha256": "bd39969114600f077a5fed51c9ce2e986882fa4d53a50c2892954d1210df4df4",
-      "bytes": 9612
+      "sha256": "327448e7d149a11dae9ad7649d6d048b91374e018ddf53b508270851f8126728",
+      "bytes": 9609
     },
     {
       "path": "chats/messages.md",
@@ -186,6 +185,11 @@
       "path": "chats/sending-and-streaming.md",
       "sha256": "525bb35d356b247d0f2acc2350c8c028995a3775e31c9fd02a0769873345c13b",
       "bytes": 10066
+    },
+    {
+      "path": "chats/settings-profiles.md",
+      "sha256": "9e737c278e61a23602c7ac3af87e6f5dee689580f78e41a5b0b4ad506d12c2af",
+      "bytes": 4719
     },
     {
       "path": "chats/slash-commands.md",
@@ -294,8 +298,8 @@
     },
     {
       "path": "development/frontend.md",
-      "sha256": "863d3307c7616ad3c6db9cd003f3203d7019e0c1c5e83959782c5c50e8734575",
-      "bytes": 49207
+      "sha256": "2e1d1cba7581379d89f2634558867f593d82bc1655cadc1fb182de004a5d8ec8",
+      "bytes": 49235
     },
     {
       "path": "development/hierarchical-locations-prd-v3.md",
@@ -548,11 +552,6 @@
       "bytes": 27134
     },
     {
-      "path": "prompts/chat-settings-presets.md",
-      "sha256": "9f1cf0941b2a6591f346fd461e83b2c640ece4f9dd076c003db788dea53721f8",
-      "bytes": 6763
-    },
-    {
       "path": "prompts/conditional-prompts.md",
       "sha256": "0ab2e4e6d3d9edaf2324d5beec342804489e556196a130542993be0b59deefda",
       "bytes": 9950
@@ -574,8 +573,8 @@
     },
     {
       "path": "prompts/presets.md",
-      "sha256": "cea5969f61f6c7802a4104b2756b46caa6ebac71e02a3cef71618bc09bf2df1f",
-      "bytes": 13367
+      "sha256": "fca195f94d52e3338594cca353a9f9f9a3a9adc58dd0499b5cf10e39ae3b2dba",
+      "bytes": 13370
     },
     {
       "path": "prompts/prompt-overrides.md",

@@ -31,28 +31,28 @@ Elige una conexión guardada del menú desplegable. También puedes elegir **Ran
 
 Para aprender a crear una conexión desde cero, consulta [Conectarse a un proveedor de IA](../connections/connecting-to-a-provider.md).
 
-## Chat Settings Presets
+## Perfiles de ajustes
 
-En la parte superior del panel hay una barra **Chat Settings Presets**. Un Chat Settings Preset es un paquete guardado de los ajustes de un chat que puedes reutilizar en otros chats. Elige un preset (ajuste guardado) del menú desplegable para aplicarlo al chat actual.
+En la parte superior del panel está el control **Profile** (Perfil). Un perfil de ajustes es un paquete guardado de ajustes de chat que puedes reutilizar en otros chats. Elige un perfil del menú desplegable para aplicarlo al chat actual.
 
-Un preset agrupa la conexión de este chat, el preset de prompt, los agentes, las herramientas, la traducción, el Memory Recall, los parámetros avanzados y otros ajustes. Nunca toca tus personajes, tu persona, tus lorebooks (libros de trasfondo), tus sprites (imágenes del personaje), el resumen, las etiquetas ni el prompt de escena. Esos quedan ligados al chat en sí.
+Un perfil agrupa la conexión de este chat, el preset de prompt, los agentes, las herramientas, la traducción, Memory Recall, Advanced Parameters y otros ajustes. Nunca cambia tus personajes, tu persona, tus lorebooks, tus sprites, el resumen, las etiquetas ni el prompt de escena. Esos elementos siguen ligados al chat.
 
 La barra tiene una fila de botones pequeños con iconos y sin texto. Cada botón muestra su nombre en un tooltip cuando pasas el cursor por encima:
 
-- El icono de disco (**Save current chat settings into this preset**) escribe los ajustes del chat actual en el preset seleccionado.
-- El icono de lápiz (**Rename preset**) cambia el nombre del preset seleccionado.
-- El icono de archivo con signo más (**Save current chat settings as a new preset**) guarda los ajustes del chat actual como un preset totalmente nuevo.
-- El icono de flecha hacia abajo (**Import preset (.json)**) carga un preset desde un archivo `.json`.
-- El icono de flecha hacia arriba (**Export preset (.json)**) guarda el preset seleccionado en un archivo `.json`.
-- El icono de papelera (**Delete preset**) elimina el preset seleccionado.
+- El icono de disco (**Save current chat settings into this profile**) escribe los ajustes del chat actual en el perfil seleccionado.
+- El icono de lápiz (**Rename profile**) cambia el nombre del perfil seleccionado.
+- El icono de archivo con signo más (**Save current chat settings as a new profile**) guarda los ajustes del chat actual como un perfil nuevo.
+- El icono de flecha hacia abajo (**Import settings profile (.json)**) carga un perfil desde un archivo `.json`.
+- El icono de flecha hacia arriba (**Export settings profile (.json)**) guarda el perfil seleccionado en un archivo `.json`.
+- El icono de papelera (**Delete profile**) elimina el perfil seleccionado.
 
-Junto al menú desplegable hay un botón de estrella. Haz clic en él para marcar un preset como predeterminado para los chats nuevos en este modo. Cuando creas un chat nuevo en ese modo, Marinara aplica por ti el preset marcado con estrella. Solo un preset por modo puede ser el predeterminado marcado con estrella a la vez.
+Junto al menú desplegable hay un botón de estrella. Haz clic en él para convertir un perfil en el predeterminado para los chats nuevos de ese modo. Cuando creas un chat, Marinara aplica por ti el perfil marcado con estrella. Solo un perfil por modo puede ser el predeterminado.
 
-Cada modo que admite esta función tiene un preset **Default** (Predeterminado) integrado. No puedes cambiar el nombre del preset **Default**, ni guardar en él, ni eliminarlo. Aplicarlo restablece los ajustes del chat controlados por presets a los valores predeterminados de la app.
+Cada modo que admite esta función tiene un perfil **Default** (Predeterminado) integrado. No puedes cambiar su nombre, guardar en él ni eliminarlo. Aplicarlo restablece los ajustes controlados por el perfil a los valores predeterminados de la app.
 
-La barra **Chat Settings Presets** no aparece en el modo Game.
+Los controles de perfil no aparecen en el modo Game.
 
-Los Chat Settings Presets son un sistema distinto de los presets de prompt. Un preset de prompt da forma a la estructura del prompt del sistema y a los parámetros de generación. Un Chat Settings Preset solo agrupa los ajustes enumerados arriba. Para conocer todas las reglas, consulta [Chat Settings Presets](../prompts/chat-settings-presets.md).
+Marinara reserva **preset** para los presets de prompt. Un preset de prompt da forma a la estructura del system prompt y a los parámetros de generación; un perfil de ajustes agrupa la configuración de chat reutilizable enumerada arriba. Para conocer todas las reglas, consulta [Perfiles de ajustes](settings-profiles.md).
 
 ## Otras secciones del panel
 
@@ -74,5 +74,5 @@ Qué secciones ves depende del modo del chat. Algunas secciones aparecen solo en
 - [Elegir tu persona en un chat](../characters/choosing-your-persona.md)
 - [Descripción general de los lorebooks](../lorebooks/overview.md)
 - [Agentes: ayudantes de IA para tus chats](../agents/agents-overview.md)
-- [Chat Settings Presets](../prompts/chat-settings-presets.md)
+- [Perfiles de ajustes](settings-profiles.md)
 - [Parámetros de generación](../prompts/generation-parameters.md)
