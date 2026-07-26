@@ -598,6 +598,7 @@ export function ConnectionEditor() {
   // Clear remote models when provider changes
   useEffect(() => {
     setRemoteModels([]);
+    setRemoteLoras([]);
     setFetchError(null);
   }, [localProvider]);
 

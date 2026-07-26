@@ -205,15 +205,20 @@ export function useBackgroundAutonomousPolling() {
                         if (savedMessage.role === "assistant") receivedTokens = true;
                       }
                     } else if (eventType === "text_rewrite") {
-                      const rewrite = streamEvent.data as { editedText?: unknown; rewriteApplied?: unknown };
-                      if (rewrite.rewriteApplied === true && typeof rewrite.editedText === "string") {
+                      const rewrite = streamEvent.data as { editedText?: unknown };
+                      if (typeof rewrite.editedText === "string") {
                         const latestAssistant = Array.from(savedMessages.values())
                           .reverse()
                           .find((message) => message.role === "assistant");
                         if (latestAssistant) {
+                          const nextExtra = {
+                            ...((latestAssistant.extra ?? {}) as unknown as Record<string, unknown>),
+                          };
+                          delete nextExtra.postProcessingPending;
                           savedMessages.set(latestAssistant.id, {
                             ...latestAssistant,
                             content: rewrite.editedText,
+                            extra: nextExtra as unknown as Message["extra"],
                           });
                         }
                       }

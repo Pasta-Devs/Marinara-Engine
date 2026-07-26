@@ -203,8 +203,16 @@ class SidecarProcessService {
   }
 
   async unload(): Promise<void> {
-    this.manuallyUnloaded = true;
-    await this.stop();
+    const stopRequestId = this.requestStopForStartup("unload");
+
+    return this.withLock(async () => {
+      try {
+        this.manuallyUnloaded = true;
+        await this.stopAndUpdateStatusUnlocked();
+      } finally {
+        this.clearStopRequest(stopRequestId);
+      }
+    });
   }
 
   async stop(): Promise<void> {
@@ -212,19 +220,19 @@ class SidecarProcessService {
 
     return this.withLock(async () => {
       try {
-        await this.stopUnlocked();
-        this.clearStartupFailure();
-        this.unexpectedCrashCount = 0;
-        this.unexpectedCrashWindowStartedAt = 0;
-        if (sidecarModelService.getConfiguredModelRef()) {
-          sidecarModelService.setStatus("downloaded");
-        } else {
-          sidecarModelService.setStatus("not_downloaded");
-        }
+        await this.stopAndUpdateStatusUnlocked();
       } finally {
         this.clearStopRequest(stopRequestId);
       }
     });
+  }
+
+  private async stopAndUpdateStatusUnlocked(): Promise<void> {
+    await this.stopUnlocked();
+    this.clearStartupFailure();
+    this.unexpectedCrashCount = 0;
+    this.unexpectedCrashWindowStartedAt = 0;
+    sidecarModelService.setStatus(sidecarModelService.getConfiguredModelRef() ? "downloaded" : "not_downloaded");
   }
 
   killCurrentChildForProcessExit(): void {
@@ -249,7 +257,7 @@ class SidecarProcessService {
     }
   }
 
-  private requestStopForStartup(reason: "restart" | "stop" | "sync"): number {
+  private requestStopForStartup(reason: "restart" | "stop" | "sync" | "unload"): number {
     this.stopRequested = true;
     this.stopRequestId += 1;
     const stopRequestId = this.stopRequestId;

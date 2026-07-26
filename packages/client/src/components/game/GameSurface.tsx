@@ -512,6 +512,7 @@ function getConfiguredGameAssetImageSizes(): NonNullable<GameAssetGenerationPayl
 const GAME_ASSET_GENERATION_TIMEOUT_MS = 240_000;
 const GAME_ASSET_PREVIEW_TIMEOUT_MS = 180_000;
 const GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS = 180_000;
+const GAME_AUDIO_GENERATION_TIMEOUT_MS = 190_000;
 const SCENE_VIDEO_GENERATION_TIMEOUT_MS = 1_800_000;
 const IMAGE_PROMPT_REVIEW_TIMED_OUT = Symbol("IMAGE_PROMPT_REVIEW_TIMED_OUT");
 
@@ -2622,7 +2623,10 @@ function GameSurfaceComponent({
       const category = kind === "sfx" ? "sfx" : "music";
       if (prompt.startsWith(`${category}:generated:`)) return prompt;
       try {
-        const generated = await api.post<{ tag: string; path: string }>("/tts/game-audio", { kind, prompt });
+        const generated = await withTimeout(
+          (signal) => api.post<{ tag: string; path: string }>("/tts/game-audio", { kind, prompt }, { signal }),
+          GAME_AUDIO_GENERATION_TIMEOUT_MS,
+        );
         generatedAudioAssetsRef.current[generated.tag] = {
           tag: generated.tag,
           category,

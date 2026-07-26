@@ -264,7 +264,8 @@ function postProcessSegment(seg: SceneSegmentEffect, ctx: PostProcessContext): S
       out.sfx = matched;
     }
   }
-  out.music = ctx.generateMusic ? (sanitizeGeneratedAudioPrompt(out.music) ?? undefined) : undefined;
+  out.music =
+    ctx.generateMusic && !ctx.useSpotifyMusic ? (sanitizeGeneratedAudioPrompt(out.music) ?? undefined) : undefined;
 
   // Widget Updates
   const outWithWidgets = out as SceneSegmentEffect & { widgetUpdates?: Array<{ widgetId?: string }> };

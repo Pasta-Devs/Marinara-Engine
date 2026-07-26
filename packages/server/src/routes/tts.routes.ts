@@ -123,6 +123,7 @@ const NANOGPT_ELEVENLABS_VOICES = [
 const MAX_TTS_AUDIO_BYTES = 20 * 1024 * 1024;
 const MAX_GAME_AUDIO_BYTES = 60 * 1024 * 1024;
 const gameAudioGenerationLocks = new Map<string, Promise<{ tag: string; path: string; cached: boolean }>>();
+let gameAssetManifestRebuildTimer: ReturnType<typeof setTimeout> | null = null;
 
 const speakSchema = z.object({
   text: z.string().min(1).max(4096),
@@ -140,6 +141,19 @@ type VoiceOption = NonNullable<TTSVoicesResponse["voiceOptions"]>[number];
 
 function normalizeGameAudioPrompt(prompt: string): string {
   return prompt.trim().replace(/\s+/g, " ");
+}
+
+function scheduleGameAssetManifestRebuild(): void {
+  if (gameAssetManifestRebuildTimer) clearTimeout(gameAssetManifestRebuildTimer);
+  gameAssetManifestRebuildTimer = setTimeout(() => {
+    gameAssetManifestRebuildTimer = null;
+    try {
+      buildAssetManifest();
+    } catch (error) {
+      logger.error(error, "Failed to rebuild the game asset manifest after generating audio");
+    }
+  }, 500);
+  gameAssetManifestRebuildTimer.unref();
 }
 
 async function generateElevenLabsGameAudio(
@@ -197,7 +211,7 @@ async function generateElevenLabsGameAudio(
     await unlink(temporaryPath).catch(() => {});
     throw error;
   }
-  buildAssetManifest();
+  scheduleGameAssetManifestRebuild();
   return { tag, path: relativePath, cached: false };
 }
 

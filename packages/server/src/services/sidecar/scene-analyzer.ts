@@ -77,7 +77,7 @@ export interface SceneAnalyzerContext {
 /** Build the system prompt for scene analysis — kept minimal so all token
  *  budget goes to the user message where the actual choices live. */
 export function buildSceneAnalyzerSystemPrompt(ctx: SceneAnalyzerContext): string {
-  const generatedAudio = ctx.generateSoundEffects || ctx.generateMusic;
+  const generatedAudio = ctx.generateSoundEffects || (ctx.generateMusic && !ctx.useSpotifyMusic);
   return `You are a game state analyzer. Read the narration, then fill in the JSON template using ${
     generatedAudio
       ? "the exact provided tags for asset-backed fields and concise descriptive prompts for enabled generated audio"

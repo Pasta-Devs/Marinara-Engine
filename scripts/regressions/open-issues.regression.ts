@@ -3339,6 +3339,11 @@ try {
     saveDefaultsIndex >= 0 && saveConnectionIndex > saveDefaultsIndex,
     "Connection defaults must finish saving before the connection snapshot is persisted",
   );
+  assert.match(
+    connectionEditorSource,
+    /setRemoteModels\(\[\]\);\s*setRemoteLoras\(\[\]\);\s*setFetchError\(null\);/u,
+    "Changing media providers must clear stale remote LoRA choices",
+  );
 
   const backgroundAutonomousSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/hooks/use-background-autonomous.ts"),
@@ -3350,6 +3355,11 @@ try {
   assert.ok(
     savedEventIndex >= 0 && cachePaintIndex > savedEventIndex && notificationIndex > cachePaintIndex,
     "Background messages must be painted from message_saved before the notification fires",
+  );
+  assert.match(
+    backgroundAutonomousSource,
+    /typeof rewrite\.editedText === "string"[\s\S]{0,500}delete nextExtra\.postProcessingPending/u,
+    "Background no-op rewrite events must paint the final text and clear the pending marker",
   );
 
   assert.equal(explicitlyRequestsTextRewrite(true), true);
@@ -3390,6 +3400,12 @@ try {
 // Issue #4120 — generated ElevenLabs game audio is opt-in, requested as free
 // text by scene analysis, and retained by post-processing for caching.
 {
+  assert.match(
+    gameSurfaceSource,
+    /withTimeout\(\s*\(signal\) => api\.post<\{ tag: string; path: string \}>\("\/tts\/game-audio"[\s\S]{0,150}GAME_AUDIO_GENERATION_TIMEOUT_MS/u,
+    "Generated game audio must not leave scene preparation waiting indefinitely",
+  );
+
   const ttsDefaults = ttsConfigSchema.parse({});
   assert.equal(ttsDefaults.elevenLabsGameSoundEffects, false);
   assert.equal(ttsDefaults.elevenLabsGameMusic, false);
@@ -3442,6 +3458,24 @@ try {
   assert.equal(processed.music, "tense strings then a hopeful transition");
   assert.deepEqual(processed.segmentEffects?.[0]?.sfx, ["quiet footsteps on wet stone"]);
   assert.equal(processed.segmentEffects?.[0]?.music, "low suspense pulse");
+
+  const spotifyProcessed = postProcessSceneResult(
+    {
+      ...processed,
+      segmentEffects: [{ segment: 0, music: "generated music prompt" }],
+    },
+    {
+      availableBackgrounds: generatedAudioContext.availableBackgrounds,
+      availableSfx: [],
+      generateSoundEffects: false,
+      generateMusic: true,
+      useSpotifyMusic: true,
+      validWidgetIds: new Set(),
+      characterNames: [],
+    },
+  );
+  assert.equal(spotifyProcessed.music, null);
+  assert.equal(spotifyProcessed.segmentEffects?.[0]?.music, undefined);
 }
 
 // Issue #4002 — Character Tavern stores card JSON in zTXt (zlib-compressed)
