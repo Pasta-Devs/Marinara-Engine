@@ -74,6 +74,8 @@ import {
   Loader2,
   HardDriveDownload,
   MessageSquareText,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
@@ -199,6 +201,7 @@ function SidecarCard() {
   const {
     status,
     config,
+    inferenceReady,
     modelDownloaded,
     modelDisplayName,
     modelSize,
@@ -219,6 +222,8 @@ function SidecarCard() {
     startDownload,
     startSpeechDownload,
     deleteSpeechModel,
+    loadModel,
+    unloadModel,
     updateConfig,
     fetchStatus,
     fetchSpeechStatus,
@@ -228,6 +233,7 @@ function SidecarCard() {
   const [expanded, setExpanded] = useState(false);
   const [speechModelChoice, setSpeechModelChoice] = useState<SidecarSpeechModelId>("whisper_tiny");
   const [deletingSpeechModel, setDeletingSpeechModel] = useState(false);
+  const [changingModelLoadState, setChangingModelLoadState] = useState(false);
   const activeModelName = isDownloaded ? modelDisplayName : null;
   const callsPackageInstalled = useMemo(
     () =>
@@ -314,6 +320,28 @@ function SidecarCard() {
       toast.error(error instanceof Error ? error.message :localizeUi("ui.panels.sidecarcard.failedToUpdateTrackerAgentConnections"));
     } finally {
       setAssigningTrackers(false);
+    }
+  };
+
+  const handleModelLoadToggle = async () => {
+    if (changingModelLoadState) return;
+    setChangingModelLoadState(true);
+    try {
+      if (inferenceReady) {
+        await unloadModel();
+        toast.success(localizeUi("ui.panels.sidecarcard.localModelUnloaded"));
+      } else {
+        await loadModel();
+        toast.success(localizeUi("ui.panels.sidecarcard.localModelLoaded"));
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.panels.sidecarcard.failedToChangeLocalModelLoadState"),
+      );
+    } finally {
+      setChangingModelLoadState(false);
     }
   };
 
@@ -524,6 +552,25 @@ function SidecarCard() {
           )}
           {isDownloaded && (
             <div className="mt-2.5 flex flex-col gap-1.5 border-t border-sky-400/10 pt-2.5">
+              <button
+                type="button"
+                onClick={() => void handleModelLoadToggle()}
+                disabled={changingModelLoadState || status === "starting_server"}
+                className="mari-chrome-control w-full justify-center gap-2 px-3 py-2 text-xs"
+              >
+                {changingModelLoadState || status === "starting_server" ? (
+                  <Loader2 size="0.875rem" className="animate-spin" />
+                ) : inferenceReady ? (
+                  <PowerOff size="0.875rem" />
+                ) : (
+                  <Power size="0.875rem" />
+                )}
+                {changingModelLoadState || status === "starting_server"
+                  ? localizeUi("ui.panels.sidecarcard.changingLocalModelState")
+                  : inferenceReady
+                    ? localizeUi("ui.panels.sidecarcard.unloadLocalModel")
+                    : localizeUi("ui.panels.sidecarcard.loadLocalModel")}
+              </button>
               <button
                 type="button"
                 onClick={() => void handleAssignTrackersToLocal()}

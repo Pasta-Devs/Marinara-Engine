@@ -95,6 +95,7 @@ interface SidecarState {
   cancelDownload: () => Promise<void>;
   deleteModel: () => Promise<void>;
   deleteSpeechModel: (modelId?: SidecarSpeechModelId) => Promise<void>;
+  loadModel: () => Promise<void>;
   unloadModel: () => Promise<void>;
   restartRuntime: () => Promise<void>;
   installRuntime: (reinstall?: boolean) => Promise<void>;
@@ -572,6 +573,22 @@ export const useSidecarStore = create<SidecarState>((set, get) => ({
   unloadModel: async () => {
     await api.post("/sidecar/unload");
     await get().fetchStatus();
+  },
+
+  loadModel: async () => {
+    set({
+      status: "starting_server",
+      startupError: null,
+      failedRuntimeVariant: null,
+      testMessageResult: null,
+      downloadProgress: null,
+    });
+
+    try {
+      await api.post("/sidecar/restart");
+    } finally {
+      await get().fetchStatus();
+    }
   },
 
   restartRuntime: async () => {

@@ -90,6 +90,7 @@ class SidecarProcessService {
   private unexpectedCrashCount = 0;
   private unexpectedCrashWindowStartedAt = 0;
   private starting = false;
+  private manuallyUnloaded = false;
   private syncLock: Promise<void> = Promise.resolve();
   private childErrors = new WeakMap<ChildProcess, Error>();
 
@@ -139,6 +140,7 @@ class SidecarProcessService {
     const stopRequestId = this.requestStopForStartup("restart");
     return this.withLock(async () => {
       this.clearStopRequest(stopRequestId);
+      this.manuallyUnloaded = false;
       this.clearStartupFailure();
       this.unexpectedCrashCount = 0;
       this.unexpectedCrashWindowStartedAt = 0;
@@ -198,6 +200,11 @@ class SidecarProcessService {
 
       this.cleanupInactiveRuntimeBackends(backend);
     });
+  }
+
+  async unload(): Promise<void> {
+    this.manuallyUnloaded = true;
+    await this.stop();
   }
 
   async stop(): Promise<void> {
@@ -320,10 +327,21 @@ class SidecarProcessService {
     const modelRef = sidecarModelService.getConfiguredModelRef();
     const backend = sidecarModelService.getResolvedBackend();
 
+    if (options.forceStart) {
+      this.manuallyUnloaded = false;
+    }
+
     if (!modelRef) {
       await this.stopUnlocked();
       this.clearStartupFailure();
       sidecarModelService.setStatus("not_downloaded");
+      return;
+    }
+
+    if (this.manuallyUnloaded) {
+      await this.stopUnlocked();
+      this.clearStartupFailure();
+      sidecarModelService.setStatus("downloaded");
       return;
     }
 

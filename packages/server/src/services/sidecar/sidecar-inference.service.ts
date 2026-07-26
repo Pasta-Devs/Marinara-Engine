@@ -492,7 +492,7 @@ Line 2: one short sentence confirming that the local sidecar test succeeded.`,
 }
 
 export async function unloadModel(): Promise<void> {
-  await sidecarProcessService.stop();
+  await sidecarProcessService.unload();
 }
 
 const SCENE_ANALYSIS_SCHEMA = {

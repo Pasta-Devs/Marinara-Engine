@@ -1502,6 +1502,10 @@ const sidecarStoreSource = readFileSync(
   new URL("../../packages/client/src/stores/sidecar.store.ts", import.meta.url),
   "utf8",
 );
+const sidecarProcessSource = readFileSync(
+  new URL("../../packages/server/src/services/sidecar/sidecar-process.service.ts", import.meta.url),
+  "utf8",
+);
 const connectionsPanelSource = readFileSync(
   new URL("../../packages/client/src/components/panels/ConnectionsPanel.tsx", import.meta.url),
   "utf8",
@@ -1659,7 +1663,13 @@ assert.match(gameAssetHooksSource, /invalidateQueries\(\{ queryKey: gameAssetKey
 assert.doesNotMatch(gameAssetStoreSource, /api\.|fetchManifest|rescanAssets|\/game-assets\/manifest/u);
 assert.match(sidecarStoreSource, /consumeSidecarDownloadStream/u);
 assert.doesNotMatch(sidecarStoreSource, /readSseData|Best-effort delete|Best-effort unload/u);
+assert.match(sidecarStoreSource, /loadModel: async \(\) =>/u);
+assert.match(sidecarProcessSource, /private manuallyUnloaded = false/u);
+assert.match(sidecarProcessSource, /if \(this\.manuallyUnloaded\) \{/u);
+assert.match(sidecarProcessSource, /this\.manuallyUnloaded = false;\s*this\.clearStartupFailure\(\)/u);
 assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.failedToDeleteTheLocalWhisperModel/u);
+assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.unloadLocalModel/u);
+assert.match(connectionsPanelSource, /ui\.panels\.sidecarcard\.loadLocalModel/u);
 assert.match(presetsPanelSource, /MARINARA_UNIVERSAL_PRESET_ARTWORK/u);
 assert.match(
   presetsPanelSource,
