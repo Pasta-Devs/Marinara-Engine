@@ -65,8 +65,12 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const input = updateChatPresetSchema.parse(req.body);
+    const existing = await storage.getById(req.params.id);
+    if (!existing) return reply.status(404).send({ error: "Settings profile not found" });
+    if (existing.isDefault && input.name !== undefined && input.name !== existing.name) {
+      return reply.status(400).send({ error: "Cannot rename the Default settings profile" });
+    }
     const updated = await storage.update(req.params.id, input);
-    if (!updated) return reply.status(404).send({ error: "Settings profile not found" });
     return updated;
   });
 
@@ -157,10 +161,14 @@ export async function chatPresetsRoutes(app: FastifyInstance) {
     if (typeof data.name !== "string" || !data.name.trim()) {
       return reply.status(400).send({ error: "Profile name is required" });
     }
+    const settingsParsed = chatPresetSettingsSchema.safeParse(data.settings ?? {});
+    if (!settingsParsed.success) {
+      return reply.status(400).send({ error: "Invalid settings profile settings" });
+    }
     const created = await storage.create({
       name: data.name.trim().slice(0, 120),
       mode: modeParsed.data,
-      settings: data.settings ?? {},
+      settings: settingsParsed.data,
     });
     return created;
   });

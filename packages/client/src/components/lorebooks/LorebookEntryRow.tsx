@@ -423,7 +423,7 @@ export function LorebookEntryRow({
         !(await showConfirmDialog({
           title:localizeUi("ui.lorebooks.lorebookentryrow.deleteEntry_46ca45b"),
           message: localizeUi("dialog.delete.namedPermanent", {
-            name: localName.trim() || entry.name,
+            name: entry.name,
           }),
           confirmLabel:localizeUi("lorebook.editor.batch.delete"),
           tone: "destructive",
@@ -433,7 +433,7 @@ export function LorebookEntryRow({
       }
       deleteEntry.mutate({ lorebookId, entryId: entry.id });
     },
-    [deleteEntry, entry.id, entry.name, localName, localizeUi, lorebookId],
+    [deleteEntry, entry.id, entry.name, localizeUi, lorebookId],
   );
 
   const duplicateDisabled = duplicateEntry.isPending || updateEntry.isPending;

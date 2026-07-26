@@ -422,7 +422,7 @@ export function RegexScriptEditor() {
       !(await showConfirmDialog({
         title:localizeUi("ui.agents.regexscripteditor.deleteRegexScript_d694998"),
         message: localizeUi("dialog.delete.namedPermanent", {
-          name: localName.trim() || dbRow.name,
+          name: dbRow.name,
         }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",

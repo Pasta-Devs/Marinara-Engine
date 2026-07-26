@@ -207,6 +207,16 @@ interface ParsedCharacter {
   spriteFolderPath: string | null;
 }
 
+function getPersistedCharacterName(character: ParsedCharacter | undefined) {
+  if (!character) return null;
+  try {
+    const data = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
+    return typeof data?.name === "string" && data.name.trim() ? data.name.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function appendNewTags(existingTags: string[], rawInput: string) {
   const seen = new Set(existingTags);
   const additions: string[] = [];
@@ -657,7 +667,9 @@ export function CharacterEditor() {
       !(await showConfirmDialog({
         title: localizeUi("ui.characters.charactereditor.deleteCharacter_07d0983"),
         message: localizeUi("dialog.delete.namedPermanent", {
-          name: formData?.name?.trim() || localizeUi("ui.characters.charactereditor.thisCharacter"),
+          name:
+            getPersistedCharacterName(rawCharacter as ParsedCharacter | undefined) ||
+            localizeUi("ui.characters.charactereditor.thisCharacter"),
         }),
         confirmLabel: localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",

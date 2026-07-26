@@ -166,7 +166,9 @@ export function createChatPresetsStorage(db: DB) {
       const existing = await storage.getById(id);
       if (!existing) return null;
       const patch: Record<string, unknown> = { updatedAt: now() };
-      if (data.name !== undefined) patch.name = data.name;
+      // The built-in Default profile keeps its fixed identity even if storage
+      // is called outside the HTTP route's user-facing validation.
+      if (data.name !== undefined && !existing.isDefault) patch.name = data.name;
       if (data.settings !== undefined) {
         // The Default profile must always have empty settings; refuse to write into it.
         if (existing.isDefault) {
@@ -209,12 +211,15 @@ export function createChatPresetsStorage(db: DB) {
       const target = await storage.getById(id);
       if (!target) return null;
       const ts = now();
-      // Clear any other active flag for this mode, then set this one.
-      await db
-        .update(chatPresets)
-        .set({ isActive: "false", updatedAt: ts })
-        .where(and(eq(chatPresets.mode, target.mode), ne(chatPresets.id, id)));
-      await db.update(chatPresets).set({ isActive: "true", updatedAt: ts }).where(eq(chatPresets.id, id));
+      // Keep the clear-and-set pair atomic so concurrent callers cannot leave
+      // a mode with zero or multiple active profiles.
+      await db.transaction(async (tx) => {
+        await tx
+          .update(chatPresets)
+          .set({ isActive: "false", updatedAt: ts })
+          .where(and(eq(chatPresets.mode, target.mode), ne(chatPresets.id, id)));
+        await tx.update(chatPresets).set({ isActive: "true", updatedAt: ts }).where(eq(chatPresets.id, id));
+      });
       return storage.getById(id);
     },
 
@@ -323,9 +328,17 @@ export function createChatPresetsStorage(db: DB) {
           });
           defaultId = id;
         }
-        const active = await storage.getActive(mode);
-        if (!active && defaultId) {
+        const activeRows = (await db
+          .select()
+          .from(chatPresets)
+          .where(and(eq(chatPresets.mode, mode), eq(chatPresets.isActive, "true")))) as ChatPresetRow[];
+        if (activeRows.length === 0 && defaultId) {
           await storage.setActive(defaultId);
+        } else if (activeRows.length > 1) {
+          const activeId = [...activeRows].sort(
+            (left, right) => right.updatedAt.localeCompare(left.updatedAt),
+          )[0]!.id;
+          await storage.setActive(activeId);
         }
       }
     },

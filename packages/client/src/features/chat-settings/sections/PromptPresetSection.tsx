@@ -104,7 +104,11 @@ export function PromptPresetSection({
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--foreground)] transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--primary)]/40"
           >
             <Layers size="0.75rem" className="shrink-0 text-[var(--primary)]" />
-            <span className="min-w-0 flex-1 truncate">{t("chat.settings.promptPreset.quickEdit.show")}</span>
+            <span className="min-w-0 flex-1 truncate">
+              {quickEditorExpanded
+                ? t("chat.settings.promptPreset.quickEdit.hide")
+                : t("chat.settings.promptPreset.quickEdit.show")}
+            </span>
             <ChevronDown
               aria-hidden
               size="0.75rem"

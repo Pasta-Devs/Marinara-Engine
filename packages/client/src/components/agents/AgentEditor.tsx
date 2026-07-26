@@ -1453,7 +1453,7 @@ export function AgentEditor() {
       !(await showConfirmDialog({
         title:localizeUi("ui.agents.agenteditor.deleteAgent_09b378f"),
         message: localizeUi("dialog.delete.namedPermanent", {
-          name: localName.trim() || dbConfig.name,
+          name: dbConfig.name,
         }),
         confirmLabel:localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",

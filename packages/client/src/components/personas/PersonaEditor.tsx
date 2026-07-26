@@ -1243,7 +1243,7 @@ export function PersonaEditor() {
       !(await showConfirmDialog({
         title: localizeUi("ui.personas.personaeditor.deletePersona_0b2415a"),
         message: localizeUi("dialog.delete.namedPermanent", {
-          name: formData?.name?.trim() || localizeUi("ui.characters.cardlibrarydetailcard.persona"),
+          name: rawPersona?.name || localizeUi("ui.characters.cardlibrarydetailcard.persona"),
         }),
         confirmLabel: localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",

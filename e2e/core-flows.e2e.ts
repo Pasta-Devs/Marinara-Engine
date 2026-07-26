@@ -544,11 +544,56 @@ test("settings profile exports use the new identity and legacy exports still imp
     const legacyImport = (await legacyImportResponse.json()) as { id: string };
     createdIds.add(legacyImport.id);
 
+    const invalidSettingsResponse = await request.post("/api/chat-presets/import", {
+      data: {
+        ...envelope,
+        data: {
+          ...envelope.data,
+          name: `Invalid Settings Profile ${suffix}`,
+          settings: { connectionId: 42 },
+        },
+      },
+    });
+    expect(invalidSettingsResponse.status()).toBe(400);
+    expect(await invalidSettingsResponse.json()).toEqual({ error: "Invalid settings profile settings" });
+
     const invalidImportResponse = await request.post("/api/chat-presets/import", {
       data: { type: "unknown", data: envelope.data },
     });
     expect(invalidImportResponse.status()).toBe(400);
     expect(await invalidImportResponse.json()).toEqual({ error: "Invalid settings profile file" });
+
+    const profileListResponse = await request.get("/api/chat-presets?mode=roleplay");
+    expect(profileListResponse.ok()).toBeTruthy();
+    const profiles = (await profileListResponse.json()) as Array<{
+      id: string;
+      name: string;
+      isDefault: boolean;
+      isActive: boolean;
+    }>;
+    const defaultProfile = profiles.find((candidate) => candidate.isDefault);
+    expect(defaultProfile).toBeTruthy();
+    if (!defaultProfile) throw new Error("Expected the built-in Default settings profile");
+
+    const renameDefaultResponse = await request.patch(`/api/chat-presets/${defaultProfile.id}`, {
+      data: { name: `Renamed Default ${suffix}` },
+    });
+    expect(renameDefaultResponse.status()).toBe(400);
+    expect(await renameDefaultResponse.json()).toEqual({ error: "Cannot rename the Default settings profile" });
+    const defaultAfterRenameResponse = await request.get(`/api/chat-presets/${defaultProfile.id}`);
+    expect(defaultAfterRenameResponse.ok()).toBeTruthy();
+    expect((await defaultAfterRenameResponse.json()) as { name: string }).toMatchObject({ name: defaultProfile.name });
+
+    const [activateCurrentResponse, activateLegacyResponse] = await Promise.all([
+      request.post(`/api/chat-presets/${currentImport.id}/set-active`),
+      request.post(`/api/chat-presets/${legacyImport.id}/set-active`),
+    ]);
+    expect(activateCurrentResponse.ok()).toBeTruthy();
+    expect(activateLegacyResponse.ok()).toBeTruthy();
+    const activeListResponse = await request.get("/api/chat-presets?mode=roleplay");
+    expect(activeListResponse.ok()).toBeTruthy();
+    const activeProfiles = (await activeListResponse.json()) as Array<{ isActive: boolean }>;
+    expect(activeProfiles.filter((candidate) => candidate.isActive)).toHaveLength(1);
   } finally {
     await Promise.allSettled([...createdIds].map((id) => request.delete(`/api/chat-presets/${id}`)));
   }
@@ -2971,6 +3016,7 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
     await quickEditorToggle.click();
     await expect(quickEditor).toBeVisible();
     await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(quickEditorToggle).toContainText("Collapse preset editor");
     await expect(drawer.locator('[data-prompt-preset-chevron="select"]')).toBeVisible();
 
     const toolbar = quickEditor.locator(".mari-editor-toolbar");
@@ -3006,10 +3052,12 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
     await expect(drawer).toBeVisible();
     await expect(quickEditor).toBeVisible();
     await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(quickEditorToggle).toContainText("Collapse preset editor");
 
     await quickEditorToggle.click();
     await expect(quickEditor).toBeHidden();
     await expect(quickEditorToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(quickEditorToggle).toContainText("Edit preset");
 
     await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
     await expect(drawer).toHaveCount(0);
