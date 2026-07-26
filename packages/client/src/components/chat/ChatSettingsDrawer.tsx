@@ -723,6 +723,9 @@ const CHAT_SETTINGS_ORDER = {
   gamePrompt: 0,
 } as const;
 
+const CHAT_RESOURCE_REMOVE_BUTTON_CLASS =
+  "mari-accent-animated flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-accent)] focus-visible:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] focus-visible:text-[var(--marinara-chat-chrome-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)]";
+
 const CHAT_PRESET_UNAPPLIED_SELECT_VALUE = "__chat_preset_unapplied__";
 
 type AvailableAgent = {
@@ -4410,7 +4413,8 @@ export function ChatSettingsDrawer({
                         <button
                           type="button"
                           onClick={() => updateChat.mutate({ id: chat.id, personaId: null })}
-                          className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                          className={CHAT_RESOURCE_REMOVE_BUTTON_CLASS}
+                          data-chat-settings-remove-resource="persona"
                           title={localizeUi("ui.chat.chatsettingsdrawer.removePersona")}
                         >
                           <X size="0.75rem" />
@@ -4585,7 +4589,8 @@ export function ChatSettingsDrawer({
                             </button>
                             <button
                               onClick={() => toggleCharacter(c.id)}
-                              className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                              className={CHAT_RESOURCE_REMOVE_BUTTON_CLASS}
+                              data-chat-settings-remove-resource="character"
                               title={localizeUi("ui.chat.chatsettingsdrawer.removeFromParty")}
                             >
                               <Trash2 size="0.6875rem" />
@@ -4705,7 +4710,8 @@ export function ChatSettingsDrawer({
                       <button
                         type="button"
                         onClick={() => updateChat.mutate({ id: chat.id, personaId: null })}
-                        className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                        className={CHAT_RESOURCE_REMOVE_BUTTON_CLASS}
+                        data-chat-settings-remove-resource="persona"
                         title={localizeUi("ui.chat.chatsettingsdrawer.removePersona")}
                       >
                         <X size="0.75rem" />
@@ -4952,7 +4958,8 @@ export function ChatSettingsDrawer({
                           </button>
                           <button
                             onClick={() => toggleCharacter(c.id)}
-                            className="flex h-5 w-5 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+                            className={CHAT_RESOURCE_REMOVE_BUTTON_CLASS}
+                            data-chat-settings-remove-resource="character"
                             title={localizeUi("ui.chat.chatsettingsdrawer.removeFromChat")}
                           >
                             <Trash2 size="0.6875rem" />

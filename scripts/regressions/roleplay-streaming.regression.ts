@@ -208,11 +208,25 @@ assert.match(
   "an Illustrator-only retry should expose the same background handoff",
 );
 const chatTextareaSource = chatInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
+const chatHandleInputSource =
+  chatInputSource.match(
+    /const handleInput = \(event\?: FormEvent<HTMLTextAreaElement>\) => \{[\s\S]*?\n  \};\n\n  \/\/ Dismiss feedback/u,
+  )?.[0] ?? "";
 assert.match(chatTextareaSource, /disabled=\{!activeChatId\}/u);
 assert.doesNotMatch(
   chatTextareaSource,
   /disabled=\{[^}]*isInputBusy/u,
   "agent work should guard sending without disabling preparation of the next draft",
+);
+assert.match(
+  chatHandleInputSource,
+  /resizeTimerRef\.current = setTimeout\(\(\) => \{[\s\S]*?resizeChatInputTextarea\(el\);[\s\S]*?\}, 150\);/u,
+  "Roleplay textarea measurement should wait for a typing pause instead of forcing layout on each keystroke",
+);
+assert.doesNotMatch(
+  chatHandleInputSource,
+  /requestAnimationFrame\(\(\) => \{[\s\S]*?resizeChatInputTextarea\(el\);/u,
+  "Roleplay textarea resizing must not force a scrollHeight layout read every animation frame",
 );
 const conversationTextareaSource = conversationInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
 assert.doesNotMatch(

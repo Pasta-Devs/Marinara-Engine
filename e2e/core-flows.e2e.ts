@@ -3143,8 +3143,20 @@ test("Chat Settings edits only the selected cards and lorebook entries inline", 
     await expect(drawer).toBeVisible();
     expect(detailGetPaths).not.toContain(`/api/characters/${unselectedCharacter.id}`);
     expect(detailGetPaths).not.toContain(`/api/lorebooks/${lorebook.id}/entries`);
+    const accentColor = "rgb(20, 184, 166)";
+    await page.evaluate((accent) => {
+      document.documentElement.style.setProperty("--marinara-chat-chrome-accent", accent);
+      document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
+    }, accentColor);
 
     await drawer.getByText("Persona", { exact: true }).first().click();
+    const removePersonaButton = drawer.locator('[data-chat-settings-remove-resource="persona"]');
+    await expect(removePersonaButton).toHaveCount(1);
+    expect(await removePersonaButton.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+    if (!testInfo.project.name.includes("mobile")) {
+      await removePersonaButton.hover();
+      await expect(removePersonaButton).toHaveCSS("color", accentColor);
+    }
     await drawer.getByRole("button", { name: "Edit persona card", exact: true }).click();
     const personaEditor = drawer.locator(`[data-chat-settings-inline-card-editor="persona:${persona.id}"]`);
     await expect(personaEditor).toBeVisible();
@@ -3161,6 +3173,13 @@ test("Chat Settings edits only the selected cards and lorebook entries inline", 
       .toBe("Updated persona description.");
 
     await drawer.getByText("Characters", { exact: true }).first().click();
+    const removeCharacterButton = drawer.locator('[data-chat-settings-remove-resource="character"]');
+    await expect(removeCharacterButton).toHaveCount(1);
+    expect(await removeCharacterButton.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
+    if (!testInfo.project.name.includes("mobile")) {
+      await removeCharacterButton.hover();
+      await expect(removeCharacterButton).toHaveCSS("color", accentColor);
+    }
     await drawer.getByRole("button", { name: "Edit character card", exact: true }).click();
     const characterEditor = drawer.locator(`[data-chat-settings-inline-card-editor="character:${character.id}"]`);
     await expect(characterEditor).toBeVisible();
