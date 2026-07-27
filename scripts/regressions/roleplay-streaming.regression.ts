@@ -312,8 +312,18 @@ assert.doesNotMatch(
 );
 assert.match(
   chatInputSource,
-  /setHasInput\(\(current\) => \(current === nextHasInput \? current : nextHasInput\)\);/u,
+  /if \(hasInputRef\.current === nextHasInput\) return;[\s\S]*?setHasInput\(nextHasInput\);[\s\S]*?setCurrentInputPresence\(nextHasInput\);/u,
   "Roleplay composer presence should change only when the draft crosses the empty boundary",
+);
+assert.doesNotMatch(
+  chatInputSource,
+  /currentInputFrameRef/u,
+  "Roleplay typing and deletion should not publish draft snapshots on an animation-frame cadence",
+);
+assert.match(
+  chatInputSource,
+  /updateCurrentInputSnapshot\(value\);/u,
+  "Roleplay should update its raw guided-regeneration snapshot without notifying Zustand subscribers",
 );
 assert.match(
   chatMessageSource,
@@ -347,7 +357,7 @@ assert.match(
 );
 assert.match(
   chatStoreSource,
-  /currentInputSnapshot = text;[\s\S]*?if \(get\(\)\.hasCurrentInput\) return;/u,
+  /setCurrentInputPresence: \(hasInput\) => \{[\s\S]*?state\.hasCurrentInput === hasInput/u,
   "ordinary draft characters should not notify mounted chat-store subscribers",
 );
 assert.match(
@@ -356,14 +366,29 @@ assert.match(
   "guided regeneration should read the exact draft without subscribing the UI to every character",
 );
 assert.match(
-  chatInputSource,
-  /if \(chatState\.activeChatId === chatId\) \{[\s\S]*?chatState\.setCurrentInput\(pendingCurrentInputRef\.current\);/u,
-  "Roleplay input should publish its final raw draft snapshot only while its chat remains active",
+  chatStoreSource,
+  /export function updateCurrentInputSnapshot\(text: string\): void \{[\s\S]*?currentInputSnapshot = text;/u,
+  "Roleplay input should publish its exact draft through the non-reactive snapshot path",
 );
 assert.doesNotMatch(
   chatRoleplaySurfaceSource,
   /hasDraftInput=\{hasDraftInput\}/u,
   "Roleplay draft presence should not rerender every heavyweight transcript message",
+);
+assert.doesNotMatch(
+  chatRoleplaySurfaceSource,
+  /setChromeHeights/u,
+  "Roleplay composer growth should not rerender the heavyweight transcript through React state",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /scrollElement\.style\.setProperty\("--mari-roleplay-content-padding-bottom"/u,
+  "Roleplay composer growth should update the transcript inset directly",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /paddingBottom: "var\(--mari-roleplay-content-padding-bottom, 16px\)"/u,
+  "Roleplay transcript padding should consume the imperatively measured composer inset",
 );
 assert.match(
   chatMessageSource,

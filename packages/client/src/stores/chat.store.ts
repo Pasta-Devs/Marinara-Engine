@@ -32,6 +32,11 @@ export function getCurrentInputSnapshot(): string {
   return currentInputSnapshot;
 }
 
+/** Update the exact active composer value without notifying Zustand subscribers. */
+export function updateCurrentInputSnapshot(text: string): void {
+  currentInputSnapshot = text;
+}
+
 function clearCurrentInputPresenceTimer(): void {
   if (currentInputPresenceTimer === null) return;
   clearTimeout(currentInputPresenceTimer);
@@ -309,6 +314,7 @@ interface ChatState {
   clearPendingSpatialTransition: (chatId: string, commandId?: string) => void;
   setPendingSpatialTransitionStatus: (chatId: string, status: PendingSpatialTransitionDraft["status"]) => void;
   setCurrentInput: (text: string) => void;
+  setCurrentInputPresence: (hasInput: boolean) => void;
   incrementUnread: (chatId: string) => void;
   hydrateUnread: (
     unread: Array<{
@@ -790,7 +796,7 @@ export const useChatStore = create<ChatState>()(
       }),
 
     setCurrentInput: (text) => {
-      currentInputSnapshot = text;
+      updateCurrentInputSnapshot(text);
       const hasCurrentInput = text.trim().length > 0;
       clearCurrentInputPresenceTimer();
       if (!hasCurrentInput) {
@@ -802,6 +808,10 @@ export const useChatStore = create<ChatState>()(
         currentInputPresenceTimer = null;
         if (currentInputSnapshot.trim().length > 0) set({ hasCurrentInput: true });
       }, CURRENT_INPUT_PRESENCE_IDLE_MS);
+    },
+    setCurrentInputPresence: (hasInput) => {
+      clearCurrentInputPresenceTimer();
+      set((state) => (state.hasCurrentInput === hasInput ? state : { hasCurrentInput: hasInput }));
     },
 
     incrementUnread: (chatId: string) =>
