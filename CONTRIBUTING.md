@@ -206,6 +206,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
 - Translate prose, headings, table text, and link text only. Code blocks, inline code, file paths, URLs, and link targets (including `#fragments`) stay byte-identical to English, and every file keeps its leading `# ` heading. Per-language conventions, in both cases with in-app UI labels kept in English bold plus a one-time native-language gloss:
   - Spanish: neutral international Spanish ("tú", no regionalisms).
   - German: natural standard High German (lowercase "du", en dashes `–`, Duden-style compound hyphenation for English loanwords such as "Lorebook-Eintrag"; mode names Conversation/Roleplay/Game Mode stay English).
+  - French: natural standard French (tutoiement; no anglicisms or colloquialisms like "l'appli"/"checker"; plain ASCII spaces before `:` `;` `!` `?` and straight quotes/apostrophes — never `«»` or non-breaking spaces, which break the substring search and copy-paste; en dashes `–` for parentheticals, accents kept on capitals such as `É`; mode names Conversation/Roleplay/Game Mode stay English).
 - After editing a pack, run `node scripts/docs-i18n/build-manifest.mjs <pack-dir>` to refresh hashes, then `node scripts/docs-i18n/validate-pack.mjs <pack-dir>` from the Engine repo root, before committing to `docs-i18n`.
 
 ## Localization
