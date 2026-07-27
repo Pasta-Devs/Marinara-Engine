@@ -50,9 +50,11 @@ Unter Android liegt der Datenordner des Servers meist im App-Speicher, an den du
 
 Um unter Android trotzdem eine Kopie der Daten zu bekommen, nutze die Schaltfläche **Download Backup** (Backup herunterladen). Du findest sie unter **Settings** im Tab **Advanced** im Bereich **Backup & Export**. Daraus entsteht eine einzelne ZIP-Datei mit allen Daten. Sofern vorhanden, enthält das ZIP auch die Datei `.encryption-key`. Zuverlässiger lassen sich Daten vom Handy nicht sichern.
 
-Derselbe Bereich kann zusätzlich ein rotierendes automatisches Archiv führen – täglich, wöchentlich oder monatlich – unter
-`backups/marinara-automatic-backup.zip` im Datenordner. Kopiere wichtige Backups zusätzlich an einen Ort außerhalb des
-App-Speichers: Beim Deinstallieren oder Zurücksetzen der App verschwinden sonst die aktiven Daten und das lokale automatische Backup gleich mit.
+Derselbe Bereich kann zusätzlich 1 bis 9999 rotierende tägliche, wöchentliche oder monatliche automatische Archive unter
+`backups/` im Datenordner aufbewahren. Das neueste heißt `marinara-automatic-backup.zip`; ältere aufbewahrte automatische
+Archive tragen einen Zeitstempel im Dateinamen. Diese Grenze gilt nur für automatische Backups. Kopiere wichtige Backups
+zusätzlich an einen Ort außerhalb des App-Speichers: Beim Deinstallieren oder Zurücksetzen der App können sonst sowohl die
+aktiven Daten als auch die lokalen automatischen Backups verschwinden.
 
 Alle Schritte zum Sichern und Wiederherstellen auf jeder Plattform findest du unter [Marinara sichern und wiederherstellen](backup-and-restore.md).
 

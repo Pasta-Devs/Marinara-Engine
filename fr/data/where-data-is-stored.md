@@ -50,9 +50,11 @@ Sur Android, le dossier de données du serveur se trouve en général dans un es
 
 Pour récupérer une copie de tes données sur Android, utilise le bouton **Download Backup** (télécharger la sauvegarde). Tu le trouves dans **Settings**, sur l'onglet **Advanced**, dans la section **Backup & Export**. Il crée un seul fichier zip contenant tes données. Le zip inclut le fichier `.encryption-key` quand celui-ci existe. C'est la méthode la plus fiable pour sauvegarder tes données depuis un téléphone.
 
-La même section peut conserver une archive automatique tournante, quotidienne, hebdomadaire ou mensuelle, dans
-`backups/marinara-automatic-backup.zip`, à l'intérieur du dossier de données. Copie aussi les sauvegardes importantes ailleurs que dans l'espace de stockage
-de l'application : désinstaller ou réinitialiser l'application peut supprimer à la fois les données actives et la sauvegarde automatique locale.
+La même section peut conserver de 1 à 9999 archives automatiques tournantes quotidiennes, hebdomadaires ou mensuelles dans
+`backups/`, à l'intérieur du dossier de données. La plus récente porte le nom `marinara-automatic-backup.zip` et les anciennes
+archives automatiques conservées sont horodatées. Cette limite ne s'applique qu'aux sauvegardes automatiques. Copie aussi les
+sauvegardes importantes ailleurs que dans l'espace de stockage de l'application : désinstaller ou réinitialiser l'application
+peut supprimer à la fois les données actives et ses sauvegardes automatiques locales.
 
 Pour la marche à suivre complète, sauvegarde et restauration, sur chaque plateforme, consulte [Sauvegarder et restaurer Marinara](backup-and-restore.md).
 

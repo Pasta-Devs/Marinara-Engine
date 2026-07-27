@@ -50,9 +50,11 @@ En Android, la carpeta de datos del servidor suele estar en un almacenamiento de
 
 Para obtener una copia de tus datos en Android, usa el botón **Download Backup** (Descargar copia de seguridad). Lo encuentras en **Settings**, en la pestaña **Advanced**, en la sección **Backup & Export**. Esto crea un único archivo zip con tus datos. El zip incluye el archivo `.encryption-key` cuando existe uno. Esta es la forma más fiable de guardar tus datos desde un teléfono.
 
-La misma sección puede mantener una copia automática rotativa diaria, semanal o mensual en
-`backups/marinara-automatic-backup.zip` dentro de la carpeta de datos. Copia las copias de seguridad importantes también en algún lugar fuera del
-almacenamiento de la app, porque desinstalar o restablecer la app puede eliminar tanto los datos activos como su copia de seguridad automática local.
+La misma sección puede conservar de 1 a 9999 archivos automáticos rotativos diarios, semanales o mensuales en `backups/`, dentro
+de la carpeta de datos. El más reciente se llama `marinara-automatic-backup.zip` y los archivos automáticos anteriores que se
+conservan llevan una marca de tiempo. Este límite se aplica únicamente a las copias de seguridad automáticas. Copia las copias
+de seguridad importantes también en algún lugar fuera del almacenamiento de la app, porque desinstalar o restablecer la app
+puede eliminar tanto los datos activos como sus copias de seguridad automáticas locales.
 
 Para los pasos completos de copia de seguridad y restauración en cada plataforma, consulta [Copia de seguridad y restauración de Marinara](backup-and-restore.md).
 

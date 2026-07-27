@@ -40,14 +40,16 @@ El **.zip** también contiene un archivo de texto plano llamado `RESTORE.txt`. E
 ## Copias de seguridad automáticas
 
 La sección **Backup & Export** también puede crear una copia de seguridad automática completa que va rotando en el dispositivo que ejecuta Marinara.
-Activa **Automatic Backups** (Copias de seguridad automáticas) y luego elige **Daily**, **Weekly** o **Monthly**. Marinara crea la primera copia
-poco después de que la actives y reemplaza ese archivo automático tras cada ejecución exitosa, de modo que la carpeta de copias de seguridad no
-crece sin límite.
+Activa **Automatic Backups** (Copias de seguridad automáticas), elige **Daily**, **Weekly** o **Monthly** y configura
+**Automatic backups kept** con un valor de 1 a 9999. Marinara crea la primera copia poco después de que la actives. Después de
+cada ejecución exitosa, conserva el número configurado de archivos automáticos más recientes y elimina el archivo automático
+sobrante más antiguo. Este límite de retención nunca elimina copias de seguridad manuales ni las guardadas con **Download Backup**.
 
-Las copias de seguridad automáticas se guardan como `backups/marinara-automatic-backup.zip` dentro de la carpeta de datos de Marinara. Usan el
-mismo formato de archivo restaurable y transmitido que **Download Backup**, incluidos los medios subidos y el archivo de la clave de cifrado
-cuando existe uno. Mantén una copia aparte, fuera de la carpeta de datos de Marinara, si necesitas protección frente a un disco perdido, un almacenamiento
-de la app borrado o un restablecimiento del dispositivo.
+Las copias de seguridad automáticas se guardan dentro de `backups/`, en la carpeta de datos de Marinara. El archivo más reciente
+se llama `marinara-automatic-backup.zip`; los archivos automáticos anteriores que se conservan usan nombres con marca de tiempo.
+Usan el mismo formato de archivo restaurable y transmitido que **Download Backup**, incluidos los medios subidos y el archivo de
+la clave de cifrado cuando existe uno. Mantén una copia aparte, fuera de la carpeta de datos de Marinara, si necesitas protección
+frente a un disco perdido, un almacenamiento de la app borrado o un restablecimiento del dispositivo.
 
 ## Export Profile
 

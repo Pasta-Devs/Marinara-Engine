@@ -40,14 +40,16 @@ Le **.zip** contient aussi un fichier texte nommé `RESTORE.txt`. Il explique co
 ## Sauvegardes automatiques
 
 La section **Backup & Export** peut aussi créer une sauvegarde complète automatique et tournante, sur l'appareil qui fait tourner Marinara.
-Active **Automatic Backups**, puis choisis **Daily**, **Weekly** ou **Monthly**. Marinara crée la première sauvegarde
-peu après l'activation, puis remplace cette archive automatique après chaque exécution réussie : le dossier de sauvegarde
-ne grossit donc pas sans fin.
+Active **Automatic Backups**, choisis **Daily**, **Weekly** ou **Monthly**, puis règle **Automatic backups kept** sur une valeur
+comprise entre 1 et 9999. Marinara crée la première sauvegarde peu après l'activation. Après chaque exécution réussie, il
+conserve le nombre configuré d'archives automatiques les plus récentes et supprime l'archive automatique excédentaire la plus
+ancienne. Cette limite de conservation ne supprime jamais les sauvegardes manuelles ni celles enregistrées avec **Download Backup**.
 
-Les sauvegardes automatiques sont enregistrées sous `backups/marinara-automatic-backup.zip`, dans le dossier de données de Marinara. Elles emploient le
-même format d'archive restaurable et diffusée en flux que **Download Backup**, médias téléversés compris, ainsi que le fichier de clé de chiffrement
-quand il existe. Garde une copie séparée hors du dossier de données de Marinara pour te protéger d'un disque perdu, d'un stockage
-d'application effacé ou d'une réinitialisation de l'appareil.
+Les sauvegardes automatiques sont enregistrées dans `backups/`, dans le dossier de données de Marinara. L'archive la plus récente
+porte le nom `marinara-automatic-backup.zip` ; les anciennes archives automatiques conservées emploient des noms de fichiers
+horodatés. Elles utilisent le même format d'archive restaurable et diffusée en flux que **Download Backup**, médias téléversés
+compris, ainsi que le fichier de clé de chiffrement quand il existe. Garde une copie séparée hors du dossier de données de
+Marinara pour te protéger d'un disque perdu, d'un stockage d'application effacé ou d'une réinitialisation de l'appareil.
 
 ## Export Profile
 

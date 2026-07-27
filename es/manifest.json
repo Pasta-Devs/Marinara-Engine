@@ -1,6 +1,6 @@
 {
   "language": "es",
-  "sourceCommit": "bf63de09abe5bb2c8a2bb5030ff25e5a41dc9178",
+  "sourceCommit": "753cf5520ce0e549aa4d632d5d5d8abbfdd995aa",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -264,8 +264,8 @@
     },
     {
       "path": "data/backup-and-restore.md",
-      "sha256": "95ad67cccc1cdcd16c070a61b42629ff9aaeed76dbb5f7d732683dd2a03dad30",
-      "bytes": 10409
+      "sha256": "c048a8bceae4acec114a9268289fe00c2a16dc1880ba2122c814a15d4baa2a76",
+      "bytes": 10735
     },
     {
       "path": "data/clearing-data.md",
@@ -279,8 +279,8 @@
     },
     {
       "path": "data/where-data-is-stored.md",
-      "sha256": "433fa785beca7d90562000dffef03c3843e7f07863d89aa2fb3beee26ca92554",
-      "bytes": 5349
+      "sha256": "22d9c3279550a9c6529b7dc27bf7a0f7044aa49079a606f33bf6cecd3bb05941",
+      "bytes": 5562
     },
     {
       "path": "development/architecture-map.md",
