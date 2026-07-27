@@ -791,10 +791,7 @@ assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
       content: markdownContent,
     },
   ]);
-  assert.match(
-    approvalText,
-    /^<!-- marinara:lorebook-entry:v1 -->\r?\n### Bob\r?\nKeys: Bob\r?\nTag: people/u,
-  );
+  assert.match(approvalText, /^<!-- marinara:lorebook-entry:v1 -->\r?\n### Bob\r?\nKeys: Bob\r?\nTag: people/u);
   assert.deepEqual(parseLorebookWriteApprovalText(approvalText), [
     {
       action: "append",
@@ -1561,6 +1558,14 @@ const kaomojiPickerSource = readFileSync(
   new URL("../../packages/client/src/components/ui/KaomojiPicker.tsx", import.meta.url),
   "utf8",
 );
+const emojiPickerSource = readFileSync(
+  new URL("../../packages/client/src/components/ui/EmojiPicker.tsx", import.meta.url),
+  "utf8",
+);
+const conversationMediaPickerSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ConversationMediaPickerPanel.tsx", import.meta.url),
+  "utf8",
+);
 const visualViewportChatBottomSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-visual-viewport-chat-bottom.ts", import.meta.url),
   "utf8",
@@ -1706,11 +1711,22 @@ assert.match(
 );
 assert.match(generationParametersEditorSource, /placeholder:\[text-indent:0\]/u);
 assert.match(
-  kaomojiPickerSource,
-  /e\.composedPath\(\)[\s\S]{0,500}pointInsidePanel[\s\S]{0,250}path\.includes\(panel\)/u,
-  "Kaomoji native-scrollbar presses must remain inside the open picker",
+  conversationMediaPickerSource,
+  /data-conversation-media-picker[\s\S]{0,250}onPointerDown=\{\(event\) => \{[\s\S]{0,250}event\.stopPropagation\(\)/u,
+  "Conversation media-picker content and native-scrollbar presses must not focus the composer and close the picker",
 );
-assert.match(kaomojiPickerSource, /--marinara-chat-chrome-button-text-active/u);
+for (const [name, source] of [
+  ["Emoji", emojiPickerSource],
+  ["Kaomoji", kaomojiPickerSource],
+] as const) {
+  assert.match(
+    source,
+    /flex items-center gap-2 rounded-md bg-foreground\/5 px-2\.5 py-1\.5 ring-1 ring-foreground\/10 transition-shadow focus-within:ring-foreground\/20/u,
+    `${name} search must use the same shell treatment as GIF search`,
+  );
+  assert.match(source, /text-foreground\/45/u, `${name} search icon must match GIF search`);
+  assert.match(source, /placeholder:text-foreground\/35/u, `${name} search placeholder must match GIF search`);
+}
 assert.match(visualViewportChatBottomSource, /detail\?\.keyboardOpen[\s\S]{0,500}scrollToBottom\("auto"\)/u);
 assert.match(characterEditorSource, /if \(uploading \|\| !expression\) return;/u);
 assert.match(personaEditorSource, /if \(uploading \|\| !expression\) return;/u);
@@ -3450,10 +3466,7 @@ try {
     "Memory Recall must expose its switch state to assistive technology",
   );
 
-  const generateHookSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/hooks/use-generate.ts"),
-    "utf8",
-  );
+  const generateHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-generate.ts"), "utf8");
   const clearStreamIndex = generateHookSource.indexOf("clearStreamBuffer(params.chatId);");
   const exposeStreamingIndex = generateHookSource.indexOf("setStreaming(true, params.chatId);", clearStreamIndex);
   assert.ok(

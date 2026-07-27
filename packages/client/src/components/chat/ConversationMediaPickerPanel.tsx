@@ -36,6 +36,13 @@ export function ConversationMediaPickerPanel({
   const { t } = useTranslation();
   return (
     <div
+      data-conversation-media-picker
+      onPointerDown={(event) => {
+        // This panel lives inside the composer shell. Empty-space and native
+        // scrollbar presses must not bubble to the shell's focus handler,
+        // which focuses the textarea and closes the picker.
+        event.stopPropagation();
+      }}
       className={cn(
         "flex h-[22rem] max-h-[60vh] flex-col overflow-hidden rounded-xl border border-foreground/10 bg-[var(--card)] shadow-xl",
         className,
@@ -69,9 +76,7 @@ export function ConversationMediaPickerPanel({
               icon: "⭐",
               label: t("ui.noodle.media.customEmojis"),
               render: (query) => <CustomEmojiTab onInsert={onEmojiSelect} query={query} />,
-              renderSearch: (query) => (
-                <CustomEmojiTab onInsert={onEmojiSelect} query={query} searchResultsOnly />
-              ),
+              renderSearch: (query) => <CustomEmojiTab onInsert={onEmojiSelect} query={query} searchResultsOnly />,
             }}
           />
         )}
