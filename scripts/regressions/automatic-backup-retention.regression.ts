@@ -23,6 +23,19 @@ assert.equal(normalizeAutomaticBackupRetentionCount(0), 1);
 assert.equal(normalizeAutomaticBackupRetentionCount(10_000), 9_999);
 assert.equal(normalizeAutomaticBackupRetentionCount(3.9), 3);
 
+const backupRouteSource = await readFile(
+  new URL("../../packages/server/src/routes/backup.routes.ts", import.meta.url),
+  "utf8",
+);
+assert.match(
+  backupRouteSource,
+  /withAutomaticBackupLifecycleLock\(\(\) =>\s*writeAutomaticBackup\(app, settings\.retentionCount\)/u,
+);
+assert.match(
+  backupRouteSource,
+  /withAutomaticBackupLifecycleLock\(\(\) =>\s*pruneAutomaticBackupFiles\(backupsRoot, next\.retentionCount\)/u,
+);
+
 const timestampedName = automaticBackupArchiveFilename(new Date("2026-07-27T20:00:00.000Z"));
 assert.equal(timestampedName, "marinara-automatic-backup-2026-07-27T20-00-00-000Z.zip");
 assert.equal(isAutomaticBackupFilename(AUTOMATIC_BACKUP_FILENAME), true);

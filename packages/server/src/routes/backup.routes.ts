@@ -90,6 +90,7 @@ const ZIP_EOCD_MIN_SIZE = 22;
 const ZIP_EOCD_MAX_COMMENT_BYTES = 0xffff;
 const ZIP_ENCRYPTED_FLAG = 0x0001;
 let profileImportLifecycleTail = Promise.resolve();
+let automaticBackupLifecycleTail = Promise.resolve();
 
 type AutomaticBackupFrequency = "daily" | "weekly" | "monthly";
 type AutomaticBackupSettings = {
@@ -140,6 +141,26 @@ async function withProfileImportLifecycleLock<T>(task: () => Promise<T>): Promis
   } finally {
     release();
   }
+}
+
+/** Serialize automatic backup rotation and retention pruning against the same archive directory. */
+async function withAutomaticBackupLifecycleLock<T>(task: () => Promise<T>): Promise<T> {
+  const predecessor = automaticBackupLifecycleTail;
+  let release: () => void = () => undefined;
+  automaticBackupLifecycleTail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await predecessor;
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
+
+/** Resolve the directory shared by automatic archives and user-created backup folders. */
+function getBackupsRoot(): string {
+  return join(getDataDir(), "backups");
 }
 
 function normalizeLorebookScope(value: unknown): { mode: "all" | "disabled" | "specific"; chatIds: string[] } {
@@ -2162,7 +2183,7 @@ async function writeFullBackupArchive(
 
 async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number) {
   await flushDB();
-  const backupsRoot = join(getDataDir(), "backups");
+  const backupsRoot = getBackupsRoot();
   const workingDir = await mkdtemp(join(tmpdir(), "marinara-automatic-backup-"));
   const pendingPath = join(backupsRoot, `${AUTOMATIC_BACKUP_FILENAME}.pending`);
   const finalPath = join(backupsRoot, AUTOMATIC_BACKUP_FILENAME);
@@ -2235,7 +2256,7 @@ export async function backupRoutes(app: FastifyInstance) {
   const automaticBackupResponse = async (settings: AutomaticBackupSettings) => ({
     ...settings,
     nextBackupAt: automaticBackupNextAt(settings),
-    backupExists: await automaticBackupExists(join(getDataDir(), "backups")),
+    backupExists: await automaticBackupExists(getBackupsRoot()),
   });
   const runAutomaticBackupIfDue = async (force = false) => {
     if (automaticBackupRunning) return;
@@ -2250,7 +2271,9 @@ export async function backupRoutes(app: FastifyInstance) {
         Date.now() - lastBackupMs >= automaticBackupPeriodMs(settings.frequency);
       if (!due) return;
 
-      const removedBackups = await writeAutomaticBackup(app, settings.retentionCount);
+      const removedBackups = await withAutomaticBackupLifecycleLock(() =>
+        writeAutomaticBackup(app, settings.retentionCount),
+      );
       const current = await loadAutomaticBackupSettings();
       await saveAutomaticBackupSettings({
         ...current,
@@ -2294,8 +2317,10 @@ export async function backupRoutes(app: FastifyInstance) {
       lastError: null,
     });
     await saveAutomaticBackupSettings(next);
-    const backupsRoot = join(getDataDir(), "backups");
-    const removedBackups = await pruneAutomaticBackupFiles(backupsRoot, next.retentionCount);
+    const backupsRoot = getBackupsRoot();
+    const removedBackups = await withAutomaticBackupLifecycleLock(() =>
+      pruneAutomaticBackupFiles(backupsRoot, next.retentionCount),
+    );
     if (removedBackups.length > 0) {
       logger.info(
         "[backup] Automatic backup retention changed; pruned %d expired automatic archive(s)",
@@ -2378,7 +2403,7 @@ export async function backupRoutes(app: FastifyInstance) {
 
   // List existing backups
   app.get("/", async () => {
-    const backupsRoot = join(getDataDir(), "backups");
+    const backupsRoot = getBackupsRoot();
     if (!existsSync(backupsRoot)) return [];
 
     return readdirSync(backupsRoot)
@@ -2402,7 +2427,7 @@ export async function backupRoutes(app: FastifyInstance) {
     if (!/^marinara-backup-[\w-]+$/.test(name)) {
       return reply.status(400).send({ error: "Invalid backup name" });
     }
-    const backupsRoot = join(getDataDir(), "backups");
+    const backupsRoot = getBackupsRoot();
     const backupDir = join(backupsRoot, name);
 
     if (!existsSync(backupDir)) {

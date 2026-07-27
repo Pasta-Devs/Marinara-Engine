@@ -96,12 +96,23 @@ function appendContextField(parts: string[], label: string, value: string | unde
   if (text) parts.push(`${label}: ${text.slice(0, maxLength)}`);
 }
 
+function escapeContextAttribute(value: string): string {
+  return value
+    .trim()
+    .slice(0, 120)
+    .replace(/&/gu, "&amp;")
+    .replace(/"/gu, "&quot;")
+    .replace(/'/gu, "&apos;")
+    .replace(/</gu, "&lt;")
+    .replace(/>/gu, "&gt;");
+}
+
 function buildCharacterPersonaContext(context: AgentContext): string {
   const parts: string[] = ["<visual_identity_context>"];
   if (context.characters.length > 0) {
     parts.push("<characters>");
     for (const character of context.characters) {
-      parts.push(`<character name="${character.name}">`);
+      parts.push(`<character name="${escapeContextAttribute(character.name)}">`);
       appendContextField(parts, "Description", character.description, 2_000);
       appendContextField(parts, "Appearance", character.appearance, 1_500);
       appendContextField(parts, "Personality", character.personality, 1_000);

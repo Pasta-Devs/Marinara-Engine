@@ -19,7 +19,6 @@ import {
   normalizeWorldCustomFields,
   normalizeAgentPhaseValue,
   normalizeAgentPromptTemplateSelectionMap,
-  findImageStyleProfile,
   resolveMacros,
   resolveGameSetupArtStylePrompt,
   resolveAgentPromptTemplate,
@@ -172,6 +171,7 @@ import {
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorStyleProfile,
 } from "../../services/generation/illustrator-background-generation.js";
 import { writeManualIllustratorPromptPlan } from "../../services/generation/illustrator-manual-prompt-generation.js";
 import {
@@ -503,12 +503,12 @@ async function resolveManualIllustratorStyleInstruction(args: {
     (imageConnectionId ? await args.conns.getWithKey(imageConnectionId) : null) ??
     (await args.conns.getDefaultForImageGeneration());
   const imageDefaults = imageConnection ? resolveConnectionImageDefaults(imageConnection) : null;
-  const styleProfileId =
-    (typeof setupConfig.imageStyleProfileId === "string" ? setupConfig.imageStyleProfileId.trim() : "") ||
-    (typeof args.chatMeta.imageStyleProfileId === "string" ? args.chatMeta.imageStyleProfileId.trim() : "") ||
-    imageDefaults?.styleProfileId ||
-    imageSettings.styleProfiles.defaultProfileId;
-  return findImageStyleProfile(imageSettings.styleProfiles, styleProfileId).styleText.trim();
+  return resolveIllustratorStyleProfile(
+    setupConfig,
+    args.chatMeta,
+    imageDefaults?.styleProfileId,
+    imageSettings.styleProfiles,
+  ).styleInstruction;
 }
 
 async function executeManualIllustratorPromptRequest(args: {

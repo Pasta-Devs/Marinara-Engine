@@ -1,4 +1,9 @@
-import { findImageStyleProfile, resolveGameSetupArtStylePrompt, type GameState } from "@marinara-engine/shared";
+import {
+  findImageStyleProfile,
+  resolveGameSetupArtStylePrompt,
+  type GameState,
+  type ImageStyleProfileSettings,
+} from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
@@ -244,6 +249,25 @@ export function resolveIllustratorImageConnectionId(
   );
 }
 
+/** Resolve the shared Illustrator style precedence used by manual illustrations and scene backgrounds. */
+export function resolveIllustratorStyleProfile(
+  setupConfig: Record<string, unknown>,
+  chatMetadata: Record<string, unknown>,
+  connectionStyleProfileId: unknown,
+  styleProfiles: ImageStyleProfileSettings,
+): { styleProfileId: string | null; styleInstruction: string } {
+  const styleProfileId =
+    readTrimmedString(setupConfig.imageStyleProfileId) ||
+    readTrimmedString(chatMetadata.imageStyleProfileId) ||
+    readTrimmedString(connectionStyleProfileId) ||
+    styleProfiles.defaultProfileId ||
+    null;
+  return {
+    styleProfileId,
+    styleInstruction: findImageStyleProfile(styleProfiles, styleProfileId).styleText.trim(),
+  };
+}
+
 async function resolveIllustratorImageConnection(
   connections: ConnectionsStorage,
   illustratorAgent: ResolvedAgent,
@@ -299,13 +323,12 @@ export async function generateIllustratorSceneBackground(args: {
   const imageFallback = await resolveImageConnectionFallback(connections, imageConnection.id);
   const imageDefaults = resolveConnectionImageDefaults(imageConnection);
   const setupConfig = isRecord(args.chatMetadata.gameSetupConfig) ? args.chatMetadata.gameSetupConfig : {};
-  const styleProfileId =
-    readTrimmedString(setupConfig.imageStyleProfileId) ||
-    readTrimmedString(args.chatMetadata.imageStyleProfileId) ||
-    readTrimmedString(imageDefaults?.styleProfileId) ||
-    imageSettings.styleProfiles.defaultProfileId ||
-    null;
-  const styleInstruction = findImageStyleProfile(imageSettings.styleProfiles, styleProfileId).styleText.trim();
+  const { styleProfileId, styleInstruction } = resolveIllustratorStyleProfile(
+    setupConfig,
+    args.chatMetadata,
+    imageDefaults?.styleProfileId,
+    imageSettings.styleProfiles,
+  );
   const plan = await writeIllustratorBackgroundPlan({ ...args, styleInstruction });
   const filename = await generateChatBackground({
     chatId: args.chatId,
