@@ -6,7 +6,6 @@
 // narrates the results; it never does the math.
 // ──────────────────────────────────────────────
 
-import { rollDice } from "./dice.service.js";
 import type { CombatItemEffect, CombatMechanic, CombatSkill } from "@marinara-engine/shared";
 import type { ElementAura, ReactionResult } from "./element-reactions.service.js";
 import { resolveElementApplication, applyReactionDamage } from "./element-reactions.service.js";
@@ -28,6 +27,7 @@ export interface CombatantStats {
   statusEffects?: StatusEffect[];
   /** Optional combat skills available to this combatant */
   skills?: CombatSkill[];
+  skillCooldowns?: Record<string, number>;
   /** Element the combatant attacks with (if any) */
   element?: string;
   /** Current elemental aura on this combatant */
@@ -106,6 +106,46 @@ export interface CombatRoundResult {
   reactions: Array<{ attackerId: string; defenderId: string; reaction: string; description: string }>;
 }
 
+export class CombatResolutionError extends Error {
+  readonly code = "INVALID_ACTION" as const;
+  readonly statusCode = 400;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "CombatResolutionError";
+  }
+}
+
+export function createCombatRng(seed: number, cursor = 0): { random: () => number; cursor: () => number } {
+  let draw = Math.max(0, Math.floor(cursor));
+  const base = seed >>> 0;
+  return {
+    random: () => {
+      let value = (base + Math.imul(draw + 1, 0x9e3779b9)) >>> 0;
+      draw += 1;
+      value ^= value << 13;
+      value ^= value >>> 17;
+      value ^= value << 5;
+      return (value >>> 0) / 0x1_0000_0000;
+    },
+    cursor: () => draw,
+  };
+}
+
+function rollDie(sides: number, random: () => number): number {
+  return Math.floor(random() * sides) + 1;
+}
+
+function rollMany(count: number, sides: number, random: () => number): number {
+  let total = 0;
+  for (let index = 0; index < count; index += 1) total += rollDie(sides, random);
+  return total;
+}
+
+function pickRandom<T>(values: T[], random: () => number): T {
+  return values[Math.min(values.length - 1, Math.floor(random() * values.length))]!;
+}
+
 const TURN_SKIP_STATUS_NAMES = new Set(["frozen", "stunned", "imprisoned"]);
 
 function activeStatusEffects(combatant: CombatantStats): StatusEffect[] {
@@ -133,14 +173,19 @@ function resolveSkillAction(
   skill: CombatSkill,
   difficulty: string = "normal",
   elementPreset?: string,
+  random: () => number = Math.random,
 ): AttackResult {
   const currentMp = attacker.mp ?? 0;
   if (skill.mpCost > currentMp) {
-    const fallback = resolveAttack(attacker, target, difficulty, elementPreset);
-    return { ...fallback, skillName: skill.name };
+    throw new CombatResolutionError(`Not enough MP for ${skill.name}.`);
   }
 
+  const cooldown = attacker.skillCooldowns?.[skill.id] ?? 0;
+  if (cooldown > 0) throw new CombatResolutionError(`${skill.name} is on cooldown.`);
+
   attacker.mp = Math.max(0, currentMp - skill.mpCost);
+  if (!attacker.skillCooldowns) attacker.skillCooldowns = {};
+  attacker.skillCooldowns[skill.id] = Math.max(0, Math.floor(skill.cooldown ?? 0));
 
   if (skill.type === "heal") {
     const healAmount = Math.max(1, Math.floor((attacker.attack + attacker.level * 2) * Math.max(skill.power, 0.5)));
@@ -170,7 +215,7 @@ function resolveSkillAction(
     attack: Math.max(1, Math.floor(attacker.attack * Math.max(skill.power, 1))),
     element: skill.element || attacker.element,
   };
-  const result = resolveAttack(skilledAttacker, target, difficulty, elementPreset);
+  const result = resolveAttack(skilledAttacker, target, difficulty, elementPreset, random);
   if (!result.isMiss && skill.statusEffect) {
     applyNamedStatus(target, {
       name: skill.statusEffect,
@@ -258,14 +303,36 @@ function resolveItemAction(
         reaction: null,
       };
     }
+
+    if (effectType === "utility") {
+      return {
+        attackerId: attacker.id,
+        defenderId: target.id,
+        attackRoll: 0,
+        defenseRoll: 0,
+        rawDamage: 0,
+        mitigated: 0,
+        finalDamage: 0,
+        isCritical: false,
+        isMiss: false,
+        remainingHp: target.hp,
+        isKo: target.hp <= 0,
+        skillName: itemName,
+        element,
+        reaction: null,
+      };
+    }
   }
 
   const lowerName = itemName.toLowerCase();
-  const potency = /mega|greater|large|strong|elixir|max/.test(lowerName)
-    ? 0.5
-    : /minor|small|snack|ration/.test(lowerName)
-      ? 0.2
-      : 0.3;
+  const potency =
+    itemEffect?.type === "heal"
+      ? Math.max(0.05, Math.min(2.5, Number(itemEffect.power) || 0.3))
+      : /mega|greater|large|strong|elixir|max/.test(lowerName)
+        ? 0.5
+        : /minor|small|snack|ration/.test(lowerName)
+          ? 0.2
+          : 0.3;
   const desiredHeal = Math.max(1, Math.floor(target.maxHp * potency));
   const remainingHp = Math.min(target.maxHp, target.hp + desiredHeal);
   const actualHeal = Math.max(0, remainingHp - target.hp);
@@ -294,9 +361,11 @@ function chooseAutoSkill(
   allies: CombatantStats[],
   enemies: CombatantStats[],
   round: number,
+  random: () => number,
 ): { skill: CombatSkill; target: CombatantStats } | null {
   const usableSkills = (attacker.skills ?? []).filter((skill) => {
     if ((attacker.mp ?? 0) < skill.mpCost) return false;
+    if ((attacker.skillCooldowns?.[skill.id] ?? 0) > 0) return false;
     const cooldown = Math.max(0, Math.floor(Number(skill.cooldown) || 0));
     return cooldown <= 1 || round % cooldown === 0;
   });
@@ -311,23 +380,23 @@ function chooseAutoSkill(
   }
 
   const offensiveSkills = usableSkills.filter((skill) => skill.type !== "heal");
-  if (offensiveSkills.length === 0 || enemies.length === 0 || Math.random() >= 0.45) {
+  if (offensiveSkills.length === 0 || enemies.length === 0 || random() >= 0.45) {
     return null;
   }
 
-  const skill = offensiveSkills[Math.floor(Math.random() * offensiveSkills.length)]!;
-  const target = enemies[Math.floor(Math.random() * enemies.length)]!;
+  const skill = pickRandom(offensiveSkills, random);
+  const target = pickRandom(enemies, random);
   return { skill, target };
 }
 
 // ── Functions ──
 
 /** Roll initiative for all combatants. Returns sorted order (highest first). */
-export function rollInitiative(combatants: CombatantStats[]): InitiativeEntry[] {
+export function rollInitiative(combatants: CombatantStats[], random: () => number = Math.random): InitiativeEntry[] {
   const entries: InitiativeEntry[] = combatants.map((c) => {
     const effectiveSpeed = getEffectiveSpeed(c);
     const speedMod = Math.floor(effectiveSpeed / 5);
-    const roll = rollDice("1d20").total;
+    const roll = rollDie(20, random);
     const skipReason = getTurnSkipReason(c, effectiveSpeed);
     return {
       id: c.id,
@@ -348,15 +417,16 @@ export function resolveAttack(
   defender: CombatantStats,
   difficulty: string = "normal",
   elementPreset?: string,
+  random: () => number = Math.random,
 ): AttackResult {
   // Attack roll: 1d20 + attack stat modifier
   const attackMod = Math.floor(attacker.attack / 3);
-  const rawAttackD20 = rollDice("1d20").total;
+  const rawAttackD20 = rollDie(20, random);
   const attackRoll = rawAttackD20 + attackMod;
 
   // Defense check: 1d20 + defense stat modifier
   const defenseMod = Math.floor(defender.defense / 3);
-  const defenseRoll = rollDice("1d20").total + defenseMod;
+  const defenseRoll = rollDie(20, random) + defenseMod;
 
   // Miss check
   const isMiss = attackRoll < defenseRoll;
@@ -370,7 +440,7 @@ export function resolveAttack(
     // Base damage: attack stat scaled by level
     const baseDamage = Math.max(1, Math.floor(attacker.attack * (1 + attacker.level * 0.1)));
     // Dice component: scales with level
-    const damageDice = rollDice(`${Math.max(1, Math.floor(attacker.level / 2))}d6`).total;
+    const damageDice = rollMany(Math.max(1, Math.floor(attacker.level / 2)), 6, random);
     rawDamage = baseDamage + damageDice;
 
     if (isCritical) rawDamage = Math.floor(rawDamage * 1.5);
@@ -481,8 +551,9 @@ export function tickStatusEffects(combatant: CombatantStats): {
 
 /** Player-chosen action for their turn. */
 export interface PlayerAction {
-  type: "attack" | "skill" | "defend" | "item" | "flee";
+  type: "attack" | "skill" | "defend" | "item" | "maneuver" | "flee";
   targetId?: string;
+  instruction?: string;
   skillId?: string;
   itemId?: string;
   itemEffect?: CombatItemEffect;
@@ -593,9 +664,10 @@ export function resolveCombatRound(
   elementPreset?: string,
   playerAction?: PlayerAction,
   mechanics?: CombatMechanic[],
+  random: () => number = Math.random,
 ): CombatRoundResult {
   const alive = combatants.filter((c) => c.hp > 0);
-  const initiative = rollInitiative(alive);
+  const initiative = rollInitiative(alive, random);
   const actions: AttackResult[] = [];
   const statusTicks: Array<{ id: string; effect: string; expired: boolean }> = [];
   const reactions: CombatRoundResult["reactions"] = [];
@@ -637,33 +709,34 @@ export function resolveCombatRound(
         }
 
         if (playerAction.type === "attack") {
-          let target = opposingSide.find((c) => c.id === playerAction.targetId);
-          if (!target) target = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
-          pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset));
+          const target = opposingSide.find((c) => c.id === playerAction.targetId);
+          if (!target) throw new CombatResolutionError("Invalid attack target.");
+          pushResult(target, resolveAttack(attacker, target, "normal", elementPreset, random));
           continue;
         }
 
         if (playerAction.type === "skill") {
           const skill = attacker.skills?.find((candidate) => candidate.id === playerAction.skillId);
+          if (!skill) throw new CombatResolutionError("Invalid skill.");
           const targetPool = skill?.type === "heal" ? allies : opposingSide;
-          let target = playerAction.targetId ? targetPool.find((c) => c.id === playerAction.targetId) : undefined;
-          if (!target) target = targetPool[Math.floor(Math.random() * targetPool.length)]!;
-          const result = skill
-            ? resolveSkillAction(attacker, target, skill, difficulty, elementPreset)
-            : resolveAttack(attacker, target, difficulty, elementPreset);
+          const target = playerAction.targetId ? targetPool.find((c) => c.id === playerAction.targetId) : undefined;
+          if (!target) throw new CombatResolutionError("Invalid skill target.");
+          const result = resolveSkillAction(attacker, target, skill, "normal", elementPreset, random);
           pushResult(target, result);
           continue;
         }
 
         if (playerAction.type === "item") {
           const itemTargetPool =
-            playerAction.itemEffect?.target === "enemy"
+            playerAction.itemEffect?.target === "self"
+              ? [attacker]
+              : playerAction.itemEffect?.target === "enemy"
               ? opposingSide
               : playerAction.itemEffect?.target === "any"
                 ? [...allies, ...opposingSide]
                 : allies;
-          let target = playerAction.targetId ? itemTargetPool.find((c) => c.id === playerAction.targetId) : undefined;
-          if (!target) target = playerAction.itemEffect?.target === "enemy" ? (opposingSide[0] ?? attacker) : attacker;
+          const target = playerAction.targetId ? itemTargetPool.find((c) => c.id === playerAction.targetId) : undefined;
+          if (!target) throw new CombatResolutionError("Invalid item target.");
           const result = resolveItemAction(
             attacker,
             target,
@@ -678,17 +751,17 @@ export function resolveCombatRound(
         continue;
       }
 
-      const autoSkill = chooseAutoSkill(attacker, allies, opposingSide, round);
+      const autoSkill = chooseAutoSkill(attacker, allies, opposingSide, round, random);
       if (autoSkill) {
         pushResult(
           autoSkill.target,
-          resolveSkillAction(attacker, autoSkill.target, autoSkill.skill, difficulty, elementPreset),
+          resolveSkillAction(attacker, autoSkill.target, autoSkill.skill, "normal", elementPreset, random),
         );
         continue;
       }
 
-      const target = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
-      pushResult(target, resolveAttack(attacker, target, difficulty, elementPreset));
+      const target = pickRandom(opposingSide, random);
+      pushResult(target, resolveAttack(attacker, target, "normal", elementPreset, random));
       continue;
     }
 
@@ -699,8 +772,10 @@ export function resolveCombatRound(
     });
     if (opposingSide.length === 0) break;
 
-    const fallbackTarget = opposingSide[Math.floor(Math.random() * opposingSide.length)]!;
-    const enemyAutoSkill = chooseAutoSkill(attacker, [attacker], opposingSide, round);
+    const fallbackTarget = opposingSide
+      .slice()
+      .sort((left, right) => left.hp / Math.max(1, left.maxHp) - right.hp / Math.max(1, right.maxHp))[0]!;
+    const enemyAutoSkill = chooseAutoSkill(attacker, [attacker], opposingSide, round, random);
     const target = enemyAutoSkill?.target ?? fallbackTarget;
 
     // Apply defend bonus: if target is defending, temporarily boost defense
@@ -710,8 +785,8 @@ export function resolveCombatRound(
     }
 
     const result = enemyAutoSkill
-      ? resolveSkillAction(attacker, enemyAutoSkill.target, enemyAutoSkill.skill, difficulty, elementPreset)
-      : resolveAttack(attacker, target, difficulty, elementPreset);
+      ? resolveSkillAction(attacker, enemyAutoSkill.target, enemyAutoSkill.skill, difficulty, elementPreset, random)
+      : resolveAttack(attacker, target, difficulty, elementPreset, random);
     actions.push(result);
 
     // Restore original defense after calculation
@@ -740,6 +815,11 @@ export function resolveCombatRound(
     if (c.hp <= 0) continue;
     const { updated, ticks } = tickStatusEffects(c);
     Object.assign(c, updated);
+    if (c.skillCooldowns) {
+      for (const [skillId, remaining] of Object.entries(c.skillCooldowns)) {
+        c.skillCooldowns[skillId] = Math.max(0, remaining - 1);
+      }
+    }
     for (const t of ticks) {
       statusTicks.push({ id: c.id, ...t });
     }

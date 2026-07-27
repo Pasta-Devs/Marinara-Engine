@@ -8,6 +8,7 @@
 // same action sequence always reproduces the identical battle (rewind-safe,
 // refresh-safe). The LLM only narrates the aftermath via `buildTacticalSummary`.
 
+import type { CombatItemEffect } from "../../types/combat-encounter.js";
 import type { Combatant, CombatSkill, CombatStatusEffect, CombatSummary } from "../../types/game.js";
 import { CLASS_PROFILES, deriveClass } from "./classes.js";
 import { generateGrid, placeSpawns } from "./grid-gen.js";
@@ -19,6 +20,7 @@ import {
   deriveMovement,
   elementMultiplier,
   hitChance,
+  hasLineOfSight,
   inBounds,
   isImpassable,
   manhattan,
@@ -35,6 +37,8 @@ import type {
   TacticalEvent,
   TacticalForecast,
   TacticalFormation,
+  TacticalInventoryItem,
+  TacticalManeuverProposal,
   TacticalUnit,
 } from "./types.js";
 
@@ -120,7 +124,14 @@ function combatantToUnit(c: Combatant, side: "party" | "enemy", isBoss: boolean)
 export function createTacticalCombat(
   party: Combatant[],
   enemies: Combatant[],
-  opts: { seed: number; difficulty: string; environment?: string; formation?: string },
+  opts: {
+    seed: number;
+    difficulty: string;
+    environment?: string;
+    formation?: string;
+    inventory?: TacticalInventoryItem[];
+    itemEffects?: CombatItemEffect[];
+  },
 ): TacticalCombatState {
   const difficulty = normalizeDifficulty(opts.difficulty);
   const environment = normalizeEnvironment(opts.environment);
@@ -159,6 +170,11 @@ export function createTacticalCombat(
     actionCounter: 1,
     log: [{ kind: "phase", text: "Player Phase — Round 1", phase: "player" }],
     difficulty,
+    inventory: (opts.inventory ?? [])
+      .filter((item) => item && typeof item.name === "string" && item.name.trim() && item.quantity > 0)
+      .map((item) => ({ name: item.name.trim(), quantity: Math.max(0, Math.floor(item.quantity)) })),
+    itemEffects: (opts.itemEffects ?? []).map((effect) => ({ ...effect })),
+    hazards: [],
     formation,
     ...(environment ? { environment } : {}),
   };
@@ -260,7 +276,7 @@ export function getTargetsInRange(state: TacticalCombatState, unitId: string, fr
     .filter((t) => t.side !== unit.side)
     .filter((t) => {
       const d = manhattan(from, t);
-      return d >= unit.attackRange.min && d <= unit.attackRange.max;
+      return d >= unit.attackRange.min && d <= unit.attackRange.max && (d <= 1 || hasLineOfSight(state.grid, from, t));
     })
     .map((t) => t.id);
 }
@@ -277,11 +293,12 @@ function forecastFrom(
   // Temporarily view the attacker as standing on `from` for terrain-independent math
   // (attacker terrain doesn't affect its own outgoing hit/damage, so position only
   // matters for range — computeDamage reads defender terrain from real coords).
-  const hc = Math.max(0, hitChance(state.grid, attacker, defender) - (opts.hitPenalty ?? 0));
-  const cc = critChance(attacker, defender);
+  const stagedAttacker = { ...attacker, x: from.x, y: from.y };
+  const hc = Math.max(0, hitChance(state.grid, stagedAttacker, defender) - (opts.hitPenalty ?? 0));
+  const cc = critChance(stagedAttacker, defender);
   const dmg = computeDamage({
     grid: state.grid,
-    attacker,
+    attacker: stagedAttacker,
     defender,
     roll: 1,
     crit: false,
@@ -289,7 +306,6 @@ function forecastFrom(
     power: opts.power,
     element: opts.element,
   });
-  void from;
   return { damage: dmg, hitChance: hc, critChance: cc };
 }
 
@@ -297,7 +313,15 @@ function forecastFrom(
 export function forecastAttack(state: TacticalCombatState, attackerId: string, defenderId: string): TacticalForecast {
   const attacker = getUnit(state, attackerId);
   const defender = getUnit(state, defenderId);
-  if (!attacker || !defender) {
+  if (!attacker || !defender || attacker.side === defender.side) {
+    return { damage: 0, hitChance: 0, critChance: 0, hits: 0 };
+  }
+  const distance = manhattan(attacker, defender);
+  if (
+    distance < attacker.attackRange.min ||
+    distance > attacker.attackRange.max ||
+    (distance > 1 && !hasLineOfSight(state.grid, attacker, defender))
+  ) {
     return { damage: 0, hitChance: 0, critChance: 0, hits: 0 };
   }
   const main = forecastFrom(state, attacker, defender, { x: attacker.x, y: attacker.y });
@@ -309,8 +333,51 @@ export function forecastAttack(state: TacticalCombatState, attackerId: string, d
   if (
     expected > 0 &&
     dist >= defender.attackRange.min &&
-    dist <= defender.attackRange.max
+    dist <= defender.attackRange.max &&
+    (dist <= 1 || hasLineOfSight(state.grid, defender, attacker))
   ) {
+    forecast.counter = {
+      ...forecastFrom(state, defender, attacker, { x: defender.x, y: defender.y }, { hitPenalty: 10 }),
+    };
+  }
+  return forecast;
+}
+
+export function forecastSkill(
+  state: TacticalCombatState,
+  attackerId: string,
+  defenderId: string,
+  skillName: string,
+): TacticalForecast {
+  const attacker = getUnit(state, attackerId);
+  const defender = getUnit(state, defenderId);
+  const skill = attacker ? findSkill(attacker, skillName) : undefined;
+  if (!attacker || !defender || !skill || skill.type !== "attack") {
+    return { damage: 0, hitChance: 0, critChance: 0, hits: 0 };
+  }
+  const distance = manhattan(attacker, defender);
+  const maxRange = Math.max(attacker.attackRange.max, 2);
+  if (
+    attacker.side === defender.side ||
+    distance < 1 ||
+    distance > maxRange ||
+    (distance > 1 && !hasLineOfSight(state.grid, attacker, defender))
+  ) {
+    return { damage: 0, hitChance: 0, critChance: 0, hits: 0 };
+  }
+  const main = forecastFrom(
+    state,
+    attacker,
+    defender,
+    { x: attacker.x, y: attacker.y },
+    {
+      power: Math.max(1, skill.power),
+      element: skill.element,
+    },
+  );
+  const forecast: TacticalForecast = { ...main, hits: 1 };
+  const expected = defender.hp - main.damage;
+  if (expected > 0 && canCounter(state, attacker, defender)) {
     forecast.counter = {
       ...forecastFrom(state, defender, attacker, { x: defender.x, y: defender.y }, { hitPenalty: 10 }),
     };
@@ -443,10 +510,14 @@ function resolveHit(
 }
 
 /** True if `defender` can retaliate against `attacker` after surviving a strike. */
-function canCounter(attacker: TacticalUnit, defender: TacticalUnit): boolean {
+function canCounter(state: TacticalCombatState, attacker: TacticalUnit, defender: TacticalUnit): boolean {
   if (defender.hp <= 0) return false;
   const d = manhattan(attacker, defender);
-  return d >= defender.attackRange.min && d <= defender.attackRange.max;
+  return (
+    d >= defender.attackRange.min &&
+    d <= defender.attackRange.max &&
+    (d <= 1 || hasLineOfSight(state.grid, defender, attacker))
+  );
 }
 
 function skillReady(unit: TacticalUnit, skill: CombatSkill): boolean {
@@ -456,6 +527,346 @@ function skillReady(unit: TacticalUnit, skill: CombatSkill): boolean {
 
 function findSkill(unit: TacticalUnit, skillName: string): CombatSkill | undefined {
   return unit.skills.find((s) => s.name.toLowerCase() === skillName.toLowerCase());
+}
+
+function resolveMovementReactions(
+  state: TacticalCombatState,
+  mover: TacticalUnit,
+  from: TacticalCoord,
+  destination: TacticalCoord,
+  events: TacticalEvent[],
+): void {
+  for (const opponent of aliveUnits(state).filter((unit) => unit.side !== mover.side)) {
+    if (mover.hp <= 0) return;
+    const originDistance = manhattan(from, opponent);
+    const wasInReactionRange = originDistance >= opponent.attackRange.min && originDistance <= opponent.attackRange.max;
+    const movesAway = manhattan(destination, opponent) > 1;
+    if (originDistance === 1 && wasInReactionRange && movesAway) {
+      resolveHit(state, opponent, mover, { isCounter: true, hitPenalty: 10 }, events);
+      continue;
+    }
+    const overwatch = opponent.statusEffects.find((effect) => effect.name === "Overwatch" && effect.turnsLeft > 0);
+    const distance = manhattan(destination, opponent);
+    if (
+      overwatch &&
+      distance >= opponent.attackRange.min &&
+      distance <= opponent.attackRange.max &&
+      hasLineOfSight(state.grid, opponent, destination)
+    ) {
+      resolveHit(state, opponent, mover, { isCounter: true, hitPenalty: 5 }, events);
+      opponent.statusEffects = opponent.statusEffects.filter((effect) => effect !== overwatch);
+    }
+  }
+}
+
+export function getTurnSkipReason(unit: TacticalUnit): string | null {
+  const status = unit.statusEffects.find((effect) =>
+    ["frozen", "stunned", "imprisoned"].includes(effect.name.trim().toLowerCase()),
+  );
+  if (status) return `${unit.name} is ${status.name} and loses this turn.`;
+  const effective =
+    unit.speed +
+    unit.statusEffects.filter((effect) => effect.stat === "speed").reduce((sum, effect) => sum + effect.modifier, 0);
+  return effective <= 0 ? `${unit.name} cannot move and loses this turn.` : null;
+}
+
+function findItemEffect(state: TacticalCombatState, itemName: string): CombatItemEffect | undefined {
+  return state.itemEffects?.find((effect) => effect.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+}
+
+function findInventoryItem(state: TacticalCombatState, itemName: string): TacticalInventoryItem | undefined {
+  return state.inventory?.find((item) => item.name.trim().toLowerCase() === itemName.trim().toLowerCase());
+}
+
+function itemTargetAllowed(effect: CombatItemEffect, actor: TacticalUnit, target: TacticalUnit): boolean {
+  if (effect.target === "self") return actor.id === target.id;
+  if (effect.target === "ally") return actor.side === target.side;
+  if (effect.target === "enemy") return actor.side !== target.side;
+  return true;
+}
+
+function itemStatus(effect: CombatItemEffect, fallbackName: string, positive: boolean): CombatStatusEffect {
+  return {
+    name: effect.status?.name || fallbackName,
+    modifier: effect.status?.modifier ?? (positive ? 2 : -2),
+    stat: effect.status?.stat ?? "defense",
+    turnsLeft: Math.max(1, Math.floor(effect.status?.duration ?? 2)),
+  };
+}
+
+function resolveManeuver(
+  state: TacticalCombatState,
+  actor: TacticalUnit,
+  action: Extract<TacticalAction, { type: "maneuver" }>,
+  events: TacticalEvent[],
+): void {
+  const target = action.targetId ? getUnit(state, action.targetId) : undefined;
+  const instruction = action.instruction.trim();
+  const rng = deterministicRng(state.seed, state.actionCounter++);
+  const roll = rng();
+  const difficulty = target?.isBoss ? 0.62 : 0.52;
+  const advantage = Math.max(-0.12, Math.min(0.12, (actor.speed - 5) * 0.01));
+  const success = roll >= difficulty - advantage;
+  const partial = !success && roll >= difficulty - advantage - 0.2;
+  const scale = success ? 1 : partial ? 0.5 : 0;
+  const lower = instruction.toLowerCase();
+  const label = `${actor.name}'s maneuver`;
+
+  if (scale > 0 && action.tile && /break|destroy|collapse|ignite|burn|freeze|flood/.test(lower)) {
+    const current = state.grid.tiles[action.tile.y]?.[action.tile.x];
+    const terrain = /freeze/.test(lower) && current === "water" ? "plains" : "ruin";
+    state.grid.tiles[action.tile.y]![action.tile.x] = terrain;
+    events.push({
+      kind: "terrain",
+      text: `${label} changes the terrain at (${action.tile.x}, ${action.tile.y}).`,
+      actorId: actor.id,
+      to: action.tile,
+    });
+    if (/ignite|burn|electr|poison|flood/.test(lower)) {
+      state.hazards = [
+        ...(state.hazards ?? []).filter((hazard) => hazard.x !== action.tile!.x || hazard.y !== action.tile!.y),
+        {
+          id: `hazard-${state.actionCounter}-${action.tile.x}-${action.tile.y}`,
+          name: /poison/.test(lower) ? "Poison Cloud" : /electr/.test(lower) ? "Electrified Ground" : "Burning Ground",
+          x: action.tile.x,
+          y: action.tile.y,
+          damage: Math.max(1, Math.floor(actor.attack * 0.2)),
+          duration: success ? 3 : 1,
+          element: /electr/.test(lower) ? "lightning" : /poison/.test(lower) ? "poison" : "fire",
+        },
+      ];
+    }
+  } else if (scale > 0 && target && /heal|aid|rescue|restore|tend/.test(lower)) {
+    const amount = Math.max(1, Math.floor(target.maxHp * 0.2 * scale));
+    const before = target.hp;
+    target.hp = Math.min(target.maxHp, target.hp + amount);
+    events.push({
+      kind: "heal",
+      text: `${label} restores ${target.hp - before} HP to ${target.name}.`,
+      actorId: actor.id,
+      targetId: target.id,
+      amount: target.hp - before,
+    });
+  } else if (scale > 0 && target && /cover|guard|protect|shield|brace/.test(lower)) {
+    const status: CombatStatusEffect = {
+      name: "Maneuver Guard",
+      modifier: 2,
+      stat: "defense",
+      turnsLeft: success ? 2 : 1,
+    };
+    applyStatus(target, status);
+    events.push({
+      kind: "status",
+      text: `${label} grants ${target.name} cover.`,
+      actorId: actor.id,
+      targetId: target.id,
+      statusName: status.name,
+    });
+  } else if (scale > 0 && target && /stun|freeze|bind|trip|root|immobil/.test(lower)) {
+    const status: CombatStatusEffect = {
+      name: success ? "Stunned" : "Hindered",
+      modifier: -999,
+      stat: "speed",
+      turnsLeft: success ? 1 : 1,
+    };
+    applyStatus(target, status);
+    events.push({
+      kind: "status",
+      text: `${label} leaves ${target.name} ${status.name.toLowerCase()}.`,
+      actorId: actor.id,
+      targetId: target.id,
+      statusName: status.name,
+    });
+  } else if (scale > 0 && target && /push|shove|knock|force|reposition/.test(lower)) {
+    const dx = Math.sign(target.x - actor.x) || 1;
+    const dy = Math.sign(target.y - actor.y);
+    const destination = { x: target.x + dx, y: target.y + dy };
+    if (
+      inBounds(state.grid, destination.x, destination.y) &&
+      !isImpassable(state.grid, destination.x, destination.y) &&
+      !occupantAt(state, destination.x, destination.y, target.id)
+    ) {
+      const from = { x: target.x, y: target.y };
+      target.x = destination.x;
+      target.y = destination.y;
+      events.push({
+        kind: "move",
+        text: `${label} repositions ${target.name}.`,
+        actorId: actor.id,
+        targetId: target.id,
+        from,
+        to: destination,
+      });
+    } else {
+      events.push({
+        kind: "maneuver",
+        text: `${label} cannot move ${target.name} from that position.`,
+        actorId: actor.id,
+        targetId: target.id,
+      });
+    }
+  } else if (scale > 0 && target) {
+    const damage = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp) * 0.35 * scale));
+    target.hp = Math.max(0, target.hp - damage);
+    events.push({
+      kind: "damage",
+      text: `${label} deals ${damage} damage to ${target.name}.`,
+      actorId: actor.id,
+      targetId: target.id,
+      amount: damage,
+    });
+    if (target.hp <= 0) events.push({ kind: "defeat", text: `${target.name} is defeated!`, targetId: target.id });
+  }
+
+  events.push({
+    kind: "maneuver",
+    text: success
+      ? `${label} succeeds: ${instruction}`
+      : partial
+        ? `${label} partially succeeds: ${instruction}`
+        : `${label} fails: ${instruction}`,
+    actorId: actor.id,
+  });
+}
+
+function resolveProposedManeuver(
+  state: TacticalCombatState,
+  actor: TacticalUnit,
+  action: Extract<TacticalAction, { type: "maneuver" }>,
+  proposal: TacticalManeuverProposal,
+  events: TacticalEvent[],
+): void {
+  const cursor = state.actionCounter++;
+  const roll = deterministicRng(state.seed, cursor)();
+  const difficulty = clamp(Number(proposal.difficulty) || 0.52, 0.05, 0.95);
+  const advantage = clamp((actor.speed - 5) * 0.01, -0.12, 0.12);
+  const success = roll >= difficulty - advantage;
+  const partial = !success && roll >= difficulty - advantage - 0.2;
+  const scale = success ? 1 : partial ? 0.5 : 0;
+  const applied: TacticalEvent[] = [];
+  const nearby = (tile: TacticalCoord) => manhattan(actor, tile) <= Math.max(3, actor.movement);
+
+  if (scale > 0) {
+    for (const effect of proposal.effects.slice(0, 6)) {
+      const target = effect.targetId ? getUnit(state, effect.targetId) : undefined;
+      if (effect.type === "damage" && target && target.hp > 0 && target.side !== actor.side) {
+        const distance = manhattan(actor, target);
+        if (distance > Math.max(2, actor.attackRange.max)) continue;
+        if (distance > 1 && !hasLineOfSight(state.grid, actor, target)) continue;
+        const cap = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp * 0.25)));
+        const amount = Math.max(1, Math.floor(clamp(Number(effect.amount) || cap * 0.5, 1, cap) * scale));
+        target.hp = Math.max(0, target.hp - amount);
+        applied.push({
+          kind: "damage",
+          text: `${actor.name}'s maneuver deals ${amount} damage to ${target.name}.`,
+          actorId: actor.id,
+          targetId: target.id,
+          amount,
+        });
+        if (target.hp <= 0) applied.push({ kind: "defeat", text: `${target.name} is defeated!`, targetId: target.id });
+        continue;
+      }
+      if (effect.type === "heal" && target && target.hp > 0 && target.side === actor.side) {
+        if (manhattan(actor, target) > 2) continue;
+        const cap = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp * 0.25)));
+        const requested = Math.max(1, Math.floor(clamp(Number(effect.amount) || cap * 0.5, 1, cap) * scale));
+        const before = target.hp;
+        target.hp = Math.min(target.maxHp, target.hp + requested);
+        const amount = target.hp - before;
+        if (amount > 0) {
+          applied.push({
+            kind: "heal",
+            text: `${actor.name}'s maneuver restores ${amount} HP to ${target.name}.`,
+            actorId: actor.id,
+            targetId: target.id,
+            amount,
+          });
+        }
+        continue;
+      }
+      if (effect.type === "status" && target && target.hp > 0 && effect.status) {
+        if (manhattan(actor, target) > 2) continue;
+        const status: CombatStatusEffect = {
+          name: effect.status.name.trim().slice(0, 80) || "Maneuver Effect",
+          modifier: clamp(Number(effect.status.modifier) || 0, -5, 5),
+          stat: effect.status.stat,
+          turnsLeft: Math.max(1, Math.min(3, Math.floor(effect.status.turnsLeft || 1))),
+        };
+        if (target.side === actor.side && status.modifier < 0) status.modifier = 0;
+        if (target.side !== actor.side && status.modifier > 0) status.modifier = 0;
+        applyStatus(target, status);
+        applied.push({
+          kind: "status",
+          text: `${actor.name}'s maneuver applies ${status.name} to ${target.name}.`,
+          actorId: actor.id,
+          targetId: target.id,
+          statusName: status.name,
+        });
+        continue;
+      }
+      if (effect.type === "move" && target && target.hp > 0 && effect.tile && nearby(effect.tile)) {
+        const destination = effect.tile;
+        if (
+          manhattan(target, destination) <= 2 &&
+          inBounds(state.grid, destination.x, destination.y) &&
+          !isImpassable(state.grid, destination.x, destination.y) &&
+          !occupantAt(state, destination.x, destination.y, target.id)
+        ) {
+          const from = { x: target.x, y: target.y };
+          target.x = destination.x;
+          target.y = destination.y;
+          applied.push({
+            kind: "move",
+            text: `${actor.name}'s maneuver repositions ${target.name}.`,
+            actorId: actor.id,
+            targetId: target.id,
+            from,
+            to: destination,
+          });
+        }
+        continue;
+      }
+      if ((effect.type === "cover" || effect.type === "terrain") && effect.tile && nearby(effect.tile)) {
+        const tile = effect.tile;
+        if (!inBounds(state.grid, tile.x, tile.y) || occupantAt(state, tile.x, tile.y)) continue;
+        const terrain = effect.type === "cover" ? "forest" : effect.terrain;
+        if (!terrain) continue;
+        state.grid.tiles[tile.y]![tile.x] = terrain;
+        applied.push({
+          kind: "terrain",
+          text: `${actor.name}'s maneuver changes the terrain at (${tile.x}, ${tile.y}) to ${terrain}.`,
+          actorId: actor.id,
+          to: tile,
+        });
+        continue;
+      }
+      if (
+        effect.type === "objective" &&
+        effect.objectiveId &&
+        action.objectiveId &&
+        effect.objectiveId === action.objectiveId
+      ) {
+        applied.push({
+          kind: "objective",
+          text: `${actor.name}'s maneuver advances ${effect.objectiveId}.`,
+          actorId: actor.id,
+          objectiveId: effect.objectiveId,
+          objectiveProgress: scale,
+        });
+      }
+    }
+  }
+
+  const actualOutcome = applied.length > 0 ? (success ? "succeeds" : "partially succeeds") : "fails";
+  events.push(...applied, {
+    kind: "maneuver",
+    text:
+      applied.length > 0 && proposal.narration.trim()
+        ? `${actor.name}'s maneuver ${actualOutcome}: ${proposal.narration.trim()}`
+        : `${actor.name}'s maneuver ${actualOutcome}: ${action.instruction}`,
+    actorId: actor.id,
+    roll: { kind: "maneuver", value: roll, cursor },
+  });
 }
 
 // ── Core action application (shared by player + AI) ──
@@ -471,6 +882,7 @@ function performUnitAction(
   unit: TacticalUnit,
   action: Extract<TacticalAction, { unitId: string }>,
   events: TacticalEvent[],
+  maneuverProposal?: TacticalManeuverProposal,
 ): void {
   // Optional move-then-act.
   const to = "to" in action ? action.to : undefined;
@@ -478,6 +890,12 @@ function performUnitAction(
     const dest = action.type === "move" ? action.to : to!;
     if (dest && (dest.x !== unit.x || dest.y !== unit.y)) {
       const from = { x: unit.x, y: unit.y };
+      resolveMovementReactions(state, unit, from, dest, events);
+      if (unit.hp <= 0) {
+        unit.hasMoved = true;
+        unit.hasActed = true;
+        return;
+      }
       unit.x = dest.x;
       unit.y = dest.y;
       unit.hasMoved = true;
@@ -513,7 +931,7 @@ function performUnitAction(
       if (!target || target.hp <= 0) return;
       const outcome = resolveHit(state, unit, target, {}, events);
       // Counterattack.
-      if (outcome.hit && !outcome.defeated && canCounter(unit, target)) {
+      if (outcome.hit && !outcome.defeated && canCounter(state, unit, target)) {
         resolveHit(state, target, unit, { isCounter: true, hitPenalty: 10 }, events);
       }
       return;
@@ -523,16 +941,80 @@ function performUnitAction(
       const target = getUnit(state, action.targetId);
       unit.hasActed = true;
       if (!target) return;
-      const heal = Math.max(1, Math.floor(target.maxHp * 0.3));
-      const before = target.hp;
-      target.hp = Math.min(target.maxHp, target.hp + heal);
+      const effect = findItemEffect(state, action.itemName);
+      const inventoryItem = findInventoryItem(state, action.itemName);
+      if (!effect || !inventoryItem) return;
+      if (effect.type === "heal") {
+        const power = Math.max(0.05, Math.min(2.5, Number(effect.power) || 0.3));
+        const desired = Math.max(1, Math.floor(target.maxHp * power));
+        const before = target.hp;
+        target.hp = Math.min(target.maxHp, target.hp + desired);
+        events.push({
+          kind: "heal",
+          text: `${unit.name} uses ${action.itemName} on ${target.name}, restoring ${target.hp - before} HP.`,
+          actorId: unit.id,
+          targetId: target.id,
+          amount: target.hp - before,
+          element: effect.element,
+        });
+      } else if (effect.type === "damage") {
+        const power = Math.max(0.05, Math.min(2.5, Number(effect.power) || 0.25));
+        const damage = Math.max(1, Math.floor(Math.max(unit.attack, target.maxHp) * power));
+        target.hp = Math.max(0, target.hp - damage);
+        events.push({
+          kind: "damage",
+          text: `${unit.name} uses ${action.itemName} on ${target.name} for ${damage} damage.`,
+          actorId: unit.id,
+          targetId: target.id,
+          amount: damage,
+          element: effect.element,
+        });
+        if (target.hp <= 0) events.push({ kind: "defeat", text: `${target.name} is defeated!`, targetId: target.id });
+      } else if (effect.type === "buff" || effect.type === "debuff" || effect.type === "status") {
+        const status = itemStatus(effect, action.itemName, effect.type === "buff");
+        applyStatus(target, status);
+        events.push({
+          kind: "status",
+          text: `${unit.name} uses ${action.itemName} on ${target.name}, applying ${status.name}.`,
+          actorId: unit.id,
+          targetId: target.id,
+          statusName: status.name,
+        });
+      } else {
+        events.push({
+          kind: "item",
+          text: `${unit.name} uses ${action.itemName}.`,
+          actorId: unit.id,
+          targetId: target.id,
+        });
+      }
+      if (effect.consumes !== false) inventoryItem.quantity = Math.max(0, inventoryItem.quantity - 1);
+      return;
+    }
+
+    case "overwatch": {
+      unit.hasActed = true;
+      // Enemy Overwatch is created immediately before the round tick, so it needs
+      // one extra duration to remain armed through the following player phase.
+      applyStatus(unit, { name: "Overwatch", modifier: 0, stat: "speed", turnsLeft: unit.side === "enemy" ? 2 : 1 });
       events.push({
-        kind: "heal",
-        text: `${unit.name} uses ${action.itemName} on ${target.name}, restoring ${target.hp - before} HP.`,
+        kind: "status",
+        text: `${unit.name} watches for enemy movement.`,
         actorId: unit.id,
-        targetId: target.id,
-        amount: target.hp - before,
+        targetId: unit.id,
+        statusName: "Overwatch",
       });
+      return;
+    }
+
+    case "maneuver": {
+      unit.hasActed = true;
+      const target = action.targetId ? getUnit(state, action.targetId) : undefined;
+      if (maneuverProposal) resolveProposedManeuver(state, unit, action, maneuverProposal, events);
+      else resolveManeuver(state, unit, action, events);
+      if (target && target.side !== unit.side && target.hp > 0 && canCounter(state, unit, target)) {
+        resolveHit(state, target, unit, { isCounter: true, hitPenalty: 15 }, events);
+      }
       return;
     }
 
@@ -600,7 +1082,7 @@ function performUnitAction(
         },
         events,
       );
-      if (outcome.hit && !outcome.defeated && canCounter(unit, target)) {
+      if (outcome.hit && !outcome.defeated && canCounter(state, unit, target)) {
         resolveHit(state, target, unit, { isCounter: true, hitPenalty: 10 }, events);
       }
       return;
@@ -650,13 +1132,39 @@ function tickRound(state: TacticalCombatState, events: TacticalEvent[]): void {
     u.hasActed = false;
     u.defending = false;
   }
+  const remainingHazards: NonNullable<TacticalCombatState["hazards"]> = [];
+  for (const hazard of state.hazards ?? []) {
+    const occupant = occupantAt(state, hazard.x, hazard.y);
+    if (occupant) {
+      occupant.hp = Math.max(0, occupant.hp - hazard.damage);
+      events.push({
+        kind: "terrain",
+        text: `${occupant.name} takes ${hazard.damage} damage from ${hazard.name}.`,
+        targetId: occupant.id,
+        amount: hazard.damage,
+        element: hazard.element,
+        to: { x: hazard.x, y: hazard.y },
+      });
+    }
+    const next = { ...hazard, duration: hazard.duration - 1 };
+    if (next.duration > 0) remainingHazards.push(next);
+  }
+  state.hazards = remainingHazards;
 }
 
-function checkTerminal(state: TacticalCombatState, events: TacticalEvent[]): boolean {
+export interface TacticalTerminalOptions {
+  allowNoEnemies?: boolean;
+}
+
+function checkTerminal(
+  state: TacticalCombatState,
+  events: TacticalEvent[],
+  options: TacticalTerminalOptions = {},
+): boolean {
   if (state.outcome) return true;
   const partyAlive = aliveUnits(state, "party").length;
   const enemyAlive = aliveUnits(state, "enemy").length;
-  if (enemyAlive === 0) {
+  if (enemyAlive === 0 && !options.allowNoEnemies) {
     state.outcome = "victory";
     events.push({ kind: "victory", text: "Victory! All enemies have fallen." });
     return true;
@@ -669,9 +1177,11 @@ function checkTerminal(state: TacticalCombatState, events: TacticalEvent[]): boo
   return false;
 }
 
-export function isTerminal(state: TacticalCombatState): boolean {
+export function isTerminal(state: TacticalCombatState, options: TacticalTerminalOptions = {}): boolean {
   if (state.outcome) return true;
-  return aliveUnits(state, "party").length === 0 || aliveUnits(state, "enemy").length === 0;
+  return (
+    aliveUnits(state, "party").length === 0 || (!options.allowNoEnemies && aliveUnits(state, "enemy").length === 0)
+  );
 }
 
 // ── Player-facing action entry point ──
@@ -701,8 +1211,13 @@ function clone(state: TacticalCombatState): TacticalCombatState {
  * acted, the phase auto-advances to "enemy" (the caller then runs
  * `runEnemyPhase`).
  */
-export function applyAction(state: TacticalCombatState, action: TacticalAction): ApplyActionResult {
-  if (isTerminal(state)) return { ok: false, error: "The battle is already over." };
+export function applyAction(
+  state: TacticalCombatState,
+  action: TacticalAction,
+  maneuverProposal?: TacticalManeuverProposal,
+  terminalOptions: TacticalTerminalOptions = {},
+): ApplyActionResult {
+  if (isTerminal(state, terminalOptions)) return { ok: false, error: "The battle is already over." };
 
   const next = clone(state);
   const events: TacticalEvent[] = [];
@@ -732,6 +1247,19 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
   if (unit.side !== "party") return { ok: false, error: "You can only command party units." };
   if (unit.hasActed) return { ok: false, error: `${unit.name} has already acted this turn.` };
 
+  const skipReason = getTurnSkipReason(unit);
+  if (skipReason) {
+    unit.hasActed = true;
+    events.push({ kind: "status", text: skipReason, actorId: unit.id });
+    const anyPending = aliveUnits(next, "party").some((candidate) => !candidate.hasActed);
+    if (!anyPending) {
+      next.phase = "enemy";
+      events.push({ kind: "phase", text: "Enemy Phase", phase: "enemy" });
+    }
+    appendLog(next, events);
+    return { ok: true, state: next, events };
+  }
+
   // Validate optional move (move-then-act) or dedicated move.
   const dest = action.type === "move" ? action.to : "to" in action ? action.to : undefined;
   if (dest && (dest.x !== unit.x || dest.y !== unit.y)) {
@@ -757,6 +1285,9 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
       if (d < unit.attackRange.min || d > unit.attackRange.max) {
         return { ok: false, error: `${target.name} is out of attack range.` };
       }
+      if (d > 1 && !hasLineOfSight(next.grid, fromTile, target)) {
+        return { ok: false, error: `${target.name} is outside line of sight.` };
+      }
       break;
     }
 
@@ -773,6 +1304,9 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
         const d = manhattan(fromTile, target);
         const max = Math.max(unit.attackRange.max, 2);
         if (d < 1 || d > max) return { ok: false, error: `${target.name} is out of skill range.` };
+        if (d > 1 && !hasLineOfSight(next.grid, fromTile, target)) {
+          return { ok: false, error: `${target.name} is outside line of sight.` };
+        }
       } else {
         // heal/buff/debuff — must target a valid unit (ally for heal/buff, enemy for debuff) within support range.
         const target = getUnit(next, action.targetId ?? unit.id);
@@ -789,20 +1323,41 @@ export function applyAction(state: TacticalCombatState, action: TacticalAction):
     case "item": {
       const target = getUnit(next, action.targetId);
       if (!target || target.hp <= 0) return { ok: false, error: "Invalid item target." };
+      const inventoryItem = findInventoryItem(next, action.itemName);
+      if (!inventoryItem || inventoryItem.quantity <= 0)
+        return { ok: false, error: `${action.itemName} is not available.` };
+      const effect = findItemEffect(next, action.itemName);
+      if (!effect) return { ok: false, error: `${action.itemName} has no combat effect.` };
+      if (!itemTargetAllowed(effect, unit, target))
+        return { ok: false, error: `${action.itemName} cannot target ${target.name}.` };
       const d = manhattan(fromTile, target);
       if (d > 2) return { ok: false, error: `${target.name} is out of item range.` };
       break;
     }
 
+    case "maneuver": {
+      if (action.instruction.trim().length < 3) return { ok: false, error: "Describe the maneuver first." };
+      if (action.instruction.length > 500) return { ok: false, error: "Maneuver is too long." };
+      if (action.targetId) {
+        const target = getUnit(next, action.targetId);
+        if (!target || target.hp <= 0) return { ok: false, error: "Invalid maneuver target." };
+      }
+      if (action.tile && !inBounds(next.grid, action.tile.x, action.tile.y)) {
+        return { ok: false, error: "That maneuver tile is not usable." };
+      }
+      break;
+    }
+
     case "defend":
+    case "overwatch":
     case "wait":
       break;
   }
 
-  performUnitAction(next, unit, action, events);
+  performUnitAction(next, unit, action, events, maneuverProposal);
 
   // Terminal check (an attack may have wiped the enemy team mid-phase).
-  if (!checkTerminal(next, events)) {
+  if (!checkTerminal(next, events, terminalOptions)) {
     // Auto-advance to enemy phase once every living party unit has acted.
     const anyPending = aliveUnits(next, "party").some((u) => !u.hasActed);
     if (!anyPending) {
@@ -827,15 +1382,19 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
     party: state.units
       .filter((u) => u.side === "party")
       .map((u) => ({
+        id: u.id,
         name: u.name,
         hp: u.hp,
         maxHp: u.maxHp,
+        mp: u.mp,
+        maxMp: u.maxMp,
         ko: u.hp <= 0,
         statusEffects: (u.statusEffects ?? []).map((e) => e.name),
       })),
     enemies: state.units
       .filter((u) => u.side === "enemy")
       .map((u) => ({
+        id: u.id,
         name: u.name,
         defeated: u.hp <= 0,
         hp: u.hp,
@@ -846,4 +1405,15 @@ export function buildTacticalSummary(state: TacticalCombatState): CombatSummary 
 
 // Internal helpers re-exported for the AI module (ai.ts imports these directly,
 // NOT via the feature's public index.ts — keeps the shared public surface clean).
-export { aliveUnits, appendLog, canCounter, checkTerminal, clone, findSkill, forecastFrom, performUnitAction, skillReady, tickRound };
+export {
+  aliveUnits,
+  appendLog,
+  canCounter,
+  checkTerminal,
+  clone,
+  findSkill,
+  forecastFrom,
+  performUnitAction,
+  skillReady,
+  tickRound,
+};

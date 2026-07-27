@@ -183,10 +183,10 @@ function assignRarity(index: number, tableSize: number): ItemRarity {
 // ── Core Functions ──
 
 /** Pick a weighted random rarity based on difficulty. */
-function pickRarity(difficulty: string): ItemRarity {
+function pickRarity(difficulty: string, random: () => number): ItemRarity {
   const weights = RARITY_WEIGHTS[difficulty] ?? RARITY_WEIGHTS.normal!;
   const total = Object.values(weights).reduce((s, w) => s + w, 0);
-  let roll = Math.random() * total;
+  let roll = random() * total;
 
   for (const [rarity, weight] of Object.entries(weights)) {
     roll -= weight;
@@ -196,11 +196,11 @@ function pickRarity(difficulty: string): ItemRarity {
 }
 
 /** Generate a single loot drop based on difficulty. */
-export function generateLootDrop(difficulty: string = "normal"): LootDrop {
-  const targetRarity = pickRarity(difficulty);
+export function generateLootDrop(difficulty: string = "normal", random: () => number = Math.random): LootDrop {
+  const targetRarity = pickRarity(difficulty, random);
 
   // Pick a random table
-  const table = ALL_TABLES[Math.floor(Math.random() * ALL_TABLES.length)]!;
+  const table = ALL_TABLES[Math.floor(random() * ALL_TABLES.length)]!;
 
   // Find items matching the target rarity
   const candidates = table
@@ -210,32 +210,40 @@ export function generateLootDrop(difficulty: string = "normal"): LootDrop {
   // Fallback to any item if no match
   const pick =
     candidates.length > 0
-      ? candidates[Math.floor(Math.random() * candidates.length)]!
+      ? candidates[Math.floor(random() * candidates.length)]!
       : { item: table[0]!, rarity: "common" as ItemRarity };
 
-  const baseValue = 5 + Math.floor(Math.random() * 20);
+  const baseValue = 5 + Math.floor(random() * 20);
   const value = baseValue * VALUE_MULTIPLIER[pick.rarity];
 
   return {
     item: { ...pick.item, rarity: pick.rarity, value },
-    quantity: pick.item.type === "currency" ? 1 + Math.floor(Math.random() * 10) : 1,
+    quantity: pick.item.type === "currency" ? 1 + Math.floor(random() * 10) : 1,
   };
 }
 
 /** Generate multiple loot drops (e.g., after combat or from a chest). */
-export function generateLootTable(count: number, difficulty: string = "normal"): LootDrop[] {
+export function generateLootTable(
+  count: number,
+  difficulty: string = "normal",
+  random: () => number = Math.random,
+): LootDrop[] {
   const drops: LootDrop[] = [];
   for (let i = 0; i < count; i++) {
-    drops.push(generateLootDrop(difficulty));
+    drops.push(generateLootDrop(difficulty, random));
   }
   return drops;
 }
 
 /** Generate loot appropriate for a combat encounter based on enemy count and difficulty. */
-export function generateCombatLoot(enemyCount: number, difficulty: string = "normal"): LootDrop[] {
+export function generateCombatLoot(
+  enemyCount: number,
+  difficulty: string = "normal",
+  random: () => number = Math.random,
+): LootDrop[] {
   // Base drops: 1-2 per enemy, plus bonus for harder difficulties
   const difficultyBonus: Record<string, number> = { casual: 0, normal: 0, hard: 1, brutal: 2 };
   const bonus = difficultyBonus[difficulty] ?? 0;
-  const count = Math.min(10, enemyCount + Math.floor(Math.random() * (enemyCount + 1)) + bonus);
-  return generateLootTable(count, difficulty);
+  const count = Math.min(10, enemyCount + Math.floor(random() * (enemyCount + 1)) + bonus);
+  return generateLootTable(count, difficulty, random);
 }

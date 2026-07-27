@@ -9,7 +9,7 @@
 // action (and enemy damage itself is already scaled in computeDamage). All
 // randomness is drawn from the seeded stream so an enemy phase replays exactly.
 
-import { effectiveSpeed, manhattan } from "./math.js";
+import { effectiveSpeed, hasLineOfSight, manhattan } from "./math.js";
 import { deterministicRng } from "./rng.js";
 import {
   aliveUnits,
@@ -17,10 +17,12 @@ import {
   checkTerminal,
   clone,
   forecastFrom,
+  getTurnSkipReason,
   getMovementRange,
   performUnitAction,
   skillReady,
   tickRound,
+  type TacticalTerminalOptions,
 } from "./engine.js";
 import type { TacticalAction, TacticalCombatState, TacticalCoord, TacticalEvent, TacticalUnit } from "./types.js";
 
@@ -55,6 +57,7 @@ function buildAttackOptions(state: TacticalCombatState, unit: TacticalUnit): Att
   ): void => {
     const d = manhattan(tile, target);
     if (d < opts.rangeMin || d > opts.rangeMax) return;
+    if (d > 1 && !hasLineOfSight(state.grid, tile, target)) return;
     const fc = forecastFrom(state, unit, target, tile, { power: opts.power, element: opts.element });
     const hitP = fc.hitChance / 100;
     const expValue = hitP * fc.damage;
@@ -65,13 +68,27 @@ function buildAttackOptions(state: TacticalCombatState, unit: TacticalUnit): Att
     let counterRisk = 0;
     const survives = target.hp - fc.damage > 0;
     const cd = manhattan(tile, target);
-    if (survives && cd >= target.attackRange.min && cd <= target.attackRange.max) {
+    if (
+      survives &&
+      cd >= target.attackRange.min &&
+      cd <= target.attackRange.max &&
+      (cd <= 1 || hasLineOfSight(state.grid, target, tile))
+    ) {
       const back = forecastFrom(state, target, unit, { x: target.x, y: target.y }, { hitPenalty: 10 });
       counterRisk = (back.hitChance / 100) * back.damage;
     }
 
     const score = (isKill ? 1000 : 0) + expValue - counterRisk * 0.75;
-    options.push({ tile, targetId: target.id, skillName: opts.skillName, expValue, isKill, hitChance: fc.hitChance, counterRisk, score });
+    options.push({
+      tile,
+      targetId: target.id,
+      skillName: opts.skillName,
+      expValue,
+      isKill,
+      hitChance: fc.hitChance,
+      counterRisk,
+      score,
+    });
   };
 
   for (const tile of tiles) {
@@ -94,16 +111,34 @@ function buildAttackOptions(state: TacticalCombatState, unit: TacticalUnit): Att
   return options;
 }
 
-/** Pick a heal action if a hurt ally is within support range (2). */
-function tryHeal(state: TacticalCombatState, unit: TacticalUnit): TacticalAction | null {
-  const healSkill = unit.skills.find((s) => s.type === "heal" && skillReady(unit, s));
-  if (!healSkill) return null;
-  const allies = aliveUnits(state, unit.side);
-  const hurt = allies
-    .filter((a) => a.hp / Math.max(1, a.maxHp) <= 0.6 && manhattan(unit, a) <= 2)
-    .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
-  if (!hurt) return null;
-  return { type: "skill", unitId: unit.id, skillName: healSkill.name, targetId: hurt.id };
+function trySupport(state: TacticalCombatState, unit: TacticalUnit): TacticalAction | null {
+  const skills = unit.skills.filter((skill) => skill.type !== "attack" && skillReady(unit, skill));
+  if (skills.length === 0) return null;
+  const tiles = reachTiles(state, unit);
+  for (const skill of skills) {
+    const targets = aliveUnits(state).filter((target) =>
+      skill.type === "debuff" ? target.side !== unit.side : target.side === unit.side,
+    );
+    const sorted = targets.sort((left, right) => {
+      if (skill.type === "heal") return left.hp / left.maxHp - right.hp / right.maxHp;
+      return right.level - left.level;
+    });
+    for (const target of sorted) {
+      if (skill.type === "heal" && target.hp / Math.max(1, target.maxHp) > 0.75) continue;
+      const tile = tiles
+        .filter((candidate) => manhattan(candidate, target) <= 2)
+        .sort((left, right) => manhattan(left, target) - manhattan(right, target))[0];
+      if (!tile) continue;
+      return {
+        type: "skill",
+        unitId: unit.id,
+        skillName: skill.name,
+        targetId: target.id,
+        ...(tile.x !== unit.x || tile.y !== unit.y ? { to: tile } : {}),
+      };
+    }
+  }
+  return null;
 }
 
 /** Move toward the nearest party unit, ending on the reachable tile closest to it. */
@@ -129,8 +164,8 @@ function decide(state: TacticalCombatState, unit: TacticalUnit, rng: () => numbe
   const greed = GREED[state.difficulty] ?? 0.7;
 
   // Consider healing a hurt ally before committing to aggression.
-  const heal = tryHeal(state, unit);
-  if (heal && rng() < greed + 0.1) return heal;
+  const support = trySupport(state, unit);
+  if (support && rng() < greed + 0.1) return support;
 
   const options = buildAttackOptions(state, unit);
   if (options.length) {
@@ -142,7 +177,13 @@ function decide(state: TacticalCombatState, unit: TacticalUnit, rng: () => numbe
       chosen = options[idx]!;
     }
     if (chosen.skillName) {
-      return { type: "skill", unitId: unit.id, skillName: chosen.skillName, targetId: chosen.targetId, to: chosen.tile };
+      return {
+        type: "skill",
+        unitId: unit.id,
+        skillName: chosen.skillName,
+        targetId: chosen.targetId,
+        to: chosen.tile,
+      };
     }
     return { type: "attack", unitId: unit.id, targetId: chosen.targetId, to: chosen.tile };
   }
@@ -150,6 +191,7 @@ function decide(state: TacticalCombatState, unit: TacticalUnit, rng: () => numbe
   // Nothing in reach — approach, then hold.
   const dest = approach(state, unit);
   if (dest) return { type: "wait", unitId: unit.id, to: dest };
+  if (unit.attackRange.max > 1) return { type: "overwatch", unitId: unit.id };
   return { type: "wait", unitId: unit.id };
 }
 
@@ -158,7 +200,10 @@ function decide(state: TacticalCombatState, unit: TacticalUnit, rng: () => numbe
  * then the round ticks (statuses/cooldowns) and play returns to the player.
  * Pure — clones the input state.
  */
-export function runEnemyPhase(state: TacticalCombatState): { state: TacticalCombatState; events: TacticalEvent[] } {
+export function runEnemyPhase(
+  state: TacticalCombatState,
+  terminalOptions: TacticalTerminalOptions = {},
+): { state: TacticalCombatState; events: TacticalEvent[] } {
   const next = clone(state);
   const events: TacticalEvent[] = [];
 
@@ -168,18 +213,24 @@ export function runEnemyPhase(state: TacticalCombatState): { state: TacticalComb
   for (const enemy of order) {
     if (enemy.hp <= 0 || enemy.hasActed) continue;
     if (aliveUnits(next, "party").length === 0) break;
+    const skipReason = getTurnSkipReason(enemy);
+    if (skipReason) {
+      enemy.hasActed = true;
+      events.push({ kind: "status", text: skipReason, actorId: enemy.id });
+      continue;
+    }
     const rng = deterministicRng(next.seed, next.actionCounter++);
     const action = decide(next, enemy, rng);
     if ("unitId" in action) {
       performUnitAction(next, enemy, action, events);
     }
-    if (checkTerminal(next, events)) break;
+    if (checkTerminal(next, events, terminalOptions)) break;
   }
 
   if (!next.outcome) {
     // End of round: tick statuses/cooldowns, reset per-unit flags, hand back to player.
     tickRound(next, events);
-    checkTerminal(next, events);
+    checkTerminal(next, events, terminalOptions);
     if (!next.outcome) {
       next.round += 1;
       next.phase = "player";

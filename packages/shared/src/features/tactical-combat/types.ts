@@ -6,6 +6,7 @@
 // is a set of pure functions; the client renders and animates, the LLM only
 // narrates the aftermath from `buildTacticalSummary`.
 
+import type { CombatItemEffect } from "../../types/combat-encounter.js";
 import type { CombatSkill, CombatStatusEffect } from "../../types/game.js";
 
 // Re-export the style union so consumers can `import { GameCombatStyle } from ".../tactical-combat"`.
@@ -22,18 +23,19 @@ export interface TerrainInfo {
   defenseBonus: number;
   /** Percentage points subtracted from an attacker's hit chance against a unit standing here. */
   avoidBonus: number;
+  height: number;
   /** Units may never enter or stop on this tile. */
   impassable?: boolean;
   label: string;
 }
 
 export const TERRAIN_DATA: Record<TacticalTerrain, TerrainInfo> = {
-  plains: { moveCost: 1, defenseBonus: 0, avoidBonus: 0, label: "Plains" },
-  forest: { moveCost: 2, defenseBonus: 1, avoidBonus: 15, label: "Forest" },
-  mountain: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, impassable: true, label: "Mountain" },
-  ruin: { moveCost: 1, defenseBonus: 1, avoidBonus: 10, label: "Ruins" },
-  water: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, impassable: true, label: "Water" },
-  wall: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, impassable: true, label: "Wall" },
+  plains: { moveCost: 1, defenseBonus: 0, avoidBonus: 0, height: 0, label: "Plains" },
+  forest: { moveCost: 2, defenseBonus: 1, avoidBonus: 15, height: 0, label: "Forest" },
+  mountain: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, height: 2, impassable: true, label: "Mountain" },
+  ruin: { moveCost: 1, defenseBonus: 1, avoidBonus: 10, height: 1, label: "Ruins" },
+  water: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, height: -1, impassable: true, label: "Water" },
+  wall: { moveCost: 99, defenseBonus: 0, avoidBonus: 0, height: 2, impassable: true, label: "Wall" },
 };
 
 // ── Environment & formation ──
@@ -85,9 +87,42 @@ export interface TacticalCoord {
   y: number;
 }
 
+export interface TacticalManeuverProposalEffect {
+  type: "damage" | "heal" | "status" | "move" | "cover" | "terrain" | "objective";
+  targetId?: string;
+  tile?: TacticalCoord;
+  amount?: number;
+  status?: CombatStatusEffect;
+  objectiveId?: string;
+  terrain?: TacticalTerrain;
+}
+
+export interface TacticalManeuverProposal {
+  outcome: "success" | "partial" | "failure";
+  rationale: string;
+  difficulty: number;
+  effects: TacticalManeuverProposalEffect[];
+  narration: string;
+}
+
 // ── Units ──
 
 export type TacticalSide = "party" | "enemy";
+
+export interface TacticalInventoryItem {
+  name: string;
+  quantity: number;
+}
+
+export interface TacticalHazard {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  damage: number;
+  duration: number;
+  element?: string;
+}
 
 export interface TacticalAttackRange {
   min: number;
@@ -149,7 +184,17 @@ export type TacticalAction =
   | { type: "attack"; unitId: string; targetId: string; to?: TacticalCoord }
   | { type: "skill"; unitId: string; skillName: string; targetId?: string; tile?: TacticalCoord; to?: TacticalCoord }
   | { type: "item"; unitId: string; itemName: string; targetId: string; to?: TacticalCoord }
+  | {
+      type: "maneuver";
+      unitId: string;
+      instruction: string;
+      targetId?: string;
+      tile?: TacticalCoord;
+      objectiveId?: string;
+      to?: TacticalCoord;
+    }
   | { type: "defend"; unitId: string; to?: TacticalCoord }
+  | { type: "overwatch"; unitId: string; to?: TacticalCoord }
   | { type: "wait"; unitId: string; to?: TacticalCoord }
   | { type: "endTurn" }
   | { type: "flee" };
@@ -162,6 +207,7 @@ export type TacticalEventKind =
   | "counter"
   | "skill"
   | "item"
+  | "maneuver"
   | "damage"
   | "heal"
   | "status"
@@ -170,6 +216,7 @@ export type TacticalEventKind =
   | "miss"
   | "phase"
   | "terrain"
+  | "objective"
   | "victory"
   | "defeat-end"
   | "flee";
@@ -189,6 +236,9 @@ export interface TacticalEvent {
   element?: string;
   statusName?: string;
   phase?: TacticalPhase;
+  roll?: { kind: string; value: number; cursor: number };
+  objectiveId?: string;
+  objectiveProgress?: number;
 }
 
 // ── State ──
@@ -209,6 +259,9 @@ export interface TacticalCombatState {
   log: TacticalEvent[];
   outcome?: TacticalOutcome;
   difficulty: TacticalDifficulty;
+  inventory?: TacticalInventoryItem[];
+  itemEffects?: CombatItemEffect[];
+  hazards?: TacticalHazard[];
   /** Scene-derived battlefield theme (Round 2). Optional — absent on legacy snapshots. */
   environment?: TacticalEnvironment;
   /** Scene-derived spawn arrangement (Round 2). Optional — defaults to "line" behavior when absent. */

@@ -43,22 +43,22 @@ When you finish, click **Start Game**.
 
 These are the starting values in the **World**, **Party**, and **Features** steps. You can change any of them.
 
-| Setting | Default | Notes |
-|---|---|---|
-| Genre | Fantasy | Multi-select, plus your own custom entries |
-| Tone | Heroic | Multi-select |
-| Difficulty | Normal | Casual, Normal, Hard, or Brutal; higher settings make combat more punishing |
-| Content Rating | SFW | SFW or NSFW; NSFW only permits adult content, it does not force it |
-| Language | English | All in-game text is written in this language |
-| Game Master Mode | Standalone GM | Standalone GM builds a GM for you; Character GM uses one of your cards as the GM |
-| Visual Generation | Off | Turn on for images; needs an image generation connection |
-| Automatic Storyboard Illustrations | On | Only active once Visual Generation is on |
-| Automatic Storyboard Animations | Off | Needs a video generation connection |
-| Keyframes per Turn | 3 | Available with storyboard illustrations; range 1 to 6 |
-| Game Presentation | Standard | **Storyboard Optimized** coordinates the Storyboard Game Prompt, Comic Page Animation planner, Storyboard Illustration, and Comic Page Video prompts |
-| Music DJ | Off | Needs Spotify or a local music folder |
-| Custom HUD Widgets | On | Uses AI-made status widgets from the new world |
-| Start Muted | Off | Begins the game with audio muted |
+| Setting                            | Default       | Notes                                                                                                                                                |
+| ---------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Genre                              | Fantasy       | Multi-select, plus your own custom entries                                                                                                           |
+| Tone                               | Heroic        | Multi-select                                                                                                                                         |
+| Difficulty                         | Normal        | Casual, Normal, Hard, or Brutal; higher settings make combat more punishing                                                                          |
+| Content Rating                     | SFW           | SFW or NSFW; NSFW only permits adult content, it does not force it                                                                                   |
+| Language                           | English       | All in-game text is written in this language                                                                                                         |
+| Game Master Mode                   | Standalone GM | Standalone GM builds a GM for you; Character GM uses one of your cards as the GM                                                                     |
+| Visual Generation                  | Off           | Turn on for images; needs an image generation connection                                                                                             |
+| Automatic Storyboard Illustrations | On            | Only active once Visual Generation is on                                                                                                             |
+| Automatic Storyboard Animations    | Off           | Needs a video generation connection                                                                                                                  |
+| Keyframes per Turn                 | 3             | Available with storyboard illustrations; range 1 to 6                                                                                                |
+| Game Presentation                  | Standard      | **Storyboard Optimized** coordinates the Storyboard Game Prompt, Comic Page Animation planner, Storyboard Illustration, and Comic Page Video prompts |
+| Music DJ                           | Off           | Needs Spotify or a local music folder                                                                                                                |
+| Custom HUD Widgets                 | On            | Uses AI-made status widgets from the new world                                                                                                       |
+| Start Muted                        | Off           | Begins the game with audio muted                                                                                                                     |
 
 New to Game Mode? Leave **Game Master Mode** on **Standalone GM**. Marinara builds a fair, slightly snarky GM for you, and you can feel out the mode before writing a custom GM card.
 
@@ -114,6 +114,7 @@ For the full parameter reference, see [Generation Parameters](../prompts/generat
 This guide gets you into a game. Each deeper topic has its own guide:
 
 - [Game Mode: Combat](combat.md) covers encounters, the action menu, damage math, and quick-time events.
+- [Game Mode: Tactical Combat](tactical-combat.md) covers grid movement, terrain, real inventory items, maneuvers, objectives, and restoration.
 - [Game Mode: Party and NPCs](party-and-npcs.md) covers the party bar, character sheets, and the Adventure Journal.
 - [Game Mode: Sessions and Saves](sessions-and-saves.md) covers ending and starting sessions and the session history.
 - [Game Mode: Map, Time, and Weather](map-time-weather.md) covers the map views and the automatic clock and weather.
@@ -145,6 +146,7 @@ Some models stay upbeat no matter the tone. You have two options. Add a clear in
 ## Related guides
 
 - [Game Mode: Combat](combat.md)
+- [Game Mode: Tactical Combat](tactical-combat.md)
 - [Game Mode: Party and NPCs](party-and-npcs.md)
 - [Game Mode: Sessions and Saves](sessions-and-saves.md)
 - [Game Mode: Map, Time, and Weather](map-time-weather.md)

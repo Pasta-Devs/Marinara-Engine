@@ -29,12 +29,18 @@ import type {
   SessionSummary,
   Combatant,
   CombatRoundResult,
+  CombatSummary,
   CombatPlayerAction,
   HudWidget,
   GameBlueprint,
   TacticalCombatState,
   TacticalAction,
   TacticalEvent,
+  CombatItemEffect,
+  CombatObjectiveState,
+  CombatBossPhase,
+  CombatStateView,
+  CombatActionRecord,
   RPGStatPool,
 } from "@marinara-engine/shared";
 import type { Chat } from "@marinara-engine/shared";
@@ -803,25 +809,79 @@ export function useSyncGameState(activeChatId: string, chatMeta: Record<string, 
 // ── New Game Mechanics Hooks ──
 
 export function useCombatRound() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
       chatId: string;
       combatants: Array<Omit<Combatant, "sprite">>;
       round: number;
+      sessionId?: string;
+      expectedRevision?: number;
+      actionId?: string;
       playerAction?: CombatPlayerAction;
       mechanics?: import("@marinara-engine/shared").CombatMechanic[];
-    }) => api.post<{ result: CombatRoundResult; combatants: Combatant[] }>("/game/combat/round", data),
+      inventory?: Array<{ name: string; quantity: number }>;
+      itemEffects?: CombatItemEffect[];
+      objectives?: CombatObjectiveState[];
+    }) =>
+      api.post<{
+        result: CombatRoundResult;
+        combatants: Combatant[];
+        events: import("@marinara-engine/shared").CombatEvent[];
+        sessionId: string;
+        revision: number;
+        objectives: CombatObjectiveState[];
+        bossPhases: CombatBossPhase[];
+        session: CombatStateView;
+        state: CombatStateView;
+        outcome?: "victory" | "defeat" | "flee";
+        summary?: CombatSummary;
+        inventory?: Array<{ name: string; quantity: number }>;
+      }>("/game/combat/round", data),
+    onSuccess: (res, variables) => {
+      qc.setQueryData([...gameKeys.all, "combat-session", "active", variables.chatId, "classic"], {
+        session: res.state,
+      });
+      qc.invalidateQueries({ queryKey: [...gameKeys.all, "combat-session", "history", variables.chatId] });
+    },
+  });
+}
+
+export function useActiveCombatSession(chatId: string, style: "classic" | "tactical", enabled: boolean) {
+  return useQuery({
+    queryKey: [...gameKeys.all, "combat-session", "active", chatId, style],
+    queryFn: () =>
+      api.get<{ session: CombatStateView | null }>(
+        `/game/combat/session/active?chatId=${encodeURIComponent(chatId)}&style=${style}`,
+      ),
+    enabled: enabled && Boolean(chatId),
+    staleTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+  });
+}
+
+export function useCombatSessionHistory(chatId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...gameKeys.all, "combat-session", "history", chatId],
+    queryFn: () =>
+      api.get<{ sessionId: string | null; history: CombatActionRecord[] }>(
+        `/game/combat/session/active/history?chatId=${encodeURIComponent(chatId)}`,
+      ),
+    enabled: enabled && Boolean(chatId),
+    staleTime: 0,
+    retry: false,
   });
 }
 
 // ── Tactical (grid) combat ──
 // Mirrors useCombatRound's shape: thin mutations over the pure shared engine that
-// lives server-side behind these endpoints. State round-trips through the client
-// exactly like classic combat (no new DB table); the client persists the returned
-// snapshot to chat metadata.
+// lives server-side behind these endpoints. The client keeps a compatibility
+// snapshot for refresh fallback, while the canonical session remains server-owned.
 
 /** Start a fresh tactical battle. Server builds the seeded grid + spawns. */
 export function useTacticalCombatStart() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
       chatId: string;
@@ -832,15 +892,57 @@ export function useTacticalCombatStart() {
       environment?: string;
       /** Blueprint battlefield.formation — drives spawn placement. */
       formation?: string;
-    }) => api.post<{ state: TacticalCombatState }>("/game/combat/tactical/start", data),
+      inventory?: Array<{ name: string; quantity: number }>;
+      itemEffects?: CombatItemEffect[];
+      mechanics?: import("@marinara-engine/shared").CombatMechanic[];
+      objectives?: CombatObjectiveState[];
+    }) =>
+      api.post<{
+        state: TacticalCombatState;
+        sessionId: string;
+        session: CombatStateView;
+        inventory?: Array<{ name: string; quantity: number }>;
+        revision: number;
+        objectives: CombatObjectiveState[];
+        bossPhases: CombatBossPhase[];
+      }>("/game/combat/tactical/start", data),
+    onSuccess: (res, variables) => {
+      qc.setQueryData([...gameKeys.all, "combat-session", "active", variables.chatId, "tactical"], {
+        session: res.session,
+      });
+    },
   });
 }
 
 /** Apply one tactical action; server validates + resolves, running the enemy phase if it flips. */
 export function useTacticalCombatAction() {
+  const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { chatId: string; state: TacticalCombatState; action: TacticalAction }) =>
-      api.post<{ state: TacticalCombatState; events: TacticalEvent[] }>("/game/combat/tactical/action", data),
+    mutationFn: (data: {
+      chatId: string;
+      state?: TacticalCombatState;
+      sessionId?: string;
+      expectedRevision?: number;
+      actionId?: string;
+      action: TacticalAction;
+    }) =>
+      api.post<{
+        state: TacticalCombatState;
+        events: TacticalEvent[];
+        sessionId: string;
+        session: CombatStateView;
+        inventory?: Array<{ name: string; quantity: number }>;
+        summary?: CombatSummary;
+        revision: number;
+        objectives: CombatObjectiveState[];
+        bossPhases: CombatBossPhase[];
+      }>("/game/combat/tactical/action", data),
+    onSuccess: (res, variables) => {
+      qc.setQueryData([...gameKeys.all, "combat-session", "active", variables.chatId, "tactical"], {
+        session: res.session,
+      });
+      qc.invalidateQueries({ queryKey: [...gameKeys.all, "combat-session", "history", variables.chatId] });
+    },
   });
 }
 

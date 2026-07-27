@@ -17,6 +17,10 @@ import { createGalleryStorage } from "../services/storage/gallery.storage.js";
 import { createGameSceneVideosStorage } from "../services/storage/game-scene-videos.storage.js";
 import { createGameStoryboardsStorage } from "../services/storage/game-storyboards.storage.js";
 import { createGameStateStorage } from "../services/storage/game-state.storage.js";
+import {
+  createGameCombatSessionStorage,
+  CombatSessionStorageError,
+} from "../services/storage/game-combat-session.storage.js";
 import { createSpatialContextStorage } from "../services/storage/spatial-context.storage.js";
 import { formatOwnerSpatialBreadcrumb, resolveOwnerSpatialProjection } from "../services/spatial-context/projection.js";
 import {
@@ -79,7 +83,12 @@ import {
   resolveGameStartWorldMapPatch,
   resolveInitialMapLocationName,
 } from "../services/game/world-map-mode.js";
-import { resolveCombatRound, type CombatantStats } from "../services/game/combat.service.js";
+import {
+  combatBossPhasesFromMechanics,
+  CombatActionValidationError,
+  CombatManeuverValidationError,
+  resolveCombatSessionAction,
+} from "../services/game/combat-session.service.js";
 import { generateCombatLoot, generateLootTable } from "../services/game/loot.service.js";
 import {
   advanceTime,
@@ -151,9 +160,6 @@ import {
   STORYBOARD_AGENT_ID,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
   createTacticalCombat,
-  applyAction as applyTacticalAction,
-  runEnemyPhase as runTacticalEnemyPhase,
-  isTerminal as isTacticalTerminal,
   TERRAIN_DATA,
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
@@ -196,6 +202,15 @@ import type {
   Combatant,
   TacticalCombatState,
   TacticalAction,
+  CombatActionRequest,
+  CombatAction,
+  CombatManeuverInput,
+  CombatManeuverProposal,
+  CombatSessionStartInput,
+  CombatSession,
+  CombatStateView,
+  CombatPlayerAction,
+  PlayerStats,
 } from "@marinara-engine/shared";
 import { getAssetManifest, GAME_ASSETS_DIR } from "../services/game/asset-manifest.service.js";
 import {
@@ -349,6 +364,99 @@ function generatedStringValue(value: unknown): string | undefined {
 
 const generatedRequiredStringSchema = z.preprocess((value) => generatedStringValue(value) ?? value, z.string());
 const generatedOptionalStringSchema = z.preprocess((value) => generatedStringValue(value), z.string().optional());
+const combatObjectiveSchema = z
+  .object({
+    id: z.string().trim().min(1).max(200),
+    kind: z.enum([
+      "eliminate",
+      "survive_rounds",
+      "escape",
+      "defend",
+      "escort",
+      "capture",
+      "interrupt",
+      "conditional_eliminate",
+    ]),
+    label: z.string().trim().min(1).max(240),
+    targetIds: z.array(z.string().trim().min(1).max(200)).max(40).optional(),
+    tileIds: z.array(z.string().trim().min(1).max(200)).max(40).optional(),
+    includeReinforcements: z.boolean().optional(),
+    requiredProgress: z.number().finite().positive().max(10_000).optional(),
+    failAtRound: z.number().int().positive().max(10_000).optional(),
+    condition: z.string().trim().max(500).optional(),
+    progress: z.number().finite().min(0).max(10_000).default(0),
+    status: z.enum(["active", "complete", "failed"]).default("active"),
+  })
+  .strict();
+const combatStatusDefinitionSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    emoji: z.string().max(20).default(""),
+    duration: z.number().int().min(1).max(100),
+    modifier: z.number().finite().min(-100).max(100).optional(),
+    stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
+  })
+  .strict();
+const combatReinforcementDefinitionSchema = z
+  .object({
+    id: z.string().trim().min(1).max(200).optional(),
+    name: z.string().trim().min(1).max(200),
+    hp: z.number().finite().min(0).max(1_000_000),
+    maxHp: z.number().finite().positive().max(1_000_000),
+    mp: z.number().finite().min(0).max(1_000_000).optional(),
+    maxMp: z.number().finite().min(0).max(1_000_000).optional(),
+    attack: z.number().finite().min(0).max(1_000_000),
+    defense: z.number().finite().min(0).max(1_000_000),
+    speed: z.number().finite().min(0).max(1_000_000),
+    level: z.number().int().positive().max(10_000).optional(),
+    side: z.enum(["player", "enemy"]).optional(),
+    element: z.string().trim().max(80).optional(),
+    isBoss: z.boolean().optional(),
+  })
+  .strict();
+const combatMechanicDefinitionSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    description: z.string().trim().max(1000),
+    ownerName: z.string().trim().min(1).max(200).optional(),
+    trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]),
+    interval: z.number().int().positive().max(10_000).optional(),
+    hpThreshold: z.number().finite().min(0).max(100).optional(),
+    counterplay: z.string().trim().max(1000).optional(),
+    effectType: z
+      .enum([
+        "damage_all",
+        "damage_one",
+        "buff_self",
+        "debuff_party",
+        "status_party",
+        "status_enemy",
+        "summon_reinforcements",
+      ])
+      .optional(),
+    power: z.number().finite().min(0).max(10).optional(),
+    element: z.string().trim().max(80).optional(),
+    status: combatStatusDefinitionSchema.optional(),
+    reinforcements: z.array(combatReinforcementDefinitionSchema).max(40).optional(),
+  })
+  .strict();
+const combatBossPhaseSchema = z
+  .object({
+    id: z.string().trim().min(1).max(200),
+    ownerName: z.string().trim().min(1).max(200).optional(),
+    trigger: z.enum(["round_interval", "hp_threshold", "on_hit", "on_attack", "passive"]).optional(),
+    threshold: z.number().finite().min(0).max(100).optional(),
+    round: z.number().int().positive().max(10_000).optional(),
+    telegraph: z.string().trim().max(1000).optional(),
+    mechanics: z.array(combatMechanicDefinitionSchema).max(20),
+    reinforcements: z.array(combatReinforcementDefinitionSchema).max(40).optional(),
+    dialogueCueIds: z.array(z.string().trim().min(1).max(200)).max(40).optional(),
+    once: z.boolean().optional(),
+    telegraphedAtRevision: z.number().int().min(0).optional(),
+    lastTriggeredRound: z.number().int().min(0).optional(),
+    triggeredAtRevision: z.number().int().min(0).optional(),
+  })
+  .strict();
 
 /**
  * Fuzzy-match an NPC name against the character-avatar/description map.
@@ -9255,7 +9363,7 @@ export async function gameRoutes(app: FastifyInstance) {
   });
 
   // ── POST /game/combat/round ──
-  app.post("/combat/round", async (req) => {
+  app.post("/combat/round", async (req, reply) => {
     const schema = z.object({
       chatId: z.string().min(1),
       combatants: z.array(
@@ -9286,6 +9394,7 @@ export async function gameRoutes(app: FastifyInstance) {
               }),
             )
             .optional(),
+          skillCooldowns: z.record(z.number().int().min(0).max(1000)).optional(),
           statusEffects: z
             .array(
               z.object({
@@ -9305,13 +9414,25 @@ export async function gameRoutes(app: FastifyInstance) {
             })
             .nullable()
             .optional(),
+          sprite: generatedOptionalStringSchema,
+          combatClass: generatedOptionalStringSchema,
         }),
       ),
       round: z.number().int().min(1),
+      sessionId: z.string().min(1).optional(),
+      expectedRevision: z.number().int().min(0).optional(),
+      actionId: z.string().min(1).max(200).optional(),
+      inventory: z
+        .array(z.object({ name: generatedRequiredStringSchema, quantity: z.number().int().min(0).max(9999) }))
+        .max(200)
+        .optional(),
+      itemEffects: z.array(z.record(z.unknown())).max(200).optional(),
+      objectives: z.array(combatObjectiveSchema).max(20).optional(),
       playerAction: z
         .object({
-          type: z.enum(["attack", "skill", "defend", "item", "flee"]),
+          type: z.enum(["attack", "skill", "defend", "item", "maneuver", "flee"]),
           targetId: z.string().optional(),
+          instruction: z.string().max(500).optional(),
           skillId: z.string().optional(),
           itemId: z.string().optional(),
           itemEffect: z
@@ -9348,6 +9469,7 @@ export async function gameRoutes(app: FastifyInstance) {
             counterplay: generatedOptionalStringSchema,
             effectType: z
               .enum(["damage_all", "damage_one", "buff_self", "debuff_party", "status_party", "status_enemy"])
+              .or(z.literal("summon_reinforcements"))
               .optional(),
             power: z.number().optional(),
             element: generatedOptionalStringSchema,
@@ -9360,11 +9482,43 @@ export async function gameRoutes(app: FastifyInstance) {
                 stat: z.enum(["attack", "defense", "speed", "hp"]).optional(),
               })
               .optional(),
+            reinforcements: z
+              .array(
+                z.object({
+                  id: z.string().max(200).optional(),
+                  name: generatedRequiredStringSchema,
+                  hp: z.number().positive(),
+                  maxHp: z.number().positive(),
+                  mp: z.number().nonnegative().optional(),
+                  maxMp: z.number().nonnegative().optional(),
+                  attack: z.number().nonnegative(),
+                  defense: z.number().nonnegative(),
+                  speed: z.number().nonnegative(),
+                  level: z.number().positive().optional(),
+                  side: z.enum(["player", "enemy"]).optional(),
+                  element: generatedOptionalStringSchema,
+                  isBoss: z.boolean().optional(),
+                }),
+              )
+              .max(8)
+              .optional(),
           }),
         )
         .optional(),
     });
-    const { chatId, combatants, round, playerAction, mechanics } = schema.parse(req.body);
+    const {
+      chatId,
+      combatants,
+      round,
+      sessionId,
+      expectedRevision,
+      actionId,
+      inventory,
+      itemEffects,
+      objectives,
+      playerAction,
+      mechanics,
+    } = schema.parse(req.body);
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) throw new Error("Chat not found");
@@ -9372,23 +9526,116 @@ export async function gameRoutes(app: FastifyInstance) {
     const meta = parseMeta(chat.metadata);
     const difficulty = ((meta.gameSetupConfig as Record<string, unknown>)?.difficulty as string) ?? "normal";
     const elementPreset = ((meta.gameSetupConfig as Record<string, unknown>)?.elementPreset as string) ?? "default";
-    const result = resolveCombatRound(
-      combatants as (CombatantStats & { side?: "player" | "enemy" })[],
-      round,
-      difficulty,
-      elementPreset,
-      playerAction,
-      mechanics,
-    );
-
-    return { result, combatants };
+    if (!playerAction) return reply.status(400).send({ error: "A combat action is required", code: "INVALID_ACTION" });
+    if (playerAction.type === "maneuver" && (!playerAction.instruction || playerAction.instruction.trim().length < 3)) {
+      return reply.status(400).send({ error: "Describe the maneuver first", code: "INVALID_ACTION" });
+    }
+    const sessions = createGameCombatSessionStorage(app.db);
+    let session = sessionId ? await sessions.get(sessionId) : await sessions.getActiveForChat(chatId);
+    if (session && session.style !== "classic") {
+      return reply
+        .status(409)
+        .send({ error: "A Tactical combat session is already active", code: "COMBAT_WRONG_STYLE" });
+    }
+    if (!session) {
+      session = await sessions.create({
+        chatId,
+        style: "classic",
+        seed: randomInt(0, 0x1_0000_0000),
+        state: {
+          party: (combatants as Combatant[]).filter((combatant) => combatant.side === "player"),
+          enemies: (combatants as Combatant[]).filter((combatant) => combatant.side !== "player"),
+          inventory: inventory ?? [],
+          itemEffects: (itemEffects ?? []) as unknown as NonNullable<CombatSessionStartInput["itemEffects"]>,
+          mechanics: mechanics ?? [],
+          dialogueCues: [],
+          startMessageId: null,
+          round,
+          difficulty,
+          elementPreset,
+        },
+        objectives,
+        bossPhases: combatBossPhasesFromMechanics(mechanics ?? []),
+      });
+    }
+    const request: CombatActionRequest = {
+      sessionId: session.sessionId,
+      expectedRevision: expectedRevision ?? session.revision,
+      actionId: actionId ?? randomUUID(),
+      action: { ...(playerAction as CombatPlayerAction), style: "classic" },
+    };
+    try {
+      const maneuverInput = maneuverInputForAction(session, request.action);
+      const maneuverProposal =
+        maneuverInput && !session.actionHistory?.some((record) => record.actionId === request.actionId)
+          ? await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)
+          : undefined;
+      const applied = await sessions.applyAction(chatId, request, (current) =>
+        resolveCombatSessionAction(current, request.actionId, request.action, maneuverProposal),
+      );
+      await syncCombatInventory(
+        chatId,
+        (applied.response.state.canonicalState as { inventory?: Array<{ name: string; quantity: number }> }).inventory,
+      );
+      const nextState = applied.response.state.canonicalState as Extract<
+        CombatSession,
+        { style: "classic" }
+      >["canonicalState"];
+      const legacyResult = applied.response.classicRoundResult ?? {
+        round: nextState.round ?? round,
+        initiative: [],
+        actions: applied.response.events
+          .filter((event) => ["damage", "heal", "miss", "crit"].includes(event.kind))
+          .map((event) => {
+            const target = [...nextState.party, ...nextState.enemies].find(
+              (combatant) => combatant.id === event.targetId,
+            );
+            const amount = event.amount ?? 0;
+            return {
+              attackerId: event.actorId ?? "",
+              defenderId: event.targetId ?? "",
+              attackRoll: 0,
+              defenseRoll: 0,
+              rawDamage: amount,
+              mitigated: 0,
+              finalDamage: amount,
+              isCritical: event.kind === "crit",
+              isMiss: event.kind === "miss",
+              remainingHp: target?.hp ?? 0,
+              isKo: (target?.hp ?? 0) <= 0,
+              ...(event.kind === "heal" ? { isHeal: true } : {}),
+              ...(event.skillName ? { skillName: event.skillName } : {}),
+              ...(event.element ? { element: event.element } : {}),
+            };
+          }),
+        statusTicks: [],
+        reactions: [],
+      };
+      return {
+        result: legacyResult,
+        combatants: [...nextState.party, ...nextState.enemies],
+        events: applied.response.events,
+        sessionId: applied.response.sessionId,
+        revision: applied.response.revision,
+        state: applied.response.state,
+        duplicate: applied.duplicate,
+        objectives: applied.response.state.objectives,
+        bossPhases: applied.response.state.bossPhases,
+        outcome: nextState.outcome,
+        summary: applied.response.result,
+        status: applied.response.state.status,
+        inventory: nextState.inventory,
+      };
+    } catch (error) {
+      return sendCombatSessionError(reply, error);
+    }
   });
 
   // ── Tactical (grid) combat ──
   // Alternative to classic menu combat. The battle engine lives in the shared
   // package (pure, deterministic, seeded); these endpoints are thin adapters.
-  // State round-trips through the client exactly like classic combat — no DB
-  // table; the client persists the snapshot to chat metadata.
+  // The session table owns canonical state; the metadata snapshot remains a
+  // compatibility fallback for legacy clients and refresh recovery.
 
   // A combatant blob from the client. The engine reads a fixed set of numeric
   // fields; everything else (mp/skills/statusEffects/element/sprite/side) passes
@@ -9474,11 +9721,421 @@ export async function gameRoutes(app: FastifyInstance) {
   // returns `{ ok: false, error }` for illegal input.
   const tacticalActionSchema = z
     .object({
-      type: z.enum(["move", "attack", "skill", "item", "defend", "wait", "endTurn", "flee"]),
+      type: z.enum(["move", "attack", "skill", "item", "maneuver", "defend", "overwatch", "wait", "endTurn", "flee"]),
     })
     .passthrough();
 
+  const combatManeuverProposalSchema = z
+    .object({
+      outcome: z.enum(["success", "partial", "failure"]),
+      rationale: z.string().trim().min(1).max(1000),
+      difficulty: z.number().min(0.05).max(0.95),
+      effects: z
+        .array(
+          z
+            .object({
+              type: z.enum(["damage", "heal", "status", "move", "cover", "terrain", "objective"]),
+              targetId: z.string().trim().min(1).max(200).optional(),
+              tile: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
+              amount: z.number().finite().optional(),
+              status: z
+                .object({
+                  name: z.string().trim().min(1).max(80),
+                  modifier: z.number().finite().min(-5).max(5),
+                  stat: z.enum(["attack", "defense", "speed", "hp"]),
+                  turnsLeft: z.number().int().min(1).max(3),
+                })
+                .strict()
+                .optional(),
+              objectiveId: z.string().trim().min(1).max(200).optional(),
+              terrain: z.enum(["plains", "forest", "mountain", "ruin", "water", "wall"]).optional(),
+            })
+            .strict(),
+        )
+        .max(6),
+      narration: z.string().trim().max(1200),
+    })
+    .strict();
+
   // ── POST /game/combat/tactical/start ──
+  const combatSessionStorage = createGameCombatSessionStorage(app.db);
+
+  async function syncCombatInventory(chatId: string, inventory: Array<{ name: string; quantity: number }> | undefined) {
+    if (!inventory) return;
+    try {
+      await createChatsStorage(app.db).patchMetadata(chatId, { gameInventory: inventory }, { touchUpdatedAt: false });
+      const latest = await createGameStateStorage(app.db).getLatest(chatId);
+      const playerStats =
+        typeof latest?.playerStats === "string"
+          ? (() => {
+              try {
+                return JSON.parse(latest.playerStats) as Record<string, unknown>;
+              } catch {
+                return null;
+              }
+            })()
+          : latest?.playerStats;
+      if (!playerStats || !Array.isArray(playerStats.inventory)) return;
+      const quantities = new Map(inventory.map((item) => [item.name.trim().toLowerCase(), item.quantity]));
+      const seen = new Set<string>();
+      const detailedInventory = (
+        playerStats.inventory as Array<{
+          name: string;
+          description: string;
+          quantity: number;
+          location: string;
+        }>
+      ).map((item) => {
+        const key = String(item.name).trim().toLowerCase();
+        if (key) seen.add(key);
+        const quantity = quantities.get(key);
+        return quantity === undefined ? item : { ...item, quantity };
+      });
+      for (const item of inventory) {
+        const key = item.name.trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        detailedInventory.push({
+          name: item.name,
+          description: "",
+          quantity: item.quantity,
+          location: "on_person",
+        });
+        seen.add(key);
+      }
+      const nextPlayerStats = {
+        ...playerStats,
+        inventory: detailedInventory,
+      } as unknown as PlayerStats;
+      await createGameStateStorage(app.db).updateLatest(chatId, { playerStats: nextPlayerStats });
+    } catch (error) {
+      logger.warn(error, "Combat inventory sync failed for chat %s", chatId);
+      throw error;
+    }
+  }
+
+  function combatSessionView(session: CombatSession): CombatStateView {
+    const result = session.actionHistory?.at(-1)?.response.result;
+    return {
+      sessionId: session.sessionId,
+      chatId: session.chatId,
+      style: session.style,
+      schemaVersion: session.schemaVersion,
+      revision: session.revision,
+      status: session.status,
+      canonicalState: session.canonicalState,
+      objectives: session.objectives,
+      bossPhases: session.bossPhases,
+      ...(result ? { result } : {}),
+    } as CombatStateView;
+  }
+
+  function sendCombatSessionError(reply: FastifyReply, error: unknown) {
+    if (error instanceof CombatSessionStorageError) {
+      return reply.status(error.statusCode).send({
+        error: error.message,
+        code: error.code,
+        ...(error.currentRevision !== undefined ? { currentRevision: error.currentRevision } : {}),
+        ...(error.currentState ? { state: error.currentState } : {}),
+      });
+    }
+    if (error instanceof CombatActionValidationError || error instanceof CombatManeuverValidationError) {
+      return reply.status(error.statusCode).send({ error: error.message, code: error.code });
+    }
+    throw error;
+  }
+
+  function maneuverInputForAction(session: CombatSession, action: CombatAction): CombatManeuverInput | null {
+    if ("maneuver" in action) return action.maneuver;
+    if (!("type" in action) || action.type !== "maneuver") return null;
+    if (session.style === "tactical" && "unitId" in action) {
+      return {
+        actorId: action.unitId,
+        instruction: action.instruction,
+        targetId: action.targetId,
+        tile: action.tile,
+        objectiveId: action.objectiveId,
+      };
+    }
+    const actor = session.style === "classic" ? session.canonicalState.party.find((member) => member.hp > 0) : null;
+    if (!actor || !("instruction" in action)) return null;
+    return { actorId: actor.id, instruction: action.instruction, targetId: action.targetId };
+  }
+
+  async function adjudicateCombatManeuver(
+    chatId: string,
+    session: CombatSession,
+    input: CombatManeuverInput,
+    reply: FastifyReply,
+  ): Promise<CombatManeuverProposal> {
+    const chat = await createChatsStorage(app.db).getById(chatId);
+    if (!chat) throw new CombatManeuverValidationError("Chat not found for maneuver adjudication.");
+    const meta = parseMeta(chat.metadata);
+    const connections = createConnectionsStorage(app.db);
+    const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
+      connections,
+      null,
+      chat.connectionId,
+    );
+    const parameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+    const provider = await createGameMainProvider(connections, conn, baseUrl);
+    const stateProjection =
+      session.style === "tactical"
+        ? {
+            style: session.style,
+            round: session.canonicalState.round,
+            phase: session.canonicalState.phase,
+            actor: session.canonicalState.units.find((unit) => unit.id === input.actorId) ?? null,
+            units: session.canonicalState.units.map((unit) => ({
+              id: unit.id,
+              name: unit.name,
+              side: unit.side,
+              hp: unit.hp,
+              maxHp: unit.maxHp,
+              mp: unit.mp,
+              x: unit.x,
+              y: unit.y,
+              attack: unit.attack,
+              defense: unit.defense,
+              speed: unit.speed,
+              statuses: unit.statusEffects,
+              isBoss: (unit as Combatant & { isBoss?: boolean }).isBoss === true,
+            })),
+            grid: session.canonicalState.grid,
+            hazards: session.canonicalState.hazards ?? [],
+          }
+        : {
+            style: session.style,
+            round: session.canonicalState.round,
+            actor: session.canonicalState.party.find((unit) => unit.id === input.actorId) ?? null,
+            party: session.canonicalState.party.map((unit) => ({
+              id: unit.id,
+              name: unit.name,
+              hp: unit.hp,
+              maxHp: unit.maxHp,
+              mp: unit.mp,
+              attack: unit.attack,
+              defense: unit.defense,
+              speed: unit.speed,
+              statuses: unit.statusEffects ?? [],
+            })),
+            enemies: session.canonicalState.enemies.map((unit) => ({
+              id: unit.id,
+              name: unit.name,
+              hp: unit.hp,
+              maxHp: unit.maxHp,
+              attack: unit.attack,
+              defense: unit.defense,
+              speed: unit.speed,
+              statuses: unit.statusEffects ?? [],
+              isBoss: (unit as Combatant & { isBoss?: boolean }).isBoss === true,
+            })),
+          };
+    const context = {
+      action: input,
+      battlefield: stateProjection,
+      objectives: session.objectives,
+      bossPhases: session.bossPhases.filter((phase) => phase.once === false || phase.triggeredAtRevision === undefined),
+    };
+    const messages: ChatMessage[] = [
+      {
+        role: "system",
+        content: [
+          "You are a combat maneuver adjudicator. Return one strict JSON object and no prose.",
+          "Propose bounded effects only; the deterministic engine rolls the actual outcome and validates every effect.",
+          "difficulty must be 0.05-0.95. Use at most 6 effects.",
+          "Allowed effect types: damage, heal, status, move, cover, terrain, objective.",
+          "Targets and objective IDs must exactly match the supplied context. Tactical coordinates must be on the supplied grid.",
+          "Status shape: {name, modifier (-5..5), stat (attack|defense|speed|hp), turnsLeft (1..3)}.",
+          "Output shape: {outcome, rationale, difficulty, effects, narration}.",
+          "outcome is your recommendation only; the engine ignores it when rolling.",
+        ].join("\n"),
+      },
+      { role: "user", content: JSON.stringify(context) },
+    ];
+    logger.debug("[debug/game/combat-maneuver] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+    try {
+      const result = await runGameChatComplete(
+        provider,
+        messages,
+        gameGenOptions(
+          conn.model ?? "",
+          {
+            stream: false,
+            maxTokens: 1400,
+            temperature: 0.2,
+            responseFormat: { type: "json_object" },
+            signal: createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Combat maneuver adjudication"),
+          },
+          parameters,
+          conn.provider,
+        ),
+        "Combat maneuver adjudication",
+      );
+      const extraction = extractLeadingThinkingBlocks(result.content || "", parameters?.customThinkingTags);
+      const proposal = combatManeuverProposalSchema.parse(parseJSON(extraction.content));
+      logger.debug("[debug/game/combat-maneuver] proposal:\n%s", JSON.stringify(proposal, null, 2));
+      return proposal;
+    } catch (error) {
+      logger.warn(error, "Combat maneuver adjudication failed for chat %s", chatId);
+      throw new CombatManeuverValidationError("The GM could not produce a valid maneuver proposal. Try rephrasing it.");
+    }
+  }
+
+  app.post("/combat/session/start", async (req, reply) => {
+    const schema = z.object({
+      chatId: z.string().min(1),
+      style: z.enum(["classic", "tactical"]),
+      state: z.record(z.unknown()),
+      objectives: z.array(combatObjectiveSchema).max(20).optional(),
+      bossPhases: z.array(combatBossPhaseSchema).max(20).optional(),
+      seed: z.number().int().optional(),
+    });
+    const input = schema.parse(req.body);
+    const chat = await createChatsStorage(app.db).getById(input.chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found", code: "COMBAT_NOT_FOUND" });
+    if (input.style === "tactical") {
+      const validated = tacticalStateSchema.safeParse(input.state);
+      if (!validated.success) {
+        return reply.status(400).send({ error: "Invalid tactical combat state", code: "COMBAT_SNAPSHOT_INVALID" });
+      }
+      try {
+        const session = await combatSessionStorage.create({
+          chatId: input.chatId,
+          style: "tactical",
+          state: validated.data as unknown as TacticalCombatState,
+          objectives: input.objectives as CombatSessionStartInput["objectives"],
+          bossPhases: input.bossPhases as CombatSessionStartInput["bossPhases"],
+          seed: input.seed,
+        });
+        return { session: combatSessionView(session), sessionId: session.sessionId, revision: session.revision };
+      } catch (error) {
+        return sendCombatSessionError(reply, error);
+      }
+    }
+    try {
+      const session = await combatSessionStorage.create(input as unknown as CombatSessionStartInput);
+      return { session: combatSessionView(session), sessionId: session.sessionId, revision: session.revision };
+    } catch (error) {
+      return sendCombatSessionError(reply, error);
+    }
+  });
+
+  app.get<{ Querystring: { chatId?: string; style?: "classic" | "tactical" } }>(
+    "/combat/session/active",
+    async (req, reply) => {
+      const query = z
+        .object({ chatId: z.string().min(1), style: z.enum(["classic", "tactical"]).optional() })
+        .parse(req.query);
+      const chat = await createChatsStorage(app.db).getById(query.chatId);
+      if (!chat) return reply.status(404).send({ error: "Chat not found", code: "COMBAT_NOT_FOUND" });
+      let session = await combatSessionStorage.getActiveForChat(query.chatId);
+      if (!session) {
+        const latest = await combatSessionStorage.getLatestForChat(query.chatId);
+        const outcome = latest?.canonicalState.outcome;
+        if (latest?.status === "completed" && outcome) session = latest;
+      }
+      if (!session || (query.style && session.style !== query.style)) return { session: null };
+      return { session: combatSessionView(session) };
+    },
+  );
+
+  app.get<{ Querystring: { chatId?: string } }>("/combat/session/active/history", async (req, reply) => {
+    const { chatId } = z.object({ chatId: z.string().min(1) }).parse(req.query);
+    const chat = await createChatsStorage(app.db).getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found", code: "COMBAT_NOT_FOUND" });
+    const session = await combatSessionStorage.getLatestForChat(chatId);
+    return { sessionId: session?.sessionId ?? null, history: session?.actionHistory ?? [] };
+  });
+
+  app.get<{ Params: { sessionId: string }; Querystring: { chatId?: string } }>(
+    "/combat/session/:sessionId",
+    async (req, reply) => {
+      const session = await combatSessionStorage.get(req.params.sessionId);
+      if (!session) {
+        return reply.status(404).send({ error: "Combat session not found", code: "COMBAT_NOT_FOUND" });
+      }
+      if (req.query.chatId && session.chatId !== req.query.chatId) {
+        return reply
+          .status(403)
+          .send({ error: "Combat session does not belong to this chat", code: "COMBAT_WRONG_CHAT" });
+      }
+      return { session: combatSessionView(session) };
+    },
+  );
+
+  app.post<{ Params: { sessionId: string } }>("/combat/session/:sessionId/action", async (req, reply) => {
+    const schema = z.object({
+      chatId: z.string().min(1),
+      expectedRevision: z.number().int().min(0),
+      actionId: z.string().min(1).max(200),
+      action: z.record(z.unknown()),
+    });
+    const body = schema.parse(req.body);
+    const request = { ...body, sessionId: req.params.sessionId } as unknown as CombatActionRequest;
+    try {
+      const existing = await combatSessionStorage.get(req.params.sessionId);
+      if (existing && existing.chatId !== body.chatId) {
+        return reply
+          .status(403)
+          .send({ error: "Combat session does not belong to this chat", code: "COMBAT_WRONG_CHAT" });
+      }
+      const actionMatchesStyle =
+        !existing ||
+        ("style" in request.action
+          ? request.action.style === existing.style
+          : existing.style === "tactical");
+      if (!actionMatchesStyle) {
+        return reply.status(409).send({
+          error: `Combat action does not match the active ${existing?.style ?? "unknown"} session`,
+          code: "COMBAT_WRONG_STYLE",
+        });
+      }
+      const maneuverInput = existing ? maneuverInputForAction(existing, request.action) : null;
+      const maneuverProposal =
+        existing &&
+        existing.chatId === body.chatId &&
+        existing.status === "active" &&
+        existing.revision === body.expectedRevision &&
+        maneuverInput &&
+        !existing.actionHistory?.some((record) => record.actionId === request.actionId)
+          ? await adjudicateCombatManeuver(body.chatId, existing, maneuverInput, reply)
+          : undefined;
+      const applied = await combatSessionStorage.applyAction(body.chatId, request, (session) =>
+        resolveCombatSessionAction(session, request.actionId, request.action, maneuverProposal),
+      );
+      return { ...applied.response, duplicate: applied.duplicate };
+    } catch (error) {
+      return sendCombatSessionError(reply, error);
+    }
+  });
+
+  app.post<{ Params: { sessionId: string } }>("/combat/session/:sessionId/complete", async (req, reply) => {
+    const schema = z.object({ chatId: z.string().min(1) });
+    const { chatId } = schema.parse(req.body);
+    const session = await combatSessionStorage.get(req.params.sessionId);
+    if (!session) return reply.status(404).send({ error: "Combat session not found", code: "COMBAT_NOT_FOUND" });
+    if (session.chatId !== chatId) {
+      return reply
+        .status(403)
+        .send({ error: "Combat session does not belong to this chat", code: "COMBAT_WRONG_CHAT" });
+    }
+    try {
+      const completed = await combatSessionStorage.complete(session.sessionId);
+      return { session: completed ? combatSessionView(completed) : null };
+    } catch (error) {
+      return sendCombatSessionError(reply, error);
+    }
+  });
+
+  app.post("/combat/session/abandon", async (req, reply) => {
+    const schema = z.object({ chatId: z.string().min(1) });
+    const { chatId } = schema.parse(req.body);
+    const chat = await createChatsStorage(app.db).getById(chatId);
+    if (!chat) return reply.status(404).send({ error: "Chat not found", code: "COMBAT_NOT_FOUND" });
+    await combatSessionStorage.abandonForChat(chatId);
+    return { ok: true };
+  });
+
   app.post("/combat/tactical/start", async (req, reply) => {
     const schema = z.object({
       chatId: z.string().min(1),
@@ -9491,8 +10148,16 @@ export async function gameRoutes(app: FastifyInstance) {
       // in the engine (environment → default, formation → "line").
       environment: z.string().optional(),
       formation: z.string().optional(),
+      inventory: z
+        .array(z.object({ name: generatedRequiredStringSchema, quantity: z.number().int().min(0).max(9999) }))
+        .max(200)
+        .optional(),
+      itemEffects: z.array(z.record(z.unknown())).max(200).optional(),
+      objectives: z.array(combatObjectiveSchema).max(20).optional(),
+      mechanics: z.array(combatMechanicDefinitionSchema).max(20).optional(),
     });
-    const { chatId, party, enemies, seed, environment, formation } = schema.parse(req.body);
+    const { chatId, party, enemies, seed, environment, formation, inventory, itemEffects, objectives, mechanics } =
+      schema.parse(req.body);
 
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
@@ -9508,6 +10173,8 @@ export async function gameRoutes(app: FastifyInstance) {
       difficulty,
       environment,
       formation,
+      inventory,
+      itemEffects: itemEffects as unknown as CombatSessionStartInput["itemEffects"],
     });
 
     logger.info(
@@ -9519,46 +10186,103 @@ export async function gameRoutes(app: FastifyInstance) {
       resolvedSeed,
     );
 
-    return { state };
+    try {
+      const session = await combatSessionStorage.create({
+        chatId,
+        style: "tactical",
+        state,
+        seed: resolvedSeed,
+        objectives,
+        bossPhases: combatBossPhasesFromMechanics(mechanics ?? []),
+      });
+      return {
+        state,
+        sessionId: session.sessionId,
+        revision: session.revision,
+        objectives: session.objectives,
+        bossPhases: session.bossPhases,
+        session: combatSessionView(session),
+      };
+    } catch (error) {
+      return sendCombatSessionError(reply, error);
+    }
   });
 
   // ── POST /game/combat/tactical/action ──
   app.post("/combat/tactical/action", async (req, reply) => {
     const schema = z.object({
       chatId: z.string().min(1),
-      state: tacticalStateSchema,
+      state: tacticalStateSchema.optional(),
+      sessionId: z.string().min(1).optional(),
+      expectedRevision: z.number().int().min(0).optional(),
+      actionId: z.string().min(1).max(200).optional(),
       action: tacticalActionSchema,
     });
-    const { chatId, state, action } = schema.parse(req.body);
+    const { chatId, state, sessionId, expectedRevision, actionId, action } = schema.parse(req.body);
 
     const chats = createChatsStorage(app.db);
     const chat = await chats.getById(chatId);
     if (!chat) return reply.status(404).send({ error: "Chat not found" });
-
-    // The schema only validates the envelope; the engine assumes further
-    // internal invariants that a hand-crafted round-tripped state could still
-    // violate. Guard against that so a malformed request fails cleanly with a
-    // 400 instead of an unhandled 500.
     try {
-      const applied = applyTacticalAction(state as unknown as TacticalCombatState, action as unknown as TacticalAction);
-      if (!applied.ok) {
-        return reply.status(400).send({ error: applied.error });
+      let session = sessionId
+        ? await combatSessionStorage.get(sessionId)
+        : await combatSessionStorage.getActiveForChat(chatId);
+      if (session && session.style !== "tactical") {
+        return reply
+          .status(409)
+          .send({ error: "A Classic combat session is already active", code: "COMBAT_WRONG_STYLE" });
       }
-
-      let nextState = applied.state;
-      const events = [...applied.events];
-
-      // The player action auto-advances the phase once every party unit has acted.
-      // Resolve the enemy phase in the same round-trip and append its events after
-      // the player's, so the client animates one continuous sequence.
-      if (nextState.phase === "enemy" && !isTacticalTerminal(nextState)) {
-        const enemyResult = runTacticalEnemyPhase(nextState);
-        nextState = enemyResult.state;
-        events.push(...enemyResult.events);
+      if (!session) {
+        if (!state) {
+          return reply
+            .status(400)
+            .send({ error: "Tactical combat state is required", code: "COMBAT_SNAPSHOT_INVALID" });
+        }
+        session = await combatSessionStorage.importLegacySnapshot({
+          chatId,
+          style: "tactical",
+          state: state as unknown as TacticalCombatState,
+          seed: state.seed,
+        });
       }
-
-      return { state: nextState, events };
+      const request: CombatActionRequest = {
+        sessionId: session.sessionId,
+        expectedRevision: expectedRevision ?? session.revision,
+        actionId: actionId ?? randomUUID(),
+        action: { ...(action as unknown as TacticalAction), style: "tactical" },
+      };
+      const maneuverInput = maneuverInputForAction(session, request.action);
+      const maneuverProposal =
+        session.status === "active" &&
+        session.revision === request.expectedRevision &&
+        maneuverInput &&
+        !session.actionHistory?.some((record) => record.actionId === request.actionId)
+          ? await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)
+          : undefined;
+      const applied = await combatSessionStorage.applyAction(chatId, request, (current) =>
+        resolveCombatSessionAction(current, request.actionId, request.action, maneuverProposal),
+      );
+      await syncCombatInventory(chatId, applied.response.state.canonicalState.inventory);
+      return {
+        state: applied.response.state.canonicalState,
+        events: applied.response.events,
+        sessionId: applied.response.sessionId,
+        revision: applied.response.revision,
+        session: applied.response.state,
+        inventory: applied.response.state.canonicalState.inventory,
+        duplicate: applied.duplicate,
+        summary: applied.response.result,
+        objectives: applied.response.state.objectives,
+        bossPhases: applied.response.state.bossPhases,
+      };
     } catch (err) {
+      if (
+        err instanceof CombatSessionStorageError ||
+        err instanceof CombatActionValidationError ||
+        err instanceof CombatManeuverValidationError
+      ) {
+        return sendCombatSessionError(reply, err);
+      }
       logger.warn(err, "Tactical action failed on round-tripped state for chat %s", chatId);
       return reply.status(400).send({ error: "Invalid tactical combat state" });
     }

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import type { GenerationParameters } from "./prompt.js";
 import type { CombatItemEffect, CombatMechanic, CombatDialogueCue } from "./combat-encounter.js";
+import type { CombatObjectiveState } from "./combat-session.js";
 import type { SpotifySourceType } from "./spotify.js";
 
 /** The four main states a game can be in during a session. */
@@ -338,11 +339,14 @@ export interface Combatant {
   level: number;
   /** "player" or "enemy" */
   side: "player" | "enemy";
+  /** Identifies the persona-controlled party member independently of party order. */
+  isPlayer?: boolean;
   /** Sprite/avatar URL or asset tag */
   sprite?: string;
   statusEffects?: CombatStatusEffect[];
   /** Available skills beyond basic attack */
   skills?: CombatSkill[];
+  skillCooldowns?: Record<string, number>;
   /** Element this combatant's attacks carry */
   element?: string;
   /** Current elemental aura applied to this combatant */
@@ -430,6 +434,7 @@ export type CombatPlayerAction =
       itemEffect?: CombatItemEffect;
     }
   | { type: "defend" }
+  | { type: "maneuver"; instruction: string; targetId?: string }
   | { type: "flee" };
 
 /**
@@ -442,30 +447,43 @@ export type CombatPlayerAction =
 export interface GameCombatStateSnapshot {
   party: Combatant[];
   enemies: Combatant[];
+  inventory?: Array<{ name: string; quantity: number }>;
   itemEffects: CombatItemEffect[];
+  objectives?: CombatObjectiveState[];
   mechanics: CombatMechanic[];
   dialogueCues: CombatDialogueCue[];
   /** ID of the assistant message whose `[combat:]` tag opened this encounter. */
   startMessageId: string | null;
+  round?: number;
+  outcome?: "victory" | "defeat" | "flee";
+  difficulty?: string;
+  elementPreset?: string;
 }
 
 /** Post-combat summary handed to the GM for narration. */
 export interface CombatSummary {
+  sessionId?: string;
   outcome: "victory" | "defeat" | "flee";
   rounds: number;
   party: Array<{
+    id: string;
     name: string;
     hp: number;
     maxHp: number;
+    mp?: number;
+    maxMp?: number;
     ko: boolean;
     statusEffects: string[];
   }>;
   enemies: Array<{
+    id: string;
     name: string;
     defeated: boolean;
     hp: number;
     maxHp: number;
   }>;
+  objectives?: CombatObjectiveState[];
+  inventory?: Array<{ name: string; quantity: number }>;
   loot?: Array<{ name: string; quantity?: number }>;
 }
 

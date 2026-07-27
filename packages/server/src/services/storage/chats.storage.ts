@@ -8,6 +8,7 @@ import {
   messages,
   messageSwipes,
   gameStateSnapshots,
+  gameCombatSessions,
   spatialContextSnapshots,
   gameCheckpoints,
   gameEngineState,
@@ -281,6 +282,12 @@ export function createChatsStorage(db: DB) {
       .where(eq(gameStateSnapshots.chatId, chatId))
       .limit(1);
     if (existingSnapshot.length > 0) return true;
+    const existingCombatSession = await db
+      .select({ sessionId: gameCombatSessions.sessionId })
+      .from(gameCombatSessions)
+      .where(eq(gameCombatSessions.chatId, chatId))
+      .limit(1);
+    if (existingCombatSession.length > 0) return true;
     const existingCheckpoint = await db
       .select({ id: gameCheckpoints.id })
       .from(gameCheckpoints)
@@ -762,6 +769,7 @@ export function createChatsStorage(db: DB) {
       await db.delete(agentMemory).where(eq(agentMemory.chatId, id));
       await db.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, id));
       await db.delete(gameStateSnapshots).where(eq(gameStateSnapshots.chatId, id));
+      await db.delete(gameCombatSessions).where(eq(gameCombatSessions.chatId, id));
       await db.delete(spatialContextSnapshots).where(eq(spatialContextSnapshots.chatId, id));
       await db.delete(gameEngineState).where(eq(gameEngineState.chatId, id));
       await db.delete(conversationCallMessages).where(eq(conversationCallMessages.chatId, id));
@@ -793,6 +801,7 @@ export function createChatsStorage(db: DB) {
         await db.delete(agentMemory).where(eq(agentMemory.chatId, chat.id));
         await db.delete(gameCheckpoints).where(eq(gameCheckpoints.chatId, chat.id));
         await db.delete(gameStateSnapshots).where(eq(gameStateSnapshots.chatId, chat.id));
+        await db.delete(gameCombatSessions).where(eq(gameCombatSessions.chatId, chat.id));
         await db.delete(spatialContextSnapshots).where(eq(spatialContextSnapshots.chatId, chat.id));
         await db.delete(gameEngineState).where(eq(gameEngineState.chatId, chat.id));
         await db.delete(conversationCallMessages).where(eq(conversationCallMessages.chatId, chat.id));

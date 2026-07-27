@@ -1,6 +1,6 @@
 # Game Mode: Combat
 
-This guide explains combat in Marinara Engine Game Mode. It covers how a fight starts, the action menu, and the dice math behind every hit. It also explains status effects, elemental reactions, boss mechanics, loot, the Interrupt control, and Quick-Time Events. Combat is run by the AI Game Master (GM), the character who narrates your adventure.
+This guide explains Classic combat in Marinara Engine Game Mode. Classic is the cinematic, menu-driven presentation. Tactical is the grid-based alternative and has its own [Tactical Combat guide](tactical-combat.md). Both styles use the same server-owned session rules for deterministic rolls, duplicate-action protection, objectives, boss phases, inventory, restoration, and aftermath. The AI Game Master (GM) narrates authoritative results instead of deciding the math.
 
 ## Starting an encounter
 
@@ -14,10 +14,10 @@ On your turn, you pick one action from the menu. The six actions are:
 
 - **Attack**: strike one enemy with a basic attack.
 - **Skills**: use a special ability. Skills can cost MP. Some heal an ally, some hit an enemy, and some apply a buff or debuff.
-- **Special**: type a free-form action in your own words, then press **Ask GM**. For example, "I kick sand into the Ruin Guard's cracked lens." The GM decides what happens.
+- **Special**: type a free-form maneuver in your own words. The GM proposes a small structured set of effects from the current battle, then the deterministic resolver rolls success, partial success, or failure and applies only legal, capped effects. The GM narrates the result but cannot rewrite arbitrary combat state.
 - **Defend**: raise your Defense for the rest of the round to take less damage.
 - **Items**: use an item from your bag. Choose **Full inventory** to open your full item list from here.
-- **Flee**: leave the fight at once. Fleeing ends combat immediately.
+- **Flee**: leave an ordinary fight at once. When escape is the encounter objective, you must first complete its exit interaction; an early attempt does not end combat.
 
 After you choose, the round plays out. The results appear as floating damage numbers, changing health bars, and lines in the combat log.
 
@@ -47,13 +47,21 @@ On a hit, base damage comes from the attacker's Attack stat and grows with their
 The last step scales damage by the game's Difficulty, which you set in the setup wizard. The four settings multiply final damage like this:
 
 | Difficulty | Damage multiplier |
-|---|---|
-| Casual | 0.6 |
-| Normal | 1.0 |
-| Hard | 1.3 |
-| Brutal | 1.6 |
+| ---------- | ----------------- |
+| Casual     | 0.6               |
+| Normal     | 1.0               |
+| Hard       | 1.3               |
+| Brutal     | 1.6               |
 
-Higher difficulty means both sides hit harder, so fights are shorter and riskier.
+Difficulty scales enemy damage. Party attacks keep their normal damage, so harder settings increase danger instead of making every participant hit harder.
+
+## Sessions, objectives, and restoration
+
+The server owns the current combatants, random seed, roll cursor, items, objectives, and action history. A browser action includes the session revision it was based on. A stale tab must refresh instead of overwriting a newer turn, and retrying the same action ID returns the original result without spending MP or an item twice.
+
+Defeating every enemy is the default objective. Encounters can instead require survival, escape, defense, escort, capture, interruption, or a conditional defeat. Special, capture, interruption, escort, and conditional actions advance only when the structured maneuver result explicitly affects that objective. Boss phases can trigger from HP thresholds or scheduled rounds, emit a telegraph before their mechanic resolves, and call bounded reinforcement waves into valid positions.
+
+Refreshing restores the active session. Leaving through the pre-combat return control abandons it. Victory, defeat, fleeing, restart, chat reset, and chat deletion all finalize or clean up their session.
 
 ## Status effects and elemental reactions
 
@@ -98,6 +106,7 @@ Tap a tab to open its drawer. To close it, tap outside the drawer or tap the clo
 
 ## Related guides
 
+- [Game Mode: Tactical Combat](tactical-combat.md)
 - [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md)
 - [Game Mode: Party and NPCs](party-and-npcs.md)
 - [Game Mode: Getting Started](getting-started.md)
