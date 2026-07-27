@@ -10,7 +10,7 @@ import type { FileHandle } from "fs/promises";
 import { tmpdir } from "os";
 import { pipeline } from "stream/promises";
 import { StringDecoder } from "string_decoder";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { inflateRawSync } from "zlib";
 import AdmZip from "adm-zip";
 import { FILE_BACKED_TABLES } from "../db/file-backed-store.js";
@@ -42,6 +42,14 @@ import {
 } from "../services/import/profile-import-assets.js";
 import { computePersonalExtensionHash } from "../services/extensions/personal-extension-hash.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
+import {
+  AUTOMATIC_BACKUP_FILENAME,
+  automaticBackupArchiveFilename,
+  automaticBackupExists,
+  normalizeAutomaticBackupRetentionCount,
+  parseAutomaticBackupRetentionCount,
+  pruneAutomaticBackupFiles,
+} from "../services/backup/automatic-backup-retention.js";
 
 /** Directories inside DATA_DIR that should be included in every backup. */
 const BACKUP_DIRS = [
@@ -73,7 +81,6 @@ const PROFILE_ARCHIVE_TOTAL_UNCOMPRESSED_LIMIT_BYTES = 1024 * 1024 * 1024;
 const PROFILE_IMPORT_MEMORY_WARNING_BYTES = 512 * 1024 * 1024;
 const PROFILE_EXPORT_JSON_TOO_LARGE_CODE = "PROFILE_EXPORT_JSON_TOO_LARGE";
 const AUTOMATIC_BACKUP_SETTINGS_KEY = "automatic_backup";
-const AUTOMATIC_BACKUP_FILENAME = "marinara-automatic-backup.zip";
 const AUTOMATIC_BACKUP_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const ZIP32_MAX_VALUE = 0xffffffff;
 const ZIP_EOCD_SIGNATURE = 0x06054b50;
@@ -88,6 +95,7 @@ type AutomaticBackupFrequency = "daily" | "weekly" | "monthly";
 type AutomaticBackupSettings = {
   enabled: boolean;
   frequency: AutomaticBackupFrequency;
+  retentionCount: number;
   lastBackupAt: string | null;
   lastError: string | null;
 };
@@ -99,6 +107,7 @@ function normalizeAutomaticBackupSettings(value: unknown): AutomaticBackupSettin
   return {
     enabled: candidate.enabled === true,
     frequency,
+    retentionCount: normalizeAutomaticBackupRetentionCount(candidate.retentionCount),
     lastBackupAt: typeof candidate.lastBackupAt === "string" ? candidate.lastBackupAt : null,
     lastError: typeof candidate.lastError === "string" ? candidate.lastError : null,
   };
@@ -2151,33 +2160,41 @@ async function writeFullBackupArchive(
   await writeStoredZipArchive(outputPath, sources);
 }
 
-async function writeAutomaticBackup(app: FastifyInstance) {
+async function writeAutomaticBackup(app: FastifyInstance, retentionCount: number) {
   await flushDB();
   const backupsRoot = join(getDataDir(), "backups");
   const workingDir = await mkdtemp(join(tmpdir(), "marinara-automatic-backup-"));
   const pendingPath = join(backupsRoot, `${AUTOMATIC_BACKUP_FILENAME}.pending`);
   const finalPath = join(backupsRoot, AUTOMATIC_BACKUP_FILENAME);
-  const previousPath = join(backupsRoot, `${AUTOMATIC_BACKUP_FILENAME}.previous`);
+  const legacyPreviousPath = join(backupsRoot, `${AUTOMATIC_BACKUP_FILENAME}.previous`);
+  let archivedPreviousPath: string | null = null;
   try {
     await mkdir(backupsRoot, { recursive: true });
     await rm(pendingPath, { force: true });
-    if (!existsSync(finalPath) && existsSync(previousPath)) {
-      await rename(previousPath, finalPath);
+    if (!existsSync(finalPath) && existsSync(legacyPreviousPath)) {
+      await rename(legacyPreviousPath, finalPath);
     } else {
-      await rm(previousPath, { force: true });
+      await rm(legacyPreviousPath, { force: true });
     }
     await writeFullBackupArchive(app, pendingPath, "marinara-automatic-backup", workingDir);
     const hadPreviousBackup = existsSync(finalPath);
     try {
-      if (hadPreviousBackup) await rename(finalPath, previousPath);
+      if (hadPreviousBackup) {
+        const previousStat = await stat(finalPath);
+        archivedPreviousPath = join(
+          backupsRoot,
+          automaticBackupArchiveFilename(previousStat.mtime, randomUUID().slice(0, 8)),
+        );
+        await rename(finalPath, archivedPreviousPath);
+      }
       await rename(pendingPath, finalPath);
-      await rm(previousPath, { force: true });
     } catch (error) {
-      if (hadPreviousBackup && !existsSync(finalPath) && existsSync(previousPath)) {
-        await rename(previousPath, finalPath).catch(() => {});
+      if (hadPreviousBackup && archivedPreviousPath && !existsSync(finalPath) && existsSync(archivedPreviousPath)) {
+        await rename(archivedPreviousPath, finalPath).catch(() => {});
       }
       throw error;
     }
+    return await pruneAutomaticBackupFiles(backupsRoot, retentionCount);
   } finally {
     await rm(pendingPath, { force: true }).catch(() => {});
     await rm(workingDir, { recursive: true, force: true }).catch(() => {});
@@ -2215,10 +2232,10 @@ export async function backupRoutes(app: FastifyInstance) {
   };
   const saveAutomaticBackupSettings = (settings: AutomaticBackupSettings) =>
     automaticBackupStorage.set(AUTOMATIC_BACKUP_SETTINGS_KEY, JSON.stringify(settings));
-  const automaticBackupResponse = (settings: AutomaticBackupSettings) => ({
+  const automaticBackupResponse = async (settings: AutomaticBackupSettings) => ({
     ...settings,
     nextBackupAt: automaticBackupNextAt(settings),
-    backupExists: existsSync(join(getDataDir(), "backups", AUTOMATIC_BACKUP_FILENAME)),
+    backupExists: await automaticBackupExists(join(getDataDir(), "backups")),
   });
   const runAutomaticBackupIfDue = async (force = false) => {
     if (automaticBackupRunning) return;
@@ -2233,14 +2250,14 @@ export async function backupRoutes(app: FastifyInstance) {
         Date.now() - lastBackupMs >= automaticBackupPeriodMs(settings.frequency);
       if (!due) return;
 
-      await writeAutomaticBackup(app);
+      const removedBackups = await writeAutomaticBackup(app, settings.retentionCount);
       const current = await loadAutomaticBackupSettings();
       await saveAutomaticBackupSettings({
         ...current,
         lastBackupAt: new Date().toISOString(),
         lastError: null,
       });
-      logger.info("[backup] Automatic backup completed");
+      logger.info("[backup] Automatic backup completed; pruned %d expired automatic archive(s)", removedBackups.length);
     } catch (error) {
       const current = await loadAutomaticBackupSettings();
       const message = getBackupErrorMessage(error, "Automatic backup failed");
@@ -2254,12 +2271,17 @@ export async function backupRoutes(app: FastifyInstance) {
   app.get("/automatic", async () => automaticBackupResponse(await loadAutomaticBackupSettings()));
 
   app.put<{
-    Body: { enabled?: unknown; frequency?: unknown };
+    Body: { enabled?: unknown; frequency?: unknown; retentionCount?: unknown };
   }>("/automatic", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Automatic backup settings" })) return;
+    const parsedRetentionCount =
+      req.body?.retentionCount === undefined
+        ? undefined
+        : parseAutomaticBackupRetentionCount(req.body.retentionCount);
     if (
       typeof req.body?.enabled !== "boolean" ||
-      !["daily", "weekly", "monthly"].includes(String(req.body?.frequency))
+      !["daily", "weekly", "monthly"].includes(String(req.body?.frequency)) ||
+      parsedRetentionCount === null
     ) {
       return reply.status(400).send({ error: "Invalid automatic backup settings" });
     }
@@ -2268,12 +2290,21 @@ export async function backupRoutes(app: FastifyInstance) {
       ...current,
       enabled: req.body.enabled,
       frequency: req.body.frequency,
+      retentionCount: parsedRetentionCount ?? current.retentionCount,
       lastError: null,
     });
     await saveAutomaticBackupSettings(next);
+    const backupsRoot = join(getDataDir(), "backups");
+    const removedBackups = await pruneAutomaticBackupFiles(backupsRoot, next.retentionCount);
+    if (removedBackups.length > 0) {
+      logger.info(
+        "[backup] Automatic backup retention changed; pruned %d expired automatic archive(s)",
+        removedBackups.length,
+      );
+    }
     if (next.enabled) {
-      const automaticBackupExists = existsSync(join(getDataDir(), "backups", AUTOMATIC_BACKUP_FILENAME));
-      queueMicrotask(() => void runAutomaticBackupIfDue(!current.enabled || !automaticBackupExists));
+      const hasAutomaticBackup = await automaticBackupExists(backupsRoot);
+      queueMicrotask(() => void runAutomaticBackupIfDue(!current.enabled || !hasAutomaticBackup));
     }
     return automaticBackupResponse(next);
   });

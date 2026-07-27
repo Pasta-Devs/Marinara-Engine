@@ -99,6 +99,7 @@ export function BackgroundPicker({
   const [sort, setSort] = useState<BackgroundLibrarySort>("name-asc");
   const [includedTagValues, setIncludedTagValues] = useState<string[]>([]);
   const [tagsExpanded, setTagsExpanded] = useState(false);
+  const [expandedBackgroundTagIds, setExpandedBackgroundTagIds] = useState<Set<string>>(() => new Set());
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [editFolderName, setEditFolderName] = useState("");
@@ -396,6 +397,15 @@ export function BackgroundPicker({
     );
   }, []);
 
+  const toggleBackgroundTags = useCallback((backgroundId: string) => {
+    setExpandedBackgroundTagIds((current) => {
+      const next = new Set(current);
+      if (next.has(backgroundId)) next.delete(backgroundId);
+      else next.add(backgroundId);
+      return next;
+    });
+  }, []);
+
   const renderBackground = (background: BackgroundLibraryItem) => {
     const isSelected = selected === background.url;
     const isDefaultRoleplay = defaultRoleplayBackground === background.url;
@@ -404,10 +414,12 @@ export function BackgroundPicker({
     const canRename = background.renameable !== false && isUserBackground;
     const canDelete = background.deletable !== false && isUserBackground;
     const isEditing = editingTags === background.id;
+    const areTagsExpanded = expandedBackgroundTagIds.has(background.id);
     const isRenaming = renamingFile === background.id;
     const title = getBackgroundLibraryTitle(background);
     const sourceLabel = background.source === "game_asset" ? "Game asset" : "Library";
     const datalistId = `background-tag-suggestions-${background.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+    const tagsId = `background-tags-${background.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     return (
       <div
@@ -444,7 +456,7 @@ export function BackgroundPicker({
         <TouchDragHandle
           label={localizeUi("ui.panels.backgroundpicker.dragValue1ToAFolder", { value1: title })}
           size="0.75rem"
-          className="mt-2"
+          className="mt-1.5"
           onTouchStart={(event) => {
             startBackgroundTouchDrag(event, background.id, {
               allowInteractiveTarget: true,
@@ -456,7 +468,7 @@ export function BackgroundPicker({
           type="button"
           onClick={() => onSelect(isSelected ? null : background.url)}
           className={cn(
-            "relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-colors",
+            "relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-colors md:w-[4.5rem]",
             isSelected
               ? "border-[var(--primary)] shadow-md shadow-[var(--primary)]/20"
               : "border-transparent hover:border-[var(--muted-foreground)]/30",
@@ -481,7 +493,7 @@ export function BackgroundPicker({
           )}
         </button>
 
-        <div className="min-w-0 flex-1 py-0.5 pr-16">
+        <div className="min-w-0 flex-1 py-0.5">
           <div className="flex min-w-0 items-center gap-1">
             {isRenaming ? (
               <form
@@ -513,7 +525,11 @@ export function BackgroundPicker({
               </form>
             ) : (
               <>
-                <span className="truncate text-xs font-medium text-[var(--foreground)]" title={title}>
+                <span
+                  data-background-name
+                  className="min-w-0 flex-1 truncate text-xs font-medium text-[var(--foreground)]"
+                  title={title}
+                >
                   {background.filename}
                 </span>
                 {canRename && (
@@ -534,7 +550,7 @@ export function BackgroundPicker({
             )}
           </div>
 
-          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+          <div className="mt-0.5 flex min-h-7 items-center justify-between gap-1 md:min-h-6">
             <span
               className={cn(
                 "rounded-full px-1.5 py-0 text-[0.5625rem]",
@@ -545,34 +561,102 @@ export function BackgroundPicker({
             >
               {sourceLabel}
             </span>
-          </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-1">
-            {background.tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-0.5 rounded-full bg-[var(--secondary)] px-1.5 py-0 text-[0.5625rem] text-[var(--muted-foreground)]"
+            <div className="relative h-7 w-[3.875rem] shrink-0 md:h-6 md:w-[3.25rem]">
+              {isDefaultRoleplay && (
+                <span
+                  data-background-default-indicator
+                  className="pointer-events-none absolute right-0 top-0 hidden h-7 w-7 items-center justify-center text-amber-300 transition-opacity md:flex md:h-6 md:w-6 md:group-hover:opacity-0 md:group-focus-within:opacity-0"
+                  aria-hidden="true"
+                >
+                  <Star size="0.75rem" fill="currentColor" />
+                </span>
+              )}
+
+              <div
+                data-background-actions
+                className="absolute right-0 top-0 flex items-center gap-0.5 rounded-lg bg-[var(--sidebar)] p-0.5 opacity-100 shadow-sm ring-1 ring-[var(--border)] transition-all md:invisible md:gap-px md:opacity-0 md:group-hover:visible md:group-hover:opacity-100 md:group-focus-within:visible md:group-focus-within:opacity-100"
               >
-                {tag}
-                {isEditing && isEditable && (
+                {canDelete && (
                   <button
                     type="button"
-                    onClick={() => void removeTag(background.filename, background.tags, tag)}
-                    disabled={updateTags.isPending}
-                    className="ml-0.5 rounded-full hover:text-[var(--destructive)]"
-                    aria-label={localizeUi("ui.panels.backgroundpicker.removeTagValue1", { value1: tag })}
+                    onClick={() => void handleDeleteBackground(background)}
+                    className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--marinara-chat-chrome-accent)] transition-all hover:bg-[var(--marinara-chat-chrome-accent)]/12 focus-visible:bg-[var(--marinara-chat-chrome-accent)]/12 active:scale-90 md:h-5 md:w-5"
+                    title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
+                    aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
                   >
-                    <X size="0.5rem" />
+                    <Trash2 size="0.6875rem" />
                   </button>
                 )}
-              </span>
-            ))}
-            {isEditable && (
+                <button
+                  type="button"
+                  data-background-default-toggle
+                  onClick={() => onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url)}
+                  className={cn(
+                    "flex h-7 w-7 items-center justify-center rounded-md transition-all active:scale-90 md:h-5 md:w-5",
+                    isDefaultRoleplay
+                      ? "text-amber-300"
+                      : "text-[var(--marinara-chat-chrome-accent)] hover:bg-[var(--marinara-chat-chrome-accent)]/12",
+                  )}
+                  title={
+                    isDefaultRoleplay
+                      ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                      : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
+                  }
+                  aria-label={
+                    isDefaultRoleplay
+                      ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
+                      : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", { value1: title })
+                  }
+                  aria-pressed={isDefaultRoleplay}
+                >
+                  <Star size="0.75rem" fill={isDefaultRoleplay ? "currentColor" : "none"} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-0.5 flex flex-wrap items-center gap-1">
+            {background.tags.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
+                  if (isEditing && areTagsExpanded) setEditingTags(null);
+                  toggleBackgroundTags(background.id);
+                }}
+                className={cn(
+                  "mari-chrome-control mari-chrome-control--compact md:!h-4 md:!min-h-4 md:!gap-0.5 md:!rounded-full md:!px-1 md:!py-0 md:!text-[0.5rem] md:[&>svg]:h-2 md:[&>svg]:w-2",
+                  areTagsExpanded && "mari-chrome-control--selected",
+                )}
+                data-background-tags-toggle
+                aria-controls={tagsId}
+                aria-expanded={areTagsExpanded}
+                aria-label={localizeUi(
+                  areTagsExpanded
+                    ? "ui.panels.backgroundpicker.hideTagsForValue1"
+                    : "ui.panels.backgroundpicker.showTagsForValue1",
+                  { value1: title },
+                )}
+              >
+                <Tag size="0.625rem" />
+                {localizeUi("ui.panels.backgroundpicker.tags")}
+                {background.tags.length})
+                <ChevronDown
+                  size="0.625rem"
+                  className={cn("transition-transform duration-200 ease-out", areTagsExpanded && "rotate-180")}
+                />
+              </button>
+            )}
+            {isEditable && (
+              <button
+                type="button"
+                data-background-edit-tags
+                onClick={() => {
                   setEditingTags(isEditing ? null : background.id);
                   setTagInput("");
+                  if (!isEditing) {
+                    setExpandedBackgroundTagIds((current) => new Set(current).add(background.id));
+                  }
                 }}
                 className={cn(
                   "rounded-full p-1 opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100 max-md:opacity-100",
@@ -589,8 +673,32 @@ export function BackgroundPicker({
             )}
           </div>
 
+          {areTagsExpanded && background.tags.length > 0 && (
+            <div id={tagsId} className="mt-1 flex flex-wrap items-center gap-1">
+              {background.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-0.5 rounded-full bg-[var(--secondary)] px-1.5 py-0 text-[0.5625rem] text-[var(--muted-foreground)]"
+                >
+                  {tag}
+                  {isEditing && isEditable && (
+                    <button
+                      type="button"
+                      onClick={() => void removeTag(background.filename, background.tags, tag)}
+                      disabled={updateTags.isPending}
+                      className="ml-0.5 rounded-full hover:text-[var(--destructive)]"
+                      aria-label={localizeUi("ui.panels.backgroundpicker.removeTagValue1", { value1: tag })}
+                    >
+                      <X size="0.5rem" />
+                    </button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+
           {isEditing && isEditable && (
-            <div className="mt-1 flex items-center gap-1">
+            <div className="mt-1 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
               <input
                 type="text"
                 value={tagInput}
@@ -603,7 +711,8 @@ export function BackgroundPicker({
                   if (event.key === "Escape") setEditingTags(null);
                 }}
                 placeholder={localizeUi("ui.panels.backgroundpicker.addTag")}
-                className="min-w-0 flex-1 rounded border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                className="w-full min-w-0 rounded border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-[0.6875rem] text-[var(--foreground)] outline-none focus:border-[var(--primary)]"
+                data-background-tag-input
                 autoFocus
                 list={datalistId}
               />
@@ -624,52 +733,6 @@ export function BackgroundPicker({
           )}
         </div>
 
-        {isDefaultRoleplay && (
-          <span
-            data-background-default-indicator
-            className="pointer-events-none absolute right-2 top-2 hidden h-5 w-5 items-center justify-center text-amber-300 transition-opacity md:flex md:group-hover:opacity-0 md:group-focus-within:opacity-0"
-            aria-hidden="true"
-          >
-            <Star size="0.8125rem" fill="currentColor" />
-          </span>
-        )}
-
-        <div
-          data-background-actions
-          className="absolute right-1 top-1 flex items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-0.5 py-0.5 opacity-100 shadow-sm ring-1 ring-[var(--border)] transition-all md:invisible md:opacity-0 md:group-hover:visible md:group-hover:opacity-100 md:group-focus-within:visible md:group-focus-within:opacity-100"
-        >
-          {canDelete && (
-            <button
-              type="button"
-              onClick={() => void handleDeleteBackground(background)}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--destructive)] transition-all hover:bg-[var(--destructive)]/12 active:scale-90"
-              title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
-              aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
-            >
-              <Trash2 size="0.75rem" />
-            </button>
-          )}
-          <button
-            type="button"
-            data-background-default-toggle
-            onClick={() => onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url)}
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-md transition-all active:scale-90",
-              isDefaultRoleplay
-                ? "text-amber-300"
-                : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-            )}
-            title={isDefaultRoleplay ?localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault") :localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")}
-            aria-label={
-              isDefaultRoleplay
-                ?localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
-                :localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", { value1: title })
-            }
-            aria-pressed={isDefaultRoleplay}
-          >
-            <Star size="0.8125rem" fill={isDefaultRoleplay ? "currentColor" : "none"} />
-          </button>
-        </div>
       </div>
     );
   };

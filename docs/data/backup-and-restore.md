@@ -40,14 +40,16 @@ The **.zip** also contains a plain text file named `RESTORE.txt`. It explains ho
 ## Automatic backups
 
 The **Backup & Export** section can also create a rotating automatic full backup on the device that runs Marinara.
-Turn on **Automatic Backups**, then choose **Daily**, **Weekly**, or **Monthly**. Marinara creates the first backup
-shortly after you enable it and replaces that automatic archive after each successful run, so the backup folder does
-not grow without limit.
+Turn on **Automatic Backups**, choose **Daily**, **Weekly**, or **Monthly**, and set **Automatic backups kept** from
+1 to 9999. Marinara creates the first backup shortly after you enable it. After each successful run, it keeps the
+newest configured number of automatic archives and deletes the oldest excess automatic archive. This retention limit
+never deletes manual backups or backups saved with **Download Backup**.
 
-Automatic backups are stored as `backups/marinara-automatic-backup.zip` inside Marinara's data folder. They use the
-same restorable, streamed archive format as **Download Backup**, including uploaded media and the encryption-key file
-when one exists. Keep a separate copy outside Marinara's data folder if you need protection from a lost disk, erased
-app storage, or a device reset.
+Automatic backups are stored inside `backups/` in Marinara's data folder. The newest archive is
+`marinara-automatic-backup.zip`; retained older automatic archives use timestamped filenames. They use the same
+restorable, streamed archive format as **Download Backup**, including uploaded media and the encryption-key file when
+one exists. Keep a separate copy outside Marinara's data folder if you need protection from a lost disk, erased app
+storage, or a device reset.
 
 ## Export Profile
 

@@ -1203,9 +1203,17 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     id: "automatic-backups",
     sectionId: "backup-export",
     label: "Automatic backups",
-    description: "Keep one scheduled full backup and replace it after each successful run.",
+    description: "Schedule full backups and choose how many automatic archives to retain.",
     aliases: ["backup", "daily", "weekly", "monthly", "scheduled"],
     kind: "Toggle",
+  },
+  {
+    id: "automatic-backups-kept",
+    sectionId: "backup-export",
+    label: "Automatic backups kept",
+    description: "Retain between 1 and 9999 automatic backup archives without affecting manual backups.",
+    aliases: ["backup", "retention", "history", "rotate", "automatic"],
+    kind: "Input",
   },
 ] as const;
 
@@ -6879,6 +6887,7 @@ function AdvancedSettings() {
   type AutomaticBackupSettings = {
     enabled: boolean;
     frequency: AutomaticBackupFrequency;
+    retentionCount: number;
     lastBackupAt: string | null;
     lastError: string | null;
     nextBackupAt: string | null;
@@ -6890,7 +6899,7 @@ function AdvancedSettings() {
     refetchInterval: (query) => (query.state.data?.enabled ? 30_000 : false),
   });
   const automaticBackupMutation = useMutation({
-    mutationFn: (settings: Pick<AutomaticBackupSettings, "enabled" | "frequency">) =>
+    mutationFn: (settings: Pick<AutomaticBackupSettings, "enabled" | "frequency" | "retentionCount">) =>
       api.put<AutomaticBackupSettings>("/backup/automatic", settings),
     onSuccess: (settings) => {
       qc.setQueryData(["backups", "automatic"], settings);
@@ -6904,12 +6913,15 @@ function AdvancedSettings() {
       );
     },
   });
-  const updateAutomaticBackup = (patch: Partial<Pick<AutomaticBackupSettings, "enabled" | "frequency">>) => {
+  const updateAutomaticBackup = (
+    patch: Partial<Pick<AutomaticBackupSettings, "enabled" | "frequency" | "retentionCount">>,
+  ) => {
     const current = automaticBackupQuery.data;
     if (!current) return;
     automaticBackupMutation.mutate({
       enabled: patch.enabled ?? current.enabled,
       frequency: patch.frequency ?? current.frequency,
+      retentionCount: patch.retentionCount ?? current.retentionCount,
     });
   };
 
@@ -7412,6 +7424,33 @@ function AdvancedSettings() {
                     {localizeUi(`ui.panels.advancedsettings.automaticBackupFrequency.${frequency}`)}
                   </button>
                 ))}
+              </div>
+              <div
+                id={getSettingsControlAnchorId("automatic-backups-kept")}
+                className="mt-2 grid scroll-mt-3 gap-2 border-t border-[var(--border)]/60 pt-2 sm:grid-cols-[minmax(0,1fr)_5.5rem] sm:items-center"
+              >
+                <div className="min-w-0">
+                  <label
+                    htmlFor="automatic-backup-retention-count"
+                    className="text-[0.6875rem] font-medium text-[var(--foreground)]"
+                  >
+                    {localizeUi("ui.panels.advancedsettings.automaticBackupsKept")}
+                  </label>
+                  <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.advancedsettings.automaticBackupsKeptDescription")}
+                  </p>
+                </div>
+                <DraftNumberInput
+                  id="automatic-backup-retention-count"
+                  value={automaticBackupQuery.data.retentionCount}
+                  min={1}
+                  max={9999}
+                  selectOnFocus
+                  disabled={automaticBackupMutation.isPending}
+                  onCommit={(retentionCount) => updateAutomaticBackup({ retentionCount })}
+                  ariaLabel={localizeUi("ui.panels.advancedsettings.automaticBackupsKeptAriaLabel")}
+                  className="mari-chrome-field h-9 w-full px-2 text-right text-xs tabular-nums"
+                />
               </div>
               <p className="mt-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
                 {automaticBackupQuery.data.lastError
