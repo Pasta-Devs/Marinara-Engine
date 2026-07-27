@@ -589,7 +589,11 @@ function compileGameImagePrompt(
   req: Pick<
     NpcPortraitRequest | BackgroundGenRequest | SceneIllustrationGenRequest,
     "styleProfiles" | "styleProfileId" | "imgDefaults" | "artStyle"
-  > & { appearance?: string | null; preserveFullScenePrompt?: boolean },
+  > & {
+    appearance?: string | null;
+    preserveFullScenePrompt?: boolean;
+    omitProfileStyleText?: boolean;
+  },
   kind: "portrait" | "background" | "illustration",
   prompt: string,
   maxLength: number,
@@ -613,7 +617,7 @@ function compileGameImagePrompt(
       negativePrompt: [negativePrompt, hardNegative].filter(Boolean).join(", "),
     };
   }
-  if (kind === "illustration" && req.preserveFullScenePrompt) {
+  if ((kind === "illustration" || kind === "background") && req.preserveFullScenePrompt) {
     const compilePrefix = (dedupeAgainstPrompt: string) =>
       compileImagePrompt({
         kind,
@@ -626,6 +630,7 @@ function compileGameImagePrompt(
         imageDefaults: req.imgDefaults,
         generatedStyle: req.artStyle,
         applyPromptModeToSourcePrompt: false,
+        omitProfileStyleText: req.omitProfileStyleText,
       });
     // The preliminary prefix determines how much preserved source text can actually fit.
     // Compare against only that guaranteed slice so truncation cannot remove the sole style copy.
@@ -652,6 +657,7 @@ function compileGameImagePrompt(
     imageDefaults: req.imgDefaults,
     generatedStyle: req.artStyle,
     applyPromptModeToSourcePrompt: kind === "background" || (kind === "illustration" && !req.preserveFullScenePrompt),
+    omitProfileStyleText: req.omitProfileStyleText,
   });
   return {
     prompt: prependCanonicalAppearanceIfMissing(
@@ -836,6 +842,12 @@ export interface BackgroundGenRequest {
   size?: ImageGenerationSize;
   promptOverride?: string;
   negativePromptOverride?: string;
+  /** Preserve a prompt-writer's complete scene description instead of distilling it into tagged cues. */
+  preserveFullScenePrompt?: boolean;
+  /** The scene description is already a provider-ready prompt and should not receive the generic background wrapper. */
+  providerReadyPrompt?: boolean;
+  /** The prompt-writing model already incorporated the selected style profile. */
+  omitProfileStyleText?: boolean;
   /** When true, overwrite an existing generated background for this slug instead of reusing it. */
   force?: boolean;
   /** Optional request-scoped abort signal. */
@@ -903,6 +915,7 @@ export interface SceneIllustrationGenRequest {
 }
 
 async function buildBackgroundRawPrompt(req: BackgroundGenRequest): Promise<string> {
+  if (req.providerReadyPrompt) return req.sceneDescription.trim();
   const styleHint = [req.artStyle, req.genre, req.setting].filter(Boolean).join(", ");
   const worldContext = buildBackgroundWorldContext(req);
   const groundedSceneDescription = [worldContext, req.sceneDescription].filter(Boolean).join(". ");
@@ -978,7 +991,13 @@ export async function buildBackgroundProviderPrompt(req: BackgroundGenRequest): 
       req.artStyle ? `Art style: ${req.artStyle}` : "",
     ],
   });
-  return compileGameImagePrompt(req, "background", prompt, 1000, GAME_BACKGROUND_NEGATIVE_PROMPT);
+  return compileGameImagePrompt(
+    req,
+    "background",
+    prompt,
+    req.preserveFullScenePrompt ? 7000 : 1000,
+    GAME_BACKGROUND_NEGATIVE_PROMPT,
+  );
 }
 
 export async function buildBackgroundImagePrompt(req: BackgroundGenRequest): Promise<string> {
