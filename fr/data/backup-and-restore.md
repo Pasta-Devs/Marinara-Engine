@@ -120,7 +120,7 @@ L'import n'efface pas les clés déjà en place. Si tu réimportes un ancien pro
 
 ## La liste Existing backups
 
-La section **Backup & Export** peut afficher une liste **Existing backups** (sauvegardes existantes), avec un bouton de suppression. Dans un usage normal, cette liste reste vide. **Download Backup** enregistre le fichier directement sur ton appareil. Il n'en laisse pas de copie dans cette liste, et l'unique archive automatique tournante est gérée par le réglage Automatic Backups. Cette liste n'est pas nécessaire pour créer ou conserver une sauvegarde téléchargée.
+La section **Backup & Export** peut afficher une liste **Existing backups** (sauvegardes existantes), avec un bouton de suppression. Dans un usage normal, cette liste reste vide. **Download Backup** enregistre le fichier directement sur ton appareil. Il n'en laisse pas de copie dans cette liste, et le réglage **Automatic Backups** gère à la place le nombre configuré d'archives automatiques conservées. Cette liste n'est pas nécessaire pour créer ou conserver une sauvegarde téléchargée.
 
 ## Guides associés
 

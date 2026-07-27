@@ -120,7 +120,7 @@ Importar no borra las claves que ya tengas configuradas. Si vuelves a importar u
 
 ## La lista Existing backups
 
-La sección **Backup & Export** puede mostrar una lista **Existing backups** (Copias de seguridad existentes) con un botón de eliminar. En el uso normal esta lista queda vacía. **Download Backup** guarda el archivo directamente en tu dispositivo. No deja una copia en esta lista, y el único archivo automático que va rotando lo gestiona el control de Automatic Backups. No necesitas esta lista para crear ni conservar una copia de seguridad descargada.
+La sección **Backup & Export** puede mostrar una lista **Existing backups** (Copias de seguridad existentes) con un botón de eliminar. En el uso normal esta lista queda vacía. **Download Backup** guarda el archivo directamente en tu dispositivo. No deja una copia en esta lista, y el control **Automatic Backups** gestiona en su lugar el número configurado de archivos automáticos conservados. No necesitas esta lista para crear ni conservar una copia de seguridad descargada.
 
 ## Guías relacionadas
 

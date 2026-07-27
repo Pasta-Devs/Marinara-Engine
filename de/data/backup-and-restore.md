@@ -120,7 +120,7 @@ Bereits gesetzte Keys löscht der Import nicht. Importierst du ein altes Profil 
 
 ## Die Liste Existing backups
 
-Der Abschnitt **Backup & Export** kann eine Liste **Existing backups** (vorhandene Backups) samt Lösch-Schaltfläche anzeigen. Im normalen Betrieb bleibt diese Liste leer. **Download Backup** speichert die Datei direkt auf dem Gerät. Eine Kopie in dieser Liste hinterlässt es nicht, und das einzelne rotierende automatische Archiv verwaltet stattdessen der Schalter **Automatic Backups**. Für ein heruntergeladenes Backup brauchst du diese Liste nicht.
+Der Abschnitt **Backup & Export** kann eine Liste **Existing backups** (vorhandene Backups) samt Lösch-Schaltfläche anzeigen. Im normalen Betrieb bleibt diese Liste leer. **Download Backup** speichert die Datei direkt auf dem Gerät. Eine Kopie in dieser Liste hinterlässt es nicht, und die festgelegte Anzahl aufbewahrter automatischer Archive verwaltet stattdessen der Schalter **Automatic Backups**. Für ein heruntergeladenes Backup brauchst du diese Liste nicht.
 
 ## Verwandte Anleitungen
 
