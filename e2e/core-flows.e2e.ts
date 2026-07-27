@@ -9716,7 +9716,7 @@ test("Conversation media searches match GIFs and internal presses keep the picke
     await page.goto("/");
 
     await page.getByRole("button", { name: /Emoji, GIFs/u }).click();
-    const mediaPicker = page.locator("[data-conversation-media-picker]");
+    const mediaPicker = page.locator("[data-conversation-media-picker]:visible");
     await expect(mediaPicker).toBeVisible();
     const emojiSearchInput = page.locator('input[placeholder="Search emojis..."]:visible');
     const emojiSearchStyle = await emojiSearchInput.evaluate((input) => {
@@ -9730,7 +9730,7 @@ test("Conversation media searches match GIFs and internal presses keep the picke
         paddingInline: `${shellStyle.paddingLeft} ${shellStyle.paddingRight}`,
       };
     });
-    await page.getByRole("button", { name: "Kaomoji" }).click();
+    await mediaPicker.getByRole("button", { name: "Kaomoji", exact: true }).click();
     const picker = page.getByRole("dialog", { name: "Kaomoji picker" });
     await expect(picker).toBeVisible();
 
@@ -9756,8 +9756,8 @@ test("Conversation media searches match GIFs and internal presses keep the picke
     await picker.locator("[data-kaomoji-results]").dispatchEvent("pointerdown");
     await expect(mediaPicker).toBeVisible();
 
-    await page.getByRole("button", { name: "GIFs" }).click();
-    const gifSearchInput = page.locator('input[placeholder="Search for GIFs..."]:visible');
+    await mediaPicker.getByRole("button", { name: "GIFs", exact: true }).click();
+    const gifSearchInput = page.getByRole("textbox", { name: "Search for GIFs", exact: true });
     const gifSearchStyle = await gifSearchInput.evaluate((input) => {
       const inputStyle = getComputedStyle(input);
       const shellStyle = getComputedStyle(input.parentElement!);

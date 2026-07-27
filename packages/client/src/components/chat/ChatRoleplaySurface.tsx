@@ -177,12 +177,12 @@ function useIsMobileToolbarViewport() {
   return isMobileViewport;
 }
 
-function WeatherEffectsConnected() {
+function WeatherEffectsConnected({ paused }: { paused: boolean }) {
   const weather = useGameStateStore((s) => s.current?.weather ?? null);
   const timeOfDay = useGameStateStore((s) => s.current?.time ?? null);
   return (
     <Suspense fallback={null}>
-      <WeatherEffects weather={weather} timeOfDay={timeOfDay} />
+      <WeatherEffects weather={weather} timeOfDay={timeOfDay} paused={paused} />
     </Suspense>
   );
 }
@@ -1066,6 +1066,7 @@ type RoleplaySurfaceProps = {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isStreaming: boolean;
+  generationVisualsPaused: boolean;
   agentProcessing: boolean;
   regenerateMessageId: string | null;
   shouldAnimateMessages: boolean;
@@ -1183,6 +1184,7 @@ export function ChatRoleplaySurface({
   hasNextPage,
   isFetchingNextPage,
   isStreaming,
+  generationVisualsPaused,
   agentProcessing,
   regenerateMessageId,
   shouldAnimateMessages,
@@ -1508,6 +1510,7 @@ export function ChatRoleplaySurface({
         className={cn(
           "rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden",
           roleplayReducedPaintEffects && "mari-rp-reduced-paint",
+          generationVisualsPaused && "mari-generation-render-paused",
         )}
         data-chat-mode="roleplay"
         style={{ isolation: "isolate" }}
@@ -1515,7 +1518,7 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
-        {weatherEffects && <WeatherEffectsConnected />}
+        {weatherEffects && <WeatherEffectsConnected paused={generationVisualsPaused} />}
         {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay

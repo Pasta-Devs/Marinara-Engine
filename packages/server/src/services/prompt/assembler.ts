@@ -34,7 +34,7 @@ interface RuntimeAgentData {
   endToken?: string;
 }
 
-interface ChoiceOptionValue {
+export interface ChoiceOptionValue {
   value: string;
 }
 
@@ -66,6 +66,43 @@ function sanitizeChoiceSelection(
   }
 
   return candidates.find((value) => validValues.has(value));
+}
+
+function readChoiceFlag(value: unknown): boolean {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
+export function resolveChoiceVariableValue(input: {
+  selected: string | string[] | undefined;
+  options: ChoiceOptionValue[];
+  multiSelect: unknown;
+  randomPick: unknown;
+  separator?: string | null;
+  random?: () => number;
+}): string {
+  const isRandom = readChoiceFlag(input.randomPick);
+  // Imported or legacy presets can carry Boolean/number flags, and a Random
+  // Pick selection is necessarily multi-valued even if its companion flag was
+  // normalized incorrectly during an older migration.
+  const isMulti = readChoiceFlag(input.multiSelect) || (isRandom && Array.isArray(input.selected));
+  const selected = sanitizeChoiceSelection(input.selected, input.options, isMulti);
+
+  if (isMulti && Array.isArray(selected)) {
+    if (selected.length === 0) return input.options[0]?.value ?? "";
+    if (isRandom) {
+      const random = input.random ?? Math.random;
+      const roll = random();
+      const unit = Number.isFinite(roll) ? Math.min(1, Math.max(0, roll)) : 0;
+      const index = Math.min(selected.length - 1, Math.floor(unit * selected.length));
+      return selected[index] ?? "";
+    }
+    return selected.join(input.separator || ", ");
+  }
+
+  if (selected !== undefined) {
+    return Array.isArray(selected) ? (selected[0] ?? "") : selected;
+  }
+  return input.options[0]?.value ?? "";
 }
 
 // ═══════════════════════════════════════════════
@@ -291,33 +328,14 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
   // Inject choice variable values into variableValues
   // chatChoices is { variableName: value | value[] } — resolve and merge into variables so {{varName}} resolves
   for (const cb of input.choiceBlocks) {
-    const isMulti = cb.multiSelect === "true";
-    const isRandom = cb.randomPick === "true";
-    const separator = cb.separator || ", ";
     const opts = parseChoiceOptions(cb.options);
-    const selected = sanitizeChoiceSelection(input.chatChoices[cb.variableName], opts, isMulti);
-
-    if (selected !== undefined) {
-      if (isMulti && Array.isArray(selected)) {
-        // Multi-select: either random-pick one or join all
-        if (selected.length === 0) {
-          // Fallback to first option
-          if (opts.length > 0 && opts[0]) variableValues[cb.variableName] = opts[0].value;
-        } else if (isRandom) {
-          // Random pick: select one at random each generation
-          variableValues[cb.variableName] = selected[Math.floor(Math.random() * selected.length)] ?? "";
-        } else {
-          // Join all selected values with the separator
-          variableValues[cb.variableName] = selected.join(separator);
-        }
-      } else {
-        // Single-select or legacy string value
-        variableValues[cb.variableName] = Array.isArray(selected) ? (selected[0] ?? "") : selected;
-      }
-    } else {
-      // Default to first option's value if no selection yet
-      if (opts.length > 0 && opts[0]) variableValues[cb.variableName] = opts[0].value;
-    }
+    variableValues[cb.variableName] = resolveChoiceVariableValue({
+      selected: input.chatChoices[cb.variableName],
+      options: opts,
+      multiSelect: cb.multiSelect,
+      randomPick: cb.randomPick,
+      separator: cb.separator,
+    });
   }
   // Build macro context (character names and primary card fields resolved from IDs)
   const macroCtx = await buildPromptMacroContext({
