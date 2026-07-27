@@ -479,7 +479,7 @@
   "settings.tabs.generations.label": "Generowanie",
   "settings.tabs.imports.description": "Import, foldery zasobów i przenoszenie danych.",
   "settings.tabs.imports.label": "Import",
-  "settings.transfer.automaticBackup.location": "Kopia jest zapisywana na urządzeniu, na którym działa Marinara, w DATA_DIR/backups/marinara-automatic-backup.zip. Aktywny DATA_DIR znajdziesz w logu uruchamiania; Docker domyślnie używa /app/data. W Androidzie pamięć aplikacji jest zwykle niedostępna, dlatego użyj przycisku Pobierz kopię zapasową, aby zapisać kopię w dostępnym miejscu.",
+  "settings.transfer.automaticBackup.location": "Kopie są zapisywane na urządzeniu, na którym działa Marinara, w DATA_DIR/backups. Najnowsze archiwum nazywa się marinara-automatic-backup.zip, a zachowane starsze kopie automatyczne mają nazwy ze znacznikiem czasu. Aktywny DATA_DIR znajdziesz w logu uruchamiania; Docker domyślnie używa /app/data. W Androidzie pamięć aplikacji jest zwykle niedostępna, dlatego użyj przycisku Pobierz kopię zapasową, aby zapisać kopię w dostępnym miejscu.",
   "settings.transfer.exportProfile.description": "Tryb natywny tworzy profil Marinary w formacie JSON. Jeśli plik byłby zbyt duży, Marinara zaproponuje profil ZIP.",
   "settings.transfer.exportProfile.title": "Eksportuj profil",
   "settings.transfer.fullBackup.help": "Pobierz pełną kopię zapasową jako archiwum .zip: dane, awatary, sprite’y, tła, galerię, czcionki i źródła wiedzy. Import profilu może bezpośrednio przywrócić ZIP. Surowe foldery służą do ręcznego odzyskiwania.",

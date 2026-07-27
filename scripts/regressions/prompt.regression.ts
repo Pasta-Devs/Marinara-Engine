@@ -484,6 +484,7 @@ import {
   migrateLegacyDefaultConversationPromptLead,
 } from "../../packages/server/src/db/default-conversation-prompt-migration.js";
 import {
+  buildBackgroundProviderPrompt,
   buildNpcPortraitProviderPrompt,
   buildSceneIllustrationProviderPrompt,
   chatBackgroundTags,
@@ -491,11 +492,17 @@ import {
 } from "../../packages/server/src/services/game/game-asset-generation.js";
 import {
   buildIllustratorBackgroundPlanUserPrompt,
+  buildIllustratorBackgroundPlanSystemPrompt,
   illustratorBackgroundGenerationEnabled,
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   parseIllustratorBackgroundPlan,
+  resolveIllustratorStyleProfile,
 } from "../../packages/server/src/services/generation/illustrator-background-generation.js";
+import {
+  buildManualIllustratorPromptMessages,
+  parseManualIllustratorPromptPlan,
+} from "../../packages/server/src/services/generation/illustrator-manual-prompt-generation.js";
 import {
   buildLorebookScanMessagesWithGenerationGuide,
   resolveLorebookTokenBudget,
@@ -3508,7 +3515,7 @@ const cases: RegressionCase[] = [
   },
   {
     name: "Roleplay Illustrator background decisions are gated and produce reusable library metadata",
-    run() {
+    async run() {
       assert.equal(
         illustratorBackgroundGenerationEnabled("roleplay", { illustratorAutoBackgroundsEnabled: true }),
         true,
@@ -3565,6 +3572,183 @@ const cases: RegressionCase[] = [
       assert.match(prompt, /Recent committed tracker locations: Moonlit Road -> Royal Archive/u);
       assert.match(prompt, /Currently active background: old-library\.png/u);
 
+      const autoStyleInstruction =
+        "Infer a consistent visual style from the character, game, scene, and selected image model.";
+      const backgroundSystemPrompt = buildIllustratorBackgroundPlanSystemPrompt(autoStyleInstruction);
+      assert.match(backgroundSystemPrompt, /Visual style instruction for the image prompt you write/u);
+      assert.match(backgroundSystemPrompt, /Infer a consistent visual style from the character/u);
+
+      const sharedStyleProfiles = createDefaultImageStyleProfileSettings();
+      assert.deepEqual(
+        resolveIllustratorStyleProfile(
+          { imageStyleProfileId: " cinematic " },
+          { imageStyleProfileId: "anime" },
+          "realistic",
+          sharedStyleProfiles,
+        ),
+        {
+          styleProfileId: "cinematic",
+          styleInstruction: sharedStyleProfiles.profiles.find((profile) => profile.id === "cinematic")!.styleText,
+        },
+      );
+      assert.equal(
+        resolveIllustratorStyleProfile({}, {}, " anime ", sharedStyleProfiles).styleProfileId,
+        "anime",
+      );
+
+      const manualIllustrationMessages = buildManualIllustratorPromptMessages({
+        context: {
+          chatId: "manual-gallery-illustration",
+          chatMode: "roleplay",
+          recentMessages: [
+            { role: "user", content: "CONTEXT_OUTSIDE_ILLUSTRATOR_LIMIT" },
+            { role: "assistant", content: "Dottore opens the quarantine berth door." },
+            { role: "user", content: "Mari steps inside out of the rain." },
+          ],
+          mainResponse: "Mari steps inside out of the rain.",
+          gameState: null,
+          characters: [
+            {
+              id: "dottore",
+              name: 'Dottore & "Mari" </character>',
+              description: "A masked scholar from Fontaine.",
+              appearance: "Blue hair, red eyes, dark coat.",
+            },
+          ],
+          persona: {
+            name: "Mari",
+            description: "A Polish AI engineer.",
+            appearance: "Long auburn hair and a rain-soaked travel coat.",
+          },
+          memory: {},
+          writableLorebookIds: null,
+          chatSummary: null,
+        },
+        contextSize: 2,
+        styleInstruction: autoStyleInstruction,
+      });
+      const manualIllustrationPrompt = manualIllustrationMessages.map((message) => message.content).join("\n");
+      assert.doesNotMatch(manualIllustrationPrompt, /CONTEXT_OUTSIDE_ILLUSTRATOR_LIMIT/u);
+      assert.match(manualIllustrationPrompt, /Dottore opens the quarantine berth door/u);
+      assert.match(manualIllustrationPrompt, /Mari steps inside out of the rain/u);
+      assert.match(manualIllustrationPrompt, /Blue hair, red eyes, dark coat/u);
+      assert.match(manualIllustrationPrompt, /Long auburn hair and a rain-soaked travel coat/u);
+      assert.match(
+        manualIllustrationPrompt,
+        /<character name="Dottore &amp; &quot;Mari&quot; &lt;\/character&gt;">/u,
+      );
+      assert.doesNotMatch(manualIllustrationPrompt, /name="Dottore & "Mari" <\/character>"/u);
+      assert.match(manualIllustrationPrompt, /Infer a consistent visual style from the character/u);
+      assert.match(manualIllustrationPrompt, /The Illustration button has already selected the output type/u);
+      assert.doesNotMatch(manualIllustrationPrompt, /"shouldGenerate"\s*:/u);
+      assert.doesNotMatch(manualIllustrationPrompt, /"generateBackground"\s*:/u);
+
+      const manualPlan = parseManualIllustratorPromptPlan(
+        JSON.stringify({
+          prompt: "Mari and Dottore stand inside the cramped quarantine berth as rain streaks the window.",
+          negativePrompt: "text, watermark",
+          style: "rain-muted cinematic illustration",
+          characters: ["Mari", "Dottore", "Mari"],
+          aspectRatio: "landscape",
+          reason: "Manual Gallery illustration request.",
+          shouldGenerate: false,
+          generateBackground: false,
+        }),
+      );
+      assert.deepEqual(manualPlan, {
+        prompt: "Mari and Dottore stand inside the cramped quarantine berth as rain streaks the window.",
+        negativePrompt: "text, watermark",
+        style: "rain-muted cinematic illustration",
+        characters: ["Mari", "Dottore"],
+        aspectRatio: "landscape",
+        reason: "Manual Gallery illustration request.",
+      });
+
+      const quarantinePrompt =
+        "A cramped quarantine berth inside the Fontaine border checkpoint at night. A narrow iron-framed cot stands against a damp stone wall beside a battered table holding folded linen, simple medical supplies, an enamel basin, and a sprig of dried lavender. Heavy checkpoint doors and exposed brass pipes occupy the opposite wall. A high reinforced window reveals cold downpour streaming across the glass. A compact radiator and low amber utility lamp contrast with the blue-gray storm light. Chipped plaster, rust stains, patched bedding, old cargo crates, and hastily cleaned floorboards suggest an austere freight facility adapted for recovery.";
+      const styleProfilesForHandoff = createDefaultImageStyleProfileSettings();
+      const compiledAutoBackground = await buildBackgroundProviderPrompt({
+        chatId: "manual-gallery-background",
+        locationSlug: "fontaine-quarantine-berth",
+        sceneDescription: quarantinePrompt,
+        imgModel: "gpt-image-2",
+        imgBaseUrl: "https://example.invalid",
+        imgApiKey: "",
+        styleProfiles: styleProfilesForHandoff,
+        styleProfileId: "auto",
+        preserveFullScenePrompt: true,
+        providerReadyPrompt: true,
+        omitProfileStyleText: true,
+      });
+      assert.equal(compiledAutoBackground.prompt, quarantinePrompt);
+      assert.match(compiledAutoBackground.prompt, /narrow iron-framed cot/u);
+      assert.match(compiledAutoBackground.prompt, /sprig of dried lavender/u);
+      assert.match(compiledAutoBackground.prompt, /exposed brass pipes/u);
+      assert.match(compiledAutoBackground.prompt, /hastily cleaned floorboards/u);
+      assert.doesNotMatch(compiledAutoBackground.prompt, /Infer a consistent visual style from/u);
+
+      const cinematicProfile = styleProfilesForHandoff.profiles.find((profile) => profile.id === "cinematic")!;
+      styleProfilesForHandoff.profiles.push({
+        ...cinematicProfile,
+        id: "custom-quarantine-style",
+        name: "Custom Quarantine Style",
+        styleText: "Muted gouache with restrained ink contours and oxidized brass accents.",
+        positiveTags: "muted gouache, restrained ink contours",
+        builtIn: false,
+      });
+      for (const profile of styleProfilesForHandoff.profiles) {
+        const styleSystemPrompt = buildIllustratorBackgroundPlanSystemPrompt(profile.styleText);
+        const styleIllustrationPrompt = buildManualIllustratorPromptMessages({
+          context: {
+            chatId: `manual-gallery-${profile.id}`,
+            chatMode: "roleplay",
+            recentMessages: [{ role: "assistant", content: quarantinePrompt }],
+            mainResponse: quarantinePrompt,
+            gameState: null,
+            characters: [],
+            persona: null,
+            memory: {},
+            writableLorebookIds: null,
+            chatSummary: null,
+          },
+          contextSize: 1,
+          styleInstruction: profile.styleText,
+        })
+          .map((message) => message.content)
+          .join("\n");
+        if (profile.styleText) {
+          assert.ok(styleSystemPrompt.includes(profile.styleText), `${profile.id} background style guidance was omitted`);
+          assert.ok(
+            styleIllustrationPrompt.includes(profile.styleText),
+            `${profile.id} illustration style guidance was omitted`,
+          );
+        }
+
+        const compiledStyledBackground = await buildBackgroundProviderPrompt({
+          chatId: `manual-gallery-background-${profile.id}`,
+          locationSlug: "fontaine-quarantine-berth",
+          sceneDescription: quarantinePrompt,
+          imgModel: "gpt-image-2",
+          imgBaseUrl: "https://example.invalid",
+          imgApiKey: "",
+          styleProfiles: styleProfilesForHandoff,
+          styleProfileId: profile.id,
+          preserveFullScenePrompt: true,
+          providerReadyPrompt: true,
+          omitProfileStyleText: true,
+        });
+        assert.match(compiledStyledBackground.prompt, /narrow iron-framed cot/u);
+        assert.match(compiledStyledBackground.prompt, /sprig of dried lavender/u);
+        assert.match(compiledStyledBackground.prompt, /exposed brass pipes/u);
+        assert.match(compiledStyledBackground.prompt, /hastily cleaned floorboards/u);
+        if (profile.styleText) {
+          assert.ok(
+            !compiledStyledBackground.prompt.includes(profile.styleText),
+            `${profile.id} raw style guidance leaked into the provider prompt`,
+          );
+        }
+      }
+
       const visualNovelTags = chatBackgroundTags(
         {
           sourceMode: "visual_novel",
@@ -3607,6 +3791,7 @@ const cases: RegressionCase[] = [
       assert.match(drawerSource, /label=\{localizeUi\("ui\.chat\.chatsettingsdrawer\.generateSceneBackgrounds"\)\}/u);
       assert.match(drawerSource, /renderIllustratorImageStyleSelect\(\)/u);
       assert.match(executorSource, /<illustrator_background_generation enabled="true">/u);
+      assert.match(executorSource, /"shouldGenerate" to true/u);
       assert.match(executorSource, /"generateBackground"/u);
       assert.doesNotMatch(executorSource, /<background_generation enabled=/u);
       assert.doesNotMatch(agentEditorSource, /Background Image Generation|autoGenerateBackgrounds/u);
@@ -3616,6 +3801,11 @@ const cases: RegressionCase[] = [
         retryAgentsRouteSource,
         /isManualIllustratorBackgroundRequest\s+\|\|\s+illustratorRequestedBackground/u,
       );
+      assert.match(retryAgentsRouteSource, /isManualIllustratorBackgroundRequest\s*\?\s*\[/u);
+      assert.match(retryAgentsRouteSource, /writeManualIllustratorPromptPlan/u);
+      assert.match(retryAgentsRouteSource, /_styleProfileInstructionApplied:\s*true/u);
+      assert.match(retryAgentsRouteSource, /force:\s*isManualIllustratorBackgroundRequest/u);
+      assert.match(retryAgentsRouteSource, /await executeRetryBatches\(agentContext/u);
       assert.doesNotMatch(backgroundsRoutesSource, /getByType\("background"\)/u);
       assert.match(
         backgroundsRoutesSource,

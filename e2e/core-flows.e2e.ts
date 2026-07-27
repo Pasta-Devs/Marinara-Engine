@@ -4765,7 +4765,10 @@ test("Backup & Export identifies the automatic backup location", async ({ page }
 
   const backupSection = page.locator("#settings-section-backup-export");
   await expect(backupSection).toBeVisible();
-  await expect(backupSection).toContainText("DATA_DIR/backups/marinara-automatic-backup.zip");
+  await expect(backupSection).toContainText("Automatic backups kept");
+  await expect(backupSection.getByLabel("Number of automatic backups kept")).toHaveValue("1");
+  await expect(backupSection).toContainText("DATA_DIR/backups");
+  await expect(backupSection).toContainText("marinara-automatic-backup.zip");
   await expect(backupSection).toContainText("Docker defaults to /app/data");
   await expect(backupSection).toContainText("On Android, app storage is usually inaccessible");
 });
@@ -7851,13 +7854,18 @@ test("streamed profile and full-backup ZIPs round-trip through import preview", 
   try {
     const automaticSettingsResponse = await request.get("/api/backup/automatic");
     expect(automaticSettingsResponse.ok()).toBeTruthy();
-    const automaticSettings = (await automaticSettingsResponse.json()) as { enabled: boolean };
+    const automaticSettings = (await automaticSettingsResponse.json()) as {
+      enabled: boolean;
+      retentionCount: number;
+    };
     expect(automaticSettings.enabled).toBe(false);
+    expect(automaticSettings.retentionCount).toBeGreaterThanOrEqual(1);
 
     const enableAutomaticResponse = await request.put("/api/backup/automatic", {
-      data: { enabled: true, frequency: "daily" },
+      data: { enabled: true, frequency: "daily", retentionCount: 3 },
     });
     expect(enableAutomaticResponse.ok()).toBeTruthy();
+    expect(((await enableAutomaticResponse.json()) as { retentionCount: number }).retentionCount).toBe(3);
     await expect
       .poll(
         async () => {
@@ -7914,7 +7922,9 @@ test("streamed profile and full-backup ZIPs round-trip through import preview", 
       expect(preview.imported.characters).toBeGreaterThanOrEqual(1);
     }
   } finally {
-    await request.put("/api/backup/automatic", { data: { enabled: false, frequency: "daily" } }).catch(() => undefined);
+    await request
+      .put("/api/backup/automatic", { data: { enabled: false, frequency: "daily", retentionCount: 1 } })
+      .catch(() => undefined);
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
   }
 });
@@ -9998,6 +10008,77 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
   } finally {
     await request.delete(`/api/chats/${chat.id}`);
   }
+});
+
+test("Background rows keep long tag lists collapsed without crowding desktop controls", async ({ page }, testInfo) => {
+  await page.route("**/api/backgrounds", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "user:collapsible-background-tags.png",
+          filename: "collapsible-background-tags.png",
+          url: "/api/backgrounds/file/collapsible-background-tags.png",
+          originalName: "Collapsible background tags",
+          tags: ["fontaine", "rainy night", "quarantine berth", "warm interior"],
+          source: "user",
+          createdAt: "2026-07-27T00:00:00.000Z",
+          folderId: null,
+        },
+      ]),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByRole("tab", { name: "Appearance" }).click();
+  await page.getByPlaceholder("Search settings").fill("Backgrounds");
+  await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+
+  const backgroundRow = page.locator('[data-background-id="user:collapsible-background-tags.png"]');
+  const backgroundName = backgroundRow.locator("[data-background-name]");
+  const backgroundTagsToggle = backgroundRow.locator("[data-background-tags-toggle]");
+  await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toHaveCount(0);
+
+  if (!testInfo.project.name.includes("mobile")) {
+    await backgroundTagsToggle.focus();
+    const actionBar = backgroundRow.locator("[data-background-actions]");
+    const deleteButton = backgroundRow.getByTitle("Delete background");
+    const favoriteButton = backgroundRow.locator("[data-background-default-toggle]");
+    const [nameBox, tagToggleBox, actionBarBox, deleteColor, favoriteColor] = await Promise.all([
+      backgroundName.boundingBox(),
+      backgroundTagsToggle.boundingBox(),
+      actionBar.boundingBox(),
+      deleteButton.evaluate((element) => getComputedStyle(element).color),
+      favoriteButton.evaluate((element) => getComputedStyle(element).color),
+    ]);
+    expect(nameBox).not.toBeNull();
+    expect(tagToggleBox).not.toBeNull();
+    expect(actionBarBox).not.toBeNull();
+    expect(nameBox!.width).toBeGreaterThanOrEqual(80);
+    expect(tagToggleBox!.height).toBeLessThanOrEqual(22);
+    expect(actionBarBox!.width).toBeLessThanOrEqual(55);
+    expect(deleteColor).toBe(favoriteColor);
+
+    const editTagsButton = backgroundRow.locator("[data-background-edit-tags]");
+    await editTagsButton.click();
+    const tagInputBox = await backgroundRow.locator("[data-background-tag-input]").boundingBox();
+    expect(tagInputBox).not.toBeNull();
+    expect(tagInputBox!.width).toBeGreaterThanOrEqual(100);
+    await editTagsButton.click();
+    await backgroundTagsToggle.click();
+    await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "false");
+  }
+
+  await backgroundTagsToggle.focus();
+  await page.keyboard.press("Enter");
+  await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "false");
+  await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toHaveCount(0);
 });
 
 test("Roleplay displays a selected background when its file route is GET-only", async ({ page }, testInfo) => {

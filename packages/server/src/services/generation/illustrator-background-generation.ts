@@ -1,7 +1,13 @@
-import { resolveGameSetupArtStylePrompt, type GameState } from "@marinara-engine/shared";
+import {
+  findImageStyleProfile,
+  resolveGameSetupArtStylePrompt,
+  type GameState,
+  type ImageStyleProfileSettings,
+} from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
 import { logger } from "../../lib/logger.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
+import { normalizeAgentContextSize } from "../agents/agent-executor.js";
 import { generateChatBackground } from "../game/game-asset-generation.js";
 import { resolveConnectionImageDefaults } from "../image/image-generation-defaults.js";
 import { loadImageGenerationUserSettings } from "../image/image-generation-settings.js";
@@ -16,7 +22,6 @@ const BACKGROUND_PLAN_SYSTEM_PROMPT = [
   "The first-stage Illustrator or a committed tracker update has already established that the scene entered a meaningfully new location. Do not reconsider that decision.",
   "Treat the current tracker location as authoritative when it is present. Otherwise infer the current location from the latest assistant response and recent context.",
   "Describe a single full-frame environment with a readable spatial layout: architecture or nature, important props, weather, time of day, lighting, atmosphere, and environmental storytelling.",
-  "Keep the prompt style-neutral because Marinara applies the user's selected Image Style profile afterward.",
   "Do not include characters, people, crowds, portraits, dialogue, captions, signs with readable text, UI, panels, collages, watermarks, logos, or meta-instructions.",
   "Choose a concise concrete English location name using ordinary filename-safe words, such as enchanted forest or moonlit palace courtyard.",
   "Return valid JSON only, with no markdown:",
@@ -139,7 +144,6 @@ export function buildIllustratorBackgroundPlanUserPrompt(args: {
     .filter((location, index) => trackedLocations.lastIndexOf(location) === index)
     .slice(-3);
   const recentContext = args.recentMessages
-    .slice(-6)
     .map((message) => `${message.role}: ${message.content.replace(/\s+/gu, " ").trim().slice(0, 1_500)}`)
     .filter((line) => !line.endsWith(": "))
     .join("\n");
@@ -161,6 +165,15 @@ export function buildIllustratorBackgroundPlanUserPrompt(args: {
     .join("\n\n");
 }
 
+export function buildIllustratorBackgroundPlanSystemPrompt(styleInstruction?: string): string {
+  return [
+    BACKGROUND_PLAN_SYSTEM_PROMPT,
+    styleInstruction?.trim()
+      ? `Visual style instruction for the image prompt you write: ${styleInstruction.trim()}`
+      : "No visual style profile is selected. Keep the prompt style-neutral.",
+  ].join("\n");
+}
+
 async function writeIllustratorBackgroundPlan(args: {
   illustratorAgent: ResolvedAgent;
   chatName?: string | null;
@@ -169,11 +182,16 @@ async function writeIllustratorBackgroundPlan(args: {
   decisionReason?: string;
   gameState: GameState | null;
   recentMessages: Array<{ role: string; content: string; gameState?: GameState | null }>;
+  styleInstruction?: string;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<IllustratorBackgroundPlan> {
-  const userPrompt = buildIllustratorBackgroundPlanUserPrompt(args);
-  args.debugLog?.("[debug/illustrator/background-prompt] system:\n%s", BACKGROUND_PLAN_SYSTEM_PROMPT);
+  const recentMessages = args.recentMessages.slice(
+    -normalizeAgentContextSize(args.illustratorAgent.settings.contextSize),
+  );
+  const userPrompt = buildIllustratorBackgroundPlanUserPrompt({ ...args, recentMessages });
+  const systemPrompt = buildIllustratorBackgroundPlanSystemPrompt(args.styleInstruction);
+  args.debugLog?.("[debug/illustrator/background-prompt] system:\n%s", systemPrompt);
   args.debugLog?.("[debug/illustrator/background-prompt] user:\n%s", userPrompt);
 
   const callPromptWriter = async (messages: Array<{ role: "system" | "user" | "assistant"; content: string }>) =>
@@ -194,7 +212,7 @@ async function writeIllustratorBackgroundPlan(args: {
     });
 
   const messages = [
-    { role: "system" as const, content: BACKGROUND_PLAN_SYSTEM_PROMPT },
+    { role: "system" as const, content: systemPrompt },
     { role: "user" as const, content: userPrompt },
   ];
   let response = await callPromptWriter(messages);
@@ -229,6 +247,25 @@ export function resolveIllustratorImageConnectionId(
       chatMode === "game" ? chatMetadata.gameImageConnectionId : chatMetadata.illustratorImageConnectionId,
     ) || readTrimmedString(agentImageConnectionId)
   );
+}
+
+/** Resolve the shared Illustrator style precedence used by manual illustrations and scene backgrounds. */
+export function resolveIllustratorStyleProfile(
+  setupConfig: Record<string, unknown>,
+  chatMetadata: Record<string, unknown>,
+  connectionStyleProfileId: unknown,
+  styleProfiles: ImageStyleProfileSettings,
+): { styleProfileId: string | null; styleInstruction: string } {
+  const styleProfileId =
+    readTrimmedString(setupConfig.imageStyleProfileId) ||
+    readTrimmedString(chatMetadata.imageStyleProfileId) ||
+    readTrimmedString(connectionStyleProfileId) ||
+    styleProfiles.defaultProfileId ||
+    null;
+  return {
+    styleProfileId,
+    styleInstruction: findImageStyleProfile(styleProfiles, styleProfileId).styleText.trim(),
+  };
 }
 
 async function resolveIllustratorImageConnection(
@@ -270,6 +307,8 @@ export async function generateIllustratorSceneBackground(args: {
   decisionReason?: string;
   gameState: GameState | null;
   recentMessages: Array<{ role: string; content: string; gameState?: GameState | null }>;
+  /** Manual Gallery requests always render again, even when this location slug already exists. */
+  force?: boolean;
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<GeneratedIllustratorBackground> {
@@ -282,13 +321,15 @@ export async function generateIllustratorSceneBackground(args: {
   );
   const imageSettings = await loadImageGenerationUserSettings(args.db);
   const imageFallback = await resolveImageConnectionFallback(connections, imageConnection.id);
+  const imageDefaults = resolveConnectionImageDefaults(imageConnection);
   const setupConfig = isRecord(args.chatMetadata.gameSetupConfig) ? args.chatMetadata.gameSetupConfig : {};
-  const styleProfileId =
-    readTrimmedString(setupConfig.imageStyleProfileId) ||
-    readTrimmedString(args.chatMetadata.imageStyleProfileId) ||
-    imageSettings.styleProfiles.defaultProfileId ||
-    null;
-  const plan = await writeIllustratorBackgroundPlan(args);
+  const { styleProfileId, styleInstruction } = resolveIllustratorStyleProfile(
+    setupConfig,
+    args.chatMetadata,
+    imageDefaults?.styleProfileId,
+    imageSettings.styleProfiles,
+  );
+  const plan = await writeIllustratorBackgroundPlan({ ...args, styleInstruction });
   const filename = await generateChatBackground({
     chatId: args.chatId,
     locationSlug: plan.locationName,
@@ -310,14 +351,17 @@ export async function generateIllustratorSceneBackground(args: {
     imgService: imageConnection.imageService || imageConnection.imageGenerationSource || "",
     imgEndpointId: imageConnection.imageEndpointId || undefined,
     imgComfyWorkflow: imageConnection.comfyuiWorkflow || undefined,
-    imgDefaults: resolveConnectionImageDefaults(imageConnection),
+    imgDefaults: imageDefaults,
     imgFallback: imageFallback,
     styleProfiles: imageSettings.styleProfiles,
     styleProfileId,
     promptOverridesStorage: createPromptOverridesStorage(args.db),
     size: imageSettings.background,
+    preserveFullScenePrompt: true,
+    providerReadyPrompt: true,
+    omitProfileStyleText: true,
     debugLog: args.debugLog,
-    force: false,
+    force: args.force === true,
     signal: args.signal,
   });
   if (!filename) throw new Error("Background image generation failed. Check the Illustrator image connection.");

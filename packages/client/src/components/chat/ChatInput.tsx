@@ -20,7 +20,7 @@ import {
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import { useChatStore } from "../../stores/chat.store";
+import { updateCurrentInputSnapshot, useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useUIStore } from "../../stores/ui.store";
 import { useGenerate } from "../../hooks/use-generate";
@@ -238,8 +238,7 @@ export const ChatInput = memo(function ChatInput({
   const focusAfterMobileRestoreRef = useRef(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const currentInputFrameRef = useRef<number | null>(null);
-  const pendingCurrentInputRef = useRef("");
+  const hasInputRef = useRef(false);
   const attachmentsRef = useRef<Attachment[]>([]);
   const pendingAttachmentDraftsRef = useRef<Map<string, Attachment[]>>(new Map());
   const activeChatId = useChatStore((s) => s.activeChatId);
@@ -268,7 +267,7 @@ export const ChatInput = memo(function ChatInput({
   );
   const setInputDraft = useChatStore((s) => s.setInputDraft);
   const clearInputDraft = useChatStore((s) => s.clearInputDraft);
-  const setCurrentInput = useChatStore((s) => s.setCurrentInput);
+  const setCurrentInputPresence = useChatStore((s) => s.setCurrentInputPresence);
   const removeFromResponseQueue = useChatStore((s) => s.removeFromResponseQueue);
   const clearResponseQueue = useChatStore((s) => s.clearResponseQueue);
   const activeChat = useChatStore((s) => s.activeChat);
@@ -375,19 +374,13 @@ export const ChatInput = memo(function ChatInput({
   const syncInputState = useCallback(
     (value: string) => {
       const nextHasInput = value.trim().length > 0;
-      setHasInput((current) => (current === nextHasInput ? current : nextHasInput));
-      pendingCurrentInputRef.current = value;
-      if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
-        setCurrentInput(value);
-        return;
-      }
-      if (currentInputFrameRef.current !== null) return;
-      currentInputFrameRef.current = window.requestAnimationFrame(() => {
-        currentInputFrameRef.current = null;
-        setCurrentInput(pendingCurrentInputRef.current);
-      });
+      updateCurrentInputSnapshot(value);
+      if (hasInputRef.current === nextHasInput) return;
+      hasInputRef.current = nextHasInput;
+      setHasInput(nextHasInput);
+      setCurrentInputPresence(nextHasInput);
     },
-    [setCurrentInput],
+    [setCurrentInputPresence],
   );
 
   const replaceAttachments = useCallback((next: Attachment[]) => {
@@ -506,14 +499,6 @@ export const ChatInput = memo(function ChatInput({
       // Cancel pending debounce timers
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
       if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
-      if (currentInputFrameRef.current !== null) {
-        cancelAnimationFrame(currentInputFrameRef.current);
-        currentInputFrameRef.current = null;
-        const chatState = useChatStore.getState();
-        if (chatState.activeChatId === chatId) {
-          chatState.setCurrentInput(pendingCurrentInputRef.current);
-        }
-      }
       // Flush draft synchronously
       if (chatId && textarea) {
         const text = textarea.value;
