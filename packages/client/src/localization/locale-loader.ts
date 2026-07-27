@@ -45,7 +45,11 @@ if (!localeLoaders.has(DEFAULT_APP_LANGUAGE)) {
 
 function getNativeLanguageName(locale: string): string {
   try {
-    return new Intl.DisplayNames([locale], { type: "language" }).of(locale) ?? locale;
+    const name = new Intl.DisplayNames([locale], { type: "language" }).of(locale) ?? locale;
+    // Intl returns mid-sentence forms ("español", "français"); as standalone
+    // UI labels they are capitalized, matching the Documentation Language
+    // selector's native names. Caseless scripts pass through unchanged.
+    return name.charAt(0).toLocaleUpperCase(locale) + name.slice(1);
   } catch {
     return locale;
   }
