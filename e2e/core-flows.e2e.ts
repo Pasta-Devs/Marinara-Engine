@@ -2157,6 +2157,211 @@ test("provider concurrency errors appear in generation toasts", async ({ page },
   }
 });
 
+test("the first message edit persists after stopped generation with or without a composer draft", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Stopped-generation edit persistence is covered on desktop.");
+  test.setTimeout(90_000);
+
+  const suffix = Date.now().toString(36);
+  const providerRequests: Array<Record<string, unknown>> = [];
+  const openProviderResponses = new Set<import("node:http").ServerResponse>();
+  const providerServer = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "Unexpected stopped-generation provider request" }));
+        return;
+      }
+      providerRequests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
+      openProviderResponses.add(response);
+      response.on("close", () => openProviderResponses.delete(response));
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        connection: "keep-alive",
+        "cache-control": "no-cache",
+      });
+      response.write(
+        `data: ${JSON.stringify({
+          choices: [{ index: 0, delta: { content: "Partial response" }, finish_reason: null }],
+        })}\n\n`,
+      );
+    });
+  });
+  await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+
+  let connectionId = "";
+  let characterId = "";
+  let chatId = "";
+  try {
+    const address = providerServer.address();
+    if (!address || typeof address === "string") throw new Error("Stopped-generation provider fixture did not bind");
+
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: `Stopped Edit Provider ${suffix}`,
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "e2e-stopped-edit",
+        model: "stopped-edit-model",
+        maxContext: 32_768,
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    connectionId = ((await connectionResponse.json()) as { id: string }).id;
+
+    const characterResponse = await request.post("/api/characters", {
+      data: {
+        data: {
+          name: `Stopped Edit Character ${suffix}`,
+          description: "A patient regression-test partner.",
+          first_mes: "",
+        },
+      },
+    });
+    expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+    characterId = ((await characterResponse.json()) as { id: string }).id;
+
+    const chatResponse = await request.post("/api/chats", {
+      data: {
+        name: `Stopped Edit Chat ${suffix}`,
+        mode: "roleplay",
+        characterIds: [characterId],
+        connectionId,
+      },
+    });
+    expect(chatResponse.ok(), await chatResponse.text()).toBeTruthy();
+    chatId = ((await chatResponse.json()) as { id: string }).id;
+    await request.patch(`/api/chats/${chatId}/metadata`, {
+      data: { enableAgents: false },
+    });
+    await page.addInitScript((activeChatId) => localStorage.setItem("marinara-active-chat-id", activeChatId), chatId);
+    await page.goto("/");
+
+    const input = page.locator("textarea.mari-chat-input-textarea");
+    const sendButton = page.locator("button.mari-chat-send-btn");
+    const stopCurrentGeneration = async (expectedProviderRequestCount: number) => {
+      await expect.poll(() => providerRequests.length).toBe(expectedProviderRequestCount);
+      await expect(sendButton.locator("svg.lucide-circle-stop")).toBeVisible();
+      await sendButton.click();
+      await expect(sendButton.locator("svg.lucide-circle-stop")).toHaveCount(0);
+    };
+    const readMessages = async () => {
+      const response = await request.get(`/api/chats/${chatId}/messages`);
+      return (await response.json()) as Array<{ id: string; role: string; content: string }>;
+    };
+    const editMessageOnce = async (messageId: string, nextContent: string) => {
+      const message = page.locator(`[data-message-id="${messageId}"]`);
+      await message.hover();
+      await message.getByTitle("Edit", { exact: true }).click();
+      const editor = message.locator("textarea");
+      await editor.fill(nextContent);
+      await message.getByLabel("Save edit", { exact: true }).click();
+      await expect(message).toContainText(nextContent);
+      await expect
+        .poll(async () => (await readMessages()).find((candidate) => candidate.id === messageId)?.content)
+        .toBe(nextContent);
+    };
+
+    await input.fill("Original message with retained draft");
+    await sendButton.click();
+    await input.fill("Unsent composer text");
+    await stopCurrentGeneration(1);
+    const firstMessage = (await readMessages()).find(
+      (message) => message.role === "user" && message.content === "Original message with retained draft",
+    );
+    expect(firstMessage).toBeTruthy();
+    await editMessageOnce(firstMessage!.id, "Edited on the first save with retained draft");
+    await expect(input).toHaveValue("Unsent composer text");
+
+    await input.fill("Original message with cleared draft");
+    await sendButton.click();
+    await stopCurrentGeneration(2);
+    await expect(input).toHaveValue("");
+    const secondMessage = (await readMessages()).find(
+      (message) => message.role === "user" && message.content === "Original message with cleared draft",
+    );
+    expect(secondMessage).toBeTruthy();
+    await editMessageOnce(secondMessage!.id, "Edited on the first save with cleared draft");
+
+    await page.reload();
+    await expect(page.locator(`[data-message-id="${firstMessage!.id}"]`)).toContainText(
+      "Edited on the first save with retained draft",
+    );
+    await expect(page.locator(`[data-message-id="${secondMessage!.id}"]`)).toContainText(
+      "Edited on the first save with cleared draft",
+    );
+  } finally {
+    for (const response of openProviderResponses) response.end();
+    await Promise.allSettled([
+      chatId ? request.delete(`/api/chats/${chatId}`) : Promise.resolve(),
+      characterId ? request.delete(`/api/characters/${characterId}`) : Promise.resolve(),
+      connectionId ? request.delete(`/api/connections/${connectionId}`) : Promise.resolve(),
+    ]);
+    await new Promise<void>((resolve, reject) => {
+      providerServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
+test("empty focused chat composers keep keyboard swipe navigation", async ({ page, request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Keyboard swipe navigation is covered on desktop.");
+
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: "Focused Composer Swipe Navigation", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const messageResponse = await request.post(`/api/chats/${chat.id}/messages`, {
+    data: { role: "assistant", content: "First focused-composer swipe." },
+  });
+  expect(messageResponse.ok()).toBeTruthy();
+  const message = (await messageResponse.json()) as { id: string };
+  const swipeResponse = await request.post(`/api/chats/${chat.id}/messages/${message.id}/swipes`, {
+    data: { content: "Second focused-composer swipe.", silent: true },
+  });
+  expect(swipeResponse.ok()).toBeTruthy();
+
+  try {
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+      localStorage.setItem(
+        "marinara-engine-ui",
+        JSON.stringify({
+          state: {
+            intuitiveSwipeNavigation: true,
+            intuitiveSwipeRerollLatest: false,
+          },
+          version: 87,
+        }),
+      );
+    }, chat.id);
+    await page.goto("/");
+
+    const composer = page.locator("textarea.mari-chat-input-textarea");
+    const messageRow = page.locator(`[data-message-id="${message.id}"]`);
+    await expect(messageRow).toContainText("First focused-composer swipe.");
+
+    await composer.focus();
+    await expect(composer).toHaveValue("");
+    await composer.press("ArrowRight");
+    await expect(messageRow).toContainText("Second focused-composer swipe.");
+
+    await composer.fill("Do not navigate while I am typing");
+    await composer.press("ArrowLeft");
+    await expect(messageRow).toContainText("Second focused-composer swipe.");
+
+    await composer.fill("");
+    await composer.press("ArrowLeft");
+    await expect(messageRow).toContainText("First focused-composer swipe.");
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("typographic quotes do not pull the Roleplay caret behind later text", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Roleplay quote caret behavior is covered on desktop.");
 
