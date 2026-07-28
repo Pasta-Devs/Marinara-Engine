@@ -9,7 +9,7 @@ import {
 import { TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR, useUIStore } from "../../../stores/ui.store";
 import { useChatStore } from "../../../stores/chat.store";
 import { useGameStateStore } from "../../../stores/game-state.store";
-import { useGameStatePatcher } from "../../../hooks/use-game-state-patcher";
+import { createEmptyGameState, useGameStatePatcher } from "../../../hooks/use-game-state-patcher";
 import { getCssBackgroundStyle, getCssColorFallback, isCssGradient } from "../../../lib/css-colors";
 import { useRenderTimer } from "../../../lib/perf-diagnostics";
 import { cn } from "../../../lib/utils";
@@ -137,7 +137,9 @@ export function TrackerDataSidebar({
     updateFieldLocks((locks) => toggleTrackerFieldLock(locks, key));
   }, [updateFieldLocks]);
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
-  const showTrackerSections = !!activeChatId && !isLoadingGameState && !!currentGameState && hasFixedTrackerPanel;
+  const displayedGameState =
+    currentGameState ?? (activeChatId && !isLoadingGameState ? createEmptyGameState(activeChatId) : null);
+  const showTrackerSections = !!displayedGameState && hasFixedTrackerPanel;
   const trackerPanelHasCustomBackground =
     trackerPanelBackgroundColor.trim().toLowerCase() !== TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
   const trackerPanelBackgroundFallback = getCssColorFallback(
@@ -197,15 +199,17 @@ export function TrackerDataSidebar({
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
-          {showTrackerSections ? (
-            <TrackerPanelErrorBoundary resetKey={`${activeChatId}:${currentGameState.id}:${currentGameState.createdAt}`}>
+          {showTrackerSections && displayedGameState ? (
+            <TrackerPanelErrorBoundary
+              resetKey={`${activeChatId}:${displayedGameState.id || "empty"}:${displayedGameState.createdAt}`}
+            >
               <TrackerSectionList
-                activeChatId={activeChatId}
+                activeChatId={displayedGameState.chatId}
                 activePersona={activePersona}
                 characterSpriteLookup={characterSpriteLookup}
                 characterTrackerConfig={characterTrackerConfig}
                 characterTrackerSettings={characterTrackerSettings}
-                currentGameState={currentGameState}
+                currentGameState={displayedGameState}
                 enabledAgentTypes={enabledAgentTypes}
                 expressionSpritesEnabled={expressionSpritesEnabled}
                 featuredCharacterCardKeys={featuredCharacterCardKeys}
@@ -235,8 +239,6 @@ export function TrackerDataSidebar({
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.selectAChatToViewTrackerData")}</EmptySection>
           ) : isLoadingGameState ? (
             <TrackerSkeleton />
-          ) : !currentGameState ? (
-            <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.noTrackerDataYet")}</EmptySection>
           ) : !hasFixedTrackerPanel ? (
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.noEnabledTrackerPanels")}</EmptySection>
           ) : null}

@@ -19,6 +19,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Capitalized the native language names in the **Settings → General → Language** dropdown (Español, Français, Polski, Português (Brasil), Русский) to match the Documentation Language selector (#4191).
 - Renamed reusable Chat Settings Presets to **Settings Profiles** throughout Chat Settings, Roleplay quick setup, import/export, localization, and documentation. The word **preset** now identifies prompt presets in these flows, while existing exported profile files remain importable.
+- Added a Post/Impersonate quick toggle to CYOA choices and kept centered choices clear of the Tracker panel.
+- Tracker panels now appear as soon as their matching tracker agents are active, allowing starting data to be entered before the first agent run.
 - Made the Game dynamic-image prompt timeout configurable with `GAME_DYNAMIC_IMAGE_PROMPT_TIMEOUT_MS`, retaining 45 seconds as the default and accepting values from 10 seconds to 1 hour (#4052).
 - Made Game session conclusions prepare the next playable arc with refreshed goals, quest seeds, pressure clocks, factions, and named NPCs so the following session does not inherit a stale scenario plan (#4059).
 

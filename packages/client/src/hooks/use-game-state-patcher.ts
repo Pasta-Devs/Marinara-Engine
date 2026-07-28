@@ -55,7 +55,7 @@ function createEmptyPlayerStats(): PlayerStats {
   };
 }
 
-function createEmptyGameState(chatId: string): GameState {
+export function createEmptyGameState(chatId: string): GameState {
   return {
     id: "",
     chatId,
