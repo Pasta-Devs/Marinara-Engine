@@ -10462,6 +10462,9 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
   await page.getByRole("button", { name: /Backgrounds Section/ }).click();
   await page.getByRole("button", { name: "Browse library" }).click();
   await expect(page.getByRole("dialog", { name: "Background Library" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Grid view" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-background-id="user:collapsible-background-tags.png"]')).toBeVisible();
+  await page.getByRole("button", { name: "List view" }).click();
 
   const backgroundRow = page.locator('[data-background-id="user:collapsible-background-tags.png"]');
   const backgroundName = backgroundRow.locator("[data-background-name]");
@@ -10650,6 +10653,9 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
     await page.getByRole("button", { name: "Browse library" }).click();
     await expect(page.getByRole("dialog", { name: "Background Library" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /My uploads/ })).toBeVisible();
+    await page.getByRole("button", { name: /My uploads/ }).click();
+    await page.getByRole("button", { name: "List view" }).click();
 
     const backgroundRowBeforeLabel = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
     await backgroundRowBeforeLabel.getByTitle("Edit label").click();
@@ -10676,6 +10682,7 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByPlaceholder("Search settings").fill("Backgrounds");
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
     await page.getByRole("button", { name: "Browse library" }).click();
+    await page.getByRole("button", { name: "List view" }).click();
     await page.getByPlaceholder("Search backgrounds").fill(`Rainy arcade ${suffix}`);
 
     await expect(
