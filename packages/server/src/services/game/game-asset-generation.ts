@@ -593,6 +593,7 @@ function compileGameImagePrompt(
     appearance?: string | null;
     preserveFullScenePrompt?: boolean;
     omitProfileStyleText?: boolean;
+    omitProfileSubjectTags?: boolean;
   },
   kind: "portrait" | "background" | "illustration",
   prompt: string,
@@ -631,6 +632,7 @@ function compileGameImagePrompt(
         generatedStyle: req.artStyle,
         applyPromptModeToSourcePrompt: false,
         omitProfileStyleText: req.omitProfileStyleText,
+        omitProfileSubjectTags: req.omitProfileSubjectTags,
       });
     // The preliminary prefix determines how much preserved source text can actually fit.
     // Compare against only that guaranteed slice so truncation cannot remove the sole style copy.
@@ -658,6 +660,7 @@ function compileGameImagePrompt(
     generatedStyle: req.artStyle,
     applyPromptModeToSourcePrompt: kind === "background" || (kind === "illustration" && !req.preserveFullScenePrompt),
     omitProfileStyleText: req.omitProfileStyleText,
+    omitProfileSubjectTags: req.omitProfileSubjectTags,
   });
   return {
     prompt: prependCanonicalAppearanceIfMissing(
@@ -848,6 +851,8 @@ export interface BackgroundGenRequest {
   providerReadyPrompt?: boolean;
   /** The prompt-writing model already incorporated the selected style profile. */
   omitProfileStyleText?: boolean;
+  /** The prompt writer already owns the selected output format and composition. */
+  omitProfileSubjectTags?: boolean;
   /** When true, overwrite an existing generated background for this slug instead of reusing it. */
   force?: boolean;
   /** Optional request-scoped abort signal. */

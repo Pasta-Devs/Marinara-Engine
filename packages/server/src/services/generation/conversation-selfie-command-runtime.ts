@@ -273,6 +273,7 @@ async function generateSelfie(
     styleProfileId,
     imageDefaults,
     omitProfileStyleText: true,
+    omitProfileSubjectTags: true,
   });
   const imageResults = await generateIllustratorImageVariants({
     count: args.chatMeta.illustratorImagesPerGeneration,

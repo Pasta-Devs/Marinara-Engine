@@ -268,6 +268,33 @@ export function resolveIllustratorStyleProfile(
   };
 }
 
+export async function resolveIllustratorPromptStyle(args: {
+  db: DB;
+  connections?: ConnectionsStorage;
+  illustratorAgent: ResolvedAgent;
+  chatMode: unknown;
+  chatMetadata: Record<string, unknown>;
+}): Promise<{ styleProfileId: string | null; styleInstruction: string }> {
+  const connections = args.connections ?? createConnectionsStorage(args.db);
+  const configuredImageConnectionId = resolveIllustratorImageConnectionId(
+    args.chatMode,
+    args.chatMetadata,
+    args.illustratorAgent.settings.imageConnectionId,
+  );
+  const imageConnection =
+    (configuredImageConnectionId ? await connections.getWithKey(configuredImageConnectionId) : null) ??
+    (await connections.getDefaultForImageGeneration());
+  const imageDefaults = imageConnection ? resolveConnectionImageDefaults(imageConnection) : null;
+  const imageSettings = await loadImageGenerationUserSettings(args.db);
+  const setupConfig = isRecord(args.chatMetadata.gameSetupConfig) ? args.chatMetadata.gameSetupConfig : {};
+  return resolveIllustratorStyleProfile(
+    setupConfig,
+    args.chatMetadata,
+    imageDefaults?.styleProfileId,
+    imageSettings.styleProfiles,
+  );
+}
+
 async function resolveIllustratorImageConnection(
   connections: ConnectionsStorage,
   illustratorAgent: ResolvedAgent,
@@ -360,6 +387,7 @@ export async function generateIllustratorSceneBackground(args: {
     preserveFullScenePrompt: true,
     providerReadyPrompt: true,
     omitProfileStyleText: true,
+    omitProfileSubjectTags: true,
     debugLog: args.debugLog,
     force: args.force === true,
     signal: args.signal,

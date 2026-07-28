@@ -129,6 +129,21 @@ export const ILLUSTRATOR_TEXT_NEGATIVE_PROMPT =
 
 export const ILLUSTRATOR_NON_TEXT_ARTIFACT_NEGATIVE_PROMPT = "watermark, logo, signature";
 
+const ILLUSTRATOR_RENDERED_TEXT_CONFLICTS = new Set([
+  "text",
+  "letters",
+  "readable text",
+  "dialogue boxes",
+  "speech bubbles",
+  "word balloons",
+  "captions",
+  "narration boxes",
+  "text boxes",
+  "manga sound effect text",
+  "sfx lettering",
+  "subtitles",
+]);
+
 const ILLUSTRATOR_RENDERED_TEXT_REQUEST_PATTERNS = [
   /\b(?:caption|sfx|sound effect|speech bubble|dialogue bubble|word balloon)s?\s*(?:\([^\n)]{1,80}\))?\s*:/iu,
   /\b(?:include|add|show|draw|render|display|feature|place|contain|use|keep|preserve)\b[^\n.!?]{0,100}\b(?:dialogue boxes?|speech bubbles?|word balloons?|captions?|narration boxes?|text boxes?|sfx lettering|sound effect text|readable text|comic lettering|manga lettering)\b/iu,
@@ -146,11 +161,40 @@ export function illustratorPromptRequestsRenderedText(prompt: string): boolean {
  * but do not contradict comic pages or other prompts that explicitly request
  * lettering. User- and agent-authored negative prompts remain intact.
  */
-export function mergeIllustratorNegativePrompt(prompt: string, negativePrompt?: string | null): string {
-  const builtInNegativePrompt = illustratorPromptRequestsRenderedText(prompt)
+export function mergeIllustratorNegativePrompt(
+  prompt: string,
+  negativePrompt?: string | null,
+  authoredNegativePrompt?: string | null,
+): string {
+  const requestsRenderedText = illustratorPromptRequestsRenderedText(prompt);
+  const authoredItems = new Set(
+    (authoredNegativePrompt ?? "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const requestedItems = (negativePrompt ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(
+      (item) =>
+        !requestsRenderedText ||
+        authoredItems.has(item.toLowerCase()) ||
+        !ILLUSTRATOR_RENDERED_TEXT_CONFLICTS.has(item.toLowerCase()),
+    );
+  const builtInNegativePrompt = requestsRenderedText
     ? ILLUSTRATOR_NON_TEXT_ARTIFACT_NEGATIVE_PROMPT
     : ILLUSTRATOR_TEXT_NEGATIVE_PROMPT;
-  return [negativePrompt?.trim(), builtInNegativePrompt].filter(Boolean).join(", ");
+  const mergedItems = [...requestedItems, ...builtInNegativePrompt.split(",").map((item) => item.trim())];
+  const seen = new Set<string>();
+  return mergedItems
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(", ");
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {

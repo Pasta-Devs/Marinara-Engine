@@ -1090,6 +1090,7 @@ export async function galleryRoutes(app: FastifyInstance) {
       styleProfileId,
       imageDefaults,
       omitProfileStyleText: true,
+      omitProfileSubjectTags: true,
     });
     const imageModel = imageConn.model || "";
     const imageBaseUrl = imageConn.baseUrl || "https://image.pollinations.ai";

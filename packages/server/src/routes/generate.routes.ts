@@ -147,6 +147,7 @@ import {
   illustratorRequestedBackground,
   illustratorTrackerLocationChanged,
   resolveIllustratorImageConnectionId,
+  resolveIllustratorPromptStyle,
 } from "../services/generation/illustrator-background-generation.js";
 import { npcAvatarSlug, sanitizeGameNpcAvatarUrls } from "../services/game/npc-avatar-utils.js";
 import {
@@ -3405,6 +3406,24 @@ export async function generateRoutes(app: FastifyInstance) {
             : {}),
           signal: abortController.signal,
         };
+
+        const illustratorPromptAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
+        if (illustratorPromptAgent) {
+          try {
+            const { styleInstruction } = await resolveIllustratorPromptStyle({
+              db: app.db,
+              connections,
+              illustratorAgent: illustratorPromptAgent,
+              chatMode: requestChatMode,
+              chatMetadata: chatMeta,
+            });
+            if (styleInstruction) {
+              agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
+            }
+          } catch (error) {
+            logger.warn(error, "[illustrator] Failed to resolve image style instruction for the prompt writer");
+          }
+        }
 
         if (personaId) {
           agentContext.memory._personaId = personaId;
@@ -8505,11 +8524,15 @@ export async function generateRoutes(app: FastifyInstance) {
                         styleProfileId,
                         imageDefaults,
                         generatedStyle: style,
+                        omitProfileStyleText:
+                          typeof agentContext.memory._illustratorImageStyleInstruction === "string",
+                        omitProfileSubjectTags: true,
                       });
                       fullPrompt = compiledPrompt.prompt;
                       const finalNegativePrompt = mergeIllustratorNegativePrompt(
                         compiledPrompt.prompt,
                         compiledPrompt.negativePrompt,
+                        requestedNegativePrompt,
                       );
 
                       const imageResults = await generateIllustratorImageVariants({

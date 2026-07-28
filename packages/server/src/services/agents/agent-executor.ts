@@ -2107,6 +2107,21 @@ function buildCommittedTrackerStateContext(
   ].join("\n");
 }
 
+export function buildIllustratorImageStyleInstructionBlock(styleInstruction: unknown): string {
+  const instruction = typeof styleInstruction === "string" ? styleInstruction.trim() : "";
+  if (!instruction) return "";
+  return [
+    `<illustrator_image_style>`,
+    `The selected Illustrator prompt template and this visual style instruction are cumulative; follow both.`,
+    `The selected prompt template controls the requested image format, composition, panel layout, subjects, and text behavior. The style instruction controls only the visual treatment.`,
+    `If the style instruction contains generic framing or composition defaults that conflict with the selected prompt template, ignore those conflicting defaults and preserve the selected format.`,
+    `Never replace Comic Page or manga panels and lettering with a single illustration, and never replace Background, Illustration, or Selfie framing with another format.`,
+    `Visual style instruction for the image prompt you write: ${escapeXml(instruction)}`,
+    `Carry the resulting visual treatment into both the JSON "style" field and the generated "prompt". Do not copy this meta-instruction verbatim.`,
+    `</illustrator_image_style>`,
+  ].join("\n");
+}
+
 /**
  * Build the full multi-turn message array for an agent call.
  *
@@ -2397,6 +2412,13 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`<current_game_state>`);
     parts.push(JSON.stringify(compactGameStateForAgentContext(context.gameState, agentTypes)));
     parts.push(`</current_game_state>`);
+  }
+
+  if (agentTypes.includes("illustrator")) {
+    const illustratorStyleBlock = buildIllustratorImageStyleInstructionBlock(
+      context.memory._illustratorImageStyleInstruction,
+    );
+    if (illustratorStyleBlock) parts.push(illustratorStyleBlock);
   }
 
   if (agentTypes.includes("character-tracker") && context.characterTrackerHistory?.length) {

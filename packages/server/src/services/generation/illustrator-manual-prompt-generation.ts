@@ -1,17 +1,18 @@
 import type { AgentContext } from "@marinara-engine/shared";
 import { logger } from "../../lib/logger.js";
-import { normalizeAgentContextSize } from "../agents/agent-executor.js";
+import { normalizeAgentContextSize, renderAgentPromptTemplate } from "../agents/agent-executor.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import type { ChatCompletionResult, ChatMessage } from "../llm/base-provider.js";
 
 const MANUAL_ILLUSTRATION_MAX_TOKENS = 1_800;
+const MANUAL_ILLUSTRATOR_PROMPT_MODE_MAX_LENGTH = 12_000;
 const MANUAL_ILLUSTRATION_SYSTEM_PROMPT = [
   "You are the Illustrator prompt writer for a manual Gallery illustration request.",
   "The user already pressed Illustration. Do not decide whether to generate an image, do not discuss that decision, and do not return shouldGenerate or generateBackground fields.",
   "Write one detailed, provider-ready prompt for an image model that depicts the most visually important current scene established by the supplied conversation.",
   "Use the supplied character cards and user persona to keep identities, clothing, physical traits, relationships, and setting details consistent.",
   "Name every character who should be visible in the characters array. Do not add characters who are absent from the chosen moment.",
-  "Keep the composition to one coherent full-frame scene unless the conversation explicitly calls for another format.",
+  "The selected Illustrator prompt mode controls the required visual format, layout, framing, text behavior, and aspect ratio. Preserve comic pages, manga pages, selfies, backgrounds, and other selected formats exactly; never collapse a requested multi-panel page into one ordinary scene.",
   "The prompt should describe subjects, actions, expressions, environment, camera/framing, lighting, atmosphere, and important props without narrating your reasoning.",
   "Return valid JSON only, with no markdown:",
   '{"prompt":"detailed provider-ready image prompt","negativePrompt":"optional exclusions","style":"optional scene-specific art direction","characters":["visible names"],"aspectRatio":"portrait|landscape|square","reason":"brief description of the chosen moment"}',
@@ -75,6 +76,25 @@ function normalizeAspectRatio(value: unknown): ManualIllustratorPromptPlan["aspe
     return normalized;
   }
   return "";
+}
+
+export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: string): string {
+  const withoutOutputSchema = promptTemplate.replace(/\n?Return valid JSON only:[\s\S]*$/iu, "");
+  return withoutOutputSchema
+    .split("\n")
+    .filter((line) => {
+      const normalized = line.trim();
+      if (!normalized) return true;
+      if (/\b(?:shouldGenerate|generateBackground)\b/iu.test(normalized)) return false;
+      if (/^Anchor the decision\b/iu.test(normalized)) return false;
+      if (/^Generate only for\b/iu.test(normalized)) return false;
+      if (/^If not worth illustrating\b/iu.test(normalized)) return false;
+      if (/^No prose outside the JSON\b/iu.test(normalized)) return false;
+      return true;
+    })
+    .join("\n")
+    .trim()
+    .slice(0, MANUAL_ILLUSTRATOR_PROMPT_MODE_MAX_LENGTH);
 }
 
 export function parseManualIllustratorPromptPlan(value: unknown): ManualIllustratorPromptPlan | null {
@@ -155,12 +175,22 @@ function appendConversationMessage(messages: ChatMessage[], role: "user" | "assi
 export function buildManualIllustratorPromptMessages(args: {
   context: AgentContext;
   contextSize: unknown;
+  selectedPromptTemplate?: string;
   styleInstruction?: string;
 }): ChatMessage[] {
+  const promptModeInstruction = normalizeManualIllustratorPromptModeInstruction(args.selectedPromptTemplate ?? "");
   const systemPrompt = [
     MANUAL_ILLUSTRATION_SYSTEM_PROMPT,
+    promptModeInstruction
+      ? [
+          "<selected_illustrator_prompt_mode>",
+          "Follow these content and format requirements. Generation-decision and output-schema instructions have already been resolved by the Gallery button:",
+          promptModeInstruction,
+          "</selected_illustrator_prompt_mode>",
+        ].join("\n")
+      : "No selected Illustrator prompt mode supplied; use one coherent scene illustration.",
     args.styleInstruction
-      ? `Visual style instruction for the image prompt you write: ${args.styleInstruction}`
+      ? `Additional Image Style instruction for the image prompt you write: ${args.styleInstruction}\nCombine it with the selected Illustrator prompt mode. It may refine rendering and visual treatment, but it must not replace or weaken the selected format, layout, framing, or text requirements.`
       : "No visual style profile is selected. Infer only the visual treatment supported by the scene context.",
     buildCharacterPersonaContext(args.context),
   ].join("\n\n");
@@ -207,9 +237,15 @@ export async function writeManualIllustratorPromptPlan(args: {
   signal?: AbortSignal;
   debugLog?: (message: string, ...args: unknown[]) => void;
 }): Promise<ManualIllustratorPromptResult> {
+  const selectedPromptTemplate = renderAgentPromptTemplate(
+    args.illustratorAgent.promptTemplate,
+    args.illustratorAgent.settings,
+    args.context,
+  );
   const messages = buildManualIllustratorPromptMessages({
     context: args.context,
     contextSize: args.illustratorAgent.settings.contextSize,
+    selectedPromptTemplate,
     styleInstruction: args.styleInstruction,
   });
   args.debugLog?.(

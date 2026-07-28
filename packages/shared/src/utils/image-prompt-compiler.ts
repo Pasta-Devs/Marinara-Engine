@@ -34,6 +34,11 @@ export interface CompileImagePromptInput {
    * as guidance), so it is not duplicated verbatim into the final image prompt.
    */
   omitProfileStyleText?: boolean;
+  /**
+   * Suppress generic per-kind composition tags when a dedicated prompt template
+   * already owns layout and framing (for example Comic Page versus Illustration).
+   */
+  omitProfileSubjectTags?: boolean;
 }
 
 /**
@@ -113,7 +118,9 @@ function compileImagePromptPass(
   const negativePromptPrefix = imageNegativePromptPrefixFromDefaults(input.imageDefaults);
   const sourceCueText = [input.prompt, input.userPositive].filter(Boolean).join("\n");
   const sourceCues = compactPrompt ? deriveTaggedSourceCues(sourceCueText) : [];
-  const profileSubjectTags = reconcileProfileSubjectTags(profile.subjectTags[input.kind] ?? "", sourceCues);
+  const profileSubjectTags = input.omitProfileSubjectTags
+    ? ""
+    : reconcileProfileSubjectTags(profile.subjectTags[input.kind] ?? "", sourceCues);
   const profileStyleText =
     input.omitProfileStyleText || compactPrompt || (profile.styleText && generatedStyle)
       ? ""

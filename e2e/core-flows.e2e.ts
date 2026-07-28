@@ -2479,6 +2479,76 @@ test("mobile Roleplay composition avoids draft rewrites and pauses ambient rende
   }
 });
 
+test("held Roleplay deletion defers draft persistence and autosizing until key release", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Held-key composer behavior is covered on desktop.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Held Delete Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript((chatId) => {
+      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
+        state: Record<string, unknown>;
+        version: number;
+      };
+      persisted.state.hasCompletedOnboarding = true;
+      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+    await page.goto("/");
+
+    const input = page.locator("textarea.mari-chat-input-textarea");
+    const initialValue =
+      "The sustained deletion regression keeps this Roleplay draft long enough to exercise textarea autosizing.";
+    await input.fill(initialValue);
+
+    const readPersistedDraft = () =>
+      page.evaluate((chatId) => {
+        const entries = JSON.parse(localStorage.getItem("marinara-input-drafts") ?? "[]") as Array<[string, string]>;
+        return new Map(entries).get(chatId) ?? "";
+      }, chat.id);
+    await expect.poll(readPersistedDraft).toBe(initialValue);
+
+    await input.evaluate((element) => {
+      const measurementWindow = window as Window & { __heldDeleteStyleMutations?: number };
+      measurementWindow.__heldDeleteStyleMutations = 0;
+      new MutationObserver((records) => {
+        measurementWindow.__heldDeleteStyleMutations =
+          (measurementWindow.__heldDeleteStyleMutations ?? 0) +
+          records.filter((record) => record.attributeName === "style").length;
+      }).observe(element, { attributes: true, attributeFilter: ["style"] });
+    });
+
+    await input.focus();
+    await page.keyboard.down("Backspace");
+    await page.waitForTimeout(520);
+
+    await expect(input).toHaveValue(initialValue.slice(0, -1));
+    expect(await readPersistedDraft()).toBe(initialValue);
+    expect(
+      await page.evaluate(
+        () => (window as Window & { __heldDeleteStyleMutations?: number }).__heldDeleteStyleMutations ?? 0,
+      ),
+    ).toBe(0);
+
+    await page.keyboard.up("Backspace");
+    await expect.poll(readPersistedDraft).toBe(initialValue.slice(0, -1));
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as Window & { __heldDeleteStyleMutations?: number }).__heldDeleteStyleMutations ?? 0,
+        ),
+      )
+      .toBeGreaterThan(0);
+  } finally {
+    await page.keyboard.up("Backspace").catch(() => undefined);
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("generation fallbacks identify the replacement connection in a toast", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Fallback toast regression is covered on desktop.");
 
