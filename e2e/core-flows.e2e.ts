@@ -2987,7 +2987,9 @@ test("external Agent imports require the Danger Zone gate and explicit capabilit
     await page.locator('[data-tour="panel-agents"]').click();
     await expect(page.getByTitle("Import agents")).toHaveAttribute("aria-disabled", "false");
 
-    const packageInput = page.locator('input[type="file"][accept*="application/json"]');
+    const packageInput = page
+      .getByRole("region", { name: "Agents" })
+      .locator('input[type="file"][accept*="application/json"]');
     await packageInput.setInputFiles({
       name: "permission-review-agent.json",
       mimeType: "application/json",
@@ -5216,6 +5218,11 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   });
   await page.route("**/api/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  // Keep this catalog-only experiment isolated from the server-wide import-policy
+  // mutation exercised by the dedicated Danger Zone flow in the other project.
+  await page.route("**/api/agents/import-policy", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ enabled: true }) });
   });
   await page.route("**/api/custom-agent-repositories", async (route) => {
     await route.fulfill({

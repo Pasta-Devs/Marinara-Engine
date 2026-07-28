@@ -296,8 +296,13 @@ assert.match(
 );
 assert.match(
   generateHookSource,
-  /case "illustration_queued": \{[\s\S]{0,180}setBackgroundIllustration\(chatId, true\);/u,
-  "every queued Illustrator retry should hand off from text streaming to background image work",
+  /const isIllustratorOnlyRetry =[\s\S]{0,180}agentTypes\.every\(\(agentType\) => agentType === "illustrator"\)/u,
+  "retry handoff should identify Illustrator-only work without exempting mixed agent retries",
+);
+assert.match(
+  generateHookSource,
+  /case "illustration_queued": \{[\s\S]{0,180}if \(isIllustratorOnlyRetry\) \{[\s\S]{0,120}setBackgroundIllustration\(chatId, true\);/u,
+  "only an Illustrator-only retry should hand off from text streaming to background image work",
 );
 assert.match(
   chatAreaSource,
@@ -392,8 +397,13 @@ assert.match(
 );
 assert.match(
   gameSurfaceSource,
-  /\(isStreaming \|\| scenePreparing \|\| sceneAnalysis\.isPending\) && "mari-generation-render-paused"/u,
-  "Game should pause ambient rendering during GM and scene-model generation",
+  /\(isStreaming \|\| scenePreparing \|\| sceneAnalysis\.isPending \|\| agentsProcessing\) &&[\s\S]{0,80}"mari-generation-render-paused"/u,
+  "Game should pause ambient rendering during GM, scene-model, and agent generation",
+);
+assert.match(
+  gameSurfaceSource,
+  /paused=\{isStreaming \|\| scenePreparing \|\| sceneAnalysis\.isPending \|\| agentsProcessing\}/u,
+  "Game weather should remain paused through background agent work",
 );
 assert.match(
   weatherEffectsSource,

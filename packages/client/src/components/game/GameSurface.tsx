@@ -10739,7 +10739,8 @@ function GameSurfaceComponent({
     <div
       className={cn(
         "relative flex h-full overflow-hidden bg-black mari-card-css",
-        (isStreaming || scenePreparing || sceneAnalysis.isPending) && "mari-generation-render-paused",
+        (isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing) &&
+          "mari-generation-render-paused",
       )}
       data-chat-mode="game"
     >
@@ -11384,7 +11385,7 @@ function GameSurfaceComponent({
                         weather={gameSnapshot?.weather ?? null}
                         timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                         showCelestial={false}
-                        paused={isStreaming || scenePreparing || sceneAnalysis.isPending}
+                        paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                       />
                     </div>
                   )}

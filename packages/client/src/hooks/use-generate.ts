@@ -3155,6 +3155,8 @@ export function useGenerate() {
       }
       useChatStore.getState().setAbortController(chatId, abortController);
       useChatStore.getState().setBackgroundIllustration(chatId, false);
+      const isIllustratorOnlyRetry =
+        agentTypes.length > 0 && agentTypes.every((agentType) => agentType === "illustrator");
       const isTrackerRetry = agentTypes.some(
         (agentType) => isBuiltInTrackerAgentType(agentType) || !isBuiltInAgentType(agentType),
       );
@@ -3446,7 +3448,9 @@ export function useGenerate() {
               break;
             }
             case "illustration_queued": {
-              useChatStore.getState().setBackgroundIllustration(chatId, true);
+              if (isIllustratorOnlyRetry) {
+                useChatStore.getState().setBackgroundIllustration(chatId, true);
+              }
               break;
             }
             case "image_prompt_review": {

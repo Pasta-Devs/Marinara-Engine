@@ -1322,7 +1322,7 @@ export function EmojiPicker({
           data-emoji-search-shell
           className="flex items-center gap-2 rounded-md bg-foreground/5 px-2.5 py-1.5 ring-1 ring-foreground/10 transition-shadow focus-within:ring-foreground/20"
         >
-          <Search size="0.875rem" className="shrink-0 text-foreground/45" />
+          <Search aria-hidden="true" size="0.875rem" className="shrink-0 text-foreground/45" />
           <input
             type="text"
             value={search}
