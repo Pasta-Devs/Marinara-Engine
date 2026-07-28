@@ -5,6 +5,7 @@ import {
   resolveCombatSessionAction,
   CombatActionValidationError,
 } from "../../packages/server/src/services/game/combat-session.service.ts";
+import { normalizeManeuverProposal } from "../../packages/server/src/services/game/maneuver-proposal.ts";
 import type {
   ClassicCombatState,
   CombatAction,
@@ -826,5 +827,227 @@ const movementEffect = movementResult.events
   .find((effect) => effect.type === "move");
 assert.equal(movementEffect?.sourceId, "hero");
 assert.equal(movementEffect?.targetId, "ally", "movement history must identify the unit that actually moved");
+
+// ── Maneuver proposal normalization ──
+// Production failure (2026-07-27): the adjudicator flattened tile coordinates
+// onto one effect and the strict schema rejected the whole proposal, so a
+// paladin's "heal myself and summon a shield" did nothing at all.
+const tacticalNormalizationContext = {
+  actorId: "hero",
+  style: "tactical" as const,
+  units: [
+    { id: "hero", name: "Hero", side: "ally" as const, hp: 10 },
+    { id: "gob-1", name: "Goblin Scout", side: "enemy" as const, hp: 30 },
+  ],
+};
+
+const salvaged = normalizeManeuverProposal(
+  {
+    outcome: "success",
+    rationale: "The paladin channels a blessing.",
+    difficulty: 60,
+    effects: [
+      { type: "heal", amount: 8, element: "holy" },
+      { type: "status", status: { name: "Sacred Shield", modifier: 2, stat: "defence", duration: 2 } },
+      { type: "terrain", x: 1, y: 0, terrain: "rubble" },
+    ],
+    narration: "Light knits the wound and hardens the air.",
+  },
+  tacticalNormalizationContext,
+);
+assert.equal(salvaged.proposal?.effects.length, 3, "one malformed effect must not discard the whole proposal");
+assert.deepEqual(salvaged.proposal?.effects[2]?.tile, { x: 1, y: 0 }, "flattened x/y must become a nested tile");
+assert.equal(salvaged.proposal?.effects[2]?.terrain, "ruin", "terrain synonyms must map onto the engine's terrains");
+assert.equal(salvaged.proposal?.effects[0]?.targetId, "hero", "a target-less heal must default to the actor");
+assert.equal(salvaged.proposal?.effects[1]?.status?.stat, "defense");
+assert.equal(salvaged.proposal?.effects[1]?.status?.turnsLeft, 2, "status.duration must be read as turnsLeft");
+assert.equal(salvaged.proposal?.difficulty, 0.6, "a percentage difficulty must be rescaled");
+
+const namedTargets = normalizeManeuverProposal(
+  {
+    difficulty: 1,
+    effects: [
+      { type: "damage", target: "Goblin Scout", amount: 5 },
+      { type: "heal", targetId: "myself", amount: 4 },
+      { type: "cover" },
+    ],
+    narration: "",
+  },
+  tacticalNormalizationContext,
+);
+assert.equal(namedTargets.proposal?.effects[0]?.targetId, "gob-1", "targets named by unit name must resolve to ids");
+assert.equal(namedTargets.proposal?.effects[1]?.targetId, "hero", '"myself" must resolve to the acting unit');
+assert.equal(namedTargets.proposal?.effects[2]?.type, "status", "a tile-less cover effect must become a defense buff");
+assert.equal(namedTargets.proposal?.effects[2]?.status?.name, "Shielded");
+assert.equal(namedTargets.proposal?.difficulty, 0.95, "difficulty 1.0 must clamp rather than reject");
+
+const overCapped = normalizeManeuverProposal(
+  {
+    effects: [
+      ...Array.from({ length: 8 }, () => ({ type: "heal", targetId: "hero", amount: 1 })),
+      { type: "telepathy", targetId: "hero" },
+    ],
+    narration: "",
+  },
+  tacticalNormalizationContext,
+);
+assert.equal(overCapped.proposal?.effects.length, 6, "over-long effect lists must be trimmed, not rejected");
+assert.ok(
+  overCapped.report.dropped.some((entry) => entry.reason.includes("cap")),
+  "effects past the cap must be reported as dropped",
+);
+
+const unknownType = normalizeManeuverProposal(
+  { effects: [{ type: "telepathy", targetId: "hero" }, { type: "heal", targetId: "hero", amount: 3 }], narration: "" },
+  tacticalNormalizationContext,
+);
+assert.equal(unknownType.proposal?.effects.length, 1, "an unknown effect type must not take the valid effects with it");
+assert.ok(
+  unknownType.report.dropped.some((entry) => entry.reason.includes("telepathy")),
+  "unknown effect types must be reported as dropped",
+);
+
+assert.equal(
+  normalizeManeuverProposal({ narration: "nothing happens" }, tacticalNormalizationContext).proposal,
+  null,
+  "a proposal with no usable effect must return null so keyword resolution can run",
+);
+
+// ── Tactical: no usable effect falls back to keyword resolution ──
+const strandedSession = tactical({
+  units: [{ ...tacticalUnit("hero", "party"), hp: 10 }, tacticalUnit("enemy", "enemy")],
+});
+const strandedProposal: CombatManeuverProposal = {
+  outcome: "success",
+  rationale: "The blessing lands on nobody the board knows.",
+  difficulty: 0.05,
+  effects: [{ type: "heal", targetId: "phantom", amount: 9 }],
+  narration: "A blessing gutters out.",
+};
+const strandedResult = resolveCombatSessionAction(
+  strandedSession,
+  "stranded-maneuver",
+  { style: "tactical", type: "maneuver", unitId: "hero", instruction: "I heal myself with holy light" },
+  strandedProposal,
+);
+assert.ok(
+  strandedResult.events.some((event) => event.kind === "heal" && event.targetId === "hero"),
+  "an unusable proposal must fall through to keyword resolution instead of doing nothing",
+);
+assert.equal(
+  strandedResult.events.some((event) => event.text.includes("maneuver fails")),
+  false,
+  "a successful roll must never report a flat failure just because the proposal was unusable",
+);
+
+// ── Tactical: adjudication failure (no proposal) still resolves the turn ──
+const noProposalResult = resolveCombatSessionAction(
+  tactical({ units: [{ ...tacticalUnit("hero", "party"), hp: 10 }, tacticalUnit("enemy", "enemy")] }),
+  "no-proposal-maneuver",
+  { style: "tactical", type: "maneuver", unitId: "hero", instruction: "I heal myself with holy light" },
+);
+assert.ok(
+  noProposalResult.events.some((event) => event.kind === "heal" && event.targetId === "hero"),
+  "a self-heal must land even when no unit was picked and adjudication produced nothing",
+);
+
+// ── Tactical: out-of-reach effects explain themselves ──
+const reachSession = tactical({
+  grid: { width: 6, height: 1, tiles: [["plains", "plains", "plains", "plains", "plains", "plains"]] },
+  units: [
+    { ...tacticalUnit("hero", "party"), hp: 10 },
+    { ...tacticalUnit("ally", "party"), x: 5 },
+    { ...tacticalUnit("enemy", "enemy"), x: 4 },
+  ],
+});
+const mixedReachResult = resolveCombatSessionAction(
+  reachSession,
+  "mixed-reach",
+  { style: "tactical", type: "maneuver", unitId: "hero", instruction: "Bless us both" },
+  {
+    outcome: "success",
+    rationale: "Two blessings, one out of reach.",
+    difficulty: 0.05,
+    effects: [
+      { type: "heal", targetId: "hero", amount: 6 },
+      { type: "heal", targetId: "ally", amount: 6 },
+    ],
+    narration: "Light spreads across the line.",
+  },
+);
+assert.ok(
+  mixedReachResult.events.some((event) => event.kind === "heal" && event.targetId === "hero"),
+  "the reachable half of a maneuver must still apply",
+);
+assert.ok(
+  mixedReachResult.events.some((event) => event.text.includes("could not take effect")),
+  "dropped effects must be reported to the player",
+);
+
+// ── Classic: self-targeted salvage ──
+const woundedClassic = () => classic({ party: [{ ...unit("hero", "player"), hp: 10 }] });
+const classicShieldResult = resolveCombatSessionAction(
+  woundedClassic(),
+  "classic-shield",
+  { style: "classic", type: "maneuver", instruction: "I call on my paladin powers to heal myself and raise a shield" },
+  {
+    outcome: "success",
+    rationale: "A paladin's blessing.",
+    difficulty: 0.05,
+    effects: [
+      { type: "heal", amount: 8 },
+      { type: "cover" },
+      { type: "terrain", tile: { x: 1, y: 1 }, terrain: "ruin" },
+    ],
+    narration: "Light closes the wound and hardens into a ward.",
+  },
+);
+const classicManeuverEvents = classicShieldResult.events.filter((event) => event.eventId.includes("maneuver"));
+assert.ok(
+  classicManeuverEvents.some((event) => event.kind === "heal" && event.targetId === "hero"),
+  "a Classic heal with no targetId must heal the acting party member",
+);
+assert.ok(
+  classicManeuverEvents.some((event) => event.kind === "status" && event.statusName === "Shielded"),
+  "a Classic cover effect must become a defensive status",
+);
+assert.ok(
+  classicManeuverEvents.some((event) => event.text.includes("position counts for little")),
+  "grid-only effects must be narrated in Classic rather than dropped silently",
+);
+
+// ── Classic: keyword fallback when adjudication produced nothing ──
+const classicKeywordResult = resolveCombatSessionAction(woundedClassic(), "classic-keyword", {
+  style: "classic",
+  type: "maneuver",
+  instruction: "I heal myself",
+});
+assert.ok(
+  classicKeywordResult.events.some((event) => event.kind === "heal" && event.targetId === "hero"),
+  "Classic keyword resolution must default a self-heal to the acting party member",
+);
+
+// ── Determinism: identical input still yields an identical event stream ──
+const determinismAction: CombatAction = {
+  style: "classic",
+  type: "maneuver",
+  instruction: "I call on my paladin powers to heal myself and raise a shield",
+};
+const determinismProposal: CombatManeuverProposal = {
+  outcome: "success",
+  rationale: "A paladin's blessing.",
+  difficulty: 0.05,
+  effects: [{ type: "heal", amount: 8 }, { type: "cover" }],
+  narration: "Light closes the wound.",
+};
+assert.deepEqual(
+  resolveCombatSessionAction(woundedClassic(), "determinism", determinismAction, determinismProposal).events.map(
+    (event) => event.text,
+  ),
+  resolveCombatSessionAction(woundedClassic(), "determinism", determinismAction, determinismProposal).events.map(
+    (event) => event.text,
+  ),
+  "the same seed and proposal must produce the same events",
+);
 
 console.log("Combat session regression passed.");

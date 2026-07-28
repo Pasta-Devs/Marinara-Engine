@@ -19,6 +19,8 @@ On your turn, you pick one action from the menu. The six actions are:
 - **Items**: use an item from your bag. Choose **Full inventory** to open your full item list from here.
 - **Flee**: leave an ordinary fight at once. When escape is the encounter objective, you must first complete its exit interaction; an early attempt does not end combat.
 
+A Special maneuver always produces a result. If the GM's proposed effects have a small mistake, such as a target written by name instead of by its id, the engine repairs what it can and drops only the effects it cannot fix. If nothing usable survives, the GM gets one chance to correct itself; if that also fails, the maneuver is resolved from the keywords in what you typed (heal, guard, shield, stun, push, attack), so your turn is never wasted on an error. Say "heal myself" or "raise a shield" without picking a target and the effect lands on your own character. A maneuver that raises cover becomes a **Shielded** status that increases Defense, and effects that only make sense on a grid are narrated instead of applied.
+
 After you choose, the round plays out. The results appear as floating damage numbers, changing health bars, and lines in the combat log.
 
 ## How combat math works

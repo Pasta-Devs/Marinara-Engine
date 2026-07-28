@@ -89,6 +89,11 @@ import {
   CombatManeuverValidationError,
   resolveCombatSessionAction,
 } from "../services/game/combat-session.service.js";
+import {
+  describeNormalizationReport,
+  normalizeManeuverProposal,
+  type ManeuverNormalizationContext,
+} from "../services/game/maneuver-proposal.js";
 import { generateCombatLoot, generateLootTable } from "../services/game/loot.service.js";
 import {
   advanceTime,
@@ -9566,9 +9571,11 @@ export async function gameRoutes(app: FastifyInstance) {
     };
     try {
       const maneuverInput = maneuverInputForAction(session, request.action);
+      // A null proposal means adjudication failed; the engine then resolves the
+      // maneuver with its deterministic keyword rules instead of failing the turn.
       const maneuverProposal =
         maneuverInput && !session.actionHistory?.some((record) => record.actionId === request.actionId)
-          ? await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)
+          ? ((await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)) ?? undefined)
           : undefined;
       const applied = await sessions.applyAction(chatId, request, (current) =>
         resolveCombatSessionAction(current, request.actionId, request.action, maneuverProposal),
@@ -9725,38 +9732,6 @@ export async function gameRoutes(app: FastifyInstance) {
     })
     .passthrough();
 
-  const combatManeuverProposalSchema = z
-    .object({
-      outcome: z.enum(["success", "partial", "failure"]),
-      rationale: z.string().trim().min(1).max(1000),
-      difficulty: z.number().min(0.05).max(0.95),
-      effects: z
-        .array(
-          z
-            .object({
-              type: z.enum(["damage", "heal", "status", "move", "cover", "terrain", "objective"]),
-              targetId: z.string().trim().min(1).max(200).optional(),
-              tile: z.object({ x: z.number().int(), y: z.number().int() }).strict().optional(),
-              amount: z.number().finite().optional(),
-              status: z
-                .object({
-                  name: z.string().trim().min(1).max(80),
-                  modifier: z.number().finite().min(-5).max(5),
-                  stat: z.enum(["attack", "defense", "speed", "hp"]),
-                  turnsLeft: z.number().int().min(1).max(3),
-                })
-                .strict()
-                .optional(),
-              objectiveId: z.string().trim().min(1).max(200).optional(),
-              terrain: z.enum(["plains", "forest", "mountain", "ruin", "water", "wall"]).optional(),
-            })
-            .strict(),
-        )
-        .max(6),
-      narration: z.string().trim().max(1200),
-    })
-    .strict();
-
   // ── POST /game/combat/tactical/start ──
   const combatSessionStorage = createGameCombatSessionStorage(app.db);
 
@@ -9861,12 +9836,26 @@ export async function gameRoutes(app: FastifyInstance) {
     return { actorId: actor.id, instruction: action.instruction, targetId: action.targetId };
   }
 
+  function parseManeuverJson(raw: string): unknown {
+    try {
+      return parseJSON(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Asks the GM for a maneuver proposal and normalizes whatever comes back.
+   * Returns `null` when nothing usable survives — the caller then resolves the
+   * maneuver with the deterministic keyword resolvers rather than failing the
+   * player's turn.
+   */
   async function adjudicateCombatManeuver(
     chatId: string,
     session: CombatSession,
     input: CombatManeuverInput,
     reply: FastifyReply,
-  ): Promise<CombatManeuverProposal> {
+  ): Promise<CombatManeuverProposal | null> {
     const chat = await createChatsStorage(app.db).getById(chatId);
     if (!chat) throw new CombatManeuverValidationError("Chat not found for maneuver adjudication.");
     const meta = parseMeta(chat.metadata);
@@ -9942,42 +9931,123 @@ export async function gameRoutes(app: FastifyInstance) {
         content: [
           "You are a combat maneuver adjudicator. Return one strict JSON object and no prose.",
           "Propose bounded effects only; the deterministic engine rolls the actual outcome and validates every effect.",
-          "difficulty must be 0.05-0.95. Use at most 6 effects.",
-          "Allowed effect types: damage, heal, status, move, cover, terrain, objective.",
-          "Targets and objective IDs must exactly match the supplied context. Tactical coordinates must be on the supplied grid.",
-          "Status shape: {name, modifier (-5..5), stat (attack|defense|speed|hp), turnsLeft (1..3)}.",
-          "Output shape: {outcome, rationale, difficulty, effects, narration}.",
+          `The acting unit's id is "${input.actorId}". Use that exact id as targetId for anything the actor does to itself (self-heals, self-buffs, shields).`,
+          'Output shape: {"outcome":"success|partial|failure","rationale":"...","difficulty":0.05-0.95,"effects":[...],"narration":"..."}.',
+          "Use at most 6 effects. Split a multi-part power (heal plus shield) into one effect per part.",
+          "Effect shapes — copy these exactly and add no other keys:",
+          '  {"type":"damage","targetId":"<unit id>","amount":8}',
+          '  {"type":"heal","targetId":"<unit id>","amount":8}',
+          '  {"type":"status","targetId":"<unit id>","status":{"name":"Shielded","modifier":2,"stat":"defense","turnsLeft":2}}',
+          '  {"type":"move","targetId":"<unit id>","tile":{"x":3,"y":4}}',
+          '  {"type":"cover","tile":{"x":3,"y":4}}',
+          '  {"type":"terrain","tile":{"x":3,"y":4},"terrain":"ruin"}',
+          '  {"type":"objective","objectiveId":"<objective id>"}',
+          'Coordinates always nest inside "tile". Never put x or y directly on an effect.',
+          "status.stat is attack, defense, speed or hp; status.modifier is -5..5; status.turnsLeft is 1..3.",
+          "terrain is plains, forest, mountain, ruin, water or wall.",
+          "targetId and objectiveId must match ids from the supplied context exactly.",
+          session.style === "tactical"
+            ? "Engine reach limits — effects outside them are discarded: heal and status targets must be within 2 tiles of the actor, damage targets within the actor's attack range and in line of sight, and cover/terrain tiles must be on the grid, unoccupied and near the actor."
+            : "Classic combat has no grid: use damage, heal, status and objective effects only.",
           "outcome is your recommendation only; the engine ignores it when rolling.",
         ].join("\n"),
       },
       { role: "user", content: JSON.stringify(context) },
     ];
     logger.debug("[debug/game/combat-maneuver] prompt messages:\n%s", JSON.stringify(messages, null, 2));
+    const normalizationContext: ManeuverNormalizationContext = {
+      actorId: input.actorId,
+      style: session.style,
+      units:
+        session.style === "tactical"
+          ? session.canonicalState.units.map((unit) => ({
+              id: unit.id,
+              name: unit.name,
+              side: unit.side === "enemy" ? "enemy" : "ally",
+              hp: unit.hp,
+            }))
+          : [
+              ...session.canonicalState.party.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                side: "ally" as const,
+                hp: unit.hp,
+              })),
+              ...session.canonicalState.enemies.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                side: "enemy" as const,
+                hp: unit.hp,
+              })),
+            ],
+      objectiveIds: session.objectives.filter((objective) => objective.status === "active").map((objective) => objective.id),
+    };
+    const options = gameGenOptions(
+      conn.model ?? "",
+      {
+        stream: false,
+        // Reasoning models spend part of this budget on thinking, and a
+        // truncated proposal is indistinguishable from a broken one.
+        maxTokens: 3000,
+        temperature: 0.2,
+        responseFormat: { type: "json_object" },
+        signal: createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Combat maneuver adjudication"),
+      },
+      parameters,
+      conn.provider,
+    );
+    const requestProposalText = async (attemptMessages: ChatMessage[], label: string): Promise<string> => {
+      const result = await runGameChatComplete(provider, attemptMessages, options, label);
+      const raw = extractLeadingThinkingBlocks(result.content || "", parameters?.customThinkingTags).content;
+      if (raw.trim()) return raw;
+      // Some provider/model combos return empty content on the buffered path.
+      logger.warn("[game/combat-maneuver] Empty buffered response, retrying with streamed JSON collection");
+      const streamed = await runGameChatStream(provider, attemptMessages, options, `${label} streamed retry`);
+      return extractLeadingThinkingBlocks(streamed, parameters?.customThinkingTags).content;
+    };
     try {
-      const result = await runGameChatComplete(
-        provider,
-        messages,
-        gameGenOptions(
-          conn.model ?? "",
-          {
-            stream: false,
-            maxTokens: 1400,
-            temperature: 0.2,
-            responseFormat: { type: "json_object" },
-            signal: createResponseAbortSignal(reply, GAME_GENERATION_TIMEOUT_MS, "Combat maneuver adjudication"),
-          },
-          parameters,
-          conn.provider,
-        ),
-        "Combat maneuver adjudication",
+      const raw = await requestProposalText(messages, "Combat maneuver adjudication");
+      const first = normalizeManeuverProposal(parseManeuverJson(raw), normalizationContext);
+      if (first.proposal) {
+        if (first.report.coerced.length || first.report.dropped.length) {
+          logger.warn(
+            "Combat maneuver proposal salvaged for chat %s: %s",
+            chatId,
+            describeNormalizationReport(first.report),
+          );
+        }
+        logger.debug("[debug/game/combat-maneuver] proposal:\n%s", JSON.stringify(first.proposal, null, 2));
+        return first.proposal;
+      }
+      logger.warn(
+        "Combat maneuver proposal unusable for chat %s (%s); asking the GM to repair it",
+        chatId,
+        describeNormalizationReport(first.report),
       );
-      const extraction = extractLeadingThinkingBlocks(result.content || "", parameters?.customThinkingTags);
-      const proposal = combatManeuverProposalSchema.parse(parseJSON(extraction.content));
-      logger.debug("[debug/game/combat-maneuver] proposal:\n%s", JSON.stringify(proposal, null, 2));
-      return proposal;
+      const repairMessages: ChatMessage[] = [
+        ...messages,
+        // Some providers reject an empty assistant turn, so only echo real text.
+        ...(raw.trim() ? ([{ role: "assistant", content: raw.slice(0, 4000) }] as ChatMessage[]) : []),
+        {
+          role: "user",
+          content: `That response could not be used (${describeNormalizationReport(first.report)}). Re-emit only the corrected JSON object, following the effect shapes exactly.`,
+        },
+      ];
+      const repaired = await requestProposalText(repairMessages, "Combat maneuver adjudication repair");
+      const second = normalizeManeuverProposal(parseManeuverJson(repaired), normalizationContext);
+      if (second.proposal) {
+        logger.debug("[debug/game/combat-maneuver] repaired proposal:\n%s", JSON.stringify(second.proposal, null, 2));
+        return second.proposal;
+      }
+      logger.warn(
+        "Combat maneuver adjudication produced no usable proposal for chat %s (%s); falling back to deterministic resolution",
+        chatId,
+        describeNormalizationReport(second.report),
+      );
+      return null;
     } catch (error) {
-      logger.warn(error, "Combat maneuver adjudication failed for chat %s", chatId);
-      throw new CombatManeuverValidationError("The GM could not produce a valid maneuver proposal. Try rephrasing it.");
+      logger.warn(error, "Combat maneuver adjudication failed for chat %s; falling back to deterministic resolution", chatId);
+      return null;
     }
   }
 
@@ -10098,7 +10168,7 @@ export async function gameRoutes(app: FastifyInstance) {
         existing.revision === body.expectedRevision &&
         maneuverInput &&
         !existing.actionHistory?.some((record) => record.actionId === request.actionId)
-          ? await adjudicateCombatManeuver(body.chatId, existing, maneuverInput, reply)
+          ? ((await adjudicateCombatManeuver(body.chatId, existing, maneuverInput, reply)) ?? undefined)
           : undefined;
       const applied = await combatSessionStorage.applyAction(body.chatId, request, (session) =>
         resolveCombatSessionAction(session, request.actionId, request.action, maneuverProposal),
@@ -10257,7 +10327,7 @@ export async function gameRoutes(app: FastifyInstance) {
         session.revision === request.expectedRevision &&
         maneuverInput &&
         !session.actionHistory?.some((record) => record.actionId === request.actionId)
-          ? await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)
+          ? ((await adjudicateCombatManeuver(chatId, session, maneuverInput, reply)) ?? undefined)
           : undefined;
       const applied = await combatSessionStorage.applyAction(chatId, request, (current) =>
         resolveCombatSessionAction(current, request.actionId, request.action, maneuverProposal),

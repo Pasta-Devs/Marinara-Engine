@@ -594,23 +594,56 @@ function itemStatus(effect: CombatItemEffect, fallbackName: string, positive: bo
   };
 }
 
+interface ManeuverRoll {
+  cursor: number;
+  roll: number;
+  success: boolean;
+  partial: boolean;
+  scale: number;
+}
+
+function rollManeuver(state: TacticalCombatState, actor: TacticalUnit, difficulty: number): ManeuverRoll {
+  const cursor = state.actionCounter++;
+  const roll = deterministicRng(state.seed, cursor)();
+  const advantage = clamp((actor.speed - 5) * 0.01, -0.12, 0.12);
+  const success = roll >= difficulty - advantage;
+  const partial = !success && roll >= difficulty - advantage - 0.2;
+  return { cursor, roll, success, partial, scale: success ? 1 : partial ? 0.5 : 0 };
+}
+
+/** Nearest living opponent the actor could actually reach this turn. */
+function nearestReachableFoe(state: TacticalCombatState, actor: TacticalUnit): TacticalUnit | undefined {
+  const reach = Math.max(2, actor.attackRange.max);
+  return aliveUnits(state, actor.side === "party" ? "enemy" : "party")
+    .filter((unit) => manhattan(actor, unit) <= reach)
+    .sort((a, b) => manhattan(actor, a) - manhattan(actor, b))[0];
+}
+
+/**
+ * Keyword resolution: the deterministic reading of the player's own words.
+ * It runs when no GM proposal exists and when a proposal produced nothing the
+ * board could accept, so `precomputed` lets the caller reuse its roll instead
+ * of rolling the same maneuver twice.
+ */
 function resolveManeuver(
   state: TacticalCombatState,
   actor: TacticalUnit,
   action: Extract<TacticalAction, { type: "maneuver" }>,
   events: TacticalEvent[],
+  precomputed?: ManeuverRoll,
 ): void {
-  const target = action.targetId ? getUnit(state, action.targetId) : undefined;
+  const picked = action.targetId ? getUnit(state, action.targetId) : undefined;
   const instruction = action.instruction.trim();
-  const rng = deterministicRng(state.seed, state.actionCounter++);
-  const roll = rng();
-  const difficulty = target?.isBoss ? 0.62 : 0.52;
-  const advantage = Math.max(-0.12, Math.min(0.12, (actor.speed - 5) * 0.01));
-  const success = roll >= difficulty - advantage;
-  const partial = !success && roll >= difficulty - advantage - 0.2;
-  const scale = success ? 1 : partial ? 0.5 : 0;
+  const outcome = precomputed ?? rollManeuver(state, actor, picked?.isBoss ? 0.62 : 0.52);
+  const { roll, success, partial, scale } = outcome;
   const lower = instruction.toLowerCase();
   const label = `${actor.name}'s maneuver`;
+  const startLength = events.length;
+  // Freeform maneuvers usually arrive with no target picked. A self-heal or
+  // self-shield still has to land on the actor, and an offensive one falls back
+  // to the nearest foe already inside the actor's reach.
+  const target = picked ?? actor;
+  const foe = picked ?? nearestReachableFoe(state, actor);
 
   if (scale > 0 && action.tile && /break|destroy|collapse|ignite|burn|freeze|flood/.test(lower)) {
     const current = state.grid.tiles[action.tile.y]?.[action.tile.x];
@@ -636,7 +669,7 @@ function resolveManeuver(
         },
       ];
     }
-  } else if (scale > 0 && target && /heal|aid|rescue|restore|tend/.test(lower)) {
+  } else if (scale > 0 && /heal|aid|rescue|restore|tend/.test(lower)) {
     const amount = Math.max(1, Math.floor(target.maxHp * 0.2 * scale));
     const before = target.hp;
     target.hp = Math.min(target.maxHp, target.hp + amount);
@@ -647,7 +680,7 @@ function resolveManeuver(
       targetId: target.id,
       amount: target.hp - before,
     });
-  } else if (scale > 0 && target && /cover|guard|protect|shield|brace/.test(lower)) {
+  } else if (scale > 0 && /cover|guard|protect|shield|brace/.test(lower)) {
     const status: CombatStatusEffect = {
       name: "Maneuver Guard",
       modifier: 2,
@@ -662,70 +695,75 @@ function resolveManeuver(
       targetId: target.id,
       statusName: status.name,
     });
-  } else if (scale > 0 && target && /stun|freeze|bind|trip|root|immobil/.test(lower)) {
+  } else if (scale > 0 && foe && /stun|freeze|bind|trip|root|immobil/.test(lower)) {
     const status: CombatStatusEffect = {
       name: success ? "Stunned" : "Hindered",
       modifier: -999,
       stat: "speed",
       turnsLeft: success ? 1 : 1,
     };
-    applyStatus(target, status);
+    applyStatus(foe, status);
     events.push({
       kind: "status",
-      text: `${label} leaves ${target.name} ${status.name.toLowerCase()}.`,
+      text: `${label} leaves ${foe.name} ${status.name.toLowerCase()}.`,
       actorId: actor.id,
-      targetId: target.id,
+      targetId: foe.id,
       statusName: status.name,
     });
-  } else if (scale > 0 && target && /push|shove|knock|force|reposition/.test(lower)) {
-    const dx = Math.sign(target.x - actor.x) || 1;
-    const dy = Math.sign(target.y - actor.y);
-    const destination = { x: target.x + dx, y: target.y + dy };
+  } else if (scale > 0 && foe && /push|shove|knock|force|reposition/.test(lower)) {
+    const dx = Math.sign(foe.x - actor.x) || 1;
+    const dy = Math.sign(foe.y - actor.y);
+    const destination = { x: foe.x + dx, y: foe.y + dy };
     if (
       inBounds(state.grid, destination.x, destination.y) &&
       !isImpassable(state.grid, destination.x, destination.y) &&
-      !occupantAt(state, destination.x, destination.y, target.id)
+      !occupantAt(state, destination.x, destination.y, foe.id)
     ) {
-      const from = { x: target.x, y: target.y };
-      target.x = destination.x;
-      target.y = destination.y;
+      const from = { x: foe.x, y: foe.y };
+      foe.x = destination.x;
+      foe.y = destination.y;
       events.push({
         kind: "move",
-        text: `${label} repositions ${target.name}.`,
+        text: `${label} repositions ${foe.name}.`,
         actorId: actor.id,
-        targetId: target.id,
+        targetId: foe.id,
         from,
         to: destination,
       });
     } else {
       events.push({
         kind: "maneuver",
-        text: `${label} cannot move ${target.name} from that position.`,
+        text: `${label} cannot move ${foe.name} from that position.`,
         actorId: actor.id,
-        targetId: target.id,
+        targetId: foe.id,
       });
     }
-  } else if (scale > 0 && target) {
-    const damage = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp) * 0.35 * scale));
-    target.hp = Math.max(0, target.hp - damage);
+  } else if (scale > 0 && foe) {
+    const damage = Math.max(1, Math.floor(Math.max(actor.attack, foe.maxHp) * 0.35 * scale));
+    foe.hp = Math.max(0, foe.hp - damage);
     events.push({
       kind: "damage",
-      text: `${label} deals ${damage} damage to ${target.name}.`,
+      text: `${label} deals ${damage} damage to ${foe.name}.`,
       actorId: actor.id,
-      targetId: target.id,
+      targetId: foe.id,
       amount: damage,
     });
-    if (target.hp <= 0) events.push({ kind: "defeat", text: `${target.name} is defeated!`, targetId: target.id });
+    if (foe.hp <= 0) events.push({ kind: "defeat", text: `${foe.name} is defeated!`, targetId: foe.id });
   }
 
+  const changedSomething = events.length > startLength;
   events.push({
     kind: "maneuver",
-    text: success
-      ? `${label} succeeds: ${instruction}`
-      : partial
-        ? `${label} partially succeeds: ${instruction}`
-        : `${label} fails: ${instruction}`,
+    text:
+      scale > 0 && !changedSomething
+        ? `${label} plays out, but nothing on the field changes: ${instruction}`
+        : success
+          ? `${label} succeeds: ${instruction}`
+          : partial
+            ? `${label} partially succeeds: ${instruction}`
+            : `${label} fails: ${instruction}`,
     actorId: actor.id,
+    roll: { kind: "maneuver", value: roll, cursor: outcome.cursor },
   });
 }
 
@@ -736,23 +774,32 @@ function resolveProposedManeuver(
   proposal: TacticalManeuverProposal,
   events: TacticalEvent[],
 ): void {
-  const cursor = state.actionCounter++;
-  const roll = deterministicRng(state.seed, cursor)();
   const difficulty = clamp(Number(proposal.difficulty) || 0.52, 0.05, 0.95);
-  const advantage = clamp((actor.speed - 5) * 0.01, -0.12, 0.12);
-  const success = roll >= difficulty - advantage;
-  const partial = !success && roll >= difficulty - advantage - 0.2;
-  const scale = success ? 1 : partial ? 0.5 : 0;
+  const outcome = rollManeuver(state, actor, difficulty);
+  const { cursor, roll, success, scale } = outcome;
   const applied: TacticalEvent[] = [];
+  // Reasons the board refused an effect, so the player learns why part of a
+  // maneuver did nothing instead of just reading "fails".
+  const dropped: string[] = [];
   const nearby = (tile: TacticalCoord) => manhattan(actor, tile) <= Math.max(3, actor.movement);
 
   if (scale > 0) {
     for (const effect of proposal.effects.slice(0, 6)) {
       const target = effect.targetId ? getUnit(state, effect.targetId) : undefined;
+      if (effect.targetId && !target) {
+        dropped.push("one target was not on the battlefield");
+        continue;
+      }
       if (effect.type === "damage" && target && target.hp > 0 && target.side !== actor.side) {
         const distance = manhattan(actor, target);
-        if (distance > Math.max(2, actor.attackRange.max)) continue;
-        if (distance > 1 && !hasLineOfSight(state.grid, actor, target)) continue;
+        if (distance > Math.max(2, actor.attackRange.max)) {
+          dropped.push(`${target.name} was out of reach`);
+          continue;
+        }
+        if (distance > 1 && !hasLineOfSight(state.grid, actor, target)) {
+          dropped.push(`${target.name} was out of sight`);
+          continue;
+        }
         const cap = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp * 0.25)));
         const amount = Math.max(1, Math.floor(clamp(Number(effect.amount) || cap * 0.5, 1, cap) * scale));
         target.hp = Math.max(0, target.hp - amount);
@@ -767,7 +814,10 @@ function resolveProposedManeuver(
         continue;
       }
       if (effect.type === "heal" && target && target.hp > 0 && target.side === actor.side) {
-        if (manhattan(actor, target) > 2) continue;
+        if (manhattan(actor, target) > 2) {
+          dropped.push(`${target.name} was too far away to heal`);
+          continue;
+        }
         const cap = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp * 0.25)));
         const requested = Math.max(1, Math.floor(clamp(Number(effect.amount) || cap * 0.5, 1, cap) * scale));
         const before = target.hp;
@@ -785,7 +835,10 @@ function resolveProposedManeuver(
         continue;
       }
       if (effect.type === "status" && target && target.hp > 0 && effect.status) {
-        if (manhattan(actor, target) > 2) continue;
+        if (manhattan(actor, target) > 2) {
+          dropped.push(`${target.name} was too far away to affect`);
+          continue;
+        }
         const status: CombatStatusEffect = {
           name: effect.status.name.trim().slice(0, 80) || "Maneuver Effect",
           modifier: clamp(Number(effect.status.modifier) || 0, -5, 5),
@@ -823,14 +876,22 @@ function resolveProposedManeuver(
             from,
             to: destination,
           });
+        } else {
+          dropped.push(`${target.name} could not be moved there`);
         }
         continue;
       }
       if ((effect.type === "cover" || effect.type === "terrain") && effect.tile && nearby(effect.tile)) {
         const tile = effect.tile;
-        if (!inBounds(state.grid, tile.x, tile.y) || occupantAt(state, tile.x, tile.y)) continue;
+        if (!inBounds(state.grid, tile.x, tile.y) || occupantAt(state, tile.x, tile.y)) {
+          dropped.push(`the tile at (${tile.x}, ${tile.y}) was not clear`);
+          continue;
+        }
         const terrain = effect.type === "cover" ? "forest" : effect.terrain;
-        if (!terrain) continue;
+        if (!terrain) {
+          dropped.push("a terrain change had no terrain to apply");
+          continue;
+        }
         state.grid.tiles[tile.y]![tile.x] = terrain;
         applied.push({
           kind: "terrain",
@@ -840,12 +901,10 @@ function resolveProposedManeuver(
         });
         continue;
       }
-      if (
-        effect.type === "objective" &&
-        effect.objectiveId &&
-        action.objectiveId &&
-        effect.objectiveId === action.objectiveId
-      ) {
+      // Objective progress is reconciled against the session's objective list,
+      // so an id the player never tapped is safe to forward: only a real active
+      // objective can consume it.
+      if (effect.type === "objective" && effect.objectiveId) {
         applied.push({
           kind: "objective",
           text: `${actor.name}'s maneuver advances ${effect.objectiveId}.`,
@@ -853,8 +912,18 @@ function resolveProposedManeuver(
           objectiveId: effect.objectiveId,
           objectiveProgress: scale,
         });
+        continue;
       }
+      dropped.push(`a ${effect.type} effect did not fit the battlefield`);
     }
+  }
+
+  if (applied.length === 0 && scale > 0) {
+    // The roll landed but nothing the GM proposed could touch the board. Read
+    // the player's own words instead of reporting a failure they cannot learn
+    // from, reusing this maneuver's roll so the turn is decided only once.
+    resolveManeuver(state, actor, action, events, outcome);
+    return;
   }
 
   const actualOutcome = applied.length > 0 ? (success ? "succeeds" : "partially succeeds") : "fails";
@@ -867,6 +936,13 @@ function resolveProposedManeuver(
     actorId: actor.id,
     roll: { kind: "maneuver", value: roll, cursor },
   });
+  if (dropped.length > 0) {
+    events.push({
+      kind: "maneuver",
+      text: `Part of the maneuver could not take effect: ${dropped[0]}.`,
+      actorId: actor.id,
+    });
+  }
 }
 
 // ── Core action application (shared by player + AI) ──

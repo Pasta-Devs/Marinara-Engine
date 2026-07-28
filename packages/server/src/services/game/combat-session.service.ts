@@ -204,6 +204,7 @@ function applyClassicManeuver(
   const namedTarget = allTargets.find((combatant) => lower.includes(combatant.name.trim().toLowerCase()));
   const target = targetId ? allTargets.find((combatant) => combatant.id === targetId) : namedTarget;
   if (targetId && !target) throw new CombatActionValidationError("Invalid maneuver target.");
+  const livingEnemies = allTargets.filter((combatant) => combatant.side === "enemy");
   const roll = random();
   const difficulty = Math.max(0.05, Math.min(0.95, proposal?.difficulty ?? 0.5));
   const success = roll >= difficulty;
@@ -211,10 +212,96 @@ function applyClassicManeuver(
   const scale = success ? 1 : partial ? 0.5 : 0;
   const events: CombatEvent[] = [];
 
+  /**
+   * Deterministic reading of the player's own words. Runs when no GM proposal
+   * exists, and when a proposal produced nothing the battle could accept.
+   */
+  const applyKeywordFallback = (): void => {
+    if (scale <= 0) return;
+    if (/heal|aid|rescue|restore|tend/.test(lower)) {
+      // "Heal myself" names no combatant, so an unmatched heal lands on the actor.
+      const healed = target && target.side === "player" ? target : actor;
+      const amount = Math.max(1, Math.floor(healed.maxHp * 0.2 * scale));
+      const before = healed.hp;
+      healed.hp = Math.min(healed.maxHp, healed.hp + amount);
+      const healedFor = healed.hp - before;
+      if (healedFor <= 0) return;
+      events.push({
+        eventId: `${actionId}:maneuver-effect:${events.length}`,
+        actionId,
+        kind: "heal",
+        actorId: actor.id,
+        targetId: healed.id,
+        text: `${actor.name}'s maneuver restores ${healedFor} HP to ${healed.name}.`,
+        effects: [{ type: "heal", sourceId: actor.id, targetId: healed.id, amount: healedFor }],
+        amount: healedFor,
+      });
+      return;
+    }
+    if (/guard|cover|protect|shield|brace/.test(lower)) {
+      const guarded = target && target.side === "player" ? target : actor;
+      const status = { name: "Maneuver Guard", modifier: 2, stat: "defense" as const, turnsLeft: success ? 2 : 1 };
+      guarded.statusEffects = [
+        ...(guarded.statusEffects ?? []).filter((effect) => effect.name !== status.name),
+        status,
+      ];
+      events.push({
+        eventId: `${actionId}:maneuver-effect:${events.length}`,
+        actionId,
+        kind: "status",
+        actorId: actor.id,
+        targetId: guarded.id,
+        text: `${actor.name}'s maneuver protects ${guarded.name}.`,
+        effects: [{ type: "status", sourceId: actor.id, targetId: guarded.id, status }],
+        statusName: status.name,
+      });
+      return;
+    }
+    const foe = target && target.side === "enemy" ? target : livingEnemies[0];
+    if (!foe) return;
+    const damage = Math.max(1, Math.floor(Math.max(actor.attack, foe.maxHp) * 0.3 * scale));
+    foe.hp = Math.max(0, foe.hp - damage);
+    events.push({
+      eventId: `${actionId}:maneuver-effect:${events.length}`,
+      actionId,
+      kind: "damage",
+      actorId: actor.id,
+      targetId: foe.id,
+      text: `${actor.name}'s maneuver deals ${damage} damage to ${foe.name}.`,
+      effects: [{ type: "damage", sourceId: actor.id, targetId: foe.id, amount: damage }],
+      amount: damage,
+    });
+  };
+
+  const pushSummary = (text: string): void => {
+    events.push({
+      eventId: `${actionId}:maneuver`,
+      actionId,
+      kind: "maneuver",
+      actorId: actor.id,
+      text,
+      effects: [],
+      roll: { kind: "maneuver", value: roll, cursor: rollCursor },
+    });
+  };
+
   if (proposal) {
+    // Reasons the battle refused an effect, so a partly-applied maneuver can
+    // explain itself instead of reading as a flat failure.
+    const dropped: string[] = [];
     for (const effect of proposal.effects.slice(0, 6)) {
-      const effectTarget = effect.targetId ? allTargets.find((combatant) => combatant.id === effect.targetId) : target;
       if (scale <= 0) continue;
+      const named = effect.targetId
+        ? allTargets.find((combatant) => combatant.id === effect.targetId)
+        : undefined;
+      if (effect.targetId && !named) {
+        dropped.push("one target was no longer in the fight");
+        continue;
+      }
+      // A self-buff or self-heal routinely arrives with no target at all.
+      const selfDefaulting = effect.type === "heal" || effect.type === "status" || effect.type === "cover";
+      const effectTarget =
+        named ?? target ?? (selfDefaulting ? actor : effect.type === "damage" ? livingEnemies[0] : undefined);
       if (effect.type === "objective" && effect.objectiveId) {
         events.push({
           eventId: `${actionId}:maneuver-effect:${events.length}`,
@@ -233,7 +320,42 @@ function applyClassicManeuver(
         });
         continue;
       }
-      if (!effectTarget) continue;
+      // Classic has no grid, so a repositioning or terrain effect can only be
+      // narrated. Saying so beats dropping it and leaving the player guessing.
+      if (effect.type === "move" || effect.type === "terrain") {
+        events.push({
+          eventId: `${actionId}:maneuver-effect:${events.length}`,
+          actionId,
+          kind: "maneuver",
+          actorId: actor.id,
+          text: `${actor.name} shifts the ground of the fight, but position counts for little here.`,
+          effects: [],
+        });
+        continue;
+      }
+      if (!effectTarget) {
+        dropped.push(`a ${effect.type} effect had nobody to land on`);
+        continue;
+      }
+      if (effect.type === "cover") {
+        // The Classic equivalent of raising cover is a defensive buff.
+        const status = { name: "Shielded", modifier: 2, stat: "defense" as const, turnsLeft: success ? 2 : 1 };
+        effectTarget.statusEffects = [
+          ...(effectTarget.statusEffects ?? []).filter((entry) => entry.name !== status.name),
+          status,
+        ];
+        events.push({
+          eventId: `${actionId}:maneuver-effect:${events.length}`,
+          actionId,
+          kind: "status",
+          actorId: actor.id,
+          targetId: effectTarget.id,
+          text: `${actor.name}'s maneuver shields ${effectTarget.name}.`,
+          effects: [{ type: "status", sourceId: actor.id, targetId: effectTarget.id, status }],
+          statusName: status.name,
+        });
+        continue;
+      }
       if (effect.type === "damage" && effectTarget.side === "enemy") {
         const cap = Math.max(1, Math.floor(Math.max(actor.attack, effectTarget.maxHp * 0.25)));
         const amount = Math.max(1, Math.floor(Math.max(1, Math.min(cap, effect.amount ?? cap * 0.5)) * scale));
@@ -289,78 +411,50 @@ function applyClassicManeuver(
           effects: [{ type: "status", sourceId: actor.id, targetId: effectTarget.id, status }],
           statusName: status.name,
         });
+      } else {
+        dropped.push(`a ${effect.type} effect did not fit this battle`);
       }
     }
+    if (events.length === 0 && scale > 0) {
+      // The roll landed but nothing the GM proposed could be applied. Resolve
+      // the player's own words rather than reporting an unexplainable failure.
+      applyKeywordFallback();
+      pushSummary(
+        events.length > 0
+          ? `${actor.name}'s maneuver ${success ? "succeeds" : "partially succeeds"}: ${instruction}`
+          : `${actor.name}'s maneuver plays out, but nothing changes: ${instruction}`,
+      );
+      return events;
+    }
     const actualOutcome = events.length > 0 ? (success ? "succeeds" : "partially succeeds") : "fails";
-    events.push({
-      eventId: `${actionId}:maneuver`,
-      actionId,
-      kind: "maneuver",
-      actorId: actor.id,
-      text:
-        events.length > 0 && proposal.narration.trim()
-          ? `${actor.name}'s maneuver ${actualOutcome}: ${proposal.narration.trim()}`
-          : `${actor.name}'s maneuver ${actualOutcome}: ${instruction}`,
-      effects: [],
-      roll: { kind: "maneuver", value: roll, cursor: rollCursor },
-    });
+    pushSummary(
+      events.length > 0 && proposal.narration.trim()
+        ? `${actor.name}'s maneuver ${actualOutcome}: ${proposal.narration.trim()}`
+        : `${actor.name}'s maneuver ${actualOutcome}: ${instruction}`,
+    );
+    if (dropped.length > 0) {
+      events.push({
+        eventId: `${actionId}:maneuver-note`,
+        actionId,
+        kind: "maneuver",
+        actorId: actor.id,
+        text: `Part of the maneuver could not take effect: ${dropped[0]}.`,
+        effects: [],
+      });
+    }
     return events;
   }
 
-  if (scale > 0 && target && /heal|aid|rescue|restore|tend/.test(lower)) {
-    const amount = Math.max(1, Math.floor(target.maxHp * 0.2 * scale));
-    target.hp = Math.min(target.maxHp, target.hp + amount);
-    events.push({
-      eventId: `${actionId}:maneuver-effect`,
-      actionId,
-      kind: "heal",
-      actorId: actor.id,
-      targetId: target.id,
-      text: `${actor.name}'s maneuver restores ${amount} HP to ${target.name}.`,
-      effects: [{ type: "heal", sourceId: actor.id, targetId: target.id, amount }],
-      amount,
-    });
-  } else if (scale > 0 && /guard|cover|protect|shield|brace/.test(lower)) {
-    const guarded = target ?? actor;
-    const status = { name: "Maneuver Guard", modifier: 2, stat: "defense" as const, turnsLeft: success ? 2 : 1 };
-    guarded.statusEffects = [...(guarded.statusEffects ?? []).filter((effect) => effect.name !== status.name), status];
-    events.push({
-      eventId: `${actionId}:maneuver-effect`,
-      actionId,
-      kind: "status",
-      actorId: actor.id,
-      targetId: guarded.id,
-      text: `${actor.name}'s maneuver protects ${guarded.name}.`,
-      effects: [{ type: "status", sourceId: actor.id, targetId: guarded.id, status }],
-      statusName: status.name,
-    });
-  } else if (scale > 0 && target && target.side === "enemy") {
-    const damage = Math.max(1, Math.floor(Math.max(actor.attack, target.maxHp) * 0.3 * scale));
-    target.hp = Math.max(0, target.hp - damage);
-    events.push({
-      eventId: `${actionId}:maneuver-effect`,
-      actionId,
-      kind: "damage",
-      actorId: actor.id,
-      targetId: target.id,
-      text: `${actor.name}'s maneuver deals ${damage} damage to ${target.name}.`,
-      effects: [{ type: "damage", sourceId: actor.id, targetId: target.id, amount: damage }],
-      amount: damage,
-    });
-  }
-
-  events.push({
-    eventId: `${actionId}:maneuver`,
-    actionId,
-    kind: "maneuver",
-    actorId: actor.id,
-    text: success
-      ? `${actor.name}'s maneuver succeeds: ${instruction}`
-      : partial
-        ? `${actor.name}'s maneuver partially succeeds: ${instruction}`
-        : `${actor.name}'s maneuver fails: ${instruction}`,
-    effects: [],
-  });
+  applyKeywordFallback();
+  pushSummary(
+    scale > 0 && events.length === 0
+      ? `${actor.name}'s maneuver plays out, but nothing changes: ${instruction}`
+      : success
+        ? `${actor.name}'s maneuver succeeds: ${instruction}`
+        : partial
+          ? `${actor.name}'s maneuver partially succeeds: ${instruction}`
+          : `${actor.name}'s maneuver fails: ${instruction}`,
+  );
   return events;
 }
 

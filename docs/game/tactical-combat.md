@@ -46,6 +46,10 @@ Supported results include damage, healing, protection, hindering statuses, force
 
 The engine applies the mechanical result first. The GM then narrates that authoritative result in the story. A maneuver consumes the unit's action and may trigger a counterattack or movement reaction.
 
+Maneuvers respect reach. Healing and status effects must target a unit within 2 tiles of the acting unit, damage must stay within the unit's attack range and line of sight, and cover or terrain changes must land on the grid, on an unoccupied tile, near the actor. Phrasing your maneuver around a selected unit or tile keeps the request inside these limits.
+
+A maneuver always produces a result. If the GM's proposed effects have a small mistake, such as a target written by unit name instead of by its id, the engine repairs what it can and drops only the effects it cannot fix. If nothing usable survives, the GM gets one chance to correct itself; if that also fails, the maneuver is resolved from the keywords in your instruction (heal, guard, shield, stun, push, attack), so it never comes back empty. Say "heal myself" or "raise a shield" without selecting a unit and the effect lands on the acting unit. When only part of a maneuver could take effect, because a target was out of reach or out of sight or a tile was occupied, the combat log says what did not land instead of reporting a flat failure.
+
 ## Movement and terrain
 
 Movement uses terrain costs. Forests cost more movement and provide avoidance, while ruins provide cover. Mountains, water, and walls are normally impassable.
