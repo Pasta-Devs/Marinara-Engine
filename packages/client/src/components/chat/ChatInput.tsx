@@ -1959,6 +1959,7 @@ export const ChatInput = memo(function ChatInput({
         {/* Text input */}
         <textarea
           ref={textareaRef}
+          data-chat-composer="true"
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}

@@ -331,6 +331,22 @@ const chatHandleInputSource =
   )?.[0] ?? "";
 assert.match(chatTextareaSource, /disabled=\{!activeChatId\}/u);
 assert.match(
+  chatAreaSource,
+  /target instanceof HTMLTextAreaElement[\s\S]{0,160}target\.dataset\.chatComposer === "true"[\s\S]{0,120}target\.value\.length === 0/u,
+  "intuitive Left/Right navigation should exempt only an empty main chat composer",
+);
+assert.match(
+  chatAreaSource,
+  /event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.shiftKey[\s\S]{0,180}allowEmptyMainComposer: true/u,
+  "empty-composer swipe navigation should remain limited to unmodified arrow keys",
+);
+assert.match(chatTextareaSource, /data-chat-composer="true"/u, "Roleplay should identify its main composer");
+assert.match(
+  conversationInputSource,
+  /ref=\{textareaRef\}\s+data-chat-composer="true"/u,
+  "Conversation should identify its main composer",
+);
+assert.match(
   chatTextareaSource,
   /onInput=\{handleInput\}/u,
   "Roleplay should use the direct input event path used by Conversation",
