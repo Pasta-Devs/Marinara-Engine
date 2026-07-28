@@ -83,10 +83,11 @@ type BackgroundPickerProps = {
 
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
 const BACKGROUND_FOLDER_QUERY_KEY = ["background-folders"] as const;
-// Below md the actions are a static row under the thumbnail, so they inherit card colours and a
-// touch-sized hit target; from md up they float over the image on hover and go white-on-scrim.
+// The actions are a static row under the thumbnail with card colours and a touch-sized hit target.
 const CARD_ACTION_CLASS =
-  "flex h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] md:h-7 md:w-7 md:text-white/80 md:hover:bg-white/15 md:hover:text-white";
+  "flex h-9 w-9 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] md:h-7 md:w-7";
+// From md up they normally float over the image on hover instead, which needs white-on-scrim.
+const FLOATING_CARD_ACTION_CLASS = "md:text-white/80 md:hover:bg-white/15 md:hover:text-white";
 const INLINE_ACCENT_BUTTON_CLASS =
   "rounded-md bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -695,6 +696,7 @@ export function BackgroundPicker({
     const isEditingLabel = editingLabel === background.id;
     const isRenaming = renamingFile === background.id;
     const title = getBackgroundLibraryTitle(background);
+    const isFloatingActions = !isEditingTags && !isEditingLabel && !isRenaming;
     const datalistId = `background-tag-suggestions-${background.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
     return (
@@ -814,16 +816,22 @@ export function BackgroundPicker({
           />
 
           {/* Static row under the thumbnail on touch (always visible, so it must not cover the name
-              or the tags), floating scrim over the image on hover from md up. */}
+              or the tags), floating scrim over the image on hover from md up. While an inline
+              editor is open the row stays in flow on every viewport, so the floating version can
+              never land on top of the input and its Save/Add button. */}
           <div
             data-background-actions
-            className="flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5 md:absolute md:bottom-2 md:right-2 md:flex-nowrap md:rounded-lg md:bg-black/60 md:px-0.5 md:pb-0.5 md:pt-0.5 md:opacity-0 md:backdrop-blur-sm md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+            className={cn(
+              "flex flex-wrap items-center justify-end gap-0.5 px-1.5 pb-0.5 pt-1.5",
+              isFloatingActions &&
+                "md:absolute md:bottom-2 md:right-2 md:flex-nowrap md:rounded-lg md:bg-black/60 md:px-0.5 md:pb-0.5 md:pt-0.5 md:opacity-0 md:backdrop-blur-sm md:transition-opacity md:group-hover:opacity-100 md:group-focus-within:opacity-100",
+            )}
           >
             <button
               type="button"
               data-background-move
               onClick={() => void handleMoveBackground(background)}
-              className={CARD_ACTION_CLASS}
+              className={cn(CARD_ACTION_CLASS, isFloatingActions && FLOATING_CARD_ACTION_CLASS)}
               title={localizeUi("ui.panels.backgroundpicker.moveToFolder")}
               aria-label={localizeUi("ui.panels.backgroundpicker.moveValue1ToAFolder", { value1: title })}
             >
@@ -837,7 +845,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setEditingLabel(background.id);
                   }}
-                  className={CARD_ACTION_CLASS}
+                  className={cn(CARD_ACTION_CLASS, isFloatingActions && FLOATING_CARD_ACTION_CLASS)}
                   title={localizeUi("ui.panels.backgroundpicker.editLabel")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.editLabelForValue1", { value1: title })}
                 >
@@ -849,7 +857,7 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setRenamingFile(background.id);
                   }}
-                  className={CARD_ACTION_CLASS}
+                  className={cn(CARD_ACTION_CLASS, isFloatingActions && FLOATING_CARD_ACTION_CLASS)}
                   title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
                 >
@@ -862,7 +870,11 @@ export function BackgroundPicker({
                     cancelPendingClose();
                     setEditingTags(isEditingTags ? null : background.id);
                   }}
-                  className={cn(CARD_ACTION_CLASS, isEditingTags && "bg-[var(--primary)]/20 text-[var(--primary)]")}
+                  className={cn(
+                    CARD_ACTION_CLASS,
+                    isFloatingActions && FLOATING_CARD_ACTION_CLASS,
+                    isEditingTags && "bg-[var(--primary)]/20 text-[var(--primary)]",
+                  )}
                   title={localizeUi("ui.panels.backgroundpicker.editTags")}
                   aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
                   aria-pressed={isEditingTags}
@@ -880,6 +892,7 @@ export function BackgroundPicker({
               }}
               className={cn(
                 CARD_ACTION_CLASS,
+                isFloatingActions && FLOATING_CARD_ACTION_CLASS,
                 "w-auto px-2 text-[0.5625rem] font-medium md:px-1.5 md:text-[0.5rem]",
                 isDefaultRoleplay && "bg-amber-300/12 text-amber-300",
               )}
@@ -906,7 +919,10 @@ export function BackgroundPicker({
                   cancelPendingClose();
                   void handleDeleteBackground(background);
                 }}
-                className={cn(CARD_ACTION_CLASS, "text-[var(--destructive)] hover:bg-[var(--destructive)]/12")}
+                className={cn(
+                  CARD_ACTION_CLASS,
+                  "text-[var(--destructive)] hover:bg-[var(--destructive)]/12",
+                )}
                 title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
                 aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
               >
@@ -994,12 +1010,13 @@ export function BackgroundPicker({
 
   return (
     <>
-      <div className="flex items-center gap-2.5">
+      {/* Stacked, not one row: the preview reads as the current value, and the two actions get a
+          full-width line each instead of being squeezed against it. */}
+      <div className="flex flex-col gap-1.5">
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-          className="group flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
+          className="group flex min-w-0 items-center gap-2.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
         >
           <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
             {selected ? (
@@ -1028,19 +1045,24 @@ export function BackgroundPicker({
                 : localizeUi("ui.panels.backgroundpicker.value1BackgroundsAvailable", { value1: backgrounds.length })}
             </div>
           </span>
-          <span className="mari-chrome-control mari-chrome-control--compact ml-auto shrink-0 group-hover:text-[var(--primary)]">
-            {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="mari-chrome-control mari-chrome-control--compact min-h-9 w-full"
+        >
+          <Image size="0.75rem" />
+          {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
         </button>
         {selected && (
           <button
             type="button"
             onClick={() => onSelect(null)}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+            className="mari-chrome-control mari-chrome-control--compact min-h-9 w-full !text-[var(--muted-foreground)] hover:!text-[var(--destructive)]"
             title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
-            aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
           >
             <X size="0.75rem" />
+            {localizeUi("ui.panels.backgroundpicker.clearSelection")}
           </button>
         )}
       </div>
