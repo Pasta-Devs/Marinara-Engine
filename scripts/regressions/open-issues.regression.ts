@@ -1524,9 +1524,9 @@ assert.doesNotMatch(
   "selecting an already-installed theme should not require privileged loopback access",
 );
 assert.equal(
-  roleplaySurfaceSource.match(/object-fill object-center max-md:object-cover/gu)?.length,
+  roleplaySurfaceSource.match(/object-cover object-center/gu)?.length,
   2,
-  "both crossfade slots should preserve mobile background proportions without changing desktop sizing",
+  "both crossfade slots should cover their surface without stretching the background",
 );
 const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
@@ -1807,7 +1807,7 @@ assert.match(
 );
 assert.match(
   backupRoutesSource,
-  /runAutomaticBackupIfDue\(!current\.enabled \|\| !automaticBackupExists\)/u,
+  /const hasAutomaticBackup = await automaticBackupExists\(backupsRoot\);[\s\S]*runAutomaticBackupIfDue\(!current\.enabled \|\| !hasAutomaticBackup\)/u,
   "enabling automatic backups or repairing a missing archive should run immediately",
 );
 assert.doesNotMatch(backupGuideSource, /Export profile as ZIP\?/u);
