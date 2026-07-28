@@ -78,7 +78,7 @@ type BackgroundPickerProps = {
 const BACKGROUND_QUERY_KEY = ["backgrounds"] as const;
 const BACKGROUND_FOLDER_QUERY_KEY = ["background-folders"] as const;
 const CARD_ACTION_CLASS =
-  "flex h-7 w-7 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]";
+  "flex h-7 w-7 items-center justify-center rounded-md text-white/80 transition-colors hover:bg-white/15 hover:text-white";
 const INLINE_ACCENT_BUTTON_CLASS =
   "rounded-md bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.625rem] text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/25 disabled:cursor-not-allowed disabled:opacity-50";
 
@@ -567,7 +567,7 @@ export function BackgroundPicker({
           {isDefaultRoleplay && (
             <span
               data-background-default-indicator
-              className="absolute bottom-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-amber-300 backdrop-blur-sm"
+              className="absolute bottom-2 right-2 hidden rounded-md bg-black/60 px-1.5 py-0.5 text-[0.5rem] font-medium text-amber-300 backdrop-blur-sm md:block md:group-hover:opacity-0"
             >
               {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
             </span>
@@ -618,6 +618,90 @@ export function BackgroundPicker({
           }}
         />
 
+        <div
+          data-background-actions
+          className="absolute bottom-2 right-2 flex items-center gap-0.5 rounded-lg bg-black/60 p-0.5 backdrop-blur-sm transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+        >
+          {isEditable && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelInput(background.label ?? "");
+                  setEditingLabel(background.id);
+                }}
+                className={CARD_ACTION_CLASS}
+                title={localizeUi("ui.panels.backgroundpicker.editLabel")}
+                aria-label={localizeUi("ui.panels.backgroundpicker.editLabelForValue1", { value1: title })}
+              >
+                <Type size="0.6875rem" />
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setRenameInput(background.filename.replace(/\.[^.]+$/, ""));
+                  setRenamingFile(background.id);
+                }}
+                className={CARD_ACTION_CLASS}
+                title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
+                aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
+              >
+                <Pencil size="0.6875rem" />
+              </button>
+              <button
+                type="button"
+                data-background-edit-tags
+                onClick={() => {
+                  setEditingTags(isEditingTags ? null : background.id);
+                  setTagInput("");
+                }}
+                className={cn(CARD_ACTION_CLASS, isEditingTags && "bg-[var(--primary)]/20 text-[var(--primary)]")}
+                title={localizeUi("ui.panels.backgroundpicker.editTags")}
+                aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
+                aria-pressed={isEditingTags}
+              >
+                <Tag size="0.6875rem" />
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            data-background-default-toggle
+            onClick={() => onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url)}
+            className={cn(
+              CARD_ACTION_CLASS,
+              "w-auto px-1.5 text-[0.5rem] font-medium",
+              isDefaultRoleplay && "bg-amber-300/12 text-amber-300",
+            )}
+            title={
+              isDefaultRoleplay
+                ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
+                : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
+            }
+            aria-label={
+              isDefaultRoleplay
+                ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
+                : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
+                    value1: title,
+                  })
+            }
+            aria-pressed={isDefaultRoleplay}
+          >
+            {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
+          </button>
+          {background.deletable !== false && isEditable && (
+            <button
+              type="button"
+              onClick={() => void handleDeleteBackground(background)}
+              className={cn(CARD_ACTION_CLASS, "text-[var(--destructive)] hover:bg-[var(--destructive)]/12")}
+              title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
+              aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
+            >
+              <Trash2 size="0.6875rem" />
+            </button>
+          )}
+        </div>
+
         <div className="px-2.5 pb-2.5 pt-2">
           {isRenaming || isEditingLabel ? (
             <form
@@ -662,102 +746,17 @@ export function BackgroundPicker({
               </button>
             </form>
           ) : (
-            <div className="flex min-w-0 items-start gap-1.5">
-              <div className="min-w-0 flex-1">
-                <h3
-                  data-background-name
-                  className="truncate text-xs font-semibold text-[var(--foreground)]"
-                  title={title}
-                >
-                  {title}
-                </h3>
-                <p className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
-                  {background.label ? background.filename : background.originalName || background.filename}
-                </p>
-              </div>
-              <div
-                data-background-actions
-                className="flex shrink-0 items-center gap-0.5 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+            <div className="min-w-0">
+              <h3
+                data-background-name
+                className="truncate text-xs font-semibold text-[var(--foreground)]"
+                title={title}
               >
-                {isEditable && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLabelInput(background.label ?? "");
-                        setEditingLabel(background.id);
-                      }}
-                      className={CARD_ACTION_CLASS}
-                      title={localizeUi("ui.panels.backgroundpicker.editLabel")}
-                      aria-label={localizeUi("ui.panels.backgroundpicker.editLabelForValue1", { value1: title })}
-                    >
-                      <Type size="0.6875rem" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setRenameInput(background.filename.replace(/\.[^.]+$/, ""));
-                        setRenamingFile(background.id);
-                      }}
-                      className={CARD_ACTION_CLASS}
-                      title={localizeUi("ui.panels.backgroundpicker.renameBackground")}
-                      aria-label={localizeUi("ui.panels.backgroundpicker.renameValue1", { value1: title })}
-                    >
-                      <Pencil size="0.6875rem" />
-                    </button>
-                    <button
-                      type="button"
-                      data-background-edit-tags
-                      onClick={() => {
-                        setEditingTags(isEditingTags ? null : background.id);
-                        setTagInput("");
-                      }}
-                      className={cn(CARD_ACTION_CLASS, isEditingTags && "bg-[var(--primary)]/20 text-[var(--primary)]")}
-                      title={localizeUi("ui.panels.backgroundpicker.editTags")}
-                      aria-label={localizeUi("ui.panels.backgroundpicker.editTagsForValue1", { value1: title })}
-                      aria-pressed={isEditingTags}
-                    >
-                      <Tag size="0.6875rem" />
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  data-background-default-toggle
-                  onClick={() => onDefaultChange(isDefaultRoleplay ? DEFAULT_ROLEPLAY_BACKGROUND_URL : background.url)}
-                  className={cn(
-                    CARD_ACTION_CLASS,
-                    "w-auto px-1.5 text-[0.5rem] font-medium",
-                    isDefaultRoleplay && "bg-amber-300/12 text-amber-300",
-                  )}
-                  title={
-                    isDefaultRoleplay
-                      ? localizeUi("ui.panels.backgroundpicker.removeAsRoleplayDefault")
-                      : localizeUi("ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats")
-                  }
-                  aria-label={
-                    isDefaultRoleplay
-                      ? localizeUi("ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground", { value1: title })
-                      : localizeUi("ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground", {
-                          value1: title,
-                        })
-                  }
-                  aria-pressed={isDefaultRoleplay}
-                >
-                  {localizeUi("ui.panels.backgroundpicker.roleplayDefaultShort")}
-                </button>
-                {background.deletable !== false && isEditable && (
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteBackground(background)}
-                    className={cn(CARD_ACTION_CLASS, "text-[var(--destructive)] hover:bg-[var(--destructive)]/12")}
-                    title={localizeUi("ui.panels.backgroundpicker.deleteBackground")}
-                    aria-label={localizeUi("ui.panels.botbrowserpanel.deleteValue1", { value1: title })}
-                  >
-                    <Trash2 size="0.6875rem" />
-                  </button>
-                )}
-              </div>
+                {title}
+              </h3>
+              <p className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
+                {background.label ? background.filename : background.originalName || background.filename}
+              </p>
             </div>
           )}
 
@@ -836,7 +835,7 @@ export function BackgroundPicker({
           type="button"
           onClick={() => setOpen(true)}
           aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[var(--secondary)]/55"
+          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
         >
           <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
             {selected ? (
@@ -865,10 +864,9 @@ export function BackgroundPicker({
                 : localizeUi("ui.panels.backgroundpicker.value1BackgroundsAvailable", { value1: backgrounds.length })}
             </div>
           </span>
-          <Image
-            size="0.875rem"
-            className="shrink-0 text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--primary)]"
-          />
+          <span className="mari-chrome-control mari-chrome-control--compact shrink-0 group-hover:text-[var(--primary)]">
+            {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+          </span>
         </button>
         {selected && (
           <button
