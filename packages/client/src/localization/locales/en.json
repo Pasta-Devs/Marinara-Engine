@@ -6138,6 +6138,7 @@
   "ui.panels.backgroundpicker.favorites": "Favorites",
   "ui.panels.backgroundpicker.filterByFolder": "Filter by folder",
   "ui.panels.backgroundpicker.filterBySource": "Filter by source",
+  "ui.panels.backgroundpicker.folderName": "Folder name",
   "ui.panels.backgroundpicker.gameAsset": "Game asset",
   "ui.panels.backgroundpicker.gameAssets": "Game assets",
   "ui.panels.backgroundpicker.gridView": "Grid view",
