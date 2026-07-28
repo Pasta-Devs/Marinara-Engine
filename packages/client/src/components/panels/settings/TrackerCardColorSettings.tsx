@@ -118,7 +118,7 @@ export function TrackerCardColorSettings() {
   const activeChatId = useChatStore((s) => s.activeChatId);
   const settingsTab = useUIStore((s) => s.settingsTab);
   const { data: activeChat } = useChat(activeChatId);
-  const { currentGameState, isLoadingGameState } = useTrackerGameState(activeChatId);
+  const { currentGameState, gameStateLoadStatus } = useTrackerGameState(activeChatId);
   const { data: personasData } = usePersonas(!!activeChatId);
   const { data: charactersData } = useCharacters(!!activeChatId);
   const updatePersona = useUpdatePersona();
@@ -417,7 +417,7 @@ export function TrackerCardColorSettings() {
 
       {!activeChatId ? (
         <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.panels.trackercardcolorsettings.selectAChatToEditTrackerCardColors")}</p>
-      ) : isLoadingGameState && targets.length === 0 ? (
+      ) : gameStateLoadStatus === "loading" && targets.length === 0 ? (
         <p className="mari-chrome-text-muted rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed">{localizeUi("ui.panels.trackercardcolorsettings.loadingCurrentTrackerCards")}</p>
       ) : targets.length === 0 ? (
         <p className="rounded-md bg-[var(--secondary)]/42 px-2 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.panels.trackercardcolorsettings.noActivePersonaOrPresentCharacterIdsAreAvailable")}</p>

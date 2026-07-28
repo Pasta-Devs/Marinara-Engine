@@ -91,7 +91,12 @@ export function TrackerDataSidebar({
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
-  const { currentGameState, gameStateRefreshing, isLoadingGameState } = useTrackerGameState(activeChatId);
+  const {
+    currentGameState,
+    gameStateLoadStatus,
+    gameStateRefreshing,
+    retryGameState,
+  } = useTrackerGameState(activeChatId);
   const presentCharacters: PresentCharacter[] = Array.isArray(currentGameState?.presentCharacters)
     ? currentGameState.presentCharacters
     : [];
@@ -138,8 +143,7 @@ export function TrackerDataSidebar({
   }, [updateFieldLocks]);
   const hasFixedTrackerPanel = orderedTrackerSections.length > 0;
   const displayedGameState =
-    currentGameState ?? (activeChatId && !isLoadingGameState ? createEmptyGameState(activeChatId) : null);
-  const showTrackerSections = !!displayedGameState && hasFixedTrackerPanel;
+    currentGameState ?? (activeChatId && gameStateLoadStatus === "loaded" ? createEmptyGameState(activeChatId) : null);
   const trackerPanelHasCustomBackground =
     trackerPanelBackgroundColor.trim().toLowerCase() !== TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR;
   const trackerPanelBackgroundFallback = getCssColorFallback(
@@ -199,7 +203,7 @@ export function TrackerDataSidebar({
         />
 
         <div className={cn("relative z-10", fillHeight && "min-h-0 flex-1 overflow-y-auto")}>
-          {showTrackerSections && displayedGameState ? (
+          {displayedGameState && hasFixedTrackerPanel ? (
             <TrackerPanelErrorBoundary
               resetKey={`${activeChatId}:${displayedGameState.id || "empty"}:${displayedGameState.createdAt}`}
             >
@@ -237,8 +241,21 @@ export function TrackerDataSidebar({
 
           {!activeChatId ? (
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.selectAChatToViewTrackerData")}</EmptySection>
-          ) : isLoadingGameState ? (
+          ) : gameStateLoadStatus === "loading" ? (
             <TrackerSkeleton />
+          ) : gameStateLoadStatus === "error" ? (
+            <EmptySection>
+              <span className="flex flex-wrap items-center justify-center gap-2">
+                <span>{localizeUi("ui.chat.agentsuitemodal.couldNotLoadTrackerData")}</span>
+                <button
+                  type="button"
+                  onClick={retryGameState}
+                  className="rounded-sm bg-[var(--foreground)]/8 px-2 py-1 font-medium text-[var(--foreground)]/75 ring-1 ring-[var(--border)]/70 transition-colors hover:bg-[var(--foreground)]/12 hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] active:scale-95"
+                >
+                  {localizeUi("capabilities.actions.tryAgain")}
+                </button>
+              </span>
+            </EmptySection>
           ) : !hasFixedTrackerPanel ? (
             <EmptySection>{localizeUi("ui.trackerPanel.trackerdatasidebar.noEnabledTrackerPanels")}</EmptySection>
           ) : null}

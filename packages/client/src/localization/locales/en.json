@@ -7192,7 +7192,6 @@
   "ui.trackerPanel.thoughtbubble.showThoughts": "Show thoughts",
   "ui.trackerPanel.thoughtbubble.thoughts": "Thoughts",
   "ui.trackerPanel.trackerdatasidebar.noEnabledTrackerPanels": "No enabled tracker panels.",
-  "ui.trackerPanel.trackerdatasidebar.noTrackerDataYet": "No tracker data yet.",
   "ui.trackerPanel.trackerdatasidebar.renderError": "Tracker data could not be rendered.",
   "ui.trackerPanel.trackerdatasidebar.selectAChatToViewTrackerData": "Select a chat to view tracker data.",
   "ui.trackerPanel.trackerportraitstage.dragToRepositionPortrait": "Drag to reposition portrait",

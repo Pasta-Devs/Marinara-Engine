@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { GameState } from "@marinara-engine/shared";
 import { api } from "../../../lib/api-client";
 import { useGameStateStore } from "../../../stores/game-state.store";
+
+type TrackerGameStateLoadStatus = "idle" | "loading" | "loaded" | "error";
 
 export function useTrackerGameState(activeChatId: string | null) {
   const currentGameState = useGameStateStore((s) =>
@@ -9,42 +11,59 @@ export function useTrackerGameState(activeChatId: string | null) {
   );
   const gameStateRefreshing = useGameStateStore((s) => s.isRefreshing);
   const setGameState = useGameStateStore((s) => s.setGameState);
-  const [loadingGameState, setLoadingGameState] = useState(false);
+  const [loadResult, setLoadResult] = useState<{
+    chatId: string;
+    status: Exclude<TrackerGameStateLoadStatus, "idle">;
+  } | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const retryGameState = useCallback(() => setLoadAttempt((attempt) => attempt + 1), []);
 
   useEffect(() => {
     if (!activeChatId) {
-      setLoadingGameState(false);
+      setLoadResult(null);
       return;
     }
 
     const existing = useGameStateStore.getState().current;
     if (existing?.chatId === activeChatId) {
-      setLoadingGameState(false);
+      setLoadResult({ chatId: activeChatId, status: "loaded" });
       return;
     }
 
     let cancelled = false;
-    setLoadingGameState(true);
+    setLoadResult({ chatId: activeChatId, status: "loading" });
     api
       .get<GameState | null>(`/chats/${activeChatId}/game-state`)
       .then((state) => {
-        if (!cancelled) setGameState(state ?? null);
+        if (!cancelled) {
+          setGameState(state ?? null);
+          setLoadResult({ chatId: activeChatId, status: "loaded" });
+        }
       })
       .catch(() => {
-        if (!cancelled) setGameState(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingGameState(false);
+        if (!cancelled) {
+          setGameState(null);
+          setLoadResult({ chatId: activeChatId, status: "error" });
+        }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [activeChatId, setGameState]);
+  }, [activeChatId, loadAttempt, setGameState]);
+
+  const gameStateLoadStatus: TrackerGameStateLoadStatus = !activeChatId
+    ? "idle"
+    : currentGameState
+      ? "loaded"
+      : loadResult?.chatId === activeChatId
+        ? loadResult.status
+        : "loading";
 
   return {
     currentGameState,
     gameStateRefreshing,
-    isLoadingGameState: loadingGameState && !currentGameState,
+    gameStateLoadStatus,
+    retryGameState,
   };
 }
