@@ -6123,6 +6123,7 @@
   "ui.panels.backgroundpicker.deleteValue1ThisCannotBeUndone": "Delete “{{value1}}”? This cannot be undone.",
   "ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename": "Double-click, double-tap, or press F2 to rename.",
   "ui.panels.backgroundpicker.dragAndDropBackgroundsToFoldersDoubleClickOr": "Drag and drop backgrounds to folders, double-click or double-tap to rename.",
+  "ui.panels.backgroundpicker.dragBackgroundsOntoAFolderChip": "Drag a background onto a folder chip to file it.",
   "ui.panels.backgroundpicker.dragValue1ToAFolder": "Drag {{value1}} to a folder",
   "ui.panels.backgroundpicker.dropBackgroundsHere": "Drop backgrounds here.",
   "ui.panels.backgroundpicker.dropBackgroundsToImport": "Drop backgrounds to import",
