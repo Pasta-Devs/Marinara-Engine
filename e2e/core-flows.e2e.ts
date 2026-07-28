@@ -10476,21 +10476,21 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
     await backgroundTagsToggle.focus();
     const actionBar = backgroundRow.locator("[data-background-actions]");
     const deleteButton = backgroundRow.getByTitle("Delete background");
-    const favoriteButton = backgroundRow.locator("[data-background-default-toggle]");
-    const [nameBox, tagToggleBox, actionBarBox, deleteColor, favoriteColor] = await Promise.all([
+    const defaultToggle = backgroundRow.locator("[data-background-default-toggle]");
+    const [nameBox, tagToggleBox, actionBarBox, deleteColor, defaultColor] = await Promise.all([
       backgroundName.boundingBox(),
       backgroundTagsToggle.boundingBox(),
       actionBar.boundingBox(),
       deleteButton.evaluate((element) => getComputedStyle(element).color),
-      favoriteButton.evaluate((element) => getComputedStyle(element).color),
+      defaultToggle.evaluate((element) => getComputedStyle(element).color),
     ]);
     expect(nameBox).not.toBeNull();
     expect(tagToggleBox).not.toBeNull();
     expect(actionBarBox).not.toBeNull();
     expect(nameBox!.width).toBeGreaterThanOrEqual(80);
     expect(tagToggleBox!.height).toBeLessThanOrEqual(22);
-    expect(actionBarBox!.width).toBeLessThanOrEqual(55);
-    expect(deleteColor).toBe(favoriteColor);
+    expect(actionBarBox!.width).toBeLessThanOrEqual(120);
+    expect(deleteColor).toBe(defaultColor);
 
     const editTagsButton = backgroundRow.locator("[data-background-edit-tags]");
     await editTagsButton.click();
@@ -10512,6 +10512,9 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
   await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Grid view" }).click();
   const gridCard = page.locator('[data-background-id="user:collapsible-background-tags.png"]');
+  // Cards request the cached thumbnail, never the full-size original.
+  await expect(gridCard.locator("img")).toHaveAttribute("src", /\?w=320$/);
+  await expect(gridCard.locator("img")).toHaveAttribute("loading", "lazy");
   await gridCard.getByRole("button", { name: /Use .* for this chat/ }).click();
   await expect(gridCard).toHaveAttribute("data-background-selected", "true");
   await expect(page.getByRole("dialog", { name: "Background Library" })).toBeHidden();
@@ -10818,6 +10821,43 @@ test("Background library organization works with desktop drag and touch drag", a
     await folderNameInput.fill(`Scenes ${suffix}`);
     await folderNameInput.press("Enter");
     await expect(folder.getByText(`Scenes ${suffix}`, { exact: true })).toBeVisible();
+
+    // The star is a favorite, independent of the Roleplay default set earlier in this test.
+    const favoriteToggle = backgroundRow.locator("[data-background-favorite-toggle]");
+    await favoriteToggle.scrollIntoViewIfNeeded();
+    await favoriteToggle.click();
+    await expect(favoriteToggle).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () => {
+        const response = await page.request.get("/api/backgrounds");
+        const backgrounds = (await response.json()) as Array<{ id: string; favorite?: boolean }>;
+        return backgrounds.find((background) => background.id === backgroundId)?.favorite ?? false;
+      })
+      .toBe(true);
+    await page.locator('[data-background-folder-filter-id="favorites"]').click();
+    await expect(backgroundRow).toBeVisible();
+    await page.locator('[data-background-folder-filter-id="all"]').click();
+
+    // Rename and delete the folder from the rail; its background falls back to unfiled.
+    const railFolder = page.locator(`[data-background-folder-filter-id="${folderId}"]`);
+    await railFolder.scrollIntoViewIfNeeded();
+    await page.getByRole("button", { name: `Rename folder Scenes ${suffix}` }).click();
+    const railNameInput = page.getByLabel(`Rename folder Scenes ${suffix}`);
+    await railNameInput.fill(`Alleys ${suffix}`);
+    await railNameInput.press("Enter");
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toContainText(`Alleys ${suffix}`);
+
+    await page.getByRole("button", { name: `Delete folder Alleys ${suffix}` }).click();
+    await page.getByRole("button", { name: "Delete Folder", exact: true }).click();
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toHaveCount(0);
+    await expect
+      .poll(async () => {
+        const response = await page.request.get("/api/backgrounds");
+        const backgrounds = (await response.json()) as Array<{ id: string; folderId: string | null }>;
+        return backgrounds.find((background) => background.id === backgroundId)?.folderId ?? null;
+      })
+      .toBeNull();
+    folderId = null;
   } finally {
     if (folderId) await page.request.delete(`/api/backgrounds/folders/${encodeURIComponent(folderId)}`);
     await page.request.delete(`/api/backgrounds/${encodeURIComponent(uploaded.filename)}`);

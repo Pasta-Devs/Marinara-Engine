@@ -29,6 +29,7 @@ import { folderContainsBundledGameAssets, isBundledGameAsset } from "../services
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { assertInsideDir } from "../utils/security.js";
 import { openFolderInFileManager } from "../lib/open-folder-in-file-manager.js";
+import { parseThumbnailWidth, resolveThumbPath } from "../services/image/image-thumbnail.js";
 
 const META_PATH = join(GAME_ASSETS_DIR, "meta.json");
 
@@ -521,8 +522,16 @@ export async function gameAssetsRoutes(app: FastifyInstance) {
 
     const ext = extname(wildcard).toLowerCase();
     const mime = MIME_MAP[ext] ?? "application/octet-stream";
-    const stream = createReadStream(filePath);
-    return reply.header("Content-Type", mime).header("Cache-Control", "public, max-age=604800").send(stream);
+
+    // Downscaled variant when asked for one; falls back to the original on any miss.
+    const width = parseThumbnailWidth((req.query as { w?: string }).w);
+    const thumbPath = width ? await resolveThumbPath(filePath, width) : null;
+
+    const stream = createReadStream(thumbPath ?? filePath);
+    return reply
+      .header("Content-Type", thumbPath ? "image/webp" : mime)
+      .header("Cache-Control", "public, max-age=604800")
+      .send(stream);
   });
 
   // ── GET /game-assets/local-music-file?path=:encoded ──
