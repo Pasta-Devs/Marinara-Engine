@@ -81,6 +81,23 @@ export function removeBackgroundFolder(
   };
 }
 
+/**
+ * Drop assignments and favorites for backgrounds that no longer exist. Called on the write paths,
+ * which already know the live id set, so listing stays read-only.
+ */
+export function pruneBackgroundLibraryOrganization(
+  organization: BackgroundLibraryOrganization,
+  knownBackgroundIds: Set<string>,
+): BackgroundLibraryOrganization {
+  return {
+    ...organization,
+    assignments: Object.fromEntries(
+      Object.entries(organization.assignments).filter(([backgroundId]) => knownBackgroundIds.has(backgroundId)),
+    ),
+    favorites: organization.favorites.filter((backgroundId) => knownBackgroundIds.has(backgroundId)),
+  };
+}
+
 export function moveBackgroundAssignment(
   organization: BackgroundLibraryOrganization,
   oldBackgroundId: string,

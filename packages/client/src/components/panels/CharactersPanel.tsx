@@ -826,8 +826,7 @@ export function CharactersPanel() {
             )}
           >
             <Tag size="0.625rem" />
-            {localizeUi("ui.panels.backgroundpicker.tags")}
-            {allTags.length})
+            {localizeUi("ui.panels.backgroundpicker.tagsValue1", { value1: allTags.length })}
             <ChevronDown size="0.625rem" className={cn("transition-transform", tagsExpanded && "rotate-180")} />
           </button>
         )}

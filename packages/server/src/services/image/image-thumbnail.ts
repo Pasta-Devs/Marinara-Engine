@@ -20,6 +20,13 @@ const THUMB_DIR = join(DATA_DIR, "backgrounds-thumbs");
  */
 const THUMB_WIDTHS = new Set([BACKGROUND_THUMBNAIL_WIDTH]);
 
+/**
+ * Extensions worth handing to sharp. Anything else (animated GIF, SVG, audio, video — the game
+ * asset route serves the whole directory) is rejected up front rather than re-failing a decode on
+ * every request, because misses are not cached the way successes are.
+ */
+const THUMBABLE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif", ".tiff", ".tif", ".bmp"]);
+
 /** Parse a `?w=` query value into a supported width, or null when the original should be served. */
 export function parseThumbnailWidth(value: unknown): number | null {
   const width = Number(value);
@@ -37,13 +44,14 @@ export function parseThumbnailWidth(value: unknown): number | null {
  * how often someone re-uploads over a filename. Add a sweep if that stops being true.
  */
 export async function resolveThumbPath(filePath: string, width: number): Promise<string | null> {
-  if (!THUMB_WIDTHS.has(width) || extname(filePath).toLowerCase() === ".gif") return null;
-
-  const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
-  const thumbPath = join(THUMB_DIR, `${width}-${statSync(filePath).mtimeMs}-${key}.webp`);
-  if (existsSync(thumbPath)) return thumbPath;
+  if (!THUMB_WIDTHS.has(width) || !THUMBABLE_EXTS.has(extname(filePath).toLowerCase())) return null;
 
   try {
+    // Inside the try: the source can vanish between the caller's existsSync and this stat.
+    const key = createHash("sha1").update(filePath).digest("hex").slice(0, 16);
+    const thumbPath = join(THUMB_DIR, `${width}-${statSync(filePath).mtimeMs}-${key}.webp`);
+    if (existsSync(thumbPath)) return thumbPath;
+
     const sharp = await getSharp();
     const buffer = await sharp(filePath).resize({ width, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
     if (!existsSync(THUMB_DIR)) mkdirSync(THUMB_DIR, { recursive: true });

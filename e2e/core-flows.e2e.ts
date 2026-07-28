@@ -10487,6 +10487,20 @@ test("Background cards keep names readable and load thumbnails", async ({ page }
     await card.locator("[data-background-edit-tags]").click();
   }
 
+  // The action row is always visible on touch, so it must sit above the tag chips rather than
+  // float over them the way it does on hover-capable pointers.
+  const [actionsBox, tagBox] = await Promise.all([
+    card.locator("[data-background-actions]").boundingBox(),
+    card.getByText("quarantine berth", { exact: true }).boundingBox(),
+  ]);
+  expect(actionsBox).not.toBeNull();
+  expect(tagBox).not.toBeNull();
+  if (testInfo.project.name.includes("mobile")) {
+    expect(actionsBox!.y + actionsBox!.height).toBeLessThanOrEqual(tagBox!.y);
+    // Touch targets stay tappable.
+    expect(actionsBox!.height).toBeGreaterThanOrEqual(36);
+  }
+
   await card.getByRole("button", { name: /Use .* for this chat/ }).click();
   await expect(card).toHaveAttribute("data-background-selected", "true");
   await expect(page.getByRole("dialog", { name: "Background Library" })).toBeHidden();
@@ -10776,6 +10790,27 @@ test("Background library organization works with desktop drag and touch drag", a
       await backgroundRow.dragTo(folder);
     }
 
+    await expect
+      .poll(async () => {
+        const response = await page.request.get("/api/backgrounds");
+        const backgrounds = (await response.json()) as Array<{ id: string; folderId: string | null }>;
+        return backgrounds.find((background) => background.id === backgroundId)?.folderId ?? null;
+      })
+      .toBe(folderId);
+
+    // Dragging is pointer-only, so the same move has to be reachable from the card's action row.
+    await page.locator('[data-background-folder-filter-id="all"]').click();
+    await backgroundRow.locator("[data-background-move]").click();
+    await page.getByRole("dialog").getByRole("button", { name: "Unfiled", exact: true }).click();
+    await expect
+      .poll(async () => {
+        const response = await page.request.get("/api/backgrounds");
+        const backgrounds = (await response.json()) as Array<{ id: string; folderId: string | null }>;
+        return backgrounds.find((background) => background.id === backgroundId)?.folderId ?? null;
+      })
+      .toBeNull();
+    await backgroundRow.locator("[data-background-move]").click();
+    await page.getByRole("dialog").getByRole("button", { name: createdFolder.name, exact: true }).click();
     await expect
       .poll(async () => {
         const response = await page.request.get("/api/backgrounds");

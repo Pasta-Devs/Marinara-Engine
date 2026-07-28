@@ -14,6 +14,7 @@ import { buildAssetManifest, GAME_ASSETS_DIR, getAssetManifest } from "../servic
 import {
   moveBackgroundAssignment,
   normalizeBackgroundLibraryOrganization,
+  pruneBackgroundLibraryOrganization,
   removeBackgroundFolder,
   type BackgroundLibraryOrganization,
 } from "../services/background-library-organization.js";
@@ -339,13 +340,14 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "Folder not found" });
     }
 
-    if (!knownBackgroundIds().has(parsed.data.backgroundId)) {
+    const knownIds = knownBackgroundIds();
+    if (!knownIds.has(parsed.data.backgroundId)) {
       return reply.status(404).send({ error: "Background not found" });
     }
 
     if (parsed.data.folderId) organization.assignments[parsed.data.backgroundId] = parsed.data.folderId;
     else delete organization.assignments[parsed.data.backgroundId];
-    writeOrganization(organization);
+    writeOrganization(pruneBackgroundLibraryOrganization(organization, knownIds));
     return { success: true, folderId: parsed.data.folderId };
   });
 
@@ -353,7 +355,8 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     const parsed = backgroundFavoriteSchema.safeParse(req.body);
     if (!parsed.success)
       return reply.status(400).send({ error: "A valid backgroundId and favorite flag are required" });
-    if (!knownBackgroundIds().has(parsed.data.backgroundId)) {
+    const knownIds = knownBackgroundIds();
+    if (!knownIds.has(parsed.data.backgroundId)) {
       return reply.status(404).send({ error: "Background not found" });
     }
 
@@ -361,7 +364,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     const favorites = new Set(organization.favorites);
     if (parsed.data.favorite) favorites.add(parsed.data.backgroundId);
     else favorites.delete(parsed.data.backgroundId);
-    writeOrganization({ ...organization, favorites: [...favorites] });
+    writeOrganization(pruneBackgroundLibraryOrganization({ ...organization, favorites: [...favorites] }, knownIds));
     return { success: true, favorite: parsed.data.favorite };
   });
 

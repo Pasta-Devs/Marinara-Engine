@@ -5623,7 +5623,7 @@
   "ui.panels.backgroundpicker.setAsDefaultForNewRoleplayChats": "새 롤플레이 채팅의 기본값으로 설정",
   "ui.panels.backgroundpicker.setValue1AsTheDefaultRoleplayBackground": "{{value1}}을 기본 롤플레이 배경으로 설정",
   "ui.panels.backgroundpicker.sortBackgrounds": "배경 정렬",
-  "ui.panels.backgroundpicker.tags": "태그 (",
+  "ui.panels.backgroundpicker.tagsValue1": "태그 ({{value1}})",
   "ui.panels.backgroundpicker.useValue1ForThisChat": "이 채팅에 {{value1}} 사용",
   "ui.panels.backgroundpicker.value1BackgroundImportValue2Failed": "배경 {{value1}}{{value2}}개 가져오기 실패.",
   "ui.panels.backgroundpicker.value1IsTheDefaultRoleplayBackground": "기본 롤플레이 배경: {{value1}}",
