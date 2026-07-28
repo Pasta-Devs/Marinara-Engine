@@ -2665,7 +2665,6 @@ function SectionContentTextarea({
   const [local, setLocal] = useState(value);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const focusedRef = useRef(false);
-  const formatQuotes = useQuoteFormatter();
   const quoteFormat = useUIStore((s) => s.quoteFormat);
 
   // Only sync from parent when not actively editing
@@ -2683,7 +2682,7 @@ function SectionContentTextarea({
 
   // Debounced auto-save while typing (800ms)
   const handleChange = (nextRawValue: string) => {
-    const nextValue = formatQuotes(nextRawValue);
+    const nextValue = nextRawValue;
     setLocal(nextValue);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {

@@ -106,6 +106,7 @@ Regression guards:
 
 - `pnpm regression:prompt` runs fast deterministic checks for prompt assembly, lorebook keyword matching, macros, summaries, and mode-specific generation gates.
 - `pnpm smoke:ui` runs the Playwright browser smoke suite against isolated temporary app data.
+  Each run clears `.tmp/playwright-data` before starting a fresh test server. Stop any process already using the configured Playwright ports before running it; existing fixture state is disposable and the smoke suite does not reuse a running development server.
 - `pnpm regression` runs both lanes.
 
 These checks are intentionally small and do not replace manual verification. When you change behavior, include the manual verification you performed and add or update a regression guard for the bug class when practical.

@@ -2444,7 +2444,7 @@ test("mobile Roleplay composition avoids draft rewrites and pauses ambient rende
 
   try {
     await page.addInitScript((chatId) => {
-      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
+      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":87}') as {
         state: Record<string, unknown>;
         version: number;
       };

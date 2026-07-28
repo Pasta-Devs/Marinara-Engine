@@ -118,6 +118,10 @@ const conversationInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
   "utf8",
 );
+const presetEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/presets/PresetEditor.tsx", import.meta.url),
+  "utf8",
+);
 const useGenerateSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
   "utf8",
@@ -212,6 +216,11 @@ assert.equal(
   ),
   true,
   "pasted dialogue should still be formatted once",
+);
+assert.match(
+  presetEditorSource,
+  /function SectionContentTextarea\([\s\S]{0,1400}const handleChange = \(nextRawValue: string\) => \{\s+const nextValue = nextRawValue;/u,
+  "preset section editors should commit the event-aware MacroTextarea value without reformatting the full draft",
 );
 assert.match(
   chatStoreSource,

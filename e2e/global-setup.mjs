@@ -1,8 +1,9 @@
 import { mkdirSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const dataDir = resolve(process.cwd(), ".tmp/playwright-data");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const dataDir = resolve(repoRoot, ".tmp/playwright-data");
 
 function resetPlaywrightData() {
   rmSync(dataDir, { recursive: true, force: true });
