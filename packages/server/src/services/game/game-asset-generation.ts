@@ -91,7 +91,7 @@ type GameBackgroundImage = {
   ext: string;
 };
 
-type ChatBackgroundMeta = Record<string, { originalName?: string; tags: string[] }>;
+type ChatBackgroundMeta = Record<string, { label?: string; originalName?: string; tags: string[] }>;
 
 function atomicWriteBuffer(filePath: string, buffer: Buffer): void {
   const tmpPath = `${filePath}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`;
@@ -699,7 +699,10 @@ function promptContainsCanonicalAppearance(prompt: string, canonicalAppearance: 
 }
 
 function normalizedPromptText(value: string): string {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 }
 
 async function maybeGenerateDynamicGameImagePrompt(
@@ -1063,9 +1066,7 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
     : "";
   const useGamePromptTemplate = req.useGamePromptTemplate !== false;
   const scopedScenePrompt = req.prompt.trim();
-  const finalVisibilityRuleMatch = scopedScenePrompt.match(
-    /(?:^|\s+)(Final visibility rule:[\s\S]*)$/iu,
-  );
+  const finalVisibilityRuleMatch = scopedScenePrompt.match(/(?:^|\s+)(Final visibility rule:[\s\S]*)$/iu);
   const directScenePrompt = finalVisibilityRuleMatch
     ? scopedScenePrompt.slice(0, finalVisibilityRuleMatch.index).trim()
     : scopedScenePrompt;

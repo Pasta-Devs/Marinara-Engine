@@ -3,6 +3,7 @@ export type BackgroundLibrarySort = "name-asc" | "name-desc" | "newest" | "oldes
 export type SortableBackgroundLibraryItem = {
   id: string;
   filename: string;
+  label?: string | null;
   originalName: string | null;
   tag?: string;
   tags: string[];
@@ -11,7 +12,7 @@ export type SortableBackgroundLibraryItem = {
 };
 
 export function getBackgroundLibraryTitle(background: SortableBackgroundLibraryItem): string {
-  return background.filename || background.originalName || background.tag || "Background";
+  return background.label || background.filename || background.originalName || background.tag || "Background";
 }
 
 export function getNextBackgroundFolderName(folders: Array<{ name: string }>): string {
@@ -36,6 +37,7 @@ export function filterAndSortBackgrounds<T extends SortableBackgroundLibraryItem
     if (!query) return true;
     return [
       background.filename,
+      background.label ?? "",
       background.originalName ?? "",
       background.tag ?? "",
       background.source === "game_asset" ? "game asset" : "library",

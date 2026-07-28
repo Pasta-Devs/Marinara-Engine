@@ -84,13 +84,18 @@ async function resolveThumbPath(filePath: string, filename: string, width: numbe
     }
     return thumbPath;
   } catch (error) {
-    logger.warn(error instanceof Error ? error : new Error(String(error)), "Background thumbnail failed for %s", filename);
+    logger.warn(
+      error instanceof Error ? error : new Error(String(error)),
+      "Background thumbnail failed for %s",
+      filename,
+    );
     return null;
   }
 }
 
 interface BgMeta {
   originalName?: string;
+  label?: string;
   tags: string[];
 }
 type MetaMap = Record<string, BgMeta>;
@@ -270,6 +275,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
         id,
         filename,
         url: `/api/backgrounds/file/${encodeURIComponent(filename)}`,
+        label: meta[filename]?.label ?? null,
         originalName: meta[filename]?.originalName ?? null,
         tags: meta[filename]?.tags ?? [],
         source: "user" as const,
@@ -289,6 +295,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
           id,
           filename: `${entry.name}${entry.ext}`,
           url: `/api/game-assets/file/${encodeAssetPath(entry.path)}`,
+          label: entry.name,
           originalName: entry.tag,
           tags: entry.subcategory ? [entry.subcategory] : [],
           source: "game_asset" as const,
@@ -421,6 +428,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     return {
       success: true,
       filename: safeName,
+      label: null,
       originalName: data.filename,
       url: `/api/backgrounds/file/${encodeURIComponent(safeName)}`,
       tags: [],
@@ -639,6 +647,33 @@ export async function backgroundsRoutes(app: FastifyInstance) {
     writeMeta(meta);
 
     return { success: true, tags };
+  });
+
+  // Set a human-readable label without changing the stable filename used by chats and agents.
+  app.patch("/:filename/label", async (req, reply) => {
+    const { filename } = req.params as { filename: string };
+    if (filename.includes("..") || filename.includes("/")) {
+      return reply.status(400).send({ error: "Invalid filename" });
+    }
+
+    const filePath = assertInsideDir(BG_DIR, join(BG_DIR, filename));
+    if (!existsSync(filePath)) return reply.status(404).send({ error: "Not found" });
+
+    const parsed = z.object({ label: z.string().trim().max(100).nullable() }).safeParse(req.body);
+    if (!parsed.success) return reply.status(400).send({ error: "label must be 100 characters or fewer" });
+
+    const meta = readMeta();
+    if (!meta[filename]) meta[filename] = { tags: [] };
+    const label =
+      parsed.data.label
+        ?.replace(/[\u0000-\u001f\u007f]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim() || null;
+    if (label) meta[filename].label = label;
+    else delete meta[filename].label;
+    writeMeta(meta);
+
+    return { success: true, label };
   });
 
   // Rename a background file

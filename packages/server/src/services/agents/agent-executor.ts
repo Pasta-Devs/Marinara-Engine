@@ -347,7 +347,9 @@ export function compactGameStateForAgentContext(gameState: unknown, agentTypes: 
   const presentCharacters = compactPresentCharactersForHiddenFields(gameState.presentCharacters, hiddenFields);
   const playerStats = compactQuestPlayerStatsForContext(gameState.playerStats, agentTypes);
   const visibleFieldLocks = omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields);
-  const fieldLocks = shouldIncludeQuestContext(agentTypes) ? visibleFieldLocks : omitQuestFieldLocksForContext(visibleFieldLocks);
+  const fieldLocks = shouldIncludeQuestContext(agentTypes)
+    ? visibleFieldLocks
+    : omitQuestFieldLocksForContext(visibleFieldLocks);
 
   if (
     presentCharacters === gameState.presentCharacters &&
@@ -519,7 +521,8 @@ function agentCallSignal(parentSignal?: AbortSignal, agentType?: "illustrator"):
   // while streaming; slow local models need a raised value (#3958). The
   // illustrator keeps at least its generous image-generation budget.
   const configuredMs = getAgentCallTimeoutMs();
-  const timeoutMs = agentType === "illustrator" ? Math.max(ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS, configuredMs) : configuredMs;
+  const timeoutMs =
+    agentType === "illustrator" ? Math.max(ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS, configuredMs) : configuredMs;
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   return parentSignal ? combineAbortSignals([parentSignal, timeoutSignal]) : timeoutSignal;
 }
@@ -1111,7 +1114,10 @@ export async function executeAgentBatch(
             responseText += chunk;
           }
         : undefined,
-      signal: agentCallSignal(context.signal, configs.some((config) => config.type === "illustrator") ? "illustrator" : undefined),
+      signal: agentCallSignal(
+        context.signal,
+        configs.some((config) => config.type === "illustrator") ? "illustrator" : undefined,
+      ),
     });
 
     // chatComplete also accumulates content, but streaming via onToken is
@@ -2079,7 +2085,9 @@ function buildCommittedTrackerStateContext(
   contextAgentTypes: string[],
   options: { includeMessageIds?: boolean },
 ): string | null {
-  const gs = msg.gameState ? (compactGameStateForAgentContext(msg.gameState, contextAgentTypes) as typeof msg.gameState) : null;
+  const gs = msg.gameState
+    ? (compactGameStateForAgentContext(msg.gameState, contextAgentTypes) as typeof msg.gameState)
+    : null;
   if (!gs) return null;
 
   const trackerSummary: Record<string, unknown> = {};
@@ -2276,7 +2284,9 @@ function buildLoreBlock(context: AgentContext): string {
       if (char.rpgStats?.enabled) {
         const pools = normalizeRpgStatPools(char.rpgStats);
         if (pools.length > 0) {
-          parts.push(`Configured RPG pools: ${pools.map((pool) => `${pool.name}: ${pool.value}/${pool.max}`).join(", ")}`);
+          parts.push(
+            `Configured RPG pools: ${pools.map((pool) => `${pool.name}: ${pool.value}/${pool.max}`).join(", ")}`,
+          );
         }
         if (Array.isArray(char.rpgStats.attributes) && char.rpgStats.attributes.length > 0) {
           parts.push(
@@ -2474,7 +2484,9 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     } else {
       parts.push(`Currently active background: none`);
     }
-    parts.push(`The host writes a separate background-only prompt after this decision; do not replace the normal illustration prompt.`);
+    parts.push(
+      `The host writes a separate background-only prompt after this decision; do not replace the normal illustration prompt.`,
+    );
     parts.push(`</illustrator_background_generation>`);
   }
 
@@ -2486,15 +2498,17 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
   if (context.memory._availableBackgrounds) {
     const bgs = context.memory._availableBackgrounds as Array<{
       filename: string;
+      label?: string | null;
       originalName?: string | null;
       tags: string[];
       source?: "user" | "game_asset";
     }>;
     parts.push(`<available_backgrounds>`);
     for (const bg of bgs) {
-      const label = bg.originalName ? `${bg.filename} (${bg.originalName})` : bg.filename;
+      const displayName = bg.label || bg.originalName;
+      const label = escapeXml(displayName ? `${bg.filename} (${displayName})` : bg.filename);
       const source = bg.source === "game_asset" ? " [source: game asset]" : "";
-      const tagStr = bg.tags.length > 0 ? ` [tags: ${bg.tags.join(", ")}]` : "";
+      const tagStr = bg.tags.length > 0 ? ` [tags: ${escapeXml(bg.tags.join(", "))}]` : "";
       parts.push(`- ${label}${source}${tagStr}`);
     }
     parts.push(`</available_backgrounds>`);

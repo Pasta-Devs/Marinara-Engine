@@ -76,7 +76,7 @@ export async function seedDefaultBackgrounds(backgroundDir = BG_DIR) {
 
   // Build meta.json with tags
   const metaPath = join(backgroundDir, "meta.json");
-  let meta: Record<string, { originalName?: string; tags: string[] }> = {};
+  let meta: Record<string, { label?: string; originalName?: string; tags: string[] }> = {};
   if (existsSync(metaPath)) {
     try {
       meta = JSON.parse(readFileSync(metaPath, "utf-8"));

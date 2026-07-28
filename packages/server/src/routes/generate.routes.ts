@@ -3639,7 +3639,7 @@ export async function generateRoutes(app: FastifyInstance) {
               const files = readdirSync(bgDir).filter((f: string) => exts.has(extname(f).toLowerCase()));
 
               // Load metadata (tags + original names)
-              let meta: Record<string, { originalName?: string; tags: string[] }> = {};
+              let meta: Record<string, { label?: string; originalName?: string; tags: string[] }> = {};
               const metaPath = join(bgDir, "meta.json");
               if (existsSync(metaPath)) {
                 try {
@@ -3651,6 +3651,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
               agentContext.memory._availableBackgrounds = files.map((f: string) => ({
                 filename: f,
+                label: meta[f]?.label ?? null,
                 originalName: meta[f]?.originalName ?? null,
                 tags: meta[f]?.tags ?? [],
               }));
@@ -8522,8 +8523,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         styleProfileId,
                         imageDefaults,
                         generatedStyle: style,
-                        omitProfileStyleText:
-                          typeof agentContext.memory._illustratorImageStyleInstruction === "string",
+                        omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: true,
                       });
                       fullPrompt = compiledPrompt.prompt;

@@ -527,14 +527,10 @@ test("Function Calling can require the first tool round per chat", async ({ page
     await expect(forceToolCall).toBeVisible();
     await expect(forceToolCall).not.toBeChecked();
     await section.getByText("Force To Call Tool", { exact: true }).click();
-    await expect
-      .poll(async () => (await readMetadata()).forceToolCall)
-      .toBe(true);
+    await expect.poll(async () => (await readMetadata()).forceToolCall).toBe(true);
 
     await section.getByText("Force To Call Tool", { exact: true }).click();
-    await expect
-      .poll(async () => (await readMetadata()).forceToolCall)
-      .toBe(false);
+    await expect.poll(async () => (await readMetadata()).forceToolCall).toBe(false);
   } finally {
     await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
   }
@@ -2300,7 +2296,8 @@ test("sent text stays cleared and the first message edit persists after stopped 
     await expect
       .poll(async () =>
         (await readMessages()).some(
-          (message) => message.role === "user" && message.content === "Sent text must stay cleared when stopped before the reply",
+          (message) =>
+            message.role === "user" && message.content === "Sent text must stay cleared when stopped before the reply",
         ),
       )
       .toBe(true);
@@ -2312,7 +2309,9 @@ test("sent text stays cleared and the first message edit persists after stopped 
     await expect(page.locator(`[data-message-id="${secondMessage!.id}"]`)).toContainText(
       "Edited on the first save with cleared draft",
     );
-    await expect(page.getByText("Sent text must stay cleared when stopped before the reply", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Sent text must stay cleared when stopped before the reply", { exact: true }),
+    ).toBeVisible();
   } finally {
     for (const response of openProviderResponses) response.end();
     await Promise.allSettled([
@@ -10461,6 +10460,8 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
   await page.getByRole("tab", { name: "Appearance" }).click();
   await page.getByPlaceholder("Search settings").fill("Backgrounds");
   await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+  await page.getByRole("button", { name: "Browse library" }).click();
+  await expect(page.getByRole("dialog", { name: "Background Library" })).toBeVisible();
 
   const backgroundRow = page.locator('[data-background-id="user:collapsible-background-tags.png"]');
   const backgroundName = backgroundRow.locator("[data-background-name]");
@@ -10647,6 +10648,35 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByRole("tab", { name: "Appearance" }).click();
     await page.getByPlaceholder("Search settings").fill("Backgrounds");
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+    await page.getByRole("button", { name: "Browse library" }).click();
+    await expect(page.getByRole("dialog", { name: "Background Library" })).toBeVisible();
+
+    const backgroundRowBeforeLabel = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
+    await backgroundRowBeforeLabel.getByTitle("Edit label").click();
+    const labelInput = backgroundRowBeforeLabel.getByLabel(`Label for ${uploaded.filename}`);
+    await labelInput.fill(`Rainy arcade ${suffix}`);
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === "PATCH" &&
+          new URL(response.url()).pathname === `/api/backgrounds/${encodeURIComponent(uploaded.filename)}/label`,
+      ),
+      labelInput.press("Enter"),
+    ]);
+    await expect(backgroundRowBeforeLabel.getByText(`Rainy arcade ${suffix}`, { exact: true })).toBeVisible();
+
+    const normalizedLabelResponse = await page.request.patch(
+      `/api/backgrounds/${encodeURIComponent(uploaded.filename)}/label`,
+      { data: { label: `Rainy arcade\n${suffix}` } },
+    );
+    expect(normalizedLabelResponse.ok()).toBeTruthy();
+    await page.reload();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Appearance" }).click();
+    await page.getByPlaceholder("Search settings").fill("Backgrounds");
+    await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+    await page.getByRole("button", { name: "Browse library" }).click();
+    await page.getByPlaceholder("Search backgrounds").fill(`Rainy arcade ${suffix}`);
 
     await expect(
       page.getByText("Drag and drop backgrounds to folders, double-click or double-tap to rename."),
@@ -10658,6 +10688,9 @@ test("Background library organization works with desktop drag and touch drag", a
 
     const backgroundRow = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
     await expect(backgroundRow).toBeVisible();
+    await expect(backgroundRow.getByText(`Rainy arcade ${suffix}`, { exact: true })).toBeVisible();
+    await expect(backgroundRow.getByText(uploaded.filename, { exact: true })).toBeVisible();
+    await page.getByPlaceholder("Search backgrounds").fill("");
     const backgroundActions = backgroundRow.locator("[data-background-actions]");
     const defaultToggle = backgroundRow.locator("[data-background-default-toggle]");
     if (testInfo.project.name.includes("mobile")) {
@@ -10727,10 +10760,8 @@ test("Background library organization works with desktop drag and touch drag", a
         .poll(() =>
           page.evaluate(
             ({ point, targetFolderId }) =>
-              document
-                .elementFromPoint(point.x, point.y)
-                ?.closest<HTMLElement>("[data-background-folder-id]")
-                ?.dataset.backgroundFolderId === targetFolderId,
+              document.elementFromPoint(point.x, point.y)?.closest<HTMLElement>("[data-background-folder-id]")?.dataset
+                .backgroundFolderId === targetFolderId,
             { point: end, targetFolderId: folderId! },
           ),
         )
