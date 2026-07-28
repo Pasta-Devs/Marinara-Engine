@@ -493,6 +493,53 @@ test("Chat Settings adds a formatted greeting after the setup wizard is skipped"
   }
 });
 
+test("Function Calling can require the first tool round per chat", async ({ page, request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Function Calling settings are covered once on desktop.");
+
+  const chatResponse = await request.post("/api/chats", {
+    data: {
+      name: "Required Tool Call Smoke",
+      mode: "roleplay",
+      characterIds: [],
+    },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+
+  const readMetadata = async () => {
+    const response = await request.get(`/api/chats/${chat.id}`);
+    const stored = (await response.json()) as { metadata: string | Record<string, unknown> };
+    return typeof stored.metadata === "string"
+      ? (JSON.parse(stored.metadata) as Record<string, unknown>)
+      : stored.metadata;
+  };
+
+  try {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
+
+    const section = page.locator('[data-chat-settings-section="function-calling"]');
+    await section.locator('[role="button"][aria-expanded]').click();
+    await section.getByText("Enable Tool Use", { exact: true }).click();
+
+    const forceToolCall = section.getByLabel("Force To Call Tool", { exact: true });
+    await expect(forceToolCall).toBeVisible();
+    await expect(forceToolCall).not.toBeChecked();
+    await section.getByText("Force To Call Tool", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata()).forceToolCall)
+      .toBe(true);
+
+    await section.getByText("Force To Call Tool", { exact: true }).click();
+    await expect
+      .poll(async () => (await readMetadata()).forceToolCall)
+      .toBe(false);
+  } finally {
+    await request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
 test("settings profile exports use the new identity and legacy exports still import", async ({ request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Settings profile transfer contract is covered once.");
 

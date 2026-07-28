@@ -3324,6 +3324,8 @@
   "ui.chatSettings.functioncallingsection.allGloballyEnabledToolsAreAvailableToThisChat": "All globally enabled tools are available to this chat. Add tools below to restrict this chat to a specific set.",
   "ui.chatSettings.functioncallingsection.allowAiToCallFunctionsDiceRollsGameState": "Allow AI to call functions (dice rolls, game state, etc.)",
   "ui.chatSettings.functioncallingsection.enableToolUse": "Enable Tool Use",
+  "ui.chatSettings.functioncallingsection.forceToCallTool": "Force To Call Tool",
+  "ui.chatSettings.functioncallingsection.forceToCallToolDescription": "Require a compatible model to call one enabled function before it can answer. Some models may ignore this request.",
   "ui.chatSettings.functioncallingsection.functionCalling": "Function Calling",
   "ui.chatSettings.functioncallingsection.ifDisabledNoFunctionsWillBeAvailable": "If disabled, no functions will be available.",
   "ui.chatSettings.functioncallingsection.ifEnabledThisChatCanUseGloballyEnabledTools": "If enabled, this chat can use globally enabled tools (or any tools you add below).",

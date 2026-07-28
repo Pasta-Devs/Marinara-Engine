@@ -124,6 +124,8 @@ export interface ChatOptions {
   stop?: string[];
   /** Tool/function definitions for function calling */
   tools?: LLMToolDefinition[];
+  /** OpenAI-compatible tool selection policy for the current provider round. */
+  toolChoice?: "auto" | "required";
   /** Enable provider-native prompt caching when supported */
   enableCaching?: boolean;
   /** Anthropic only: use 1-hour prompt-cache TTL instead of the default 5-minute TTL */
