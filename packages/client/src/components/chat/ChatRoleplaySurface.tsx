@@ -1290,6 +1290,8 @@ export function ChatRoleplaySurface({
   const expandedAuthorNotesOpen = authorNotesOpenOwner === "expanded";
   const compactAuthorNotesOpen = authorNotesOpenOwner === "compact";
   const keyboardOpen = useChatKeyboardOpen();
+  const ambientVisualsPaused =
+    generationVisualsPaused || (isMobileToolbarViewport && (keyboardOpen || hasMobileDraftInput));
   const shouldKeepMobileComposerOpen = keyboardOpen || hasLiveStream || hasMobileDraftInput || isFetchingNextPage;
 
   useEffect(() => {
@@ -1510,7 +1512,7 @@ export function ChatRoleplaySurface({
         className={cn(
           "rpg-chat-area mari-chat-area mari-card-css relative flex flex-1 flex-col overflow-hidden",
           roleplayReducedPaintEffects && "mari-rp-reduced-paint",
-          generationVisualsPaused && "mari-generation-render-paused",
+          ambientVisualsPaused && "mari-generation-render-paused",
         )}
         data-chat-mode="roleplay"
         style={{ isolation: "isolate" }}
@@ -1518,7 +1520,7 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
-        {weatherEffects && <WeatherEffectsConnected paused={generationVisualsPaused} />}
+        {weatherEffects && <WeatherEffectsConnected paused={ambientVisualsPaused} />}
         {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay

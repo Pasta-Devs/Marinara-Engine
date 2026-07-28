@@ -31,9 +31,9 @@ export default defineConfig({
     process.env.PLAYWRIGHT_SKIP_WEBSERVER === "true"
       ? undefined
       : {
-          command: "pnpm dev",
+          command: "node ./e2e/global-setup.mjs && pnpm dev",
           url: baseURL,
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer: false,
           timeout: 180_000,
           env: {
             AUTO_CREATE_DEFAULT_CONNECTION: "false",

@@ -1100,7 +1100,10 @@ export class OpenAIProvider extends BaseLLMProvider {
 
     if (!suppressModelParameters) {
       if (this.shouldSendStopSequences(options.model) && options.stop?.length) body.stop = options.stop;
-      if (options.tools?.length && !options.forceTextualToolCalls) body.tools = options.tools;
+      if (options.tools?.length && !options.forceTextualToolCalls) {
+        body.tools = options.tools;
+        body.tool_choice = options.toolChoice ?? "auto";
+      }
       if (effectiveStream) body.stream_options = { include_usage: true };
 
       // o-series models never support temperature/topP; GPT-5.x only with effort=none
@@ -1378,7 +1381,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       (!suppressModelParameters || this.allowsToolCalling)
     ) {
       body.tools = options.tools;
-      body.tool_choice = "auto";
+      body.tool_choice = options.toolChoice ?? "auto";
     }
 
     if (!suppressModelParameters) {
@@ -1936,9 +1939,11 @@ export class OpenAIProvider extends BaseLLMProvider {
       !isOpenAIChatGPT &&
       !suppressModelParameters &&
       options.tools?.length &&
+      !options.forceTextualToolCalls &&
       !this.isXAIMultiAgentModel(options.model)
     ) {
       body.tools = this.formatResponsesTools(options.tools);
+      body.tool_choice = options.toolChoice ?? "auto";
     }
 
     if (!isOpenAIChatGPT) {

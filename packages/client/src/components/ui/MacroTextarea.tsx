@@ -64,7 +64,7 @@ interface ExpandedMacroEditorProps {
   onChange: (value: string) => void;
   onClose: () => void;
   placeholder?: string;
-  formatOnChange?: (textarea: HTMLTextAreaElement) => string;
+  formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
 }
 
 function ExpandedMacroEditor({
@@ -107,7 +107,9 @@ function ExpandedMacroEditor({
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
-      const nextValue = formatOnChange ? formatOnChange(event.currentTarget) : event.currentTarget.value;
+      const nextValue = formatOnChange
+        ? formatOnChange(event.currentTarget, event.nativeEvent as InputEvent)
+        : event.currentTarget.value;
       setLocalValue(nextValue);
       onChange(nextValue);
     },
@@ -275,7 +277,7 @@ export interface MacroTextareaProps {
   toolbarClassName?: string;
   controlPaddingClassName?: string;
   toolbarExtra?: ReactNode;
-  formatOnChange?: (textarea: HTMLTextAreaElement) => string;
+  formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
   showMacroReference?: boolean;
   showExpand?: boolean;
   spellCheck?: boolean;
@@ -317,7 +319,11 @@ export function MacroTextarea({
 
   const handleChange = useCallback(
     (event: ChangeEvent<HTMLTextAreaElement>) => {
-      onChange(formatOnChange ? formatOnChange(event.currentTarget) : event.currentTarget.value);
+      onChange(
+        formatOnChange
+          ? formatOnChange(event.currentTarget, event.nativeEvent as InputEvent)
+          : event.currentTarget.value,
+      );
     },
     [formatOnChange, onChange],
   );

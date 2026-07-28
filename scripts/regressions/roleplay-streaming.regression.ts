@@ -10,6 +10,7 @@ import {
   shouldKeepStreamLiveThroughPostProcessing,
 } from "../../packages/client/src/lib/generation-stream-policy.js";
 import { resolveMessageRewriteVersions } from "../../packages/client/src/lib/message-rewrite-versions.js";
+import { shouldFormatTextareaQuotes } from "../../packages/client/src/lib/textarea-quotes.js";
 import {
   findLatestTTSAutoplayMessage,
   getTTSAutoplayRevision,
@@ -117,6 +118,10 @@ const conversationInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
   "utf8",
 );
+const presetEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/presets/PresetEditor.tsx", import.meta.url),
+  "utf8",
+);
 const useGenerateSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
   "utf8",
@@ -171,6 +176,51 @@ assert.doesNotMatch(
   summaryPopoverSource,
   /onDraftChange=\{setDraftEntry\}/u,
   "summary keystrokes must not update popover-level draft state",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertText", data: '"', isComposing: false } as InputEvent,
+    'She said "',
+  ),
+  true,
+  "direct quote insertion should retain immediate quote formatting",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertCompositionText", data: '"', isComposing: true } as InputEvent,
+    'She said "',
+  ),
+  false,
+  "IME composition must not rewrite the textarea value beneath the mobile keyboard",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertReplacementText", data: null, isComposing: false } as InputEvent,
+    'She said "hello" and kept typing',
+  ),
+  false,
+  "autocorrect replacements with null data must not rescan and rewrite the full draft",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "deleteContentBackward", data: null, isComposing: false } as InputEvent,
+    'She said "hello',
+  ),
+  false,
+  "deletion must remain a mutation-free fast path",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertFromPaste", data: null, isComposing: false } as InputEvent,
+    'Pasted "dialogue"',
+  ),
+  true,
+  "pasted dialogue should still be formatted once",
+);
+assert.match(
+  presetEditorSource,
+  /function SectionContentTextarea\([\s\S]{0,1400}const handleChange = \(nextRawValue: string\) => \{\s+const nextValue = nextRawValue;/u,
+  "preset section editors should commit the event-aware MacroTextarea value without reformatting the full draft",
 );
 assert.match(
   chatStoreSource,
@@ -305,6 +355,16 @@ assert.match(
   "only an Illustrator-only retry should hand off from text streaming to background image work",
 );
 assert.match(
+  generateHookSource,
+  /const submittedUserTurn = params\.userMessage !== undefined;/u,
+  "generation should remember whether the stopped request already submitted a user turn",
+);
+assert.equal(
+  generateHookSource.match(/submittedUserTurn \|\| receivedContent \|\| spatialTransitionCommitted/gu)?.length,
+  2,
+  "stopping a submitted user turn should remain successful even before assistant content arrives",
+);
+assert.match(
   chatAreaSource,
   /const isTextStreaming = isStreaming && !isBackgroundIllustration;/u,
   "finished assistant text must stop being treated as streaming while Illustrator continues",
@@ -330,6 +390,22 @@ const chatHandleInputSource =
     /const handleInput = \(event\?: FormEvent<HTMLTextAreaElement>\) => \{[\s\S]*?\n  \};\n\n  \/\/ Dismiss feedback/u,
   )?.[0] ?? "";
 assert.match(chatTextareaSource, /disabled=\{!activeChatId\}/u);
+assert.match(
+  chatAreaSource,
+  /target instanceof HTMLTextAreaElement[\s\S]{0,160}target\.dataset\.chatComposer === "true"[\s\S]{0,120}target\.value\.length === 0/u,
+  "intuitive Left/Right navigation should exempt only an empty main chat composer",
+);
+assert.match(
+  chatAreaSource,
+  /event\.altKey \|\| event\.ctrlKey \|\| event\.metaKey \|\| event\.shiftKey[\s\S]{0,180}allowEmptyMainComposer: true/u,
+  "empty-composer swipe navigation should remain limited to unmodified arrow keys",
+);
+assert.match(chatTextareaSource, /data-chat-composer="true"/u, "Roleplay should identify its main composer");
+assert.match(
+  conversationInputSource,
+  /ref=\{textareaRef\}\s+data-chat-composer="true"/u,
+  "Conversation should identify its main composer",
+);
 assert.match(
   chatTextareaSource,
   /onInput=\{handleInput\}/u,
@@ -392,8 +468,18 @@ assert.match(
 );
 assert.match(
   chatRoleplaySurfaceSource,
-  /generationVisualsPaused && "mari-generation-render-paused"/u,
-  "Roleplay should pause ambient rendering while generation is active",
+  /generationVisualsPaused \|\| \(isMobileToolbarViewport && \(keyboardOpen \|\| hasMobileDraftInput\)\)/u,
+  "Roleplay should pause ambient rendering while the mobile keyboard or draft is active",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /ambientVisualsPaused && "mari-generation-render-paused"/u,
+  "Roleplay should reuse the ambient-render pause for mobile input and generation",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /<WeatherEffectsConnected paused=\{ambientVisualsPaused\} \/>/u,
+  "mobile text input should suspend Roleplay weather rendering instead of competing for device resources",
 );
 assert.match(
   gameSurfaceSource,

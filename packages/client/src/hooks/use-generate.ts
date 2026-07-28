@@ -1165,6 +1165,7 @@ export function useGenerate() {
 
       // Create an AbortController so the stop button can cancel this generation.
       const abortController = new AbortController();
+      const submittedUserTurn = params.userMessage !== undefined;
       try {
         useChatStore.getState().setAbortController(params.chatId, abortController);
         useChatStore.getState().setBackgroundIllustration(params.chatId, false);
@@ -2736,7 +2737,7 @@ export function useGenerate() {
         flushLeadingSpeakerPrefix();
         flushTypewriterBuffer();
         // Abort is intentional — don't log or toast
-        if (isAbortError(error)) return receivedContent || spatialTransitionCommitted;
+        if (isAbortError(error)) return submittedUserTurn || receivedContent || spatialTransitionCommitted;
         if (isPassiveStreamDisconnect(error, pageWasHiddenDuringStream, abortController.signal)) {
           passiveStreamRecovered = true;
           if (isActiveChat()) useChatStore.getState().setGenerationPhase("Finishing in background...");
@@ -2765,7 +2766,9 @@ export function useGenerate() {
               );
             }
           }
-          return abortController.signal.aborted ? receivedContent || spatialTransitionCommitted : true;
+          return abortController.signal.aborted
+            ? submittedUserTurn || receivedContent || spatialTransitionCommitted
+            : true;
         }
         if (params.pendingSpatialTransition) {
           const payload =

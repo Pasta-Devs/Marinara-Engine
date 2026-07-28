@@ -9181,12 +9181,14 @@ export function ChatSettingsDrawer({
           <div style={{ order: CHAT_SETTINGS_ORDER.functionCalling }}>
             <FunctionCallingSection
               enableTools={metadata.enableTools as boolean | undefined}
+              forceToolCall={metadata.forceToolCall as boolean | undefined}
               activeToolIds={activeToolIds}
               pendingToolIds={pendingToolIds}
               availableTools={availableTools}
               showToolPicker={showToolPicker}
               toolSearch={toolSearch}
               onEnableToolsChange={(enableTools) => updateMeta.mutate({ id: chat.id, enableTools })}
+              onForceToolCallChange={(forceToolCall) => updateMeta.mutate({ id: chat.id, forceToolCall })}
               onToggleTool={toggleTool}
               onShowToolPickerChange={setShowToolPicker}
               onToolSearchChange={setToolSearch}

@@ -312,6 +312,8 @@ export interface ChatMetadata {
   customEmojiSelection?: CustomEmojiSelectionPrefs;
   /** Tool/function IDs scoped to this chat. Non-empty = only these tools are sent; empty = use all enabled tools. */
   activeToolIds: string[];
+  /** Require a compatible provider to call one enabled tool on the first tool round. */
+  forceToolCall?: boolean;
   /** Per-chat variable selections for preset variables (variableName → value or values) */
   presetChoices: Record<string, string | string[]>;
   /** Chat-wide string variables persisted by agent tool calls (key → value). */

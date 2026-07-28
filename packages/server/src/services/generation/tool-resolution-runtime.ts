@@ -141,6 +141,13 @@ function booleanFalseText(value: unknown): boolean {
   return value === false || value === "false" || value === "0" || value === 0;
 }
 
+export function resolveMainGenerationToolChoice(
+  chatMetadata: Record<string, unknown>,
+  round: number,
+): "auto" | "required" {
+  return round === 0 && booleanText(chatMetadata.forceToolCall) ? "required" : "auto";
+}
+
 function isSpotifyMusicAgent(agent: ResolvedAgent): boolean {
   const settings = parseSettings(agent.settings);
   return (

@@ -455,7 +455,10 @@ import {
 } from "../services/generation/agent-prompt-runtime.js";
 import { resolveAgentPipelineAgents } from "../services/generation/agent-resolution.js";
 import { createReplyFallbackNotifier } from "./generate/fallback-notification.js";
-import { resolveGenerationTools } from "../services/generation/tool-resolution-runtime.js";
+import {
+  resolveGenerationTools,
+  resolveMainGenerationToolChoice,
+} from "../services/generation/tool-resolution-runtime.js";
 import {
   buildCharacterMacroProfilesById,
   injectIdentityFallbackMessages,
@@ -5438,6 +5441,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     minP: minP || undefined,
                     stop: stopSequences.length ? stopSequences : undefined,
                     tools: toolDefs,
+                    toolChoice: resolveMainGenerationToolChoice(chatMeta, round),
                     enableCaching: conn.enableCaching === "true",
                     anthropicExtendedCacheTtl: conn.anthropicExtendedCacheTtl === "true",
                     cachingAtDepth: conn.cachingAtDepth ?? 5,

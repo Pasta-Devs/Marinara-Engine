@@ -45,6 +45,7 @@ import {
   type GenerationFallbackNotice,
 } from "../../packages/server/src/services/generation/fallback-notification.js";
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
+import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 
 class RegressionProvider extends BaseLLMProvider {
   calls = 0;
@@ -124,6 +125,14 @@ try {
 }
 
 let customParametersRequestBody: Record<string, unknown> | null = null;
+const testToolDefinition = {
+  type: "function" as const,
+  function: {
+    name: "fresh_data",
+    description: "Fetch current data",
+    parameters: { type: "object", properties: {} },
+  },
+};
 const customParametersServer = createServer(async (request, response) => {
   const chunks: Buffer[] = [];
   for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
@@ -157,6 +166,26 @@ try {
   assert.equal(customParametersRequestBody.min_p, 0.12);
   assert.equal(customParametersRequestBody.reasoning_effort, "high");
   assert.equal(customParametersRequestBody.verbosity, "low");
+
+  customParametersRequestBody = null;
+  await provider.chatComplete([{ role: "user", content: "fetch current data" }], {
+    model: "custom-model",
+    stream: false,
+    tools: [testToolDefinition],
+    toolChoice: "required",
+  });
+  assert.ok(customParametersRequestBody);
+  assert.equal(customParametersRequestBody.tool_choice, "required");
+  assert.equal(typeof customParametersRequestBody.tool_choice, "string");
+
+  customParametersRequestBody = null;
+  await provider.chatComplete([{ role: "user", content: "tool choice default" }], {
+    model: "custom-model",
+    stream: false,
+    tools: [testToolDefinition],
+  });
+  assert.ok(customParametersRequestBody);
+  assert.equal(customParametersRequestBody.tool_choice, "auto");
 
   customParametersRequestBody = null;
   await provider.chatComplete([{ role: "user", content: "test explicit custom samplers" }], {
@@ -479,6 +508,10 @@ assert.equal(isOpenRouterApiUrl("https://openrouter.ai/api/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://api.openrouter.ai/v1"), true);
 assert.equal(isOpenRouterApiUrl("https://openrouter.ai.example.com/v1"), false);
 assert.equal(isOpenRouterApiUrl("not a URL"), false);
+assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 0), "required");
+assert.equal(resolveMainGenerationToolChoice({ forceToolCall: "true" }, 0), "required");
+assert.equal(resolveMainGenerationToolChoice({ forceToolCall: true }, 1), "auto");
+assert.equal(resolveMainGenerationToolChoice({ forceToolCall: false }, 0), "auto");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.ai/"), "https://api.cohere.ai/compatibility/v1");
 assert.equal(normalizeCohereOpenAIBaseUrl("https://api.cohere.com/v1"), "https://api.cohere.ai/compatibility/v1");
@@ -646,6 +679,7 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
 // `call_id`. Accumulating by call_id left tool arguments empty, so Web Search
 // received blank/malformed JSON. Verify the streamed query is reassembled.
 {
+  let responsesToolRequestBody: Record<string, unknown> | null = null;
   const responsesToolSse = [
     'event: response.output_item.added',
     'data: {"type":"response.output_item.added","item":{"id":"fc_1","type":"function_call","call_id":"call_1","name":"web_search","arguments":""}}',
@@ -668,7 +702,10 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
     'data: [DONE]',
     '',
   ].join("\n");
-  const responsesServer = createServer((_request, response) => {
+  const responsesServer = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    responsesToolRequestBody = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
     response.writeHead(200, { "content-type": "text/event-stream" });
     response.end(responsesToolSse);
   });
@@ -689,6 +726,7 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
     const result = await provider.chatComplete([{ role: "user", content: "search please" }], {
       model: "gpt-5.6",
       stream: true,
+      toolChoice: "required",
       tools: [
         {
           type: "function",
@@ -697,6 +735,9 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
       ],
     });
     assert.equal(result.toolCalls.length, 1, "GPT-5.6 Responses stream must surface the function call");
+    assert.ok(responsesToolRequestBody);
+    assert.equal(responsesToolRequestBody.tool_choice, "required");
+    assert.equal(typeof responsesToolRequestBody.tool_choice, "string");
     assert.equal(result.toolCalls[0].function.name, "web_search");
     assert.equal(
       result.toolCalls[0].function.arguments,

@@ -92,16 +92,8 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
   "yml",
 ]);
 const PDF_ATTACHMENT_MIME_TYPE = "application/pdf";
-const QUOTE_INPUT_TRIGGER_RE = /["'\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f]/;
 const ROLEPLAY_INPUT_RESIZE_IDLE_MS = 150;
 const ROLEPLAY_INPUT_DELETE_RESIZE_IDLE_MS = 450;
-
-function shouldFormatQuoteInput(event: FormEvent<HTMLTextAreaElement> | undefined, value: string): boolean {
-  const inputEvent = event?.nativeEvent as InputEvent | undefined;
-  const inputType = typeof inputEvent?.inputType === "string" ? inputEvent.inputType : "";
-  if (inputType.startsWith("delete")) return false;
-  return QUOTE_INPUT_TRIGGER_RE.test(inputEvent?.data ?? value);
-}
 
 function getFileExtension(fileName: string): string {
   const match = fileName.toLowerCase().match(/\.([a-z0-9]+)$/);
@@ -1488,7 +1480,7 @@ export const ChatInput = memo(function ChatInput({
     if (!el) return;
     const inputEvent = event?.nativeEvent as InputEvent | undefined;
     const isDeleting = inputEvent?.inputType?.startsWith("delete") === true;
-    const fixed = shouldFormatQuoteInput(event, el.value) ? applyTextareaQuoteFormat(el, quoteFormat) : el.value;
+    const fixed = applyTextareaQuoteFormat(el, quoteFormat, inputEvent);
     syncInputState(fixed);
 
     // Keep draft in sync so it survives remounts (debounced to avoid store churn)
@@ -1959,6 +1951,7 @@ export const ChatInput = memo(function ChatInput({
         {/* Text input */}
         <textarea
           ref={textareaRef}
+          data-chat-composer="true"
           onInput={handleInput}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
