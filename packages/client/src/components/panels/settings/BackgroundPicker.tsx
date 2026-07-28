@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowUpDown,
   Check,
   ChevronDown,
   ChevronRight,
+  Folder,
   FolderPlus,
   Image,
   LayoutGrid,
@@ -96,6 +97,7 @@ export function BackgroundPicker({
 }: BackgroundPickerProps) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingLabel, setEditingLabel] = useState<string | null>(null);
   const [labelInput, setLabelInput] = useState("");
@@ -120,6 +122,14 @@ export function BackgroundPicker({
   const qc = useQueryClient();
   const draggedBackgroundIdRef = useRef<string | null>(null);
   const tagUpdatePendingRef = useRef(false);
+  const closeAfterSelectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (closeAfterSelectionRef.current) clearTimeout(closeAfterSelectionRef.current);
+    },
+    [],
+  );
 
   const { data: backgrounds = [] } = useQuery({
     queryKey: BACKGROUND_QUERY_KEY,
@@ -254,6 +264,38 @@ export function BackgroundPicker({
     }),
     [backgrounds],
   );
+
+  const selectBackground = useCallback(
+    (background: BackgroundLibraryItem, isSelected: boolean) => {
+      if (isSelected) {
+        if (closeAfterSelectionRef.current) {
+          clearTimeout(closeAfterSelectionRef.current);
+          closeAfterSelectionRef.current = null;
+        }
+        setPendingSelection(null);
+        onSelect(null);
+        return;
+      }
+      if (closeAfterSelectionRef.current) clearTimeout(closeAfterSelectionRef.current);
+      setPendingSelection(background.url);
+      onSelect(background.url);
+      closeAfterSelectionRef.current = setTimeout(() => {
+        setOpen(false);
+        setPendingSelection(null);
+        closeAfterSelectionRef.current = null;
+      }, 280);
+    },
+    [onSelect],
+  );
+
+  const closePicker = useCallback(() => {
+    if (closeAfterSelectionRef.current) {
+      clearTimeout(closeAfterSelectionRef.current);
+      closeAfterSelectionRef.current = null;
+    }
+    setPendingSelection(null);
+    setOpen(false);
+  }, []);
 
   const handleUpload = useCallback(
     async (files: File[]) => {
@@ -462,7 +504,7 @@ export function BackgroundPicker({
   );
 
   const renderBackground = (background: BackgroundLibraryItem) => {
-    const isSelected = selected === background.url;
+    const isSelected = selected === background.url || pendingSelection === background.url;
     const isDefaultRoleplay = defaultRoleplayBackground === background.url;
     const isUserBackground = background.source !== "game_asset";
     const isEditable = background.editable !== false && isUserBackground;
@@ -526,10 +568,7 @@ export function BackgroundPicker({
         />
         <button
           type="button"
-          onClick={() => {
-            onSelect(isSelected ? null : background.url);
-            if (!isSelected) setOpen(false);
-          }}
+          onClick={() => selectBackground(background, isSelected)}
           className={cn(
             "relative aspect-video w-24 shrink-0 overflow-hidden rounded-lg border-2 transition-colors md:w-[4.5rem]",
             isSelected
@@ -865,7 +904,7 @@ export function BackgroundPicker({
   };
 
   const renderGridBackground = (background: BackgroundLibraryItem) => {
-    const isSelected = selected === background.url;
+    const isSelected = selected === background.url || pendingSelection === background.url;
     const isDefaultRoleplay = defaultRoleplayBackground === background.url;
     const isUserBackground = background.source !== "game_asset";
     const isEditable = background.editable !== false && isUserBackground;
@@ -876,6 +915,7 @@ export function BackgroundPicker({
       <article
         key={background.id}
         data-background-id={background.id}
+        data-background-selected={isSelected ? "true" : "false"}
         className={cn(
           "group relative min-w-0 overflow-hidden rounded-xl bg-[var(--secondary)]/35 ring-1 transition-all",
           isSelected
@@ -885,10 +925,7 @@ export function BackgroundPicker({
       >
         <button
           type="button"
-          onClick={() => {
-            onSelect(isSelected ? null : background.url);
-            if (!isSelected) setOpen(false);
-          }}
+          onClick={() => selectBackground(background, isSelected)}
           className="relative block aspect-[16/10] w-full overflow-hidden bg-[var(--background)] text-left"
           aria-label={
             isSelected
@@ -997,9 +1034,14 @@ export function BackgroundPicker({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]/35">
-        <div className="flex items-center gap-3 p-2.5">
-          <div className="relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg bg-[var(--background)] ring-1 ring-[var(--border)]">
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
+          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-1 text-left transition-colors hover:bg-[var(--secondary)]/55"
+        >
+          <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
             {selected ? (
               <img
                 src={`${selected}?w=${BACKGROUND_THUMBNAIL_WIDTH}`}
@@ -1012,8 +1054,8 @@ export function BackgroundPicker({
                 <Image size="1.25rem" />
               </div>
             )}
-          </div>
-          <div className="min-w-0 flex-1">
+          </span>
+          <span className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold text-[var(--foreground)]">
               {selectedBackground
                 ? getBackgroundLibraryTitle(selectedBackground)
@@ -1024,33 +1066,28 @@ export function BackgroundPicker({
                 ? selectedBackground.filename
                 : localizeUi("ui.panels.backgroundpicker.value1BackgroundsAvailable", { value1: backgrounds.length })}
             </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => setOpen(true)}
-                className="mari-chrome-control mari-chrome-control--small mari-chrome-control--selected"
-              >
-                <Image size="0.75rem" />
-                {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-              </button>
-              {selected && (
-                <button
-                  type="button"
-                  onClick={() => onSelect(null)}
-                  className="mari-chrome-control mari-chrome-control--small text-[var(--destructive)]"
-                >
-                  <X size="0.75rem" />
-                  {localizeUi("ui.panels.backgroundpicker.clearSelection")}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+          </span>
+          <Image
+            size="0.875rem"
+            className="shrink-0 text-[var(--muted-foreground)] transition-colors group-hover:text-[var(--primary)]"
+          />
+        </button>
+        {selected && (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] transition-colors hover:bg-[var(--destructive)]/10 hover:text-[var(--destructive)]"
+            title={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+            aria-label={localizeUi("ui.panels.backgroundpicker.clearSelection")}
+          >
+            <X size="0.75rem" />
+          </button>
+        )}
       </div>
 
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closePicker}
         title={localizeUi("ui.panels.backgroundpicker.backgroundLibrary")}
         width="max-w-4xl"
         mobileFullscreen
@@ -1140,22 +1177,6 @@ export function BackgroundPicker({
             </div>
 
             <div className="flex min-w-0 items-center gap-1.5">
-              <label className="min-w-0 flex-1 sm:w-40 sm:flex-none">
-                <span className="sr-only">{localizeUi("ui.panels.backgroundpicker.filterByFolder")}</span>
-                <select
-                  value={folderFilter}
-                  onChange={(event) => setFolderFilter(event.target.value)}
-                  className="mari-chrome-field h-9 w-full px-2 py-0 text-[0.6875rem]"
-                >
-                  <option value="all">{localizeUi("ui.panels.backgroundpicker.allFolders")}</option>
-                  <option value="unfiled">{localizeUi("ui.panels.backgroundpicker.unfiled")}</option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <div
                 className="flex shrink-0 rounded-lg bg-[var(--background)]/70 p-0.5 ring-1 ring-[var(--border)]/70"
                 role="group"
@@ -1207,6 +1228,63 @@ export function BackgroundPicker({
                 )}
               </button>
             </div>
+          </div>
+
+          <div
+            className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-0.5"
+            aria-label={localizeUi("ui.panels.backgroundpicker.filterByFolder")}
+          >
+            <button
+              type="button"
+              onClick={() => setFolderFilter("all")}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.625rem] font-medium ring-1 transition-colors",
+                folderFilter === "all"
+                  ? "bg-[var(--primary)]/16 text-[var(--primary)] ring-[var(--primary)]/30"
+                  : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              aria-pressed={folderFilter === "all"}
+            >
+              <Image size="0.6875rem" />
+              {localizeUi("ui.panels.backgroundpicker.allFolders")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setFolderFilter("unfiled")}
+              className={cn(
+                "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.625rem] font-medium ring-1 transition-colors",
+                folderFilter === "unfiled"
+                  ? "bg-[var(--primary)]/16 text-[var(--primary)] ring-[var(--primary)]/30"
+                  : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+              )}
+              aria-pressed={folderFilter === "unfiled"}
+            >
+              <Folder size="0.6875rem" />
+              {localizeUi("ui.panels.backgroundpicker.unfiled")}
+              <span className="opacity-60">{backgrounds.filter((background) => !background.folderId).length}</span>
+            </button>
+            {folders.map((folder) => {
+              const count = backgrounds.filter((background) => background.folderId === folder.id).length;
+              return (
+                <button
+                  key={folder.id}
+                  type="button"
+                  onClick={() => setFolderFilter(folder.id)}
+                  data-background-folder-filter-id={folder.id}
+                  className={cn(
+                    "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[0.625rem] font-medium ring-1 transition-colors",
+                    folderFilter === folder.id
+                      ? "bg-[var(--primary)]/16 text-[var(--primary)] ring-[var(--primary)]/30"
+                      : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                  )}
+                  aria-pressed={folderFilter === folder.id}
+                >
+                  <Folder size="0.6875rem" />
+                  <span className="max-w-32 truncate">{folder.name}</span>
+                  <span className="opacity-60">{count}</span>
+                </button>
+              );
+            })}
           </div>
 
           {viewMode === "list" && (

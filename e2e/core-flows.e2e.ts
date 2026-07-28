@@ -10510,6 +10510,11 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
   await page.keyboard.press("Enter");
   await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "false");
   await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Grid view" }).click();
+  const gridCard = page.locator('[data-background-id="user:collapsible-background-tags.png"]');
+  await gridCard.getByRole("button", { name: /Use .* for this chat/ }).click();
+  await expect(gridCard).toHaveAttribute("data-background-selected", "true");
+  await expect(page.getByRole("dialog", { name: "Background Library" })).toBeHidden();
 });
 
 test("Roleplay displays a selected background when its file route is GET-only", async ({ page }, testInfo) => {
@@ -10560,7 +10565,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
     await page.locator('[data-tour="panel-settings"]').click();
     await page.getByPlaceholder("Search settings").fill("Backgrounds");
     await page.getByRole("button", { name: /Backgrounds Section/ }).click();
-    await page.getByRole("button", { name: "Remove" }).click();
+    await page.getByRole("button", { name: "Clear selection" }).click();
     await expect
       .poll(async () =>
         page
@@ -10735,6 +10740,7 @@ test("Background library organization works with desktop drag and touch drag", a
     folderId = createdFolder.id;
 
     const folder = page.locator(`[data-background-folder-id="${folderId}"]`);
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toBeVisible();
     await expect(folder).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
       const dragHandle = backgroundRow.getByTitle(/^Drag /);
