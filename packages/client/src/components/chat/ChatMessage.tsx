@@ -588,7 +588,7 @@ const EditTextarea = memo(function EditTextarea({
         defaultValue={formatTextQuotes(initialContent, quoteFormat)}
         rows={1}
         onInput={(event) => {
-          applyTextareaQuoteFormat(event.currentTarget, quoteFormat);
+          applyTextareaQuoteFormat(event.currentTarget, quoteFormat, event.nativeEvent as InputEvent);
           autoResize();
         }}
         onKeyDown={(e) => {

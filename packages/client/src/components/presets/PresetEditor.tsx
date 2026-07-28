@@ -828,7 +828,8 @@ function PromptsTab({
   const { t: localizeUi } = useUiTranslation();
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const formatPrompt = useCallback(
-    (textarea: HTMLTextAreaElement) => applyTextareaQuoteFormat(textarea, quoteFormat),
+    (textarea: HTMLTextAreaElement, inputEvent: InputEvent) =>
+      applyTextareaQuoteFormat(textarea, quoteFormat, inputEvent),
     [quoteFormat],
   );
 
@@ -2715,7 +2716,7 @@ function SectionContentTextarea({
       onBlur={handleBlur}
       onFocus={handleFocus}
       onExpandedClose={commit}
-      formatOnChange={(textarea) => applyTextareaQuoteFormat(textarea, quoteFormat)}
+      formatOnChange={(textarea, inputEvent) => applyTextareaQuoteFormat(textarea, quoteFormat, inputEvent)}
       title={sectionName ?localizeUi("ui.presets.sectioncontenttextarea.editValue1", { value1: sectionName }) :localizeUi("ui.presets.sectioncontenttextarea.editPrompt")}
       className="mari-editor-field min-h-[7.5rem] w-full p-2.5 font-mono text-xs"
       placeholder={localizeUi("ui.presets.sectioncontenttextarea.promptContentSupportsUserCharCommentTrimMacros")}

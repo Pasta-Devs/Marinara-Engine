@@ -10,6 +10,7 @@ import {
   shouldKeepStreamLiveThroughPostProcessing,
 } from "../../packages/client/src/lib/generation-stream-policy.js";
 import { resolveMessageRewriteVersions } from "../../packages/client/src/lib/message-rewrite-versions.js";
+import { shouldFormatTextareaQuotes } from "../../packages/client/src/lib/textarea-quotes.js";
 import {
   findLatestTTSAutoplayMessage,
   getTTSAutoplayRevision,
@@ -171,6 +172,46 @@ assert.doesNotMatch(
   summaryPopoverSource,
   /onDraftChange=\{setDraftEntry\}/u,
   "summary keystrokes must not update popover-level draft state",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertText", data: '"', isComposing: false } as InputEvent,
+    'She said "',
+  ),
+  true,
+  "direct quote insertion should retain immediate quote formatting",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertCompositionText", data: '"', isComposing: true } as InputEvent,
+    'She said "',
+  ),
+  false,
+  "IME composition must not rewrite the textarea value beneath the mobile keyboard",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertReplacementText", data: null, isComposing: false } as InputEvent,
+    'She said "hello" and kept typing',
+  ),
+  false,
+  "autocorrect replacements with null data must not rescan and rewrite the full draft",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "deleteContentBackward", data: null, isComposing: false } as InputEvent,
+    'She said "hello',
+  ),
+  false,
+  "deletion must remain a mutation-free fast path",
+);
+assert.equal(
+  shouldFormatTextareaQuotes(
+    { inputType: "insertFromPaste", data: null, isComposing: false } as InputEvent,
+    'Pasted "dialogue"',
+  ),
+  true,
+  "pasted dialogue should still be formatted once",
 );
 assert.match(
   chatStoreSource,
@@ -408,8 +449,18 @@ assert.match(
 );
 assert.match(
   chatRoleplaySurfaceSource,
-  /generationVisualsPaused && "mari-generation-render-paused"/u,
-  "Roleplay should pause ambient rendering while generation is active",
+  /generationVisualsPaused \|\| \(isMobileToolbarViewport && \(keyboardOpen \|\| hasMobileDraftInput\)\)/u,
+  "Roleplay should pause ambient rendering while the mobile keyboard or draft is active",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /ambientVisualsPaused && "mari-generation-render-paused"/u,
+  "Roleplay should reuse the ambient-render pause for mobile input and generation",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /<WeatherEffectsConnected paused=\{ambientVisualsPaused\} \/>/u,
+  "mobile text input should suspend Roleplay weather rendering instead of competing for device resources",
 );
 assert.match(
   gameSurfaceSource,

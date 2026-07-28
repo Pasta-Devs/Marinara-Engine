@@ -2209,6 +2209,52 @@ test("typographic quotes do not pull the Roleplay caret behind later text", asyn
   }
 });
 
+test("mobile Roleplay composition avoids draft rewrites and pauses ambient rendering", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Mobile composer resource behavior is covered on mobile.");
+
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Mobile Composition Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript((chatId) => {
+      const persisted = JSON.parse(localStorage.getItem("marinara-engine-ui") ?? '{"state":{},"version":65}') as {
+        state: Record<string, unknown>;
+        version: number;
+      };
+      persisted.state.hasCompletedOnboarding = true;
+      persisted.state.quoteFormat = "typographic";
+      localStorage.setItem("marinara-engine-ui", JSON.stringify(persisted));
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+    await page.goto("/");
+
+    const input = page.locator("textarea.mari-chat-input-textarea");
+    await input.evaluate((element) => {
+      element.value = 'She said "';
+      element.dispatchEvent(
+        new InputEvent("input", {
+          bubbles: true,
+          data: '"',
+          inputType: "insertCompositionText",
+          isComposing: true,
+        }),
+      );
+    });
+
+    await expect(input).toHaveValue('She said "');
+    await expect(page.locator('[data-chat-mode="roleplay"]')).toHaveClass(/mari-generation-render-paused/u);
+
+    await input.fill("");
+    await input.blur();
+    await expect(page.locator('[data-chat-mode="roleplay"]')).not.toHaveClass(/mari-generation-render-paused/u);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`);
+  }
+});
+
 test("generation fallbacks identify the replacement connection in a toast", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Fallback toast regression is covered on desktop.");
 
