@@ -599,6 +599,7 @@ import { parseAssistantWorkspaceAction } from "../../packages/server/src/service
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
   assemblePrompt,
+  resolveChoiceVariableValue,
   resolvePromptMessageMacros,
   scopePromptMacroContextToCharacter,
   type AssemblerInput,
@@ -6823,6 +6824,41 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
       assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_0/u);
       assert.match(promptText, /UNCAPPED_TAIL_MESSAGE_54/u);
       assert.match(promptText, /CURRENT_CONVERSATION_MESSAGE/u);
+    },
+  },
+  {
+    name: "Random Pick resolves one selected preset value on every prompt assembly",
+    run() {
+      const options = [{ value: "tender" }, { value: "dramatic" }, { value: "playful" }];
+      const input = {
+        selected: ["tender", "dramatic", "playful"],
+        options,
+        multiSelect: true,
+        randomPick: "true",
+      };
+
+      assert.equal(resolveChoiceVariableValue({ ...input, random: () => 0 }), "tender");
+      assert.equal(resolveChoiceVariableValue({ ...input, random: () => 0.5 }), "dramatic");
+      assert.equal(resolveChoiceVariableValue({ ...input, random: () => 0.999999 }), "playful");
+      assert.equal(
+        resolveChoiceVariableValue({
+          ...input,
+          multiSelect: "false",
+          randomPick: true,
+          random: () => 0.5,
+        }),
+        "dramatic",
+        "legacy Boolean Random Pick rows should retain their multi-value selection",
+      );
+      assert.equal(
+        resolveChoiceVariableValue({
+          ...input,
+          selected: ["removed", "playful"],
+          random: () => 0,
+        }),
+        "playful",
+        "stale values should be removed before Random Pick resolves",
+      );
     },
   },
   {

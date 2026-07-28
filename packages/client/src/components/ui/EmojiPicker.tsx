@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { cn } from "../../lib/utils";
 import { EMOJI_CATEGORIES, EMOJI_SEARCH_NAMES } from "../../lib/emoji-catalog.generated";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Search } from "lucide-react";
 
 /** Emoji → searchable keywords (lowercase). Only needs entries for emojis in CATEGORIES. */
 const EMOJI_ALIASES: Record<string, string> = {
@@ -1317,15 +1318,21 @@ export function EmojiPicker({
     <>
       {/* Search spans every standard category and custom emojis, regardless of the selected tab. */}
       <div className="border-b border-foreground/10 px-3 py-2">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={localizeUi("ui.ui.emojipicker.searchEmojis")}
-          aria-label={localizeUi("ui.ui.emojipicker.searchEmojis_ecbfa28")}
-          className="w-full rounded-md bg-foreground/5 px-2.5 py-1.5 text-xs outline-none ring-1 ring-foreground/10 transition-shadow placeholder:text-foreground/35 focus:ring-foreground/20"
-          autoFocus={!embedded}
-        />
+        <div
+          data-emoji-search-shell
+          className="flex items-center gap-2 rounded-md bg-foreground/5 px-2.5 py-1.5 ring-1 ring-foreground/10 transition-shadow focus-within:ring-foreground/20"
+        >
+          <Search aria-hidden="true" size="0.875rem" className="shrink-0 text-foreground/45" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={localizeUi("ui.ui.emojipicker.searchEmojis")}
+            aria-label={localizeUi("ui.ui.emojipicker.searchEmojis_ecbfa28")}
+            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-foreground/35"
+            autoFocus={!embedded}
+          />
+        </div>
       </div>
 
       {/* Category tabs */}
@@ -1369,34 +1376,34 @@ export function EmojiPicker({
 
       {/* Emoji grid (or the custom-emoji tab content) */}
       <div className="flex-1 overflow-y-auto px-2 py-2">
-        {!searching && activeCategory === "custom" && customTab
-          ? customTab.render(search)
-          : (
-              <>
-                {visibleStandardCategories.map((cat) => (
-                  <div key={cat.label}>
-                    <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
-                      {cat.label}
-                    </p>
-                    <div className="grid grid-cols-8 gap-0.5">
-                      {cat.emojis.map((emoji) => (
-                        <button
-                          key={emoji}
-                          type="button"
-                          onClick={() => handleSelect(emoji)}
-                          aria-label={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
-                          title={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
-                          className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
-                        >
-                          {emoji}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {searching && customTab && (customTab.renderSearch?.(search) ?? customTab.render(search))}
-              </>
-            )}
+        {!searching && activeCategory === "custom" && customTab ? (
+          customTab.render(search)
+        ) : (
+          <>
+            {visibleStandardCategories.map((cat) => (
+              <div key={cat.label}>
+                <p className="mb-1 px-1 text-[0.625rem] font-semibold uppercase tracking-wide text-foreground/45">
+                  {cat.label}
+                </p>
+                <div className="grid grid-cols-8 gap-0.5">
+                  {cat.emojis.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleSelect(emoji)}
+                      aria-label={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
+                      title={EMOJI_SEARCH_NAMES[emoji] ?? EMOJI_ALIASES[emoji] ?? emoji}
+                      className="rounded-md p-1 text-xl transition-transform hover:scale-125 hover:bg-foreground/10 active:scale-100"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {searching && customTab && (customTab.renderSearch?.(search) ?? customTab.render(search))}
+          </>
+        )}
       </div>
     </>
   );

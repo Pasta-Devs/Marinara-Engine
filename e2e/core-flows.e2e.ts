@@ -2900,149 +2900,149 @@ test("Personal Extensions default to the Professor Mari-only locked workflow", a
   expect(warningColors.warning).toBe(warningColors.accent);
 });
 
-test(
-  "external Agent imports require the Danger Zone gate and explicit capabilities",
-  async ({ page, request }, testInfo) => {
-    test.skip(
-      testInfo.project.name !== "mobile-chromium",
-      "This stateful import-policy flow runs once against the shared test server",
-    );
+test("external Agent imports require the Danger Zone gate and explicit capabilities", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "mobile-chromium",
+    "This stateful import-policy flow runs once against the shared test server",
+  );
 
-    const disabledPolicy = await request.patch("/api/agents/import-policy", { data: { enabled: false } });
-    expect(disabledPolicy.ok()).toBeTruthy();
+  const disabledPolicy = await request.patch("/api/agents/import-policy", { data: { enabled: false } });
+  expect(disabledPolicy.ok()).toBeTruthy();
 
-    const testSuffix = Date.now().toString(36);
-    const localAgentName = `Locally Authored Agent ${testSuffix}`;
-    const importedAgentName = `Permission Review Agent ${testSuffix}`;
-    let localAgentId: string | undefined;
-    let importedAgentId: string | undefined;
-    try {
-      const localAgentResponse = await request.post("/api/agents", {
-        data: {
-          type: `e2e-local-agent-${testSuffix}`,
-          name: localAgentName,
-          description: "Must remain creatable while external imports are locked.",
-          phase: "parallel",
+  const testSuffix = Date.now().toString(36);
+  const localAgentName = `Locally Authored Agent ${testSuffix}`;
+  const importedAgentName = `Permission Review Agent ${testSuffix}`;
+  let localAgentId: string | undefined;
+  let importedAgentId: string | undefined;
+  try {
+    const localAgentResponse = await request.post("/api/agents", {
+      data: {
+        type: `e2e-local-agent-${testSuffix}`,
+        name: localAgentName,
+        description: "Must remain creatable while external imports are locked.",
+        phase: "parallel",
+        connectionId: null,
+        imagePath: null,
+        promptTemplate: "Return a short note.",
+        settings: { resultType: "context_injection", customCapabilities: {} },
+      },
+    });
+    expect(localAgentResponse.ok()).toBeTruthy();
+    const localAgent = (await localAgentResponse.json()) as { id: string };
+    localAgentId = localAgent.id;
+
+    const blockedImport = await request.post("/api/agents/import", {
+      data: {
+        agent: {
+          type: "untrusted-haptic",
+          name: "Blocked External Agent",
+          description: "",
+          phase: "post_processing",
           connectionId: null,
           imagePath: null,
-          promptTemplate: "Return a short note.",
-          settings: { resultType: "context_injection", customCapabilities: {} },
+          resultType: "haptic_command",
+          promptTemplate: "Return a haptic command.",
+          settings: { customCapabilities: { control_haptics: true } },
         },
-      });
-      expect(localAgentResponse.ok()).toBeTruthy();
-      const localAgent = (await localAgentResponse.json()) as { id: string };
-      localAgentId = localAgent.id;
+        source: "file",
+        approvedCapabilities: ["control_haptics"],
+        acknowledgePermissions: true,
+      },
+    });
+    expect(blockedImport.status()).toBe(403);
 
-      const blockedImport = await request.post("/api/agents/import", {
-        data: {
-          agent: {
-            type: "untrusted-haptic",
-            name: "Blocked External Agent",
-            description: "",
-            phase: "post_processing",
-            connectionId: null,
-            imagePath: null,
-            resultType: "haptic_command",
-            promptTemplate: "Return a haptic command.",
-            settings: { customCapabilities: { control_haptics: true } },
-          },
-          source: "file",
-          approvedCapabilities: ["control_haptics"],
-          acknowledgePermissions: true,
-        },
-      });
-      expect(blockedImport.status()).toBe(403);
+    await page.goto("/");
+    await page.locator('[data-tour="panel-agents"]').click();
+    const disabledHelp = 'Enable "Allow custom Agent imports" in Advanced Settings → Danger Zone first.';
+    const lockedImportButton = page.getByTitle(disabledHelp).first();
+    await expect(lockedImportButton).toHaveAttribute("aria-disabled", "true");
+    await lockedImportButton.dispatchEvent("click");
+    await expect(page.getByText(disabledHelp, { exact: true }).last()).toBeVisible();
 
-      await page.goto("/");
-      await page.locator('[data-tour="panel-agents"]').click();
-      const disabledHelp = 'Enable "Allow custom Agent imports" in Advanced Settings → Danger Zone first.';
-      const lockedImportButton = page.getByTitle(disabledHelp).first();
-      await expect(lockedImportButton).toHaveAttribute("aria-disabled", "true");
-      await lockedImportButton.dispatchEvent("click");
-      await expect(page.getByText(disabledHelp, { exact: true }).last()).toBeVisible();
+    await page.locator('[data-tour="panel-settings"]').click();
+    await page.getByRole("tab", { name: "Advanced" }).click();
+    const agentImportToggle = page.getByLabel("Allow custom Agent imports");
+    const extensionImportToggle = page.getByLabel("Allow third-party extension imports");
+    await expect(agentImportToggle).toBeEnabled();
+    await expect(agentImportToggle).not.toBeChecked();
+    expect(
+      await agentImportToggle.evaluate((toggle) => {
+        const extensionLabel = [...document.querySelectorAll("label")].find(
+          (label) => label.textContent?.trim() === "Allow third-party extension imports",
+        );
+        const extension =
+          extensionLabel instanceof HTMLLabelElement ? document.getElementById(extensionLabel.htmlFor) : null;
+        return Boolean(
+          extension && (toggle.compareDocumentPosition(extension) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        );
+      }),
+    ).toBe(true);
 
-      await page.locator('[data-tour="panel-settings"]').click();
-      await page.getByRole("tab", { name: "Advanced" }).click();
-      const agentImportToggle = page.getByLabel("Allow custom Agent imports");
-      const extensionImportToggle = page.getByLabel("Allow third-party extension imports");
-      await expect(agentImportToggle).toBeEnabled();
-      await expect(agentImportToggle).not.toBeChecked();
-      expect(
-        await agentImportToggle.evaluate((toggle) => {
-          const extensionLabel = [...document.querySelectorAll("label")].find(
-            (label) => label.textContent?.trim() === "Allow third-party extension imports",
-          );
-          const extension =
-            extensionLabel instanceof HTMLLabelElement
-              ? document.getElementById(extensionLabel.htmlFor)
-              : null;
-          return Boolean(
-            extension && (toggle.compareDocumentPosition(extension) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
-          );
+    const enabledPolicy = await request.patch("/api/agents/import-policy", { data: { enabled: true } });
+    expect(enabledPolicy.ok()).toBeTruthy();
+    await page.reload();
+    await page.locator('[data-tour="panel-agents"]').click();
+    await expect(page.getByTitle("Import agents")).toHaveAttribute("aria-disabled", "false");
+
+    const packageInput = page
+      .getByRole("region", { name: "Agents" })
+      .locator('input[type="file"][accept*="application/json"]');
+    await packageInput.setInputFiles({
+      name: "permission-review-agent.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({
+          type: "untrusted-haptic",
+          name: importedAgentName,
+          description: "Requests haptic control.",
+          phase: "post_processing",
+          resultType: "haptic_command",
+          promptTemplate: "Return a haptic command.",
+          settings: { customCapabilities: { control_haptics: true } },
         }),
-      ).toBe(true);
+      ),
+    });
 
-      const enabledPolicy = await request.patch("/api/agents/import-policy", { data: { enabled: true } });
-      expect(enabledPolicy.ok()).toBeTruthy();
-      await page.reload();
-      await page.locator('[data-tour="panel-agents"]').click();
-      await expect(page.getByTitle("Import agents")).toHaveAttribute("aria-disabled", "false");
+    await expect(page.getByRole("dialog", { name: "Review Agent Import Permissions" })).toBeVisible();
+    const hapticPermission = page.getByLabel("Control haptic devices");
+    await expect(hapticPermission).not.toBeChecked();
+    await hapticPermission.check();
+    await expect(hapticPermission).toBeChecked();
+    await page.getByRole("button", { name: "Approve Permissions and Import" }).click();
+    await expect(page.getByRole("dialog", { name: "Review Agent Import Permissions" })).toHaveCount(0);
 
-      const packageInput = page.locator('input[type="file"][accept*="application/json"]');
-      await packageInput.setInputFiles({
-        name: "permission-review-agent.json",
-        mimeType: "application/json",
-        buffer: Buffer.from(
-          JSON.stringify({
-            type: "untrusted-haptic",
-            name: importedAgentName,
-            description: "Requests haptic control.",
-            phase: "post_processing",
-            resultType: "haptic_command",
-            promptTemplate: "Return a haptic command.",
-            settings: { customCapabilities: { control_haptics: true } },
-          }),
-        ),
-      });
-
-      await expect(page.getByRole("dialog", { name: "Review Agent Import Permissions" })).toBeVisible();
-      const hapticPermission = page.getByLabel("Control haptic devices");
-      await expect(hapticPermission).not.toBeChecked();
-      await hapticPermission.check();
-      await expect(hapticPermission).toBeChecked();
-      await page.getByRole("button", { name: "Approve Permissions and Import" }).click();
-      await expect(page.getByRole("dialog", { name: "Review Agent Import Permissions" })).toHaveCount(0);
-
-      const agentsResponse = await request.get("/api/agents");
-      expect(agentsResponse.ok()).toBeTruthy();
-      const agents = (await agentsResponse.json()) as Array<{ id: string; name: string; settings: string }>;
-      const importedAgent = agents.find((agent) => agent.name === importedAgentName);
-      expect(importedAgent).toBeTruthy();
-      importedAgentId = importedAgent?.id;
-      const importedSettings = JSON.parse(importedAgent!.settings) as Record<string, unknown>;
-      expect(importedSettings.customAgentImportSource).toBe("file");
-      expect(importedSettings.customAgentPermissionsExplicit).toBe(true);
-      expect(importedSettings.customCapabilities).toEqual({ control_haptics: true });
-    } finally {
-      try {
-        if (!localAgentId || !importedAgentId) {
-          const cleanupAgentsResponse = await request.get("/api/agents").catch(() => null);
-          if (cleanupAgentsResponse?.ok()) {
-            const cleanupAgents = (await cleanupAgentsResponse.json()) as Array<{ id: string; name: string }>;
-            localAgentId ??= cleanupAgents.find((agent) => agent.name === localAgentName)?.id;
-            importedAgentId ??= cleanupAgents.find((agent) => agent.name === importedAgentName)?.id;
-          }
+    const agentsResponse = await request.get("/api/agents");
+    expect(agentsResponse.ok()).toBeTruthy();
+    const agents = (await agentsResponse.json()) as Array<{ id: string; name: string; settings: string }>;
+    const importedAgent = agents.find((agent) => agent.name === importedAgentName);
+    expect(importedAgent).toBeTruthy();
+    importedAgentId = importedAgent?.id;
+    const importedSettings = JSON.parse(importedAgent!.settings) as Record<string, unknown>;
+    expect(importedSettings.customAgentImportSource).toBe("file");
+    expect(importedSettings.customAgentPermissionsExplicit).toBe(true);
+    expect(importedSettings.customCapabilities).toEqual({ control_haptics: true });
+  } finally {
+    try {
+      if (!localAgentId || !importedAgentId) {
+        const cleanupAgentsResponse = await request.get("/api/agents").catch(() => null);
+        if (cleanupAgentsResponse?.ok()) {
+          const cleanupAgents = (await cleanupAgentsResponse.json()) as Array<{ id: string; name: string }>;
+          localAgentId ??= cleanupAgents.find((agent) => agent.name === localAgentName)?.id;
+          importedAgentId ??= cleanupAgents.find((agent) => agent.name === importedAgentName)?.id;
         }
-        await Promise.all([
-          localAgentId ? request.delete(`/api/agents/${localAgentId}`).catch(() => undefined) : Promise.resolve(),
-          importedAgentId ? request.delete(`/api/agents/${importedAgentId}`).catch(() => undefined) : Promise.resolve(),
-        ]);
-      } finally {
-        await request.patch("/api/agents/import-policy", { data: { enabled: false } });
       }
+      await Promise.all([
+        localAgentId ? request.delete(`/api/agents/${localAgentId}`).catch(() => undefined) : Promise.resolve(),
+        importedAgentId ? request.delete(`/api/agents/${importedAgentId}`).catch(() => undefined) : Promise.resolve(),
+      ]);
+    } finally {
+      await request.patch("/api/agents/import-policy", { data: { enabled: false } });
     }
-  },
-);
+  }
+});
 
 test("Roleplay Active Context shows rich lorebook activation provenance", async ({ page, request }, testInfo) => {
   const lorebookId = "roleplay-active-context-smoke-lorebook";
@@ -5218,6 +5218,11 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   });
   await page.route("**/api/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+  });
+  // Keep this catalog-only experiment isolated from the server-wide import-policy
+  // mutation exercised by the dedicated Danger Zone flow in the other project.
+  await page.route("**/api/agents/import-policy", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ enabled: true }) });
   });
   await page.route("**/api/custom-agent-repositories", async (route) => {
     await route.fulfill({
@@ -9700,7 +9705,7 @@ test("mobile chat composer follows the visual viewport above the software keyboa
   }
 });
 
-test("kaomoji stays in Conversation and uses the configured chat accent", async ({ page }) => {
+test("Conversation media searches match GIFs and internal presses keep the picker open", async ({ page }) => {
   const response = await page.request.post("/api/chats", {
     data: {
       name: "Kaomoji Scrollbar Smoke",
@@ -9717,23 +9722,22 @@ test("kaomoji stays in Conversation and uses the configured chat accent", async 
     }, chat.id);
     await page.goto("/");
 
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--marinara-chat-chrome-button-text-active", "rgb(20, 184, 166)");
-      document.documentElement.style.setProperty("--primary", "rgb(236, 72, 153)");
-    });
     await page.getByRole("button", { name: /Emoji, GIFs/u }).click();
+    const mediaPicker = page.locator("[data-conversation-media-picker]:visible");
+    await expect(mediaPicker).toBeVisible();
     const emojiSearchInput = page.locator('input[placeholder="Search emojis..."]:visible');
     const emojiSearchStyle = await emojiSearchInput.evaluate((input) => {
       const style = getComputedStyle(input);
+      const shellStyle = getComputedStyle(input.parentElement!);
       return {
-        backgroundColor: style.backgroundColor,
-        borderRadius: style.borderRadius,
+        backgroundColor: shellStyle.backgroundColor,
+        borderRadius: shellStyle.borderRadius,
         fontSize: style.fontSize,
-        paddingBlock: `${style.paddingTop} ${style.paddingBottom}`,
-        paddingInline: `${style.paddingLeft} ${style.paddingRight}`,
+        paddingBlock: `${shellStyle.paddingTop} ${shellStyle.paddingBottom}`,
+        paddingInline: `${shellStyle.paddingLeft} ${shellStyle.paddingRight}`,
       };
     });
-    await page.getByRole("button", { name: "Kaomoji" }).click();
+    await mediaPicker.getByRole("button", { name: "Kaomoji", exact: true }).click();
     const picker = page.getByRole("dialog", { name: "Kaomoji picker" });
     await expect(picker).toBeVisible();
 
@@ -9744,7 +9748,6 @@ test("kaomoji stays in Conversation and uses the configured chat accent", async 
     expect(categoriesFit).toBe(true);
     expect(resultsFit).toBe(true);
 
-    const searchIcon = picker.locator("svg").first();
     const searchInput = picker.getByPlaceholder("Search kaomoji…");
     const kaomojiSearchStyle = await searchInput.evaluate((input) => {
       const inputStyle = getComputedStyle(input);
@@ -9757,11 +9760,24 @@ test("kaomoji stays in Conversation and uses the configured chat accent", async 
         paddingInline: `${shellStyle.paddingLeft} ${shellStyle.paddingRight}`,
       };
     });
-    expect(kaomojiSearchStyle).toEqual(emojiSearchStyle);
-    await expect(searchIcon).toHaveCSS("color", "rgb(20, 184, 166)");
-    await expect
-      .poll(() => searchInput.evaluate((input) => getComputedStyle(input, "::placeholder").color))
-      .toBe("rgb(20, 184, 166)");
+    await picker.locator("[data-kaomoji-results]").dispatchEvent("pointerdown");
+    await expect(mediaPicker).toBeVisible();
+
+    await mediaPicker.getByRole("button", { name: "GIFs", exact: true }).click();
+    const gifSearchInput = page.getByRole("textbox", { name: "Search for GIFs", exact: true });
+    const gifSearchStyle = await gifSearchInput.evaluate((input) => {
+      const inputStyle = getComputedStyle(input);
+      const shellStyle = getComputedStyle(input.parentElement!);
+      return {
+        backgroundColor: shellStyle.backgroundColor,
+        borderRadius: shellStyle.borderRadius,
+        fontSize: inputStyle.fontSize,
+        paddingBlock: `${shellStyle.paddingTop} ${shellStyle.paddingBottom}`,
+        paddingInline: `${shellStyle.paddingLeft} ${shellStyle.paddingRight}`,
+      };
+    });
+    expect(emojiSearchStyle).toEqual(gifSearchStyle);
+    expect(kaomojiSearchStyle).toEqual(gifSearchStyle);
   } finally {
     await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
   }

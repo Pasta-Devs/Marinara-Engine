@@ -3155,7 +3155,8 @@ export function useGenerate() {
       }
       useChatStore.getState().setAbortController(chatId, abortController);
       useChatStore.getState().setBackgroundIllustration(chatId, false);
-      const isIllustratorOnlyRetry = agentTypes.length === 1 && agentTypes[0] === "illustrator";
+      const isIllustratorOnlyRetry =
+        agentTypes.length > 0 && agentTypes.every((agentType) => agentType === "illustrator");
       const isTrackerRetry = agentTypes.some(
         (agentType) => isBuiltInTrackerAgentType(agentType) || !isBuiltInAgentType(agentType),
       );

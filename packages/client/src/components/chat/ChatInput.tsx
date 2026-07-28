@@ -93,6 +93,8 @@ const TEXT_ATTACHMENT_EXTENSIONS = new Set([
 ]);
 const PDF_ATTACHMENT_MIME_TYPE = "application/pdf";
 const QUOTE_INPUT_TRIGGER_RE = /["'\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f]/;
+const ROLEPLAY_INPUT_RESIZE_IDLE_MS = 150;
+const ROLEPLAY_INPUT_DELETE_RESIZE_IDLE_MS = 450;
 
 function shouldFormatQuoteInput(event: FormEvent<HTMLTextAreaElement> | undefined, value: string): boolean {
   const inputEvent = event?.nativeEvent as InputEvent | undefined;
@@ -1484,6 +1486,8 @@ export const ChatInput = memo(function ChatInput({
   const handleInput = (event?: FormEvent<HTMLTextAreaElement>) => {
     const el = textareaRef.current;
     if (!el) return;
+    const inputEvent = event?.nativeEvent as InputEvent | undefined;
+    const isDeleting = inputEvent?.inputType?.startsWith("delete") === true;
     const fixed = shouldFormatQuoteInput(event, el.value) ? applyTextareaQuoteFormat(el, quoteFormat) : el.value;
     syncInputState(fixed);
 
@@ -1508,7 +1512,7 @@ export const ChatInput = memo(function ChatInput({
       resizeTimerRef.current = null;
       if (textareaRef.current !== el) return;
       resizeChatInputTextarea(el);
-    }, 150);
+    }, isDeleting ? ROLEPLAY_INPUT_DELETE_RESIZE_IDLE_MS : ROLEPLAY_INPUT_RESIZE_IDLE_MS);
 
     // Slash command autocomplete
     const trimmed = fixed.trim();

@@ -80,6 +80,26 @@ const chatRoleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
   "utf8",
 );
+const chatAreaSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatArea.tsx", import.meta.url),
+  "utf8",
+);
+const generateHookSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-generate.ts", import.meta.url),
+  "utf8",
+);
+const weatherEffectsSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/WeatherEffects.tsx", import.meta.url),
+  "utf8",
+);
+const weatherWorkerSource = readFileSync(
+  new URL("../../packages/client/src/workers/weather-effects.worker.ts", import.meta.url),
+  "utf8",
+);
+const gameSurfaceSource = readFileSync(
+  new URL("../../packages/client/src/components/game/GameSurface.tsx", import.meta.url),
+  "utf8",
+);
 const echoChamberPanelSource = readFileSync(
   new URL("../../packages/client/src/components/chat/EchoChamberPanel.tsx", import.meta.url),
   "utf8",
@@ -274,6 +294,36 @@ assert.match(
   /type: "illustration_queued"/u,
   "an Illustrator-only retry should expose the same background handoff",
 );
+assert.match(
+  generateHookSource,
+  /const isIllustratorOnlyRetry =[\s\S]{0,180}agentTypes\.every\(\(agentType\) => agentType === "illustrator"\)/u,
+  "retry handoff should identify Illustrator-only work without exempting mixed agent retries",
+);
+assert.match(
+  generateHookSource,
+  /case "illustration_queued": \{[\s\S]{0,180}if \(isIllustratorOnlyRetry\) \{[\s\S]{0,120}setBackgroundIllustration\(chatId, true\);/u,
+  "only an Illustrator-only retry should hand off from text streaming to background image work",
+);
+assert.match(
+  chatAreaSource,
+  /const isTextStreaming = isStreaming && !isBackgroundIllustration;/u,
+  "finished assistant text must stop being treated as streaming while Illustrator continues",
+);
+assert.match(
+  chatAreaSource,
+  /isStreaming=\{isTextStreaming\}[\s\S]{0,120}generationVisualsPaused=\{isStreaming \|\| agentProcessing\}/u,
+  "Roleplay messages should remain editable while ambient rendering stays suspended for background work",
+);
+const galleryCreateIndex = generateRouteSource.indexOf("const galleryEntry = await galleryStore.create");
+const illustrationMessageLookupIndex = generateRouteSource.indexOf(
+  "const msgRow = await chats.getMessage(messageId)",
+  galleryCreateIndex,
+);
+assert.notEqual(galleryCreateIndex, -1, "Illustrator must persist generated images to Gallery");
+assert.ok(
+  illustrationMessageLookupIndex > galleryCreateIndex,
+  "Illustrator must save to Gallery before checking whether the source message still exists",
+);
 const chatTextareaSource = chatInputSource.match(/<textarea[\s\S]*?\/>/u)?.[0] ?? "";
 const chatHandleInputSource =
   chatInputSource.match(
@@ -297,8 +347,8 @@ assert.doesNotMatch(
 );
 assert.match(
   chatHandleInputSource,
-  /resizeTimerRef\.current = setTimeout\(\(\) => \{[\s\S]*?resizeChatInputTextarea\(el\);[\s\S]*?\}, 150\);/u,
-  "Roleplay textarea measurement should wait for a typing pause instead of forcing layout on each keystroke",
+  /const isDeleting = inputEvent\?\.inputType\?\.startsWith\("delete"\) === true;[\s\S]*?isDeleting \? ROLEPLAY_INPUT_DELETE_RESIZE_IDLE_MS : ROLEPLAY_INPUT_RESIZE_IDLE_MS/u,
+  "Roleplay deletion should use a longer resize idle window than ordinary typing",
 );
 assert.match(
   chatInputSource,
@@ -334,6 +384,46 @@ assert.match(
   globalStylesSource,
   /\[data-chat-mode="roleplay"\] \.mari-chat-input-textarea \{\s+contain: paint;/u,
   "Roleplay textarea paint should stay isolated from the live scene behind it",
+);
+assert.match(
+  firefoxSupportsSource,
+  /\[data-chat-mode="roleplay"\] \.marinara-chat-input-shell\s*\{[^{}]*contain:\s*layout paint;[^{}]*isolation:\s*isolate;/u,
+  "Firefox should contain composer layout and paint while text is edited",
+);
+assert.match(
+  chatRoleplaySurfaceSource,
+  /generationVisualsPaused && "mari-generation-render-paused"/u,
+  "Roleplay should pause ambient rendering while generation is active",
+);
+assert.match(
+  gameSurfaceSource,
+  /\(isStreaming \|\| scenePreparing \|\| sceneAnalysis\.isPending \|\| agentsProcessing\) &&[\s\S]{0,80}"mari-generation-render-paused"/u,
+  "Game should pause ambient rendering during GM, scene-model, and agent generation",
+);
+assert.match(
+  gameSurfaceSource,
+  /paused=\{isStreaming \|\| scenePreparing \|\| sceneAnalysis\.isPending \|\| agentsProcessing\}/u,
+  "Game weather should remain paused through background agent work",
+);
+assert.match(
+  weatherEffectsSource,
+  /workerRef\.current\?\.postMessage\(\{ type: "visibility", hidden: document\.hidden \|\| paused \}\)/u,
+  "weather workers should receive generation suspension state",
+);
+assert.match(
+  weatherEffectsSource,
+  /if \(document\.hidden \|\| pausedRef\.current\) \{[\s\S]{0,180}frameRef\.current = 0;/u,
+  "fallback weather rendering should stop scheduling frames while suspended",
+);
+assert.match(
+  weatherWorkerSource,
+  /function setSuspended\(suspended: boolean\)[\s\S]{0,220}clearTimeout\(timer\);[\s\S]{0,120}scheduleFrame\(\);/u,
+  "offscreen weather rendering should stop its timer rather than polling while suspended",
+);
+assert.match(
+  globalStylesSource,
+  /\.mari-generation-render-paused[\s\S]{0,500}animation-play-state: paused !important;/u,
+  "decorative CSS animations should yield GPU time during generation",
 );
 assert.match(
   firefoxSupportsSource,

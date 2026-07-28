@@ -10736,7 +10736,14 @@ function GameSurfaceComponent({
   };
 
   return (
-    <div className="relative flex h-full overflow-hidden bg-black mari-card-css" data-chat-mode="game">
+    <div
+      className={cn(
+        "relative flex h-full overflow-hidden bg-black mari-card-css",
+        (isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing) &&
+          "mari-generation-render-paused",
+      )}
+      data-chat-mode="game"
+    >
       <GameTransitionManager gameState={gameState} location={gameSnapshot?.location ?? null}>
         <DirectionEngine
           directions={activeDirections}
@@ -11378,6 +11385,7 @@ function GameSurfaceComponent({
                         weather={gameSnapshot?.weather ?? null}
                         timeOfDay={gameSnapshot?.time ?? metaTime ?? null}
                         showCelestial={false}
+                        paused={isStreaming || scenePreparing || sceneAnalysis.isPending || agentsProcessing}
                       />
                     </div>
                   )}

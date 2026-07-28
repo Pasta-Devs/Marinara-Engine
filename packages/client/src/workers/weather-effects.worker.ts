@@ -152,7 +152,10 @@ function drawFrame(now: number, advanceSimulation = true) {
 }
 
 function scheduleFrame() {
+  if (hidden || timer !== null) return;
   timer = setTimeout(() => {
+    timer = null;
+    if (hidden) return;
     try {
       drawFrame(performance.now());
       scheduleFrame();
@@ -161,6 +164,17 @@ function scheduleFrame() {
       self.postMessage({ type: "render-error" });
     }
   }, FRAME_MS);
+}
+
+function setSuspended(suspended: boolean) {
+  hidden = suspended;
+  previousTime = performance.now();
+  if (hidden) {
+    if (timer !== null) clearTimeout(timer);
+    timer = null;
+    return;
+  }
+  scheduleFrame();
 }
 
 self.onmessage = (event: MessageEvent<WeatherWorkerMessage>) => {
@@ -181,8 +195,7 @@ self.onmessage = (event: MessageEvent<WeatherWorkerMessage>) => {
     // browser never presents a blank weather layer between sidebar layouts.
     drawFrame(performance.now(), false);
   } else {
-    hidden = message.hidden;
-    previousTime = performance.now();
+    setSuspended(message.hidden);
   }
 };
 
