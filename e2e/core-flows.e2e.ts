@@ -2157,7 +2157,7 @@ test("provider concurrency errors appear in generation toasts", async ({ page },
   }
 });
 
-test("the first message edit persists after stopped generation with or without a composer draft", async ({
+test("sent text stays cleared and the first message edit persists after stopped generation", async ({
   page,
   request,
 }, testInfo) => {
@@ -2184,11 +2184,14 @@ test("the first message edit persists after stopped generation with or without a
         connection: "keep-alive",
         "cache-control": "no-cache",
       });
-      response.write(
-        `data: ${JSON.stringify({
-          choices: [{ index: 0, delta: { content: "Partial response" }, finish_reason: null }],
-        })}\n\n`,
-      );
+      response.flushHeaders();
+      if (providerRequests.length <= 2) {
+        response.write(
+          `data: ${JSON.stringify({
+            choices: [{ index: 0, delta: { content: "Partial response" }, finish_reason: null }],
+          })}\n\n`,
+        );
+      }
     });
   });
   await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
@@ -2268,6 +2271,7 @@ test("the first message edit persists after stopped generation with or without a
 
     await input.fill("Original message with retained draft");
     await sendButton.click();
+    await expect(input).toHaveValue("");
     await input.fill("Unsent composer text");
     await stopCurrentGeneration(1);
     const firstMessage = (await readMessages()).find(
@@ -2279,6 +2283,7 @@ test("the first message edit persists after stopped generation with or without a
 
     await input.fill("Original message with cleared draft");
     await sendButton.click();
+    await expect(input).toHaveValue("");
     await stopCurrentGeneration(2);
     await expect(input).toHaveValue("");
     const secondMessage = (await readMessages()).find(
@@ -2287,6 +2292,19 @@ test("the first message edit persists after stopped generation with or without a
     expect(secondMessage).toBeTruthy();
     await editMessageOnce(secondMessage!.id, "Edited on the first save with cleared draft");
 
+    await input.fill("Sent text must stay cleared when stopped before the reply");
+    await sendButton.click();
+    await expect(input).toHaveValue("");
+    await stopCurrentGeneration(3);
+    await expect(input).toHaveValue("");
+    await expect
+      .poll(async () =>
+        (await readMessages()).some(
+          (message) => message.role === "user" && message.content === "Sent text must stay cleared when stopped before the reply",
+        ),
+      )
+      .toBe(true);
+
     await page.reload();
     await expect(page.locator(`[data-message-id="${firstMessage!.id}"]`)).toContainText(
       "Edited on the first save with retained draft",
@@ -2294,6 +2312,7 @@ test("the first message edit persists after stopped generation with or without a
     await expect(page.locator(`[data-message-id="${secondMessage!.id}"]`)).toContainText(
       "Edited on the first save with cleared draft",
     );
+    await expect(page.getByText("Sent text must stay cleared when stopped before the reply", { exact: true })).toBeVisible();
   } finally {
     for (const response of openProviderResponses) response.end();
     await Promise.allSettled([
@@ -3116,7 +3135,7 @@ test("legacy browser records are cleaned while extension imports stay locked", a
         };
       }),
     )
-    .toEqual({ version: 84, hasExtensionRecords: false, hasCleanupFlag: false });
+    .toEqual({ version: 87, hasExtensionRecords: false, hasCleanupFlag: false });
 
   expect(
     await page.evaluate(
@@ -6687,7 +6706,7 @@ test("Game setup only shows features owned by installed agents", async ({ page, 
       body: JSON.stringify({ scannedAt: "2026-07-14T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
     });
   });
-  await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "image/gif",
@@ -7015,7 +7034,7 @@ test("Roleplay and Game chat settings link empty agent libraries to Download Age
       body: JSON.stringify({ scannedAt: "2026-07-14T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
     });
   });
-  await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "image/gif",
@@ -7120,7 +7139,7 @@ test("Illustrator owns conditional media subsections and agent removal stays awa
       body: JSON.stringify({ entries: [], budgetSkippedEntries: [], totalTokens: 0, totalEntries: 0 }),
     });
   });
-  await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "image/gif",
@@ -7368,7 +7387,7 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
       body: JSON.stringify({ scannedAt: "2026-07-16T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
     });
   });
-  await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "image/gif",
@@ -7462,7 +7481,7 @@ test("Roleplay setup points empty agent libraries to the Agents tab", async ({ p
   await page.route("**/api/agents", async (route) => {
     await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
   });
-  await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+  await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "image/gif",
@@ -10226,7 +10245,7 @@ test("mobile Game keeps CYOA usable above four HUD widgets", async ({ page, requ
         body: JSON.stringify({ scannedAt: "2026-07-16T00:00:00.000Z", count: 0, assets: {}, byCategory: {} }),
       });
     });
-    await page.route("**/api/backgrounds/file/Black.jpg", async (route) => {
+    await page.route("**/api/backgrounds/file/Black.jpg**", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "image/gif",
@@ -10390,6 +10409,7 @@ test("Background rows keep long tag lists collapsed without crowding desktop con
   await page.keyboard.press("Enter");
   await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "true");
   await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toBeVisible();
+  await backgroundTagsToggle.focus();
   await page.keyboard.press("Enter");
   await expect(backgroundTagsToggle).toHaveAttribute("aria-expanded", "false");
   await expect(backgroundRow.getByText("quarantine berth", { exact: true })).toHaveCount(0);
@@ -10423,7 +10443,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
         ]),
       });
     });
-    await page.route(`**${backgroundUrl}`, async (route) => {
+    await page.route(`**${backgroundUrl}**`, async (route) => {
       requestedMethods.push(route.request().method());
       if (route.request().method() !== "GET") {
         await route.fulfill({ status: 405, body: "" });
@@ -10453,7 +10473,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
           ),
       )
       .toBe(true);
-    await page.locator(`img[src="${backgroundUrl}"]`).locator("..").click();
+    await page.locator(`img[src^="${backgroundUrl}"]`).locator("..").click();
 
     await expect
       .poll(async () =>
@@ -10472,8 +10492,8 @@ test("Roleplay displays a selected background when its file route is GET-only", 
       .toBe(true);
 
     const roleplaySurface = page.locator('[data-chat-mode="roleplay"]');
-    const activeBackground = page.locator(`img.mari-background[src="${backgroundUrl}"]`);
-    await expect(activeBackground).toHaveCSS("object-fit", testInfo.project.name.includes("mobile") ? "cover" : "fill");
+    const activeBackground = page.locator(`img.mari-background[src^="${backgroundUrl}"]`);
+    await expect(activeBackground).toHaveCSS("object-fit", "cover");
     const expectBackgroundToFitRoleplaySurface = async () => {
       await expect
         .poll(async () => {
@@ -10543,7 +10563,7 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.getByRole("button", { name: /Tags \(/ }).click();
     await page.getByRole("button", { name: "smoke-folder", exact: true }).click();
 
-    const backgroundRow = page.locator(`[data-background-id="${backgroundId}"]`);
+    const backgroundRow = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
     await expect(backgroundRow).toBeVisible();
     const backgroundActions = backgroundRow.locator("[data-background-actions]");
     const defaultToggle = backgroundRow.locator("[data-background-default-toggle]");
@@ -10584,42 +10604,63 @@ test("Background library organization works with desktop drag and touch drag", a
     const folder = page.locator(`[data-background-folder-id="${folderId}"]`);
     await expect(folder).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
+      const dragHandle = backgroundRow.getByTitle(/^Drag /);
+      const startRect = await dragHandle.boundingBox();
+      expect(startRect).not.toBeNull();
+      const start = {
+        x: startRect!.x + startRect!.width / 2,
+        y: startRect!.y + startRect!.height / 2,
+      };
+      await dragHandle.evaluate((handle, point) => {
+        const touch = { identifier: 1, target: handle, clientX: point.x, clientY: point.y };
+        const event = new Event("touchstart", { bubbles: true, cancelable: true });
+        Object.defineProperties(event, {
+          touches: { value: [touch] },
+          changedTouches: { value: [touch] },
+        });
+        handle.dispatchEvent(event);
+      }, start);
+      await expect(backgroundRow).toHaveAttribute("draggable", "false");
+      await page.waitForTimeout(350);
+      await expect(backgroundRow).toHaveClass(/opacity-50/);
+      await folder.scrollIntoViewIfNeeded();
+      const targetRect = await folder.boundingBox();
+      expect(targetRect).not.toBeNull();
+      const end = {
+        x: targetRect!.x + targetRect!.width / 2,
+        y: targetRect!.y + Math.min(targetRect!.height / 2, 20),
+      };
+      await expect
+        .poll(() =>
+          page.evaluate(
+            ({ point, targetFolderId }) =>
+              document
+                .elementFromPoint(point.x, point.y)
+                ?.closest<HTMLElement>("[data-background-folder-id]")
+                ?.dataset.backgroundFolderId === targetFolderId,
+            { point: end, targetFolderId: folderId! },
+          ),
+        )
+        .toBe(true);
       await page.evaluate(
-        ({ sourceId, targetFolderId }) => {
+        ({ sourceId, point }) => {
           const source = document.querySelector<HTMLElement>(`[data-background-id="${sourceId}"]`);
-          const handle = source?.querySelector<HTMLElement>("button[title^='Drag']");
-          const target = document.querySelector<HTMLElement>(`[data-background-folder-id="${targetFolderId}"]`);
-          if (!source || !handle || !target) throw new Error("Background touch drag fixtures were not rendered");
-          const startRect = handle.getBoundingClientRect();
-          const targetRect = target.getBoundingClientRect();
-          const start = new Touch({
-            identifier: 1,
-            target: handle,
-            clientX: startRect.left + startRect.width / 2,
-            clientY: startRect.top + startRect.height / 2,
+          if (!source) throw new Error("Background touch drag source was not rendered");
+          const touch = { identifier: 1, target: source, clientX: point.x, clientY: point.y };
+          const move = new Event("touchmove", { bubbles: true, cancelable: true });
+          Object.defineProperties(move, {
+            touches: { value: [touch] },
+            changedTouches: { value: [touch] },
           });
-          const end = new Touch({
-            identifier: 1,
-            target: handle,
-            clientX: targetRect.left + targetRect.width / 2,
-            clientY: targetRect.top + Math.min(targetRect.height / 2, 20),
+          window.dispatchEvent(move);
+          const end = new Event("touchend", { bubbles: true, cancelable: true });
+          Object.defineProperties(end, {
+            touches: { value: [] },
+            changedTouches: { value: [touch] },
           });
-          handle.dispatchEvent(
-            new TouchEvent("touchstart", {
-              bubbles: true,
-              cancelable: true,
-              touches: [start],
-              changedTouches: [start],
-            }),
-          );
-          window.dispatchEvent(
-            new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [end], changedTouches: [end] }),
-          );
-          window.dispatchEvent(
-            new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], changedTouches: [end] }),
-          );
+          window.dispatchEvent(end);
         },
-        { sourceId: backgroundId, targetFolderId: folderId! },
+        { sourceId: backgroundId, point: end },
       );
     } else {
       await backgroundRow.dragTo(folder);

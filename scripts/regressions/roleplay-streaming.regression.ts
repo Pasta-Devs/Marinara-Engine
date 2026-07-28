@@ -346,6 +346,16 @@ assert.match(
   "only an Illustrator-only retry should hand off from text streaming to background image work",
 );
 assert.match(
+  generateHookSource,
+  /const submittedUserTurn = params\.userMessage !== undefined;/u,
+  "generation should remember whether the stopped request already submitted a user turn",
+);
+assert.equal(
+  generateHookSource.match(/submittedUserTurn \|\| receivedContent \|\| spatialTransitionCommitted/gu)?.length,
+  2,
+  "stopping a submitted user turn should remain successful even before assistant content arrives",
+);
+assert.match(
   chatAreaSource,
   /const isTextStreaming = isStreaming && !isBackgroundIllustration;/u,
   "finished assistant text must stop being treated as streaming while Illustrator continues",
