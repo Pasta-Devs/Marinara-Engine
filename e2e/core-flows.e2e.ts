@@ -10699,12 +10699,15 @@ test("Background library organization works with desktop drag and touch drag", a
     }
     await defaultToggle.click();
 
+    await page.getByRole("button", { name: "New Folder" }).click();
+    const newFolderPrompt = page.getByRole("dialog").getByRole("textbox");
+    await expect(newFolderPrompt).toBeVisible();
     const [createFolderResponse] = await Promise.all([
       page.waitForResponse(
         (response) =>
           response.request().method() === "POST" && new URL(response.url()).pathname === "/api/backgrounds/folders",
       ),
-      page.getByRole("button", { name: "New Folder" }).click(),
+      newFolderPrompt.press("Enter"),
     ]);
     expect(createFolderResponse.ok()).toBeTruthy();
     const createdFolder = (await createFolderResponse.json()) as { id: string; name: string };

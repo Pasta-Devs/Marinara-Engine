@@ -115,6 +115,8 @@ export function BackgroundPicker({
   const draggedBackgroundIdRef = useRef<string | null>(null);
   const tagUpdatePendingRef = useRef(false);
   const closeAfterSelectionRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeFolderRef = useRef<string | null>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
 
   useEffect(
     () => () => {
@@ -122,6 +124,13 @@ export function BackgroundPicker({
     },
     [],
   );
+
+  useEffect(() => {
+    if (!open) return;
+    // The focus scope can scroll the panel while it mounts; start at the top regardless.
+    const frame = requestAnimationFrame(() => modalContentRef.current?.scrollTo({ top: 0 }));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   const { data: backgrounds = [] } = useQuery({
     queryKey: BACKGROUND_QUERY_KEY,
@@ -259,6 +268,7 @@ export function BackgroundPicker({
     });
   }, [backgrounds, folderFilter, includedTags, searchQuery, sort, sourceFilter]);
   const activeFolder = folders.find((folder) => folder.id === folderFilter) ?? null;
+  activeFolderRef.current = activeFolder?.id ?? null;
   const selectedBackground = backgrounds.find((background) => background.url === selected) ?? null;
   const sourceCounts = useMemo(
     () => ({
@@ -320,6 +330,17 @@ export function BackgroundPicker({
         const failed = uploads.length - successfulUploads.length;
 
         if (successfulUploads.length > 0) {
+          // Importing while browsing a folder files the uploads there instead of into Unfiled.
+          if (activeFolderRef.current) {
+            await Promise.allSettled(
+              successfulUploads.map((upload) =>
+                api.patch("/backgrounds/organization", {
+                  backgroundId: `user:${upload.filename}`,
+                  folderId: activeFolderRef.current,
+                }),
+              ),
+            );
+          }
           qc.invalidateQueries({ queryKey: BACKGROUND_QUERY_KEY });
           void refreshGameAssetManifest().catch(() => undefined);
           onSelect(successfulUploads[successfulUploads.length - 1]!.url);
@@ -387,9 +408,16 @@ export function BackgroundPicker({
     [updateTags, localizeUi],
   );
 
-  const handleCreateFolder = useCallback(() => {
-    createFolder.mutate(getNextBackgroundFolderName(folders));
-  }, [createFolder, folders]);
+  const handleCreateFolder = useCallback(async () => {
+    const name = await showPromptDialog({
+      title: localizeUi("ui.panels.backgroundpicker.newFolder"),
+      message: localizeUi("ui.panels.backgroundpicker.folderName"),
+      defaultValue: getNextBackgroundFolderName(folders),
+      confirmLabel: localizeUi("ui.panels.appearancesettings.add"),
+    });
+    const trimmed = name?.trim();
+    if (trimmed) createFolder.mutate(trimmed);
+  }, [createFolder, folders, localizeUi]);
 
   const handleRenameActiveFolder = useCallback(
     async (folder: BackgroundLibraryFolder) => {
@@ -835,7 +863,7 @@ export function BackgroundPicker({
           type="button"
           onClick={() => setOpen(true)}
           aria-label={localizeUi("ui.panels.backgroundpicker.browseLibrary")}
-          className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
+          className="group flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1.5 rounded-lg p-1.5 text-left ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--secondary)]/55 hover:ring-[var(--primary)]/45"
         >
           <span className="relative aspect-video w-20 shrink-0 overflow-hidden rounded-md bg-[var(--secondary)] ring-1 ring-[var(--border)]">
             {selected ? (
@@ -852,7 +880,7 @@ export function BackgroundPicker({
               </div>
             )}
           </span>
-          <span className="min-w-0 flex-1">
+          <span className="min-w-0 flex-1 basis-24">
             <div className="truncate text-xs font-semibold text-[var(--foreground)]">
               {selectedBackground
                 ? getBackgroundLibraryTitle(selectedBackground)
@@ -864,7 +892,7 @@ export function BackgroundPicker({
                 : localizeUi("ui.panels.backgroundpicker.value1BackgroundsAvailable", { value1: backgrounds.length })}
             </div>
           </span>
-          <span className="mari-chrome-control mari-chrome-control--compact shrink-0 group-hover:text-[var(--primary)]">
+          <span className="mari-chrome-control mari-chrome-control--compact ml-auto shrink-0 group-hover:text-[var(--primary)]">
             {localizeUi("ui.panels.backgroundpicker.browseLibrary")}
           </span>
         </button>
@@ -888,6 +916,7 @@ export function BackgroundPicker({
         width="max-w-4xl"
         mobileFullscreen
         panelClassName="sm:h-[min(88dvh,52rem)]"
+        contentRef={modalContentRef}
       >
         <div className="flex flex-col gap-3">
           <div className="flex gap-1.5">
@@ -970,23 +999,6 @@ export function BackgroundPicker({
                   <span className="tabular-nums opacity-60">{sourceCounts[value]}</span>
                 </button>
               ))}
-            </div>
-
-            <div className="flex min-w-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleCreateFolder}
-                disabled={createFolder.isPending}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
-                title={localizeUi("ui.panels.backgroundpicker.newFolder")}
-                aria-label={localizeUi("ui.panels.backgroundpicker.newFolder")}
-              >
-                {createFolder.isPending ? (
-                  <Loader2 size="0.75rem" className="animate-spin" />
-                ) : (
-                  <FolderPlus size="0.75rem" />
-                )}
-              </button>
             </div>
           </div>
 
@@ -1083,6 +1095,21 @@ export function BackgroundPicker({
                 </span>
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => void handleCreateFolder()}
+              disabled={createFolder.isPending}
+              className="mari-chrome-control mari-chrome-control--compact"
+              title={localizeUi("ui.panels.backgroundpicker.newFolder")}
+              aria-label={localizeUi("ui.panels.backgroundpicker.newFolder")}
+            >
+              {createFolder.isPending ? (
+                <Loader2 size="0.625rem" className="animate-spin" />
+              ) : (
+                <FolderPlus size="0.625rem" />
+              )}
+              {localizeUi("ui.panels.backgroundpicker.newFolder")}
+            </button>
             {activeFolder && (
               <>
                 <button
