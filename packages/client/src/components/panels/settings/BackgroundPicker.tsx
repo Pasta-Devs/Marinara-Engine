@@ -1273,73 +1273,6 @@ export function BackgroundPicker({
             </div>
 
             <div className="flex min-w-0 items-center gap-1.5">
-              {/* Native select: one control, no layout cost, and the OS picker on phones. */}
-              <div className="relative min-w-0 flex-1 sm:flex-none">
-                <select
-                  value={folderFilter}
-                  onChange={(event) => setFolderFilter(event.target.value)}
-                  data-background-folder-select
-                  className="mari-chrome-field mari-accent-animated h-9 w-full appearance-none py-0 pl-7 pr-6 text-[0.625rem] sm:w-40"
-                  title={localizeUi("ui.panels.backgroundpicker.filterByFolder")}
-                  aria-label={localizeUi("ui.panels.backgroundpicker.filterByFolder")}
-                >
-                  <option value="all">
-                    {localizeUi("ui.panels.backgroundpicker.allFolders")} ({backgrounds.length})
-                  </option>
-                  <option value="favorites">
-                    {localizeUi("ui.panels.backgroundpicker.favorites")} (
-                    {backgrounds.filter((background) => background.favorite).length})
-                  </option>
-                  <option value="unfiled">
-                    {localizeUi("ui.panels.backgroundpicker.unfiled")} (
-                    {backgrounds.filter((background) => !background.folderId).length})
-                  </option>
-                  {folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name} ({backgrounds.filter((background) => background.folderId === folder.id).length})
-                    </option>
-                  ))}
-                </select>
-                <Folder
-                  size="0.6875rem"
-                  className="mari-chrome-field-icon pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
-                />
-                <ChevronDown
-                  size="0.625rem"
-                  className="mari-chrome-field-icon pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-                />
-              </div>
-              {activeFolder && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void handleRenameActiveFolder(activeFolder)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
-                    title={localizeUi("ui.panels.backgroundpicker.renameFolder")}
-                    aria-label={localizeUi("ui.panels.backgroundpicker.renameFolderValue1", {
-                      value1: activeFolder.name,
-                    })}
-                  >
-                    <Pencil size="0.75rem" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      void handleDeleteFolder(
-                        activeFolder,
-                        backgrounds.filter((background) => background.folderId === activeFolder.id).length,
-                      )
-                    }
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--destructive)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--destructive)]/12"
-                    title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
-                    aria-label={localizeUi("ui.panels.backgroundpicker.deleteFolderValue1", {
-                      value1: activeFolder.name,
-                    })}
-                  >
-                    <Trash2 size="0.75rem" />
-                  </button>
-                </>
-              )}
               <div
                 className="flex shrink-0 rounded-lg bg-[var(--background)]/70 p-0.5 ring-1 ring-[var(--border)]/70"
                 role="group"
@@ -1398,6 +1331,96 @@ export function BackgroundPicker({
               {localizeUi("ui.panels.backgroundpicker.dragAndDropBackgroundsToFoldersDoubleClickOr")}
             </p>
           )}
+
+          {/* Folder chips wrap like the tag filters: no rail, no scroll strip, same on touch. */}
+          <div
+            className="flex flex-wrap items-center gap-1"
+            aria-label={localizeUi("ui.panels.backgroundpicker.filterByFolder")}
+          >
+            {(
+              [
+                ["all", localizeUi("ui.panels.backgroundpicker.allFolders"), backgrounds.length],
+                [
+                  "favorites",
+                  localizeUi("ui.panels.backgroundpicker.favorites"),
+                  backgrounds.filter((background) => background.favorite).length,
+                ],
+                [
+                  "unfiled",
+                  localizeUi("ui.panels.backgroundpicker.unfiled"),
+                  backgrounds.filter((background) => !background.folderId).length,
+                ],
+              ] as const
+            ).map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFolderFilter(value)}
+                data-background-folder-filter-id={value}
+                className={cn(
+                  "mari-chrome-control mari-chrome-control--compact",
+                  folderFilter === value && "mari-chrome-control--selected",
+                )}
+                aria-pressed={folderFilter === value}
+              >
+                {value === "favorites" && (
+                  <Star size="0.625rem" fill={folderFilter === value ? "currentColor" : "none"} />
+                )}
+                {label}
+                <span className="tabular-nums opacity-60">{count}</span>
+              </button>
+            ))}
+            {folders.map((folder) => (
+              <button
+                key={folder.id}
+                type="button"
+                onClick={() => setFolderFilter(folder.id)}
+                data-background-folder-filter-id={folder.id}
+                className={cn(
+                  "mari-chrome-control mari-chrome-control--compact",
+                  folderFilter === folder.id && "mari-chrome-control--selected",
+                )}
+                aria-pressed={folderFilter === folder.id}
+              >
+                <Folder size="0.625rem" />
+                <span className="max-w-32 truncate">{folder.name}</span>
+                <span className="tabular-nums opacity-60">
+                  {backgrounds.filter((background) => background.folderId === folder.id).length}
+                </span>
+              </button>
+            ))}
+            {activeFolder && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleRenameActiveFolder(activeFolder)}
+                  className="mari-chrome-control mari-chrome-control--compact"
+                  title={localizeUi("ui.panels.backgroundpicker.renameFolder")}
+                  aria-label={localizeUi("ui.panels.backgroundpicker.renameFolderValue1", {
+                    value1: activeFolder.name,
+                  })}
+                >
+                  <Pencil size="0.625rem" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleDeleteFolder(
+                      activeFolder,
+                      backgrounds.filter((background) => background.folderId === activeFolder.id).length,
+                    )
+                  }
+                  className="mari-chrome-control mari-chrome-control--compact !text-[var(--destructive)]"
+                  title={localizeUi("ui.panels.backgroundpicker.deleteFolder")}
+                  aria-label={localizeUi("ui.panels.backgroundpicker.deleteFolderValue1", {
+                    value1: activeFolder.name,
+                  })}
+                >
+                  <Trash2 size="0.625rem" />
+                </button>
+              </>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-1">
             <button

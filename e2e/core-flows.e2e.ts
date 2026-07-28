@@ -10743,7 +10743,7 @@ test("Background library organization works with desktop drag and touch drag", a
     folderId = createdFolder.id;
 
     const folder = page.locator(`[data-background-folder-id="${folderId}"]`);
-    await expect(page.locator(`[data-background-folder-select] option[value="${folderId}"]`)).toHaveCount(1);
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toBeVisible();
     await expect(folder).toBeVisible();
     if (testInfo.project.name.includes("mobile")) {
       const dragHandle = backgroundRow.getByTitle(/^Drag /);
@@ -10834,21 +10834,20 @@ test("Background library organization works with desktop drag and touch drag", a
         return backgrounds.find((background) => background.id === backgroundId)?.favorite ?? false;
       })
       .toBe(true);
-    const folderSelect = page.locator("[data-background-folder-select]");
-    await folderSelect.selectOption("favorites");
+    await page.locator('[data-background-folder-filter-id="favorites"]').click();
     await expect(backgroundRow).toBeVisible();
 
-    // Rename and delete the selected folder from the toolbar; its background falls back to unfiled.
-    await folderSelect.selectOption(folderId!);
+    // Rename and delete the active folder from the folder chips; its background falls back to unfiled.
+    await page.locator(`[data-background-folder-filter-id="${folderId}"]`).click();
     await page.getByRole("button", { name: `Rename folder Scenes ${suffix}` }).click();
     const folderNamePrompt = page.getByRole("dialog").getByRole("textbox");
     await folderNamePrompt.fill(`Alleys ${suffix}`);
     await folderNamePrompt.press("Enter");
-    await expect(folderSelect.locator(`option[value="${folderId}"]`)).toContainText(`Alleys ${suffix}`);
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toContainText(`Alleys ${suffix}`);
 
     await page.getByRole("button", { name: `Delete folder Alleys ${suffix}` }).click();
     await page.getByRole("button", { name: "Delete Folder", exact: true }).click();
-    await expect(folderSelect.locator(`option[value="${folderId}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toHaveCount(0);
     await expect
       .poll(async () => {
         const response = await page.request.get("/api/backgrounds");
