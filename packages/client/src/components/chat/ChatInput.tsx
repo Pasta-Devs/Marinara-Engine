@@ -1440,7 +1440,7 @@ export const ChatInput = memo(function ChatInput({
     handleImpersonateQuickButton,
   ]);
 
-  const scheduleDraftPersistence = (chatId: string, text: string) => {
+  const scheduleDraftPersistence = useCallback((chatId: string, text: string) => {
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       draftTimerRef.current = null;
@@ -1450,18 +1450,18 @@ export const ChatInput = memo(function ChatInput({
         clearInputDraft(chatId);
       }
     }, 300);
-  };
+  }, [clearInputDraft, setInputDraft]);
 
-  const scheduleTextareaResize = (el: HTMLTextAreaElement, delay: number) => {
+  const scheduleTextareaResize = useCallback((el: HTMLTextAreaElement, delay: number) => {
     if (resizeTimerRef.current) clearTimeout(resizeTimerRef.current);
     resizeTimerRef.current = setTimeout(() => {
       resizeTimerRef.current = null;
       if (textareaRef.current !== el) return;
       resizeChatInputTextarea(el);
     }, delay);
-  };
+  }, []);
 
-  const releaseHeldDeleteWork = () => {
+  const releaseHeldDeleteWork = useCallback(() => {
     if (!heldDeleteKeyRef.current) return;
     heldDeleteKeyRef.current = false;
 
@@ -1476,7 +1476,12 @@ export const ChatInput = memo(function ChatInput({
     if (pendingResize) {
       scheduleTextareaResize(pendingResize, ROLEPLAY_INPUT_RESIZE_IDLE_MS);
     }
-  };
+  }, [scheduleDraftPersistence, scheduleTextareaResize]);
+
+  useEffect(() => {
+    window.addEventListener("blur", releaseHeldDeleteWork);
+    return () => window.removeEventListener("blur", releaseHeldDeleteWork);
+  }, [releaseHeldDeleteWork]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (

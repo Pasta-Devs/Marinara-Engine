@@ -2479,7 +2479,9 @@ test("mobile Roleplay composition avoids draft rewrites and pauses ambient rende
   }
 });
 
-test("held Roleplay deletion defers draft persistence and autosizing until key release", async ({ page }, testInfo) => {
+test("held Roleplay deletion defers draft persistence and autosizing until a release boundary", async ({
+  page,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Held-key composer behavior is covered on desktop.");
 
   const chatResponse = await page.request.post("/api/chats", {
@@ -2543,6 +2545,27 @@ test("held Roleplay deletion defers draft persistence and autosizing until key r
         ),
       )
       .toBeGreaterThan(0);
+
+    await input.fill(initialValue);
+    await expect.poll(readPersistedDraft).toBe(initialValue);
+    await page.evaluate(() => {
+      (window as Window & { __heldDeleteStyleMutations?: number }).__heldDeleteStyleMutations = 0;
+    });
+
+    await input.focus();
+    await page.keyboard.down("Backspace");
+    await page.evaluate(() => window.dispatchEvent(new Event("blur")));
+
+    await expect(input).toHaveValue(initialValue.slice(0, -1));
+    await expect.poll(readPersistedDraft).toBe(initialValue.slice(0, -1));
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as Window & { __heldDeleteStyleMutations?: number }).__heldDeleteStyleMutations ?? 0,
+        ),
+      )
+      .toBeGreaterThan(0);
+    await page.keyboard.up("Backspace");
   } finally {
     await page.keyboard.up("Backspace").catch(() => undefined);
     await page.request.delete(`/api/chats/${chat.id}`);

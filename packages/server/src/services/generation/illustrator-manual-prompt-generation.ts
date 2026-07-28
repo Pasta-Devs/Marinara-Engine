@@ -79,9 +79,33 @@ function normalizeAspectRatio(value: unknown): ManualIllustratorPromptPlan["aspe
 }
 
 export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: string): string {
-  const withoutOutputSchema = promptTemplate.replace(/\n?Return valid JSON only:[\s\S]*$/iu, "");
-  return withoutOutputSchema
-    .split("\n")
+  const withoutTaggedOutputSchemas = promptTemplate.replace(
+    /<(?:output_format|output_schema|response_format|json_schema)\b[^>]*>[\s\S]*?<\/(?:output_format|output_schema|response_format|json_schema)>/giu,
+    "",
+  );
+  const withoutOutputSchemaFences = withoutTaggedOutputSchemas.replace(
+    /```(?:json)?\s*[\s\S]*?```/giu,
+    (block) =>
+      /\b(?:shouldGenerate|generateBackground)\b|["'](?:prompt|negativePrompt|style|characters|aspectRatio|reason)["']\s*:/iu.test(
+        block,
+      )
+        ? ""
+        : block,
+  );
+  const lines = withoutOutputSchemaFences.split("\n");
+  const outputSchemaStart = lines.findIndex((line) => {
+    const normalized = line.trim();
+    return (
+      /^(?:#{1,6}\s*)?(?:output|response)\s+(?:format|schema|structure)\s*:/iu.test(normalized) ||
+      /^(?:#{1,6}\s*)?json\s+schema\s*:/iu.test(normalized) ||
+      /^(?:return|respond|reply|output|emit|provide|produce)\b[^\n]{0,180}\b(?:json|schema|object|structure)\b/iu.test(
+        normalized,
+      )
+    );
+  });
+  const promptModeLines = outputSchemaStart >= 0 ? lines.slice(0, outputSchemaStart) : lines;
+
+  return promptModeLines
     .filter((line) => {
       const normalized = line.trim();
       if (!normalized) return true;
@@ -90,6 +114,43 @@ export function normalizeManualIllustratorPromptModeInstruction(promptTemplate: 
       if (/^Generate only for\b/iu.test(normalized)) return false;
       if (/^If not worth illustrating\b/iu.test(normalized)) return false;
       if (/^No prose outside the JSON\b/iu.test(normalized)) return false;
+      if (
+        /\b(?:decide|determine|evaluate|assess|choose)\b[^\n]{0,160}\b(?:whether|if)\b[^\n]{0,160}\b(?:generate|generation|illustrate|illustration|image|picture)\b/iu.test(
+          normalized,
+        )
+      ) {
+        return false;
+      }
+      if (
+        /\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\bonly\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(
+          normalized,
+        ) ||
+        /\bonly\b[^\n]{0,100}\b(?:generate|illustrate|create|draw)\b[^\n]{0,100}\b(?:if|when|for)\b/iu.test(
+          normalized,
+        )
+      ) {
+        return false;
+      }
+      if (
+        /\b(?:if|when)\b[^\n]{0,140}\b(?:not worth|do not|don't|skip|avoid)\b[^\n]{0,140}\b(?:generate|illustrate|illustration|image|picture)\b/iu.test(
+          normalized,
+        ) ||
+        /\b(?:if|when)\b[^\n]{0,140}\b(?:generate|illustrate|illustration|image|picture)\b[^\n]{0,140}\b(?:do not|don't|skip|avoid)\b/iu.test(
+          normalized,
+        )
+      ) {
+        return false;
+      }
+      if (
+        /\b(?:generation|illustration)\s+(?:decision|cadence|interval|frequency|cooldown)\b/iu.test(
+          normalized,
+        ) ||
+        /\b(?:run|trigger|generate|illustrate)\b[^\n]{0,100}\bevery\s+\d+\b[^\n]{0,60}\b(?:turn|message|response)s?\b/iu.test(
+          normalized,
+        )
+      ) {
+        return false;
+      }
       return true;
     })
     .join("\n")
@@ -241,6 +302,7 @@ export async function writeManualIllustratorPromptPlan(args: {
     args.illustratorAgent.promptTemplate,
     args.illustratorAgent.settings,
     args.context,
+    { escapeValues: true },
   );
   const messages = buildManualIllustratorPromptMessages({
     context: args.context,

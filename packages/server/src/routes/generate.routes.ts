@@ -3407,24 +3407,6 @@ export async function generateRoutes(app: FastifyInstance) {
           signal: abortController.signal,
         };
 
-        const illustratorPromptAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
-        if (illustratorPromptAgent) {
-          try {
-            const { styleInstruction } = await resolveIllustratorPromptStyle({
-              db: app.db,
-              connections,
-              illustratorAgent: illustratorPromptAgent,
-              chatMode: requestChatMode,
-              chatMetadata: chatMeta,
-            });
-            if (styleInstruction) {
-              agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
-            }
-          } catch (error) {
-            logger.warn(error, "[illustrator] Failed to resolve image style instruction for the prompt writer");
-          }
-        }
-
         if (personaId) {
           agentContext.memory._personaId = personaId;
           agentContext.memory._personaAvatarPath =
@@ -3498,6 +3480,22 @@ export async function generateRoutes(app: FastifyInstance) {
           }))
         ) {
           resolvedAgents.splice(resolvedAgents.indexOf(illustratorAgentForInterval), 1);
+        }
+
+        const illustratorPromptAgent = resolvedAgents.find((agent) => agent.type === "illustrator");
+        if (illustratorPromptAgent) {
+          try {
+            const { styleInstruction } = await resolveIllustratorPromptStyle({
+              db: app.db,
+              connections,
+              illustratorAgent: illustratorPromptAgent,
+              chatMode: requestChatMode,
+              chatMetadata: chatMeta,
+            });
+            agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
+          } catch (error) {
+            logger.warn(error, "[illustrator] Failed to resolve image style instruction for the prompt writer");
+          }
         }
 
         // Populate writable lorebook IDs for the lorebook-keeper agent

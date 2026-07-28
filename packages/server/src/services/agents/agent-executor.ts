@@ -2414,7 +2414,12 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</current_game_state>`);
   }
 
-  if (agentTypes.includes("illustrator")) {
+  const gameImageStylePrompt =
+    context.chatMode === "game" && typeof context.memory._gameImageStylePrompt === "string"
+      ? context.memory._gameImageStylePrompt.trim()
+      : "";
+
+  if (agentTypes.includes("illustrator") && !gameImageStylePrompt) {
     const illustratorStyleBlock = buildIllustratorImageStyleInstructionBlock(
       context.memory._illustratorImageStyleInstruction,
     );
@@ -2430,10 +2435,6 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     parts.push(`</character_tracker_history>`);
   }
 
-  const gameImageStylePrompt =
-    context.chatMode === "game" && typeof context.memory._gameImageStylePrompt === "string"
-      ? context.memory._gameImageStylePrompt.trim()
-      : "";
   if (agentTypes.includes("illustrator") && gameImageStylePrompt) {
     parts.push(`<game_image_instructions>`);
     parts.push(

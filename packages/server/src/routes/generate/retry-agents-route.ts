@@ -514,13 +514,17 @@ async function executeManualIllustratorPromptRequest(args: {
 }): Promise<AgentResult> {
   const startedAt = Date.now();
   try {
-    const styleInstruction = await resolveManualIllustratorStyleInstruction({
-      app: args.app,
-      chatMode: args.chat.mode,
-      chatMeta: args.chatMeta,
-      conns: args.conns,
-      illustratorAgent: args.illustratorEntry.resolved,
-    });
+    const cachedStyleInstruction = args.agentContext.memory._illustratorImageStyleInstruction;
+    const styleInstruction =
+      typeof cachedStyleInstruction === "string"
+        ? cachedStyleInstruction
+        : await resolveManualIllustratorStyleInstruction({
+            app: args.app,
+            chatMode: args.chat.mode,
+            chatMeta: args.chatMeta,
+            conns: args.conns,
+            illustratorAgent: args.illustratorEntry.resolved,
+          });
     const generated = await writeManualIllustratorPromptPlan({
       illustratorAgent: args.illustratorEntry.resolved,
       context: args.agentContext,
@@ -3986,11 +3990,9 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
             chatMode,
             chatMetadata: chatMeta,
           });
-          if (styleInstruction) {
-            agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
-            if (preGenerationAgentContext) {
-              preGenerationAgentContext.memory._illustratorImageStyleInstruction = styleInstruction;
-            }
+          agentContext.memory._illustratorImageStyleInstruction = styleInstruction;
+          if (preGenerationAgentContext) {
+            preGenerationAgentContext.memory._illustratorImageStyleInstruction = styleInstruction;
           }
         } catch (error) {
           logger.warn(error, "[retry-agents] Failed to resolve image style instruction for the prompt writer");
