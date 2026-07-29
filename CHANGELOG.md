@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added an optional radial-gauge layout for Persona and Character tracker stats, with editable icons, percentage readouts, subtle low-stat warnings, and improved featured-card spacing and thought placement.
 - Added the **Brazilian Portuguese** documentation language pack, covering all 123 in-app guides (developer docs included) in natural Brazilian Portuguese ("você", Brazilian vocabulary and current orthography), with English UI control names preserved for following instructions against the interface and Portuguese sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace**. The tutorial's language suggestion now also matches region-suffixed locales, so a pt-BR interface proposes the pt-br guides on first run (#4229).
 
 - Added the **French** documentation language pack, covering all 123 in-app guides (developer docs included) in natural standard French with informal address, English UI control names preserved for following instructions against the interface, and French sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4191).
