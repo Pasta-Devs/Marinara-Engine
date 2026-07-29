@@ -208,6 +208,7 @@
   "chat.summary.template.appDefault": "App default",
   "chat.summary.template.copyName": "{{name}} copy",
   "chat.summary.template.defaultName": "Summary Style {{number}}",
+  "chat.summary.template.longTermMemory": "Long-Term Memory default",
   "chat.summary.template.tokenEstimate_one": "{{count}} token estimated",
   "chat.summary.template.tokenEstimate_other": "{{count}} tokens estimated",
   "chat.summary.template.use": "Use {{name}}",
