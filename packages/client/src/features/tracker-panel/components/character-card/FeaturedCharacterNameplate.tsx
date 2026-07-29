@@ -36,7 +36,9 @@ export function FeaturedCharacterNameplate({
   const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   const emojiLockKey = characterTrackerLockKey(character, characterIndex, "emoji");
   const nameLockKey = characterTrackerLockKey(character, characterIndex, "name");
-  const thoughtButtonLabel = thoughtsOpen ? "Stop reading thoughts" : "Read thoughts";
+  const thoughtButtonLabel = thoughtsOpen
+    ? localizeUi("ui.trackerPanel.featuredcharacternameplate.stopReadingThoughts")
+    : localizeUi("ui.trackerPanel.featuredcharacternameplate.readThoughts");
   const emojiControl = (
     <InlineEdit
       value={character.emoji || "?"}

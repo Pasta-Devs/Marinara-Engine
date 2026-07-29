@@ -172,7 +172,8 @@ export function useStatIcons({
               trackerStatIconOverrides: nextOverrides,
             });
             persistedOverridesRef.current.set(chatId, nextOverrides);
-          } catch {
+          } catch (error) {
+            console.error("Failed to persist tracker stat icons", { chatId, error });
             // Rebase queued writes on the last confirmed map so a failed whole-map
             // payload is not replayed by a later icon edit.
           }

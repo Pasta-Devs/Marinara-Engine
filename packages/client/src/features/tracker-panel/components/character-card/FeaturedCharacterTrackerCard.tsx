@@ -40,7 +40,11 @@ import {
   getOppositeTrackerProfileSide,
   getTrackerProfilePortraitSide,
 } from "../../lib/tracker-profile-layout";
-import { getTrackerStatDensity, trackerStatStackHeight } from "../../lib/tracker-stat-layout";
+import {
+  getTrackerStatDensity,
+  shouldRenderStatGauges,
+  trackerStatStackHeight,
+} from "../../lib/tracker-stat-layout";
 import { getCharacterAmbienceStyle, type TrackerProfileColors } from "../../lib/tracker-profile-style";
 import { InlineAddRow, InlineEdit } from "../controls/InlineControls";
 import { StatList } from "../controls/StatList";
@@ -181,7 +185,7 @@ export function FeaturedCharacterTrackerCard({
   };
   const hasThoughtsControl = !thoughtsHidden || hideMode;
   const hasCharacterStatBlock = characterStats.length > 0 || addMode;
-  const renderCharacterGauges = statDisplayMode === "gauges" && !addMode && !deleteMode && !lockMode;
+  const renderCharacterGauges = shouldRenderStatGauges(statDisplayMode, addMode, deleteMode, lockMode);
   const featuredPortraitSide = getTrackerProfilePortraitSide(trackerPanelSide);
   const featuredDetailsSide = getOppositeTrackerProfileSide(featuredPortraitSide);
 
@@ -416,7 +420,7 @@ export function FeaturedCharacterTrackerCard({
                   )
                 }
                 getLockKey={(statIndex, field, stat) =>
-                  characterStatTrackerLockKey(character, characterIndex, stat, field, statIndex)
+                  characterStatTrackerLockKey(character, characterIndex, stat ?? statIndex, field, statIndex)
                 }
               />
             </div>

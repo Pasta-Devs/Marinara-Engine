@@ -24,6 +24,7 @@ import {
 } from "../../lib/tracker-profile-layout";
 import { resolveSpriteUrl } from "../../lib/sprite-expressions";
 import { getPersonaAmbienceStyle } from "../../lib/tracker-profile-style";
+import { shouldRenderStatGauges } from "../../lib/tracker-stat-layout";
 import { InlineEdit } from "../controls/InlineControls";
 import { TrackerProfileNameplate } from "../controls/TrackerProfileNameplate";
 import {
@@ -166,8 +167,7 @@ export function PersonaInventoryPanel({
         }
       : undefined;
   const showPersonaStatDeck = personaStats.length > 0 || addMode;
-  const renderPersonaGauges =
-    statDisplayMode === "gauges" && !addMode && !deleteMode && !lockMode;
+  const renderPersonaGauges = shouldRenderStatGauges(statDisplayMode, addMode, deleteMode, lockMode);
   const personaPortraitSide = getTrackerProfilePortraitSide(trackerPanelSide);
   const personaDetailsSide = getOppositeTrackerProfileSide(personaPortraitSide);
   const renderInventoryShelf = () => (
@@ -341,7 +341,7 @@ export function PersonaInventoryPanel({
                       resolveStatIcon.setPersonaStatIcon(stat.name, occurrence, icon)
                     }
                     onRemapIcons={resolveStatIcon.remapPersonaStatIcons}
-                    getLockKey={(index, field, stat) => personaStatTrackerLockKey(stat, field, index)}
+                    getLockKey={(index, field, stat) => personaStatTrackerLockKey(stat ?? index, field, index)}
                   />
                 </div>
               )}

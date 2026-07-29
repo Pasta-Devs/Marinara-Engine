@@ -12,7 +12,7 @@ import { TRACKER_BAR, TRACKER_TEXT_ROW } from "../../lib/tracker-panel.constants
 import type { TrackerStatDisplayMode } from "../../../../stores/ui.store";
 import type { TrackerStatDensity } from "../../tracker-panel.types";
 import { visibleText } from "../../lib/tracker-display";
-import { getStatPercent } from "../../lib/tracker-stat-layout";
+import { getStatPercent, shouldRenderStatGauges } from "../../lib/tracker-stat-layout";
 import { InlineAddRow, InlineEdit, InlineNumber } from "./InlineControls";
 import { EmptySection } from "./SectionControls";
 import { StatGauge } from "./StatGauge";
@@ -277,7 +277,7 @@ export function StatList({
     nextStats: CharacterStat[],
     previousIndexForNext: (nextIndex: number) => number | undefined,
   ) => void;
-  getLockKey: (index: number, field: "name" | "value" | "max", stat: CharacterStat) => string;
+  getLockKey: (index: number, field: "name" | "value" | "max", stat?: CharacterStat) => string;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { fieldLocks, lockMode, onToggleFieldLock, onUpdateFieldLocks } = useTrackerLockContext();
@@ -306,14 +306,22 @@ export function StatList({
   };
   const removeStat = (index: number) => {
     const nameLockKey = getLockKey(index, "name", stats[index]!);
-    onUpdateFieldLocks?.((locks) => removeTrackerFieldLockPrefix(locks, nameLockKey.replace(/\.name$/, "")));
+    onUpdateFieldLocks?.((locks) => {
+      let nextLocks = removeTrackerFieldLockPrefix(locks, nameLockKey.replace(/\.name$/, ""));
+      for (let oldIndex = index + 1; oldIndex < stats.length; oldIndex += 1) {
+        const fromPrefix = getLockKey(oldIndex, "name").replace(/\.name$/, "");
+        const toPrefix = getLockKey(oldIndex - 1, "name").replace(/\.name$/, "");
+        nextLocks = renameTrackerFieldLockPrefix(nextLocks, fromPrefix, toPrefix);
+      }
+      return nextLocks;
+    });
     const next = stats.filter((_, statIndex) => statIndex !== index);
     onRemapIcons(stats, next, (nextIndex) => (nextIndex < index ? nextIndex : nextIndex + 1));
     onUpdate(next);
   };
   const buildLockToggle = (index: number, field: "name" | "value" | "max") =>
     onToggleFieldLock ? () => onToggleFieldLock(getLockKey(index, field, stats[index]!)) : undefined;
-  const renderGauges = displayMode === "gauges" && !addMode && !deleteMode && !lockMode;
+  const renderGauges = shouldRenderStatGauges(displayMode, addMode, deleteMode, lockMode);
   if (renderGauges) {
     const gaugeSize = stats.length <= 4 ? "large" : stats.length <= 6 ? "medium" : "compact";
     const showGaugeOrnaments = stats.length <= 2;

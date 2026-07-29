@@ -315,14 +315,14 @@ export function CharacterTrackerCard({
         />
       </CompactCharacterNameplate>
       <button
-          type="button"
-          onClick={onToggleFeatured}
-          title={localizeUi("ui.trackerPanel.charactertrackercard.featureCharacterCard")}
-          aria-label={localizeUi("ui.trackerPanel.charactertrackercard.featureCharacterCard")}
-          aria-pressed={false}
-          className={CHARACTER_FEATURE_BUTTON_CLASS}
-        >
-          <Maximize2 size="0.5625rem" />
+        type="button"
+        onClick={onToggleFeatured}
+        title={localizeUi("ui.trackerPanel.charactertrackercard.featureCharacterCard")}
+        aria-label={localizeUi("ui.trackerPanel.charactertrackercard.featureCharacterCard")}
+        aria-pressed={false}
+        className={CHARACTER_FEATURE_BUTTON_CLASS}
+      >
+        <Maximize2 size="0.5625rem" />
       </button>
 
       <div className={cn(CHARACTER_HEADER_CLASS, deleteMode && "pr-7")}>
@@ -428,7 +428,7 @@ export function CharacterTrackerCard({
               )
             }
             getLockKey={(statIndex, field, stat) =>
-              characterStatTrackerLockKey(character, characterIndex, stat, field, statIndex)
+              characterStatTrackerLockKey(character, characterIndex, stat ?? statIndex, field, statIndex)
             }
           />
         </div>

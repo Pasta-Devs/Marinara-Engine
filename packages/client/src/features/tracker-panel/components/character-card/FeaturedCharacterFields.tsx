@@ -201,7 +201,7 @@ export function FeaturedFieldList({
           onSave={field.onSave}
           sizeProfile={sizeProfile}
           fieldKey={field.key}
-          lockKey={characterTrackerLockKey(character, characterIndex, field.key)}
+          lockKey={fieldKey(field.key)}
           hidden={field.hidden}
           hideMode={hideMode}
           onToggleHidden={() => toggleFieldHidden(field.key)}

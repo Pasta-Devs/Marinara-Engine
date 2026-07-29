@@ -7253,6 +7253,8 @@
   "ui.trackerPanel.customfieldlist.removeField": "Remove field",
   "ui.trackerPanel.customtrackerpanel.addCustomStat": "Add custom stat",
   "ui.trackerPanel.customtrackerpanel.customStats": "Custom Stats",
+  "ui.trackerPanel.featuredcharacternameplate.readThoughts": "Read thoughts",
+  "ui.trackerPanel.featuredcharacternameplate.stopReadingThoughts": "Stop reading thoughts",
   "ui.trackerPanel.featuredcharacternameplate.useCompactCharacterCard": "Use compact character card",
   "ui.trackerPanel.inlineedit.lock": "Lock",
   "ui.trackerPanel.inlineedit.value1Value2": "{{value1}} {{value2}}",

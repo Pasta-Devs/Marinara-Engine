@@ -4,6 +4,16 @@ import {
   PERSONA_STAT_DENSITY_HEIGHT_REM,
 } from "./tracker-panel.constants";
 import type { TrackerStatDensity } from "../tracker-panel.types";
+import type { TrackerStatDisplayMode } from "../../../stores/ui.store";
+
+export function shouldRenderStatGauges(
+  displayMode: TrackerStatDisplayMode,
+  addMode: boolean,
+  deleteMode: boolean,
+  lockMode: boolean,
+) {
+  return displayMode === "gauges" && !addMode && !deleteMode && !lockMode;
+}
 
 export function trackerStatStackHeight(statCount: number, density: TrackerStatDensity, includeAdd: boolean) {
   return (
