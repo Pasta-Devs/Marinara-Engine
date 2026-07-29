@@ -6,7 +6,6 @@ on:
     branches: [staging, main]
   pull_request_review:
     types: [submitted, edited, dismissed]
-    branches: [staging, main]
 
 concurrency:
   group: pull-request-triage-${{ github.event.pull_request.number }}
@@ -49,6 +48,7 @@ jobs:
 
   external-contributor-approval:
     name: Owner approval for outside contributors
+    if: github.event.pull_request.base.ref == 'staging'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
@@ -57,8 +57,12 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
-            const pr = context.payload.pull_request;
-            if (pr.base?.ref !== 'staging') return;
+            const pullNumber = context.payload.pull_request.number;
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pullNumber,
+            });
 
             if (pr.author_association === 'OWNER' || pr.author_association === 'MEMBER') {
               core.notice(`Internal ${pr.author_association.toLowerCase()} contribution; owner approval is not required.`);
@@ -68,7 +72,7 @@ jobs:
             const reviews = await github.paginate(github.rest.pulls.listReviews, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: pr.number,
+              pull_number: pullNumber,
               per_page: 100,
             });
             const ownerReviews = reviews
