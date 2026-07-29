@@ -1,6 +1,6 @@
 {
   "language": "pt-br",
-  "sourceCommit": "e938ee4ec6d0b2dd98bd4cc2f958580ec1fadf34",
+  "sourceCommit": "8e37b39e880d2e827dde7c0c4d28ccc75554ca90",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -139,8 +139,8 @@
     },
     {
       "path": "chats/branches.md",
-      "sha256": "a55c84a938f953d298ff8343a4e732b523dcd6bec73ccab4c731441110f59506",
-      "bytes": 6049
+      "sha256": "b9213ccb7b9e588f0b623323a8047e07295b9263dbde998dee37d1c045d67f33",
+      "bytes": 6345
     },
     {
       "path": "chats/chat-settings.md",

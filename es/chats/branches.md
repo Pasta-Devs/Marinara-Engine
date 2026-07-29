@@ -25,7 +25,7 @@ Marinara copia el chat hasta ese mensaje inclusive en una rama nueva. La rama nu
 - Empieza con el nombre para mostrar **New Branch** (Rama nueva). Puedes renombrarla (ver más abajo).
 - Se queda en la misma carpeta de chats que el chat de origen.
 
-Los resúmenes de día, los resúmenes de semana y el resumen continuo no se traspasan. La rama nueva los empieza desde cero.
+Los resúmenes diarios y semanales no se traspasan. Los resúmenes continuos con rangos de mensajes guardados completamente contenidos en la rama copiada se traspasan y se reasignan a los nuevos IDs de mensaje de la rama. Los resúmenes cuyo rango de origen cruza el punto de ramificación, o los resúmenes antiguos sin metadatos de mensajes, se omiten. La rama nueva empieza esos resúmenes desde cero.
 
 No puedes ramificar un chat de escena. En un chat de escena, el botón **Branch from here** no aparece. Los chats de escena tienen en su lugar una acción **Clone from here** (Clonar desde aquí) aparte. Consulta [Escenas: Ramificar un Roleplay](../roleplay/scenes.md) para saber cómo funciona.
 

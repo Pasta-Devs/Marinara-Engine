@@ -25,7 +25,7 @@ Marinara copie le chat jusqu'à ce message inclus dans une nouvelle branche. Cet
 - Porte au départ le nom d'affichage **New Branch**. Tu peux la renommer, voir plus bas.
 - Reste dans le même dossier de chats que le chat d'origine.
 
-Les résumés du jour, les résumés de la semaine et le résumé glissant ne sont pas repris. La nouvelle branche repart de zéro sur ces trois points.
+Les résumés du jour et de la semaine ne sont pas repris. Les résumés glissants dont les plages de messages enregistrées sont entièrement comprises dans la branche copiée sont repris et réattribués aux nouveaux identifiants de messages de la branche. Les résumés dont la plage source traverse le point de branchement, ainsi que les anciens résumés sans métadonnées de messages, sont ignorés. La nouvelle branche recommence ces résumés à zéro.
 
 Impossible de créer une branche dans un chat de scène. Dans ce type de chat, le bouton **Branch from here** n'apparaît pas : une action distincte, **Clone from here** (cloner à partir d'ici), prend le relais. Le guide [Scènes : créer une branche d'un roleplay](../roleplay/scenes.md) explique son fonctionnement.
 

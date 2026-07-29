@@ -25,7 +25,7 @@ Marinara copia o chat até aquela mensagem, incluindo ela, para uma nova ramific
 - Começa com o nome de exibição **New Branch**. Você pode renomeá-la (veja abaixo).
 - Fica na mesma pasta de chats do chat de origem.
 
-Os resumos diários, os resumos semanais e o resumo contínuo não são levados junto. A nova ramificação começa com todos eles zerados.
+Os resumos diários e semanais não são levados junto. Os resumos contínuos com intervalos de mensagens persistidos totalmente contidos na ramificação copiada são levados junto e remapeados para os novos IDs de mensagem da ramificação. Os resumos cujo intervalo de origem cruza o ponto de ramificação, ou os resumos antigos sem metadados de mensagens, são deixados de fora. A nova ramificação começa esses resumos do zero.
 
 Não é possível ramificar um chat de cena. Nesse tipo de chat, o botão **Branch from here** não aparece. Os chats de cena têm uma ação própria, a **Clone from here** (clonar a partir daqui). Veja [Cenas: criando uma ramificação do roleplay](../roleplay/scenes.md) para saber como ela funciona.
 

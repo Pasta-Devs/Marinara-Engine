@@ -25,7 +25,7 @@ Marinara kopiert den Chat bis einschließlich dieser Nachricht in eine neue Verz
 - Startet mit dem Anzeigenamen **New Branch**. Umbenennen geht jederzeit (siehe unten).
 - Bleibt im selben Chat-Ordner wie der Ursprungschat.
 
-Tages- und Wochenzusammenfassungen sowie die laufende Zusammenfassung wandern nicht mit. In der neuen Verzweigung fangen sie bei null an.
+Tages- und Wochenzusammenfassungen wandern nicht mit. Laufende Zusammenfassungen mit gespeicherten Nachrichtenbereichen, die vollständig innerhalb der kopierten Verzweigung liegen, werden übernommen und auf die neuen Nachrichten-IDs der Verzweigung abgebildet. Zusammenfassungen, deren Quellbereich den Verzweigungspunkt überschreitet, sowie ältere Zusammenfassungen ohne Nachrichtenmetadaten werden ausgelassen. In der neuen Verzweigung werden diese Zusammenfassungen neu erstellt.
 
 Szenen-Chats lassen sich nicht verzweigen. Dort fehlt die Schaltfläche **Branch from here**. Stattdessen gibt es in Szenen-Chats die eigene Aktion **Clone from here** (Ab hier klonen). Wie sie funktioniert, beschreibt [Szenen: Ein Roleplay verzweigen](../roleplay/scenes.md).
 
