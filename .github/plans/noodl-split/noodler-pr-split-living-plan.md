@@ -685,7 +685,7 @@ is what gets cut when the slice runs long. Each unit below is independently ship
 
 | Unit | Content | Depends on |
 | --- | --- | --- |
-| 8f-1 | `protectNoodlerGeneratedIdentity()` must redact the **current** source identity as well as the stored snapshot; regression covers rename-then-redraft | nothing |
+| 8f-1 | Widen `PublicIdentity` to the union of stored **and** live source identifiers, fixing both `protectNoodlerGeneratedIdentity()` (the redactor) and `stageProfileContainsPublicIdentity()` (the validator, which is equally blind); regression covers rename-then-redraft for `hinted` and `secret`, and asserts `open` still shows the identity | nothing |
 | 8f-2 | `access` → `public \| locked`, remove `ppvPrice`/`subscriptionIncludesPpv`, Unlock sheet, Following/All tabs, forward-only fail-closed migration, and a hidden coin balance (default 999999) charged 1 by `unlockPost` and 5 by `subscribe`. Also updates `noodle-prompt.regression.ts` and `noodle-settings.regression.ts`, which encode the deleted enum and break at compile time | 8e |
 | 8f-3 | Front-loaded scheduled-post reserve: private outbox, 24-hour rolling horizon, one rolling `postsPerDay` automatic-attempt ceiling, concurrency-1 low-priority preparation, idempotent due publication, policy invalidation, no startup generation or after-the-fact historical timestamps. Replaces `noodle-autopost-scheduler.service.ts` (the poll loop, `MAX_CONCURRENT_AUTOPOSTS = 2`), deletes `noodle-autopost-cadence.ts`/`intensity`/`nextRunAt`, and repoints `app.ts:42` plus the `nextAutoPostRunAt` import at `noodle.storage.ts:56` | 8f-2 |
 | 8f-4 | Four-step wizard at two densities, emulated Professor Mari teaching post in step 1, character pre-check threshold 8, recognition-test disclosure copy | 8f-2, 8f-3, 8c |
@@ -1129,6 +1129,14 @@ defaults and per-beat media controls remain open rather than inferred.
   can therefore emit the new real name unredacted. Redaction must protect the current
   source identity as well as the stored snapshot, with a regression covering
   rename-then-redraft.
+- **8f-1 fixes the identity, not the call sites.** `stageProfileContainsPublicIdentity()` —
+  the validator gating drafts at `noodle-stage-profile-draft.service.ts:190` and
+  `noodle.routes.ts:725,781,826` — reads the same stored-only `PublicIdentity` and is
+  therefore equally blind; fixing only the redactor leaves the gate open. Widen the type to
+  the union of stored and live source identifiers and both are fixed at once, rather than
+  guarding seven call sites. The redactor already dedupes and sorts longest-first, so extra
+  identifiers preserve correct overlapping-name behaviour for free. Scope stays identity
+  only: appearance and personality drift are 8f-6's notice, not a redaction bug.
 - NoodleR has schedule enable/disable, `postsPerDay`, rolling automatic-attempt usage, and reserve
   reach; it does not add a separate pause-all field. The first reserve version is
   inspect-only rather than individually reschedulable.

@@ -826,6 +826,55 @@ This breaks the disclosure promise the Living Plan states as a product guarantee
 fixes it: redaction must protect the current source identity as well as the stored
 snapshot, with a regression covering the rename-then-redraft path.
 
+#### The fix
+
+**Two functions are blind, not one.** Both key off the same
+`type PublicIdentity = { displayName: string; handle: string }`
+(`noodle-noodler-generation.service.ts:55`), built in
+`generateNoodlerStageProfileDraft()` as
+`{ displayName: publicAccount.displayName, handle: publicAccount.handle }` — the **stored**
+account row:
+
+- `protectNoodlerGeneratedIdentity()` (`:87`) — the redactor, applied to the current draft,
+  to every line of the source context, to generated output, and to image prompts;
+- `stageProfileContainsPublicIdentity()` (`:76`) — the *validator*, the gate at
+  `noodle-stage-profile-draft.service.ts:190` and `noodle.routes.ts:725,781,826`.
+
+The validator matters as much as the redactor. It is what refuses a draft that leaked, so a
+validator blind to the new name will pass output the redactor also missed. Fixing only the
+redactor leaves the gate open.
+
+**One change at the identity, not seven at the call sites.** Widen the protected set from a
+single stored pair to the union of stored **and** current source identifiers. Every consumer
+already routes through these two functions, so this is one edit rather than a guard at each
+of the seven call sites. The redactor is already list-shaped internally — it builds
+`protectedValues`, dedupes, and sorts longest-first — so extra identifiers cost nothing and
+the longest-first ordering that makes overlapping names redact correctly is preserved for
+free. `stageProfileContainsPublicIdentity()` needs the same widening: `some()` over the set
+rather than over the two named fields.
+
+**What goes into the set** for a character-backed creator: the stored `displayName` and
+`handle`, plus the live `name` from the character card — the same `source.data` that
+`sourceText()` reads, which is precisely why the two can disagree. Empty and duplicate
+entries are already filtered, so a nameless or unchanged source degrades to today's
+behaviour. `open` stays exempt by design: it is meant to show the linked identity.
+
+**Bounded on purpose.** This fixes *identity*, not general drift. A renamed character stops
+leaking; a recoloured one is still described by a stale stage profile, because that is
+8f-6's source-changed notice, not a redaction bug. Do not widen 8f-1 into drift detection —
+it ships alone precisely so it does not wait on that.
+
+<!-- ponytail: exact-token matching, unchanged. Nicknames, transliterations, and partial
+     matches are still not caught -- that was already true and is not what this defect is.
+     Revisit only if a real leak turns up that exact matching would not have caught. -->
+
+**Regression:** create a character-backed creator with a `hinted` profile, rename the source
+character, re-draft, and assert the new name appears in neither the provider request nor the
+stored draft. Repeat for `secret`. Assert `open` still shows the linked identity, so the fix
+cannot pass by over-redacting everything. The existing stub-provider pattern from the Slice 7
+proof already returns deliberately-leaking output; reuse it rather than building a new
+harness.
+
 ### Drift is not only about names
 
 The user-visible cases are broader than renames — "the character now has blonde hair
@@ -1292,6 +1341,18 @@ deferred. If any part of the watching work survives a scope cut, it should be th
 
 ## Changelog
 
+- **2026-07-29** — Specced the 8f-1 fix, not just the diagnosis. Traced against staging and
+  found the defect is wider than recorded: `stageProfileContainsPublicIdentity()`, the
+  validator gating drafts at `noodle-stage-profile-draft.service.ts:190` and
+  `noodle.routes.ts:725,781,826`, reads the same stored-only `PublicIdentity` as the redactor
+  and is equally blind to a renamed source — so fixing only `protectNoodlerGeneratedIdentity()`
+  would have left the gate that refuses leaked drafts open. The fix is one widening of
+  `PublicIdentity` to the union of stored and live source identifiers, which repairs both
+  functions and all seven call sites at once; the redactor already dedupes and sorts
+  longest-first, so extra identifiers preserve overlapping-name behaviour for free. Scope
+  bounded to identity: appearance and personality drift stay 8f-6's notice. Regression covers
+  rename-then-redraft for `hinted` and `secret`, and asserts `open` still shows the identity
+  so the fix cannot pass by over-redacting.
 - **2026-07-29** — Closed the last two open questions, so 8f-4 is no longer blocked on
   wording. **Disclosure** uses recognition-test copy — "a friend scrolling past would
   recognise them instantly / might do a double-take / would never guess" — replacing the
