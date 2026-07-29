@@ -25,7 +25,7 @@ Marinara kopiuje czat do tej wiadomości włącznie i zapisuje go jako nową ga�
 - Startuje z nazwą wyświetlaną **New Branch**. Nazwę można zmienić (opis poniżej).
 - Zostaje w tym samym folderze czatów co czat źródłowy.
 
-Podsumowania dzienne, podsumowania tygodniowe i podsumowanie bieżące nie są przenoszone. Nowa gałąź buduje je od nowa.
+Podsumowania dzienne i tygodniowe nie są przenoszone. Podsumowania bieżące z zapisanymi zakresami wiadomości w całości zawartymi w kopiowanej gałęzi są przenoszone i przypisywane do nowych identyfikatorów wiadomości tej gałęzi. Podsumowania, których zakres źródłowy przekracza punkt utworzenia gałęzi, oraz starsze podsumowania bez metadanych wiadomości są pomijane. Nowa gałąź tworzy te podsumowania od nowa.
 
 Czatu sceny nie da się rozgałęzić. W czacie sceny przycisk **Branch from here** się nie pojawia. Czaty sceny mają zamiast niego osobną akcję **Clone from here** (klonowanie od tego miejsca). Jej działanie opisuje przewodnik [Sceny: odgałęzienie roleplayu](../roleplay/scenes.md).
 
