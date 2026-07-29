@@ -3,12 +3,86 @@ name: Pull Request Triage
 on:
   pull_request_target:
     types: [opened, reopened, edited, synchronize]
+    branches: [staging, main]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+    branches: [staging, main]
 
 concurrency:
   group: pull-request-triage-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
+  branch-policy:
+    name: Branch policy check
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Validate pull request target
+        env:
+          AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [ "$BASE_REF" = "staging" ]; then
+            exit 0
+          fi
+
+          if [ "$BASE_REF" = "main" ] &&
+             [ "$AUTHOR_LOGIN" = "SpicyMarinara" ] &&
+             [ "$HEAD_REPO" = "$REPOSITORY" ]; then
+            if [ "$HEAD_REF" = "staging" ]; then
+              exit 0
+            fi
+
+            case "$HEAD_REF" in
+              hotfix/*)
+                exit 0
+                ;;
+            esac
+          fi
+
+          echo "::error::Contributions must target staging. Main accepts only SpicyMarinara's same-repository staging promotion or hotfix/* PR."
+          exit 1
+
+  external-contributor-approval:
+    name: Owner approval for outside contributors
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Require owner approval for outside staging contributions
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            if (pr.base?.ref !== 'staging') return;
+
+            if (pr.author_association === 'OWNER' || pr.author_association === 'MEMBER') {
+              core.notice(`Internal ${pr.author_association.toLowerCase()} contribution; owner approval is not required.`);
+              return;
+            }
+
+            const reviews = await github.paginate(github.rest.pulls.listReviews, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const ownerReviews = reviews
+              .filter((review) => review.user?.login?.toLowerCase() === 'spicymarinara')
+              .sort((left, right) => left.id - right.id);
+            const latestOwnerReview = ownerReviews.at(-1);
+
+            if (latestOwnerReview?.state === 'APPROVED' && latestOwnerReview.commit_id === pr.head?.sha) {
+              core.notice('Outside contribution approved by SpicyMarinara.');
+              return;
+            }
+
+            core.setFailed('Outside and first-time contributions to staging require an approving review from SpicyMarinara.');
+
   label:
     name: Auto-label
     runs-on: ubuntu-latest
