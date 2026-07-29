@@ -1,149 +1,6 @@
-import { createElement } from "react";
-import {
-  Activity,
-  Anchor,
-  Backpack,
-  Bed,
-  Beer,
-  BookOpen,
-  Building2,
-  CalendarDays,
-  Car,
-  Castle,
-  Church,
-  Clock,
-  Cloud,
-  CloudRain,
-  Coffee,
-  Coins,
-  Compass,
-  Crown,
-  Drama,
-  Eye,
-  Factory,
-  Flame,
-  Gem,
-  Heart,
-  Home,
-  Hospital,
-  Key,
-  Landmark,
-  Lock,
-  MapPin,
-  Moon,
-  Mountain,
-  Music,
-  Package,
-  Plane,
-  Sailboat,
-  School,
-  Scroll,
-  Shield,
-  Ship,
-  Skull,
-  Smile,
-  Snowflake,
-  Sparkles,
-  Stars,
-  Store,
-  Sun,
-  Sword,
-  Swords,
-  Tag,
-  Tent,
-  Thermometer,
-  Train,
-  TreePine,
-  Trees,
-  Umbrella,
-  User,
-  Users,
-  Utensils,
-  VenetianMask,
-  Warehouse,
-  Waves,
-  Wind,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
-import {
-  DEFAULT_WORLD_CUSTOM_FIELD_ICON,
-  normalizeWorldCustomFieldIcon,
-  type SupportedWorldCustomFieldIcon,
-} from "@marinara-engine/shared";
+import { DEFAULT_WORLD_CUSTOM_FIELD_ICON, normalizeWorldCustomFieldIcon } from "@marinara-engine/shared";
 import { cn } from "../../../lib/utils";
-
-const WORLD_CUSTOM_FIELD_ICONS = {
-  activity: Activity,
-  anchor: Anchor,
-  backpack: Backpack,
-  bed: Bed,
-  beer: Beer,
-  "book-open": BookOpen,
-  "building-2": Building2,
-  "calendar-days": CalendarDays,
-  car: Car,
-  castle: Castle,
-  church: Church,
-  clock: Clock,
-  cloud: Cloud,
-  "cloud-rain": CloudRain,
-  coffee: Coffee,
-  coins: Coins,
-  compass: Compass,
-  crown: Crown,
-  drama: Drama,
-  eye: Eye,
-  factory: Factory,
-  flame: Flame,
-  gem: Gem,
-  heart: Heart,
-  home: Home,
-  hospital: Hospital,
-  key: Key,
-  landmark: Landmark,
-  lock: Lock,
-  "map-pin": MapPin,
-  moon: Moon,
-  mountain: Mountain,
-  music: Music,
-  package: Package,
-  plane: Plane,
-  sailboat: Sailboat,
-  school: School,
-  scroll: Scroll,
-  shield: Shield,
-  ship: Ship,
-  skull: Skull,
-  smile: Smile,
-  snowflake: Snowflake,
-  sparkles: Sparkles,
-  stars: Stars,
-  store: Store,
-  sun: Sun,
-  sword: Sword,
-  swords: Swords,
-  tag: Tag,
-  tent: Tent,
-  thermometer: Thermometer,
-  train: Train,
-  "tree-pine": TreePine,
-  trees: Trees,
-  umbrella: Umbrella,
-  user: User,
-  users: Users,
-  utensils: Utensils,
-  "venetian-mask": VenetianMask,
-  warehouse: Warehouse,
-  waves: Waves,
-  wind: Wind,
-  zap: Zap,
-} satisfies Record<SupportedWorldCustomFieldIcon, LucideIcon>;
-
-function getWorldCustomFieldIcon(icon: unknown) {
-  const normalized = normalizeWorldCustomFieldIcon(icon) ?? DEFAULT_WORLD_CUSTOM_FIELD_ICON;
-  return WORLD_CUSTOM_FIELD_ICONS[normalized] ?? Tag;
-}
+import { StatIcon } from "../../../components/ui/stat-icons";
 
 export function WorldCustomFieldIcon({
   icon,
@@ -154,9 +11,11 @@ export function WorldCustomFieldIcon({
   size?: string | number;
   className?: string;
 }) {
-  const Icon = getWorldCustomFieldIcon(icon);
-  return createElement(Icon, {
-    size,
-    className: cn("shrink-0 text-[var(--muted-foreground)] drop-shadow-sm", className),
-  });
+  return (
+    <StatIcon
+      icon={normalizeWorldCustomFieldIcon(icon) ?? DEFAULT_WORLD_CUSTOM_FIELD_ICON}
+      size={size}
+      className={cn("text-[var(--muted-foreground)] drop-shadow-sm", className)}
+    />
+  );
 }

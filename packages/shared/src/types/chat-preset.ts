@@ -58,6 +58,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "spritePlacements",
   "entryStateOverrides",
   "entryTimingStates",
+  "trackerStatIconOverrides",
   "groupScenarioOverride",
   "groupScenarioText",
   "characterSchedules",

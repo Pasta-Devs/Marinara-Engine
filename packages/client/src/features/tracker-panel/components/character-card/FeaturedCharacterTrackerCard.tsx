@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import {
   characterCustomFieldTrackerLockKey,
@@ -15,9 +15,11 @@ import {
 import type {
   TrackerPanelSide,
   TrackerPanelSizeProfile,
+  TrackerStatDisplayMode,
   TrackerThoughtBubbleDisplay,
 } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
+import type { StatIconLookup } from "../../hooks/use-stat-icons";
 import { trackerEditableText } from "../../lib/tracker-display";
 import { useTrackerWindow } from "../TrackerWindowContext";
 import {
@@ -38,9 +40,14 @@ import {
   getOppositeTrackerProfileSide,
   getTrackerProfilePortraitSide,
 } from "../../lib/tracker-profile-layout";
-import { getTrackerStatDensity, trackerStatStackHeight } from "../../lib/tracker-stat-layout";
+import {
+  getTrackerStatDensity,
+  shouldRenderStatGauges,
+  trackerStatStackHeight,
+} from "../../lib/tracker-stat-layout";
 import { getCharacterAmbienceStyle, type TrackerProfileColors } from "../../lib/tracker-profile-style";
 import { InlineAddRow, InlineEdit } from "../controls/InlineControls";
+import { StatList } from "../controls/StatList";
 import {
   TRACKER_PROFILE_BODY_BOTTOM_RULE_CLASS,
   TRACKER_PROFILE_BODY_TONE_OVERLAY_CLASS,
@@ -52,7 +59,7 @@ import {
   TrackerProfileEdgeHighlight,
   TrackerReadabilityVeil,
 } from "../controls/TrackerProfileChrome";
-import { FeaturedFieldList, FeaturedStatGrid } from "./FeaturedCharacterFields";
+import { FeaturedFieldList } from "./FeaturedCharacterFields";
 import { FeaturedCharacterNameplate } from "./FeaturedCharacterNameplate";
 import { FeaturedCharacterPortrait } from "./FeaturedCharacterPortrait";
 import { ExternalThoughtBubble, InlineThoughtBubble } from "./CharacterThoughtBubbles";
@@ -74,9 +81,13 @@ const FEATURED_PORTRAIT_ANCHOR_CLASS = "relative min-w-0";
 const FEATURED_DETAILS_COLUMN_CLASS =
   "relative z-[1] flex min-h-0 min-w-0 flex-col self-start overflow-hidden border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_46%,transparent)]";
 const FEATURED_DETAILS_FIELDS_CLASS = "relative min-h-0 flex-1 overflow-hidden";
-const FEATURED_DOCKED_THOUGHT_CLASS = "mx-0 mb-0.5 mt-0 shrink-0";
+const FEATURED_DOCKED_THOUGHT_CLASS = "relative z-[2] order-3 col-span-full mx-1 mb-1 mt-1 shrink-0";
 const FEATURED_DOCKED_THOUGHT_SURFACE_CLASS = "scrollbar-hide overflow-hidden";
-const FEATURED_STAT_BAND_CLASS = "order-3 col-span-full mt-0 rounded-b-[5px]";
+const FEATURED_STAT_BAND_CLASS = "order-4 col-span-full mt-0 rounded-b-[5px]";
+const FEATURED_STAT_SHELF_CLASS = cn(
+  "group/statbox relative isolate flex min-h-0 flex-col overflow-x-hidden border-t border-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_38%,transparent)] bg-[image:var(--tracker-profile-material)] p-1 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent),inset_0_8px_14px_color-mix(in_srgb,var(--background)_22%,transparent)] [background-blend-mode:var(--tracker-profile-material-blend)] before:pointer-events-none before:absolute before:inset-x-3 before:top-0 before:z-[1] before:h-px before:bg-[linear-gradient(90deg,transparent,color-mix(in_srgb,var(--tracker-profile-dialogue-border)_34%,transparent),transparent)] before:opacity-55 before:content-['']",
+  "max-h-[7.75rem] @min-[380px]:max-h-[9.25rem]",
+);
 const FEATURED_CUSTOM_FIELD_LIST_CLASS =
   "relative z-[1] mx-1 mb-1 mt-1 grid gap-px border-t border-[var(--tracker-profile-rule)] pt-0.5 text-[0.625rem]";
 const FEATURED_CUSTOM_FIELD_ROW_CLASS =
@@ -92,11 +103,12 @@ export function FeaturedCharacterTrackerCard({
   trackerPanelSide,
   trackerPanelSizeProfile,
   thoughtBubbleDisplay,
+  statDisplayMode,
+  resolveStatIcon,
   dockedThoughtsAlwaysVisible,
-  action,
   onUpdate,
   onRemove,
-  characterIndex = 0,
+  characterIndex,
   deleteMode,
   addMode,
   onToggleFeatured,
@@ -111,15 +123,16 @@ export function FeaturedCharacterTrackerCard({
   trackerPanelSide: TrackerPanelSide;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
   thoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
+  statDisplayMode: TrackerStatDisplayMode;
+  resolveStatIcon: StatIconLookup;
   dockedThoughtsAlwaysVisible: boolean;
-  action?: ReactNode;
-  onUpdate?: (character: PresentCharacter) => void;
-  onRemove?: () => void;
-  characterIndex?: number;
+  onUpdate: (character: PresentCharacter) => void;
+  onRemove: () => void;
+  characterIndex: number;
   deleteMode: boolean;
   addMode: boolean;
-  onToggleFeatured?: () => void;
-  onUploadAvatar?: () => void;
+  onToggleFeatured: () => void;
+  onUploadAvatar: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const trackerWindow = useTrackerWindow();
@@ -141,24 +154,20 @@ export function FeaturedCharacterTrackerCard({
     ([name, value]) => [name, value, trackerEditableText(value)] as const,
   );
   const characterStats = Array.isArray(character.stats) ? character.stats : [];
-  const hasEditableStatAdd = !!onUpdate && addMode;
-  const hasEditableCustomFieldAdd = !!onUpdate && addMode;
   const featuredStatColumnHeightRem =
     trackerPanelSizeProfile === "expanded"
       ? TRACKER_PROFILE_PORTRAIT_ROOMY_MEDIA_STAGE_REM
       : TRACKER_PROFILE_PORTRAIT_MEDIA_STAGE_REM;
   const characterStatDensity = getTrackerStatDensity(
     characterStats.length,
-    hasEditableStatAdd,
+    addMode,
     featuredStatColumnHeightRem,
   );
   const characterStatsOverflowPortrait =
-    trackerStatStackHeight(characterStats.length, "tight", hasEditableStatAdd) > featuredStatColumnHeightRem;
-  const hasDeleteAction = !!onRemove && deleteMode;
+    trackerStatStackHeight(characterStats.length, "tight", addMode) > featuredStatColumnHeightRem;
   const thoughtsKey = characterTrackerLockKey(character, characterIndex, "thoughts");
   const thoughtsHidden = isTrackerFieldHidden(hiddenTrackerFields, thoughtsKey);
   const toggleThoughtsHidden = () => {
-    if (!onUpdate) return;
     const nextHidden = !isTrackerFieldHidden(hiddenTrackerFields, thoughtsKey);
     onUpdateHiddenFields?.((hiddenFields) => {
       const next = normalizeTrackerHiddenFields(hiddenFields);
@@ -174,10 +183,9 @@ export function FeaturedCharacterTrackerCard({
     });
     if (nextHidden) onUpdate({ ...character, thoughts: null });
   };
-  const hasThoughtsControl = !!(character.thoughts || onUpdate) && (!thoughtsHidden || hideMode);
-  const hasFeaturedFields = !!(character.mood || character.appearance || character.outfit || onUpdate);
-  const hasCharacterStatBlock = characterStats.length > 0 || (onUpdate && addMode);
-  const useFeaturedStatColumns = characterStats.length >= 2;
+  const hasThoughtsControl = !thoughtsHidden || hideMode;
+  const hasCharacterStatBlock = characterStats.length > 0 || addMode;
+  const renderCharacterGauges = shouldRenderStatGauges(statDisplayMode, addMode, deleteMode, lockMode);
   const featuredPortraitSide = getTrackerProfilePortraitSide(trackerPanelSide);
   const featuredDetailsSide = getOppositeTrackerProfileSide(featuredPortraitSide);
 
@@ -233,19 +241,16 @@ export function FeaturedCharacterTrackerCard({
   }, [thoughtsOpen, trackerDocument, trackerWindow, useInlineThoughtBubble]);
 
   const addCharacterStat = () => {
-    if (!onUpdate) return;
     onUpdate({
       ...character,
       stats: [...characterStats, { name: "New Stat", value: 0, max: 100, color: "var(--primary)" }],
     });
   };
   const addCustomField = () => {
-    if (!onUpdate) return;
     const name = makeUniqueCharacterCustomFieldName(character.customFields);
     onUpdate({ ...character, customFields: { ...(character.customFields ?? {}), [name]: "" } });
   };
   const removeCustomField = (name: string) => {
-    if (!onUpdate) return;
     const nextFields: Record<string, unknown> = { ...(character.customFields ?? {}) };
     delete nextFields[name];
     onUpdateFieldLocks?.((locks) =>
@@ -257,7 +262,6 @@ export function FeaturedCharacterTrackerCard({
     onUpdate({ ...character, customFields: nextFields as Record<string, string> });
   };
   const updateCustomField = (oldName: string, nextName: string, nextValue: unknown) => {
-    if (!onUpdate) return;
     const nextFields: Record<string, unknown> = { ...(character.customFields ?? {}) };
     const trimmedName = resolveCharacterCustomFieldName(nextName, oldName);
     if (
@@ -291,14 +295,12 @@ export function FeaturedCharacterTrackerCard({
       style={getCharacterAmbienceStyle(character, profileColors)}
     >
       <div className={TRACKER_PROFILE_BODY_TONE_OVERLAY_CLASS} />
-      <TrackerReadabilityVeil
-        strength={hasCharacterStatBlock || hasFeaturedFields || customFields.length > 0 ? "strong" : "soft"}
-      />
+      <TrackerReadabilityVeil strength="strong" />
       <TrackerProfileDisplayWash />
       <div className={TRACKER_PROFILE_BODY_BOTTOM_RULE_CLASS} />
       <TrackerProfileEdgeHighlight className="opacity-45" showBottom={false} />
 
-      {hasDeleteAction && (
+      {deleteMode && (
         <div className="absolute right-1 top-1 z-10">
           <button
             type="button"
@@ -315,20 +317,18 @@ export function FeaturedCharacterTrackerCard({
       <div
         className={cn(
           TRACKER_PROFILE_GRID_CLASS,
-          hasDeleteAction && "pr-5",
+          deleteMode && "pr-5",
           TRACKER_PROFILE_GRID_CLASS_BY_PORTRAIT_SIDE[featuredPortraitSide],
         )}
       >
         <FeaturedCharacterNameplate
           character={character}
           onUpdate={onUpdate}
-          hasThoughtsControl={hasThoughtsControl}
           thoughtsOpen={thoughtsVisible}
           thoughtButtonRef={thoughtControlRef}
           thoughtControlSide={featuredPortraitSide}
           onToggleThoughts={canToggleThoughts ? () => setThoughtsOpen((open) => !open) : undefined}
           onToggleFeatured={onToggleFeatured}
-          action={action}
           characterIndex={characterIndex}
         />
         <div aria-hidden="true" className={FEATURED_COCKPIT_SHELF_CLASS}>
@@ -344,13 +344,10 @@ export function FeaturedCharacterTrackerCard({
               spriteExpression={spriteExpression}
               expressionSpritesEnabled={expressionSpritesEnabled}
               characterPicture={characterPicture}
-              detailsSide={featuredDetailsSide}
+              outsideSide={featuredPortraitSide}
               onUploadAvatar={onUploadAvatar}
-              onPortraitFocusChange={
-                onUpdate
-                  ? (portraitFocusX, portraitFocusY, portraitZoom) =>
-                      onUpdate({ ...character, portraitFocusX, portraitFocusY, portraitZoom })
-                  : undefined
+              onPortraitFocusChange={(portraitFocusX, portraitFocusY, portraitZoom) =>
+                onUpdate({ ...character, portraitFocusX, portraitFocusY, portraitZoom })
               }
             />
           </div>
@@ -364,47 +361,70 @@ export function FeaturedCharacterTrackerCard({
             TRACKER_PROFILE_DETAILS_SEAM_BORDER_CLASS_BY_SIDE[featuredDetailsSide],
           )}
         >
-          {showDockedThoughts && (
-            <InlineThoughtBubble
-              bubbleRef={thoughtBubbleRef}
-              value={character.thoughts}
-              onSave={onUpdate ? (thoughts) => onUpdate({ ...character, thoughts: thoughts || null }) : undefined}
-              className={FEATURED_DOCKED_THOUGHT_CLASS}
-              surfaceClassName={FEATURED_DOCKED_THOUGHT_SURFACE_CLASS}
-              tailSide={featuredPortraitSide}
-              variant="featured"
-              lockKey={characterTrackerLockKey(character, characterIndex, "thoughts")}
-              hidden={thoughtsHidden}
-              hideMode={hideMode}
-              onToggleHidden={onUpdate ? toggleThoughtsHidden : undefined}
-            />
-          )}
           <div className={FEATURED_DETAILS_FIELDS_CLASS}>
             <FeaturedFieldList
               character={character}
               onUpdate={onUpdate}
-              readableRows={!showDockedThoughts}
               sizeProfile={trackerPanelSizeProfile}
               characterIndex={characterIndex}
             />
           </div>
         </div>
 
-        {hasCharacterStatBlock && (
-          <FeaturedStatGrid
-            stats={characterStats}
-            onUpdate={onUpdate ? (stats) => onUpdate({ ...character, stats }) : undefined}
-            onAdd={onUpdate ? addCharacterStat : undefined}
-            deleteMode={deleteMode}
-            addMode={addMode}
-            density={characterStatDensity}
-            scrollable={characterStatsOverflowPortrait}
-            wideColumns={useFeaturedStatColumns}
-            className={FEATURED_STAT_BAND_CLASS}
-            getLockKey={(statIndex, field, stat) =>
-              characterStatTrackerLockKey(character, characterIndex, stat, field, statIndex)
-            }
+        {showDockedThoughts && (
+          <InlineThoughtBubble
+            bubbleRef={thoughtBubbleRef}
+            value={character.thoughts}
+            onSave={(thoughts) => onUpdate({ ...character, thoughts: thoughts || null })}
+            className={FEATURED_DOCKED_THOUGHT_CLASS}
+            surfaceClassName={FEATURED_DOCKED_THOUGHT_SURFACE_CLASS}
+            lockKey={characterTrackerLockKey(character, characterIndex, "thoughts")}
+            hidden={thoughtsHidden}
+            hideMode={hideMode}
+            onToggleHidden={toggleThoughtsHidden}
           />
+        )}
+
+        {hasCharacterStatBlock && (
+          <div
+            className={cn(
+              FEATURED_STAT_SHELF_CLASS,
+              renderCharacterGauges && "p-px",
+              renderCharacterGauges || characterStatsOverflowPortrait ? "overflow-y-auto" : "overflow-y-hidden",
+              FEATURED_STAT_BAND_CLASS,
+            )}
+          >
+            <div className="relative z-[2]">
+              <StatList
+                stats={characterStats}
+                onUpdate={(stats) => onUpdate({ ...character, stats })}
+                onAdd={addCharacterStat}
+                deleteMode={deleteMode}
+                addMode={addMode}
+                density={characterStatDensity}
+                visualTone="instrument"
+                displayMode={statDisplayMode}
+                resolveIcon={(stat, occurrence) =>
+                  resolveStatIcon.resolveCharacterStatIcon(character, characterIndex, stat.name, occurrence)
+                }
+                onSetIcon={(stat, occurrence, icon) =>
+                  resolveStatIcon.setCharacterStatIcon(character, characterIndex, stat.name, occurrence, icon)
+                }
+                onRemapIcons={(previousStats, nextStats, previousIndexForNext) =>
+                  resolveStatIcon.remapCharacterStatIcons(
+                    character,
+                    characterIndex,
+                    previousStats,
+                    nextStats,
+                    previousIndexForNext,
+                  )
+                }
+                getLockKey={(statIndex, field, stat) =>
+                  characterStatTrackerLockKey(character, characterIndex, stat ?? statIndex, field, statIndex)
+                }
+              />
+            </div>
+          </div>
         )}
       </div>
 
@@ -413,16 +433,16 @@ export function FeaturedCharacterTrackerCard({
           anchorRef={thoughtAnchorRef}
           bubbleRef={thoughtBubbleRef}
           value={character.thoughts}
-          onSave={onUpdate ? (thoughts) => onUpdate({ ...character, thoughts: thoughts || null }) : undefined}
+          onSave={(thoughts) => onUpdate({ ...character, thoughts: thoughts || null })}
           panelSide={trackerPanelSide}
           lockKey={characterTrackerLockKey(character, characterIndex, "thoughts")}
           hidden={thoughtsHidden}
           hideMode={hideMode}
-          onToggleHidden={onUpdate ? toggleThoughtsHidden : undefined}
+          onToggleHidden={toggleThoughtsHidden}
         />
       )}
 
-      {(customFields.length > 0 || hasEditableCustomFieldAdd) && (
+      {(customFields.length > 0 || addMode) && (
         <div className={FEATURED_CUSTOM_FIELD_LIST_CLASS}>
           {customFields.map(([name, rawValue, displayValue]) => (
             <div
@@ -432,55 +452,45 @@ export function FeaturedCharacterTrackerCard({
                 deleteMode && "grid-cols-[minmax(3rem,0.38fr)_minmax(0,1fr)_1.25rem]",
               )}
             >
-              {onUpdate ? (
-                <InlineEdit
-                  value={name}
-                  onSave={(nextName) => updateCustomField(name, nextName, rawValue)}
-                  placeholder={localizeUi("ui.trackerPanel.charactertrackercard.field")}
-                  ariaLabel={`${name} field name`}
-                  className="min-w-0 px-0.5 py-0 font-medium"
-                  scrollOnHover
-                  locked={isTrackerFieldLocked(
-                    fieldLocks,
-                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"),
-                  )}
-                  lockMode={lockMode}
-                  onToggleLock={
-                    onToggleFieldLock
-                      ? () =>
-                          onToggleFieldLock(characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"))
-                      : undefined
-                  }
-                />
-              ) : (
-                <span className="truncate font-medium text-[color:var(--tracker-profile-muted-text)]">{name}</span>
-              )}
-              {onUpdate ? (
-                <InlineEdit
-                  value={displayValue}
-                  onSave={(nextValue) => updateCustomField(name, name, nextValue)}
-                  placeholder={localizeUi("ui.trackerPanel.charactertrackercard.value")}
-                  ariaLabel={`${name} value`}
-                  className="min-w-0 px-0.5 py-0"
-                  scrollOnHover
-                  locked={isTrackerFieldLocked(
-                    fieldLocks,
-                    characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
-                  )}
-                  lockMode={lockMode}
-                  onToggleLock={
-                    onToggleFieldLock
-                      ? () =>
-                          onToggleFieldLock(
-                            characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
-                          )
-                      : undefined
-                  }
-                />
-              ) : (
-                <span className="min-w-0 truncate text-[color:var(--tracker-profile-text)]">{displayValue}</span>
-              )}
-              {deleteMode && onUpdate && (
+              <InlineEdit
+                value={name}
+                onSave={(nextName) => updateCustomField(name, nextName, rawValue)}
+                placeholder={localizeUi("ui.trackerPanel.charactertrackercard.field")}
+                ariaLabel={`${name} field name`}
+                className="min-w-0 px-0.5 py-0 font-medium"
+                scrollOnHover
+                locked={isTrackerFieldLocked(
+                  fieldLocks,
+                  characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"),
+                )}
+                lockMode={lockMode}
+                onToggleLock={
+                  onToggleFieldLock
+                    ? () =>
+                        onToggleFieldLock(characterCustomFieldTrackerLockKey(character, characterIndex, name, "name"))
+                    : undefined
+                }
+              />
+              <InlineEdit
+                value={displayValue}
+                onSave={(nextValue) => updateCustomField(name, name, nextValue)}
+                placeholder={localizeUi("ui.trackerPanel.charactertrackercard.value")}
+                ariaLabel={`${name} value`}
+                className="min-w-0 px-0.5 py-0"
+                scrollOnHover
+                locked={isTrackerFieldLocked(
+                  fieldLocks,
+                  characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"),
+                )}
+                lockMode={lockMode}
+                onToggleLock={
+                  onToggleFieldLock
+                    ? () =>
+                        onToggleFieldLock(characterCustomFieldTrackerLockKey(character, characterIndex, name, "value"))
+                    : undefined
+                }
+              />
+              {deleteMode && (
                 <button
                   type="button"
                   onClick={() => removeCustomField(name)}
@@ -493,7 +503,7 @@ export function FeaturedCharacterTrackerCard({
               )}
             </div>
           ))}
-          {hasEditableCustomFieldAdd && (
+          {addMode && (
             <InlineAddRow title={localizeUi("ui.trackerPanel.charactertrackercard.addCustomField")} onClick={addCustomField} className="col-span-full" />
           )}
         </div>

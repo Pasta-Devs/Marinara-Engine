@@ -111,6 +111,7 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { api } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { ColorPicker } from "../ui/ColorPicker";
+import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { Modal } from "../ui/Modal";
 import { SpriteFrameEditor } from "../ui/SpriteFrameEditor";
@@ -133,6 +134,12 @@ import {
   type RPGStatsConfig,
 } from "@marinara-engine/shared";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
+import {
+  getStatNameOccurrence,
+  remapStatIconAssignments,
+  resolveStatIconAssignment,
+  setStatIconAssignment,
+} from "../../lib/stat-icon-assignments";
 import { useQuoteFormatter } from "../../hooks/use-quote-formatter";
 import { LorebookAssignmentSection } from "../lorebooks/LorebookAssignmentSection";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -4319,6 +4326,14 @@ function StatsTab({
   const trackerCustomFieldDefaults = Array.isArray(formData.extensions.trackerCustomFieldDefaults)
     ? (formData.extensions.trackerCustomFieldDefaults as CharacterTrackerCustomFieldDefault[])
     : [];
+  const trackerCardAppearance = parseTrackerCardColorConfig(formData.extensions.trackerCardColors);
+
+  const updateStatIcons = (statIcons: NonNullable<typeof trackerCardAppearance.statIcons>) => {
+    updateExtension(
+      "trackerCardColors",
+      serializeTrackerCardColorConfig({ ...trackerCardAppearance, statIcons }),
+    );
+  };
 
   const update = (patch: Partial<RPGStatsConfig>) => {
     updateExtension("rpgStats", { ...stats, ...patch });
@@ -4333,6 +4348,29 @@ function StatsTab({
 
   const updatePool = (index: number, patch: Partial<RPGStatPool>) => {
     const nextPools = pools.map((pool, poolIndex) => (poolIndex === index ? { ...pool, ...patch } : pool));
+    if (typeof patch.name === "string" && patch.name !== pools[index]?.name) {
+      updateStatIcons(
+        remapStatIconAssignments(
+          trackerCardAppearance.statIcons ?? [],
+          pools,
+          nextPools,
+          (nextIndex) => nextIndex,
+        ),
+      );
+    }
+    updatePools(nextPools);
+  };
+
+  const removePool = (index: number) => {
+    const nextPools = pools.filter((_, poolIndex) => poolIndex !== index);
+    updateStatIcons(
+      remapStatIconAssignments(
+        trackerCardAppearance.statIcons ?? [],
+        pools,
+        nextPools,
+        (nextIndex) => (nextIndex < index ? nextIndex : nextIndex + 1),
+      ),
+    );
     updatePools(nextPools);
   };
 
@@ -4394,7 +4432,7 @@ function StatsTab({
               {pools.map((pool, i) => (
                 <div
                   key={i}
-                  className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
+                  className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:grid-cols-[2rem_2rem_minmax(0,1fr)_5rem_5rem_auto] sm:items-center"
                 >
                   <input
                     type="color"
@@ -4404,6 +4442,24 @@ function StatsTab({
                     aria-label={localizeUi("ui.characters.statstab.value1Color", {
                       value1: pool.name || localizeUi("ui.characters.statstab.pool"),
                     })}
+                  />
+                  <StatIconPicker
+                    value={resolveStatIconAssignment(
+                      trackerCardAppearance.statIcons ?? [],
+                      pool.name,
+                      getStatNameOccurrence(pools, i),
+                    )}
+                    statName={pool.name}
+                    onSelect={(icon) =>
+                      updateStatIcons(
+                        setStatIconAssignment(
+                          trackerCardAppearance.statIcons ?? [],
+                          pool.name,
+                          getStatNameOccurrence(pools, i),
+                          icon ?? undefined,
+                        ),
+                      )
+                    }
                   />
                   <input
                     value={pool.name}
@@ -4433,7 +4489,7 @@ function StatsTab({
                   />
                   <button
                     type="button"
-                    onClick={() => updatePools(pools.filter((_, poolIndex) => poolIndex !== i))}
+                    onClick={() => removePool(i)}
                     className="rounded-lg p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--primary)]/15 hover:text-[var(--primary)]"
                     aria-label={localizeUi("ui.characters.statstab.removeValue1", {
                       value1: pool.name || localizeUi("ui.characters.statstab.pool_51a4b13"),

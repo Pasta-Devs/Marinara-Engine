@@ -7,10 +7,12 @@ import type {
   TrackerPanelCollapsedSections,
   TrackerPanelSide,
   TrackerPanelSizeProfile,
+  TrackerStatDisplayMode,
   TrackerTemperatureUnit,
   TrackerThoughtBubbleDisplay,
 } from "../../../stores/ui.store";
 import { useFeaturedCharacterCards } from "../hooks/use-featured-character-cards";
+import type { StatIconLookup } from "../hooks/use-stat-icons";
 import { useTrackerMutations } from "../hooks/use-tracker-mutations";
 import { useTrackerRerun } from "../hooks/use-tracker-rerun";
 import type { PersonaPortraitSaveSnapshot } from "../hooks/use-persona-portrait-save";
@@ -44,6 +46,7 @@ export function TrackerSectionList({
   trackerPanelSide,
   trackerPanelSizeProfile,
   trackerPanelThoughtBubbleDisplay,
+  trackerStatDisplayMode,
   trackerPanelDockedThoughtsAlwaysVisible,
   trackerTemperatureUnit,
   toggleTrackerPanelSectionCollapsed,
@@ -51,6 +54,7 @@ export function TrackerSectionList({
   addMode,
   queuePersonaPortraitSave,
   flushPersonaPortraitSave,
+  resolveStatIcon,
 }: {
   activeChatId: string;
   activePersona: Persona | null;
@@ -72,6 +76,7 @@ export function TrackerSectionList({
   trackerPanelSide: TrackerPanelSide;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
   trackerPanelThoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
+  trackerStatDisplayMode: TrackerStatDisplayMode;
   trackerPanelDockedThoughtsAlwaysVisible: boolean;
   trackerTemperatureUnit: TrackerTemperatureUnit;
   toggleTrackerPanelSectionCollapsed: (section: TrackerPanelSection) => void;
@@ -79,6 +84,7 @@ export function TrackerSectionList({
   addMode: boolean;
   queuePersonaPortraitSave: (snapshot: PersonaPortraitSaveSnapshot) => void;
   flushPersonaPortraitSave: (personaId: string) => void;
+  resolveStatIcon: StatIconLookup;
 }) {
   const updateAgent = useUpdateAgent();
   const autoGenerateCharacterAvatars = characterTrackerSettings.autoGenerateAvatars === true;
@@ -203,6 +209,8 @@ export function TrackerSectionList({
             status={playerStats?.status ?? ""}
             trackerPanelSide={trackerPanelSide}
             trackerPanelSizeProfile={trackerPanelSizeProfile}
+            statDisplayMode={trackerStatDisplayMode}
+            resolveStatIcon={resolveStatIcon}
             spriteExpression={
               expressionSpritesEnabled && activePersona
                 ? (spriteExpressions[activePersona.id] ?? spriteExpressions[activePersona.name] ?? "neutral")
@@ -240,6 +248,8 @@ export function TrackerSectionList({
             trackerPanelSide={trackerPanelSide}
             trackerPanelSizeProfile={trackerPanelSizeProfile}
             thoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
+            statDisplayMode={trackerStatDisplayMode}
+            resolveStatIcon={resolveStatIcon}
             dockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
             action={renderCharacterHeaderAction()}
             onUpdateCharacter={updateCharacter}

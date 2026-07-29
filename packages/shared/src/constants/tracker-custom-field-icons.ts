@@ -1,4 +1,5 @@
 import type { WorldCustomField } from "../types/game-state.js";
+import { normalizeIconNameFormat } from "../utils/icon-name-format.js";
 
 export const DEFAULT_WORLD_CUSTOM_FIELD_ICON = "tag";
 
@@ -73,19 +74,9 @@ export type SupportedWorldCustomFieldIcon = (typeof SUPPORTED_WORLD_CUSTOM_FIELD
 
 const SUPPORTED_WORLD_CUSTOM_FIELD_ICON_SET = new Set<string>(SUPPORTED_WORLD_CUSTOM_FIELD_ICONS);
 
-function normalizeIconNameFormat(value: string) {
-  return value
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-")
-    .toLowerCase();
-}
-
 export function normalizeWorldCustomFieldIcon(value: unknown): SupportedWorldCustomFieldIcon | null {
   if (typeof value !== "string") return null;
   const normalized = normalizeIconNameFormat(value);
-  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(normalized)) return null;
   return SUPPORTED_WORLD_CUSTOM_FIELD_ICON_SET.has(normalized) ? (normalized as SupportedWorldCustomFieldIcon) : null;
 }
 

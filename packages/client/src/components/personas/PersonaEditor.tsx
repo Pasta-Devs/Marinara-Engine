@@ -72,6 +72,7 @@ import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ColorPicker } from "../ui/ColorPicker";
+import { StatIconPicker } from "../ui/StatIconPicker";
 import { MacroTextarea } from "../ui/MacroTextarea";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { CustomEmojiTagButton } from "../ui/CustomEmojiTagButton";
@@ -79,6 +80,12 @@ import { CallClipGenerationModal } from "../ui/CallClipGenerationModal";
 import { api } from "../../lib/api-client";
 import { downloadSpriteFile } from "../../lib/sprite-download";
 import { parseTrackerCardColorConfig, serializeTrackerCardColorConfig } from "../../lib/tracker-card-colors";
+import {
+  getStatNameOccurrence,
+  remapStatIconAssignments,
+  resolveStatIconAssignment,
+  setStatIconAssignment,
+} from "../../lib/stat-icon-assignments";
 import { estimateTextTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import {
   useCharacterSprites,
@@ -113,6 +120,8 @@ import {
   type ConvoBehaviorConfig,
   type PersonaCardSnapshot,
   type PersonaCardVersion,
+  type PersonaStatBar,
+  type PersonaStatsConfig,
   type RPGStatPool,
   type RPGStatsConfig,
   type TrackerCardColorConfig,
@@ -2576,16 +2585,7 @@ function PersonaColorsTab({
 
 // ── Persona Stats Tab ──
 
-interface PersonaStatBar {
-  name: string;
-  value: number;
-  max: number;
-  color: string;
-}
-
-interface PersonaStatsData {
-  enabled: boolean;
-  bars: PersonaStatBar[];
+interface PersonaStatsData extends PersonaStatsConfig {
   rpgStats?: RPGStatsConfig;
 }
 
@@ -2646,9 +2646,23 @@ function PersonaStatsTab({
     updateField("personaStats", JSON.stringify(next));
   };
 
-  const updateBar = (index: number, field: string, value: string | number) => {
+  const updateStatIcons = (statIcons: NonNullable<TrackerCardColorConfig["statIcons"]>) => {
+    updateField("trackerCardColors", { ...formData.trackerCardColors, statIcons });
+  };
+
+  const updateBar = <K extends keyof PersonaStatBar>(index: number, field: K, value: PersonaStatBar[K]) => {
     const next = [...parsed.bars];
     next[index] = { ...next[index], [field]: value };
+    if (field === "name" && value !== parsed.bars[index]?.name) {
+      updateStatIcons(
+        remapStatIconAssignments(
+          formData.trackerCardColors.statIcons ?? [],
+          parsed.bars,
+          next,
+          (nextIndex) => nextIndex,
+        ),
+      );
+    }
     save({ ...parsed, bars: next });
   };
 
@@ -2660,7 +2674,16 @@ function PersonaStatsTab({
   };
 
   const removeBar = (index: number) => {
-    save({ ...parsed, bars: parsed.bars.filter((_, i) => i !== index) });
+    const nextBars = parsed.bars.filter((_, i) => i !== index);
+    updateStatIcons(
+      remapStatIconAssignments(
+        formData.trackerCardColors.statIcons ?? [],
+        parsed.bars,
+        nextBars,
+        (nextIndex) => (nextIndex < index ? nextIndex : nextIndex + 1),
+      ),
+    );
+    save({ ...parsed, bars: nextBars });
   };
 
   // RPG Attributes helpers
@@ -2739,6 +2762,24 @@ function PersonaStatsTab({
                       value={bar.color}
                       onChange={(e) => updateBar(i, "color", e.target.value)}
                       className="h-6 w-6 cursor-pointer rounded border-0 bg-transparent"
+                    />
+                    <StatIconPicker
+                      value={resolveStatIconAssignment(
+                        formData.trackerCardColors.statIcons ?? [],
+                        bar.name,
+                        getStatNameOccurrence(parsed.bars, i),
+                      )}
+                      statName={bar.name}
+                      onSelect={(icon) =>
+                        updateStatIcons(
+                          setStatIconAssignment(
+                            formData.trackerCardColors.statIcons ?? [],
+                            bar.name,
+                            getStatNameOccurrence(parsed.bars, i),
+                            icon ?? undefined,
+                          ),
+                        )
+                      }
                     />
                     <input
                       value={bar.name}

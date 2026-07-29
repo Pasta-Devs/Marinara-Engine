@@ -120,6 +120,7 @@ export function useTrackerPanelModel({
 
   return {
     activePersona,
+    trackerStatIconOverrides: chatMeta.trackerStatIconOverrides,
     characterSpriteLookup,
     characterTrackerConfig,
     characterTrackerSettings,
