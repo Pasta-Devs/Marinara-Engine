@@ -1,6 +1,9 @@
 import {
   CHAT_SUMMARY_OUTPUT_TOKENS,
   DEFAULT_CHAT_SUMMARY_PROMPT,
+  DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+  LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+  isLongTermMemoryChatSummaryPromptAllowed,
   normalizeChatSummaryPromptSettings,
 } from "@marinara-engine/shared";
 
@@ -93,6 +96,12 @@ export function resolveChatSummaryPrompt(args: {
 
   const globalPrompt = resolvePromptFromTemplates(globalSettings.templates, selectedId);
   if (globalPrompt) return globalPrompt;
+  if (
+    selectedId === LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID &&
+    isLongTermMemoryChatSummaryPromptAllowed(args.chatMetadata)
+  ) {
+    return DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT;
+  }
   // A saved global settings row is authoritative across roleplay chats.
   // Legacy chat-local templates remain a fallback only until the user has saved
   // global summary prompt settings, so old per-chat choices do not silently
@@ -113,6 +122,7 @@ function resolvePromptFromTemplates(templates: unknown[], selectedId: string): s
   for (const template of templates) {
     if (!template || typeof template !== "object" || Array.isArray(template)) continue;
     const record = template as Record<string, unknown>;
+    if (typeof record.id === "string" && record.id.trim() === LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID) continue;
     if (record.id !== selectedId) continue;
     const prompt = typeof record.prompt === "string" ? record.prompt.trim() : "";
     if (prompt) return prompt;

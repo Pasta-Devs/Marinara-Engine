@@ -25,7 +25,7 @@ Marinara copies the chat up to and including that message into a new branch. The
 - Starts with the display name **New Branch**. You can rename it (see below).
 - Stays in the same chat folder as the source chat.
 
-Day summaries, week summaries, and the rolling summary do not carry over. The new branch starts those fresh.
+Day and week summaries do not carry over. Rolling summaries with persisted message ranges fully contained in the copied branch are carried over and remapped to the branch's new message IDs. Summaries whose source range crosses the branch point, or legacy summaries without message metadata, are left out. The new branch starts those fresh.
 
 You cannot branch a scene chat. In a scene chat, the **Branch from here** button does not appear. Scene chats have a separate **Clone from here** action instead. See [Scenes: Branching a Roleplay](../roleplay/scenes.md) for how it works.
 

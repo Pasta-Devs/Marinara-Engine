@@ -22,6 +22,9 @@ import {
   isPatternSafe,
   normalizeChatSummaryEntries,
   normalizeChatSummaryPromptSettings,
+  LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+  DEFAULT_CHAT_SUMMARY_PROMPT,
+  DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
   normalizeCharacterTrackerCustomFieldDefaults,
   normalizeWorldCustomFields,
   LIMITS,
@@ -586,6 +589,7 @@ import {
   appendContinuationMessageContent,
   CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT,
   formatRoleplaySummaryChatLog,
+  resolveChatSummaryPrompt,
 } from "../../packages/server/src/services/generation/roleplay-summary-runtime.js";
 import { scopeIndividualGroupMessagesForTarget } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
@@ -5616,6 +5620,37 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         templates,
         activeTemplateId: null,
       });
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({ templates, activeTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID }),
+        { templates, activeTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID },
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: { enableAgents: true, activeAgentIds: ["long-term-memory"] },
+        }),
+        DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: {
+            enableAgents: true,
+            activeAgentIds: ["long-term-memory"],
+            summaryPromptTemplates: [
+              { id: ` ${LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID} `, name: "Collision", prompt: "Wrong local prompt" },
+            ],
+          },
+        }),
+        DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: { enableAgents: false, activeAgentIds: ["long-term-memory"] },
+        }),
+        DEFAULT_CHAT_SUMMARY_PROMPT,
+      );
     },
   },
   {

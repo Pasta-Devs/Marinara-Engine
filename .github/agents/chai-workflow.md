@@ -99,6 +99,7 @@ Use this for code reviews, PR preparation, PR iteration, and ready-for-review ga
 - Never push directly to protected branches without explicit maintainer direction.
 - Do not auto-check PR validation boxes. Treat them as human verification tasks.
 - After pushing, inspect CI and review feedback when asked to ship or ready a PR.
+- Required checks and CodeRabbit must complete before every merge. Pasta-Devs developers may merge internal PRs to `staging` after those gates; outside and first-time contributors also require an approving review from `SpicyMarinara`. Only `SpicyMarinara` may promote `staging` to `main`.
 
 Maintainer-equivalent self-review questions:
 

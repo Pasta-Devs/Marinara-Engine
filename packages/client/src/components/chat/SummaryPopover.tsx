@@ -58,6 +58,8 @@ import {
   type APIConnection,
   CHAT_SUMMARY_OUTPUT_TOKENS,
   DEFAULT_CHAT_SUMMARY_PROMPT,
+  DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+  LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
   SUMMARY_TAIL_MESSAGES,
   estimateChatSummaryTokens,
   normalizeChatSummaryEntries,
@@ -76,6 +78,7 @@ interface SummaryPopoverProps {
   contextSize: number;
   promptTemplates?: ChatSummaryPromptTemplate[];
   activePromptTemplateId?: string | null;
+  longTermMemorySummaryPromptAvailable?: boolean;
   summaryConnectionId?: string | null;
   summaryMaxTokens?: number;
   automaticSummaryEnabled?: boolean;
@@ -287,6 +290,7 @@ export function SummaryPopover({
   contextSize,
   promptTemplates = [],
   activePromptTemplateId = null,
+  longTermMemorySummaryPromptAvailable = false,
   summaryConnectionId = null,
   summaryMaxTokens,
   automaticSummaryEnabled = false,
@@ -462,19 +466,24 @@ export function SummaryPopover({
     : hasGlobalPromptSettings
       ? globalActivePromptTemplateId
       : activePromptTemplateId;
+  const normalizedActivePromptTemplateId = resolvedActivePromptTemplateId?.trim() || null;
   const cleanedPromptTemplates = sourcePromptTemplates.filter(
     (template) =>
       typeof template.id === "string" &&
       template.id.trim().length > 0 &&
       typeof template.name === "string" &&
       typeof template.prompt === "string" &&
-      template.prompt.trim().length > 0,
+      template.prompt.trim().length > 0 &&
+      template.id.trim() !== LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
   );
-  const activePromptTemplate = resolvedActivePromptTemplateId
-    ? cleanedPromptTemplates.find((template) => template.id === resolvedActivePromptTemplateId)
+  const activePromptTemplate = normalizedActivePromptTemplateId
+    ? cleanedPromptTemplates.find((template) => template.id === normalizedActivePromptTemplateId)
     : null;
-  const promptTemplateSummary =
-    activePromptTemplate?.name ?? localizeUi("ui.chat.summarypopover.builtInDefault");
+  const isLongTermMemoryPromptSelected =
+    longTermMemorySummaryPromptAvailable && normalizedActivePromptTemplateId === LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID;
+  const promptTemplateSummary = isLongTermMemoryPromptSelected
+    ? localizeUi("chat.summary.template.longTermMemory")
+    : activePromptTemplate?.name ?? localizeUi("ui.chat.summarypopover.builtInDefault");
   const isEditingExistingTemplate = !!editingTemplateId;
   const hasTemplateDraft = templateNameDraft.trim().length > 0 && templatePromptDraft.trim().length > 0;
   const displayEntries = useMemo(
@@ -625,7 +634,7 @@ export function SummaryPopover({
           chatId,
           rangeStartIndex: rangeLow,
           rangeEndIndex: rangeHigh,
-          promptTemplateId: resolvedActivePromptTemplateId,
+          promptTemplateId: normalizedActivePromptTemplateId,
         },
         {
           onSuccess: (data) => {
@@ -643,7 +652,7 @@ export function SummaryPopover({
     setLocalSize(String(normalizedLastSize));
     persistSummaryContextSize(normalizedLastSize);
     generateSummary.mutate(
-      { chatId, contextSize: normalizedLastSize, promptTemplateId: resolvedActivePromptTemplateId },
+      { chatId, contextSize: normalizedLastSize, promptTemplateId: normalizedActivePromptTemplateId },
       {
         onSuccess: (data) => {
           if (data.entry?.id) {
@@ -664,7 +673,7 @@ export function SummaryPopover({
     rangeLow,
     persistSummaryContextSize,
     sourceMode,
-    resolvedActivePromptTemplateId,
+    normalizedActivePromptTemplateId,
     persistSummaryMaxTokens,
     summaryMaxTokensDraft, localizeUi,
   ]);
@@ -681,10 +690,10 @@ export function SummaryPopover({
       summaryEntries: displayEntries,
       batchSize: normalizedAutomaticSummaryInterval,
       maxMessagesPerBatch: persistedContextSize,
-      promptTemplateId: resolvedActivePromptTemplateId,
+      promptTemplateId: normalizedActivePromptTemplateId,
     });
   }, [
-    resolvedActivePromptTemplateId,
+    normalizedActivePromptTemplateId,
     chatId,
     displayEntries,
     globalPromptSettingsReady,
@@ -866,16 +875,24 @@ export function SummaryPopover({
     setTemplateEditorOpen(true);
   }, [cleanedPromptTemplates.length, localizeUi]);
 
-  const handleDuplicatePromptTemplate = useCallback((template: ChatSummaryPromptTemplate | null) => {
-    setEditingTemplateId(null);
-    setTemplateNameDraft(
-      localizeUi("chat.summary.template.copyName", {
-        name: template?.name ?? localizeUi("ui.chat.summarypopover.builtInDefault"),
-      }),
-    );
-    setTemplatePromptDraft(template?.prompt ?? DEFAULT_CHAT_SUMMARY_PROMPT);
-    setTemplateEditorOpen(true);
-  }, [localizeUi]);
+  const handleDuplicatePromptTemplate = useCallback(
+    (
+      template: ChatSummaryPromptTemplate | null,
+      builtInPrompt = isLongTermMemoryPromptSelected
+        ? DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT
+        : DEFAULT_CHAT_SUMMARY_PROMPT,
+    ) => {
+      setEditingTemplateId(null);
+      setTemplateNameDraft(
+        localizeUi("chat.summary.template.copyName", {
+          name: template?.name ?? localizeUi("ui.chat.summarypopover.builtInDefault"),
+        }),
+      );
+      setTemplatePromptDraft(template?.prompt ?? builtInPrompt);
+      setTemplateEditorOpen(true);
+    },
+    [isLongTermMemoryPromptSelected, localizeUi],
+  );
 
   const handleEditActivePrompt = useCallback(() => {
     if (activePromptTemplate) {
@@ -902,13 +919,13 @@ export function SummaryPopover({
           },
         ];
     const nextActiveId = isEditingExistingTemplate
-      ? resolvedActivePromptTemplateId
+      ? normalizedActivePromptTemplateId
       : nextTemplates[nextTemplates.length - 1]!.id;
     const saved = await persistPromptTemplates(nextTemplates, nextActiveId ?? null);
     if (!saved) return;
     resetTemplateDraft();
   }, [
-    resolvedActivePromptTemplateId,
+    normalizedActivePromptTemplateId,
     cleanedPromptTemplates,
     editingTemplateId,
     hasTemplateDraft,
@@ -936,7 +953,7 @@ export function SummaryPopover({
       const nextTemplates = cleanedPromptTemplates.filter((template) => template.id !== templateId);
       const saved = await persistPromptTemplates(
         nextTemplates,
-        resolvedActivePromptTemplateId === templateId ? null : resolvedActivePromptTemplateId,
+        normalizedActivePromptTemplateId === templateId ? null : normalizedActivePromptTemplateId,
       );
       if (!saved) return;
       if (editingTemplateId === templateId) resetTemplateDraft();
@@ -946,7 +963,7 @@ export function SummaryPopover({
       editingTemplateId,
       persistPromptTemplates,
       resetTemplateDraft,
-      resolvedActivePromptTemplateId, localizeUi,
+      normalizedActivePromptTemplateId, localizeUi,
     ],
   );
 
@@ -1250,14 +1267,21 @@ export function SummaryPopover({
                         className="mt-1 max-h-40 overflow-y-auto rounded-md border border-[var(--border)] bg-[var(--popover)] p-1 text-[var(--popover-foreground)] shadow-xl shadow-black/25"
                       >
                         <SummaryPromptSelectOption
-                          active={!resolvedActivePromptTemplateId}
+                          active={!normalizedActivePromptTemplateId}
                           label={localizeUi("ui.chat.summarypopover.builtInDefault")}
                           onSelect={() => void handleSelectPromptTemplate(null)}
                         />
+                        {longTermMemorySummaryPromptAvailable && (
+                          <SummaryPromptSelectOption
+                            active={isLongTermMemoryPromptSelected}
+                            label={localizeUi("chat.summary.template.longTermMemory")}
+                            onSelect={() => void handleSelectPromptTemplate(LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID)}
+                          />
+                        )}
                         {cleanedPromptTemplates.map((template) => (
                           <SummaryPromptSelectOption
                             key={template.id}
-                            active={resolvedActivePromptTemplateId === template.id}
+                            active={normalizedActivePromptTemplateId === template.id}
                             label={template.name}
                             onSelect={() => void handleSelectPromptTemplate(template.id)}
                           />
@@ -1281,16 +1305,29 @@ export function SummaryPopover({
                   <div className="space-y-2 border-t border-[var(--border)] pt-2">
                     <div className="max-h-28 space-y-1 overflow-y-auto pr-0.5">
                       <SummaryPromptTemplateRow
-                        active={!resolvedActivePromptTemplateId}
+                        active={!normalizedActivePromptTemplateId}
                         name={localizeUi("ui.chat.summarypopover.builtInDefault")}
                         detail={localizeUi("chat.summary.template.appDefault")}
                         onSelect={() => void persistPromptTemplates(cleanedPromptTemplates, null)}
-                        onCopy={() => handleDuplicatePromptTemplate(null)}
+                        onCopy={() => handleDuplicatePromptTemplate(null, DEFAULT_CHAT_SUMMARY_PROMPT)}
                       />
+                      {longTermMemorySummaryPromptAvailable && (
+                        <SummaryPromptTemplateRow
+                          active={isLongTermMemoryPromptSelected}
+                          name={localizeUi("chat.summary.template.longTermMemory")}
+                          detail={localizeUi("chat.summary.template.appDefault")}
+                          onSelect={() =>
+                            void persistPromptTemplates(cleanedPromptTemplates, LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID)
+                          }
+                          onCopy={() =>
+                            handleDuplicatePromptTemplate(null, DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT)
+                          }
+                        />
+                      )}
                       {cleanedPromptTemplates.map((template) => (
                         <SummaryPromptTemplateRow
                           key={template.id}
-                          active={resolvedActivePromptTemplateId === template.id}
+                          active={normalizedActivePromptTemplateId === template.id}
                           name={template.name}
                           detail={localizeUi("chat.summary.template.tokenEstimate", {
                             count: Math.ceil(template.prompt.length / 4),

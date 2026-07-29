@@ -20,6 +20,7 @@ import {
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { safeFetch } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
+import { getBuildBranch } from "../../config/build-info.js";
 import { sidecarSpeechService } from "../sidecar/sidecar-speech.service.js";
 
 const ROOT = join(DATA_DIR, "capability-packages");
@@ -29,19 +30,30 @@ const UPDATE_DECISIONS = join(ROOT, "update-decisions-v1.json");
 const AVAILABILITY_MIGRATION = join(ROOT, "availability-migration-v1.json");
 const HIERARCHICAL_MAPS_SELECTION_CORRECTION = join(ROOT, "hierarchical-maps-selection-correction-v1.json");
 const NON_DOWNLOADABLE_CORE_PACKAGE_IDS = new Set(["about-me-keeper"]);
-const OFFICIAL_CATALOG_ROOT = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/catalog";
-const OFFICIAL_ARTIFACT_ROOT = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/artifacts";
+const OFFICIAL_AGENT_RAW_ROOT = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents";
+type OfficialAgentBranch = "main" | "staging";
+function resolveOfficialAgentBranch(engineBranch: string | null = getBuildBranch()): OfficialAgentBranch {
+  return engineBranch === "staging" ? "staging" : "main";
+}
+function officialCatalogRoot(branch: OfficialAgentBranch): string {
+  return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/catalog`;
+}
+function officialArtifactRoot(branch: OfficialAgentBranch): string {
+  return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/artifacts`;
+}
 const ENGINE_RELEASE_VERSION_PATTERN = /^v?(\d+)\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 export function resolveCapabilityCatalogUrl(
   engineVersion: string = APP_VERSION,
   configuredUrl: string | undefined = process.env.MARINARA_AGENT_CATALOG_URL,
+  branch: OfficialAgentBranch = resolveOfficialAgentBranch(),
 ): string {
   const override = configuredUrl?.trim();
   if (override) return override;
   const match = ENGINE_RELEASE_VERSION_PATTERN.exec(engineVersion.trim());
+  const catalogRoot = officialCatalogRoot(branch);
   return match
-    ? `${OFFICIAL_CATALOG_ROOT}/v${Number(match[1])}/catalog.json`
-    : `${OFFICIAL_CATALOG_ROOT}/catalog.json`;
+    ? `${catalogRoot}/v${Number(match[1])}/catalog.json`
+    : `${catalogRoot}/catalog.json`;
 }
 const CATALOG_URL = resolveCapabilityCatalogUrl();
 const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
@@ -258,11 +270,30 @@ export function getCapabilityPackageArtifactSourceIssue(
   entry: CapabilityCatalogPackage,
   catalogUrl = CATALOG_URL,
 ): string | null {
-  if (!catalogUrl.startsWith(`${OFFICIAL_CATALOG_ROOT}/`)) return null;
-  const expected = `${OFFICIAL_ARTIFACT_ROOT}/${entry.manifest.id}-${entry.manifest.version}.zip`;
-  return entry.artifact.url === expected
+  const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
+  if (!branch) return null;
+  const artifactName = `${entry.manifest.id}-${entry.manifest.version}.zip`;
+  const stableUrl = `${officialArtifactRoot("main")}/${artifactName}`;
+  const channelUrl = `${officialArtifactRoot(branch)}/${artifactName}`;
+  return entry.artifact.url === stableUrl || entry.artifact.url === channelUrl
     ? null
     : `Official package ${entry.manifest.id} must use its canonical Marinara-Agents artifact URL`;
+}
+
+function getOfficialAgentBranchFromCatalogUrl(catalogUrl: string): OfficialAgentBranch | null {
+  for (const branch of ["main", "staging"] as const) {
+    if (catalogUrl.startsWith(`${officialCatalogRoot(branch)}/`)) return branch;
+  }
+  return null;
+}
+
+export function resolveCapabilityPackageArtifactUrl(
+  entry: CapabilityCatalogPackage,
+  catalogUrl = CATALOG_URL,
+): string {
+  const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
+  if (!branch) return entry.artifact.url;
+  return `${officialArtifactRoot(branch)}/${entry.manifest.id}-${entry.manifest.version}.zip`;
 }
 
 async function readInstalledAgentDefinitions(installed: InstalledCapabilityPackage) {
@@ -444,12 +475,20 @@ export const capabilityPackageManager = {
     if (!response.ok) throw new Error(`Catalog request failed with HTTP ${response.status}`);
     const catalog = capabilityCatalogSchema.parse(await response.json());
     for (const entry of catalog.packages) {
-      const sourceIssue = getCapabilityPackageArtifactSourceIssue(entry);
+      const sourceIssue = getCapabilityPackageArtifactSourceIssue(entry, CATALOG_URL);
       if (sourceIssue) throw new Error(sourceIssue);
     }
     return {
       ...catalog,
-      packages: catalog.packages.filter((entry) => !NON_DOWNLOADABLE_CORE_PACKAGE_IDS.has(entry.manifest.id)),
+      packages: catalog.packages
+        .filter((entry) => !NON_DOWNLOADABLE_CORE_PACKAGE_IDS.has(entry.manifest.id))
+        .map((entry) => ({
+          ...entry,
+          artifact: {
+            ...entry.artifact,
+            url: resolveCapabilityPackageArtifactUrl(entry, CATALOG_URL),
+          },
+        })),
     };
   },
 
