@@ -581,20 +581,35 @@ All four are visible as lines in Simple:
 1. **Characters, with the tutorial folded in** — the step opens with the same three concepts
    Mari's post used to cover up front (why creators appear in the feed, why some posts are
    locked, that characters post on their own), directly above the character list, then every
-   eligible character, individually selectable, pre-checked **only
-   up to a threshold** (start at 12). Above it nothing is pre-checked and "select all" is
-   an explicit action, because one click on Continue at a 40-character library is 40
+   eligible character, individually selectable, pre-checked **only up to a threshold**.
+   **Decided 2026-07-29: the threshold is 8.** Above it nothing is pre-checked and "select
+   all" is an explicit action, because one click on Continue at a 40-character library is 40
    creator creations and 40 stage-profile drafts — 40 provider calls — for a user whose
-   intent was "let me try this". The threshold value is a guess and should be set by
-   someone with a real library. Uses `/noodler/eligible-accounts` and the Slice 8c bulk
-   creation path.
+   intent was "let me try this". Eight bounds the worst-case first run at 8 text calls, is
+   still enough creators for the feed to feel populated rather than empty, and matches the
+   number the Simple-mode summary line already uses in its example below. Uses
+   `/noodler/eligible-accounts` and the Slice 8c bulk creation path.
 2. **Disclosure** — stays here, because a stage profile cannot be generated without it and
-   bulk creation happens in this wizard. Asked in product language, not jargon: *"How openly do your characters
-   deal with being here?"* with three answers describing the effect rather than the
-   mechanism — same name and everyone knows; an alter ego with a different name that a
-   close look still connects; strictly separate with no visible link. These map onto
-   `open`/`hinted`/`secret`. The character list expands underneath for individual
-   exceptions. One concept, one line, still changeable.
+   bulk creation happens in this wizard. Asked in product language, not jargon. **Decided
+   2026-07-29: the recognition-test phrasing.** The question is *"How openly do your
+   characters deal with being here?"* and each answer anchors to an imaginable scene rather
+   than to a property of the profile:
+
+   | Copy | Maps to |
+   | --- | --- |
+   | **Openly themselves** — "A friend scrolling past would recognise them instantly. Same name, same face." | `open` |
+   | **An open secret** — "A friend scrolling past might do a double-take. Different name, but the resemblance is there." | `hinted` |
+   | **Nobody knows** — "A friend scrolling past would never guess. Nothing connects this profile to them." | `secret` |
+
+   The earlier draft described the *mechanism* ("an alter ego with a different name that a
+   close look still connects"), which has no referent for a user who has not yet seen a stage
+   profile — the exact risk the outside review flagged. "A friend scrolling past" supplies
+   that referent: it is a scene the user can picture before any profile exists, and the three
+   outcomes differ in one visible way. `hinted` is the hardest of the three to convey and is
+   the one the double-take line exists for.
+
+   The character list expands underneath for individual exceptions. One concept, one line,
+   still changeable.
 3. **Activity** — one plain number: "up to N automatic posts per day". Explain that N is
    also the daily automatic text-attempt ceiling and that Marinara prepares future posts
    while it is running. Do not expose reserve horizon, slot multiplication, catch-up, or
@@ -1242,12 +1257,13 @@ deferred. If any part of the watching work survives a scope cut, it should be th
 - ~~**Default `postsPerDay`.**~~ Resolved 2026-07-29 — **4**, range 1..24. Tuning it from a
   real paid-provider run and a real local-model run (latency, noise, output quality, image
   cost) is still worthwhile, but no longer blocks 8f-3.
-- **The plain-language disclosure phrasing.** Disclosure stays in the wizard, but the words
-  are still abstract — "an alter ego with a different name that a close look still connects"
-  has no referent for a user who has not seen a stage profile yet. Needs writing and one
-  comprehension check on a real person. This is the highest-risk item left in the flow.
-- **The pre-check threshold number.** The mechanism is decided; 12 is a guess. Should be set
-  by someone with a real character library.
+- ~~**The plain-language disclosure phrasing.**~~ Resolved 2026-07-29 — the recognition-test
+  wording, written out in Wizard step 2. One comprehension check on a real person is still
+  worth doing before 8f-4 ships, but the words exist now and no longer block the unit.
+  `hinted` remains the option most likely to be misread; if the check finds a problem, it
+  will be there.
+- ~~**The pre-check threshold number.**~~ Resolved 2026-07-29 — **8**, bounding the worst-case
+  first run at 8 provider calls.
 
 ### Decided, kept for the reasoning
 
@@ -1259,10 +1275,10 @@ deferred. If any part of the watching work survives a scope cut, it should be th
   answerable with Continue. The one-screen alternative is dropped. It opens automatically on
   first run; later runs are character selection only.
 - ~~**Does disclosure belong in the wizard?**~~ Yes, and it cannot move: bulk creation
-  happens in the wizard and a stage profile cannot be generated without it. Only the wording
-  is open, above.
-- ~~**Pre-selecting every character.**~~ Pre-check only up to a threshold; "select all" is an
-  explicit action above it. Only the number is open, above.
+  happens in the wizard and a stage profile cannot be generated without it. The wording is
+  settled too, as of 2026-07-29 — the recognition-test copy in Wizard step 2.
+- ~~**Pre-selecting every character.**~~ Pre-check only up to a threshold of **8**; "select
+  all" is an explicit action above it.
 - ~~**Discovery beyond teasers.**~~ Both, but not both now. All creators is the surface;
   browse/search is its own work and earns itself once a library is large enough to lose a
   creator in. Deferred with a trigger, not open.
@@ -1276,6 +1292,17 @@ deferred. If any part of the watching work survives a scope cut, it should be th
 
 ## Changelog
 
+- **2026-07-29** — Closed the last two open questions, so 8f-4 is no longer blocked on
+  wording. **Disclosure** uses recognition-test copy — "a friend scrolling past would
+  recognise them instantly / might do a double-take / would never guess" — replacing the
+  mechanism-describing draft that had no referent for a user who has not yet seen a stage
+  profile. **The pre-check threshold is 8**, bounding a first run at 8 provider calls while
+  still filling a feed, and matching the number the Simple-mode summary line already used as
+  its example. A comprehension check on `hinted` is still worth running before 8f-4 ships,
+  but is no longer a gate. Also specced coin storage for 8f-2: a settings leaf on the viewer
+  persona rather than a table, debited on the insert path of the existing `subscribe` and
+  `unlockPost` transactions so idempotency is structural, with `normalizePersistedInteger`
+  added beside the existing boolean normalizer and reused by 8f-3 for `postsPerDay`.
 - **2026-07-29** — Accuracy pass against staging, plus one product decision. **Pricing is no
   longer deferred:** Unlock costs 1 coin, Subscribe costs 5, every user starts at 999999, and
   the balance is charged for real while no price or balance is rendered in 8f. This replaces

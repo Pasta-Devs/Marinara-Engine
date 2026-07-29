@@ -688,7 +688,7 @@ is what gets cut when the slice runs long. Each unit below is independently ship
 | 8f-1 | `protectNoodlerGeneratedIdentity()` must redact the **current** source identity as well as the stored snapshot; regression covers rename-then-redraft | nothing |
 | 8f-2 | `access` → `public \| locked`, remove `ppvPrice`/`subscriptionIncludesPpv`, Unlock sheet, Following/All tabs, forward-only fail-closed migration, and a hidden coin balance (default 999999) charged 1 by `unlockPost` and 5 by `subscribe`. Also updates `noodle-prompt.regression.ts` and `noodle-settings.regression.ts`, which encode the deleted enum and break at compile time | 8e |
 | 8f-3 | Front-loaded scheduled-post reserve: private outbox, 24-hour rolling horizon, one rolling `postsPerDay` automatic-attempt ceiling, concurrency-1 low-priority preparation, idempotent due publication, policy invalidation, no startup generation or after-the-fact historical timestamps. Replaces `noodle-autopost-scheduler.service.ts` (the poll loop, `MAX_CONCURRENT_AUTOPOSTS = 2`), deletes `noodle-autopost-cadence.ts`/`intensity`/`nextRunAt`, and repoints `app.ts:42` plus the `nextAutoPostRunAt` import at `noodle.storage.ts:56` | 8f-2 |
-| 8f-4 | Four-step wizard at two densities, emulated Professor Mari teaching post in step 1 | 8f-2, 8f-3, 8c |
+| 8f-4 | Four-step wizard at two densities, emulated Professor Mari teaching post in step 1, character pre-check threshold 8, recognition-test disclosure copy | 8f-2, 8f-3, 8c |
 | 8f-5 | New-since-last-visit divider plus entry-point counter (one stored timestamp per viewer persona), and the creator page's delimited operator area | 8f-2 |
 | 8f-6 | Source-changed notice: field snapshot and compare, adopt name/handle (`open` only), re-draft, dismiss, and the "source missing" relink/delete variant | nothing beyond 8f-1 |
 
@@ -1002,6 +1002,16 @@ defaults and per-beat media controls remain open rather than inferred.
   same flow with defaults applied and collapsed; each Simple line expands its advanced
   control in place. The wizard is an on-ramp onto the existing two-level control plane
   and never becomes a third home for settings.
+- **The wizard pre-checks at most 8 characters** (decided 2026-07-29). One Continue click
+  costs one provider call per checked character, so the threshold bounds a first run at 8
+  text calls; "select all" above it is an explicit act. Eight still fills a feed, and matches
+  the Simple-mode summary line's own example.
+- **Disclosure uses recognition-test copy** (decided 2026-07-29): "A friend scrolling past
+  would recognise them instantly" / "might do a double-take" / "would never guess", mapping
+  to `open`/`hinted`/`secret`. The earlier draft described the mechanism, which has no
+  referent for a user who has not yet seen a stage profile. `hinted` is the one most likely
+  to be misread; a comprehension check on a real person before 8f-4 ships is still worth
+  doing, but no longer blocks the unit.
 - There is no tutorial overlay or coach-mark tour, and no separate tutorial screen before
   the wizard. The wizard opens immediately after the age gate, and its first step carries
   the tutorial content inline (why creators appear, why posts are locked, that characters
