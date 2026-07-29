@@ -88,10 +88,29 @@ button, whose sheet offers exactly two choices:
 - `Unlock this post` — just this one post
 - `Subscribe` — everything from this creator
 
-**No prices are shown.** Slice 9b establishes that support points are a score with "no
-spendable balance". Putting a number on the Unlock button would make it the first
-spendable thing in the product and would quietly reverse that decision. The two rows
-distinguish themselves by *reach*, not by price.
+**No prices are shown — in the UI. There is a real cost underneath.** Decided 2026-07-29:
+pricing is coming, so the two actions carry fixed coin costs from the start rather than
+being retrofitted onto a product built around their absence:
+
+| Action | Cost |
+| --- | --- |
+| Unlock this post | 1 coin |
+| Subscribe | 5 coins |
+
+Every user starts with a balance of **999999**. Costs are charged and the balance is
+decremented, but neither the price nor the balance is rendered anywhere in 8f. The two rows
+still distinguish themselves by *reach*, not by price, because price is not visible yet.
+
+**Be honest about what this is.** A 999999 starting balance means nothing is gated in
+practice: the ledger runs, the arithmetic is real, and no user reaches zero. The value is
+that `unlockPost` and `subscribe` become genuinely charging operations now, so making prices
+visible later is a UI change and a balance change rather than a data-model change. It is
+scaffolding with the load-bearing part already in place, not an economy.
+
+This supersedes the earlier no-prices-ever framing, which rested on Slice 9b — a slice in
+the band marked as possibly never shipping. 9b's support points remain a separate
+non-spendable *score* and do not become currency; coins are the spendable axis and points
+are not. Two different numbers, deliberately.
 
 ### Not every post is locked
 
@@ -792,7 +811,10 @@ Most of this exists and mainly needs consolidating.
 | Bulk creation | `POST /noodler/accounts/bulk` and `NoodlerBulkCreatePanel` (Slice 8c) |
 | Generate now | global "Refresh NoodleR now" from Slice 8 |
 
-`unlockPost` charges nothing today, and `ppvPrice` is already display-only.
+`unlockPost` charges nothing today, and `ppvPrice` is already display-only. 8f-2 changes the
+first of those: `unlockPost` and `subscribe` become charging operations against a new coin
+balance (1 and 5, default 999999, nothing rendered). `ppvPrice` is deleted rather than
+repurposed — it was a per-post display number, while coin costs are two fixed constants.
 
 ## Rough plan
 
@@ -846,7 +868,18 @@ teasers. Affects the structured response format and prompt fragments.
 pre-generated scheduled posts. Separate low-priority sequential preparation from
 idempotent publication, store prepared content in a capability-owned outbox, enforce one
 automatic text-attempt ceiling, and invalidate stale items when creator or policy state
-changes. Delete `noodle-autopost-cadence.ts`, `intensity`, and `nextRunAt`. Startup
+changes. Delete `intensity` and `nextRunAt`, and replace **four** touch points, not the one
+file earlier drafts named (verified against staging 2026-07-29; last touched by `273d70fc8`,
+the 8e rename):
+
+| Touch point | What 8f-3 does to it |
+| --- | --- |
+| `services/noodle/noodle-autopost-scheduler.service.ts` | the actual per-creator poll loop — claims a due run by advancing `nextRunAt` before provider work. This is the file the rewrite is really about. It ships `MAX_CONCURRENT_AUTOPOSTS = 2`, which is precisely what the reserve's concurrency-1 rule replaces. |
+| `services/noodle/noodle-autopost-cadence.ts` | delete; the `now + 24h/intensity ± jitter` helper has no successor |
+| `app.ts:42` | `startNoodleAutoPostScheduler` registration — repointed at the reserve scheduler |
+| `services/storage/noodle.storage.ts:56` | imports `nextAutoPostRunAt` from the cadence helper; the import and its call sites go with it |
+
+Startup
 materializes valid due items without provider work and resumes preparing only future
 coverage. Night quiet and character schedules constrain future publication planning.
 
@@ -951,21 +984,38 @@ visible.
 
 ### Code paths that reference `ppv` directly
 
-`ppvPrice`/`subscriptionIncludesPpv` appear in **12 files**, not the two the earlier draft
-of this section named. Verified 2026-07-28:
+`ppvPrice`/`subscriptionIncludesPpv` appear in **14 files**, not the two the earlier draft
+of this section named and not the 12 the 2026-07-28 pass counted. Re-verified 2026-07-29
+against staging:
 
 | Layer | Files |
 | --- | --- |
-| server | `noodle.storage.ts`, `noodle.routes.ts`, `noodler-access.ts`, `noodle-private-post.operation.ts`, `noodle-private-generation.service.ts`, `db/schema/noodle.ts` |
+| server | `services/storage/noodle.storage.ts`, `routes/noodle.routes.ts`, `services/noodle/noodler-access.ts`, `services/noodle/noodle-noodler-post.operation.ts`, `services/noodle/noodle-noodler-generation.service.ts`, `db/schema/noodle.ts` |
 | shared | `schemas/noodle.schema.ts`, `types/noodle.ts` |
 | client | `NoodlerHome.tsx`, `hooks/use-noodle.ts` |
 | i18n | `locales/en.json`, `locales/ko.json` |
+| regressions | `scripts/regressions/noodle-prompt.regression.ts`, `scripts/regressions/noodle-settings.regression.ts` |
 
-Known line-level anchors: `noodle.storage.ts:771-799` (post projection), `:1562`
-(`ppvPrice: input.access === "ppv" ? ... : null` on write), `:2386` (a public-persona viewer
-rule keyed on `access !== "ppv"`), and `noodle.routes.ts:335,409` (exposing
-`subscriptionIncludesPpv`). Each disappears rather than being rewritten — the point of the
-collapse is that these special cases stop existing.
+Note the paths: `noodle.storage.ts` lives under `services/storage/`, not `services/noodle/`.
+The two operation/generation filenames carry the post-8e `noodler` spelling.
+
+Known line-level anchors, corrected against staging:
+
+| Anchor | What is there |
+| --- | --- |
+| `noodle.storage.ts:510-511` | the post projection — the fail-closed normalizer and `ppvPrice` |
+| `noodle.storage.ts:797,813` | the poll-vote transaction's own `access === "ppv"` branch and `subscriptionIncludesPpv` read |
+| `noodle.storage.ts:1588` | `ppvPrice: input.access === "ppv" ? ... : null` on write |
+| `noodle.storage.ts:2412` | the public-persona viewer rule keyed on `access !== "ppv"` |
+| `noodle.routes.ts:335,409` | `subscriptionIncludesPpv` passed **into** `canViewNoodlerPost` |
+| `noodle.routes.ts:364` | `ppvPrice` returned on the post response |
+| `noodle.routes.ts:654` | an unlock-path guard keyed on `access !== "ppv"` |
+
+Two different edits hide behind that list, and conflating them is how the "single edit"
+framing went wrong. `routes:335,409` and `storage:813` disappear because
+`canViewNoodlerPost`'s `subscriptionIncludesPpv` **parameter** disappears. `routes:364` and
+`storage:511` disappear because the `ppvPrice` **field** disappears. The rest are `ppv`
+branches that stop having a value to match.
 
 **The generation service and the shared schema are on this list, which the rough plan's
 "single edit plus a migration" framing understates.** `noodle-private-generation.service.ts`
@@ -990,6 +1040,22 @@ with `ppvPrice`, and one `ppv` with an existing unlock row, against a creator wi
 `subscriptionIncludesPpv` false. Assert after migration that all three non-public posts are
 `locked`, `ppvPrice` is gone, the unlock row still grants access, and — the important one —
 that a **non**-subscriber still sees none of them.
+
+### Regressions to update — not optional, and not discovered later
+
+Two shipped suites already encode the enum being deleted, so they stop compiling the moment
+the type collapses. Both are on the standing validation list, so 8f-2 turns them red on day
+one unless it updates them in the same change:
+
+- `scripts/regressions/noodle-prompt.regression.ts` — ten references, including a
+  `subscriptionIncludesPpv: true` case at `:548` that exists **specifically** to cover the
+  subscriber-sees-ppv branch 8f-2 removes. That case does not get rewritten; it gets deleted,
+  and the reveal it used to protect is the accepted behaviour change described above.
+- `scripts/regressions/noodle-settings.regression.ts` — six references: four
+  `subscriptionIncludesPpv: false` settings fixtures and two `ppvPrice: 5` post fixtures.
+
+`pnpm regression:prompt` and the Noodle regression suite are both named in the standing
+workflow rules, so this is a build break, not a follow-up.
 
 ## Relationship to the Living Plan
 
@@ -1018,14 +1084,15 @@ that a **non**-subscriber still sees none of them.
 
 ## Known limits, deliberately accepted
 
-Without cost, choosing between a single unlock and a subscription is not a real choice:
-subscribing is free and strictly better, so every rational user subscribes. The value of
-this slice is comprehensibility, not balance. That is acceptable as long as we name it
-rather than pretending it is an economy.
+Choosing between a single unlock and a subscription is not yet a real choice. Subscribe
+costs 5 and unlock costs 1, but with a 999999 starting balance and no prices rendered, no
+user experiences the trade-off: subscribing is still strictly better and effectively free.
+The value of this slice is comprehensibility, not balance.
 
-If a balance is ever introduced it hooks in at exactly two places, `unlockPost` and
-`subscribe`. Those stay the only mutation points for that reason — not because a wallet
-is being built, but so that one could be.
+What changed as of 2026-07-29 is that the mechanism is no longer hypothetical. `unlockPost`
+and `subscribe` are the only two mutation points that move a balance, and they now actually
+move it. Making the economy real later is a matter of showing the numbers and lowering the
+starting balance — not of retrofitting a ledger through the access path.
 
 ## Outside review — 2026-07-27
 
@@ -1151,6 +1218,23 @@ deferred. If any part of the watching work survives a scope cut, it should be th
 
 ## Changelog
 
+- **2026-07-29** — Accuracy pass against staging, plus one product decision. **Pricing is no
+  longer deferred:** Unlock costs 1 coin, Subscribe costs 5, every user starts at 999999, and
+  the balance is charged for real while no price or balance is rendered in 8f. This replaces
+  the no-prices-ever rule, which had rested on Slice 9b — a slice in the may-never-ship band.
+  Coins and 9b's support points stay separate axes. Corrected the knock-on claims that
+  NoodleR "has no currency" in the 9-band rationale, which the coin decision would otherwise
+  have silently falsified. Fact-fixes, no design change: the `ppv` inventory is **14** files
+  not 12 — it was missing `noodle-prompt.regression.ts` and `noodle-settings.regression.ts`,
+  both of which encode the deleted enum and break at compile time, so 8f-2 owns updating
+  them. Re-anchored every line reference (`:510-511`, `:797`, `:813`, `:1588`, `:2412`,
+  `routes:335/409/364/654`) and separated the two edits hiding behind them: the
+  `subscriptionIncludesPpv` *parameter* disappearing versus the `ppvPrice` *field*
+  disappearing. Corrected two pre-8e filenames and the `services/storage/` path. 8f-3 now
+  names all four scheduler touch points rather than only the cadence helper — the real
+  rewrite target is `noodle-autopost-scheduler.service.ts`, whose
+  `MAX_CONCURRENT_AUTOPOSTS = 2` is what concurrency-1 replaces. Confirmed the scheduling
+  design itself is unchanged from its original planning commit.
 - **2026-07-29** — Coherence pass before implementation. Fixed a self-contradiction: the
   User flow said "all pre-checked" while Wizard steps said pre-check only up to a threshold,
   which would have shipped the 40-provider-call behaviour the threshold exists to prevent.

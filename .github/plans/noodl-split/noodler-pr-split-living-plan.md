@@ -1,6 +1,6 @@
 # NoodleR PR-Split — Living Plan
 
-Authoritative repository plan as of 2026-07-28. Update the status table and merged list as
+Authoritative repository plan as of 2026-07-29. Update the status table and merged list as
 work lands. Historical slice numbers are retained where useful, but the order below
 is the current intended order.
 
@@ -109,9 +109,11 @@ simplifying the access model after the fan work would mean writing those slices 
 
 **The 9 band is optional, not the road ahead.** Slices 9a–9e and 12 simulate an audience
 economy — invented fans, named superfans, support points, fan profiles, milestones — and
-NoodleR has no economy for them to be an economy of: there is no currency, and subscribing
-is free. They are scenery for scenery, and every one of them spends provider budget on
-ambience. What actually carries the product is watching (the 8 band's audience surface) and
+NoodleR has no economy for them to be an economy of. Coins exist as of 8f-2 and are charged,
+but at a 999999 starting balance with no prices rendered, nothing is scarce and no user
+reaches zero — so subscribing is still effectively free. They are scenery for scenery, and
+every one of them spends provider budget on ambience. If coins are ever made scarce, revisit
+this judgement; until then it stands. What actually carries the product is watching (the 8 band's audience surface) and
 being addressed (8g). They are listed but deliberately kept thin — see "The 9 band" below —
 because a slice that may never ship should not carry a design that must be maintained.
 Reassess after 8g is real.
@@ -669,9 +671,11 @@ or a separate code path. Scheduling front-loads provider work into a private 24-
 reserve, then publishes prepared items locally at their fixed times. The ordinary feed
 shows ordinary chronological posts, with no absence recap or startup-generated history.
 
-**Non-scope:** no currency, balance, or prices; no fan activity; no new settings surface —
-the wizard is an on-ramp onto the existing two-level control plane, not a third place
-where settings live.
+**Non-scope:** no *visible* prices or balance, no top-up/purchase path, no earning path, and
+no fan activity; no new settings surface — the wizard is an on-ramp onto the existing
+two-level control plane, not a third place where settings live. Coins themselves are in
+scope: a balance field defaulting to 999999, charged 1 on unlock and 5 on subscribe, with
+nothing rendered.
 
 ### 8f ships as six units, not one slice
 
@@ -682,8 +686,8 @@ is what gets cut when the slice runs long. Each unit below is independently ship
 | Unit | Content | Depends on |
 | --- | --- | --- |
 | 8f-1 | `protectNoodlerGeneratedIdentity()` must redact the **current** source identity as well as the stored snapshot; regression covers rename-then-redraft | nothing |
-| 8f-2 | `access` → `public \| locked`, remove `ppvPrice`/`subscriptionIncludesPpv`, Unlock sheet, Following/All tabs, forward-only fail-closed migration | 8e |
-| 8f-3 | Front-loaded scheduled-post reserve: private outbox, 24-hour rolling horizon, one rolling `postsPerDay` automatic-attempt ceiling, concurrency-1 low-priority preparation, idempotent due publication, policy invalidation, no startup generation or after-the-fact historical timestamps; delete `noodle-autopost-cadence.ts`/`intensity`/`nextRunAt` | 8f-2 |
+| 8f-2 | `access` → `public \| locked`, remove `ppvPrice`/`subscriptionIncludesPpv`, Unlock sheet, Following/All tabs, forward-only fail-closed migration, and a hidden coin balance (default 999999) charged 1 by `unlockPost` and 5 by `subscribe`. Also updates `noodle-prompt.regression.ts` and `noodle-settings.regression.ts`, which encode the deleted enum and break at compile time | 8e |
+| 8f-3 | Front-loaded scheduled-post reserve: private outbox, 24-hour rolling horizon, one rolling `postsPerDay` automatic-attempt ceiling, concurrency-1 low-priority preparation, idempotent due publication, policy invalidation, no startup generation or after-the-fact historical timestamps. Replaces `noodle-autopost-scheduler.service.ts` (the poll loop, `MAX_CONCURRENT_AUTOPOSTS = 2`), deletes `noodle-autopost-cadence.ts`/`intensity`/`nextRunAt`, and repoints `app.ts:42` plus the `nextAutoPostRunAt` import at `noodle.storage.ts:56` | 8f-2 |
 | 8f-4 | Four-step wizard at two densities, emulated Professor Mari teaching post in step 1 | 8f-2, 8f-3, 8c |
 | 8f-5 | New-since-last-visit divider plus entry-point counter (one stored timestamp per viewer persona), and the creator page's delimited operator area | 8f-2 |
 | 8f-6 | Source-changed notice: field snapshot and compare, adopt name/handle (`open` only), re-draft, dismiss, and the "source missing" relink/delete variant | nothing beyond 8f-1 |
@@ -725,9 +729,10 @@ to replies exactly as they do to posts.
 
 ## The 9 band — audience simulation, specified thin on purpose
 
-**These may never be built.** They simulate an audience economy for a product with no
-economy: no currency, and subscribing is free. Every one of them spends provider budget on
-ambience. What carries the product is watching (the 8 band) and being addressed (8g). Kept
+**These may never be built.** They simulate an audience economy for a product that does not
+yet have one: coins are charged as of 8f-2, but a 999999 starting balance and hidden prices
+mean nothing is scarce and subscribing stays effectively free. Every one of them spends
+provider budget on ambience. What carries the product is watching (the 8 band) and being addressed (8g). Kept
 listed so the ideas are not lost, deliberately not specified in depth — a slice that may
 never ship should not carry a design that must be maintained. Reassess after 8g is real.
 If one is picked up, it gets its own detail document then.
@@ -819,7 +824,7 @@ inside NoodleR; it does not become a public-Noodle post.
 
 The controller can explicitly choose Free/Public for an individual manual, Guided, or
 project-planned NoodleR post through the existing access input. Automatic posts remain
-subscriber by default and must not silently widen access. If public-Noodle posting is
+`locked` by default and must not silently widen access. If public-Noodle posting is
 ever desired, it is a separate explicit action through Noodle's own posting operation,
 with no shared post identity or automatic mirroring.
 
@@ -973,11 +978,17 @@ defaults and per-beat media controls remain open rather than inferred.
 - The collapse reveals content in exactly one case, accepted deliberately: a subscriber to a
   creator with `subscriptionIncludesPpv` off could not see that creator's `ppv` posts and now
   can. Nobody loses access, nothing was paid for, and the subscriber is the owner. Forward-only.
-- NoodleR shows **no prices**. Slice 9b fixed support points as a non-spendable score, so
-  a number on the Unlock control would introduce the product's first spendable value and
-  reverse that decision. Unlock options are distinguished by reach, not price. If a
-  balance is ever added, `unlockPost` and `subscribe` remain the only mutation points it
-  would hook into.
+- **Coins exist and are charged; prices stay hidden in 8f** (decided 2026-07-29, replacing
+  the earlier no-prices-ever rule). Unlock costs **1 coin**, Subscribe costs **5 coins**, and
+  every user starts at **999999**. The balance is decremented for real, but no price or
+  balance is rendered, so Unlock options still read as distinguished by reach rather than
+  price. `unlockPost` and `subscribe` are the only two mutation points that touch a balance.
+  With a 999999 start nothing is gated in practice — this buys the data model now so that
+  revealing prices later is a UI and balance change, not a schema migration through the
+  access path. The prior framing rested on Slice 9b, which sits in the may-never-ship band.
+- **Coins and support points are different numbers.** Slice 9b's support points remain a
+  non-spendable score and never become currency; coins are the spendable axis. Do not merge
+  them.
 - Slice 8f's onboarding is one wizard at two densities, not two wizards. Simple is the
   same flow with defaults applied and collapsed; each Simple line expands its advanced
   control in place. The wizard is an on-ramp onto the existing two-level control plane
@@ -1040,8 +1051,9 @@ defaults and per-beat media controls remain open rather than inferred.
   a unique link makes restart reconciliation idempotent.
 - **Revision of Slice 8's scheduling contract.** Per-stage-profile enable/disable survives,
   so the release-candidate condition still holds. Removed: `intensity`,
-  `noodle-autopost-cadence.ts`, per-creator `nextRunAt`, recurring rescheduling, startup
-  catch-up, and generated-after-the-fact historical timestamps.
+  `noodle-autopost-cadence.ts`, `noodle-autopost-scheduler.service.ts`'s poll-and-claim loop,
+  per-creator `nextRunAt`, recurring rescheduling, startup catch-up, and
+  generated-after-the-fact historical timestamps.
 - Ad-hoc "post now" is not a second schedule. After a successful immediate post, discard
   prepared items for that creator where
   `manualCreatedAt < publishAt <= manualCreatedAt + 60 minutes`; normal preparation may
@@ -1123,7 +1135,7 @@ defaults and per-beat media controls remain open rather than inferred.
   mass stays aggregate; anonymous replies retain only an event-local display snapshot.
   All fan history is filtered through the current viewer's post-access projection.
 - NoodleR posts never mirror into public Noodle. `access: "public"` means Free/Public
-  inside NoodleR, selected explicitly per post; automatic posts stay subscriber by
+  inside NoodleR, selected explicitly per post; automatic posts stay `locked` by
   default and cannot silently widen access.
 - A creator project is an editable bounded content arc over the next 1–20 successful
   generated posts (default 5), with at most one active project per creator. It reuses the
