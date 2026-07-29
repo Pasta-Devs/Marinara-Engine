@@ -989,6 +989,15 @@ defaults and per-beat media controls remain open rather than inferred.
 - **Coins and support points are different numbers.** Slice 9b's support points remain a
   non-spendable score and never become currency; coins are the spendable axis. Do not merge
   them.
+- **The coin balance is a settings leaf on the viewer persona, not a table or a ledger.**
+  It lives on the viewer's Noodle persona account settings, which the normalizer already
+  rebuilds field by field, so it needs no data migration and existing users pick up 999999 on
+  first read. An absent or corrupt value normalizes to the default, never to zero. `subscribe`
+  and `unlockPost` are already single transactions that early-return on an existing row, so
+  the debit goes on the insert path only and idempotency comes free — re-subscribing cannot
+  double-charge. Insufficient balance reuses each function's existing `null` return rather
+  than adding a failure channel. No ledger, history, or reversals until coins are scarce
+  enough that a user needs to ask where theirs went.
 - Slice 8f's onboarding is one wizard at two densities, not two wizards. Simple is the
   same flow with defaults applied and collapsed; each Simple line expands its advanced
   control in place. The wizard is an on-ramp onto the existing two-level control plane

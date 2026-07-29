@@ -112,6 +112,64 @@ the band marked as possibly never shipping. 9b's support points remain a separat
 non-spendable *score* and do not become currency; coins are the spendable axis and points
 are not. Two different numbers, deliberately.
 
+### Coin storage and charging
+
+**No new table, no ledger.** The balance is a typed leaf on the viewer's existing account
+settings, which the storage normalizer already rebuilds field by field
+(`noodle.storage.ts:243`). It therefore inherits the "migrates for free" property this
+document already documents for settings fields: a persisted key that appears with a
+default needs no data step, and existing users pick up the default on first read.
+
+```ts
+interface NoodleWalletSettings {
+  coins: number; // integer >= 0; default 999999
+}
+```
+
+Storage has `normalizePersistedBoolean` (`noodle.storage.ts:172`) but **no integer
+equivalent** — 8f-2 adds one beside it, `normalizePersistedInteger`, returning `undefined`
+for anything non-finite, non-integer, or negative. Then `normalizePersistedInteger(raw.coins)
+?? 999999`, so a missing, corrupt, or negative stored value resolves to the default rather
+than to zero. Falling back to zero would lock a user out of their own content on one bad
+write; the balance is not a security boundary, so the forgiving default is the correct one.
+
+That helper is not single-use: 8f-3 needs the same normalization for `postsPerDay` (integer,
+1..24, default 4). 8f-2 adds it, 8f-3 reuses it with its own bounds.
+
+**Which account holds it.** The viewer's Noodle **persona** account — the same axis follows
+and subscriptions already use. Both `subscribe()` and `unlockPost()` require
+`viewer.kind === "persona" && viewer.platform === "noodle"` and already load that row inside
+their transaction, so the balance is in hand with no extra read. One persona's spending does
+not affect another's, matching how `followingAccountIds` and subscriptions are already scoped.
+Creator accounts have no balance and receive nothing: there is no earning path in 8f.
+
+**Where the charge goes.** Both operations are already a single `db.transaction` that
+early-returns the existing row when one is present. Put the debit on the **insert path only**,
+in that same transaction:
+
+1. resolve viewer/creator/post and run the existing validity checks — unchanged;
+2. if a subscription or unlock row already exists, return it **without charging**;
+3. otherwise check `coins >= cost`; if not, return `null`;
+4. write the debit and insert the row in the same transaction.
+
+Step 2 is what makes charging idempotent, and it is already written — re-subscribing cannot
+double-charge because it never reaches the insert. Step 3 reuses each function's existing
+`null` return, so no new failure channel, route contract, or error type is introduced. The
+unique-constraint retry both functions already have stays as the crash-safety net.
+
+**Insufficient balance is unreachable in 8f** at a 999999 start with no spending path, so
+step 3 is a guard rather than a user-facing state. It is specified anyway because the code
+needs an answer, and because the moment prices become real it is the branch that matters.
+No dedicated empty-wallet UI belongs in 8f.
+
+<!-- ponytail: no ledger, no transaction history, no reversals -- a single integer on the
+     persona. Add an append-only ledger if coins ever become scarce enough that a user
+     needs to ask where theirs went. -->
+
+**Proof for the coin path:** subscribing twice charges 5 once; unlocking the same post twice
+charges 1 once; a viewer at 0 coins is refused and no row is written; a corrupt or absent
+stored balance reads as 999999; and two personas on the same user spend independently.
+
 ### Not every post is locked
 
 Automatic posts still default to locked, but generation may deliberately produce public
