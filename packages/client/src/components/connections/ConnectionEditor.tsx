@@ -482,6 +482,9 @@ export function ConnectionEditor() {
             { token: "%height%", label: "%height%", critical: false },
             { token: "%seed%", label: "%seed%", critical: false },
             { token: "%length%", label: "%length%", critical: false },
+            { token: "%length_s%", label: "%length_s%", critical: false },
+            { token: "%fps%", label: "%fps%", critical: false },
+            { token: "%duration_seconds%", label: "%duration_seconds%", critical: false },
             { token: "%reference_image_name%", label: "%reference_image_name%", critical: false },
           ]
         : [
@@ -2516,7 +2519,7 @@ export function ConnectionEditor() {
               {localProvider === "image_generation" && (
                 <>
                   {" "}
-                  <strong>{localizeUi("ui.connections.connectioneditor.testImage")}</strong> {localizeUi("ui.connections.connectioneditor.generatesA512512TestImageRequiresSavingFirst")}</>
+                  <strong>{localizeUi("ui.connections.connectioneditor.testImage")}</strong> {localizeUi("ui.connections.connectioneditor.generatesA10241024TestImageRequiresSavingFirst")}</>
               )}
               {localProvider === "video_generation" && (
                 <>
@@ -3252,7 +3255,7 @@ function VideoGenerationDefaultsPanel({
             : service === "seedance"
               ? `${value.seedance.durationSeconds}s, ${value.seedance.aspectRatio}, ${value.seedance.resolution}`
               : service === "comfyui"
-                ? `${value.comfyui.durationSeconds}s, ${value.comfyui.aspectRatio}, ${value.comfyui.resolution}`
+                ? `${value.comfyui.durationSeconds}s, ${value.comfyui.fps} FPS, ${value.comfyui.aspectRatio}, ${value.comfyui.resolution}`
                 : `${value.geminiOmni.durationSeconds}s, ${value.geminiOmni.aspectRatio}`;
   const serviceLabel =
     service === "xai"
@@ -3375,7 +3378,7 @@ function VideoGenerationDefaultsPanel({
             service === "seedance" ||
             service === "comfyui" ? (
               <>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className={cn("grid gap-2", service === "comfyui" ? "sm:grid-cols-2" : "sm:grid-cols-3")}>
                   <NumberSetting
                     label={localizeUi("ui.connections.videogenerationdefaultspanel.durationSeconds")}
                     value={
@@ -3406,6 +3409,15 @@ function VideoGenerationDefaultsPanel({
                       } else updateOpenRouter({ durationSeconds });
                     }}
                   />
+                  {service === "comfyui" && (
+                    <NumberSetting
+                      label={localizeUi("ui.connections.videogenerationdefaultspanel.framesPerSecondFps")}
+                      value={value.comfyui.fps}
+                      min={1}
+                      max={120}
+                      onCommit={(fps) => updateComfyUi({ fps })}
+                    />
+                  )}
                   <label className="block">
                     <span className="text-[0.625rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.connections.videogenerationdefaultspanel.aspectRatio")}</span>
                     <select
@@ -3494,7 +3506,7 @@ function VideoGenerationDefaultsPanel({
                         : service === "seedance"
                           ?localizeUi("ui.connections.videogenerationdefaultspanel.seedanceAccepts415SecondsReferenceImageJobsSend")
                           : service === "comfyui"
-                            ?localizeUi("ui.connections.videogenerationdefaultspanel.comfyuiReceivesWidthHeightAndA16FpsFrame")
+                            ?localizeUi("ui.connections.videogenerationdefaultspanel.comfyuiReceivesDimensionsDurationFpsAndFrameCount")
                             :localizeUi("ui.connections.videogenerationdefaultspanel.theseValuesAreSentToOpenrouterSAsynchronousVideos")}
                 </p>
               </>

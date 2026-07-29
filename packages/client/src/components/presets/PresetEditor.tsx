@@ -1219,7 +1219,7 @@ function SectionsTab({
                     <button
                       key={agent.id}
                       onClick={() => handleAddSection({ agentType: agent.type, agentName: agent.name })}
-                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-[var(--marinara-editor-text)] hover:bg-[var(--marinara-editor-control-bg-hover)]"
+                      className="flex w-full items-center justify-start gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--marinara-editor-text)] hover:bg-[var(--marinara-editor-control-bg-hover)]"
                     >
                       <Sparkles size="0.8125rem" className="mari-chrome-accent-icon mari-accent-animated" />{" "}
                       {agent.name} {localizeUi("ui.presets.sectionstab.agent")}</button>

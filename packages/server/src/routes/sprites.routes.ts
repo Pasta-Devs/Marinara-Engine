@@ -412,6 +412,7 @@ function resolveVideoConnection(connection: VideoGenerationConnection) {
                 : undefined,
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUiVideo ? videoDefaults.comfyui.loras : [],
+    comfyFps: isComfyUiVideo ? videoDefaults.comfyui.fps : undefined,
     publicReferenceUpload: resolveVideoReferencePublicUploadOptions(isSeedanceVideo, videoDefaults.seedance),
   };
 }
@@ -1978,6 +1979,7 @@ export async function spritesRoutes(app: FastifyInstance) {
                   resolution: resolved.resolution,
                   comfyWorkflow: resolved.comfyWorkflow,
                   comfyLoras: resolved.comfyLoras,
+                  fps: resolved.comfyFps,
                   referenceImage,
                   publicReferenceUpload: resolved.publicReferenceUpload,
                   fallback: videoFallback,

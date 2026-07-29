@@ -332,15 +332,22 @@ assert.equal(
 
 // Roleplay captures readable reasoning, independently of whether the provider
 // needs an explicit "enable thinking" toggle. OpenAI Responses may stream no
-// summary deltas at all while still returning the summary in response.completed.
+// summary deltas or final reasoning output item, but still send the requested
+// summary through the completed summary events.
 {
   let responsesReasoningRequestBody: Record<string, unknown> | null = null;
   const responsesReasoningSse = [
+    "event: response.reasoning_summary_part.done",
+    'data: {"type":"response.reasoning_summary_part.done","part":{"type":"summary_text","text":"Checked the roleplay context."}}',
+    "",
+    "event: response.reasoning_summary_text.done",
+    'data: {"type":"response.reasoning_summary_text.done","text":"Checked the roleplay context."}',
+    "",
     "event: response.output_text.delta",
     'data: {"type":"response.output_text.delta","delta":"Visible reply"}',
     "",
     "event: response.completed",
-    'data: {"type":"response.completed","response":{"status":"completed","output":[{"id":"rs_1","type":"reasoning","summary":[{"type":"summary_text","text":"Checked the roleplay context."}]},{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"Visible reply"}]}],"usage":{"input_tokens":12,"output_tokens":7,"total_tokens":19,"output_tokens_details":{"reasoning_tokens":4}}}}',
+    'data: {"type":"response.completed","response":{"status":"completed","output":[{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"Visible reply"}]}],"usage":{"input_tokens":12,"output_tokens":7,"total_tokens":19,"output_tokens_details":{"reasoning_tokens":4}}}}',
     "",
     "data: [DONE]",
     "",
@@ -957,6 +964,12 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
   const streamedThenFinalSse = [
     "event: response.reasoning_summary_text.delta",
     'data: {"type":"response.reasoning_summary_text.delta","delta":"Reviewing "}',
+    "",
+    "event: response.reasoning_summary_text.done",
+    'data: {"type":"response.reasoning_summary_text.done","text":"Reviewing the tools."}',
+    "",
+    "event: response.reasoning_summary_part.done",
+    'data: {"type":"response.reasoning_summary_part.done","part":{"type":"summary_text","text":"Reviewing the tools."}}',
     "",
     "event: response.output_item.done",
     'data: {"type":"response.output_item.done","item":{"id":"rs_2","type":"reasoning","summary":[{"type":"summary_text","text":"Reviewing the tools."}]}}',

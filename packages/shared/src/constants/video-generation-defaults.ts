@@ -66,6 +66,7 @@ export const DEFAULT_SEEDANCE_VIDEO_DEFAULTS: SeedanceVideoDefaults = {
 
 export const DEFAULT_COMFYUI_VIDEO_DEFAULTS: ComfyUiVideoDefaults = {
   durationSeconds: 5,
+  fps: 16,
   aspectRatio: "16:9",
   resolution: "720p",
   loras: [],
@@ -146,6 +147,7 @@ export function normalizeVideoGenerationProfile(rawProfile: unknown): {
   const rawComfyUi = isRecord(raw.comfyui) ? raw.comfyui : rawService === "comfyui" ? raw : {};
   profile.comfyui = {
     durationSeconds: readInteger(rawComfyUi.durationSeconds, DEFAULT_COMFYUI_VIDEO_DEFAULTS.durationSeconds, 1, 60),
+    fps: readInteger(rawComfyUi.fps, DEFAULT_COMFYUI_VIDEO_DEFAULTS.fps, 1, 120),
     aspectRatio: readAspectRatio(rawComfyUi.aspectRatio, DEFAULT_COMFYUI_VIDEO_DEFAULTS.aspectRatio),
     resolution: readResolution(rawComfyUi.resolution, DEFAULT_COMFYUI_VIDEO_DEFAULTS.resolution),
     loras: normalizeComfyUiLoraSettings(rawComfyUi.loras),
