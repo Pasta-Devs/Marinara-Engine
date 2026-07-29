@@ -21,6 +21,8 @@ This file is a thin maintainer note for contributors using Codex. Canonical work
 
 - Keep edits non-destructive. Do not revert unrelated work in the tree.
 - Make Marinara Engine changes against `staging` first; do not target `main` directly unless the user or maintainer explicitly asks for a mainline change. See `CONTRIBUTING.md § Branches`.
+- Required checks and CodeRabbit must complete before any `staging` merge. Pasta-Devs developers may then merge internal PRs without another human approval; outside and first-time contributors require an approving review from `SpicyMarinara`.
+- Only `SpicyMarinara` may promote the repository's `staging` branch into `main` or merge a same-repository `hotfix/*` branch.
 - Prefer focused patches that keep code, docs, and release metadata aligned in the same change.
 - Route changes to downloadable agents such as Illustrator, Music DJ, and Lorebook Keeper to [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Agent definitions, default prompts, package-owned runtime code, metadata, artwork/assets, manifests, artifacts, and catalog entries must be fixed and submitted there against its `staging` branch, not in Marinara Engine.
 - Keep host integration changes in Marinara Engine. Package loading, capability APIs and shared contracts, Engine UI/settings, storage, provider/model routing, orchestration, and compatibility handling remain Engine-owned even when the affected feature is an agent. Determine which side of this boundary owns a fix before opening an issue, branch, or PR; split cross-repository changes when both sides are affected.

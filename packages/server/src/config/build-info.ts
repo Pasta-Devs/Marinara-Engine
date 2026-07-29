@@ -13,6 +13,7 @@ const BUILD_META_PATH = resolve(__dirname, "build-meta.json");
 const COMMIT_LENGTH = 12;
 
 let cachedCommit: string | null | undefined;
+let cachedBranch: string | null | undefined;
 
 function normalizeCommit(value: string | undefined | null) {
   const trimmed = value?.trim();
@@ -65,6 +66,41 @@ export function getBuildCommit() {
   }
 
   return cachedCommit;
+}
+
+function normalizeBranch(value: string | undefined | null) {
+  const trimmed = value?.trim().replace(/^refs\/heads\//u, "");
+  return trimmed || null;
+}
+
+export function getBuildBranch() {
+  if (cachedBranch !== undefined) return cachedBranch;
+
+  const envBranch = normalizeBranch(process.env.MARINARA_GIT_BRANCH ?? process.env.GITHUB_REF_NAME);
+  if (envBranch) {
+    cachedBranch = envBranch;
+    return cachedBranch;
+  }
+
+  if (!existsSync(resolve(MONOREPO_ROOT, ".git"))) {
+    cachedBranch = null;
+    return cachedBranch;
+  }
+
+  try {
+    cachedBranch = normalizeBranch(
+      execFileSync("git", ["branch", "--show-current"], {
+        cwd: MONOREPO_ROOT,
+        encoding: "utf8",
+        shell: process.platform === "win32",
+        stdio: ["ignore", "pipe", "ignore"],
+      }),
+    );
+  } catch {
+    cachedBranch = null;
+  }
+
+  return cachedBranch;
 }
 
 export function getBuildLabel() {

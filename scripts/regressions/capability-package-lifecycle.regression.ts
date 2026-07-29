@@ -180,6 +180,7 @@ try {
     getCapabilityPackageArtifactSourceIssue,
     getCapabilityPackageInstallIssue,
     resolveCapabilityCatalogUrl,
+    resolveCapabilityPackageArtifactUrl,
   } = await import(
     "../../packages/server/src/services/capability-packages/package-manager.service.js"
   );
@@ -195,6 +196,11 @@ try {
     resolveCapabilityCatalogUrl("development", ""),
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/catalog/catalog.json",
     "Non-release builds must fall back to the legacy catalog instead of requesting a nonexistent lane",
+  );
+  assert.equal(
+    resolveCapabilityCatalogUrl("2.3.1", "", "staging"),
+    "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/catalog/v2/catalog.json",
+    "Engine staging must read the matching versioned Agent catalog from Marinara-Agents staging",
   );
   assert.equal(getCapabilityPackageInstallIssue(legacyManifest), null);
   const routeManifestWithoutRestart = capabilityPackageManifestSchema.parse({
@@ -347,7 +353,18 @@ try {
     },
   };
   const officialCatalogUrl = resolveCapabilityCatalogUrl("development", "");
+  const stagingCatalogUrl = resolveCapabilityCatalogUrl("development", "", "staging");
   assert.equal(getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, officialCatalogUrl), null);
+  assert.equal(
+    getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, stagingCatalogUrl),
+    null,
+    "Staging catalogs may retain canonical main URLs in their generated metadata",
+  );
+  assert.equal(
+    resolveCapabilityPackageArtifactUrl(canonicalArtifactEntry, stagingCatalogUrl),
+    "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/artifacts/legacy-1.0.0.zip",
+    "Engine staging must download official artifacts from Marinara-Agents staging even when generated metadata remains stable",
+  );
   assert.match(
     getCapabilityPackageArtifactSourceIssue(
       {
@@ -369,6 +386,17 @@ try {
     ),
     null,
     "Explicit custom catalog operators retain control of their artifact host",
+  );
+  assert.equal(
+    resolveCapabilityPackageArtifactUrl(
+      {
+        ...canonicalArtifactEntry,
+        artifact: { ...canonicalArtifactEntry.artifact, url: "https://packages.example/legacy.zip" },
+      },
+      "https://catalog.example.test/custom.json",
+    ),
+    "https://packages.example/legacy.zip",
+    "Explicit custom catalogs must retain their configured artifact URLs",
   );
   const {
     buildHierarchicalMapsSelectionCorrectionPatch,

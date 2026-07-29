@@ -17,6 +17,7 @@ import {
 import { isMessageShadowedByLiveStream } from "../../lib/generation-stream-policy";
 import {
   normalizeChatSummaryEntries,
+  isLongTermMemoryChatSummaryPromptAllowed,
   type ChatSummaryEntry,
   type MarkerConfig,
   type PromptGroup,
@@ -686,6 +687,7 @@ function SummaryButton({
   summaryContextSize,
   summaryPromptTemplates,
   activeSummaryPromptTemplateId,
+  longTermMemorySummaryPromptAvailable,
   summaryConnectionId,
   summaryMaxTokens,
   automaticSummaryEnabled,
@@ -703,6 +705,7 @@ function SummaryButton({
   summaryContextSize: number;
   summaryPromptTemplates?: ComponentProps<typeof SummaryPopover>["promptTemplates"];
   activeSummaryPromptTemplateId?: string | null;
+  longTermMemorySummaryPromptAvailable: boolean;
   summaryConnectionId?: string | null;
   summaryMaxTokens?: number;
   automaticSummaryEnabled: boolean;
@@ -814,6 +817,7 @@ function SummaryButton({
             contextSize={summaryContextSize}
             promptTemplates={summaryPromptTemplates}
             activePromptTemplateId={activeSummaryPromptTemplateId}
+            longTermMemorySummaryPromptAvailable={longTermMemorySummaryPromptAvailable}
             summaryConnectionId={summaryConnectionId}
             summaryMaxTokens={summaryMaxTokens}
             automaticSummaryEnabled={automaticSummaryEnabled}
@@ -1488,6 +1492,10 @@ export function ChatRoleplaySurface({
   const summaryActiveAgentIds = Array.isArray(chatMeta.activeAgentIds)
     ? chatMeta.activeAgentIds.filter((agentId): agentId is string => typeof agentId === "string")
     : [];
+  const longTermMemorySummaryPromptAvailable = isLongTermMemoryChatSummaryPromptAllowed({
+    enableAgents: chatMeta.enableAgents,
+    activeAgentIds: summaryActiveAgentIds,
+  });
   const automaticSummaryEnabled =
     chatMeta.automaticSummaryEnabled === true ||
     (chatMeta.enableAgents === true && summaryActiveAgentIds.includes("chat-summary"));
@@ -1599,6 +1607,7 @@ export function ChatRoleplaySurface({
                           ? chatMeta.activeSummaryPromptTemplateId
                           : null
                       }
+                      longTermMemorySummaryPromptAvailable={longTermMemorySummaryPromptAvailable}
                       summaryConnectionId={
                         typeof chatMeta.summaryConnectionId === "string" ? chatMeta.summaryConnectionId : null
                       }
@@ -1713,6 +1722,7 @@ export function ChatRoleplaySurface({
                               ? chatMeta.activeSummaryPromptTemplateId
                               : null
                           }
+                          longTermMemorySummaryPromptAvailable={longTermMemorySummaryPromptAvailable}
                           summaryConnectionId={
                             typeof chatMeta.summaryConnectionId === "string" ? chatMeta.summaryConnectionId : null
                           }
@@ -1794,6 +1804,7 @@ export function ChatRoleplaySurface({
                             ? chatMeta.activeSummaryPromptTemplateId
                             : null
                         }
+                        longTermMemorySummaryPromptAvailable={longTermMemorySummaryPromptAvailable}
                         summaryConnectionId={
                           typeof chatMeta.summaryConnectionId === "string" ? chatMeta.summaryConnectionId : null
                         }
