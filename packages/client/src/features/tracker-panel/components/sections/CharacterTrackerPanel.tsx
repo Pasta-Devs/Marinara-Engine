@@ -4,14 +4,17 @@ import type { PresentCharacter } from "@marinara-engine/shared";
 import type {
   TrackerPanelSide,
   TrackerPanelSizeProfile,
+  TrackerStatDisplayMode,
   TrackerThoughtBubbleDisplay,
 } from "../../../../stores/ui.store";
 import { cn } from "../../../../lib/utils";
+import type { StatIconLookup } from "../../hooks/use-stat-icons";
 import { getCharacterFeatureKey } from "../../lib/character-tracker-data";
 import { getSpriteExpressionForCharacter } from "../../lib/sprite-expressions";
 import type { TrackerProfileColors } from "../../lib/tracker-profile-style";
 import { AddRowButton, EmptySection, SectionHeader } from "../controls/SectionControls";
 import { CharacterTrackerCard } from "../character-card/CharacterTrackerCard";
+import { FeaturedCharacterTrackerCard } from "../character-card/FeaturedCharacterTrackerCard";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const COMPACT_CHARACTER_GHOST_SLOT_CLASS =
@@ -31,6 +34,8 @@ export function CharacterTrackerPanel({
   trackerPanelSide,
   trackerPanelSizeProfile,
   thoughtBubbleDisplay,
+  statDisplayMode,
+  resolveStatIcon,
   dockedThoughtsAlwaysVisible,
   onUpdateCharacter,
   onRemoveCharacter,
@@ -43,7 +48,7 @@ export function CharacterTrackerPanel({
   collapsed = false,
   onToggleCollapsed,
 }: {
-  activeChatId: string | null;
+  activeChatId: string;
   characters: PresentCharacter[];
   featuredCharacterCards: Set<string>;
   spriteExpressions: Record<string, string>;
@@ -54,6 +59,8 @@ export function CharacterTrackerPanel({
   trackerPanelSide: TrackerPanelSide;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
   thoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
+  statDisplayMode: TrackerStatDisplayMode;
+  resolveStatIcon: StatIconLookup;
   dockedThoughtsAlwaysVisible: boolean;
   onUpdateCharacter: (index: number, character: PresentCharacter) => void;
   onRemoveCharacter: (index: number) => void;
@@ -83,9 +90,6 @@ export function CharacterTrackerPanel({
         character,
         cardKey,
         spriteCharacterId,
-        spriteExpression: expressionSpritesEnabled
-          ? getSpriteExpressionForCharacter(spriteExpressions, character, spriteCharacterId)
-          : undefined,
         characterPicture: spriteCharacterId ? characterPictures[spriteCharacterId] : undefined,
         profileColors: spriteCharacterId ? characterProfileColors[spriteCharacterId] : undefined,
         featured: featuredCharacterCards.has(cardKey),
@@ -95,38 +99,7 @@ export function CharacterTrackerPanel({
     const featuredEntries = characterEntries.filter((entry) => entry.featured);
     const compactEntries = characterEntries.filter((entry) => !entry.featured);
     const getCharacterEntryKey = (entry: (typeof characterEntries)[number]) =>
-      `${activeChatId ?? "chat"}-${entry.character.characterId}-${entry.index}`;
-    const renderCharacterCard = ({
-      character,
-      cardKey,
-      spriteCharacterId,
-      spriteExpression,
-      characterPicture,
-      profileColors,
-      featured,
-      index,
-    }: (typeof characterEntries)[number]) => (
-      <CharacterTrackerCard
-        character={character}
-        spriteCharacterId={spriteCharacterId}
-        spriteExpression={spriteExpression}
-        expressionSpritesEnabled={expressionSpritesEnabled}
-        characterPicture={characterPicture}
-        profileColors={profileColors}
-        trackerPanelSide={trackerPanelSide}
-        trackerPanelSizeProfile={trackerPanelSizeProfile}
-        thoughtBubbleDisplay={thoughtBubbleDisplay}
-        dockedThoughtsAlwaysVisible={dockedThoughtsAlwaysVisible}
-        onUpdate={(updated) => onUpdateCharacter(index, updated)}
-        onRemove={() => onRemoveCharacter(index)}
-        characterIndex={index}
-        deleteMode={deleteMode}
-        addMode={addMode}
-        featured={featured}
-        onToggleFeatured={() => onToggleFeatured(cardKey)}
-        onUploadAvatar={() => onUploadAvatar(index)}
-      />
-    );
+      `${activeChatId}-${entry.character.characterId}-${entry.index}`;
     const useCompactCardColumns = trackerPanelSizeProfile !== "compact";
     const shouldRenderCompactGhostSlot = useCompactCardColumns && compactEntries.length % 2 === 1;
     const renderCompactCharacterCard = (entry: (typeof characterEntries)[number]) => (
@@ -134,12 +107,50 @@ export function CharacterTrackerPanel({
         key={getCharacterEntryKey(entry)}
         className={cn(COMPACT_CHARACTER_CARD_SLOT_CLASS, CHARACTER_CARD_RENDER_CONTAINMENT_CLASS)}
       >
-        {renderCharacterCard(entry)}
+        <CharacterTrackerCard
+          character={entry.character}
+          characterPicture={entry.characterPicture}
+          profileColors={entry.profileColors}
+          trackerPanelSizeProfile={trackerPanelSizeProfile}
+          statDisplayMode={statDisplayMode}
+          resolveStatIcon={resolveStatIcon}
+          onUpdate={(updated) => onUpdateCharacter(entry.index, updated)}
+          onRemove={() => onRemoveCharacter(entry.index)}
+          characterIndex={entry.index}
+          deleteMode={deleteMode}
+          addMode={addMode}
+          onToggleFeatured={() => onToggleFeatured(entry.cardKey)}
+          onUploadAvatar={() => onUploadAvatar(entry.index)}
+        />
       </div>
     );
     const renderFeaturedCharacterCard = (entry: (typeof characterEntries)[number]) => (
       <div key={getCharacterEntryKey(entry)} className={CHARACTER_CARD_RENDER_CONTAINMENT_CLASS}>
-        {renderCharacterCard(entry)}
+        <FeaturedCharacterTrackerCard
+          character={entry.character}
+          spriteCharacterId={entry.spriteCharacterId}
+          spriteExpression={
+            expressionSpritesEnabled
+              ? getSpriteExpressionForCharacter(spriteExpressions, entry.character, entry.spriteCharacterId)
+              : undefined
+          }
+          expressionSpritesEnabled={expressionSpritesEnabled}
+          characterPicture={entry.characterPicture}
+          profileColors={entry.profileColors}
+          trackerPanelSide={trackerPanelSide}
+          trackerPanelSizeProfile={trackerPanelSizeProfile}
+          thoughtBubbleDisplay={thoughtBubbleDisplay}
+          statDisplayMode={statDisplayMode}
+          resolveStatIcon={resolveStatIcon}
+          dockedThoughtsAlwaysVisible={dockedThoughtsAlwaysVisible}
+          onUpdate={(updated) => onUpdateCharacter(entry.index, updated)}
+          onRemove={() => onRemoveCharacter(entry.index)}
+          characterIndex={entry.index}
+          deleteMode={deleteMode}
+          addMode={addMode}
+          onToggleFeatured={() => onToggleFeatured(entry.cardKey)}
+          onUploadAvatar={() => onUploadAvatar(entry.index)}
+        />
       </div>
     );
 

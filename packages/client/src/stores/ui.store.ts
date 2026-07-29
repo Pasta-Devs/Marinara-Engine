@@ -65,6 +65,7 @@ export type ConversationMessageStyle = "classic" | "bubble";
 export type ConversationAvatarShape = "circle" | "square";
 export type TrackerPanelSide = "left" | "right";
 export type TrackerThoughtBubbleDisplay = "inline" | "floating";
+export type TrackerStatDisplayMode = "bars" | "gauges";
 export type MusicPlayerSource = "spotify" | "youtube" | "custom";
 export const TRACKER_TEMPERATURE_UNITS = ["celsius", "fahrenheit"] as const;
 export type TrackerTemperatureUnit = (typeof TRACKER_TEMPERATURE_UNITS)[number];
@@ -431,6 +432,10 @@ export function normalizeTrackerThoughtBubbleDisplay(value: unknown): TrackerTho
   return value === "inline" || value === "floating" ? value : "inline";
 }
 
+export function normalizeTrackerStatDisplayMode(value: unknown): TrackerStatDisplayMode {
+  return value === "gauges" ? "gauges" : "bars";
+}
+
 export function normalizeTrackerTemperatureUnit(value: unknown): TrackerTemperatureUnit {
   return TRACKER_TEMPERATURE_UNITS.includes(value as TrackerTemperatureUnit)
     ? (value as TrackerTemperatureUnit)
@@ -511,6 +516,7 @@ interface UIState {
   trackerPanelHideHudWidgets: boolean;
   trackerPanelUseExpressionSprites: boolean;
   trackerPanelThoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
+  trackerStatDisplayMode: TrackerStatDisplayMode;
   trackerPanelDockedThoughtsAlwaysVisible: boolean;
   trackerPanelSizeProfile: TrackerPanelSizeProfile;
   trackerPanelBackgroundColor: string;
@@ -876,6 +882,7 @@ interface UIState {
   setTrackerPanelHideHudWidgets: (hidden: boolean) => void;
   setTrackerPanelUseExpressionSprites: (enabled: boolean) => void;
   setTrackerPanelThoughtBubbleDisplay: (display: TrackerThoughtBubbleDisplay) => void;
+  setTrackerStatDisplayMode: (display: TrackerStatDisplayMode) => void;
   setTrackerPanelDockedThoughtsAlwaysVisible: (visible: boolean) => void;
   setTrackerPanelSizeProfile: (profile: TrackerPanelSizeProfile) => void;
   setTrackerPanelBackgroundColor: (color: string) => void;
@@ -1156,6 +1163,7 @@ export function pickSyncedSettings(state: UIState) {
     trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
     trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
     trackerPanelThoughtBubbleDisplay: state.trackerPanelThoughtBubbleDisplay,
+    trackerStatDisplayMode: state.trackerStatDisplayMode,
     trackerPanelDockedThoughtsAlwaysVisible: state.trackerPanelDockedThoughtsAlwaysVisible,
     trackerPanelSizeProfile: state.trackerPanelSizeProfile,
     trackerPanelBackgroundColor: state.trackerPanelBackgroundColor,
@@ -1293,6 +1301,7 @@ export const useUIStore = create<UIState>()(
       trackerPanelHideHudWidgets: false,
       trackerPanelUseExpressionSprites: false,
       trackerPanelThoughtBubbleDisplay: "inline" as TrackerThoughtBubbleDisplay,
+      trackerStatDisplayMode: "bars" as TrackerStatDisplayMode,
       trackerPanelDockedThoughtsAlwaysVisible: false,
       trackerPanelSizeProfile: "standard" as TrackerPanelSizeProfile,
       trackerPanelBackgroundColor: TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
@@ -1548,6 +1557,8 @@ export const useUIStore = create<UIState>()(
       setTrackerPanelUseExpressionSprites: (enabled) => set({ trackerPanelUseExpressionSprites: enabled }),
       setTrackerPanelThoughtBubbleDisplay: (display) =>
         set({ trackerPanelThoughtBubbleDisplay: normalizeTrackerThoughtBubbleDisplay(display) }),
+      setTrackerStatDisplayMode: (display) =>
+        set({ trackerStatDisplayMode: normalizeTrackerStatDisplayMode(display) }),
       setTrackerPanelDockedThoughtsAlwaysVisible: (visible) =>
         set({ trackerPanelDockedThoughtsAlwaysVisible: visible }),
       setTrackerPanelSizeProfile: (profile) =>
@@ -2249,6 +2260,7 @@ export const useUIStore = create<UIState>()(
           trackerPanelHideHudWidgets: false,
           trackerPanelUseExpressionSprites: false,
           trackerPanelThoughtBubbleDisplay: "inline" as TrackerThoughtBubbleDisplay,
+          trackerStatDisplayMode: "bars" as TrackerStatDisplayMode,
           trackerPanelDockedThoughtsAlwaysVisible: false,
           trackerPanelSizeProfile: "standard" as TrackerPanelSizeProfile,
           trackerPanelBackgroundColor: TRACKER_PANEL_DEFAULT_BACKGROUND_COLOR,
@@ -3040,6 +3052,7 @@ export const useUIStore = create<UIState>()(
         trackerPanelHideHudWidgets: state.trackerPanelHideHudWidgets,
         trackerPanelUseExpressionSprites: state.trackerPanelUseExpressionSprites,
         trackerPanelThoughtBubbleDisplay: state.trackerPanelThoughtBubbleDisplay,
+        trackerStatDisplayMode: state.trackerStatDisplayMode,
         trackerPanelDockedThoughtsAlwaysVisible: state.trackerPanelDockedThoughtsAlwaysVisible,
         trackerPanelSizeProfile: state.trackerPanelSizeProfile,
         trackerPanelBackgroundColor: state.trackerPanelBackgroundColor,

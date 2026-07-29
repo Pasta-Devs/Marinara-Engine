@@ -18,7 +18,7 @@ import {
   type RoleplayAvatarStyle,
   type TrackerDataPanelSection,
   type TrackerPanelSizeProfile,
-  type TrackerTemperatureUnit,
+  type TrackerStatDisplayMode,
   type TrackerThoughtBubbleDisplay,
   type VisualTheme,
 } from "../../stores/ui.store";
@@ -110,6 +110,8 @@ import {
   Bell,
   Copy,
   BookOpen,
+  BarChart3,
+  Gauge,
   SlidersHorizontal,
 } from "lucide-react";
 import { useClearAllData, useExpungeData, useUpdateChatMetadata, type ExpungeScope } from "../../hooks/use-chats";
@@ -1010,6 +1012,14 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     kind: "Button group",
   },
   {
+    id: "tracker-stat-display-mode",
+    sectionId: "roleplay-tracker",
+    label: "Stat display mode",
+    description: "Choose whether persona and character stats use compact bars or circular gauges.",
+    aliases: ["tracker", "stats", "bars", "gauges", "circular"],
+    kind: "Button group",
+  },
+  {
     id: "tracker-docked-thoughts",
     sectionId: "roleplay-tracker",
     label: "Always show Docked thoughts",
@@ -1541,6 +1551,8 @@ const TRACKER_THOUGHT_BUBBLE_DISPLAY_OPTIONS: Array<{
     desc: "Thoughts open as a bubble beside the portrait.",
   },
 ];
+
+const TRACKER_STAT_DISPLAY_OPTIONS: TrackerStatDisplayMode[] = ["bars", "gauges"];
 
 const TRACKER_PANEL_SIZE_PROFILE_OPTIONS: Array<{
   id: TrackerPanelSizeProfile;
@@ -2105,42 +2117,30 @@ function TrackerPanelCardOrderSetting() {
   );
 }
 
-function TrackerPanelAppearanceDrawer({
-  trackerPanelEnabled,
-  setTrackerPanelEnabled,
-  trackerPanelHideHudWidgets,
-  setTrackerPanelHideHudWidgets,
-  trackerPanelUseExpressionSprites,
-  setTrackerPanelUseExpressionSprites,
-  trackerPanelThoughtBubbleDisplay,
-  setTrackerPanelThoughtBubbleDisplay,
-  trackerPanelDockedThoughtsAlwaysVisible,
-  setTrackerPanelDockedThoughtsAlwaysVisible,
-  trackerPanelSizeProfile,
-  setTrackerPanelSizeProfile,
-  trackerPanelBackgroundColor,
-  setTrackerPanelBackgroundColor,
-  trackerTemperatureUnit,
-  setTrackerTemperatureUnit,
-}: {
-  trackerPanelEnabled: boolean;
-  setTrackerPanelEnabled: (enabled: boolean) => void;
-  trackerPanelHideHudWidgets: boolean;
-  setTrackerPanelHideHudWidgets: (hidden: boolean) => void;
-  trackerPanelUseExpressionSprites: boolean;
-  setTrackerPanelUseExpressionSprites: (enabled: boolean) => void;
-  trackerPanelThoughtBubbleDisplay: TrackerThoughtBubbleDisplay;
-  setTrackerPanelThoughtBubbleDisplay: (display: TrackerThoughtBubbleDisplay) => void;
-  trackerPanelDockedThoughtsAlwaysVisible: boolean;
-  setTrackerPanelDockedThoughtsAlwaysVisible: (visible: boolean) => void;
-  trackerPanelSizeProfile: TrackerPanelSizeProfile;
-  setTrackerPanelSizeProfile: (profile: TrackerPanelSizeProfile) => void;
-  trackerPanelBackgroundColor: string;
-  setTrackerPanelBackgroundColor: (color: string) => void;
-  trackerTemperatureUnit: TrackerTemperatureUnit;
-  setTrackerTemperatureUnit: (unit: TrackerTemperatureUnit) => void;
-}) {
+function TrackerPanelAppearanceDrawer() {
   const { t: localizeUi } = useUiTranslation();
+  const trackerPanelEnabled = useUIStore((state) => state.trackerPanelEnabled);
+  const setTrackerPanelEnabled = useUIStore((state) => state.setTrackerPanelEnabled);
+  const trackerPanelHideHudWidgets = useUIStore((state) => state.trackerPanelHideHudWidgets);
+  const setTrackerPanelHideHudWidgets = useUIStore((state) => state.setTrackerPanelHideHudWidgets);
+  const trackerPanelUseExpressionSprites = useUIStore((state) => state.trackerPanelUseExpressionSprites);
+  const setTrackerPanelUseExpressionSprites = useUIStore((state) => state.setTrackerPanelUseExpressionSprites);
+  const trackerPanelThoughtBubbleDisplay = useUIStore((state) => state.trackerPanelThoughtBubbleDisplay);
+  const setTrackerPanelThoughtBubbleDisplay = useUIStore((state) => state.setTrackerPanelThoughtBubbleDisplay);
+  const trackerPanelDockedThoughtsAlwaysVisible = useUIStore(
+    (state) => state.trackerPanelDockedThoughtsAlwaysVisible,
+  );
+  const setTrackerPanelDockedThoughtsAlwaysVisible = useUIStore(
+    (state) => state.setTrackerPanelDockedThoughtsAlwaysVisible,
+  );
+  const trackerPanelSizeProfile = useUIStore((state) => state.trackerPanelSizeProfile);
+  const setTrackerPanelSizeProfile = useUIStore((state) => state.setTrackerPanelSizeProfile);
+  const trackerPanelBackgroundColor = useUIStore((state) => state.trackerPanelBackgroundColor);
+  const setTrackerPanelBackgroundColor = useUIStore((state) => state.setTrackerPanelBackgroundColor);
+  const trackerTemperatureUnit = useUIStore((state) => state.trackerTemperatureUnit);
+  const setTrackerTemperatureUnit = useUIStore((state) => state.setTrackerTemperatureUnit);
+  const trackerStatDisplayMode = useUIStore((state) => state.trackerStatDisplayMode);
+  const setTrackerStatDisplayMode = useUIStore((state) => state.setTrackerStatDisplayMode);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const drawerId = React.useId();
 
@@ -2279,6 +2279,40 @@ function TrackerPanelAppearanceDrawer({
                     <span className="inline-flex items-center gap-1.5 font-semibold">
                       <Icon size="0.75rem" className={selected ? "text-[var(--primary)]" : ""} />
                       {opt.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div id={getSettingsControlAnchorId("tracker-stat-display-mode")} className="mt-2 grid scroll-mt-3 gap-1.5">
+            <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium">
+              {localizeUi("ui.panels.trackerpanelappearancedrawer.statDisplayMode")}
+              <HelpTooltip text={localizeUi("ui.panels.trackerpanelappearancedrawer.chooseBarsOrGaugesForTrackerStats")} />
+            </span>
+            <div className="grid grid-cols-2 gap-0.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/45 p-0.5">
+              {TRACKER_STAT_DISPLAY_OPTIONS.map((option) => {
+                const selected = trackerStatDisplayMode === option;
+                const Icon = option === "bars" ? BarChart3 : Gauge;
+                const label = localizeUi(option === "bars" ? "ui.panels.trackerpanelappearancedrawer.bars" : "ui.panels.trackerpanelappearancedrawer.gauges");
+                const description = localizeUi(option === "bars" ? "ui.panels.trackerpanelappearancedrawer.barsDescription" : "ui.panels.trackerpanelappearancedrawer.gaugesDescription");
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setTrackerStatDisplayMode(option)}
+                    aria-pressed={selected}
+                    title={description}
+                    className={cn(
+                      "flex min-h-8 min-w-0 items-center justify-center gap-1.5 rounded-md px-2 text-[0.6875rem] transition-all",
+                      selected
+                        ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/45"
+                        : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                    )}
+                  >
+                    <span className="inline-flex items-center gap-1.5 font-semibold">
+                      <Icon size="0.75rem" className={selected ? "text-[var(--primary)]" : ""} />
+                      {label}
                     </span>
                   </button>
                 );
@@ -4168,23 +4202,6 @@ function AppearanceSettings() {
   const setConversationAvatarShape = useUIStore((s) => s.setConversationAvatarShape);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
   const setWeatherEffects = useUIStore((s) => s.setWeatherEffects);
-  const trackerPanelEnabled = useUIStore((s) => s.trackerPanelEnabled);
-  const setTrackerPanelEnabled = useUIStore((s) => s.setTrackerPanelEnabled);
-  const trackerPanelHideHudWidgets = useUIStore((s) => s.trackerPanelHideHudWidgets);
-  const setTrackerPanelHideHudWidgets = useUIStore((s) => s.setTrackerPanelHideHudWidgets);
-  const trackerPanelUseExpressionSprites = useUIStore((s) => s.trackerPanelUseExpressionSprites);
-  const setTrackerPanelUseExpressionSprites = useUIStore((s) => s.setTrackerPanelUseExpressionSprites);
-  const trackerPanelThoughtBubbleDisplay = useUIStore((s) => s.trackerPanelThoughtBubbleDisplay);
-  const setTrackerPanelThoughtBubbleDisplay = useUIStore((s) => s.setTrackerPanelThoughtBubbleDisplay);
-  const trackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.trackerPanelDockedThoughtsAlwaysVisible);
-  const setTrackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.setTrackerPanelDockedThoughtsAlwaysVisible);
-  const trackerPanelSizeProfile = useUIStore((s) => s.trackerPanelSizeProfile);
-  const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
-  const trackerPanelBackgroundColor = useUIStore((s) => s.trackerPanelBackgroundColor);
-  const setTrackerPanelBackgroundColor = useUIStore((s) => s.setTrackerPanelBackgroundColor);
-  const trackerTemperatureUnit = useUIStore((s) => s.trackerTemperatureUnit);
-  const setTrackerTemperatureUnit = useUIStore((s) => s.setTrackerTemperatureUnit);
-
   // Text appearance
   const chatFontColor = useUIStore((s) => s.chatFontColor);
   const setChatFontColor = useUIStore((s) => s.setChatFontColor);
@@ -4740,24 +4757,7 @@ function AppearanceSettings() {
       </SettingsSection>
 
       <div id={getSettingsSectionAnchorId("roleplay-tracker")} className="flex scroll-mt-3 flex-col gap-3">
-        <TrackerPanelAppearanceDrawer
-          trackerPanelEnabled={trackerPanelEnabled}
-          setTrackerPanelEnabled={setTrackerPanelEnabled}
-          trackerPanelHideHudWidgets={trackerPanelHideHudWidgets}
-          setTrackerPanelHideHudWidgets={setTrackerPanelHideHudWidgets}
-          trackerPanelUseExpressionSprites={trackerPanelUseExpressionSprites}
-          setTrackerPanelUseExpressionSprites={setTrackerPanelUseExpressionSprites}
-          trackerPanelThoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
-          setTrackerPanelThoughtBubbleDisplay={setTrackerPanelThoughtBubbleDisplay}
-          trackerPanelDockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
-          setTrackerPanelDockedThoughtsAlwaysVisible={setTrackerPanelDockedThoughtsAlwaysVisible}
-          trackerPanelSizeProfile={trackerPanelSizeProfile}
-          setTrackerPanelSizeProfile={setTrackerPanelSizeProfile}
-          trackerPanelBackgroundColor={trackerPanelBackgroundColor}
-          setTrackerPanelBackgroundColor={setTrackerPanelBackgroundColor}
-          trackerTemperatureUnit={trackerTemperatureUnit}
-          setTrackerTemperatureUnit={setTrackerTemperatureUnit}
-        />
+        <TrackerPanelAppearanceDrawer />
       </div>
 
       <SettingsSection

@@ -4,7 +4,6 @@ import type { TrackerProfileColors } from "./lib/tracker-profile-style";
 export type TrackerPanelSection = TrackerDataPanelSection;
 export type TrackerEditMode = "hide" | "lock" | "add" | "delete";
 export type TrackerStatDensity = "normal" | "compact" | "tight";
-export type TrackerStatDisplayScale = "standard" | "roomy" | "spacious";
 
 export interface TrackerSpriteLookup {
   knownIds: Set<string>;

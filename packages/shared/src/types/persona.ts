@@ -53,6 +53,8 @@ export type TrackerCardPortraitStageBackground = "ambient" | "spotlight" | "soft
 
 export interface TrackerCardColorConfig {
   mode?: TrackerCardColorMode;
+  /** Authored tracker stat icons. Kept outside semantic stat/prompt data. */
+  statIcons?: import("../constants/stat-icons.js").TrackerStatIconAssignment[];
   /** Whether the Display channel is allowed to contribute paint. */
   displayEnabled?: boolean;
   /** Tracker card display color/gradient. */

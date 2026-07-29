@@ -16,6 +16,7 @@ import { cn } from "../../../lib/utils";
 import { useTrackerGameState } from "../hooks/use-tracker-game-state";
 import { useTrackerFieldLockUpdater } from "../hooks/use-tracker-field-lock-updater";
 import { useTrackerPanelModel } from "../hooks/use-tracker-panel-model";
+import { useStatIcons } from "../hooks/use-stat-icons";
 import type { PersonaPortraitSaveSnapshot } from "../hooks/use-persona-portrait-save";
 import type { TrackerEditMode } from "../tracker-panel.types";
 import { EmptySection } from "./controls/SectionControls";
@@ -83,6 +84,7 @@ export function TrackerDataSidebar({
   const trackerPanelSectionOrder = useUIStore((s) => s.trackerPanelSectionOrder);
   const trackerPanelUseExpressionSprites = useUIStore((s) => s.trackerPanelUseExpressionSprites);
   const trackerPanelThoughtBubbleDisplay = useUIStore((s) => s.trackerPanelThoughtBubbleDisplay);
+  const trackerStatDisplayMode = useUIStore((s) => s.trackerStatDisplayMode);
   const trackerPanelDockedThoughtsAlwaysVisible = useUIStore((s) => s.trackerPanelDockedThoughtsAlwaysVisible);
   const trackerPanelSizeProfile = useUIStore((s) => s.trackerPanelSizeProfile);
   const trackerPanelBackgroundColor = useUIStore((s) => s.trackerPanelBackgroundColor);
@@ -91,6 +93,7 @@ export function TrackerDataSidebar({
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const setTrackerPanelSide = useUIStore((s) => s.setTrackerPanelSide);
   const setTrackerPanelSizeProfile = useUIStore((s) => s.setTrackerPanelSizeProfile);
+  const setTrackerStatDisplayMode = useUIStore((s) => s.setTrackerStatDisplayMode);
   const {
     currentGameState,
     gameStateLoadStatus,
@@ -102,6 +105,7 @@ export function TrackerDataSidebar({
     : [];
   const {
     activePersona,
+    trackerStatIconOverrides,
     characterSpriteLookup,
     characterTrackerConfig,
     characterTrackerSettings,
@@ -116,6 +120,14 @@ export function TrackerDataSidebar({
     presentCharacters,
     trackerPanelSectionOrder,
     trackerPanelUseExpressionSprites,
+  });
+  const resolveStatIcon = useStatIcons({
+    activeChatId,
+    trackerStatIconOverrides,
+    activePersona,
+    presentCharacters,
+    characterProfileColorsById: characterSpriteLookup.profileColorsById,
+    resolveProfileCharacterId: resolveSpriteCharacterId,
   });
   const [activeEditMode, setActiveEditMode] = useState<TrackerEditMode | null>(null);
   const deleteMode = activeEditMode === "delete";
@@ -193,11 +205,13 @@ export function TrackerDataSidebar({
         <TrackerSidebarHeader
           trackerPanelSide={trackerPanelSide}
           sizeProfile={trackerPanelSizeProfile}
+          statDisplayMode={trackerStatDisplayMode}
           detached={detached}
           activeEditMode={activeEditMode}
           onSetEditMode={setActiveEditMode}
           onSetSide={setTrackerPanelSide}
           onSetSizeProfile={setTrackerPanelSizeProfile}
+          onSetStatDisplayMode={setTrackerStatDisplayMode}
           onToggleDetached={onToggleDetached}
           onClose={() => setTrackerPanelOpen(false, activeChatId)}
         />
@@ -228,6 +242,8 @@ export function TrackerDataSidebar({
                 trackerPanelSide={trackerPanelSide}
                 trackerPanelSizeProfile={trackerPanelSizeProfile}
                 trackerPanelThoughtBubbleDisplay={trackerPanelThoughtBubbleDisplay}
+                trackerStatDisplayMode={trackerStatDisplayMode}
+                resolveStatIcon={resolveStatIcon}
                 trackerPanelDockedThoughtsAlwaysVisible={trackerPanelDockedThoughtsAlwaysVisible}
                 trackerTemperatureUnit={trackerTemperatureUnit}
                 toggleTrackerPanelSectionCollapsed={toggleTrackerPanelSectionCollapsed}

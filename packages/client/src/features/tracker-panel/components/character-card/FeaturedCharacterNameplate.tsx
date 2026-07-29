@@ -1,4 +1,4 @@
-import { type ReactNode, type RefObject } from "react";
+import { type RefObject } from "react";
 import { Brain, Minimize2 } from "lucide-react";
 import { characterTrackerLockKey, isTrackerFieldLocked, type PresentCharacter } from "@marinara-engine/shared";
 import { cn } from "../../../../lib/utils";
@@ -16,32 +16,30 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 export function FeaturedCharacterNameplate({
   character,
   onUpdate,
-  hasThoughtsControl,
   thoughtsOpen,
   thoughtButtonRef,
   thoughtControlSide,
   onToggleThoughts,
   onToggleFeatured,
-  action,
   characterIndex,
 }: {
   character: PresentCharacter;
-  onUpdate?: (character: PresentCharacter) => void;
-  hasThoughtsControl: boolean;
+  onUpdate: (character: PresentCharacter) => void;
   thoughtsOpen: boolean;
   thoughtButtonRef: RefObject<HTMLButtonElement | null>;
   thoughtControlSide: TrackerProfileSide;
   onToggleThoughts?: () => void;
-  onToggleFeatured?: () => void;
-  action?: ReactNode;
+  onToggleFeatured: () => void;
   characterIndex: number;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { fieldLocks, lockMode, onToggleFieldLock } = useTrackerLockContext();
   const emojiLockKey = characterTrackerLockKey(character, characterIndex, "emoji");
   const nameLockKey = characterTrackerLockKey(character, characterIndex, "name");
-  const thoughtButtonLabel = thoughtsOpen ? "Stop reading thoughts" : "Read thoughts";
-  const emojiControl = onUpdate ? (
+  const thoughtButtonLabel = thoughtsOpen
+    ? localizeUi("ui.trackerPanel.featuredcharacternameplate.stopReadingThoughts")
+    : localizeUi("ui.trackerPanel.featuredcharacternameplate.readThoughts");
+  const emojiControl = (
     <InlineEdit
       value={character.emoji || "?"}
       onSave={(emoji) => onUpdate({ ...character, emoji: emoji || "?" })}
@@ -55,9 +53,9 @@ export function FeaturedCharacterNameplate({
       lockMode={lockMode}
       onToggleLock={onToggleFieldLock ? () => onToggleFieldLock(emojiLockKey) : undefined}
     />
-  ) : null;
+  );
   const thoughtControl =
-    hasThoughtsControl && onToggleThoughts ? (
+    onToggleThoughts ? (
       <button
         ref={thoughtButtonRef}
         type="button"
@@ -76,31 +74,27 @@ export function FeaturedCharacterNameplate({
         <Brain size="0.625rem" />
       </button>
     ) : null;
-  const headerControls =
-    emojiControl || action || onToggleFeatured ? (
-      <>
-        {emojiControl}
-        {onToggleFeatured && (
-          <button
-            type="button"
-            onClick={onToggleFeatured}
-            title={localizeUi("ui.trackerPanel.featuredcharacternameplate.useCompactCharacterCard")}
-            aria-label={localizeUi("ui.trackerPanel.featuredcharacternameplate.useCompactCharacterCard")}
-            aria-pressed
-            className={TRACKER_PROFILE_NAMEPLATE_HEADER_BUTTON_CLASS}
-          >
-            <Minimize2 size="0.6875rem" />
-          </button>
-        )}
-        {action}
-      </>
-    ) : null;
+  const headerControls = (
+    <>
+      {emojiControl}
+      <button
+        type="button"
+        onClick={onToggleFeatured}
+        title={localizeUi("ui.trackerPanel.featuredcharacternameplate.useCompactCharacterCard")}
+        aria-label={localizeUi("ui.trackerPanel.featuredcharacternameplate.useCompactCharacterCard")}
+        aria-pressed
+        className={TRACKER_PROFILE_NAMEPLATE_HEADER_BUTTON_CLASS}
+      >
+        <Minimize2 size="0.6875rem" />
+      </button>
+    </>
+  );
 
   return (
     <TrackerProfileNameplate
       value={character.name}
       placeholder={localizeUi("ui.characters.cardlibrarydetailcard.character")}
-      onSave={onUpdate ? (name) => onUpdate({ ...character, name: name || "Character" }) : undefined}
+      onSave={(name) => onUpdate({ ...character, name: name || "Character" })}
       primaryControl={thoughtControl}
       primaryControlSide={thoughtControlSide}
       secondaryControls={headerControls}

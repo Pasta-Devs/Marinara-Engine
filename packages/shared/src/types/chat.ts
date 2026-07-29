@@ -229,6 +229,11 @@ export type GameStoryboardViewerDisplayMode = "floating" | "background";
 
 /** Extra metadata stored on a chat. */
 export interface ChatMetadata {
+  /** Chat-local tracker icon overrides keyed by persona id, unique character id, or tracker character slot. */
+  trackerStatIconOverrides?: Record<
+    string,
+    import("../constants/stat-icons.js").TrackerStatIconAssignment[]
+  >;
   /** Compiled enabled rolling summary text for context injection. Derived from summaryEntries when present. */
   summary: string | null;
   /** Structured rolling summary entries. Missing means legacy summary-only metadata. */

@@ -4,6 +4,7 @@ import type {
   TrackerCardColorMode,
   TrackerCardPortraitStageBackground,
 } from "@marinara-engine/shared";
+import { normalizeStatIconAssignments } from "./stat-icon-assignments";
 
 export const DEFAULT_TRACKER_CARD_COLOR_MODE: TrackerCardColorMode = "chat";
 export const DEFAULT_TRACKER_CARD_PORTRAIT_STAGE_BACKGROUND: TrackerCardPortraitStageBackground = "ambient";
@@ -368,9 +369,11 @@ export function cleanTrackerCardColorConfig(config: TrackerCardColorConfig | nul
   const portraitFocusX = getClampedFinishValue(config?.portraitFocusX);
   const portraitFocusY = getClampedPortraitFocusYValue(config?.portraitFocusY);
   const portraitZoom = getClampedPortraitZoomValue(config?.portraitZoom);
+  const statIcons = normalizeStatIconAssignments(config?.statIcons);
 
   return {
     mode: normalizeTrackerCardColorMode(config?.mode),
+    ...(statIcons.length > 0 && { statIcons }),
     ...(displayEnabled === false && { displayEnabled }),
     ...(config?.nameColor ? { nameColor: config.nameColor } : {}),
     ...(nameColorOpacity !== undefined && { nameColorOpacity }),
@@ -413,6 +416,7 @@ export function parseTrackerCardColorConfig(raw: unknown): TrackerCardColorConfi
     portraitFocusX: getClampedFinishValue(record.portraitFocusX),
     portraitFocusY: getClampedPortraitFocusYValue(record.portraitFocusY),
     portraitZoom: getClampedPortraitZoomValue(record.portraitZoom),
+    statIcons: normalizeStatIconAssignments(record.statIcons),
   });
 }
 

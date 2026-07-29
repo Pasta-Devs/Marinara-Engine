@@ -23,6 +23,7 @@ import { api } from "../lib/api-client";
 import { normalizeConversationTimeZone } from "../lib/conversation-time-zone";
 import {
   normalizeTrackerPanelSizeProfile,
+  normalizeTrackerStatDisplayMode,
   normalizeTrackerTemperatureUnit,
   normalizeTrackerThoughtBubbleDisplay,
   normalizeScenePromptPreferences,
@@ -203,6 +204,9 @@ export function useSettingsSync() {
               delete parsed.settings.trackerPanelWidth;
               parsed.settings.trackerPanelThoughtBubbleDisplay = normalizeTrackerThoughtBubbleDisplay(
                 parsed.settings.trackerPanelThoughtBubbleDisplay,
+              );
+              parsed.settings.trackerStatDisplayMode = normalizeTrackerStatDisplayMode(
+                parsed.settings.trackerStatDisplayMode,
               );
               parsed.settings.trackerPanelDockedThoughtsAlwaysVisible =
                 parsed.settings.trackerPanelDockedThoughtsAlwaysVisible === true;

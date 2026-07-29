@@ -5,27 +5,18 @@ import { InlineEdit } from "../controls/InlineControls";
 import { useTrackerFieldLock } from "../TrackerLockContext";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
-type CompactCharacterFieldTone = "mood" | "appearance" | "outfit" | "thoughts";
+type CompactCharacterFieldTone = "mood" | "appearance" | "outfit";
 
-const COMPACT_CHARACTER_FIELD_TONE_CLASSES: Record<CompactCharacterFieldTone, { icon: string }> = {
-  mood: {
-    icon: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] opacity-80",
-  },
-  appearance: {
-    icon: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-80",
-  },
-  outfit: {
-    icon: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] opacity-80",
-  },
-  thoughts: {
-    icon: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_62%,var(--tracker-profile-text)_38%)] opacity-80",
-  },
+const COMPACT_CHARACTER_FIELD_TONE_CLASSES: Record<CompactCharacterFieldTone, string> = {
+  mood: "text-[color-mix(in_srgb,var(--tracker-profile-icon)_70%,var(--tracker-profile-text)_30%)] opacity-80",
+  appearance:
+    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_58%,var(--tracker-profile-text)_42%)] opacity-80",
+  outfit:
+    "text-[color-mix(in_srgb,var(--tracker-profile-icon)_50%,var(--tracker-profile-text)_50%)] opacity-80",
 };
 
 export const COMPACT_CHARACTER_MOOD_EDIT_CLASS =
   "font-medium italic text-[color-mix(in_srgb,var(--tracker-profile-text)_82%,var(--tracker-profile-accent-solid)_18%)] [--foreground:color-mix(in_srgb,var(--tracker-profile-text)_82%,var(--tracker-profile-accent-solid)_18%)] [--muted-foreground:color-mix(in_srgb,var(--tracker-profile-muted-text)_78%,var(--tracker-profile-accent-solid)_22%)]";
-export const COMPACT_CHARACTER_MOOD_STATIC_CLASS =
-  "font-medium italic text-[color-mix(in_srgb,var(--tracker-profile-text)_82%,var(--tracker-profile-accent-solid)_18%)]";
 
 export function CompactCharacterField({
   icon,
@@ -46,7 +37,7 @@ export function CompactCharacterField({
   accessibleLabel: string;
   value: string | null | undefined;
   placeholder: string;
-  onSave?: (value: string) => void;
+  onSave: (value: string) => void;
   tone: CompactCharacterFieldTone;
   readable?: boolean;
   className?: string;
@@ -54,14 +45,11 @@ export function CompactCharacterField({
   lockKey?: string;
   hidden?: boolean;
   hideMode?: boolean;
-  onToggleHidden?: () => void;
+  onToggleHidden: () => void;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const lock = useTrackerFieldLock(lockKey);
-  const hiddenToggleActive = hideMode && !!onToggleHidden;
   if (hidden && !hideMode) return null;
-  if (!onSave && !value) return null;
-  const toneClasses = COMPACT_CHARACTER_FIELD_TONE_CLASSES[tone];
 
   return (
     <div
@@ -75,14 +63,14 @@ export function CompactCharacterField({
       <span
         className={cn(
           "relative z-[1] flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full ring-1 ring-inset ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_24%,transparent)] before:absolute before:inset-[3px] before:rounded-full before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_5%,transparent)] before:content-[''] group-hover/field:ring-[color-mix(in_srgb,var(--tracker-profile-dialogue-border)_36%,transparent)] group-hover/field:before:bg-[color-mix(in_srgb,var(--tracker-profile-accent-solid)_8%,transparent)] [&>svg]:relative [&>svg]:z-[1] [&>svg]:stroke-[1.9] @min-[176px]:h-4 @min-[176px]:w-4",
-          toneClasses.icon,
+          COMPACT_CHARACTER_FIELD_TONE_CLASSES[tone],
         )}
         aria-label={accessibleLabel}
         title={accessibleLabel}
       >
         {icon}
       </span>
-      {hiddenToggleActive ? (
+      {hideMode ? (
         <button
           type="button"
           onClick={onToggleHidden}
@@ -102,7 +90,7 @@ export function CompactCharacterField({
             {hidden ?localizeUi("ui.trackerPanel.thoughtbubble.hidden") : visibleText(value, placeholder)}
           </span>
         </button>
-      ) : onSave ? (
+      ) : (
         <InlineEdit
           value={value ?? ""}
           onSave={onSave}
@@ -119,17 +107,6 @@ export function CompactCharacterField({
           showEditHint={false}
           {...lock}
         />
-      ) : (
-        <span
-          title={visibleText(value, placeholder)}
-          className={cn(
-            "relative z-[1] min-w-0 text-[color:var(--tracker-profile-text)]",
-            readable ? "line-clamp-2 whitespace-normal break-words leading-[1.15]" : "truncate",
-            valueClassName,
-          )}
-        >
-          {visibleText(value, placeholder)}
-        </span>
       )}
     </div>
   );
