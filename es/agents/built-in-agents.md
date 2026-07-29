@@ -1,6 +1,6 @@
 # Referencia de agentes descargables
 
-Esta guía enumera los 29 paquetes oficiales propios disponibles a través de **Agents → Download Agents** (Agentes → Descargar agentes), agrupados por categoría. Los agentes no vienen incluidos en una instalación nueva de Marinara Engine. Sus fuentes de paquete, manifiestos, artefactos y catálogo legible por máquina se publican en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada uno, esta guía explica qué hace el agente, cuándo se ejecuta o se integra, qué modos de chat lo permiten y los ajustes principales. Para la instalación y la activación, lee primero la [descripción general de los agentes](agents-overview.md).
+Esta guía enumera los 30 paquetes oficiales propios disponibles a través de **Agents → Download Agents** (Agentes → Descargar agentes), agrupados por categoría. Los agentes no vienen incluidos en una instalación nueva de Marinara Engine. Sus fuentes de paquete, manifiestos, artefactos y catálogo legible por máquina se publican en [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Para cada uno, esta guía explica qué hace el agente, cuándo se ejecuta o se integra, qué modos de chat lo permiten y los ajustes principales. Para la instalación y la activación, lee primero la [descripción general de los agentes](agents-overview.md).
 
 ## Cómo leer esta referencia
 
@@ -150,6 +150,16 @@ Simula un público en vivo que reacciona a tu escena, mostrado como un widget fl
 - **Fase**: Parallel.
 - **Dónde funciona**: Roleplay.
 - **Ajustes clave**: eliges un estilo entre sus opciones con nombre, como **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad** y **Harbingers**. Los controles del widget incluyen **Re-run Echo Chamber** (volver a ejecutar Echo Chamber) y **Clear messages** (borrar mensajes).
+
+### Long-Term Memory
+
+Extrae recuerdos duraderos de los resúmenes del chat, los registros de personajes y los lorebooks a un almacén propio del paquete y recupera el contexto pertinente antes de la respuesta principal. Permite explorar el almacén por ámbito, importar fuentes, revisar borradores pendientes y colocar el contexto recuperado mediante un marcador del preset.
+
+- **Integración**: paquete de funciones; aporta contexto previo a la generación y una interfaz para gestionar la memoria, en vez de ejecutarse como un tracker normal después de la generación.
+- **Dónde funciona**: Conversation, Roleplay, Visual Novel y Game. Visual Novel usa el perfil de extracción de Roleplay.
+- **Ajustes clave**: activación, presupuesto de tokens de recuperación (128–16.384), cantidad máxima de fragmentos recuperados (1–100), umbral de puntuación, contexto de mensajes recientes (1–20), estilo de recuperación y pesos semántico, léxico, de grafo y de palabras clave, inclusión de recuerdos resueltos, preámbulo de recuperación, razonamiento y nivel de detalle de la extracción, límites de generación, límites de fuentes, plantillas de prompt, extracción de palabras clave mediante IA y extracción en Game Mode.
+- **Ciclo de vida de los datos**: usa los controles de copia de seguridad de Memory Settings para exportar o sustituir el almacén, los borradores y los ajustes. **Delete all data** elimina de forma permanente los recuerdos, los borradores, la actividad y los índices derivados, pero conserva los ajustes. Al desinstalar el paquete se conserva el almacén de Long-Term Memory para una instalación posterior. Instalarlo, actualizarlo o eliminarlo requiere reiniciar Marinara.
+- **Compatibilidad**: Engine `2.3.3` hasta antes de `2.4.0`. El paquete usa los permisos `agent-runtime`, `chat-read`, `routes`, `storage` y `ui`.
 
 ### Illustrator
 

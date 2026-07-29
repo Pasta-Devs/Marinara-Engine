@@ -1,6 +1,6 @@
 # Referenz der herunterladbaren Agenten
 
-Diese Anleitung stellt alle 29 offiziellen Erstanbieter-Pakete vor, die über **Agents → Download Agents** (Agenten herunterladen) bereitstehen, sortiert nach Kategorie. In einer frischen Marinara-Engine-Installation sind noch keine Agenten enthalten. Paketquellen, Manifeste, Artefakte und der maschinenlesbare Katalog liegen in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Zu jedem Agenten erfährst du hier, was er tut, wann er läuft oder wo er sich einklinkt, welche Chat-Modi ihn zulassen und welche Einstellungen wichtig sind. Wie du Agenten installierst und aktivierst, steht in der [Agenten-Übersicht](agents-overview.md) – lies sie zuerst.
+Diese Anleitung stellt alle 30 offiziellen Erstanbieter-Pakete vor, die über **Agents → Download Agents** (Agenten herunterladen) bereitstehen, sortiert nach Kategorie. In einer frischen Marinara-Engine-Installation sind noch keine Agenten enthalten. Paketquellen, Manifeste, Artefakte und der maschinenlesbare Katalog liegen in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Zu jedem Agenten erfährst du hier, was er tut, wann er läuft oder wo er sich einklinkt, welche Chat-Modi ihn zulassen und welche Einstellungen wichtig sind. Wie du Agenten installierst und aktivierst, steht in der [Agenten-Übersicht](agents-overview.md) – lies sie zuerst.
 
 ## So liest du diese Referenz
 
@@ -150,6 +150,16 @@ Simuliert ein Live-Publikum, das auf die Szene reagiert – sichtbar als schwebe
 - **Phase**: Parallel.
 - **Wo er funktioniert**: Roleplay.
 - **Wichtige Einstellungen**: Du wählst einen Stil aus den benannten Optionen, darunter **AO3 / Wattpad**, **Twitter / Reddit**, **4chan**, **Constructive**, **Hype Squad** und **Harbingers**. Im Widget selbst gibt es **Re-run Echo Chamber** und **Clear messages**.
+
+### Long-Term Memory
+
+Extrahiert dauerhafte Erinnerungen aus Chat-Zusammenfassungen, Charakteraufzeichnungen und Lorebooks in einen paketeigenen Speicher und ruft vor der Hauptantwort passenden Kontext ab. Der Agent unterstützt das gefilterte Durchsuchen des Speichers, den Import von Quellen, die Prüfung ausstehender Entwürfe und das Platzieren abgerufenen Kontexts über eine Preset-Markierung.
+
+- **Integration**: Funktionspaket; es liefert Kontext vor der Generierung und eine Oberfläche zur Speicherverwaltung, statt wie ein gewöhnlicher Tracker nach der Generierung zu laufen.
+- **Wo er funktioniert**: Conversation, Roleplay, Visual Novel und Game. Visual Novel verwendet das Extraktionsprofil von Roleplay.
+- **Wichtige Einstellungen**: Aktivierung, Token-Budget für den Abruf (128–16.384), Höchstzahl abgerufener Abschnitte (1–100), Bewertungsschwelle, Kontext der letzten Nachrichten (1–20), Abrufstil sowie semantische, lexikalische, Graph- und Schlüsselwortgewichtung, Einbeziehung erledigter Erinnerungen, Abruf-Präambel, Reasoning und Ausführlichkeit der Extraktion, Generierungsgrenzen, Quellengrenzen, Prompt-Vorlagen, KI-Schlüsselwortextraktion und Extraktion im Game Mode.
+- **Datenlebenszyklus**: Mit den Backup-Bedienelementen unter Memory Settings exportierst oder ersetzt du Speicher, Entwürfe und Einstellungen. **Delete all data** löscht Erinnerungen, Entwürfe, Aktivität und abgeleitete Indizes dauerhaft, behält aber die Einstellungen. Beim Deinstallieren bleibt der Long-Term-Memory-Speicher für eine spätere Neuinstallation erhalten. Installation, Aktualisierung und Entfernung erfordern einen Neustart von Marinara.
+- **Kompatibilität**: Engine `2.3.3` bis ausschließlich `2.4.0`. Das Paket verwendet die Berechtigungen `agent-runtime`, `chat-read`, `routes`, `storage` und `ui`.
 
 ### Illustrator
 
