@@ -41,6 +41,7 @@ interface ActiveVideoDefaults {
   durationSeconds: number;
   aspectRatio: VideoAspectRatio;
   resolution?: VideoResolution;
+  fps?: number;
 }
 
 export interface GameVideoRuntime {
@@ -51,6 +52,7 @@ export interface GameVideoRuntime {
   model: string;
   comfyWorkflow?: string;
   comfyLoras: VideoGenerationDefaultsProfile["comfyui"]["loras"];
+  comfyFps?: number;
   resolution?: VideoResolution;
   promptLimits: SceneVideoPromptLimits;
   minDurationSeconds: number;
@@ -163,6 +165,7 @@ export function resolveGameVideoRuntime(connection: VideoRuntimeConnection): Gam
                   : DEFAULT_GEMINI_OMNI_MODEL),
     comfyWorkflow: connection.comfyuiWorkflow || undefined,
     comfyLoras: isComfyUi ? videoDefaults.comfyui.loras : [],
+    comfyFps: isComfyUi ? videoDefaults.comfyui.fps : undefined,
     resolution,
     promptLimits: getSceneVideoPromptLimits(isXai, isGeminiOmni),
     minDurationSeconds: isGoogleVeo || isSeedance ? 4 : 1,

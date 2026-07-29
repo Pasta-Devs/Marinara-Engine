@@ -3658,6 +3658,93 @@ try {
   assert.equal(spotifyProcessed.segmentEffects?.[0]?.music, undefined);
 }
 
+// Issues #4237-#4240 — keep the current issue-sweep fixes wired through the
+// user-facing paths that originally skipped or constrained them.
+{
+  const conversationMessageSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ConversationMessage.tsx"),
+    "utf8",
+  );
+  const conversationViewSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/chat/ConversationView.tsx"),
+    "utf8",
+  );
+  assert.match(
+    conversationMessageSource,
+    /applyToAIOutput\(message\.content,[\s\S]{0,240}depth: messageDepth/u,
+    "Conversation messages must apply display regex scripts with their transcript depth",
+  );
+  assert.match(
+    conversationMessageSource,
+    /applyToAIOutput\(part,[\s\S]{0,240}depth: messageDepth/u,
+    "Conversation message parts must not bypass display regex scripts",
+  );
+  assert.match(
+    conversationViewSource,
+    /const messageDepth = Math\.max\(0, totalMessageCount - 1 - item\.index\);/u,
+    "Conversation regex depth must be derived for every rendered transcript item",
+  );
+  assert.ok(
+    (conversationViewSource.match(/messageDepth=\{messageDepth\}/gu)?.length ?? 0) >= 2,
+    "Stored and regenerating Conversation messages must share their transcript depth",
+  );
+  assert.match(
+    conversationViewSource,
+    /liveStreamMessage[\s\S]{0,900}messageDepth=\{0\}/u,
+    "A live Conversation stream must apply depth-scoped regex as the newest message",
+  );
+
+  const { normalizeVideoGenerationProfile } = await import(
+    "../../packages/shared/src/constants/video-generation-defaults.js"
+  );
+  assert.equal(
+    normalizeVideoGenerationProfile({
+      service: "comfyui",
+      comfyui: { durationSeconds: 6, aspectRatio: "16:9", resolution: "720p" },
+    }).profile.comfyui.fps,
+    16,
+    "Legacy ComfyUI video profiles must retain the historical 16 FPS default",
+  );
+  assert.equal(
+    normalizeVideoGenerationProfile({
+      service: "comfyui",
+      comfyui: { durationSeconds: 6, fps: 24, aspectRatio: "16:9", resolution: "720p" },
+    }).profile.comfyui.fps,
+    24,
+    "ComfyUI video profiles must preserve a configured FPS",
+  );
+
+  const connectionsRouteSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/server/src/routes/connections.routes.ts"),
+    "utf8",
+  );
+  const testImageHandler = connectionsRouteSource.match(
+    /app\.post<\{ Params: \{ id: string \} \}>\("\/:id\/test-image"[\s\S]*?\/\/ ── Test video generation/u,
+  )?.[0];
+  assert.ok(testImageHandler, "The connection test-image handler must remain available");
+  assert.match(testImageHandler, /width: 1024,\s*height: 1024,/u);
+
+  assert.doesNotMatch(
+    agentEditorSource,
+    /!isDirectorAgent && localInjectAsSection/u,
+    "Narrative Director must be allowed to save and export Add as Prompt Section",
+  );
+  assert.ok(
+    (agentEditorSource.match(/\.\.\.\(localInjectAsSection \? \{ injectAsSection: true \} : \{\}\)/gu)?.length ?? 0) >=
+      2,
+    "Agent save and export paths must preserve Add as Prompt Section",
+  );
+  const presetEditorSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/presets/PresetEditor.tsx"),
+    "utf8",
+  );
+  assert.match(
+    presetEditorSource,
+    /injectableAgents\.map[\s\S]{0,700}justify-start[\s\S]{0,120}text-left/u,
+    "Agent section choices must align with the preset editor's other add-section choices",
+  );
+}
+
 // Issue #4002 — Character Tavern stores card JSON in zTXt (zlib-compressed)
 // PNG chunks; every card-parsing path must read them, and export must strip
 // stale ones so re-exported cards cannot carry outdated compressed data.

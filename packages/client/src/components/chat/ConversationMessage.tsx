@@ -19,6 +19,7 @@ import { useUIStore, type ConversationMessageStyle } from "../../stores/ui.store
 import { cn, copyToClipboard, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
 import { resolveMessageMacros } from "../../lib/chat-macros";
 import { useTranslate } from "../../hooks/use-translate";
+import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { api } from "../../lib/api-client";
 import { chatKeys } from "../../hooks/use-chats";
 import type { CharacterMap, MessageSelectionToggle, PersonaInfo } from "./chat-area.types";
@@ -36,6 +37,8 @@ import { ConversationMessageBubble } from "./ConversationMessageBubble";
 import { ConversationMessageLine } from "./ConversationMessageLine";
 import { MessageReactions } from "./MessageReactions";
 import { MessageThinkingModal } from "./MessageThinkingModal";
+import { useChatStore } from "../../stores/chat.store";
+import { parseChatMetadata } from "../../lib/chat-display";
 import {
   findRetargetableUserReaction,
   reactionTargetOf,
@@ -101,6 +104,7 @@ interface ConversationMessageProps {
   chatCharacterIds?: string[];
   messageIndex?: number;
   messageOrderIndex?: number;
+  messageDepth?: number;
   multiSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (toggle: MessageSelectionToggle) => void;
@@ -142,6 +146,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   chatCharacterIds,
   messageIndex,
   messageOrderIndex,
+  messageDepth,
   multiSelectMode,
   isSelected,
   onToggleSelect,
@@ -171,6 +176,9 @@ export const ConversationMessage = memo(function ConversationMessage({
   const showMessageNumbers = useUIStore((s) => s.showMessageNumbers);
   const quoteFormat = useUIStore((s) => s.quoteFormat);
   const conversationAvatarShape = useUIStore((s) => s.conversationAvatarShape);
+  const activeChatMetadata = useChatStore((s) => s.activeChat?.metadata);
+  const scopedRegexMode = useMemo(() => parseChatMetadata(activeChatMetadata).scopedRegexMode, [activeChatMetadata]);
+  const { applyToAIOutput } = useApplyRegex();
 
   // ── Translation ──
   const { translate, translations, translationSources, translating } = useTranslate();
@@ -325,28 +333,65 @@ export const ConversationMessage = memo(function ConversationMessage({
   // #3164: seed display randomness by message identity — this site previously
   // passed no seed, so every {{random}}/{{roll}} re-rolled (Math.random) on
   // every recompute, even for finished messages.
-  const renderedContent = useMemo(
-    () =>
-      formatTextQuotes(
-        resolveMessageMacros(message.content, macroContext, {
-          randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}`,
+  const renderedContent = useMemo(() => {
+    const randomSeed = `${message.id}:${message.activeSwipeIndex ?? 0}`;
+    const resolveDisplayMacros = (value: string) => resolveMessageMacros(value, macroContext, { randomSeed });
+    if (!isUser && !isSystem) {
+      return resolveDisplayMacros(
+        applyToAIOutput(message.content, {
+          depth: messageDepth,
+          resolveMacros: resolveDisplayMacros,
+          scopedMode: scopedRegexMode,
+          characterId: message.characterId,
         }),
-        quoteFormat,
-      ),
-    [macroContext, message.activeSwipeIndex, message.content, message.id, quoteFormat],
-  );
+      );
+    }
+    return formatTextQuotes(resolveDisplayMacros(message.content), quoteFormat);
+  }, [
+    applyToAIOutput,
+    isSystem,
+    isUser,
+    macroContext,
+    message.activeSwipeIndex,
+    message.characterId,
+    message.content,
+    message.id,
+    messageDepth,
+    quoteFormat,
+    scopedRegexMode,
+  ]);
   const renderedContentParts = useMemo(() => {
     if (!contentParts?.length) return null;
     const count = Math.max(1, Math.min(visiblePartCount ?? contentParts.length, contentParts.length));
-    return contentParts.slice(0, count).map((part, partIndex) =>
-      formatTextQuotes(
-        resolveMessageMacros(part, macroContext, {
-          randomSeed: `${message.id}:${message.activeSwipeIndex ?? 0}:${partIndex}`,
-        }),
-        quoteFormat,
-      ),
-    );
-  }, [contentParts, macroContext, message.activeSwipeIndex, message.id, quoteFormat, visiblePartCount]);
+    return contentParts.slice(0, count).map((part, partIndex) => {
+      const randomSeed = `${message.id}:${message.activeSwipeIndex ?? 0}:${partIndex}`;
+      const resolveDisplayMacros = (value: string) => resolveMessageMacros(value, macroContext, { randomSeed });
+      if (!isUser && !isSystem) {
+        return resolveDisplayMacros(
+          applyToAIOutput(part, {
+            depth: messageDepth,
+            resolveMacros: resolveDisplayMacros,
+            scopedMode: scopedRegexMode,
+            characterId: message.characterId,
+          }),
+        );
+      }
+      return formatTextQuotes(resolveDisplayMacros(part), quoteFormat);
+    });
+  }, [
+    applyToAIOutput,
+    contentParts,
+    isSystem,
+    isUser,
+    macroContext,
+    message.activeSwipeIndex,
+    message.characterId,
+    message.id,
+    messageDepth,
+    quoteFormat,
+    scopedRegexMode,
+    visiblePartCount,
+  ]);
   const showTranslationOnly =
     translationDisplayOnly &&
     !!translatedText &&

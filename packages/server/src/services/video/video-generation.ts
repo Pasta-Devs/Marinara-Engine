@@ -43,6 +43,8 @@ export interface VideoGenerationRequest {
   ltxDirectorPrompt?: LtxDirectorPromptInput;
   /** Up to five connection-scoped LoRAs for custom ComfyUI workflow placeholders. */
   comfyLoras?: ComfyUiLoraSetting[];
+  /** ComfyUI workflow frame rate exposed through %fps% and used by the legacy %length% macro. */
+  fps?: number;
   lastFrameImage?: VideoReferenceImage | null;
   publicReferenceUpload?: VideoReferencePublicUploadOptions | null;
   signal?: AbortSignal;
@@ -65,6 +67,7 @@ export interface VideoGenerationRequest {
     model: string;
     comfyWorkflow?: string;
     comfyLoras?: ComfyUiLoraSetting[];
+    fps?: number;
   };
 }
 
@@ -200,6 +203,7 @@ async function generateVideoUnqueued(
       model: fallback.model,
       comfyWorkflow: fallback.comfyWorkflow,
       comfyLoras: fallback.comfyLoras,
+      fps: fallback.fps,
       connectionKey: fallback.connectionId,
     });
   }
@@ -347,22 +351,32 @@ export function resolveLtxDirectorPromptInput(
   };
 }
 
-function resolveComfyUiVideoFrameLength(durationSeconds: number): number {
-  return Math.max(1, Math.round(durationSeconds * 16));
+function normalizeComfyUiVideoFps(value: number | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(1, Math.min(120, Math.round(value))) : 16;
+}
+
+function resolveComfyUiVideoFrameLength(durationSeconds: number, fps?: number): number {
+  return Math.max(1, Math.round(durationSeconds * normalizeComfyUiVideoFps(fps)));
 }
 
 export function resolveComfyUiVideoWorkflowPlaceholders(
   workflow: unknown,
-  request: Pick<VideoGenerationRequest, "prompt" | "model" | "durationSeconds" | "ltxDirectorPrompt" | "comfyLoras">,
+  request: Pick<
+    VideoGenerationRequest,
+    "prompt" | "model" | "durationSeconds" | "ltxDirectorPrompt" | "comfyLoras" | "fps"
+  >,
   runtime: { seed: number; width: number; height: number; referenceImageName?: string },
 ): unknown {
   const ltxDirectorPrompt = resolveLtxDirectorPromptInput(request);
+  const fps = normalizeComfyUiVideoFps(request.fps);
   const replacements: Record<string, string | number> = {
     "%prompt%": request.prompt,
     "%width%": runtime.width,
     "%height%": runtime.height,
     "%seed%": runtime.seed,
-    "%length%": resolveComfyUiVideoFrameLength(request.durationSeconds),
+    "%length%": resolveComfyUiVideoFrameLength(request.durationSeconds, fps),
+    "%length_s%": request.durationSeconds,
+    "%fps%": fps,
     "%duration_seconds%": request.durationSeconds,
     "%global_prompt%": ltxDirectorPrompt.globalPrompt,
     "%local_prompts%": ltxDirectorPrompt.localPrompts,
@@ -481,7 +495,7 @@ async function generateComfyUiVideo(baseUrl: string, request: VideoGenerationReq
       request.debugMode === true || isDebugAgentsEnabled(),
       "[video-gen/comfyui] LTX Director duration_seconds=%d duration_frames=%d reference_image=%s\nglobal_prompt:\n%s\nlocal_prompts:\n%s\nsegment_lengths=%s",
       request.durationSeconds,
-      resolveComfyUiVideoFrameLength(request.durationSeconds),
+      resolveComfyUiVideoFrameLength(request.durationSeconds, request.fps),
       referenceImageName ?? "(none)",
       ltxDirectorPrompt.globalPrompt,
       ltxDirectorPrompt.localPrompts,

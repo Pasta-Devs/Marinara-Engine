@@ -22,6 +22,9 @@ import {
   isPatternSafe,
   normalizeChatSummaryEntries,
   normalizeChatSummaryPromptSettings,
+  LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+  DEFAULT_CHAT_SUMMARY_PROMPT,
+  DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
   normalizeCharacterTrackerCustomFieldDefaults,
   normalizeWorldCustomFields,
   LIMITS,
@@ -586,6 +589,7 @@ import {
   appendContinuationMessageContent,
   CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT,
   formatRoleplaySummaryChatLog,
+  resolveChatSummaryPrompt,
 } from "../../packages/server/src/services/generation/roleplay-summary-runtime.js";
 import { scopeIndividualGroupMessagesForTarget } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import { resolveGenerationPromptPresetChoices } from "../../packages/server/src/routes/generate/prompt-preset-selection.js";
@@ -2890,6 +2894,7 @@ const cases: RegressionCase[] = [
         "3678": {
           inputs: {
             end_second: "%duration_seconds%",
+            length_seconds: "%length_s%",
             duration_seconds: "%duration_seconds%",
             end_frame: "%length%",
             duration_frames: "%length%",
@@ -2898,7 +2903,7 @@ const cases: RegressionCase[] = [
             local_prompts: "",
             segment_lengths: "",
             guide_strength: "1.00",
-            frame_rate: 16,
+            frame_rate: "%fps%",
             custom_width: "%width%",
             custom_height: "%height%",
           },
@@ -2911,15 +2916,18 @@ const cases: RegressionCase[] = [
         {
           prompt: completePrompt,
           durationSeconds: 6,
+          fps: 24,
           model: "ltx-2.3-distilled",
         },
         { seed: 123, width: 1280, height: 720, referenceImageName: "marinara-reference.png" },
       ) as typeof workflow;
       const inputs = resolved["3678"].inputs;
       assert.equal(inputs.end_second, 6);
+      assert.equal(inputs.length_seconds, 6);
       assert.equal(inputs.duration_seconds, 6);
-      assert.equal(inputs.end_frame, 96);
-      assert.equal(inputs.duration_frames, 96);
+      assert.equal(inputs.end_frame, 144);
+      assert.equal(inputs.duration_frames, 144);
+      assert.equal(inputs.frame_rate, 24);
       assert.equal(inputs.global_prompt, completePrompt);
       assert.equal(inputs.local_prompts, "");
       assert.equal(inputs.segment_lengths, "");
@@ -2932,7 +2940,7 @@ const cases: RegressionCase[] = [
         segments: Array<{ start: number; imageFile: string }>;
       };
       assert.equal(resolvedTimeline.global_prompt, "");
-      assert.equal(resolvedTimeline.normalDurationFrames, 96);
+      assert.equal(resolvedTimeline.normalDurationFrames, 144);
       assert.equal(resolvedTimeline.segments.length, 1);
       assert.equal(resolvedTimeline.segments[0]?.start, 0);
       assert.equal(resolvedTimeline.segments[0]?.imageFile, "marinara-reference.png");
@@ -2973,6 +2981,8 @@ const cases: RegressionCase[] = [
             width: "%width%",
             height: "%height%",
             frames: "%length%",
+            lengthSeconds: "%length_s%",
+            fps: "%fps%",
           },
         },
       };
@@ -2990,6 +3000,8 @@ const cases: RegressionCase[] = [
               width: 1280,
               height: 720,
               frames: 96,
+              lengthSeconds: 6,
+              fps: 16,
             },
           },
         },
@@ -5608,6 +5620,37 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         templates,
         activeTemplateId: null,
       });
+      assert.deepEqual(
+        normalizeChatSummaryPromptSettings({ templates, activeTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID }),
+        { templates, activeTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID },
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: { enableAgents: true, activeAgentIds: ["long-term-memory"] },
+        }),
+        DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: {
+            enableAgents: true,
+            activeAgentIds: ["long-term-memory"],
+            summaryPromptTemplates: [
+              { id: ` ${LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID} `, name: "Collision", prompt: "Wrong local prompt" },
+            ],
+          },
+        }),
+        DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+      );
+      assert.equal(
+        resolveChatSummaryPrompt({
+          requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+          chatMetadata: { enableAgents: false, activeAgentIds: ["long-term-memory"] },
+        }),
+        DEFAULT_CHAT_SUMMARY_PROMPT,
+      );
     },
   },
   {

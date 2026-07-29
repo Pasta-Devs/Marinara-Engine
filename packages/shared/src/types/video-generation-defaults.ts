@@ -48,8 +48,10 @@ export interface AtlasCloudVideoDefaults {
 }
 
 export interface ComfyUiVideoDefaults {
-  /** ComfyUI workflows receive this duration as a 16 fps frame count through %length%. */
+  /** ComfyUI workflows receive this duration through %length_s% and as a frame count through %length%. */
   durationSeconds: number;
+  /** Frame rate exposed as %fps% and used to derive the legacy %length% frame count. */
+  fps: number;
   aspectRatio: VideoAspectRatio;
   resolution: VideoResolution;
   loras: ComfyUiLoraSetting[];

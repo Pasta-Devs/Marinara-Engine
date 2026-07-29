@@ -3511,6 +3511,9 @@ export async function chatsRoutes(app: FastifyInstance) {
 
     const sourceMeta =
       typeof sourceChat.metadata === "string" ? JSON.parse(sourceChat.metadata) : (sourceChat.metadata ?? {});
+    const sourceSummaryEntries = normalizeChatSummaryEntries(sourceMeta.summaryEntries, {
+      legacySummary: typeof sourceMeta.summary === "string" ? sourceMeta.summary : null,
+    });
     const isSceneChat = sourceMeta.sceneStatus === "active" || !!sourceMeta.sceneOriginChatId;
     if (isSceneChat) {
       return reply.status(400).send({ error: "Scene chats cannot be branched" });
@@ -3556,10 +3559,23 @@ export async function chatsRoutes(app: FastifyInstance) {
     for (const key of ["summary", "summaryEntries", "lastAutomaticSummaryMessageId", "daySummaries", "weekSummaries"]) {
       delete settingsToKeep[key];
     }
-    await storage.updateMetadata(newChat.id, {
-      ...settingsToKeep,
-      branchName: "New Branch",
+    const sourceCutoffIndex = upToMessageId ? msgs.findIndex((msg) => msg.id === upToMessageId) : msgs.length - 1;
+    const sourceMessagesToCopy = msgs.slice(0, sourceCutoffIndex + 1);
+    const copiedSourceMessageIds = new Set(sourceMessagesToCopy.map((msg) => msg.id));
+    const inheritedSourceEntries = sourceSummaryEntries.filter((entry) => {
+      if (!entry.messageIds?.length || !entry.messageIds.every((id) => copiedSourceMessageIds.has(id))) return false;
+      if (entry.rangeEndIndex && entry.rangeEndIndex > sourceMessagesToCopy.length) return false;
+      if (entry.hiddenMessageIds && !entry.hiddenMessageIds.every((id) => entry.messageIds!.includes(id))) return false;
+      return entry.hiddenMessageIds?.every((id) => copiedSourceMessageIds.has(id)) ?? true;
     });
+    const inheritedHiddenIds = new Set(
+      inheritedSourceEntries.flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
+    );
+    const droppedHiddenIds = new Set(
+      sourceSummaryEntries
+        .filter((entry) => !inheritedSourceEntries.some((inherited) => inherited.id === entry.id))
+        .flatMap((entry) => entry.hiddenMessageIds ?? entry.messageIds ?? []),
+    );
 
     // Copy messages from source chat, preserving every swipe and the active index.
     // Preserve each message's original createdAt timestamp so ordering and
@@ -3572,12 +3588,17 @@ export async function chatsRoutes(app: FastifyInstance) {
     for (const msg of msgs) {
       const swipes = await storage.getSwipes(msg.id);
       const messageExtra = sanitizeBranchedMessageExtra(parseExportMetadata(msg.extra));
+      const clearSummaryHidden = droppedHiddenIds.has(msg.id) && !inheritedHiddenIds.has(msg.id);
+      if (clearSummaryHidden && messageExtra.hiddenFromAI === true) {
+        delete messageExtra.hiddenFromAI;
+      }
       const activeSwipeIndex =
         Number.isInteger(msg.activeSwipeIndex) && msg.activeSwipeIndex >= 0 ? msg.activeSwipeIndex : 0;
       const copiedSwipes =
         swipes.length > 0
           ? swipes.map((swipe: { index: number; content: string; extra?: unknown; createdAt?: string | null }) => {
               const swipeExtra = sanitizeBranchedMessageExtra(parseExportMetadata(swipe.extra));
+              if (clearSummaryHidden && swipeExtra.hiddenFromAI === true) delete swipeExtra.hiddenFromAI;
               const extra = swipe.index === activeSwipeIndex ? { ...swipeExtra, ...messageExtra } : swipeExtra;
               return {
                 index: swipe.index,
@@ -3620,6 +3641,30 @@ export async function chatsRoutes(app: FastifyInstance) {
     copiedSourceMessages.forEach((msg, index) => {
       const branchedId = branchedMessageIds[index];
       if (branchedId) sourceToBranchedMessageId.set(msg.id, branchedId);
+    });
+
+    const inheritedEntries = inheritedSourceEntries.map((entry) => ({
+      ...entry,
+      messageIds: entry.messageIds!.map((id) => sourceToBranchedMessageId.get(id)!).filter(Boolean),
+      ...(entry.hiddenMessageIds
+        ? {
+            hiddenMessageIds: entry.hiddenMessageIds.map((id) => sourceToBranchedMessageId.get(id)!).filter(Boolean),
+          }
+        : {}),
+    }));
+    const inheritedAutomaticEntry = inheritedEntries.some((entry) => entry.origin === "automated");
+    const inheritedLastAutomaticSummaryMessageId =
+      inheritedAutomaticEntry && typeof sourceMeta.lastAutomaticSummaryMessageId === "string"
+        ? sourceToBranchedMessageId.get(sourceMeta.lastAutomaticSummaryMessageId)
+        : undefined;
+    await storage.updateMetadata(newChat.id, {
+      ...settingsToKeep,
+      branchName: "New Branch",
+      summary: compileChatSummaryEntries(inheritedEntries),
+      summaryEntries: inheritedEntries,
+      ...(inheritedLastAutomaticSummaryMessageId
+        ? { lastAutomaticSummaryMessageId: inheritedLastAutomaticSummaryMessageId }
+        : {}),
     });
 
     // Fix updatedAt: createMessage sets the chat's updatedAt to each message's

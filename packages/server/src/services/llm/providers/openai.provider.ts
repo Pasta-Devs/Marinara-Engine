@@ -2112,6 +2112,15 @@ export class OpenAIProvider extends BaseLLMProvider {
               }
               break;
             }
+            case "response.reasoning_summary_text.done":
+            case "response.reasoning_summary_part.done": {
+              emittedReasoningSummary = this.emitMissingResponsesReasoningSummaryText(
+                this.extractResponsesReasoningSummaryEvent(parsed),
+                options,
+                emittedReasoningSummary,
+              );
+              break;
+            }
             case "response.output_item.done": {
               const item = parsed.item as Record<string, unknown> | undefined;
               if (item?.type === "reasoning") {
@@ -2360,6 +2369,16 @@ export class OpenAIProvider extends BaseLLMProvider {
               break;
             }
 
+            case "response.reasoning_summary_text.done":
+            case "response.reasoning_summary_part.done": {
+              emittedReasoningSummary = this.emitMissingResponsesReasoningSummaryText(
+                this.extractResponsesReasoningSummaryEvent(parsed),
+                options,
+                emittedReasoningSummary,
+              );
+              break;
+            }
+
             case "response.output_item.added": {
               // A new output item appeared — could be a function_call. Key the
               // accumulator by the output item id: the argument delta/done
@@ -2574,18 +2593,28 @@ export class OpenAIProvider extends BaseLLMProvider {
     return summaryText;
   }
 
+  /** Extract a completed displayable summary from Responses API stream events. */
+  private extractResponsesReasoningSummaryEvent(event: Record<string, unknown>): string {
+    if (typeof event.text === "string") return event.text;
+
+    const part = event.part as Record<string, unknown> | undefined;
+    if (part?.type === "summary_text" && typeof part.text === "string") {
+      return part.text;
+    }
+    return "";
+  }
+
   /**
-   * Recover reasoning summaries from final Responses payloads. Some models or
-   * gateways omit summary delta events even though the completed output item
-   * contains the requested summary.
+   * Emit only summary text that has not already arrived through another
+   * Responses event. OpenAI may repeat the full summary in text.done,
+   * part.done, output_item.done, and response.completed events.
    */
-  private emitMissingResponsesReasoningSummary(
-    json: Record<string, unknown>,
+  private emitMissingResponsesReasoningSummaryText(
+    finalSummary: string,
     options: ChatOptions,
     emittedSummary: string,
   ): string {
     if (!options.onThinking) return emittedSummary;
-    const finalSummary = this.extractResponsesReasoningSummary(json);
     if (!finalSummary || finalSummary === emittedSummary || emittedSummary.startsWith(finalSummary)) {
       return emittedSummary;
     }
@@ -2602,6 +2631,20 @@ export class OpenAIProvider extends BaseLLMProvider {
     const missingSuffix = finalSummary.slice(overlap);
     if (missingSuffix) options.onThinking(missingSuffix);
     return emittedSummary + missingSuffix;
+  }
+
+  /**
+   * Recover reasoning summaries from final Responses payloads. Some models or
+   * gateways omit summary delta events even though the completed output item
+   * contains the requested summary.
+   */
+  private emitMissingResponsesReasoningSummary(
+    json: Record<string, unknown>,
+    options: ChatOptions,
+    emittedSummary: string,
+  ): string {
+    const finalSummary = this.extractResponsesReasoningSummary(json);
+    return this.emitMissingResponsesReasoningSummaryText(finalSummary, options, emittedSummary);
   }
 
   /** Extract usage from a Responses API result */

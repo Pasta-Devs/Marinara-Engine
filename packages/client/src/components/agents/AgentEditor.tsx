@@ -1118,7 +1118,7 @@ export function AgentEditor() {
         ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
         ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
         ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
-        ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
+        ...(localInjectAsSection ? { injectAsSection: true } : {}),
         ...(isMusicAgent
           ? {
               musicProvider: localMusicProvider,
@@ -1307,7 +1307,7 @@ export function AgentEditor() {
       ...(localContextSize !== "" ? { contextSize: Number(localContextSize) } : {}),
       ...(localMaxTokens !== "" ? { maxTokens: clampAgentMaxTokens(localMaxTokens) } : {}),
       ...(!isDirectorAgent && localRunInterval !== "" ? { runInterval: Number(localRunInterval) } : {}),
-      ...(!isDirectorAgent && localInjectAsSection ? { injectAsSection: true } : {}),
+      ...(localInjectAsSection ? { injectAsSection: true } : {}),
       ...(exportingMusicAgent
         ? {
             musicProvider: localMusicProvider,
@@ -2443,28 +2443,26 @@ export function AgentEditor() {
           )}
 
           {/* ── Inject as Prompt Section ── */}
-          {!isDirectorAgent && (
-            <FieldGroup
-              label={localizeUi("ui.agents.agenteditor.addAsPromptSection")}
-              icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
-              help={localizeUi("ui.agents.agenteditor.whenEnabledThisAgentSOutputBecomesAvailableAs")}
-            >
-              <EditorSwitchRow
-                label={localInjectAsSection ?localizeUi("ui.noodle.noodlehome.enabled") :localizeUi("ui.agents.agenteditor.disabled")}
-                checked={localInjectAsSection}
-                onChange={() => {
-                  setLocalInjectAsSection(!localInjectAsSection);
-                  markDirty();
-                }}
-                description={
-                  localInjectAsSection
-                    ?localizeUi("ui.agents.agenteditor.value1AppearsAsASectionOptionInPromptPresets", { value1: localName })
-                    :localizeUi("ui.agents.agenteditor.agentOutputWonTBeAvailableAsAMarker")
-                }
-                labelClassName="text-sm"
-              />
-            </FieldGroup>
-          )}
+          <FieldGroup
+            label={localizeUi("ui.agents.agenteditor.addAsPromptSection")}
+            icon={<Layers size="0.875rem" className="text-[var(--primary)]" />}
+            help={localizeUi("ui.agents.agenteditor.whenEnabledThisAgentSOutputBecomesAvailableAs")}
+          >
+            <EditorSwitchRow
+              label={localInjectAsSection ?localizeUi("ui.noodle.noodlehome.enabled") :localizeUi("ui.agents.agenteditor.disabled")}
+              checked={localInjectAsSection}
+              onChange={() => {
+                setLocalInjectAsSection(!localInjectAsSection);
+                markDirty();
+              }}
+              description={
+                localInjectAsSection
+                  ?localizeUi("ui.agents.agenteditor.value1AppearsAsASectionOptionInPromptPresets", { value1: localName })
+                  :localizeUi("ui.agents.agenteditor.agentOutputWonTBeAvailableAsAMarker")
+              }
+              labelClassName="text-sm"
+            />
+          </FieldGroup>
 
           {isMusicAgent && (
             <FieldGroup

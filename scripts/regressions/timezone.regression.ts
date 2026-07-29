@@ -7,6 +7,8 @@ import {
   resolveConversationTimeZone,
 } from "../../packages/server/src/services/conversation/timezone.js";
 import {
+  getAdjacentScheduleBlocks,
+  getCurrentStatus,
   getEffectiveCurrentStatus,
   toConversationScheduleWallClockDate,
   type WeekSchedule,
@@ -62,6 +64,37 @@ assert.deepEqual(
   getEffectiveCurrentStatus(malformedSchedule, null, scheduleInstant, "free time", newYorkScheduleNow),
   { status: "online", activity: "free time" },
 );
+
+const overnightSchedule: WeekSchedule = {
+  weekStart: "2026-07-13T00:00:00.000Z",
+  inactivityThresholdMinutes: 60,
+  talkativeness: 50,
+  days: {
+    Sunday: [{ time: "23:00-07:00", activity: "Sunday night shift", status: "offline" }],
+    Monday: [{ time: "23:00-07:00", activity: "Monday night shift", status: "dnd" }],
+  },
+};
+const mondayAtTwo = new Date(2026, 6, 13, 2, 0, 0);
+assert.deepEqual(getCurrentStatus(overnightSchedule, mondayAtTwo), {
+  status: "offline",
+  activity: "Sunday night shift",
+});
+assert.equal(getAdjacentScheduleBlocks(overnightSchedule, mondayAtTwo).current?.activity, "Sunday night shift");
+assert.equal(getAdjacentScheduleBlocks(overnightSchedule, mondayAtTwo).next?.activity, "Monday night shift");
+const mondayAtTwentyThreeThirty = new Date(2026, 6, 13, 23, 30, 0);
+assert.deepEqual(getCurrentStatus(overnightSchedule, mondayAtTwentyThreeThirty), {
+  status: "dnd",
+  activity: "Monday night shift",
+});
+assert.equal(
+  getAdjacentScheduleBlocks(overnightSchedule, mondayAtTwentyThreeThirty).current?.activity,
+  "Monday night shift",
+);
+assert.equal(
+  getAdjacentScheduleBlocks(overnightSchedule, mondayAtTwentyThreeThirty).previous?.activity,
+  "Sunday night shift",
+);
+
 assert.equal(
   getEffectiveCurrentStatus(
     timeZoneSchedule,

@@ -1238,6 +1238,7 @@ export function ConversationView({
             !contentParts && item.groupSegmentCount && item.groupSegmentCount > 1
               ? (visibleSegmentCounts[item.key] ?? item.groupSegmentCount)
               : undefined;
+          const messageDepth = Math.max(0, totalMessageCount - 1 - item.index);
           const originalContent = item.rawContent ?? (displayMsg.content !== msg.content ? msg.content : undefined);
           const regenerationDraftMessage =
             isBubbleRegenerating && !isStreamWindingDown
@@ -1277,6 +1278,7 @@ export function ConversationView({
                 chatCharacterIds={chatCharIds}
                 messageIndex={item.index + 1}
                 messageOrderIndex={item.index}
+                messageDepth={messageDepth}
                 multiSelectMode={multiSelectMode}
                 isSelected={selectedMessageIds?.has(msg.id)}
                 onToggleSelect={onToggleSelectMessage}
@@ -1309,6 +1311,7 @@ export function ConversationView({
                   emojiMap={conversationEmojiMap}
                   stickerMap={conversationStickerMap}
                   chatCharacterIds={chatCharIds}
+                  messageDepth={messageDepth}
                   hasDraftInput={hasDraftInput}
                   messageStyle={conversationMessageStyle}
                   contentParts={liveStreamContentParts}
@@ -1340,6 +1343,7 @@ export function ConversationView({
             emojiMap={conversationEmojiMap}
             stickerMap={conversationStickerMap}
             chatCharacterIds={chatCharIds}
+            messageDepth={0}
             hasDraftInput={hasDraftInput}
             messageStyle={conversationMessageStyle}
             contentParts={liveStreamContentParts}
