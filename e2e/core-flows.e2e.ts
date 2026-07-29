@@ -11591,3 +11591,81 @@ test("Background library organization works with desktop drag and touch drag", a
     await page.request.delete(`/api/backgrounds/${encodeURIComponent(currentFilename)}`);
   }
 });
+
+test("character editor preserves unsaved fields across responsive layout changes", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Responsive editor regression starts in desktop layout.");
+
+  const characterName = `Responsive Character ${Date.now().toString(36)}`;
+  const response = await request.post("/api/characters", {
+    data: {
+      data: {
+        name: characterName,
+        description: "Saved description",
+      },
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-characters"]').click();
+    await page.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`).click();
+
+    const desktopEditor = page.locator('[data-component="DetailEditor"]');
+    const unsavedName = `${characterName} unsaved`;
+    await desktopEditor.locator(".mari-editor-title-input").fill(unsavedName);
+
+    await page.setViewportSize({ width: 760, height: 900 });
+    const mobileEditor = page.locator('[data-component="MobileDetailSheet"]');
+    await expect(mobileEditor).toBeVisible();
+    await expect(mobileEditor.locator(".mari-editor-title-input")).toHaveValue(unsavedName);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(desktopEditor).toBeVisible();
+    await expect(desktopEditor.locator(".mari-editor-title-input")).toHaveValue(unsavedName);
+  } finally {
+    await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+  }
+});
+
+test("persona editor preserves unsaved fields across responsive layout changes", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Responsive editor regression starts in desktop layout.");
+
+  const personaName = `Responsive Persona ${Date.now().toString(36)}`;
+  const response = await request.post("/api/characters/personas", {
+    data: {
+      name: personaName,
+      description: "Saved description",
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const persona = (await response.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-personas"]').click();
+    await page.locator('[data-touch-drag-card="persona"]').filter({ hasText: personaName }).click();
+
+    const desktopEditor = page.locator('[data-component="DetailEditor"]');
+    const unsavedName = `${personaName} unsaved`;
+    await desktopEditor.locator(".mari-editor-title-input").fill(unsavedName);
+
+    await page.setViewportSize({ width: 760, height: 900 });
+    const mobileEditor = page.locator('[data-component="MobileDetailSheet"]');
+    await expect(mobileEditor).toBeVisible();
+    await expect(mobileEditor.locator(".mari-editor-title-input")).toHaveValue(unsavedName);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(desktopEditor).toBeVisible();
+    await expect(desktopEditor.locator(".mari-editor-title-input")).toHaveValue(unsavedName);
+  } finally {
+    await request.delete(`/api/characters/personas/${persona.id}`).catch(() => undefined);
+  }
+});
