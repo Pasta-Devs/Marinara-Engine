@@ -1,9 +1,9 @@
-# Hierarchical Maps : installation, création et déplacements
+# World Maps : installation, création et déplacements
 
-> **Compatibilité actuelle :** ce guide correspond à Hierarchical Maps **1.2.0**
+> **Compatibilité actuelle :** ce guide correspond à World Maps **1.2.0**
 > sur Marinara Engine **2.3.5**. Le package fonctionne avec les chats Roleplay et Game.
 
-Hierarchical Maps donne à Roleplay et Game un état du monde persistant. Au lieu
+World Maps donne à Roleplay et Game un état du monde persistant. Au lieu
 de garder un seul lieu en texte libre, il représente le monde comme des lieux imbriqués :
 
 ```text
@@ -28,7 +28,7 @@ Roleplay ou Game.
 
 ## Ce que propose la fonctionnalité
 
-Hierarchical Maps 1.2.0 apporte :
+World Maps 1.2.0 apporte :
 
 - des régions, agglomérations, lieux, bâtiments, étages et pièces imbriqués ;
 - des fils d'Ariane et un lieu d'histoire actuel qui fait autorité ;
@@ -53,10 +53,10 @@ générés par le modèle.
 
 ## Démarrage rapide
 
-1. Ouvre **Agents** (Agents), clique sur **Download Agents** (télécharger des agents) et installe **Hierarchical Maps**.
+1. Ouvre **Agents** (Agents), clique sur **Download Agents** (télécharger des agents) et installe **World Maps**.
 2. Redémarre Marinara quand l'application te le demande. Le package contient du code serveur.
 3. Ouvre un chat Roleplay ou Game.
-4. Ouvre **Agents → Hierarchical Maps** et active-le pour le chat en cours. Tu
+4. Ouvre **Agents → World Maps** et active-le pour le chat en cours. Tu
    peux aussi l'activer depuis la section **Chat Settings → Agents** (réglages du chat) de ce chat.
 5. Crée la carte avec **Use template** (utiliser un modèle), **Create with AI**
    (créer avec l'IA) ou **Build manually** (construire à la main). Les chats
@@ -76,12 +76,12 @@ hiérarchie n'est pas activée et enregistrée.
 ## Installer et activer le package
 
 Ouvre **Agents** depuis l'onglet **Sparkles** de la barre latérale de droite.
-Clique sur **Download Agents**, sélectionne **Hierarchical Maps** et clique sur
+Clique sur **Download Agents**, sélectionne **World Maps** et clique sur
 **Install** (installer). Si le catalogue propose ensuite **Update** (mettre à
 jour), installe cette mise à jour aussi. Effectue le redémarrage demandé avant
 d'utiliser le package.
 
-La page Hierarchical Maps indique la version installée du package et son état de
+La page World Maps indique la version installée du package et son état de
 disponibilité, donne accès à la bibliothèque de modèles du compte et affiche
 l'état de la carte du chat en cours. Installer le package le rend disponible,
 mais ne l'active pas dans tous les chats.
@@ -91,7 +91,7 @@ mais ne l'active pas dans tous les chats.
 1. Ouvre le chat Roleplay.
 2. Ouvre **Chat Settings** avec le bouton en forme d'engrenage.
 3. Active **Enable Agents** (activer les agents).
-4. Sous **Tracker Agents** (agents de suivi), active **Hierarchical Maps**.
+4. Sous **Tracker Agents** (agents de suivi), active **World Maps**.
 5. Ouvre **Edit hierarchical map** (modifier la carte hiérarchique) ou la
    bibliothèque **Map templates** (modèles de carte).
 
@@ -102,7 +102,7 @@ le chat actif.
 
 ### Game
 
-Pendant la configuration de Game, choisis Hierarchical Maps, puis sélectionne
+Pendant la configuration de Game, choisis World Maps, puis sélectionne
 l'une de ses voies de configuration :
 
 - **Create with AI** prépare une hiérarchie générée, prête à être vérifiée.
@@ -115,12 +115,12 @@ tu la vérifies ; elle ne modifie jamais le modèle du compte. Les lieux du mod�
 sélectionné deviennent le monde de départ hiérarchique. Aucune carte de Game
 classique de repli ne vient prendre sa place.
 
-Autre option : ajouter Hierarchical Maps plus tard à une partie Game existante
+Autre option : ajouter World Maps plus tard à une partie Game existante
 depuis **Chat Settings → Agents**.
 
 ## Créer et réutiliser des modèles de carte
 
-Ouvre **Agents → Hierarchical Maps → Open map templates** (ouvrir les modèles de
+Ouvre **Agents → World Maps → Open map templates** (ouvrir les modèles de
 carte). Les modèles appartiennent au compte et non à un seul chat : ils
 conviennent donc aux univers de fandom réutilisables, aux cadres de campagne,
 aux donjons, aux villes ou à tes cartes de départ personnelles.
@@ -368,13 +368,13 @@ Storyboard éligible.
 
 Une partie Game peut contenir deux systèmes de carte :
 
-- **Hierarchical Maps** porte le lieu d'histoire ou de monde faisant autorité,
+- **World Maps** porte le lieu d'histoire ou de monde faisant autorité,
   par exemple `The Shattered Coast → Brinewatch → Tideglass Inn`.
 - Une carte de Game classique, en grille ou en nœuds, décrit le détail local ou
   tactique à l'intérieur de ce lieu d'histoire, et participe aussi au temps et à
   la météo de Game.
 
-Quand Hierarchical Maps prend en charge le démarrage de Game, c'est son modèle
+Quand World Maps prend en charge le démarrage de Game, c'est son modèle
 sélectionné ou son brouillon vérifié qui fournit le monde de départ. La carte de
 Game classique n'est réutilisée ni comme entrée de prompt, ni comme hiérarchie
 de repli.
@@ -499,7 +499,7 @@ global ainsi que le champ modifiable de la revue.
 
 ## Rattacher du lore aux lieux
 
-Hierarchical Maps se sert du lore de deux façons :
+World Maps se sert du lore de deux façons :
 
 1. Le constructeur par IA peut lire les lorebooks sélectionnés pendant qu'il
    rédige ou étend une carte.
@@ -521,7 +521,7 @@ permet de les réparer ou de les détacher.
 
 ## Réglages de prompt avancés pour Maps
 
-La page principale **Agents → Hierarchical Maps** porte deux systèmes de prompt globaux :
+La page principale **Agents → World Maps** porte deux systèmes de prompt globaux :
 
 - **Generation prompt** (prompt de génération) est une bibliothèque nommée,
   commune à Roleplay et Game, pour les brouillons et extensions de carte par
@@ -546,12 +546,16 @@ obligatoires et sers-toi des aperçus résolus avant d'enregistrer.
 ## Importer, exporter et archiver sans risque
 
 Utilise **Export** pour télécharger la hiérarchie de travail sous forme de
-fichier `.hierarchical-map.json`. Exporte avant les grosses modifications quand
-tu veux une petite sauvegarde limitée à la carte.
+fichier `.world-map.json`. Laisse **Include map artwork** activé pour regrouper
+dans le même fichier les images de référence des lieux et les arrière-plans des
+cartes d'enfants. Désactive cette option pour obtenir une sauvegarde plus petite,
+limitée à la définition. Les anciens fichiers `.hierarchical-map.json` restent
+importables.
 
-Utilise **Import** pour charger une hiérarchie dans la copie de travail.
-Vérifie-la, puis clique sur **Save** pour la rendre officielle. L'import
-n'enregistre rien tout de suite.
+Utilise **Import** pour charger une hiérarchie dans la copie de travail. Les
+illustrations regroupées sont restaurées dans la Gallery du chat de destination
+et leurs liens d'image sont remappés. Vérifie le résultat, puis clique sur
+**Save** pour le rendre officiel. L'import n'enregistre rien tout de suite.
 
 Dès que l'historique de campagne renvoie à une carte, les modifications
 importées doivent conserver les identifiants de lieu existants. Ajoute ou mets à
@@ -567,16 +571,16 @@ Les lieux archivés se restaurent depuis le panneau **Details**.
 
 ## Dépannage
 
-### Hierarchical Maps n'apparaît pas dans Chat Settings
+### World Maps n'apparaît pas dans Chat Settings
 
 Vérifie que le package est installé et que Marinara a bien été redémarré. Le
 chat actif doit être un chat Roleplay ou Game. Active **Enable Agents**, puis
-active **Hierarchical Maps** sous **Tracker Agents**.
+active **World Maps** sous **Tracker Agents**.
 
 ### Add to chat n'apparaît pas dans la bibliothèque de modèles
 
 Ouvre un chat Roleplay ou Game pris en charge avant d'ouvrir la bibliothèque. La
-bibliothèque affiche **Add to chat** aussi bien depuis la page Hierarchical Maps
+bibliothèque affiche **Add to chat** aussi bien depuis la page World Maps
 principale que depuis les réglages de ce chat. Pendant la configuration de Game,
 l'action équivalente est **Use template**.
 
@@ -654,7 +658,7 @@ attribuée comme référence de lieu.
 
 ### Le modèle ignore la carte
 
-Vérifie que Hierarchical Maps est actif pour le chat, que la hiérarchie est bien
+Vérifie que World Maps est actif pour le chat, que la hiérarchie est bien
 sur **Enabled**, que les dernières modifications ont été enregistrées et qu'un
 lieu actuel apparaît dans le contrôle **Story location**. Pour un diagnostic
 avancé, sers-toi de l'aperçu résolu de **Turn prompt insert**.

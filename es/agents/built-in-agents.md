@@ -130,14 +130,14 @@ Registra campos que defines tú mismo, como monedas, contadores o marcadores. Ú
 - **Dónde funciona**: Roleplay.
 - **Ajustes clave**: **Add as Prompt Section** (activado de forma predeterminada).
 
-### Hierarchical Maps
+### World Maps
 
 Añade a una historia ubicaciones anidadas persistentes y relaciones espaciales. Puedes crear regiones, áreas, salas y conexiones, moverte entre ubicaciones y dejar que la posición actual aporte contexto espacial a la generación. Game Mode también obtiene la vista de mapamundi del paquete.
 
 - **Integración**: paquete de funciones; aporta la interfaz de mapas y el contexto de tiempo de ejecución del chat en lugar de ejecutarse como un agente normal de fase de generación.
 - **Dónde funciona**: Roleplay y Game.
 - **Ajustes clave**: actívalo para el chat de Roleplay desde **Chat Settings → Agents**, o selecciónalo durante la creación de Game y gestiónalo más tarde desde la configuración de ese juego. Instalarlo o quitarlo requiere reiniciar Marinara.
-- **Guía completa**: [Hierarchical Maps: configuración, creación y viajes](hierarchical-maps.md).
+- **Guía completa**: [World Maps: configuración, creación y viajes](hierarchical-maps.md).
 
 ## Misc agents
 

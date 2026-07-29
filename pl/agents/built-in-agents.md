@@ -130,14 +130,14 @@ Kiedy stała postać wraca po zniknięciu ze sceny, Character Tracker sięga po 
 - **Gdzie działa**: Roleplay.
 - **Najważniejsze ustawienia**: **Add as Prompt Section** (domyślnie włączone).
 
-### Hierarchical Maps
+### World Maps
 
 Dodaje do fabuły trwałe, zagnieżdżone miejsca i zależności przestrzenne. Można tworzyć regiony, obszary, pomieszczenia i przejścia, przemieszczać się między miejscami, a bieżące położenie dokłada kontekst przestrzenny do generowania. Tryb Game Mode zyskuje dodatkowo widok mapy świata z tego pakietu.
 
 - **Integracja**: pakiet funkcji – dokłada interfejs mapy i kontekst działającego czatu, zamiast działać jak zwykły agent przypisany do fazy generowania.
 - **Gdzie działa**: Roleplay i Game.
 - **Najważniejsze ustawienia**: włącz pakiet dla czatu w trybie Roleplay w sekcji **Chat Settings → Agents** albo wybierz go przy tworzeniu gry i zarządzaj nim później w ustawieniach tej gry. Instalacja i usunięcie wymagają ponownego uruchomienia aplikacji Marinara Engine.
-- **Pełny przewodnik**: [Hierarchical Maps: konfiguracja, tworzenie map i podróże](hierarchical-maps.md).
+- **Pełny przewodnik**: [World Maps: konfiguracja, tworzenie map i podróże](hierarchical-maps.md).
 
 ## Agenci różni
 

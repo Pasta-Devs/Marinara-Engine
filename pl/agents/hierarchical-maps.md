@@ -1,9 +1,9 @@
-# Hierarchical Maps: konfiguracja, tworzenie map i podróże
+# World Maps: konfiguracja, tworzenie map i podróże
 
-> **Aktualna zgodność:** Ten przewodnik opisuje pakiet Hierarchical Maps w wersji
+> **Aktualna zgodność:** Ten przewodnik opisuje pakiet World Maps w wersji
 > **1.2.0** na aplikacji Marinara Engine **2.3.5**. Pakiet obsługuje czaty Roleplay i Game.
 
-Hierarchical Maps dodaje trwały stan świata do trybów Roleplay i Game. Zamiast
+World Maps dodaje trwały stan świata do trybów Roleplay i Game. Zamiast
 jednego pola tekstowego z miejscem akcji świat opisują zagnieżdżone lokalizacje:
 
 ```text
@@ -27,7 +27,7 @@ czystą kopię do dowolnego czatu Roleplay lub Game.
 
 ## Przegląd możliwości
 
-Hierarchical Maps 1.2.0 daje:
+World Maps 1.2.0 daje:
 
 - zagnieżdżone regiony, osady, miejsca, budynki, piętra i pomieszczenia;
 - ścieżki nawigacji oraz jedną wiążącą lokalizację bieżącą fabuły;
@@ -51,10 +51,10 @@ miejsca jako kolejne opcje. Same treści wyborów nadal tworzy model.
 
 ## Szybki start
 
-1. Otwórz sekcję **Agents** (Agenci), kliknij przycisk **Download Agents** (pobranie agentów) i zainstaluj pakiet **Hierarchical Maps**.
+1. Otwórz sekcję **Agents** (Agenci), kliknij przycisk **Download Agents** (pobranie agentów) i zainstaluj pakiet **World Maps**.
 2. Uruchom aplikację Marinara Engine ponownie, gdy pojawi się prośba. Pakiet zawiera kod serwera.
 3. Otwórz czat Roleplay lub Game.
-4. Otwórz **Agents → Hierarchical Maps** i włącz pakiet dla bieżącego czatu.
+4. Otwórz **Agents → World Maps** i włącz pakiet dla bieżącego czatu.
    Da się to zrobić także w sekcji **Chat Settings → Agents** (ustawienia czatu) tego czatu.
 5. Utwórz mapę przyciskiem **Use template**, **Create with AI** albo **Build
    manually**. Do istniejącego czatu można też zaimportować plik mapy.
@@ -73,12 +73,12 @@ i zapisana.
 ## Instalacja i włączenie pakietu
 
 Otwórz sekcję **Agents** z zakładki Sparkles na prawym pasku bocznym. Kliknij
-przycisk **Download Agents**, wybierz pakiet **Hierarchical Maps** i kliknij
+przycisk **Download Agents**, wybierz pakiet **World Maps** i kliknij
 przycisk **Install**. Jeśli katalog zaproponuje potem **Update**, zainstaluj
 także tę aktualizację. Zanim zaczniesz korzystać z pakietu, wykonaj polecenie
 ponownego uruchomienia.
 
-Strona Hierarchical Maps pokazuje zainstalowaną wersję pakietu i jego gotowość,
+Strona World Maps pokazuje zainstalowaną wersję pakietu i jego gotowość,
 udostępnia bibliotekę szablonów przypisaną do konta oraz stan mapy w bieżącym
 czacie. Instalacja pakietu tylko go udostępnia, ale nie włącza go w każdym
 czacie.
@@ -88,7 +88,7 @@ czacie.
 1. Otwórz czat Roleplay.
 2. Otwórz panel **Chat Settings** przyciskiem z zębatką.
 3. Włącz przełącznik **Enable Agents**.
-4. W sekcji **Tracker Agents** włącz pakiet **Hierarchical Maps**.
+4. W sekcji **Tracker Agents** włącz pakiet **World Maps**.
 5. Otwórz edytor **Edit hierarchical map** albo bibliotekę **Map templates**.
 
 Biblioteka szablonów działa tak samo niezależnie od tego, czy otworzysz ją na
@@ -97,7 +97,7 @@ głównej stronie **Agents**, czy w panelu Chat Settings czatu Roleplay. Przycis
 
 ### Game
 
-Podczas konfiguracji trybu Game wybierz Hierarchical Maps, a następnie jedną
+Podczas konfiguracji trybu Game wybierz World Maps, a następnie jedną
 z dróg konfiguracji:
 
 - **Create with AI** przygotowuje wygenerowaną hierarchię do sprawdzenia.
@@ -110,12 +110,12 @@ szablon na koncie nigdy nie jest zmieniany. Lokalizacje z wybranego szablonu
 stają się hierarchicznym światem początkowym. Zwykła mapa Game nie jest wtedy
 awansowana na jej miejsce.
 
-Hierarchical Maps da się też dodać do istniejącej gry później, w sekcji **Chat
+World Maps da się też dodać do istniejącej gry później, w sekcji **Chat
 Settings → Agents**.
 
 ## Tworzenie szablonów map i korzystanie z nich
 
-Otwórz **Agents → Hierarchical Maps → Open map templates**. Szablony należą do
+Otwórz **Agents → World Maps → Open map templates**. Szablony należą do
 konta, a nie do pojedynczego czatu, więc dobrze sprawdzają się przy światach
 z fandomów, ustawieniach kampanii, lochach, miastach i własnych mapach
 startowych.
@@ -218,12 +218,12 @@ oraz źródła w wiedzy o świecie. Zanim przejdziesz dalej, skorzystaj z przyci
 
 Kliknij przycisk **Continue to editor** przy nowej mapie albo **Add to working
 map** przy rozbudowie. Kiedy historia kampanii odwołuje się już do identyfikatorów
-lokalizacji, Hierarchical Maps chroni te odwołania i pozwala na rozbudowę zamiast
+lokalizacji, World Maps chroni te odwołania i pozwala na rozbudowę zamiast
 niepowiązanej wymiany całej mapy.
 
 ## Ręczne budowanie i edycja mapy
 
-Przy pustej mapie kliknij przycisk **Build manually**. Hierarchical Maps tworzy
+Przy pustej mapie kliknij przycisk **Build manually**. World Maps tworzy
 jedną szeroką lokalizację startową. Zaznacz ją w hierarchii i użyj:
 
 - przycisku **Add child**, żeby dodać miejsce wewnątrz zaznaczonej lokalizacji;
@@ -264,7 +264,7 @@ modelu, a nie licz na samo krótkie podsumowanie.
 
 ## Poruszanie się w trakcie fabuły
 
-Hierarchical Maps obsługuje jawną podróż, zaplanowane trasy i zweryfikowane
+World Maps obsługuje jawną podróż, zaplanowane trasy i zweryfikowane
 dotarcie opisane w narracji. Ruch zapisuje się razem z turą, więc lokalizacja
 podąża za wybraną historią wiadomości i wybranym swipe'em.
 
@@ -281,13 +281,13 @@ Cele osiągalne w jednym ruchu to:
 - lokalizacje połączone dostępnym bezpośrednim przejściem.
 
 Z jedną turą można zatwierdzić tylko jeden krok w hierarchii. Oczekujący cel
-anulujesz ikoną `X`. Jeśli przed wysłaniem zmieni się wersja mapy albo bieżąca
+anulujesz ikoną X. Jeśli przed wysłaniem zmieni się wersja mapy albo bieżąca
 lokalizacja, oczekujący ruch dostaje status **Needs review**.
 
 ### Planowanie trasy na wiele tur
 
 Wybierz odległą aktywną lokalizację na mapie świata. Jeśli w grafie zależności
-nadrzędna-podrzędna oraz dostępnych przejść istnieje droga, Hierarchical Maps
+nadrzędna-podrzędna oraz dostępnych przejść istnieje droga, World Maps
 pokazuje najkrótszą trasę i proponuje przycisk **Plan route**.
 
 Trasa kolejkuje swój pierwszy krok. Każda kolejna tura zatwierdza jeden krok
@@ -304,10 +304,10 @@ Bezpośrednie przejście skraca taką drogę do jednego kroku.
 Model dostaje zabezpieczone instrukcje dotyczące zakończonego dotarcia na miejsce:
 
 - Jeśli odpowiedź naprawdę doprowadza do znanej aktywnej lokalizacji,
-  Hierarchical Maps może przenieść tam lokalizację bieżącą. Jeśli fabuła
+  World Maps może przenieść tam lokalizację bieżącą. Jeśli fabuła
   odsłoniła nową drogę, zapisuje bezpośrednie dostępne połączenie.
 - Jeśli odpowiedź naprawdę doprowadza do nieznanego, trwałego miejsca,
-  Hierarchical Maps może dodać je jako lokalizację podrzędną albo połączoną,
+  World Maps może dodać je jako lokalizację podrzędną albo połączoną,
   przenieść tam fabułę i zachować drogę powrotną.
 - Zamiary, wzmianki, nieudana lub nieukończona podróż, tymczasowe obozy, korytarze
   i pojazdy nie tworzą lokalizacji ani nie przesuwają znacznika.
@@ -348,12 +348,12 @@ i pasującej referencji dla storyboardu.
 
 Tryb Game może zawierać dwa systemy map:
 
-- **Hierarchical Maps** to wiążąca lokalizacja fabuły albo świata, na przykład
+- **World Maps** to wiążąca lokalizacja fabuły albo świata, na przykład
   `The Shattered Coast → Brinewatch → Tideglass Inn`.
 - Zwykła mapa Game, siatkowa albo węzłowa, to lokalny lub taktyczny szczegół
   wewnątrz tej lokalizacji fabuły; uczestniczy też w czasie i pogodzie gry.
 
-Kiedy start gry należy do Hierarchical Maps, świat początkowy pochodzi
+Kiedy start gry należy do World Maps, świat początkowy pochodzi
 z wybranego szablonu albo sprawdzonego szkicu. Zwykła mapa Game nie jest wtedy
 używana ponownie jako materiał do promptu ani awansowana na zapasową hierarchię.
 
@@ -465,13 +465,13 @@ Częste zmiany:
 
 Profil stylu Engine oraz globalne ustawienia obrazu pozytywne i negatywne
 nakładają się po tym szablonie. Pozostają częścią wspólnego procesu ilustracji,
-a nie ustawieniami samego pakietu Hierarchical Maps. Jeśli w prompcie negatywnym
+a nie ustawieniami samego pakietu World Maps. Jeśli w prompcie negatywnym
 zostaje nieoczekiwany tekst, sprawdź globalne negatywne ustawienie obrazu oraz
 pole do edycji w przeglądzie.
 
 ## Powiązanie wiedzy o świecie z lokalizacjami
 
-Hierarchical Maps korzysta z wiedzy o świecie na dwa sposoby:
+World Maps korzysta z wiedzy o świecie na dwa sposoby:
 
 1. Generator AI może czytać wybrane lorebooki podczas szkicowania i rozbudowy.
 2. Zapisana lokalizacja może aktywować wpisy, dopóki jest lokalizacją bieżącą.
@@ -492,7 +492,7 @@ odwołania pozostają widoczne w edytorze, więc da się je naprawić albo odł�
 
 ## Zaawansowane ustawienia promptów pakietu
 
-Główna strona **Agents → Hierarchical Maps** zarządza dwoma globalnymi systemami
+Główna strona **Agents → World Maps** zarządza dwoma globalnymi systemami
 promptów:
 
 - **Generation prompt** to nazwana biblioteka dla trybów Roleplay i Game,
@@ -515,12 +515,15 @@ i przed zapisem korzystaj z rozwiniętych podglądów.
 ## Bezpieczny import, eksport i archiwizowanie
 
 Przyciskiem **Export** pobierzesz roboczą hierarchię jako plik
-`.hierarchical-map.json`. Eksportuj mapę przed większymi zmianami, jeśli chcesz
-mieć małą kopię zapasową obejmującą samą mapę.
+`.world-map.json`. Pozostaw opcję **Include map artwork** włączoną, aby w tym
+samym pliku umieścić referencje grafik lokalizacji i tła map lokalizacji
+podrzędnych. Wyłącz ją, jeśli potrzebujesz mniejszej kopii zawierającej tylko
+definicję. Starsze pliki `.hierarchical-map.json` nadal można importować.
 
-Przyciskiem **Import** wczytasz hierarchię do kopii roboczej. Sprawdź ją
-i kliknij przycisk **Save**, żeby stała się wiążąca. Import nie zapisuje mapy od
-razu.
+Przyciskiem **Import** wczytasz hierarchię do kopii roboczej. Dołączone grafiki
+zostaną odtworzone w Gallery czatu docelowego, a ich odwołania zostaną
+przypisane ponownie. Sprawdź wynik i kliknij przycisk **Save**, żeby stał się
+wiążący. Import nie zapisuje mapy od razu.
 
 Kiedy historia kampanii odwołuje się już do mapy, importowane zmiany muszą
 zachować dotychczasowe identyfikatory lokalizacji. Dodawaj i aktualizuj
@@ -537,18 +540,18 @@ Zarchiwizowane lokalizacje da się przywrócić z panelu Details.
 
 ## Rozwiązywanie problemów
 
-### Brakuje pakietu Hierarchical Maps w panelu Chat Settings
+### Brakuje pakietu World Maps w panelu Chat Settings
 
 Sprawdź, czy pakiet jest zainstalowany, a aplikacja Marinara Engine została
 uruchomiona ponownie. Aktywny czat musi być typu Roleplay albo Game. Włącz
-przełącznik **Enable Agents**, a potem pakiet **Hierarchical Maps** w sekcji
+przełącznik **Enable Agents**, a potem pakiet **World Maps** w sekcji
 **Tracker Agents**.
 
 ### Brakuje przycisku Add to chat w bibliotece szablonów
 
 Zanim otworzysz bibliotekę, otwórz obsługiwany czat Roleplay albo Game.
 Biblioteka pokazuje przycisk **Add to chat** zarówno z głównej strony
-Hierarchical Maps, jak i z ustawień danego czatu. Podczas konfiguracji trybu Game
+World Maps, jak i z ustawień danego czatu. Podczas konfiguracji trybu Game
 odpowiednikiem jest **Use template**.
 
 ### Konfiguracja gry użyła złych albo zapasowych lokalizacji
@@ -626,7 +629,7 @@ referencja lokalizacji.
 
 ### Model ignoruje mapę
 
-Sprawdź, czy pakiet Hierarchical Maps jest aktywny w czacie, czy hierarchia ma
+Sprawdź, czy pakiet World Maps jest aktywny w czacie, czy hierarchia ma
 włączony przełącznik **Enabled**, czy ostatnie zmiany zostały zapisane i czy
 bieżąca lokalizacja widnieje w kontrolce Story location. Do zaawansowanej
 diagnozy użyj rozwiniętego podglądu w sekcji **Turn prompt insert**.

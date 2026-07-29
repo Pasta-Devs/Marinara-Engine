@@ -26,7 +26,7 @@ Kliknij przycisk **Download Agents** (pobieranie agentów) u góry, aby otworzy�
 
 Katalog w aplikacji opiera się na publicznym [repozytorium Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Można tam obejrzeć każdy pakiet i plik, ale zwykli użytkownicy powinni instalować przez przycisk **Download Agents**, bo wtedy Marinara sprawdza zgodność, uprawnienia, sumy kontrolne, zawartość archiwum i wymagania dotyczące restartu.
 
-W katalogu znajdziesz agentów czatu od twórców aplikacji, Hierarchical Maps, rozmowy audio i wideo w trybie Conversation oraz wszystkie opcjonalne gry trybu Conversation. Zainstalowani agenci trafiają do grup **Writer Agents**, **Tracker Agents** i **Misc Agents**, a dodatkowo jest sekcja **Custom Agents** na agentów własnych. Odinstalowanie pakietu z katalogu usuwa jego kod i ustawienia z aplikacji, ale zachowuje wiadomości i historię czatów. Usunięcie własnego agenta jest nieodwracalne.
+W katalogu znajdziesz agentów czatu od twórców aplikacji, World Maps, rozmowy audio i wideo w trybie Conversation oraz wszystkie opcjonalne gry trybu Conversation. Zainstalowani agenci trafiają do grup **Writer Agents**, **Tracker Agents** i **Misc Agents**, a dodatkowo jest sekcja **Custom Agents** na agentów własnych. Odinstalowanie pakietu z katalogu usuwa jego kod i ustawienia z aplikacji, ale zachowuje wiadomości i historię czatów. Usunięcie własnego agenta jest nieodwracalne.
 
 Przy aktualizacji z wersji, która miała te funkcje wbudowane, Marinara pobiera odpowiednie pakiety jeden raz i zachowuje dotychczasowy wybór agentów w czatach, ich ustawienia, zapisane dane działania oraz historię. Jeśli podczas takiej migracji katalog jest nieosiągalny, próba powtarza się przy następnym starcie i nic nie ginie.
 
@@ -60,9 +60,9 @@ Odczyt robi się bursztynowy i dostaje ikonę ostrzeżenia, gdy obciążenie ro�
 
 Świeża instalacja nie ma zainstalowanych ani aktywnych żadnych opcjonalnych agentów. Każdy tryb czatu pokazuje tylko zgodne z nim pakiety, które są zainstalowane.
 
-- **Roleplay**: zainstaluj agentów dla trybu Roleplay z katalogu, a potem dodaj ich w panelu **Chat Settings**. Hierarchical Maps pojawia się tam jak każdy inny obsługiwany agent.
+- **Roleplay**: zainstaluj agentów dla trybu Roleplay z katalogu, a potem dodaj ich w panelu **Chat Settings**. World Maps pojawia się tam jak każdy inny obsługiwany agent.
 - **Conversation**: zainstaluj pakiet Calls albo pojedyncze gry stołowe z katalogu. Gry pojawiają się w liście wyboru gier i rejestrują swoje komendy slash, a rozmowy dodają własny pasek narzędzi i opcje w panelu **Chat Settings**.
-- **Game Mode**: zainstalowanych agentów zgodnych z trybem gry można wybrać podczas tworzenia gry albo dodać później. Hierarchical Maps udostępnia swój obszar roboczy map i widok mapy świata tylko wtedy, gdy jest aktywny w danej grze.
+- **Game Mode**: zainstalowanych agentów zgodnych z trybem gry można wybrać podczas tworzenia gry albo dodać później. World Maps udostępnia swój obszar roboczy map i widok mapy świata tylko wtedy, gdy jest aktywny w danej grze.
 
 Zgodnych agentów da się dodawać i usuwać w każdej chwili.
 

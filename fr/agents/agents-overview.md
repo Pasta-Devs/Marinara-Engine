@@ -26,7 +26,7 @@ Clique sur le bouton **Download Agents** (télécharger des agents), en haut, po
 
 Le catalogue intégré s'appuie sur le [dépôt public Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Tu peux y inspecter chaque package et chaque fichier, mais mieux vaut passer par le bouton **Download Agents** : Marinara valide alors la compatibilité, les permissions, les empreintes, le contenu des archives et les redémarrages nécessaires.
 
-Le catalogue réunit les agents de chat maison, Hierarchical Maps, les appels audio et vidéo de Conversation, ainsi que tous les jeux optionnels de Conversation. Les agents installés sont répartis entre **Writer Agents**, **Tracker Agents** et **Misc Agents**, plus une section **Custom Agents** pour ceux que tu crées. Désinstaller un package du catalogue retire son code et ses réglages de l'Engine, tout en conservant les messages et l'historique du chat. Supprimer un agent personnalisé est définitif.
+Le catalogue réunit les agents de chat maison, World Maps, les appels audio et vidéo de Conversation, ainsi que tous les jeux optionnels de Conversation. Les agents installés sont répartis entre **Writer Agents**, **Tracker Agents** et **Misc Agents**, plus une section **Custom Agents** pour ceux que tu crées. Désinstaller un package du catalogue retire son code et ses réglages de l'Engine, tout en conservant les messages et l'historique du chat. Supprimer un agent personnalisé est définitif.
 
 Si tu viens d'une version de l'Engine qui intégrait ces fonctionnalités, Marinara télécharge une seule fois les packages correspondants. Il conserve les sélections faites dans les chats, les réglages des agents, les données de runtime enregistrées et l'historique. Si cette migration n'atteint pas le catalogue, elle réessaie au démarrage suivant au lieu de perdre quoi que ce soit.
 
@@ -60,9 +60,9 @@ Cet indicateur passe à l'orange, avec une icône d'avertissement, quand la char
 
 Une installation neuve ne contient aucun agent optionnel, installé ou actif. Chaque mode de chat n'affiche que les packages compatibles que tu as installés.
 
-- **Roleplay** : installe les agents Roleplay depuis le catalogue, puis ajoute-les dans Chat Settings. Hierarchical Maps y apparaît comme n'importe quel autre agent pris en charge.
+- **Roleplay** : installe les agents Roleplay depuis le catalogue, puis ajoute-les dans Chat Settings. World Maps y apparaît comme n'importe quel autre agent pris en charge.
 - **Conversation** : installe Calls ou les jeux de table de ton choix depuis le catalogue. Les jeux apparaissent dans le sélecteur de jeux et enregistrent leurs commandes slash ; les appels ajoutent leur barre d'outils et leurs réglages dans Chat Settings.
-- **Game Mode** : les agents compatibles Game installés se choisissent pendant la création de la partie, ou s'ajoutent plus tard. Hierarchical Maps n'apporte son espace de travail cartographique et sa vue de carte du monde que s'il est actif pour cette partie.
+- **Game Mode** : les agents compatibles Game installés se choisissent pendant la création de la partie, ou s'ajoutent plus tard. World Maps n'apporte son espace de travail cartographique et sa vue de carte du monde que s'il est actif pour cette partie.
 
 Tu peux ajouter ou retirer des agents compatibles à tout moment.
 

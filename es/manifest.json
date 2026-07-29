@@ -33,8 +33,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "73d44b746a704a4ea0ff23e4471eccc8e7ec65a2de446d16836904ec72413227",
-      "bytes": 10639
+      "sha256": "fe3652f9e617be5519476c42cbed63d36a79041aa57faa6d80ab67a81b2d0a3a",
+      "bytes": 10618
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -43,8 +43,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "4af878011ab4f44e7b1c6b7675b82bd4a644681a880c011d70dc43f4b1ce7f3a",
-      "bytes": 21694
+      "sha256": "d13b9f7d83ce15ae615f6f916f5b858b1efbb4fa4edb5ecbe0b24f809fea790f",
+      "bytes": 21680
     },
     {
       "path": "agents/custom-agents.md",
@@ -53,8 +53,8 @@
     },
     {
       "path": "agents/hierarchical-maps.md",
-      "sha256": "2d9f405935608a66376f36568d95c0fe645eff0dc5850cab037959b80dff17cb",
-      "bytes": 23536
+      "sha256": "ddd7ceaf4822cde46fa0e2bb6baa56df3fe6aa9fc534b27a2c3dd73806a25824",
+      "bytes": 33144
     },
     {
       "path": "agents/knowledge-sources.md",

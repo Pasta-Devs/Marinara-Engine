@@ -26,7 +26,7 @@ Haz clic en **Download Agents** (Descargar agentes) en la parte de arriba para a
 
 El catálogo dentro de la app se respalda en el [repositorio público Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). Ahí puedes inspeccionar cada paquete y artefacto, pero los usuarios normales deberían instalar a través de **Download Agents** para que Marinara pueda validar la compatibilidad, los permisos, los hashes, el contenido del archivo comprimido y los requisitos de reinicio.
 
-El catálogo incluye agentes de chat oficiales, Hierarchical Maps, las llamadas de audio/video de Conversation y todos los juegos opcionales de Conversation. Los agentes instalados se agrupan en **Writer Agents**, **Tracker Agents** y **Misc Agents**, además de una sección **Custom Agents** para los que tú crees. Desinstalar un paquete del catálogo elimina su código y sus ajustes del Engine, pero conserva los mensajes y el historial del chat. Borrar un agente personalizado lo elimina para siempre.
+El catálogo incluye agentes de chat oficiales, World Maps, las llamadas de audio/video de Conversation y todos los juegos opcionales de Conversation. Los agentes instalados se agrupan en **Writer Agents**, **Tracker Agents** y **Misc Agents**, además de una sección **Custom Agents** para los que tú crees. Desinstalar un paquete del catálogo elimina su código y sus ajustes del Engine, pero conserva los mensajes y el historial del chat. Borrar un agente personalizado lo elimina para siempre.
 
 Cuando actualizas desde una versión del Engine que incluía estas funciones, Marinara descarga los paquetes correspondientes una sola vez y conserva las selecciones de chat existentes, los ajustes de los agentes, los datos de tiempo de ejecución guardados y el historial. Si esa migración no puede llegar al catálogo, lo reintenta en el siguiente arranque en lugar de descartar nada.
 
@@ -60,9 +60,9 @@ Este indicador se pone ámbar con un icono de advertencia cuando la carga se vue
 
 Una instalación nueva empieza sin agentes opcionales instalados ni activos. Cada modo de chat muestra solo los paquetes compatibles que tengas instalados.
 
-- **Roleplay**: instala agentes de Roleplay desde el catálogo, luego añádelos en Chat Settings. Hierarchical Maps aparece ahí como cualquier otro agente compatible.
+- **Roleplay**: instala agentes de Roleplay desde el catálogo, luego añádelos en Chat Settings. World Maps aparece ahí como cualquier otro agente compatible.
 - **Conversation**: instala Calls o juegos de mesa individuales desde el catálogo. Los juegos aparecen en el selector de juegos y registran sus comandos slash; las llamadas añaden su barra de herramientas y sus controles en Chat Settings.
-- **Game Mode**: los agentes compatibles con Game instalados se pueden seleccionar durante la creación del juego o añadir más tarde. Hierarchical Maps aporta su espacio de trabajo de mapa y su vista de mapa del mundo solo cuando está activo para ese juego.
+- **Game Mode**: los agentes compatibles con Game instalados se pueden seleccionar durante la creación del juego o añadir más tarde. World Maps aporta su espacio de trabajo de mapa y su vista de mapa del mundo solo cuando está activo para ese juego.
 
 Puedes añadir o quitar agentes compatibles en cualquier momento.
 

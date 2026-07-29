@@ -1,6 +1,5 @@
 {
   "language": "pl",
-  "sourceCommit": "f0e435b5f0928f10a4164535412524fc183e3b50",
   "files": [
     {
       "path": "CONFIGURATION.md",
@@ -34,8 +33,8 @@
     },
     {
       "path": "agents/agents-overview.md",
-      "sha256": "09478446ff409bec57e384adfc898a05b27c79e2bfbef8d6960811526b65554d",
-      "bytes": 10154
+      "sha256": "cee1e87fac48c556a3ee967b097d834c0961c9fb75c17afdf39f32aebbd70c2d",
+      "bytes": 10133
     },
     {
       "path": "agents/approvals-and-agent-suite.md",
@@ -44,8 +43,8 @@
     },
     {
       "path": "agents/built-in-agents.md",
-      "sha256": "35db81fdd8fe47fad7edd6a862a0a98443d2edc586b25515aeb1df0bfb634360",
-      "bytes": 21111
+      "sha256": "1d4f0584dd9184e974a479edffd23adbf4cb9d51a12bab12096eb659cbc12c5b",
+      "bytes": 21097
     },
     {
       "path": "agents/custom-agents.md",
@@ -54,8 +53,8 @@
     },
     {
       "path": "agents/hierarchical-maps.md",
-      "sha256": "1157b110341fe3285681809d8d7cf15c06c3b83ecb0f2286cf26080c7f284c46",
-      "bytes": 33636
+      "sha256": "8e9ec3dd9562ddb12a4a810af9a65760958625a39520e7bff0a89583bccd4b94",
+      "bytes": 33741
     },
     {
       "path": "agents/knowledge-sources.md",
