@@ -23,6 +23,7 @@ import {
   normalizeChatSummaryEntries,
   normalizeChatSummaryPromptSettings,
   LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
+  DEFAULT_CHAT_SUMMARY_PROMPT,
   DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
   normalizeCharacterTrackerCustomFieldDefaults,
   normalizeWorldCustomFields,
@@ -5630,15 +5631,25 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         }),
         DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
       );
-      assert.notEqual(
+      assert.equal(
         resolveChatSummaryPrompt({
           requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
-          chatMetadata: { enableAgents: true, activeAgentIds: ["long-term-memory"] },
+          chatMetadata: {
+            enableAgents: true,
+            activeAgentIds: ["long-term-memory"],
+            summaryPromptTemplates: [
+              { id: ` ${LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID} `, name: "Collision", prompt: "Wrong local prompt" },
+            ],
+          },
         }),
+        DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
+      );
+      assert.equal(
         resolveChatSummaryPrompt({
           requestedTemplateId: LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
           chatMetadata: { enableAgents: false, activeAgentIds: ["long-term-memory"] },
         }),
+        DEFAULT_CHAT_SUMMARY_PROMPT,
       );
     },
   },

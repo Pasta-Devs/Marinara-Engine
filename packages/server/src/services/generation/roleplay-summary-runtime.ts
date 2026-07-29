@@ -122,6 +122,7 @@ function resolvePromptFromTemplates(templates: unknown[], selectedId: string): s
   for (const template of templates) {
     if (!template || typeof template !== "object" || Array.isArray(template)) continue;
     const record = template as Record<string, unknown>;
+    if (typeof record.id === "string" && record.id.trim() === LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID) continue;
     if (record.id !== selectedId) continue;
     const prompt = typeof record.prompt === "string" ? record.prompt.trim() : "";
     if (prompt) return prompt;

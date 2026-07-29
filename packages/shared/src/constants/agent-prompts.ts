@@ -91,7 +91,11 @@ Only a durable session or world presentation style. Exclude one-scene mood and i
 Use \`[CRITICAL]\`, \`[MAJOR]\`, \`[MODERATE]\`, or \`[MINOR]\` according to future continuity value.
 
 ## Output
-Return plain text only, using the exact headings and field labels above. Omit optional fields when unsupported. Be concise but complete.`;
+Return only valid JSON using the summary endpoint contract:
+{
+  "summary": "the concise LTM report using the exact headings and field labels above"
+}
+Put the complete report inside the \`summary\` string. Omit optional fields when unsupported. Be concise but complete.`;
 
 export const NARRATIVE_DIRECTOR_SECRET_PLOT_PROMPT = `You are Narrative Director maintaining a hidden long-term arc for this roleplay. The user may reveal this later, so keep it useful, specific, and spoiler-safe by default.
 Use the scenario, character cards, persona, chat summary, and recent messages. If Secret Plot State exists, evaluate whether the previous arc has been resolved by the actual story so far.

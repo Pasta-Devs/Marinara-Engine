@@ -472,7 +472,8 @@ export function SummaryPopover({
       template.id.trim().length > 0 &&
       typeof template.name === "string" &&
       typeof template.prompt === "string" &&
-      template.prompt.trim().length > 0,
+      template.prompt.trim().length > 0 &&
+      template.id.trim() !== LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
   );
   const activePromptTemplate = resolvedActivePromptTemplateId
     ? cleanedPromptTemplates.find((template) => template.id === resolvedActivePromptTemplateId)
