@@ -1243,7 +1243,10 @@ export function AppShell() {
         data-center-compact={centerCompact ? "true" : undefined}
         data-shell-overlay-mode={shellOverlayMode ? "true" : undefined}
         aria-label={localizeUi("ui.layout.appshell.mainContent")}
-        className="@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden"
+        className={cn(
+          "@container mari-main mari-app-background-paint relative flex min-w-0 flex-1 flex-col overflow-hidden",
+          shellOverlayMode && hasDetailView && "z-50",
+        )}
       >
         {/* iOS safe area spacer — pushes TopBar below status bar and fills that gap with topbar bg */}
         <div className="flex-shrink-0 md:hidden h-[env(safe-area-inset-top)] bg-[var(--marinara-topbar-surface)] backdrop-blur-sm" />
@@ -1260,7 +1263,8 @@ export function AppShell() {
           <div
             className={cn(
               "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
-              (botBrowserOpen || gameAssetsBrowserOpen) && "hidden",
+              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView && !noodleOpen)) &&
+                "hidden",
             )}
             style={
               {
@@ -1271,19 +1275,35 @@ export function AppShell() {
             }
           >
             <Suspense fallback={<MainPaneFallback />}>
-              {shellOverlayMode ? (
-                noodleOpen ? (
-                  <NoodleView />
-                ) : (
-                  <ChatArea />
-                )
-              ) : noodleOpen ? (
-                <NoodleView />
-              ) : (
-                (detailView ?? <ChatArea />)
-              )}
+              {noodleOpen ? <NoodleView /> : (shellOverlayMode || !hasDetailView) && <ChatArea />}
             </Suspense>
           </div>
+          {/* Keep the detail host at one React tree position across the mobile breakpoint.
+              Moving an editor between separate desktop/mobile branches remounts it and
+              discards component-local unsaved form state. */}
+          <AnimatePresence mode="wait">
+            {detailView && (shellOverlayMode || !noodleOpen) && (
+              <motion.aside
+                key="detail-editor"
+                initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}
+                animate={{ opacity: 1, x: 0 }}
+                exit={shellOverlayMode ? { opacity: 0, x: 24 } : undefined}
+                transition={{ type: "spring", damping: 30, stiffness: 360 }}
+                data-component={shellOverlayMode ? "MobileDetailSheet" : "DetailEditor"}
+                aria-label={localizeUi("ui.layout.appshell.detailEditor")}
+                className={cn(
+                  "mari-app-background-paint flex min-h-0 flex-1 flex-col overflow-hidden",
+                  shellOverlayMode &&
+                    cn(
+                      "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-50 !w-full bg-[var(--background)]/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
+                      MOBILE_SHELL_PANEL_TOP_CLASS,
+                    ),
+                )}
+              >
+                <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
+              </motion.aside>
+            )}
+          </AnimatePresence>
         </div>
         {/* Floating avatar notification bubbles (right edge) */}
         <Suspense fallback={null}>
@@ -1407,25 +1427,6 @@ export function AppShell() {
         </aside>
       )}
 
-      {shellOverlayMode && detailView && (
-        <AnimatePresence mode="wait">
-          <motion.aside
-            key="mobile-detail"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 24 }}
-            transition={{ type: "spring", damping: 30, stiffness: 360 }}
-            data-component="MobileDetailSheet"
-            aria-label={localizeUi("ui.layout.appshell.detailEditor")}
-            className={cn(
-              "mari-mobile-detail-sheet !fixed bottom-0 right-0 z-40 flex min-h-0 !w-full flex-col overflow-hidden bg-[var(--background)]/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
-              MOBILE_SHELL_PANEL_TOP_CLASS,
-            )}
-          >
-            <Suspense fallback={<MainPaneFallback />}>{detailView}</Suspense>
-          </motion.aside>
-        </AnimatePresence>
-      )}
       {!shellOverlayMode && rightPanelOpen && (
         <div
           role="separator"
