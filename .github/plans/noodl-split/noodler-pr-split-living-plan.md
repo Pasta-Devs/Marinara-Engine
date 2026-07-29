@@ -696,6 +696,23 @@ is what gets cut when the slice runs long. Each unit below is independently ship
 scheduling rewrite to ship. 8g needs only 8f-2's settled access model, so it sequences
 ahead of 8f-3/4/5/6 rather than behind all of 8f.
 
+### Start here — 8f-1
+
+**All six units are specified; none have started.** As of 2026-07-29 every unit carries both
+the design and the implementation approach, and the 8f detail document has no open questions
+left. Two items are recorded as non-blocking rather than dropped: a comprehension check on
+the `hinted` disclosure wording before 8f-4 ships, and real paid/local provider runs to tune
+`postsPerDay` away from 4.
+
+**8f-1 is the entry point.** It is a live disclosure bug rather than a design change, it has
+no dependencies, and it is the smallest unit in the slice. Every other unit is either gated
+behind 8f-2 or larger.
+
+Before implementation on any unit, per `CONTRIBUTING.md` and `CLAUDE.md`: confirm or open a
+GitHub issue, check for an existing issue-linked branch or PR so two agents do not duplicate
+the work, open a draft PR immediately so the board shows it in progress, and identify the
+owner on the issue.
+
 ## Slice 8g — Creators reply to the viewer
 
 **Goal:** let a creator respond, in their stage persona, to the interactions a real viewer
