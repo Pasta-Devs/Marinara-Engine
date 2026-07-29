@@ -35,7 +35,7 @@ Summarize only durable roleplay/session continuity from the supplied new message
 - For relationships, alphabetize the two local subject IDs; list \`characters\` in the same order. Always preserve source names exactly.
 - Reuse event IDs exactly in links. Include \`caused_by\`, \`evidenced_by\`, \`planted_in\`, \`paid_off_in\`, or \`resolved_in\` only when the linked event appears in this summary or supplied previous summaries.
 - Include only headings containing content.
-- If nothing durable changed, output exactly: \`No durable memory updates.\`
+- If nothing durable changed, set the JSON \`summary\` value exactly to: \`No durable memory updates.\`
 
 ## Metadata
 
