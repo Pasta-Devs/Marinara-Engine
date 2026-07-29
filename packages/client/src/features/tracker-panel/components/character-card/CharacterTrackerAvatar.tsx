@@ -24,7 +24,7 @@ export function CharacterTrackerAvatar({
   avatarMedia: string | null;
   avatarSize: string;
   onUploadAvatar?: () => void;
-  onSaveEmoji?: (emoji: string) => void;
+  onSaveEmoji: (emoji: string) => void;
   emojiLocked?: boolean;
   lockMode?: boolean;
   onToggleEmojiLock?: () => void;
@@ -61,23 +61,21 @@ export function CharacterTrackerAvatar({
         )}
         <span aria-hidden="true" className={AVATAR_SOFT_INNER_GLOW_CLASS} />
       </button>
-      {onSaveEmoji && (
-        <span className="absolute -bottom-0.5 -right-0.5 z-[4]">
-          <InlineEdit
-            value={character.emoji || "?"}
-            onSave={(emoji) => onSaveEmoji(emoji || "?")}
-            placeholder="?"
-            title={localizeUi("ui.trackerPanel.charactertrackeravatar.value1Emoji", { value1: characterName })}
-            className="h-4 w-4 justify-center rounded-full border border-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_45%,transparent)] bg-[color-mix(in_srgb,var(--background)_82%,var(--tracker-profile-accent-solid)_18%)] px-0 py-0 text-center text-[0.5625rem] leading-none text-[color:var(--tracker-profile-text)] shadow-[0_1px_4px_rgba(0,0,0,0.28)] hover:bg-[color-mix(in_srgb,var(--background)_70%,var(--tracker-profile-accent-solid)_30%)]"
-            showEditHint={false}
-            fitPreview
-            fitAlign="center"
-            locked={emojiLocked}
-            lockMode={lockMode}
-            onToggleLock={onToggleEmojiLock}
-          />
-        </span>
-      )}
+      <span className="absolute -bottom-0.5 -right-0.5 z-[4]">
+        <InlineEdit
+          value={character.emoji || "?"}
+          onSave={(emoji) => onSaveEmoji(emoji || "?")}
+          placeholder="?"
+          title={localizeUi("ui.trackerPanel.charactertrackeravatar.value1Emoji", { value1: characterName })}
+          className="h-4 w-4 justify-center rounded-full border border-[color-mix(in_srgb,var(--tracker-profile-nameplate-rule)_45%,transparent)] bg-[color-mix(in_srgb,var(--background)_82%,var(--tracker-profile-accent-solid)_18%)] px-0 py-0 text-center text-[0.5625rem] leading-none text-[color:var(--tracker-profile-text)] shadow-[0_1px_4px_rgba(0,0,0,0.28)] hover:bg-[color-mix(in_srgb,var(--background)_70%,var(--tracker-profile-accent-solid)_30%)]"
+          showEditHint={false}
+          fitPreview
+          fitAlign="center"
+          locked={emojiLocked}
+          lockMode={lockMode}
+          onToggleLock={onToggleEmojiLock}
+        />
+      </span>
       <span aria-hidden="true" className={AVATAR_BOTTOM_GLINT_CLASS} />
     </div>
   );

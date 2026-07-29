@@ -11,7 +11,7 @@ import {
 } from "../../lib/tracker-panel.constants";
 import { getCharacterPortraitFallback } from "../../lib/character-tracker-data";
 import { clampNumber, visibleText } from "../../lib/tracker-display";
-import { getOppositeTrackerProfileSide, type TrackerProfileSide } from "../../lib/tracker-profile-layout";
+import type { TrackerProfileSide } from "../../lib/tracker-profile-layout";
 import { getCharacterExpressionHint, isSpriteLookupCharacterId, resolveSpriteUrl } from "../../lib/sprite-expressions";
 import { TrackerPortraitStage, type TrackerPortraitStageMediaKind } from "../controls/TrackerPortraitStage";
 
@@ -21,7 +21,7 @@ export function FeaturedCharacterPortrait({
   spriteExpression,
   expressionSpritesEnabled,
   characterPicture,
-  detailsSide,
+  outsideSide,
   onUploadAvatar,
   onPortraitFocusChange,
 }: {
@@ -30,9 +30,9 @@ export function FeaturedCharacterPortrait({
   spriteExpression?: string;
   expressionSpritesEnabled: boolean;
   characterPicture?: string | null;
-  detailsSide: TrackerProfileSide;
-  onUploadAvatar?: () => void;
-  onPortraitFocusChange?: (focusX: number, focusY: number, zoom: number) => void;
+  outsideSide: TrackerProfileSide;
+  onUploadAvatar: () => void;
+  onPortraitFocusChange: (focusX: number, focusY: number, zoom: number) => void;
 }) {
   const resolvedSpriteCharacterId =
     expressionSpritesEnabled && isSpriteLookupCharacterId(spriteCharacterId) ? (spriteCharacterId ?? null) : null;
@@ -41,7 +41,7 @@ export function FeaturedCharacterPortrait({
   const spriteUrl = expression ? resolveSpriteUrl(sprites as SpriteInfo[] | undefined, expression) : null;
   const media = spriteUrl ?? characterPicture ?? character.avatarPath ?? null;
   const mediaKind: TrackerPortraitStageMediaKind | null = spriteUrl ? "expression" : media ? "art" : null;
-  const canUploadTrackerArt = !!onUploadAvatar && !spriteUrl && !characterPicture;
+  const canUploadTrackerArt = !spriteUrl && !characterPicture;
   const defaultPortraitFocusY =
     mediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_DEFAULT_FOCUS_Y : TRACKER_PORTRAIT_DEFAULT_FOCUS_Y;
   const portraitFocusYMax = mediaKind === "expression" ? TRACKER_PORTRAIT_EXPRESSION_FOCUS_Y_MAX : 100;
@@ -60,48 +60,39 @@ export function FeaturedCharacterPortrait({
     TRACKER_PORTRAIT_MIN_ZOOM,
     TRACKER_PORTRAIT_MAX_ZOOM,
   );
-  const setPortraitFocus = onPortraitFocusChange
-    ? (nextFocusX: number, nextFocusY: number, nextZoom: number) =>
-        onPortraitFocusChange(
-          clampNumber(Math.round(nextFocusX), 0, 100),
-          clampNumber(Math.round(nextFocusY), 0, portraitFocusYMax),
-          Math.round(clampNumber(nextZoom, TRACKER_PORTRAIT_MIN_ZOOM, TRACKER_PORTRAIT_MAX_ZOOM) * 100) / 100,
-        )
-    : undefined;
-  const portraitOutsideSide = getOppositeTrackerProfileSide(detailsSide);
+  const setPortraitFocus = (nextFocusX: number, nextFocusY: number, nextZoom: number) =>
+    onPortraitFocusChange(
+      clampNumber(Math.round(nextFocusX), 0, 100),
+      clampNumber(Math.round(nextFocusY), 0, portraitFocusYMax),
+      Math.round(clampNumber(nextZoom, TRACKER_PORTRAIT_MIN_ZOOM, TRACKER_PORTRAIT_MAX_ZOOM) * 100) / 100,
+    );
   const characterName = visibleText(character.name, "character");
 
   return (
-    <div className="relative min-w-0">
-      <TrackerPortraitStage
-        accessibleLabel={media ? `${characterName} portrait` : `${characterName} portrait placeholder`}
-        media={media}
-        mediaKind={mediaKind}
-        outsideSide={portraitOutsideSide}
-        frameTone="featured"
-        placeholder={getCharacterPortraitFallback(character)}
-        placeholderVariant="avatar"
-        uploadAction={
-          canUploadTrackerArt && onUploadAvatar
-            ? {
-                ariaLabel: media ? `Change ${characterName} tracker art` : `Upload ${characterName} tracker art`,
-                onClick: onUploadAvatar,
-                title: media ? "Change tracker art" : "Upload tracker art",
-              }
-            : undefined
-        }
-        view={
-          setPortraitFocus
-            ? {
-                defaultY: defaultPortraitFocusY,
-                onChange: setPortraitFocus,
-                x: portraitFocusX,
-                y: portraitFocusY,
-                zoom: portraitZoom,
-              }
-            : undefined
-        }
-      />
-    </div>
+    <TrackerPortraitStage
+      accessibleLabel={media ? `${characterName} portrait` : `${characterName} portrait placeholder`}
+      media={media}
+      mediaKind={mediaKind}
+      outsideSide={outsideSide}
+      frameTone="featured"
+      placeholder={getCharacterPortraitFallback(character)}
+      placeholderVariant="avatar"
+      uploadAction={
+        canUploadTrackerArt
+          ? {
+              ariaLabel: media ? `Change ${characterName} tracker art` : `Upload ${characterName} tracker art`,
+              onClick: onUploadAvatar,
+              title: media ? "Change tracker art" : "Upload tracker art",
+            }
+          : undefined
+      }
+      view={{
+        defaultY: defaultPortraitFocusY,
+        onChange: setPortraitFocus,
+        x: portraitFocusX,
+        y: portraitFocusY,
+        zoom: portraitZoom,
+      }}
+    />
   );
 }

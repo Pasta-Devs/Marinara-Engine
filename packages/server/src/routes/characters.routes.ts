@@ -87,10 +87,17 @@ const ALLOWED_CALL_VIDEO_CLIP_UPLOAD_EXTS = new Set([".mp4"]);
 const renameCardVersionSchema = z.object({ version: z.string().trim().min(1).max(100) });
 type UploadedMultipartFile = NonNullable<Awaited<ReturnType<FastifyRequest["file"]>>>;
 
-function applyTrackerCardPaint(currentValue: unknown, paint: Record<string, unknown>) {
+function applyTrackerCardPaint(
+  currentValue: unknown,
+  paint: Record<string, unknown>,
+  preserveStatIcons = true,
+) {
   const current = parseCharacterDataRecord(currentValue);
   const next = { ...paint };
-  for (const key of ["portraitFocusX", "portraitFocusY", "portraitZoom"] as const) {
+  const preservedKeys = preserveStatIcons
+    ? (["portraitFocusX", "portraitFocusY", "portraitZoom", "statIcons"] as const)
+    : (["portraitFocusX", "portraitFocusY", "portraitZoom"] as const);
+  for (const key of preservedKeys) {
     if (Object.hasOwn(current, key)) next[key] = current[key];
     else delete next[key];
   }
@@ -1811,7 +1818,9 @@ export async function charactersRoutes(app: FastifyInstance) {
       if (!currentPersona) return null;
       return storage.updatePersona(req.params.id, {
         ...body,
-        trackerCardColors: JSON.stringify(applyTrackerCardPaint(currentPersona.trackerCardColors, parsedPaint)),
+        trackerCardColors: JSON.stringify(
+          applyTrackerCardPaint(currentPersona.trackerCardColors, parsedPaint, false),
+        ),
       });
     });
     if (!updated) return reply.status(404).send({ error: "Persona not found" });

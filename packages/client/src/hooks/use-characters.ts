@@ -26,6 +26,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+type TrackerCardPaintConfig = Omit<TrackerCardColorConfig, "statIcons">;
+
+function cleanTrackerCardPaintConfig(config: TrackerCardPaintConfig): TrackerCardPaintConfig {
+  const paint = cleanTrackerCardColorConfig(config);
+  delete paint.statIcons;
+  return paint;
+}
+
 export const characterKeys = {
   all: ["characters"] as const,
   list: () => [...characterKeys.all, "list"] as const,
@@ -196,11 +204,11 @@ export function useUpdateCharacter() {
       versionSource?: string;
       versionReason?: string;
       skipVersionSnapshot?: boolean;
-      trackerCardPaint?: TrackerCardColorConfig;
+      trackerCardPaint?: TrackerCardPaintConfig;
     }) =>
       trackerCardPaint !== undefined
         ? api.patch(`/characters/${id}/tracker-card-colors`, {
-            paint: cleanTrackerCardColorConfig(trackerCardPaint),
+            paint: cleanTrackerCardPaintConfig(trackerCardPaint),
           })
         : api.patch(`/characters/${id}`, data),
     onSuccess: (updatedCharacter, variables) => {
@@ -1048,7 +1056,7 @@ export function useUpdatePersona() {
       aboutMe?: string;
       convoBehavior?: string;
       avatarCrop?: string;
-      trackerCardPaint?: TrackerCardColorConfig;
+      trackerCardPaint?: TrackerCardPaintConfig;
       trackerCardPortrait?: {
         portraitFocusX: number;
         portraitFocusY: number;
@@ -1059,7 +1067,7 @@ export function useUpdatePersona() {
         ? api.patch<Persona | null>(
             `/characters/personas/${id}/tracker-card-colors`,
             trackerCardPaint
-              ? { paint: cleanTrackerCardColorConfig(trackerCardPaint) }
+              ? { paint: cleanTrackerCardPaintConfig(trackerCardPaint) }
               : { portrait: trackerCardPortrait },
             keepalive ? { keepalive: true } : undefined,
           )

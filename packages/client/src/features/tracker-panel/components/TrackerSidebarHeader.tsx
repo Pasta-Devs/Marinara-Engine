@@ -1,8 +1,24 @@
 import { useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
-import { ExternalLink, EyeOff, Lock, PanelLeft, PanelRight, Plus, Settings2, Trash2, Unlock } from "lucide-react";
+import {
+  BarChart3,
+  ExternalLink,
+  EyeOff,
+  Gauge,
+  Lock,
+  PanelLeft,
+  PanelRight,
+  Plus,
+  Settings2,
+  Trash2,
+  Unlock,
+} from "lucide-react";
 import { TrackerPanelIcon } from "../../../components/ui/TrackerPanelIcon";
 import { TrackerSizeTierIcon } from "../../../components/ui/TrackerSizeTierIcon";
-import type { TrackerPanelSide, TrackerPanelSizeProfile } from "../../../stores/ui.store";
+import type {
+  TrackerPanelSide,
+  TrackerPanelSizeProfile,
+  TrackerStatDisplayMode,
+} from "../../../stores/ui.store";
 import { cn } from "../../../lib/utils";
 import type { TrackerEditMode } from "../tracker-panel.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -13,7 +29,7 @@ const TRACKER_PANEL_SIZE_LABELS: Record<TrackerPanelSizeProfile, string> = {
   standard: "Standard",
   expanded: "Expanded",
 };
-const TRACKER_TOOLBAR_ITEM_ORDER = ["side", "size", "detach", "hide", "lock", "add", "delete"] as const;
+const TRACKER_TOOLBAR_ITEM_ORDER = ["detach", "side", "size", "statDisplay", "hide", "lock", "add", "delete"] as const;
 type TrackerToolbarItem = (typeof TRACKER_TOOLBAR_ITEM_ORDER)[number];
 
 const isToolbarButton = (target: EventTarget | null): target is HTMLButtonElement =>
@@ -22,21 +38,25 @@ const isToolbarButton = (target: EventTarget | null): target is HTMLButtonElemen
 export function TrackerSidebarHeader({
   trackerPanelSide,
   sizeProfile,
+  statDisplayMode,
   detached,
   activeEditMode,
   onSetEditMode,
   onSetSide,
   onSetSizeProfile,
+  onSetStatDisplayMode,
   onToggleDetached,
   onClose,
 }: {
   trackerPanelSide: TrackerPanelSide;
   sizeProfile: TrackerPanelSizeProfile;
+  statDisplayMode: TrackerStatDisplayMode;
   detached: boolean;
   activeEditMode: TrackerEditMode | null;
   onSetEditMode: (mode: TrackerEditMode | null) => void;
   onSetSide: (side: TrackerPanelSide) => void;
   onSetSizeProfile: (profile: TrackerPanelSizeProfile) => void;
+  onSetStatDisplayMode: (mode: TrackerStatDisplayMode) => void;
   onToggleDetached?: () => void;
   onClose: () => void;
 }) {
@@ -58,6 +78,12 @@ export function TrackerSidebarHeader({
   const sizeLabel = TRACKER_PANEL_SIZE_LABELS[sizeProfile];
   const nextSizeLabel = TRACKER_PANEL_SIZE_LABELS[nextSizeProfile];
   const sizeTitle = `Tracker panel size: ${sizeLabel}. Click for ${nextSizeLabel}.`;
+  const gaugesSelected = statDisplayMode === "gauges";
+  const statDisplayTitle = localizeUi(
+    gaugesSelected
+      ? "ui.trackerPanel.trackersidebarheader.showRegularStatBars"
+      : "ui.trackerPanel.trackersidebarheader.showRadialStatGauges",
+  );
   const closePanelButton = (
     <button
       type="button"
@@ -157,41 +183,6 @@ export function TrackerSidebarHeader({
         aria-label={localizeUi("ui.trackerPanel.trackersidebarheader.trackerDisplaySettings")}
         className="flex items-center gap-0.5 rounded-md bg-[var(--background)]/30 p-0.5 ring-1 ring-[var(--border)]/45 shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_4%,transparent)]"
       >
-        <button
-          {...getToolbarItemProps("side")}
-          type="button"
-          onClick={() => onSetSide(trackerPanelSide === "left" ? "right" : "left")}
-          title={localizeUi("ui.trackerPanel.trackersidebarheader.panelAnchoredValue1ClickToAnchorValue2", { value1: trackerPanelSide, value2: trackerPanelSide === "left" ?localizeUi("ui.trackerPanel.trackersidebarheader.right") :localizeUi("ui.trackerPanel.trackersidebarheader.left") })}
-          aria-label={localizeUi("ui.trackerPanel.trackersidebarheader.trackerPanelAnchoredValue1ClickToAnchorValue2", { value1: trackerPanelSide, value2: trackerPanelSide === "left" ?localizeUi("ui.trackerPanel.trackersidebarheader.right") :localizeUi("ui.trackerPanel.trackersidebarheader.left") })}
-          role="switch"
-          aria-checked={trackerPanelSide === "right"}
-          className="relative grid h-6 w-[2.875rem] grid-cols-2 items-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--background)]/30 p-0.5 text-[var(--muted-foreground)] transition-colors hover:border-[var(--foreground)]/20 hover:bg-[var(--accent)]/60"
-        >
-          <span
-            className={cn(
-              "absolute inset-y-0.5 w-[1.25rem] rounded-full bg-[var(--foreground)]/12 ring-1 ring-[var(--foreground)]/20 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-              trackerPanelSide === "left" ? "translate-x-0.5" : "translate-x-[1.375rem]",
-            )}
-          />
-          <PanelLeft
-            size="0.75rem"
-            className={cn("relative z-10 mx-auto", trackerPanelSide === "left" && "text-[var(--foreground)]")}
-          />
-          <PanelRight
-            size="0.75rem"
-            className={cn("relative z-10 mx-auto", trackerPanelSide === "right" && "text-[var(--foreground)]")}
-          />
-        </button>
-        <button
-          {...getToolbarItemProps("size")}
-          type="button"
-          onClick={() => onSetSizeProfile(nextSizeProfile)}
-          title={sizeTitle}
-          aria-label={sizeTitle}
-          className="flex h-6 w-6 items-center justify-center rounded-sm text-[var(--muted-foreground)]/62 ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] hover:ring-[var(--border)] active:scale-90"
-        >
-          <TrackerSizeTierIcon sizeProfile={sizeProfile} />
-        </button>
         {onToggleDetached ? (
           <button
             {...getToolbarItemProps("detach")}
@@ -218,6 +209,67 @@ export function TrackerSidebarHeader({
             <ExternalLink size="0.8rem" />
           </button>
         ) : null}
+        <button
+          {...getToolbarItemProps("side")}
+          type="button"
+          onClick={() => onSetSide(trackerPanelSide === "left" ? "right" : "left")}
+          title={localizeUi(
+            "ui.trackerPanel.trackersidebarheader.panelAnchoredValue1ClickToAnchorValue2",
+            {
+              value1: trackerPanelSide,
+              value2:
+                trackerPanelSide === "left"
+                  ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
+                  : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
+            },
+          )}
+          aria-label={localizeUi(
+            "ui.trackerPanel.trackersidebarheader.trackerPanelAnchoredValue1ClickToAnchorValue2",
+            {
+              value1: trackerPanelSide,
+              value2:
+                trackerPanelSide === "left"
+                  ? localizeUi("ui.trackerPanel.trackersidebarheader.right")
+                  : localizeUi("ui.trackerPanel.trackersidebarheader.left"),
+            },
+          )}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-sm bg-[var(--foreground)]/12 text-[var(--foreground)] ring-1 ring-[var(--foreground)]/20 transition-all hover:bg-[var(--accent)] hover:ring-[var(--border)] focus-visible:outline-none focus-visible:ring-[var(--primary)] active:scale-90"
+        >
+          {trackerPanelSide === "left" ? <PanelLeft size="0.8rem" /> : <PanelRight size="0.8rem" />}
+        </button>
+        <button
+          {...getToolbarItemProps("size")}
+          type="button"
+          onClick={() => onSetSizeProfile(nextSizeProfile)}
+          title={sizeTitle}
+          aria-label={sizeTitle}
+          className="flex h-6 w-6 items-center justify-center rounded-sm text-[var(--muted-foreground)]/62 ring-1 ring-transparent transition-all hover:bg-[var(--accent)] hover:text-[var(--foreground)] hover:ring-[var(--border)] active:scale-90"
+        >
+          <TrackerSizeTierIcon sizeProfile={sizeProfile} />
+        </button>
+        <button
+          {...getToolbarItemProps("statDisplay")}
+          type="button"
+          onClick={() => onSetStatDisplayMode(gaugesSelected ? "bars" : "gauges")}
+          title={statDisplayTitle}
+          aria-label={statDisplayTitle}
+          className="relative grid h-6 w-[2.875rem] grid-cols-2 items-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--background)]/30 p-0.5 text-[var(--muted-foreground)] transition-colors hover:border-[var(--foreground)]/20 hover:bg-[var(--accent)]/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]"
+        >
+          <span
+            className={cn(
+              "absolute inset-y-0.5 w-[1.25rem] rounded-full bg-[var(--foreground)]/12 ring-1 ring-[var(--foreground)]/20 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              gaugesSelected ? "translate-x-[1.375rem]" : "translate-x-0.5",
+            )}
+          />
+          <BarChart3
+            size="0.7rem"
+            className={cn("relative z-10 mx-auto", !gaugesSelected && "text-[var(--foreground)]")}
+          />
+          <Gauge
+            size="0.75rem"
+            className={cn("relative z-10 mx-auto", gaugesSelected && "text-[var(--foreground)]")}
+          />
+        </button>
       </div>
       <div
         role="group"
