@@ -830,9 +830,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           else delete next[accountId];
           return next;
         });
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotMarkNoodleNotificationsAsRead"));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.noodle.noodlehome.couldNotMarkNoodleNotificationsAsRead"),
+        );
       });
-  }, [activeNoodleView, notificationReadOverrides, patchAccountSettings, personaAccount]);
+    // Re-running is a no-op: notificationReadEntryRef short-circuits once this account is marked.
+  }, [activeNoodleView, localizeUi, notificationReadOverrides, patchAccountSettings, personaAccount]);
 
   useEffect(() => {
     if (navigation.mode !== "public" || navigation.view !== "profile" || !viewedProfileAccountId) return;

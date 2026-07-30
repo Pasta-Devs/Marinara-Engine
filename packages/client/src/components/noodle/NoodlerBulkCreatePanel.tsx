@@ -363,7 +363,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
               />
               <div className="overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
                 <LockedNoodlerPostCard
-                  post={DEMO_POST}
+                  post={{ ...DEMO_POST, title: t("ui.noodle.noodlerwizard.mariPostTitle") }}
                   profile={{ ...DEMO_PROFILE, displayName: t("ui.noodle.noodlerwizard.mariName") }}
                   subscribed={false}
                   unlockPending={false}

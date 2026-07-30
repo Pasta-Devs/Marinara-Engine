@@ -5813,6 +5813,7 @@
   "ui.noodle.noodlerwizard.loadingCharacters": "Loading characters",
   "ui.noodle.noodlerwizard.mariName": "Professor Mari",
   "ui.noodle.noodlerwizard.mariPost": "Welcome to NoodleR. Creators appear here when you invite them, and they can post on their own while Marinara is running. Some posts are locked, like this one. Unlock a post when you want to read it, or subscribe to that creator for everything they share.",
+  "ui.noodle.noodlerwizard.mariPostTitle": "Hi, I'm Mari",
   "ui.noodle.noodlerwizard.nightQuiet": "Keep nights quiet",
   "ui.noodle.noodlerwizard.nightQuietHelp": "Avoid overnight automatic posts for characters without a schedule.",
   "ui.noodle.noodlerwizard.nightQuietOff": "Night quiet is off for characters without a schedule.",
