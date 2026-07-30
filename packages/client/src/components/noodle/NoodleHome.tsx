@@ -128,6 +128,7 @@ import type {
   NoodleProfileConnection,
   NoodleSettingsNavigationState,
 } from "./noodle-navigation.types";
+import { NoodlerAgeGate } from "./NoodlerAgeGate";
 import { NoodleProfileSurface } from "./NoodleProfileSurface";
 import { NoodlerPublishingSettings } from "./NoodlerPublishingSettings";
 import { BrowserChrome, formatTime } from "./NoodleBrowserChrome";
@@ -490,6 +491,7 @@ function ToggleSetting({
   checked,
   disabled,
   compact = false,
+  asSwitch = false,
   onChange,
 }: {
   label: string;
@@ -497,10 +499,13 @@ function ToggleSetting({
   checked: boolean;
   disabled?: boolean;
   compact?: boolean;
+  /** Sliding switch instead of a checkbox, for opt-ins that open a flow rather than save a value. */
+  asSwitch?: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const Wrapper = asSwitch ? "div" : "label";
   return (
-    <label
+    <Wrapper
       className={cn(
         "flex items-center justify-between rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] py-2 text-xs",
         compact ? "gap-2 px-1.5" : "gap-3 px-3",
@@ -510,14 +515,38 @@ function ToggleSetting({
         <span className={cn(compact && "min-w-0 truncate text-[10px] leading-none")}>{label}</span>
         {help && <HelpTooltip text={help} side="top" wide />}
       </span>
-      <input
-        className="shrink-0"
-        type="checkbox"
-        checked={checked}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-    </label>
+      {asSwitch ? (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={label}
+          disabled={disabled}
+          onClick={() => onChange(!checked)}
+          className={cn(
+            "relative h-6 w-11 shrink-0 rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+            checked
+              ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]"
+              : "border-[var(--border)] bg-[var(--secondary)]/55",
+          )}
+        >
+          <span
+            className={cn(
+              "absolute top-0.5 left-0.5 h-4.5 w-4.5 rounded-full bg-[var(--background)] shadow transition-transform",
+              checked && "translate-x-5",
+            )}
+          />
+        </button>
+      ) : (
+        <input
+          className="shrink-0"
+          type="checkbox"
+          checked={checked}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+      )}
+    </Wrapper>
   );
 }
 
@@ -531,6 +560,7 @@ interface NoodleHomeProps {
 export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const { t: localizeUi } = useUiTranslation();
   const selectedPersonaId = useUIStore((state) => state.noodleSelectedPersonaId) ?? "";
+  const [gateOpen, setGateOpen] = useState(false);
   const setSelectedPersonaId = useUIStore((state) => state.setNoodleSelectedPersonaId);
   const { data, isLoading, isError } = useNoodle();
   const noodlerAccountsQuery = useNoodlerAccounts(data?.settings.enableNoodler === true);
@@ -2475,10 +2505,36 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   };
 
   const openNoodler = () => {
-    onNavigate(settings?.enableNoodler ? { mode: "noodler", view: "hub" } : { mode: "verification" });
+    if (!settings?.enableNoodler) {
+      void openNoodlerVerification();
+      return;
+    }
+    onNavigate({ mode: "noodler", view: "hub" });
     setAccountSwitcherOpen(false);
     setMobileDrawerOpen(false);
     setActiveComposerTool(null);
+  };
+
+  // Both entrances (nav rail and the settings switch) raise the same gate modal over whatever
+  // is on screen; entering it saves the opt-in and lands on the hub, where the first-run
+  // onboarding wizard opens itself.
+  const enterNoodlerFromGate = () => {
+    setGateOpen(false);
+    updateSettings.mutate(
+      { enableNoodler: true },
+      {
+        onSuccess: () => {
+          onNavigate({ mode: "noodler", view: "hub" });
+          setAccountSwitcherOpen(false);
+          setMobileDrawerOpen(false);
+          setActiveComposerTool(null);
+        },
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleSettings"),
+          ),
+      },
+    );
   };
 
   const openNoodlerVerification = async () => {
@@ -2500,7 +2556,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     ) {
       return;
     }
-    onNavigate({ mode: "verification" });
+    setGateOpen(true);
   };
 
   const openProfileConnection = (connection: ProfileConnectionTab | null) => {
@@ -3448,6 +3504,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 label={localizeUi("ui.noodle.noodlehome.enableNoodler")}
                 help={localizeUi("ui.noodle.noodlehome.optInToNoodlerCreatorAccountsTurningThisOff")}
                 checked={settings.enableNoodler}
+                asSwitch
                 disabled={updateSettings.isPending}
                 onChange={(checked) => {
                   if (checked) void openNoodlerVerification();
@@ -4850,6 +4907,22 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         onCancel={() => setImagePromptReviewItems([])}
         onConfirm={confirmReviewedNoodleImagePrompts}
       />
+      <Modal
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        title={localizeUi("ui.noodle.agegate.enter")}
+        width="max-w-md"
+        panelClassName={NOODLE_ICON_SCOPE_CLASS}
+        panelStyle={getNoodleAccentStyle(NOODLE_PINK)}
+        closeDisabled={updateSettings.isPending}
+      >
+        <NoodlerAgeGate
+          personaName={personaAccount?.displayName ?? ""}
+          onComplete={enterNoodlerFromGate}
+          onSkip={enterNoodlerFromGate}
+          isPending={updateSettings.isPending}
+        />
+      </Modal>
     </NoodleShell>
   );
 }

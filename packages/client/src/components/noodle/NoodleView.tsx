@@ -6,7 +6,7 @@ export function NoodleView() {
   const navigation = useUIStore((state) => state.noodleNavigation);
   const setNavigation = useUIStore((state) => state.setNoodleNavigation);
 
-  if (navigation.mode === "noodler" || navigation.mode === "verification") {
+  if (navigation.mode === "noodler") {
     return <NoodlerHome navigation={navigation} onNavigate={setNavigation} />;
   }
 

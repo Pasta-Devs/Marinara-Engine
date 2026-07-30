@@ -3025,8 +3025,7 @@ export const useUIStore = create<UIState>()(
         gameAssetsBrowserOpen: state.gameAssetsBrowserOpen,
         noodleOpen: state.noodleOpen,
         noodleSelectedPersonaId: state.noodleSelectedPersonaId,
-        noodleNavigation:
-          state.noodleNavigation.mode === "verification" ? { mode: "noodler", view: "hub" } : state.noodleNavigation,
+        noodleNavigation: state.noodleNavigation,
         characterLibraryOpen: state.characterLibraryOpen,
         cardLibraryKind: state.cardLibraryKind,
         agentCatalogOpen: state.agentCatalogOpen,

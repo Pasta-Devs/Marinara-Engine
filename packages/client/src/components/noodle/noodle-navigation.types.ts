@@ -29,8 +29,7 @@ export type NoodlerNavigationState =
   | { mode: "noodler"; view: "hub" }
   | { mode: "noodler"; view: "profiles"; returnToSettings?: NoodleSettingsNavigationState }
   | { mode: "noodler"; view: "profile"; accountId: string; returnToSettings?: NoodleSettingsNavigationState }
-  | { mode: "noodler"; view: "create-profile"; noodleAccountId: string }
-  | { mode: "verification" };
+  | { mode: "noodler"; view: "create-profile"; noodleAccountId: string };
 
 export type NoodleNavigationState =
   | NoodlePublicNavigationState

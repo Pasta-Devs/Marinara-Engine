@@ -68,7 +68,6 @@ import {
   useReplaceNoodlerPostImage,
   useUpdateNoodlerAccess,
   useUpdateNoodlerAutoPosting,
-  useUpdateNoodleSettings,
   useUpdateNoodlerStageProfile,
   type NoodlerPostDraftImage,
 } from "../../hooks/use-noodle";
@@ -94,7 +93,6 @@ import {
   useNoodlePostCardController,
 } from "./NoodlePostCard";
 import { LockedNoodlerPostCard, NoodlerPostCard } from "./NoodlerPostCard";
-import { NoodlerAgeGate } from "./NoodlerAgeGate";
 import { summarizeRefreshOutcomes } from "./noodle-auto-post";
 import { NoodlerOnboardingWizard } from "./NoodlerBulkCreatePanel";
 import {
@@ -117,7 +115,7 @@ import type { NoodleNavigationState } from "./noodle-navigation.types";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface NoodlerHomeProps {
-  navigation: Extract<NoodleNavigationState, { mode: "noodler" | "verification" }>;
+  navigation: Extract<NoodleNavigationState, { mode: "noodler" }>;
   onNavigate: (destination: NoodleNavigationState) => void;
 }
 
@@ -284,17 +282,10 @@ function errorMessage(error: unknown, fallback: string) {
 export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data, isError, refetch } = useNoodle();
-  const updateSettings = useUpdateNoodleSettings();
   const enabled = data?.settings.enableNoodler === true;
-  const accountsQuery = useNoodlerAccounts(navigation.mode === "noodler" && enabled);
-  const personasQuery = usePersonas(
-    (navigation.mode === "noodler" && enabled) || navigation.mode === "verification" || (Boolean(data) && !enabled),
-  );
-  // Also fetch on the verification/age-gate screen (enabled === false there) so the joke
-  // ID card and credit card can show the current persona's name and avatar.
-  const activePersonaQuery = useActivePersona(
-    (navigation.mode === "noodler" && enabled) || navigation.mode === "verification" || (Boolean(data) && !enabled),
-  );
+  const accountsQuery = useNoodlerAccounts(enabled);
+  const personasQuery = usePersonas(enabled);
+  const activePersonaQuery = useActivePersona(enabled);
   const storedPersonaId = useUIStore((state) => state.noodleSelectedPersonaId);
   const setStoredPersonaId = useUIStore((state) => state.setNoodleSelectedPersonaId);
   const personas = (personasQuery.data ?? []) as Persona[];
@@ -303,8 +294,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     activePersonaQuery.data?.id ??
     personas[0]?.id ??
     null;
-  const gatePersona =
-    personas.find((persona) => persona.id === viewerPersonaId) ?? activePersonaQuery.data ?? personas[0] ?? null;
   const viewerAccounts = (data?.accounts ?? []).filter((account) => account.kind === "persona");
   const shellPersonaAccount = viewerAccounts.find((account) => account.entityId === viewerPersonaId) ?? null;
   const [accountSwitcherOpen, setAccountSwitcherOpen] = useState(false);
@@ -682,22 +671,15 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setDraftNoodleAccountId(null);
   };
 
-  const enableNoodler = () => {
-    updateSettings.mutate(
-      { enableNoodler: true },
-      {
-        onSuccess: () => {
-          onNavigate({ mode: "noodler", view: "hub" });
-          setOnboardingMode("first-run");
-        },
-        onError: (error) => toast.error(errorMessage(error, localizeUi("ui.noodle.noodlerhome.couldNotEnableNoodler"))),
-      },
-    );
-  };
-
   useEffect(() => {
     if (enabled && data?.settings.noodlerOnboardingComplete === false) setOnboardingMode("first-run");
   }, [data?.settings.noodlerOnboardingComplete, enabled]);
+
+  // NoodleR can only be entered through the opt-in gate in NoodleHome, so a persisted
+  // navigation state pointing here while the feature is off has nowhere to render.
+  useEffect(() => {
+    if (data && !enabled) onNavigate({ mode: "public", view: "home" });
+  }, [data, enabled, onNavigate]);
 
   const beginCreate = () => {
     setEditingProfileId(null);
@@ -973,22 +955,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             title={localizeUi("ui.noodle.noodlerhome.noodlerCouldNotBeLoaded")}
             action={localizeUi("capabilities.actions.tryAgain")}
             onAction={() => void refetch()}
-          />
-        </NoodlerFrame>
-      </NoodleShell>
-    );
-  }
-
-  if (navigation.mode === "verification" || (data && !enabled)) {
-    return (
-      <NoodleShell {...shellProps} rightRail={emptyRightRail}>
-        <NoodlerFrame onBack={exitToPublic} title={localizeUi("ui.noodle.noodlerhome.aboutNoodler")}>
-          <NoodlerAgeGate
-            personaName={gatePersona?.name ?? ""}
-            avatarUrl={gatePersona?.avatarPath ?? null}
-            onComplete={enableNoodler}
-            onSkip={enableNoodler}
-            isPending={!data?.settings || updateSettings.isPending}
           />
         </NoodlerFrame>
       </NoodleShell>
