@@ -2490,8 +2490,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     onNavigate({ ...navigation, tab, section: nextSection });
     window.requestAnimationFrame(() => {
       document
-        .getElementById(`social-settings-${tab}-${nextSection}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        .querySelector<HTMLElement>('[data-noodle-content-scroll="true"]')
+        ?.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
 
@@ -4180,6 +4180,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         ref={timelineScrollRef}
         data-component="NoodleView.TimelineScroller"
         className="min-h-0 flex-1 overflow-y-auto"
+        data-noodle-content-scroll="true"
       >
         <div className="min-h-full w-full border-x border-[var(--noodle-divider)] bg-[var(--background)]">
           {activeNoodleView === "home" && (
@@ -4431,41 +4432,47 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     <ChevronLeft size={22} />
                   </button>
                   <Settings2 size={22} className="hidden text-[var(--noodle-accent)] sm:block" />
-                  <div className="min-w-0">
-                    <h2 className="text-lg font-bold">{localizeUi("ui.noodle.socialsettings.title")}</h2>
-                    <p className="truncate text-xs text-[var(--muted-foreground)]">
-                      {localizeUi("ui.noodle.socialsettings.description")}
-                    </p>
+                  <h2 className="min-w-0 truncate text-lg font-bold">
+                    {settingsTab === "noodler"
+                      ? localizeUi("ui.noodle.socialsettings.noodlerTitle")
+                      : localizeUi("ui.noodle.socialsettings.noodleTitle")}
+                  </h2>
+                </div>
+                {settings?.enableNoodler && (
+                  <div
+                    className="grid grid-cols-2 gap-1.5 px-3 pb-2"
+                    role="tablist"
+                    aria-label={localizeUi("ui.noodle.socialsettings.products")}
+                  >
+                    {(["noodle", "noodler"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={settingsTab === tab}
+                        onClick={() => navigateSettings(tab)}
+                        className={cn(
+                          "flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
+                          settingsTab === tab
+                            ? "border-[var(--noodle-accent)]/45 bg-[var(--noodle-accent)]/10 text-[var(--foreground)]"
+                            : "border-[var(--noodle-divider)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                        )}
+                        style={tab === "noodler" ? ({ "--noodle-accent": NOODLE_PINK } as CSSProperties) : undefined}
+                      >
+                        {tab === "noodle" ? <Globe2 size={16} /> : <AtSign size={16} />}
+                        {tab === "noodle"
+                          ? localizeUi("navigation.topbar.noodle")
+                          : localizeUi("ui.noodle.noodlemodetoggle.noodler")}
+                      </button>
+                    ))}
                   </div>
-                </div>
+                )}
                 <div
-                  className="grid grid-cols-2 gap-1.5 px-3 pb-2"
-                  role="tablist"
-                  aria-label={localizeUi("ui.noodle.socialsettings.products")}
+                  className={cn(
+                    "flex gap-1 overflow-x-auto px-3 py-2 [scrollbar-width:none]",
+                    settings?.enableNoodler && "border-t border-[var(--noodle-divider)]",
+                  )}
                 >
-                  {(["noodle", ...(settings?.enableNoodler ? (["noodler"] as const) : [])] as const).map((tab) => (
-                    <button
-                      key={tab}
-                      type="button"
-                      role="tab"
-                      aria-selected={settingsTab === tab}
-                      onClick={() => navigateSettings(tab)}
-                      className={cn(
-                        "flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
-                        settingsTab === tab
-                          ? "border-[var(--noodle-accent)]/45 bg-[var(--noodle-accent)]/10 text-[var(--foreground)]"
-                          : "border-[var(--noodle-divider)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                      )}
-                      style={tab === "noodler" ? ({ "--noodle-accent": NOODLE_PINK } as CSSProperties) : undefined}
-                    >
-                      {tab === "noodle" ? <Globe2 size={16} /> : <AtSign size={16} />}
-                      {tab === "noodle"
-                        ? localizeUi("navigation.topbar.noodle")
-                        : localizeUi("ui.noodle.noodlemodetoggle.noodler")}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-1 overflow-x-auto border-t border-[var(--noodle-divider)] px-3 py-2 [scrollbar-width:none]">
                   {SOCIAL_SETTINGS_SECTIONS[settingsTab].map((section) => {
                     const disabled = settingsTab === "noodler" && !settings?.enableNoodler && section.id !== "general";
                     const Icon =

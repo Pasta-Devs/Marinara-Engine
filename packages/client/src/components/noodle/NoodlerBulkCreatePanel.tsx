@@ -35,10 +35,11 @@ import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 /** The teaching screens that run ahead of the numbered steps on first run. */
-type Intro = 0 | 1 | 2 | 3 | null;
+type Intro = 0 | 1 | 2 | null;
 type SetupLane = "easy" | "customize" | null;
-const LAST_INTRO = 3;
+const LAST_INTRO = 2;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
+type ActivityChoice = "manual" | "occasional" | "lively" | "veryActive";
 
 const DISCLOSURES: NoodleIdentityDisclosure[] = ["open", "hinted", "secret"];
 
@@ -94,6 +95,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [step, setStep] = useState<Step>(1);
   const [intro, setIntro] = useState<Intro>(selectionOnly ? null : 0);
   const [setupLane, setSetupLane] = useState<SetupLane>(selectionOnly ? "easy" : null);
+  const [identityExplored, setIdentityExplored] = useState(false);
+  const [postExplored, setPostExplored] = useState(false);
+  const [activityChoice, setActivityChoice] = useState<ActivityChoice>("lively");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectionInitialized, setSelectionInitialized] = useState(false);
   const [disclosure, setDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
@@ -118,6 +122,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setStep(1);
     setIntro(selectionOnly ? null : 0);
     setSetupLane(selectionOnly ? "easy" : null);
+    setIdentityExplored(false);
+    setPostExplored(false);
+    setActivityChoice("lively");
     setSelected(new Set());
     setSelectionInitialized(false);
     setDisclosure("hinted");
@@ -156,6 +163,15 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       else next.add(id);
       return next;
     });
+  };
+  const chooseActivity = (choice: ActivityChoice) => {
+    setActivityChoice(choice);
+    if (choice === "manual") {
+      setAutoPostingEnabled(false);
+      return;
+    }
+    setAutoPostingEnabled(true);
+    setPostsPerDay(choice === "occasional" ? 2 : choice === "veryActive" ? 8 : 4);
   };
   const failedIds = outcomes.filter((outcome) => outcome.status !== "generated").map((outcome) => outcome.accountId);
   const failedCount = creationFailures + failedIds.length;
@@ -361,20 +377,49 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           {intro === 0 && (
             <div className="space-y-4">
               <StepHeading
-                icon={<Sparkles size={18} />}
-                title={t("ui.noodle.noodlerwizard.intro.what.title")}
-                help={t("ui.noodle.noodlerwizard.intro.what.help")}
+                icon={<Eye size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.identity.title")}
+                help={t("ui.noodle.noodlerwizard.intro.identity.help")}
               />
-              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] p-4">
-                <img src="/sprites/mari/Mari_greet.png" alt="" className="h-28 w-auto shrink-0 object-contain" />
-                <ul className="space-y-2 text-sm leading-6">
-                  {["noodle", "noodler", "you"].map((line) => (
-                    <li key={line} className="flex gap-2">
-                      <Check size={16} className="mt-1 shrink-0 text-[var(--noodle-accent)]" />
-                      {t(`ui.noodle.noodlerwizard.intro.what.${line}`)}
-                    </li>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-3">
+                  <img src="/sprites/mari/Mari_thinking.png" alt="" className="h-36 w-auto object-contain" />
+                </div>
+                <div className="space-y-2">
+                  {DISCLOSURES.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setDisclosure(value);
+                        setIdentityExplored(true);
+                      }}
+                      className={cn(
+                        "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                        disclosure === value
+                          ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
+                          : "border-[var(--border)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      <span className="block text-sm font-bold">
+                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-5 text-[var(--muted-foreground)]">
+                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
+                      </span>
+                    </button>
                   ))}
-                </ul>
+                </div>
+              </div>
+              <div className="rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2 text-sm">
+                {t("ui.noodle.noodlerwizard.intro.identity.preview", {
+                  name:
+                    disclosure === "open"
+                      ? t("ui.noodle.noodlerwizard.identityPreview.openName")
+                      : disclosure === "hinted"
+                        ? t("ui.noodle.noodlerwizard.identityPreview.hintedName")
+                        : t("ui.noodle.noodlerwizard.identityPreview.secretName"),
+                })}
               </div>
             </div>
           )}
@@ -401,56 +446,74 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     body: t("ui.noodle.noodlerwizard.mariPost"),
                     unlockedLabel: t("ui.noodle.postaccess.unlocked"),
                     unlockedImageUrl: "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
+                    onReveal: () => setPostExplored(true),
                   }}
                 />
               </div>
+              {postExplored && (
+                <p className="rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2 text-sm">
+                  {t("ui.noodle.noodlerwizard.intro.locked.revealed")}
+                </p>
+              )}
             </div>
           )}
 
           {intro === 2 && (
             <div className="space-y-4">
               <StepHeading
-                icon={<Users size={18} />}
-                title={t("ui.noodle.noodlerwizard.intro.creators.title")}
-                help={t("ui.noodle.noodlerwizard.intro.creators.help")}
+                icon={<Clock size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.activity.title")}
+                help={t("ui.noodle.noodlerwizard.intro.activity.help")}
               />
-              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] p-4">
-                <img src="/sprites/mari/Mari_explaining.png" alt="" className="h-28 w-auto shrink-0 object-contain" />
-                <ul className="space-y-2 text-sm leading-6">
-                  {["choose", "post", "control"].map((line) => (
-                    <li key={line} className="flex gap-2">
-                      <Check size={16} className="mt-1 shrink-0 text-[var(--noodle-accent)]" />
-                      {t(`ui.noodle.noodlerwizard.intro.creators.${line}`)}
-                    </li>
-                  ))}
-                </ul>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(["manual", "occasional", "lively", "veryActive"] as ActivityChoice[]).map((choice) => (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => chooseActivity(choice)}
+                    className={cn(
+                      "rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      activityChoice === choice
+                        ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
+                        : "border-[var(--border)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <span className="block text-sm font-bold">
+                      {t(`ui.noodle.noodlerwizard.activityChoice.${choice}.title`)}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-5 text-[var(--muted-foreground)]">
+                      {t(`ui.noodle.noodlerwizard.activityChoice.${choice}.detail`)}
+                    </span>
+                  </button>
+                ))}
               </div>
-            </div>
-          )}
-
-          {intro === 3 && (
-            <div className="space-y-4">
-              <StepHeading
-                icon={<Eye size={18} />}
-                title={t("ui.noodle.noodlerwizard.intro.identity.title")}
-                help={t("ui.noodle.noodlerwizard.intro.identity.help")}
-              />
-              <div className="flex items-start gap-4">
-                <img
-                  src="/sprites/mari/Mari_thinking.png"
-                  alt=""
-                  className="hidden h-28 w-auto shrink-0 object-contain sm:block"
-                />
-                <div className="min-w-0 flex-1 space-y-2">
-                  {DISCLOSURES.map((value) => (
-                    <div key={value} className="rounded-lg border border-[var(--border)] px-3 py-2.5">
-                      <p className="text-sm font-bold">{t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}</p>
-                      <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
-                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-lg border border-[var(--border)] px-3 py-2.5">
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={nightQuiet}
+                    onChange={(event) => setNightQuiet(event.target.checked)}
+                    className="h-4 w-4 accent-[var(--noodle-accent)]"
+                  />
+                  {t("ui.noodle.noodlerwizard.nightQuiet")}
+                </label>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={imagesEnabled}
+                    onChange={(event) => setImagesEnabled(event.target.checked)}
+                    className="h-4 w-4 accent-[var(--noodle-accent)]"
+                  />
+                  {t("ui.noodle.noodlerwizard.imagesShort")}
+                </label>
+              </div>
+              <div className="flex items-center gap-3 rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2.5">
+                <img src="/sprites/mari/Mari_explaining.png" alt="" className="h-16 w-auto object-contain" />
+                <p className="text-sm leading-5">
+                  {activityChoice === "manual"
+                    ? t("ui.noodle.noodlerwizard.intro.activity.manualPreview")
+                    : t("ui.noodle.noodlerwizard.intro.activity.preview", { count: postsPerDay })}
+                </p>
               </div>
             </div>
           )}
@@ -459,8 +522,8 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             <div className="space-y-5">
               <StepHeading
                 icon={<Sparkles size={18} />}
-                title={t("ui.noodle.noodlerwizard.chooseSetup.title")}
-                help={t("ui.noodle.noodlerwizard.chooseSetup.help")}
+                title={t("ui.noodle.noodlerwizard.handoff.title")}
+                help={t("ui.noodle.noodlerwizard.handoff.help")}
               />
               <div className="grid gap-3 sm:grid-cols-2">
                 <button
@@ -473,13 +536,13 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 >
                   <span className="flex items-center gap-2 text-base font-bold">
                     <Sparkles size={17} className="text-[var(--noodle-accent)]" />
-                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.title")}
+                    {t("ui.noodle.noodlerwizard.handoff.easy.title")}
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-[var(--muted-foreground)]">
-                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.detail")}
+                    {t("ui.noodle.noodlerwizard.handoff.easy.detail")}
                   </span>
                   <span className="mt-4 flex items-center gap-1 text-sm font-bold text-[var(--noodle-accent)]">
-                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.action")}
+                    {t("ui.noodle.noodlerwizard.handoff.easy.action")}
                     <ChevronRight size={15} />
                   </span>
                 </button>
@@ -493,17 +556,24 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 >
                   <span className="flex items-center gap-2 text-base font-bold">
                     <SlidersHorizontal size={17} />
-                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.title")}
+                    {t("ui.noodle.noodlerwizard.handoff.customize.title")}
                   </span>
                   <span className="mt-2 block text-sm leading-6 text-[var(--muted-foreground)]">
-                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.detail")}
+                    {t("ui.noodle.noodlerwizard.handoff.customize.detail")}
                   </span>
                   <span className="mt-4 flex items-center gap-1 text-sm font-bold text-[var(--foreground)]">
-                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.action")}
+                    {t("ui.noodle.noodlerwizard.handoff.customize.action")}
                     <ChevronRight size={15} />
                   </span>
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => void skip()}
+                className="w-full rounded-lg border border-[var(--border)] px-3 py-2.5 text-left text-sm font-semibold hover:bg-[var(--accent)]"
+              >
+                {t("ui.noodle.noodlerwizard.handoff.explore")}
+              </button>
             </div>
           )}
 
@@ -996,8 +1066,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             {intro !== null ? (
               <button
                 type="button"
+                disabled={intro === 0 ? !identityExplored : intro === 1 ? !postExplored : false}
                 onClick={() => setIntro(intro < LAST_INTRO ? ((intro + 1) as Intro) : null)}
-                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950"
+                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
               >
                 {intro < LAST_INTRO ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
                 <ChevronRight size={15} />

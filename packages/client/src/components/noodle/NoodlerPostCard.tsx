@@ -86,7 +86,7 @@ export function LockedNoodlerPostCard({
   onOpenProfile?: (accountId: string) => void;
   /** Onboarding only: unlocking reveals this text locally instead of calling the server. */
   /** `unlockedImageUrl` lets the demo pay off with a different image than the locked teaser. */
-  demo?: { body: string; unlockedLabel: string; unlockedImageUrl?: string };
+  demo?: { body: string; unlockedLabel: string; unlockedImageUrl?: string; onReveal?: () => void };
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [unlockSheetOpen, setUnlockSheetOpen] = useState(false);
@@ -232,8 +232,10 @@ export function LockedNoodlerPostCard({
             disabled={unlockPending}
             onClick={() => {
               setUnlockSheetOpen(false);
-              if (demo) setDemoUnlocked(true);
-              else onUnlock(post.id);
+              if (demo) {
+                setDemoUnlocked(true);
+                demo.onReveal?.();
+              } else onUnlock(post.id);
             }}
             className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left hover:bg-[var(--accent)] disabled:opacity-50"
           >
@@ -251,8 +253,10 @@ export function LockedNoodlerPostCard({
             disabled={subscriptionPending}
             onClick={() => {
               setUnlockSheetOpen(false);
-              if (demo) setDemoUnlocked(true);
-              else onToggleSubscription(profile.id, subscribed);
+              if (demo) {
+                setDemoUnlocked(true);
+                demo.onReveal?.();
+              } else onToggleSubscription(profile.id, subscribed);
             }}
             className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left hover:bg-[var(--accent)] disabled:opacity-50"
           >
