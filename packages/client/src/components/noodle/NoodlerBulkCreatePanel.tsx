@@ -391,7 +391,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 title={t("ui.noodle.noodlerwizard.intro.locked.title")}
                 help={t("ui.noodle.noodlerwizard.intro.locked.help")}
               />
-              <div className="overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
+              {/* Capped width: the wizard modal is 3xl, and a full-bleed card makes the demo post
+                  read as a page rather than as one item in a feed. */}
+              <div className="mx-auto max-w-sm overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
                 <LockedNoodlerPostCard
                   post={{ ...DEMO_POST, title: t("ui.noodle.noodlerwizard.mariPostTitle") }}
                   profile={{ ...DEMO_PROFILE, displayName: t("ui.noodle.noodlerwizard.mariName") }}

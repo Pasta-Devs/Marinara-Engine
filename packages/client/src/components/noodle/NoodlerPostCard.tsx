@@ -138,7 +138,8 @@ export function LockedNoodlerPostCard({
           <div
             className={cn(
               "relative mt-3 w-full overflow-hidden rounded-xl bg-[var(--muted)]",
-              demo ? "h-40" : "h-72",
+              // Demo art is 4:3; a fixed height crops it into a letterbox strip.
+              demo ? "aspect-[4/3]" : "h-72",
             )}
           >
             <img
@@ -146,7 +147,8 @@ export function LockedNoodlerPostCard({
               alt=""
               className={cn(
                 "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
-                revealed ? "scale-100 blur-0" : "scale-110 blur-xl",
+                // The demo teaser ships pre-blurred, so a full blur-xl on top turns it to mush.
+                revealed ? "scale-100 blur-0" : cn("scale-110", demo ? "blur-sm" : "blur-xl"),
               )}
             />
             {!revealed && <div className="absolute inset-0 bg-black/30" />}
