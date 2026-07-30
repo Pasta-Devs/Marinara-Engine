@@ -19,7 +19,7 @@ import type {
   NoodlerPostView,
   NoodlerStageProfile,
 } from "@marinara-engine/shared";
-import { defaultNoodlerOnboardingSelection, resolveNoodlerOnboardingCompletion } from "@marinara-engine/shared";
+import { resolveNoodlerOnboardingCompletion } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   useBulkCreateNoodlerStageProfiles,
@@ -35,9 +35,9 @@ import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 /** The teaching screens that run ahead of the numbered steps on first run. */
-type Intro = 0 | 1 | 2 | null;
+type Intro = 0 | 1 | 2 | 3 | null;
 type SetupLane = "easy" | "customize" | null;
-const LAST_INTRO = 2;
+const LAST_INTRO = 3;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
 
 const DISCLOSURES: NoodleIdentityDisclosure[] = ["open", "hinted", "secret"];
@@ -145,7 +145,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
 
   useEffect(() => {
     if (!open || selectionInitialized || eligible.isLoading || eligible.hasNextPage) return;
-    setSelected(new Set(defaultNoodlerOnboardingSelection(accounts.map((account) => account.id))));
+    setSelected(new Set());
     setSelectionInitialized(true);
   }, [accounts, eligible.hasNextPage, eligible.isLoading, open, selectionInitialized]);
 
@@ -308,7 +308,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col">
         {intro !== null && (
           <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3" aria-hidden="true">
-            {[0, 1, 2].map((dot) => (
+            {[0, 1, 2, 3].map((dot) => (
               <span
                 key={dot}
                 className={cn(
@@ -428,6 +428,33 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             </div>
           )}
 
+          {intro === 3 && (
+            <div className="space-y-4">
+              <StepHeading
+                icon={<Eye size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.identity.title")}
+                help={t("ui.noodle.noodlerwizard.intro.identity.help")}
+              />
+              <div className="flex items-start gap-4">
+                <img
+                  src="/sprites/mari/Mari_thinking.png"
+                  alt=""
+                  className="hidden h-28 w-auto shrink-0 object-contain sm:block"
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  {DISCLOSURES.map((value) => (
+                    <div key={value} className="rounded-lg border border-[var(--border)] px-3 py-2.5">
+                      <p className="text-sm font-bold">{t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}</p>
+                      <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
+                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {intro === null && setupLane === null && (
             <div className="space-y-5">
               <StepHeading
@@ -508,24 +535,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   </button>
                 </div>
               )}
-              {accounts.length > 0 &&
-                selected.size > 0 &&
-                disclosure === "hinted" &&
-                Object.keys(exceptions).length === 0 &&
-                autoPostingEnabled &&
-                nightQuiet &&
-                !imagesEnabled &&
-                generateNow && (
-                  <div className="flex gap-3 rounded-lg border border-[var(--noodle-accent)]/35 bg-[var(--noodle-accent)]/8 p-3">
-                    <Sparkles size={17} className="mt-0.5 shrink-0 text-[var(--noodle-accent)]" />
-                    <div>
-                      <p className="text-sm font-bold">{t("ui.noodle.noodlerwizard.recommendedTitle")}</p>
-                      <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
-                        {t("ui.noodle.noodlerwizard.recommendedDetail", { count: postsPerDay })}
-                      </p>
-                    </div>
-                  </div>
-                )}
               {eligible.isError && accounts.length === 0 ? (
                 <div className="py-8 text-center">
                   <p className="text-sm text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.loadFailed")}</p>

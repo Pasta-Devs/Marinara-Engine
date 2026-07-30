@@ -13,27 +13,12 @@ import {
   noodleAccountUpdateSchema,
   noodleBulkNoodlerAccountCreateSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
-import {
-  defaultNoodlerOnboardingSelection,
-  resolveNoodlerOnboardingCompletion,
-} from "../../packages/shared/src/utils/noodler-onboarding.js";
+import { resolveNoodlerOnboardingCompletion } from "../../packages/shared/src/utils/noodler-onboarding.js";
 import {
   createNoodleStorage,
   normalizeNoodleSettings,
 } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../../packages/server/src/services/noodle/noodle-profile-avatar.js";
-
-assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 8 }, (_, index) => String(index))), [
-  "0",
-  "1",
-  "2",
-  "3",
-  "4",
-  "5",
-  "6",
-  "7",
-]);
-assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 9 }, (_, index) => String(index))), []);
 
 const generated = [{ status: "generated" }, { status: "generated" }];
 // Nothing selected is a deliberate skip, not a failure.
