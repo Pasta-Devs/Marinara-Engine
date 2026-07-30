@@ -2525,8 +2525,8 @@ function StageProfileView({
           </div>
         }
         tabs={[
-          { id: "posts", label: "Posts" },
-          { id: "media", label: "Media" },
+          { id: "posts", label: localizeUi("ui.noodle.profile.tabs.posts") },
+          { id: "media", label: localizeUi("ui.noodle.profile.tabs.media") },
           {
             id: "subscribers",
             label: localizeUi("ui.noodle.stageProfile.tabs.subscribers", {

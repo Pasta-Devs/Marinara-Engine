@@ -4459,7 +4459,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                       style={tab === "noodler" ? ({ "--noodle-accent": NOODLE_PINK } as CSSProperties) : undefined}
                     >
                       {tab === "noodle" ? <Globe2 size={16} /> : <AtSign size={16} />}
-                      {tab === "noodle" ? "Noodle" : "NoodleR"}
+                      {tab === "noodle"
+                        ? localizeUi("navigation.topbar.noodle")
+                        : localizeUi("ui.noodle.noodlemodetoggle.noodler")}
                     </button>
                   ))}
                 </div>

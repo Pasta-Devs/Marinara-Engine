@@ -36,6 +36,7 @@ import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 type Step = 1 | 2 | 3 | 4 | 5;
 /** The teaching screens that run ahead of the numbered steps on first run. */
 type Intro = 0 | 1 | 2 | null;
+type SetupLane = "easy" | "customize" | null;
 const LAST_INTRO = 2;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
 
@@ -92,8 +93,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const accounts = useMemo(() => eligible.data?.pages.flatMap((page) => page.items) ?? [], [eligible.data?.pages]);
   const [step, setStep] = useState<Step>(1);
   const [intro, setIntro] = useState<Intro>(selectionOnly ? null : 0);
-  // Expansion is per step: opening the options on Activity must not also unfold Disclosure.
-  const [advancedSteps, setAdvancedSteps] = useState<Set<Step>>(new Set());
+  const [setupLane, setSetupLane] = useState<SetupLane>(selectionOnly ? "easy" : null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectionInitialized, setSelectionInitialized] = useState(false);
   const [disclosure, setDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
@@ -117,7 +117,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     if (!open) return;
     setStep(1);
     setIntro(selectionOnly ? null : 0);
-    setAdvancedSteps(new Set());
+    setSetupLane(selectionOnly ? "easy" : null);
     setSelected(new Set());
     setSelectionInitialized(false);
     setDisclosure("hinted");
@@ -149,14 +149,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setSelectionInitialized(true);
   }, [accounts, eligible.hasNextPage, eligible.isLoading, open, selectionInitialized]);
 
-  const advanced = advancedSteps.has(step);
-  const setAdvanced = (value: boolean | ((current: boolean) => boolean)) =>
-    setAdvancedSteps((current) => {
-      const next = new Set(current);
-      if (typeof value === "function" ? value(current.has(step)) : value) next.add(step);
-      else next.delete(step);
-      return next;
-    });
   const toggleSelected = (id: string) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -265,30 +257,43 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           value: t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
         },
       ]
-    : [
-        {
-          step: 1 as Step,
-          label: t("ui.noodle.noodlerwizard.characters"),
-          value: t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
-        },
-        {
-          step: 2 as Step,
-          label: t("ui.noodle.noodlerwizard.disclosure.title"),
-          value: disclosureLabel(disclosure, t),
-        },
-        {
-          step: 3 as Step,
-          label: t("ui.noodle.noodlerwizard.activity"),
-          value: autoPostingEnabled
-            ? t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay })
-            : t("ui.noodle.noodlerwizard.manualOnly"),
-        },
-        {
-          step: 4 as Step,
-          label: t("ui.noodle.noodlerwizard.images"),
-          value: imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
-        },
-      ];
+    : setupLane === "easy"
+      ? [
+          {
+            step: 1 as Step,
+            label: t("ui.noodle.noodlerwizard.characters"),
+            value: t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
+          },
+          {
+            step: 4 as Step,
+            label: t("ui.noodle.noodlerwizard.review"),
+            value: t("ui.noodle.noodlerwizard.readyToCreate"),
+          },
+        ]
+      : [
+          {
+            step: 1 as Step,
+            label: t("ui.noodle.noodlerwizard.characters"),
+            value: t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
+          },
+          {
+            step: 2 as Step,
+            label: t("ui.noodle.noodlerwizard.disclosure.title"),
+            value: disclosureLabel(disclosure, t),
+          },
+          {
+            step: 3 as Step,
+            label: t("ui.noodle.noodlerwizard.activity"),
+            value: autoPostingEnabled
+              ? t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay })
+              : t("ui.noodle.noodlerwizard.manualOnly"),
+          },
+          {
+            step: 4 as Step,
+            label: t("ui.noodle.noodlerwizard.images"),
+            value: imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
+          },
+        ];
 
   return (
     <Modal
@@ -314,7 +319,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             ))}
           </div>
         )}
-        {intro === null && step < 5 && (
+        {intro === null && setupLane !== null && step < 5 && (
           <div className="border-b border-[var(--border)] pb-3">
             {/* Progress rail: done steps stay reachable, later ones stay locked until you get there. */}
             <ol className="flex gap-1.5">
@@ -349,16 +354,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 );
               })}
             </ol>
-            {!selectionOnly && (
-              <button
-                type="button"
-                onClick={() => setAdvanced((value) => !value)}
-                className="mt-2 flex min-h-8 items-center gap-1.5 text-xs font-semibold text-[var(--noodle-accent)]"
-              >
-                <SlidersHorizontal size={14} />
-                {advanced ? t("ui.noodle.noodlerwizard.simple") : t("ui.noodle.noodlerwizard.advanced")}
-              </button>
-            )}
           </div>
         )}
 
@@ -433,7 +428,59 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             </div>
           )}
 
-          {intro === null && step === 1 && (
+          {intro === null && setupLane === null && (
+            <div className="space-y-5">
+              <StepHeading
+                icon={<Sparkles size={18} />}
+                title={t("ui.noodle.noodlerwizard.chooseSetup.title")}
+                help={t("ui.noodle.noodlerwizard.chooseSetup.help")}
+              />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSetupLane("easy");
+                    setStep(1);
+                  }}
+                  className="rounded-lg border border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10 p-4 text-left transition-colors hover:bg-[var(--noodle-accent)]/15"
+                >
+                  <span className="flex items-center gap-2 text-base font-bold">
+                    <Sparkles size={17} className="text-[var(--noodle-accent)]" />
+                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.title")}
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-[var(--muted-foreground)]">
+                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.detail")}
+                  </span>
+                  <span className="mt-4 flex items-center gap-1 text-sm font-bold text-[var(--noodle-accent)]">
+                    {t("ui.noodle.noodlerwizard.chooseSetup.easy.action")}
+                    <ChevronRight size={15} />
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSetupLane("customize");
+                    setStep(1);
+                  }}
+                  className="rounded-lg border border-[var(--border)] p-4 text-left transition-colors hover:bg-[var(--accent)]"
+                >
+                  <span className="flex items-center gap-2 text-base font-bold">
+                    <SlidersHorizontal size={17} />
+                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.title")}
+                  </span>
+                  <span className="mt-2 block text-sm leading-6 text-[var(--muted-foreground)]">
+                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.detail")}
+                  </span>
+                  <span className="mt-4 flex items-center gap-1 text-sm font-bold text-[var(--foreground)]">
+                    {t("ui.noodle.noodlerwizard.chooseSetup.customize.action")}
+                    <ChevronRight size={15} />
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {intro === null && setupLane !== null && step === 1 && (
             <div className="space-y-4">
               <StepHeading
                 icon={<Users size={18} />}
@@ -561,38 +608,29 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 title={t("ui.noodle.noodlerwizard.disclosure.question")}
                 help={t("ui.noodle.noodlerwizard.disclosure.help")}
               />
-              {!advanced ? (
-                <CompactChoice
-                  label={disclosureLabel(disclosure, t)}
-                  detail={t(`ui.noodle.noodlerwizard.disclosure.${disclosure}.detail`)}
-                  changeLabel={t("ui.noodle.noodlerwizard.change")}
-                  onChange={() => setAdvanced(true)}
-                />
-              ) : (
-                <div className="space-y-2">
-                  {DISCLOSURES.map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setDisclosure(value)}
-                      className={cn(
-                        "w-full rounded-md border p-3 text-left",
-                        disclosure === value
-                          ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
-                          : "border-[var(--border)] hover:bg-[var(--accent)]",
-                      )}
-                    >
-                      <span className="block text-sm font-bold">
-                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
-                      </span>
-                      <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">
-                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {advanced && selected.size > 0 && (
+              <div className="space-y-2">
+                {DISCLOSURES.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setDisclosure(value)}
+                    className={cn(
+                      "w-full rounded-md border p-3 text-left",
+                      disclosure === value
+                        ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
+                        : "border-[var(--border)] hover:bg-[var(--accent)]",
+                    )}
+                  >
+                    <span className="block text-sm font-bold">
+                      {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">
+                      {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              {setupLane === "customize" && selected.size > 0 && (
                 <div>
                   <h4 className="mb-2 text-sm font-bold">{t("ui.noodle.noodlerwizard.exceptions")}</h4>
                   <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
@@ -632,70 +670,51 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 title={t("ui.noodle.noodlerwizard.activity")}
                 help={t("ui.noodle.noodlerwizard.activityHelp")}
               />
-              {!advanced ? (
-                <CompactChoice
-                  label={
-                    autoPostingEnabled
-                      ? t("ui.noodle.noodlerwizard.automaticActivity")
-                      : t("ui.noodle.noodlerwizard.manualOnly")
-                  }
-                  detail={
-                    autoPostingEnabled
-                      ? t("ui.noodle.noodlerwizard.automaticActivityDetail", { count: postsPerDay })
-                      : t("ui.noodle.noodlerwizard.manualOnlyDetail")
-                  }
-                  changeLabel={t("ui.noodle.noodlerwizard.change")}
-                  onChange={() => setAdvanced(true)}
-                />
-              ) : (
-                <>
-                  <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
-                    <input
-                      type="checkbox"
-                      checked={autoPostingEnabled}
-                      onChange={(event) => setAutoPostingEnabled(event.target.checked)}
-                      className="h-4 w-4 accent-[var(--noodle-accent)]"
-                    />
-                    <span>
-                      <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.autoPosting")}</span>
-                      <span className="block text-xs text-[var(--muted-foreground)]">
-                        {t("ui.noodle.noodlerwizard.autoPostingHelp")}
-                      </span>
+              <>
+                <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
+                  <input
+                    type="checkbox"
+                    checked={autoPostingEnabled}
+                    onChange={(event) => setAutoPostingEnabled(event.target.checked)}
+                    className="h-4 w-4 accent-[var(--noodle-accent)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.autoPosting")}</span>
+                    <span className="block text-xs text-[var(--muted-foreground)]">
+                      {t("ui.noodle.noodlerwizard.autoPostingHelp")}
                     </span>
-                  </label>
-                  {autoPostingEnabled && (
-                    <>
-                      <label className="block text-sm font-semibold">
-                        {t("ui.noodle.noodlerwizard.postsPerDay")}
-                        <input
-                          type="number"
-                          min={1}
-                          max={24}
-                          value={postsPerDay}
-                          onChange={(event) =>
-                            setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))
-                          }
-                          className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
-                        />
-                      </label>
-                      <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
-                        <input
-                          type="checkbox"
-                          checked={nightQuiet}
-                          onChange={(event) => setNightQuiet(event.target.checked)}
-                          className="h-4 w-4 accent-[var(--noodle-accent)]"
-                        />
-                        <span>
-                          <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.nightQuiet")}</span>
-                          <span className="block text-xs text-[var(--muted-foreground)]">
-                            {t("ui.noodle.noodlerwizard.nightQuietHelp")}
-                          </span>
+                  </span>
+                </label>
+                {autoPostingEnabled && (
+                  <>
+                    <label className="block text-sm font-semibold">
+                      {t("ui.noodle.noodlerwizard.postsPerDay")}
+                      <input
+                        type="number"
+                        min={1}
+                        max={24}
+                        value={postsPerDay}
+                        onChange={(event) => setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))}
+                        className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
+                      />
+                    </label>
+                    <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
+                      <input
+                        type="checkbox"
+                        checked={nightQuiet}
+                        onChange={(event) => setNightQuiet(event.target.checked)}
+                        className="h-4 w-4 accent-[var(--noodle-accent)]"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.nightQuiet")}</span>
+                        <span className="block text-xs text-[var(--muted-foreground)]">
+                          {t("ui.noodle.noodlerwizard.nightQuietHelp")}
                         </span>
-                      </label>
-                    </>
-                  )}
-                </>
-              )}
+                      </span>
+                    </label>
+                  </>
+                )}
+              </>
             </div>
           )}
 
@@ -703,17 +722,16 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             <div className="space-y-5">
               <StepHeading
                 icon={<ImageIcon size={18} />}
-                title={t("ui.noodle.noodlerwizard.images")}
-                help={t("ui.noodle.noodlerwizard.imagesHelp")}
+                title={
+                  setupLane === "easy" ? t("ui.noodle.noodlerwizard.reviewTitle") : t("ui.noodle.noodlerwizard.images")
+                }
+                help={
+                  setupLane === "easy"
+                    ? t("ui.noodle.noodlerwizard.reviewHelp")
+                    : t("ui.noodle.noodlerwizard.imagesHelp")
+                }
               />
-              {!advanced ? (
-                <CompactChoice
-                  label={imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off")}
-                  detail={t("ui.noodle.noodlerwizard.imagesCost")}
-                  changeLabel={t("ui.noodle.noodlerwizard.change")}
-                  onChange={() => setAdvanced(true)}
-                />
-              ) : (
+              {setupLane === "customize" && (
                 <div className="grid grid-cols-2 gap-2">
                   {[false, true].map((value) => (
                     <button
@@ -732,17 +750,35 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   ))}
                 </div>
               )}
+              <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+                {[
+                  [
+                    t("ui.noodle.noodlerwizard.characters"),
+                    t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
+                  ],
+                  [t("ui.noodle.noodlerwizard.identity"), disclosureLabel(disclosure, t)],
+                  [
+                    t("ui.noodle.noodlerwizard.activity"),
+                    autoPostingEnabled
+                      ? t("ui.noodle.noodlerwizard.automaticActivityDetail", { count: postsPerDay })
+                      : t("ui.noodle.noodlerwizard.manualOnly"),
+                  ],
+                  [
+                    t("ui.noodle.noodlerwizard.nightQuiet"),
+                    nightQuiet ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
+                  ],
+                  [
+                    t("ui.noodle.noodlerwizard.images"),
+                    imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
+                    <span className="font-semibold">{label}</span>
+                    <span className="max-w-[65%] text-right text-[var(--muted-foreground)]">{value}</span>
+                  </div>
+                ))}
+              </div>
               <div className="rounded-lg border border-[var(--border)] bg-[var(--accent)]/30 p-4">
-                <p className="text-sm font-bold">{t("ui.noodle.noodlerwizard.providerCountsTitle")}</p>
-                <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-                  {t("ui.noodle.noodlerwizard.setupCount", { count: selected.size })}
-                  <br />
-                  {!autoPostingEnabled
-                    ? t("ui.noodle.noodlerwizard.noRecurringRequests")
-                    : imagesEnabled
-                      ? t("ui.noodle.noodlerwizard.recurringCountImages", { count: postsPerDay })
-                      : t("ui.noodle.noodlerwizard.recurringCount", { count: postsPerDay })}
-                </p>
                 <label className="mt-3 flex min-h-11 items-center gap-3">
                   <input
                     type="checkbox"
@@ -750,7 +786,12 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     onChange={(event) => setGenerateNow(event.target.checked)}
                     className="h-4 w-4 accent-[var(--noodle-accent)]"
                   />
-                  <span className="text-sm font-semibold">{t("ui.noodle.noodlerwizard.generateNow")}</span>
+                  <span>
+                    <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.generateNow")}</span>
+                    <span className="block text-xs leading-5 text-[var(--muted-foreground)]">
+                      {t("ui.noodle.noodlerwizard.generateNowHelp")}
+                    </span>
+                  </span>
                 </label>
               </div>
             </div>
@@ -827,10 +868,20 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   {t("ui.noodle.noodlerwizard.back")}
                 </button>
               )}
-              {intro === null && step > 1 && step < 5 && (
+              {intro === null && setupLane !== null && step > 1 && step < 5 && (
                 <button
                   type="button"
-                  onClick={() => setStep((step - 1) as Step)}
+                  onClick={() => setStep(setupLane === "easy" ? 1 : ((step - 1) as Step))}
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                >
+                  <ChevronLeft size={15} />
+                  {t("ui.noodle.noodlerwizard.back")}
+                </button>
+              )}
+              {intro === null && setupLane !== null && step === 1 && !selectionOnly && (
+                <button
+                  type="button"
+                  onClick={() => setSetupLane(null)}
                   className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
                 >
                   <ChevronLeft size={15} />
@@ -857,29 +908,28 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 {intro < LAST_INTRO ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
                 <ChevronRight size={15} />
               </button>
-            ) : step < 5 ? (
+            ) : setupLane === null ? null : step < 5 ? (
               <div className="flex items-center gap-2">
-                {/* Easy path: everything after step 1 already holds sane defaults, so skip straight to done. */}
-                {!selectionOnly && step < 4 && (
-                  <button
-                    type="button"
-                    disabled={pending || selected.size === 0}
-                    onClick={() => void finish()}
-                    className="min-h-10 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-sm font-bold text-[var(--noodle-accent)] disabled:opacity-50"
-                  >
-                    {t("ui.noodle.noodlerwizard.createSelected")}
-                  </button>
-                )}
                 <button
                   type="button"
-                  disabled={pending}
-                  onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
+                  disabled={pending || (step === 1 && selected.size === 0)}
+                  onClick={() => {
+                    if (step === (selectionOnly ? 1 : 4)) void finish();
+                    else if (setupLane === "easy" && step === 1) setStep(4);
+                    else setStep((step + 1) as Step);
+                  }}
                   className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
                 >
                   {pending && <Loader2 size={15} className="animate-spin" />}
                   {step === (selectionOnly ? 1 : 4)
                     ? t("ui.noodle.noodlerwizard.createCount", { count: selected.size })
-                    : t("ui.noodle.noodlerwizard.continue")}
+                    : setupLane === "easy"
+                      ? t("ui.noodle.noodlerwizard.reviewSetup")
+                      : step === 1
+                        ? t("ui.noodle.noodlerwizard.setIdentities")
+                        : step === 2
+                          ? t("ui.noodle.noodlerwizard.setActivity")
+                          : t("ui.noodle.noodlerwizard.setImages")}
                   {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
                 </button>
               </div>
@@ -917,34 +967,6 @@ function StepHeading({ icon, title, help }: { icon: ReactNode; title: string; he
         <h3 className="text-xl font-bold leading-snug">{title}</h3>
         <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{help}</p>
       </div>
-    </div>
-  );
-}
-
-function CompactChoice({
-  label,
-  detail,
-  changeLabel,
-  onChange,
-}: {
-  label: string;
-  detail: string;
-  changeLabel: string;
-  onChange: () => void;
-}) {
-  return (
-    <div className="flex min-h-16 items-center gap-3 rounded-md border border-[var(--border)] px-3 py-2">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold">{label}</p>
-        <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">{detail}</p>
-      </div>
-      <button
-        type="button"
-        onClick={onChange}
-        className="min-h-9 shrink-0 px-2 text-xs font-bold text-[var(--noodle-accent)]"
-      >
-        {changeLabel}
-      </button>
     </div>
   );
 }
