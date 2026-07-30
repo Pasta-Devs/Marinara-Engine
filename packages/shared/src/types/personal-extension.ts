@@ -8,6 +8,15 @@ export type PersonalExtensionSource = "external" | "local" | "professor_mari" | 
 
 export type PersonalExtensionSandboxBackend = "browser-opaque-origin" | "macos-seatbelt" | "linux-bubblewrap";
 
+export const PERSONAL_EXTENSION_CAPABILITIES = ["read_active_characters", "read_active_persona"] as const;
+export type PersonalExtensionCapability = (typeof PERSONAL_EXTENSION_CAPABILITIES)[number];
+
+export function normalizePersonalExtensionCapabilities(value: unknown): PersonalExtensionCapability[] {
+  if (!Array.isArray(value)) return [];
+  const requested = new Set(value);
+  return PERSONAL_EXTENSION_CAPABILITIES.filter((capability) => requested.has(capability));
+}
+
 export const PERSONAL_EXTENSION_CONTRIBUTION_KINDS = ["button", "menu-item", "panel"] as const;
 export type PersonalExtensionContributionKind = (typeof PERSONAL_EXTENSION_CONTRIBUTION_KINDS)[number];
 
@@ -102,6 +111,58 @@ export interface PersonalExtensionHostContribution extends PersonalExtensionCont
   contentHash: string;
 }
 
+/**
+ * Bounded context for the chat currently displayed by the client.
+ *
+ * Browser Personal Extensions always receive opaque chat/Character IDs for
+ * namespacing private storage. Active record snapshots remain empty unless
+ * their separately approved capabilities are present. The snapshot contains no
+ * messages, full-library data, or authority to read or mutate other records.
+ */
+export interface PersonalExtensionContextSnapshot {
+  chatId: string | null;
+  /** Present only when the active chat has exactly one Character. */
+  characterId: string | null;
+  /** All Characters participating in the active chat, including group chats. */
+  characterIds: readonly string[];
+  /** Selected Persona ID, present only with read_active_persona. */
+  personaId: string | null;
+  /** Bounded active-card fields, present only with read_active_characters. */
+  characters: readonly PersonalExtensionCharacterSnapshot[];
+  /** Bounded active Persona fields, present only with read_active_persona. */
+  persona: PersonalExtensionPersonaSnapshot | null;
+}
+
+export interface PersonalExtensionCharacterSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  personality: string;
+  scenario: string;
+  firstMessage: string;
+  exampleDialogue: string;
+  creator: string;
+  characterVersion: string;
+  tags: readonly string[];
+  backstory: string;
+  appearance: string;
+  aboutMe: string;
+  conversationDisplayName: string;
+}
+
+export interface PersonalExtensionPersonaSnapshot {
+  id: string;
+  name: string;
+  description: string;
+  personality: string;
+  scenario: string;
+  backstory: string;
+  appearance: string;
+  tags: readonly string[];
+  aboutMe: string;
+  conversationDisplayName: string;
+}
+
 export interface PersonalExtensionPolicy {
   externalExtensionsEnvEnabled: boolean;
   externalExtensionsEnabled: boolean;
@@ -114,6 +175,7 @@ export interface PersonalExtensionRevision {
   contentHash: string;
   version: string | null;
   runtime: PersonalExtensionRuntime;
+  capabilities: PersonalExtensionCapability[];
   css: string | null;
   js: string | null;
   serverJs: string | null;
@@ -135,6 +197,7 @@ export interface PersonalExtension {
   version: string | null;
   description: string;
   runtime: PersonalExtensionRuntime;
+  capabilities: PersonalExtensionCapability[];
   css: string | null;
   js: string | null;
   serverJs: string | null;
@@ -154,6 +217,7 @@ export interface PersonalClientExtensionRuntime {
   id: string;
   name: string;
   description: string;
+  capabilities: PersonalExtensionCapability[];
   contentHash: string;
   sandboxUrl: string;
 }

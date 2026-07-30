@@ -22,7 +22,10 @@ import {
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "sonner";
-import type { PersonalExtension } from "@marinara-engine/shared";
+import {
+  PERSONAL_EXTENSION_CAPABILITIES,
+  type PersonalExtension,
+} from "@marinara-engine/shared";
 import { ApiError, getPrivilegedActionErrorMessage } from "../../../lib/api-client";
 import { showConfirmDialog } from "../../../lib/app-dialogs";
 import { cn } from "../../../lib/utils";
@@ -62,6 +65,7 @@ const EMPTY_DRAFT: EditorDraft = {
   version: null,
   description: "",
   runtime: "client",
+  capabilities: [],
   css: "",
   js: "",
   serverJs: null,
@@ -84,6 +88,7 @@ function extensionDraft(extension: PersonalExtension): EditorDraft {
     version: extension.version,
     description: extension.description,
     runtime: extension.runtime,
+    capabilities: extension.capabilities,
     css: extension.css,
     js: extension.js,
     serverJs: extension.serverJs,
@@ -134,7 +139,20 @@ function riskMessage(extension: PersonalExtension, t: TFunction) {
   if (extension.runtime === "server") {
     return t("settings.personalExtensions.approval.server", { name: extension.name, hash: fingerprint });
   }
-  return t("settings.personalExtensions.approval.browser", { name: extension.name, hash: fingerprint });
+  const capabilityLabels = extension.capabilities.map((capability) =>
+    t(`settings.personalExtensions.capabilities.${capability}.label`),
+  );
+  const permissions =
+    capabilityLabels.length > 0
+      ? t("settings.personalExtensions.approval.requestedCapabilities", {
+          permissions: capabilityLabels.join(", "),
+        })
+      : t("settings.personalExtensions.approval.noRequestedCapabilities");
+  return t("settings.personalExtensions.approval.browser", {
+    name: extension.name,
+    hash: fingerprint,
+    permissions,
+  });
 }
 
 function normalizeImportedName(fileName: string) {
@@ -212,6 +230,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
       version: draft.version?.trim() || null,
       description: draft.description,
       runtime: draft.runtime,
+      capabilities: draft.runtime === "client" ? draft.capabilities : [],
       css: draft.runtime === "client" ? draft.css || null : null,
       js: draft.runtime === "client" ? draft.js || null : null,
       serverJs: draft.runtime === "server" ? draft.serverJs || null : null,
@@ -511,6 +530,7 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
                 setDraft((value) => ({
                   ...value,
                   runtime: event.target.value === "server" ? "server" : "client",
+                  ...(event.target.value === "server" ? { capabilities: [] } : {}),
                 }))
               }
               className="min-h-10 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[var(--primary)]/60"
@@ -536,6 +556,53 @@ function ExtensionSettings({ showIntro, mode }: { showIntro: boolean; mode: Exte
             ? t("settings.personalExtensions.sandbox.server")
             : t("settings.personalExtensions.sandbox.browser")}
         </div>
+
+        {draft.runtime === "client" && (
+          <div className="grid gap-2 rounded-lg border border-[var(--border)] bg-[var(--secondary)]/35 p-3">
+            <div>
+              <div className="text-xs font-semibold text-[var(--foreground)]">
+                {t("settings.personalExtensions.capabilities.title")}
+              </div>
+              <p className="mt-0.5 text-[0.6875rem] leading-relaxed text-[var(--muted-foreground)]">
+                {t("settings.personalExtensions.capabilities.description")}
+              </p>
+            </div>
+            {PERSONAL_EXTENSION_CAPABILITIES.map((capability) => {
+              const checked = draft.capabilities.includes(capability);
+              return (
+                <label
+                  key={capability}
+                  className="flex min-h-11 items-start gap-2.5 rounded-md border border-[var(--border)] bg-[var(--background)]/45 px-3 py-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    disabled={!isExternal}
+                    onChange={(event) =>
+                      setDraft((value) => ({
+                        ...value,
+                        capabilities: event.target.checked
+                          ? PERSONAL_EXTENSION_CAPABILITIES.filter(
+                              (candidate) => candidate === capability || value.capabilities.includes(candidate),
+                            )
+                          : value.capabilities.filter((candidate) => candidate !== capability),
+                      }))
+                    }
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--primary)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs font-medium text-[var(--foreground)]">
+                      {t(`settings.personalExtensions.capabilities.${capability}.label`)}
+                    </span>
+                    <span className="mt-0.5 block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                      {t(`settings.personalExtensions.capabilities.${capability}.description`)}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
 
         {draft.runtime === "client" ? (
           <div className="grid gap-3">

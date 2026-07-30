@@ -332,6 +332,17 @@ export function createCharactersStorage(db: DB) {
       return rows.map(getCharacterSummaryFromRow);
     },
 
+    async getByIds(ids: string[]) {
+      const uniqueIds = Array.from(new Set(ids.filter((id) => id.trim().length > 0)));
+      if (uniqueIds.length === 0) return [];
+      const rows = await db.select().from(characters).where(inArray(characters.id, uniqueIds));
+      const rowsById = new Map(rows.map((row) => [row.id, row]));
+      return uniqueIds.flatMap((id) => {
+        const row = rowsById.get(id);
+        return row ? [row] : [];
+      });
+    },
+
     async getById(id: string) {
       const rows = await db.select().from(characters).where(eq(characters.id, id));
       return rows[0] ?? null;

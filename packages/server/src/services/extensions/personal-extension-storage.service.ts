@@ -1,5 +1,6 @@
 import {
   createPersonalExtensionSchema,
+  normalizePersonalExtensionCapabilities,
   type CreatePersonalExtensionInput,
   type PersonalExtension,
   type PersonalExtensionRevision,
@@ -23,6 +24,15 @@ function normalizeSource(value: unknown): PersonalExtensionSource {
     : "legacy";
 }
 
+function parseCapabilities(value: unknown) {
+  if (typeof value !== "string") return normalizePersonalExtensionCapabilities(value);
+  try {
+    return normalizePersonalExtensionCapabilities(JSON.parse(value));
+  } catch {
+    return [];
+  }
+}
+
 function parseRevisions(value: unknown): PersonalExtensionRevision[] {
   if (typeof value !== "string" || !value.trim()) return [];
   try {
@@ -43,6 +53,7 @@ function parseRevisions(value: unknown): PersonalExtensionRevision[] {
           contentHash: record.contentHash,
           version: typeof record.version === "string" ? record.version : null,
           runtime: record.runtime,
+          capabilities: normalizePersonalExtensionCapabilities(record.capabilities),
           css: typeof record.css === "string" ? record.css : null,
           js: typeof record.js === "string" ? record.js : null,
           serverJs: typeof record.serverJs === "string" ? record.serverJs : null,
@@ -59,6 +70,7 @@ function mapExtension(row: ExtensionRow): PersonalExtension {
   const runtime = row.runtime === "server" ? "server" : "client";
   const executable = {
     runtime,
+    capabilities: runtime === "client" ? parseCapabilities(row.capabilities) : [],
     css: runtime === "client" ? (row.css ?? null) : null,
     js: runtime === "client" ? (row.js ?? null) : null,
     serverJs: runtime === "server" ? (row.serverJs ?? null) : null,
@@ -88,6 +100,7 @@ function revisionFrom(extension: PersonalExtension): PersonalExtensionRevision {
     contentHash: extension.contentHash,
     version: extension.version,
     runtime: extension.runtime,
+    capabilities: extension.capabilities,
     css: extension.css,
     js: extension.js,
     serverJs: extension.serverJs,
@@ -103,6 +116,7 @@ function normalizePayload(input: CreatePersonalExtensionInput) {
     version: parsed.version == null ? null : String(parsed.version),
     description: parsed.description ?? "",
     runtime,
+    capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
     css: runtime === "client" ? (parsed.css ?? null) : null,
     js: runtime === "client" ? (parsed.js ?? null) : null,
     serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -150,6 +164,7 @@ export function createPersonalExtensionsStorage(db: DB) {
       await db.insert(installedExtensions).values({
         id,
         ...payload,
+        capabilities: JSON.stringify(payload.capabilities),
         enabled: "false",
         contentHash,
         approvedHash: null,
@@ -171,6 +186,8 @@ export function createPersonalExtensionsStorage(db: DB) {
         version: data.version === undefined ? existing.version : data.version,
         description: data.description ?? existing.description,
         runtime,
+        capabilities:
+          runtime === "client" ? (data.capabilities === undefined ? existing.capabilities : data.capabilities) : [],
         css: runtime === "client" ? (data.css === undefined ? existing.css : data.css) : null,
         js: runtime === "client" ? (data.js === undefined ? existing.js : data.js) : null,
         serverJs: runtime === "server" ? (data.serverJs === undefined ? existing.serverJs : data.serverJs) : null,
@@ -178,13 +195,14 @@ export function createPersonalExtensionsStorage(db: DB) {
       const contentHash = computePersonalExtensionHash(payload);
       const executableChanged = contentHash !== existing.contentHash;
       const revisions = executableChanged
-        ? [revisionFrom(existing), ...existing.revisions.filter((revision) => revision.contentHash !== existing.contentHash)].slice(
-            0,
-            MAX_REVISIONS,
-          )
+        ? [
+            revisionFrom(existing),
+            ...existing.revisions.filter((revision) => revision.contentHash !== existing.contentHash),
+          ].slice(0, MAX_REVISIONS)
         : existing.revisions;
       const update: Partial<ExtensionInsert> = {
         ...payload,
+        capabilities: JSON.stringify(payload.capabilities),
         contentHash,
         revisions: JSON.stringify(revisions),
         updatedAt: now(),
@@ -215,7 +233,10 @@ export function createPersonalExtensionsStorage(db: DB) {
     async disable(id: string) {
       const existing = await getById(id);
       if (!existing) return null;
-      await db.update(installedExtensions).set({ enabled: "false", updatedAt: now() }).where(eq(installedExtensions.id, id));
+      await db
+        .update(installedExtensions)
+        .set({ enabled: "false", updatedAt: now() })
+        .where(eq(installedExtensions.id, id));
       return getById(id);
     },
 
@@ -245,6 +266,7 @@ export function createPersonalExtensionsStorage(db: DB) {
         .set({
           version: revision.version,
           runtime: revision.runtime,
+          capabilities: JSON.stringify(revision.capabilities),
           css: revision.runtime === "client" ? revision.css : null,
           js: revision.runtime === "client" ? revision.js : null,
           serverJs: revision.runtime === "server" ? revision.serverJs : null,

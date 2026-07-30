@@ -10,6 +10,7 @@ export function createPersonalExtensionPackageFiles(extension: PersonalExtension
     description: extension.description,
     runtime,
     enabled: false,
+    ...(extension.capabilities.length > 0 ? { capabilities: extension.capabilities } : {}),
     ...(runtime === "server"
       ? { serverJsPath: "server-extension.js" }
       : {

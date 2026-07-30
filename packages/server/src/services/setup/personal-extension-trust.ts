@@ -2,6 +2,7 @@
 // Personal Extension trust migration
 // ──────────────────────────────────────────────
 import type { DB } from "../../db/connection.js";
+import { normalizePersonalExtensionCapabilities } from "@marinara-engine/shared";
 import { eq } from "../../db/file-query.js";
 import { installedExtensions } from "../../db/schema/index.js";
 import { computePersonalExtensionHash } from "../extensions/personal-extension-hash.js";
@@ -19,6 +20,16 @@ export async function preparePersonalExtensionTrust(db: DB): Promise<PersonalExt
     const runtime = row.runtime === "server" ? "server" : "client";
     const contentHash = computePersonalExtensionHash({
       runtime,
+      capabilities:
+        runtime === "client"
+          ? (() => {
+              try {
+                return normalizePersonalExtensionCapabilities(JSON.parse(row.capabilities || "[]"));
+              } catch {
+                return [];
+              }
+            })()
+          : [],
       css: runtime === "client" ? row.css : null,
       js: runtime === "client" ? row.js : null,
       serverJs: runtime === "server" ? row.serverJs : null,

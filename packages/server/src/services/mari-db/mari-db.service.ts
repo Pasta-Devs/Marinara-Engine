@@ -25,6 +25,7 @@ import {
   PROFESSOR_MARI_ID,
   createPersonalExtensionSchema,
   normalizeLorebookCategory,
+  normalizePersonalExtensionCapabilities,
   type MariDbCommandResult,
   type MariDbDiffSummary,
   type MariDbHistoryEntry,
@@ -303,7 +304,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   agent_runs: ["resultData"],
   agent_memory: ["value"],
   custom_tools: ["parametersSchema"],
-  installed_extensions: ["revisions"],
+  installed_extensions: ["capabilities", "revisions"],
   game_state_snapshots: [
     "presentCharacters",
     "recentEvents",
@@ -2448,12 +2449,22 @@ export class MariDbService {
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
     const table = "installed_extensions";
+    const capabilitiesFromRow = (row: Row) => {
+      try {
+        return normalizePersonalExtensionCapabilities(
+          typeof row.capabilities === "string" ? JSON.parse(row.capabilities) : row.capabilities,
+        );
+      } catch {
+        return [];
+      }
+    };
     const summarize = (row: Row) => ({
       id: row.id,
       name: row.name,
       version: row.version ?? null,
       description: row.description ?? "",
       runtime: row.runtime === "server" ? "server" : "client",
+      capabilities: capabilitiesFromRow(row),
       enabled: row.enabled === "true",
       contentHash: row.contentHash ?? null,
       approvedHash: row.approvedHash ?? null,
@@ -2464,6 +2475,7 @@ export class MariDbService {
       const runtime = row.runtime === "server" ? "server" : "client";
       return {
         runtime,
+        capabilities: runtime === "client" ? capabilitiesFromRow(row) : [],
         css: runtime === "client" && typeof row.css === "string" ? row.css : null,
         js: runtime === "client" && typeof row.js === "string" ? row.js : null,
         serverJs: runtime === "server" && typeof row.serverJs === "string" ? row.serverJs : null,
@@ -2498,6 +2510,7 @@ export class MariDbService {
           "version",
           "description",
           "runtime",
+          "capabilities",
           "css",
           "js",
           "serverJs",
@@ -2506,6 +2519,7 @@ export class MariDbService {
         const runtime = parsed.runtime === "server" ? "server" : "client";
         const executable = {
           runtime,
+          capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
           css: runtime === "client" ? (parsed.css ?? null) : null,
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -2518,6 +2532,7 @@ export class MariDbService {
           version: parsed.version == null ? null : String(parsed.version),
           description: parsed.description ?? "",
           ...executable,
+          capabilities: JSON.stringify(executable.capabilities),
           enabled: "false",
           contentHash: computePersonalExtensionHash(executable),
           approvedHash: null,
@@ -2554,6 +2569,7 @@ export class MariDbService {
           "version",
           "description",
           "runtime",
+          "capabilities",
           "css",
           "js",
           "serverJs",
@@ -2567,12 +2583,19 @@ export class MariDbService {
           version: textOrFallback("version", existing.version),
           description: textOrFallback("description", existing.description),
           runtime,
+          capabilities:
+            runtime === "client"
+              ? data.capabilities === undefined
+                ? capabilitiesFromRow(existing)
+                : normalizePersonalExtensionCapabilities(data.capabilities)
+              : [],
           css: runtime === "client" ? textOrFallback("css", existing.css) : null,
           js: runtime === "client" ? textOrFallback("js", existing.js) : null,
           serverJs: runtime === "server" ? textOrFallback("serverJs", existing.serverJs) : null,
         });
         const executable = {
           runtime,
+          capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
           css: runtime === "client" ? (parsed.css ?? null) : null,
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -2605,6 +2628,7 @@ export class MariDbService {
           version: parsed.version == null ? null : String(parsed.version),
           description: parsed.description ?? "",
           ...executable,
+          capabilities: JSON.stringify(executable.capabilities),
           enabled: executableChanged ? "false" : existing.enabled,
           contentHash,
           approvedHash: executableChanged ? null : existing.approvedHash,

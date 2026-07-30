@@ -16,7 +16,7 @@ Sandboxing reduces authority; it does not make arbitrary code trustworthy. A mal
 
 ## Runtime isolation
 
-A Browser Extension runs in a dedicated Worker inside an opaque-origin sandboxed iframe. It cannot access Marinara's page, DOM, cookies, browser storage, origin APIs, or network. Its capabilities are private extension storage, logging, managed timers, cleanup registration, constrained windows, and safe host contribution slots.
+A Browser Extension runs in a dedicated Worker inside an opaque-origin sandboxed iframe. It cannot access Marinara's page, DOM, cookies, browser storage, origin APIs, or network. Its capabilities are private extension storage, logging, managed timers, cleanup registration, constrained windows, safe host contribution slots, and a read-only snapshot of the active chat and Character IDs. It can receive selected fields from the active Character cards or selected Persona only when the corresponding permissions are declared and approved.
 
 Extensions can add top-bar actions, Extensions menu items, and persistent right-side panels with `marinara.ui.registerContribution(...)`. Marinara renders these surfaces using the active theme and a fixed set of controls: headings, text, preformatted output, buttons, text inputs, selects, toggles, sliders, color controls, and spacers. An extension supplies content and state, never HTML, CSS, URLs, React components, or host event handlers.
 
@@ -66,11 +66,59 @@ Use `kind: "button"` for a compact top-bar/Extensions-menu action and `kind: "me
 
 Complex tools can build multi-step interfaces by updating the panel elements after an event. Keep application state in `marinara.storage`; do not encode it in markup.
 
+### Use active chat context
+
+Browser Extension API version 5 exposes opaque identifiers for the chat currently displayed in Marinara:
+
+```js
+const renderForContext = async ({ chatId, characterId, characterIds, personaId, characters, persona }) => {
+  if (!chatId) return; // Home, a library, or another surface without an active chat.
+
+  const storage = await marinara.storage.get();
+  const tab = storage.tabsByChat?.[chatId];
+
+  // characterId is available only for a single-Character chat.
+  // Use characterIds for group chats.
+  marinara.log.debug("Loaded Notepad tab", {
+    chatId,
+    characterId,
+    characterIds,
+    personaId,
+    characterNames: characters.map((character) => character.name),
+    personaName: persona?.name ?? null,
+    tab,
+  });
+};
+
+const unsubscribe = marinara.context.subscribe(renderForContext);
+marinara.onCleanup(unsubscribe);
+```
+
+`marinara.context.get()` returns the same current snapshot without subscribing. `chatId` is `null` and `characterIds` is empty when no chat is active. `characterId` is populated only when exactly one Character participates; group chats expose every participant through `characterIds` and leave `characterId` as `null`. `personaId` is populated only when `read_active_persona` is approved.
+
+Chat and Character IDs are always available and let an extension namespace its own private storage. Record fields require one or both optional permissions in the extension manifest:
+
+```json
+{
+  "runtime": "client",
+  "capabilities": ["read_active_characters", "read_active_persona"]
+}
+```
+
+- `read_active_characters` populates `characters` for cards participating in the active chat.
+- `read_active_persona` populates `persona` for the Persona selected by the active chat.
+
+Without a permission, its value remains `[]` or `null`. Marinara shows every requested permission in **Requested data access** and again in the exact-hash approval dialog. Adding or removing a permission changes the executable hash, disables the extension, and requires fresh approval.
+
+Character snapshots contain only `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe`, and `conversationDisplayName`. Persona snapshots contain only `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe`, and `conversationDisplayName`. Text is bounded before it crosses the sandbox bridge.
+
+Marinara never sends messages, creator notes, system prompts, post-history instructions, comments, avatar paths, full Character or Persona libraries, undeclared fields, chat metadata, database handles, network access, or mutation operations. Context updates remain bound to the approved code hash and are delivered when the active chat, its Character list, or its selected Persona changes.
+
 ### Legacy extension ports
 
 Weather controllers, prompt editors, and other substantial workflows are valid contribution use cases. Their safe ports can use a menu or top-bar launcher plus progressively updated panels. Existing packages that inject DOM overlays, query Marinara CSS selectors, traverse React internals, or call same-origin `/api` routes cannot be imported unchanged into the safe runtime.
 
-UI contributions provide the interface, not ambient authority. Features that need chats, presets, lorebooks, characters, personas, or visual scene effects also need a dedicated broker capability exposed by Marinara and explicitly approved by the user. Until that capability exists, an extension must not simulate it through host DOM access or unrestricted network requests.
+UI contributions provide the interface, not ambient authority. The context API always exposes active chat and Character IDs and may expose only the declared, active-record fields listed above. Features that need messages, presets, lorebooks, undeclared Character or Persona data, or visual scene effects still need a separate, narrowly scoped broker capability exposed by Marinara. An extension must not simulate one through host DOM access or unrestricted network requests.
 
 The older `marinara.ui.showWindow(...)` API remains available for a temporary window inside the opaque-origin iframe. It uses the same fixed controls and returns `update(...)` and `close()` handles. Prefer contributions when the tool should be reachable through Marinara's normal navigation.
 
