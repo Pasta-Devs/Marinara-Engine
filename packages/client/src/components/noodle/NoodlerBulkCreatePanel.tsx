@@ -750,34 +750,119 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   ))}
                 </div>
               )}
-              <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
-                {[
-                  [
-                    t("ui.noodle.noodlerwizard.characters"),
-                    t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
-                  ],
-                  [t("ui.noodle.noodlerwizard.identity"), disclosureLabel(disclosure, t)],
-                  [
-                    t("ui.noodle.noodlerwizard.activity"),
-                    autoPostingEnabled
-                      ? t("ui.noodle.noodlerwizard.automaticActivityDetail", { count: postsPerDay })
-                      : t("ui.noodle.noodlerwizard.manualOnly"),
-                  ],
-                  [
-                    t("ui.noodle.noodlerwizard.nightQuiet"),
-                    nightQuiet ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
-                  ],
-                  [
-                    t("ui.noodle.noodlerwizard.images"),
-                    imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
-                  ],
-                ].map(([label, value]) => (
-                  <div key={label} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
-                    <span className="font-semibold">{label}</span>
-                    <span className="max-w-[65%] text-right text-[var(--muted-foreground)]">{value}</span>
+              {setupLane === "easy" ? (
+                <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+                  <div className="flex min-h-14 items-center justify-between gap-4 px-3 py-2.5">
+                    <span>
+                      <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.characters")}</span>
+                      <span className="block text-xs text-[var(--muted-foreground)]">
+                        {t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size })}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="min-h-9 shrink-0 px-2 text-xs font-bold text-[var(--noodle-accent)]"
+                    >
+                      {t("ui.noodle.noodlerwizard.change")}
+                    </button>
                   </div>
-                ))}
-              </div>
+                  <label className="flex min-h-14 items-center justify-between gap-4 px-3 py-2.5">
+                    <span className="text-sm font-semibold">{t("ui.noodle.noodlerwizard.identity")}</span>
+                    <select
+                      value={disclosure}
+                      onChange={(event) => setDisclosure(event.target.value as NoodleIdentityDisclosure)}
+                      className="h-9 min-w-0 max-w-[65%] rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-sm"
+                    >
+                      {DISCLOSURES.map((value) => (
+                        <option key={value} value={value}>
+                          {disclosureLabel(value, t)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="space-y-3 px-3 py-3">
+                    <label className="flex min-h-9 items-center justify-between gap-4">
+                      <span className="text-sm font-semibold">{t("ui.noodle.noodlerwizard.activity")}</span>
+                      <input
+                        type="checkbox"
+                        role="switch"
+                        checked={autoPostingEnabled}
+                        onChange={(event) => setAutoPostingEnabled(event.target.checked)}
+                        className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                      />
+                    </label>
+                    {autoPostingEnabled && (
+                      <label className="flex items-center justify-between gap-4 text-xs text-[var(--muted-foreground)]">
+                        <span>{t("ui.noodle.noodlerwizard.easyPostingPace")}</span>
+                        <span className="flex shrink-0 items-center gap-2">
+                          <input
+                            type="number"
+                            min={1}
+                            max={24}
+                            value={postsPerDay}
+                            onChange={(event) =>
+                              setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))
+                            }
+                            aria-label={t("ui.noodle.noodlerwizard.postsPerDay")}
+                            className="h-9 w-16 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-center text-sm text-[var(--foreground)]"
+                          />
+                          {t("ui.noodle.noodlerwizard.postsPerDayShort")}
+                        </span>
+                      </label>
+                    )}
+                  </div>
+                  <label className="flex min-h-14 items-center justify-between gap-4 px-3 py-2.5">
+                    <span className="text-sm font-semibold">{t("ui.noodle.noodlerwizard.nightQuiet")}</span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={nightQuiet}
+                      onChange={(event) => setNightQuiet(event.target.checked)}
+                      className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                    />
+                  </label>
+                  <label className="flex min-h-14 items-center justify-between gap-4 px-3 py-2.5">
+                    <span className="text-sm font-semibold">{t("ui.noodle.noodlerwizard.images")}</span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={imagesEnabled}
+                      onChange={(event) => setImagesEnabled(event.target.checked)}
+                      className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div className="divide-y divide-[var(--border)] rounded-lg border border-[var(--border)]">
+                  {[
+                    [
+                      t("ui.noodle.noodlerwizard.characters"),
+                      t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size }),
+                    ],
+                    [t("ui.noodle.noodlerwizard.identity"), disclosureLabel(disclosure, t)],
+                    [
+                      t("ui.noodle.noodlerwizard.activity"),
+                      autoPostingEnabled
+                        ? t("ui.noodle.noodlerwizard.automaticActivityDetail", { count: postsPerDay })
+                        : t("ui.noodle.noodlerwizard.manualOnly"),
+                    ],
+                    [
+                      t("ui.noodle.noodlerwizard.nightQuiet"),
+                      nightQuiet ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
+                    ],
+                    [
+                      t("ui.noodle.noodlerwizard.images"),
+                      imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off"),
+                    ],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex items-start justify-between gap-4 px-3 py-2.5 text-sm">
+                      <span className="font-semibold">{label}</span>
+                      <span className="max-w-[65%] text-right text-[var(--muted-foreground)]">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div className="rounded-lg border border-[var(--border)] bg-[var(--accent)]/30 p-4">
                 <label className="mt-3 flex min-h-11 items-center gap-3">
                   <input
