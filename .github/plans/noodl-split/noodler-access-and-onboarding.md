@@ -5,9 +5,11 @@ Detail design document for Slice 8f. The
 authority for slice ordering and product decisions; this file owns 8f's design detail
 because it does not fit the Living Plan's per-slice section length.
 
-**Status: planning. No implementation has started.** Open questions are listed at the
-bottom and are part of the document, not a defect in it. Update the changelog when
-decisions land.
+**Status as of 2026-07-30: 8f-1, 8f-2, 8f-3, and 8f-4 are implemented on branch
+`big-chungus-1` and unmerged; 8f-5 and 8f-6 have not started.** The design below is
+therefore a record of what shipped for those four units, not a forward plan. Open questions
+are listed at the bottom and are part of the document, not a defect in it. Update the
+changelog when decisions land.
 
 **Reviewer note:** the scheduling decision is settled. Slice 8f-3 uses front-loaded
 generation with a private scheduled-post reserve. The former platform-day-plan/catch-up and

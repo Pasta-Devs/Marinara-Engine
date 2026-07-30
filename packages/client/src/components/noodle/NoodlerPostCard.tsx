@@ -134,7 +134,12 @@ export function LockedNoodlerPostCard({
       <div>
         {/* Blurred media with Locked badge — only when the post has an image */}
         {post.imageUrl && (
-          <div className="relative mt-3 h-72 w-full overflow-hidden rounded-xl bg-[var(--muted)]">
+          <div
+            className={cn(
+              "relative mt-3 w-full overflow-hidden rounded-xl bg-[var(--muted)]",
+              demo ? "h-40" : "h-72",
+            )}
+          >
             <img
               src={post.imageUrl}
               alt=""
@@ -157,7 +162,7 @@ export function LockedNoodlerPostCard({
 
         {/* Body: unreadable teaser until unlocked */}
         {revealed && demo ? (
-          <p className="mt-3 text-sm leading-6">{demo.body}</p>
+          <p className="mt-3 whitespace-pre-line text-sm leading-6">{demo.body}</p>
         ) : (
           !controllerOnly && (
             <div className="mt-3 space-y-2 select-none blur-[3px]" aria-hidden="true">

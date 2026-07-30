@@ -1,6 +1,6 @@
 # NoodleR PR-Split — Living Plan
 
-Authoritative repository plan as of 2026-07-29. Update the status table and merged list as
+Authoritative repository plan as of 2026-07-30. Update the status table and merged list as
 work lands. Historical slice numbers are retained where useful, but the order below
 is the current intended order.
 
@@ -86,11 +86,11 @@ The product experience therefore needs both agency and life:
 | 1 | Slice 7 — roleplay authoring and creator-profile parity | Merged through #3969 | 4, 5, 6, 6b |
 | 2 | Slices 8, 8b, 8c, 8d, 10 | Merged; see the table above | — |
 | 3 | Slice 8e — `private` → `noodler` rename across code, data, and UI | Merged through #4129 (2026-07-27), with `noodle-platform-migration.ts` and its regression | none beyond merged staging |
-| 4 | Slice 8f-1 — identity-redaction fix (rename-then-redraft) | Planning; a disclosure-guarantee bug, ships alone | none |
-| 5 | Slice 8f-2 — access collapse to `public \| locked` + migration | Planning; see [detail document](./noodler-access-and-onboarding.md) | 8e (same files) |
-| 6 | Slice 8g — creators reply to the viewer | Planned; the missing centre of the watching experience. Needs a daily reply ceiling designed in from the start | 8f-2 access model only |
-| 7 | Slice 8f-3 — front-loaded scheduled-post reserve | Planning; scheduler decision settled | 8f-2 |
-| 8 | Slice 8f-4 — setup wizard with an emulated Professor Mari teaching post | Planning | 8f-2, 8f-3, 8c bulk creation |
+| 4 | Slice 8f-1 — identity-redaction fix (rename-then-redraft) | Implemented on `big-chungus-1`, unmerged; `buildNoodlerPublicIdentity()` widens the identity union, covered by `noodle-prompt.regression.ts` | none |
+| 5 | Slice 8f-2 — access collapse to `public \| locked` + migration | Implemented on `big-chungus-1`, unmerged; see [detail document](./noodler-access-and-onboarding.md) | 8e (same files) |
+| 6 | Slice 8g — creators reply to the viewer | Implemented on `big-chungus-1`, unmerged; `noodle-noodler-creator-reply.operation.ts` + `noodle-noodler-reply-generation.service.ts`, covered by `noodle-creator-reply.regression.ts` | 8f-2 access model only |
+| 7 | Slice 8f-3 — front-loaded scheduled-post reserve | Implemented on `big-chungus-1`, unmerged; `noodle-noodler-reserve.operation.ts`, `noodle-autopost-cadence.ts` deleted | 8f-2 |
+| 8 | Slice 8f-4 — setup wizard with an emulated Professor Mari teaching post | Implemented on `big-chungus-1`, unmerged; `noodler-onboarding.ts` + wizard screens | 8f-2, 8f-3, 8c bulk creation |
 | 9 | Slice 8f-5 — watching surface: new-since-last-visit divider, entry-point counter, creator-page operator area | Planning; cheapest win in the design, split out so a scope cut cannot eat it | 8f-2 |
 | 9+ | Slice 8f-6 — source-changed and source-missing notice | Planning; independent of the access and scheduling work, so it may land any time after 8f-1 | 8f-1 |
 | 10 | Slice 9a — quiet synthetic fan engagement | Later, and **optional** rather than the road ahead — see the note below | 6, 6b, 8, 8f-2, 8g |
@@ -696,17 +696,33 @@ is what gets cut when the slice runs long. Each unit below is independently ship
 scheduling rewrite to ship. 8g needs only 8f-2's settled access model, so it sequences
 ahead of 8f-3/4/5/6 rather than behind all of 8f.
 
-### Start here — 8f-1
+### Implementation status — 8f-5 and 8f-6 remain
 
-**All six units are specified; none have started.** As of 2026-07-29 every unit carries both
-the design and the implementation approach, and the 8f detail document has no open questions
-left. Two items are recorded as non-blocking rather than dropped: a comprehension check on
-the `hinted` disclosure wording before 8f-4 ships, and real paid/local provider runs to tune
-`postsPerDay` away from 4.
+**As of 2026-07-30, four of the six units plus 8g are implemented on branch
+`big-chungus-1` and unmerged: 8f-1, 8f-2, 8f-3, 8f-4, 8g.** `pnpm check`,
+`pnpm regression:noodle`, `pnpm regression:localization`, and `pnpm version:check` pass on
+that branch. Browser proof has not been run.
 
-**8f-1 is the entry point.** It is a live disclosure bug rather than a design change, it has
-no dependencies, and it is the smallest unit in the slice. Every other unit is either gated
-behind 8f-2 or larger.
+**Remaining: 8f-5** (new-since-last-visit divider, entry-point counter, creator-page operator
+area) and **8f-6** (source-changed / source-missing notice). Neither has any code on the
+branch — no `lastVisit`-style field exists in `packages/shared/src/types/noodle.ts`, and no
+source-snapshot compare exists.
+
+The six units were specified to ship independently; in practice five landed on one branch.
+That is recorded rather than reversed, but it makes the branch a large review unit — see
+"Splitting `big-chungus-1` for review" below.
+
+Two items remain recorded as non-blocking rather than dropped: a comprehension check on the
+`hinted` disclosure wording, and real paid/local provider runs to tune `postsPerDay` away
+from 4.
+
+### Splitting `big-chungus-1` for review
+
+The branch is ~5,500 insertions across 44 files. 8f-1 is separable and worth extracting as
+its own PR: it is a live disclosure-guarantee fix with a standalone regression, and it should
+not sit behind review of a scheduler rewrite. 8f-2/8f-3/8f-4/8g touch overlapping storage,
+schema, and settings surfaces and are expensive to unpick after the fact, so they are
+reviewable as one integrated PR.
 
 Before implementation on any unit, per `CONTRIBUTING.md` and `CLAUDE.md`: confirm or open a
 GitHub issue, check for an existing issue-linked branch or PR so two agents do not duplicate

@@ -10,6 +10,7 @@ import {
   Lock,
   RefreshCw,
   SlidersHorizontal,
+  Sparkles,
   Users,
 } from "lucide-react";
 import type {
@@ -33,8 +34,9 @@ import { Avatar, getNoodleAccentStyle, NOODLE_PINK } from "./NoodleShell";
 import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
-/** The two teaching screens that run ahead of the numbered steps on first run. */
-type Intro = 0 | 1 | null;
+/** The teaching screens that run ahead of the numbered steps on first run. */
+type Intro = 0 | 1 | 2 | null;
+const LAST_INTRO = 2;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
 
 const DISCLOSURES: NoodleIdentityDisclosure[] = ["open", "hinted", "secret"];
@@ -294,7 +296,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col">
         {intro !== null && (
           <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3" aria-hidden="true">
-            {[0, 1].map((dot) => (
+            {[0, 1, 2].map((dot) => (
               <span
                 key={dot}
                 className={cn(
@@ -357,6 +359,27 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           {intro === 0 && (
             <div className="space-y-4">
               <StepHeading
+                icon={<Sparkles size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.what.title")}
+                help={t("ui.noodle.noodlerwizard.intro.what.help")}
+              />
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] p-4">
+                <img src="/sprites/mari/Mari_greet.png" alt="" className="h-28 w-auto shrink-0 object-contain" />
+                <ul className="space-y-2 text-sm leading-6">
+                  {["noodle", "noodler", "you"].map((line) => (
+                    <li key={line} className="flex gap-2">
+                      <Check size={16} className="mt-1 shrink-0 text-[var(--noodle-accent)]" />
+                      {t(`ui.noodle.noodlerwizard.intro.what.${line}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {intro === 1 && (
+            <div className="space-y-4">
+              <StepHeading
                 icon={<Lock size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.locked.title")}
                 help={t("ui.noodle.noodlerwizard.intro.locked.help")}
@@ -379,7 +402,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             </div>
           )}
 
-          {intro === 1 && (
+          {intro === 2 && (
             <div className="space-y-4">
               <StepHeading
                 icon={<Users size={18} />}
@@ -736,10 +759,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
         <div className="border-t border-[var(--border)] pt-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              {intro === 1 && (
+              {intro !== null && intro > 0 && (
                 <button
                   type="button"
-                  onClick={() => setIntro(0)}
+                  onClick={() => setIntro((intro - 1) as Intro)}
                   className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
                 >
                   <ChevronLeft size={15} />
@@ -770,14 +793,26 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             {intro !== null ? (
               <button
                 type="button"
-                onClick={() => (intro === 0 ? setIntro(1) : setIntro(null))}
+                onClick={() => setIntro(intro < LAST_INTRO ? ((intro + 1) as Intro) : null)}
                 className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950"
               >
-                {intro === 0 ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
+                {intro < LAST_INTRO ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
                 <ChevronRight size={15} />
               </button>
             ) : step < 5 ? (
-              <button
+              <div className="flex items-center gap-2">
+                {/* Easy path: everything after step 1 already holds sane defaults, so skip straight to done. */}
+                {!selectionOnly && step < 4 && (
+                  <button
+                    type="button"
+                    disabled={pending || selected.size === 0}
+                    onClick={() => void finish()}
+                    className="min-h-10 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-sm font-bold text-[var(--noodle-accent)] disabled:opacity-50"
+                  >
+                    {t("ui.noodle.noodlerwizard.useDefaults")}
+                  </button>
+                )}
+                <button
                 type="button"
                 disabled={pending}
                 onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
@@ -788,7 +823,8 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   ? t("ui.noodle.noodlerwizard.createCount", { count: selected.size })
                   : t("ui.noodle.noodlerwizard.continue")}
                 {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
-              </button>
+                </button>
+              </div>
             ) : (
               <button
                 type="button"
