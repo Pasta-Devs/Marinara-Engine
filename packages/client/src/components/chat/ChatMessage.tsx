@@ -41,7 +41,14 @@ import {
   EyeOff,
   Shield,
 } from "lucide-react";
-import { decodeEncodedSpeakerTags, formatTextQuotes, type Message, type QuoteFormat } from "@marinara-engine/shared";
+import {
+  decodeEncodedSpeakerTags,
+  formatTextQuotes,
+  type GameTurnStoryboard,
+  type GameTurnStoryboardKeyframe,
+  type Message,
+  type QuoteFormat,
+} from "@marinara-engine/shared";
 import { memo, useState, useMemo, useRef, useEffect, useId, useLayoutEffect, useCallback, type ReactNode } from "react";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useQueryClient, type InfiniteData } from "@tanstack/react-query";
@@ -73,6 +80,7 @@ import { ChatImageLightbox } from "./ChatImageLightbox";
 import { SwipeJumpControl } from "./SwipeJumpControl";
 import { toast } from "sonner";
 import { MessageThinkingModal } from "./MessageThinkingModal";
+import { RoleplayStoryboardMessageMedia } from "./RoleplayStoryboardMessageMedia";
 
 const MESSAGE_ACTION_ICON_SIZE = "1em";
 const MESSAGE_SWIPE_ICON_SIZE = "1.15em";
@@ -652,6 +660,8 @@ interface ChatMessageProps {
   multiSelectMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (toggle: MessageSelectionToggle) => void;
+  storyboard?: GameTurnStoryboard | null;
+  storyboardGenerating?: boolean;
 }
 
 /** Regex to match a plain image URL as the entire content. */
@@ -1237,6 +1247,8 @@ export const ChatMessage = memo(function ChatMessage({
   multiSelectMode,
   isSelected,
   onToggleSelect,
+  storyboard,
+  storyboardGenerating,
 }: ChatMessageProps) {
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
@@ -1362,6 +1374,30 @@ export const ChatMessage = memo(function ChatMessage({
       });
     },
     [message],
+  );
+  const openStoryboardImageLightbox = useCallback(
+    (frame: GameTurnStoryboardKeyframe) => {
+      if (!frame.image) return;
+      setImageLightbox({
+        image: buildChatMessageImage({
+          id: frame.image.id,
+          chatId: message.chatId,
+          url: frame.image.url,
+          prompt: frame.image.prompt,
+          provider: frame.image.provider,
+          model: frame.image.model,
+          createdAt: frame.image.createdAt,
+        }),
+        alt:
+          frame.title ||
+          localizeUi("game.storyboard.keyframeAlt", {
+            index: frame.index + 1,
+          }),
+        pinEnabled: true,
+        downloadEnabled: true,
+      });
+    },
+    [localizeUi, message.chatId],
   );
   const closeImageLightbox = useCallback(() => {
     setImageLightbox(null);
@@ -2284,6 +2320,7 @@ export const ChatMessage = memo(function ChatMessage({
             "mari-message mari-message-narrator rpg-narrator-msg group mb-4 px-2",
             multiSelectMode && isSelected && cn("rounded-lg", MESSAGE_SELECTION_SURFACE_CLASS),
           )}
+          data-message-id={message.id}
           data-card-css={message.characterId ?? undefined}
           onClick={handleMobileTap}
           onDoubleClick={handleRoleplayDoubleClick}
@@ -2351,6 +2388,15 @@ export const ChatMessage = memo(function ChatMessage({
               )}
             </div>
           </div>
+          {!editing && (storyboard || storyboardGenerating) ? (
+            <div className="mx-auto mt-2 w-full max-w-3xl">
+              <RoleplayStoryboardMessageMedia
+                storyboard={storyboard ?? null}
+                generating={storyboardGenerating}
+                onOpenImage={openStoryboardImageLightbox}
+              />
+            </div>
+          ) : null}
         </div>
       );
     }
@@ -2714,6 +2760,14 @@ export const ChatMessage = memo(function ChatMessage({
                 )}
               </div>
             )}
+
+            {!editing && !isUser && (storyboard || storyboardGenerating) ? (
+              <RoleplayStoryboardMessageMedia
+                storyboard={storyboard ?? null}
+                generating={storyboardGenerating}
+                onOpenImage={openStoryboardImageLightbox}
+              />
+            ) : null}
 
             {/* Swipes */}
             {(hasSwipes || canCreateNextSwipe) && (

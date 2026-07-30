@@ -1,6 +1,6 @@
 # Storyboard Engine Guide
 
-This guide explains the Game Mode storyboard workflow in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboard also works in Roleplay, where automatic runs can combine several completed assistant responses and **Create storyboard** in the Gallery can process the latest response immediately. It does not run in Conversation chats.
+This guide explains the Game Mode storyboard workflow in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboard also works in Roleplay, where automatic runs can combine ordered user-and-assistant exchanges and **Create storyboard** in the Gallery can process the latest exchange immediately. It does not run in Conversation chats.
 
 ## What storyboards are
 
@@ -81,7 +81,7 @@ All of these live in the **Storyboards** card. Open **Chat Settings**, go to **A
 | **Automatic Storyboard Animations** | Off | Adds an MP4 clip per keyframe; needs a video connection |
 | **Keyframes per Turn** | 3 (range 1 to 6) | How many keyframes each turn plans |
 | **Animation Clip Duration** | 6 seconds (range 1 to 15) | Length of each clip |
-| **Viewer Display** | Floating | Floating panel or full background |
+| **Viewer Display** | Floating in Game; Inline in Roleplay | Inline message media, floating panel, or full background; Inline is only offered in Roleplay |
 | **Illustration Planner** | Still Keyframes | Plans finished still keyframes and their image descriptions |
 | **Animation Planner** | Comic Page Animation | Plans animation-ready source images and motion directions |
 | **Use Storyboard Template** | On | Formats planned scenes with the selected Storyboard Illustration Prompt. Turn it off for direct NovelAI tag prompts |

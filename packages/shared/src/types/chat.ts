@@ -225,7 +225,7 @@ export function normalizeSummaryTailMessages(value: unknown): number {
 }
 export const CHAT_SUMMARY_OUTPUT_TOKENS = { MIN: 1, MAX: 32768, DEFAULT: 4096 } as const;
 
-export type GameStoryboardViewerDisplayMode = "floating" | "background";
+export type GameStoryboardViewerDisplayMode = "inline" | "floating" | "background";
 
 /** Extra metadata stored on a chat. */
 export interface ChatMetadata {

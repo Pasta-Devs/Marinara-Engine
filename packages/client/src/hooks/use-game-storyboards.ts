@@ -5,6 +5,7 @@ import { api } from "../lib/api-client";
 export const gameStoryboardKeys = {
   all: ["game", "storyboards"] as const,
   chat: (chatId: string) => [...gameStoryboardKeys.all, chatId] as const,
+  list: (chatId: string) => [...gameStoryboardKeys.chat(chatId), "list"] as const,
   turn: (chatId: string, messageId: string, swipeIndex: number) =>
     [...gameStoryboardKeys.chat(chatId), "turn", messageId, swipeIndex] as const,
 };
@@ -52,6 +53,22 @@ export function isGameTurnStoryboardRendering(storyboard: GameTurnStoryboard | n
 
 function hasRenderingStoryboard(storyboards: GameTurnStoryboard[] | undefined): boolean {
   return storyboards?.some(isGameTurnStoryboardRendering) ?? false;
+}
+
+export function useGameChatStoryboards(chatId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: gameStoryboardKeys.list(chatId ?? ""),
+    queryFn: async () => {
+      const result = await api.get<{ storyboards: GameTurnStoryboard[] }>(`/game/storyboards/${chatId}`);
+      return result.storyboards;
+    },
+    enabled: enabled && !!chatId,
+    refetchInterval: (query) => {
+      const storyboards = query.state.data as GameTurnStoryboard[] | undefined;
+      return hasRenderingStoryboard(storyboards) ? 2500 : false;
+    },
+    staleTime: 30_000,
+  });
 }
 
 export function useGameTurnStoryboards(

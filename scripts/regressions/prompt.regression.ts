@@ -2487,6 +2487,10 @@ const cases: RegressionCase[] = [
         new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
         "utf8",
       );
+      const roleplayStoryboardMessageMediaSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/RoleplayStoryboardMessageMedia.tsx", import.meta.url),
+        "utf8",
+      );
       const galleryDrawerSource = readFileSync(
         new URL("../../packages/client/src/components/chat/ChatGalleryDrawer.tsx", import.meta.url),
         "utf8",
@@ -2575,9 +2579,14 @@ const cases: RegressionCase[] = [
       assert.match(roleplayStoryboardOverlaySource, /reopenToken/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardInlineViewer/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardBackgroundVisual/u);
+      assert.match(roleplayStoryboardOverlaySource, /viewerDisplayMode === "inline"/u);
       assert.match(roleplaySurfaceSource, /automatic: false/u);
       assert.match(roleplaySurfaceSource, /onGenerateStoryboard=/u);
       assert.match(roleplaySurfaceSource, /onViewStoryboard=/u);
+      assert.match(roleplaySurfaceSource, /useGameChatStoryboards/u);
+      assert.equal(roleplaySurfaceSource.includes("storyboard={inlineStoryboard}"), true);
+      assert.match(roleplayStoryboardMessageMediaSource, /playsInline/u);
+      assert.match(roleplayStoryboardMessageMediaSource, /onOpenImage/u);
       assert.match(galleryDrawerSource, /storyboardAvailable \? onGenerateStoryboard : undefined/u);
       assert.doesNotMatch(galleryDrawerSource, /onGenerateStoryboard=\{illustratorAvailable/u);
       assert.match(routeSource, /storyboardAgentImageConnectionId/u);
@@ -3219,16 +3228,18 @@ const cases: RegressionCase[] = [
         recentConversationBlock:
           '<recent_conversation><message role="user">Come inside.</message></recent_conversation>',
         spatialBreadcrumb: "Town > Inn",
+        roleplaySourceIncludesUserMessages: true,
       });
       assert.match(roleplayStoryboardMessages.systemPrompt, /^Mode=roleplay/u);
       assert.match(
         roleplayStoryboardMessages.systemPrompt,
         /Do not invent characters, events, or the user's next reply beyond the source window/u,
       );
+      assert.match(roleplayStoryboardMessages.systemPrompt, /out-of-character, meta, and generation instructions/u);
       assert.doesNotMatch(roleplayStoryboardMessages.systemPrompt, /\b(?:GM|Game setup|party|NPC|CYOA)\b/u);
       assert.match(roleplayStoryboardMessages.systemPrompt, /roleplay_character_context/u);
       assert.match(roleplayStoryboardMessages.systemPrompt, /Town &gt; Inn/u);
-      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /completed assistant response/u);
+      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /completed Roleplay exchange window/u);
       assert.doesNotMatch(roleplayStoryboardMessages.messages[1]?.content ?? "", /gm_turn_narration/u);
 
       const roleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
@@ -3244,17 +3255,21 @@ const cases: RegressionCase[] = [
       );
       assert.deepEqual(
         roleplaySourceWindow.map((message) => message.id),
-        ["assistant-1", "assistant-2"],
+        ["user-1", "assistant-1", "user-2", "assistant-2"],
       );
       const firstRoleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
         [
           { id: "older", role: "assistant" },
+          { id: "current-user", role: "user" },
           { id: "current", role: "assistant" },
         ],
         "current",
         null,
       );
-      assert.deepEqual(firstRoleplaySourceWindow.map((message) => message.id), ["current"]);
+      assert.deepEqual(
+        firstRoleplaySourceWindow.map((message) => message.id),
+        ["current-user", "current"],
+      );
 
       const multiResponseStoryboardMessages = await buildStoryboardIllustratorMessages({
         meta: {

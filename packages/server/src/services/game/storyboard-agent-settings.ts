@@ -87,7 +87,8 @@ export async function applyStoryboardAgentSettings(
       gameStoryboardKeyframeCount: meta.gameStoryboardKeyframeCount ?? (isRoleplay ? 1 : settings.keyframeCount),
       gameStoryboardAnimationDurationSeconds:
         meta.gameStoryboardAnimationDurationSeconds ?? settings.animationDurationSeconds,
-      gameStoryboardViewerDisplayMode: meta.gameStoryboardViewerDisplayMode ?? settings.viewerDisplayMode,
+      gameStoryboardViewerDisplayMode:
+        meta.gameStoryboardViewerDisplayMode ?? (isRoleplay ? "inline" : settings.viewerDisplayMode),
       gameStoryboardUseNovelAiCharacterPrompts:
         meta.gameStoryboardUseNovelAiCharacterPrompts ?? settings.useNovelAiCharacterPrompts,
       gameStoryboardUsePromptTemplate: meta.gameStoryboardUsePromptTemplate ?? settings.usePromptTemplate,

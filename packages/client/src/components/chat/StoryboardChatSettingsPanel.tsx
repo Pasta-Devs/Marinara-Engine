@@ -8,8 +8,8 @@ import {
   GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
   STORYBOARD_AGENT_ID,
   type AgentPromptTemplateOption,
+  type GameStoryboardViewerDisplayMode,
   type StoryboardAgentSettings,
-  type StoryboardViewerMode,
 } from "@marinara-engine/shared";
 import { mergeBuiltInAgentSettings, normalizeStoryboardAgentSettings } from "@marinara-engine/shared";
 import { useAgentConfigs, type AgentConfigRow } from "../../hooks/use-agents";
@@ -222,13 +222,16 @@ export function StoryboardChatSettingsPanel({
     GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX,
   );
   const viewerOverridden =
+    metadata.gameStoryboardViewerDisplayMode === "inline" ||
     metadata.gameStoryboardViewerDisplayMode === "floating" ||
     metadata.gameStoryboardViewerDisplayMode === "background";
-  const viewerDisplayMode: StoryboardViewerMode =
+  const viewerDisplayMode: GameStoryboardViewerDisplayMode =
+    metadata.gameStoryboardViewerDisplayMode === "inline" ||
+    metadata.gameStoryboardViewerDisplayMode === "floating" ||
     metadata.gameStoryboardViewerDisplayMode === "background"
-      ? "background"
-      : metadata.gameStoryboardViewerDisplayMode === "floating"
-        ? "floating"
+      ? metadata.gameStoryboardViewerDisplayMode
+      : ownerMode === "roleplay"
+        ? "inline"
         : settings.viewerDisplayMode;
   const novelAiOverridden = typeof metadata.gameStoryboardUseNovelAiCharacterPrompts === "boolean";
   const useNovelAiCharacterPrompts = novelAiOverridden
@@ -378,9 +381,18 @@ export function StoryboardChatSettingsPanel({
             <p className="text-[0.625rem] font-medium text-[var(--foreground)]">
               {localizeUi("ui.chat.chatsettingsdrawer.viewerDisplay")}
             </p>
-            <AgentSettingsSegmentedControl<StoryboardViewerMode>
+            <AgentSettingsSegmentedControl<GameStoryboardViewerDisplayMode>
               value={viewerDisplayMode}
               options={[
+                ...(ownerMode === "roleplay"
+                  ? [
+                      {
+                        id: "inline" as const,
+                        label: localizeUi("ui.agents.storyboard.inline"),
+                        description: localizeUi("ui.agents.storyboard.inlineDescription"),
+                      },
+                    ]
+                  : []),
                 {
                   id: "floating",
                   label: localizeUi("ui.agents.storyboard.floating"),

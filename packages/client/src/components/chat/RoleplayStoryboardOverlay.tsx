@@ -14,6 +14,7 @@ import {
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "../game/GameStoryboardViewer";
+import { resolveRoleplayStoryboardDisplayMode } from "./roleplay-storyboard-display";
 
 type RoleplayStoryboardMessage = {
   id: string;
@@ -35,6 +36,7 @@ export function RoleplayStoryboardOverlay({
   generationBusy,
   postProcessingPending,
   reopenToken = 0,
+  onGenerationStateChange,
 }: {
   chatId: string;
   metadata: Record<string, unknown>;
@@ -42,6 +44,7 @@ export function RoleplayStoryboardOverlay({
   generationBusy: boolean;
   postProcessingPending: boolean;
   reopenToken?: number;
+  onGenerationStateChange?: (generating: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const active =
@@ -57,6 +60,7 @@ export function RoleplayStoryboardOverlay({
     () => normalizeStoryboardAgentSettings(mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, storyboardConfig?.settings)),
     [storyboardConfig?.settings],
   );
+  const viewerDisplayMode = resolveRoleplayStoryboardDisplayMode(metadata);
   const autoAnimationsEnabled =
     typeof metadata.gameStoryboardAutoGenerationEnabled === "boolean"
       ? metadata.gameStoryboardAutoGenerationEnabled
@@ -83,6 +87,17 @@ export function RoleplayStoryboardOverlay({
   const rendering = generateStoryboard.isPending || isGameTurnStoryboardRendering(storyboard);
 
   useEffect(() => {
+    onGenerationStateChange?.(rendering);
+  }, [onGenerationStateChange, rendering]);
+
+  useEffect(
+    () => () => {
+      onGenerationStateChange?.(false);
+    },
+    [onGenerationStateChange],
+  );
+
+  useEffect(() => {
     const updatePosition = () => setViewerPosition(roleplayStoryboardViewerPosition());
     window.addEventListener("resize", updatePosition);
     return () => window.removeEventListener("resize", updatePosition);
@@ -93,10 +108,10 @@ export function RoleplayStoryboardOverlay({
   }, [reopenToken]);
 
   useEffect(() => {
-    if (settings.viewerDisplayMode === "background" && frame?.video?.id) {
+    if (viewerDisplayMode === "background" && frame?.video?.id) {
       setPlayingVideoId(frame.video.id);
     }
-  }, [frame?.video?.id, settings.viewerDisplayMode]);
+  }, [frame?.video?.id, viewerDisplayMode]);
 
   useEffect(() => {
     if (!active || !latestMessage || agentConfigs === undefined || !storyboardsQuery.isFetched) return;
@@ -119,6 +134,10 @@ export function RoleplayStoryboardOverlay({
           gameStoryboardKeys.turn(chatId, latestMessage.id, swipeIndex),
           (current) => [result.storyboard, ...(current ?? []).filter((row) => row.id !== result.storyboard.id)],
         );
+        queryClient.setQueryData<GameTurnStoryboard[]>(gameStoryboardKeys.list(chatId), (current) => [
+          result.storyboard,
+          ...(current ?? []).filter((row) => row.id !== result.storyboard.id),
+        ]);
       })
       .catch((error) => {
         console.warn("[storyboard/roleplay] Automatic storyboard generation failed", error);
@@ -140,6 +159,8 @@ export function RoleplayStoryboardOverlay({
   ]);
 
   if (!active || !latestMessage || dismissedMessageId === latestMessage.id || (!storyboard && !rendering)) return null;
+
+  if (viewerDisplayMode === "inline") return null;
 
   const playing = !!frame?.video?.id && playingVideoId === frame.video.id;
   const onVideoPlayingChange = (videoId: string, isPlaying: boolean) => {
@@ -164,7 +185,7 @@ export function RoleplayStoryboardOverlay({
     void video.play().catch(() => setPlayingVideoId(null));
   };
 
-  if (settings.viewerDisplayMode === "background" && frame) {
+  if (viewerDisplayMode === "background" && frame) {
     return (
       <GameStoryboardBackgroundVisual
         frame={frame}

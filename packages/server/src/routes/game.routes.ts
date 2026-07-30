@@ -5482,10 +5482,17 @@ export function selectRoleplayStoryboardSourceWindow<T extends { id: string; rol
   const lastRunIndex = lastSuccessfulMessageId
     ? messages.findIndex((message) => message.id === lastSuccessfulMessageId)
     : -1;
-  const startIndex = lastRunIndex >= 0 && lastRunIndex < currentIndex ? lastRunIndex + 1 : currentIndex;
+  let startIndex = lastRunIndex >= 0 && lastRunIndex < currentIndex ? lastRunIndex + 1 : currentIndex;
+  if (startIndex === currentIndex) {
+    for (let index = currentIndex - 1; index >= 0; index -= 1) {
+      const role = messages[index]?.role;
+      if (role === "assistant" || role === "narrator") break;
+      if (role === "user") startIndex = index;
+    }
+  }
   return messages
     .slice(startIndex, currentIndex + 1)
-    .filter((message) => message.role === "assistant" || message.role === "narrator")
+    .filter((message) => message.role === "user" || message.role === "assistant" || message.role === "narrator")
     .slice(-ROLEPLAY_STORYBOARD_SOURCE_MESSAGE_LIMIT);
 }
 
@@ -5655,6 +5662,7 @@ export async function buildStoryboardIllustratorMessages(args: {
   recentConversationBlock?: string;
   spatialBreadcrumb?: string | null;
   roleplaySourceMessageCount?: number;
+  roleplaySourceIncludesUserMessages?: boolean;
 }): Promise<{ systemPrompt: string; messages: ChatMessage[] }> {
   const ownerMode = args.ownerMode ?? "game";
   const contextBlock =
@@ -5676,10 +5684,13 @@ export async function buildStoryboardIllustratorMessages(args: {
   const sourceTurnLabel =
     ownerMode === "game"
       ? "GM narration"
-      : (args.roleplaySourceMessageCount ?? 1) > 1
-        ? "assistant response window"
-        : "assistant response";
-  const sourceRoleLabel = ownerMode === "game" ? "GM" : "assistant";
+      : args.roleplaySourceIncludesUserMessages
+        ? "Roleplay exchange window"
+        : (args.roleplaySourceMessageCount ?? 1) > 1
+          ? "assistant response window"
+          : "assistant response";
+  const sourceRoleLabel =
+    ownerMode === "game" ? "GM" : args.roleplaySourceIncludesUserMessages ? "user and assistant" : "assistant";
   const sourceTurnBlock =
     args.sections.length > 0
       ? `<source_turn>\nUse the ordered <turn_sections> block above as the full ${sourceTurnLabel} source.\n</source_turn>`
@@ -5687,7 +5698,9 @@ export async function buildStoryboardIllustratorMessages(args: {
   const modeRulesBlock =
     ownerMode === "game"
       ? "Storyboard only this completed GM turn, not the user's next action or choice."
-      : "Storyboard only this completed assistant response window. Character cards establish identity and appearance, while the source responses establish current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window.";
+      : args.roleplaySourceIncludesUserMessages
+        ? "Storyboard only this completed Roleplay exchange window in chronological order. User sections establish the actions, dialogue, and requests that lead into the assistant responses; assistant sections establish the completed outcome. Treat out-of-character, meta, and generation instructions as context rather than visible in-world events. Character cards establish identity and appearance, while the exchange establishes current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window."
+        : "Storyboard only this completed assistant response window. Character cards establish identity and appearance, while the source responses establish current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window.";
   const promptCtx: GameStoryboardIllustratorCtx = {
     ownerMode,
     sourceTurnLabel,
@@ -10892,6 +10905,8 @@ export async function gameRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "This assistant response has no content to storyboard." });
       let sourceSections = normalizeStoryboardSections(input.sections, sourceNarration);
       let roleplaySourceMessageCount = 1;
+      let roleplaySourceIncludesUserMessages = false;
+      let roleplaySourceStartMessageId = input.messageId;
 
       const rawMeta = parseMeta(chat.metadata);
       const meta = await applyStoryboardAgentSettings(rawMeta, agents, ownerMode);
@@ -10919,8 +10934,10 @@ export async function gameRoutes(app: FastifyInstance) {
       ) {
         return { skipped: true, reason: "interval" };
       }
-      if (ownerMode === "roleplay" && input.automatic) {
-        const lastSuccessfulRun = await agents.getLastSuccessfulRunByType(STORYBOARD_AGENT_ID, input.chatId);
+      if (ownerMode === "roleplay") {
+        const lastSuccessfulRun = input.automatic
+          ? await agents.getLastSuccessfulRunByType(STORYBOARD_AGENT_ID, input.chatId)
+          : null;
         const sourceMessages = selectRoleplayStoryboardSourceWindow(
           allMessages,
           input.messageId,
@@ -10934,22 +10951,24 @@ export async function gameRoutes(app: FastifyInstance) {
                   ? sourceNarration
                   : compactStoryboardSourceNarration(
                       stripGmCommandTags(
-                        await resolveMessageContentForSwipe(
-                          chats,
-                          sourceMessage,
-                          sourceMessage.activeSwipeIndex ?? 0,
-                        ),
+                        await resolveMessageContentForSwipe(chats, sourceMessage, sourceMessage.activeSwipeIndex ?? 0),
                       ),
                     );
               const compactContent = compactStoryboardText(content, 4000);
-              return compactContent ? { index, kind: "narration", speaker: "assistant", content: compactContent } : null;
+              if (!compactContent) return null;
+              const speaker = sourceMessage.role === "user" ? "user" : "assistant";
+              return { index, kind: "narration", speaker, content: compactContent };
             }),
           )
         ).filter((section): section is StoryboardSourceSection => section !== null);
         if (windowSections.length > 0) {
           sourceSections = windowSections;
-          sourceNarration = windowSections.map((section) => section.content).join("\n\n");
-          roleplaySourceMessageCount = windowSections.length;
+          sourceNarration = windowSections
+            .map((section) => `${section.speaker === "user" ? "User" : "Assistant"}:\n${section.content}`)
+            .join("\n\n");
+          roleplaySourceMessageCount = windowSections.filter((section) => section.speaker === "assistant").length;
+          roleplaySourceIncludesUserMessages = windowSections.some((section) => section.speaker === "user");
+          roleplaySourceStartMessageId = sourceMessages[0]?.id ?? input.messageId;
         }
       }
       const storyboardDurationSeconds = normalizeStoryboardDuration(
@@ -11077,12 +11096,15 @@ export async function gameRoutes(app: FastifyInstance) {
         ownerMode,
         roleplayCharacterContextBlock: storyboardCharacterContext.roleplayCharacterContextBlock,
         recentConversationBlock:
-          ownerMode === "roleplay" ? buildStoryboardRecentConversationBlock(allMessages, input.messageId) : "",
+          ownerMode === "roleplay"
+            ? buildStoryboardRecentConversationBlock(allMessages, roleplaySourceStartMessageId)
+            : "",
         spatialBreadcrumb:
           storyboardSpatialProjection?.ownerMode === ownerMode
             ? formatOwnerSpatialBreadcrumb(storyboardSpatialProjection)
             : null,
         roleplaySourceMessageCount,
+        roleplaySourceIncludesUserMessages,
       });
       if (debugLogsEnabled) {
         debugLog(
