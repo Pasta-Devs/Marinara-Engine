@@ -46,6 +46,28 @@ const LEGACY_BUILT_IN_AGENT_DESCRIPTIONS: Record<string, readonly string[]> = {
   ],
 };
 
+const LEGACY_BUILT_IN_NAMED_PROMPT_HASHES: Record<string, Record<string, readonly string[]>> = {
+  storyboard: {
+    "still-keyframes": ["35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d"],
+    "novelai-keyframes": ["d023603b074be76aa5319666bd7fe763c0a3e874738ee0a455545804e93baa3a"],
+    "comic-page-keyframes": ["45bb3de5cd09ce7d695e05220ac156589bee602c570fe17f8560044ab31b945d"],
+    "colored-manga-keyframes": ["da11bd4cc1205dc20a8939d263d4d89a144760edca11fa86ace2e97aaf4a5683"],
+    "bw-manga-keyframes": ["a5bd8a39e287bc19ef269e73e4dd8bdf4b945e34dccae86d3cf63076ae744668"],
+    "still-keyframes-animation": ["d7625e2dd230dda9fac625653de8f9fa7e95d631a5f7ded9eaf7981322b9d69b"],
+    "anime-episode-director": ["a63e7679b525d801776fed8bda108da63c9850b8f551e19f2a2d8bb8c91f8849"],
+    "novelai-keyframes-animation": ["22968ccd5d14f6ff548ee9ff7b6e6afa20a2e6fe15b7822feb4486400e8949a1"],
+    "comic-page-animation": ["8818b2004dd4967710eeec8ab95cfff01fc65a8f6428f5b3c5f8894abd604284"],
+    "colored-manga-keyframes-animation": [
+      "4134c0e0b365aabb5027f33883a7f1d1593774d997ce007159ffdb8708b3b285",
+    ],
+    "bw-manga-keyframes-animation": [
+      "bbe2fafc87395af962176f95fdc4e95067ab9c0f7db7883915c979bcf856b285",
+    ],
+    "ltx-director-storyboard": ["e2b231eef33ca21d7b183974577ee476fb72acdbde2d0012c8218b130893893e"],
+    "ltx-simple-image-to-video": ["d56bf37473e124e399fd6e2fa93835391ef0986a41e7bfcc65972e02e475b185"],
+  },
+};
+
 const ILLUSTRATOR_DEFAULT_PROMPT_TEMPLATE_MIGRATION_VERSION = 2;
 
 function normalizedPromptHash(value: string): string {
@@ -66,6 +88,17 @@ function defaultPromptHashes(agentType: string, currentDefault?: string): Set<st
 function isKnownDefaultPrompt(agentType: string, prompt: string, currentDefault?: string): boolean {
   if (!prompt.trim()) return false;
   return defaultPromptHashes(agentType, currentDefault).has(normalizedPromptHash(prompt));
+}
+
+function isKnownDefaultNamedPrompt(
+  agentType: string,
+  optionId: string,
+  prompt: string,
+  currentDefault: string,
+): boolean {
+  if (isKnownDefaultPrompt(agentType, prompt, currentDefault)) return true;
+  const promptHash = normalizedPromptHash(prompt);
+  return (LEGACY_BUILT_IN_NAMED_PROMPT_HASHES[agentType]?.[optionId] ?? []).includes(promptHash);
 }
 
 function isKnownDefaultDescription(agentType: string, description: string, currentDescription: string): boolean {
@@ -94,7 +127,9 @@ function migratePromptTemplateOptions(agentType: string, settings: unknown) {
       }
       return [option];
     }
-    if (!isKnownDefaultPrompt(agentType, option.promptTemplate, defaultOption.promptTemplate)) return option;
+    if (!isKnownDefaultNamedPrompt(agentType, option.id, option.promptTemplate, defaultOption.promptTemplate)) {
+      return option;
+    }
     if (option.promptTemplate === defaultOption.promptTemplate) return option;
     changed = true;
     return [{ ...defaultOption, ...option, promptTemplate: defaultOption.promptTemplate }];

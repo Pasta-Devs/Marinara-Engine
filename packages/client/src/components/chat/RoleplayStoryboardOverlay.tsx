@@ -13,6 +13,8 @@ import {
   useGameTurnStoryboards,
   useGenerateGameTurnStoryboard,
 } from "../../hooks/use-game-storyboards";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useTranslation as useUiTranslation } from "react-i18next";
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "../game/GameStoryboardViewer";
 import { resolveRoleplayStoryboardDisplayMode } from "./roleplay-storyboard-display";
 
@@ -46,6 +48,7 @@ export function RoleplayStoryboardOverlay({
   reopenToken?: number;
   onGenerationStateChange?: (generating: boolean) => void;
 }) {
+  const { t: localizeUi } = useUiTranslation();
   const queryClient = useQueryClient();
   const active =
     metadata.enableAgents === true &&
@@ -80,11 +83,18 @@ export function RoleplayStoryboardOverlay({
   const [muted, setMuted] = useState(true);
   const [dismissedMessageId, setDismissedMessageId] = useState<string | null>(null);
   const [viewerPosition, setViewerPosition] = useState(roleplayStoryboardViewerPosition);
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(null);
 
   const storyboard = storyboardsQuery.data?.[0] ?? null;
-  const frame =
-    storyboard?.keyframes.find((keyframe) => keyframe.video || keyframe.image) ?? storyboard?.keyframes[0] ?? null;
+  const frames = storyboard?.keyframes ?? [];
+  const firstVisibleFrame = frames.find((keyframe) => keyframe.video || keyframe.image) ?? frames[0] ?? null;
+  const frame = frames.find((keyframe) => keyframe.id === activeFrameId) ?? firstVisibleFrame;
+  const activeFrameIndex = frame ? Math.max(0, frames.findIndex((keyframe) => keyframe.id === frame.id)) : 0;
   const rendering = generateStoryboard.isPending || isGameTurnStoryboardRendering(storyboard);
+
+  useEffect(() => {
+    setActiveFrameId(firstVisibleFrame?.id ?? null);
+  }, [firstVisibleFrame?.id, storyboard?.id]);
 
   useEffect(() => {
     onGenerationStateChange?.(rendering);
@@ -184,16 +194,49 @@ export function RoleplayStoryboardOverlay({
     setPlayingVideoId(frame.video.id);
     void video.play().catch(() => setPlayingVideoId(null));
   };
+  const selectRelativeFrame = (offset: number) => {
+    if (frames.length < 2) return;
+    const nextIndex = (activeFrameIndex + offset + frames.length) % frames.length;
+    setPlayingVideoId(null);
+    setActiveFrameId(frames[nextIndex]?.id ?? null);
+  };
 
   if (viewerDisplayMode === "background" && frame) {
     return (
-      <GameStoryboardBackgroundVisual
-        frame={frame}
-        playing={playing}
-        muted={muted}
-        videoRef={videoRef}
-        onVideoPlayingChange={onVideoPlayingChange}
-      />
+      <>
+        <GameStoryboardBackgroundVisual
+          frame={frame}
+          playing={playing}
+          muted={muted}
+          videoRef={videoRef}
+          onVideoPlayingChange={onVideoPlayingChange}
+        />
+        {frames.length > 1 ? (
+          <div className="pointer-events-auto absolute bottom-4 left-1/2 z-[5] flex -translate-x-1/2 items-center gap-1 rounded-lg border border-white/15 bg-black/60 p-1 shadow-lg backdrop-blur-md">
+            <button
+              type="button"
+              onClick={() => selectRelativeFrame(-1)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+              aria-label={localizeUi("ui.agents.storyboard.previousFrame")}
+              title={localizeUi("ui.agents.storyboard.previousFrame")}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="min-w-9 text-center text-[0.625rem] tabular-nums text-white/60">
+              {activeFrameIndex + 1}/{frames.length}
+            </span>
+            <button
+              type="button"
+              onClick={() => selectRelativeFrame(1)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+              aria-label={localizeUi("ui.agents.storyboard.nextFrame")}
+              title={localizeUi("ui.agents.storyboard.nextFrame")}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        ) : null}
+      </>
     );
   }
 
@@ -228,6 +271,8 @@ export function RoleplayStoryboardOverlay({
       onChangeSize={() => {}}
       onResizeByKeyboard={() => {}}
       onVideoPlayingChange={onVideoPlayingChange}
+      onPreviousFrame={() => selectRelativeFrame(-1)}
+      onNextFrame={() => selectRelativeFrame(1)}
       interactiveLayout={false}
     />
   );

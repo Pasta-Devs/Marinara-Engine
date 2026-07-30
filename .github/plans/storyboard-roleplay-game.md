@@ -20,11 +20,13 @@ Storyboard becomes the shared visual agent:
 | Chat mode | Source                                                      | Cadence                      | Default                      |
 | --------- | ----------------------------------------------------------- | ---------------------------- | ---------------------------- |
 | Game      | Completed GM narration                                      | Existing every-turn behavior | Existing Storyboard settings |
-| Roleplay  | Completed assistant responses since the last successful run | Existing agent `runInterval` | One keyframe                 |
+| Roleplay  | Latest completed user-and-assistant exchange                | Existing agent `runInterval` | One keyframe                 |
 
 Users keep the existing still or animation choice. Animation continues through the current planner -> first-frame image -> video connection chain.
 
-Roleplay does not create a Game session, Game state, fake database turn, or extra transcript message. The bounded assistant-response window is only treated as one synthetic Storyboard source in memory. On the first run, the source is the latest completed assistant response. Later runs collect the eligible assistant responses since the previous successful Storyboard run, capped to the newest 20 responses for prompt safety.
+Roleplay does not create a Game session, Game state, fake database turn, or extra transcript message. `runInterval` controls frequency only: an interval of 5 means “run after every fifth completed assistant response,” while each run still plans only the latest completed exchange. The immediately preceding user message or messages establish the action or request, and the assistant response establishes the canonical outcome. Older conversation is continuity context, not source material.
+
+Multi-message episodes are intentionally outside automatic cadence. A future manual **Storyboard message range** action can let the user select an explicit beginning and end; only that intentional range should produce a multi-exchange, multi-keyframe Roleplay storyboard.
 
 ## Mode-aware prompts
 
@@ -47,7 +49,7 @@ Important values are:
 
 | Variable          | Game                                                         | Roleplay                                                                                                                 |
 | ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `sourceTurnLabel` | completed GM narration                                       | assistant response or assistant response window                                                                          |
+| `sourceTurnLabel` | completed GM narration                                       | latest completed Roleplay exchange                                                                                        |
 | `sourceRoleLabel` | GM                                                           | assistant                                                                                                                |
 | `modeRulesBlock`  | Do not include the user's next CYOA/action.                  | Do not invent the user's next reply or continue beyond this response.                                                    |
 | `contextBlock`    | Existing Game state, party, Game NPCs, Maps, and art context | Chat-assigned characters, active persona, recent conversation, optional tracker state, Maps, background, and art context |
@@ -72,7 +74,7 @@ Do not rename routes or tables in this change, and do not make Storyboard depend
 
 1. Exclude `execution: "host"` agents from the generic agent pipeline, matching the existing retry path.
 2. Normalize Storyboard's owner mode from the chat and replace hard-coded Game/GM/CYOA prompt text with the variables above.
-3. Allow the existing Storyboard generation path to compile the eligible completed Roleplay assistant responses and active swipes into one bounded source window.
+3. Allow the existing Storyboard generation path to compile the latest completed Roleplay exchange and active swipe into one source scene. Keep `runInterval` as cadence only.
 4. When `ownerMode` is `roleplay`, build the roster only from the chat's assigned character IDs and active persona. Add recent conversation, optional Character Tracker state, Maps context, and Roleplay illustration settings. Do not read Game setup, party, Game character-card, or Game NPC metadata.
 5. Reuse `agent-cadence.ts` for Roleplay. Advance cadence only after at least one media result succeeds.
 6. Reuse the existing per-chat generation lock and a client chat/message/swipe attempt key to prevent duplicate automatic requests.
@@ -108,7 +110,7 @@ Do not rename routes or tables in this change, and do not make Storyboard depend
 
 - One Storyboard package works in Game and Roleplay.
 - Existing Game still and animation behavior is unchanged.
-- Roleplay uses the completed assistant-response window and configured run interval.
+- Roleplay uses the latest completed exchange, while the configured run interval controls only how often it runs.
 - Roleplay prompts contain no GM, Game-state, or CYOA instructions.
 - Roleplay character context comes only from assigned chat characters, the active persona, the conversation, and optional Roleplay tracker/Maps context.
 - Still generation uses the selected image connection; animation uses that still and the selected video connection.

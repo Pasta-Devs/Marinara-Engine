@@ -160,7 +160,7 @@ export function ChatGalleryDrawer({
             onGenerateStoryboard={storyboardAvailable ? onGenerateStoryboard : undefined}
             onViewStoryboard={storyboardAvailable ? onViewStoryboard : undefined}
             onGenerateVideo={illustratorAvailable ? onGenerateVideo : undefined}
-            onAnimateImage={illustratorAvailable ? onAnimateImage : undefined}
+            onAnimateImage={storyboardAvailable || illustratorAvailable ? onAnimateImage : undefined}
             onGenerateBackground={illustratorAvailable ? onGenerateBackground : undefined}
           />
         </div>

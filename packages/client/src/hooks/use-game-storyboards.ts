@@ -24,6 +24,7 @@ export type GenerateGameTurnStoryboardInput = {
   durationSeconds?: number;
   aspectRatio?: GameSceneVideoAspectRatio;
   generateVideos?: boolean;
+  sourceGalleryImageId?: string;
   automatic?: boolean;
   plannedStoryboard?: unknown;
   promptOverrides?: Array<{

@@ -1,5 +1,7 @@
 import type { PointerEvent as ReactPointerEvent, RefObject } from "react";
 import {
+  ChevronLeft,
+  ChevronRight,
   GripHorizontal,
   Loader2,
   Maximize2,
@@ -56,6 +58,8 @@ export function GameStoryboardInlineViewer({
   onChangeSize,
   onResizeByKeyboard,
   onVideoPlayingChange,
+  onPreviousFrame,
+  onNextFrame,
   interactiveLayout = true,
 }: {
   storyboard: GameTurnStoryboard | null;
@@ -77,6 +81,8 @@ export function GameStoryboardInlineViewer({
   onChangeSize: () => void;
   onResizeByKeyboard: (delta: number) => void;
   onVideoPlayingChange: (videoId: string, playing: boolean) => void;
+  onPreviousFrame?: () => void;
+  onNextFrame?: () => void;
   interactiveLayout?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
@@ -174,6 +180,28 @@ export function GameStoryboardInlineViewer({
                 {frame?.title || storyboard?.title || localizeUi("ui.game.gamesurfacecomponent.storyboardTurn")}
               </p>
               <div className="flex shrink-0 items-center gap-1">
+                {storyboard && storyboard.keyframes.length > 1 && onPreviousFrame && onNextFrame ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={onPreviousFrame}
+                      className={STORYBOARD_VIEWER_CONTROL_BUTTON}
+                      title={localizeUi("ui.agents.storyboard.previousFrame")}
+                      aria-label={localizeUi("ui.agents.storyboard.previousFrame")}
+                    >
+                      <ChevronLeft size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onNextFrame}
+                      className={STORYBOARD_VIEWER_CONTROL_BUTTON}
+                      title={localizeUi("ui.agents.storyboard.nextFrame")}
+                      aria-label={localizeUi("ui.agents.storyboard.nextFrame")}
+                    >
+                      <ChevronRight size={13} />
+                    </button>
+                  </>
+                ) : null}
                 {hasVideo ? (
                   <>
                     <button

@@ -1575,6 +1575,33 @@ export function ChatRoleplaySurface({
     void queryClient.invalidateQueries({ queryKey: ["game", "scene-videos", activeChatId] });
     setStoryboardViewerReopenToken((current) => current + 1);
   }, [activeChatId, generateRoleplayStoryboard, latestStoryboardMessage, latestStoryboardSwipeIndex, queryClient]);
+  const handleAnimateRoleplayStoryboardImage = useCallback(
+    async (image: ChatImage) => {
+      if (!latestStoryboardMessage) return;
+      const result = await generateRoleplayStoryboard.mutateAsync({
+        chatId: activeChatId,
+        messageId: latestStoryboardMessage.id,
+        swipeIndex: latestStoryboardSwipeIndex,
+        generateVideos: true,
+        sourceGalleryImageId: image.id,
+        automatic: false,
+        debugMode: useUIStore.getState().debugMode,
+      });
+      if (!("storyboard" in result)) return;
+      queryClient.setQueryData<GameTurnStoryboard[]>(
+        gameStoryboardKeys.turn(activeChatId, result.storyboard.messageId, result.storyboard.swipeIndex),
+        (current) => [result.storyboard, ...(current ?? []).filter((row) => row.id !== result.storyboard.id)],
+      );
+      queryClient.setQueryData<GameTurnStoryboard[]>(gameStoryboardKeys.list(activeChatId), (current) => [
+        result.storyboard,
+        ...(current ?? []).filter((row) => row.id !== result.storyboard.id),
+      ]);
+      void queryClient.invalidateQueries({ queryKey: ["gallery", "scene-videos", activeChatId] });
+      void queryClient.invalidateQueries({ queryKey: ["game", "scene-videos", activeChatId] });
+      setStoryboardViewerReopenToken((current) => current + 1);
+    },
+    [activeChatId, generateRoleplayStoryboard, latestStoryboardMessage, latestStoryboardSwipeIndex, queryClient],
+  );
   const handleViewRoleplayStoryboard = useCallback(() => {
     onCloseGallery();
     if (roleplayStoryboardDisplayMode === "inline" && latestStoryboardMessage) {
@@ -2218,7 +2245,7 @@ export function ChatRoleplaySurface({
             : undefined
         }
         onGenerateVideo={onGenerateVideo}
-        onAnimateImage={onAnimateImage}
+        onAnimateImage={storyboardAgentActive ? handleAnimateRoleplayStoryboardImage : onAnimateImage}
         onGenerateBackground={onGenerateBackground}
         onWizardFinish={onWizardFinish}
         onClosePeekPrompt={onClosePeekPrompt}

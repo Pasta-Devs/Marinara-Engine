@@ -446,6 +446,7 @@ assert.deepEqual(
 import {
   compactVideoPromptText,
   getSceneVideoPromptLimits,
+  resolveGalleryImageSourceAnchor,
   resolveGalleryVideoNarrationSummary,
 } from "../../packages/server/src/services/video/prompt-context.js";
 import { resolveGameGmPromptTemplate } from "../../packages/server/src/services/generation/game-gm-prompt-runtime.js";
@@ -501,7 +502,7 @@ import {
   resolveDynamicGameImagePromptConnection,
   resolveNpcPortraitAppearance,
   sanitizeNpcPortraitAppearanceText,
-  selectRoleplayStoryboardSourceWindow,
+  selectRoleplayStoryboardLatestExchange,
   selectLatestGameTurnNarration,
   selectStoryboardAppearanceCharacterNames,
 } from "../../packages/server/src/routes/game.routes.js";
@@ -2499,6 +2500,11 @@ const cases: RegressionCase[] = [
         new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
         "utf8",
       );
+      const defaultPromptMigrationSource = readFileSync(
+        new URL("../../packages/server/src/services/agents/default-prompt-migration.ts", import.meta.url),
+        "utf8",
+      );
+      const appSource = readFileSync(new URL("../../packages/server/src/app.ts", import.meta.url), "utf8");
 
       assert.equal(normalizeGameStoryboardKeyframeCount(undefined), 3);
       assert.equal(normalizeGameStoryboardKeyframeCount(0), 1);
@@ -2571,7 +2577,11 @@ const cases: RegressionCase[] = [
       assert.match(routeSource, /countUpcomingAssistantMessage: false/u);
       assert.match(routeSource, /ownerMode === "game" \? imageSettings\.game : imageSettings\.illustration/u);
       assert.match(routeSource, /roleplayCharacterContextBlock/u);
-      assert.match(routeSource, /selectRoleplayStoryboardSourceWindow/u);
+      assert.match(routeSource, /selectRoleplayStoryboardLatestExchange/u);
+      assert.match(routeSource, /ownerMode === "roleplay"\s*\? 1/u);
+      assert.match(routeSource, /sourceGalleryImageId/u);
+      assert.match(routeSource, /let galleryImage = sourceGalleryImage/u);
+      assert.match(routeSource, /resolveGalleryImageSourceAnchor/u);
       assert.match(agentResolutionSource, /!isBuiltInAgentHostManaged\(agent\.type as string\)/u);
       assert.match(agentResolutionSource, /if \(isBuiltInAgentHostManaged\(agent\.id\)\) return false/u);
       assert.doesNotMatch(agentResolutionSource, /storyboardOwnsAutomaticVisuals/u);
@@ -2588,11 +2598,23 @@ const cases: RegressionCase[] = [
       assert.match(roleplayStoryboardMessageMediaSource, /playsInline/u);
       assert.match(roleplayStoryboardMessageMediaSource, /onOpenImage/u);
       assert.match(galleryDrawerSource, /storyboardAvailable \? onGenerateStoryboard : undefined/u);
+      assert.match(
+        galleryDrawerSource,
+        /onAnimateImage=\{storyboardAvailable \|\| illustratorAvailable \? onAnimateImage : undefined\}/u,
+      );
       assert.doesNotMatch(galleryDrawerSource, /onGenerateStoryboard=\{illustratorAvailable/u);
       assert.match(routeSource, /storyboardAgentImageConnectionId/u);
       assert.match(routeSource, /storyboardAgentVideoConnectionId/u);
       assert.match(routeSource, /meta\.storyboardAgentIncludeCharacterAppearance !== false/u);
       assert.match(routeSource, /meta\.storyboardAgentUseAvatarReferences !== false/u);
+      assert.match(
+        defaultPromptMigrationSource,
+        /"still-keyframes": \["35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d"\]/u,
+      );
+      assert.match(
+        appSource,
+        /await initializeCapabilityAgentRegistry\(\);[\s\S]*?await migrateLegacyDefaultAgentPrompts\(db\);/u,
+      );
       assert.match(
         routeSource,
         /setupConfig\.enableSpriteGeneration \? \[BUILT_IN_AGENT_IDS\.ILLUSTRATOR\] : \[\]/u,
@@ -3233,16 +3255,16 @@ const cases: RegressionCase[] = [
       assert.match(roleplayStoryboardMessages.systemPrompt, /^Mode=roleplay/u);
       assert.match(
         roleplayStoryboardMessages.systemPrompt,
-        /Do not invent characters, events, or the user's next reply beyond the source window/u,
+        /Do not turn the run interval into a multi-exchange episode/u,
       );
       assert.match(roleplayStoryboardMessages.systemPrompt, /out-of-character, meta, and generation instructions/u);
       assert.doesNotMatch(roleplayStoryboardMessages.systemPrompt, /\b(?:GM|Game setup|party|NPC|CYOA)\b/u);
       assert.match(roleplayStoryboardMessages.systemPrompt, /roleplay_character_context/u);
       assert.match(roleplayStoryboardMessages.systemPrompt, /Town &gt; Inn/u);
-      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /completed Roleplay exchange window/u);
+      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /latest completed Roleplay exchange/u);
       assert.doesNotMatch(roleplayStoryboardMessages.messages[1]?.content ?? "", /gm_turn_narration/u);
 
-      const roleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
+      const roleplaySourceWindow = selectRoleplayStoryboardLatestExchange(
         [
           { id: "previous-run", role: "assistant" },
           { id: "user-1", role: "user" },
@@ -3251,20 +3273,18 @@ const cases: RegressionCase[] = [
           { id: "assistant-2", role: "assistant" },
         ],
         "assistant-2",
-        "previous-run",
       );
       assert.deepEqual(
         roleplaySourceWindow.map((message) => message.id),
-        ["user-1", "assistant-1", "user-2", "assistant-2"],
+        ["user-2", "assistant-2"],
       );
-      const firstRoleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
+      const firstRoleplaySourceWindow = selectRoleplayStoryboardLatestExchange(
         [
           { id: "older", role: "assistant" },
           { id: "current-user", role: "user" },
           { id: "current", role: "assistant" },
         ],
         "current",
-        null,
       );
       assert.deepEqual(
         firstRoleplaySourceWindow.map((message) => message.id),
@@ -3297,7 +3317,7 @@ const cases: RegressionCase[] = [
         ownerMode: "roleplay",
         roleplaySourceMessageCount: 2,
       });
-      assert.match(multiResponseStoryboardMessages.systemPrompt, /^Source=assistant response window/u);
+      assert.match(multiResponseStoryboardMessages.systemPrompt, /^Source=latest assistant response/u);
 
       const compiled = await buildSceneIllustrationProviderPrompt({
         chatId: "prompt-regression",
@@ -3517,6 +3537,14 @@ const cases: RegressionCase[] = [
         resolveGalleryVideoNarrationSummary(messages, swipes, "legacy-upload-without-source", 650),
         "Much later, Sol runs across the moonlit courtyard.",
       );
+      assert.deepEqual(resolveGalleryImageSourceAnchor(messages, swipes, "swipe-gallery-image"), {
+        messageId: "source-turn",
+        swipeIndex: 0,
+      });
+      assert.deepEqual(resolveGalleryImageSourceAnchor(messages, swipes, "active-gallery-image"), {
+        messageId: "active-source-turn",
+        swipeIndex: 0,
+      });
     },
   },
   {

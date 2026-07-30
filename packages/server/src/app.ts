@@ -208,6 +208,10 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // functional readiness. Packages without a server entrypoint remain available
   // as soon as their verified files are installed.
   await initializeCapabilityAgentRegistry();
+  // Downloaded agent defaults are not present during the earlier core-agent
+  // migration pass. Re-run the idempotent migration after package discovery so
+  // unchanged saved Storyboard prompts can follow package prompt upgrades.
+  await migrateLegacyDefaultAgentPrompts(db);
 
   // ── Server-side autonomous conversation scheduler ──
   startServerAutonomousScheduler(app);

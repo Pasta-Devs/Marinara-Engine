@@ -253,6 +253,7 @@ import {
   compactVideoPromptText,
   excerptIllustrationPromptForVideo,
   limitSceneVideoPromptForProvider,
+  resolveGalleryImageSourceAnchor,
   summarizeVideoNarration,
   type SceneVideoPromptLimits,
 } from "../services/video/prompt-context.js";
@@ -4796,8 +4797,6 @@ type StoryboardSourceSection = {
   content: string;
 };
 
-const ROLEPLAY_STORYBOARD_SOURCE_MESSAGE_LIMIT = 20;
-
 const STORYBOARD_STATUSES = new Set<GameStoryboardStatus>([
   "planning",
   "rendering_images",
@@ -5472,28 +5471,21 @@ function storyboardTurnNumberForMessage(
   return null;
 }
 
-export function selectRoleplayStoryboardSourceWindow<T extends { id: string; role: string }>(
+export function selectRoleplayStoryboardLatestExchange<T extends { id: string; role: string }>(
   messages: T[],
   currentMessageId: string,
-  lastSuccessfulMessageId?: string | null,
 ): T[] {
   const currentIndex = messages.findIndex((message) => message.id === currentMessageId);
   if (currentIndex < 0) return [];
-  const lastRunIndex = lastSuccessfulMessageId
-    ? messages.findIndex((message) => message.id === lastSuccessfulMessageId)
-    : -1;
-  let startIndex = lastRunIndex >= 0 && lastRunIndex < currentIndex ? lastRunIndex + 1 : currentIndex;
-  if (startIndex === currentIndex) {
-    for (let index = currentIndex - 1; index >= 0; index -= 1) {
-      const role = messages[index]?.role;
-      if (role === "assistant" || role === "narrator") break;
-      if (role === "user") startIndex = index;
-    }
+  let startIndex = currentIndex;
+  for (let index = currentIndex - 1; index >= 0; index -= 1) {
+    const role = messages[index]?.role;
+    if (role === "assistant" || role === "narrator") break;
+    if (role === "user") startIndex = index;
   }
   return messages
     .slice(startIndex, currentIndex + 1)
-    .filter((message) => message.role === "user" || message.role === "assistant" || message.role === "narrator")
-    .slice(-ROLEPLAY_STORYBOARD_SOURCE_MESSAGE_LIMIT);
+    .filter((message) => message.role === "user" || message.role === "assistant" || message.role === "narrator");
 }
 
 function storyboardSlug(value: string, fallback: string): string {
@@ -5685,10 +5677,8 @@ export async function buildStoryboardIllustratorMessages(args: {
     ownerMode === "game"
       ? "GM narration"
       : args.roleplaySourceIncludesUserMessages
-        ? "Roleplay exchange window"
-        : (args.roleplaySourceMessageCount ?? 1) > 1
-          ? "assistant response window"
-          : "assistant response";
+        ? "latest completed Roleplay exchange"
+        : "latest assistant response";
   const sourceRoleLabel =
     ownerMode === "game" ? "GM" : args.roleplaySourceIncludesUserMessages ? "user and assistant" : "assistant";
   const sourceTurnBlock =
@@ -5699,8 +5689,8 @@ export async function buildStoryboardIllustratorMessages(args: {
     ownerMode === "game"
       ? "Storyboard only this completed GM turn, not the user's next action or choice."
       : args.roleplaySourceIncludesUserMessages
-        ? "Storyboard only this completed Roleplay exchange window in chronological order. User sections establish the actions, dialogue, and requests that lead into the assistant responses; assistant sections establish the completed outcome. Treat out-of-character, meta, and generation instructions as context rather than visible in-world events. Character cards establish identity and appearance, while the exchange establishes current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window."
-        : "Storyboard only this completed assistant response window. Character cards establish identity and appearance, while the source responses establish current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window.";
+        ? "Create one strongest visual scene from only the latest completed Roleplay exchange. The user sections establish the immediate action, dialogue, or request; the assistant section establishes the canonical completed outcome. Treat out-of-character, meta, and generation instructions as context rather than visible in-world events. Character cards establish identity and appearance, while this exchange establishes current visibility, action, pose, expression, clothing changes, and events. Older conversation is continuity context only. Do not turn the run interval into a multi-exchange episode, and do not invent characters, events, or the user's next reply beyond this exchange."
+        : "Create one strongest visual scene from only the latest assistant response. Character cards establish identity and appearance, while the response establishes current visibility, action, pose, expression, clothing changes, and events. Older conversation is continuity context only. Do not turn the run interval into a multi-response episode, and do not invent characters, events, or the user's next reply beyond this response.";
   const promptCtx: GameStoryboardIllustratorCtx = {
     ownerMode,
     sourceTurnLabel,
@@ -10825,6 +10815,7 @@ export async function gameRoutes(app: FastifyInstance) {
       .optional(),
     aspectRatio: z.enum(["16:9", "9:16"]).optional().default("16:9"),
     generateVideos: z.boolean().optional(),
+    sourceGalleryImageId: z.string().min(1).optional(),
     previewOnly: z.boolean().optional().default(false),
     plannedStoryboard: z.unknown().optional(),
     promptOverrides: imagePromptOverrideSchema,
@@ -10891,7 +10882,28 @@ export async function gameRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Storyboards are available only in Game and Roleplay chats." });
       }
 
-      const message = await chats.getMessage(input.messageId);
+      const allMessages = await chats.listMessages(input.chatId);
+      let sourceGalleryImage: ChatGalleryImageRow | null = null;
+      let storyboardMessageId = input.messageId;
+      let storyboardSwipeIndex = input.swipeIndex;
+      if (input.sourceGalleryImageId) {
+        if (ownerMode !== "roleplay") {
+          return reply.status(400).send({ error: "Gallery animation through Storyboard is available only in Roleplay." });
+        }
+        sourceGalleryImage = await gallery.getById(input.sourceGalleryImageId);
+        if (!sourceGalleryImage || sourceGalleryImage.chatId !== input.chatId) {
+          return reply.status(404).send({ error: "Gallery illustration not found" });
+        }
+        const swipes = await chats.listSwipesByMessageIds(allMessages.map((candidate) => candidate.id));
+        const sourceAnchor = resolveGalleryImageSourceAnchor(allMessages, swipes, sourceGalleryImage.id);
+        const anchoredMessage = sourceAnchor ? await chats.getMessage(sourceAnchor.messageId) : null;
+        if (anchoredMessage?.role === "assistant" || anchoredMessage?.role === "narrator") {
+          storyboardMessageId = anchoredMessage.id;
+          storyboardSwipeIndex = sourceAnchor?.swipeIndex ?? anchoredMessage.activeSwipeIndex ?? 0;
+        }
+      }
+
+      const message = await chats.getMessage(storyboardMessageId);
       if (!message || message.chatId !== input.chatId) {
         return reply.status(404).send({ error: "Assistant message not found" });
       }
@@ -10899,14 +10911,14 @@ export async function gameRoutes(app: FastifyInstance) {
         return reply.status(400).send({ error: "Storyboards can only be generated from assistant responses." });
       }
 
-      const rawNarration = await resolveMessageContentForSwipe(chats, message, input.swipeIndex);
+      const rawNarration = await resolveMessageContentForSwipe(chats, message, storyboardSwipeIndex);
       let sourceNarration = compactStoryboardSourceNarration(stripGmCommandTags(rawNarration));
       if (!sourceNarration)
         return reply.status(400).send({ error: "This assistant response has no content to storyboard." });
       let sourceSections = normalizeStoryboardSections(input.sections, sourceNarration);
       let roleplaySourceMessageCount = 1;
       let roleplaySourceIncludesUserMessages = false;
-      let roleplaySourceStartMessageId = input.messageId;
+      let roleplaySourceStartMessageId = storyboardMessageId;
 
       const rawMeta = parseMeta(chat.metadata);
       const meta = await applyStoryboardAgentSettings(rawMeta, agents, ownerMode);
@@ -10918,7 +10930,6 @@ export async function gameRoutes(app: FastifyInstance) {
           .status(400)
           .send({ error: "Add the Storyboard Agent to this chat before generating storyboards." });
       }
-      const allMessages = await chats.listMessages(input.chatId);
       if (
         ownerMode === "roleplay" &&
         input.automatic &&
@@ -10935,19 +10946,12 @@ export async function gameRoutes(app: FastifyInstance) {
         return { skipped: true, reason: "interval" };
       }
       if (ownerMode === "roleplay") {
-        const lastSuccessfulRun = input.automatic
-          ? await agents.getLastSuccessfulRunByType(STORYBOARD_AGENT_ID, input.chatId)
-          : null;
-        const sourceMessages = selectRoleplayStoryboardSourceWindow(
-          allMessages,
-          input.messageId,
-          lastSuccessfulRun?.messageId,
-        );
+        const sourceMessages = selectRoleplayStoryboardLatestExchange(allMessages, storyboardMessageId);
         const windowSections = (
           await Promise.all(
             sourceMessages.map(async (sourceMessage, index): Promise<StoryboardSourceSection | null> => {
               const content =
-                sourceMessage.id === input.messageId
+                sourceMessage.id === storyboardMessageId
                   ? sourceNarration
                   : compactStoryboardSourceNarration(
                       stripGmCommandTags(
@@ -10968,18 +10972,23 @@ export async function gameRoutes(app: FastifyInstance) {
             .join("\n\n");
           roleplaySourceMessageCount = windowSections.filter((section) => section.speaker === "assistant").length;
           roleplaySourceIncludesUserMessages = windowSections.some((section) => section.speaker === "user");
-          roleplaySourceStartMessageId = sourceMessages[0]?.id ?? input.messageId;
+          roleplaySourceStartMessageId = sourceMessages[0]?.id ?? storyboardMessageId;
         }
       }
       const storyboardDurationSeconds = normalizeStoryboardDuration(
         input.durationSeconds ?? meta.gameStoryboardAnimationDurationSeconds,
         GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT,
       );
-      const storyboardKeyframeCount = normalizeStoryboardKeyframeCount(
-        input.keyframeCount,
-        normalizeStoryboardKeyframeCount(meta.gameStoryboardKeyframeCount),
-      );
-      const generateStoryboardVideos = input.generateVideos ?? meta.gameStoryboardAutoGenerationEnabled === true;
+      const storyboardKeyframeCount =
+        ownerMode === "roleplay"
+          ? 1
+          : normalizeStoryboardKeyframeCount(
+              input.keyframeCount,
+              normalizeStoryboardKeyframeCount(meta.gameStoryboardKeyframeCount),
+            );
+      const generateStoryboardVideos = sourceGalleryImage
+        ? true
+        : (input.generateVideos ?? meta.gameStoryboardAutoGenerationEnabled === true);
       const enableGen =
         (ownerMode === "game" && !!meta.enableSpriteGeneration) ||
         readTrimmedString(meta.storyboardAgentImageConnectionId) !== null;
@@ -11003,9 +11012,9 @@ export async function gameRoutes(app: FastifyInstance) {
       const storyboardSpatialProjection =
         (await resolveOwnerSpatialProjection(
           input.chatId,
-          { exactAnchor: { messageId: input.messageId, swipeIndex: input.swipeIndex } },
+          { exactAnchor: { messageId: storyboardMessageId, swipeIndex: storyboardSwipeIndex } },
           meta,
-        )) ?? (await resolveOwnerSpatialProjection(input.chatId, { throughMessageId: input.messageId }, meta));
+        )) ?? (await resolveOwnerSpatialProjection(input.chatId, { throughMessageId: storyboardMessageId }, meta));
       const spatialLocationReferenceImage = await resolveSpatialLocationReferenceImage({
         db: app.db,
         chatId: input.chatId,
@@ -11038,7 +11047,7 @@ export async function gameRoutes(app: FastifyInstance) {
 
       const setupCfg = ownerMode === "game" ? ((meta.gameSetupConfig as Record<string, unknown> | null) ?? null) : null;
       const latestState = await createGameStateStorage(app.db)
-        .getByChatAndMessage(input.chatId, input.messageId, input.swipeIndex)
+        .getByChatAndMessage(input.chatId, storyboardMessageId, storyboardSwipeIndex)
         .catch(() => null);
       const fallbackState =
         latestState ??
@@ -11345,19 +11354,37 @@ export async function gameRoutes(app: FastifyInstance) {
         return { items, plannedStoryboard: plan };
       }
 
+      let videoRuntime: GameVideoRuntime | null = null;
+      let videoFallback: Awaited<ReturnType<typeof resolveVideoConnectionFallback>> = undefined;
+      if (generateStoryboardVideos && !usedFallbackStoryboardPlanner) {
+        const videoConnectionId =
+          readTrimmedString(meta.storyboardAgentVideoConnectionId) ??
+          (ownerMode === "game" ? await resolveGameVideoConnectionId(meta, connections) : null);
+        const videoConn = videoConnectionId ? await connections.getWithKey(videoConnectionId) : null;
+        if (videoConn?.provider === "video_generation") {
+          videoRuntime = resolveGameVideoRuntime(videoConn);
+          videoFallback = await resolveVideoConnectionFallback(connections, videoConn.id);
+        }
+      }
+      if (sourceGalleryImage && !videoRuntime) {
+        return reply.status(400).send({
+          error: "Choose a video connection in the Storyboard Agent settings before animating a gallery image.",
+        });
+      }
+
       const snapshot =
         ownerMode === "game"
           ? await createGameStateStorage(app.db)
-              .getByChatAndMessage(input.chatId, input.messageId, input.swipeIndex)
+              .getByChatAndMessage(input.chatId, storyboardMessageId, storyboardSwipeIndex)
               .catch(() => null)
           : null;
       const storyboardRow = await storyboards.create({
         chatId: input.chatId,
-        messageId: input.messageId,
-        swipeIndex: input.swipeIndex,
+        messageId: storyboardMessageId,
+        swipeIndex: storyboardSwipeIndex,
         snapshotId: snapshot?.id ?? null,
         sessionNumber: ownerMode === "game" ? currentGameSessionNumber(meta) : null,
-        turnNumber: ownerMode === "game" ? storyboardTurnNumberForMessage(allMessages, input.messageId) : null,
+        turnNumber: ownerMode === "game" ? storyboardTurnNumberForMessage(allMessages, storyboardMessageId) : null,
         title: plan.title,
         sourceNarration,
         sourceNarrationHash: storyboardSourceNarrationHash(sourceNarration),
@@ -11390,19 +11417,6 @@ export async function gameRoutes(app: FastifyInstance) {
           status: "planned",
         })),
       );
-
-      let videoRuntime: GameVideoRuntime | null = null;
-      let videoFallback: Awaited<ReturnType<typeof resolveVideoConnectionFallback>> = undefined;
-      if (generateStoryboardVideos && !usedFallbackStoryboardPlanner) {
-        const videoConnectionId =
-          readTrimmedString(meta.storyboardAgentVideoConnectionId) ??
-          (ownerMode === "game" ? await resolveGameVideoConnectionId(meta, connections) : null);
-        const videoConn = videoConnectionId ? await connections.getWithKey(videoConnectionId) : null;
-        if (videoConn?.provider === "video_generation") {
-          videoRuntime = resolveGameVideoRuntime(videoConn);
-          videoFallback = await resolveVideoConnectionFallback(connections, videoConn.id);
-        }
-      }
 
       const frameRows = await storyboards.listKeyframes(storyboardRow.id);
       const backgroundController = new AbortController();
@@ -11453,55 +11467,64 @@ export async function gameRoutes(app: FastifyInstance) {
         let sentIllustrationPrompt: string | null = null;
         const promptOverride = storyboardPromptOverrideById.get(`storyboard:${frame.index}`);
         try {
-          const tag = await generateSceneIllustration({
-            chatId: input.chatId,
-            title: illustration.title,
-            prompt: illustration.prompt,
-            reason: illustration.reason,
-            characters: illustration.characters,
-            characterDescriptions: illustrationAssets.characterDescriptions,
-            slug: illustration.slug,
-            genre,
-            setting,
-            artStyle,
-            imagePromptInstructions,
-            referenceImages: illustrationAssets.referenceImages,
-            locationReferenceImageAttached: spatialLocationReferenceImage != null,
-            characterPrompts: illustration.characterPrompts,
-            imgSource,
-            imgModel,
-            imgBaseUrl,
-            imgApiKey,
-            imgService: imgServiceHint,
-            imgEndpointId,
-            imgComfyWorkflow,
-            imgDefaults,
-            imgFallback,
-            styleProfiles,
-            styleProfileId,
-            debugLog: debugLogsEnabled ? debugLog : undefined,
-            promptOverridesStorage,
-            size: backgroundSize,
-            promptOverride: promptOverride?.prompt,
-            negativePromptOverride: promptOverride?.negativePrompt,
-            useGamePromptTemplate: useStoryboardPromptTemplate,
-            storyboardImagePromptTemplateId: readTrimmedString(meta.gameStoryboardImagePromptTemplateId),
-            storyboardImagePromptTemplates: meta.gameStoryboardImagePromptTemplates,
-            preserveFullScenePrompt: true,
-            onCompiledPrompt: (compiled) => {
-              sentIllustrationPrompt = compiled.prompt;
-            },
-            signal: backgroundSignal,
-          });
-          if (!tag) throw new Error("Image provider did not return a storyboard keyframe.");
-          const galleryImage = await addGeneratedIllustrationToGallery({
-            app,
-            chatId: input.chatId,
-            tag,
-            illustration,
-            model: imgModel,
-            prompt: sentIllustrationPrompt,
-          });
+          let galleryImage = sourceGalleryImage;
+          if (!galleryImage) {
+            const tag = await generateSceneIllustration({
+              chatId: input.chatId,
+              title: illustration.title,
+              prompt: illustration.prompt,
+              reason: illustration.reason,
+              characters: illustration.characters,
+              characterDescriptions: illustrationAssets.characterDescriptions,
+              slug: illustration.slug,
+              genre,
+              setting,
+              artStyle,
+              imagePromptInstructions,
+              referenceImages: illustrationAssets.referenceImages,
+              locationReferenceImageAttached: spatialLocationReferenceImage != null,
+              characterPrompts: illustration.characterPrompts,
+              imgSource,
+              imgModel,
+              imgBaseUrl,
+              imgApiKey,
+              imgService: imgServiceHint,
+              imgEndpointId,
+              imgComfyWorkflow,
+              imgDefaults,
+              imgFallback,
+              styleProfiles,
+              styleProfileId,
+              debugLog: debugLogsEnabled ? debugLog : undefined,
+              promptOverridesStorage,
+              size: backgroundSize,
+              promptOverride: promptOverride?.prompt,
+              negativePromptOverride: promptOverride?.negativePrompt,
+              useGamePromptTemplate: useStoryboardPromptTemplate,
+              storyboardImagePromptTemplateId: readTrimmedString(meta.gameStoryboardImagePromptTemplateId),
+              storyboardImagePromptTemplates: meta.gameStoryboardImagePromptTemplates,
+              preserveFullScenePrompt: true,
+              onCompiledPrompt: (compiled) => {
+                sentIllustrationPrompt = compiled.prompt;
+              },
+              signal: backgroundSignal,
+            });
+            if (!tag) throw new Error("Image provider did not return a storyboard keyframe.");
+            galleryImage = await addGeneratedIllustrationToGallery({
+              app,
+              chatId: input.chatId,
+              tag,
+              illustration,
+              model: imgModel,
+              prompt: sentIllustrationPrompt,
+            });
+          } else if (debugLogsEnabled) {
+            debugLog(
+              "[debug/game/storyboard-image] frame=%d reusing gallery image %s as the first frame",
+              frame.index + 1,
+              galleryImage.id,
+            );
+          }
           if (!galleryImage) throw new Error("Storyboard keyframe image could not be saved to gallery.");
           await storyboards.updateKeyframe(frame.id, { chatImageId: galleryImage.id, status: "image_complete" });
 
@@ -11625,7 +11648,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const releaseBackgroundStoryboardLock = releaseStoryboardLock;
       releaseStoryboardLock = null;
 
-      void (async () => {
+      const renderStoryboardMedia = async () => {
         const backgroundTimeout = setTimeout(() => {
           backgroundController.abort(
             new Error(
@@ -11659,7 +11682,7 @@ export async function gameRoutes(app: FastifyInstance) {
               .saveRun({
                 agentConfigId: storyboardAgentConfigId,
                 chatId: input.chatId,
-                messageId: input.messageId,
+                messageId: storyboardMessageId,
                 result: {
                   agentId: storyboardAgentConfigId,
                   agentType: STORYBOARD_AGENT_ID,
@@ -11694,7 +11717,23 @@ export async function gameRoutes(app: FastifyInstance) {
           clearTimeout(backgroundTimeout);
           releaseBackgroundStoryboardLock?.();
         }
-      })();
+      };
+
+      if (sourceGalleryImage) {
+        await renderStoryboardMedia();
+        const completedStoryboardRow = await storyboards.getById(storyboardRow.id);
+        if (!completedStoryboardRow) throw new Error("Storyboard metadata could not be reloaded");
+        return {
+          storyboard: await serializeGameTurnStoryboard({
+            storyboards,
+            gallery,
+            sceneVideos,
+            row: completedStoryboardRow,
+          }),
+        };
+      }
+
+      void renderStoryboardMedia();
 
       return {
         storyboard: initialStoryboard,

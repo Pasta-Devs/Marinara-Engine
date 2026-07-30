@@ -171,11 +171,11 @@ Responsible for image and video generations. It writes visual prompts for import
 
 ### Storyboard
 
-Plans and generates still images or animated clips from completed narration. Game keeps its turn-based storyboard flow. In Roleplay, Storyboard combines the ordered user and assistant messages since its previous successful run into one visual plan, without creating a Game session or adding a transcript message. Its interval is still counted in completed assistant responses.
+Plans and generates still images or animated clips from completed narration. Game keeps its turn-based storyboard flow. In Roleplay, each run plans one scene from the latest completed user-and-assistant exchange, without creating a Game session or adding a transcript message. Its interval is counted in completed assistant responses and controls frequency only; it never expands the source into multiple exchanges.
 
 - **Integration**: Host-managed visual feature; it runs through the Storyboard media workflow instead of the normal agent prompt pipeline.
 - **Where it works**: Roleplay and Game. It does not require Illustrator to be installed or enabled.
-- **Key settings**: automatic stills, automatic animations, or manual only; run interval (5 completed assistant responses by default in Roleplay); planner, image, and video prompt templates; image and video connections; keyframes; clip duration; viewer layout; appearance and avatar references. **Create storyboard** in the Gallery runs it immediately for the latest exchange, and **View storyboard** opens its source message or viewer. Roleplay defaults to one keyframe per source window and displays it inline with the message; Floating viewer and Background layer remain selectable. Storyboard does not change Illustrator; if both are automatic, both may generate for the same response.
+- **Key settings**: automatic stills, automatic animations, or manual only; run interval (5 completed assistant responses by default in Roleplay); planner, image, and video prompt templates; image and video connections; keyframes; clip duration; viewer layout; appearance and avatar references. **Create storyboard** in the Gallery runs it immediately for the latest exchange, and **View storyboard** opens its source message or viewer. The Animate action reuses a selected Roleplay Gallery image as frame zero and sends it through Storyboard's motion planner. Roleplay uses one keyframe per run and displays it inline with the message; Floating viewer and Background layer remain selectable. Storyboard does not change Illustrator; if both are automatic, both may generate for the same response.
 
 ### Lorebook Keeper
 

@@ -9,14 +9,40 @@ export interface SceneVideoPromptLimits {
 export interface GalleryVideoNarrationMessage {
   id: string;
   role?: string | null;
+  activeSwipeIndex?: number | null;
   content?: string | null;
   extra?: unknown;
 }
 
 export interface GalleryVideoNarrationSwipe {
   messageId: string;
+  index?: number | null;
   content?: string | null;
   extra?: unknown;
+}
+
+export function resolveGalleryImageSourceAnchor(
+  messages: GalleryVideoNarrationMessage[],
+  swipes: GalleryVideoNarrationSwipe[],
+  galleryImageId: string,
+): { messageId: string; swipeIndex: number } | null {
+  const targetGalleryImageId = galleryImageId.trim();
+  if (!targetGalleryImageId) return null;
+  const sourceSwipe = swipes.find((swipe) => extraReferencesGalleryImage(swipe.extra, targetGalleryImageId));
+  if (sourceSwipe) {
+    return {
+      messageId: sourceSwipe.messageId,
+      swipeIndex: typeof sourceSwipe.index === "number" ? sourceSwipe.index : 0,
+    };
+  }
+  const sourceMessage = messages.find((message) =>
+    extraReferencesGalleryImage(message.extra, targetGalleryImageId),
+  );
+  if (!sourceMessage) return null;
+  return {
+    messageId: sourceMessage.id,
+    swipeIndex: typeof sourceMessage.activeSwipeIndex === "number" ? sourceMessage.activeSwipeIndex : 0,
+  };
 }
 
 const XAI_PROMPT_MAX_LENGTH = 3800;

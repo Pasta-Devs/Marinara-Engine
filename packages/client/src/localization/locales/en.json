@@ -1392,7 +1392,7 @@
   "ui.agents.storyboard.promptChainTitle": "Storyboard prompt chain",
   "ui.agents.storyboard.roleplayImageConnectionRequired": "Roleplay storyboards need a Storyboard image connection. Choose one in Storyboard setup before generating.",
   "ui.agents.storyboard.roleplayVideoConnectionRequired": "Roleplay animations need a Storyboard video connection. Choose one in Storyboard setup before generating.",
-  "ui.agents.storyboard.runIntervalDescription": "How many completed assistant responses Storyboard combines into each automatic Roleplay visual plan. Set to 1 to plan every response.",
+  "ui.agents.storyboard.runIntervalDescription": "How many completed assistant responses between automatic Roleplay scenes. Each run plans only the latest completed exchange.",
   "ui.agents.storyboard.settings": "Storyboard settings",
   "ui.agents.storyboard.settingsDescription": "Configure the planner, image, and animation prompt chains used by Game and Roleplay.",
   "ui.agents.storyboard.stillImages": "Still images",

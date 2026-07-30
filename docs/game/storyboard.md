@@ -1,6 +1,6 @@
 # Storyboard Engine Guide
 
-This guide explains the Game Mode storyboard workflow in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboard also works in Roleplay, where automatic runs can combine ordered user-and-assistant exchanges and **Create storyboard** in the Gallery can process the latest exchange immediately. It does not run in Conversation chats.
+This guide explains the Game Mode storyboard workflow in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboard also works in Roleplay, where each run plans one scene from the latest completed user-and-assistant exchange and **Create storyboard** in the Gallery can process it immediately. The Roleplay run interval controls frequency, not the number of source exchanges. It does not run in Conversation chats.
 
 ## What storyboards are
 

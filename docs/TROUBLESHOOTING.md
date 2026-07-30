@@ -189,7 +189,7 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 
 ### Storyboards or scene videos do not appear
 
-Storyboards work in Game and Roleplay. Game turns one completed narration turn into keyframes and optional clips. Roleplay uses its configured run interval to combine completed assistant responses into a visual plan.
+Storyboards work in Game and Roleplay. Game turns one completed narration turn into keyframes and optional clips. In Roleplay, the run interval controls how often Storyboard runs; each automatic run plans one scene from only the latest completed user-and-assistant exchange.
 
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
 - Confirm the Storyboard package is installed and added to this chat; Illustrator is not required.
