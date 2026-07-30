@@ -675,11 +675,21 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     if (enabled && data?.settings.noodlerOnboardingComplete === false) setOnboardingMode("first-run");
   }, [data?.settings.noodlerOnboardingComplete, enabled]);
 
-  // NoodleR can only be entered through the opt-in gate in NoodleHome, so a persisted
-  // navigation state pointing here while the feature is off has nowhere to render.
+  // Arriving straight from the opt-in gate: open the wizard on intent rather than waiting for the
+  // settings query to report the opt-in, then drop the flag so a reload doesn't reopen it.
+  const arrivedFromGate = navigation.mode === "noodler" && navigation.view === "hub" && navigation.onboarding === true;
   useEffect(() => {
-    if (data && !enabled) onNavigate({ mode: "public", view: "home" });
-  }, [data, enabled, onNavigate]);
+    if (!arrivedFromGate) return;
+    setOnboardingMode("first-run");
+    onNavigate({ mode: "noodler", view: "hub" });
+  }, [arrivedFromGate, onNavigate]);
+
+  // NoodleR can only be entered through the opt-in gate in NoodleHome, so a persisted
+  // navigation state pointing here while the feature is off has nowhere to render. Right after the
+  // gate the bootstrap can still report the pre-opt-in value, so never bounce on that first render.
+  useEffect(() => {
+    if (data && !enabled && !arrivedFromGate && onboardingMode === null) onNavigate({ mode: "public", view: "home" });
+  }, [arrivedFromGate, data, enabled, onboardingMode, onNavigate]);
 
   const beginCreate = () => {
     setEditingProfileId(null);

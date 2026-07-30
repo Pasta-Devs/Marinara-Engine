@@ -728,6 +728,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     navigation.mode === "settings"
       ? (navigation.section ?? (settingsTab === "noodle" ? "general" : "general"))
       : "general";
+  const noodlerSettingsActive = navigation.mode === "settings" && settingsTab === "noodler";
   const viewedProfileAccountId =
     navigation.mode === "public" && navigation.view === "profile" ? navigation.accountId : null;
   const profileConnectionTab =
@@ -2524,7 +2525,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       { enableNoodler: true },
       {
         onSuccess: () => {
-          onNavigate({ mode: "noodler", view: "hub" });
+          onNavigate({ mode: "noodler", view: "hub", onboarding: true });
           setAccountSwitcherOpen(false);
           setMobileDrawerOpen(false);
           setActiveComposerTool(null);
@@ -4115,7 +4116,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
   return (
     <NoodleShell
-      appMode="noodle"
+      // The settings surface is shared, so the shell has to follow the product tab: the NoodleR
+      // tab keeps the pink NoodleR identity (and its Hub home destination) instead of snapping
+      // back to blue Noodle just because NoodleHome renders it.
+      appMode={noodlerSettingsActive ? "noodler" : "noodle"}
+      accent={noodlerSettingsActive ? NOODLE_PINK : undefined}
       activeView={
         activeNoodleView === "home" ||
         activeNoodleView === "search" ||

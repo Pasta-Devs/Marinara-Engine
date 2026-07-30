@@ -26,7 +26,8 @@ export type NoodleSettingsNavigationState = {
 };
 
 export type NoodlerNavigationState =
-  | { mode: "noodler"; view: "hub" }
+  /** `onboarding` is set by the opt-in gate so the hub opens the first-run wizard on arrival. */
+  | { mode: "noodler"; view: "hub"; onboarding?: boolean }
   | { mode: "noodler"; view: "profiles"; returnToSettings?: NoodleSettingsNavigationState }
   | { mode: "noodler"; view: "profile"; accountId: string; returnToSettings?: NoodleSettingsNavigationState }
   | { mode: "noodler"; view: "create-profile"; noodleAccountId: string };

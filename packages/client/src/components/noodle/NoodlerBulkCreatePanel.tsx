@@ -63,7 +63,10 @@ const DEMO_POST: Pick<NoodlerPostView, "id" | "access" | "createdAt" | "title" |
   access: "locked",
   createdAt: new Date().toISOString(),
   title: null,
-  imageUrl: "/sprites/mari/Mari_greet.png",
+  // Pre-blurred teaser: the locked card is what the user is being taught to recognise, so the demo
+  // image must read as "paywalled" even outside the card's own blur treatment. Unlocking swaps in
+  // the payoff image (see `unlockedImageUrl` below) rather than sharpening this one.
+  imageUrl: "/sprites/mari/Mari_noodler_teaser_locked.webp",
   likeCount: 12,
   replyCount: 3,
 };
@@ -400,6 +403,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   demo={{
                     body: t("ui.noodle.noodlerwizard.mariPost"),
                     unlockedLabel: t("ui.noodle.postaccess.unlocked"),
+                    unlockedImageUrl: "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
                   }}
                 />
               </div>

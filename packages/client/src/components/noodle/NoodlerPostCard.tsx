@@ -85,7 +85,8 @@ export function LockedNoodlerPostCard({
   onManage?: () => void;
   onOpenProfile?: (accountId: string) => void;
   /** Onboarding only: unlocking reveals this text locally instead of calling the server. */
-  demo?: { body: string; unlockedLabel: string };
+  /** `unlockedImageUrl` lets the demo pay off with a different image than the locked teaser. */
+  demo?: { body: string; unlockedLabel: string; unlockedImageUrl?: string };
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [unlockSheetOpen, setUnlockSheetOpen] = useState(false);
@@ -141,7 +142,7 @@ export function LockedNoodlerPostCard({
             )}
           >
             <img
-              src={post.imageUrl}
+              src={(revealed && demo?.unlockedImageUrl) || post.imageUrl}
               alt=""
               className={cn(
                 "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
