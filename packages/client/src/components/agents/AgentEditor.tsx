@@ -3598,20 +3598,46 @@ export function AgentEditor() {
           )}
 
           {isStoryboardAgent && (
-            <FieldGroup
-              label={localizeUi("ui.agents.storyboard.settings")}
-              icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
-              help={localizeUi("ui.agents.storyboard.settingsDescription")}
-            >
-              <StoryboardAgentSettingsPanel
-                settings={localStoryboardSettings}
-                defaults={storyboardDefaultSettings}
-                plannerTemplates={localPromptTemplates}
-                connections={allConnections}
-                onChange={setLocalStoryboardSettings}
-                onDirty={markDirty}
-              />
-            </FieldGroup>
+            <>
+              <FieldGroup
+                label={localizeUi("ui.agents.agenteditor.runInterval")}
+                icon={<Clock size="0.875rem" className="text-[var(--primary)]" />}
+                help={localizeUi("ui.agents.storyboard.runIntervalDescription")}
+              >
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={localRunInterval}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setLocalRunInterval(value === "" ? "" : Math.max(1, Math.min(100, parseInt(value) || 1)));
+                      markDirty();
+                    }}
+                    placeholder="5"
+                    className="w-28 rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm tabular-nums ring-1 ring-[var(--border)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+                  />
+                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.agents.agenteditor.assistantMessages")}
+                  </span>
+                </div>
+              </FieldGroup>
+              <FieldGroup
+                label={localizeUi("ui.agents.storyboard.settings")}
+                icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
+                help={localizeUi("ui.agents.storyboard.settingsDescription")}
+              >
+                <StoryboardAgentSettingsPanel
+                  settings={localStoryboardSettings}
+                  defaults={storyboardDefaultSettings}
+                  plannerTemplates={localPromptTemplates}
+                  connections={allConnections}
+                  onChange={setLocalStoryboardSettings}
+                  onDirty={markDirty}
+                />
+              </FieldGroup>
+            </>
           )}
 
           {/* ── Prompt Template ── */}

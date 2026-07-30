@@ -501,6 +501,7 @@ import {
   resolveDynamicGameImagePromptConnection,
   resolveNpcPortraitAppearance,
   sanitizeNpcPortraitAppearanceText,
+  selectRoleplayStoryboardSourceWindow,
   selectLatestGameTurnNarration,
   selectStoryboardAppearanceCharacterNames,
 } from "../../packages/server/src/routes/game.routes.js";
@@ -2474,6 +2475,14 @@ const cases: RegressionCase[] = [
         new URL("../../packages/server/src/routes/game.routes.ts", import.meta.url),
         "utf8",
       );
+      const agentResolutionSource = readFileSync(
+        new URL("../../packages/server/src/services/generation/agent-resolution.ts", import.meta.url),
+        "utf8",
+      );
+      const roleplayStoryboardOverlaySource = readFileSync(
+        new URL("../../packages/client/src/components/chat/RoleplayStoryboardOverlay.tsx", import.meta.url),
+        "utf8",
+      );
       const chatsRouteSource = readFileSync(
         new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
         "utf8",
@@ -2538,7 +2547,19 @@ const cases: RegressionCase[] = [
       assert.match(serviceSource, /meta\.gameSceneConnectionId \?\? config\.connectionId/u);
       assert.match(serviceSource, /meta\.gameImageConnectionId \?\? settings\.imageConnectionId/u);
       assert.match(serviceSource, /meta\.gameVideoConnectionId \?\? settings\.videoConnectionId/u);
-      assert.match(routeSource, /Install the Storyboard Agent before generating Game storyboards/u);
+      assert.match(routeSource, /Install the Storyboard Agent before generating storyboards/u);
+      assert.match(routeSource, /chat\.mode === "game"[\s\S]*?chat\.mode === "roleplay"/u);
+      assert.match(routeSource, /shouldSkipAgentByAssistantInterval/u);
+      assert.match(routeSource, /countUpcomingAssistantMessage: false/u);
+      assert.match(routeSource, /ownerMode === "game" \? imageSettings\.game : imageSettings\.illustration/u);
+      assert.match(routeSource, /roleplayCharacterContextBlock/u);
+      assert.match(routeSource, /selectRoleplayStoryboardSourceWindow/u);
+      assert.match(agentResolutionSource, /!isBuiltInAgentHostManaged\(agent\.type as string\)/u);
+      assert.match(agentResolutionSource, /if \(isBuiltInAgentHostManaged\(agent\.id\)\) return false/u);
+      assert.doesNotMatch(agentResolutionSource, /storyboardOwnsAutomaticVisuals/u);
+      assert.match(roleplayStoryboardOverlaySource, /automatic: true/u);
+      assert.match(roleplayStoryboardOverlaySource, /GameStoryboardInlineViewer/u);
+      assert.match(roleplayStoryboardOverlaySource, /GameStoryboardBackgroundVisual/u);
       assert.match(routeSource, /storyboardAgentImageConnectionId/u);
       assert.match(routeSource, /storyboardAgentVideoConnectionId/u);
       assert.match(routeSource, /meta\.storyboardAgentIncludeCharacterAppearance !== false/u);
@@ -3150,6 +3171,98 @@ const cases: RegressionCase[] = [
           storyboardMessages.systemPrompt.indexOf("Turn exactly one completed GM narration"),
       );
       assert.match(storyboardMessages.systemPrompt, /omit it instead of guessing/iu);
+
+      const roleplayStoryboardMessages = await buildStoryboardIllustratorMessages({
+        meta: {
+          gameStoryboardPromptTemplates: [
+            {
+              id: "regression-roleplay-planner",
+              name: "Regression Roleplay Planner",
+              promptTemplate: "Mode=\${ownerMode}\n\${modeRulesBlock}\n\${contextBlock}",
+            },
+          ],
+          gameStoryboardIllustrationPlannerTemplateIds: ["regression-roleplay-planner"],
+          gameStoryboardIllustrationPromptTemplateId: "regression-roleplay-planner",
+        },
+        setupConfig: null,
+        latestState: null,
+        sourceNarration: "Lyra closes the rain-darkened door behind her.",
+        sections: [],
+        keyframeCount: 1,
+        durationSeconds: 6,
+        aspectRatio: "16:9",
+        generateVideos: false,
+        ownerMode: "roleplay",
+        allowedCharacterNames: ["Lyra"],
+        roleplayCharacterContextBlock:
+          "<roleplay_character_context>Character: Lyra\nAppearance: silver hair</roleplay_character_context>",
+        recentConversationBlock:
+          '<recent_conversation><message role="user">Come inside.</message></recent_conversation>',
+        spatialBreadcrumb: "Town > Inn",
+      });
+      assert.match(roleplayStoryboardMessages.systemPrompt, /^Mode=roleplay/u);
+      assert.match(
+        roleplayStoryboardMessages.systemPrompt,
+        /Do not invent characters, events, or the user's next reply beyond the source window/u,
+      );
+      assert.doesNotMatch(roleplayStoryboardMessages.systemPrompt, /\b(?:GM|Game setup|party|NPC|CYOA)\b/u);
+      assert.match(roleplayStoryboardMessages.systemPrompt, /roleplay_character_context/u);
+      assert.match(roleplayStoryboardMessages.systemPrompt, /Town &gt; Inn/u);
+      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /completed assistant response/u);
+      assert.doesNotMatch(roleplayStoryboardMessages.messages[1]?.content ?? "", /gm_turn_narration/u);
+
+      const roleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
+        [
+          { id: "previous-run", role: "assistant" },
+          { id: "user-1", role: "user" },
+          { id: "assistant-1", role: "assistant" },
+          { id: "user-2", role: "user" },
+          { id: "assistant-2", role: "assistant" },
+        ],
+        "assistant-2",
+        "previous-run",
+      );
+      assert.deepEqual(
+        roleplaySourceWindow.map((message) => message.id),
+        ["assistant-1", "assistant-2"],
+      );
+      const firstRoleplaySourceWindow = selectRoleplayStoryboardSourceWindow(
+        [
+          { id: "older", role: "assistant" },
+          { id: "current", role: "assistant" },
+        ],
+        "current",
+        null,
+      );
+      assert.deepEqual(firstRoleplaySourceWindow.map((message) => message.id), ["current"]);
+
+      const multiResponseStoryboardMessages = await buildStoryboardIllustratorMessages({
+        meta: {
+          gameStoryboardPromptTemplates: [
+            {
+              id: "regression-roleplay-window",
+              name: "Regression Roleplay Window",
+              promptTemplate: "Source=\${sourceTurnLabel}",
+            },
+          ],
+          gameStoryboardIllustrationPlannerTemplateIds: ["regression-roleplay-window"],
+          gameStoryboardIllustrationPromptTemplateId: "regression-roleplay-window",
+        },
+        setupConfig: null,
+        latestState: null,
+        sourceNarration: "First beat.\n\nSecond beat.",
+        sections: [
+          { index: 0, kind: "narration", content: "First beat." },
+          { index: 1, kind: "narration", content: "Second beat." },
+        ],
+        keyframeCount: 1,
+        durationSeconds: 6,
+        aspectRatio: "16:9",
+        generateVideos: false,
+        ownerMode: "roleplay",
+        roleplaySourceMessageCount: 2,
+      });
+      assert.match(multiResponseStoryboardMessages.systemPrompt, /^Source=assistant response window/u);
 
       const compiled = await buildSceneIllustrationProviderPrompt({
         chatId: "prompt-regression",

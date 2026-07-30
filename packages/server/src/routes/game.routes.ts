@@ -242,6 +242,7 @@ import {
 } from "../services/storage/prompt-overrides.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { applyStoryboardAgentSettings } from "../services/game/storyboard-agent-settings.js";
+import { shouldSkipAgentByAssistantInterval } from "../services/generation/agent-cadence.js";
 import {
   GAME_NARRATION_SUMMARIZER,
   GAME_IMAGE_PROMPT_DIRECTOR,
@@ -438,6 +439,7 @@ type StoryboardCharacterContext = IllustrationCharacterAssetMaps & {
   allowedCharacterNames: string[];
   personaName: string | null;
   trackedNpcs: Array<Record<string, unknown>>;
+  roleplayCharacterContextBlock: string;
 };
 
 function emptyIllustrationCharacterAssetMaps(): IllustrationCharacterAssetMaps {
@@ -527,6 +529,11 @@ function storyboardTrackedNpcsFromState(latestState: unknown): Array<Record<stri
     trackedNpcs.push({
       name,
       description: readTrimmedString(character.appearance) ?? readTrimmedString(character.description) ?? "",
+      appearance: readTrimmedString(character.appearance),
+      outfit: readTrimmedString(character.outfit),
+      mood: readTrimmedString(character.mood),
+      action: readTrimmedString(character.action),
+      customFields: asStoryboardRecord(character.customFields),
       avatarUrl: readTrimmedString(character.avatarPath) ?? readTrimmedString(character.avatarUrl),
       gender: readTrimmedString(character.gender),
       pronouns: readTrimmedString(character.pronouns),
@@ -541,13 +548,18 @@ async function buildStoryboardCharacterContext(args: {
   meta: Record<string, unknown>;
   setupConfig: Record<string, unknown> | null;
   latestState: unknown;
+  ownerMode: "game" | "roleplay";
 }): Promise<StoryboardCharacterContext> {
   const maps = emptyIllustrationCharacterAssetMaps();
   const allowedCharacterNames: string[] = [];
   const seenAllowedNames = new Set<string>();
   const chatCharacterIds = parseChatCharacterIds(args.chat.characterIds);
-  const libraryCharacterIds = getStoryboardLibraryCharacterIds(args.meta, args.setupConfig, chatCharacterIds);
+  const libraryCharacterIds =
+    args.ownerMode === "roleplay"
+      ? chatCharacterIds
+      : getStoryboardLibraryCharacterIds(args.meta, args.setupConfig, chatCharacterIds);
   let personaName: string | null = null;
+  const roleplayProfiles: string[] = [];
 
   for (const id of libraryCharacterIds) {
     try {
@@ -555,18 +567,47 @@ async function buildStoryboardCharacterContext(args: {
       if (!character) continue;
       const name = addCharacterRowIllustrationAssets(maps, character);
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
+      if (args.ownerMode === "roleplay") {
+        const data = JSON.parse(character.data) as Record<string, unknown>;
+        const extensions = asStoryboardRecord(data.extensions);
+        const fields = [
+          `Character: ${readTrimmedString(data.name) ?? "Unknown"}`,
+          readTrimmedString(data.description) ? `Description: ${compactStoryboardText(data.description, 2000)}` : "",
+          readTrimmedString(data.personality) ? `Personality: ${compactStoryboardText(data.personality, 1200)}` : "",
+          readTrimmedString(data.backstory ?? extensions.backstory)
+            ? `Backstory: ${compactStoryboardText(data.backstory ?? extensions.backstory, 1200)}`
+            : "",
+          readTrimmedString(data.appearance ?? extensions.appearance)
+            ? `Appearance: ${compactStoryboardText(data.appearance ?? extensions.appearance, 1200)}`
+            : "",
+          readTrimmedString(data.scenario) ? `Scenario: ${compactStoryboardText(data.scenario, 1200)}` : "",
+        ].filter(Boolean);
+        roleplayProfiles.push(fields.map(escapeStoryboardXml).join("\n"));
+      }
     } catch {
-      /* skip unresolvable game character */
+      /* skip unresolvable character */
     }
   }
 
-  const personaId = args.chat.personaId || readTrimmedString(args.setupConfig?.personaId);
+  const personaId =
+    args.chat.personaId || (args.ownerMode === "game" ? readTrimmedString(args.setupConfig?.personaId) : null);
   if (personaId) {
     try {
       const persona = await args.characters.getPersona(personaId);
       const name = addPersonaIllustrationAssets(maps, persona);
       personaName = name;
       addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, name);
+      if (args.ownerMode === "roleplay" && persona) {
+        const fields = [
+          `Active persona: ${persona.name || "Unknown"}`,
+          persona.description ? `Description: ${compactStoryboardText(persona.description, 2000)}` : "",
+          persona.personality ? `Personality: ${compactStoryboardText(persona.personality, 1200)}` : "",
+          persona.backstory ? `Backstory: ${compactStoryboardText(persona.backstory, 1200)}` : "",
+          persona.appearance ? `Appearance: ${compactStoryboardText(persona.appearance, 1200)}` : "",
+          persona.scenario ? `Scenario: ${compactStoryboardText(persona.scenario, 1200)}` : "",
+        ].filter(Boolean);
+        roleplayProfiles.push(fields.map(escapeStoryboardXml).join("\n"));
+      }
     } catch {
       /* skip unresolvable persona */
     }
@@ -575,13 +616,15 @@ async function buildStoryboardCharacterContext(args: {
   const trackedNpcs = storyboardTrackedNpcsFromState(args.latestState);
   for (const npc of trackedNpcs) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, npc.name);
 
-  const gameCards = Array.isArray(args.meta.gameCharacterCards)
-    ? (args.meta.gameCharacterCards as Record<string, unknown>[])
-    : [];
-  for (const card of gameCards) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, card.name);
+  if (args.ownerMode === "game") {
+    const gameCards = Array.isArray(args.meta.gameCharacterCards)
+      ? (args.meta.gameCharacterCards as Record<string, unknown>[])
+      : [];
+    for (const card of gameCards) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, card.name);
 
-  const gameNpcs = Array.isArray(args.meta.gameNpcs) ? (args.meta.gameNpcs as GameNpc[]) : [];
-  for (const npc of gameNpcs) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, npc.name);
+    const gameNpcs = Array.isArray(args.meta.gameNpcs) ? (args.meta.gameNpcs as GameNpc[]) : [];
+    for (const npc of gameNpcs) addUniqueCharacterName(allowedCharacterNames, seenAllowedNames, npc.name);
+  }
 
   const cappedAllowedCharacterNames = allowedCharacterNames.slice(0, 40);
   if (
@@ -594,7 +637,16 @@ async function buildStoryboardCharacterContext(args: {
     cappedAllowedCharacterNames.push(personaName);
   }
 
-  return { ...maps, allowedCharacterNames: cappedAllowedCharacterNames, personaName, trackedNpcs };
+  const roleplayCharacterContextBlock = roleplayProfiles.length
+    ? `<roleplay_character_context>\n${roleplayProfiles.join("\n\n")}\n</roleplay_character_context>`
+    : "";
+  return {
+    ...maps,
+    allowedCharacterNames: cappedAllowedCharacterNames,
+    personaName,
+    trackedNpcs,
+    roleplayCharacterContextBlock,
+  };
 }
 
 function collectIllustrationCharacterAssets(opts: {
@@ -4744,6 +4796,8 @@ type StoryboardSourceSection = {
   content: string;
 };
 
+const ROLEPLAY_STORYBOARD_SOURCE_MESSAGE_LIMIT = 20;
+
 const STORYBOARD_STATUSES = new Set<GameStoryboardStatus>([
   "planning",
   "rendering_images",
@@ -5418,6 +5472,23 @@ function storyboardTurnNumberForMessage(
   return null;
 }
 
+export function selectRoleplayStoryboardSourceWindow<T extends { id: string; role: string }>(
+  messages: T[],
+  currentMessageId: string,
+  lastSuccessfulMessageId?: string | null,
+): T[] {
+  const currentIndex = messages.findIndex((message) => message.id === currentMessageId);
+  if (currentIndex < 0) return [];
+  const lastRunIndex = lastSuccessfulMessageId
+    ? messages.findIndex((message) => message.id === lastSuccessfulMessageId)
+    : -1;
+  const startIndex = lastRunIndex >= 0 && lastRunIndex < currentIndex ? lastRunIndex + 1 : currentIndex;
+  return messages
+    .slice(startIndex, currentIndex + 1)
+    .filter((message) => message.role === "assistant" || message.role === "narrator")
+    .slice(-ROLEPLAY_STORYBOARD_SOURCE_MESSAGE_LIMIT);
+}
+
 function storyboardSlug(value: string, fallback: string): string {
   const slug = value
     .normalize("NFKD")
@@ -5470,6 +5541,54 @@ function buildStoryboardGameContextBlock(args: {
   return `<game_context>\n${lines.join("\n")}\n</game_context>`;
 }
 
+function buildStoryboardRecentConversationBlock(
+  messages: Array<{ id: string; role: string; content: string }>,
+  sourceMessageId: string,
+): string {
+  const sourceIndex = messages.findIndex((message) => message.id === sourceMessageId);
+  const priorMessages = (sourceIndex >= 0 ? messages.slice(0, sourceIndex) : messages).slice(-8);
+  if (!priorMessages.length) return "";
+  const lines = priorMessages.map((message) => {
+    const role = message.role === "assistant" || message.role === "narrator" ? "assistant" : "user";
+    return `<message role="${role}">${escapeStoryboardXml(compactStoryboardText(message.content, 2000))}</message>`;
+  });
+  return `<recent_conversation>\n${lines.join("\n")}\n</recent_conversation>`;
+}
+
+function buildStoryboardRoleplayContextBlock(args: {
+  allowedCharacterNames?: string[];
+  characterContextBlock?: string;
+  recentConversationBlock?: string;
+  trackedCharacters?: Array<Record<string, unknown>>;
+  spatialBreadcrumb?: string | null;
+}): string {
+  const trackedCharacters = (args.trackedCharacters ?? []).slice(0, 20).map((character) => ({
+    name: readTrimmedString(character.name),
+    appearance: readTrimmedString(character.appearance) ?? readTrimmedString(character.description),
+    outfit: readTrimmedString(character.outfit),
+    mood: readTrimmedString(character.mood),
+    action: readTrimmedString(character.action),
+    customFields: asStoryboardRecord(character.customFields),
+  }));
+  const overviewLines = [
+    "Mode: roleplay",
+    args.spatialBreadcrumb ? `Location: ${compactStoryboardText(args.spatialBreadcrumb, 800)}` : "",
+    args.allowedCharacterNames?.length
+      ? `Allowed visible characters: ${compactStoryboardText(args.allowedCharacterNames.join(", "), 1200)}`
+      : "",
+    trackedCharacters.length
+      ? `Current Character Tracker state: ${compactStoryboardText(JSON.stringify(trackedCharacters), 3000)}`
+      : "",
+  ].filter(Boolean);
+  return [
+    `<roleplay_context>\n${overviewLines.map(escapeStoryboardXml).join("\n")}\n</roleplay_context>`,
+    args.characterContextBlock,
+    args.recentConversationBlock,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 async function loadStoryboardIllustratorSystemPrompt(args: {
   meta: Record<string, unknown>;
   generateVideos: boolean;
@@ -5503,6 +5622,12 @@ async function loadStoryboardIllustratorSystemPrompt(args: {
 }
 
 interface GameStoryboardIllustratorCtx extends Record<string, string | number | undefined> {
+  ownerMode: "game" | "roleplay";
+  sourceTurnLabel: string;
+  sourceRoleLabel: string;
+  contextBlock: string;
+  sourceTurnBlock: string;
+  modeRulesBlock: string;
   gameContextBlock: string;
   sourceSectionsBlock: string;
   sourceNarration: string;
@@ -5525,20 +5650,52 @@ export async function buildStoryboardIllustratorMessages(args: {
   maxVisibleCharacters?: number;
   structuredCharacterPrompts?: boolean;
   characterAppearanceContextBlock?: string | null;
+  ownerMode?: "game" | "roleplay";
+  roleplayCharacterContextBlock?: string;
+  recentConversationBlock?: string;
+  spatialBreadcrumb?: string | null;
+  roleplaySourceMessageCount?: number;
 }): Promise<{ systemPrompt: string; messages: ChatMessage[] }> {
-  const gameContextBlock = buildStoryboardGameContextBlock({
-    meta: args.meta,
-    setupConfig: args.setupConfig,
-    latestState: args.latestState,
-    allowedCharacterNames: args.allowedCharacterNames,
-  });
+  const ownerMode = args.ownerMode ?? "game";
+  const contextBlock =
+    ownerMode === "game"
+      ? buildStoryboardGameContextBlock({
+          meta: args.meta,
+          setupConfig: args.setupConfig,
+          latestState: args.latestState,
+          allowedCharacterNames: args.allowedCharacterNames,
+        })
+      : buildStoryboardRoleplayContextBlock({
+          allowedCharacterNames: args.allowedCharacterNames,
+          characterContextBlock: args.roleplayCharacterContextBlock,
+          recentConversationBlock: args.recentConversationBlock,
+          trackedCharacters: storyboardTrackedNpcsFromState(args.latestState),
+          spatialBreadcrumb: args.spatialBreadcrumb,
+        });
   const sourceSectionsBlock = buildStoryboardSectionsBlock(args.sections);
-  const sourceNarrationBlock =
+  const sourceTurnLabel =
+    ownerMode === "game"
+      ? "GM narration"
+      : (args.roleplaySourceMessageCount ?? 1) > 1
+        ? "assistant response window"
+        : "assistant response";
+  const sourceRoleLabel = ownerMode === "game" ? "GM" : "assistant";
+  const sourceTurnBlock =
     args.sections.length > 0
-      ? "<gm_turn_narration>\nUse the ordered <turn_sections> block above as the full GM turn narration source.\n</gm_turn_narration>"
-      : `<gm_turn_narration>\n${args.sourceNarration}\n</gm_turn_narration>`;
+      ? `<source_turn>\nUse the ordered <turn_sections> block above as the full ${sourceTurnLabel} source.\n</source_turn>`
+      : `<source_turn>\n${args.sourceNarration}\n</source_turn>`;
+  const modeRulesBlock =
+    ownerMode === "game"
+      ? "Storyboard only this completed GM turn, not the user's next action or choice."
+      : "Storyboard only this completed assistant response window. Character cards establish identity and appearance, while the source responses establish current visibility, action, pose, expression, clothing changes, and events. Do not invent characters, events, or the user's next reply beyond the source window.";
   const promptCtx: GameStoryboardIllustratorCtx = {
-    gameContextBlock,
+    ownerMode,
+    sourceTurnLabel,
+    sourceRoleLabel,
+    contextBlock,
+    sourceTurnBlock,
+    modeRulesBlock,
+    gameContextBlock: contextBlock,
     sourceSectionsBlock,
     sourceNarration: args.sourceNarration,
     keyframeCount: args.keyframeCount,
@@ -5580,16 +5737,16 @@ export async function buildStoryboardIllustratorMessages(args: {
       {
         role: "user",
         content: [
-          gameContextBlock,
+          contextBlock,
           sourceSectionsBlock,
-          sourceNarrationBlock,
+          sourceTurnBlock,
           [
             promptTask,
             `Target keyframes: ${args.keyframeCount}.`,
             `Aspect ratio: ${args.aspectRatio}.`,
             "Do not include videoPrompt, cameraMotion, transitionHint, or continuityNotes fields.",
-            "Remember: storyboard only this GM narration turn, not the user's next CYOA/action.",
-            "Use only allowed visible characters from game_context; include a new NPC only if that exact name appears in this GM narration.",
+            modeRulesBlock,
+            `Use only allowed visible characters from contextBlock; include a new named character only if that exact name appears in this ${sourceTurnLabel}.`,
             args.maxVisibleCharacters
               ? `Each keyframe may include at most ${args.maxVisibleCharacters} visible named characters; if more are present in the narration, choose the most important for that visual beat and treat the others as off-screen or unnamed background.`
               : "",
@@ -10658,6 +10815,7 @@ export async function gameRoutes(app: FastifyInstance) {
     previewOnly: z.boolean().optional().default(false),
     plannedStoryboard: z.unknown().optional(),
     promptOverrides: imagePromptOverrideSchema,
+    automatic: z.boolean().optional().default(false),
     debugMode: z.boolean().optional().default(false),
   });
 
@@ -10696,6 +10854,7 @@ export async function gameRoutes(app: FastifyInstance) {
       `storyboard:${input.chatId}`,
       storyboardAbortSignal,
     );
+    const storyboardStartedAt = Date.now();
     try {
       const requestDebug = input.debugMode === true;
       const debugOverrideEnabled = requestDebug || isDebugAgentsEnabled();
@@ -10714,26 +10873,84 @@ export async function gameRoutes(app: FastifyInstance) {
 
       const chat = await chats.getById(input.chatId);
       if (!chat) return reply.status(404).send({ error: "Chat not found" });
+      const ownerMode = chat.mode === "game" ? "game" : chat.mode === "roleplay" ? "roleplay" : null;
+      if (!ownerMode) {
+        return reply.status(400).send({ error: "Storyboards are available only in Game and Roleplay chats." });
+      }
 
       const message = await chats.getMessage(input.messageId);
-      if (!message || message.chatId !== input.chatId) return reply.status(404).send({ error: "GM message not found" });
+      if (!message || message.chatId !== input.chatId) {
+        return reply.status(404).send({ error: "Assistant message not found" });
+      }
       if (message.role !== "assistant" && message.role !== "narrator") {
-        return reply.status(400).send({ error: "Storyboards can only be generated from GM narration turns." });
+        return reply.status(400).send({ error: "Storyboards can only be generated from assistant responses." });
       }
 
       const rawNarration = await resolveMessageContentForSwipe(chats, message, input.swipeIndex);
-      const sourceNarration = compactStoryboardSourceNarration(stripGmCommandTags(rawNarration));
-      if (!sourceNarration) return reply.status(400).send({ error: "This GM turn has no narration to storyboard." });
-      const sourceSections = normalizeStoryboardSections(input.sections, sourceNarration);
+      let sourceNarration = compactStoryboardSourceNarration(stripGmCommandTags(rawNarration));
+      if (!sourceNarration)
+        return reply.status(400).send({ error: "This assistant response has no content to storyboard." });
+      let sourceSections = normalizeStoryboardSections(input.sections, sourceNarration);
+      let roleplaySourceMessageCount = 1;
 
-      const meta = await applyStoryboardAgentSettings(parseMeta(chat.metadata), agents);
+      const rawMeta = parseMeta(chat.metadata);
+      const meta = await applyStoryboardAgentSettings(rawMeta, agents, ownerMode);
       if (meta.storyboardAgentInstalled !== true) {
-        return reply.status(409).send({ error: "Install the Storyboard Agent before generating Game storyboards." });
+        return reply.status(409).send({ error: "Install the Storyboard Agent before generating storyboards." });
       }
       if (meta.storyboardAgentActive !== true) {
         return reply
           .status(400)
-          .send({ error: "Add the Storyboard Agent to this Game chat before generating storyboards." });
+          .send({ error: "Add the Storyboard Agent to this chat before generating storyboards." });
+      }
+      const allMessages = await chats.listMessages(input.chatId);
+      if (
+        ownerMode === "roleplay" &&
+        input.automatic &&
+        (await shouldSkipAgentByAssistantInterval({
+          agentsStore: agents,
+          chatId: input.chatId,
+          agentType: STORYBOARD_AGENT_ID,
+          settings: { runInterval: meta.storyboardAgentRunInterval },
+          fallbackInterval: 5,
+          messages: allMessages,
+          countUpcomingAssistantMessage: false,
+        }))
+      ) {
+        return { skipped: true, reason: "interval" };
+      }
+      if (ownerMode === "roleplay" && input.automatic) {
+        const lastSuccessfulRun = await agents.getLastSuccessfulRunByType(STORYBOARD_AGENT_ID, input.chatId);
+        const sourceMessages = selectRoleplayStoryboardSourceWindow(
+          allMessages,
+          input.messageId,
+          lastSuccessfulRun?.messageId,
+        );
+        const windowSections = (
+          await Promise.all(
+            sourceMessages.map(async (sourceMessage, index): Promise<StoryboardSourceSection | null> => {
+              const content =
+                sourceMessage.id === input.messageId
+                  ? sourceNarration
+                  : compactStoryboardSourceNarration(
+                      stripGmCommandTags(
+                        await resolveMessageContentForSwipe(
+                          chats,
+                          sourceMessage,
+                          sourceMessage.activeSwipeIndex ?? 0,
+                        ),
+                      ),
+                    );
+              const compactContent = compactStoryboardText(content, 4000);
+              return compactContent ? { index, kind: "narration", speaker: "assistant", content: compactContent } : null;
+            }),
+          )
+        ).filter((section): section is StoryboardSourceSection => section !== null);
+        if (windowSections.length > 0) {
+          sourceSections = windowSections;
+          sourceNarration = windowSections.map((section) => section.content).join("\n\n");
+          roleplaySourceMessageCount = windowSections.length;
+        }
       }
       const storyboardDurationSeconds = normalizeStoryboardDuration(
         input.durationSeconds ?? meta.gameStoryboardAnimationDurationSeconds,
@@ -10745,12 +10962,14 @@ export async function gameRoutes(app: FastifyInstance) {
       );
       const generateStoryboardVideos = input.generateVideos ?? meta.gameStoryboardAutoGenerationEnabled === true;
       const enableGen =
-        !!meta.enableSpriteGeneration || readTrimmedString(meta.storyboardAgentImageConnectionId) !== null;
+        (ownerMode === "game" && !!meta.enableSpriteGeneration) ||
+        readTrimmedString(meta.storyboardAgentImageConnectionId) !== null;
       const imgConnId =
-        readTrimmedString(meta.storyboardAgentImageConnectionId) ?? (await resolveGameImageConnectionId(meta, agents));
+        readTrimmedString(meta.storyboardAgentImageConnectionId) ??
+        (ownerMode === "game" ? await resolveGameImageConnectionId(meta, agents) : null);
       if (!enableGen || !imgConnId) {
         return reply.status(400).send({
-          error: "Choose an image connection in the Storyboard Agent or Game Illustrator settings first.",
+          error: "Choose an image connection in the Storyboard Agent settings first.",
         });
       }
       const imgConn = await connections.getWithKey(imgConnId);
@@ -10771,7 +10990,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const spatialLocationReferenceImage = await resolveSpatialLocationReferenceImage({
         db: app.db,
         chatId: input.chatId,
-        projection: storyboardSpatialProjection?.ownerMode === "game" ? storyboardSpatialProjection : null,
+        projection: storyboardSpatialProjection?.ownerMode === ownerMode ? storyboardSpatialProjection : null,
       });
       const useNovelAiCharacterPrompts = meta.gameStoryboardUseNovelAiCharacterPrompts !== false;
       const providerSupportsStructuredCharacterPrompts =
@@ -10783,17 +11002,22 @@ export async function gameRoutes(app: FastifyInstance) {
 
       const sceneConnId =
         readTrimmedString(meta.storyboardAgentPromptConnectionId) ||
-        readTrimmedString(meta.gameSceneConnectionId) ||
-        readTrimmedString((meta.gameSetupConfig as Record<string, unknown> | null)?.sceneConnectionId);
+        (ownerMode === "game"
+          ? readTrimmedString(meta.gameSceneConnectionId) ||
+            readTrimmedString((meta.gameSetupConfig as Record<string, unknown> | null)?.sceneConnectionId)
+          : null);
       const { conn, baseUrl, defaultGenerationParameters } = await resolveConnection(
         connections,
         sceneConnId,
         chat.connectionId,
       );
-      const parameters = resolveStoredGameGenerationParameters(meta, defaultGenerationParameters);
+      const parameters =
+        ownerMode === "game"
+          ? resolveStoredGameGenerationParameters(meta, defaultGenerationParameters)
+          : mergeStoredGenerationParameters(defaultGenerationParameters, meta.chatParameters);
       const provider = await createGameMainProvider(connections, conn, baseUrl);
 
-      const setupCfg = (meta.gameSetupConfig as Record<string, unknown> | null) ?? null;
+      const setupCfg = ownerMode === "game" ? ((meta.gameSetupConfig as Record<string, unknown> | null) ?? null) : null;
       const latestState = await createGameStateStorage(app.db)
         .getByChatAndMessage(input.chatId, input.messageId, input.swipeIndex)
         .catch(() => null);
@@ -10809,6 +11033,7 @@ export async function gameRoutes(app: FastifyInstance) {
         meta,
         setupConfig: setupCfg,
         latestState: fallbackState,
+        ownerMode,
       });
       const includeCharacterAppearance = meta.storyboardAgentIncludeCharacterAppearance !== false;
       const storyboardAppearanceCharacterNames = selectStoryboardAppearanceCharacterNames({
@@ -10824,7 +11049,7 @@ export async function gameRoutes(app: FastifyInstance) {
         },
         characterNames: storyboardAppearanceCharacterNames,
         trackedNpcs: storyboardCharacterContext.trackedNpcs,
-        gameNpcs: Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [],
+        gameNpcs: ownerMode === "game" && Array.isArray(meta.gameNpcs) ? (meta.gameNpcs as GameNpc[]) : [],
         charReferenceByName: storyboardCharacterContext.charReferenceByName,
         charAvatarByName: storyboardCharacterContext.charAvatarByName,
         charDescriptionByName: storyboardCharacterContext.charDescriptionByName,
@@ -10849,6 +11074,15 @@ export async function gameRoutes(app: FastifyInstance) {
         maxVisibleCharacters: storyboardMaxVisibleCharacters,
         structuredCharacterPrompts,
         characterAppearanceContextBlock: storyboardAppearanceContextBlock,
+        ownerMode,
+        roleplayCharacterContextBlock: storyboardCharacterContext.roleplayCharacterContextBlock,
+        recentConversationBlock:
+          ownerMode === "roleplay" ? buildStoryboardRecentConversationBlock(allMessages, input.messageId) : "",
+        spatialBreadcrumb:
+          storyboardSpatialProjection?.ownerMode === ownerMode
+            ? formatOwnerSpatialBreadcrumb(storyboardSpatialProjection)
+            : null,
+        roleplaySourceMessageCount,
       });
       if (debugLogsEnabled) {
         debugLog(
@@ -10953,7 +11187,7 @@ export async function gameRoutes(app: FastifyInstance) {
       const imgDefaults = resolveConnectionImageDefaults(imgConn);
       const imgFallback = await resolveImageConnectionFallback(connections, imgConn.id);
       const imageSettings = await loadImageGenerationUserSettings(app.db);
-      const backgroundSize = imageSettings.game;
+      const backgroundSize = ownerMode === "game" ? imageSettings.game : imageSettings.illustration;
       const styleProfiles = imageSettings.styleProfiles;
       const genre = (setupCfg?.genre as string) || "";
       const setting = (setupCfg?.setting as string) || "";
@@ -10962,7 +11196,7 @@ export async function gameRoutes(app: FastifyInstance) {
         ((setupCfg?.imageStyleProfileId as string | undefined) ?? (meta.imageStyleProfileId as string | undefined)) ||
         null;
       const imagePromptInstructions =
-        typeof meta.gameImagePromptInstructions === "string"
+        ownerMode === "game" && typeof meta.gameImagePromptInstructions === "string"
           ? meta.gameImagePromptInstructions.trim().slice(0, 5000)
           : "";
       const useAvatarReferences = meta.storyboardAgentUseAvatarReferences !== false;
@@ -11002,7 +11236,7 @@ export async function gameRoutes(app: FastifyInstance) {
           illustration,
           characterNames: plannedFrame.characters,
           trackedNpcs: storyboardCharacterContext.trackedNpcs,
-          gameNpcs: (meta.gameNpcs as GameNpc[]) ?? [],
+          gameNpcs: ownerMode === "game" ? ((meta.gameNpcs as GameNpc[]) ?? []) : [],
           charReferenceByName,
           charAvatarByName,
           charDescriptionByName,
@@ -11089,17 +11323,19 @@ export async function gameRoutes(app: FastifyInstance) {
         return { items, plannedStoryboard: plan };
       }
 
-      const allMessages = await chats.listMessages(input.chatId);
-      const snapshot = await createGameStateStorage(app.db)
-        .getByChatAndMessage(input.chatId, input.messageId, input.swipeIndex)
-        .catch(() => null);
+      const snapshot =
+        ownerMode === "game"
+          ? await createGameStateStorage(app.db)
+              .getByChatAndMessage(input.chatId, input.messageId, input.swipeIndex)
+              .catch(() => null)
+          : null;
       const storyboardRow = await storyboards.create({
         chatId: input.chatId,
         messageId: input.messageId,
         swipeIndex: input.swipeIndex,
         snapshotId: snapshot?.id ?? null,
-        sessionNumber: currentGameSessionNumber(meta),
-        turnNumber: storyboardTurnNumberForMessage(allMessages, input.messageId),
+        sessionNumber: ownerMode === "game" ? currentGameSessionNumber(meta) : null,
+        turnNumber: ownerMode === "game" ? storyboardTurnNumberForMessage(allMessages, input.messageId) : null,
         title: plan.title,
         sourceNarration,
         sourceNarrationHash: storyboardSourceNarrationHash(sourceNarration),
@@ -11138,7 +11374,7 @@ export async function gameRoutes(app: FastifyInstance) {
       if (generateStoryboardVideos && !usedFallbackStoryboardPlanner) {
         const videoConnectionId =
           readTrimmedString(meta.storyboardAgentVideoConnectionId) ??
-          (await resolveGameVideoConnectionId(meta, connections));
+          (ownerMode === "game" ? await resolveGameVideoConnectionId(meta, connections) : null);
         const videoConn = videoConnectionId ? await connections.getWithKey(videoConnectionId) : null;
         if (videoConn?.provider === "video_generation") {
           videoRuntime = resolveGameVideoRuntime(videoConn);
@@ -11395,6 +11631,33 @@ export async function gameRoutes(app: FastifyInstance) {
                 : "complete";
           const updatedStoryboard = await storyboards.update(storyboardRow.id, { status: finalStatus });
           if (!updatedStoryboard) throw new Error("Storyboard metadata could not be reloaded");
+          const storyboardAgentConfigId = readTrimmedString(meta.storyboardAgentConfigId);
+          if (generatedImages > 0 && storyboardAgentConfigId) {
+            await agents
+              .saveRun({
+                agentConfigId: storyboardAgentConfigId,
+                chatId: input.chatId,
+                messageId: input.messageId,
+                result: {
+                  agentId: storyboardAgentConfigId,
+                  agentType: STORYBOARD_AGENT_ID,
+                  type: "image_prompt",
+                  data: {
+                    storyboardId: storyboardRow.id,
+                    ownerMode,
+                    generatedImages,
+                    generatedVideos,
+                  },
+                  tokensUsed: 0,
+                  durationMs: Date.now() - storyboardStartedAt,
+                  success: true,
+                  error: null,
+                },
+              })
+              .catch((runError) => {
+                logger.warn(runError, "[storyboard] Failed to save successful Storyboard cadence run");
+              });
+          }
         } catch (err) {
           const message = err instanceof Error ? err.message : "Storyboard media rendering failed";
           logger.warn(err, "[game/storyboard] background media rendering failed for storyboard %s", storyboardRow.id);

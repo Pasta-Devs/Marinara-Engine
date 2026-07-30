@@ -187,17 +187,18 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 - Rebuild the tool with `pnpm backgroundremover:reinstall`.
 - To force automatic matte cleanup without the AI fallback while you troubleshoot, set `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin` in `.env`.
 
-### Game Mode storyboards or scene videos do not appear
+### Storyboards or scene videos do not appear
 
-Storyboards are a Game Mode feature. They turn a completed narration turn into keyframe images and optional clips.
+Storyboards work in Game and Roleplay. Game turns one completed narration turn into keyframes and optional clips. Roleplay uses its configured run interval to combine completed assistant responses into a visual plan.
 
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
-- For automatic storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
-- Keyframe images need a Game image connection. Clips also need a video connection.
+- Confirm the Storyboard package is installed and added to this chat; Illustrator is not required.
+- For automatic storyboards, open **Chat Settings** > **Agents** > **Storyboard** and choose automatic stills or animations. Roleplay may wait until its configured run interval is reached.
+- Keyframe images need an image connection selected in Storyboard settings; Game can also use its Game image connection. Clips also need a video connection.
 - If a custom prompt works better with all characters combined, turn off **Use NovelAI Character Prompts**.
 - Slow providers can hit a timeout. Raise `IMAGE_GEN_TIMEOUT_MS` or `VIDEO_GEN_TIMEOUT_MS` in `.env`, then restart Marinara. The server only reads these values at startup.
 
-See [Game Mode: Getting Started](game/getting-started.md) for the full setup.
+See [Downloadable Agents Reference](agents/built-in-agents.md) for package settings or [Game Mode: Getting Started](game/getting-started.md) for the complete Game setup.
 
 ### Game Mode world generation shows a JSON error
 

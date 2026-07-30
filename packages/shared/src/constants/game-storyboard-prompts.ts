@@ -37,6 +37,12 @@ export function normalizeGameStoryboardKeyframeCount(
 // Host-side contract only. Prompt bodies and selectable presets are owned by the
 // installable Storyboard Agent package.
 export const GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES = [
+  "ownerMode",
+  "sourceTurnLabel",
+  "sourceRoleLabel",
+  "contextBlock",
+  "sourceTurnBlock",
+  "modeRulesBlock",
   "gameContextBlock",
   "sourceSectionsBlock",
   "sourceNarration",

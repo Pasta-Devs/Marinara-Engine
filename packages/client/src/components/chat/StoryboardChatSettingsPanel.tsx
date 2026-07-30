@@ -31,12 +31,14 @@ type StoryboardChatSettingsPanelProps = {
   onActiveChange: (active: boolean) => void;
   onUpdate: (patch: Record<string, unknown>) => void;
   onOpenAgentSettings: () => void;
+  ownerMode?: "game" | "roleplay";
 };
 
 type StoryboardChatSettingsBridgeProps = {
   chatId: string;
   metadata: Record<string, unknown>;
   onClose: () => void;
+  ownerMode?: "game" | "roleplay";
 };
 
 function readString(value: unknown): string {
@@ -192,6 +194,7 @@ export function StoryboardChatSettingsPanel({
   onActiveChange,
   onUpdate,
   onOpenAgentSettings,
+  ownerMode = "game",
 }: StoryboardChatSettingsPanelProps) {
   const { t: localizeUi } = useUiTranslation();
   const autoIllustrationsOverridden = typeof metadata.gameStoryboardAutoIllustrationsEnabled === "boolean";
@@ -207,7 +210,7 @@ export function StoryboardChatSettingsPanel({
   const keyframeCountOverridden = typeof metadata.gameStoryboardKeyframeCount === "number";
   const keyframeCount = readBoundedInteger(
     metadata.gameStoryboardKeyframeCount,
-    settings.keyframeCount,
+    ownerMode === "roleplay" ? 1 : settings.keyframeCount,
     GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
     GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
   );
@@ -472,7 +475,12 @@ export function StoryboardChatSettingsPanel({
   );
 }
 
-export default function StoryboardChatSettingsBridge({ chatId, metadata, onClose }: StoryboardChatSettingsBridgeProps) {
+export default function StoryboardChatSettingsBridge({
+  chatId,
+  metadata,
+  onClose,
+  ownerMode = "game",
+}: StoryboardChatSettingsBridgeProps) {
   const { data: installedAgentManifests = [] } = useCapabilityAgentRegistry();
   const { data: agentConfigs } = useAgentConfigs();
   const updateMetadata = useUpdateChatMetadata();
@@ -510,6 +518,7 @@ export default function StoryboardChatSettingsBridge({ chatId, metadata, onClose
         onClose();
         useUIStore.getState().openAgentDetail(STORYBOARD_AGENT_ID);
       }}
+      ownerMode={ownerMode}
     />
   );
 }

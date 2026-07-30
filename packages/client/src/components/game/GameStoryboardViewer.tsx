@@ -56,6 +56,7 @@ export function GameStoryboardInlineViewer({
   onChangeSize,
   onResizeByKeyboard,
   onVideoPlayingChange,
+  interactiveLayout = true,
 }: {
   storyboard: GameTurnStoryboard | null;
   frame: GameTurnStoryboardKeyframe | null;
@@ -76,6 +77,7 @@ export function GameStoryboardInlineViewer({
   onChangeSize: () => void;
   onResizeByKeyboard: (delta: number) => void;
   onVideoPlayingChange: (videoId: string, playing: boolean) => void;
+  interactiveLayout?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const { minWidth, maxWidth } = getStoryboardViewerWidthBounds();
@@ -91,11 +93,14 @@ export function GameStoryboardInlineViewer({
   return (
     <div
       data-game-skip-bg-nav="true"
-      className="group pointer-events-auto fixed z-[60] cursor-grab select-none touch-none active:cursor-grabbing"
+      className={cn(
+        "group pointer-events-auto fixed z-[60] select-none touch-none",
+        interactiveLayout && "cursor-grab active:cursor-grabbing",
+      )}
       style={{ left: position.x, top: position.y, width, maxWidth: "calc(100vw - 1.5rem)" }}
       onClick={(event) => event.stopPropagation()}
-      {...dragHandlers}
-      aria-label={localizeUi("ui.game.gamesurfacecomponent.storyboardViewerDragToMove")}
+      {...(interactiveLayout ? dragHandlers : {})}
+      aria-label={interactiveLayout ? localizeUi("ui.game.gamesurfacecomponent.storyboardViewerDragToMove") : undefined}
     >
       <div className="relative">
         <button
@@ -205,16 +210,18 @@ export function GameStoryboardInlineViewer({
                     </button>
                   </>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={onChangeSize}
-                  className={STORYBOARD_VIEWER_CONTROL_BUTTON}
-                  title={localizeUi("ui.game.replaystoryboardmedia.changeStoryboardViewerSizeCurrentValue1", {
-                    value1: size,
-                  })}
-                >
-                  <Maximize2 size={13} />
-                </button>
+                {interactiveLayout ? (
+                  <button
+                    type="button"
+                    onClick={onChangeSize}
+                    className={STORYBOARD_VIEWER_CONTROL_BUTTON}
+                    title={localizeUi("ui.game.replaystoryboardmedia.changeStoryboardViewerSizeCurrentValue1", {
+                      value1: size,
+                    })}
+                  >
+                    <Maximize2 size={13} />
+                  </button>
+                ) : null}
                 {storyboard?.keyframes.length ? (
                   <span className="ml-1 text-[0.625rem] text-white/45">
                     {framePosition + 1}/{storyboard.keyframes.length}
@@ -243,25 +250,27 @@ export function GameStoryboardInlineViewer({
             ) : null}
           </div>
         </div>
-        <div
-          className="absolute -bottom-2 -right-2 z-20 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95"
-          aria-label={localizeUi("ui.game.gamesurfacecomponent.resizeStoryboardViewer")}
-          role="separator"
-          aria-orientation="vertical"
-          aria-valuemin={minWidth}
-          aria-valuemax={maxWidth}
-          aria-valuenow={width}
-          onKeyDown={(event) => {
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-            event.preventDefault();
-            event.stopPropagation();
-            onResizeByKeyboard(event.key === "ArrowRight" ? 32 : -32);
-          }}
-          tabIndex={0}
-          {...resizeHandlers}
-        >
-          <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
-        </div>
+        {interactiveLayout ? (
+          <div
+            className="absolute -bottom-2 -right-2 z-20 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95"
+            aria-label={localizeUi("ui.game.gamesurfacecomponent.resizeStoryboardViewer")}
+            role="separator"
+            aria-orientation="vertical"
+            aria-valuemin={minWidth}
+            aria-valuemax={maxWidth}
+            aria-valuenow={width}
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              event.preventDefault();
+              event.stopPropagation();
+              onResizeByKeyboard(event.key === "ArrowRight" ? 32 : -32);
+            }}
+            tabIndex={0}
+            {...resizeHandlers}
+          >
+            <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
+          </div>
+        ) : null}
       </div>
     </div>
   );

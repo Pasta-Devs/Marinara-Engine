@@ -70,6 +70,7 @@ import { TranscriptWindowControls } from "./TranscriptWindowControls";
 import { EndSceneBar } from "./SceneBanner";
 import { ChatCommonOverlays } from "./ChatCommonOverlays";
 import { PinnedImageOverlay } from "./PinnedImageOverlay";
+import { RoleplayStoryboardOverlay } from "./RoleplayStoryboardOverlay";
 import {
   ROLEPLAY_POPOVER_CLOSE_BUTTON,
   ROLEPLAY_POPOVER_CLOSE_ICON_SIZE,
@@ -1499,6 +1500,10 @@ export function ChatRoleplaySurface({
     typeof chatMeta.summaryTailMessages === "number" && Number.isFinite(chatMeta.summaryTailMessages)
       ? chatMeta.summaryTailMessages
       : undefined;
+  const latestStoryboardMessage = useMemo(
+    () => (messages ?? []).find((message) => message.id === lastAssistantMessageId) ?? null,
+    [lastAssistantMessageId, messages],
+  );
 
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
@@ -1515,6 +1520,15 @@ export function ChatRoleplaySurface({
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
         {weatherEffects && <WeatherEffectsConnected paused={ambientVisualsPaused} />}
+        <RoleplayStoryboardOverlay
+          chatId={activeChatId}
+          metadata={chatMeta}
+          latestMessage={latestStoryboardMessage}
+          generationBusy={isStreaming || agentProcessing}
+          postProcessingPending={
+            latestStoryboardMessage ? messageHasPendingPostProcessing(latestStoryboardMessage) : false
+          }
+        />
         {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay

@@ -5832,6 +5832,7 @@ function GameSurfaceComponent({
         plannedStoryboard,
         promptOverrides,
       });
+      if (!("storyboard" in result)) return;
       applyGeneratedStoryboardToCache(result.storyboard, { refetchTurnStoryboards: true });
       const frameCount = result.storyboard.keyframes.length;
       toast.success(
@@ -5912,6 +5913,7 @@ function GameSurfaceComponent({
         debugMode: useUIStore.getState().debugMode,
       })
       .then((result) => {
+        if (!("storyboard" in result)) return;
         applyGeneratedStoryboardToCache(result.storyboard);
       })
       .catch((error) => {

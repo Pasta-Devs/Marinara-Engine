@@ -2881,7 +2881,9 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                 {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
                   <label className="space-y-1">
                     <span className="block text-[0.625rem] font-medium text-[var(--muted-foreground)]">
-                      {agentAddIntervalMeta.label}
+                      {agentAddIntervalMeta.labelKey
+                        ? localizeUi(agentAddIntervalMeta.labelKey)
+                        : agentAddIntervalMeta.label}
                     </span>
                     <DraftNumberInput
                       min={1}
@@ -2902,7 +2904,9 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                       className={WIZARD_NUMBER_INPUT_CLASS}
                     />
                     <span className="block text-[0.5625rem] text-[var(--muted-foreground)]">
-                      {agentAddIntervalMeta.help}
+                      {agentAddIntervalMeta.helpKey
+                        ? localizeUi(agentAddIntervalMeta.helpKey)
+                        : agentAddIntervalMeta.help}
                     </span>
                   </label>
                 )}

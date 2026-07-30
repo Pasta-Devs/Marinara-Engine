@@ -214,6 +214,7 @@ import {
   MIN_AGENT_MAX_TOKENS,
   PROFESSOR_MARI_ID,
   SUMMARY_TAIL_MESSAGES,
+  STORYBOARD_AGENT_ID,
   estimateAgentLoadCost,
   getAgentPromptTemplateOptions,
   includesTextForMatch,
@@ -8053,6 +8054,7 @@ export function ChatSettingsDrawer({
                           chatId={chat.id}
                           metadata={metadata as Record<string, unknown>}
                           onClose={onClose}
+                          ownerMode="game"
                         />
                       </Suspense>
                     </AgentSettingsCard>
@@ -8457,6 +8459,16 @@ export function ChatSettingsDrawer({
                                               }}
                                               className="mt-2 block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/45"
                                             />
+                                          )}
+                                          {agent.id === STORYBOARD_AGENT_ID && (
+                                            <Suspense fallback={null}>
+                                              <StoryboardChatSettingsPanel
+                                                chatId={chat.id}
+                                                metadata={metadata as Record<string, unknown>}
+                                                onClose={onClose}
+                                                ownerMode="roleplay"
+                                              />
+                                            </Suspense>
                                           )}
                                         </div>
                                       );
@@ -8898,7 +8910,9 @@ export function ChatSettingsDrawer({
             {agentAddIntervalMeta && agentAddPreview.runInterval != null && (
               <div className="space-y-1.5">
                 <label className="block text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                  {agentAddIntervalMeta.label}
+                  {agentAddIntervalMeta.labelKey
+                    ? localizeUi(agentAddIntervalMeta.labelKey)
+                    : agentAddIntervalMeta.label}
                 </label>
                 <div className="flex items-center gap-3">
                   {agentAddPreview.agent.builtIn ? (
@@ -9021,9 +9035,17 @@ export function ChatSettingsDrawer({
                       </div>
                     </div>
                   )}
-                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.unit}</span>
+                  <span className="text-[0.6875rem] text-[var(--muted-foreground)]">
+                    {agentAddIntervalMeta.unitKey
+                      ? localizeUi(agentAddIntervalMeta.unitKey)
+                      : agentAddIntervalMeta.unit}
+                  </span>
                 </div>
-                <p className="text-[0.625rem] text-[var(--muted-foreground)]">{agentAddIntervalMeta.help}</p>
+                <p className="text-[0.625rem] text-[var(--muted-foreground)]">
+                  {agentAddIntervalMeta.helpKey
+                    ? localizeUi(agentAddIntervalMeta.helpKey)
+                    : agentAddIntervalMeta.help}
+                </p>
               </div>
             )}
 

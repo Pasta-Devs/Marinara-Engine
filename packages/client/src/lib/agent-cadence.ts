@@ -2,6 +2,9 @@ export type AgentRunIntervalMeta = {
   label: string;
   unit: string;
   help: string;
+  labelKey?: string;
+  unitKey?: string;
+  helpKey?: string;
   defaultValue: number;
   max: number;
 };
@@ -15,6 +18,17 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
         label: "Run Interval",
         unit: "assistant messages",
         help: "How many assistant messages should pass before the Illustrator is allowed to create another image.",
+        defaultValue: 5,
+        max: 100,
+      };
+    case "storyboard":
+      return {
+        label: "",
+        unit: "",
+        help: "",
+        labelKey: "ui.agents.agenteditor.runInterval",
+        unitKey: "ui.agents.agenteditor.assistantMessages",
+        helpKey: "ui.agents.storyboard.runIntervalDescription",
         defaultValue: 5,
         max: 100,
       };

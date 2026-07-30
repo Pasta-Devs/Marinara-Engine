@@ -23,6 +23,7 @@ export type GenerateGameTurnStoryboardInput = {
   durationSeconds?: number;
   aspectRatio?: GameSceneVideoAspectRatio;
   generateVideos?: boolean;
+  automatic?: boolean;
   plannedStoryboard?: unknown;
   promptOverrides?: Array<{
     id: string;
@@ -84,7 +85,10 @@ export function useGameTurnStoryboards(
 export function useGenerateGameTurnStoryboard() {
   return useMutation({
     mutationFn: (input: GenerateGameTurnStoryboardInput) =>
-      api.post<{ storyboard: GameTurnStoryboard }>("/game/storyboard/generate", input),
+      api.post<{ storyboard: GameTurnStoryboard } | { skipped: true; reason: "interval" }>(
+        "/game/storyboard/generate",
+        input,
+      ),
   });
 }
 

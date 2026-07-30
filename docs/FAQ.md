@@ -164,13 +164,13 @@ Professor Mari can still edit ordinary Marinara source files. Dependency files, 
 
 Note: on an ordinary remote address, Professor Mari's data-changing actions need both Basic Auth and an admin secret. Trusted or allowlisted network routes can use the bypasses described in [Remote Access](REMOTE_ACCESS.md).
 
-## How do Game Mode storyboard animations work?
+## How do storyboard animations work?
 
-A **storyboard** turns one finished game master narration turn into a short sequence of manga-style keyframe images. It can also add short animated clips. The turn then plays back like a mini cutscene. Storyboards exist only in **Game Mode**.
+A **storyboard** turns finished narration into keyframe images and optional animated clips. In Game Mode it plans one completed game master turn. In Roleplay it can automatically combine the completed assistant responses since its previous successful run, based on the Storyboard run interval. Roleplay does not create a Game session or add an artificial transcript message.
 
-To make one by hand, open the **Gallery** and click **Create storyboard** for the latest narration turn. To reopen a storyboard you closed, click **View storyboard**.
+Install Storyboard from **Agents → Download Agents**, then add it to a Game or Roleplay chat. It works independently and does not require Illustrator. Choose an image connection for stills and, if you want animation, a video connection. Game also lets you make one by hand from the **Gallery** for the latest narration turn and reopen it with **View storyboard**.
 
-To make them automatically, open **Chat Settings**, go to **Agents**, find the **Storyboards** card, and turn on **Automatic Storyboard Illustrations**. Turn on **Automatic Storyboard Animations** too if you also want video clips, which needs a Video Generation connection. For the full workflow, see [Game Mode Storyboards](game/storyboard.md).
+To make them automatically, open **Chat Settings**, go to **Agents**, find the **Storyboard** card, and choose automatic stills or animations. Animation needs a Video Generation connection. For the complete Game workflow, see [Game Mode Storyboards](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 
@@ -180,7 +180,7 @@ If you want to talk back with your microphone and the browser's own speech recog
 
 ## Can Marinara generate images?
 
-Yes. Add an image generation connection, for example **Pollinations** (needs no key) or a paid provider. Marinara can then create character avatars, scene art, selfies, and Game Mode storyboards. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md) to add one.
+Yes. Add an image generation connection, for example **Pollinations** (needs no key) or a paid provider. Marinara can then create character avatars, scene art, selfies, and Game or Roleplay storyboards. See [Connecting to an AI Provider](connections/connecting-to-a-provider.md) to add one.
 
 ## How do I read the documentation inside the app?
 

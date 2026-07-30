@@ -38,26 +38,45 @@ function hasActiveStoryboardAgent(meta: Record<string, unknown>): boolean {
 export async function applyStoryboardAgentSettings(
   meta: Record<string, unknown>,
   agents: AgentsStorage,
+  ownerMode: "game" | "roleplay" = "game",
 ): Promise<Record<string, unknown>> {
   try {
     const config = await agents.ensureBuiltinConfig(STORYBOARD_AGENT_ID);
     if (!config) return meta;
 
-    const settings = normalizeStoryboardAgentSettings(mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, config.settings));
+    const mergedSettings = mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, config.settings);
+    const settings = normalizeStoryboardAgentSettings(mergedSettings);
     const active = hasActiveStoryboardAgent(meta);
+    const isRoleplay = ownerMode === "roleplay";
     const defaultAutoIllustrations = settings.autoGenerateMode !== "manual";
     const defaultAutoAnimations = settings.autoGenerateMode === "animation";
+    const configuredRunInterval = Number(mergedSettings.runInterval);
+    const runInterval =
+      Number.isFinite(configuredRunInterval) && configuredRunInterval >= 1
+        ? Math.min(100, Math.floor(configuredRunInterval))
+        : 5;
 
     return {
       ...meta,
       storyboardAgentInstalled: true,
       storyboardAgentActive: active,
-      storyboardAgentPromptConnectionId: meta.gameSceneConnectionId ?? config.connectionId,
-      storyboardAgentImageConnectionId: meta.gameImageConnectionId ?? settings.imageConnectionId,
-      storyboardAgentVideoConnectionId: meta.gameVideoConnectionId ?? settings.videoConnectionId,
-      storyboardAgentIncludeCharacterAppearance:
-        meta.gameImageIncludeCharacterAppearance ?? settings.includeCharacterAppearance,
-      storyboardAgentUseAvatarReferences: meta.gameImageUseAvatarReferences ?? settings.useAvatarReferences,
+      storyboardAgentConfigId: config.id,
+      storyboardAgentRunInterval: runInterval,
+      storyboardAgentPromptConnectionId: isRoleplay
+        ? config.connectionId
+        : (meta.gameSceneConnectionId ?? config.connectionId),
+      storyboardAgentImageConnectionId: isRoleplay
+        ? settings.imageConnectionId
+        : (meta.gameImageConnectionId ?? settings.imageConnectionId),
+      storyboardAgentVideoConnectionId: isRoleplay
+        ? settings.videoConnectionId
+        : (meta.gameVideoConnectionId ?? settings.videoConnectionId),
+      storyboardAgentIncludeCharacterAppearance: isRoleplay
+        ? settings.includeCharacterAppearance
+        : (meta.gameImageIncludeCharacterAppearance ?? settings.includeCharacterAppearance),
+      storyboardAgentUseAvatarReferences: isRoleplay
+        ? settings.useAvatarReferences
+        : (meta.gameImageUseAvatarReferences ?? settings.useAvatarReferences),
       gameStoryboardsEnabled: active ? true : meta.gameStoryboardsEnabled,
       gameStoryboardAutoIllustrationsEnabled: hasExplicitBoolean(meta, "gameStoryboardAutoIllustrationsEnabled")
         ? meta.gameStoryboardAutoIllustrationsEnabled
@@ -65,7 +84,7 @@ export async function applyStoryboardAgentSettings(
       gameStoryboardAutoGenerationEnabled: hasExplicitBoolean(meta, "gameStoryboardAutoGenerationEnabled")
         ? meta.gameStoryboardAutoGenerationEnabled
         : defaultAutoAnimations,
-      gameStoryboardKeyframeCount: meta.gameStoryboardKeyframeCount ?? settings.keyframeCount,
+      gameStoryboardKeyframeCount: meta.gameStoryboardKeyframeCount ?? (isRoleplay ? 1 : settings.keyframeCount),
       gameStoryboardAnimationDurationSeconds:
         meta.gameStoryboardAnimationDurationSeconds ?? settings.animationDurationSeconds,
       gameStoryboardViewerDisplayMode: meta.gameStoryboardViewerDisplayMode ?? settings.viewerDisplayMode,

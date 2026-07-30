@@ -1,6 +1,6 @@
 # Downloadable Agents Reference
 
-This guide lists all 30 official first-party packages available through **Agents → Download Agents**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first.
+This guide lists all 31 official first-party packages available through **Agents → Download Agents**, grouped by category. Agents do not ship inside a fresh Marinara Engine installation. Their package sources, manifests, artifacts, and machine-readable catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). For each one, this guide explains what the agent does, when it runs or integrates, which chat modes allow it, and the main settings. For installation and activation, read the [Agents overview](agents-overview.md) first.
 
 ## How to read this reference
 
@@ -168,6 +168,14 @@ Responsible for image and video generations. It writes visual prompts for import
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: it runs once every 5 assistant messages by default. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
+
+### Storyboard
+
+Plans and generates still images or animated clips from completed narration. Game keeps its turn-based storyboard flow. In Roleplay, Storyboard combines the completed assistant responses since its previous successful run into one visual plan, without creating a Game session or adding a transcript message.
+
+- **Integration**: Host-managed visual feature; it runs through the Storyboard media workflow instead of the normal agent prompt pipeline.
+- **Where it works**: Roleplay and Game. It does not require Illustrator to be installed or enabled.
+- **Key settings**: automatic stills, automatic animations, or manual only; run interval (5 completed assistant responses by default in Roleplay); planner, image, and video prompt templates; image and video connections; keyframes; clip duration; viewer layout; appearance and avatar references. Roleplay defaults to one keyframe per source window. Storyboard does not change Illustrator; if both are automatic, both may generate for the same response.
 
 ### Lorebook Keeper
 
