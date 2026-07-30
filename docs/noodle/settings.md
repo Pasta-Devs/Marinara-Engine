@@ -34,23 +34,22 @@ Use **New profile** in **Manage stage profiles** to search and choose an eligibl
 
 Each stage profile has an inline, collapsed composer for NoodleR posts. Enter an optional title and body, then select **Post** to publish those literal values without provider work. A body, image, or poll is required, so an image or a two-to-four-option poll may be posted on its own. Uploaded images stay in NoodleR's own media storage rather than the Noodle gallery.
 
-Select **Guide** to transform the current title and body draft through the existing NoodleR generator. It preserves the image, poll, access level, and PPV price you selected, and generated output remains title/body-only; it does not generate or replace attachments. Unpublished image files and URLs stay in the current client draft until Post or Guide succeeds. If Post, Guide, or media persistence fails, the current draft remains available for correction or retry.
+Select **Guide** to transform the current title and body draft through the existing NoodleR generator. It preserves the image, poll, and access level you selected, and generated output remains title/body-only; it does not generate or replace attachments. Unpublished image files and URLs stay in the current client draft until Post or Guide succeeds. If Post, Guide, or media persistence fails, the current draft remains available for correction or retry.
 
-The post's access level protects the complete post. Locked subscriber and PPV posts do not expose their image, poll choices, or votes. A viewer who can read the post may vote once and later change that vote; the persona linked to the creator cannot vote on its own stage-profile post.
+The post's access level protects the complete post. Locked posts do not expose their image, poll choices, or votes. A viewer who can read the post may vote once and later change that vote; the persona linked to the creator cannot vote on its own stage-profile post.
 
 ## Subscriptions and post access
 
-The NoodleR hub always shows creator pages as whichever persona is currently selected globally. Subscriptions and PPV unlocks belong to that viewer persona, so switching your active persona may change which creators and posts are available. Use **Noodle Settings** > **NoodleR Access** > **Manage stage profiles** to create, edit, or delete your own stage profiles instead.
+The NoodleR hub always shows creator pages as whichever persona is currently selected globally. Subscriptions and individual unlocks belong to that viewer persona, so switching your active persona may change which creators and posts are available. Use **Noodle Settings** > **NoodleR Access** > **Manage stage profiles** to create, edit, or delete your own stage profiles instead.
 
 When guiding a post, choose one access level:
 
 - **Public**: every persona that can see the stage profile can read the post.
-- **Subscribers**: the post stays locked until the selected viewer persona subscribes to that stage profile.
-- **PPV**: the post has a simulated price and stays locked until that viewer persona unlocks it. No real payment is processed.
+- **Locked**: the post stays locked until the selected viewer persona subscribes to that stage profile or unlocks that individual post.
 
-Each stage profile has its own **Subscriber access** settings. **Subscriptions include PPV** lets subscribers read that profile's PPV posts without unlocking each one. It is off by default. **Hidden from personas** removes the stage profile and all its posts from selected viewer personas, including direct subscribe and unlock requests. Hidden-from settings apply to the NoodleR stage profile only and do not hide its linked public Noodle account.
+Each stage profile has **Viewer access** settings. **Hidden from personas** removes the stage profile and all its posts from selected viewer personas, including direct subscribe and unlock requests. Hidden-from settings apply to the NoodleR stage profile only and do not hide its linked public Noodle account. Subscribing also follows the creator so their posts appear in the viewer's Following feed.
 
-Use **Delete profile** on a managed stage profile to remove that stage profile, all posts published under it, its subscriptions, and its PPV unlock records. The linked public Noodle account is not deleted and can be used to create a new stage profile later.
+Use **Delete profile** on a managed stage profile to remove that stage profile, all posts published under it, its subscriptions, and its individual unlock records. The linked public Noodle account is not deleted and can be used to create a new stage profile later.
 
 ## Invites
 

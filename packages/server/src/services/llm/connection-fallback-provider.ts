@@ -7,6 +7,7 @@ import {
 } from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
+import { beginForegroundConnection } from "../generation/connection-admission.js";
 
 export type FallbackConnection = {
   id: string;
@@ -34,7 +35,36 @@ type ConnectionFallbackProviderArgs = {
   fallbackBaseUrl: string;
   category: "main" | "agents";
   onFallback?: GenerationFallbackNotifier;
+  admissionMode?: "foreground" | "none";
 };
+
+class ConnectionAdmissionProvider extends BaseLLMProvider {
+  constructor(private readonly provider: BaseLLMProvider, private readonly connectionId: string) {
+    super("", "", provider.maxContextValue ?? undefined, null, provider.maxTokensOverrideValue);
+  }
+
+  async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
+    const release = beginForegroundConnection(this.connectionId);
+    try {
+      return yield* this.provider.chat(messages, options);
+    } finally {
+      release();
+    }
+  }
+
+  async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
+    const release = beginForegroundConnection(this.connectionId);
+    try {
+      return await this.provider.chatComplete(messages, options);
+    } finally {
+      release();
+    }
+  }
+
+  embed(texts: string[], model: string, signal?: AbortSignal): Promise<number[][]> {
+    return this.provider.embed(texts, model, signal);
+  }
+}
 
 function isEnabled(value: unknown): boolean {
   return value === true || value === "true";
@@ -190,26 +220,29 @@ export function withConnectionFallbackProvider({
   fallbackBaseUrl,
   category,
   onFallback,
+  admissionMode = "foreground",
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
+  let provider: BaseLLMProvider;
   if (
     !fallbackConnection ||
     fallbackConnection.id === primaryConnectionId ||
     !fallbackConnection.model?.trim() ||
     !fallbackBaseUrl
   ) {
-    return primary;
+    provider = primary;
+  } else {
+    const fallback = createLLMProvider(
+      fallbackConnection.provider,
+      fallbackBaseUrl,
+      fallbackConnection.apiKey,
+      fallbackConnection.maxContext,
+      fallbackConnection.openrouterProvider,
+      fallbackConnection.maxTokensOverride,
+      isEnabled(fallbackConnection.claudeFastMode),
+      isEnabled(fallbackConnection.treatAsLocalEndpoint),
+      fallbackConnection.defaultParameters,
+    );
+    provider = new ConnectionFallbackProvider(primary, fallback, fallbackConnection, category, onFallback);
   }
-
-  const fallback = createLLMProvider(
-    fallbackConnection.provider,
-    fallbackBaseUrl,
-    fallbackConnection.apiKey,
-    fallbackConnection.maxContext,
-    fallbackConnection.openrouterProvider,
-    fallbackConnection.maxTokensOverride,
-    isEnabled(fallbackConnection.claudeFastMode),
-    isEnabled(fallbackConnection.treatAsLocalEndpoint),
-    fallbackConnection.defaultParameters,
-  );
-  return new ConnectionFallbackProvider(primary, fallback, fallbackConnection, category, onFallback);
+  return admissionMode === "foreground" ? new ConnectionAdmissionProvider(provider, primaryConnectionId) : provider;
 }

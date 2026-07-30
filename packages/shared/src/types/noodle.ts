@@ -13,7 +13,7 @@ export type NoodlePlatform = "noodle" | "noodler";
 export type NoodleInteractionType = "like" | "repost" | "reply" | "vote";
 export type NoodlePostSource = "manual" | "generated";
 /** The real privacy concept: who may read a NoodleR post. Deliberately keeps the word "public". */
-export type NoodlePostAccess = "public" | "subscriber" | "ppv";
+export type NoodlePostAccess = "public" | "locked";
 export type NoodleTheme = "system" | "light" | "dark";
 export type NoodleCarryoverMode = "off" | "conversation" | "roleplay" | "game" | "all";
 export type NoodleCarryoverTarget = "conversation" | "roleplay" | "game";
@@ -23,7 +23,10 @@ export type NoodleIdentityDisclosure = "open" | "hinted" | "secret";
 
 export interface NoodleAccountAccessSettings {
   hiddenFromAccountIds: string[];
-  subscriptionIncludesPpv: boolean;
+}
+
+export interface NoodleWalletSettings {
+  coins: number;
 }
 
 export interface NoodleAccountProfileSettings {
@@ -40,16 +43,10 @@ export interface NoodleAccountSocialSettings {
   notificationsReadAt?: string;
 }
 
-export type NoodleAutoPostingIntensity = 1 | 3 | 6;
-
 export interface NoodleAutoPostingSettings {
   enabled: boolean;
-  /** Low/Medium/High = at most 1/3/6 automatic posts per day. */
-  intensity: NoodleAutoPostingIntensity;
   /** NoodleR-owned image enablement; independent of public Noodle's enableImagePrompts. */
   imagesEnabled: boolean;
-  /** Server-owned; excluded from client-editable patches. */
-  nextRunAt: string | null;
 }
 
 export interface NoodleAccountSchedulerSettings {
@@ -82,6 +79,7 @@ export interface NoodleAccountSettings {
   social: NoodleAccountSocialSettings;
   scheduler: NoodleAccountSchedulerSettings;
   privacy: NoodleAccountPrivacySettings;
+  wallet: NoodleWalletSettings;
 }
 
 export interface NoodlePollOption {
@@ -139,8 +137,23 @@ export interface NoodleSettings {
   noodlerGenerationGuidance: string;
   /** Master switch for automatic posting; pauses the scheduler without disabling NoodleR. */
   autoPostingScheduleEnabled: boolean;
-  /** Cadence applied when a creator's automatic posting is first turned on. */
-  autoPostingDefaultIntensity: NoodleAutoPostingIntensity;
+  /** Rolling text-attempt ceiling and target maximum publication density. */
+  postsPerDay: number;
+}
+
+export interface NoodlerReserveCreatorStatus {
+  accountId: string;
+  nextPreparedAt: string | null;
+}
+
+export interface NoodlerReserveStatus {
+  preparedCount: number;
+  preparedThrough: string | null;
+  textAttemptsUsed: number;
+  imageAttemptsUsed: number;
+  postsPerDay: number;
+  preparationNotBefore: string;
+  creators: NoodlerReserveCreatorStatus[];
 }
 
 export interface NoodleAccount {
@@ -210,7 +223,6 @@ export interface NoodlePost {
   quotePostId: string | null;
   source: NoodlePostSource;
   access: NoodlePostAccess;
-  ppvPrice: number | null;
   metadata: Record<string, unknown>;
   authorSnapshot: NoodleAuthorSnapshot | null;
   createdAt: string;
@@ -248,7 +260,6 @@ export interface NoodlerPostView {
   id: string;
   authorAccountId: string;
   access: NoodlePostAccess;
-  ppvPrice: number | null;
   locked: boolean;
   title: string | null;
   content: string | null;
@@ -284,6 +295,15 @@ export interface NoodleInteraction {
   actorSnapshot: NoodleAuthorSnapshot | null;
   createdAt: string;
 }
+
+export type NoodlerCreatorReplyResult =
+  | { status: "generated"; interaction: NoodleInteraction }
+  | { status: "duplicate"; interaction: NoodleInteraction | null }
+  | { status: "exhausted" }
+  | { status: "busy" }
+  | { status: "ineligible" }
+  | { status: "connection_required" }
+  | { status: "connection_not_found" };
 
 export interface NoodleDigestEntry {
   id: string;

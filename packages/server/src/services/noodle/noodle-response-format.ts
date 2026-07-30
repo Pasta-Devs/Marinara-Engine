@@ -1,4 +1,5 @@
 import {
+  NOODLER_REPLY_CONTENT_MAX_LENGTH,
   isOpenAIGpt56Model,
   NOODLER_POST_CONTENT_MAX_LENGTH,
   NOODLER_POST_TITLE_MAX_LENGTH,
@@ -133,9 +134,16 @@ const noodlerProfileSchema = {
   additionalProperties: false,
 } as const;
 
+const noodlerReplySchema = {
+  type: "object",
+  properties: { content: { type: "string", maxLength: NOODLER_REPLY_CONTENT_MAX_LENGTH } },
+  required: ["content"],
+  additionalProperties: false,
+} as const;
+
 export function noodleResponseFormat(
   model: string,
-  kind: "timeline" | "profiles" | "noodler_post" | "noodler_profile",
+  kind: "timeline" | "profiles" | "noodler_post" | "noodler_profile" | "noodler_reply",
 ): { type: string; [key: string]: unknown } {
   if (!isOpenAIGpt56Model(model)) return { type: "json_object" };
   const schema =
@@ -145,7 +153,9 @@ export function noodleResponseFormat(
         ? profilesSchema
         : kind === "noodler_profile"
           ? noodlerProfileSchema
-          : noodlerPostSchema;
+           : kind === "noodler_reply"
+             ? noodlerReplySchema
+             : noodlerPostSchema;
   return {
     type: "json_schema",
     name:
@@ -155,7 +165,9 @@ export function noodleResponseFormat(
           ? "noodle_profiles"
           : kind === "noodler_profile"
             ? "noodler_profile"
-            : "noodler_post",
+             : kind === "noodler_reply"
+               ? "noodler_reply"
+               : "noodler_post",
     schema,
     strict: true,
   };

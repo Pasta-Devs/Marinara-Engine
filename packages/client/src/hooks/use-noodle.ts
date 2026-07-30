@@ -12,8 +12,6 @@ import type {
   NoodleAccountKind,
   NoodleAccountProfileUpdateInput,
   NoodleAccountSettingsPatchInput,
-  NoodleAutoPostingIntensity,
-  NoodleAutoPostRescheduleInput,
   NoodleBootstrap,
   NoodleBulkNoodlerAccountCreateInput,
   NoodleCreateInteractionInput,
@@ -40,6 +38,8 @@ import type {
   NoodlerSubscriber,
   NoodlerViewerScope,
   NoodlerCreateInteractionInput,
+  NoodlerCreatorReplyResult,
+  NoodlerReserveStatus,
   NoodlerRemoveInteractionInput,
 } from "@marinara-engine/shared";
 import { mergeNoodlePollVoteInteractions } from "@marinara-engine/shared";
@@ -62,6 +62,7 @@ export const noodleKeys = {
   noodlerSubscribers: (accountId: string) => [...noodleKeys.noodlerRoot(), "subscribers", accountId] as const,
   noodlerViewers: () => [...noodleKeys.noodlerRoot(), "viewers"] as const,
   viewer: (personaId: string) => [...noodleKeys.noodlerViewers(), personaId] as const,
+  noodlerReserveStatus: () => [...noodleKeys.noodlerRoot(), "reserve-status"] as const,
 };
 
 function preservePollVotes(current: NoodleBootstrap | undefined, next: NoodleBootstrap): NoodleBootstrap {
@@ -89,8 +90,7 @@ export function useNoodlerAccounts(enabled = true) {
     queryFn: () => api.get<NoodlerManagedStageProfile[]>("/noodle/noodler/accounts"),
     enabled,
     staleTime: 10_000,
-    // Autonomous scheduler writes managed-profile schedule state (nextRunAt) with no client
-    // mutation; poll while the view is visible so an open creator page stays fresh.
+    // Autonomous reserve work changes operator state without a client mutation.
     refetchInterval: enabled ? 30_000 : false,
     refetchIntervalInBackground: false,
   });
@@ -396,6 +396,26 @@ export function useCreateNoodlerInteraction() {
   });
 }
 
+export function useTriggerNoodlerCreatorReply() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      postId,
+      interactionId,
+      personaId,
+    }: {
+      postId: string;
+      interactionId: string;
+      personaId: string;
+    }) =>
+      api.post<NoodlerCreatorReplyResult>(
+        `/noodle/noodler/posts/${encodeURIComponent(postId)}/interactions/${encodeURIComponent(interactionId)}/creator-reply`,
+        { personaId, debugMode: useUIStore.getState().debugMode },
+      ),
+    onSettled: (_result, _error, input) => qc.invalidateQueries({ queryKey: noodleKeys.viewer(input.personaId) }),
+  });
+}
+
 export function useRemoveNoodlerInteraction() {
   const qc = useQueryClient();
   return useMutation({
@@ -479,7 +499,6 @@ export function useUpdateNoodlerAccess() {
     }: {
       accountId: string;
       hiddenFromAccountIds: string[];
-      subscriptionIncludesPpv: boolean;
     }) =>
       api.patch<NoodleAccount>(`/noodle/accounts/${encodeURIComponent(accountId)}/settings`, {
         subtree: "privacy",
@@ -503,7 +522,6 @@ export function useUpdateNoodlerAutoPosting() {
     }: {
       accountId: string;
       enabled?: boolean;
-      intensity?: NoodleAutoPostingIntensity;
       imagesEnabled?: boolean;
     }) =>
       api.patch<NoodleAccount>(`/noodle/accounts/${encodeURIComponent(accountId)}/settings`, {
@@ -511,16 +529,18 @@ export function useUpdateNoodlerAutoPosting() {
         patch: { autoPosting },
       } satisfies NoodleAccountSettingsPatchInput),
     // Auto-post state lives only under noodlerAccounts(); the /noodle bootstrap has none of it.
-    onSuccess: () => qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
+    onSuccess: () => Promise.all([
+      qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
+      qc.invalidateQueries({ queryKey: noodleKeys.noodlerReserveStatus() }),
+    ]),
   });
 }
 
-export function useRescheduleNoodlerAutoPost() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ accountId, ...input }: { accountId: string } & NoodleAutoPostRescheduleInput) =>
-      api.put<NoodleAccount>(`/noodle/noodler/accounts/${encodeURIComponent(accountId)}/auto-post/schedule`, input),
-    onSuccess: () => qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
+export function useNoodlerReserveStatus(enabled = true) {
+  return useQuery({
+    queryKey: noodleKeys.noodlerReserveStatus(),
+    queryFn: () => api.get<NoodlerReserveStatus>("/noodle/noodler/auto-post/status"),
+    enabled,
   });
 }
 

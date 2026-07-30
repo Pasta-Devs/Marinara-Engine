@@ -12,7 +12,6 @@ import {
   noodleAccountFollowUpdateSchema,
   noodleAccountProfileUpdateSchema,
   noodleAccountSettingsPatchSchema,
-  noodleAutoPostRescheduleSchema,
   noodleAccountUpdateSchema,
   noodleBulkInviteSchema,
   noodleBulkNoodlerAccountCreateSchema,
@@ -27,6 +26,7 @@ import {
   noodlerGenerationRequestSchema,
   noodlerPostUpdateSchema,
   noodlerAccountCreateSchema,
+  noodlerCreatorReplyRequestSchema,
   noodlerCreateInteractionSchema,
   noodlerRemoveInteractionSchema,
   noodlerSubscriptionSchema,
@@ -59,7 +59,10 @@ import { isAllowedImageBuffer, safeFetch } from "../utils/security.js";
 
 import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
 import { createPublicNoodleImagesService } from "../services/noodle/noodle-public-images.service.js";
-import { stageProfileContainsPublicIdentity } from "../services/noodle/noodle-noodler-generation.service.js";
+import {
+  buildNoodlerPublicIdentity,
+  stageProfileContainsPublicIdentity,
+} from "../services/noodle/noodle-noodler-generation.service.js";
 import {
   createNoodlerPost,
   generateAndApplyNoodlerPost,
@@ -67,6 +70,7 @@ import {
   updateNoodlerPostWithMedia,
 } from "../services/noodle/noodle-noodler-post.operation.js";
 import { tryNoodlerAccountOperation } from "../services/noodle/noodle-noodler-account-operation-lock.js";
+import { generateAndApplyNoodlerCreatorReply } from "../services/noodle/noodle-noodler-creator-reply.operation.js";
 import { generateNoodlerStageProfileDraft } from "../services/noodle/noodle-stage-profile-draft.service.js";
 import { canViewNoodlerPost, isNoodlerHiddenFromViewer } from "../services/noodle/noodler-access.js";
 import { createNoodlerNoodleImagesService } from "../services/noodle/noodle-noodler-images.service.js";
@@ -272,6 +276,12 @@ export async function noodleRoutes(app: FastifyInstance) {
   const noodlerImages = createNoodlerNoodleImagesService(app.db);
   let refreshInFlight = false;
 
+  async function resolveNoodlerPublicIdentity(publicAccount: NoodleAccount) {
+    const sourceCharacter =
+      publicAccount.kind === "character" ? await characters.getById(publicAccount.entityId) : null;
+    return buildNoodlerPublicIdentity(publicAccount, sourceCharacter);
+  }
+
   app.get("/", async () => {
     return bootstrapVisibleNoodle(noodle, characters);
   });
@@ -332,7 +342,6 @@ export async function noodleRoutes(app: FastifyInstance) {
             post,
             subscribed,
             unlockedPostIds: unlockedIds,
-            subscriptionIncludesPpv: account.settings.privacy.access.subscriptionIncludesPpv,
           })
         ) {
           viewablePostIds.add(post.id);
@@ -361,7 +370,6 @@ export async function noodleRoutes(app: FastifyInstance) {
             id: post.id,
             authorAccountId: post.authorAccountId,
             access: post.access,
-            ppvPrice: post.ppvPrice,
             locked,
             // Locked posts still surface title, image, and engagement counts (Patreon-style
             // teaser); only the body text and image prompt stay hidden until unlocked.
@@ -406,7 +414,6 @@ export async function noodleRoutes(app: FastifyInstance) {
       post,
       subscribed,
       unlockedPostIds: new Set(unlocks.map((item) => item.postId)),
-      subscriptionIncludesPpv: creator.settings.privacy.access.subscriptionIncludesPpv,
     });
     if (locked) return null;
     return { viewer, post, creator };
@@ -460,6 +467,38 @@ export async function noodleRoutes(app: FastifyInstance) {
     });
     if (!interaction) return reply.code(400).send({ error: "Could not add that NoodleR interaction." });
     return reply.code(201).send(interaction);
+  });
+
+  app.post("/noodler/posts/:postId/interactions/:interactionId/creator-reply", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerCreatorReplyRequestSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { postId, interactionId } = req.params as { postId: string; interactionId: string };
+    const viewer = await resolveViewerPersona(parsed.data.personaId);
+    if (!viewer) return reply.code(404).send({ error: "Noodle persona not found" });
+    try {
+      const result = await generateAndApplyNoodlerCreatorReply(app.db, {
+        postId,
+        parentInteractionId: interactionId,
+        viewerAccountId: viewer.id,
+        debugMode: parsed.data.debugMode === true,
+      });
+      if (result.status === "generated") return reply.code(201).send(result);
+      if (result.status === "busy") {
+        return reply.code(409).send({ error: "Another operation for this NoodleR account is already running." });
+      }
+      if (result.status === "connection_required") {
+        return reply.code(400).send({ error: "Select a Noodle generation connection first." });
+      }
+      if (result.status === "connection_not_found") {
+        return reply.code(404).send({ error: "Noodle generation connection not found" });
+      }
+      return result;
+    } catch (error) {
+      logger.error(error, "[noodler-reply] Creator reply generation failed");
+      return reply.code(500).send({ error: getErrorMessage(error) });
+    }
   });
 
   app.delete("/noodler/posts/:id/interactions", async (req, reply) => {
@@ -651,7 +690,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       !viewer ||
       !post ||
       !creator ||
-      post.access !== "ppv" ||
+      post.access !== "locked" ||
       creator.noodleAccountId === viewer.id ||
       isNoodlerHiddenFromViewer(creator, viewer.id)
     ) {
@@ -722,21 +761,14 @@ export async function noodleRoutes(app: FastifyInstance) {
     const publicAccount = await noodle.getAccountById(id);
     if (
       publicAccount &&
-      stageProfileContainsPublicIdentity(parsed.data.stageProfile, {
-        displayName: publicAccount.displayName,
-        handle: publicAccount.handle,
-      })
+      stageProfileContainsPublicIdentity(parsed.data.stageProfile, await resolveNoodlerPublicIdentity(publicAccount))
     ) {
       return reply.code(400).send({
         error: "Hinted and secret stage profiles cannot use the linked public name or handle.",
       });
     }
     try {
-      const created = await noodle.createNoodlerAccount(
-        id,
-        parsed.data.stageProfile,
-        settings.autoPostingDefaultIntensity,
-      );
+      const created = await noodle.createNoodlerAccount(id, parsed.data.stageProfile);
       if (!created) return reply.code(404).send({ error: "Noodle account not found" });
       const profile = (await noodle.listNoodlerStageProfiles()).find((item) => item.id === created.id);
       if (!profile) throw new Error("Failed to load the created NoodleR stage profile.");
@@ -778,15 +810,11 @@ export async function noodleRoutes(app: FastifyInstance) {
           connection,
         });
         // Belt-and-braces: the generator already enforces leak protection, but keep the guard.
-        if (stageProfileContainsPublicIdentity(stageProfile, publicAccount)) {
+        if (stageProfileContainsPublicIdentity(stageProfile, await resolveNoodlerPublicIdentity(publicAccount))) {
           skipped.push(noodleAccountId);
           continue;
         }
-        const account = await noodle.createNoodlerAccount(
-          noodleAccountId,
-          stageProfile,
-          settings.autoPostingDefaultIntensity,
-        );
+        const account = await noodle.createNoodlerAccount(noodleAccountId, stageProfile);
         if (!account) {
           skipped.push(noodleAccountId);
           continue;
@@ -823,10 +851,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         : null;
       if (
         publicAccount &&
-        stageProfileContainsPublicIdentity(parsed.data, {
-          displayName: publicAccount.displayName,
-          handle: publicAccount.handle,
-        })
+        stageProfileContainsPublicIdentity(parsed.data, await resolveNoodlerPublicIdentity(publicAccount))
       ) {
         return { status: "identity_conflict" } as const;
       }
@@ -957,23 +982,11 @@ export async function noodleRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  app.put("/noodler/accounts/:id/auto-post/schedule", async (req, reply) => {
-    const settings = await noodle.getSettings();
-    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
-    const { id } = req.params as { id: string };
-    const parsed = noodleAutoPostRescheduleSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    if (Date.parse(parsed.data.nextRunAt) <= Date.now()) {
-      return reply.code(400).send({ error: "Choose a future time for the next automatic post." });
-    }
-    const updated = await noodle.rescheduleAutoPostRun(id, parsed.data.nextRunAt);
-    if (!updated) return reply.code(404).send({ error: "NoodleR stage profile not found" });
-    return updated;
-  });
+  app.get("/noodler/auto-post/status", async () => noodle.getNoodlerReserveStatus());
 
   // Manual test trigger: runs one automatic-style post immediately, the same way the
   // scheduler does (subscriber access, no guide), without waiting for the next cadence
-  // slot or requiring auto-posting to be enabled. Does not touch nextRunAt.
+  // schedule or requiring auto-posting to be enabled.
   app.post("/noodler/accounts/:id/auto-post/run-now", async (req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
@@ -982,7 +995,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       const result = await generateAndApplyNoodlerPost(app.db, {
         mode: "noodler",
         targetAccountId: id,
-        access: "subscriber",
+        access: "locked",
       });
       // Run-now never sets reviewImagePromptsBeforeSend, so the generator can only return a
       // plain post here — no image-prompt review is ever produced on this path.

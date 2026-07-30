@@ -59,10 +59,12 @@ import {
 } from "../../packages/server/src/services/noodle/noodle-public-prompt.service.js";
 import { formatNoodleMessagesForLog } from "../../packages/server/src/services/noodle/noodle-generation-log.js";
 import {
+  buildNoodlerPublicIdentity,
   buildNoodlerPostMessages,
   protectNoodlerGeneratedIdentity,
   stageProfileContainsPublicIdentity,
 } from "../../packages/server/src/services/noodle/noodle-noodler-generation.service.js";
+import { noodlerSourceText } from "../../packages/server/src/services/noodle/noodle-stage-profile-draft.service.js";
 import {
   canViewNoodlerPost,
   isNoodlerHiddenFromViewer,
@@ -88,8 +90,9 @@ const makeAccount = (id: string): NoodleAccount => ({
   settings: {
     profile: {},
     social: {},
-    scheduler: { autoPosting: { enabled: false, intensity: 1, imagesEnabled: false, nextRunAt: null } },
-    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
+    scheduler: { autoPosting: { enabled: false, imagesEnabled: false } },
+    privacy: { access: { hiddenFromAccountIds: [] } },
+    wallet: { coins: 999999 },
   },
   platform: "noodle",
   noodleAccountId: null,
@@ -283,7 +286,6 @@ const repeatPost: NoodlePost = {
   quotePostId: null,
   source: "generated",
   access: "public",
-  ppvPrice: null,
   metadata: {},
   authorSnapshot: null,
   createdAt: "2026-07-10T10:00:00.000Z",
@@ -441,6 +443,13 @@ assert.doesNotMatch(
 );
 
 const knownPublicIdentity = { displayName: "Known Public Name", handle: "known_public" };
+const renamedPublicIdentity = buildNoodlerPublicIdentity(knownPublicIdentity, {
+  data: JSON.stringify({ name: "Renamed Public Name" }),
+});
+assert.match(
+  noodlerSourceText(JSON.stringify({ name: "Renamed Public Name", personality: "Reserved and direct." })),
+  /Name: Renamed Public Name[\s\S]*Personality: Reserved and direct\./u,
+);
 const protectedStageProfile = {
   displayName: "After Hours",
   handle: "after_hours",
@@ -449,6 +458,13 @@ const protectedStageProfile = {
   disclosureMode: "secret" as const,
 };
 assert.equal(stageProfileContainsPublicIdentity(protectedStageProfile, knownPublicIdentity), true);
+assert.equal(
+  stageProfileContainsPublicIdentity(
+    { ...protectedStageProfile, bio: "Renamed Public Name after dark." },
+    renamedPublicIdentity,
+  ),
+  true,
+);
 assert.equal(
   stageProfileContainsPublicIdentity({ ...protectedStageProfile, bio: "Anonymous after dark." }, knownPublicIdentity),
   false,
@@ -482,6 +498,19 @@ assert.equal(
   protectNoodlerGeneratedIdentity(identitySample, "secret", knownPublicIdentity),
   "someone shares a late-night portrait.",
 );
+const renamedIdentitySample = "Renamed Public Name shares a late-night portrait.";
+assert.equal(
+  protectNoodlerGeneratedIdentity(renamedIdentitySample, "hinted", renamedPublicIdentity),
+  "a public persona shares a late-night portrait.",
+);
+assert.equal(
+  protectNoodlerGeneratedIdentity(renamedIdentitySample, "secret", renamedPublicIdentity),
+  "someone shares a late-night portrait.",
+);
+assert.equal(
+  protectNoodlerGeneratedIdentity(renamedIdentitySample, "open", renamedPublicIdentity),
+  renamedIdentitySample,
+);
 for (const mode of ["hinted", "secret"] as const) {
   const imagePrompt = protectNoodlerGeneratedIdentity(
     "Editorial portrait of Known Public Name, known online as @known_public.",
@@ -496,56 +525,42 @@ const accessCreator = {
   settings: {
     ...makeAccount("creator-private").settings,
     privacy: {
-      access: { hiddenFromAccountIds: ["blocked-viewer"], subscriptionIncludesPpv: false },
+      access: { hiddenFromAccountIds: ["blocked-viewer"] },
     },
   },
 };
 assert.equal(isNoodlerHiddenFromViewer(accessCreator, "blocked-viewer"), true);
 assert.equal(isNoodlerHiddenFromViewer(accessCreator, "allowed-viewer"), false);
-const subscriberPost = { id: "subscriber-post", access: "subscriber" as const };
-const ppvPost = { id: "ppv-post", access: "ppv" as const };
+const lockedPost = { id: "locked-post", access: "locked" as const };
 assert.equal(
   canViewNoodlerPost({
-    post: subscriberPost,
+    post: { id: "public-post", access: "public" },
     subscribed: false,
     unlockedPostIds: new Set(),
-    subscriptionIncludesPpv: false,
-  }),
-  false,
-);
-assert.equal(
-  canViewNoodlerPost({
-    post: subscriberPost,
-    subscribed: true,
-    unlockedPostIds: new Set(),
-    subscriptionIncludesPpv: false,
   }),
   true,
 );
 assert.equal(
   canViewNoodlerPost({
-    post: ppvPost,
+    post: lockedPost,
     subscribed: false,
-    unlockedPostIds: new Set([ppvPost.id]),
-    subscriptionIncludesPpv: false,
-  }),
-  true,
-);
-assert.equal(
-  canViewNoodlerPost({
-    post: ppvPost,
-    subscribed: true,
     unlockedPostIds: new Set(),
-    subscriptionIncludesPpv: false,
   }),
   false,
 );
 assert.equal(
   canViewNoodlerPost({
-    post: ppvPost,
+    post: lockedPost,
     subscribed: true,
     unlockedPostIds: new Set(),
-    subscriptionIncludesPpv: true,
+  }),
+  true,
+);
+assert.equal(
+  canViewNoodlerPost({
+    post: lockedPost,
+    subscribed: false,
+    unlockedPostIds: new Set([lockedPost.id]),
   }),
   true,
 );
@@ -553,10 +568,9 @@ assert.equal(
   noodleGenerationRequestSchema.safeParse({
     mode: "noodler",
     targetAccountId: "creator-private",
-    access: "subscriber",
-    ppvPrice: 5,
+    access: "locked",
   }).success,
-  false,
+  true,
 );
 const openMessages = buildNoodlerPostMessages({
   account: { displayName: "Private Name", handle: "private_handle", bio: "Private bio" },

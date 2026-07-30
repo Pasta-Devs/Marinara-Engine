@@ -434,11 +434,9 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
                 {author?.displayName ?? "Noodle User"}
               </button>
               <span className="rounded-full bg-[var(--noodle-accent)]/15 px-2 py-0.5 text-[0.68rem] font-bold text-[var(--noodle-accent)]">
-                {post.access === "ppv"
-                  ? localizeUi("ui.noodle.postaccess.ppv")
-                  : post.access === "subscriber"
-                    ? localizeUi("ui.noodle.postaccess.subscriber")
-                    : localizeUi("ui.noodle.postaccess.public")}
+                {localizeUi(
+                  post.access === "locked" ? "ui.noodle.postaccess.unlocked" : "ui.noodle.postaccess.public",
+                )}
               </span>
             </div>
             <p className="text-xs text-[var(--muted-foreground)]">

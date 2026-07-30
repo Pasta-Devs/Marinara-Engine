@@ -13,6 +13,7 @@ import { getFileStorageDir } from "../config/runtime-config.js";
 import * as schema from "./schema/index.js";
 import { inArray, isFileCondition, isFileOrdering, type FileCondition, type FileOrdering } from "./file-query.js";
 import { migrateLegacyNoodleAccountRow } from "./noodle-platform-migration.js";
+import { migrateLegacyNoodlePostAccessRow } from "./noodle-access-migration.js";
 import {
   getFileTableConfig,
   FileUniqueConstraintError,
@@ -170,6 +171,10 @@ export const FILE_BACKED_TABLES = [
   "noodle_account_subscriptions",
   "noodle_post_unlocks",
   "noodle_interactions",
+  "noodler_creator_reply_claims",
+  "noodler_prepared_posts",
+  "noodler_automatic_attempts",
+  "noodler_reserve_state",
   "noodle_activity_digests",
   "noodle_refresh_runs",
   "lorebooks",
@@ -243,6 +248,14 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "noodle_accounts", child: "noodle_posts", parentKey: "id", childKey: "authorAccountId" },
     { parent: "noodle_posts", child: "noodle_post_unlocks", parentKey: "id", childKey: "postId" },
     { parent: "noodle_posts", child: "noodle_interactions", parentKey: "id", childKey: "postId" },
+    { parent: "noodle_posts", child: "noodler_creator_reply_claims", parentKey: "id", childKey: "postId" },
+    {
+      parent: "noodle_accounts",
+      child: "noodler_creator_reply_claims",
+      parentKey: "id",
+      childKey: "creatorAccountId",
+    },
+    { parent: "noodle_accounts", child: "noodler_prepared_posts", parentKey: "id", childKey: "creatorAccountId" },
     { parent: "chats", child: "messages", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_sessions", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_messages", parentKey: "id", childKey: "chatId" },
@@ -1287,11 +1300,27 @@ class FileTableStore {
         unreadablePaths,
       } = parseJsonFile<Row[]>(path, []);
       const source = Array.isArray(rows) ? rows : [];
-      const migrate = table === "noodle_accounts" ? migrateLegacyNoodleAccountRow : null;
+      const migrate =
+        table === "noodle_accounts"
+          ? migrateLegacyNoodleAccountRow
+          : table === "noodle_posts"
+            ? migrateLegacyNoodlePostAccessRow
+            : null;
       const normalized = source.map((row) => normalizeRow(meta, migrate ? migrate(row) : row));
       this.tables.set(table, normalized);
       counts[table] = normalized.length;
-      if (migrate && source.some((row) => row.platform === undefined)) {
+      const needsMigration =
+        table === "noodle_accounts"
+          ? source.some((row) => row.platform === undefined)
+          : table === "noodle_posts"
+            ? source.some(
+                (row) =>
+                  row.access !== (row.access === "public" ? "public" : "locked") ||
+                  "ppvPrice" in row ||
+                  "ppv_price" in row,
+              )
+            : false;
+      if (migrate && needsMigration) {
         // Persist the renamed keys on the next flush, alongside the `visibility` /
         // `publicAccountId` rollback mirrors the migration deliberately retains.
         this.dirtyTables.add(table);
