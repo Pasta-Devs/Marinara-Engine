@@ -986,12 +986,18 @@ export function createNoodleStorage(db: DB) {
       const postIds = (await db.select().from(noodlePosts).where(eq(noodlePosts.authorAccountId, existing.id))).map(
         (post) => post.id,
       );
-      const interactionIds =
+      // Interactions on the account's own posts die with the posts via cascade, but the
+      // account's interactions on *other* posts have no cascade — delete those explicitly.
+      const ownInteractionIds =
         postIds.length > 0
           ? (await db.select().from(noodleInteractions).where(inArray(noodleInteractions.postId, postIds))).map(
               (interaction) => interaction.id,
             )
           : [];
+      const authoredInteractionIds = (
+        await db.select().from(noodleInteractions).where(eq(noodleInteractions.actorAccountId, existing.id))
+      ).map((interaction) => interaction.id);
+      const interactionIds = Array.from(new Set([...ownInteractionIds, ...authoredInteractionIds]));
       await db.transaction(async (tx) => {
         if (postIds.length > 0) {
           await tx.delete(noodleActivityDigests).where(inArray(noodleActivityDigests.sourcePostId, postIds));
@@ -1000,6 +1006,9 @@ export function createNoodleStorage(db: DB) {
           await tx
             .delete(noodleActivityDigests)
             .where(inArray(noodleActivityDigests.sourceInteractionId, interactionIds));
+        }
+        if (authoredInteractionIds.length > 0) {
+          await tx.delete(noodleInteractions).where(inArray(noodleInteractions.id, authoredInteractionIds));
         }
         await tx.delete(noodleAccounts).where(eq(noodleAccounts.id, existing.id));
         await tx._fileStore.flush();
