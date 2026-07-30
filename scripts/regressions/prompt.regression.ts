@@ -2514,6 +2514,12 @@ const cases: RegressionCase[] = [
       assert.match(storyboardChatSettingsSource, /automaticStoryboardIllustrations/u);
       assert.match(storyboardChatSettingsSource, /automaticStoryboardAnimations/u);
       assert.match(storyboardChatSettingsSource, /type="number"/u);
+      assert.match(storyboardChatSettingsSource, /roleplayImageConnectionMissing/u);
+      assert.match(storyboardChatSettingsSource, /roleplayImageConnectionRequired/u);
+      assert.match(storyboardChatSettingsSource, /roleplayVideoConnectionRequired/u);
+      assert.match(storyboardEditorSource, /noImageConnection/u);
+      assert.match(storyboardEditorSource, /noVideoConnection/u);
+      assert.doesNotMatch(storyboardEditorSource, /useGameImageConnection|useGameVideoConnection/u);
       assert.doesNotMatch(
         storyboardChatSettingsSource,
         /gameStoryboard(?:Prompt|Image|Video)ConnectionId|gameStoryboard(?:IncludeCharacterAppearance|UseAvatarReferences)/u,

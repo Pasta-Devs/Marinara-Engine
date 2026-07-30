@@ -252,13 +252,16 @@ export function StoryboardAgentSettingsPanel({
             onChange={(event) => update({ imageConnectionId: event.target.value || null })}
             className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           >
-            <option value="">{localizeUi("ui.agents.storyboard.useGameImageConnection")}</option>
+            <option value="">{localizeUi("ui.agents.storyboard.noImageConnection")}</option>
             {imageConnections.map((connection) => (
               <option key={connection.id} value={connection.id}>
                 {connection.name}
               </option>
             ))}
           </select>
+          <span className="block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.agents.storyboard.imageConnectionFallbackDescription")}
+          </span>
         </label>
         <label className="space-y-1.5">
           <span className="flex items-center gap-1.5 text-[0.6875rem] font-medium">
@@ -270,13 +273,16 @@ export function StoryboardAgentSettingsPanel({
             onChange={(event) => update({ videoConnectionId: event.target.value || null })}
             className="w-full rounded-xl bg-[var(--secondary)] px-3 py-2.5 text-sm ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           >
-            <option value="">{localizeUi("ui.agents.storyboard.useGameVideoConnection")}</option>
+            <option value="">{localizeUi("ui.agents.storyboard.noVideoConnection")}</option>
             {videoConnections.map((connection) => (
               <option key={connection.id} value={connection.id}>
                 {connection.name}
               </option>
             ))}
           </select>
+          <span className="block text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.agents.storyboard.videoConnectionFallbackDescription")}
+          </span>
         </label>
       </div>
 

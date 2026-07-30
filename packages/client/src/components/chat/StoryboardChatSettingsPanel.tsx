@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Settings2 } from "lucide-react";
+import { AlertTriangle, Settings2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX,
@@ -264,6 +264,9 @@ export function StoryboardChatSettingsPanel({
     settings.videoTemplateId,
     settings.videoTemplates,
   );
+  const roleplayImageConnectionMissing = ownerMode === "roleplay" && !readString(settings.imageConnectionId);
+  const roleplayVideoConnectionMissing =
+    ownerMode === "roleplay" && autoAnimationsEnabled && !readString(settings.videoConnectionId);
 
   return (
     <>
@@ -282,6 +285,32 @@ export function StoryboardChatSettingsPanel({
           title={localizeUi("ui.chat.chatsettingsdrawer.storyboards")}
           description={localizeUi("ui.chat.chatsettingsdrawer.createKeyframeMediaForCompletedGmTurnsAndFollow")}
         >
+          {roleplayImageConnectionMissing || roleplayVideoConnectionMissing ? (
+            <div
+              role="alert"
+              className="flex items-start gap-2 rounded-lg bg-amber-400/10 px-3 py-2.5 ring-1 ring-amber-400/25"
+            >
+              <AlertTriangle size="0.875rem" className="mt-0.5 shrink-0 text-amber-300" />
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="space-y-0.5 text-[0.625rem] leading-snug text-[var(--foreground)]">
+                  {roleplayImageConnectionMissing ? (
+                    <p>{localizeUi("ui.agents.storyboard.roleplayImageConnectionRequired")}</p>
+                  ) : null}
+                  {roleplayVideoConnectionMissing ? (
+                    <p>{localizeUi("ui.agents.storyboard.roleplayVideoConnectionRequired")}</p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={onOpenAgentSettings}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-300/15 px-2 py-1 text-[0.625rem] font-medium text-[var(--foreground)] ring-1 ring-amber-300/25 transition-colors hover:bg-amber-300/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60"
+                >
+                  <Settings2 size="0.6875rem" />
+                  {localizeUi("ui.chat.chatsettingsdrawer.openSetup")}
+                </button>
+              </div>
+            </div>
+          ) : null}
           <AgentSettingsToggle
             label={localizeUi("ui.chat.chatsettingsdrawer.automaticStoryboardIllustrations")}
             description={localizeUi(
