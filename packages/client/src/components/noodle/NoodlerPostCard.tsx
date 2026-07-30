@@ -15,6 +15,7 @@ import {
   Repeat2,
   Smile,
   Trash2,
+  Lock,
   X,
 } from "lucide-react";
 import { Fragment, useRef } from "react";
@@ -53,6 +54,46 @@ import {
 } from "./NoodlePostCard";
 import { NoodlePollComposer } from "./NoodlePollComposer";
 import { PostImageFrame } from "./PostImageCropEditor";
+
+export function NoodlerTeachingPostCard({
+  author,
+  handle,
+  avatarUrl,
+  body,
+  lockedLabel,
+  unlockLabel,
+}: {
+  author: string;
+  handle: string;
+  avatarUrl: string;
+  body: string;
+  lockedLabel: string;
+  unlockLabel: string;
+}) {
+  return (
+    <article className="overflow-hidden rounded-md border border-[var(--noodle-divider)] bg-[var(--background)]">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <Avatar account={{ displayName: author, avatarUrl }} size="md" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">{author}</p>
+          <p className="text-xs text-[var(--muted-foreground)]">@{handle}</p>
+        </div>
+        <span className="flex items-center gap-1 rounded-full bg-[var(--noodle-accent)]/12 px-2 py-1 text-xs font-semibold text-[var(--noodle-accent)]">
+          <Lock size={12} /> {lockedLabel}
+        </span>
+      </div>
+      <div className="border-t border-[var(--noodle-divider)] px-4 py-3 text-sm leading-6">{body}</div>
+      <div className="border-t border-[var(--noodle-divider)] px-4 py-2">
+        <button
+          type="button"
+          className="min-h-9 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-xs font-bold text-[var(--noodle-accent)]"
+        >
+          {unlockLabel}
+        </button>
+      </div>
+    </article>
+  );
+}
 
 export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx: NoodlePostCardCtx }) {
   const { t: localizeUi } = useUiTranslation();
@@ -434,9 +475,7 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
                 {author?.displayName ?? "Noodle User"}
               </button>
               <span className="rounded-full bg-[var(--noodle-accent)]/15 px-2 py-0.5 text-[0.68rem] font-bold text-[var(--noodle-accent)]">
-                {localizeUi(
-                  post.access === "locked" ? "ui.noodle.postaccess.unlocked" : "ui.noodle.postaccess.public",
-                )}
+                {localizeUi(post.access === "locked" ? "ui.noodle.postaccess.unlocked" : "ui.noodle.postaccess.public")}
               </span>
             </div>
             <p className="text-xs text-[var(--muted-foreground)]">
@@ -550,7 +589,9 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
                 onClose={cancelEditingPost}
                 onSubmit={() => saveEditedPost(post)}
                 submitLabel={
-                  updatePostPending ? localizeUi("ui.noodle.noodlehome.saving") : localizeUi("ui.noodle.noodlehome.save")
+                  updatePostPending
+                    ? localizeUi("ui.noodle.noodlehome.saving")
+                    : localizeUi("ui.noodle.noodlehome.save")
                 }
                 submitDisabled={saveEditDisabled}
                 disabled={updatePostPending}

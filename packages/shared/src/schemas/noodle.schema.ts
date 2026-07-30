@@ -17,8 +17,7 @@ export const NOODLER_POST_CONTENT_MAX_LENGTH = 4000;
 export const NOODLER_REPLY_CONTENT_MAX_LENGTH = 2000;
 export const DEFAULT_NOODLER_CREATOR_REPLIES_PER_24_HOURS = 10;
 // Exact `Title:\n` + `\n\n` + `Body:\n` framing overhead from serializeNoodlerPostGuide.
-export const NOODLER_POST_GUIDE_MAX_LENGTH =
-  NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
+export const NOODLER_POST_GUIDE_MAX_LENGTH = NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
 
 export const DEFAULT_NOODLE_SETTINGS = {
   refreshesPerDay: 2,
@@ -57,6 +56,8 @@ export const DEFAULT_NOODLE_SETTINGS = {
     "All NoodleR creators and viewers are adults (18+). NSFW and explicit content are allowed when appropriate to the creator's personality and current context. Do not force it: stay true to each creator's voice rather than making every post sexual.",
   autoPostingScheduleEnabled: true,
   postsPerDay: 4,
+  noodlerOnboardingComplete: false,
+  noodlerNightQuiet: true,
 } as const;
 
 export const noodleSettingsSchema = z.object({
@@ -92,9 +93,7 @@ export const noodleSettingsSchema = z.object({
     .min(1)
     .nullable()
     .default(DEFAULT_NOODLE_SETTINGS.imageCaptioningConnectionId),
-  imageCaptioningUseConnectionDefault: z
-    .boolean()
-    .default(DEFAULT_NOODLE_SETTINGS.imageCaptioningUseConnectionDefault),
+  imageCaptioningUseConnectionDefault: z.boolean().default(DEFAULT_NOODLE_SETTINGS.imageCaptioningUseConnectionDefault),
   enableLorebookContext: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableLorebookContext),
   includeCharacterSchedules: z.boolean().default(DEFAULT_NOODLE_SETTINGS.includeCharacterSchedules),
   enableEnhancedTimelineWriting: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableEnhancedTimelineWriting),
@@ -113,6 +112,8 @@ export const noodleSettingsSchema = z.object({
   noodlerGenerationGuidance: z.string().max(4000).default(DEFAULT_NOODLE_SETTINGS.noodlerGenerationGuidance),
   autoPostingScheduleEnabled: z.boolean().default(DEFAULT_NOODLE_SETTINGS.autoPostingScheduleEnabled),
   postsPerDay: z.number().int().min(1).max(24).default(DEFAULT_NOODLE_SETTINGS.postsPerDay),
+  noodlerOnboardingComplete: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerOnboardingComplete),
+  noodlerNightQuiet: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerNightQuiet),
 });
 
 export const noodleSettingsUpdateSchema = noodleSettingsSchema.partial();
@@ -170,10 +171,7 @@ export const noodleAccountSchedulerSettingsSchema = z
 
 export const noodleAccountSchedulerPatchSchema = z
   .object({
-    autoPosting: noodleAutoPostingSettingsSchema
-      .pick({ enabled: true, imagesEnabled: true })
-      .partial()
-      .optional(),
+    autoPosting: noodleAutoPostingSettingsSchema.pick({ enabled: true, imagesEnabled: true }).partial().optional(),
   })
   .strict();
 export const noodleAccountAccessSettingsSchema = z
@@ -251,6 +249,17 @@ export const noodleBulkNoodlerAccountCreateSchema = z
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
     disclosureMode: noodleIdentityDisclosureSchema,
+    disclosureExceptions: z.record(z.string().min(1).max(64), noodleIdentityDisclosureSchema).default({}),
+    autoPosting: noodleAutoPostingSettingsSchema.default({ enabled: true, imagesEnabled: false }),
+  })
+  .strict();
+export const noodlerTargetedRefreshSchema = z
+  .object({
+    accountIds: z
+      .array(z.string().min(1).max(64))
+      .min(1)
+      .max(100)
+      .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
   })
   .strict();
 export const noodleStageProfileUpdateSchema = z.object(noodleStageProfileShape).strict();
@@ -407,9 +416,7 @@ export const noodlePostUpdateSchema = z.object({
 });
 
 const noodlerPostTitleValueSchema = z.string().trim().max(NOODLER_POST_TITLE_MAX_LENGTH).nullable();
-const noodlerPostTitleSchema = noodlerPostTitleValueSchema
-  .optional()
-  .transform((value) => value?.trim() || null);
+const noodlerPostTitleSchema = noodlerPostTitleValueSchema.optional().transform((value) => value?.trim() || null);
 const noodlerPostTitleUpdateSchema = noodlerPostTitleValueSchema
   .optional()
   .transform((value) => (value === undefined ? undefined : value?.trim() || null));
@@ -427,16 +434,15 @@ export const noodlerPostCreateWithMediaSchema = z
   .object({ ...noodlerPostCreateShape, access: noodlePostAccessSchema.default("public") })
   .strict();
 
-export const noodlerPostCreateSchema = noodlerPostCreateWithMediaSchema
-  .superRefine((input, ctx) => {
-    if (!input.content && !input.poll && !input.uploadedImageUrl) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["content"],
-        message: "Posts need a body, image, or poll.",
-      });
-    }
-  });
+export const noodlerPostCreateSchema = noodlerPostCreateWithMediaSchema.superRefine((input, ctx) => {
+  if (!input.content && !input.poll && !input.uploadedImageUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["content"],
+      message: "Posts need a body, image, or poll.",
+    });
+  }
+});
 
 export const noodlerPostUpdateSchema = z
   .object({

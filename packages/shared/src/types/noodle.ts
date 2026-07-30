@@ -139,6 +139,10 @@ export interface NoodleSettings {
   autoPostingScheduleEnabled: boolean;
   /** Rolling text-attempt ceiling and target maximum publication density. */
   postsPerDay: number;
+  /** Durable first-run completion flag shared by every client. */
+  noodlerOnboardingComplete: boolean;
+  /** Avoid overnight automatic posts for creators without a character schedule. */
+  noodlerNightQuiet: boolean;
 }
 
 export interface NoodlerReserveCreatorStatus {

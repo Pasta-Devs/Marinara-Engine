@@ -11,12 +11,34 @@ import {
   DEFAULT_NOODLE_SETTINGS,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
+  noodleBulkNoodlerAccountCreateSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
+import { defaultNoodlerOnboardingSelection } from "../../packages/shared/src/utils/noodler-onboarding.js";
 import {
   createNoodleStorage,
   normalizeNoodleSettings,
 } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../../packages/server/src/services/noodle/noodle-profile-avatar.js";
+
+assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 8 }, (_, index) => String(index))), [
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+]);
+assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 9 }, (_, index) => String(index))), []);
+const bulkOnboarding = noodleBulkNoodlerAccountCreateSchema.parse({
+  noodleAccountIds: ["one", "two"],
+  disclosureMode: "hinted",
+  disclosureExceptions: { two: "secret" },
+  autoPosting: { enabled: true, imagesEnabled: true },
+});
+assert.equal(bulkOnboarding.disclosureExceptions.two, "secret");
+assert.equal(bulkOnboarding.autoPosting.imagesEnabled, true);
 
 const sourceCrop = { x: 12, y: 18, width: 62, height: 62, unit: "%" as const };
 assert.equal(
@@ -78,6 +100,8 @@ assert.deepEqual(salvaged.invitedCharacterGroupIds, ["folder-1"]);
 assert.equal(salvaged.generationConnectionId, "conn-1");
 assert.equal(salvaged.refreshesPerDay, 6);
 assert.equal(salvaged.postsPerDay, DEFAULT_NOODLE_SETTINGS.postsPerDay);
+assert.equal(salvaged.noodlerOnboardingComplete, false);
+assert.equal(salvaged.noodlerNightQuiet, true);
 
 // The pre-rename guidance key must still be read (rename must not reset customized text).
 assert.equal(

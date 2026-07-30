@@ -76,9 +76,7 @@ export async function generateAndApplyNoodlerPost(
 
 const MAX_CONCURRENT_MANUAL_REFRESH = 3;
 
-export type NoodlerRefreshNowResult =
-  | { status: "disabled" }
-  | { status: "ok"; outcomes: NoodlerRefreshNowOutcome[] };
+export type NoodlerRefreshNowResult = { status: "disabled" } | { status: "ok"; outcomes: NoodlerRefreshNowOutcome[] };
 
 /**
  * Global "Refresh NoodleR now": explicit user-authorized work, separate from the automatic
@@ -111,6 +109,35 @@ export async function refreshAllNoodlerCreatorsNow(db: DB): Promise<NoodlerRefre
     if (entry.status === "fulfilled") return entry.value;
     logger.error(entry.reason, "[noodler] Global refresh failed for creator %s", prioritized[index]!.id);
     return { accountId: prioritized[index]!.id, status: "error" };
+  });
+  return { status: "ok", outcomes };
+}
+
+export async function refreshTargetedNoodlerCreatorsNow(
+  db: DB,
+  accountIds: string[],
+): Promise<NoodlerRefreshNowResult> {
+  const noodle = createNoodleStorage(db);
+  const settings = await noodle.getSettings();
+  if (!settings.enableNoodler) return { status: "disabled" };
+
+  const settled = await settleAgentJobsWithConcurrencyLimit(
+    accountIds,
+    MAX_CONCURRENT_MANUAL_REFRESH,
+    async (accountId): Promise<NoodlerRefreshNowOutcome> => {
+      const result = await generateAndApplyNoodlerPost(db, {
+        mode: "noodler",
+        targetAccountId: accountId,
+        access: "locked",
+      });
+      const status = result.status === "disabled" || result.status === "busy" ? "skipped" : result.status;
+      return { accountId, status };
+    },
+  );
+  const outcomes = settled.map((entry, index): NoodlerRefreshNowOutcome => {
+    if (entry.status === "fulfilled") return entry.value;
+    logger.error(entry.reason, "[noodler] Targeted refresh failed for creator %s", accountIds[index]!);
+    return { accountId: accountIds[index]!, status: "error" };
   });
   return { status: "ok", outcomes };
 }

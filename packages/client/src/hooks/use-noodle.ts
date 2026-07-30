@@ -103,7 +103,7 @@ export function useNoodlerEligibleAccounts(search: string, kind: "all" | "charac
     initialPageParam: 0,
     queryFn: ({ pageParam }) =>
       api.get<{ items: NoodleAccount[]; limit: number; offset: number; hasMore: boolean }>(
-        `/noodle/noodler/eligible-accounts?limit=20&offset=${pageParam}&search=${encodeURIComponent(normalizedSearch)}${kind === "all" ? "" : `&kind=${kind}`}`,
+        `/noodle/noodler/eligible-accounts?limit=100&offset=${pageParam}&search=${encodeURIComponent(normalizedSearch)}${kind === "all" ? "" : `&kind=${kind}`}`,
       ),
     getNextPageParam: (page) => (page.hasMore ? page.offset + page.items.length : undefined),
     enabled,
@@ -399,15 +399,7 @@ export function useCreateNoodlerInteraction() {
 export function useTriggerNoodlerCreatorReply() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      postId,
-      interactionId,
-      personaId,
-    }: {
-      postId: string;
-      interactionId: string;
-      personaId: string;
-    }) =>
+    mutationFn: ({ postId, interactionId, personaId }: { postId: string; interactionId: string; personaId: string }) =>
       api.post<NoodlerCreatorReplyResult>(
         `/noodle/noodler/posts/${encodeURIComponent(postId)}/interactions/${encodeURIComponent(interactionId)}/creator-reply`,
         { personaId, debugMode: useUIStore.getState().debugMode },
@@ -433,11 +425,7 @@ export function useRemoveNoodlerInteraction() {
 export function useUpdateNoodlerPost() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      id,
-      accountId: _accountId,
-      ...input
-    }: { id: string; accountId: string } & NoodlerPostUpdateInput) =>
+    mutationFn: ({ id, accountId: _accountId, ...input }: { id: string; accountId: string } & NoodlerPostUpdateInput) =>
       api.patch<NoodlerManagedPost>(`/noodle/noodler/posts/${encodeURIComponent(id)}`, input),
     onSuccess: (_post, input) => {
       return Promise.all([
@@ -493,13 +481,7 @@ export function useDeleteNoodlerPost() {
 export function useUpdateNoodlerAccess() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      accountId,
-      ...access
-    }: {
-      accountId: string;
-      hiddenFromAccountIds: string[];
-    }) =>
+    mutationFn: ({ accountId, ...access }: { accountId: string; hiddenFromAccountIds: string[] }) =>
       api.patch<NoodleAccount>(`/noodle/accounts/${encodeURIComponent(accountId)}/settings`, {
         subtree: "privacy",
         patch: { access },
@@ -516,23 +498,17 @@ export function useUpdateNoodlerAccess() {
 export function useUpdateNoodlerAutoPosting() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      accountId,
-      ...autoPosting
-    }: {
-      accountId: string;
-      enabled?: boolean;
-      imagesEnabled?: boolean;
-    }) =>
+    mutationFn: ({ accountId, ...autoPosting }: { accountId: string; enabled?: boolean; imagesEnabled?: boolean }) =>
       api.patch<NoodleAccount>(`/noodle/accounts/${encodeURIComponent(accountId)}/settings`, {
         subtree: "scheduler",
         patch: { autoPosting },
       } satisfies NoodleAccountSettingsPatchInput),
     // Auto-post state lives only under noodlerAccounts(); the /noodle bootstrap has none of it.
-    onSuccess: () => Promise.all([
-      qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
-      qc.invalidateQueries({ queryKey: noodleKeys.noodlerReserveStatus() }),
-    ]),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
+        qc.invalidateQueries({ queryKey: noodleKeys.noodlerReserveStatus() }),
+      ]),
   });
 }
 
@@ -561,6 +537,22 @@ export function useRefreshAllNoodlerCreatorsNow() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.post<{ outcomes: NoodlerRefreshNowOutcome[] }>("/noodle/noodler/auto-post/refresh-now"),
+    onSuccess: () =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),
+        qc.invalidateQueries({ queryKey: [...noodleKeys.noodlerRoot(), "posts"] }),
+        qc.invalidateQueries({ queryKey: noodleKeys.noodlerViewers() }),
+      ]),
+  });
+}
+
+export function useRefreshTargetedNoodlerCreatorsNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (accountIds: string[]) =>
+      api.post<{ outcomes: NoodlerRefreshNowOutcome[] }>("/noodle/noodler/auto-post/refresh-targeted", {
+        accountIds,
+      }),
     onSuccess: () =>
       Promise.all([
         qc.invalidateQueries({ queryKey: noodleKeys.noodlerAccounts() }),

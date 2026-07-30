@@ -16,6 +16,9 @@ import {
   normalizeScheduler,
 } from "../../packages/server/src/services/storage/noodle.storage.js";
 import {
+  isNoodlerNightQuietTime,
+} from "../../packages/server/src/services/noodle/noodle-noodler-reserve.operation.js";
+import {
   beginForegroundConnection,
   resetConnectionAdmissionForTests,
   tryBackgroundConnection,
@@ -30,6 +33,10 @@ assert.deepEqual(
 assert.ok(noodleAccountSchedulerPatchSchema.safeParse({ autoPosting: { enabled: true, imagesEnabled: true } }).success);
 assert.equal(noodleAccountSchedulerPatchSchema.safeParse({ autoPosting: { intensity: 3 } }).success, false);
 assert.equal(noodleAccountSchedulerPatchSchema.safeParse({ autoPosting: { nextRunAt: new Date().toISOString() } }).success, false);
+assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 23, 0)), true);
+assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 6, 59)), true);
+assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 7, 0)), false);
+assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 22, 59)), false);
 
 resetConnectionAdmissionForTests();
 const releaseForeground = beginForegroundConnection("connection-1");

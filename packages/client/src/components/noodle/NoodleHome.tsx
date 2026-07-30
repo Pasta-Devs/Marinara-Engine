@@ -123,7 +123,6 @@ import {
 } from "./NoodleShell";
 import type { NoodleNavigationState, NoodleProfileConnection } from "./noodle-navigation.types";
 import { NoodleProfileSurface } from "./NoodleProfileSurface";
-import { NoodlerBulkCreateButton } from "./NoodlerBulkCreatePanel";
 import { NoodlerScheduleManagerModal } from "./NoodlerScheduleManagerModal";
 import { BrowserChrome, formatTime } from "./NoodleBrowserChrome";
 import { NoodleImageComposer } from "./NoodleImageComposer";
@@ -3257,7 +3256,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   <p className="text-xs text-[var(--muted-foreground)]">
                     {noodlerScheduleSummary}
                   </p>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
                     <button
                       type="button"
                       disabled={noodlerCreatorCount === 0}
@@ -3267,7 +3266,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                       <CalendarClock size={15} />
                       {noodlerCreatorCount === 0 ?localizeUi("ui.noodle.noodlehome.noCreatorsToScheduleYet") :localizeUi("ui.noodle.noodlehome.manageSchedules")}
                     </button>
-                    <NoodlerBulkCreateButton label={localizeUi("ui.noodle.noodlehome.addCreators")} />
                   </div>
                 </div>
               </div>

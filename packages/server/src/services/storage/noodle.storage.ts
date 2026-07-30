@@ -104,6 +104,7 @@ export function noodlerReservePolicyFingerprint(
     | "imageGenerationUseAvatarReferences"
     | "imageGenerationIncludeDescriptions"
     | "includeCharacterSchedules"
+    | "noodlerNightQuiet"
   >,
   sourceUpdatedAt?: string | null,
 ): string {

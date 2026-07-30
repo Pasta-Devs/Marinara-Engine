@@ -29,6 +29,7 @@ import {
   noodlerCreatorReplyRequestSchema,
   noodlerCreateInteractionSchema,
   noodlerRemoveInteractionSchema,
+  noodlerTargetedRefreshSchema,
   noodlerSubscriptionSchema,
   noodlerUnlockSchema,
   noodlerViewerPersonaSchema,
@@ -67,6 +68,7 @@ import {
   createNoodlerPost,
   generateAndApplyNoodlerPost,
   refreshAllNoodlerCreatorsNow,
+  refreshTargetedNoodlerCreatorsNow,
   updateNoodlerPostWithMedia,
 } from "../services/noodle/noodle-noodler-post.operation.js";
 import { tryNoodlerAccountOperation } from "../services/noodle/noodle-noodler-account-operation-lock.js";
@@ -120,9 +122,7 @@ class NoodlerMediaRequestError extends Error {
   }
 }
 
-async function readNoodlerMultipart(
-  req: FastifyRequest,
-): Promise<{ payload: unknown; media: NoodlerPostMediaUpload }> {
+async function readNoodlerMultipart(req: FastifyRequest): Promise<{ payload: unknown; media: NoodlerPostMediaUpload }> {
   let payload: unknown;
   let media: NoodlerPostMediaUpload | null = null;
   for await (const part of req.parts({ limits: { fileSize: NOODLER_MEDIA_MAX_BYTES, files: 1 } })) {
@@ -214,10 +214,7 @@ type DecodedNoodlerMediaRequest<T> =
   | { success: true; data: T; media: NoodlerPostMediaUpload | undefined }
   | { success: false; error: z.ZodError };
 
-async function decodeNoodlerMediaRequest<
-  WithMediaSchema extends z.ZodTypeAny,
-  WithoutMediaSchema extends z.ZodTypeAny,
->(
+async function decodeNoodlerMediaRequest<WithMediaSchema extends z.ZodTypeAny, WithoutMediaSchema extends z.ZodTypeAny>(
   req: FastifyRequest,
   schemas: { withMedia: WithMediaSchema; withoutMedia: WithoutMediaSchema },
 ): Promise<DecodedNoodlerMediaRequest<z.output<WithMediaSchema> | z.output<WithoutMediaSchema>>> {
@@ -231,8 +228,7 @@ async function decodeNoodlerMediaRequest<
 
   const parsedForUrl = schemas.withMedia.safeParse(payload);
   const uploadedImageUrl =
-    parsedForUrl.success &&
-    typeof (parsedForUrl.data as { uploadedImageUrl?: unknown }).uploadedImageUrl === "string"
+    parsedForUrl.success && typeof (parsedForUrl.data as { uploadedImageUrl?: unknown }).uploadedImageUrl === "string"
       ? (parsedForUrl.data as { uploadedImageUrl: string }).uploadedImageUrl
       : undefined;
   if (uploadedImageUrl) {
@@ -243,19 +239,12 @@ async function decodeNoodlerMediaRequest<
   }
 
   const parsed = (media ? schemas.withMedia : schemas.withoutMedia).safeParse(payload);
-  return parsed.success
-    ? { success: true, data: parsed.data, media }
-    : { success: false, error: parsed.error };
+  return parsed.success ? { success: true, data: parsed.data, media } : { success: false, error: parsed.error };
 }
 
 function sendNoodlerMediaError(reply: FastifyReply, error: unknown) {
   const tooLarge = (error as { code?: string }).code === "FST_REQ_FILE_TOO_LARGE";
-  const statusCode =
-    tooLarge
-      ? 413
-      : error instanceof NoodlerMediaRequestError
-        ? error.statusCode
-        : 500;
+  const statusCode = tooLarge ? 413 : error instanceof NoodlerMediaRequestError ? error.statusCode : 500;
   if (statusCode === 500) logger.error(error, "[noodler] Image request failed");
   return reply.code(statusCode).send({
     error:
@@ -724,7 +713,7 @@ export async function noodleRoutes(app: FastifyInstance) {
             `${account.displayName} ${account.handle} ${account.bio}`.toLocaleLowerCase().includes(search),
           )
         : eligibleAccounts;
-      const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 20));
+      const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
       const offset = Math.max(0, Number(req.query.offset) || 0);
       return {
         items: filteredAccounts.slice(offset, offset + limit),
@@ -786,7 +775,7 @@ export async function noodleRoutes(app: FastifyInstance) {
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     const parsed = noodleBulkNoodlerAccountCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const { noodleAccountIds, disclosureMode } = parsed.data;
+    const { noodleAccountIds, disclosureMode, disclosureExceptions, autoPosting } = parsed.data;
     const connectionId = settings.generationConnectionId;
     if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
     const connection = await connections.getWithKey(connectionId);
@@ -797,6 +786,7 @@ export async function noodleRoutes(app: FastifyInstance) {
     // so a provider outage cannot look like a batch of harmless skips.
     const failed: string[] = [];
     for (const noodleAccountId of noodleAccountIds) {
+      const accountDisclosure = disclosureExceptions[noodleAccountId] ?? disclosureMode;
       const publicAccount = await noodle.getAccountById(noodleAccountId);
       if (!publicAccount) {
         skipped.push(noodleAccountId);
@@ -806,7 +796,7 @@ export async function noodleRoutes(app: FastifyInstance) {
         // ponytail: sequential per-account LLM generation (up to 100). Correct but slow;
         // add a small concurrency limit only if bulk latency becomes a real complaint.
         const stageProfile = await generateNoodlerStageProfileDraft(app.db, {
-          request: { noodleAccountId, disclosureMode, guidance: "" },
+          request: { noodleAccountId, disclosureMode: accountDisclosure, guidance: "" },
           connection,
         });
         // Belt-and-braces: the generator already enforces leak protection, but keep the guard.
@@ -819,6 +809,10 @@ export async function noodleRoutes(app: FastifyInstance) {
           skipped.push(noodleAccountId);
           continue;
         }
+        await noodle.patchAccountSettings(account.id, {
+          subtree: "scheduler",
+          patch: { autoPosting },
+        });
         created.push(account.id);
       } catch (error) {
         if (isFileUniqueConstraintError(error, "noodle_accounts", ["noodleAccountId"])) {
@@ -1021,6 +1015,14 @@ export async function noodleRoutes(app: FastifyInstance) {
   // an automatic run would. One creator's failure does not affect the others.
   app.post("/noodler/auto-post/refresh-now", async (_req, reply) => {
     const result = await refreshAllNoodlerCreatorsNow(app.db);
+    if (result.status === "disabled") return reply.code(404).send({ error: "Not Found" });
+    return { outcomes: result.outcomes };
+  });
+
+  app.post("/noodler/auto-post/refresh-targeted", async (req, reply) => {
+    const parsed = noodlerTargetedRefreshSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const result = await refreshTargetedNoodlerCreatorsNow(app.db, parsed.data.accountIds);
     if (result.status === "disabled") return reply.code(404).send({ error: "Not Found" });
     return { outcomes: result.outcomes };
   });

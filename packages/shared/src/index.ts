@@ -84,10 +84,7 @@ export * from "./constants/docs-languages.js";
 
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
-export {
-  BUILT_IN_AGENT_MANIFESTS,
-  isBuiltInAgentRuntimeDisabled,
-} from "./features/agents/agent-registry.js";
+export { BUILT_IN_AGENT_MANIFESTS, isBuiltInAgentRuntimeDisabled } from "./features/agents/agent-registry.js";
 export * from "./features/function-calls/tool-definitions.js";
 export * from "./features/folder-packages/manifest-package.js";
 
@@ -136,5 +133,6 @@ export * from "./utils/conversation-presence.js";
 export * from "./utils/noodle-mentions.js";
 export * from "./utils/noodle-polls.js";
 export * from "./utils/noodle-post-images.js";
+export * from "./utils/noodler-onboarding.js";
 export * from "./utils/noodle-interactions.js";
 export * from "./utils/spatial-context.js";
