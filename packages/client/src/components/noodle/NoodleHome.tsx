@@ -689,7 +689,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   });
 
   const activeNoodleView = navigation.mode === "public" ? navigation.view : navigation.mode;
-  const settingsTab: SocialSettingsTab = navigation.mode === "settings" ? (navigation.tab ?? "noodle") : "noodle";
+  const settings = data?.settings;
+  const requestedSettingsTab: SocialSettingsTab =
+    navigation.mode === "settings" ? (navigation.tab ?? "noodle") : "noodle";
+  const settingsTab: SocialSettingsTab =
+    requestedSettingsTab === "noodler" && !settings?.enableNoodler ? "noodle" : requestedSettingsTab;
   const settingsSection: SocialSettingsSection =
     navigation.mode === "settings"
       ? (navigation.section ?? (settingsTab === "noodle" ? "general" : "general"))
@@ -706,7 +710,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const noodlePromptHasOverride = noodlePromptOverride?.enabled === true;
   const noodlePromptLoading = noodlePromptDetail.isLoading || noodlePromptDefault.isLoading;
   const noodlePromptDirty = noodlePromptDraft !== noodlePromptText;
-  const settings = data?.settings;
   const noodleGenerationConnection = settings?.generationConnectionId
     ? connections.find((connection) => connection.id === settings.generationConnectionId)
     : null;
@@ -3436,7 +3439,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
-            visible={settingsTab === "noodler" && settingsSection === "general"}
+            visible={settingsTab === "noodle" && settingsSection === "general"}
             title={localizeUi("ui.noodle.noodlehome.noodlerAccess")}
             help={localizeUi("ui.noodle.noodlehome.keepsNoodlerCreatorAccountsIsolatedFromThePublicNoodle")}
           >
@@ -3454,27 +3457,35 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               <p className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
                 {localizeUi("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}
               </p>
-              {settings.enableNoodler && (
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={openNoodler}
-                    className="flex min-h-10 w-full items-center justify-center rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
-                  >
-                    {localizeUi("ui.noodle.noodlehome.openNoodler")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigateSettings("noodler", "creators")}
-                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
-                  >
-                    <Settings2 size={15} />
-                    {localizeUi("ui.noodle.socialsettings.creatorProfiles")}
-                  </button>
-                </div>
-              )}
             </div>
           </Section>
+
+          {settings.enableNoodler && (
+            <Section
+              visible={settingsTab === "noodler" && settingsSection === "general"}
+              accent={NOODLE_PINK}
+              title={localizeUi("ui.noodle.socialsettings.noodlerGeneral")}
+              help={localizeUi("ui.noodle.socialsettings.noodlerGeneralHelp")}
+            >
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={openNoodler}
+                  className="flex min-h-10 w-full items-center justify-center rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
+                >
+                  {localizeUi("ui.noodle.noodlehome.openNoodler")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigateSettings("noodler", "creators")}
+                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
+                >
+                  <Settings2 size={15} />
+                  {localizeUi("ui.noodle.socialsettings.creatorProfiles")}
+                </button>
+              </div>
+            </Section>
+          )}
 
           {settings.enableNoodler && (
             <Section
@@ -4370,7 +4381,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   role="tablist"
                   aria-label={localizeUi("ui.noodle.socialsettings.products")}
                 >
-                  {(["noodle", "noodler"] as const).map((tab) => (
+                  {(["noodle", ...(settings?.enableNoodler ? (["noodler"] as const) : [])] as const).map((tab) => (
                     <button
                       key={tab}
                       type="button"

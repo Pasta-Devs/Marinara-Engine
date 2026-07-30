@@ -5941,6 +5941,8 @@
   "ui.noodle.socialsettings.description": "Noodle and NoodleR controls in one place.",
   "ui.noodle.socialsettings.general": "General",
   "ui.noodle.socialsettings.noCreatorProfiles": "No Creator profiles yet. Add one to start publishing.",
+  "ui.noodle.socialsettings.noodlerGeneral": "NoodleR",
+  "ui.noodle.socialsettings.noodlerGeneralHelp": "Open NoodleR or continue to its Creator profile settings.",
   "ui.noodle.socialsettings.participants": "Participants",
   "ui.noodle.socialsettings.products": "Social settings products",
   "ui.noodle.socialsettings.timeline": "Timeline",
