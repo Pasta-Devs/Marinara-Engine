@@ -41,6 +41,9 @@ export function NoodlerAgeGate({ personaName, avatarUrl, onComplete, onSkip, isP
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8 sm:py-12">
       <GateStyles />
       <ProgressDots step={step} total={3} />
+      <p className="text-center text-xs leading-5 text-[var(--muted-foreground)]">
+        {tt("privacyNote", "This is only a joke. No ID, card, or personal information is collected.")}
+      </p>
 
       {step === 0 && (
         <IdStep
@@ -76,7 +79,7 @@ export function NoodlerAgeGate({ personaName, avatarUrl, onComplete, onSkip, isP
         disabled={isPending}
         className="mx-auto text-xs font-semibold text-[var(--muted-foreground)] underline-offset-4 hover:underline disabled:opacity-50"
       >
-        {tt("skipTheGate", "Skip — I'm clearly an adult")}
+        {tt("skipTheGate", "Skip the joke and continue")}
       </button>
     </div>
   );
@@ -168,7 +171,10 @@ function IdStep({
 
   return (
     <div className="flex flex-col gap-5">
-      <StepHeading title={tt("idTitle", "Verifying government ID")} sub={tt("idSub", "Please hold still for the scanner.")} />
+      <StepHeading
+        title={tt("idTitle", "Verifying government ID")}
+        sub={tt("idSub", "Please hold still for the scanner.")}
+      />
       <div className="relative overflow-hidden rounded-xl border border-[var(--noodle-accent)]/40 bg-gradient-to-br from-[var(--noodle-accent)]/10 to-transparent p-4 shadow-sm">
         <div className="flex items-start gap-3">
           <div className="h-20 w-16 flex-none overflow-hidden rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10">
@@ -293,7 +299,13 @@ function CardStep({
           </>
         )}
       </p>
-      <StepButtons tt={tt} onBack={onBack} onNext={onNext} nextDisabled={!charged} nextLabel={tt("continue", "Continue")} />
+      <StepButtons
+        tt={tt}
+        onBack={onBack}
+        onNext={onNext}
+        nextDisabled={!charged}
+        nextLabel={tt("continue", "Continue")}
+      />
     </div>
   );
 }
@@ -364,11 +376,7 @@ function OathStep({
         disabled={!checked || isPending}
         className="h-12 rounded-md bg-[var(--noodle-accent)] text-base font-black uppercase tracking-wide text-zinc-950 [&_svg]:!text-zinc-950 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {isPending ? (
-          <Loader2 size={18} className="mx-auto animate-spin" />
-        ) : (
-          tt("enter", "Enter NoodleR")
-        )}
+        {isPending ? <Loader2 size={18} className="mx-auto animate-spin" /> : tt("enter", "Enter NoodleR")}
       </button>
       <button
         type="button"

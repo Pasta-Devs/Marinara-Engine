@@ -95,6 +95,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [selectionInitialized, setSelectionInitialized] = useState(false);
   const [disclosure, setDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
   const [exceptions, setExceptions] = useState<Record<string, NoodleIdentityDisclosure>>({});
+  const [autoPostingEnabled, setAutoPostingEnabled] = useState(true);
   const [postsPerDay, setPostsPerDay] = useState(4);
   const [nightQuiet, setNightQuiet] = useState(true);
   const [imagesEnabled, setImagesEnabled] = useState(false);
@@ -118,6 +119,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setSelectionInitialized(false);
     setDisclosure("hinted");
     setExceptions({});
+    setAutoPostingEnabled(true);
     setImagesEnabled(false);
     setGenerateNow(true);
     setCreatedIds([]);
@@ -212,7 +214,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           noodleAccountIds: [...selected],
           disclosureMode: disclosure,
           disclosureExceptions: exceptions,
-          autoPosting: { enabled: true, imagesEnabled },
+          autoPosting: { enabled: autoPostingEnabled, imagesEnabled },
         });
         newIds = result.created.map((profile) => profile.id);
         setCreatedIds(newIds);
@@ -274,7 +276,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
         {
           step: 3 as Step,
           label: t("ui.noodle.noodlerwizard.activity"),
-          value: t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay }),
+          value: autoPostingEnabled
+            ? t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay })
+            : t("ui.noodle.noodlerwizard.manualOnly"),
         },
         {
           step: 4 as Step,
@@ -451,6 +455,24 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   </button>
                 </div>
               )}
+              {accounts.length > 0 &&
+                selected.size > 0 &&
+                disclosure === "hinted" &&
+                Object.keys(exceptions).length === 0 &&
+                autoPostingEnabled &&
+                nightQuiet &&
+                !imagesEnabled &&
+                generateNow && (
+                  <div className="flex gap-3 rounded-lg border border-[var(--noodle-accent)]/35 bg-[var(--noodle-accent)]/8 p-3">
+                    <Sparkles size={17} className="mt-0.5 shrink-0 text-[var(--noodle-accent)]" />
+                    <div>
+                      <p className="text-sm font-bold">{t("ui.noodle.noodlerwizard.recommendedTitle")}</p>
+                      <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
+                        {t("ui.noodle.noodlerwizard.recommendedDetail", { count: postsPerDay })}
+                      </p>
+                    </div>
+                  </div>
+                )}
               {eligible.isError && accounts.length === 0 ? (
                 <div className="py-8 text-center">
                   <p className="text-sm text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.loadFailed")}</p>
@@ -542,26 +564,26 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 />
               ) : (
                 <div className="space-y-2">
-                {DISCLOSURES.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setDisclosure(value)}
-                    className={cn(
-                      "w-full rounded-md border p-3 text-left",
-                      disclosure === value
-                        ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
-                        : "border-[var(--border)] hover:bg-[var(--accent)]",
-                    )}
-                  >
-                    <span className="block text-sm font-bold">
-                      {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
-                    </span>
-                    <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">
-                      {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
-                    </span>
-                  </button>
-                ))}
+                  {DISCLOSURES.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setDisclosure(value)}
+                      className={cn(
+                        "w-full rounded-md border p-3 text-left",
+                        disclosure === value
+                          ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
+                          : "border-[var(--border)] hover:bg-[var(--accent)]",
+                      )}
+                    >
+                      <span className="block text-sm font-bold">
+                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">
+                        {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
               {advanced && selected.size > 0 && (
@@ -606,38 +628,66 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
               />
               {!advanced ? (
                 <CompactChoice
-                  label={t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay })}
-                  detail={nightQuiet ? t("ui.noodle.noodlerwizard.nightQuietOn") : t("ui.noodle.noodlerwizard.nightQuietOff")}
+                  label={
+                    autoPostingEnabled
+                      ? t("ui.noodle.noodlerwizard.automaticActivity")
+                      : t("ui.noodle.noodlerwizard.manualOnly")
+                  }
+                  detail={
+                    autoPostingEnabled
+                      ? t("ui.noodle.noodlerwizard.automaticActivityDetail", { count: postsPerDay })
+                      : t("ui.noodle.noodlerwizard.manualOnlyDetail")
+                  }
                   changeLabel={t("ui.noodle.noodlerwizard.change")}
                   onChange={() => setAdvanced(true)}
                 />
               ) : (
                 <>
-              <label className="block text-sm font-semibold">
-                {t("ui.noodle.noodlerwizard.postsPerDay")}
-                <input
-                  type="number"
-                  min={1}
-                  max={24}
-                  value={postsPerDay}
-                  onChange={(event) => setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))}
-                  className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
-                />
-              </label>
-              <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
-                <input
-                  type="checkbox"
-                  checked={nightQuiet}
-                  onChange={(event) => setNightQuiet(event.target.checked)}
-                  className="h-4 w-4 accent-[var(--noodle-accent)]"
-                />
-                <span>
-                  <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.nightQuiet")}</span>
-                  <span className="block text-xs text-[var(--muted-foreground)]">
-                    {t("ui.noodle.noodlerwizard.nightQuietHelp")}
-                  </span>
-                </span>
-              </label>
+                  <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
+                    <input
+                      type="checkbox"
+                      checked={autoPostingEnabled}
+                      onChange={(event) => setAutoPostingEnabled(event.target.checked)}
+                      className="h-4 w-4 accent-[var(--noodle-accent)]"
+                    />
+                    <span>
+                      <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.autoPosting")}</span>
+                      <span className="block text-xs text-[var(--muted-foreground)]">
+                        {t("ui.noodle.noodlerwizard.autoPostingHelp")}
+                      </span>
+                    </span>
+                  </label>
+                  {autoPostingEnabled && (
+                    <>
+                      <label className="block text-sm font-semibold">
+                        {t("ui.noodle.noodlerwizard.postsPerDay")}
+                        <input
+                          type="number"
+                          min={1}
+                          max={24}
+                          value={postsPerDay}
+                          onChange={(event) =>
+                            setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))
+                          }
+                          className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
+                        />
+                      </label>
+                      <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
+                        <input
+                          type="checkbox"
+                          checked={nightQuiet}
+                          onChange={(event) => setNightQuiet(event.target.checked)}
+                          className="h-4 w-4 accent-[var(--noodle-accent)]"
+                        />
+                        <span>
+                          <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.nightQuiet")}</span>
+                          <span className="block text-xs text-[var(--muted-foreground)]">
+                            {t("ui.noodle.noodlerwizard.nightQuietHelp")}
+                          </span>
+                        </span>
+                      </label>
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -659,21 +709,21 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                {[false, true].map((value) => (
-                  <button
-                    key={String(value)}
-                    type="button"
-                    onClick={() => setImagesEnabled(value)}
-                    className={cn(
-                      "min-h-11 rounded-md border text-sm font-bold",
-                      imagesEnabled === value
-                        ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
-                        : "border-[var(--border)]",
-                    )}
-                  >
-                    {value ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off")}
-                  </button>
-                ))}
+                  {[false, true].map((value) => (
+                    <button
+                      key={String(value)}
+                      type="button"
+                      onClick={() => setImagesEnabled(value)}
+                      className={cn(
+                        "min-h-11 rounded-md border text-sm font-bold",
+                        imagesEnabled === value
+                          ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
+                          : "border-[var(--border)]",
+                      )}
+                    >
+                      {value ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off")}
+                    </button>
+                  ))}
                 </div>
               )}
               <div className="rounded-lg border border-[var(--border)] bg-[var(--accent)]/30 p-4">
@@ -681,9 +731,11 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
                   {t("ui.noodle.noodlerwizard.setupCount", { count: selected.size })}
                   <br />
-                  {imagesEnabled
-                    ? t("ui.noodle.noodlerwizard.recurringCountImages", { count: postsPerDay })
-                    : t("ui.noodle.noodlerwizard.recurringCount", { count: postsPerDay })}
+                  {!autoPostingEnabled
+                    ? t("ui.noodle.noodlerwizard.noRecurringRequests")
+                    : imagesEnabled
+                      ? t("ui.noodle.noodlerwizard.recurringCountImages", { count: postsPerDay })
+                      : t("ui.noodle.noodlerwizard.recurringCount", { count: postsPerDay })}
                 </p>
                 <label className="mt-3 flex min-h-11 items-center gap-3">
                   <input
@@ -809,20 +861,20 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     onClick={() => void finish()}
                     className="min-h-10 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-sm font-bold text-[var(--noodle-accent)] disabled:opacity-50"
                   >
-                    {t("ui.noodle.noodlerwizard.useDefaults")}
+                    {t("ui.noodle.noodlerwizard.createSelected")}
                   </button>
                 )}
                 <button
-                type="button"
-                disabled={pending}
-                onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
-                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
-              >
-                {pending && <Loader2 size={15} className="animate-spin" />}
-                {step === (selectionOnly ? 1 : 4)
-                  ? t("ui.noodle.noodlerwizard.createCount", { count: selected.size })
-                  : t("ui.noodle.noodlerwizard.continue")}
-                {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
+                  type="button"
+                  disabled={pending}
+                  onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
+                  className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
+                >
+                  {pending && <Loader2 size={15} className="animate-spin" />}
+                  {step === (selectionOnly ? 1 : 4)
+                    ? t("ui.noodle.noodlerwizard.createCount", { count: selected.size })
+                    : t("ui.noodle.noodlerwizard.continue")}
+                  {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
                 </button>
               </div>
             ) : (
@@ -880,7 +932,11 @@ function CompactChoice({
         <p className="text-sm font-bold">{label}</p>
         <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">{detail}</p>
       </div>
-      <button type="button" onClick={onChange} className="min-h-9 shrink-0 px-2 text-xs font-bold text-[var(--noodle-accent)]">
+      <button
+        type="button"
+        onClick={onChange}
+        className="min-h-9 shrink-0 px-2 text-xs font-bold text-[var(--noodle-accent)]"
+      >
         {changeLabel}
       </button>
     </div>
