@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarClock,
+  Globe2,
   Crop,
   Dices,
   FileText,
@@ -15,6 +16,7 @@ import {
   Heart,
   Image as ImageIcon,
   ListChecks,
+  SlidersHorizontal,
   Loader2,
   MessageCircle,
   Pencil,
@@ -121,9 +123,13 @@ import {
   NOODLE_ICON_SCOPE_CLASS,
   NOODLE_PERSONA_SWITCHER_PAGE_SIZE,
 } from "./NoodleShell";
-import type { NoodleNavigationState, NoodleProfileConnection } from "./noodle-navigation.types";
+import type {
+  NoodleNavigationState,
+  NoodleProfileConnection,
+  NoodleSettingsNavigationState,
+} from "./noodle-navigation.types";
 import { NoodleProfileSurface } from "./NoodleProfileSurface";
-import { NoodlerScheduleManagerModal } from "./NoodlerScheduleManagerModal";
+import { NoodlerPublishingSettings } from "./NoodlerPublishingSettings";
 import { BrowserChrome, formatTime } from "./NoodleBrowserChrome";
 import { NoodleImageComposer } from "./NoodleImageComposer";
 import { NoodlePollComposer } from "./NoodlePollComposer";
@@ -149,6 +155,22 @@ type RawCharacterGroup = { id?: unknown; name?: unknown; description?: unknown; 
 type RawPersona = { id?: unknown; createdAt?: unknown; updatedAt?: unknown };
 type NoodleComposerImage = { url: string; crop: NoodlePostImageCrop | null };
 type NoodlePendingComposerImage = { source: File | string; crop: NoodlePostImageCrop | null };
+type SocialSettingsTab = "noodle" | "noodler";
+type SocialSettingsSection = NonNullable<NoodleSettingsNavigationState["section"]>;
+
+const SOCIAL_SETTINGS_SECTIONS: Record<SocialSettingsTab, Array<{ id: SocialSettingsSection; labelKey: string }>> = {
+  noodle: [
+    { id: "general", labelKey: "ui.noodle.socialsettings.general" },
+    { id: "timeline", labelKey: "ui.noodle.socialsettings.timeline" },
+    { id: "participants", labelKey: "ui.noodle.socialsettings.participants" },
+    { id: "advanced", labelKey: "ui.noodle.socialsettings.advanced" },
+  ],
+  noodler: [
+    { id: "general", labelKey: "ui.noodle.socialsettings.general" },
+    { id: "creators", labelKey: "ui.noodle.socialsettings.creatorProfiles" },
+    { id: "advanced", labelKey: "ui.noodle.socialsettings.advanced" },
+  ],
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -437,13 +459,16 @@ function Section({
   help,
   children,
   accent,
+  visible = true,
 }: {
   title: string;
   help?: React.ReactNode;
   children: React.ReactNode;
   /** Overrides `--noodle-accent` for this section, e.g. NoodleR's pink brand accent. */
   accent?: string;
+  visible?: boolean;
 }) {
+  if (!visible) return null;
   return (
     <section
       className="border-b border-[var(--noodle-divider)] p-4 last:border-b-0"
@@ -514,8 +539,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const noodlerAutomatingCount = noodlerCreators.filter((profile) => profile.autoPosting.enabled).length;
   const noodlerScheduleSummary =
     noodlerCreatorCount === 0
-      ? "No managed creators yet. Create a stage profile to schedule automatic posts."
-      : `${noodlerCreatorCount} creator${noodlerCreatorCount === 1 ? "" : "s"} · ${noodlerAutomatingCount} automating`;
+      ? localizeUi("ui.noodle.socialsettings.noCreatorProfiles")
+      : localizeUi("ui.noodle.socialsettings.creatorProfilesSummary", {
+          count: noodlerCreatorCount,
+          automating: noodlerAutomatingCount,
+        });
   const { data: activePersona } = useActivePersona();
   const { data: personasRaw } = usePersonas();
   const { data: charactersRaw } = useCharacters();
@@ -654,7 +682,6 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const [imageGenerationPromptDraft, setImageGenerationPromptDraft] = useState("");
   const [pollEditorValue, setPollEditorValue] = useState<NoodlePollInput | null>(null);
   const [noodlerGenerationGuidanceDraft, setNoodlerGenerationGuidanceDraft] = useState("");
-  const [scheduleManagerOpen, setScheduleManagerOpen] = useState(false);
   const [draftPoll, setDraftPoll] = useState<NoodlePollInput | null>(null);
   const postImageEditor = useNoodlePostImageEditor(async (post) => {
     if (!post.imageUrl) throw new Error("This post does not have an image.");
@@ -662,6 +689,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   });
 
   const activeNoodleView = navigation.mode === "public" ? navigation.view : navigation.mode;
+  const settingsTab: SocialSettingsTab = navigation.mode === "settings" ? (navigation.tab ?? "noodle") : "noodle";
+  const settingsSection: SocialSettingsSection =
+    navigation.mode === "settings"
+      ? (navigation.section ?? (settingsTab === "noodle" ? "general" : "general"))
+      : "general";
   const viewedProfileAccountId =
     navigation.mode === "public" && navigation.view === "profile" ? navigation.accountId : null;
   const profileConnectionTab =
@@ -786,10 +818,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   );
   const canCreateStageProfileFromViewed = Boolean(
     settings?.enableNoodler &&
-      viewedProfileAccount &&
-      (viewedProfileAccount.kind === "persona" || viewedProfileAccount.kind === "character") &&
-      noodlerAccountsQuery.isSuccess &&
-      !linkedNoodleAccountIds.has(viewedProfileAccount.id),
+    viewedProfileAccount &&
+    (viewedProfileAccount.kind === "persona" || viewedProfileAccount.kind === "character") &&
+    noodlerAccountsQuery.isSuccess &&
+    !linkedNoodleAccountIds.has(viewedProfileAccount.id),
   );
   const canEditViewedProfile = Boolean(
     viewingOwnProfile || (viewedProfileAccount?.kind === "character" && viewedProfileAccount.invited),
@@ -913,7 +945,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
   const saveSettings = (patch: NoodleSettingsUpdateInput) => {
     updateSettings.mutate(patch, {
-      onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleSettings")),
+      onError: (error) =>
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleSettings"),
+        ),
     });
   };
 
@@ -945,7 +980,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       setNoodlePromptEditorOpen(false);
       toast.success(localizeUi("ui.noodle.noodlehome.noodlePromptSaved"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotSaveTheNoodlePrompt"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotSaveTheNoodlePrompt"),
+      );
     }
   };
 
@@ -959,7 +996,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       setNoodlePromptDraft(noodleDefaultPromptText);
       toast.success(localizeUi("ui.noodle.noodlehome.defaultNoodlePromptRestored"));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotRestoreTheDefaultNoodlePrompt"));
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.noodle.noodlehome.couldNotRestoreTheDefaultNoodlePrompt"),
+      );
     }
   };
 
@@ -982,7 +1023,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           cancelRefreshTimeEdit();
           toast.success(localizeUi("ui.noodle.noodlehome.automaticRefreshRescheduled"));
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotRescheduleRefresh")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotRescheduleRefresh"),
+          ),
       },
     );
   };
@@ -1041,8 +1085,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
           if (!viewedProfileAccount || !canEditViewedProfile) return;
           const callbacks = {
-            onSuccess: () => toast.success(target === "avatar" ?localizeUi("ui.noodle.noodlehome.noodleAvatarUpdated") :localizeUi("ui.noodle.noodlehome.noodleBannerUpdated")),
-            onError: (error: Error) => toast.error(error.message ||localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleProfileImage")),
+            onSuccess: () =>
+              toast.success(
+                target === "avatar"
+                  ? localizeUi("ui.noodle.noodlehome.noodleAvatarUpdated")
+                  : localizeUi("ui.noodle.noodlehome.noodleBannerUpdated"),
+              ),
+            onError: (error: Error) =>
+              toast.error(error.message || localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleProfileImage")),
           };
           if (target === "avatar") {
             updateAccountProfile.mutate({ id: viewedProfileAccount.id, avatarUrl: image.url, profile: {} }, callbacks);
@@ -1050,7 +1100,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             updateAccountProfile.mutate({ id: viewedProfileAccount.id, profile: { bannerUrl: image.url } }, callbacks);
           }
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUploadProfileImage")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUploadProfileImage"),
+          ),
         onSettled: () => setProfileUploadTarget(null),
       },
     );
@@ -1097,9 +1150,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error(localizeUi("ui.noodle.noodlehome.chooseAnImageFile"));
-            return;
-          }
-          setActiveComposerTool(null);
+      return;
+    }
+    setActiveComposerTool(null);
     setPendingImage({ source: file, crop: null });
   };
 
@@ -1173,7 +1226,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           setReplyImageUrl(image.url);
           setActiveReplyComposerTool(null);
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotAttachImage")),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotAttachImage")),
       },
     );
   };
@@ -1343,10 +1397,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     ) : null;
 
   const canSubmitPost = Boolean(
-    personaAccount &&
-    !pendingImage &&
-    !uploadGlobalImages.isPending &&
-    (composerHasText || attachedImage || draftPoll),
+    personaAccount && !pendingImage && !uploadGlobalImages.isPending && (composerHasText || attachedImage || draftPoll),
   );
   const confirmActionPending =
     confirmAction?.kind === "delete-post"
@@ -1357,7 +1408,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           ? resetNoodleTimeline.isPending
           : confirmAction?.kind === "uninvite-everybody"
             ? clearInvites.isPending
-          : false;
+            : false;
   const normalizedProfileHandle = profileHandle.trim().replace(/^@+/, "");
   const isEditingProfile = canEditViewedProfile && profileEditing;
   const profileDisplayName = canEditViewedProfile
@@ -1924,7 +1975,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         followed,
       },
       {
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateFollowedAccounts")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateFollowedAccounts"),
+          ),
       },
     );
   };
@@ -1957,7 +2011,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           setActiveComposerTool(null);
           setComposeOpen(false);
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotPostToNoodle")),
+        onError: (error) =>
+          toast.error(error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotPostToNoodle")),
       },
     );
   };
@@ -1973,7 +2028,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           type,
         },
         {
-          onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodlePost")),
+          onError: (error) =>
+            toast.error(
+              error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodlePost"),
+            ),
         },
       );
       return;
@@ -1987,7 +2045,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         content: null,
       },
       {
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodlePost")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodlePost"),
+          ),
       },
     );
   };
@@ -2003,7 +2064,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         content: optionId,
       },
       {
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotSaveYourPollVote")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotSaveYourPollVote"),
+          ),
       },
     );
   };
@@ -2023,7 +2087,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       },
       {
         onSuccess: clearReplyComposer,
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotReplyOnNoodle")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotReplyOnNoodle"),
+          ),
       },
     );
   };
@@ -2063,14 +2130,20 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     };
     if (active) {
       removeInteraction.mutate(input, {
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateCommentLike")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateCommentLike"),
+          ),
       });
       return;
     }
     createInteraction.mutate(
       { ...input, content: null },
       {
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotUpdateCommentLike")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotUpdateCommentLike"),
+          ),
       },
     );
   };
@@ -2126,7 +2199,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       });
       cancelEditingPost();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotEditNoodlePost"));
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotEditNoodlePost"));
     }
   };
 
@@ -2156,7 +2229,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       },
       {
         onSuccess: cancelEditingReply,
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotEditNoodleComment")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotEditNoodleComment"),
+          ),
       },
     );
   };
@@ -2166,9 +2242,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       kind: "delete-reply",
       postId: post.id,
       interactionId: reply.id,
-      title:localizeUi("ui.noodle.noodlehome.deleteNoodleComment"),
-      message:localizeUi("ui.noodle.noodlehome.thisRemovesTheCommentAndAnyRepliesOrLikes"),
-      confirmLabel:localizeUi("ui.noodle.noodlepostcard.deleteComment"),
+      title: localizeUi("ui.noodle.noodlehome.deleteNoodleComment"),
+      message: localizeUi("ui.noodle.noodlehome.thisRemovesTheCommentAndAnyRepliesOrLikes"),
+      confirmLabel: localizeUi("ui.noodle.noodlepostcard.deleteComment"),
     });
   };
 
@@ -2177,18 +2253,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     setConfirmAction({
       kind: "delete-post",
       postId: post.id,
-      title:localizeUi("ui.noodle.noodlehome.deleteNoodlePost"),
-      message:localizeUi("ui.noodle.noodlehome.thisRemovesThePostAndItsLikesRepostsReplies"),
-      confirmLabel:localizeUi("ui.noodle.noodlehome.deletePost"),
+      title: localizeUi("ui.noodle.noodlehome.deleteNoodlePost"),
+      message: localizeUi("ui.noodle.noodlehome.thisRemovesThePostAndItsLikesRepostsReplies"),
+      confirmLabel: localizeUi("ui.noodle.noodlehome.deletePost"),
     });
   };
 
   const resetTimeline = () => {
     setConfirmAction({
       kind: "reset-timeline",
-      title:localizeUi("ui.noodle.noodlehome.resetNoodleTimeline"),
-      message:localizeUi("ui.noodle.noodlehome.thisRemovesAllPostsRepliesLikesRepostsActivityDigests"),
-      confirmLabel:localizeUi("ui.noodle.noodlehome.resetTimeline"),
+      title: localizeUi("ui.noodle.noodlehome.resetNoodleTimeline"),
+      message: localizeUi("ui.noodle.noodlehome.thisRemovesAllPostsRepliesLikesRepostsActivityDigests"),
+      confirmLabel: localizeUi("ui.noodle.noodlehome.resetTimeline"),
     });
   };
 
@@ -2204,7 +2280,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           if (editingPostId === postId) cancelEditingPost();
           setConfirmAction(null);
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotDeleteNoodlePost")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotDeleteNoodlePost"),
+          ),
       });
       return;
     }
@@ -2219,7 +2298,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             if (replyParentInteractionId === interactionId) clearReplyComposer();
             setConfirmAction(null);
           },
-          onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotDeleteNoodleComment")),
+          onError: (error) =>
+            toast.error(
+              error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotDeleteNoodleComment"),
+            ),
         },
       );
       return;
@@ -2230,7 +2312,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           setConfirmAction(null);
           toast.success(localizeUi("ui.noodle.noodlehome.noodleInvitesCleared"));
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotClearNoodleInvites")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotClearNoodleInvites"),
+          ),
       });
       return;
     }
@@ -2243,7 +2328,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         setConfirmAction(null);
         toast.success(localizeUi("ui.noodle.noodlehome.noodleTimelineReset"));
       },
-      onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotResetNoodleTimeline")),
+      onError: (error) =>
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotResetNoodleTimeline"),
+        ),
     });
   };
 
@@ -2268,7 +2356,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           }
           toast.success(localizeUi("ui.noodle.noodlehome.noodleTimelineRefreshed"));
         },
-        onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotRefreshNoodle")),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotRefreshNoodle"),
+          ),
       },
     );
   };
@@ -2280,7 +2371,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         toast.success(localizeUi("ui.noodle.noodlehome.noodleTimelineRefreshed"));
       },
       onError: (error) =>
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotGenerateTheReviewedNoodleImages")),
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.noodle.noodlehome.couldNotGenerateTheReviewedNoodleImages"),
+        ),
     });
   };
 
@@ -2347,10 +2442,33 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   };
 
   const openSettings = () => {
-    onNavigate({ mode: "settings" });
+    const returnTo =
+      navigation.mode === "public" ? navigation : (navigation.returnTo ?? { mode: "public", view: "home" });
+    onNavigate({ mode: "settings", tab: "noodle", section: "general", returnTo });
     setAccountSwitcherOpen(false);
     setMobileDrawerOpen(false);
     setActiveComposerTool(null);
+  };
+
+  const navigateSettings = (tab: SocialSettingsTab, section?: SocialSettingsSection) => {
+    if (navigation.mode !== "settings") return;
+    const nextSection = section ?? SOCIAL_SETTINGS_SECTIONS[tab][0]!.id;
+    onNavigate({ ...navigation, tab, section: nextSection });
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`social-settings-${tab}-${nextSection}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
+  const closeSettings = () => {
+    if (navigation.mode !== "settings") return;
+    onNavigate(navigation.returnTo ?? { mode: "public", view: "home" });
+  };
+
+  const openCreatorFromSettings = (accountId: string) => {
+    if (navigation.mode !== "settings") return;
+    onNavigate({ mode: "noodler", view: "profile", accountId, returnToSettings: navigation });
   };
 
   const openNoodler = () => {
@@ -2371,9 +2489,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     if (
       hasUnsavedDraft &&
       !(await showConfirmDialog({
-        title:localizeUi("ui.noodle.noodlehome.discardYourNoodleDraft"),
-        message:localizeUi("ui.noodle.noodlehome.yourUnsentPostOrReplyWillBeLostWhen"),
-        confirmLabel:localizeUi("ui.noodle.noodlehome.discardDraft"),
+        title: localizeUi("ui.noodle.noodlehome.discardYourNoodleDraft"),
+        message: localizeUi("ui.noodle.noodlehome.yourUnsentPostOrReplyWillBeLostWhen"),
+        confirmLabel: localizeUi("ui.noodle.noodlehome.discardDraft"),
         tone: "destructive",
       }))
     ) {
@@ -2427,19 +2545,29 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     }
     inviteCharacters.mutate(uninvitedSelectedFolderCharacterIds, {
       onSuccess: (accounts) => {
-        toast.success(localizeUi("ui.noodle.noodlehome.invitedValue1Value2FromSelectedFolders", { value1: accounts.length, value2: accounts.length === 1 ?localizeUi("ui.noodle.noodlehome.character") :localizeUi("ui.noodle.noodlehome.characters") }),
+        toast.success(
+          localizeUi("ui.noodle.noodlehome.invitedValue1Value2FromSelectedFolders", {
+            value1: accounts.length,
+            value2:
+              accounts.length === 1
+                ? localizeUi("ui.noodle.noodlehome.character")
+                : localizeUi("ui.noodle.noodlehome.characters"),
+          }),
         );
       },
-      onError: (error) => toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotInviteFolderCharacters")),
+      onError: (error) =>
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.noodle.noodlehome.couldNotInviteFolderCharacters"),
+        ),
     });
   };
 
   const uninviteEverybody = () => {
     setConfirmAction({
       kind: "uninvite-everybody",
-      title:localizeUi("ui.noodle.noodlehome.uninviteEverybody_29aa147"),
-      message:localizeUi("ui.noodle.noodlehome.thisRemovesAllDirectNoodleCharacterInvitesClearsSelected"),
-      confirmLabel:localizeUi("ui.noodle.noodlehome.uninviteEverybody"),
+      title: localizeUi("ui.noodle.noodlehome.uninviteEverybody_29aa147"),
+      message: localizeUi("ui.noodle.noodlehome.thisRemovesAllDirectNoodleCharacterInvitesClearsSelected"),
+      confirmLabel: localizeUi("ui.noodle.noodlehome.uninviteEverybody"),
     });
   };
 
@@ -2485,6 +2613,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const settingsContent = (
     <>
       <Section
+        visible={settingsTab === "noodle" && settingsSection === "advanced"}
         title={localizeUi("ui.noodle.noodlehome.noodlePrompt")}
         help={localizeUi("ui.noodle.noodlehome.controlsTheEditableBaseInstructionsUsedToWriteNoodle")}
       >
@@ -2495,14 +2624,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-xs font-semibold text-[var(--foreground)]">{localizeUi("ui.noodle.noodlehome.timelineBasePrompt")}</p>
+                <p className="text-xs font-semibold text-[var(--foreground)]">
+                  {localizeUi("ui.noodle.noodlehome.timelineBasePrompt")}
+                </p>
                 <span className="rounded-full border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/10 px-2 py-0.5 text-[0.625rem] font-semibold text-[var(--noodle-accent)]">
-                  {noodlePromptOverride?.enabled === true ?localizeUi("settings.notifications.customSound.status.custom") :localizeUi("ui.noodle.noodlehome.default")}
+                  {noodlePromptOverride?.enabled === true
+                    ? localizeUi("settings.notifications.customSound.status.custom")
+                    : localizeUi("ui.noodle.noodlehome.default")}
                 </span>
               </div>
               <p className="mt-1 line-clamp-3 whitespace-pre-line text-[0.68rem] leading-5 text-[var(--muted-foreground)]">
                 {noodlePromptDetail.isError || noodlePromptDefault.isError
-                  ?localizeUi("ui.noodle.noodlehome.theNoodlePromptCouldNotBeLoaded")
+                  ? localizeUi("ui.noodle.noodlehome.theNoodlePromptCouldNotBeLoaded")
                   : noodlePromptText || "Loading the default Noodle prompt…"}
               </p>
             </div>
@@ -2514,7 +2647,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               disabled={!noodlePromptHasOverride || resetNoodlePrompt.isPending}
               className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md border border-[var(--noodle-accent)]/35 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {resetNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}{localizeUi("ui.noodle.noodlehome.restoreDefault")}</button>
+              {resetNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+              {localizeUi("ui.noodle.noodlehome.restoreDefault")}
+            </button>
             <button
               type="button"
               onClick={openNoodlePromptEditor}
@@ -2531,6 +2666,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       </Section>
 
       <Section
+        visible={settingsTab === "noodle" && settingsSection === "participants"}
         title={localizeUi("ui.noodle.noodlehome.invites")}
         help={localizeUi("ui.noodle.noodlehome.chooseWhoCanParticipateInNoodleRefreshesDirectCharacter")}
       >
@@ -2544,7 +2680,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           />
 
           <label className="block space-y-1.5">
-            <FieldLabel help={localizeUi("ui.noodle.noodlehome.filtersBothCharacterFoldersAndIndividualCharactersInThis")}>{localizeUi("ui.noodle.noodlehome.charactersToInvite")}</FieldLabel>
+            <FieldLabel
+              help={localizeUi("ui.noodle.noodlehome.filtersBothCharacterFoldersAndIndividualCharactersInThis")}
+            >
+              {localizeUi("ui.noodle.noodlehome.charactersToInvite")}
+            </FieldLabel>
             <input
               value={inviteSearch}
               onChange={(event) => setInviteSearch(event.target.value)}
@@ -2564,7 +2704,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 <FolderOpen size={15} className="shrink-0 text-[var(--noodle-accent)]" />
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{localizeUi("ui.noodle.noodlehome.addFromFolder")}</span>
-                  <span className="block truncate text-[0.68rem] text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.inviteEveryCharacterInSelectedFolders")}</span>
+                  <span className="block truncate text-[0.68rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.noodle.noodlehome.inviteEveryCharacterInSelectedFolders")}
+                  </span>
                 </span>
                 <ChevronRight
                   size={15}
@@ -2598,15 +2740,20 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                             <span className="min-w-0 flex-1">
                               <span className="block truncate font-semibold">{name}</span>
                               <span className="block truncate text-[0.68rem] text-[var(--muted-foreground)]">
-                                {memberCount} {memberCount === 1 ?localizeUi("ui.noodle.noodlehome.character") :localizeUi("ui.noodle.noodlehome.characters")}
-                                {description ?localizeUi("ui.noodle.noodlehome.value1", { value1: description }) : ""}
+                                {memberCount}{" "}
+                                {memberCount === 1
+                                  ? localizeUi("ui.noodle.noodlehome.character")
+                                  : localizeUi("ui.noodle.noodlehome.characters")}
+                                {description ? localizeUi("ui.noodle.noodlehome.value1", { value1: description }) : ""}
                               </span>
                             </span>
                           </label>
                         );
                       })
                     ) : (
-                      <p className="px-3 py-2 text-xs text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.noMatchingFolders")}</p>
+                      <p className="px-3 py-2 text-xs text-[var(--muted-foreground)]">
+                        {localizeUi("ui.noodle.noodlehome.noMatchingFolders")}
+                      </p>
                     )}
                   </div>
                   <button
@@ -2634,7 +2781,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <FieldLabel help={localizeUi("ui.noodle.noodlehome.directlyInvitedCharactersAreEligibleRegardlessOfFolderSelection")}>{localizeUi("navigation.topbar.characters")}</FieldLabel>
+              <FieldLabel
+                help={localizeUi(
+                  "ui.noodle.noodlehome.directlyInvitedCharactersAreEligibleRegardlessOfFolderSelection",
+                )}
+              >
+                {localizeUi("navigation.topbar.characters")}
+              </FieldLabel>
               <button
                 type="button"
                 onClick={uninviteEverybody}
@@ -2649,7 +2802,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 }
                 className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[var(--noodle-accent)]/35 px-3 text-[0.68rem] font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {clearInvites.isPending ? <Loader2 size={13} className="animate-spin" /> : <UserMinus size={13} />}{localizeUi("ui.noodle.noodlehome.uninviteEverybody")}</button>
+                {clearInvites.isPending ? <Loader2 size={13} className="animate-spin" /> : <UserMinus size={13} />}
+                {localizeUi("ui.noodle.noodlehome.uninviteEverybody")}
+              </button>
             </div>
             <div className="max-h-96 overflow-y-auto rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] [scrollbar-gutter:stable]">
               <button
@@ -2662,9 +2817,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   <Dices size={16} />
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-semibold">{localizeUi("ui.noodle.noodlehome.randomUsers")}</span>
+                  <span className="block truncate text-xs font-semibold">
+                    {localizeUi("ui.noodle.noodlehome.randomUsers")}
+                  </span>
                   <span className="block truncate text-[0.68rem] text-[var(--muted-foreground)]">
-                    {(settings?.allowRandomUsers ?? false) ?localizeUi("ui.noodle.noodlehome.enabled") :localizeUi("ui.noodle.noodlehome.ambientFakeProfiles")}
+                    {(settings?.allowRandomUsers ?? false)
+                      ? localizeUi("ui.noodle.noodlehome.enabled")
+                      : localizeUi("ui.noodle.noodlehome.ambientFakeProfiles")}
                   </span>
                 </span>
                 <span className={noodleIconButtonClass}>
@@ -2693,7 +2852,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-xs font-semibold">{name}</p>
                       <p className="text-[0.68rem] text-[var(--muted-foreground)]">
-                        {invited ?localizeUi("ui.noodle.noodlehome.invited") : includedByFolder ?localizeUi("ui.noodle.noodlehome.includedByFolder") :localizeUi("ui.noodle.noodlehome.notInvited")}
+                        {invited
+                          ? localizeUi("ui.noodle.noodlehome.invited")
+                          : includedByFolder
+                            ? localizeUi("ui.noodle.noodlehome.includedByFolder")
+                            : localizeUi("ui.noodle.noodlehome.notInvited")}
                       </p>
                     </div>
                     <button
@@ -2704,14 +2867,26 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                         invited
                           ? removeCharacter.mutate(id, {
                               onError: (error) =>
-                                toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotRemoveInvite")),
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : localizeUi("ui.noodle.noodlehome.couldNotRemoveInvite"),
+                                ),
                             })
                           : inviteCharacter.mutate(id, {
                               onError: (error) =>
-                                toast.error(error instanceof Error ? error.message :localizeUi("ui.noodle.noodlehome.couldNotInviteCharacter")),
+                                toast.error(
+                                  error instanceof Error
+                                    ? error.message
+                                    : localizeUi("ui.noodle.noodlehome.couldNotInviteCharacter"),
+                                ),
                             })
                       }
-                      title={invited ?localizeUi("ui.noodle.noodlehome.removeDirectInvite") :localizeUi("ui.noodle.noodlehome.inviteDirectly")}
+                      title={
+                        invited
+                          ? localizeUi("ui.noodle.noodlehome.removeDirectInvite")
+                          : localizeUi("ui.noodle.noodlehome.inviteDirectly")
+                      }
                     >
                       {invited ? <UserMinus size={15} /> : <UserPlus size={15} />}
                     </button>
@@ -2719,14 +2894,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 );
               })}
               {filteredCharacters.length === 0 && (
-                <p className="px-3 py-3 text-center text-xs text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.noMatchingCharacters")}</p>
+                <p className="px-3 py-3 text-center text-xs text-[var(--muted-foreground)]">
+                  {localizeUi("ui.noodle.noodlehome.noMatchingCharacters")}
+                </p>
               )}
               {hasMoreInviteCharacters && (
                 <button
                   type="button"
                   onClick={() => setInviteCharacterLimit((limit) => limit + NOODLE_INVITE_PAGE_SIZE)}
                   className="w-full px-3 py-2 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10"
-                >{localizeUi("ui.noodle.noodlehome.loadMore")}{visibleInviteCharacters.length} {localizeUi("ui.noodle.noodlehome.of")} {filteredCharacters.length})
+                >
+                  {localizeUi("ui.noodle.noodlehome.loadMore")}
+                  {visibleInviteCharacters.length} {localizeUi("ui.noodle.noodlehome.of")} {filteredCharacters.length})
                 </button>
               )}
             </div>
@@ -2737,12 +2916,15 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       {settings && (
         <>
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "general"}
             title={localizeUi("ui.noodle.noodlehome.refresh")}
             help={localizeUi("ui.noodle.noodlehome.controlsTheModelConnectionAndHowOftenNoodleCan")}
           >
             <div className="space-y-3">
               <label className="block space-y-1.5">
-                <FieldLabel help={localizeUi("ui.noodle.noodlehome.theTextGenerationConnectionUsedToWriteNewNoodle")}>{localizeUi("ui.noodle.noodlehome.generationConnection")}</FieldLabel>
+                <FieldLabel help={localizeUi("ui.noodle.noodlehome.theTextGenerationConnectionUsedToWriteNewNoodle")}>
+                  {localizeUi("ui.noodle.noodlehome.generationConnection")}
+                </FieldLabel>
                 <select
                   value={settings.generationConnectionId ?? ""}
                   onChange={(event) => saveSettings({ generationConnectionId: event.target.value || null })}
@@ -2771,10 +2953,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="inline-flex items-center gap-2 font-semibold text-[var(--foreground)]">
-                      <RefreshCw size={14} />{localizeUi("ui.noodle.noodlehome.automaticSchedule")}</span>
+                      <RefreshCw size={14} />
+                      {localizeUi("ui.noodle.noodlehome.automaticSchedule")}
+                    </span>
                     {scheduler.refreshesPerDay > 0 && (
                       <span className="shrink-0 text-[var(--muted-foreground)]">
-                        {scheduler.completedSlots}/{scheduler.refreshesPerDay} {localizeUi("ui.noodle.noodlehome.slots")}</span>
+                        {scheduler.completedSlots}/{scheduler.refreshesPerDay}{" "}
+                        {localizeUi("ui.noodle.noodlehome.slots")}
+                      </span>
                     )}
                   </div>
                   <p className="mt-1.5 leading-5 text-[var(--muted-foreground)]">{noodleSchedulerSummary(scheduler)}</p>
@@ -2784,13 +2970,19 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                       role="alert"
                     >
                       <AlertTriangle className="mt-0.5 shrink-0 text-[var(--destructive)]" size={14} />
-                      <p>{localizeUi("ui.noodle.noodlehome.theServerTimezoneCouldNotBeDetectedRemoveA")} <code>TZ=</code> {localizeUi("ui.noodle.noodlehome.fromYour")}{" "}
-                        <code>.env</code>{localizeUi("ui.noodle.noodlehome.orSetAnIanaTimezoneSuchAs")} <code>TZ=Europe/Warsaw</code>{localizeUi("ui.noodle.noodlehome.thenRestartMarinara")}</p>
+                      <p>
+                        {localizeUi("ui.noodle.noodlehome.theServerTimezoneCouldNotBeDetectedRemoveA")} <code>TZ=</code>{" "}
+                        {localizeUi("ui.noodle.noodlehome.fromYour")} <code>.env</code>
+                        {localizeUi("ui.noodle.noodlehome.orSetAnIanaTimezoneSuchAs")} <code>TZ=Europe/Warsaw</code>
+                        {localizeUi("ui.noodle.noodlehome.thenRestartMarinara")}
+                      </p>
                     </div>
                   )}
                   {scheduler.scheduledTimes.length > 0 && (
                     <div className="mt-2">
-                      <p className="text-[0.68rem] font-semibold text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.plannedTimes")}{scheduler.timezone})
+                      <p className="text-[0.68rem] font-semibold text-[var(--muted-foreground)]">
+                        {localizeUi("ui.noodle.noodlehome.plannedTimes")}
+                        {scheduler.timezone})
                       </p>
                       <div className="mt-1 max-h-52 divide-y divide-[var(--noodle-divider)] overflow-y-auto border-y border-[var(--noodle-divider)]">
                         {scheduler.scheduledTimes.map((time, index) => {
@@ -2810,14 +3002,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                                 </span>
                               </span>
                               {completed ? (
-                                <span className="shrink-0 text-[0.65rem] font-semibold text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.completed")}</span>
+                                <span className="shrink-0 text-[0.65rem] font-semibold text-[var(--muted-foreground)]">
+                                  {localizeUi("ui.noodle.noodlehome.completed")}
+                                </span>
                               ) : editing ? (
                                 <div className="flex shrink-0 items-center gap-1">
                                   <input
                                     type="time"
                                     value={refreshTimeDraft}
                                     onChange={(event) => setRefreshTimeDraft(event.target.value)}
-                                    aria-label={localizeUi("ui.noodle.noodlehome.newTimeForRefreshValue1", { value1: index + 1 })}
+                                    aria-label={localizeUi("ui.noodle.noodlehome.newTimeForRefreshValue1", {
+                                      value1: index + 1,
+                                    })}
                                     className="mari-chrome-field h-8 w-[6.5rem] rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-2 text-xs text-[var(--foreground)] outline-none focus:border-[var(--noodle-accent)]"
                                   />
                                   <button
@@ -2840,7 +3036,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                                     }
                                     className="h-8 rounded-full bg-[var(--noodle-accent)] px-3 text-[0.68rem] font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                                   >
-                                    {rescheduleRefresh.isPending ?localizeUi("ui.noodle.noodlehome.saving") :localizeUi("ui.noodle.noodlehome.save")}
+                                    {rescheduleRefresh.isPending
+                                      ? localizeUi("ui.noodle.noodlehome.saving")
+                                      : localizeUi("ui.noodle.noodlehome.save")}
                                   </button>
                                 </div>
                               ) : (
@@ -2849,8 +3047,12 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                                   onClick={() => beginRefreshTimeEdit(time)}
                                   disabled={rescheduleRefresh.isPending}
                                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:opacity-50"
-                                  title={localizeUi("ui.noodle.noodlehome.rescheduleValue1", { value1: formatNoodleRefreshTime(time, scheduler.timezone) })}
-                                  aria-label={localizeUi("ui.noodle.noodlehome.rescheduleRefreshValue1", { value1: index + 1 })}
+                                  title={localizeUi("ui.noodle.noodlehome.rescheduleValue1", {
+                                    value1: formatNoodleRefreshTime(time, scheduler.timezone),
+                                  })}
+                                  aria-label={localizeUi("ui.noodle.noodlehome.rescheduleRefreshValue1", {
+                                    value1: index + 1,
+                                  })}
                                 >
                                   <Pencil size={14} />
                                 </button>
@@ -2885,12 +3087,15 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "participants"}
             title={localizeUi("ui.noodle.noodlehome.activeAccounts")}
             help={localizeUi("ui.noodle.noodlehome.controlsHowManyEligibleCharactersOrRandomUsersAre")}
           >
             <div className="space-y-3">
               <label className="block space-y-1.5">
-                <FieldLabel help={localizeUi("ui.noodle.noodlehome.selectsHowManyInvitedCharactersOrRandomUsersAre")}>{localizeUi("ui.noodle.noodlehome.activeSelection")}</FieldLabel>
+                <FieldLabel help={localizeUi("ui.noodle.noodlehome.selectsHowManyInvitedCharactersOrRandomUsersAre")}>
+                  {localizeUi("ui.noodle.noodlehome.activeSelection")}
+                </FieldLabel>
                 <select
                   value={settings.participantSelectionMode}
                   onChange={(event) =>
@@ -2939,7 +3144,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             </div>
           </Section>
 
-          <Section title={localizeUi("ui.noodle.noodlehome.activity")} help={localizeUi("ui.noodle.noodlehome.limitsHowMuchGeneratedNoodleActivityOneRefreshMay")}>
+          <Section
+            visible={settingsTab === "noodle" && settingsSection === "timeline"}
+            title={localizeUi("ui.noodle.noodlehome.activity")}
+            help={localizeUi("ui.noodle.noodlehome.limitsHowMuchGeneratedNoodleActivityOneRefreshMay")}
+          >
             <div className="grid grid-cols-2 gap-2">
               <NumberSetting
                 label={localizeUi("ui.noodle.noodlehome.posts")}
@@ -2977,6 +3186,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "timeline"}
             title={localizeUi("settings.sections.imageGeneration.title")}
             help={localizeUi("ui.noodle.noodlehome.controlsGeneratedPostImagesAndWhetherCharactersCanReuse")}
           >
@@ -2991,7 +3201,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               {settings.enableImagePrompts && (
                 <>
                   <label className="block space-y-1.5">
-                    <FieldLabel help={localizeUi("ui.noodle.noodlehome.theImageGenerationConnectionUsedToCreateNoodlePost")}>{localizeUi("ui.noodle.noodlehome.imageGenerationConnection")}</FieldLabel>
+                    <FieldLabel
+                      help={localizeUi("ui.noodle.noodlehome.theImageGenerationConnectionUsedToCreateNoodlePost")}
+                    >
+                      {localizeUi("ui.noodle.noodlehome.imageGenerationConnection")}
+                    </FieldLabel>
                     <select
                       value={settings.imageGenerationConnectionId ?? ""}
                       onChange={(event) => saveSettings({ imageGenerationConnectionId: event.target.value || null })}
@@ -3006,7 +3220,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     </select>
                   </label>
                   <label className="block space-y-1.5">
-                    <FieldLabel help={localizeUi("ui.noodle.noodlehome.extraInstructionsPassedIntoTheNoodlePostImagePrompt")}>{localizeUi("ui.noodle.noodlehome.promptInstructions")}</FieldLabel>
+                    <FieldLabel
+                      help={localizeUi("ui.noodle.noodlehome.extraInstructionsPassedIntoTheNoodlePostImagePrompt")}
+                    >
+                      {localizeUi("ui.noodle.noodlehome.promptInstructions")}
+                    </FieldLabel>
                     <textarea
                       value={imageGenerationPromptDraft}
                       onChange={(event) => setImageGenerationPromptDraft(event.target.value)}
@@ -3053,13 +3271,16 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "advanced"}
             title={localizeUi("ui.noodle.noodlehome.imageUnderstanding")}
             help={localizeUi("ui.noodle.noodlehome.letsAVisionCapableConnectionDescribeTimelineImagesFor")}
           >
             <div className="space-y-3">
               <ToggleSetting
                 label={localizeUi("ui.noodle.noodlehome.imageCaptioning")}
-                help={localizeUi("ui.noodle.noodlehome.convertsTimelineImagesIntoConciseDescriptionsBeforeRefreshGeneration")}
+                help={localizeUi(
+                  "ui.noodle.noodlehome.convertsTimelineImagesIntoConciseDescriptionsBeforeRefreshGeneration",
+                )}
                 checked={effectiveImageCaptioningEnabled}
                 disabled={updateSettings.isPending || connections.length === 0}
                 onChange={(checked) =>
@@ -3072,7 +3293,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               />
               {effectiveImageCaptioningEnabled && (
                 <label className="block space-y-1.5">
-                  <FieldLabel help={localizeUi("ui.noodle.noodlehome.chooseAVisionCapableTextConnectionDefaultUsesThe")}>{localizeUi("ui.noodle.noodlehome.captioningConnection")}</FieldLabel>
+                  <FieldLabel
+                    help={localizeUi("ui.noodle.noodlehome.chooseAVisionCapableTextConnectionDefaultUsesThe")}
+                  >
+                    {localizeUi("ui.noodle.noodlehome.captioningConnection")}
+                  </FieldLabel>
                   <select
                     value={effectiveImageCaptioningConnectionId ?? ""}
                     onChange={(event) =>
@@ -3113,6 +3338,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "advanced"}
             title={localizeUi("ui.noodle.noodlehome.timelineWriting")}
             help={localizeUi("ui.noodle.noodlehome.tunesHowTheRefreshWriterApproachesToneAndLong")}
           >
@@ -3126,7 +3352,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               />
               <ToggleSetting
                 label={localizeUi("ui.noodle.noodlehome.useGeneratedCharacterSchedules")}
-                help={localizeUi("ui.noodle.noodlehome.includesEachParticipatingCharacterSAlreadyGeneratedConversationSchedule")}
+                help={localizeUi(
+                  "ui.noodle.noodlehome.includesEachParticipatingCharacterSAlreadyGeneratedConversationSchedule",
+                )}
                 checked={settings.includeCharacterSchedules}
                 disabled={updateSettings.isPending}
                 onChange={(checked) => saveSettings({ includeCharacterSchedules: checked })}
@@ -3135,6 +3363,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "advanced"}
             title={localizeUi("ui.noodle.noodlehome.worldLore")}
             help={localizeUi("ui.noodle.noodlehome.letsNoodleRefreshesPullMatchingLorebookEntriesIntoThe")}
           >
@@ -3150,12 +3379,17 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "advanced"}
             title={localizeUi("ui.noodle.noodlehome.carryover")}
             help={localizeUi("ui.noodle.noodlehome.controlsWhetherRecentNoodleActivityIsAppendedToChat")}
           >
             <div className="space-y-3">
               <div className="space-y-2">
-                <FieldLabel help={localizeUi("ui.noodle.noodlehome.toggleEachModeThatShouldReceiveRecentNoodleActivity")}>{localizeUi("ui.noodle.noodlehome.carryoverToChats")}</FieldLabel>
+                <FieldLabel
+                  help={localizeUi("ui.noodle.noodlehome.toggleEachModeThatShouldReceiveRecentNoodleActivity")}
+                >
+                  {localizeUi("ui.noodle.noodlehome.carryoverToChats")}
+                </FieldLabel>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <ToggleSetting
                     label={localizeUi("settings.modes.conversations")}
@@ -3202,6 +3436,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           </Section>
 
           <Section
+            visible={settingsTab === "noodler" && settingsSection === "general"}
             title={localizeUi("ui.noodle.noodlehome.noodlerAccess")}
             help={localizeUi("ui.noodle.noodlehome.keepsNoodlerCreatorAccountsIsolatedFromThePublicNoodle")}
           >
@@ -3216,20 +3451,26 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   else saveSettings({ enableNoodler: false });
                 }}
               />
-              <p className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}</p>
+              <p className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}
+              </p>
               {settings.enableNoodler && (
                 <div className="grid gap-2 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={openNoodler}
                     className="flex min-h-10 w-full items-center justify-center rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
-                  >{localizeUi("ui.noodle.noodlehome.openNoodler")}</button>
+                  >
+                    {localizeUi("ui.noodle.noodlehome.openNoodler")}
+                  </button>
                   <button
                     type="button"
-                    onClick={() => onNavigate({ mode: "noodler", view: "profiles" })}
+                    onClick={() => navigateSettings("noodler", "creators")}
                     className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15"
                   >
-                    <Settings2 size={15} />{localizeUi("ui.noodle.noodlehome.manageStageProfiles")}</button>
+                    <Settings2 size={15} />
+                    {localizeUi("ui.noodle.socialsettings.creatorProfiles")}
+                  </button>
                 </div>
               )}
             </div>
@@ -3237,13 +3478,16 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
           {settings.enableNoodler && (
             <Section
+              visible={settingsTab === "noodler" && settingsSection === "advanced"}
               accent={NOODLE_PINK}
               title={localizeUi("ui.noodle.noodlehome.noodlerAutomation")}
               help={localizeUi("ui.noodle.noodlehome.sharedCreativeGuidanceForEveryGeneratedNoodlerPostPlus")}
             >
               <div className="space-y-4">
                 <label className="block space-y-1.5">
-                  <FieldLabel help={localizeUi("ui.noodle.noodlehome.prependedToEveryNoodlerPostGenerationUseIt")}>{localizeUi("ui.noodle.noodlehome.generationGuidance")}</FieldLabel>
+                  <FieldLabel help={localizeUi("ui.noodle.noodlehome.prependedToEveryNoodlerPostGenerationUseIt")}>
+                    {localizeUi("ui.noodle.noodlehome.generationGuidance")}
+                  </FieldLabel>
                   <textarea
                     value={noodlerGenerationGuidanceDraft}
                     onChange={(event) => setNoodlerGenerationGuidanceDraft(event.target.value)}
@@ -3255,29 +3499,41 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     className={textareaClass}
                   />
                 </label>
+              </div>
+            </Section>
+          )}
 
-                <div className="space-y-1.5">
-                  <FieldLabel help={localizeUi("ui.noodle.noodlehome.seeEveryManagedCreatorSAutomaticPostingStateAt")}>{localizeUi("ui.noodle.noodlehome.creatorSchedules")}</FieldLabel>
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {noodlerScheduleSummary}
-                  </p>
-                  <div>
-                    <button
-                      type="button"
-                      disabled={noodlerCreatorCount === 0}
-                      onClick={() => setScheduleManagerOpen(true)}
-                      className="flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/15 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <CalendarClock size={15} />
-                      {noodlerCreatorCount === 0 ?localizeUi("ui.noodle.noodlehome.noCreatorsToScheduleYet") :localizeUi("ui.noodle.noodlehome.manageSchedules")}
-                    </button>
-                  </div>
+          {settings.enableNoodler && (
+            <Section
+              visible={settingsTab === "noodler" && settingsSection === "creators"}
+              accent={NOODLE_PINK}
+              title={localizeUi("ui.noodle.socialsettings.creatorProfiles")}
+              help={localizeUi("ui.noodle.socialsettings.creatorProfilesHelp")}
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--muted-foreground)]">{noodlerScheduleSummary}</p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigation.mode === "settings" &&
+                      onNavigate({ mode: "noodler", view: "profiles", returnToSettings: navigation })
+                    }
+                    className="min-h-9 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10"
+                  >
+                    {localizeUi("ui.noodle.socialsettings.addCreatorProfiles")}
+                  </button>
                 </div>
+                <NoodlerPublishingSettings
+                  active={settingsTab === "noodler" && settingsSection === "creators"}
+                  onOpenCreator={openCreatorFromSettings}
+                />
               </div>
             </Section>
           )}
 
           <Section
+            visible={settingsTab === "noodle" && settingsSection === "advanced"}
             title={localizeUi("ui.noodle.noodlehome.resetNoodle")}
             help={localizeUi("ui.noodle.noodlehome.clearsTimelineContentWhileKeepingProfilesFollowsInvitesAnd")}
           >
@@ -3292,13 +3548,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               ) : (
                 <Trash2 size={14} className="text-[var(--noodle-accent)]" />
               )}
-              {resetNoodleTimeline.isPending ?localizeUi("ui.noodle.noodlehome.resettingNoodle") :localizeUi("ui.noodle.noodlehome.resetNoodleTimeline")}
+              {resetNoodleTimeline.isPending
+                ? localizeUi("ui.noodle.noodlehome.resettingNoodle")
+                : localizeUi("ui.noodle.noodlehome.resetNoodleTimeline")}
             </button>
           </Section>
         </>
       )}
-
-      <NoodlerScheduleManagerModal open={scheduleManagerOpen} onClose={() => setScheduleManagerOpen(false)} />
     </>
   );
 
@@ -3418,7 +3674,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 : "bg-[var(--foreground)] text-[var(--background)]",
             )}
           >
-            {followed ?localizeUi("ui.noodle.connections.tabs.following") :localizeUi("ui.noodle.noodlehome.follow")}
+            {followed ? localizeUi("ui.noodle.connections.tabs.following") : localizeUi("ui.noodle.noodlehome.follow")}
           </button>
         ) : null}
       </div>
@@ -3460,7 +3716,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             onClick={() => openProfile(item.actorAccount)}
             disabled={!item.actorAccount}
             className="rounded-full transition-opacity enabled:hover:opacity-80 disabled:cursor-default"
-            title={item.actorAccount ?localizeUi("ui.noodle.noodlehome.viewValue1", { value1: item.actorAccount.handle }) : undefined}
+            title={
+              item.actorAccount
+                ? localizeUi("ui.noodle.noodlehome.viewValue1", { value1: item.actorAccount.handle })
+                : undefined
+            }
           >
             <Avatar account={actor} />
           </button>
@@ -3480,7 +3740,12 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             <span className="text-xs text-[var(--muted-foreground)]">@{actor?.handle ?? "noodle"}</span>
             <span className="text-xs text-[var(--muted-foreground)]">{formatTime(item.interaction.createdAt)}</span>
           </div>
-          <p className="mt-1 text-sm">{localizeUi("ui.noodle.noodlehome.likedYour")} {item.targetReply ?localizeUi("ui.noodle.noodlehome.comment") :localizeUi("ui.noodle.noodlehome.post_9b46609")}</p>
+          <p className="mt-1 text-sm">
+            {localizeUi("ui.noodle.noodlehome.likedYour")}{" "}
+            {item.targetReply
+              ? localizeUi("ui.noodle.noodlehome.comment")
+              : localizeUi("ui.noodle.noodlehome.post_9b46609")}
+          </p>
           <p className="mt-2 line-clamp-2 text-sm leading-5 text-[var(--muted-foreground)]">
             {item.targetReply?.content || (item.targetReply?.imageUrl ? "Shared an image." : item.post.content)}
           </p>
@@ -3499,7 +3764,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             onClick={() => openProfile(item.actorAccount)}
             disabled={!item.actorAccount}
             className="rounded-full transition-opacity enabled:hover:opacity-80 disabled:cursor-default"
-            title={item.actorAccount ?localizeUi("ui.noodle.noodlehome.viewValue1", { value1: item.actorAccount.handle }) : undefined}
+            title={
+              item.actorAccount
+                ? localizeUi("ui.noodle.noodlehome.viewValue1", { value1: item.actorAccount.handle })
+                : undefined
+            }
           >
             <Avatar account={actor} />
           </button>
@@ -3512,11 +3781,19 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           data-noodle-notification-target={item.interactionId ?? item.post.id}
           data-noodle-notification-kind={item.kind}
           className="-m-2 min-w-0 flex-1 rounded-lg p-2 text-left outline-none transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]/70"
-          title={item.kind === "reply" ?localizeUi("ui.noodle.noodlehome.openReplyInTimeline") :localizeUi("ui.noodle.noodlehome.openPostInTimeline")}
+          title={
+            item.kind === "reply"
+              ? localizeUi("ui.noodle.noodlehome.openReplyInTimeline")
+              : localizeUi("ui.noodle.noodlehome.openPostInTimeline")
+          }
           aria-label={
             item.kind === "reply"
-              ?localizeUi("ui.noodle.noodlehome.openReplyFromValue1InTimeline", { value1: actor?.displayName ??localizeUi("ui.noodle.noodlepostcard.noodleUser") })
-              :localizeUi("ui.noodle.noodlehome.openMentionFromValue1InTimeline", { value1: actor?.displayName ??localizeUi("ui.noodle.noodlepostcard.noodleUser") })
+              ? localizeUi("ui.noodle.noodlehome.openReplyFromValue1InTimeline", {
+                  value1: actor?.displayName ?? localizeUi("ui.noodle.noodlepostcard.noodleUser"),
+                })
+              : localizeUi("ui.noodle.noodlehome.openMentionFromValue1InTimeline", {
+                  value1: actor?.displayName ?? localizeUi("ui.noodle.noodlepostcard.noodleUser"),
+                })
           }
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -3525,7 +3802,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             <span className="text-xs text-[var(--muted-foreground)]">{formatTime(item.createdAt)}</span>
           </div>
           <p className="mt-1 text-sm">
-            {item.kind === "reply" ?localizeUi("ui.noodle.noodlehome.repliedToYourValue1", { value1: item.replyTarget ??localizeUi("ui.noodle.noodlehome.post_9b46609") }) :localizeUi("ui.noodle.noodlehome.mentionedYou")}
+            {item.kind === "reply"
+              ? localizeUi("ui.noodle.noodlehome.repliedToYourValue1", {
+                  value1: item.replyTarget ?? localizeUi("ui.noodle.noodlehome.post_9b46609"),
+                })
+              : localizeUi("ui.noodle.noodlehome.mentionedYou")}
           </p>
           <p className="mt-2 whitespace-pre-wrap text-sm leading-5">{item.content}</p>
           {item.kind === "reply" && (
@@ -3553,11 +3834,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             onImageUrlChange={setImageUrlDraft}
             onChooseFile={() => imageFileRef.current?.click()}
             onUseImageUrl={applyImageUrl}
-          onClose={() => setActiveComposerTool(null)}
-              disabled={uploadGlobalImages.isPending}
+            onClose={() => setActiveComposerTool(null)}
+            disabled={uploadGlobalImages.isPending}
             hasImage={Boolean(attachedImage || pendingImage)}
             fileActionLabel={uploadGlobalImages.isPending ? "Uploading…" : "Upload from device"}
-              />
+          />
         </NoodleAnchoredPopover>
       )}
       {activeComposerTool === "poll" && (
@@ -3565,11 +3846,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           <NoodlePollComposer
             value={pollEditorValue}
             onChange={setPollEditorValue}
-          onClose={() => setActiveComposerTool(null)}
+            onClose={() => setActiveComposerTool(null)}
             onSubmit={applyPoll}
             submitLabel={draftPoll ? "Update poll" : "Add poll"}
-          modalOwned={composeOpen}
-                />
+            modalOwned={composeOpen}
+          />
         </NoodleAnchoredPopover>
       )}
       {activeComposerTool === "media" && (
@@ -3627,25 +3908,33 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       {rawPostSearch && (
         <section className="border-b border-[var(--noodle-divider)]" aria-labelledby="noodle-mobile-search-results">
           <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-            <h2 id="noodle-mobile-search-results" className="text-lg font-bold">{localizeUi("ui.noodle.noodlehome.searchResults")}</h2>
+            <h2 id="noodle-mobile-search-results" className="text-lg font-bold">
+              {localizeUi("ui.noodle.noodlehome.searchResults")}
+            </h2>
           </div>
           {isAccountSearch ? (
             accountSearchResults.length > 0 ? (
               <div>{accountSearchResults.map((account) => renderAccountRow(account, { showFollowButton: true }))}</div>
             ) : (
-              <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.noAccountsFound")}</p>
+              <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.noodlehome.noAccountsFound")}
+              </p>
             )
           ) : timelinePosts.length > 0 ? (
             <div>{timelinePosts.map(renderPostArticle)}</div>
           ) : (
-            <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.noPostsFound")}</p>
+            <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
+              {localizeUi("ui.noodle.noodlehome.noPostsFound")}
+            </p>
           )}
         </section>
       )}
 
       <section aria-labelledby="noodle-mobile-who-to-follow">
         <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
-          <h2 id="noodle-mobile-who-to-follow" className="text-lg font-bold">{localizeUi("ui.noodle.noodlehome.whoToFollow")}</h2>
+          <h2 id="noodle-mobile-who-to-follow" className="text-lg font-bold">
+            {localizeUi("ui.noodle.noodlehome.whoToFollow")}
+          </h2>
         </div>
         {suggestedCharacters.length > 0 ? (
           <div className="divide-y divide-[var(--noodle-divider)]">
@@ -3667,13 +3956,17 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   onClick={() => updateFollowedAccount(character.account, true)}
                   disabled={updateAccountFollow.isPending}
                   className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                >{localizeUi("ui.noodle.noodlehome.follow")}</button>
+                >
+                  {localizeUi("ui.noodle.noodlehome.follow")}
+                </button>
               </div>
             ))}
           </div>
         ) : (
           <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
-            {followableCharacterAccounts.length > 0 ?localizeUi("ui.noodle.noodlehome.youReFollowingEveryone") :localizeUi("ui.noodle.noodlehome.noOneSCookingYet")}
+            {followableCharacterAccounts.length > 0
+              ? localizeUi("ui.noodle.noodlehome.youReFollowingEveryone")
+              : localizeUi("ui.noodle.noodlehome.noOneSCookingYet")}
           </p>
         )}
       </section>
@@ -3727,13 +4020,17 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                     onClick={() => updateFollowedAccount(character.account, true)}
                     disabled={updateAccountFollow.isPending}
                     className="h-8 rounded-full bg-[var(--foreground)] px-4 text-xs font-bold text-[var(--background)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                  >{localizeUi("ui.noodle.noodlehome.follow")}</button>
+                  >
+                    {localizeUi("ui.noodle.noodlehome.follow")}
+                  </button>
                 </div>
               ))}
             </div>
           ) : (
             <p className="px-4 py-5 text-sm text-[var(--muted-foreground)]">
-              {followableCharacterAccounts.length > 0 ?localizeUi("ui.noodle.noodlehome.youReFollowingEveryone") :localizeUi("ui.noodle.noodlehome.noOneSCookingYet")}
+              {followableCharacterAccounts.length > 0
+                ? localizeUi("ui.noodle.noodlehome.youReFollowingEveryone")
+                : localizeUi("ui.noodle.noodlehome.noOneSCookingYet")}
             </p>
           )}
         </section>
@@ -3811,439 +4108,542 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         data-component="NoodleView.TimelineScroller"
         className="min-h-0 flex-1 overflow-y-auto"
       >
-            <div className="min-h-full w-full border-x border-[var(--noodle-divider)] bg-[var(--background)]">
-              {activeNoodleView === "home" && (
-                <div
-                  className="sticky top-0 z-30 grid h-14 grid-cols-[3rem_minmax(0,1fr)_3rem] items-center border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-3 backdrop-blur lg:hidden"
-                  data-component="NoodleView.MobileHeader"
-                >
+        <div className="min-h-full w-full border-x border-[var(--noodle-divider)] bg-[var(--background)]">
+          {activeNoodleView === "home" && (
+            <div
+              className="sticky top-0 z-30 grid h-14 grid-cols-[3rem_minmax(0,1fr)_3rem] items-center border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-3 backdrop-blur lg:hidden"
+              data-component="NoodleView.MobileHeader"
+            >
+              <button
+                ref={mobileDrawerTriggerRef}
+                type="button"
+                onClick={() => setMobileDrawerOpen(true)}
+                className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-[var(--accent)]"
+                title={localizeUi("ui.noodle.noodlehome.openAccountMenu")}
+                aria-label={localizeUi("ui.noodle.noodlehome.openNoodleAccountMenu")}
+              >
+                {personaAccount ? (
+                  <Avatar account={personaAccount} size="sm" />
+                ) : (
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--noodle-accent)]/15 ring-1 ring-[var(--noodle-accent)]/25">
+                    <AtSign size={18} />
+                  </span>
+                )}
+              </button>
+              <NoodleLogo className="mx-auto h-9 w-14" />
+              <span aria-hidden="true" />
+            </div>
+          )}
+          {activeNoodleView === "home" &&
+            (isAccountSearch ? (
+              <div className="sticky top-14 z-20 flex h-12 items-center gap-3 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-4 backdrop-blur lg:top-0">
+                <AtSign size={19} className="text-[var(--noodle-accent)]" />
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-bold">{localizeUi("ui.noodle.noodlehome.accounts")}</h2>
+                  <p className="truncate text-[0.68rem] text-[var(--muted-foreground)]">
+                    {accountSearchTerm
+                      ? localizeUi("ui.noodle.noodlehome.value1_0a5edda", { value1: accountSearchTerm })
+                      : localizeUi("ui.noodle.noodlehome.typeAHandleAfter")}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="sticky top-14 z-20 grid grid-cols-2 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur lg:top-0">
+                {TIMELINE_TABS.map((tab) => (
                   <button
-                    ref={mobileDrawerTriggerRef}
+                    key={tab.id}
                     type="button"
-                    onClick={() => setMobileDrawerOpen(true)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-[var(--accent)]"
-                    title={localizeUi("ui.noodle.noodlehome.openAccountMenu")}
-                    aria-label={localizeUi("ui.noodle.noodlehome.openNoodleAccountMenu")}
+                    onClick={() => setTimelineTab(tab.id)}
+                    className={cn(
+                      "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      timelineTab === tab.id && "text-[var(--foreground)]",
+                    )}
+                    aria-pressed={timelineTab === tab.id}
                   >
-                    {personaAccount ? (
-                      <Avatar account={personaAccount} size="sm" />
-                    ) : (
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--noodle-accent)]/15 ring-1 ring-[var(--noodle-accent)]/25">
-                        <AtSign size={18} />
-                      </span>
+                    {tab.label}
+                    {timelineTab === tab.id && (
+                      <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
                     )}
                   </button>
-                  <NoodleLogo className="mx-auto h-9 w-14" />
-                  <span aria-hidden="true" />
+                ))}
+              </div>
+            ))}
+
+          {activeNoodleView === "home" && !isAccountSearch && !composeOpen && (
+            <NoodleComposerShell
+              dataComponent="NoodleView.InlineComposer"
+              avatar={
+                personaAccount ? (
+                  <Avatar account={personaAccount} />
+                ) : (
+                  <AtSign size={28} className="text-[var(--noodle-accent)]" />
+                )
+              }
+              tools={
+                <NoodleComposerToolRow
+                  image={{
+                    ref: imageToolRef,
+                    active: activeComposerTool === "image",
+                    onClick: () => setActiveComposerTool((current) => (current === "image" ? null : "image")),
+                  }}
+                  poll={{
+                    ref: pollToolRef,
+                    active: activeComposerTool === "poll" || Boolean(draftPoll),
+                    onClick: togglePollComposer,
+                  }}
+                  media={{
+                    ref: mediaToolRef,
+                    active: activeComposerTool === "media",
+                    onClick: () => setActiveComposerTool((current) => (current === "media" ? null : "media")),
+                  }}
+                />
+              }
+              action={
+                <button
+                  type="button"
+                  onClick={submitPost}
+                  disabled={!canSubmitPost || createPost.isPending}
+                  className="h-8 rounded-full bg-[var(--noodle-accent)] px-5 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {localizeUi("ui.noodle.noodlehome.post")}
+                </button>
+              }
+              popovers={
+                !composeOpen &&
+                renderComposerToolPopovers({
+                  imageRef: imageToolRef,
+                  pollRef: pollToolRef,
+                  mediaRef: mediaToolRef,
+                })
+              }
+            >
+              <textarea
+                ref={inlineComposerRef}
+                defaultValue={composer}
+                onChange={handleComposerChange}
+                onBlur={() => setComposer(composerValueRef.current)}
+                onKeyDown={handleComposerKeyDown}
+                disabled={!personaAccount}
+                placeholder={localizeUi("ui.noodle.noodlehome.whatSSimmering")}
+                aria-autocomplete="list"
+                aria-controls={activeMention && !composeOpen ? "noodle-inline-mention-list" : undefined}
+                aria-expanded={Boolean(activeMention && !composeOpen)}
+                aria-activedescendant={
+                  activeMention && !composeOpen && mentionSuggestions.length > 0
+                    ? `noodle-inline-mention-list-option-${Math.min(activeMentionIndex, mentionSuggestions.length - 1)}`
+                    : undefined
+                }
+                className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
+              />
+              {!composeOpen && renderComposerMentionSuggestions("noodle-inline-mention-list")}
+              {renderDraftPoll()}
+              {renderDraftImage(208)}
+            </NoodleComposerShell>
+          )}
+
+          {activeNoodleView === "home" && !isAccountSearch && (
+            <div className="border-b border-[var(--noodle-divider)] px-4 py-2">
+              <button
+                type="button"
+                onClick={triggerRefresh}
+                disabled={refreshNoodle.isPending || !settings || imagePromptReviewItems.length > 0}
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-full text-sm font-bold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-50"
+                title={scheduler?.lastError ?? localizeUi("ui.noodle.noodlehome.refreshTimeline")}
+                aria-label={localizeUi("ui.noodle.noodlehome.refreshTimeline")}
+              >
+                <span className="relative inline-flex">
+                  {refreshNoodle.isPending ? (
+                    <Loader2 size={17} className="!text-[var(--noodle-accent)] animate-spin" />
+                  ) : (
+                    <RefreshCw size={17} className="!text-[var(--noodle-accent)]" />
+                  )}
+                  {scheduler?.lastError && (
+                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--destructive)]" />
+                  )}
+                </span>
+                {refreshNoodle.isPending
+                  ? localizeUi("ui.noodle.noodlehome.refreshing")
+                  : localizeUi("ui.noodle.noodlehome.refreshTimeline")}
+              </button>
+            </div>
+          )}
+
+          {activeNoodleView === "search" ? (
+            mobileSearchContent
+          ) : activeNoodleView === "notifications" ? (
+            <div className="min-h-full">
+              <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
+                <div className="flex min-h-14 items-center gap-3 px-2 py-2 lg:px-4">
+                  <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
+                  <Bell size={22} className="hidden text-[var(--noodle-accent)] lg:block" />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-bold">
+                      {localizeUi("settings.sections.notifications.title")}
+                    </h2>
+                    <p className="truncate text-xs text-[var(--muted-foreground)]">
+                      {personaAccount
+                        ? localizeUi("ui.noodle.noodlehome.value1_0a5edda", { value1: personaAccount.handle })
+                        : localizeUi("ui.noodle.noodlehome.chooseAPersonaAccount")}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3">
+                  {NOTIFICATION_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setNotificationTab(tab.id)}
+                      className={cn(
+                        "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                        notificationTab === tab.id && "text-[var(--foreground)]",
+                      )}
+                    >
+                      {tab.label}
+                      {notificationTab === tab.id && (
+                        <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {notificationTab === "likes" ? (
+                notificationLikes.length > 0 ? (
+                  <div>{notificationLikes.map(renderLikeNotification)}</div>
+                ) : (
+                  <div className="px-8 py-14 text-center">
+                    <Heart size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
+                    <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noLikesYet")}</p>
+                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                      {localizeUi("ui.noodle.noodlehome.likesOnYourNoodlePostsWillShowHere")}
+                    </p>
+                  </div>
+                )
+              ) : notificationTab === "follows" ? (
+                notificationFollowAccounts.length > 0 ? (
+                  <div>{notificationFollowAccounts.map(renderFollowNotification)}</div>
+                ) : (
+                  <div className="px-8 py-14 text-center">
+                    <Bell size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
+                    <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noFollowsYet")}</p>
+                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                      {localizeUi("ui.noodle.noodlehome.accountsFollowingYouWillShowHere")}
+                    </p>
+                  </div>
+                )
+              ) : notificationReplyItems.length > 0 ? (
+                <div>{notificationReplyItems.map(renderReplyNotification)}</div>
+              ) : (
+                <div className="px-8 py-14 text-center">
+                  <MessageCircle size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
+                  <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noRepliesOrMentionsYet")}</p>
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                    {localizeUi("ui.noodle.noodlehome.repliesToYourPostsAnd")}
+                    {personaAccount?.handle ?? "mentions"} {localizeUi("ui.noodle.noodlehome.willShowHere")}
+                  </p>
                 </div>
               )}
-              {activeNoodleView === "home" &&
-                (isAccountSearch ? (
-                  <div className="sticky top-14 z-20 flex h-12 items-center gap-3 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-4 backdrop-blur lg:top-0">
-                    <AtSign size={19} className="text-[var(--noodle-accent)]" />
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-bold">{localizeUi("ui.noodle.noodlehome.accounts")}</h2>
-                      <p className="truncate text-[0.68rem] text-[var(--muted-foreground)]">
-                        {accountSearchTerm ?localizeUi("ui.noodle.noodlehome.value1_0a5edda", { value1: accountSearchTerm }) :localizeUi("ui.noodle.noodlehome.typeAHandleAfter")}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="sticky top-14 z-20 grid grid-cols-2 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur lg:top-0">
-                    {TIMELINE_TABS.map((tab) => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setTimelineTab(tab.id)}
-                        className={cn(
-                          "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                          timelineTab === tab.id && "text-[var(--foreground)]",
-                        )}
-                        aria-pressed={timelineTab === tab.id}
-                      >
-                        {tab.label}
-                        {timelineTab === tab.id && (
-                          <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-
-              {activeNoodleView === "home" && !isAccountSearch && !composeOpen && (
-                <NoodleComposerShell
-                  dataComponent="NoodleView.InlineComposer"
-                  avatar={
-                    personaAccount ? (
-                      <Avatar account={personaAccount} />
-                    ) : (
-                      <AtSign size={28} className="text-[var(--noodle-accent)]" />
-                    )
-                  }
-                  tools={
-                    <NoodleComposerToolRow
-                      image={{
-                        ref: imageToolRef,
-                        active: activeComposerTool === "image",
-                        onClick: () => setActiveComposerTool((current) => (current === "image" ? null : "image")),
-                      }}
-                      poll={{
-                        ref: pollToolRef,
-                        active: activeComposerTool === "poll" || Boolean(draftPoll),
-                        onClick: togglePollComposer,
-                      }}
-                      media={{
-                        ref: mediaToolRef,
-                        active: activeComposerTool === "media",
-                        onClick: () => setActiveComposerTool((current) => (current === "media" ? null : "media")),
-                      }}
-                    />
-                  }
-                  action={
-                    <button
-                      type="button"
-                      onClick={submitPost}
-                      disabled={!canSubmitPost || createPost.isPending}
-                      className="h-8 rounded-full bg-[var(--noodle-accent)] px-5 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                    >{localizeUi("ui.noodle.noodlehome.post")}</button>
-                  }
-                  popovers={
-                    !composeOpen &&
-                    renderComposerToolPopovers({
-                      imageRef: imageToolRef,
-                      pollRef: pollToolRef,
-                      mediaRef: mediaToolRef,
-                    })
-                  }
-                >
-                  <textarea
-                    ref={inlineComposerRef}
-                    defaultValue={composer}
-                    onChange={handleComposerChange}
-                    onBlur={() => setComposer(composerValueRef.current)}
-                    onKeyDown={handleComposerKeyDown}
-                    disabled={!personaAccount}
-                    placeholder={localizeUi("ui.noodle.noodlehome.whatSSimmering")}
-                    aria-autocomplete="list"
-                    aria-controls={activeMention && !composeOpen ? "noodle-inline-mention-list" : undefined}
-                    aria-expanded={Boolean(activeMention && !composeOpen)}
-                    aria-activedescendant={
-                      activeMention && !composeOpen && mentionSuggestions.length > 0
-                    ? `noodle-inline-mention-list-option-${Math.min(activeMentionIndex, mentionSuggestions.length - 1)}`
-                        : undefined
-                    }
-                    className="min-h-20 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
-                  />
-                  {!composeOpen && renderComposerMentionSuggestions("noodle-inline-mention-list")}
-                  {renderDraftPoll()}
-              {renderDraftImage(208)}
-                </NoodleComposerShell>
-              )}
-
-              {activeNoodleView === "home" && !isAccountSearch && (
-                <div className="border-b border-[var(--noodle-divider)] px-4 py-2">
+            </div>
+          ) : activeNoodleView === "settings" ? (
+            <div className="min-h-full">
+              <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
+                <div className="flex min-h-14 items-center gap-3 px-3 py-2 lg:px-4">
                   <button
                     type="button"
-                    onClick={triggerRefresh}
-                    disabled={refreshNoodle.isPending || !settings || imagePromptReviewItems.length > 0}
-                    className="flex h-9 w-full items-center justify-center gap-2 rounded-full text-sm font-bold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    title={scheduler?.lastError ?? localizeUi("ui.noodle.noodlehome.refreshTimeline")}
-                    aria-label={localizeUi("ui.noodle.noodlehome.refreshTimeline")}
+                    onClick={closeSettings}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10"
+                    title={localizeUi("ui.noodle.socialsettings.back")}
+                    aria-label={localizeUi("ui.noodle.socialsettings.back")}
                   >
-                    <span className="relative inline-flex">
-                      {refreshNoodle.isPending ? (
-                        <Loader2 size={17} className="!text-[var(--noodle-accent)] animate-spin" />
-                      ) : (
-                        <RefreshCw size={17} className="!text-[var(--noodle-accent)]" />
-                      )}
-                      {scheduler?.lastError && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[var(--destructive)]" />
-                      )}
-                    </span>
-                    {refreshNoodle.isPending ?localizeUi("ui.noodle.noodlehome.refreshing") :localizeUi("ui.noodle.noodlehome.refreshTimeline")}
+                    <ChevronLeft size={22} />
                   </button>
-                </div>
-              )}
-
-              {activeNoodleView === "search" ? (
-                mobileSearchContent
-              ) : activeNoodleView === "notifications" ? (
-                <div className="min-h-full">
-                  <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
-                    <div className="flex min-h-14 items-center gap-3 px-2 py-2 lg:px-4">
-                      <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
-                      <Bell size={22} className="hidden text-[var(--noodle-accent)] lg:block" />
-                      <div className="min-w-0">
-                        <h2 className="truncate text-lg font-bold">{localizeUi("settings.sections.notifications.title")}</h2>
-                        <p className="truncate text-xs text-[var(--muted-foreground)]">
-                          {personaAccount ?localizeUi("ui.noodle.noodlehome.value1_0a5edda", { value1: personaAccount.handle }) :localizeUi("ui.noodle.noodlehome.chooseAPersonaAccount")}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3">
-                      {NOTIFICATION_TABS.map((tab) => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => setNotificationTab(tab.id)}
-                          className={cn(
-                            "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                            notificationTab === tab.id && "text-[var(--foreground)]",
-                          )}
-                        >
-                          {tab.label}
-                          {notificationTab === tab.id && (
-                            <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                  <Settings2 size={22} className="hidden text-[var(--noodle-accent)] sm:block" />
+                  <div className="min-w-0">
+                    <h2 className="text-lg font-bold">{localizeUi("ui.noodle.socialsettings.title")}</h2>
+                    <p className="truncate text-xs text-[var(--muted-foreground)]">
+                      {localizeUi("ui.noodle.socialsettings.description")}
+                    </p>
                   </div>
-
-                  {notificationTab === "likes" ? (
-                    notificationLikes.length > 0 ? (
-                      <div>{notificationLikes.map(renderLikeNotification)}</div>
-                    ) : (
-                      <div className="px-8 py-14 text-center">
-                        <Heart size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
-                        <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noLikesYet")}</p>
-                        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.likesOnYourNoodlePostsWillShowHere")}</p>
-                      </div>
-                    )
-                  ) : notificationTab === "follows" ? (
-                    notificationFollowAccounts.length > 0 ? (
-                      <div>{notificationFollowAccounts.map(renderFollowNotification)}</div>
-                    ) : (
-                      <div className="px-8 py-14 text-center">
-                        <Bell size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
-                        <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noFollowsYet")}</p>
-                        <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.accountsFollowingYouWillShowHere")}</p>
-                      </div>
-                    )
-                  ) : notificationReplyItems.length > 0 ? (
-                    <div>{notificationReplyItems.map(renderReplyNotification)}</div>
-                  ) : (
-                    <div className="px-8 py-14 text-center">
-                      <MessageCircle size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
-                      <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noRepliesOrMentionsYet")}</p>
-                      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.repliesToYourPostsAnd")}{personaAccount?.handle ?? "mentions"} {localizeUi("ui.noodle.noodlehome.willShowHere")}</p>
-                    </div>
-                  )}
                 </div>
-              ) : activeNoodleView === "settings" ? (
-                <div className="min-h-full">
-                  <div className="border-b border-[var(--noodle-divider)] px-2 py-3 lg:px-4 lg:py-5">
-                    <div className="flex items-center gap-3">
-                      <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
-                      <Settings2 size={22} className="hidden text-[var(--noodle-accent)] lg:block" />
-                      <div className="min-w-0">
-                        <h2 className="text-lg font-bold">{localizeUi("ui.noodle.noodlehome.noodleSettings")}</h2>
-                        <p className="truncate text-xs text-[var(--muted-foreground)]">
-                          {personaAccount ?localizeUi("ui.noodle.noodlehome.value1_0a5edda", { value1: personaAccount.handle }) :localizeUi("ui.noodle.noodlehome.chooseAPersonaAccount")}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  {settingsContent}
+                <div
+                  className="grid grid-cols-2 gap-1.5 px-3 pb-2"
+                  role="tablist"
+                  aria-label={localizeUi("ui.noodle.socialsettings.products")}
+                >
+                  {(["noodle", "noodler"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      role="tab"
+                      aria-selected={settingsTab === tab}
+                      onClick={() => navigateSettings(tab)}
+                      className={cn(
+                        "flex min-h-10 items-center justify-center gap-2 rounded-md border px-3 text-sm font-bold transition-colors",
+                        settingsTab === tab
+                          ? "border-[var(--noodle-accent)]/45 bg-[var(--noodle-accent)]/10 text-[var(--foreground)]"
+                          : "border-[var(--noodle-divider)] text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                      )}
+                      style={tab === "noodler" ? ({ "--noodle-accent": NOODLE_PINK } as CSSProperties) : undefined}
+                    >
+                      {tab === "noodle" ? <Globe2 size={16} /> : <AtSign size={16} />}
+                      {tab === "noodle" ? "Noodle" : "NoodleR"}
+                    </button>
+                  ))}
                 </div>
-              ) : activeNoodleView === "profile" && profileConnectionTab ? (
-                <div className="min-h-full">
-                  <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
-                    <div className="flex min-h-14 items-center gap-3 px-3 py-2">
-                      <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
+                <div className="flex gap-1 overflow-x-auto border-t border-[var(--noodle-divider)] px-3 py-2 [scrollbar-width:none]">
+                  {SOCIAL_SETTINGS_SECTIONS[settingsTab].map((section) => {
+                    const disabled = settingsTab === "noodler" && !settings?.enableNoodler && section.id !== "general";
+                    const Icon =
+                      section.id === "general"
+                        ? Settings2
+                        : section.id === "timeline"
+                          ? CalendarClock
+                          : section.id === "participants" || section.id === "creators"
+                            ? ListChecks
+                            : SlidersHorizontal;
+                    return (
                       <button
+                        key={section.id}
                         type="button"
-                        onClick={() => openProfileConnection(null)}
-                        className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 lg:flex"
-                        title={localizeUi("ui.noodle.noodlehome.backToProfile")}
-                        aria-label={localizeUi("ui.noodle.noodlehome.backToProfile")}
+                        disabled={disabled}
+                        aria-pressed={settingsSection === section.id}
+                        onClick={() => navigateSettings(settingsTab, section.id)}
+                        className={cn(
+                          "flex min-h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                          settingsSection === section.id
+                            ? "border-[var(--noodle-accent)]/40 bg-[var(--noodle-accent)]/10 text-[var(--foreground)]"
+                            : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                        )}
                       >
-                        <ChevronLeft size={22} />
+                        <Icon size={13} />
+                        {localizeUi(section.labelKey)}
                       </button>
-                      <div className="min-w-0">
-                        <h2 className="truncate text-lg font-bold">{profilePreviewAccount.displayName}</h2>
-                        <p className="truncate text-xs text-[var(--muted-foreground)]">
-                          @{profileDisplayHandle || "noodle"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2">
-                      {PROFILE_CONNECTION_TABS.map((tab) => (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => openProfileConnection(tab.id)}
-                          className={cn(
-                            "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                            profileConnectionTab === tab.id && "text-[var(--foreground)]",
-                          )}
-                        >
-                          {tab.label}
-                          {profileConnectionTab === tab.id && (
-                            <span className="absolute bottom-0 left-1/2 h-1 w-16 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {profileConnectionAccounts.length > 0 ? (
-                    <div>
-                  {profileConnectionAccounts.map((account) => renderAccountRow(account, { showFollowButton: true }))}
-                    </div>
-                  ) : (
-                    <div className="px-8 py-14 text-center">
-                      <p className="text-base font-bold">
-                        {profileConnectionTab === "following" ?localizeUi("ui.noodle.noodlehome.notFollowingAnyoneYet") :localizeUi("ui.noodle.noodlehome.noFollowersYet")}
-                      </p>
-                      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.nothingBoilingHereYet")}</p>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
-              ) : activeNoodleView === "profile" ? (
-                <NoodleProfileSurface
-                  mobileHeader={
-                    <div className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-2 py-2 backdrop-blur lg:hidden">
-                      <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
-                      <div className="min-w-0">
-                        <h2 className="truncate text-base font-bold">{localizeUi("ui.noodle.noodlehome.profile")}</h2>
+              </div>
+              <div
+                style={settingsTab === "noodler" ? ({ "--noodle-accent": NOODLE_PINK } as CSSProperties) : undefined}
+              >
+                {settingsContent}
+              </div>
+            </div>
+          ) : activeNoodleView === "profile" && profileConnectionTab ? (
+            <div className="min-h-full">
+              <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
+                <div className="flex min-h-14 items-center gap-3 px-3 py-2">
+                  <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
+                  <button
+                    type="button"
+                    onClick={() => openProfileConnection(null)}
+                    className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 lg:flex"
+                    title={localizeUi("ui.noodle.noodlehome.backToProfile")}
+                    aria-label={localizeUi("ui.noodle.noodlehome.backToProfile")}
+                  >
+                    <ChevronLeft size={22} />
+                  </button>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-lg font-bold">{profilePreviewAccount.displayName}</h2>
                     <p className="truncate text-xs text-[var(--muted-foreground)]">
                       @{profileDisplayHandle || "noodle"}
                     </p>
-                      </div>
-                    </div>
-                  }
-                  account={profilePreviewAccount}
-                  displayHandle={profileDisplayHandle}
-                  banner={{
-                    url: profileBannerPreview,
-                    canEdit: canEditViewedProfile,
-                    uploadTarget: profileUploadTarget,
-                    fileRef: bannerFileRef,
-                    onFileChange: (event) => handleProfileImageFile("banner", event),
-                  }}
-                  avatarUpload={{
-                    canEdit: canEditViewedProfile,
-                    uploadTarget: profileUploadTarget,
-                    fileRef: avatarFileRef,
-                    onFileChange: (event) => handleProfileImageFile("avatar", event),
-                  }}
-                  editor={
-                    canEditViewedProfile
-                      ? {
-                          isEditing: isEditingProfile,
-                          onStartEditing: () => setProfileEditing(true),
-                          onSave: saveProfile,
-                          canSave: canSaveProfile && Boolean(viewedProfileAccount),
-                          isSaving: updateAccountProfile.isPending,
-                          name: profileName,
-                          onNameChange: setProfileName,
-                          handle: profileHandle,
-                          onHandleChange: setProfileHandle,
-                          bio: profileBio,
-                          onBioChange: setProfileBio,
-                          location: profileLocation,
-                          onLocationChange: setProfileLocation,
-                        }
-                      : undefined
-                  }
-                  followAction={
-                    canFollowViewedProfile && viewedProfileAccount
-                      ? {
-                          followed: viewedProfileFollowed,
-                          pending: updateAccountFollow.isPending,
-                          onToggle: () => updateFollowedAccount(viewedProfileAccount, !viewedProfileFollowed),
-                        }
-                      : undefined
-                  }
-                  secondaryActions={
-                    canCreateStageProfileFromViewed && viewedProfileAccount ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          onNavigate({
-                            mode: "noodler",
-                            view: "create-profile",
-                            noodleAccountId: viewedProfileAccount.id,
-                          })
-                        }
-                        className="h-9 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]"
-                      >{localizeUi("ui.noodle.noodlehome.createStageProfile")}</button>
-                    ) : undefined
-                  }
-                  bioContent={
-                    profileBioPreview ? (
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
-                        <NoodleCustomEmojiText
-                          text={profileBioPreview}
-                          emojiMap={noodleCustomEmojiMap}
-                          keyPrefix={`noodle-profile-bio-${viewedProfileAccount?.id ?? "preview"}`}
-                        />
-                      </p>
-                    ) : null
-                  }
-                  location={profileLocationPreview}
-                  connections={{
-                    followingCount: profileFollowingCount,
-                    followerCount: profileFollowerCount,
-                    onOpenFollowing: () => openProfileConnection("following"),
-                    onOpenFollowers: () => openProfileConnection("followers"),
-                  }}
-                  activeTab={profileTab}
-                  onTabChange={setProfileTab}
-                  postList={
-                    profileVisiblePosts.length > 0 ? (
-                      profileVisiblePosts.map(renderPostArticle)
-                    ) : (
-                      <div className="px-8 py-14 text-center">
-                    <p className="text-sm font-semibold text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.nothingBoilingHereYet")}</p>
-                      </div>
-                    )
-                  }
-                />
-              ) : isLoading ? (
-                <div className="space-y-0">
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="flex gap-3 border-b border-[var(--noodle-divider)] px-4 py-4">
-                      <div className="h-11 w-11 shrink-0 rounded-full bg-[var(--muted)]" />
-                      <div className="min-w-0 flex-1 space-y-3">
-                        <div className="h-3 w-40 rounded bg-[var(--muted)]" />
-                        <div className="h-3 w-full rounded bg-[var(--muted)]" />
-                        <div className="h-3 w-2/3 rounded bg-[var(--muted)]" />
-                      </div>
-                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2">
+                  {PROFILE_CONNECTION_TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => openProfileConnection(tab.id)}
+                      className={cn(
+                        "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
+                        profileConnectionTab === tab.id && "text-[var(--foreground)]",
+                      )}
+                    >
+                      {tab.label}
+                      {profileConnectionTab === tab.id && (
+                        <span className="absolute bottom-0 left-1/2 h-1 w-16 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
+                      )}
+                    </button>
                   ))}
                 </div>
-              ) : isAccountSearch ? (
-                accountSearchResults.length > 0 ? (
-              <div>{accountSearchResults.map((account) => renderAccountRow(account, { showFollowButton: true }))}</div>
-                ) : (
-                  <div className="px-8 py-14 text-center">
-                    <AtSign size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
-                    <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noAccountsFound")}</p>
-                    <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.trySearchingByHandleLikeMari")}</p>
-                  </div>
-                )
-              ) : normalizedPostSearch && timelinePosts.length === 0 ? (
-                <div className="px-8 py-14 text-center">
-                  <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noPostsFound")}</p>
-                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.tryADifferentSearch")}</p>
-                </div>
-              ) : timelineTab === "following" && baseTimelinePosts.length === 0 ? (
-                <div className="px-8 py-14 text-center">
-                  <AtSign size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
-                  <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.nothingFromFollowedCharactersYet")}</p>
-                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.followCharactersFromTheSuggestionsPanelThenRefreshNoodle")}</p>
-                </div>
-              ) : posts.length === 0 ? (
-                <div className="px-8 py-14 text-center">
-                  <NoodleLogo className="mx-auto mb-5 h-16 w-24 opacity-95" />
-                  <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.thePlateIsEmpty")}</p>
-                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">{localizeUi("ui.noodle.noodlehome.goToTheSettingsOnTheLeftFirstInvite")}</p>
+              </div>
+              {profileConnectionAccounts.length > 0 ? (
+                <div>
+                  {profileConnectionAccounts.map((account) => renderAccountRow(account, { showFollowButton: true }))}
                 </div>
               ) : (
-                timelinePosts.map(renderPostArticle)
+                <div className="px-8 py-14 text-center">
+                  <p className="text-base font-bold">
+                    {profileConnectionTab === "following"
+                      ? localizeUi("ui.noodle.noodlehome.notFollowingAnyoneYet")
+                      : localizeUi("ui.noodle.noodlehome.noFollowersYet")}
+                  </p>
+                  <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                    {localizeUi("ui.noodle.noodlehome.nothingBoilingHereYet")}
+                  </p>
+                </div>
               )}
             </div>
+          ) : activeNoodleView === "profile" ? (
+            <NoodleProfileSurface
+              mobileHeader={
+                <div className="sticky top-0 z-20 flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-2 py-2 backdrop-blur lg:hidden">
+                  <MobileTimelineBackButton onClick={openMobileHomeTimeline} />
+                  <div className="min-w-0">
+                    <h2 className="truncate text-base font-bold">{localizeUi("ui.noodle.noodlehome.profile")}</h2>
+                    <p className="truncate text-xs text-[var(--muted-foreground)]">
+                      @{profileDisplayHandle || "noodle"}
+                    </p>
+                  </div>
+                </div>
+              }
+              account={profilePreviewAccount}
+              displayHandle={profileDisplayHandle}
+              banner={{
+                url: profileBannerPreview,
+                canEdit: canEditViewedProfile,
+                uploadTarget: profileUploadTarget,
+                fileRef: bannerFileRef,
+                onFileChange: (event) => handleProfileImageFile("banner", event),
+              }}
+              avatarUpload={{
+                canEdit: canEditViewedProfile,
+                uploadTarget: profileUploadTarget,
+                fileRef: avatarFileRef,
+                onFileChange: (event) => handleProfileImageFile("avatar", event),
+              }}
+              editor={
+                canEditViewedProfile
+                  ? {
+                      isEditing: isEditingProfile,
+                      onStartEditing: () => setProfileEditing(true),
+                      onSave: saveProfile,
+                      canSave: canSaveProfile && Boolean(viewedProfileAccount),
+                      isSaving: updateAccountProfile.isPending,
+                      name: profileName,
+                      onNameChange: setProfileName,
+                      handle: profileHandle,
+                      onHandleChange: setProfileHandle,
+                      bio: profileBio,
+                      onBioChange: setProfileBio,
+                      location: profileLocation,
+                      onLocationChange: setProfileLocation,
+                    }
+                  : undefined
+              }
+              followAction={
+                canFollowViewedProfile && viewedProfileAccount
+                  ? {
+                      followed: viewedProfileFollowed,
+                      pending: updateAccountFollow.isPending,
+                      onToggle: () => updateFollowedAccount(viewedProfileAccount, !viewedProfileFollowed),
+                    }
+                  : undefined
+              }
+              secondaryActions={
+                canCreateStageProfileFromViewed && viewedProfileAccount ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onNavigate({
+                        mode: "noodler",
+                        view: "create-profile",
+                        noodleAccountId: viewedProfileAccount.id,
+                      })
+                    }
+                    className="h-9 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]"
+                  >
+                    {localizeUi("ui.noodle.noodlehome.createStageProfile")}
+                  </button>
+                ) : undefined
+              }
+              bioContent={
+                profileBioPreview ? (
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6">
+                    <NoodleCustomEmojiText
+                      text={profileBioPreview}
+                      emojiMap={noodleCustomEmojiMap}
+                      keyPrefix={`noodle-profile-bio-${viewedProfileAccount?.id ?? "preview"}`}
+                    />
+                  </p>
+                ) : null
+              }
+              location={profileLocationPreview}
+              connections={{
+                followingCount: profileFollowingCount,
+                followerCount: profileFollowerCount,
+                onOpenFollowing: () => openProfileConnection("following"),
+                onOpenFollowers: () => openProfileConnection("followers"),
+              }}
+              activeTab={profileTab}
+              onTabChange={setProfileTab}
+              postList={
+                profileVisiblePosts.length > 0 ? (
+                  profileVisiblePosts.map(renderPostArticle)
+                ) : (
+                  <div className="px-8 py-14 text-center">
+                    <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+                      {localizeUi("ui.noodle.noodlehome.nothingBoilingHereYet")}
+                    </p>
+                  </div>
+                )
+              }
+            />
+          ) : isLoading ? (
+            <div className="space-y-0">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="flex gap-3 border-b border-[var(--noodle-divider)] px-4 py-4">
+                  <div className="h-11 w-11 shrink-0 rounded-full bg-[var(--muted)]" />
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="h-3 w-40 rounded bg-[var(--muted)]" />
+                    <div className="h-3 w-full rounded bg-[var(--muted)]" />
+                    <div className="h-3 w-2/3 rounded bg-[var(--muted)]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : isAccountSearch ? (
+            accountSearchResults.length > 0 ? (
+              <div>{accountSearchResults.map((account) => renderAccountRow(account, { showFollowButton: true }))}</div>
+            ) : (
+              <div className="px-8 py-14 text-center">
+                <AtSign size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
+                <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noAccountsFound")}</p>
+                <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                  {localizeUi("ui.noodle.noodlehome.trySearchingByHandleLikeMari")}
+                </p>
+              </div>
+            )
+          ) : normalizedPostSearch && timelinePosts.length === 0 ? (
+            <div className="px-8 py-14 text-center">
+              <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.noPostsFound")}</p>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.noodlehome.tryADifferentSearch")}
+              </p>
+            </div>
+          ) : timelineTab === "following" && baseTimelinePosts.length === 0 ? (
+            <div className="px-8 py-14 text-center">
+              <AtSign size={38} className="mx-auto mb-4 text-[var(--noodle-accent)]" />
+              <p className="text-base font-bold">
+                {localizeUi("ui.noodle.noodlehome.nothingFromFollowedCharactersYet")}
+              </p>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.noodlehome.followCharactersFromTheSuggestionsPanelThenRefreshNoodle")}
+              </p>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="px-8 py-14 text-center">
+              <NoodleLogo className="mx-auto mb-5 h-16 w-24 opacity-95" />
+              <p className="text-base font-bold">{localizeUi("ui.noodle.noodlehome.thePlateIsEmpty")}</p>
+              <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.noodlehome.goToTheSettingsOnTheLeftFirstInvite")}
+              </p>
+            </div>
+          ) : (
+            timelinePosts.map(renderPostArticle)
+          )}
+        </div>
       </div>
       <Modal
         open={composeOpen}
@@ -4257,81 +4657,87 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         panelStyle={getNoodleAccentStyle(NOODLE_BLUE)}
       >
         <div data-component="NoodleView.ModalComposer">
-              <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3">
-                {personaAccount ? (
-                  <Avatar account={personaAccount} />
-                ) : (
-                  <AtSign size={28} className="text-[var(--noodle-accent)]" />
-                )}
-                <div className="min-w-0">
-                  <textarea
-                    ref={modalComposerRef}
-                    defaultValue={composer}
-                    onChange={handleComposerChange}
-                    onBlur={() => setComposer(composerValueRef.current)}
-                    onKeyDown={handleComposerKeyDown}
-                    disabled={!personaAccount}
-                    placeholder={localizeUi("ui.noodle.noodlehome.whatSSimmering")}
-                    aria-autocomplete="list"
-                    aria-controls={activeMention ? "noodle-modal-mention-list" : undefined}
-                    aria-expanded={Boolean(activeMention)}
-                    aria-activedescendant={
-                      activeMention && mentionSuggestions.length > 0
+          <div className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-3">
+            {personaAccount ? (
+              <Avatar account={personaAccount} />
+            ) : (
+              <AtSign size={28} className="text-[var(--noodle-accent)]" />
+            )}
+            <div className="min-w-0">
+              <textarea
+                ref={modalComposerRef}
+                defaultValue={composer}
+                onChange={handleComposerChange}
+                onBlur={() => setComposer(composerValueRef.current)}
+                onKeyDown={handleComposerKeyDown}
+                disabled={!personaAccount}
+                placeholder={localizeUi("ui.noodle.noodlehome.whatSSimmering")}
+                aria-autocomplete="list"
+                aria-controls={activeMention ? "noodle-modal-mention-list" : undefined}
+                aria-expanded={Boolean(activeMention)}
+                aria-activedescendant={
+                  activeMention && mentionSuggestions.length > 0
                     ? `noodle-modal-mention-list-option-${Math.min(activeMentionIndex, mentionSuggestions.length - 1)}`
-                        : undefined
-                    }
-                    className="min-h-36 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
-                  />
-                  {renderComposerMentionSuggestions("noodle-modal-mention-list")}
-                  {renderDraftPoll()}
+                    : undefined
+                }
+                className="min-h-36 w-full resize-none border-0 bg-transparent py-2 text-[1rem] leading-6 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
+              />
+              {renderComposerMentionSuggestions("noodle-modal-mention-list")}
+              {renderDraftPoll()}
               {renderDraftImage(240)}
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--noodle-divider)] pt-3 pl-14">
-                <div className="flex min-w-0 flex-wrap items-center gap-1">
-                  <div ref={modalImageToolRef} className="relative">
-                    <NoodleToolButton
-                      title={localizeUi("ui.noodle.noodlehome.attachImage")}
-                      active={activeComposerTool === "image"}
-                      onClick={() => setActiveComposerTool((current) => (current === "image" ? null : "image"))}
-                    >
-                      <ImageIcon size={18} />
-                    </NoodleToolButton>
-                  </div>
-                  <div ref={modalPollToolRef} className="relative">
-                    <NoodleToolButton
-                      title={draftPoll ?localizeUi("ui.noodle.noodlehome.editPoll") :localizeUi("ui.noodle.noodlehome.createPoll")}
-                      active={activeComposerTool === "poll" || Boolean(draftPoll)}
-                      onClick={togglePollComposer}
-                    >
-                      <ListChecks size={18} />
-                    </NoodleToolButton>
-                  </div>
-                  <div ref={modalMediaToolRef} className="relative">
-                    <NoodleToolButton
-                      title={localizeUi("ui.noodle.noodlehome.emojiGifsAndStickers")}
-                      active={activeComposerTool === "media"}
-                      onClick={() => setActiveComposerTool((current) => (current === "media" ? null : "media"))}
-                    >
-                      <Smile size={18} />
-                    </NoodleToolButton>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={submitPost}
-                  disabled={!canSubmitPost || createPost.isPending}
-                  className="h-9 rounded-full bg-[var(--noodle-accent)] px-6 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-[var(--noodle-divider)] pt-3 pl-14">
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              <div ref={modalImageToolRef} className="relative">
+                <NoodleToolButton
+                  title={localizeUi("ui.noodle.noodlehome.attachImage")}
+                  active={activeComposerTool === "image"}
+                  onClick={() => setActiveComposerTool((current) => (current === "image" ? null : "image"))}
                 >
-                  {createPost.isPending ?localizeUi("ui.noodle.noodlehome.posting") :localizeUi("ui.noodle.noodlehome.post")}
-                </button>
-                {composeOpen &&
-                  renderComposerToolPopovers({
-                    imageRef: modalImageToolRef,
-                    pollRef: modalPollToolRef,
-                    mediaRef: modalMediaToolRef,
-                  })}
+                  <ImageIcon size={18} />
+                </NoodleToolButton>
               </div>
+              <div ref={modalPollToolRef} className="relative">
+                <NoodleToolButton
+                  title={
+                    draftPoll
+                      ? localizeUi("ui.noodle.noodlehome.editPoll")
+                      : localizeUi("ui.noodle.noodlehome.createPoll")
+                  }
+                  active={activeComposerTool === "poll" || Boolean(draftPoll)}
+                  onClick={togglePollComposer}
+                >
+                  <ListChecks size={18} />
+                </NoodleToolButton>
+              </div>
+              <div ref={modalMediaToolRef} className="relative">
+                <NoodleToolButton
+                  title={localizeUi("ui.noodle.noodlehome.emojiGifsAndStickers")}
+                  active={activeComposerTool === "media"}
+                  onClick={() => setActiveComposerTool((current) => (current === "media" ? null : "media"))}
+                >
+                  <Smile size={18} />
+                </NoodleToolButton>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={submitPost}
+              disabled={!canSubmitPost || createPost.isPending}
+              className="h-9 rounded-full bg-[var(--noodle-accent)] px-6 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {createPost.isPending
+                ? localizeUi("ui.noodle.noodlehome.posting")
+                : localizeUi("ui.noodle.noodlehome.post")}
+            </button>
+            {composeOpen &&
+              renderComposerToolPopovers({
+                imageRef: modalImageToolRef,
+                pollRef: modalPollToolRef,
+                mediaRef: modalMediaToolRef,
+              })}
+          </div>
         </div>
       </Modal>
       <ExpandedTextarea
@@ -4354,14 +4760,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               }
               className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--noodle-accent)]/35 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-45"
             >
-              {resetNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}{localizeUi("ui.noodle.noodlehome.restoreDefault")}</button>
+              {resetNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+              {localizeUi("ui.noodle.noodlehome.restoreDefault")}
+            </button>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={closeNoodlePromptEditor}
                 disabled={saveNoodlePrompt.isPending || resetNoodlePrompt.isPending}
                 className="min-h-10 flex-1 rounded-md border border-[var(--border)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
-              >{localizeUi("chat.delete.dialog.cancel")}</button>
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
               <button
                 type="button"
                 onClick={() => void saveNoodlePromptDraft()}
@@ -4373,7 +4783,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 }
                 className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
               >
-                {saveNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}{localizeUi("ui.noodle.noodlehome.savePrompt")}</button>
+                {saveNoodlePrompt.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                {localizeUi("ui.noodle.noodlehome.savePrompt")}
+              </button>
             </div>
           </div>
         }
@@ -4397,7 +4809,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 onClick={() => setConfirmAction(null)}
                 disabled={confirmActionPending}
                 className="h-9 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
-              >{localizeUi("chat.delete.dialog.cancel")}</button>
+              >
+                {localizeUi("chat.delete.dialog.cancel")}
+              </button>
               <button
                 type="button"
                 onClick={confirmNoodleAction}
@@ -4405,14 +4819,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                 className={cn(
                   "flex h-9 items-center justify-center gap-2 rounded-md px-4 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                   confirmAction.kind === "delete-post" ||
-                  confirmAction.kind === "delete-reply" ||
-                  confirmAction.kind === "reset-timeline"
+                    confirmAction.kind === "delete-reply" ||
+                    confirmAction.kind === "reset-timeline"
                     ? "bg-[var(--destructive)] text-[var(--destructive-foreground)] [&_svg]:!text-[var(--destructive-foreground)] hover:opacity-90"
                     : "border border-[var(--noodle-accent)]/45 bg-[var(--noodle-accent)] text-zinc-950 [&_svg]:!text-zinc-950 hover:bg-[var(--noodle-accent)]/85",
                 )}
               >
                 {confirmActionPending && <Loader2 size={14} className="animate-spin" />}
-                {confirmActionPending ?localizeUi("ui.noodle.noodlehome.working") : confirmAction.confirmLabel}
+                {confirmActionPending ? localizeUi("ui.noodle.noodlehome.working") : confirmAction.confirmLabel}
               </button>
             </div>
           </div>

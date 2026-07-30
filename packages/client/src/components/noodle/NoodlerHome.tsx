@@ -395,7 +395,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const openSettings = async () => {
     if (!(await confirmDiscardNoodlerPostDrafts())) return;
     setNoodlerPostDrafts({});
-    onNavigate({ mode: "settings" });
+    if (navigation.mode !== "noodler") return;
+    const returnTo =
+      navigation.view === "profile"
+        ? { mode: "noodler" as const, view: "profile" as const, accountId: navigation.accountId }
+        : navigation.view === "profiles"
+          ? { mode: "noodler" as const, view: "profiles" as const }
+          : navigation;
+    onNavigate({ mode: "settings", tab: "noodler", section: "general", returnTo });
   };
   const [feedSearch, setFeedSearch] = useState("");
   const [feedTab, setFeedTab] = useState<"following" | "all">("following");
@@ -789,7 +796,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       setPreviousDraft(null);
       setCreationStep(null);
       setAutoPostSetupId(null);
-      onNavigate({ mode: "noodler", view: "profile", accountId: profile.id });
+      onNavigate({
+        mode: "noodler",
+        view: "profile",
+        accountId: profile.id,
+        ...(navigation.mode === "noodler" &&
+          (navigation.view === "profiles" || navigation.view === "profile") &&
+          navigation.returnToSettings && { returnToSettings: navigation.returnToSettings }),
+      });
       toast.success(
         editingProfileId
           ? localizeUi("ui.noodle.noodlerhome.stageProfileUpdated")
@@ -1160,7 +1174,11 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             isError={postsQuery.isError}
             onRetry={() => void postsQuery.refetch()}
             onEdit={() => beginEdit(selectedProfile)}
-            onBack={() => onNavigate({ mode: "noodler", view: profileReturnView.current })}
+            onBack={() =>
+              navigation.mode === "noodler" && navigation.view === "profile" && navigation.returnToSettings
+                ? onNavigate(navigation.returnToSettings)
+                : onNavigate({ mode: "noodler", view: profileReturnView.current })
+            }
             onDelete={async () => {
               const confirmed = await showConfirmDialog({
                 title: localizeUi("ui.chat.homeprofessormarichat.deleteValue1", {
@@ -1252,7 +1270,6 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           togglePending={toggleSubscription.isPending}
           onOpenProfile={(accountId) => onNavigate({ mode: "noodler", view: "profile", accountId })}
         />
-
       </div>
     </aside>
   );
@@ -1263,6 +1280,17 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         <div className="flex h-full min-h-0 flex-col">
           <main className="min-h-0 flex-1 overflow-y-auto">
             <div className="flex min-h-14 items-center gap-3 border-b border-[var(--noodle-divider)] px-4 py-3">
+              {navigation.returnToSettings && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate(navigation.returnToSettings!)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] hover:bg-[var(--accent)]"
+                  aria-label={localizeUi("ui.noodle.socialsettings.backToSettings")}
+                  title={localizeUi("ui.noodle.socialsettings.backToSettings")}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-bold">{localizeUi("ui.noodle.noodlerhome.stageProfiles")}</p>
                 <p className="text-xs text-[var(--muted-foreground)]">
@@ -1327,7 +1355,14 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
                   <button
                     key={profile.id}
                     type="button"
-                    onClick={() => onNavigate({ mode: "noodler", view: "profile", accountId: profile.id })}
+                    onClick={() =>
+                      onNavigate({
+                        mode: "noodler",
+                        view: "profile",
+                        accountId: profile.id,
+                        ...(navigation.returnToSettings && { returnToSettings: navigation.returnToSettings }),
+                      })
+                    }
                     className="flex min-h-16 w-full items-center gap-3 px-4 py-4 text-left hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-accent)]"
                   >
                     <ProfileInitial profile={profile} />
