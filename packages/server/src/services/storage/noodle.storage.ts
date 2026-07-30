@@ -975,6 +975,38 @@ export function createNoodleStorage(db: DB) {
       return rows[0] ? mapAccount(rows[0]) : null;
     },
 
+    /**
+     * Delete the noodle account for a deleted entity (e.g. a character) along with its
+     * posts/interactions/subscriptions. Dependent rows go via the file-store cascade;
+     * activity digests have no cascade, so they are cleared explicitly.
+     */
+    async deleteAccountByEntity(kind: NoodleAccountKind, entityId: string): Promise<NoodleAccount | null> {
+      const existing = await this.getAccountByEntity(kind, entityId);
+      if (!existing) return null;
+      const postIds = (await db.select().from(noodlePosts).where(eq(noodlePosts.authorAccountId, existing.id))).map(
+        (post) => post.id,
+      );
+      const interactionIds =
+        postIds.length > 0
+          ? (await db.select().from(noodleInteractions).where(inArray(noodleInteractions.postId, postIds))).map(
+              (interaction) => interaction.id,
+            )
+          : [];
+      await db.transaction(async (tx) => {
+        if (postIds.length > 0) {
+          await tx.delete(noodleActivityDigests).where(inArray(noodleActivityDigests.sourcePostId, postIds));
+        }
+        if (interactionIds.length > 0) {
+          await tx
+            .delete(noodleActivityDigests)
+            .where(inArray(noodleActivityDigests.sourceInteractionId, interactionIds));
+        }
+        await tx.delete(noodleAccounts).where(eq(noodleAccounts.id, existing.id));
+        await tx._fileStore.flush();
+      });
+      return existing;
+    },
+
     async getAccountByEntity(kind: NoodleAccountKind, entityId: string): Promise<NoodleAccount | null> {
       const rows = await db
         .select()
