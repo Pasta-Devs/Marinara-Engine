@@ -35,9 +35,9 @@ import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 /** The teaching screens that run ahead of the numbered steps on first run. */
-type Intro = 0 | 1 | 2 | null;
+type Intro = 0 | 1 | 2 | 3 | null;
 type SetupLane = "easy" | "customize" | null;
-const LAST_INTRO = 2;
+const LAST_INTRO = 3;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
 type ActivityChoice = "manual" | "occasional" | "lively" | "veryActive";
 
@@ -112,6 +112,23 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [outcomes, setOutcomes] = useState<NoodlerRefreshNowOutcome[]>([]);
   const [completion, setCompletion] = useState<CompletionKind | null>(null);
   const completionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const demoProfile: NoodlerStageProfile = {
+    ...DEMO_PROFILE,
+    displayName:
+      disclosure === "open"
+        ? t("ui.noodle.noodlerwizard.identityPreview.openName")
+        : disclosure === "hinted"
+          ? t("ui.noodle.noodlerwizard.identityPreview.hintedName")
+          : t("ui.noodle.noodlerwizard.identityPreview.secretName"),
+    handle:
+      disclosure === "open"
+        ? t("ui.noodle.noodlerwizard.identityPreview.openHandle")
+        : disclosure === "hinted"
+          ? t("ui.noodle.noodlerwizard.identityPreview.hintedHandle")
+          : t("ui.noodle.noodlerwizard.identityPreview.secretHandle"),
+    avatarUrl: disclosure === "secret" ? null : "/sprites/mari/chibi-professor-mari.png",
+    disclosureMode: disclosure,
+  };
 
   useEffect(() => {
     if (completion) completionHeadingRef.current?.focus();
@@ -377,13 +394,42 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           {intro === 0 && (
             <div className="space-y-4">
               <StepHeading
+                icon={<Sparkles size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.welcome.title")}
+                help={t("ui.noodle.noodlerwizard.intro.welcome.help")}
+              />
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4">
+                <img src="/sprites/mari/Mari_wave.png" alt="" className="h-36 w-auto shrink-0 object-contain" />
+                <div className="space-y-3 text-sm leading-6">
+                  <p className="font-semibold">{t("ui.noodle.noodlerwizard.intro.welcome.lead")}</p>
+                  <p className="text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.intro.welcome.detail")}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {intro === 1 && (
+            <div className="space-y-4">
+              <StepHeading
                 icon={<Eye size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.identity.title")}
                 help={t("ui.noodle.noodlerwizard.intro.identity.help")}
               />
               <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                <div className="flex items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-3">
-                  <img src="/sprites/mari/Mari_thinking.png" alt="" className="h-36 w-auto object-contain" />
+                <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4 text-center">
+                  <Avatar
+                    account={{
+                      displayName: demoProfile.displayName,
+                      avatarUrl: demoProfile.avatarUrl,
+                      avatarCrop: demoProfile.avatarCrop,
+                    }}
+                    size="lg"
+                  />
+                  <p className="mt-3 font-bold">{demoProfile.displayName}</p>
+                  <p className="text-xs text-[var(--muted-foreground)]">@{demoProfile.handle}</p>
+                  <p className="mt-2 text-xs font-semibold text-[var(--noodle-accent)]">
+                    {t(`ui.noodle.noodlerwizard.identityPreview.${disclosure}.connection`)}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   {DISCLOSURES.map((value) => (
@@ -393,6 +439,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       onClick={() => {
                         setDisclosure(value);
                         setIdentityExplored(true);
+                        setPostExplored(false);
                       }}
                       className={cn(
                         "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
@@ -411,20 +458,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   ))}
                 </div>
               </div>
-              <div className="rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2 text-sm">
-                {t("ui.noodle.noodlerwizard.intro.identity.preview", {
-                  name:
-                    disclosure === "open"
-                      ? t("ui.noodle.noodlerwizard.identityPreview.openName")
-                      : disclosure === "hinted"
-                        ? t("ui.noodle.noodlerwizard.identityPreview.hintedName")
-                        : t("ui.noodle.noodlerwizard.identityPreview.secretName"),
-                })}
-              </div>
             </div>
           )}
 
-          {intro === 1 && (
+          {intro === 2 && (
             <div className="space-y-4">
               <StepHeading
                 icon={<Lock size={18} />}
@@ -435,17 +472,23 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   read as a page rather than as one item in a feed. */}
               <div className="mx-auto max-w-sm overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
                 <LockedNoodlerPostCard
-                  post={{ ...DEMO_POST, title: t("ui.noodle.noodlerwizard.mariPostTitle") }}
-                  profile={{ ...DEMO_PROFILE, displayName: t("ui.noodle.noodlerwizard.mariName") }}
+                  key={disclosure}
+                  post={{
+                    ...DEMO_POST,
+                    title: t(`ui.noodle.noodlerwizard.demoPost.${disclosure}.title`),
+                    imageUrl: disclosure === "secret" ? null : DEMO_POST.imageUrl,
+                  }}
+                  profile={demoProfile}
                   subscribed={false}
                   unlockPending={false}
                   subscriptionPending={false}
                   onUnlock={() => {}}
                   onToggleSubscription={() => {}}
                   demo={{
-                    body: t("ui.noodle.noodlerwizard.mariPost"),
+                    body: t(`ui.noodle.noodlerwizard.demoPost.${disclosure}.body`),
                     unlockedLabel: t("ui.noodle.postaccess.unlocked"),
-                    unlockedImageUrl: "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
+                    unlockedImageUrl:
+                      disclosure === "secret" ? undefined : "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
                     onReveal: () => setPostExplored(true),
                   }}
                 />
@@ -458,7 +501,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             </div>
           )}
 
-          {intro === 2 && (
+          {intro === 3 && (
             <div className="space-y-4">
               <StepHeading
                 icon={<Clock size={18} />}
@@ -1066,7 +1109,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             {intro !== null ? (
               <button
                 type="button"
-                disabled={intro === 0 ? !identityExplored : intro === 1 ? !postExplored : false}
+                disabled={intro === 1 ? !identityExplored : intro === 2 ? !postExplored : false}
                 onClick={() => setIntro(intro < LAST_INTRO ? ((intro + 1) as Intro) : null)}
                 className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
               >
