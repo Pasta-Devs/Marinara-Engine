@@ -610,13 +610,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   </span>
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => void skip()}
-                className="w-full rounded-lg border border-[var(--border)] px-3 py-2.5 text-left text-sm font-semibold hover:bg-[var(--accent)]"
-              >
-                {t("ui.noodle.noodlerwizard.handoff.explore")}
-              </button>
             </div>
           )}
 
@@ -1095,7 +1088,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   {t("ui.noodle.noodlerwizard.back")}
                 </button>
               )}
-              {!selectionOnly && step < 5 && (
+              {!selectionOnly && step < 5 && (intro !== null || setupLane !== null) && (
                 <button
                   type="button"
                   disabled={pending}
