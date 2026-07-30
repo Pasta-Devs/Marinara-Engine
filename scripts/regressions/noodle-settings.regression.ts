@@ -13,7 +13,10 @@ import {
   noodleAccountUpdateSchema,
   noodleBulkNoodlerAccountCreateSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
-import { defaultNoodlerOnboardingSelection } from "../../packages/shared/src/utils/noodler-onboarding.js";
+import {
+  defaultNoodlerOnboardingSelection,
+  resolveNoodlerOnboardingCompletion,
+} from "../../packages/shared/src/utils/noodler-onboarding.js";
 import {
   createNoodleStorage,
   normalizeNoodleSettings,
@@ -31,6 +34,50 @@ assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 8 }, (_,
   "7",
 ]);
 assert.deepEqual(defaultNoodlerOnboardingSelection(Array.from({ length: 9 }, (_, index) => String(index))), []);
+
+const generated = [{ status: "generated" }, { status: "generated" }];
+// Nothing selected is a deliberate skip, not a failure.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 0, createdCount: 0, createFailures: 0, outcomes: null }),
+  "zero",
+);
+// Selections that produced no profiles are a failure, whatever generation would have done.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 3, createdCount: 0, createFailures: 3, outcomes: null }),
+  "failed",
+);
+// Profiles created, generation not attempted.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 2, createdCount: 2, createFailures: 0, outcomes: null }),
+  "declined",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 2, createdCount: 2, createFailures: 0, outcomes: generated }),
+  "generated",
+);
+// Every post generated, but a selection never became a profile: still only partial.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 3, createdCount: 2, createFailures: 1, outcomes: generated }),
+  "partial",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({
+    selectedCount: 2,
+    createdCount: 2,
+    createFailures: 0,
+    outcomes: [{ status: "generated" }, { status: "error" }],
+  }),
+  "partial",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({
+    selectedCount: 2,
+    createdCount: 2,
+    createFailures: 0,
+    outcomes: [{ status: "error" }, { status: "busy" }],
+  }),
+  "failed",
+);
 const bulkOnboarding = noodleBulkNoodlerAccountCreateSchema.parse({
   noodleAccountIds: ["one", "two"],
   disclosureMode: "hinted",

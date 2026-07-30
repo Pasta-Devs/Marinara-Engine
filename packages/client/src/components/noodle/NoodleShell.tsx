@@ -3,7 +3,7 @@
 // Used by both the public NoodleHome timeline and the NoodlerHome hub
 // so every Noodle surface keeps the same primary navigation.
 // ──────────────────────────────────────────────
-import { AtSign, Bell, Home, MoreHorizontal, Pencil, Search, Settings2, User, X } from "lucide-react";
+import { AtSign, Bell, Home, MoreHorizontal, Pencil, Search, Settings2, User, UserRound, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { createContext, type CSSProperties, type ReactNode, type RefObject, useContext, useRef } from "react";
 import type { NoodleAccount } from "@marinara-engine/shared";
@@ -120,6 +120,33 @@ export function Avatar({
     >
       {initials(account.displayName)}
     </div>
+  );
+}
+
+/** Avatar for stage profiles: their picture when they have one, their initial when they do not. */
+export function ProfileInitial({
+  profile,
+  large = false,
+}: {
+  profile: { displayName: string; avatarUrl?: string | null; avatarCrop?: AvatarCropValue | null };
+  large?: boolean;
+}) {
+  if (profile.avatarUrl)
+    return (
+      <Avatar
+        account={{ displayName: profile.displayName, avatarUrl: profile.avatarUrl, avatarCrop: profile.avatarCrop }}
+        size={large ? "lg" : "md"}
+      />
+    );
+  return (
+    <span
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-full bg-[var(--noodle-accent)]/15 font-black text-[var(--noodle-accent)]",
+        large ? "h-16 w-16 text-xl" : "h-11 w-11",
+      )}
+    >
+      {Array.from(profile.displayName)[0]?.toUpperCase() || <UserRound size={20} />}
+    </span>
   );
 }
 

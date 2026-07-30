@@ -7,6 +7,8 @@
 // ──────────────────────────────────────────────
 import {
   AtSign,
+  Bell,
+  Eye,
   Heart,
   Image as ImageIcon,
   MessageCircle,
@@ -18,7 +20,7 @@ import {
   Lock,
   X,
 } from "lucide-react";
-import { Fragment, useRef } from "react";
+import { Fragment, useRef, useState } from "react";
 import {
   canManageNoodleReply,
   noodlePollInputSchema,
@@ -26,11 +28,14 @@ import {
   readNoodlePostImageCrop,
   type NoodleAccount,
   type NoodleInteraction,
+  type NoodlerPostView,
+  type NoodlerStageProfile,
 } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
 import { ConversationMediaPickerPanel } from "../chat/ConversationMediaPickerPanel";
 import type { ChatImage } from "../../hooks/use-gallery";
-import { Avatar } from "./NoodleShell";
+import { Modal } from "../ui/Modal";
+import { Avatar, ProfileInitial } from "./NoodleShell";
 import { formatTime } from "./NoodleBrowserChrome";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
@@ -55,42 +60,204 @@ import {
 import { NoodlePollComposer } from "./NoodlePollComposer";
 import { PostImageFrame } from "./PostImageCropEditor";
 
-export function NoodlerTeachingPostCard({
-  author,
-  handle,
-  avatarUrl,
-  body,
-  lockedLabel,
-  unlockLabel,
+export function LockedNoodlerPostCard({
+  post,
+  profile,
+  controllerOnly = false,
+  subscribed,
+  unlockPending,
+  subscriptionPending,
+  onUnlock,
+  onToggleSubscription,
+  onManage,
+  onOpenProfile,
+  demo,
 }: {
-  author: string;
-  handle: string;
-  avatarUrl: string;
-  body: string;
-  lockedLabel: string;
-  unlockLabel: string;
+  post: Pick<NoodlerPostView, "id" | "access" | "createdAt" | "title" | "imageUrl"> &
+    Partial<Pick<NoodlerPostView, "likeCount" | "replyCount">>; // controller-locked managed posts carry no counts
+  profile: NoodlerStageProfile;
+  controllerOnly?: boolean;
+  subscribed: boolean;
+  unlockPending: boolean;
+  subscriptionPending: boolean;
+  onUnlock: (postId: string) => void;
+  onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
+  onManage?: () => void;
+  onOpenProfile?: (accountId: string) => void;
+  /** Onboarding only: unlocking reveals this text locally instead of calling the server. */
+  demo?: { body: string; unlockedLabel: string };
 }) {
+  const { t: localizeUi } = useUiTranslation();
+  const [unlockSheetOpen, setUnlockSheetOpen] = useState(false);
+  const [demoUnlocked, setDemoUnlocked] = useState(false);
+  const likeCount = post.likeCount ?? 0;
+  const replyCount = post.replyCount ?? 0;
+  const openProfile = onOpenProfile ? () => onOpenProfile(profile.id) : undefined;
+  const revealed = Boolean(demo && demoUnlocked);
   return (
-    <article className="overflow-hidden rounded-md border border-[var(--noodle-divider)] bg-[var(--background)]">
-      <div className="flex items-center gap-3 px-4 py-3">
-        <Avatar account={{ displayName: author, avatarUrl }} size="md" />
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold">{author}</p>
-          <p className="text-xs text-[var(--muted-foreground)]">@{handle}</p>
-        </div>
-        <span className="flex items-center gap-1 rounded-full bg-[var(--noodle-accent)]/12 px-2 py-1 text-xs font-semibold text-[var(--noodle-accent)]">
-          <Lock size={12} /> {lockedLabel}
-        </span>
-      </div>
-      <div className="border-t border-[var(--noodle-divider)] px-4 py-3 text-sm leading-6">{body}</div>
-      <div className="border-t border-[var(--noodle-divider)] px-4 py-2">
+    <article
+      data-noodle-post-id={post.id}
+      className="border-b border-[var(--noodle-divider)] px-4 py-4 transition-colors hover:bg-[var(--accent)]/35"
+    >
+      {/* Author row */}
+      <div className="flex gap-3">
         <button
           type="button"
-          className="min-h-9 rounded-md border border-[var(--noodle-accent)]/40 px-3 text-xs font-bold text-[var(--noodle-accent)]"
+          onClick={openProfile}
+          disabled={!openProfile}
+          className="h-fit rounded-full text-left transition-opacity enabled:hover:opacity-80 disabled:cursor-default"
+          title={openProfile ? localizeUi("ui.noodle.noodlehome.viewValue1", { value1: profile.handle }) : undefined}
         >
-          {unlockLabel}
+          <ProfileInitial profile={profile} />
         </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <button
+              type="button"
+              onClick={openProfile}
+              disabled={!openProfile}
+              className="font-semibold transition-colors enabled:hover:text-[var(--noodle-accent)] disabled:cursor-default"
+            >
+              {profile.displayName}
+            </button>
+            <span className="rounded-full bg-[var(--noodle-accent)]/15 px-2 py-0.5 text-[0.68rem] font-bold text-[var(--noodle-accent)]">
+              {revealed && demo ? demo.unlockedLabel : localizeUi("ui.noodle.postaccess.locked")}
+            </span>
+          </div>
+          <p className="text-xs text-[var(--muted-foreground)]">
+            @{profile.handle} · {formatTime(post.createdAt)}
+          </p>
+        </div>
       </div>
+
+      {/* Full-width body */}
+      <div>
+        {/* Blurred media with Locked badge — only when the post has an image */}
+        {post.imageUrl && (
+          <div className="relative mt-3 h-72 w-full overflow-hidden rounded-xl bg-[var(--muted)]">
+            <img
+              src={post.imageUrl}
+              alt=""
+              className={cn(
+                "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
+                revealed ? "scale-100 blur-0" : "scale-110 blur-xl",
+              )}
+            />
+            {!revealed && <div className="absolute inset-0 bg-black/30" />}
+            {!revealed && (
+              <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                <Lock size={12} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Title */}
+        {post.title && <h3 className="mt-3 text-lg font-bold leading-snug">{post.title}</h3>}
+
+        {/* Body: unreadable teaser until unlocked */}
+        {revealed && demo ? (
+          <p className="mt-3 text-sm leading-6">{demo.body}</p>
+        ) : (
+          !controllerOnly && (
+            <div className="mt-3 space-y-2 select-none blur-[3px]" aria-hidden="true">
+              <div className="h-3.5 w-full rounded bg-[var(--muted-foreground)]/70" />
+              <div className="h-3.5 w-4/5 rounded bg-[var(--muted-foreground)]/70" />
+            </div>
+          )
+        )}
+
+        {/* CTA */}
+        {controllerOnly ? (
+          <p className="mt-3 text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.noodle.lockednoodlerpostcard.openTheControllerToolsToManageThisPost")}
+          </p>
+        ) : (
+          !revealed && (
+            <button
+              type="button"
+              disabled={unlockPending || subscriptionPending}
+              onClick={() => setUnlockSheetOpen(true)}
+              className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:!text-zinc-950"
+            >
+              <Eye size={14} /> {localizeUi("ui.noodle.lockednoodlerpostcard.unlock")}
+            </button>
+          )
+        )}
+
+        {/* Footer */}
+        <div className="mt-3 flex items-center gap-4 text-sm text-[var(--muted-foreground)]">
+          <span className="flex items-center gap-1.5">
+            <Heart size={18} /> {likeCount}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <MessageCircle size={18} /> {replyCount}
+          </span>
+          <div className="ml-auto flex items-center gap-3">
+            {onManage && (
+              <button
+                type="button"
+                onClick={onManage}
+                className="flex items-center gap-1.5 hover:text-[var(--foreground)]"
+              >
+                <Pencil size={18} /> {localizeUi("ui.noodle.lockednoodlerpostcard.managePost")}
+              </button>
+            )}
+            {!revealed && (
+              <span className="flex items-center gap-1.5">
+                <Lock size={18} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      <Modal
+        open={unlockSheetOpen}
+        onClose={() => setUnlockSheetOpen(false)}
+        title={localizeUi("ui.noodle.unlocksheet.title")}
+        width="max-w-sm"
+      >
+        <div data-component="NoodlerHome.UnlockSheet" className="divide-y divide-[var(--noodle-divider)]">
+          <button
+            type="button"
+            data-noodler-unlock-action="post"
+            disabled={unlockPending}
+            onClick={() => {
+              setUnlockSheetOpen(false);
+              if (demo) setDemoUnlocked(true);
+              else onUnlock(post.id);
+            }}
+            className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left hover:bg-[var(--accent)] disabled:opacity-50"
+          >
+            <Eye size={20} className="shrink-0 text-[var(--noodle-accent)]" />
+            <span>
+              <span className="block text-sm font-bold">{localizeUi("ui.noodle.unlocksheet.unlockThisPost")}</span>
+              <span className="block text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.unlocksheet.unlockThisPostDetail")}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            data-noodler-unlock-action="subscribe"
+            disabled={subscriptionPending}
+            onClick={() => {
+              setUnlockSheetOpen(false);
+              if (demo) setDemoUnlocked(true);
+              else onToggleSubscription(profile.id, subscribed);
+            }}
+            className="flex min-h-16 w-full items-center gap-3 px-1 py-3 text-left hover:bg-[var(--accent)] disabled:opacity-50"
+          >
+            <Bell size={20} className="shrink-0 text-[var(--noodle-accent)]" />
+            <span>
+              <span className="block text-sm font-bold">{localizeUi("ui.noodle.unlocksheet.subscribe")}</span>
+              <span className="block text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.unlocksheet.subscribeDetail")}
+              </span>
+            </span>
+          </button>
+        </div>
+      </Modal>
     </article>
   );
 }

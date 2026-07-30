@@ -1,7 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Loader2, RefreshCw, SlidersHorizontal, Users } from "lucide-react";
-import type { NoodleIdentityDisclosure, NoodlerRefreshNowOutcome } from "@marinara-engine/shared";
-import { defaultNoodlerOnboardingSelection } from "@marinara-engine/shared";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Eye,
+  Image as ImageIcon,
+  Loader2,
+  Lock,
+  RefreshCw,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
+import type {
+  NoodleIdentityDisclosure,
+  NoodlerRefreshNowOutcome,
+  NoodlerPostView,
+  NoodlerStageProfile,
+} from "@marinara-engine/shared";
+import { defaultNoodlerOnboardingSelection, resolveNoodlerOnboardingCompletion } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   useBulkCreateNoodlerStageProfiles,
@@ -13,12 +30,41 @@ import {
 import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { Avatar, getNoodleAccentStyle, NOODLE_PINK } from "./NoodleShell";
-import { NoodlerTeachingPostCard } from "./NoodlerPostCard";
+import { LockedNoodlerPostCard } from "./NoodlerPostCard";
 
 type Step = 1 | 2 | 3 | 4 | 5;
+/** The two teaching screens that run ahead of the numbered steps on first run. */
+type Intro = 0 | 1 | null;
 type CompletionKind = "declined" | "generated" | "partial" | "failed" | "zero";
 
 const DISCLOSURES: NoodleIdentityDisclosure[] = ["open", "hinted", "secret"];
+
+// The intro renders the real locked post card against a stand-in creator, so what the user
+// practises on is the same component they meet in the feed a minute later.
+const DEMO_PROFILE: NoodlerStageProfile = {
+  id: "onboarding-demo",
+  noodleAccountId: null,
+  handle: "professor_mari",
+  displayName: "Professor Mari",
+  bio: "",
+  avatarUrl: "/sprites/mari/chibi-professor-mari.png",
+  avatarCrop: null,
+  disclosureMode: "open",
+  stagePersonality: "",
+  publicIdentity: null,
+  createdAt: "",
+  updatedAt: "",
+};
+const DEMO_POST: Pick<NoodlerPostView, "id" | "access" | "createdAt" | "title" | "imageUrl"> &
+  Partial<Pick<NoodlerPostView, "likeCount" | "replyCount">> = {
+  id: "onboarding-demo-post",
+  access: "locked",
+  createdAt: new Date().toISOString(),
+  title: null,
+  imageUrl: "/sprites/mari/Mari_greet.png",
+  likeCount: 12,
+  replyCount: 3,
+};
 
 interface WizardProps {
   open: boolean;
@@ -40,7 +86,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const refreshTargeted = useRefreshTargetedNoodlerCreatorsNow();
   const accounts = useMemo(() => eligible.data?.pages.flatMap((page) => page.items) ?? [], [eligible.data?.pages]);
   const [step, setStep] = useState<Step>(1);
-  const [advanced, setAdvanced] = useState(false);
+  const [intro, setIntro] = useState<Intro>(selectionOnly ? null : 0);
+  // Expansion is per step: opening the options on Activity must not also unfold Disclosure.
+  const [advancedSteps, setAdvancedSteps] = useState<Set<Step>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [selectionInitialized, setSelectionInitialized] = useState(false);
   const [disclosure, setDisclosure] = useState<NoodleIdentityDisclosure>("hinted");
@@ -53,11 +101,17 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [creationFailures, setCreationFailures] = useState(0);
   const [outcomes, setOutcomes] = useState<NoodlerRefreshNowOutcome[]>([]);
   const [completion, setCompletion] = useState<CompletionKind | null>(null);
+  const completionHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    if (completion) completionHeadingRef.current?.focus();
+  }, [completion]);
 
   useEffect(() => {
     if (!open) return;
     setStep(1);
-    setAdvanced(false);
+    setIntro(selectionOnly ? null : 0);
+    setAdvancedSteps(new Set());
     setSelected(new Set());
     setSelectionInitialized(false);
     setDisclosure("hinted");
@@ -68,7 +122,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setCreationFailures(0);
     setOutcomes([]);
     setCompletion(null);
-  }, [open]);
+  }, [open, selectionOnly]);
 
   useEffect(() => {
     if (!open || !data?.settings) return;
@@ -76,10 +130,11 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setNightQuiet(data.settings.noodlerNightQuiet);
   }, [data?.settings, open]);
 
+  const { fetchNextPage, hasNextPage, isFetching } = eligible;
   useEffect(() => {
-    if (!open || eligible.isFetching || !eligible.hasNextPage) return;
-    void eligible.fetchNextPage();
-  }, [eligible, open]);
+    if (!open || isFetching || !hasNextPage) return;
+    void fetchNextPage();
+  }, [fetchNextPage, hasNextPage, isFetching, open]);
 
   useEffect(() => {
     if (!open || selectionInitialized || eligible.isLoading || eligible.hasNextPage) return;
@@ -87,6 +142,14 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setSelectionInitialized(true);
   }, [accounts, eligible.hasNextPage, eligible.isLoading, open, selectionInitialized]);
 
+  const advanced = advancedSteps.has(step);
+  const setAdvanced = (value: boolean | ((current: boolean) => boolean)) =>
+    setAdvancedSteps((current) => {
+      const next = new Set(current);
+      if (typeof value === "function" ? value(current.has(step)) : value) next.add(step);
+      else next.delete(step);
+      return next;
+    });
   const toggleSelected = (id: string) => {
     setSelected((current) => {
       const next = new Set(current);
@@ -98,11 +161,19 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const failedIds = outcomes.filter((outcome) => outcome.status !== "generated").map((outcome) => outcome.accountId);
   const failedCount = creationFailures + failedIds.length;
   const generatedCount = outcomes.filter((outcome) => outcome.status === "generated").length;
-  const finalizeOutcomes = (next: NoodlerRefreshNowOutcome[], createFailures = creationFailures) => {
+  const finalizeOutcomes = (
+    next: NoodlerRefreshNowOutcome[],
+    createFailures = creationFailures,
+    createdCount = createdIds.length,
+  ) => {
     setOutcomes(next);
-    const succeeded = next.filter((outcome) => outcome.status === "generated").length;
     setCompletion(
-      succeeded === next.length && createFailures === 0 ? "generated" : succeeded > 0 ? "partial" : "failed",
+      resolveNoodlerOnboardingCompletion({
+        selectedCount: selected.size,
+        createdCount,
+        createFailures,
+        outcomes: next,
+      }),
     );
     setStep(5);
   };
@@ -111,6 +182,24 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     const retriedIds = new Set(ids);
     const merged = [...outcomes.filter((outcome) => !retriedIds.has(outcome.accountId)), ...result.outcomes];
     finalizeOutcomes(merged, createFailures);
+  };
+  // Settings are recoverable from the settings panel, so a failure here must not block the
+  // rest of the flow — but it must also never be the reason onboarding counts as done.
+  const saveSettings = async () => {
+    if (selectionOnly) return;
+    try {
+      await updateSettings.mutateAsync({
+        postsPerDay,
+        noodlerNightQuiet: nightQuiet,
+        noodlerOnboardingComplete: true,
+      });
+    } catch {
+      /* ignored: the wizard has already created the profiles that matter */
+    }
+  };
+  const skip = async () => {
+    await saveSettings();
+    onClose();
   };
   const finish = async () => {
     let newIds: string[] = [];
@@ -128,29 +217,36 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
         createFailureCount = result.skipped.length + (result.failed?.length ?? 0);
         setCreationFailures(createFailureCount);
       }
-      if (!selectionOnly) {
-        await updateSettings.mutateAsync({
-          postsPerDay,
-          noodlerNightQuiet: nightQuiet,
-          noodlerOnboardingComplete: true,
-        });
-      }
-      if (newIds.length === 0) {
-        setCompletion(selected.size === 0 ? "zero" : "failed");
-        setStep(5);
-      } else if (!generateNow || selectionOnly) {
-        setCompletion("declined");
-        setStep(5);
-      } else {
-        const result = await refreshTargeted.mutateAsync(newIds);
-        finalizeOutcomes(result.outcomes, createFailureCount);
-      }
-      onComplete?.();
     } catch {
-      if (!selectionOnly) await updateSettings.mutateAsync({ noodlerOnboardingComplete: true });
+      // Nothing was created, so onboarding stays incomplete and the wizard remains reachable.
       setCompletion("failed");
       setStep(5);
-      onComplete?.();
+      return;
+    }
+    await saveSettings();
+    onComplete?.();
+    if (newIds.length === 0 || !generateNow || selectionOnly) {
+      setCompletion(
+        resolveNoodlerOnboardingCompletion({
+          selectedCount: selected.size,
+          createdCount: newIds.length,
+          createFailures: createFailureCount,
+          outcomes: null,
+        }),
+      );
+      setStep(5);
+      return;
+    }
+    try {
+      const result = await refreshTargeted.mutateAsync(newIds);
+      finalizeOutcomes(result.outcomes, createFailureCount, newIds.length);
+    } catch {
+      // The profiles exist; only generation fell over, so every one of them is retryable.
+      finalizeOutcomes(
+        newIds.map((accountId) => ({ accountId, status: "error" as const })),
+        createFailureCount,
+        newIds.length,
+      );
     }
   };
   const pending = bulkCreate.isPending || updateSettings.isPending || refreshTargeted.isPending;
@@ -188,34 +284,62 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   return (
     <Modal
       open={open}
-      onClose={selectionOnly || completion ? onClose : () => {}}
+      onClose={selectionOnly || completion ? onClose : () => void skip()}
+      closeDisabled={pending}
       title={selectionOnly ? t("ui.noodle.noodlerwizard.addCreators") : t("ui.noodle.noodlerwizard.title")}
-      width="max-w-2xl"
+      width="max-w-3xl"
+      mobileFullscreen
       panelStyle={getNoodleAccentStyle(NOODLE_PINK)}
     >
-      <div className="flex max-h-[min(78vh,46rem)] min-h-[30rem] flex-col">
-        {step < 5 && (
+      <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col">
+        {intro !== null && (
+          <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3" aria-hidden="true">
+            {[0, 1].map((dot) => (
+              <span
+                key={dot}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  dot === intro ? "w-6 bg-[var(--noodle-accent)]" : "w-1.5 bg-[var(--border)]",
+                )}
+              />
+            ))}
+          </div>
+        )}
+        {intro === null && step < 5 && (
           <div className="border-b border-[var(--border)] pb-3">
-            <div className="grid gap-1 sm:grid-cols-2">
-              {summaries.map((item) => (
-                <button
-                  key={item.step}
-                  type="button"
-                  onClick={() => setStep(item.step)}
-                  className={cn(
-                    "flex min-h-10 items-center justify-between rounded-md px-2.5 text-left text-xs",
-                    step === item.step
-                      ? "bg-[var(--noodle-accent)]/12 ring-1 ring-[var(--noodle-accent)]/35"
-                      : "hover:bg-[var(--accent)]",
-                  )}
-                >
-                  <span className="font-semibold">
-                    {item.step}. {item.label}
-                  </span>
-                  <span className="ml-2 truncate text-[var(--muted-foreground)]">{item.value}</span>
-                </button>
-              ))}
-            </div>
+            {/* Progress rail: done steps stay reachable, later ones stay locked until you get there. */}
+            <ol className="flex gap-1.5">
+              {summaries.map((item) => {
+                const reachable = item.step <= step;
+                return (
+                  <li key={item.step} className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      disabled={!reachable}
+                      aria-current={step === item.step ? "step" : undefined}
+                      onClick={() => setStep(item.step)}
+                      className={cn(
+                        "w-full min-w-0 rounded-md px-2 pb-1.5 pt-2 text-left transition-colors",
+                        reachable ? "hover:bg-[var(--accent)]" : "cursor-default opacity-45",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "block h-1 rounded-full transition-colors",
+                          step === item.step
+                            ? "bg-[var(--noodle-accent)]"
+                            : item.step < step
+                              ? "bg-[var(--noodle-accent)]/45"
+                              : "bg-[var(--border)]",
+                        )}
+                      />
+                      <span className="mt-1.5 block truncate text-[0.7rem] font-bold">{item.label}</span>
+                      <span className="block truncate text-[0.7rem] text-[var(--muted-foreground)]">{item.value}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
             {!selectionOnly && (
               <button
                 type="button"
@@ -230,76 +354,132 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto py-4">
-          {step === 1 && (
+          {intro === 0 && (
             <div className="space-y-4">
-              {!selectionOnly && (
-                <>
-                  <div>
-                    <h3 className="text-base font-bold">{t("ui.noodle.noodlerwizard.teachingTitle")}</h3>
-                    <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">
-                      {t("ui.noodle.noodlerwizard.teachingIntro")}
-                    </p>
-                  </div>
-                  <NoodlerTeachingPostCard
-                    author={t("ui.noodle.noodlerwizard.mariName")}
-                    handle="professor_mari"
-                    avatarUrl="/sprites/mari/chibi-professor-mari.png"
-                    body={t("ui.noodle.noodlerwizard.mariPost")}
-                    lockedLabel={t("ui.noodle.noodlerwizard.locked")}
-                    unlockLabel={t("ui.noodle.noodlerwizard.unlockExample")}
-                  />
-                </>
-              )}
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold">{t("ui.noodle.noodlerwizard.chooseCharacters")}</h3>
-                  <p className="text-xs text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.selectionRule")}</p>
-                </div>
-                {accounts.length > 0 && (
+              <StepHeading
+                icon={<Lock size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.locked.title")}
+                help={t("ui.noodle.noodlerwizard.intro.locked.help")}
+              />
+              <div className="overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
+                <LockedNoodlerPostCard
+                  post={DEMO_POST}
+                  profile={{ ...DEMO_PROFILE, displayName: t("ui.noodle.noodlerwizard.mariName") }}
+                  subscribed={false}
+                  unlockPending={false}
+                  subscriptionPending={false}
+                  onUnlock={() => {}}
+                  onToggleSubscription={() => {}}
+                  demo={{
+                    body: t("ui.noodle.noodlerwizard.mariPost"),
+                    unlockedLabel: t("ui.noodle.postaccess.unlocked"),
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {intro === 1 && (
+            <div className="space-y-4">
+              <StepHeading
+                icon={<Users size={18} />}
+                title={t("ui.noodle.noodlerwizard.intro.creators.title")}
+                help={t("ui.noodle.noodlerwizard.intro.creators.help")}
+              />
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] p-4">
+                <img src="/sprites/mari/Mari_explaining.png" alt="" className="h-28 w-auto shrink-0 object-contain" />
+                <ul className="space-y-2 text-sm leading-6">
+                  {["choose", "post", "control"].map((line) => (
+                    <li key={line} className="flex gap-2">
+                      <Check size={16} className="mt-1 shrink-0 text-[var(--noodle-accent)]" />
+                      {t(`ui.noodle.noodlerwizard.intro.creators.${line}`)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {intro === null && step === 1 && (
+            <div className="space-y-4">
+              <StepHeading
+                icon={<Users size={18} />}
+                title={t("ui.noodle.noodlerwizard.chooseCharacters")}
+                help={t("ui.noodle.noodlerwizard.selectionRule")}
+              />
+              {accounts.length > 0 && (
+                <div className="sticky top-0 z-10 -mt-1 flex items-center justify-between gap-3 bg-[var(--background)] py-1.5">
+                  <span className="text-xs font-bold text-[var(--muted-foreground)]">
+                    {t("ui.noodle.noodlerwizard.selectedCount", { count: selected.size })}
+                  </span>
                   <button
                     type="button"
+                    disabled={hasNextPage}
                     onClick={() =>
                       setSelected(
                         new Set(selected.size === accounts.length ? [] : accounts.map((account) => account.id)),
                       )
                     }
-                    className="shrink-0 text-xs font-bold text-[var(--noodle-accent)]"
+                    className="min-h-10 shrink-0 px-1 text-xs font-bold text-[var(--noodle-accent)] disabled:opacity-40"
                   >
                     {selected.size === accounts.length
                       ? t("ui.noodle.noodlerwizard.selectNone")
                       : t("ui.noodle.noodlerwizard.selectAll")}
                   </button>
-                )}
-              </div>
-              {eligible.isLoading || eligible.hasNextPage ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="animate-spin" />
-                  <span className="sr-only">{t("ui.noodle.noodlerwizard.loadingCharacters")}</span>
                 </div>
-              ) : eligible.isError ? (
-                <button
-                  type="button"
-                  onClick={() => void eligible.refetch()}
-                  className="text-sm font-semibold text-[var(--noodle-accent)]"
-                >
-                  {t("capabilities.actions.tryAgain")}
-                </button>
-              ) : accounts.length === 0 ? (
-                <p className="py-8 text-center text-sm text-[var(--muted-foreground)]">
-                  {t("ui.noodle.noodlerwizard.zeroEligible")}
-                </p>
+              )}
+              {eligible.isError && accounts.length === 0 ? (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.loadFailed")}</p>
+                  <button
+                    type="button"
+                    onClick={() => void eligible.refetch()}
+                    className="mt-2 min-h-10 px-2 text-sm font-bold text-[var(--noodle-accent)]"
+                  >
+                    {t("capabilities.actions.tryAgain")}
+                  </button>
+                </div>
+              ) : accounts.length === 0 && !eligible.isLoading && !eligible.hasNextPage ? (
+                <div className="flex flex-col items-center py-8 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)]">
+                    <Users size={22} />
+                  </span>
+                  <p className="mt-3 max-w-md text-sm leading-6 text-[var(--muted-foreground)]">
+                    {t("ui.noodle.noodlerwizard.zeroEligible")}
+                  </p>
+                </div>
               ) : (
-                <div className="divide-y divide-[var(--border)] rounded-md border border-[var(--border)]">
+                <div className="grid gap-2 sm:grid-cols-2">
                   {accounts.map((account) => (
                     <button
                       key={account.id}
                       type="button"
+                      role="checkbox"
+                      aria-checked={selected.has(account.id)}
                       onClick={() => toggleSelected(account.id)}
-                      className="flex min-h-12 w-full items-center gap-3 px-3 text-left hover:bg-[var(--accent)]"
+                      className={cn(
+                        "flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-left transition-colors",
+                        selected.has(account.id)
+                          ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10 ring-1 ring-[var(--noodle-accent)]/35"
+                          : "border-[var(--border)] hover:bg-[var(--accent)]",
+                      )}
                     >
+                      <Avatar
+                        account={{
+                          displayName: account.displayName,
+                          avatarUrl: account.avatarUrl,
+                          avatarCrop: account.avatarCrop,
+                        }}
+                        size="md"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{account.displayName}</span>
+                        <span className="block truncate text-xs text-[var(--muted-foreground)]">@{account.handle}</span>
+                      </span>
                       <span
+                        aria-hidden="true"
                         className={cn(
-                          "flex h-5 w-5 items-center justify-center rounded border",
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
                           selected.has(account.id)
                             ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)] text-zinc-950"
                             : "border-[var(--border)]",
@@ -307,20 +487,17 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       >
                         {selected.has(account.id) && <Check size={13} />}
                       </span>
-                      <Avatar
-                        account={{
-                          displayName: account.displayName,
-                          avatarUrl: account.avatarUrl,
-                          avatarCrop: account.avatarCrop,
-                        }}
-                        size="sm"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{account.displayName}</span>
-                        <span className="block truncate text-xs text-[var(--muted-foreground)]">@{account.handle}</span>
-                      </span>
                     </button>
                   ))}
+                  {(eligible.isLoading || eligible.hasNextPage) &&
+                    Array.from({ length: 4 }, (_, index) => (
+                      <span
+                        key={`skeleton-${index}`}
+                        className="min-h-14 animate-pulse rounded-lg border border-[var(--border)] bg-[var(--accent)]/40"
+                      >
+                        <span className="sr-only">{t("ui.noodle.noodlerwizard.loadingCharacters")}</span>
+                      </span>
+                    ))}
                 </div>
               )}
             </div>
@@ -328,12 +505,11 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
 
           {step === 2 && !selectionOnly && (
             <div className="space-y-4">
-              <div>
-                <h3 className="text-base font-bold">{t("ui.noodle.noodlerwizard.disclosure.question")}</h3>
-                <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                  {t("ui.noodle.noodlerwizard.disclosure.help")}
-                </p>
-              </div>
+              <StepHeading
+                icon={<Eye size={18} />}
+                title={t("ui.noodle.noodlerwizard.disclosure.question")}
+                help={t("ui.noodle.noodlerwizard.disclosure.help")}
+              />
               {!advanced ? (
                 <CompactChoice
                   label={disclosureLabel(disclosure, t)}
@@ -400,12 +576,11 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
 
           {step === 3 && !selectionOnly && (
             <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold">{t("ui.noodle.noodlerwizard.activity")}</h3>
-                <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">
-                  {t("ui.noodle.noodlerwizard.activityHelp")}
-                </p>
-              </div>
+              <StepHeading
+                icon={<Clock size={18} />}
+                title={t("ui.noodle.noodlerwizard.activity")}
+                help={t("ui.noodle.noodlerwizard.activityHelp")}
+              />
               {!advanced ? (
                 <CompactChoice
                   label={t("ui.noodle.noodlerwizard.postsSummary", { count: postsPerDay })}
@@ -426,8 +601,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
                 />
               </label>
-                </>
-              )}
               <label className="flex min-h-12 items-center gap-3 rounded-md border border-[var(--border)] px-3">
                 <input
                   type="checkbox"
@@ -442,15 +615,18 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   </span>
                 </span>
               </label>
+                </>
+              )}
             </div>
           )}
 
           {step === 4 && !selectionOnly && (
             <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold">{t("ui.noodle.noodlerwizard.images")}</h3>
-                <p className="mt-1 text-sm text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.imagesHelp")}</p>
-              </div>
+              <StepHeading
+                icon={<ImageIcon size={18} />}
+                title={t("ui.noodle.noodlerwizard.images")}
+                help={t("ui.noodle.noodlerwizard.imagesHelp")}
+              />
               {!advanced ? (
                 <CompactChoice
                   label={imagesEnabled ? t("ui.noodle.noodlerwizard.on") : t("ui.noodle.noodlerwizard.off")}
@@ -477,7 +653,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 ))}
                 </div>
               )}
-              <div className="border-t border-[var(--border)] pt-4">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--accent)]/30 p-4">
                 <p className="text-sm font-bold">{t("ui.noodle.noodlerwizard.providerCountsTitle")}</p>
                 <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
                   {t("ui.noodle.noodlerwizard.setupCount", { count: selected.size })}
@@ -500,30 +676,54 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
 
           {step === 5 && completion && (
-            <div className="flex min-h-[22rem] flex-col items-center justify-center text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)]">
+            <div className="flex min-h-[20rem] flex-col items-center justify-center text-center">
+              <div
+                className={cn(
+                  "flex h-14 w-14 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)]",
+                  completion === "generated" &&
+                    "ring-4 ring-[var(--noodle-accent)]/20 transition-shadow duration-500 motion-reduce:transition-none",
+                )}
+              >
                 {completion === "generated" ? (
-                  <Check size={24} />
+                  <Check size={26} />
                 ) : completion === "partial" || completion === "failed" ? (
-                  <RefreshCw size={22} />
+                  <RefreshCw size={24} />
                 ) : (
-                  <Users size={22} />
+                  <Users size={24} />
                 )}
               </div>
-              <h3 className="mt-4 text-lg font-bold">{t(`ui.noodle.noodlerwizard.completion.${completion}.title`)}</h3>
+              <h3 ref={completionHeadingRef} tabIndex={-1} className="mt-4 text-xl font-bold outline-none">
+                {t(`ui.noodle.noodlerwizard.completion.${completion}.title`)}
+              </h3>
               <p className="mt-2 max-w-md text-sm leading-6 text-[var(--muted-foreground)]">
                 {t(`ui.noodle.noodlerwizard.completion.${completion}.detail`, {
                   created: createdIds.length,
                   generated: generatedCount,
-                failed: failedCount,
+                  failed: failedCount,
                 })}
               </p>
+              {createdIds.length > 0 && (
+                <dl className="mt-5 grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { key: "created", value: createdIds.length },
+                    { key: "posted", value: generatedCount },
+                    { key: "failed", value: failedCount },
+                  ].map((cell) => (
+                    <div key={cell.key} className="min-w-24 rounded-lg border border-[var(--border)] px-3 py-2">
+                      <dt className="text-[0.7rem] font-semibold text-[var(--muted-foreground)]">
+                        {t(`ui.noodle.noodlerwizard.stat.${cell.key}`)}
+                      </dt>
+                      <dd className="text-lg font-bold">{cell.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
               {failedIds.length > 0 && (
                 <button
                   type="button"
                   disabled={refreshTargeted.isPending}
                   onClick={() => void runGeneration(failedIds)}
-                  className="mt-4 flex min-h-10 items-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 px-4 text-sm font-bold text-[var(--noodle-accent)]"
+                  className="mt-5 flex min-h-10 items-center gap-2 rounded-md border border-[var(--noodle-accent)]/40 px-4 text-sm font-bold text-[var(--noodle-accent)] disabled:opacity-50"
                 >
                   <RefreshCw size={15} className={refreshTargeted.isPending ? "animate-spin" : ""} />
                   {t("ui.noodle.noodlerwizard.retryFailed")}
@@ -533,44 +733,97 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-          {step > 1 && step < 5 ? (
-            <button
-              type="button"
-              onClick={() => setStep((step - 1) as Step)}
-              className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
-            >
-              <ChevronLeft size={15} />
-              {t("ui.noodle.noodlerwizard.back")}
-            </button>
-          ) : (
-            <span />
-          )}
-          {step < 5 ? (
-            <button
-              type="button"
-              disabled={pending}
-              onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
-              className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
-            >
-              {pending && <Loader2 size={15} className="animate-spin" />}
-              {step === (selectionOnly ? 1 : 4)
-                ? t("ui.noodle.noodlerwizard.create")
-                : t("ui.noodle.noodlerwizard.continue")}{" "}
-              {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onClose}
-              className="min-h-10 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950"
-            >
-              {t("ui.noodle.noodlerwizard.openAllCreators")}
-            </button>
-          )}
+        <div className="border-t border-[var(--border)] pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {intro === 1 && (
+                <button
+                  type="button"
+                  onClick={() => setIntro(0)}
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                >
+                  <ChevronLeft size={15} />
+                  {t("ui.noodle.noodlerwizard.back")}
+                </button>
+              )}
+              {intro === null && step > 1 && step < 5 && (
+                <button
+                  type="button"
+                  onClick={() => setStep((step - 1) as Step)}
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                >
+                  <ChevronLeft size={15} />
+                  {t("ui.noodle.noodlerwizard.back")}
+                </button>
+              )}
+              {!selectionOnly && step < 5 && (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => (intro === null ? void skip() : setIntro(null))}
+                  className="min-h-10 rounded-md px-2 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+                >
+                  {intro === null ? t("ui.noodle.noodlerwizard.skip") : t("ui.noodle.noodlerwizard.skipIntro")}
+                </button>
+              )}
+            </div>
+            {intro !== null ? (
+              <button
+                type="button"
+                onClick={() => (intro === 0 ? setIntro(1) : setIntro(null))}
+                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950"
+              >
+                {intro === 0 ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
+                <ChevronRight size={15} />
+              </button>
+            ) : step < 5 ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => (step === (selectionOnly ? 1 : 4) ? void finish() : setStep((step + 1) as Step))}
+                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
+              >
+                {pending && <Loader2 size={15} className="animate-spin" />}
+                {step === (selectionOnly ? 1 : 4)
+                  ? t("ui.noodle.noodlerwizard.createCount", { count: selected.size })
+                  : t("ui.noodle.noodlerwizard.continue")}
+                {!pending && step !== (selectionOnly ? 1 : 4) && <ChevronRight size={15} />}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="min-h-10 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950"
+              >
+                {t("ui.noodle.noodlerwizard.openAllCreators")}
+              </button>
+            )}
+          </div>
+          {/* Creating profiles then writing first posts can take a while; say which half we are in. */}
+          <p aria-live="polite" className="mt-2 min-h-4 text-xs text-[var(--muted-foreground)]">
+            {bulkCreate.isPending
+              ? t("ui.noodle.noodlerwizard.progressCreating")
+              : refreshTargeted.isPending
+                ? t("ui.noodle.noodlerwizard.progressWriting")
+                : ""}
+          </p>
         </div>
       </div>
     </Modal>
+  );
+}
+
+function StepHeading({ icon, title, help }: { icon: ReactNode; title: string; help: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)]">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-xl font-bold leading-snug">{title}</h3>
+        <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{help}</p>
+      </div>
+    </div>
   );
 }
 
