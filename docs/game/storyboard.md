@@ -1,6 +1,6 @@
 # Storyboard Engine Guide
 
-This guide explains storyboards in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboards are a Game Mode feature only. They do not exist in Roleplay or Conversation chats.
+This guide explains the Game Mode storyboard workflow in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboard also works in Roleplay, where automatic runs can combine several completed assistant responses and **Create storyboard** in the Gallery can process the latest response immediately. It does not run in Conversation chats.
 
 ## What storyboards are
 
@@ -18,7 +18,7 @@ Keyframe still images are saved in the **Gallery**, under the **Images** tab. Ke
 
 You need a few things set up before a storyboard can render.
 
-1. A Game Mode chat. This feature only works in Game Mode.
+1. A Game Mode chat for the workflow in this guide. In Roleplay, install and activate Storyboard from the chat's **Agents** settings instead.
 2. A working image connection for the game's illustrator. Set it in either place. You only need one:
    - Existing game: open **Chat Settings**, go to **Agents**, then the **Illustrator** card. Turn on **Game Illustrator** and pick an **Image Connection**.
    - New game: in the setup wizard, turn on **Visual Generation** and pick an **Image Generation Connection**.

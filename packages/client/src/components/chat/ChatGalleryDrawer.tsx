@@ -13,7 +13,7 @@ import {
   ROLEPLAY_POPOVER_SHELL,
   ROLEPLAY_POPOVER_TITLE,
 } from "./roleplay-popover-styles";
-import type { Chat } from "@marinara-engine/shared";
+import { STORYBOARD_AGENT_ID, type Chat } from "@marinara-engine/shared";
 import type { ChatImage } from "../../hooks/use-gallery";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { isDesktopShellNavigationTarget } from "../../lib/chat-floating-ui-events";
@@ -37,9 +37,9 @@ interface ChatGalleryDrawerProps {
   selfieCharacters?: Array<{ id: string; name: string }>;
   /** Run Illustrator in its background prompt mode. */
   onGenerateBackground?: () => void | Promise<void>;
-  /** Generate a storyboard for the latest completed Game Mode GM turn. */
+  /** Generate a storyboard for the latest completed Game or Roleplay narration. */
   onGenerateStoryboard?: () => void | Promise<void>;
-  /** Show the latest Game Mode storyboard viewer. */
+  /** Show the latest storyboard viewer. */
   onViewStoryboard?: () => void;
   /** Generate a scene video from the latest illustration. */
   onGenerateVideo?: () => void | Promise<void>;
@@ -76,6 +76,9 @@ export function ChatGalleryDrawer({
   const illustratorInstalled = installedCapabilities.some(
     (item) => item.id === "illustrator" && item.status === "active",
   );
+  const storyboardInstalled = installedCapabilities.some(
+    (item) => item.id === STORYBOARD_AGENT_ID && item.status === "active",
+  );
   const conversationSelfieToggle = chatMetadata.conversationCommandToggles?.selfie;
   const conversationSelfiesEnabled =
     chatMetadata.characterCommands !== false &&
@@ -89,6 +92,11 @@ export function ChatGalleryDrawer({
         : chatMetadata.enableAgents === true &&
           chatMetadata.activeAgentIds?.includes("illustrator");
   const illustratorAvailable = illustratorInstalled && illustratorEnabledForChat;
+  const storyboardEnabledForChat =
+    (chat.mode === "game" || chat.mode === "roleplay") &&
+    chatMetadata.enableAgents === true &&
+    chatMetadata.activeAgentIds?.includes(STORYBOARD_AGENT_ID);
+  const storyboardAvailable = storyboardInstalled && storyboardEnabledForChat;
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
@@ -149,8 +157,8 @@ export function ChatGalleryDrawer({
             onIllustrate={illustratorAvailable ? onIllustrate : undefined}
             onGenerateSelfie={illustratorAvailable ? onGenerateSelfie : undefined}
             selfieCharacters={selfieCharacters}
-            onGenerateStoryboard={illustratorAvailable ? onGenerateStoryboard : undefined}
-            onViewStoryboard={onViewStoryboard}
+            onGenerateStoryboard={storyboardAvailable ? onGenerateStoryboard : undefined}
+            onViewStoryboard={storyboardAvailable ? onViewStoryboard : undefined}
             onGenerateVideo={illustratorAvailable ? onGenerateVideo : undefined}
             onAnimateImage={illustratorAvailable ? onAnimateImage : undefined}
             onGenerateBackground={illustratorAvailable ? onGenerateBackground : undefined}

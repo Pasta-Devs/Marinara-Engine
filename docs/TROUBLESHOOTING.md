@@ -193,6 +193,7 @@ Storyboards work in Game and Roleplay. Game turns one completed narration turn i
 
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
 - Confirm the Storyboard package is installed and added to this chat; Illustrator is not required.
+- To run Storyboard immediately in Game or Roleplay, open **Gallery** and select **Create storyboard**. Use **View storyboard** there to reopen a viewer you closed.
 - For automatic storyboards, open **Chat Settings** > **Agents** > **Storyboard** and choose automatic stills or animations. Roleplay may wait until its configured run interval is reached.
 - Keyframe images need an image connection selected in Storyboard settings; Game can also use its Game image connection. Clips also need a video connection.
 - If a custom prompt works better with all characters combined, turn off **Use NovelAI Character Prompts**.

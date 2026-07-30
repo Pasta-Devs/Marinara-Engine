@@ -2483,6 +2483,14 @@ const cases: RegressionCase[] = [
         new URL("../../packages/client/src/components/chat/RoleplayStoryboardOverlay.tsx", import.meta.url),
         "utf8",
       );
+      const roleplaySurfaceSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
+        "utf8",
+      );
+      const galleryDrawerSource = readFileSync(
+        new URL("../../packages/client/src/components/chat/ChatGalleryDrawer.tsx", import.meta.url),
+        "utf8",
+      );
       const chatsRouteSource = readFileSync(
         new URL("../../packages/server/src/routes/chats.routes.ts", import.meta.url),
         "utf8",
@@ -2558,8 +2566,14 @@ const cases: RegressionCase[] = [
       assert.match(agentResolutionSource, /if \(isBuiltInAgentHostManaged\(agent\.id\)\) return false/u);
       assert.doesNotMatch(agentResolutionSource, /storyboardOwnsAutomaticVisuals/u);
       assert.match(roleplayStoryboardOverlaySource, /automatic: true/u);
+      assert.match(roleplayStoryboardOverlaySource, /reopenToken/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardInlineViewer/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardBackgroundVisual/u);
+      assert.match(roleplaySurfaceSource, /automatic: false/u);
+      assert.match(roleplaySurfaceSource, /onGenerateStoryboard=/u);
+      assert.match(roleplaySurfaceSource, /onViewStoryboard=/u);
+      assert.match(galleryDrawerSource, /storyboardAvailable \? onGenerateStoryboard : undefined/u);
+      assert.doesNotMatch(galleryDrawerSource, /onGenerateStoryboard=\{illustratorAvailable/u);
       assert.match(routeSource, /storyboardAgentImageConnectionId/u);
       assert.match(routeSource, /storyboardAgentVideoConnectionId/u);
       assert.match(routeSource, /meta\.storyboardAgentIncludeCharacterAppearance !== false/u);

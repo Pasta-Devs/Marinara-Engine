@@ -34,12 +34,14 @@ export function RoleplayStoryboardOverlay({
   latestMessage,
   generationBusy,
   postProcessingPending,
+  reopenToken = 0,
 }: {
   chatId: string;
   metadata: Record<string, unknown>;
   latestMessage: RoleplayStoryboardMessage | null;
   generationBusy: boolean;
   postProcessingPending: boolean;
+  reopenToken?: number;
 }) {
   const queryClient = useQueryClient();
   const active =
@@ -85,6 +87,10 @@ export function RoleplayStoryboardOverlay({
     window.addEventListener("resize", updatePosition);
     return () => window.removeEventListener("resize", updatePosition);
   }, []);
+
+  useEffect(() => {
+    setDismissedMessageId(null);
+  }, [reopenToken]);
 
   useEffect(() => {
     if (settings.viewerDisplayMode === "background" && frame?.video?.id) {

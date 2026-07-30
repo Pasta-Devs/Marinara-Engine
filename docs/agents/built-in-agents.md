@@ -175,7 +175,7 @@ Plans and generates still images or animated clips from completed narration. Gam
 
 - **Integration**: Host-managed visual feature; it runs through the Storyboard media workflow instead of the normal agent prompt pipeline.
 - **Where it works**: Roleplay and Game. It does not require Illustrator to be installed or enabled.
-- **Key settings**: automatic stills, automatic animations, or manual only; run interval (5 completed assistant responses by default in Roleplay); planner, image, and video prompt templates; image and video connections; keyframes; clip duration; viewer layout; appearance and avatar references. Roleplay defaults to one keyframe per source window. Storyboard does not change Illustrator; if both are automatic, both may generate for the same response.
+- **Key settings**: automatic stills, automatic animations, or manual only; run interval (5 completed assistant responses by default in Roleplay); planner, image, and video prompt templates; image and video connections; keyframes; clip duration; viewer layout; appearance and avatar references. **Create storyboard** in the Gallery runs it immediately for the latest narration, and **View storyboard** reopens the viewer. Roleplay defaults to one keyframe per source window. Storyboard does not change Illustrator; if both are automatic, both may generate for the same response.
 
 ### Lorebook Keeper
 

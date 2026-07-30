@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import {
   Suspense,
@@ -18,6 +19,8 @@ import { isMessageShadowedByLiveStream } from "../../lib/generation-stream-polic
 import {
   normalizeChatSummaryEntries,
   isLongTermMemoryChatSummaryPromptAllowed,
+  STORYBOARD_AGENT_ID,
+  type GameTurnStoryboard,
   type ChatSummaryEntry,
   type MarkerConfig,
   type PromptGroup,
@@ -88,6 +91,11 @@ import type {
   PersonaInfo,
 } from "./chat-area.types";
 import type { ChatImage } from "../../hooks/use-gallery";
+import {
+  gameStoryboardKeys,
+  useGameTurnStoryboards,
+  useGenerateGameTurnStoryboard,
+} from "../../hooks/use-game-storyboards";
 
 type ChatData = ComponentProps<typeof ChatCommonOverlays>["chat"];
 
@@ -1267,6 +1275,7 @@ export function ChatRoleplaySurface({
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
   const chatBackgroundBlur = useUIStore((s) => s.chatBackgroundBlur);
   const roleplayReducedPaintEffects = useUIStore((s) => s.roleplayReducedPaintEffects);
+  const queryClient = useQueryClient();
   const initialLoadSettledRef = useRef(false);
   const prevMessageKeysRef = useRef<Set<string>>(new Set());
   const seenMessageKeysRef = useRef(roleplayNotificationSeenKeys);
@@ -1280,6 +1289,7 @@ export function ChatRoleplaySurface({
     bottom: -1,
   });
   const [mobileHistoryComposerCollapsed, setMobileHistoryComposerCollapsed] = useState(false);
+  const [storyboardViewerReopenToken, setStoryboardViewerReopenToken] = useState(0);
   const [authorNotesOpenOwner, setAuthorNotesOpenOwner] = useState<"expanded" | "compact" | null>(null);
   const compactToolbarOwnsAuthorNotes = centerCompact || isMobileToolbarViewport;
   const expandedAuthorNotesOpen = authorNotesOpenOwner === "expanded";
@@ -1504,6 +1514,46 @@ export function ChatRoleplaySurface({
     () => (messages ?? []).find((message) => message.id === lastAssistantMessageId) ?? null,
     [lastAssistantMessageId, messages],
   );
+  const storyboardAgentActive =
+    chatMeta.enableAgents === true &&
+    Array.isArray(chatMeta.activeAgentIds) &&
+    chatMeta.activeAgentIds.includes(STORYBOARD_AGENT_ID);
+  const latestStoryboardSwipeIndex = latestStoryboardMessage?.activeSwipeIndex ?? 0;
+  const roleplayStoryboardsQuery = useGameTurnStoryboards(
+    activeChatId,
+    latestStoryboardMessage?.id,
+    latestStoryboardSwipeIndex,
+    storyboardAgentActive,
+  );
+  const generateRoleplayStoryboard = useGenerateGameTurnStoryboard();
+  const latestRoleplayStoryboard = roleplayStoryboardsQuery.data?.[0] ?? null;
+  const latestStoryboardPostProcessingPending = latestStoryboardMessage
+    ? messageHasPendingPostProcessing(latestStoryboardMessage)
+    : false;
+  const handleGenerateRoleplayStoryboard = useCallback(async () => {
+    if (!latestStoryboardMessage) return;
+    const result = await generateRoleplayStoryboard.mutateAsync({
+      chatId: activeChatId,
+      messageId: latestStoryboardMessage.id,
+      swipeIndex: latestStoryboardSwipeIndex,
+      automatic: false,
+      debugMode: useUIStore.getState().debugMode,
+    });
+    if (!("storyboard" in result)) return;
+    queryClient.setQueryData<GameTurnStoryboard[]>(
+      gameStoryboardKeys.turn(activeChatId, latestStoryboardMessage.id, latestStoryboardSwipeIndex),
+      (current) => [result.storyboard, ...(current ?? []).filter((row) => row.id !== result.storyboard.id)],
+    );
+    void queryClient.invalidateQueries({ queryKey: ["gallery", activeChatId] });
+    void queryClient.invalidateQueries({ queryKey: ["gallery", "assets", activeChatId] });
+    void queryClient.invalidateQueries({ queryKey: ["gallery", "scene-videos", activeChatId] });
+    void queryClient.invalidateQueries({ queryKey: ["game", "scene-videos", activeChatId] });
+    setStoryboardViewerReopenToken((current) => current + 1);
+  }, [activeChatId, generateRoleplayStoryboard, latestStoryboardMessage, latestStoryboardSwipeIndex, queryClient]);
+  const handleViewRoleplayStoryboard = useCallback(() => {
+    setStoryboardViewerReopenToken((current) => current + 1);
+    onCloseGallery();
+  }, [onCloseGallery]);
 
   return (
     <div data-component="ChatArea.Roleplay" className="flex flex-1 overflow-hidden">
@@ -1525,9 +1575,8 @@ export function ChatRoleplaySurface({
           metadata={chatMeta}
           latestMessage={latestStoryboardMessage}
           generationBusy={isStreaming || agentProcessing}
-          postProcessingPending={
-            latestStoryboardMessage ? messageHasPendingPostProcessing(latestStoryboardMessage) : false
-          }
+          postProcessingPending={latestStoryboardPostProcessingPending}
+          reopenToken={storyboardViewerReopenToken}
         />
         {showSpriteOverlay && (
           <Suspense fallback={null}>
@@ -2109,6 +2158,20 @@ export function ChatRoleplaySurface({
         onCloseGallery={onCloseGallery}
         onOpenScheduleEditor={onOpenScheduleEditor}
         onIllustrate={onIllustrate}
+        onGenerateStoryboard={
+          storyboardAgentActive &&
+          latestStoryboardMessage &&
+          !isStreaming &&
+          !agentProcessing &&
+          !latestStoryboardPostProcessingPending
+            ? handleGenerateRoleplayStoryboard
+            : undefined
+        }
+        onViewStoryboard={
+          storyboardAgentActive && (latestRoleplayStoryboard || generateRoleplayStoryboard.isPending)
+            ? handleViewRoleplayStoryboard
+            : undefined
+        }
         onGenerateVideo={onGenerateVideo}
         onAnimateImage={onAnimateImage}
         onGenerateBackground={onGenerateBackground}

@@ -168,7 +168,7 @@ Note: on an ordinary remote address, Professor Mari's data-changing actions need
 
 A **storyboard** turns finished narration into keyframe images and optional animated clips. In Game Mode it plans one completed game master turn. In Roleplay it can automatically combine the completed assistant responses since its previous successful run, based on the Storyboard run interval. Roleplay does not create a Game session or add an artificial transcript message.
 
-Install Storyboard from **Agents → Download Agents**, then add it to a Game or Roleplay chat. It works independently and does not require Illustrator. Choose an image connection for stills and, if you want animation, a video connection. Game also lets you make one by hand from the **Gallery** for the latest narration turn and reopen it with **View storyboard**.
+Install Storyboard from **Agents → Download Agents**, then add it to a Game or Roleplay chat. It works independently and does not require Illustrator. Choose an image connection for stills and, if you want animation, a video connection. In either mode, you can make one by hand from the **Gallery** for the latest narration and reopen it with **View storyboard**. A manual Roleplay storyboard uses the latest completed assistant response; automatic Roleplay runs use the configured multi-response interval.
 
 To make them automatically, open **Chat Settings**, go to **Agents**, find the **Storyboard** card, and choose automatic stills or animations. Animation needs a Video Generation connection. For the complete Game workflow, see [Game Mode Storyboards](game/storyboard.md).
 
