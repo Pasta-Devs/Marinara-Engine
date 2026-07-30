@@ -994,9 +994,28 @@ export function createNoodleStorage(db: DB) {
               (interaction) => interaction.id,
             )
           : [];
-      const authoredInteractionIds = (
-        await db.select().from(noodleInteractions).where(eq(noodleInteractions.actorAccountId, existing.id))
-      ).map((interaction) => interaction.id);
+      const authoredRows = await db
+        .select()
+        .from(noodleInteractions)
+        .where(eq(noodleInteractions.actorAccountId, existing.id));
+      // Replies to an authored interaction would keep a dangling parentInteractionId, so
+      // take the whole descendant subtree (same closure as deleteInteractionById).
+      const authoredPostIds = Array.from(new Set(authoredRows.map((row) => row.postId)));
+      const siblingRows =
+        authoredPostIds.length > 0
+          ? await db.select().from(noodleInteractions).where(inArray(noodleInteractions.postId, authoredPostIds))
+          : [];
+      const doomed = new Set(authoredRows.map((row) => row.id));
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const row of siblingRows) {
+          if (doomed.has(row.id) || !row.parentInteractionId || !doomed.has(row.parentInteractionId)) continue;
+          doomed.add(row.id);
+          changed = true;
+        }
+      }
+      const authoredInteractionIds = [...doomed];
       const interactionIds = Array.from(new Set([...ownInteractionIds, ...authoredInteractionIds]));
       await db.transaction(async (tx) => {
         if (postIds.length > 0) {
