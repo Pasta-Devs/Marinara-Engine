@@ -4999,7 +4999,7 @@
   "ui.noodle.noodlehome.saving": "저장 중",
   "ui.noodle.noodlehome.scansRecentNoodleActivityAndCharacterProfilesForLorebook": "최근 Noodle 활동과 캐릭터 프로필에서 로어북 키워드와 일치하는 항목을 스캔하여 세계관/설정 컨텍스트로 포함합니다. 기본적으로 꺼져 있으며, 이 기능을 켜기 전까지 기존 타임라인에는 영향을 주지 않습니다.",
   "ui.noodle.noodlehome.searchCharactersOrFolders": "캐릭터 또는 폴더 검색",
-  "ui.noodle.noodlehome.searchNoodle": "Noodle 검색",
+  "ui.noodle.noodlehome.searchNoodle": "검색",
   "ui.noodle.noodlehome.searchPostsOrUsers": "게시물 또는 @users 검색",
   "ui.noodle.noodlehome.searchResults": "검색 결과",
   "ui.noodle.noodlehome.seeEveryManagedCreatorSAutomaticPostingStateAt": "관리 중인 모든 크리에이터의 자동 게시 상태를 한눈에 확인합니다. 여기서 편집하면 각 크리에이터의 프로필 페이지와 동일한 스케줄이 적용됩니다.",

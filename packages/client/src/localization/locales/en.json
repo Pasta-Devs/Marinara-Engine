@@ -5645,7 +5645,7 @@
   "ui.noodle.noodlehome.saving": "Saving",
   "ui.noodle.noodlehome.scansRecentNoodleActivityAndCharacterProfilesForLorebook": "Scans recent Noodle activity and character profiles for lorebook keyword matches and includes them as world/lore context. Off by default; existing timelines are unaffected until you turn this on.",
   "ui.noodle.noodlehome.searchCharactersOrFolders": "Search characters or folders",
-  "ui.noodle.noodlehome.searchNoodle": "Search Noodle",
+  "ui.noodle.noodlehome.searchNoodle": "Search",
   "ui.noodle.noodlehome.searchPostsOrUsers": "Search posts or @users",
   "ui.noodle.noodlehome.searchResults": "Search results",
   "ui.noodle.noodlehome.seeEveryManagedCreatorSAutomaticPostingStateAt": "See every managed creator's automatic-posting state at a glance. Editing here uses the same schedule as each creator's profile page.",
