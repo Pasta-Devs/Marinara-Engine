@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import {
   noodleTextMentionsHandle as textMentionsHandle,
   noodlePollInputSchema,
+  NOODLER_POSTS_PER_DAY_MAX,
   parseConnectionImageCaptioningDefaults,
   PROFESSOR_MARI_ID,
   readNoodlePollFromMetadata,
@@ -3553,6 +3554,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               help={localizeUi("ui.noodle.noodlehome.sharedCreativeGuidanceForEveryGeneratedNoodlerPostPlus")}
             >
               <div className="space-y-4">
+                <NumberSetting
+                  label={localizeUi("ui.noodle.noodlerschedulemanagermodal.postsPerDay")}
+                  help={localizeUi("ui.noodle.noodlehome.noodlerPostsPerDayHelp")}
+                  value={settings.postsPerDay}
+                  min={1}
+                  max={NOODLER_POSTS_PER_DAY_MAX}
+                  onCommit={(value) => saveSettings({ postsPerDay: value })}
+                />
                 <label className="block space-y-1.5">
                   <FieldLabel help={localizeUi("ui.noodle.noodlehome.prependedToEveryNoodlerPostGenerationUseIt")}>
                     {localizeUi("ui.noodle.noodlehome.generationGuidance")}

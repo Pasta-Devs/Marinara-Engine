@@ -9,6 +9,7 @@ import { noodleAccounts } from "../../packages/server/src/db/schema/noodle.js";
 import { createAppSettingsStorage } from "../../packages/server/src/services/storage/app-settings.storage.js";
 import {
   DEFAULT_NOODLE_SETTINGS,
+  NOODLER_POSTS_PER_DAY_MAX,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
   noodleBulkNoodlerAccountCreateSchema,
@@ -120,8 +121,9 @@ assert.equal(
 
 // One invalid stored field must not reset unrelated settings.
 // used to wipe lorebook context, invited character folders, and the generation connection.
+assert.equal(normalizeNoodleSettings({ postsPerDay: NOODLER_POSTS_PER_DAY_MAX }).postsPerDay, NOODLER_POSTS_PER_DAY_MAX);
 const salvaged = normalizeNoodleSettings({
-  postsPerDay: 25,
+  postsPerDay: NOODLER_POSTS_PER_DAY_MAX + 1,
   enableLorebookContext: true,
   invitedCharacterGroupIds: ["folder-1"],
   generationConnectionId: "conn-1",

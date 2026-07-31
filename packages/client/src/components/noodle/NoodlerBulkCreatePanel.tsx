@@ -19,7 +19,7 @@ import type {
   NoodlerPostView,
   NoodlerStageProfile,
 } from "@marinara-engine/shared";
-import { resolveNoodlerOnboardingCompletion } from "@marinara-engine/shared";
+import { NOODLER_POSTS_PER_DAY_MAX, resolveNoodlerOnboardingCompletion } from "@marinara-engine/shared";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import {
   useBulkCreateNoodlerStageProfiles,
@@ -820,9 +820,11 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       <input
                         type="number"
                         min={1}
-                        max={24}
+                        max={NOODLER_POSTS_PER_DAY_MAX}
                         value={postsPerDay}
-                        onChange={(event) => setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))}
+                        onChange={(event) =>
+                          setPostsPerDay(Math.max(1, Math.min(NOODLER_POSTS_PER_DAY_MAX, Number(event.target.value) || 1)))
+                        }
                         className="mt-2 h-11 w-28 rounded-md border border-[var(--border)] bg-[var(--background)] px-3"
                       />
                     </label>
@@ -927,10 +929,12 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                           <input
                             type="number"
                             min={1}
-                            max={24}
+                            max={NOODLER_POSTS_PER_DAY_MAX}
                             value={postsPerDay}
                             onChange={(event) =>
-                              setPostsPerDay(Math.max(1, Math.min(24, Number(event.target.value) || 1)))
+                              setPostsPerDay(
+                                Math.max(1, Math.min(NOODLER_POSTS_PER_DAY_MAX, Number(event.target.value) || 1)),
+                              )
                             }
                             aria-label={t("ui.noodle.noodlerwizard.postsPerDay")}
                             className="h-9 w-16 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 text-center text-sm text-[var(--foreground)]"

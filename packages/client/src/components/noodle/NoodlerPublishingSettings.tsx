@@ -52,18 +52,6 @@ export function NoodlerPublishingSettings({ active, onOpenCreator }: NoodlerPubl
             className="h-5 w-5 accent-[var(--noodle-accent)]"
           />
         </label>
-        <label className="flex items-center justify-between gap-3 text-sm font-semibold">
-          {t("ui.noodle.noodlerschedulemanagermodal.postsPerDay")}
-          <input
-            type="number"
-            min={1}
-            max={24}
-            value={settings?.postsPerDay ?? 4}
-            disabled={updateSettings.isPending}
-            onChange={(event) => updateSettings.mutate({ postsPerDay: Number(event.target.value) })}
-            className="h-9 w-20 rounded-md bg-[var(--background)] px-2 text-right ring-1 ring-[var(--border)]"
-          />
-        </label>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
           <div>
             <dt className="text-[var(--muted-foreground)]">
