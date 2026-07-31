@@ -77,6 +77,7 @@ import { generateNoodlerStageProfileDraft } from "../services/noodle/noodle-stag
 import { canViewNoodlerPost, isNoodlerHiddenFromViewer } from "../services/noodle/noodler-access.js";
 import { createNoodlerNoodleImagesService } from "../services/noodle/noodle-noodler-images.service.js";
 import {
+  noodlerPostMediaUrlForPersona,
   readNoodlerMediaPath,
   removeNoodlerAccountMedia,
   resolveNoodlerMediaAbsolutePath,
@@ -366,7 +367,10 @@ export async function noodleRoutes(app: FastifyInstance) {
             // a browser-side blur would still disclose the original image bytes.
             title: post.title,
             content: locked ? null : post.content,
-            imageUrl: locked ? null : post.imageUrl,
+            // Locked posts disclose that media exists (so the teaser can render a
+            // placeholder) but never the bytes or a URL that could fetch them.
+            hasImage: post.imageUrl !== null,
+            imageUrl: locked ? null : noodlerPostMediaUrlForPersona(post.imageUrl, viewer.entityId),
             imagePrompt: locked ? null : post.imagePrompt,
             metadata: locked ? null : post.metadata,
             createdAt: post.createdAt,
@@ -418,15 +422,19 @@ export async function noodleRoutes(app: FastifyInstance) {
     return readable;
   }
 
-  // Access-checked serving for NoodleR-owned media. The bytes live outside any publicly
-  // readable gallery namespace, so every request must identify a persona with read access.
+  // Access-checked serving for NoodleR-owned media. A persona query gates as a fan
+  // (subscriber/unlock/hidden all enforced), which is why audience-facing projections bind
+  // the viewer's persona into every media URL they hand out. No persona is the owner path,
+  // the same trusted management surface as the other /noodler/accounts routes. The bytes
+  // live outside any publicly readable gallery namespace, so this is the only way in.
   app.get("/noodler/posts/:id/media", async (req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     const { id } = req.params as { id: string };
     const personaId = (req.query as { personaId?: string }).personaId;
-    if (!personaId) return reply.code(404).send({ error: "Not Found" });
-    const post = (await resolveReadableNoodlerPost(personaId, id))?.post;
+    const post = personaId
+      ? (await resolveReadableNoodlerPost(personaId, id))?.post
+      : await noodle.getNoodlerPostById(id);
     if (!post) return reply.code(404).send({ error: "Not Found" });
     const mediaPath = readNoodlerMediaPath(post);
     const absolute = mediaPath ? resolveNoodlerMediaAbsolutePath(mediaPath) : null;
@@ -1016,7 +1024,11 @@ export async function noodleRoutes(app: FastifyInstance) {
     return updated;
   });
 
-  app.get("/noodler/auto-post/status", async () => noodle.getNoodlerReserveStatus());
+  app.get("/noodler/auto-post/status", async (_req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    return noodle.getNoodlerReserveStatus();
+  });
 
   // Manual test trigger: runs one automatic-style post immediately, the same way the
   // scheduler does (subscriber access, no guide), without waiting for the next cadence

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
+import { createNoodleStorage } from "../storage/noodle.storage.js";
 import { prepareNextNoodlerReservePost, reconcileNoodlerReserve } from "./noodle-noodler-reserve.operation.js";
 
 const INITIAL_DELAY_MS = 30_000;
@@ -34,7 +35,6 @@ export function startNoodleAutoPostScheduler(app: FastifyInstance) {
   // Own reserve-state initialization here so upgrades begin their hold at server startup,
   // even when automatic posting is disabled. Provider work still waits for the normal delay.
   void (async () => {
-    const { createNoodleStorage } = await import("../storage/noodle.storage.js");
     await createNoodleStorage(app.db).ensureNoodlerReserveState();
     await reconcileNoodlerReserve(app.db);
   })().catch((error) => logger.error(error, "[noodle-autopost] Startup reconciliation failed"));

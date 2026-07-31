@@ -178,7 +178,6 @@ export async function generateNoodlerPostImage(input: {
         imageDefaults,
         referenceImages,
         debugMode: input.debugMode,
-        connectionId: input.imageConnection.id,
         admissionMode: input.admissionMode,
         fallback: imageFallback,
       });

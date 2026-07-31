@@ -271,6 +271,8 @@ export interface NoodlerPostView {
   locked: boolean;
   title: string | null;
   content: string | null;
+  /** True when the post owns media, including while locked (imageUrl stays null then). */
+  hasImage: boolean;
   imageUrl: string | null;
   imagePrompt: string | null;
   metadata: Record<string, unknown> | null;

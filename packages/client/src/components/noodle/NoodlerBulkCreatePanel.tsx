@@ -29,7 +29,7 @@ import {
   useRefreshTargetedNoodlerCreatorsNow,
   useUpdateNoodleSettings,
 } from "../../hooks/use-noodle";
-import { cn } from "../../lib/utils";
+import { cn, generateClientId } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { Avatar, getNoodleAccentStyle, NOODLE_PINK } from "./NoodleShell";
 import { LockedNoodlerPostCard } from "./NoodlerPostCard";
@@ -153,7 +153,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setCreationFailures(0);
     setOutcomes([]);
     setCompletion(null);
-    setExecutionId(crypto.randomUUID());
+    setExecutionId(generateClientId());
   }, [open, selectionOnly]);
 
   useEffect(() => {

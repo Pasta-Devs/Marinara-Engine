@@ -119,9 +119,7 @@ export interface ImageGenRequest {
   signal?: AbortSignal;
   /** Emit the final provider request even when the global log level is above debug. */
   debugMode?: boolean;
-  /** Configured connection whose physical request is being made. */
-  connectionId?: string;
-  /** Defaults to foreground when connectionId is provided. */
+  /** Defaults to foreground: the caller is servicing a user-visible request. */
   admissionMode?: ConnectionAdmissionMode;
   /** Called immediately before a configured fallback connection is attempted. */
   onFallback?: GenerationFallbackNotifier;
@@ -274,9 +272,17 @@ export async function generateImage(
           return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
       }
     });
-    return await (request.connectionId
-      ? withConnectionAdmission(request.connectionId, request.admissionMode ?? { kind: "foreground" }, physicalRequest)
-      : physicalRequest());
+    // Admit on the resolved endpoint rather than a connection id: every caller reaches this
+    // function, but only some have a connection row in scope, and foreground work that
+    // registers nothing would let background preparation start on top of it.
+    // ponytail: image work keys on the endpoint URL while text work keys on the connection
+    // id, so the two do not hold each other off on a connection used for both. Unify the
+    // key if that overlap ever shows up in practice.
+    return await withConnectionAdmission(
+      normalizedBaseUrl,
+      request.admissionMode ?? { kind: "foreground" },
+      physicalRequest,
+    );
   } catch (error) {
     const fallback = request.fallback;
     if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
@@ -299,7 +305,6 @@ export async function generateImage(
     const result = await generateImage(fallback.source, fallback.baseUrl, fallback.apiKey, fallback.serviceHint, {
       ...request,
       fallback: undefined,
-      connectionId: fallback.connectionId,
       model: fallback.model,
       imageEndpointId: fallback.imageEndpointId,
       comfyWorkflow: fallback.comfyWorkflow,

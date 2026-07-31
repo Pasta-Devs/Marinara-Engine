@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { DB } from "../../packages/server/src/db/connection.js";
 import { eq } from "../../packages/server/src/db/file-query.js";
 import { createFileNativeDB } from "../../packages/server/src/db/file-backed-store.js";
-import { noodlePosts, noodlerReserveState } from "../../packages/server/src/db/schema/noodle.js";
+import { noodlePosts, noodlerAutomaticAttempts, noodlerReserveState } from "../../packages/server/src/db/schema/noodle.js";
 import {
   noodleAccountSchedulerPatchSchema,
   noodleAutoPostingSettingsSchema,
@@ -142,6 +142,59 @@ try {
   assert.equal(boundary.find((item) => item.id === boundaryIds[1])?.state, "discarded");
   assert.equal(boundary.find((item) => item.id === boundaryIds[2])?.state, "discarded");
   assert.equal(boundary.find((item) => item.id === boundaryIds[3])?.state, "prepared");
+
+  // An unrelated NoodleR setting change must not invalidate the reserve: only the policy
+  // fields the prepared content actually depended on belong in the fingerprint.
+  const policyBefore = noodlerReservePolicyFingerprint(
+    enabledCreator!,
+    await noodle.getSettings(),
+    publicAccount.updatedAt,
+  );
+  await noodle.updateSettings({ noodlerOnboardingState: "completed", refreshesPerDay: 5 });
+  assert.equal(
+    noodlerReservePolicyFingerprint(enabledCreator!, await noodle.getSettings(), publicAccount.updatedAt),
+    policyBefore,
+    "unrelated settings must not invalidate prepared posts",
+  );
+  await noodle.updateSettings({ noodlerNightQuiet: false });
+  assert.notEqual(
+    noodlerReservePolicyFingerprint(enabledCreator!, await noodle.getSettings(), publicAccount.updatedAt),
+    policyBefore,
+    "night quiet is a selection input and must invalidate",
+  );
+  await noodle.updateSettings({ noodlerNightQuiet: true });
+
+  // Lowering postsPerDay discards the latest excess items and keeps the imminent ones.
+  const trimAt = new Date("2026-07-30T16:00:00.000Z");
+  const fingerprint = noodlerReservePolicyFingerprint(
+    enabledCreator!,
+    await noodle.getSettings(),
+    publicAccount.updatedAt,
+  );
+  const trimIds = await Promise.all(
+    ["17:00", "18:00", "19:00"].map((time) =>
+      noodle.createNoodlerPreparedPost({
+        creatorAccountId: creator!.id,
+        generatedAt: trimAt.toISOString(),
+        publishAt: `2026-07-30T${time}:00.000Z`,
+        payload: { title: null, content: `Slot ${time}`, access: "locked", imagePrompt: null, metadata: {} },
+        policyFingerprint: fingerprint,
+      }),
+    ),
+  );
+  await noodle.updateSettings({ postsPerDay: 2 });
+  await noodle.reconcileNoodlerPreparedPosts(trimAt);
+  const trimmed = await noodle.listNoodlerPreparedPosts();
+  assert.equal(trimmed.find((item) => item.id === trimIds[0])?.state, "prepared");
+  assert.equal(trimmed.find((item) => item.id === trimIds[1])?.state, "prepared");
+  assert.equal(trimmed.find((item) => item.id === trimIds[2])?.state, "discarded");
+
+  // Claims that have left the rolling window are pruned rather than scanned forever.
+  const pruneAt = new Date("2026-08-02T10:00:00.000Z");
+  assert.equal((await noodle.claimNoodlerAutomaticAttempt("text", 2, pruneAt)).status, "claimed");
+  const remaining = await db.select().from(noodlerAutomaticAttempts);
+  assert.equal(remaining.length, 1, "expired attempt claims must be pruned");
+  assert.equal((await noodle.getNoodlerReserveStatus(pruneAt)).textAttemptsUsed, 1);
 
   await (db as unknown as { _fileStore: { close(): Promise<void> } })._fileStore.close();
 } finally {

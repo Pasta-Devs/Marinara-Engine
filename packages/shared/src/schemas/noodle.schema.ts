@@ -17,7 +17,7 @@ export const NOODLER_POST_TITLE_MAX_LENGTH = 200;
 export const NOODLER_POST_CONTENT_MAX_LENGTH = 4000;
 export const NOODLER_REPLY_CONTENT_MAX_LENGTH = 2000;
 export const DEFAULT_NOODLER_CREATOR_REPLIES_PER_24_HOURS = 10;
-export const NOODLER_POSTS_PER_DAY_MAX = 48;
+export const NOODLER_POSTS_PER_DAY_MAX = 24;
 // Exact `Title:\n` + `\n\n` + `Body:\n` framing overhead from serializeNoodlerPostGuide.
 export const NOODLER_POST_GUIDE_MAX_LENGTH = NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
 

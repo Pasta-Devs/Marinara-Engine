@@ -74,7 +74,7 @@ export function LockedNoodlerPostCard({
   demo,
 }: {
   post: Pick<NoodlerPostView, "id" | "access" | "createdAt" | "title" | "imageUrl"> &
-    Partial<Pick<NoodlerPostView, "likeCount" | "replyCount">>; // controller-locked managed posts carry no counts
+    Partial<Pick<NoodlerPostView, "likeCount" | "replyCount" | "hasImage">>; // controller-locked managed posts carry no counts
   profile: NoodlerStageProfile;
   controllerOnly?: boolean;
   subscribed: boolean;
@@ -101,6 +101,8 @@ export function LockedNoodlerPostCard({
   const replyCount = post.replyCount ?? 0;
   const openProfile = onOpenProfile ? () => onOpenProfile(profile.id) : undefined;
   const revealed = Boolean(demo && demoUnlocked);
+  // Locked posts report hasImage without a URL: the frame renders, the bytes stay server-side.
+  const mediaSrc = (revealed && demo?.unlockedImageUrl) || post.imageUrl || null;
   return (
     <article
       data-noodle-post-id={post.id}
@@ -140,26 +142,32 @@ export function LockedNoodlerPostCard({
 
       {/* Full-width body */}
       <div>
-        {/* Blurred media with Locked badge — only when the post has an image */}
-        {post.imageUrl && (
+        {/* Media frame with Locked badge — only when the post has an image */}
+        {(mediaSrc || post.hasImage) && (
           <div
             className={cn(
               "relative mt-3 aspect-[4/3] w-full overflow-hidden rounded-lg bg-[var(--muted)] ring-1 ring-inset ring-white/10",
             )}
           >
-            <img
-              src={(revealed && demo?.unlockedImageUrl) || post.imageUrl}
-              alt={
-                revealed
-                  ? localizeUi("ui.noodle.post.imageBy", { name: profile.displayName })
-                  : localizeUi("ui.noodle.lockednoodlerpostcard.lockedImageFrom", { name: profile.displayName })
-              }
-              className={cn(
-                "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
-                // The demo teaser ships pre-blurred, so a full blur-xl on top turns it to mush.
-                revealed ? "scale-100 blur-0" : cn("scale-110", demo ? "blur-sm" : "blur-xl"),
-              )}
-            />
+            {mediaSrc ? (
+              <img
+                src={mediaSrc}
+                alt={
+                  revealed
+                    ? localizeUi("ui.noodle.post.imageBy", { name: profile.displayName })
+                    : localizeUi("ui.noodle.lockednoodlerpostcard.lockedImageFrom", { name: profile.displayName })
+                }
+                className={cn(
+                  "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
+                  // The demo teaser ships pre-blurred, so a full blur-xl on top turns it to mush.
+                  revealed ? "scale-100 blur-0" : cn("scale-110", demo ? "blur-sm" : "blur-xl"),
+                )}
+              />
+            ) : (
+              <span className="sr-only">
+                {localizeUi("ui.noodle.lockednoodlerpostcard.lockedImageFrom", { name: profile.displayName })}
+              </span>
+            )}
             {!revealed && <div className="absolute inset-0 bg-black/35" aria-hidden="true" />}
             {/* Icon only: the header badge already says "Locked", and the alt text carries it for AT. */}
             {!revealed && (

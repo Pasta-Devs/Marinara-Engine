@@ -230,6 +230,18 @@ const warnedFlushFailures = new Set<string>();
 // Parent→child delete graph. Exported as the single source of truth: the Mari
 // DB CLI (services/mari-db) consumes it for cascade deletes and its
 // dangling-reference validator, so every new relation added here reaches both.
+/**
+ * Tables whose rows are claims against a provider budget: a commit that survives in memory
+ * but not on disk would hand back capacity that was already spent, so these flush durably
+ * at commit instead of on the batched timer.
+ */
+const DURABLE_ON_COMMIT_TABLES = new Set<string>([
+  "noodler_automatic_attempts",
+  "noodler_creator_reply_claims",
+  "noodler_reserve_state",
+  "noodler_prepared_posts",
+]);
+
 export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentKey: string; childKey: string }> =
   [
     {
@@ -962,7 +974,10 @@ class FileTableStore {
 
     try {
       const result = await this.txContext.run(ctx, () => fn(tx));
-      if (ctx.dirtyTables.size > 0) {
+      // Flush on commit only for tables whose durability the caller reasons about across a
+      // crash (attempt claims must never be replayed as free budget). Everything else keeps
+      // the batched flush: this runs on hot per-turn paths like setMemories.
+      if ([...ctx.dirtyTables].some((table) => DURABLE_ON_COMMIT_TABLES.has(table))) {
         await this.txContext.run(ctx, () => this.flush(true, true));
       }
       return result;
@@ -1320,9 +1335,7 @@ class FileTableStore {
           : table === "noodle_posts"
             ? source.some(
                 (row) =>
-                  row.access !== (row.access === "public" ? "public" : "locked") ||
-                  "ppvPrice" in row ||
-                  "ppv_price" in row,
+                  (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row,
               )
             : false;
       if (migrate && needsMigration) {

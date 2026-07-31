@@ -145,6 +145,30 @@ try {
     "current post access must be enforced when claiming",
   );
 
+  // A claim whose generation failed is released, so the comment stays answerable and the
+  // failed attempt does not permanently consume a slot.
+  const retryParent = await noodle.createNoodlerInteraction(post.id, {
+    actorAccountId: viewer.id,
+    type: "reply",
+    content: "Comment whose first reply attempt fails",
+  });
+  assert.ok(retryParent);
+  const failing = await noodle.claimNoodlerCreatorReply(stage.id, post.id, retryParent.id, viewer.id, claimedAt, 10);
+  assert.equal(failing.status, "claimed");
+  if (failing.status === "claimed") await noodle.releaseNoodlerCreatorReplyClaim(failing.claimId);
+  const retried = await noodle.claimNoodlerCreatorReply(stage.id, post.id, retryParent.id, viewer.id, claimedAt, 10);
+  assert.equal(retried.status, "claimed", "a released claim must not block the comment forever");
+  if (retried.status === "claimed") {
+    const retriedReply = await noodle.finalizeNoodlerCreatorReplyClaim(retried.claimId, "Answer on retry");
+    assert.ok(retriedReply);
+    // A claim that produced a reply is the permanent dedupe key and is never released.
+    await noodle.releaseNoodlerCreatorReplyClaim(retried.claimId);
+    assert.equal(
+      (await noodle.claimNoodlerCreatorReply(stage.id, post.id, retryParent.id, viewer.id, claimedAt, 10)).status,
+      "duplicate",
+    );
+  }
+
   const selfParent = await noodle.createNoodlerInteraction(post.id, {
     actorAccountId: source.id,
     type: "reply",

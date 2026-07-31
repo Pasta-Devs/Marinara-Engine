@@ -1,6 +1,11 @@
 import type { ChatCompletionResult, ChatMessage, ChatOptions, LLMUsage } from "../llm/base-provider.js";
 import { BaseLLMProvider } from "../llm/base-provider.js";
+import { logger } from "../../lib/logger.js";
 
+// Admission keys identify one physical provider endpoint. Text work keys on the configured
+// connection id; image work keys on the resolved base URL, because most image callers have
+// no connection row in scope and unregistered foreground work would defeat the priority
+// rule. The two keyspaces do not overlap.
 type ConnectionState = {
   foregroundActive: number;
   backgroundActive: boolean;
@@ -120,6 +125,25 @@ async function beginConnectionAttempt(
   }
 }
 
+/**
+ * Record the attempt outcome without letting accounting failures overwrite a provider
+ * error: the operation's own failure is what the caller (and the fallback chain) needs to
+ * see. A finalization failure only surfaces when the operation itself succeeded.
+ */
+async function finalizeConnectionAttempt(
+  attempt: { release: () => void; finalize?: ConnectionAttemptFinalizer },
+  outcome: ConnectionAttemptOutcome,
+): Promise<void> {
+  try {
+    await attempt.finalize?.(outcome);
+  } catch (error) {
+    if (outcome === "completed") throw new ConnectionAttemptFinalizationError(error);
+    logger.error(error, "[connection-admission] Attempt accounting failed after a failed provider call");
+  } finally {
+    attempt.release();
+  }
+}
+
 export async function withConnectionAdmission<T>(
   connectionId: string,
   mode: ConnectionAdmissionMode,
@@ -132,15 +156,7 @@ export async function withConnectionAdmission<T>(
     outcome = "completed";
     return result;
   } finally {
-    try {
-      try {
-        await attempt.finalize?.(outcome);
-      } catch (error) {
-        throw new ConnectionAttemptFinalizationError(error);
-      }
-    } finally {
-      attempt.release();
-    }
+    await finalizeConnectionAttempt(attempt, outcome);
   }
 }
 
@@ -161,15 +177,7 @@ export class ConnectionAdmissionProvider extends BaseLLMProvider {
       outcome = "completed";
       return result;
     } finally {
-      try {
-        try {
-          await attempt.finalize?.(outcome);
-        } catch (error) {
-          throw new ConnectionAttemptFinalizationError(error);
-        }
-      } finally {
-        attempt.release();
-      }
+      await finalizeConnectionAttempt(attempt, outcome);
     }
   }
 

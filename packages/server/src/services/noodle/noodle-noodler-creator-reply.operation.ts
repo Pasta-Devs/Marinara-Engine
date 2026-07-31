@@ -27,7 +27,9 @@ export async function generateAndApplyNoodlerCreatorReply(
       input.viewerAccountId,
     );
     if (claim.status !== "claimed") return claim;
-    const content = await generateNoodlerCreatorReply({
+    let content: string;
+    try {
+      content = await generateNoodlerCreatorReply({
         db,
         creator: claim.creator,
         viewer: claim.viewer,
@@ -36,8 +38,15 @@ export async function generateAndApplyNoodlerCreatorReply(
         connection,
         debugMode: input.debugMode,
       });
+    } catch (error) {
+      await noodle.releaseNoodlerCreatorReplyClaim(claim.claimId);
+      throw error;
+    }
     const interaction = await noodle.finalizeNoodlerCreatorReplyClaim(claim.claimId, content);
-    if (!interaction) throw new Error("Failed to persist the generated NoodleR creator reply.");
+    if (!interaction) {
+      await noodle.releaseNoodlerCreatorReplyClaim(claim.claimId);
+      throw new Error("Failed to persist the generated NoodleR creator reply.");
+    }
     return { status: "generated", interaction } as const;
   });
   return locked.acquired ? locked.value : { status: "busy" };

@@ -111,6 +111,19 @@ export function noodlerReservePolicyFingerprint(
   >,
   sourceUpdatedAt?: string | null,
 ): string {
+  // Pick the policy fields explicitly: callers pass the whole settings object, and
+  // serializing it wholesale would invalidate every prepared post on any unrelated
+  // NoodleR setting change (onboarding state, refresh cadence, …).
+  const mediaPolicy = settings
+    ? {
+        imageGenerationConnectionId: settings.imageGenerationConnectionId,
+        imageGenerationPrompt: settings.imageGenerationPrompt,
+        imageGenerationUseAvatarReferences: settings.imageGenerationUseAvatarReferences,
+        imageGenerationIncludeDescriptions: settings.imageGenerationIncludeDescriptions,
+        includeCharacterSchedules: settings.includeCharacterSchedules,
+        noodlerNightQuiet: settings.noodlerNightQuiet,
+      }
+    : null;
   return JSON.stringify({
     sourceId: account.noodleAccountId,
     sourceUpdatedAt: sourceUpdatedAt ?? null,
@@ -119,7 +132,7 @@ export function noodlerReservePolicyFingerprint(
     stagePersonality: account.settings.privacy.stagePersonality ?? "",
     access: account.settings.privacy.access,
     scheduler: account.settings.scheduler.autoPosting,
-    mediaPolicy: settings ?? null,
+    mediaPolicy,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 }
@@ -1527,6 +1540,11 @@ export function createNoodleStorage(db: DB) {
         }
         if (effectiveMs < Date.parse(state.preparationNotBefore)) return { status: "holding" };
         const cutoff = effectiveMs - ROLLING_DAY_MS;
+        // Prune claims that have left the rolling window, in the same transaction that
+        // counts them: they can never affect the budget again, and the ledger is scanned
+        // on every claim.
+        const cutoffIso = new Date(cutoff).toISOString();
+        await tx.delete(noodlerAutomaticAttempts).where(lt(noodlerAutomaticAttempts.claimedAt, cutoffIso));
         const attempts = (await tx.select().from(noodlerAutomaticAttempts)).filter(
           (row) => row.kind === kind && Date.parse(row.claimedAt) > cutoff,
         );
@@ -1623,14 +1641,22 @@ export function createNoodleStorage(db: DB) {
       const due = (await this.listNoodlerPreparedPosts()).filter(
         (item) => item.state === "prepared" && Date.parse(item.publishAt) <= at.getTime(),
       );
+      if (due.length === 0) return 0;
+      // One pass over posts for the whole batch: the crash-recovery lookup below only needs
+      // to know which prepared items already published, not to rescan every post per item.
+      const publishedPreparedIds = new Map<string, { id: string }>();
+      for (const post of await db.select().from(noodlePosts)) {
+        const preparedId = parseRecord(post.metadata).noodlerPreparedPostId;
+        if (typeof preparedId === "string" && !publishedPreparedIds.has(preparedId)) {
+          publishedPreparedIds.set(preparedId, { id: post.id });
+        }
+      }
       let published = 0;
       for (const item of due) {
         const didPublish = await db.transaction(async (tx) => {
           const current = (await tx.select().from(noodlerPreparedPosts).where(eq(noodlerPreparedPosts.id, item.id)))[0];
           if (!current || current.state !== "prepared" || Date.parse(current.publishAt) > at.getTime()) return false;
-          const existingPost = (await tx.select().from(noodlePosts)).find(
-            (post) => parseRecord(post.metadata).noodlerPreparedPostId === current.id,
-          );
+          const existingPost = publishedPreparedIds.get(current.id);
           if (existingPost) {
             await tx
               .update(noodlerPreparedPosts)
@@ -1752,9 +1778,11 @@ export function createNoodleStorage(db: DB) {
           );
         })
         .map((item) => item.id);
+      // Soonest first, so lowering postsPerDay discards the latest excess items and leaves
+      // the imminent ones intact.
       const validFuture = prepared
         .filter((item) => !invalidIds.includes(item.id) && Date.parse(item.publishAt) > at.getTime())
-        .sort((a, b) => Date.parse(b.publishAt) - Date.parse(a.publishAt));
+        .sort((a, b) => Date.parse(a.publishAt) - Date.parse(b.publishAt));
       const excessIds = validFuture.slice(settings.postsPerDay).map((item) => item.id);
       const discarded = [...new Set([...invalidIds, ...excessIds])];
       if (discarded.length > 0) {
@@ -2544,7 +2572,21 @@ export function createNoodleStorage(db: DB) {
           return { status: "ineligible" };
         }
 
-        const cutoff = new Date(Date.parse(at) - 24 * 60 * 60 * 1000).toISOString();
+        const cutoff = new Date(Date.parse(at) - ROLLING_DAY_MS).toISOString();
+        // Prune only expired claims that never produced a reply. A claim that did is the
+        // permanent "this comment already has a creator reply" key and must outlive the
+        // budget window; an orphan one gates nothing once it leaves it.
+        const expiredOrphans = (await tx.select().from(noodlerCreatorReplyClaims)).filter(
+          (row) => !row.replyInteractionId && row.claimedAt < cutoff,
+        );
+        if (expiredOrphans.length > 0) {
+          await tx.delete(noodlerCreatorReplyClaims).where(
+            inArray(
+              noodlerCreatorReplyClaims.id,
+              expiredOrphans.map((row) => row.id),
+            ),
+          );
+        }
         const recentClaims = await tx
           .select()
           .from(noodlerCreatorReplyClaims)
@@ -2568,6 +2610,22 @@ export function createNoodleStorage(db: DB) {
           parent: mapInteraction(parentRow),
           viewer: mapAccount(viewerRow),
         };
+      });
+    },
+
+    /**
+     * Release a claim whose generation never produced a reply. The claim is the dedupe key
+     * for "this comment already has a creator reply", so keeping it after a failure would
+     * block that comment forever; no provider call succeeded, so nothing is billed twice.
+     */
+    async releaseNoodlerCreatorReplyClaim(claimId: string): Promise<void> {
+      await db.transaction(async (tx) => {
+        const rows = await tx
+          .select()
+          .from(noodlerCreatorReplyClaims)
+          .where(eq(noodlerCreatorReplyClaims.id, claimId));
+        if (!rows[0] || rows[0].replyInteractionId) return;
+        await tx.delete(noodlerCreatorReplyClaims).where(eq(noodlerCreatorReplyClaims.id, claimId));
       });
     },
 
@@ -2961,16 +3019,36 @@ export function createNoodleStorage(db: DB) {
           },
           wallet: { coins: viewer.settings.wallet.coins - NOODLER_SUBSCRIPTION_COST },
         };
+        // Insert before debiting: a duplicate row means the subscription already existed,
+        // and that path must stay idempotent rather than charging again or throwing.
+        try {
+          await tx.insert(noodleAccountSubscriptions).values({
+            id: newId(),
+            viewerAccountId,
+            creatorAccountId,
+            createdAt: timestamp,
+          });
+        } catch (error) {
+          if (
+            !isFileUniqueConstraintError(error, "noodle_account_subscriptions", ["viewerAccountId", "creatorAccountId"])
+          ) {
+            throw error;
+          }
+          const duplicate = await tx
+            .select()
+            .from(noodleAccountSubscriptions)
+            .where(
+              and(
+                eq(noodleAccountSubscriptions.viewerAccountId, viewerAccountId),
+                eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
+              ),
+            );
+          return duplicate[0] ? mapSubscription(duplicate[0]) : null;
+        }
         await tx
           .update(noodleAccounts)
           .set({ settings: JSON.stringify(nextViewerSettings), updatedAt: timestamp })
           .where(eq(noodleAccounts.id, viewerAccountId));
-        await tx.insert(noodleAccountSubscriptions).values({
-          id: newId(),
-          viewerAccountId,
-          creatorAccountId,
-          createdAt: timestamp,
-        });
         const rows = await tx
           .select()
           .from(noodleAccountSubscriptions)
@@ -3052,11 +3130,21 @@ export function createNoodleStorage(db: DB) {
           ...viewer.settings,
           wallet: { coins: viewer.settings.wallet.coins - NOODLER_UNLOCK_COST },
         };
+        // Insert before debiting, so an already-unlocked post stays idempotent and free.
+        try {
+          await tx.insert(noodlePostUnlocks).values({ id: newId(), viewerAccountId, postId, createdAt: timestamp });
+        } catch (error) {
+          if (!isFileUniqueConstraintError(error, "noodle_post_unlocks", ["viewerAccountId", "postId"])) throw error;
+          const duplicate = await tx
+            .select()
+            .from(noodlePostUnlocks)
+            .where(and(eq(noodlePostUnlocks.viewerAccountId, viewerAccountId), eq(noodlePostUnlocks.postId, postId)));
+          return duplicate[0] ? mapPostUnlock(duplicate[0]) : null;
+        }
         await tx
           .update(noodleAccounts)
           .set({ settings: JSON.stringify(nextViewerSettings), updatedAt: timestamp })
           .where(eq(noodleAccounts.id, viewerAccountId));
-        await tx.insert(noodlePostUnlocks).values({ id: newId(), viewerAccountId, postId, createdAt: timestamp });
         const rows = await tx
           .select()
           .from(noodlePostUnlocks)
