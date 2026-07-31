@@ -43,8 +43,8 @@ type ActivityChoice = "manual" | "occasional" | "lively" | "veryActive";
 
 const DISCLOSURES: NoodleIdentityDisclosure[] = ["open", "hinted", "secret"];
 
-// The intro renders the real locked post card against a stand-in creator, so what the user
-// practises on is the same component they meet in the feed a minute later.
+// The intro uses the real locked post card for a staged walkthrough. Mari is demonstrating
+// the interaction, so the example stays independent from the identity choice above.
 const DEMO_PROFILE: NoodlerStageProfile = {
   id: "onboarding-demo",
   noodleAccountId: null,
@@ -336,10 +336,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       title={selectionOnly ? t("ui.noodle.noodlerwizard.addCreators") : t("ui.noodle.noodlerwizard.title")}
       width="max-w-3xl"
       mobileFullscreen
-      contentClassName="max-sm:flex max-sm:overflow-hidden max-sm:px-4 max-sm:py-2"
+      contentClassName="max-sm:flex max-sm:flex-col max-sm:overflow-hidden max-sm:px-4 max-sm:py-2"
       panelStyle={getNoodleAccentStyle(NOODLE_PINK)}
     >
-      <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col max-sm:min-h-0 max-sm:flex-1 max-sm:self-stretch">
+      <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col max-sm:min-h-0 max-sm:max-h-none max-sm:flex-1 max-sm:self-stretch">
         {intro !== null && (
           <div
             className="flex items-center gap-2 border-b border-[var(--border)] pb-3 max-sm:gap-1.5 max-sm:pb-2"
@@ -485,20 +485,19 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   key={disclosure}
                   post={{
                     ...DEMO_POST,
-                    title: t(`ui.noodle.noodlerwizard.demoPost.${disclosure}.title`),
-                    imageUrl: disclosure === "secret" ? null : DEMO_POST.imageUrl,
+                    title: t("ui.noodle.noodlerwizard.demoPost.walkthrough.title"),
+                    imageUrl: DEMO_POST.imageUrl,
                   }}
-                  profile={demoProfile}
+                  profile={DEMO_PROFILE}
                   subscribed={false}
                   unlockPending={false}
                   subscriptionPending={false}
                   onUnlock={() => {}}
                   onToggleSubscription={() => {}}
                   demo={{
-                    body: t(`ui.noodle.noodlerwizard.demoPost.${disclosure}.body`),
+                    body: t("ui.noodle.noodlerwizard.demoPost.walkthrough.body"),
                     unlockedLabel: t("ui.noodle.postaccess.unlocked"),
-                    unlockedImageUrl:
-                      disclosure === "secret" ? undefined : "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
+                    unlockedImageUrl: "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
                     onReveal: () => setPostExplored(true),
                   }}
                 />

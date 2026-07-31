@@ -501,6 +501,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     setCreationStep(null);
     setProfileDraft(null);
     setEditingProfileId(null);
+    setDiscoveryOpen(false);
+    setFeedSearch("");
     if (enabled) {
       onNavigate({ mode: "noodler", view: "hub" });
       setMobileDrawerOpen(false);
@@ -905,7 +907,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         : discoveryOpen
           ? ("search" as const)
           : ("noodler" as const),
-    homeActive: navigation.mode === "noodler" && navigation.view === "hub",
+    homeActive: navigation.mode === "noodler" && navigation.view === "hub" && !discoveryOpen,
     accent: NOODLE_PINK,
     enableNoodler: enabled,
     personaAccount: shellPersonaAccount,
@@ -1412,7 +1414,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         search={feedSearch}
         onSearchChange={setFeedSearch}
         discoveryOpen={discoveryOpen}
-        onDiscoveryOpenChange={setDiscoveryOpen}
+        onCloseDiscovery={() => {
+          setDiscoveryOpen(false);
+          setFeedSearch("");
+        }}
         discoveryInputRef={discoveryInputRef}
         tab={feedTab}
         onTabChange={setFeedTab}
@@ -2722,7 +2727,7 @@ function ViewerHub({
   search,
   onSearchChange,
   discoveryOpen,
-  onDiscoveryOpenChange,
+  onCloseDiscovery,
   discoveryInputRef,
   tab,
   onTabChange,
@@ -2757,7 +2762,7 @@ function ViewerHub({
   search: string;
   onSearchChange: (value: string) => void;
   discoveryOpen: boolean;
-  onDiscoveryOpenChange: (open: boolean) => void;
+  onCloseDiscovery: () => void;
   discoveryInputRef: React.RefObject<HTMLInputElement | null>;
   tab: "following" | "all";
   onTabChange: (tab: "following" | "all") => void;
@@ -2790,7 +2795,8 @@ function ViewerHub({
   }
   const searchTerm = search.trim().toLowerCase();
   const followedCreatorIds = new Set(scope?.viewer.settings.social.followingAccountIds ?? []);
-  const feed = (scope?.creators ?? [])
+  const creators = scope?.creators ?? [];
+  const feed = creators
     .filter((creator) => tab === "all" || followedCreatorIds.has(creator.profile.id))
     .flatMap((creator) => creator.posts.map((post) => ({ post, creator })))
     .filter(
@@ -2802,6 +2808,152 @@ function ViewerHub({
         creator.profile.displayName.toLowerCase().includes(searchTerm),
     )
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
+  const searchResults = creators
+    .flatMap((creator) => creator.posts.map((post) => ({ post, creator })))
+    .filter(
+      ({ post, creator }) =>
+        searchTerm &&
+        ((post.title ?? "").toLowerCase().includes(searchTerm) ||
+          (post.content ?? "").toLowerCase().includes(searchTerm) ||
+          creator.profile.handle.toLowerCase().includes(searchTerm) ||
+          creator.profile.displayName.toLowerCase().includes(searchTerm)),
+    )
+    .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
+  const discoveredCreators = creators.filter(
+    (creator) =>
+      creator.profile.id !== authorProfile?.id &&
+      (!searchTerm ||
+        creator.profile.handle.toLowerCase().includes(searchTerm) ||
+        creator.profile.displayName.toLowerCase().includes(searchTerm)),
+  );
+  const renderFeedPost = ({ post, creator }: (typeof searchResults)[number]) =>
+    post.locked ? (
+      <LockedNoodlerPostCard
+        key={post.id}
+        post={post}
+        profile={creator.profile}
+        subscribed={creator.subscribed}
+        unlockPending={unlockPending}
+        subscriptionPending={togglePending}
+        onUnlock={onUnlock}
+        onToggleSubscription={onToggleSubscription}
+        onOpenProfile={postCardCtx.openAuthorProfile}
+      />
+    ) : (
+      <NoodlerPostCard
+        key={post.id}
+        post={toNoodlePostCardModel(post, creator.profile)}
+        ctx={{
+          ...postCardCtx,
+          personaAccount: creator.profile.id === authorProfile?.id ? null : postCardCtx.personaAccount,
+        }}
+      />
+    );
+
+  if (discoveryOpen) {
+    return (
+      <div className="min-h-0 flex-1 overflow-y-auto" data-component="NoodlerHome.Discover">
+        <div className="sticky top-0 z-20 flex items-center gap-2 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 px-2 py-3 backdrop-blur">
+          <button
+            type="button"
+            onClick={onCloseDiscovery}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]"
+            aria-label={localizeUi("ui.noodle.noodlerframe.back")}
+          >
+            <ChevronLeft size={22} />
+          </button>
+          <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-full bg-[var(--accent)] px-4 text-base ring-1 ring-inset ring-[var(--noodle-divider)] transition-colors focus-within:ring-[var(--noodle-accent)] sm:text-sm">
+            <Search size={18} className="shrink-0 text-[var(--noodle-accent)]" />
+            <span className="sr-only">{localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}</span>
+            <input
+              ref={discoveryInputRef}
+              type="search"
+              value={search}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder={localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}
+              className="min-w-0 flex-1 border-0 bg-transparent text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] sm:text-sm"
+            />
+            {search.trim() && (
+              <button
+                type="button"
+                onClick={() => onSearchChange("")}
+                className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--noodle-accent)] hover:bg-[var(--noodle-accent)]/10"
+                aria-label={localizeUi("ui.noodle.noodlehome.clearSearch")}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </label>
+        </div>
+
+        {searchTerm && (
+          <section className="border-b border-[var(--noodle-divider)]" aria-labelledby="noodler-search-results">
+            <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+              <h2 id="noodler-search-results" className="text-lg font-bold">
+                {localizeUi("ui.noodle.noodlehome.searchResults")}
+              </h2>
+            </div>
+            {searchResults.length > 0 ? (
+              <div>{searchResults.map(renderFeedPost)}</div>
+            ) : (
+              <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
+                {localizeUi("ui.noodle.viewerhub.noSearchResults")}
+              </p>
+            )}
+          </section>
+        )}
+
+        <section aria-labelledby="noodler-discover-creators">
+          <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
+            <h2 id="noodler-discover-creators" className="text-lg font-bold">
+              {localizeUi("ui.noodle.subscriptionsections.discoverCreators")}
+            </h2>
+          </div>
+          {discoveredCreators.length > 0 ? (
+            <div className="divide-y divide-[var(--noodle-divider)]">
+              {discoveredCreators.map((creator) => (
+                <div key={creator.profile.id} className="flex items-center gap-3 px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => postCardCtx.openAuthorProfile?.(creator.profile.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-md text-left transition-colors hover:text-[var(--noodle-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]"
+                  >
+                    <ProfileInitial profile={creator.profile} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{creator.profile.displayName}</span>
+                      <span className="block truncate text-xs text-[var(--muted-foreground)]">
+                        @{creator.profile.handle}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={togglePending}
+                    onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                    className={cn(
+                      "h-8 rounded-full px-4 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50",
+                      creator.subscribed
+                        ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
+                        : "bg-[var(--foreground)] text-[var(--background)]",
+                    )}
+                  >
+                    {creator.subscribed
+                      ? localizeUi("ui.noodle.subscriptionsections.unsubscribe")
+                      : localizeUi("ui.noodle.lockednoodlerpostcard.subscribe")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
+              {localizeUi("ui.noodle.subscriptionsections.noCreatorsAreVisibleToThisPersonaYet")}
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
@@ -2843,44 +2995,7 @@ function ViewerHub({
             <Plus size={14} />{" "}
             <span className="hidden sm:inline">{localizeUi("ui.noodle.noodlerwizard.addCreators")}</span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              onDiscoveryOpenChange(!discoveryOpen);
-              if (!discoveryOpen) window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
-            }}
-            className="ml-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] lg:flex xl:hidden"
-            aria-expanded={discoveryOpen}
-            aria-label={localizeUi("ui.noodle.noodleshell.discoverCreators")}
-          >
-            {discoveryOpen ? <X size={17} /> : <Search size={17} />}
-          </button>
         </div>
-        {discoveryOpen && (
-          <div className="px-4 pb-3 xl:hidden">
-            <label className="flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] bg-[var(--background)] px-3 text-base focus-within:border-[var(--noodle-accent)] focus-within:ring-2 focus-within:ring-[var(--noodle-accent)]/20">
-              <Search size={16} className="shrink-0 text-[var(--noodle-accent)]" />
-              <span className="sr-only">{localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}</span>
-              <input
-                ref={discoveryInputRef}
-                value={search}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder={localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}
-                className="min-w-0 flex-1 border-0 bg-transparent text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] sm:text-sm"
-              />
-              {search.trim() && (
-                <button
-                  type="button"
-                  onClick={() => onSearchChange("")}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--noodle-accent)] hover:bg-[var(--noodle-accent)]/10"
-                  aria-label={localizeUi("ui.noodle.noodlehome.clearSearch")}
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </label>
-          </div>
-        )}
       </div>
       <div className="border-b border-[var(--noodle-divider)] py-3 lg:px-4 xl:hidden">
         <SubscriptionSections
@@ -2983,32 +3098,7 @@ function ViewerHub({
                   : localizeUi("ui.noodle.viewerhub.noPostsYet")}
             </p>
           ) : (
-            <div>
-              {feed.map(({ post, creator }) =>
-                post.locked ? (
-                  <LockedNoodlerPostCard
-                    key={post.id}
-                    post={post}
-                    profile={creator.profile}
-                    subscribed={creator.subscribed}
-                    unlockPending={unlockPending}
-                    subscriptionPending={togglePending}
-                    onUnlock={onUnlock}
-                    onToggleSubscription={onToggleSubscription}
-                    onOpenProfile={postCardCtx.openAuthorProfile}
-                  />
-                ) : (
-                  <NoodlerPostCard
-                    key={post.id}
-                    post={toNoodlePostCardModel(post, creator.profile)}
-                    ctx={{
-                      ...postCardCtx,
-                      personaAccount: creator.profile.id === authorProfile?.id ? null : postCardCtx.personaAccount,
-                    }}
-                  />
-                ),
-              )}
-            </div>
+            <div>{feed.map(renderFeedPost)}</div>
           )}
         </>
       ) : (
