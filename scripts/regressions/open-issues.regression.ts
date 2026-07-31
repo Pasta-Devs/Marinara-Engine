@@ -1415,6 +1415,8 @@ const pullRequestTriageWorkflow = readFileSync(
 assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
 assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
 assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
+assert.match(pullRequestTriageWorkflow, /APPROVAL_EVENT_RELEVANT/u);
+assert.match(pullRequestTriageWorkflow, /if: env\.APPROVAL_EVENT_RELEVANT != 'true'/u);
 assert.match(
   pullRequestTriageWorkflow,
   /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
@@ -4140,7 +4142,7 @@ try {
   );
   assert.match(
     connectionEditorSource,
-    /src\.id === "zai"[\s\S]{0,180}ZAI_IMAGE_MODELS\.some[\s\S]{0,180}setLocalModel\("glm-image"\)/u,
+    /src\.id === "zai"[\s\S]{0,180}!ZAI_IMAGE_MODELS\.some[\s\S]{0,180}setLocalModel\("glm-image"\)/u,
     "Switching to Z.AI must replace a model that Z.AI does not support",
   );
 
