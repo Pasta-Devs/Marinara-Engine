@@ -215,6 +215,12 @@ import {
   parseVeniceImageResponse,
 } from "../../packages/server/src/services/image/venice-image.js";
 import {
+  buildZaiImageRequest,
+  buildZaiImageUrl,
+  parseZaiImageUrl,
+  resolveZaiImageSize,
+} from "../../packages/server/src/services/image/zai-image.js";
+import {
   buildAtlasCloudImageRequest,
   buildAtlasCloudUrl,
   buildAtlasCloudVideoRequest,
@@ -223,6 +229,8 @@ import {
 import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
+  IMAGE_GENERATION_SOURCES,
+  ZAI_IMAGE_MODELS,
   inferImageSource,
   inferVideoSource,
 } from "../../packages/shared/src/constants/model-lists.js";
@@ -1381,6 +1389,33 @@ assert.deepEqual(
   }),
   [{ id: "chroma", name: "Chroma" }],
 );
+assert.equal(buildZaiImageUrl("https://api.z.ai/api/paas/v4"), "https://api.z.ai/api/paas/v4/images/generations");
+assert.throws(
+  () => buildZaiImageUrl("https://api.z.ai/api/coding/paas/v4"),
+  /general API URL/u,
+);
+assert.equal(resolveZaiImageSize("glm-image", 1600, 900), "1728x960");
+assert.equal(resolveZaiImageSize("cogview-4-250304", 900, 1600), "768x1344");
+assert.deepEqual(buildZaiImageRequest({ model: "glm-image", prompt: "canal", width: 1600, height: 900 }), {
+  model: "glm-image",
+  prompt: "canal",
+  size: "1728x960",
+});
+assert.equal(parseZaiImageUrl({ data: [{ url: "https://cdn.example/zai.png" }] }), "https://cdn.example/zai.png");
+assert.equal(inferImageSource("", "https://api.z.ai/api/paas/v4"), "zai");
+assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "zai"));
+assert.deepEqual(
+  ZAI_IMAGE_MODELS.map((model) => model.id),
+  ["glm-image", "cogview-4-250304"],
+);
+const pullRequestTriageWorkflow = readFileSync(
+  new URL("../../.github/workflows/pull-request-triage.yml", import.meta.url),
+  "utf8",
+);
+assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
+assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
 assert.equal(
   buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
   "https://api.atlascloud.ai/api/v1/model/generateImage",
@@ -1797,6 +1832,14 @@ const conversationPresenceSource = readFileSync(
 const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
+);
+assert.match(professorMariHomeSource, /chatHistorySelectionMode/u);
+assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
+assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
+assert.match(
+  professorMariHomeSource,
+  /Promise\.all\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
+  "Professor Mari chat history should delete all selected chats through the existing endpoint",
 );
 const roleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),

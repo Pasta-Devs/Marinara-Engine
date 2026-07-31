@@ -172,7 +172,7 @@ A **storyboard** turns completed story text into a short sequence of keyframe im
 
 To make one by hand, open the **Gallery** and click **Create storyboard**. Game Mode can reopen its viewer with **View storyboard**; Roleplay displays the result below the assistant response that ends the episode.
 
-To make them automatically, open **Chat Settings**, go to **Agents**, and find the **Storyboards** card. Game Mode has separate illustration and animation toggles. Roleplay offers **Manual only**, **Still images**, or **Animations**, plus **Assistant messages per episode**. Video clips need a Video Generation connection. For both workflows, see [Storyboard Engine Guide](game/storyboard.md).
+To make them automatically, open **Chat Settings**, go to **Agents**, and find the **Storyboards** card. Game Mode has separate illustration and animation toggles. Roleplay offers **Manual only**, **Still images**, or **Animations**, plus **Messages per episode**. Video clips need a Video Generation connection. For both workflows, see [Storyboard Engine Guide](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 

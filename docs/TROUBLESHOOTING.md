@@ -193,7 +193,7 @@ Game Mode Storyboards turn a completed GM narration into keyframe images and opt
 
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
 - For automatic Game Mode Storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
-- In Roleplay, add the **Storyboard** Agent to the chat. Choose **Still images** or **Animations**, set **Assistant messages per episode**, and select the Storyboard image connection. **Manual only** runs from **Create storyboard** in the Gallery instead.
+- In Roleplay, add the **Storyboard** Agent to the chat. Choose **Still images** or **Animations**, set **Messages per episode**, and select the Storyboard image connection. **Manual only** runs from **Create storyboard** in the Gallery instead.
 - Keyframe images need an image connection. Clips also need a video connection.
 - If a custom prompt works better with all characters combined, turn off **Use NovelAI Character Prompts**.
 - Slow providers can hit a timeout. Raise `IMAGE_GEN_TIMEOUT_MS` or `VIDEO_GEN_TIMEOUT_MS` in `.env`, then restart Marinara. The server only reads these values at startup.

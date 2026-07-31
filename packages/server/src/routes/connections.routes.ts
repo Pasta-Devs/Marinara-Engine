@@ -8,6 +8,7 @@ import { extname, join } from "path";
 import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
+  ZAI_IMAGE_MODELS,
   IMAGE_DEFAULTS_STORAGE_KEY,
   MODEL_LISTS,
   VIDEO_DEFAULTS_STORAGE_KEY,
@@ -558,6 +559,13 @@ export async function connectionsRoutes(app: FastifyInstance) {
           latencyMs: Date.now() - start,
           modelName: conn.model,
         };
+      } else if (conn.provider === "image_generation" && imageSource === "zai") {
+        return {
+          success: true,
+          message: "Z.AI connection configured. Use 'Test Image' to verify generation works.",
+          latencyMs: Date.now() - start,
+          modelName: conn.model,
+        };
       } else if (conn.provider === "image_generation" && imageSource === "horde") {
         // Horde: heartbeat is the lightweight health endpoint for the public API.
         testUrl = buildHordeUrl(baseUrl, "status/heartbeat");
@@ -701,6 +709,9 @@ export async function connectionsRoutes(app: FastifyInstance) {
       const mediaSource = imageSource || videoSource;
       if (conn.provider === "image_generation" && imageSource === "atlas") {
         return { models: ATLAS_CLOUD_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
+      }
+      if (conn.provider === "image_generation" && imageSource === "zai") {
+        return { models: ZAI_IMAGE_MODELS.map((model) => ({ id: model.id, name: model.name })) };
       }
       baseUrl = normalizeConnectionTestBaseUrl(baseUrl, conn.provider);
       const lowerBase = baseUrl.toLowerCase();

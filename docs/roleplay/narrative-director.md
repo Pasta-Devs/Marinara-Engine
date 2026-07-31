@@ -54,7 +54,7 @@ Unlike **Push Story**, which acts once, **Secret Plot** runs over many replies. 
 
 ### Run Interval
 
-When **Secret Plot** is on, a **Run Interval** field appears. This sets how many replies pass between updates to the hidden arc. The number is counted in assistant messages, which are the character's replies.
+When **Secret Plot** is on, a **Run Interval** field appears. This sets how many user and assistant messages pass between updates to the hidden arc.
 
 The default is 8. You can set any whole number from 1 to 100. A lower number updates the plan more often. A higher number updates it less often.
 

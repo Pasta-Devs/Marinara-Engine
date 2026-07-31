@@ -853,6 +853,12 @@ assert.match(
   "message edits should paint optimistically before query cancellation finishes",
 );
 
+assert.match(
+  generateHookSource,
+  /const cancellation = qc\.cancelQueries[\s\S]*?id: `__optimistic_\$\{Date\.now\(\)\}`[\s\S]*?qc\.setQueryData[\s\S]*?await cancellation/u,
+  "submitted user messages should paint optimistically before query cancellation finishes",
+);
+
 const makeAgent = (type: string, resultType: string): ResolvedAgent =>
   ({
     id: type,

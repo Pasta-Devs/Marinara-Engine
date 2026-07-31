@@ -196,6 +196,7 @@ export function buildHistoricalLorebookKeeperContext<T extends LorebookKeeperMes
       characterId: message.characterId ?? undefined,
     })),
     mainResponse: targetMessage.content,
+    mainResponseSegments: undefined,
   };
 }
 

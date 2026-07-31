@@ -83,10 +83,10 @@ export function shouldRunDirectorSecretPlotMaintenance(args: {
   if (typeof lastMessageId !== "string" || !lastMessageId) return true;
   const lastIndex = args.messages.findIndex((message) => message.id === lastMessageId);
   if (lastIndex < 0) return true;
-  const assistantMessagesSince = args.messages
+  const messagesSince = args.messages
     .slice(lastIndex + 1)
-    .filter((message) => message.role === "assistant").length;
-  return assistantMessagesSince + 1 >= args.runInterval;
+    .filter((message) => message.role === "user" || message.role === "assistant").length;
+  return messagesSince + 1 >= args.runInterval;
 }
 
 export function formatSecretPlotSystemBlock(arcRaw: unknown, wrapFormat: "xml" | "markdown" | "none"): string {

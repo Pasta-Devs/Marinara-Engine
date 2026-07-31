@@ -24,7 +24,7 @@ Roleplay Storyboards are separate from Illustrator. Illustrator can keep making 
 4. Select the prompt, image, and optional video connections. The image connection is required.
 5. For a manual episode, open **Gallery** and choose **Create storyboard**. Automatic episodes run after the configured number of newly completed assistant responses.
 
-The default interval is 1, so an automatic episode can appear after every newly completed assistant response. A larger **Assistant messages per episode** value lets dialogue and back-and-forth accumulate. When the interval is reached, Marinara combines the messages since the previous successful Storyboard, within a bounded recent window. Opening an existing chat does not backfill old messages, and a failed episode does not advance the successful cadence anchor.
+The default interval is 1, so an automatic episode can appear after every newly completed assistant response. A larger **Messages per episode** value lets dialogue and back-and-forth accumulate. User and assistant messages both advance the interval. When the interval is reached, Marinara combines the messages since the previous successful Storyboard, within a bounded recent window. Opening an existing chat does not backfill old messages, and a failed episode does not advance the successful cadence anchor.
 
 Roleplay keyframes render inline after the assistant response that ends the episode. Use the arrows on multi-keyframe Storyboards to move between frames. Images and clips are also saved in the Gallery.
 

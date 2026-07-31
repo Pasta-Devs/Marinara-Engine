@@ -140,7 +140,7 @@ export function selectRoleplayStoryboardEpisode(args: {
     args.automatic === true &&
     args.previousSuccessfulMessageId &&
     episode.anchorResolved &&
-    assistantMessageCount < normalizeRunInterval(args.runInterval)
+    sourceMessages.length < normalizeRunInterval(args.runInterval)
   ) {
     return { status: "skip", reason: "interval" };
   }

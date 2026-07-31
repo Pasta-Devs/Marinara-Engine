@@ -36,6 +36,7 @@ import {
   numberedComfyReferencePlaceholder,
 } from "./comfyui-reference-placeholders.js";
 import { buildVeniceApiUrl, buildVeniceImageRequest, parseVeniceImageResponse } from "./venice-image.js";
+import { buildZaiImageRequest, buildZaiImageUrl, parseZaiImageUrl } from "./zai-image.js";
 import { buildAtlasCloudImageRequest, runAtlasCloudPrediction } from "../media/atlas-cloud.js";
 
 // sharp is an optional native module (no prebuilds on some platforms like Termux).
@@ -159,6 +160,7 @@ const EXPLICIT_IMAGE_SOURCES = new Set([
   "horde",
   "xai",
   "venice",
+  "zai",
   "atlas",
   "comfyui",
   "automatic1111",
@@ -243,6 +245,8 @@ export async function generateImage(
           return generateXAI(normalizedBaseUrl, apiKey, scopedRequest);
         case "venice":
           return generateVenice(normalizedBaseUrl, apiKey, scopedRequest);
+        case "zai":
+          return generateZai(normalizedBaseUrl, apiKey, scopedRequest);
         case "atlas":
           return generateAtlasCloudImage(normalizedBaseUrl, apiKey, scopedRequest);
         case "comfyui":
@@ -1112,6 +1116,41 @@ async function generateVenice(baseUrl: string, apiKey: string, request: ImageGen
     throw new Error("Venice image generation returned invalid JSON");
   }
   return parseVeniceImageResponse(response);
+}
+
+async function generateZai(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  const body = buildZaiImageRequest(request);
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/zai] final request payload:\n%s",
+    JSON.stringify(body, null, 2),
+  );
+  const resp = await imageFetch(
+    buildZaiImageUrl(baseUrl),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: imageRequestSignal(request),
+    },
+    { allowLocal: request.allowLocalUrls },
+  );
+
+  const responseText = await resp.text();
+  if (!resp.ok) {
+    throw new Error(`Z.AI image generation failed (${resp.status}): ${sanitizeErrorText(responseText)}`);
+  }
+
+  let response: unknown;
+  try {
+    response = JSON.parse(responseText);
+  } catch {
+    throw new Error("Z.AI image generation returned invalid JSON");
+  }
+  return downloadImageUrl(parseZaiImageUrl(response), request.privateImageResultOrigin, request.signal);
 }
 
 async function generateAtlasCloudImage(

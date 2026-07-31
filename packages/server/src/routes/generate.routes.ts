@@ -302,7 +302,6 @@ import {
 import { logger, logDebugOverride } from "../lib/logger.js";
 import {
   buildHistoricalLorebookKeeperContext,
-  getLorebookKeeperAutomaticPendingCount,
   getLorebookKeeperAutomaticTarget,
   getLorebookKeeperSettings,
   loadLorebookKeeperExistingEntries,
@@ -475,7 +474,7 @@ import { injectCommittedTrackerContext } from "../services/generation/committed-
 import { injectGameGmPromptRuntime } from "../services/generation/game-gm-prompt-runtime.js";
 import { mergeConversationCharacterMemories } from "../services/generation/conversation-memory-context.js";
 import { injectMemoryRecallContext } from "../services/generation/memory-recall-context.js";
-import { shouldSkipAgentByAssistantInterval } from "../services/generation/agent-cadence.js";
+import { shouldSkipAgentByMessageInterval } from "../services/generation/agent-cadence.js";
 import {
   createAgentEventDispatcher,
   shouldDeferExpressionAgentEvent,
@@ -2716,15 +2715,7 @@ export async function generateRoutes(app: FastifyInstance) {
         });
 
         const builtInAgentTypes = new Set(BUILT_IN_AGENTS.map((agent) => agent.id));
-        const userMessagesSinceLastAgentRun = async (agentType: string) => {
-          const lastRun = await agentsStore.getLastSuccessfulRunByType(agentType, input.chatId);
-          if (!lastRun) return Number.POSITIVE_INFINITY;
-
-          const lastRunIdx = allChatMessages.findIndex((message: any) => message.id === lastRun.messageId);
-          if (lastRunIdx < 0) return Number.POSITIVE_INFINITY;
-
-          return allChatMessages.slice(lastRunIdx + 1).filter((message: any) => message.role === "user").length;
-        };
+        const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
 
         for (let index = resolvedAgents.length - 1; index >= 0; index--) {
           const agent = resolvedAgents[index]!;
@@ -2744,13 +2735,20 @@ export async function generateRoutes(app: FastifyInstance) {
           const runInterval = Number(agent.settings.runInterval ?? 0);
           if (!Number.isFinite(runInterval) || runInterval <= 1) continue;
 
-          const userMessageCount = await userMessagesSinceLastAgentRun(agent.type);
-          if (userMessageCount < runInterval) {
+          if (
+            await shouldSkipAgentByMessageInterval({
+              agentsStore,
+              chatId: input.chatId,
+              agentType: agent.type,
+              settings: agent.settings,
+              fallbackInterval: runInterval,
+              messages: allChatMessages,
+              countUpcomingAssistantMessage: agent.phase === "post_processing" && createsAssistantMessage,
+            })
+          ) {
             logger.debug(
-              "[agents] Skipping custom agent %s until cadence threshold: %d/%d user messages",
+              "[agents] Skipping custom agent %s until its message cadence threshold",
               agent.type,
-              userMessageCount,
-              runInterval,
             );
             resolvedAgents.splice(index, 1);
           }
@@ -3483,7 +3481,6 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
-        const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
         const storyboardAgentConfig = configuredPromptAgents.find((agent) => agent.type === STORYBOARD_AGENT_ID);
         const storyboardAgentSettings = normalizeStoryboardAgentSettings(
           mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, storyboardAgentConfig?.settings),
@@ -3502,7 +3499,7 @@ export async function generateRoutes(app: FastifyInstance) {
         });
         if (
           illustratorAgentForInterval &&
-          (await shouldSkipAgentByAssistantInterval({
+          (await shouldSkipAgentByMessageInterval({
             agentsStore,
             chatId: input.chatId,
             agentType: "illustrator",
@@ -3549,23 +3546,28 @@ export async function generateRoutes(app: FastifyInstance) {
             agentContext.memory._lorebookKeeperTargetLorebookName = targetLorebookName;
           }
 
-          // ── Interval gating: only run every N assistant messages ──
+          // ── Interval gating: only run every N user/assistant messages ──
           const lkAgent = resolvedAgents.find((a) => a.type === "lorebook-keeper")!;
           const runInterval = (lkAgent.settings.runInterval as number) ?? 8;
-          const lastRun = await agentsStore.getLastSuccessfulRunByType("lorebook-keeper", input.chatId);
-          const pendingLorebookMessages = getLorebookKeeperAutomaticPendingCount(
-            lorebookKeeperMessages,
-            lorebookKeeperSettings.readBehindMessages,
-            lastRun?.messageId ?? null,
-          );
           const historicalLorebookTarget = getLorebookKeeperAutomaticTarget(
             lorebookKeeperMessages,
             lorebookKeeperSettings.readBehindMessages,
           );
           if (lorebookKeeperSettings.readBehindMessages > 0 && !historicalLorebookTarget) {
             resolvedAgents.splice(resolvedAgents.indexOf(lkAgent), 1);
-          } else if (runInterval > 1 && pendingLorebookMessages < runInterval) {
-            // Not enough canon messages since the last successful run — remove from pipeline.
+          } else if (
+            runInterval > 1 &&
+            (await shouldSkipAgentByMessageInterval({
+              agentsStore,
+              chatId: input.chatId,
+              agentType: "lorebook-keeper",
+              settings: lkAgent.settings,
+              fallbackInterval: 8,
+              messages: lorebookKeeperMessages,
+              countUpcomingAssistantMessage: createsAssistantMessage,
+            }))
+          ) {
+            // Not enough chat messages since the last successful run — remove from pipeline.
             resolvedAgents.splice(resolvedAgents.indexOf(lkAgent), 1);
           }
 
@@ -3893,11 +3895,11 @@ export async function generateRoutes(app: FastifyInstance) {
         // Tracker Data Injection
         // ────────────────────────────────────────
         // The Card Evolution Auditor proposes user-facing character-card edits,
-        // so gate it by assistant-message cadence instead of auditing every turn.
+        // so gate it by message cadence instead of auditing every turn.
         if (resolvedAgents.some((a) => a.type === "card-evolution-auditor")) {
           const ceaAgent = resolvedAgents.find((a) => a.type === "card-evolution-auditor")!;
           if (
-            await shouldSkipAgentByAssistantInterval({
+            await shouldSkipAgentByMessageInterval({
               agentsStore,
               chatId: input.chatId,
               agentType: "card-evolution-auditor",
@@ -3911,11 +3913,11 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // About Me Keeper runs on its own cadence (default every 8 assistant messages).
+        // About Me Keeper runs on its own cadence (default every 8 messages).
         if (resolvedAgents.some((a) => a.type === "about-me-keeper")) {
           const amkAgent = resolvedAgents.find((a) => a.type === "about-me-keeper")!;
           if (
-            await shouldSkipAgentByAssistantInterval({
+            await shouldSkipAgentByMessageInterval({
               agentsStore,
               chatId: input.chatId,
               agentType: "about-me-keeper",
@@ -4726,6 +4728,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let fullThinking = "";
         let providerThinking = "";
         let allResponses: string[] = [];
+        const allResponseSegments: NonNullable<AgentContext["mainResponseSegments"]> = [];
         let continuedMessageRewriteSource: string | null = null;
         const generatedExpressionTargetIds = new Set<string>();
         const recordExpressionTarget = (savedMsg: any, fallbackCharacterId: string | null) => {
@@ -6633,6 +6636,7 @@ export async function generateRoutes(app: FastifyInstance) {
             lastSavedMsg = genResult.savedMsg;
             recordExpressionTarget(genResult.savedMsg, charId);
             allResponses.push(genResult.response);
+            allResponseSegments.push({ characterId: charId, characterName: charName, content: genResult.response });
             for (const cmd of genResult.commands) {
               collectedCommands.push({
                 command: cmd,
@@ -6731,6 +6735,14 @@ export async function generateRoutes(app: FastifyInstance) {
               });
             }
             collectedOocMessages.push(...genResult.oocMessages);
+            const characterName = genResult.characterId
+              ? (charInfo.find((character) => character.id === genResult.characterId)?.name ?? "Character")
+              : "Character";
+            allResponseSegments.push({
+              ...(genResult.characterId ? { characterId: genResult.characterId } : {}),
+              characterName,
+              content: genResult.response,
+            });
           }
           allResponses.push(fullResponse);
         }
@@ -6792,6 +6804,7 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const hasPostProcessingAgents = resolvedAgents.some((a) => a.phase === "post_processing");
         const combinedResponse = allResponses.join("\n\n");
+        agentContext.mainResponseSegments = shouldPrefixGroupHistorySpeakers ? allResponseSegments : undefined;
         let lorebookKeeperProcessedMessageId = "";
         // Illustration runs asynchronously so it doesn't block other agents.
         // (pendingIllustration is hoisted above the follow-up loop.)

@@ -227,6 +227,7 @@ import {
   compactGameStateForAgentContext,
   executeAgent,
   executeAgentBatch,
+  formatAgentMainResponseForPrompt,
   renderAgentPromptTemplate,
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import {
@@ -236,7 +237,11 @@ import {
   shouldMigrateCleanHtmlPattern,
 } from "../../packages/server/src/db/seed-regex.js";
 import { applyRegexScriptsToPromptText } from "../../packages/server/src/services/regex/regex-application.js";
-import { shouldSkipAgentByAssistantInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
+import { shouldSkipAgentByMessageInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
+import {
+  DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
+  shouldRunDirectorSecretPlotMaintenance,
+} from "../../packages/server/src/services/generation/director-secret-plot-runtime.js";
 import { filterPromptMessagesForCharacterAudience } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import {
   mergeAdjacentMessages,
@@ -265,7 +270,6 @@ import {
 const assistantCadenceMessages = [
   { id: "illustrator-anchor", role: "assistant" },
   { id: "accepted-user-turn", role: "user" },
-  { id: "accepted-assistant-turn", role: "assistant" },
 ];
 const illustratorCadenceStore = {
   getLastSuccessfulRunByType: async () => ({ messageId: "illustrator-anchor" }),
@@ -281,7 +285,7 @@ assert.strictEqual(
   "legacy custom music source settings should remain supported as a fallback",
 );
 assert.equal(
-  await shouldSkipAgentByAssistantInterval({
+  await shouldSkipAgentByMessageInterval({
     agentsStore: illustratorCadenceStore,
     chatId: "roleplay-cadence",
     agentType: "illustrator",
@@ -290,10 +294,10 @@ assert.equal(
     messages: assistantCadenceMessages,
   }),
   false,
-  "a fresh assistant message should satisfy the next Illustrator interval",
+  "a persisted user message plus the upcoming assistant response should satisfy the interval",
 );
 assert.equal(
-  await shouldSkipAgentByAssistantInterval({
+  await shouldSkipAgentByMessageInterval({
     agentsStore: illustratorCadenceStore,
     chatId: "roleplay-cadence",
     agentType: "illustrator",
@@ -303,7 +307,32 @@ assert.equal(
     countUpcomingAssistantMessage: false,
   }),
   true,
-  "a swipe or continuation should not count as a new accepted assistant message",
+  "one persisted user message should not satisfy a two-message interval without a new assistant response",
+);
+assert.equal(
+  shouldRunDirectorSecretPlotMaintenance({
+    memory: {
+      overarchingArc: { description: "The observatory conspiracy", completed: false },
+      [DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY]: "director-anchor",
+    },
+    runInterval: 2,
+    messages: [
+      { id: "director-anchor", role: "assistant" },
+      { id: "director-user-turn", role: "user" },
+    ],
+  }),
+  true,
+  "Narrative Director cadence should count the user message before its upcoming assistant response",
+);
+assert.equal(
+  formatAgentMainResponseForPrompt({
+    mainResponse: "I tighten my gloves.",
+    mainResponseSegments: [
+      { characterId: "dottore", characterName: "Il Dottore", content: "I tighten my gloves." },
+    ],
+  } as AgentContext),
+  "Il Dottore: I tighten my gloves.",
+  "post-processing agents should receive responder attribution when Name Prefix is enabled",
 );
 
 const selectivelyHiddenMessage = {
@@ -911,7 +940,7 @@ const cases: RegressionCase[] = [
           messages,
           currentMessageId: "assistant-2",
           previousSuccessfulMessageId: "assistant-1",
-          runInterval: 2,
+          runInterval: 3,
           automatic: true,
         }),
         { status: "skip", reason: "interval" },
@@ -921,7 +950,7 @@ const cases: RegressionCase[] = [
         messages,
         currentMessageId: "assistant-3",
         previousSuccessfulMessageId: "assistant-1",
-        runInterval: 2,
+        runInterval: 3,
         automatic: true,
       });
       assert.equal(accumulatedEpisode.status, "ready");

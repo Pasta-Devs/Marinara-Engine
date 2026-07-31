@@ -537,6 +537,8 @@ export function ConnectionEditor() {
   const apiKeyLink =
     localProvider === "image_generation" && selectedImageService === "venice"
       ? { label: "Get your Venice API key", url: "https://venice.ai/settings/api" }
+      : localProvider === "image_generation" && selectedImageService === "zai"
+        ? { label: t("connections.mediaSources.zai.apiKeyLink"), url: "https://z.ai/manage-apikey/apikey-list" }
       : (localProvider === "image_generation" && selectedImageService === "atlas") ||
           (localProvider === "video_generation" && selectedVideoDefaultsService === "atlas")
         ? {
@@ -1541,9 +1543,18 @@ export function ConnectionEditor() {
               <div className="grid grid-cols-2 gap-1.5">
                 {IMAGE_GENERATION_SOURCES.map((src) => {
                   const isActive = selectedImageService === src.id;
-                  const sourceName = src.id === "atlas" ? t("connections.mediaSources.atlas.name") : src.name;
+                  const sourceName =
+                    src.id === "atlas"
+                      ? t("connections.mediaSources.atlas.name")
+                      : src.id === "zai"
+                        ? t("connections.mediaSources.zai.name")
+                        : src.name;
                   const sourceDescription =
-                    src.id === "atlas" ? t("connections.mediaSources.atlas.imageDescription") : src.description;
+                    src.id === "atlas"
+                      ? t("connections.mediaSources.atlas.imageDescription")
+                      : src.id === "zai"
+                        ? t("connections.mediaSources.zai.imageDescription")
+                        : src.description;
                   return (
                     <button
                       key={src.id}

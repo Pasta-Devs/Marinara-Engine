@@ -14,7 +14,7 @@ Each agent below shows three quick facts.
 
 Marinara groups its agents into three categories in the **Agents** panel: **Writer Agents**, **Tracker Agents**, and **Misc Agents**. This reference uses the same grouping.
 
-A run interval means the agent runs once every few assistant messages instead of after every message. You can change a run interval in the agent's setup, up to 100.
+A run interval means the agent runs once every few user and assistant messages instead of after every message. You can change a run interval in the agent's setup, up to 100.
 
 ## Writer agents
 
@@ -42,7 +42,7 @@ Watches how a character changes during play and suggests edits to that character
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: it runs once every 8 assistant messages by default. See [Agent approvals and the Agent Suite](approvals-and-agent-suite.md).
+- **Key settings**: it runs once every 8 user and assistant messages by default. See [Agent approvals and the Agent Suite](approvals-and-agent-suite.md).
 
 ### Narrative Director
 
@@ -167,7 +167,7 @@ Responsible for image and video generations. It writes visual prompts for import
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
-- **Key settings**: it runs once every 5 assistant messages by default. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
+- **Key settings**: it runs once every 5 user and assistant messages by default. Settings include **Prompt Model**, **Image Style**, **Attach Card Appearance**, and **Send Avatar References**. For the full setup, see [Illustrator agent](../media/illustrator-agent.md).
 
 ### Lorebook Keeper
 
@@ -175,7 +175,7 @@ Creates and updates lorebook entries from important facts in your chat, so your 
 
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay. In Game Mode, a session-end variant called **Game Session Keeper** does the same job at the end of a session.
-- **Key settings**: it runs once every 8 assistant messages by default. A **Target Lorebook** picker chooses where entries go, with an auto-select option.
+- **Key settings**: it runs once every 8 user and assistant messages by default. A **Target Lorebook** picker chooses where entries go, with an auto-select option.
 
 ### Combat
 

@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added Z.AI as a native Image Generation service with GLM-Image and CogView 4 models, model-aware aspect-ratio sizing, authenticated native requests, and safe local storage of returned image URLs (#4350).
+- Added compact multi-selection and bulk deletion to Professor Mari's chat history, including a single destructive confirmation and automatic replacement when the active chat is removed (#4353).
 - Added Character-ID macros such as `{{V1StGXR8_Z5jdHi6B-myT}}` for loading another card's context into the system prompt without its greetings or example dialogue, while still applying normally activated attached lorebooks (#4336).
 - Added selection and one-click condensation of multiple ordered chat summaries into a single summary entry (#4334).
 - Added a visibility toggle for reimported embedded Character lorebooks so they remain linked, active, and editable without cluttering general lorebook searches and selectors (#4333).
@@ -52,6 +54,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Made Name Prefix carry each responding character's identity into post-processing Agent prompts in multi-character Roleplay while keeping rewrite agents' raw response text unchanged (#4351).
+- Painted submitted Roleplay user messages before waiting for message-query cancellation, removing the multi-second gap between pressing Send and seeing the local message (#4357).
+- Made every Agent Run Interval count both user and assistant messages, including custom Agents, Illustrator, Lorebook Keeper, Card Evolution Auditor, About Me Keeper, Narrative Director Secret Plot maintenance, and Roleplay Storyboards (#4360).
+- Stopped PR description edits, CodeRabbit comments, and non-owner reviews from recreating the outside-contributor approval gate while retaining refreshes for base changes and approval-relevant SpicyMarinara reviews (#4361).
 - Isolated desktop and mobile Playwright servers and fixture data, made help tooltips non-blocking, kept focused mobile composers open during history scrolling, and aligned appearance and Tracker smoke checks with live application state so the complete browser sweep no longer fails from cross-project mutations or stale assertions (#4343).
 - Built the shared workspace before `pnpm dev:server` and documented the rebuild-and-restart boundary for shared source changes (#4327).
 - Removed Windows child-process calls that combined argument arrays with `shell: true`, eliminating Node.js DEP0190 warnings from startup, updates, native dependency repair, and client builds (#4332).
