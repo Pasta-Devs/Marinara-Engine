@@ -21,7 +21,7 @@ function sinceHoursIso(hours: number) {
 
 function modeAllowed(carryoverModes: readonly NoodleCarryoverTarget[], chatMode: ChatMode) {
   if (carryoverModes.includes("conversation") && chatMode === "conversation") return true;
-  if (carryoverModes.includes("roleplay") && (chatMode === "roleplay" || chatMode === "visual_novel")) return true;
+  if (carryoverModes.includes("roleplay") && chatMode === "roleplay") return true;
   if (carryoverModes.includes("game") && chatMode === "game") return true;
   return false;
 }

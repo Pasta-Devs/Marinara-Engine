@@ -36,6 +36,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Changed
 
+- Removed the retired Visual Novel mode identifier and its remaining compatibility branches from active schemas, runtime routing, UI labels, imports, and current documentation; Marinara's supported modes are now consistently Conversation, Roleplay, and Game (#4368).
 - Capitalized the native language names in the **Settings → General → Language** dropdown (Español, Français, Polski, Português (Brasil), Русский) to match the Documentation Language selector (#4191).
 - Renamed reusable Chat Settings Presets to **Settings Profiles** throughout Chat Settings, Roleplay quick setup, import/export, localization, and documentation. The word **preset** now identifies prompt presets in these flows, while existing exported profile files remain importable.
 - Added a Post/Impersonate quick toggle to CYOA choices and kept centered choices clear of the Tracker panel.

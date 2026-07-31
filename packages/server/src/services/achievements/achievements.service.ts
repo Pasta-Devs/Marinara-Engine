@@ -30,7 +30,7 @@ const ZERO_COUNTS: AchievementCounts = {
 };
 
 function isRoleplayMode(mode: string) {
-  return mode === "roleplay" || mode === "visual_novel";
+  return mode === "roleplay";
 }
 
 function buildProgress(

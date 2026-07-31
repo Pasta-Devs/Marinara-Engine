@@ -108,7 +108,7 @@ function fileCreatedAt(filePath: string): string {
 
 const ALLOWED_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 const BACKGROUND_UPLOAD_MAX_BYTES = 20 * 1024 * 1024;
-const SCENE_BACKGROUND_MODES = new Set(["roleplay", "visual_novel", "game"]);
+const SCENE_BACKGROUND_MODES = new Set(["roleplay", "game"]);
 
 const generateSceneBackgroundSchema = z.object({
   chatId: z.string().min(1),
@@ -551,7 +551,7 @@ export async function backgroundsRoutes(app: FastifyInstance) {
       worldOverview: readTrimmedString(context.metadata.gameWorldOverview),
       artStyle: resolveGameSetupArtStylePrompt(context.setupConfig) || undefined,
       reason: input.reason?.trim() || "Manual Gallery background request",
-      sourceMode: context.mode === "game" ? "game" : context.mode === "visual_novel" ? "visual_novel" : "roleplay",
+      sourceMode: context.mode === "game" ? "game" : "roleplay",
       imgModel: context.imgConn.model || "",
       imgBaseUrl: context.imgConn.baseUrl || "https://image.pollinations.ai",
       imgApiKey: context.imgConn.apiKey || "",

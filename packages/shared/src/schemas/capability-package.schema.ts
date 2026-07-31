@@ -202,7 +202,7 @@ export const packagedAgentDefinitionSchema = z
     runtimeDisabled: z.boolean().optional(),
     /** @deprecated Legacy package compatibility; author resultType in defaultSettings instead. */
     resultType: agentResultTypeSchema.optional(),
-    modeAllowlist: z.array(z.enum(["conversation", "roleplay", "visual_novel", "game"])).optional(),
+    modeAllowlist: z.array(z.enum(["conversation", "roleplay", "game"])).optional(),
     defaultTools: z.array(z.string()).optional(),
     defaultSettings: z.record(z.string(), z.unknown()).optional(),
     promptTemplates: z.array(packagedAgentPromptTemplateSchema).optional(),

@@ -265,7 +265,7 @@ function resolveExpressionAvatarSpriteUrl(sprites: SpriteInfo[] | undefined, exp
 }
 
 function suppressBuiltInProfessorMariForMode(mode: string | undefined): boolean {
-  return mode === "game" || mode === "roleplay" || mode === "visual_novel";
+  return mode === "game" || mode === "roleplay";
 }
 
 const INTUITIVE_SWIPE_MIN_DISTANCE = 56;
@@ -728,7 +728,7 @@ export function ChatArea() {
   const lastModeRef = useRef<string>("conversation");
   if (rawMode) lastModeRef.current = rawMode;
   const chatMode = rawMode ?? lastModeRef.current;
-  const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
+  const isRoleplay = chatMode === "roleplay";
   const suppressBuiltInProfessorMari = suppressBuiltInProfessorMariForMode(chatMode);
   const isGameChat = chatMode === "game";
   const messagePageSize = messagesPerPage;
@@ -1279,7 +1279,7 @@ export function ChatArea() {
 
   const handleGenerateRoleplaySceneVideo = useCallback(
     async (source?: { galleryImageId?: string }) => {
-      if (!activeChatId || !chat || (chatMode !== "roleplay" && chatMode !== "visual_novel")) return;
+      if (!activeChatId || !chat || chatMode !== "roleplay") return;
       if (roleplaySceneVideoGeneratingRef.current) return;
       const sceneVideoConnectionId =
         typeof chatMeta.sceneVideoConnectionId === "string" ? chatMeta.sceneVideoConnectionId.trim() : "";
@@ -1419,8 +1419,8 @@ export function ChatArea() {
   );
 
   // Creator-notes card CSS: resolve the per-chat mode (default "chat") and map
-  // the chat mode onto the @chat-mode filter surface (visual novel shares the
-  // roleplay surface). One injector element, reused across every render path.
+  // it onto the @chat-mode filter surface. One injector element is reused
+  // across every render path.
   const cardCssMode: CardCssMode =
     chatMeta.cardCssMode === "exclusive" || chatMeta.cardCssMode === "chat" ? chatMeta.cardCssMode : "disabled";
   const cardCssChatMode: ChatModeFilter =
@@ -1527,7 +1527,7 @@ export function ChatArea() {
     const savedUrl = chatBackgroundMetadataToUrl(chatMeta.background);
     const restoredUrl =
       savedUrl ??
-      (chat.mode === "roleplay" || chat.mode === "visual_novel"
+      (chat.mode === "roleplay"
         ? useUIStore.getState().defaultRoleplayBackground
         : null);
     restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: true };
@@ -2611,7 +2611,7 @@ export function ChatArea() {
 
     const mode = chatModeRef.current;
     const shouldAutoplay =
-      mode === "roleplay" || mode === "visual_novel" ? cfg.autoplayRP : mode === "game" ? false : cfg.autoplayConvo;
+      mode === "roleplay" ? cfg.autoplayRP : mode === "game" ? false : cfg.autoplayConvo;
     if (!shouldAutoplay) return;
 
     const msgs = messagesRef.current ?? [];
@@ -3279,7 +3279,7 @@ export function ChatArea() {
   }
 
   // ═══════════════════════════════════════════════
-  // Roleplay / Visual Novel mode — existing layout
+  // Roleplay mode — existing layout
   // ═══════════════════════════════════════════════
   const shouldAnimateMessages = !hasAnimatedRef.current;
   if (messages?.length) hasAnimatedRef.current = true;

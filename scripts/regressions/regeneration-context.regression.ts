@@ -51,7 +51,7 @@ assert.equal(
   "regeneration must drop every summary entry covering the response being replaced",
 );
 assert.equal(
-  resolveRoleplayChatSummary("visual_novel", summaryMetadata, {
+  resolveRoleplayChatSummary("roleplay", summaryMetadata, {
     excludeMessageIds: ["older-user", "regenerated-assistant"],
   }),
   null,

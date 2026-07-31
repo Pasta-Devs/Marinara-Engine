@@ -96,7 +96,7 @@ export function ChatGallery({
 }: ChatGalleryProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data: images, isLoading } = useGalleryImages(chatId);
-  const sceneVideosEnabled = mode === "game" || mode === "roleplay" || mode === "visual_novel";
+  const sceneVideosEnabled = mode === "game" || mode === "roleplay";
   const sceneVideosQuery = useSceneVideos(chatId, sceneVideosEnabled);
   const sceneVideos = sceneVideosQuery.data ?? EMPTY_SCENE_VIDEOS;
   const upload = useUploadGalleryImage(chatId);

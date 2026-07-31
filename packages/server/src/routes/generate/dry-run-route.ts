@@ -587,7 +587,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
       impersonate,
       impersonateBlockAgents: false,
     });
-    const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay" || chatMode === "visual_novel";
+    const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay";
     let startIdx = 0;
     for (let i = allChatMessages.length - 1; i >= 0; i--) {
       const extra = parseExtra(allChatMessages[i]!.extra);
@@ -611,7 +611,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     );
     const promptSpatialProjection =
       (ownerSpatialProjection?.ownerMode === "game" && chatMode === "game") ||
-      (ownerSpatialProjection?.ownerMode === "roleplay" && (chatMode === "roleplay" || chatMode === "visual_novel"))
+      (ownerSpatialProjection?.ownerMode === "roleplay" && chatMode === "roleplay")
         ? ownerSpatialProjection
         : null;
     const ownerSpatialLorebookEntryIds = promptSpatialProjection?.lorebookEntryIds ?? [];

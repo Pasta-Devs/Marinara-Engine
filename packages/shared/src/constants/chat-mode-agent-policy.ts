@@ -8,7 +8,7 @@ import { BUILT_IN_AGENTS, isRetiredBuiltInAgentId, type BuiltInAgentMeta } from 
 
 type ChatModeAgentPolicy = { kind: "all" } | { kind: "allowlist"; allowedAgentIds: readonly string[] };
 
-const CHAT_MODE_AGENT_POLICIES: Record<Exclude<ChatMode, "visual_novel">, ChatModeAgentPolicy> = {
+const CHAT_MODE_AGENT_POLICIES: Record<ChatMode, ChatModeAgentPolicy> = {
   // Conversation mode's About Me profile and update_about_me tool are core
   // features, not downloadable agents. User-authored custom agents remain allowed.
   conversation: { kind: "allowlist", allowedAgentIds: [] },
@@ -22,7 +22,7 @@ export function isAgentManifestAvailableInChatMode(
   agent: Pick<BuiltInAgentMeta, "id" | "modeAllowlist" | "execution">,
 ): boolean {
   if (isRetiredBuiltInAgentId(agent.id)) return false;
-  const policyMode = mode === "visual_novel" ? "roleplay" : (mode ?? "roleplay");
+  const policyMode = mode ?? "roleplay";
   if (agent.modeAllowlist?.length && !agent.modeAllowlist.includes(policyMode)) return false;
   if (agent.execution === "feature" || agent.execution === "host") return true;
   const policy = CHAT_MODE_AGENT_POLICIES[policyMode] ?? CHAT_MODE_AGENT_POLICIES.roleplay;

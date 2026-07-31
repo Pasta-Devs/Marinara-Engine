@@ -183,7 +183,6 @@ const MATCHING_SOURCE_OPTIONS: Array<{ value: LorebookMatchingSource; label: str
 const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "conversation", label: "Conversation" },
   { value: "roleplay", label: "Roleplay" },
-  { value: "visual_novel", label: "Legacy Roleplay" },
   { value: "game", label: "Game" },
   { value: "chat", label: "Chat reply" },
   { value: "continue", label: "Continue" },

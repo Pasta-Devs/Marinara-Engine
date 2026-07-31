@@ -576,12 +576,10 @@ function isConversationCommandToggleEnabled(
   return toggles[command] !== false;
 }
 
-const MODE_INTROS: Record<ChatMode, string> = {
-  conversation:
-    "Plain chat — no roleplay or game systems built in; autonomous messaging and other tools are optional below.",
-  roleplay:
-    "Classic roleplay mode — choose characters, prompt, persona, and add optional agents to enhance the sandbox experience.",
-  game: "Full Game Master with built-in dice, combat, encounters, world state, and session/map tracking — the Scene Analysis toggle below adds optional cinematic visuals (backgrounds, music, weather).",
+const MODE_INTRO_KEYS: Record<ChatMode, string> = {
+  conversation: "settings.chat.modeIntro.conversation",
+  roleplay: "settings.chat.modeIntro.roleplay",
+  game: "settings.chat.modeIntro.game",
 };
 
 const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
@@ -812,9 +810,9 @@ export function ChatSettingsDrawer({
   const chatMode = (chat as unknown as { mode?: ChatMode }).mode ?? "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
-  const isRoleplayMode = chatMode === "roleplay" || chatMode === "visual_novel";
+  const isRoleplayMode = chatMode === "roleplay";
   const supportsNarrativeDirectorSecretPlot = chatMode === "roleplay";
-  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[chatMode === "visual_novel" ? "roleplay" : chatMode];
+  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[chatMode];
   const metadata = useMemo(
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
@@ -3027,7 +3025,7 @@ export function ChatSettingsDrawer({
   const [gameSpotifyArtistDraft, setGameSpotifyArtistDraft] = useState(gameSpotifyArtist);
 
   // ── Chat settings profiles (legacy API/type names still use "chat preset") ──
-  const presetMode = (chatMode === "visual_novel" ? "roleplay" : chatMode) as ChatMode;
+  const presetMode = chatMode;
   const { data: chatPresets } = useChatPresets(presetMode);
   const saveChatPreset = useSaveChatPresetSettings();
   const duplicateChatPreset = useDuplicateChatPreset();
@@ -4031,13 +4029,13 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Keep this display tied to the runtime defaults below. */}
-          {MODE_INTROS[chatMode as ChatMode] && (
+          {MODE_INTRO_KEYS[chatMode] && (
             <div
               style={{ order: CHAT_SETTINGS_ORDER.modeIntro }}
               className="border-b border-[var(--border)] px-4 py-2.5"
             >
               <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                {MODE_INTROS[chatMode as ChatMode]}
+                {localizeUi(MODE_INTRO_KEYS[chatMode])}
               </p>
             </div>
           )}

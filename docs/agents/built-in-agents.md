@@ -156,7 +156,7 @@ Simulates a live audience reacting to your scene, shown as a floating **Echo** w
 Extracts durable memories from chat summaries, character records, and lorebooks into a package-owned vault, then recalls relevant context before the main reply. It supports scoped vault browsing, source imports, pending-draft review, and preset-marker placement for recalled context.
 
 - **Integration**: Feature package; it contributes pre-generation context and memory management UI instead of running as a normal post-processing tracker.
-- **Where it works**: Conversation, Roleplay, Visual Novel, and Game. Visual Novel uses the Roleplay extraction profile.
+- **Where it works**: Conversation, Roleplay, and Game.
 - **Key settings**: enablement, recall token budget (128-16,384), maximum recalled chunks (1-100), score threshold, recent-message context (1-20), recall style and semantic, lexical, graph, and keyword weights, resolved-memory inclusion, recall preamble, extraction reasoning and verbosity, generation limits, source limits, prompt templates, AI keyword extraction, and Game-mode extraction.
 - **Data lifecycle**: use the Memory Settings backup controls to export or replace the vault, drafts, and settings. Delete all data permanently removes memories, drafts, activity, and derived indexes while retaining settings. Uninstalling the package preserves the Long-Term Memory vault for a later reinstall. Installing, updating, or removing it requires a Marinara restart.
 - **Compatibility**: Engine `2.3.3` through before `2.4.0`. The package uses `agent-runtime`, `chat-read`, `routes`, `storage`, and `ui` permissions.

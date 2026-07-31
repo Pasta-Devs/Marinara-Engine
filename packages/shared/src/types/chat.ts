@@ -11,8 +11,8 @@ import type { SpotifySourceType } from "./spotify.js";
 
 export type { SpotifySourceType } from "./spotify.js";
 
-/** The four primary chat modes the engine supports. */
-export type ChatMode = "conversation" | "roleplay" | "visual_novel" | "game";
+/** The three primary chat modes the engine supports. */
+export type ChatMode = "conversation" | "roleplay" | "game";
 
 /** How a multi-character (group) chat is handled. */
 export type GroupChatMode = "merged" | "individual";
@@ -263,7 +263,7 @@ export interface ChatMetadata {
   /** Maximum output tokens requested from the model for manual and automatic Roleplay chat summaries. */
   summaryMaxTokens?: number;
   /**
-   * When true, the automatic roleplay/visual-novel rolling summary hides the
+   * When true, the automatic roleplay rolling summary hides the
    * messages it summarized (hiddenFromAI=true) except the most-recent
    * `summaryTailMessages`, so the summary is a net token reduction. Opt-in:
    * undefined/false never hides (back-compat for existing chats). Read by the
@@ -440,7 +440,7 @@ export interface ChatMetadata {
   hapticSensitivity?: HapticFeedbackSensitivity;
   /** When true, very brief accidental brushes may trigger small haptic feedback. Missing/false = only deliberate contact. */
   hapticIncidentalContact?: boolean;
-  /** Music source constraint for Music DJ in roleplay and visual novel chats. */
+  /** Music source constraint for Music DJ in roleplay chats. */
   spotifySourceType?: SpotifySourceType;
   /** Spotify playlist ID used when spotifySourceType is "playlist". */
   spotifyPlaylistId?: string | null;
@@ -656,7 +656,7 @@ export interface ChatMetadata {
    * How many of the most recent messages to keep verbatim even after they've
    * been summarized. In conversation mode this bridges the day boundary so
    * characters pick up the actual flow of recent conversation, not just the
-   * gist. In roleplay/visual-novel mode it is the protected tail for
+   * gist. In roleplay mode it is the protected tail for
    * `hideSummarisedMessages`: the last N messages stay visible (never hidden)
    * when the auto-summary hides the rest. 0 disables (hide the whole batch).
    * Any non-negative whole number is accepted. Default: 10.

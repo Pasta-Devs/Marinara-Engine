@@ -1,7 +1,7 @@
 /**
  * Resolve the Persona visible to a chat. Explicit chat selection always wins.
  * Conversation may use the globally active Persona for its account-style UX;
- * Roleplay, legacy Visual Novel, and Game remain Persona-less unless selected.
+ * Roleplay and Game remain Persona-less unless selected.
  */
 export function resolveChatPersonaCandidate<T extends { id: string; isActive?: unknown }>(
   personas: readonly T[],

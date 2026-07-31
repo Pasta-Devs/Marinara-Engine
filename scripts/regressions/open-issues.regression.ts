@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
 import type { Chat, ChatMode, Message } from "../../packages/shared/src/types/chat.js";
+import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 import { characterCardVersions, characters, chats, messages } from "../../packages/server/src/db/schema/index.js";
@@ -426,7 +427,7 @@ const expectedChatModeSurfaces = {
     showGroupChatControls: false,
   },
 } as const satisfies Record<
-  Exclude<ChatMode, "visual_novel">,
+  ChatMode,
   {
     showSettingsProfiles: boolean;
     promptSettingsSurface: "conversation" | "roleplay" | "game";
@@ -434,7 +435,8 @@ const expectedChatModeSurfaces = {
     showGroupChatControls: boolean;
   }
 >;
-for (const mode of Object.keys(expectedChatModeSurfaces) as Array<Exclude<ChatMode, "visual_novel">>) {
+assert.deepEqual(chatModeSchema.options, ["conversation", "roleplay", "game"]);
+for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
   const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[mode];
   assert.deepEqual(
     {
@@ -447,25 +449,11 @@ for (const mode of Object.keys(expectedChatModeSurfaces) as Array<Exclude<ChatMo
     `Chat mode ${mode} must expose the expected settings surfaces`,
   );
 }
-assert.equal(
-  Object.hasOwn(CHAT_SETTINGS_SURFACES, "visual_novel"),
-  false,
-  "Legacy Visual Novel must alias Roleplay instead of owning a settings-surface row",
-);
+assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
 const downloadableAgent = { id: "downloadable-agent", execution: "pipeline" as const };
 assert.equal(isAgentManifestAvailableInChatMode("conversation", downloadableAgent), false);
 assert.equal(isAgentManifestAvailableInChatMode("roleplay", downloadableAgent), true);
-assert.equal(isAgentManifestAvailableInChatMode("visual_novel", downloadableAgent), true);
 assert.equal(isAgentManifestAvailableInChatMode("game", downloadableAgent), false);
-assert.equal(
-  isAgentManifestAvailableInChatMode("visual_novel", {
-    id: "roleplay-limited-agent",
-    execution: "pipeline",
-    modeAllowlist: ["roleplay"],
-  }),
-  true,
-  "Legacy Visual Novel must use the normalized Roleplay mode for manifest allowlists",
-);
 assert.equal(
   isAgentManifestAvailableInChatMode("game", { id: "spotify", execution: "pipeline" }),
   true,
@@ -488,7 +476,6 @@ assert.equal(
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
-assert.equal(shouldRestoreRegenerationCharacterTarget("visual_novel", undefined, ["a", "b"]), false);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "individual", ["a", "b"]), true);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a"]), true);
 assert.deepEqual(resolveIllustratorImageSize({ width: 960, height: 540 }, "landscape"), {
@@ -2104,8 +2091,8 @@ const chatSettingsDrawerSource = readFileSync(
 );
 assert.match(
   chatSettingsDrawerSource,
-  /CHAT_SETTINGS_SURFACES\s*\[\s*chatMode\s*===\s*["']visual_novel["']\s*\?\s*["']roleplay["']\s*:\s*chatMode\s*\]/u,
-  "Chat Settings Drawer must normalize legacy Visual Novel to the Roleplay settings surface",
+  /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
+  "Chat Settings Drawer must select the active mode's settings surface directly",
 );
 for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "agentSettingsSurface"]) {
   assert.match(

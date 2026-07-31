@@ -2270,7 +2270,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const chatMode = (chat.mode as string) ?? "roleplay";
     const chatSummaryFingerprint = fingerprintChatSummary(chatMeta.summary);
     const visibleGameStateAnchor = resolveVisibleGameStateAnchor(chatMessages);
-    const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay" || chatMode === "visual_novel";
+    const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay";
 
     const readCachedPrompt = (
       extra: Record<string, unknown>,
@@ -2374,8 +2374,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       presetId ||
       chatMode === "conversation" ||
       chatMode === "game" ||
-      chatMode === "roleplay" ||
-      chatMode === "visual_novel"
+      chatMode === "roleplay"
     ) {
       try {
         const { createPromptsStorage } = await import("../services/storage/prompts.storage.js");
@@ -2391,8 +2390,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           preset ||
           chatMode === "conversation" ||
           chatMode === "game" ||
-          chatMode === "roleplay" ||
-          chatMode === "visual_novel"
+          chatMode === "roleplay"
         ) {
           // Apply conversation-start filter
           let scopedMessages = chatMessages;
@@ -2518,8 +2516,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           const lorebookTokenBudget = resolveLorebookTokenBudget(chatMeta);
           const forcedLorebookEntryIds =
             ownerSpatialProjection &&
-            (ownerSpatialProjection.ownerMode === chatMode ||
-              (ownerSpatialProjection.ownerMode === "roleplay" && chatMode === "visual_novel"))
+            ownerSpatialProjection.ownerMode === chatMode
               ? ownerSpatialProjection.lorebookEntryIds
               : [];
           if (chatMode === "conversation") {
@@ -2623,7 +2620,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 "No saved model request was available, so this is a live best-effort preview assembled without sending.",
             };
           }
-          if (!preset && (chatMode === "roleplay" || chatMode === "visual_novel")) {
+          if (!preset && chatMode === "roleplay") {
             const lorebookResult = await processLorebooks(app.db, mappedMessages, null, {
               chatId: req.params.id,
               characterIds,
@@ -2725,7 +2722,7 @@ export async function chatsRoutes(app: FastifyInstance) {
             idleDuration: promptIdleDuration,
           });
 
-          // ── Strip <speaker> tags from chat history to save tokens (non-conversation modes; game already returned above, so effectively roleplay plus legacy visual_novel chats) ──
+          // ── Strip <speaker> tags from chat history to save tokens (game already returned above, so this is Roleplay) ──
           const isGroupChat = characterIds.length > 1;
           if (isGroupChat && chatMode !== "conversation") {
             stripSpeakerTagsExceptLastAssistant(assembled.messages);
@@ -3565,7 +3562,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     // store the per-branch display label in metadata instead.
     const newChat = await storage.create({
       name: sourceChat.name,
-      mode: sourceChat.mode as "conversation" | "roleplay" | "visual_novel" | "game",
+      mode: sourceChat.mode as "conversation" | "roleplay" | "game",
       characterIds: (() => {
         try {
           return JSON.parse(sourceChat.characterIds as string);

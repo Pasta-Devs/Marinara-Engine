@@ -4256,10 +4256,6 @@ const cases: RegressionCase[] = [
         illustratorBackgroundGenerationEnabled("roleplay", { illustratorAutoBackgroundsEnabled: true }),
         true,
       );
-      assert.equal(
-        illustratorBackgroundGenerationEnabled("visual_novel", { illustratorAutoBackgroundsEnabled: true }),
-        true,
-      );
       assert.equal(illustratorBackgroundGenerationEnabled("game", { illustratorAutoBackgroundsEnabled: true }), false);
       assert.equal(illustratorBackgroundGenerationEnabled("roleplay", {}), false);
       assert.equal(illustratorRequestedBackground(true), true);
@@ -4534,17 +4530,6 @@ const cases: RegressionCase[] = [
           );
         }
       }
-
-      const visualNovelTags = chatBackgroundTags(
-        {
-          sourceMode: "visual_novel",
-          locationSlug: "moonlit-garden",
-          tags: ["garden"],
-        } as any,
-        "moonlit-garden",
-      );
-      assert.ok(visualNovelTags.includes("visual_novel"));
-      assert.ok(!visualNovelTags.includes("roleplay"));
 
       const drawerSource = readFileSync(
         new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
@@ -6675,7 +6660,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
       assert.equal(resolveChatPersonaCandidate(personas, null, "roleplay"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "roleplay"), null);
-      assert.equal(resolveActivePersonaCandidate(personas, null, "visual_novel"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "game"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "conversation")?.id, "active-persona");
       assert.equal(resolveActivePersonaCandidate(personas, "selected-persona", "roleplay")?.id, "selected-persona");
@@ -7465,7 +7449,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         }),
         true,
       );
-      for (const chatMode of ["conversation", "roleplay", "visual_novel", "game"] as const) {
+      for (const chatMode of ["conversation", "roleplay", "game"] as const) {
         assert.equal(
           isAgentAvailableInChatMode(chatMode, "custom-human-voice-rewriter"),
           true,

@@ -85,7 +85,6 @@ Roleplay uses inline display in the first release. Existing Game floating/backgr
 - Automatically animating every N Illustrator runs or selecting among Illustrator variants.
 - Arbitrary manual message-range selection.
 - Roleplay floating/background viewer modes.
-- Visual Novel support.
 - Renaming Game-prefixed routes, tables, or shared types.
 - Rewriting existing Game prompt templates into shared Game/Roleplay templates.
 

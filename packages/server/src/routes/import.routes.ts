@@ -373,7 +373,6 @@ function readChatMode(value: unknown): ChatMode | undefined {
   if (
     normalized === "conversation" ||
     normalized === "roleplay" ||
-    normalized === "visual_novel" ||
     normalized === "game"
   ) {
     return normalized;
@@ -402,7 +401,7 @@ function invalidRegexScriptScopeResponse() {
 function invalidChatModeResponse() {
   return {
     success: false,
-    error: "Invalid mode. Expected one of: conversation, roleplay, visual_novel, game.",
+    error: "Invalid mode. Expected one of: conversation, roleplay, game.",
   };
 }
 

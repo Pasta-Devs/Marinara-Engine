@@ -895,7 +895,7 @@ export interface ChatBackgroundGenRequest extends BackgroundGenRequest {
   /** Searchable library tags supplied by the prompt writer. */
   tags?: string[];
   /** Source chat mode used for library tags. */
-  sourceMode?: "roleplay" | "visual_novel" | "game";
+  sourceMode?: "roleplay" | "game";
 }
 
 export interface SceneIllustrationGenRequest {

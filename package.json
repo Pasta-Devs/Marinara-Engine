@@ -2,7 +2,7 @@
   "name": "marinara-engine",
   "version": "2.3.5",
   "private": true,
-  "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Visual Novel",
+  "description": "AI Chat & Roleplay Frontend — Conversation, Roleplay, Game",
   "author": "Marianna",
   "license": "AGPL-3.0",
   "type": "module",

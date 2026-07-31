@@ -113,7 +113,7 @@ The picture size comes from the **Portraits** image-size setting in the image-ge
 
 The **Advanced** tab holds prompt controls for advanced users. You can leave all of these empty for a normal character.
 
-These character-authored prompt controls apply in Conversation, Roleplay, Visual Novel, and Game modes. A selected Conversation or Game preset changes the surrounding prompt, but does not disable the character's Post-History Instructions or Depth Prompt.
+These character-authored prompt controls apply in Conversation, Roleplay, and Game modes. A selected Conversation or Game preset changes the surrounding prompt, but does not disable the character's Post-History Instructions or Depth Prompt.
 
 - **System Prompt**. Character-specific instructions added through the active preset's character block, Conversation character context, or Game character/GM card as appropriate. This does not replace the chat's main system prompt.
 - **Post-History Instructions**. Text placed near the end of the prompt, close to generation. A common use is a short reminder like "Stay in character".

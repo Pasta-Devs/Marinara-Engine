@@ -331,7 +331,7 @@ export function ChatSidebar() {
     () =>
       (chats ?? []).filter(
         (chat) =>
-          (chat.mode === activeTab || (activeTab === "roleplay" && chat.mode === "visual_novel")) &&
+          chat.mode === activeTab &&
           !(chat.mode === "conversation" && chat.metadata?.gameId),
       ),
     [chats, activeTab],
@@ -473,7 +473,7 @@ export function ChatSidebar() {
   const modeFolders = useMemo(() => {
     if (!folders) return [] as ChatFolder[];
     return folders
-      .filter((f) => f.mode === activeTab || (activeTab === "roleplay" && f.mode === "visual_novel"))
+      .filter((f) => f.mode === activeTab)
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }, [folders, activeTab]);
 
@@ -582,7 +582,7 @@ export function ChatSidebar() {
 
     // 1. Tab sync — once per chat switch
     if (!s.tabSynced) {
-      const chatMode = chat.mode === "visual_novel" ? "roleplay" : chat.mode;
+      const chatMode = chat.mode;
       if (chatMode === "conversation" || chatMode === "roleplay" || chatMode === "game") {
         setActiveTab(chatMode);
       }
@@ -639,9 +639,7 @@ export function ChatSidebar() {
       if (createChat.isPending) return;
       const connectionRows = ((connections ?? []) as Array<{ id: string }>).filter((connection) => !!connection.id);
       if (connectionRows.length === 0) {
-        if (mode !== "visual_novel") {
-          setPendingNewChatMode(mode, "sidebar");
-        }
+        setPendingNewChatMode(mode, "sidebar");
         if (typeof window !== "undefined" && window.innerWidth < 768) setSidebarOpen(false);
         return;
       }
@@ -882,7 +880,7 @@ export function ChatSidebar() {
 
   // ── Chat row renderer (shared between unfiled + folder sections) ──
   const renderChatRow = ({ chat, branchCount }: (typeof displayChats)[number]) => {
-    const cfg = MODE_CONFIG[chat.mode === "visual_novel" ? "roleplay" : chat.mode] ?? MODE_CONFIG.conversation;
+    const cfg = MODE_CONFIG[chat.mode] ?? MODE_CONFIG.conversation;
     const isActive = activeChatId === chat.id || (chat.groupId != null && chat.groupId === activeGroupId);
     const isSelected = selectedChatIds.has(chat.id);
     const charIds = normalizeChatCharacterIds((chat as { characterIds?: unknown }).characterIds);
@@ -1293,7 +1291,7 @@ export function ChatSidebar() {
             const isActive = activeTab === tab;
             const tabUnread =
               chats
-                ?.filter((c) => c.mode === tab || (tab === "roleplay" && c.mode === "visual_novel"))
+                ?.filter((c) => c.mode === tab)
                 .reduce((sum, c) => sum + (unreadCounts.get(c.id) || 0), 0) ?? 0;
             return (
               <button

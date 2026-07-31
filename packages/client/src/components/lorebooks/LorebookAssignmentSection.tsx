@@ -43,7 +43,6 @@ interface AssignmentDraft {
 const MODE_LABELS: Record<ChatMode, string> = {
   conversation: "Conversation",
   roleplay: "Roleplay",
-  visual_novel: "Roleplay (Legacy)",
   game: "Game",
 };
 

@@ -530,7 +530,7 @@ export function isMessageHiddenFromAIForCharacter(
 }
 
 export function isRoleplaySummaryMode(chatMode: string): boolean {
-  return chatMode === "roleplay" || chatMode === "visual_novel";
+  return chatMode === "roleplay";
 }
 
 /**
@@ -877,7 +877,7 @@ export function shouldRestoreRegenerationCharacterTarget(
   configuredMode: unknown,
   characterIds: string[],
 ): boolean {
-  const isRoleplayGroup = chatMode === "roleplay" || chatMode === "visual_novel";
+  const isRoleplayGroup = chatMode === "roleplay";
   return !(isRoleplayGroup && characterIds.length > 1 && resolveGroupGenerationMode(chatMode, configuredMode) === "merged");
 }
 
