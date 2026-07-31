@@ -50,18 +50,7 @@ jobs:
           exit 1
 
   external-contributor-approval:
-    name: >-
-      ${{
-        (
-          (github.event_name == 'pull_request_target' &&
-            (github.event.action != 'edited' || github.event.changes.base != null)) ||
-          (github.event_name == 'pull_request_review' &&
-            github.event.review.user.login == 'SpicyMarinara' &&
-            (github.event.action == 'dismissed' ||
-              github.event.review.state == 'approved' ||
-              github.event.review.state == 'changes_requested'))
-        ) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event'
-      }}
+    name: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || github.event.changes.base != null)) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested'))) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event' }}"
     if: >-
       github.event.pull_request.base.ref == 'staging' &&
       (

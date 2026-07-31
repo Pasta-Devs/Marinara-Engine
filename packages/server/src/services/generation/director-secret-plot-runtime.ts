@@ -72,6 +72,7 @@ export function shouldRunDirectorSecretPlotMaintenance(args: {
   memory: Record<string, unknown>;
   runInterval: number;
   messages: Array<{ id?: string | null; role?: string | null }>;
+  countUpcomingMessage?: boolean;
 }): boolean {
   const state = buildSecretPlotStateFromMemory(args.memory);
   const arc = normalizeSecretPlotArc(state.overarchingArc);
@@ -86,7 +87,8 @@ export function shouldRunDirectorSecretPlotMaintenance(args: {
   const messagesSince = args.messages
     .slice(lastIndex + 1)
     .filter((message) => message.role === "user" || message.role === "assistant").length;
-  return messagesSince + 1 >= args.runInterval;
+  const upcomingMessageCount = args.countUpcomingMessage === false ? 0 : 1;
+  return messagesSince + upcomingMessageCount >= args.runInterval;
 }
 
 export function formatSecretPlotSystemBlock(arcRaw: unknown, wrapFormat: "xml" | "markdown" | "none"): string {

@@ -1206,7 +1206,10 @@ export function useGenerate() {
       // A stale in-flight message refetch can overwrite the saved assistant
       // message after it is upserted into the cache. Cancel early so the
       // post-save refresh owns the query lifecycle for this generation.
-      const cancellation = qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
+      const cancellation = qc.cancelQueries(
+        { queryKey: chatKeys.messages(params.chatId), exact: true },
+        { silent: true, revert: false },
+      );
       const pendingAttachments = params.attachments ?? [];
 
       // Optimistically show the user message in the chat immediately

@@ -38,8 +38,8 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
       if (!isBuiltIn) {
         return {
           label: "Trigger Cadence",
-          unit: "user messages",
-          help: "How many user messages should pass since this custom agent last ran before it triggers again. Set to 1 to run whenever its phase runs.",
+          unit: "messages",
+          help: "How many user and assistant messages should pass since this custom agent last ran before it triggers again. Set to 1 to run whenever its phase runs.",
           defaultValue: 1,
           max: 200,
         };

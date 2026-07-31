@@ -2324,8 +2324,12 @@ export function formatAgentMainResponseForPrompt(context: AgentContext, preserve
   }
 
   return context.mainResponseSegments
-    .filter((segment) => segment.characterName.trim() && segment.content.trim())
-    .map((segment) => `${segment.characterName.trim()}: ${stripHtmlTags(segment.content)}`)
+    .map((segment) => ({
+      characterName: stripHtmlTags(segment.characterName).trim(),
+      content: stripHtmlTags(segment.content).trim(),
+    }))
+    .filter((segment) => segment.characterName && segment.content)
+    .map((segment) => `${segment.characterName}: ${segment.content}`)
     .join("\n\n");
 }
 

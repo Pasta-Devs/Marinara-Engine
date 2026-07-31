@@ -73,6 +73,7 @@ import {
   LOCAL_SIDECAR_CONNECTION_ID,
   MODEL_LISTS,
   IMAGE_GENERATION_SOURCES,
+  ZAI_IMAGE_MODELS,
   VIDEO_GENERATION_SOURCES,
   inferImageSource,
   inferVideoSource,
@@ -1567,6 +1568,12 @@ export function ConnectionEditor() {
                         setLocalImageService(src.id);
                         if (shouldSeedBaseUrl) {
                           setLocalBaseUrl(src.defaultBaseUrl);
+                        }
+                        if (
+                          src.id === "zai" &&
+                          !ZAI_IMAGE_MODELS.some((model) => model.id === localModel.trim())
+                        ) {
+                          setLocalModel("glm-image");
                         }
                         markDirty();
                       }}

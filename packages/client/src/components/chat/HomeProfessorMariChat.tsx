@@ -3020,19 +3020,24 @@ export function HomeProfessorMariChat({
     });
     if (!confirmed) return;
 
-    const deletingActiveChat = chatId ? selectedChatHistoryIds.has(chatId) : false;
+    const selectedIds = [...selectedChatHistoryIds];
     try {
-      await Promise.all(
-        [...selectedChatHistoryIds].map((id) => api.delete(`/chats/internal/professor-mari/chats/${id}`)),
+      const results = await Promise.allSettled(
+        selectedIds.map((id) => api.delete(`/chats/internal/professor-mari/chats/${id}`)),
       );
+      const deletedIds = new Set(
+        selectedIds.filter((_, index) => results[index]?.status === "fulfilled"),
+      );
+      const failedDeletion = results.find((result) => result.status === "rejected");
       setChatHistorySelectionMode(false);
       setSelectedChatHistoryIds(new Set());
-      if (deletingActiveChat) {
+      if (chatId && deletedIds.has(chatId)) {
         const chat = await ensureProfessorMariChat(effectiveConnectionId);
         setChatId(chat.id);
         await loadMessages(chat.id);
       }
       await loadChatHistory();
+      if (failedDeletion?.status === "rejected") throw failedDeletion.reason;
     } catch (error) {
       console.error("[Professor Mari] Failed to delete selected chats", error);
       await loadChatHistory().catch(() => undefined);

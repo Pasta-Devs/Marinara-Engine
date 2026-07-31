@@ -3464,6 +3464,7 @@ export async function generateRoutes(app: FastifyInstance) {
                   memory: directorSecretPlotMemory,
                   runInterval: directorSecretPlotRunInterval,
                   messages: allChatMessages,
+                  countUpcomingMessage: !input.continueMessageId,
                 });
             } catch (err) {
               logger.warn(err, "[narrative-director] Failed to load secret plot memory");

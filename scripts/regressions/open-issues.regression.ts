@@ -1415,6 +1415,10 @@ const pullRequestTriageWorkflow = readFileSync(
 assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
 assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
 assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
+assert.match(
+  pullRequestTriageWorkflow,
+  /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
+);
 assert.match(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
 assert.equal(
   buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
@@ -1838,7 +1842,7 @@ assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
 assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
 assert.match(
   professorMariHomeSource,
-  /Promise\.all\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
+  /Promise\.allSettled\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
   "Professor Mari chat history should delete all selected chats through the existing endpoint",
 );
 const roleplaySurfaceSource = readFileSync(
@@ -4133,6 +4137,11 @@ try {
     connectionEditorSource,
     /setRemoteModels\(\[\]\);\s*setRemoteLoras\(\[\]\);\s*setFetchError\(null\);/u,
     "Changing media providers must clear stale remote LoRA choices",
+  );
+  assert.match(
+    connectionEditorSource,
+    /src\.id === "zai"[\s\S]{0,180}ZAI_IMAGE_MODELS\.some[\s\S]{0,180}setLocalModel\("glm-image"\)/u,
+    "Switching to Z.AI must replace a model that Z.AI does not support",
   );
 
   const backgroundAutonomousSource = readFileSync(

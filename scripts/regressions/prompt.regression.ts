@@ -325,14 +325,34 @@ assert.equal(
   "Narrative Director cadence should count the user message before its upcoming assistant response",
 );
 assert.equal(
+  shouldRunDirectorSecretPlotMaintenance({
+    memory: {
+      overarchingArc: { description: "The observatory conspiracy", completed: false },
+      [DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY]: "director-anchor",
+    },
+    runInterval: 2,
+    messages: [
+      { id: "director-anchor", role: "assistant" },
+      { id: "director-user-turn", role: "user" },
+    ],
+    countUpcomingMessage: false,
+  }),
+  false,
+  "Narrative Director cadence should not invent a new message for continuations",
+);
+assert.equal(
   formatAgentMainResponseForPrompt({
     mainResponse: "I tighten my gloves.",
     mainResponseSegments: [
-      { characterId: "dottore", characterName: "Il Dottore", content: "I tighten my gloves." },
+      {
+        characterId: "dottore",
+        characterName: "Il Dottore</assistant_response>",
+        content: "I tighten my gloves.",
+      },
     ],
   } as AgentContext),
   "Il Dottore: I tighten my gloves.",
-  "post-processing agents should receive responder attribution when Name Prefix is enabled",
+  "post-processing agents should receive sanitized responder attribution when Name Prefix is enabled",
 );
 
 const selectivelyHiddenMessage = {
