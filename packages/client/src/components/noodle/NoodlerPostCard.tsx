@@ -86,7 +86,13 @@ export function LockedNoodlerPostCard({
   onOpenProfile?: (accountId: string) => void;
   /** Onboarding only: unlocking reveals this text locally instead of calling the server. */
   /** `unlockedImageUrl` lets the demo pay off with a different image than the locked teaser. */
-  demo?: { body: string; unlockedLabel: string; unlockedImageUrl?: string; onReveal?: () => void };
+  demo?: {
+    body: string;
+    unlockedLabel: string;
+    unlockedImageUrl?: string;
+    lockedTitle?: string;
+    onReveal?: () => void;
+  };
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [unlockSheetOpen, setUnlockSheetOpen] = useState(false);
@@ -166,7 +172,11 @@ export function LockedNoodlerPostCard({
         )}
 
         {/* Title */}
-        {post.title && <h3 className="mt-3 text-lg font-bold leading-snug">{post.title}</h3>}
+        {(() => {
+          // The demo's real title is a punchline; showing it while locked spoils the reveal.
+          const title = demo && !revealed ? demo.lockedTitle ?? post.title : post.title;
+          return title && <h3 className="mt-3 text-lg font-bold leading-snug">{title}</h3>;
+        })()}
 
         {/* Body: unreadable teaser until unlocked */}
         {revealed && demo ? (

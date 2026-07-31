@@ -501,17 +501,13 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   onToggleSubscription={() => {}}
                   demo={{
                     body: t("ui.noodle.noodlerwizard.demoPost.walkthrough.body"),
+                    lockedTitle: t("ui.noodle.noodlerwizard.demoPost.walkthrough.lockedTitle"),
                     unlockedLabel: t("ui.noodle.postaccess.unlocked"),
                     unlockedImageUrl: "/sprites/mari/Mari_noodler_teaser_unlocked.webp",
                     onReveal: () => setPostExplored(true),
                   }}
                 />
               </div>
-              {postExplored && (
-                <p className="rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2 text-sm">
-                  {t("ui.noodle.noodlerwizard.intro.locked.revealed")}
-                </p>
-              )}
             </div>
           )}
 
