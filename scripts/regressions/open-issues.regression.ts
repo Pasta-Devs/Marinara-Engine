@@ -1422,7 +1422,10 @@ assert.match(
   pullRequestTriageWorkflow,
   /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
 );
-assert.match(pullRequestTriageWorkflow, /github\.event\.action != 'edited' \|\| github\.event\.changes\.base\.ref\.from/u);
+assert.match(
+  pullRequestTriageWorkflow,
+  /github\.event\.action != 'edited' \|\| contains\(toJSON\(github\.event\.changes\), '\\?"base\\?"'\)/u,
+);
 assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
 assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base\.ref\.from != ''/u);
 assert.equal(
