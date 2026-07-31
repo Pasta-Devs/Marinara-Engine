@@ -807,7 +807,11 @@ export function ChatSettingsDrawer({
   const { data: defaultPromptPreset } = useDefaultPreset();
   const { data: installedAgentManifests = [] } = useCapabilityAgentRegistry();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages(open);
-  const chatMode = (chat as unknown as { mode?: ChatMode }).mode ?? "roleplay";
+  const persistedChatMode = (chat as unknown as { mode?: unknown }).mode;
+  const chatMode: ChatMode =
+    persistedChatMode === "conversation" || persistedChatMode === "roleplay" || persistedChatMode === "game"
+      ? persistedChatMode
+      : "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
   const isRoleplayMode = chatMode === "roleplay";
