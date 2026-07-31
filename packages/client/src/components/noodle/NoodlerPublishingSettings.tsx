@@ -34,7 +34,7 @@ export function NoodlerPublishingSettings({ active, onOpenCreator }: NoodlerPubl
 
   return (
     <div className="space-y-4">
-      <section className="space-y-3 rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]">
+      <section className="space-y-4 border-b border-[var(--border)] pb-4">
         <label className="flex items-center justify-between gap-3">
           <span className="min-w-0">
             <span className="block text-sm font-semibold">
@@ -64,28 +64,43 @@ export function NoodlerPublishingSettings({ active, onOpenCreator }: NoodlerPubl
             className="h-9 w-20 rounded-md bg-[var(--background)] px-2 text-right ring-1 ring-[var(--border)]"
           />
         </label>
-        <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
-          <p className="rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)]">
-            {t("ui.noodle.noodlerschedulemanagermodal.textAttempts", {
-              used: status?.textAttemptsUsed ?? 0,
-              limit: status?.postsPerDay ?? settings?.postsPerDay ?? 4,
-            })}
-          </p>
-          <p className="rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)]">
-            {t("ui.noodle.noodlerschedulemanagermodal.imageAttempts", {
-              used: status?.imageAttemptsUsed ?? 0,
-              limit: status?.postsPerDay ?? settings?.postsPerDay ?? 4,
-            })}
-          </p>
-          <p className="col-span-2 rounded-md bg-[var(--background)] p-2 ring-1 ring-[var(--border)] sm:col-span-1">
-            {status?.preparedThrough
-              ? t("ui.noodle.noodlerschedulemanagermodal.reserveThrough", {
-                  count: status.preparedCount,
-                  time: new Date(status.preparedThrough).toLocaleString(),
-                })
-              : t("ui.noodle.noodlerschedulemanagermodal.reserveEmpty")}
-          </p>
-        </div>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+          <div>
+            <dt className="text-[var(--muted-foreground)]">
+              {t("ui.noodle.noodlerschedulemanagermodal.textAttemptsLabel")}
+            </dt>
+            <dd className="mt-0.5 font-semibold tabular-nums">
+              {t("ui.noodle.noodlerschedulemanagermodal.textAttempts", {
+                used: status?.textAttemptsUsed ?? 0,
+                limit: status?.postsPerDay ?? settings?.postsPerDay ?? 4,
+              })}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[var(--muted-foreground)]">
+              {t("ui.noodle.noodlerschedulemanagermodal.imageAttemptsLabel")}
+            </dt>
+            <dd className="mt-0.5 font-semibold tabular-nums">
+              {t("ui.noodle.noodlerschedulemanagermodal.imageAttempts", {
+                used: status?.imageAttemptsUsed ?? 0,
+                limit: status?.postsPerDay ?? settings?.postsPerDay ?? 4,
+              })}
+            </dd>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <dt className="text-[var(--muted-foreground)]">
+              {t("ui.noodle.noodlerschedulemanagermodal.preparedPostsLabel")}
+            </dt>
+            <dd className="mt-0.5 font-semibold tabular-nums">
+              {status?.preparedThrough
+                ? t("ui.noodle.noodlerschedulemanagermodal.reserveThrough", {
+                    count: status.preparedCount,
+                    time: new Date(status.preparedThrough).toLocaleString(),
+                  })
+                : t("ui.noodle.noodlerschedulemanagermodal.reserveEmpty")}
+            </dd>
+          </div>
+        </dl>
         <button
           type="button"
           disabled={refreshAll.isPending}
@@ -99,7 +114,7 @@ export function NoodlerPublishingSettings({ active, onOpenCreator }: NoodlerPubl
                 toast.error(errorMessage(error, t("ui.noodle.noodlerschedulemanagermodal.couldNotRefreshCreators"))),
             })
           }
-          className="inline-flex h-9 items-center gap-2 rounded-full bg-[var(--background)] px-3 text-xs font-semibold ring-1 ring-[var(--border)] disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-[var(--border)] px-3 text-xs font-semibold transition-[background-color,scale] hover:bg-[var(--accent)] active:scale-[0.96] disabled:opacity-40"
         >
           <RefreshCw size={13} className={refreshAll.isPending ? "animate-spin" : undefined} />{" "}
           {t("ui.noodle.noodlerschedulemanagermodal.refreshAllNow")}
@@ -110,7 +125,7 @@ export function NoodlerPublishingSettings({ active, onOpenCreator }: NoodlerPubl
         {accounts.map((profile) => (
           <div
             key={profile.id}
-            className="flex flex-wrap items-center gap-3 rounded-lg bg-[var(--secondary)] p-3 ring-1 ring-[var(--border)]"
+            className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] px-1 py-3 last:border-b-0"
           >
             <button
               type="button"

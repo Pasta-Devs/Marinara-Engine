@@ -98,7 +98,7 @@ export function LockedNoodlerPostCard({
   return (
     <article
       data-noodle-post-id={post.id}
-      className="border-b border-[var(--noodle-divider)] px-4 py-4 transition-colors hover:bg-[var(--accent)]/35"
+      className="border-b border-[var(--noodle-divider)] px-4 py-5 transition-colors hover:bg-[var(--accent)]/25"
     >
       {/* Author row */}
       <div className="flex gap-3">
@@ -121,7 +121,8 @@ export function LockedNoodlerPostCard({
             >
               {profile.displayName}
             </button>
-            <span className="rounded-full bg-[var(--noodle-accent)]/15 px-2 py-0.5 text-[0.68rem] font-bold text-[var(--noodle-accent)]">
+            <span className="inline-flex items-center gap-1 rounded-md bg-[var(--noodle-accent)]/12 px-2 py-1 text-[0.68rem] font-bold text-[var(--noodle-accent)] ring-1 ring-inset ring-[var(--noodle-accent)]/20">
+              <Lock size={11} />
               {revealed && demo ? demo.unlockedLabel : localizeUi("ui.noodle.postaccess.locked")}
             </span>
           </div>
@@ -137,24 +138,28 @@ export function LockedNoodlerPostCard({
         {post.imageUrl && (
           <div
             className={cn(
-              "relative mt-3 w-full overflow-hidden rounded-xl bg-[var(--muted)]",
-              // Demo art is 4:3; a fixed height crops it into a letterbox strip.
-              demo ? "aspect-[4/3]" : "h-72",
+              "relative mt-3 aspect-[4/3] w-full overflow-hidden rounded-lg bg-[var(--muted)] ring-1 ring-inset ring-white/10",
             )}
           >
             <img
               src={(revealed && demo?.unlockedImageUrl) || post.imageUrl}
-              alt=""
+              alt={
+                revealed
+                  ? localizeUi("ui.noodle.post.imageBy", { name: profile.displayName })
+                  : localizeUi("ui.noodle.lockednoodlerpostcard.lockedImageFrom", { name: profile.displayName })
+              }
               className={cn(
                 "h-full w-full object-cover transition-[filter,transform] duration-500 motion-reduce:transition-none",
                 // The demo teaser ships pre-blurred, so a full blur-xl on top turns it to mush.
                 revealed ? "scale-100 blur-0" : cn("scale-110", demo ? "blur-sm" : "blur-xl"),
               )}
             />
-            {!revealed && <div className="absolute inset-0 bg-black/30" />}
+            {!revealed && <div className="absolute inset-0 bg-black/35" aria-hidden="true" />}
             {!revealed && (
-              <span className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
-                <Lock size={12} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
+              <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
+                <span className="flex items-center gap-2 rounded-md bg-black/70 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/15">
+                  <Lock size={12} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
+                </span>
               </span>
             )}
           </div>
@@ -168,9 +173,9 @@ export function LockedNoodlerPostCard({
           <p className="mt-3 whitespace-pre-line text-sm leading-6">{demo.body}</p>
         ) : (
           !controllerOnly && (
-            <div className="mt-3 space-y-2 select-none blur-[3px]" aria-hidden="true">
-              <div className="h-3.5 w-full rounded bg-[var(--muted-foreground)]/70" />
-              <div className="h-3.5 w-4/5 rounded bg-[var(--muted-foreground)]/70" />
+            <div className="mt-3 space-y-2 select-none" aria-hidden="true">
+              <div className="h-2.5 w-full rounded-sm bg-[var(--muted-foreground)]/20" />
+              <div className="h-2.5 w-3/4 rounded-sm bg-[var(--muted-foreground)]/15" />
             </div>
           )
         )}
@@ -186,7 +191,7 @@ export function LockedNoodlerPostCard({
               type="button"
               disabled={unlockPending || subscriptionPending}
               onClick={() => setUnlockSheetOpen(true)}
-              className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:!text-zinc-950"
+              className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 transition-[opacity,scale] hover:opacity-90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:!text-zinc-950"
             >
               <Eye size={14} /> {localizeUi("ui.noodle.lockednoodlerpostcard.unlock")}
             </button>
@@ -194,7 +199,7 @@ export function LockedNoodlerPostCard({
         )}
 
         {/* Footer */}
-        <div className="mt-3 flex items-center gap-4 text-sm text-[var(--muted-foreground)]">
+        <div className="mt-4 flex items-center gap-4 text-sm tabular-nums text-[var(--muted-foreground)]">
           <span className="flex items-center gap-1.5">
             <Heart size={18} /> {likeCount}
           </span>
@@ -622,7 +627,7 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
       key={post.id}
       data-noodle-post-id={post.id}
       tabIndex={-1}
-      className="border-b border-[var(--noodle-divider)] px-4 py-4 transition-colors hover:bg-[var(--accent)]/35"
+      className="border-b border-[var(--noodle-divider)] px-4 py-5 transition-colors hover:bg-[var(--accent)]/25"
     >
       <div className="flex gap-3">
         {author ? (
@@ -651,14 +656,14 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
                 disabled={!canOpenAuthorProfile}
                 className="font-semibold transition-colors enabled:hover:text-[var(--noodle-accent)] disabled:cursor-default"
               >
-                {author?.displayName ?? "Noodle User"}
+                {author?.displayName ?? localizeUi("ui.noodle.noodlepostcard.noodleUser")}
               </button>
               <span className="rounded-full bg-[var(--noodle-accent)]/15 px-2 py-0.5 text-[0.68rem] font-bold text-[var(--noodle-accent)]">
                 {localizeUi(post.access === "locked" ? "ui.noodle.postaccess.unlocked" : "ui.noodle.postaccess.public")}
               </span>
             </div>
             <p className="text-xs text-[var(--muted-foreground)]">
-              @{author?.handle ?? "noodle"} · {formatTime(post.createdAt)}
+              @{author?.handle ?? localizeUi("ui.noodle.noodleshell.noodleHandle")} · {formatTime(post.createdAt)}
             </p>
           </div>
           {ctx.postManagement && (
@@ -702,7 +707,7 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
           <button
             type="button"
             onClick={() => setImageLightbox(createNoodleLightboxImage(post.id, post.imageUrl!, post.imagePrompt ?? ""))}
-            className="mt-3 block w-full overflow-hidden rounded-xl text-left ring-offset-[var(--background)] transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] focus-visible:ring-offset-2"
+            className="mt-3 block w-full overflow-hidden rounded-lg text-left ring-1 ring-inset ring-white/10 ring-offset-[var(--background)] transition-opacity hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] focus-visible:ring-offset-2"
             title={localizeUi("ui.noodle.noodlepostcard.openImage")}
             aria-label={localizeUi("ui.noodle.noodlepostcard.openPostImage")}
           >
@@ -720,7 +725,7 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
                 alt={localizeUi("ui.noodle.post.imageBy", {
                   name: author?.displayName ?? localizeUi("ui.noodle.profile.fallbackUser"),
                 })}
-                className="max-h-96 w-full object-cover"
+                className="aspect-[4/3] max-h-[32rem] w-full object-cover"
               />
             )}
           </button>
@@ -808,7 +813,7 @@ export function NoodlerPostCard({ post, ctx }: { post: NoodlePostCardModel; ctx:
             onOpenProfile={openProfile}
           />
         )}
-        <div className="mt-3 flex max-w-md items-center justify-between gap-1">
+        <div className="mt-4 flex max-w-md items-center justify-between gap-1 tabular-nums">
           <button
             type="button"
             className={cn(noodleIconButtonClass, "rounded-full", likedByPersona && "bg-[var(--noodle-accent)]/10")}

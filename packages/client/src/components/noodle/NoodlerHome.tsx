@@ -87,7 +87,6 @@ import {
   NoodleAnchoredPopover,
   NoodleComposerShell,
   NoodleComposerToolRow,
-  NoodleToolButton,
   type NoodlePostCardModel,
   type NoodlePostImageUpdate,
   useNoodlePostCardController,
@@ -394,6 +393,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     onNavigate({ mode: "settings", tab: "noodler", section: "general", returnTo });
   };
   const [feedSearch, setFeedSearch] = useState("");
+  const [discoveryOpen, setDiscoveryOpen] = useState(false);
+  const discoveryInputRef = useRef<HTMLInputElement | null>(null);
   const [feedTab, setFeedTab] = useState<"following" | "all">("following");
   const [onboardingMode, setOnboardingMode] = useState<"first-run" | "add-creators" | null>(null);
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);
@@ -899,7 +900,11 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const shellProps = {
     appMode: "noodler" as const,
     activeView:
-      navigation.mode === "noodler" && navigation.view === "profile" ? ("profile" as const) : ("noodler" as const),
+      navigation.mode === "noodler" && navigation.view === "profile"
+        ? ("profile" as const)
+        : discoveryOpen
+          ? ("search" as const)
+          : ("noodler" as const),
     homeActive: navigation.mode === "noodler" && navigation.view === "hub",
     accent: NOODLE_PINK,
     enableNoodler: enabled,
@@ -920,6 +925,13 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     onOpenHome: exitToPublic,
     onOpenMobileHome: exitToPublic,
     onOpenNoodler: goToHub,
+    onOpenSearch:
+      navigation.view === "hub" && !creationStep && !profileDraft
+        ? () => {
+            setDiscoveryOpen(true);
+            window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
+          }
+        : undefined,
     onOpenProfile: mainAuthorProfile
       ? () => onNavigate({ mode: "noodler", view: "profile", accountId: mainAuthorProfile.id })
       : undefined,
@@ -1360,7 +1372,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
             ) : (
               <EmptyState
                 title={localizeUi("ui.noodle.noodlerhome.noStageProfilesYet")}
-                detail="Create a separate stage identity for an eligible persona or character."
+                detail={localizeUi("ui.noodle.noodlerhome.createStageIdentityDetail")}
                 action={
                   eligibleNoodleAccounts.length > 0 ? localizeUi("ui.noodle.noodlehome.createStageProfile") : undefined
                 }
@@ -1396,6 +1408,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
           );
         }}
         search={feedSearch}
+        onSearchChange={setFeedSearch}
+        discoveryOpen={discoveryOpen}
+        onDiscoveryOpenChange={setDiscoveryOpen}
+        discoveryInputRef={discoveryInputRef}
         tab={feedTab}
         onTabChange={setFeedTab}
         authorProfile={accountsQuery.isSuccess ? mainAuthorProfile : null}
@@ -2332,7 +2348,7 @@ function StageProfileView({
         ) : (
           <EmptyState
             title={localizeUi("ui.noodle.stageprofileview.noSubscribersYet")}
-            detail="When a viewer subscribes to this creator, they will appear here."
+            detail={localizeUi("ui.noodle.stageprofileview.subscribersEmptyDetail")}
           />
         )
       ) : viewerIsLoading || isLoading ? (
@@ -2377,7 +2393,7 @@ function StageProfileView({
               <div className="flex min-h-11 items-center justify-between gap-3 border-b border-[var(--noodle-divider)] bg-[var(--noodle-accent)]/5 px-4">
                 <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                   {localizeUi("ui.noodle.stageprofileview.controllerViewHiddenFrom")}{" "}
-                  {viewerAccount?.displayName ?? "this viewer"}
+                  {viewerAccount?.displayName ?? localizeUi("ui.noodle.stageprofileview.thisViewer")}
                 </span>
                 <button
                   type="button"
@@ -2493,21 +2509,21 @@ function StageProfileView({
             <button
               type="button"
               onClick={onEdit}
-              className="h-9 rounded-full bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 transition-opacity hover:opacity-90"
+              className="h-9 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 transition-[opacity,scale] hover:opacity-90 active:scale-[0.96]"
             >
               {localizeUi("ui.noodle.stageprofileview.editProfile")}
             </button>
             <button
               type="button"
               onClick={() => setAccessSettingsOpen(true)}
-              className="h-9 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)]"
+              className="h-9 rounded-md border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)]"
             >
               {localizeUi("ui.noodle.stageprofileview.access")}
             </button>
             <button
               type="button"
               onClick={() => setAutomationOpen(true)}
-              className="h-9 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)]"
+              className="h-9 rounded-md border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)]"
             >
               {autoPosting.enabled
                 ? localizeUi("ui.noodle.stageprofileview.automationOn")
@@ -2702,6 +2718,10 @@ function ViewerHub({
   postCardCtx,
   onUnlock,
   search,
+  onSearchChange,
+  discoveryOpen,
+  onDiscoveryOpenChange,
+  discoveryInputRef,
   tab,
   onTabChange,
   authorProfile,
@@ -2733,6 +2753,10 @@ function ViewerHub({
   postCardCtx: ReturnType<typeof useNoodlePostCardController>["ctx"];
   onUnlock: (postId: string) => void;
   search: string;
+  onSearchChange: (value: string) => void;
+  discoveryOpen: boolean;
+  onDiscoveryOpenChange: (open: boolean) => void;
+  discoveryInputRef: React.RefObject<HTMLInputElement | null>;
   tab: "following" | "all";
   onTabChange: (tab: "following" | "all") => void;
   authorProfile: NoodlerManagedStageProfile | null;
@@ -2758,7 +2782,7 @@ function ViewerHub({
     return (
       <EmptyState
         title={localizeUi("ui.noodle.viewerhub.createAPersonaToBrowseNoodler")}
-        detail="Subscriptions and unlocks belong to one viewer persona."
+        detail={localizeUi("ui.noodle.viewerhub.personaAccessDetail")}
       />
     );
   }
@@ -2778,46 +2802,91 @@ function ViewerHub({
     .sort((a, b) => new Date(b.post.createdAt).getTime() - new Date(a.post.createdAt).getTime());
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="flex items-center border-b border-[var(--noodle-divider)] pr-2">
-        <div className="grid min-w-0 flex-1 grid-cols-2">
-          {(
-            [
-              { id: "following", label: localizeUi("ui.noodle.viewerhub.tabs.following") },
-              { id: "all", label: localizeUi("ui.noodle.viewerhub.tabs.allCreators") },
-            ] as const
-          ).map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              onClick={() => onTabChange(option.id)}
-              className={cn(
-                "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                tab === option.id && "text-[var(--foreground)]",
-              )}
-              aria-pressed={tab === option.id}
-            >
-              {option.label}
-              {tab === option.id && (
-                <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
-              )}
-            </button>
-          ))}
+      <div className="sticky top-0 z-20 border-b border-[var(--noodle-divider)] bg-[var(--background)]/95 backdrop-blur">
+        <div className="flex items-center pr-2">
+          <div
+            className="grid min-w-0 flex-1 grid-cols-2"
+            role="tablist"
+            aria-label={localizeUi("ui.noodle.viewerhub.feedTabs")}
+          >
+            {(
+              [
+                { id: "following", label: localizeUi("ui.noodle.viewerhub.tabs.following") },
+                { id: "all", label: localizeUi("ui.noodle.viewerhub.tabs.allCreators") },
+              ] as const
+            ).map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onTabChange(option.id)}
+                role="tab"
+                aria-selected={tab === option.id}
+                className={cn(
+                  "relative flex h-12 items-center justify-center text-sm font-bold text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--noodle-accent)]",
+                  tab === option.id && "text-[var(--foreground)]",
+                )}
+              >
+                {option.label}
+                {tab === option.id && (
+                  <span className="absolute bottom-0 left-1/2 h-1 w-14 -translate-x-1/2 rounded-full bg-[var(--noodle-accent)]" />
+                )}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={onAddCreators}
+            className="ml-2 flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--noodle-accent)]/40 px-2.5 text-xs font-bold text-[var(--noodle-accent)]"
+          >
+            <Plus size={14} />{" "}
+            <span className="hidden sm:inline">{localizeUi("ui.noodle.noodlerwizard.addCreators")}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onDiscoveryOpenChange(!discoveryOpen);
+              if (!discoveryOpen) window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
+            }}
+            className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] xl:hidden"
+            aria-expanded={discoveryOpen}
+            aria-label={localizeUi("ui.noodle.noodleshell.discoverCreators")}
+          >
+            {discoveryOpen ? <X size={17} /> : <Search size={17} />}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onAddCreators}
-          className="ml-2 flex min-h-9 shrink-0 items-center gap-1.5 rounded-md border border-[var(--noodle-accent)]/40 px-2.5 text-xs font-bold text-[var(--noodle-accent)]"
-        >
-          <Plus size={14} />{" "}
-          <span className="hidden sm:inline">{localizeUi("ui.noodle.noodlerwizard.addCreators")}</span>
-        </button>
+        {discoveryOpen && (
+          <div className="px-4 pb-3 xl:hidden">
+            <label className="flex min-h-11 items-center gap-2 rounded-md border border-[var(--noodle-divider)] bg-[var(--background)] px-3 text-base focus-within:border-[var(--noodle-accent)] focus-within:ring-2 focus-within:ring-[var(--noodle-accent)]/20">
+              <Search size={16} className="shrink-0 text-[var(--noodle-accent)]" />
+              <span className="sr-only">{localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}</span>
+              <input
+                ref={discoveryInputRef}
+                value={search}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder={localizeUi("ui.noodle.noodlerhome.searchPostsOrCreators")}
+                className="min-w-0 flex-1 border-0 bg-transparent text-base text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] sm:text-sm"
+              />
+              {search.trim() && (
+                <button
+                  type="button"
+                  onClick={() => onSearchChange("")}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-[var(--noodle-accent)] hover:bg-[var(--noodle-accent)]/10"
+                  aria-label={localizeUi("ui.noodle.noodlehome.clearSearch")}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </label>
+          </div>
+        )}
       </div>
-      <div className="hidden border-b border-[var(--noodle-divider)] px-4 py-3 lg:block xl:hidden">
+      <div className="border-b border-[var(--noodle-divider)] py-3 lg:px-4 xl:hidden">
         <SubscriptionSections
           creators={(scope?.creators ?? []).filter((creator) => creator.profile.id !== authorProfile?.id)}
           onToggleSubscription={onToggleSubscription}
           togglePending={togglePending}
           onOpenProfile={postCardCtx.openAuthorProfile}
+          compact
         />
       </div>
       {authorProfile ? (
@@ -3160,15 +3229,15 @@ function NoodlerPostComposer({
     if (composerBusyRef.current) return;
     setGuideError(null);
     if (pendingImage) {
-      setGuideError("Apply or cancel the image crop before generating.");
+      setGuideError(localizeUi("ui.noodle.noodlerpostcomposer.finishImageCrop"));
       return;
     }
     if (!body.trim() && !image && !poll) {
-      setGuideError("A guided post needs a body, image, or poll.");
+      setGuideError(localizeUi("ui.noodle.noodlerpostcomposer.guidedPostNeedsContent"));
       return;
     }
     if (poll && !pollIsValid) {
-      setGuideError("Polls need a question and two unique options.");
+      setGuideError(localizeUi("ui.noodle.noodlerpostcomposer.pollNeedsQuestionAndOptions"));
       return;
     }
     if (guide.length > NOODLER_POST_GUIDE_MAX_LENGTH) {
@@ -3257,27 +3326,29 @@ function NoodlerPostComposer({
             disabled: composerBusy,
             onClick: () => toggleTool("media"),
           }}
-          trailing={
-            <div ref={accessToolRef} className="relative">
-              <NoodleToolButton
-                title={localizeUi("ui.noodle.noodlerpostcomposer.postVisibility")}
-                active={activeTool === "access" || access !== "public"}
-                disabled={composerBusy}
-                onClick={() => toggleTool("access")}
-              >
-                <Lock size={18} />
-              </NoodleToolButton>
-            </div>
-          }
         />
       }
       action={
-        <div className="flex flex-wrap justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div ref={accessToolRef} className="relative">
+            <button
+              type="button"
+              onClick={() => toggleTool("access")}
+              disabled={composerBusy}
+              className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-50"
+              aria-label={localizeUi("ui.noodle.noodlerpostcomposer.postVisibilityValue", {
+                value: localizeUi(`ui.noodle.postaccess.${access}`),
+              })}
+            >
+              <Lock size={13} />
+              {localizeUi(`ui.noodle.postaccess.${access}`)}
+            </button>
+          </div>
           <button
             type="button"
             onClick={() => void guidePost()}
             disabled={composerBusy || Boolean(pendingImage)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[var(--noodle-divider)] px-3 text-xs font-bold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--noodle-divider)] px-3 text-xs font-bold hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {guidePending ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
             {guidePending
@@ -3289,7 +3360,7 @@ function NoodlerPostComposer({
               type="button"
               onClick={discardDraft}
               disabled={composerBusy}
-              className="inline-flex h-8 items-center rounded-full px-3 text-xs font-bold text-[var(--muted-foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
+              className="inline-flex h-8 items-center rounded-md px-3 text-xs font-bold text-[var(--muted-foreground)] hover:bg-[var(--accent)] disabled:opacity-50"
             >
               {localizeUi("ui.agents.agenteditor.discard")}
             </button>
@@ -3298,12 +3369,12 @@ function NoodlerPostComposer({
             type="button"
             onClick={() => void publish()}
             disabled={composerBusy || Boolean(pendingImage) || (!body.trim() && !image && !pollIsValid)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-full bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 transition-[opacity,scale] hover:opacity-90 active:scale-[0.96] [&_svg]:!text-zinc-950 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {manualPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
             {manualPending
               ? localizeUi("ui.noodle.noodlerpostcomposer.posting")
-              : localizeUi("ui.noodle.noodlehome.post")}
+              : localizeUi("ui.noodle.noodlerpostcomposer.publishPost")}
           </button>
         </div>
       }
@@ -3312,7 +3383,7 @@ function NoodlerPostComposer({
           {activeTool === "media" && !composerBusy && (
             <NoodleAnchoredPopover anchorRef={mediaToolRef} wide>
               <ConversationMediaPickerPanel
-                tabs={[{ id: "emoji", label: "Emoji" }]}
+                tabs={[{ id: "emoji", label: localizeUi("ui.noodle.media.tabs.emoji") }]}
                 activeTab={mediaPickerTab}
                 onActiveTabChange={(tab) => {
                   if (!composerBusyRef.current) setMediaPickerTab(tab);
@@ -3337,7 +3408,7 @@ function NoodlerPostComposer({
                 onClose={() => setActiveTool(null)}
                 disabled={composerBusy}
                 hasImage={Boolean(image)}
-                urlActionLabel="Import URL"
+                urlActionLabel={localizeUi("ui.noodle.noodlerpostcomposer.importUrl")}
               />
             </NoodleAnchoredPopover>
           )}
@@ -3351,7 +3422,11 @@ function NoodlerPostComposer({
                   setActiveTool(null);
                 }}
                 onSubmit={applyPollDraft}
-                submitLabel={poll ? "Update poll" : "Add poll"}
+                submitLabel={
+                  poll
+                    ? localizeUi("ui.noodle.noodlerpostcomposer.updatePoll")
+                    : localizeUi("ui.noodle.noodlerpostcomposer.addPoll")
+                }
                 disabled={composerBusy}
               />
             </NoodleAnchoredPopover>
@@ -3502,15 +3577,78 @@ function SubscriptionSections({
   onToggleSubscription,
   togglePending,
   onOpenProfile,
+  compact = false,
 }: {
   creators: NonNullable<ReturnType<typeof useNoodlerViewer>["data"]>["creators"];
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   togglePending: boolean;
   onOpenProfile?: (accountId: string) => void;
+  compact?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
+  if (compact) {
+    return (
+      <section aria-labelledby="noodler-discover-heading">
+        <div className="flex items-center justify-between px-4 pb-2">
+          <h3 id="noodler-discover-heading" className="text-xs font-bold text-[var(--muted-foreground)]">
+            {localizeUi("ui.noodle.subscriptionsections.discoverCreators")}
+          </h3>
+          <span className="text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">{creators.length}</span>
+        </div>
+        {creators.length > 0 ? (
+          <div className="flex snap-x gap-3 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {creators.map((creator) => {
+              const openProfile = onOpenProfile ? () => onOpenProfile(creator.profile.id) : undefined;
+              return (
+                <article
+                  key={creator.profile.id}
+                  className="flex w-[11.5rem] shrink-0 snap-start items-center gap-2 rounded-md bg-[var(--accent)]/45 p-2.5 ring-1 ring-inset ring-[var(--noodle-divider)]"
+                >
+                  <button
+                    type="button"
+                    onClick={openProfile}
+                    disabled={!openProfile}
+                    className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]"
+                    aria-label={localizeUi("ui.noodle.noodlehome.viewValue1", { value1: creator.profile.handle })}
+                  >
+                    <ProfileInitial profile={creator.profile} />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={openProfile}
+                      className="block w-full truncate text-left text-xs font-bold"
+                    >
+                      {creator.profile.displayName}
+                    </button>
+                    <p className="truncate text-[0.6875rem] text-[var(--muted-foreground)]">
+                      @{creator.profile.handle}
+                    </p>
+                    <button
+                      type="button"
+                      disabled={togglePending}
+                      onClick={() => onToggleSubscription(creator.profile.id, creator.subscribed)}
+                      className="mt-1.5 min-h-8 text-xs font-bold text-[var(--noodle-accent)] disabled:opacity-50"
+                    >
+                      {creator.subscribed
+                        ? localizeUi("ui.noodle.subscriptionsections.unsubscribe")
+                        : localizeUi("ui.noodle.lockednoodlerpostcard.subscribe")}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="px-4 text-xs text-[var(--muted-foreground)]">
+            {localizeUi("ui.noodle.subscriptionsections.noCreatorsAreVisibleToThisPersonaYet")}
+          </p>
+        )}
+      </section>
+    );
+  }
   return (
-    <section className="overflow-hidden rounded-2xl border border-[var(--noodle-divider)] bg-[var(--background)]">
+    <section className="overflow-hidden rounded-lg border border-[var(--noodle-divider)] bg-[var(--background)]">
       <div className="border-b border-[var(--noodle-divider)] px-4 py-3">
         <h3 className="text-lg font-bold">{localizeUi("ui.noodle.subscriptionsections.creators")}</h3>
       </div>
@@ -3576,7 +3714,10 @@ function SubscriptionSections({
 }
 
 function DisclosureBadge({ mode }: { mode: NoodleIdentityDisclosure | null }) {
-  const label = mode ? DISCLOSURE_OPTIONS.find((option) => option.value === mode)?.shortLabel : "Setup needed";
+  const { t: localizeUi } = useUiTranslation();
+  const label = mode
+    ? localizeUi(`ui.noodle.disclosure.${mode}.shortLabel`)
+    : localizeUi("ui.noodle.disclosure.setupNeeded");
   return (
     <span className="rounded-full border border-[var(--noodle-divider)] px-2 py-0.5 text-[0.68rem] font-bold capitalize text-[var(--muted-foreground)]">
       {label}

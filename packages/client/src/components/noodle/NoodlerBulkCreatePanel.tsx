@@ -904,7 +904,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                         role="switch"
                         checked={autoPostingEnabled}
                         onChange={(event) => setAutoPostingEnabled(event.target.checked)}
-                        className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                        className="h-5 w-5 shrink-0 accent-[var(--noodle-accent)]"
                       />
                     </label>
                     {autoPostingEnabled && (
@@ -934,7 +934,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       role="switch"
                       checked={nightQuiet}
                       onChange={(event) => setNightQuiet(event.target.checked)}
-                      className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                      className="h-5 w-5 shrink-0 accent-[var(--noodle-accent)]"
                     />
                   </label>
                   <label className="flex min-h-14 items-center justify-between gap-4 px-3 py-2.5">
@@ -944,7 +944,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       role="switch"
                       checked={imagesEnabled}
                       onChange={(event) => setImagesEnabled(event.target.checked)}
-                      className="h-4 w-4 shrink-0 accent-[var(--noodle-accent)]"
+                      className="h-5 w-5 shrink-0 accent-[var(--noodle-accent)]"
                     />
                   </label>
                 </div>
@@ -978,13 +978,13 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   ))}
                 </div>
               )}
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--accent)]/30 p-4">
-                <label className="mt-3 flex min-h-11 items-center gap-3">
+              <div className="rounded-md bg-[var(--accent)]/30 p-4 ring-1 ring-inset ring-[var(--border)]">
+                <label className="flex min-h-11 items-center gap-3">
                   <input
                     type="checkbox"
                     checked={generateNow}
                     onChange={(event) => setGenerateNow(event.target.checked)}
-                    className="h-4 w-4 accent-[var(--noodle-accent)]"
+                    className="h-5 w-5 accent-[var(--noodle-accent)]"
                   />
                   <span>
                     <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.generateNow")}</span>
@@ -1031,7 +1031,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     { key: "posted", value: generatedCount },
                     { key: "failed", value: failedCount },
                   ].map((cell) => (
-                    <div key={cell.key} className="min-w-24 rounded-lg border border-[var(--border)] px-3 py-2">
+                    <div
+                      key={cell.key}
+                      className="min-w-24 rounded-md bg-[var(--accent)]/30 px-3 py-2 ring-1 ring-inset ring-[var(--border)]"
+                    >
                       <dt className="text-[0.7rem] font-semibold text-[var(--muted-foreground)]">
                         {t(`ui.noodle.noodlerwizard.stat.${cell.key}`)}
                       </dt>
