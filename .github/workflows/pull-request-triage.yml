@@ -16,7 +16,7 @@ jobs:
     name: Branch policy check
     if: >-
       github.event_name == 'pull_request_target' &&
-      (github.event.action != 'edited' || github.event.changes.base.ref.from != '')
+      (github.event.action != 'edited' || github.event.changes.base.ref.from)
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -50,12 +50,12 @@ jobs:
           exit 1
 
   external-contributor-approval:
-    name: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || github.event.changes.base.ref.from != '')) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested'))) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event' }}"
+    name: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || github.event.changes.base.ref.from)) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested'))) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event' }}"
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     env:
-      APPROVAL_EVENT_RELEVANT: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || github.event.changes.base.ref.from != '')) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested'))) }}"
+      APPROVAL_EVENT_RELEVANT: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || github.event.changes.base.ref.from)) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested'))) }}"
     steps:
       - name: Ignore unrelated triage event
         if: env.APPROVAL_EVENT_RELEVANT != 'true'
