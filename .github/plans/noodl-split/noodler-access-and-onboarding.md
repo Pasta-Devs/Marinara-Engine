@@ -344,7 +344,8 @@ Use a capability-owned NoodleR outbox. Each item needs, conceptually:
 - the complete validated NoodleR-post payload;
 - ownership of any prepared private media;
 - a source/policy/schedule fingerprint sufficient to detect invalidation;
-- a state such as prepared, published, discarded, or failed.
+- a typed state of prepared, published, or discarded; provider failures belong in the
+  attempt ledger, not the outbox.
 
 Publication atomically inserts the ordinary post with createdAt equal to publishAt and
 marks the outbox item published. A unique link from the post to the outbox item makes the
@@ -1071,7 +1072,7 @@ under the new model, so no row is orphaned and no cleanup is needed.
 Post access is normalized on read at `noodle.storage.ts:510`:
 
 ```ts
-access: row.access === "subscriber" || row.access === "ppv" ? row.access : "public",
+  access: row.access === "public" ? "public" : "locked",
 ```
 
 **Anything unrecognized becomes `public`.** If the type collapses to `public | locked` and

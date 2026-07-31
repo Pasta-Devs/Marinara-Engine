@@ -13,6 +13,7 @@ import {
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
   noodleBulkNoodlerAccountCreateSchema,
+  noodlerTargetedRefreshSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
 import { resolveNoodlerOnboardingCompletion } from "../../packages/shared/src/utils/noodler-onboarding.js";
 import {
@@ -65,13 +66,18 @@ assert.equal(
   "failed",
 );
 const bulkOnboarding = noodleBulkNoodlerAccountCreateSchema.parse({
-  noodleAccountIds: ["one", "two"],
+  noodleAccountIds: [],
   disclosureMode: "hinted",
-  disclosureExceptions: { two: "secret" },
   autoPosting: { enabled: true, imagesEnabled: true },
 });
-assert.equal(bulkOnboarding.disclosureExceptions.two, "secret");
+assert.deepEqual(bulkOnboarding.noodleAccountIds, []);
 assert.equal(bulkOnboarding.autoPosting.imagesEnabled, true);
+assert.equal(normalizeNoodleSettings({ noodlerOnboardingComplete: true }).noodlerOnboardingState, "completed");
+assert.equal(normalizeNoodleSettings({ noodlerOnboardingComplete: false }).noodlerOnboardingState, "incomplete");
+assert.deepEqual(
+  noodlerTargetedRefreshSchema.parse({ accountIds: ["creator-1"], executionId: "wizard-run-1" }),
+  { accountIds: ["creator-1"], executionId: "wizard-run-1" },
+);
 
 const sourceCrop = { x: 12, y: 18, width: 62, height: 62, unit: "%" as const };
 assert.equal(
@@ -149,6 +155,8 @@ process.env.FILE_STORAGE_DIR = storageDir;
 try {
   const firstDb = await createFileNativeDB();
   const firstNoodle = createNoodleStorage(firstDb as unknown as DB);
+  await firstNoodle.updateSettings({ noodlerOnboardingComplete: true, noodlerOnboardingState: "zero" });
+  assert.equal((await firstNoodle.getSettings()).noodlerOnboardingState, "zero");
   const updated = await firstNoodle.updateSettings({
     maxImagesPerRefresh: 9,
     allowRandomUsers: true,

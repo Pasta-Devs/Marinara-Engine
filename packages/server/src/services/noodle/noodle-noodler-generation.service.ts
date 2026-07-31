@@ -19,6 +19,7 @@ import { resolveStoredChatOptions, resolveStoredMaxTokens } from "../generation/
 import { clampGenerationMaxOutputTokens } from "../generation/output-token-limits.js";
 import { parseGameJsonish } from "../game/jsonish.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
+import type { ConnectionAdmissionMode } from "../generation/connection-admission.js";
 import type { ChatMessage } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
@@ -57,6 +58,7 @@ export type NoodlerPostGenerationInput = {
   connection: GenerationConnection;
   media?: NoodlerPostMediaUpload;
   prepareOnly?: boolean;
+  admissionMode?: ConnectionAdmissionMode;
 };
 
 const NOODLER_POST_MAX_TOKENS = 2048;
@@ -272,7 +274,7 @@ export async function generateNoodlerPost(
     fallbackConnection,
     fallbackBaseUrl: fallbackConnection ? resolveBaseUrl(fallbackConnection) : "",
     category: "main",
-    admissionMode: input.prepareOnly ? "none" : "foreground",
+    admissionMode: input.admissionMode,
   });
   const recentPosts = await noodle.listNoodlerPostsByAccount(account.id, 8);
   const disclosureMode = account.settings.privacy.identityDisclosure ?? "secret";
@@ -366,6 +368,7 @@ export async function generateNoodlerPost(
     source: "generated" as const,
     access: input.request.access,
     metadata: {
+      ...(input.request.executionId ? { noodlerWizardExecutionId: input.request.executionId } : {}),
       ...(input.request.poll ? { poll: createNoodlePoll(input.request.poll) } : {}),
       ...(input.request.imageCrop ? { imageCrop: input.request.imageCrop } : {}),
     },

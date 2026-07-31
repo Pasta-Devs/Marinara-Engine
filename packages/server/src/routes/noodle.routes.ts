@@ -670,19 +670,19 @@ export async function noodleRoutes(app: FastifyInstance) {
   app.patch("/noodler/accounts/:id/follow", async (req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
-    const parsed = noodlerSubscriptionSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const body = req.body as { personaId?: unknown; followed?: unknown };
+    if (typeof body?.personaId !== "string" || typeof body.followed !== "boolean") {
+      return reply.code(400).send({ error: "personaId and followed are required" });
+    }
     const { id } = req.params as { id: string };
-    const viewer = await resolveViewerPersona(parsed.data.personaId);
+    const viewer = await resolveViewerPersona(body.personaId);
     const creator = await noodle.getNoodlerAccountById(id);
     if (!viewer || !creator || creator.noodleAccountId === viewer.id || isNoodlerHiddenFromViewer(creator, viewer.id)) {
       return reply.code(404).send({ error: "NoodleR stage profile not found" });
     }
-    const body = req.body as { followed?: unknown };
-    if (typeof body.followed !== "boolean") return reply.code(400).send({ error: "followed must be boolean" });
     const updated = await noodle.updateAccountFollow(viewer.id, creator.id, body.followed);
     if (!updated) return reply.code(400).send({ error: "Could not update follow state" });
-    const freshViewer = await resolveViewerPersona(parsed.data.personaId);
+    const freshViewer = await resolveViewerPersona(body.personaId);
     return buildViewerScope(freshViewer ?? updated.account);
   });
 
@@ -797,7 +797,10 @@ export async function noodleRoutes(app: FastifyInstance) {
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     const parsed = noodleBulkNoodlerAccountCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const { noodleAccountIds, disclosureMode, disclosureExceptions, autoPosting } = parsed.data;
+    const { noodleAccountIds, disclosureMode, disclosureExceptions, autoPosting, executionId } = parsed.data;
+    if (noodleAccountIds.length === 0) {
+      return reply.code(201).send({ created: [], skipped: [], failed: [], executionId });
+    }
     const connectionId = settings.generationConnectionId;
     if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
     const connection = await connections.getWithKey(connectionId);
@@ -808,6 +811,15 @@ export async function noodleRoutes(app: FastifyInstance) {
     // so a provider outage cannot look like a batch of harmless skips.
     const failed: string[] = [];
     for (const noodleAccountId of noodleAccountIds) {
+      const existing = await noodle.getNoodlerAccountForNoodleAccount(noodleAccountId);
+      if (existing) {
+        if (executionId && existing.settings.profile.noodlerWizardExecutionId === executionId) {
+          created.push(existing.id);
+        } else {
+          skipped.push(noodleAccountId);
+        }
+        continue;
+      }
       const accountDisclosure = disclosureExceptions[noodleAccountId] ?? disclosureMode;
       const publicAccount = await noodle.getAccountById(noodleAccountId);
       if (!publicAccount) {
@@ -826,7 +838,7 @@ export async function noodleRoutes(app: FastifyInstance) {
           skipped.push(noodleAccountId);
           continue;
         }
-        const account = await noodle.createNoodlerAccount(noodleAccountId, stageProfile);
+        const account = await noodle.createNoodlerAccount(noodleAccountId, stageProfile, executionId);
         if (!account) {
           skipped.push(noodleAccountId);
           continue;
@@ -838,7 +850,12 @@ export async function noodleRoutes(app: FastifyInstance) {
         created.push(account.id);
       } catch (error) {
         if (isFileUniqueConstraintError(error, "noodle_accounts", ["noodleAccountId"])) {
-          skipped.push(noodleAccountId);
+          const replayed = await noodle.getNoodlerAccountForNoodleAccount(noodleAccountId);
+          if (executionId && replayed?.settings.profile.noodlerWizardExecutionId === executionId) {
+            created.push(replayed.id);
+          } else {
+            skipped.push(noodleAccountId);
+          }
           continue;
         }
         logger.error(error, "[noodler] Bulk stage profile generation failed for %s", noodleAccountId);
@@ -851,6 +868,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       created: profiles.filter((profile) => created.includes(profile.id)),
       skipped,
       failed,
+      executionId,
     });
   });
 
@@ -1044,7 +1062,7 @@ export async function noodleRoutes(app: FastifyInstance) {
   app.post("/noodler/auto-post/refresh-targeted", async (req, reply) => {
     const parsed = noodlerTargetedRefreshSchema.safeParse(req.body ?? {});
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const result = await refreshTargetedNoodlerCreatorsNow(app.db, parsed.data.accountIds);
+    const result = await refreshTargetedNoodlerCreatorsNow(app.db, parsed.data.accountIds, parsed.data.executionId);
     if (result.status === "disabled") return reply.code(404).send({ error: "Not Found" });
     return { outcomes: result.outcomes };
   });

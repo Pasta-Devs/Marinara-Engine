@@ -12,6 +12,7 @@ export const noodleCarryoverModeSchema = z.enum(["off", "conversation", "rolepla
 export const noodleCarryoverTargetSchema = z.enum(["conversation", "roleplay", "game"]);
 export const noodleThemeSchema = z.enum(["system", "light", "dark"]);
 export const noodleIdentityDisclosureSchema = z.enum(["open", "hinted", "secret"]);
+export const noodlerOnboardingStateSchema = z.enum(["incomplete", "zero", "completed"]);
 export const NOODLER_POST_TITLE_MAX_LENGTH = 200;
 export const NOODLER_POST_CONTENT_MAX_LENGTH = 4000;
 export const NOODLER_REPLY_CONTENT_MAX_LENGTH = 2000;
@@ -58,6 +59,7 @@ export const DEFAULT_NOODLE_SETTINGS = {
   autoPostingScheduleEnabled: true,
   postsPerDay: 4,
   noodlerOnboardingComplete: false,
+  noodlerOnboardingState: "incomplete",
   noodlerNightQuiet: true,
 } as const;
 
@@ -114,6 +116,7 @@ export const noodleSettingsSchema = z.object({
   autoPostingScheduleEnabled: z.boolean().default(DEFAULT_NOODLE_SETTINGS.autoPostingScheduleEnabled),
   postsPerDay: z.number().int().min(1).max(NOODLER_POSTS_PER_DAY_MAX).default(DEFAULT_NOODLE_SETTINGS.postsPerDay),
   noodlerOnboardingComplete: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerOnboardingComplete),
+  noodlerOnboardingState: noodlerOnboardingStateSchema.default(DEFAULT_NOODLE_SETTINGS.noodlerOnboardingState),
   noodlerNightQuiet: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerNightQuiet),
 });
 
@@ -145,6 +148,7 @@ export const noodleAccountProfileSettingsSchema = z
     location: z.string().max(120).optional(),
     profileGenerated: z.boolean().optional(),
     profileManuallyEdited: z.boolean().optional(),
+    noodlerWizardExecutionId: z.string().min(1).max(128).optional(),
   })
   .strict();
 
@@ -246,12 +250,13 @@ export const noodleBulkNoodlerAccountCreateSchema = z
     // duplicated sequential create work, and each public account has exactly one outcome.
     noodleAccountIds: z
       .array(z.string().min(1).max(64))
-      .min(1)
+      .min(0)
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
     disclosureMode: noodleIdentityDisclosureSchema,
     disclosureExceptions: z.record(z.string().min(1).max(64), noodleIdentityDisclosureSchema).default({}),
     autoPosting: noodleAutoPostingSettingsSchema.default({ enabled: true, imagesEnabled: false }),
+    executionId: z.string().min(1).max(128).optional(),
   })
   .strict();
 export const noodlerTargetedRefreshSchema = z
@@ -261,6 +266,7 @@ export const noodlerTargetedRefreshSchema = z
       .min(1)
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
+    executionId: z.string().min(1).max(128).optional(),
   })
   .strict();
 export const noodleStageProfileUpdateSchema = z.object(noodleStageProfileShape).strict();
@@ -559,6 +565,7 @@ const noodlerGenerationRequestShape = {
   mode: z.literal("noodler"),
   ...noodleGenerationConnectionShape,
   targetAccountId: z.string().min(1),
+  executionId: z.string().min(1).max(128).optional(),
   noodlerPostGuide: noodlerPostGuideSchema.optional(),
   noodlerProjectWork: noodlerProjectWorkSchema.optional(),
   // Manual Guide path may ask to review the image prompt before rendering; the autonomous

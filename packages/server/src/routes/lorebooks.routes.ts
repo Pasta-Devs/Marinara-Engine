@@ -1193,6 +1193,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
             resolvedConn.claudeFastMode === "true",
             resolvedConn.treatAsLocalEndpoint === "true",
             resolvedConn.defaultParameters,
+            resolvedConn.id,
           );
         })();
     const embeddingModel = useLocalSidecar ? LOCAL_SIDECAR_MODEL : body.model;

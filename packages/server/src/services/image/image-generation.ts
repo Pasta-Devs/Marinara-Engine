@@ -31,6 +31,11 @@ import { logger, logDebugOverride } from "../../lib/logger.js";
 import { assertInsideDir, normalizeLoopbackUrl, safeFetch, validateOutboundUrl } from "../../utils/security.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
 import {
+  isConnectionAdmissionFailure,
+  withConnectionAdmission,
+  type ConnectionAdmissionMode,
+} from "../generation/connection-admission.js";
+import {
   COMFYUI_MAX_REFERENCE_IMAGES,
   findMissingComfyReferenceSlots,
   numberedComfyReferencePlaceholder,
@@ -114,6 +119,10 @@ export interface ImageGenRequest {
   signal?: AbortSignal;
   /** Emit the final provider request even when the global log level is above debug. */
   debugMode?: boolean;
+  /** Configured connection whose physical request is being made. */
+  connectionId?: string;
+  /** Defaults to foreground when connectionId is provided. */
+  admissionMode?: ConnectionAdmissionMode;
   /** Called immediately before a configured fallback connection is attempted. */
   onFallback?: GenerationFallbackNotifier;
   /** Optional one-shot backup connection used only when the primary image request fails. */
@@ -211,7 +220,7 @@ export async function generateImage(
       : IMAGE_GEN_TIMEOUT;
 
   try {
-    return await withImageGenerationDeadline(request, generationTimeoutMs, async (signal) => {
+    const physicalRequest = () => withImageGenerationDeadline(request, generationTimeoutMs, async (signal) => {
       const allowLocalUrls =
         request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource));
       const scopedRequest = {
@@ -265,9 +274,12 @@ export async function generateImage(
           return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
       }
     });
+    return await (request.connectionId
+      ? withConnectionAdmission(request.connectionId, request.admissionMode ?? { kind: "foreground" }, physicalRequest)
+      : physicalRequest());
   } catch (error) {
     const fallback = request.fallback;
-    if (!fallback || request.signal?.aborted) throw error;
+    if (!fallback || request.signal?.aborted || isConnectionAdmissionFailure(error)) throw error;
     logger.warn(
       error,
       "[illustrator-fallback] Primary image generation failed; retrying with connection %s (%s)",
@@ -287,6 +299,7 @@ export async function generateImage(
     const result = await generateImage(fallback.source, fallback.baseUrl, fallback.apiKey, fallback.serviceHint, {
       ...request,
       fallback: undefined,
+      connectionId: fallback.connectionId,
       model: fallback.model,
       imageEndpointId: fallback.imageEndpointId,
       comfyWorkflow: fallback.comfyWorkflow,

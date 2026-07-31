@@ -931,7 +931,7 @@ defaults and per-beat media controls remain open rather than inferred.
 - Noodle and NoodleR remain two capabilities on one social-data substrate.
 - Share contracts, storage invariants, narrow pure helpers, provider mechanics,
   operation locks, scheduling infrastructure, and capability-based presentation.
-- Keep public refresh, private generation, automatic posting, fan engagement,
+- Keep public refresh, NoodleR generation, automatic posting, fan engagement,
   economics, projects, prompts, projections, and schedule state separate when their
   actors, access, output, or persistence policy differs.
 - Routes are HTTP adapters. Schedulers/projects/commands call application services,

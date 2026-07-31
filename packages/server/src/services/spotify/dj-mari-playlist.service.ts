@@ -593,6 +593,7 @@ async function generatePlaylistPlan(args: {
     conn.claudeFastMode === "true",
     conn.treatAsLocalEndpoint === "true",
     conn.defaultParameters,
+    conn.id,
   );
 
   const userContext = {

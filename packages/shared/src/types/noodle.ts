@@ -20,6 +20,7 @@ export type NoodleCarryoverTarget = "conversation" | "roleplay" | "game";
 export type NoodleParticipantSelectionMode = "all" | "random_range" | "exact";
 export type NoodleAvatarCrop = PersonaAvatarCrop | LegacyPersonaAvatarCrop;
 export type NoodleIdentityDisclosure = "open" | "hinted" | "secret";
+export type NoodlerOnboardingState = "incomplete" | "zero" | "completed";
 
 export interface NoodleAccountAccessSettings {
   hiddenFromAccountIds: string[];
@@ -35,6 +36,7 @@ export interface NoodleAccountProfileSettings {
   location?: string;
   profileGenerated?: boolean;
   profileManuallyEdited?: boolean;
+  noodlerWizardExecutionId?: string;
 }
 
 export interface NoodleAccountSocialSettings {
@@ -141,6 +143,8 @@ export interface NoodleSettings {
   postsPerDay: number;
   /** Durable first-run completion flag shared by every client. */
   noodlerOnboardingComplete: boolean;
+  /** Explicit durable first-run sentinel, including an intentional zero-creator completion. */
+  noodlerOnboardingState: NoodlerOnboardingState;
   /** Avoid overnight automatic posts for creators without a character schedule. */
   noodlerNightQuiet: boolean;
 }

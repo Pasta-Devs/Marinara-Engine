@@ -374,6 +374,21 @@ export function useToggleNoodlerSubscription() {
   });
 }
 
+export function useToggleNoodlerFollow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ creatorAccountId, personaId, followed }: { creatorAccountId: string; personaId: string; followed: boolean }) =>
+      api.patch<NoodlerViewerScope>(`/noodle/noodler/accounts/${encodeURIComponent(creatorAccountId)}/follow`, {
+        personaId,
+        followed,
+      }),
+    onSuccess: async (scope, input) => {
+      await qc.cancelQueries({ queryKey: noodleKeys.viewer(input.personaId) });
+      qc.setQueryData(noodleKeys.viewer(input.personaId), scope);
+    },
+  });
+}
+
 export function useUnlockNoodlerPost() {
   const qc = useQueryClient();
   return useMutation({
@@ -549,9 +564,9 @@ export function useRefreshAllNoodlerCreatorsNow() {
 export function useRefreshTargetedNoodlerCreatorsNow() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (accountIds: string[]) =>
+    mutationFn: (input: { accountIds: string[]; executionId?: string }) =>
       api.post<{ outcomes: NoodlerRefreshNowOutcome[] }>("/noodle/noodler/auto-post/refresh-targeted", {
-        accountIds,
+        ...input,
       }),
     onSuccess: () =>
       Promise.all([

@@ -7,7 +7,11 @@ import {
 } from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
-import { beginForegroundConnection } from "../generation/connection-admission.js";
+import {
+  isConnectionAdmissionFailure,
+  withConnectionAdmissionProvider,
+  type ConnectionAdmissionMode,
+} from "../generation/connection-admission.js";
 
 export type FallbackConnection = {
   id: string;
@@ -35,36 +39,8 @@ type ConnectionFallbackProviderArgs = {
   fallbackBaseUrl: string;
   category: "main" | "agents";
   onFallback?: GenerationFallbackNotifier;
-  admissionMode?: "foreground" | "none";
+  admissionMode?: ConnectionAdmissionMode;
 };
-
-class ConnectionAdmissionProvider extends BaseLLMProvider {
-  constructor(private readonly provider: BaseLLMProvider, private readonly connectionId: string) {
-    super("", "", provider.maxContextValue ?? undefined, null, provider.maxTokensOverrideValue);
-  }
-
-  async *chat(messages: ChatMessage[], options: ChatOptions): AsyncGenerator<string, LLMUsage | void, unknown> {
-    const release = beginForegroundConnection(this.connectionId);
-    try {
-      return yield* this.provider.chat(messages, options);
-    } finally {
-      release();
-    }
-  }
-
-  async chatComplete(messages: ChatMessage[], options: ChatOptions): Promise<ChatCompletionResult> {
-    const release = beginForegroundConnection(this.connectionId);
-    try {
-      return await this.provider.chatComplete(messages, options);
-    } finally {
-      release();
-    }
-  }
-
-  embed(texts: string[], model: string, signal?: AbortSignal): Promise<number[][]> {
-    return this.provider.embed(texts, model, signal);
-  }
-}
 
 function isEnabled(value: unknown): boolean {
   return value === true || value === "true";
@@ -187,7 +163,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
       if (emittedUsableOutput || options.signal?.aborted) return result.value;
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
-      if (emittedUsableOutput || isAbortFailure(error, options.signal)) throw error;
+      if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
       await this.logFallback(error);
     }
     options.signal?.throwIfAborted();
@@ -201,7 +177,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
       if (hasUsableOutput || options.signal?.aborted) return result;
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
-      if (isAbortFailure(error, options.signal)) throw error;
+      if (isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
       await this.logFallback(error);
     }
     options.signal?.throwIfAborted();
@@ -220,18 +196,19 @@ export function withConnectionFallbackProvider({
   fallbackBaseUrl,
   category,
   onFallback,
-  admissionMode = "foreground",
+  admissionMode = { kind: "foreground" },
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
-  let provider: BaseLLMProvider;
+  const admittedPrimary = withConnectionAdmissionProvider(primary, primaryConnectionId, admissionMode);
   if (
     !fallbackConnection ||
     fallbackConnection.id === primaryConnectionId ||
     !fallbackConnection.model?.trim() ||
     !fallbackBaseUrl
   ) {
-    provider = primary;
-  } else {
-    const fallback = createLLMProvider(
+    return admittedPrimary;
+  }
+  const fallback = withConnectionAdmissionProvider(
+    createLLMProvider(
       fallbackConnection.provider,
       fallbackBaseUrl,
       fallbackConnection.apiKey,
@@ -241,8 +218,9 @@ export function withConnectionFallbackProvider({
       isEnabled(fallbackConnection.claudeFastMode),
       isEnabled(fallbackConnection.treatAsLocalEndpoint),
       fallbackConnection.defaultParameters,
-    );
-    provider = new ConnectionFallbackProvider(primary, fallback, fallbackConnection, category, onFallback);
-  }
-  return admissionMode === "foreground" ? new ConnectionAdmissionProvider(provider, primaryConnectionId) : provider;
+    ),
+    fallbackConnection.id,
+    admissionMode,
+  );
+  return new ConnectionFallbackProvider(admittedPrimary, fallback, fallbackConnection, category, onFallback);
 }

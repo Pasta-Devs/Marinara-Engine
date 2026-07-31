@@ -6,9 +6,19 @@ import { generateNoodlerPostImage } from "./noodle-noodler-images.service.js";
 import { tryNoodlerAccountOperation } from "./noodle-noodler-account-operation-lock.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
-import { tryBackgroundConnection } from "../generation/connection-admission.js";
+import { unlinkNoodlerMedia } from "./noodle-noodler-media.js";
+import {
+  BackgroundConnectionBusyError,
+  ConnectionAttemptRejectedError,
+} from "../generation/connection-admission.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+class NoodlerAttemptUnavailableError extends Error {
+  constructor(readonly status: "exhausted" | "holding") {
+    super(`Automatic NoodleR attempt ${status}.`);
+  }
+}
 
 function plannedPublicationTimes(now: Date, postsPerDay: number): string[] {
   const interval = DAY_MS / postsPerDay;
@@ -25,7 +35,7 @@ export function isNoodlerNightQuietTime(at: Date): boolean {
 export async function prepareNextNoodlerReservePost(
   db: DB,
   at = new Date(),
-): Promise<"prepared" | "covered" | "disabled" | "holding" | "exhausted" | "busy" | "ineligible"> {
+): Promise<"prepared" | "covered" | "disabled" | "holding" | "exhausted" | "busy" | "ineligible" | "missed"> {
   const noodle = createNoodleStorage(db);
   const settings = await noodle.getSettings();
   if (!settings.enableNoodler || !settings.autoPostingScheduleEnabled) return "disabled";
@@ -69,18 +79,19 @@ export async function prepareNextNoodlerReservePost(
     if (!connectionId) return "ineligible" as const;
     const connection = await createConnectionsStorage(db).getWithKey(connectionId);
     if (!connection) return "ineligible" as const;
-    const textAdmission = tryBackgroundConnection(connection.id, at);
-    if (!textAdmission.acquired) return "busy" as const;
-    const claim = await noodle.claimNoodlerAutomaticAttempt("text", settings.postsPerDay, at);
-    if (claim.status !== "claimed") {
-      textAdmission.release();
-      return claim.status;
-    }
     try {
       let payload = await generateNoodlerPost(db, {
         account,
         connection,
         prepareOnly: true,
+        admissionMode: {
+          kind: "background",
+          beforeAttempt: async () => {
+            const claim = await noodle.claimNoodlerAutomaticAttempt("text", settings.postsPerDay, at);
+            if (claim.status !== "claimed") throw new NoodlerAttemptUnavailableError(claim.status);
+            return (outcome) => noodle.completeNoodlerAutomaticAttempt(claim.claimId, outcome);
+          },
+        },
         request: {
           mode: "noodler",
           targetAccountId: account.id,
@@ -88,61 +99,59 @@ export async function prepareNextNoodlerReservePost(
           noodlerPostGuide: `Write a standalone post appropriate for publication at ${publishAt}. Do not refer to events after the current moment.`,
         },
       });
-      textAdmission.release();
       if (account.settings.scheduler.autoPosting?.imagesEnabled && payload.imagePrompt) {
         const imageConnection = settings.imageGenerationConnectionId
           ? await createConnectionsStorage(db).getWithKey(settings.imageGenerationConnectionId)
           : await createConnectionsStorage(db).getDefaultForImageGeneration();
         if (imageConnection) {
-          const imageAdmission = tryBackgroundConnection(imageConnection.id, at);
-          if (!imageAdmission.acquired) {
-            payload = { ...payload, metadata: { ...payload.metadata, imageGenerationDeferred: true } };
-          } else {
-            const imageClaims = new Map<number, string>();
-            try {
-              const linkedPublicAccount = account.noodleAccountId
-                ? await noodle.getAccountById(account.noodleAccountId)
-                : null;
-              const image = await generateNoodlerPostImage({
-                account,
-                linkedPublicAccount,
-                disclosureMode: account.settings.privacy.identityDisclosure ?? "secret",
-                postContent: payload.content,
-                draftPrompt: payload.imagePrompt,
-                settings,
-                characters: createCharactersStorage(db),
-                promptOverrides: createPromptOverridesStorage(db),
-                imageConnection,
-                db,
-                debugMode: false,
-                beforeProviderAttempt: async () => {
-                  const imageClaim = await noodle.claimNoodlerAutomaticAttempt("image", settings.postsPerDay, at);
-                  if (imageClaim.status !== "claimed") throw new Error(`Automatic image attempt ${imageClaim.status}.`);
-                  imageClaims.set(imageClaims.size + 1, imageClaim.claimId);
+          try {
+            const linkedPublicAccount = account.noodleAccountId
+              ? await noodle.getAccountById(account.noodleAccountId)
+              : null;
+            const image = await generateNoodlerPostImage({
+              account,
+              linkedPublicAccount,
+              disclosureMode: account.settings.privacy.identityDisclosure ?? "secret",
+              postContent: payload.content,
+              draftPrompt: payload.imagePrompt,
+              settings,
+              characters: createCharactersStorage(db),
+              promptOverrides: createPromptOverridesStorage(db),
+              imageConnection,
+              db,
+              debugMode: false,
+              admissionMode: {
+                kind: "background",
+                beforeAttempt: async () => {
+                  const claim = await noodle.claimNoodlerAutomaticAttempt("image", settings.postsPerDay, at);
+                  if (claim.status !== "claimed") throw new NoodlerAttemptUnavailableError(claim.status);
+                  return (outcome) => noodle.completeNoodlerAutomaticAttempt(claim.claimId, outcome);
                 },
-                onProviderAttemptFailure: async (attempt) => {
-                  const failedClaim = imageClaims.get(attempt);
-                  if (failedClaim) await noodle.completeNoodlerAutomaticAttempt(failedClaim, "failed");
-                },
-              });
-              image.stagedMedia?.promote();
-              payload = { ...payload, metadata: { ...payload.metadata, ...image.metadata } };
-              const successfulClaim = imageClaims.get(imageClaims.size);
-              if (successfulClaim) await noodle.completeNoodlerAutomaticAttempt(successfulClaim, "completed");
-            } catch {
-              await Promise.all(
-                [...imageClaims.values()].map((id) => noodle.completeNoodlerAutomaticAttempt(id, "failed")),
-              );
+              },
+            });
+            image.stagedMedia?.promote();
+            payload = { ...payload, metadata: { ...payload.metadata, ...image.metadata } };
+          } catch (error) {
+            if (
+              error instanceof BackgroundConnectionBusyError ||
+              (error instanceof ConnectionAttemptRejectedError && error.cause instanceof NoodlerAttemptUnavailableError)
+            ) {
+              payload = { ...payload, metadata: { ...payload.metadata, imageGenerationDeferred: true } };
+            } else {
               payload = { ...payload, metadata: { ...payload.metadata, imageGenerationFailed: true } };
-            } finally {
-              imageAdmission.release();
             }
           }
         }
       }
+      const completedAt = new Date();
+      if (completedAt.getTime() >= Date.parse(publishAt)) {
+        const mediaPath = payload.metadata.noodlerMediaPath;
+        unlinkNoodlerMedia(typeof mediaPath === "string" ? mediaPath : null);
+        return "missed" as const;
+      }
       await noodle.createNoodlerPreparedPost({
         creatorAccountId: account.id,
-        generatedAt: at.toISOString(),
+        generatedAt: completedAt.toISOString(),
         publishAt,
         payload,
         policyFingerprint: noodlerReservePolicyFingerprint(
@@ -151,11 +160,12 @@ export async function prepareNextNoodlerReservePost(
           account.noodleAccountId ? (await noodle.getAccountById(account.noodleAccountId))?.updatedAt : null,
         ),
       });
-      await noodle.completeNoodlerAutomaticAttempt(claim.claimId, "completed");
       return "prepared" as const;
     } catch (error) {
-      textAdmission.release();
-      await noodle.completeNoodlerAutomaticAttempt(claim.claimId, "failed");
+      if (error instanceof BackgroundConnectionBusyError) return "busy" as const;
+      if (error instanceof ConnectionAttemptRejectedError && error.cause instanceof NoodlerAttemptUnavailableError) {
+        return error.cause.status;
+      }
       throw error;
     }
   });

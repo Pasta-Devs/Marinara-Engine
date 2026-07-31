@@ -20,6 +20,7 @@ import { generateNoodleImageWithRetry } from "./noodle-image-retry.js";
 import { characterAppearanceFromRow, characterNoodleImageContextFromRow } from "./noodle-public-images.service.js";
 import type { NoodleImagePromptReviewItem, ReviewedNoodleImagePrompt } from "./noodle-public-images.service.js";
 import { characterNameFromRow } from "./noodle-public-support.js";
+import type { ConnectionAdmissionMode } from "../generation/connection-admission.js";
 
 const REVIEWED_IMAGE_CLAIM_LEASE_MS = 2 * 60 * 1000;
 const REVIEWED_IMAGE_CLAIM_RENEW_MS = 30 * 1000;
@@ -54,6 +55,7 @@ export async function generateNoodlerPostImage(input: {
   promptOverride?: { prompt: string; negativePrompt?: string };
   beforeProviderAttempt?: (attempt: number) => Promise<void>;
   onProviderAttemptFailure?: (attempt: number) => Promise<void>;
+  admissionMode?: ConnectionAdmissionMode;
 }): Promise<{
   metadata: Record<string, unknown>;
   preview: Omit<NoodleImagePromptReviewItem, "id"> | null;
@@ -176,6 +178,8 @@ export async function generateNoodlerPostImage(input: {
         imageDefaults,
         referenceImages,
         debugMode: input.debugMode,
+        connectionId: input.imageConnection.id,
+        admissionMode: input.admissionMode,
         fallback: imageFallback,
       });
     },

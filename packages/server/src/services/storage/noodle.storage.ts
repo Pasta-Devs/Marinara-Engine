@@ -95,6 +95,9 @@ export type NoodlerPreparedPostPayload = {
   metadata: Record<string, unknown>;
 };
 
+export type NoodlerPreparedPostState = "prepared" | "published" | "discarded";
+export type NoodlerPreparedImageState = "none" | "pending" | "generating" | "attached" | "rejected" | "closed";
+
 export function noodlerReservePolicyFingerprint(
   account: NoodleAccount,
   settings?: Pick<
@@ -476,6 +479,9 @@ export function normalizeNoodleSettings(raw: unknown): NoodleSettings {
     maxImagesPerRefresh: migratedMaxImagesPerRefresh,
     noodlerGenerationGuidance: migratedNoodlerGenerationGuidance,
     imageCaptioningUseConnectionDefault: migratedImageCaptioningUseConnectionDefault,
+    noodlerOnboardingState:
+      rawRecord.noodlerOnboardingState ??
+      (rawRecord.noodlerOnboardingComplete === true ? "completed" : DEFAULT_NOODLE_SETTINGS.noodlerOnboardingState),
   };
   let parsed = noodleSettingsSchema.safeParse(candidate);
   if (!parsed.success) {
@@ -1214,6 +1220,7 @@ export function createNoodleStorage(db: DB) {
     async createNoodlerAccount(
       noodleAccountId: string,
       stageProfile: NoodleStageProfileInput,
+      wizardExecutionId?: string,
     ): Promise<NoodleAccount | null> {
       const publicAccount = await this.getAccountById(noodleAccountId);
       if (!publicAccount || (publicAccount.kind !== "persona" && publicAccount.kind !== "character")) return null;
@@ -1222,6 +1229,7 @@ export function createNoodleStorage(db: DB) {
       const base = emptyNoodleAccountSettings();
       const accountSettings: NoodleAccountSettings = {
         ...base,
+        profile: wizardExecutionId ? { noodlerWizardExecutionId: wizardExecutionId } : base.profile,
         scheduler: { autoPosting: defaultAutoPostingSettings() },
         privacy: {
           identityDisclosure: stageProfile.disclosureMode,
@@ -1555,6 +1563,9 @@ export function createNoodleStorage(db: DB) {
         policyFingerprint: input.policyFingerprint,
         state: "prepared",
         publishedPostId: null,
+        imageState: input.payload.metadata.noodlerMediaPath ? "attached" : "none",
+        imageClaimToken: null,
+        imageClaimLeaseUntil: null,
         updatedAt: input.generatedAt,
       });
       return id;
@@ -1567,11 +1578,21 @@ export function createNoodleStorage(db: DB) {
       publishAt: string;
       payload: NoodlerPreparedPostPayload;
       policyFingerprint: string;
-      state: string;
+      state: NoodlerPreparedPostState;
       publishedPostId: string | null;
+      imageState: NoodlerPreparedImageState;
+      imageClaimToken: string | null;
+      imageClaimLeaseUntil: string | null;
     }>> {
       const rows = await db.select().from(noodlerPreparedPosts).orderBy(noodlerPreparedPosts.publishAt);
-      return rows.map((row) => ({ ...row, payload: parseRecord(row.payload) as NoodlerPreparedPostPayload }));
+      return rows.map((row) => ({
+        ...row,
+        state: (row.state === "prepared" || row.state === "published" ? row.state : "discarded") as NoodlerPreparedPostState,
+        imageState: (row.imageState === "pending" || row.imageState === "generating" || row.imageState === "attached" || row.imageState === "rejected" || row.imageState === "closed"
+          ? row.imageState
+          : "none") as NoodlerPreparedImageState,
+        payload: parseRecord(row.payload) as NoodlerPreparedPostPayload,
+      }));
     },
 
     async discardNoodlerPreparedPost(id: string, at = new Date()): Promise<void> {
@@ -1640,6 +1661,7 @@ export function createNoodleStorage(db: DB) {
             return false;
           }
           const postId = newId();
+          const imageState = current.imageState === "attached" ? "attached" : "closed";
           await tx.insert(noodlePosts).values({
             id: postId,
             authorAccountId: account.id,
@@ -1656,7 +1678,17 @@ export function createNoodleStorage(db: DB) {
             createdAt: current.publishAt,
             updatedAt: at.toISOString(),
           });
-          await tx.update(noodlerPreparedPosts).set({ state: "published", publishedPostId: postId, updatedAt: at.toISOString() }).where(eq(noodlerPreparedPosts.id, current.id));
+          await tx
+            .update(noodlerPreparedPosts)
+            .set({
+              state: "published",
+              publishedPostId: postId,
+              imageState,
+              imageClaimToken: null,
+              imageClaimLeaseUntil: null,
+              updatedAt: at.toISOString(),
+            })
+            .where(eq(noodlerPreparedPosts.id, current.id));
           return true;
         });
         if (didPublish) published += 1;
@@ -1893,6 +1925,17 @@ export function createNoodleStorage(db: DB) {
       const row = rows[0];
       if (!row || !(await this.getNoodlerAccountById(row.authorAccountId))) return null;
       return mapManagedPost(row);
+    },
+
+    async getNoodlerPostByWizardExecution(
+      accountId: string,
+      executionId: string,
+    ): Promise<NoodlerManagedPost | null> {
+      const account = await this.getNoodlerAccountById(accountId);
+      if (!account) return null;
+      const rows = await db.select().from(noodlePosts).where(eq(noodlePosts.authorAccountId, accountId));
+      const row = rows.find((candidate) => parseRecord(candidate.metadata).noodlerWizardExecutionId === executionId);
+      return row ? mapManagedPost(row) : null;
     },
 
     async createNoodlerPost(input: NoodlerPostPersistenceInput): Promise<NoodlerManagedPost | null> {

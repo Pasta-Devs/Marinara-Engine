@@ -112,6 +112,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [creationFailures, setCreationFailures] = useState(0);
   const [outcomes, setOutcomes] = useState<NoodlerRefreshNowOutcome[]>([]);
   const [completion, setCompletion] = useState<CompletionKind | null>(null);
+  const [executionId, setExecutionId] = useState("");
   const completionHeadingRef = useRef<HTMLHeadingElement>(null);
   const demoProfile: NoodlerStageProfile = {
     ...DEMO_PROFILE,
@@ -154,6 +155,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setCreationFailures(0);
     setOutcomes([]);
     setCompletion(null);
+    setExecutionId(crypto.randomUUID());
   }, [open, selectionOnly]);
 
   useEffect(() => {
@@ -211,36 +213,38 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setStep(5);
   };
   const runGeneration = async (ids: string[], createFailures = creationFailures) => {
-    const result = await refreshTargeted.mutateAsync(ids);
+    const result = await refreshTargeted.mutateAsync({ accountIds: ids, executionId });
     const retriedIds = new Set(ids);
     const merged = [...outcomes.filter((outcome) => !retriedIds.has(outcome.accountId)), ...result.outcomes];
     finalizeOutcomes(merged, createFailures);
   };
   // Settings are recoverable from the settings panel, so a failure here must not block the
   // rest of the flow — but it must also never be the reason onboarding counts as done.
-  const saveSettings = async () => {
-    if (selectionOnly) return;
+  const saveSettings = async (state: "zero" | "completed") => {
+    if (selectionOnly) return true;
     try {
       await updateSettings.mutateAsync({
         postsPerDay,
         noodlerNightQuiet: nightQuiet,
         noodlerOnboardingComplete: true,
+        noodlerOnboardingState: state,
       });
+      return true;
     } catch {
-      /* ignored: the wizard has already created the profiles that matter */
+      return false;
     }
   };
   const skip = async () => {
-    await saveSettings();
-    onClose();
+    if (await saveSettings("zero")) onClose();
   };
   const finish = async () => {
     let newIds: string[] = [];
     let createFailureCount = 0;
     try {
-      if (selected.size > 0) {
+      {
         const result = await bulkCreate.mutateAsync({
           noodleAccountIds: [...selected],
+          executionId,
           disclosureMode: disclosure,
           disclosureExceptions: exceptions,
           autoPosting: { enabled: autoPostingEnabled, imagesEnabled },
@@ -256,9 +260,13 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       setStep(5);
       return;
     }
-    await saveSettings();
+    if (!(await saveSettings(selected.size === 0 ? "zero" : "completed"))) {
+      setCompletion("failed");
+      setStep(5);
+      return;
+    }
     onComplete?.();
-    if (newIds.length === 0 || !generateNow || selectionOnly) {
+    if (newIds.length === 0 || !generateNow) {
       setCompletion(
         resolveNoodlerOnboardingCompletion({
           selectedCount: selected.size,
@@ -271,7 +279,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       return;
     }
     try {
-      const result = await refreshTargeted.mutateAsync(newIds);
+      const result = await refreshTargeted.mutateAsync({ accountIds: newIds, executionId });
       finalizeOutcomes(result.outcomes, createFailureCount, newIds.length);
     } catch {
       // The profiles exist; only generation fell over, so every one of them is retryable.
@@ -726,6 +734,22 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       </span>
                     ))}
                 </div>
+              )}
+              {selectionOnly && selected.size > 0 && (
+                <label className="flex min-h-14 items-center gap-3 rounded-md bg-[var(--accent)]/30 px-4 py-3 ring-1 ring-inset ring-[var(--border)]">
+                  <input
+                    type="checkbox"
+                    checked={generateNow}
+                    onChange={(event) => setGenerateNow(event.target.checked)}
+                    className="h-5 w-5 accent-[var(--noodle-accent)]"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold">{t("ui.noodle.noodlerwizard.generateNow")}</span>
+                    <span className="block text-xs leading-5 text-[var(--muted-foreground)]">
+                      {t("ui.noodle.noodlerwizard.generateNowHelp")}
+                    </span>
+                  </span>
+                </label>
               )}
             </div>
           )}

@@ -60,6 +60,12 @@ export async function generateAndApplyNoodlerPost(
     if (!account) {
       return { status: "noodler_account_not_found" } as const;
     }
+    if (request.executionId) {
+      const existing = await noodle.getNoodlerPostByWizardExecution(account.id, request.executionId);
+      if (existing) {
+        return { status: "generated", post: existing, imagePromptReview: null } as const;
+      }
+    }
     const connectionId = request.connectionId ?? settings.generationConnectionId;
     if (!connectionId) return { status: "connection_required" } as const;
     const connection = await createConnectionsStorage(db).getWithKey(connectionId);
@@ -116,6 +122,7 @@ export async function refreshAllNoodlerCreatorsNow(db: DB): Promise<NoodlerRefre
 export async function refreshTargetedNoodlerCreatorsNow(
   db: DB,
   accountIds: string[],
+  executionId?: string,
 ): Promise<NoodlerRefreshNowResult> {
   const noodle = createNoodleStorage(db);
   const settings = await noodle.getSettings();
@@ -129,6 +136,7 @@ export async function refreshTargetedNoodlerCreatorsNow(
         mode: "noodler",
         targetAccountId: accountId,
         access: "locked",
+        executionId,
       });
       const status = result.status === "disabled" || result.status === "busy" ? "skipped" : result.status;
       return { accountId, status };

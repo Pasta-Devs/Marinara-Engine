@@ -62,6 +62,7 @@ import {
   useNoodlerSubscribers,
   useNoodlerViewer,
   useRemoveNoodlerInteraction,
+  useToggleNoodlerFollow,
   useToggleNoodlerSubscription,
   useUnlockNoodlerPost,
   useUpdateNoodlerPost,
@@ -398,6 +399,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const [feedTab, setFeedTab] = useState<"following" | "all">("following");
   const [onboardingMode, setOnboardingMode] = useState<"first-run" | "add-creators" | null>(null);
   const viewerQuery = useNoodlerViewer(viewerPersonaId, enabled);
+  const toggleFollow = useToggleNoodlerFollow();
   const toggleSubscription = useToggleNoodlerSubscription();
   const unlockPost = useUnlockNoodlerPost();
   const createInteraction = useCreateNoodlerInteraction();
@@ -675,8 +677,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   };
 
   useEffect(() => {
-    if (enabled && data?.settings.noodlerOnboardingComplete === false) setOnboardingMode("first-run");
-  }, [data?.settings.noodlerOnboardingComplete, enabled]);
+    if (enabled && data?.settings.noodlerOnboardingState === "incomplete") setOnboardingMode("first-run");
+  }, [data?.settings.noodlerOnboardingState, enabled]);
 
   // Arriving straight from the opt-in gate: open the wizard on intent rather than waiting for the
   // settings query to report the opt-in, then drop the flag so a reload doesn't reopen it.
@@ -891,6 +893,17 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
       {
         onError: (error) =>
           toast.error(errorMessage(error, localizeUi("ui.noodle.noodlerhome.couldNotUpdateYourSubscription"))),
+      },
+    );
+  };
+
+  const toggleCreatorFollow = (creatorAccountId: string, followed: boolean) => {
+    if (!viewerPersonaId) return;
+    toggleFollow.mutate(
+      { creatorAccountId, personaId: viewerPersonaId, followed: !followed },
+      {
+        onError: (error) =>
+          toast.error(errorMessage(error, localizeUi("ui.noodle.noodlehome.couldNotUpdateFollowedAccounts"))),
       },
     );
   };
@@ -1208,6 +1221,8 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
               );
             }}
             unlockPending={unlockPost.isPending}
+            onToggleFollow={toggleCreatorFollow}
+            followPending={toggleFollow.isPending}
             onToggleSubscription={toggleCreatorSubscription}
             subscriptionPending={toggleSubscription.isPending}
             accessPending={updateAccess.isPending}
@@ -1421,6 +1436,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         discoveryInputRef={discoveryInputRef}
         tab={feedTab}
         onTabChange={setFeedTab}
+        onToggleFollow={toggleCreatorFollow}
         authorProfile={accountsQuery.isSuccess ? mainAuthorProfile : null}
         authorDraft={
           mainAuthorProfile
@@ -1459,7 +1475,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
         manualPending={createPost.isPending}
         guidePending={generatePost.isPending}
         onToggleSubscription={toggleCreatorSubscription}
-        togglePending={toggleSubscription.isPending}
+        togglePending={toggleSubscription.isPending || toggleFollow.isPending}
         onAddCreators={() => setOnboardingMode("add-creators")}
       />
       <NoodlerOnboardingWizard
@@ -2243,6 +2259,8 @@ function StageProfileView({
   runNowPending,
   onUnlock,
   unlockPending,
+  onToggleFollow,
+  followPending,
   onToggleSubscription,
   subscriptionPending,
   accessPending,
@@ -2276,6 +2294,8 @@ function StageProfileView({
   runNowPending: boolean;
   onUnlock: (postId: string) => void;
   unlockPending: boolean;
+  onToggleFollow: (creatorAccountId: string, followed: boolean) => void;
+  followPending: boolean;
   onToggleSubscription: (creatorAccountId: string, subscribed: boolean) => void;
   subscriptionPending: boolean;
   accessPending: boolean;
@@ -2493,21 +2513,33 @@ function StageProfileView({
               {localizeUi("ui.noodle.stageprofileview.yourProfile")}
             </span>
           ) : viewerCreator ? (
-            <button
-              type="button"
-              disabled={subscriptionPending}
-              onClick={() => onToggleSubscription(profile.id, viewerCreator.subscribed)}
-              className={cn(
-                "h-9 rounded-full px-4 text-xs font-bold hover:bg-[var(--accent)] disabled:opacity-50",
-                viewerCreator.subscribed
-                  ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
-                  : "bg-[var(--foreground)] text-[var(--background)]",
-              )}
-            >
-              {viewerCreator.subscribed
-                ? localizeUi("ui.noodle.stageprofileview.subscribed")
-                : localizeUi("ui.noodle.lockednoodlerpostcard.subscribe")}
-            </button>
+            <span className="flex gap-2">
+              <button
+                type="button"
+                disabled={followPending}
+                onClick={() => onToggleFollow(profile.id, viewerCreator.followed)}
+                className="h-9 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)] disabled:opacity-50"
+              >
+                {viewerCreator.followed
+                  ? localizeUi("ui.noodle.subscriptionsections.unfollow")
+                  : localizeUi("ui.noodle.noodlehome.follow")}
+              </button>
+              <button
+                type="button"
+                disabled={subscriptionPending}
+                onClick={() => onToggleSubscription(profile.id, viewerCreator.subscribed)}
+                className={cn(
+                  "h-9 rounded-full px-4 text-xs font-bold hover:bg-[var(--accent)] disabled:opacity-50",
+                  viewerCreator.subscribed
+                    ? "border border-[var(--noodle-divider)] text-[var(--foreground)]"
+                    : "bg-[var(--foreground)] text-[var(--background)]",
+                )}
+              >
+                {viewerCreator.subscribed
+                  ? localizeUi("ui.noodle.stageprofileview.subscribed")
+                  : localizeUi("ui.noodle.lockednoodlerpostcard.subscribe")}
+              </button>
+            </span>
           ) : undefined
         }
         bioContent={profile.bio && <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{profile.bio}</p>}
@@ -2731,6 +2763,7 @@ function ViewerHub({
   discoveryInputRef,
   tab,
   onTabChange,
+  onToggleFollow,
   authorProfile,
   authorDraft,
   onAuthorDraftChange,
@@ -2766,6 +2799,7 @@ function ViewerHub({
   discoveryInputRef: React.RefObject<HTMLInputElement | null>;
   tab: "following" | "all";
   onTabChange: (tab: "following" | "all") => void;
+  onToggleFollow: (creatorAccountId: string, followed: boolean) => void;
   authorProfile: NoodlerManagedStageProfile | null;
   authorDraft: NoodlerPostDraft;
   onAuthorDraftChange: (patch: Partial<NoodlerPostDraft>) => void;
@@ -2925,6 +2959,16 @@ function ViewerHub({
                         @{creator.profile.handle}
                       </span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={togglePending}
+                    onClick={() => onToggleFollow(creator.profile.id, creator.followed)}
+                    className="h-8 rounded-full border border-[var(--noodle-divider)] px-4 text-xs font-bold hover:bg-[var(--accent)] disabled:opacity-50"
+                  >
+                    {creator.followed
+                      ? localizeUi("ui.noodle.subscriptionsections.unfollow")
+                      : localizeUi("ui.noodle.noodlehome.follow")}
                   </button>
                   <button
                     type="button"
