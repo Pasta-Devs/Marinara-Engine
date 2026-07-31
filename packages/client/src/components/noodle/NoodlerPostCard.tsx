@@ -161,10 +161,11 @@ export function LockedNoodlerPostCard({
               )}
             />
             {!revealed && <div className="absolute inset-0 bg-black/35" aria-hidden="true" />}
+            {/* Icon only: the header badge already says "Locked", and the alt text carries it for AT. */}
             {!revealed && (
               <span className="absolute inset-0 flex items-center justify-center" aria-hidden="true">
-                <span className="flex items-center gap-2 rounded-md bg-black/70 px-3 py-2 text-xs font-semibold text-white ring-1 ring-white/15">
-                  <Lock size={12} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
+                <span className="rounded-full bg-black/70 p-2.5 text-white ring-1 ring-white/15">
+                  <Lock size={16} />
                 </span>
               </span>
             )}
@@ -225,11 +226,6 @@ export function LockedNoodlerPostCard({
               >
                 <Pencil size={18} /> {localizeUi("ui.noodle.lockednoodlerpostcard.managePost")}
               </button>
-            )}
-            {!revealed && (
-              <span className="flex items-center gap-1.5">
-                <Lock size={18} /> {localizeUi("ui.noodle.lockednoodlerpostcard.locked")}
-              </span>
             )}
           </div>
         </div>
