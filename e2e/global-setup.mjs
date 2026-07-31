@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const dataDir = resolve(repoRoot, ".tmp/playwright-data");
 
-function resetPlaywrightData() {
+export function resetPlaywrightData() {
   rmSync(dataDir, { recursive: true, force: true });
   mkdirSync(dataDir, { recursive: true });
 }

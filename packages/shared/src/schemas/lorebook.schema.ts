@@ -143,6 +143,7 @@ const lorebookBaseSchema = z.object({
   chatId: z.string().nullable().default(null),
   isGlobal: z.boolean().default(false),
   enabled: z.boolean().default(true),
+  hiddenFromLibrary: z.boolean().default(false),
   scope: lorebookScopeSchema.default({ mode: "all", chatIds: [] }),
   tags: z.array(z.string()).default([]),
   generatedBy: lorebookGeneratedBySchema.default(null),

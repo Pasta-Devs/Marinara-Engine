@@ -167,6 +167,7 @@ function parseLorebookRow(row: Record<string, unknown>) {
     vectorMaxResults: normalizeLorebookVectorMaxResults(row.vectorMaxResults),
     isGlobal: row.isGlobal === "true",
     enabled: row.enabled === "true",
+    hiddenFromLibrary: row.hiddenFromLibrary === "true",
     scope: parseLorebookScope(row.scope),
     imagePath: row.imagePath || null,
     generatedBy: row.generatedBy || null,
@@ -402,7 +403,7 @@ export function createLorebooksStorage(db: DB) {
     },
 
     async listPage(options: LorebookListPageOptions) {
-      const clauses = [];
+      const clauses = [eq(lorebooks.hiddenFromLibrary, "false")];
       if (options.category) clauses.push(eq(lorebooks.category, options.category));
       const pattern = likePattern(options.search);
       if (pattern) {
@@ -516,6 +517,7 @@ export function createLorebooksStorage(db: DB) {
           chatId: input.chatId ?? null,
           isGlobal: String(input.isGlobal ?? false),
           enabled: String(input.enabled ?? true),
+          hiddenFromLibrary: String(input.hiddenFromLibrary ?? false),
           scope: JSON.stringify(parseLorebookScope(input.scope)),
           tags: input.tags ? JSON.stringify(input.tags) : "[]",
           generatedBy: input.generatedBy ?? null,
@@ -562,6 +564,7 @@ export function createLorebooksStorage(db: DB) {
       if (input.chatId !== undefined) updates.chatId = input.chatId;
       if (input.isGlobal !== undefined) updates.isGlobal = String(input.isGlobal);
       if (input.enabled !== undefined) updates.enabled = String(input.enabled);
+      if (input.hiddenFromLibrary !== undefined) updates.hiddenFromLibrary = String(input.hiddenFromLibrary);
       if (input.scope !== undefined) updates.scope = JSON.stringify(parseLorebookScope(input.scope));
       if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
       if (input.generatedBy !== undefined) updates.generatedBy = input.generatedBy;

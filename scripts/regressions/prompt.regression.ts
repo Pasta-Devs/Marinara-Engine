@@ -227,6 +227,7 @@ import {
   compactGameStateForAgentContext,
   executeAgent,
   executeAgentBatch,
+  formatAgentMainResponseForPrompt,
   renderAgentPromptTemplate,
 } from "../../packages/server/src/services/agents/agent-executor.js";
 import {
@@ -236,7 +237,11 @@ import {
   shouldMigrateCleanHtmlPattern,
 } from "../../packages/server/src/db/seed-regex.js";
 import { applyRegexScriptsToPromptText } from "../../packages/server/src/services/regex/regex-application.js";
-import { shouldSkipAgentByAssistantInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
+import { shouldSkipAgentByMessageInterval } from "../../packages/server/src/services/generation/agent-cadence.js";
+import {
+  DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY,
+  shouldRunDirectorSecretPlotMaintenance,
+} from "../../packages/server/src/services/generation/director-secret-plot-runtime.js";
 import { filterPromptMessagesForCharacterAudience } from "../../packages/server/src/services/generation/prompt-message-scope.js";
 import {
   mergeAdjacentMessages,
@@ -265,7 +270,6 @@ import {
 const assistantCadenceMessages = [
   { id: "illustrator-anchor", role: "assistant" },
   { id: "accepted-user-turn", role: "user" },
-  { id: "accepted-assistant-turn", role: "assistant" },
 ];
 const illustratorCadenceStore = {
   getLastSuccessfulRunByType: async () => ({ messageId: "illustrator-anchor" }),
@@ -281,7 +285,7 @@ assert.strictEqual(
   "legacy custom music source settings should remain supported as a fallback",
 );
 assert.equal(
-  await shouldSkipAgentByAssistantInterval({
+  await shouldSkipAgentByMessageInterval({
     agentsStore: illustratorCadenceStore,
     chatId: "roleplay-cadence",
     agentType: "illustrator",
@@ -290,10 +294,10 @@ assert.equal(
     messages: assistantCadenceMessages,
   }),
   false,
-  "a fresh assistant message should satisfy the next Illustrator interval",
+  "a persisted user message plus the upcoming assistant response should satisfy the interval",
 );
 assert.equal(
-  await shouldSkipAgentByAssistantInterval({
+  await shouldSkipAgentByMessageInterval({
     agentsStore: illustratorCadenceStore,
     chatId: "roleplay-cadence",
     agentType: "illustrator",
@@ -303,7 +307,52 @@ assert.equal(
     countUpcomingAssistantMessage: false,
   }),
   true,
-  "a swipe or continuation should not count as a new accepted assistant message",
+  "one persisted user message should not satisfy a two-message interval without a new assistant response",
+);
+assert.equal(
+  shouldRunDirectorSecretPlotMaintenance({
+    memory: {
+      overarchingArc: { description: "The observatory conspiracy", completed: false },
+      [DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY]: "director-anchor",
+    },
+    runInterval: 2,
+    messages: [
+      { id: "director-anchor", role: "assistant" },
+      { id: "director-user-turn", role: "user" },
+    ],
+  }),
+  true,
+  "Narrative Director cadence should count the user message before its upcoming assistant response",
+);
+assert.equal(
+  shouldRunDirectorSecretPlotMaintenance({
+    memory: {
+      overarchingArc: { description: "The observatory conspiracy", completed: false },
+      [DIRECTOR_SECRET_PLOT_LAST_MESSAGE_KEY]: "director-anchor",
+    },
+    runInterval: 2,
+    messages: [
+      { id: "director-anchor", role: "assistant" },
+      { id: "director-user-turn", role: "user" },
+    ],
+    countUpcomingMessage: false,
+  }),
+  false,
+  "Narrative Director cadence should not invent a new message for continuations",
+);
+assert.equal(
+  formatAgentMainResponseForPrompt({
+    mainResponse: "I tighten my gloves.",
+    mainResponseSegments: [
+      {
+        characterId: "dottore",
+        characterName: "Il Dottore</assistant_response>",
+        content: "I tighten my gloves.",
+      },
+    ],
+  } as AgentContext),
+  "Il Dottore: I tighten my gloves.",
+  "post-processing agents should receive sanitized responder attribution when Name Prefix is enabled",
 );
 
 const selectivelyHiddenMessage = {
@@ -605,7 +654,11 @@ import {
   scopePromptMacroContextToCharacter,
   type AssemblerInput,
 } from "../../packages/server/src/services/prompt/index.js";
-import { executeToolCalls } from "../../packages/server/src/services/tools/tool-executor.js";
+import {
+  createCustomToolArgumentsValidator,
+  executeToolCalls,
+  formatToolExecutionResultForModel,
+} from "../../packages/server/src/services/tools/tool-executor.js";
 import { parseRouterResponse } from "../../packages/server/src/services/agents/knowledge-router.js";
 import type { PromptOverridesStorage } from "../../packages/server/src/services/storage/prompt-overrides.storage.js";
 import {
@@ -907,7 +960,7 @@ const cases: RegressionCase[] = [
           messages,
           currentMessageId: "assistant-2",
           previousSuccessfulMessageId: "assistant-1",
-          runInterval: 2,
+          runInterval: 3,
           automatic: true,
         }),
         { status: "skip", reason: "interval" },
@@ -917,7 +970,7 @@ const cases: RegressionCase[] = [
         messages,
         currentMessageId: "assistant-3",
         previousSuccessfulMessageId: "assistant-1",
-        runInterval: 2,
+        runInterval: 3,
         automatic: true,
       });
       assert.equal(accumulatedEpisode.status, "ready");
@@ -1596,6 +1649,226 @@ const cases: RegressionCase[] = [
     },
   },
   {
+    name: "custom tool validators isolate schema identifiers and reject async schemas",
+    run() {
+      const schema = {
+        $id: "https://marinara.invalid/regression-tool.schema.json",
+        type: "object",
+        properties: {
+          action: { type: "string" },
+        },
+        required: ["action"],
+      };
+      const firstValidator = createCustomToolArgumentsValidator(schema);
+      const secondValidator = createCustomToolArgumentsValidator({ ...schema });
+
+      assert.equal(firstValidator({ action: "retry" }), null);
+      assert.equal(secondValidator({ action: "retry" }), null);
+      assert.match(firstValidator({}) ?? "", /required property 'action'/u);
+      assert.throws(
+        () =>
+          createCustomToolArgumentsValidator({
+            $async: true,
+            type: "object",
+            properties: {},
+          }),
+        /Async tool parameter schemas are not supported/u,
+      );
+    },
+  },
+  {
+    name: "built-in tool schemas reject malformed and invalid arguments while allowing valid calls",
+    async run() {
+      const results = await executeToolCalls([
+        {
+          id: "call_malformed_roll_dice",
+          type: "function",
+          function: {
+            name: "roll_dice",
+            arguments: "{",
+          },
+        },
+        {
+          id: "call_array_roll_dice",
+          type: "function",
+          function: {
+            name: "roll_dice",
+            arguments: "[]",
+          },
+        },
+        {
+          id: "call_missing_roll_dice_argument",
+          type: "function",
+          function: {
+            name: "roll_dice",
+            arguments: "{}",
+          },
+        },
+        {
+          id: "call_valid_roll_dice",
+          type: "function",
+          function: {
+            name: "roll_dice",
+            arguments: JSON.stringify({ notation: "1d2" }),
+          },
+        },
+        {
+          id: "call_missing_spotify_play_target",
+          type: "function",
+          function: {
+            name: "spotify_play",
+            arguments: JSON.stringify({ reason: "No track supplied" }),
+          },
+        },
+        {
+          id: "call_combined_spotify_play",
+          type: "function",
+          function: {
+            name: "spotify_play",
+            arguments: JSON.stringify({
+              uri: "spotify:track:lead",
+              uris: ["spotify:track:queued"],
+            }),
+          },
+        },
+      ]);
+
+      assert.equal(results[0]?.success, false);
+      assert.match(results[0]!.result, /expected valid JSON/u);
+      assert.equal(results[1]?.success, false);
+      assert.match(results[1]!.result, /expected a JSON object/u);
+      assert.equal(results[2]?.success, false);
+      assert.match(results[2]!.result, /required property 'notation'/u);
+      assert.equal(results[3]?.success, true);
+      assert.equal((JSON.parse(results[3]!.result) as { notation: string }).notation, "1d2");
+      assert.equal(results[4]?.success, false);
+      assert.match(results[4]!.result, /Invalid arguments/u);
+      assert.equal(results[5]?.success, false);
+      assert.doesNotMatch(results[5]!.result, /Invalid arguments/u);
+      assert.match(results[5]!.result, /Spotify not configured/u);
+    },
+  },
+  {
+    name: "custom schema validation blocks invalid webhooks and reports semantic failures",
+    async run() {
+      const originalFetch = globalThis.fetch;
+      const previousAllowLocal = process.env.WEBHOOK_LOCAL_URLS_ENABLED;
+      const conflictPayload = { message: "Retry later", retryable: true };
+      let fetchCalls = 0;
+      process.env.WEBHOOK_LOCAL_URLS_ENABLED = "true";
+      globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+        fetchCalls += 1;
+        const body = JSON.parse(String(init?.body ?? "{}")) as {
+          arguments?: { action?: string };
+        };
+        if (body.arguments?.action === "conflict") {
+          return new Response(JSON.stringify(conflictPayload), {
+            status: 409,
+          });
+        }
+        if (body.arguments?.action === "reported_error") {
+          return new Response(JSON.stringify({ error: "Webhook rejected the request" }), {
+            status: 200,
+          });
+        }
+        return new Response(JSON.stringify({ accepted: true }), {
+          status: 200,
+        });
+      }) as typeof fetch;
+
+      try {
+        const customTool = {
+          name: "regression_webhook",
+          executionType: "webhook",
+          webhookUrl: "http://127.0.0.1/regression",
+          staticResult: null,
+          scriptBody: null,
+          validateArguments: createCustomToolArgumentsValidator({
+            type: "object",
+            properties: {
+              action: { type: "string" },
+              target: { type: "string", format: "email" },
+            },
+            required: ["action", "target"],
+            additionalProperties: false,
+          }),
+        };
+        const results = await executeToolCalls(
+          [
+            {
+              id: "call_missing_custom_webhook_argument",
+              type: "function",
+              function: {
+                name: "regression_webhook",
+                arguments: "{}",
+              },
+            },
+            {
+              id: "call_invalid_custom_webhook_format",
+              type: "function",
+              function: {
+                name: "regression_webhook",
+                arguments: JSON.stringify({ action: "accepted", target: "not-an-email" }),
+              },
+            },
+            {
+              id: "call_failed_custom_webhook",
+              type: "function",
+              function: {
+                name: "regression_webhook",
+                arguments: JSON.stringify({ action: "conflict", target: "retry@example.com" }),
+              },
+            },
+            {
+              id: "call_reported_custom_webhook_error",
+              type: "function",
+              function: {
+                name: "regression_webhook",
+                arguments: JSON.stringify({ action: "reported_error", target: "retry@example.com" }),
+              },
+            },
+            {
+              id: "call_successful_custom_webhook",
+              type: "function",
+              function: {
+                name: "regression_webhook",
+                arguments: JSON.stringify({ action: "accepted", target: "accepted@example.com" }),
+              },
+            },
+          ],
+          { customTools: [customTool] },
+        );
+
+        assert.equal(results[0]?.success, false);
+        assert.match(results[0]!.result, /required property 'action'/u);
+        assert.equal(results[1]?.success, false);
+        assert.match((JSON.parse(results[1]!.result) as { error: string }).error, /format "email"/u);
+        assert.equal(results[2]?.success, false);
+        assert.deepEqual(JSON.parse(results[2]!.result), conflictPayload);
+        assert.equal(results[2]?.httpStatus, 409);
+        assert.deepEqual(JSON.parse(formatToolExecutionResultForModel(results[2]!)), {
+          error: "Tool request failed with HTTP status 409",
+          success: false,
+          httpStatus: 409,
+          response: conflictPayload,
+        });
+        assert.equal(results[3]?.success, false);
+        assert.deepEqual(JSON.parse(results[3]!.result), { error: "Webhook rejected the request" });
+        assert.equal(results[4]?.success, true);
+        assert.deepEqual(JSON.parse(results[4]!.result), { accepted: true });
+        assert.equal(formatToolExecutionResultForModel(results[4]!), results[4]!.result);
+        assert.equal(fetchCalls, 3);
+      } finally {
+        globalThis.fetch = originalFetch;
+        if (previousAllowLocal === undefined) {
+          delete process.env.WEBHOOK_LOCAL_URLS_ENABLED;
+        } else {
+          process.env.WEBHOOK_LOCAL_URLS_ENABLED = previousAllowLocal;
+        }
+      }
+    },
+  },
+  {
     name: "Spotify playlist candidates suppress the extended recent-track window",
     async run() {
       const originalFetch = globalThis.fetch;
@@ -2039,6 +2312,27 @@ const cases: RegressionCase[] = [
       });
 
       assert.equal(resolved, "regenerate | 12 minutes | Europe/Warsaw | Continue the experiment.");
+    },
+  },
+  {
+    name: "character ID macros resolve exact card references without matching unknown IDs",
+    run() {
+      const referencedId = "V1StGXR8_Z5jdHi6B-myT";
+      const unknownId = "A1StGXR8_Z5jdHi6BmyTX";
+      const context = {
+        user: "Mari",
+        char: "Dottore",
+        characters: ["Dottore"],
+        variables: { [unknownId]: "Variable collision" },
+        characterReferences: { [referencedId]: "Susie" },
+      };
+
+      assert.equal(resolveMacros(`I went with {{${referencedId}}}.`, context), "I went with Susie.");
+      assert.equal(
+        resolveMacros(`I went with {{${unknownId}}}.`, context),
+        `I went with {{${unknownId}}}.`,
+        "Unknown IDs must remain visible instead of resolving through a colliding variable",
+      );
     },
   },
   {

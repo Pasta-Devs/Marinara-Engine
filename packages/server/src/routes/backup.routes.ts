@@ -45,6 +45,8 @@ import {
   type ProfileImportAssetInput,
   type StagedProfileImportAssets,
 } from "../services/import/profile-import-assets.js";
+import { ProfileImportRequestError } from "../services/import/profile-import-errors.js";
+import { planProfileNoodleImport, type ProfileNoodleImportWarning } from "../services/import/profile-import-noodle.js";
 import { computePersonalExtensionHash } from "../services/extensions/personal-extension-hash.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
 import {
@@ -208,7 +210,7 @@ type ProfileInlineJsonBudget = {
 };
 type ProfileAssetReader = (safePath: string) => Buffer | null | Promise<Buffer | null>;
 type ProfileArchiveAssetIndex = Map<string, { entryName: string; expectedSize: number }>;
-type ProfileImportWarning = { type: "missing_asset"; path: string; message: string };
+type ProfileImportWarning = ProfileNoodleImportWarning | { type: "missing_asset"; path: string; message: string };
 type ProfileZipEntry = {
   entryName: string;
   isDirectory: boolean;
@@ -279,8 +281,6 @@ class ProfileJsonTooLargeError extends Error {
 }
 
 class ProfileArchiveTooLargeError extends Error {}
-
-class ProfileImportRequestError extends Error {}
 
 class ProfileImportArchiveTooLargeError extends ProfileImportRequestError {}
 
@@ -880,6 +880,7 @@ function buildProfileImportAssetInputs(
 async function importProfileStorageSnapshot(
   app: FastifyInstance,
   snapshot: ProfileStorageSnapshot,
+  warnings: ProfileImportWarning[],
   onProgress?: ProfileImportProgressReporter,
   readAsset?: ProfileAssetReader,
 ) {
@@ -918,9 +919,10 @@ async function importProfileStorageSnapshot(
     let rollbackFailed = false;
     try {
       await app.db.transaction(async (tx) => {
+        const plannedSnapshot = await planProfileNoodleImport(tx, snapshot, warnings);
         for (const tableName of FILE_BACKED_TABLES) {
           const table = profileTableObjects.get(tableName);
-          const rows = snapshot.tables[tableName];
+          const rows = plannedSnapshot.tables[tableName];
           if (!table || !Array.isArray(rows) || rows.length === 0) {
             tableCounts[tableName] = 0;
             continue;
@@ -2547,6 +2549,9 @@ export async function backupRoutes(app: FastifyInstance) {
       const profileStoragePreviewStats = isProfileStorageSnapshot(data.fileStorage)
         ? previewProfileStorageSnapshotStats(data.fileStorage, importInput.readAsset, warnings)
         : null;
+      if (previewOnly && isProfileStorageSnapshot(data.fileStorage)) {
+        await planProfileNoodleImport(app.db, data.fileStorage, warnings);
+      }
       if (!previewOnly && expectedFingerprint && importInput.fileFingerprint !== expectedFingerprint) {
         return reply.status(409).send({
           error: "Profile file changed",
@@ -2601,6 +2606,7 @@ export async function backupRoutes(app: FastifyInstance) {
           const imported = await importProfileStorageSnapshot(
             app,
             data.fileStorage,
+            warnings,
             wantsProgressStream ? sendProgress : undefined,
             importInput.readAsset,
           );

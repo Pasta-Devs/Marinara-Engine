@@ -94,7 +94,7 @@ export function LorebookAssignmentSection({
   const { t: localizeUi } = useUiTranslation();
   const openModal = useUIStore((state) => state.openModal);
   const openLorebookDetail = useUIStore((state) => state.openLorebookDetail);
-  const { data: lorebooks = [], isLoading } = useLorebooks("character");
+  const { data: lorebooks = [], isLoading } = useLorebooks("character", { includeHidden: true });
   const { data: chats = [] } = useChats();
   const updateLorebook = useUpdateLorebook();
   const embedLorebook = useEmbedLorebook();
@@ -130,10 +130,11 @@ export function LorebookAssignmentSection({
   const filteredLorebooks = useMemo(() => {
     const query = draft?.search ?? "";
     return (lorebooks as Lorebook[]).filter((lorebook) => {
+      if (lorebook.hiddenFromLibrary && !isLorebookAssignedToOwner(lorebook, ownerType, ownerId)) return false;
       if (!query) return true;
       return includesTextForMatch(`${lorebook.name} ${lorebook.description ?? ""}`, query);
     });
-  }, [draft?.search, lorebooks]);
+  }, [draft?.search, lorebooks, ownerId, ownerType]);
 
   const selectedLorebook = draft?.lorebookId
     ? (lorebooks as Lorebook[]).find((lorebook) => lorebook.id === draft.lorebookId)

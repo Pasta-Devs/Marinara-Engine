@@ -47,7 +47,7 @@ import {
 } from "../../hooks/use-characters";
 import { ConvoProfileFields } from "./ConvoProfileFields";
 import { useUIStore } from "../../stores/ui.store";
-import { lorebookKeys, useLorebook } from "../../hooks/use-lorebooks";
+import { lorebookKeys, useLorebook, useUpdateLorebook } from "../../hooks/use-lorebooks";
 import { useConnections } from "../../hooks/use-connections";
 import { useInstalledCapabilityPackages } from "../../hooks/use-capability-packages";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
@@ -4806,6 +4806,7 @@ function LorebookTab({
   // (its loading state is `isLoading || !lorebook`, and a 404'd query
   // satisfies the second clause forever), so verify before showing it.
   const linkedLorebookQuery = useLorebook(rawLinkedLorebookId);
+  const updateLorebook = useUpdateLorebook();
   const linkedLorebookId =
     rawLinkedLorebookId && (linkedLorebookQuery.isLoading || linkedLorebookQuery.data) ? rawLinkedLorebookId : null;
   const hasEmbeddedLorebook = entries.length > 0 || embeddedLorebookMetadata.hasEmbeddedLorebook === true;
@@ -4934,6 +4935,30 @@ function LorebookTab({
               <Library size="0.75rem" />
               {localizeUi("ui.characters.lorebooktab.editEmbeddedLorebook")}
             </button>
+          )}
+          {linkedLorebookId && linkedLorebookQuery.data && (
+            <SettingsSwitch
+              label={localizeUi("ui.characters.lorebooktab.showInLorebookLibrary")}
+              description={localizeUi("ui.characters.lorebooktab.hiddenLorebooksRemainEmbeddedAndEditable")}
+              checked={!linkedLorebookQuery.data.hiddenFromLibrary}
+              disabled={updateLorebook.isPending}
+              onChange={(visible) => {
+                updateLorebook.mutate(
+                  { id: linkedLorebookId, hiddenFromLibrary: !visible },
+                  {
+                    onError: (error) =>
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : localizeUi("ui.characters.lorebooktab.failedToUpdateLorebookVisibility"),
+                      ),
+                  },
+                );
+              }}
+              labelPosition="start"
+              className="w-full justify-between rounded-lg border border-[var(--border)] bg-[var(--card)] px-3 py-2 sm:w-auto sm:min-w-72"
+              labelClassName="text-xs"
+            />
           )}
           <button
             type="button"

@@ -36,7 +36,7 @@ pnpm dev
 Useful entry points:
 
 - `pnpm dev` starts the server and client with hot reload.
-- `pnpm dev:server` starts only the API server.
+- `pnpm dev:server` builds the shared package, then starts only the API server. If shared source changes while it is running, rerun `pnpm build:shared` and restart the server; the server watcher intentionally ignores shared build output.
 - `pnpm dev:client` starts only the Vite frontend.
 - `start.bat`, `start.sh`, and `start-termux.sh` run the launcher flow, including git-based auto-update and optional browser auto-open.
 
@@ -111,7 +111,7 @@ Regression guards:
 
 - `pnpm regression:prompt` runs fast deterministic checks for prompt assembly, lorebook keyword matching, macros, summaries, and mode-specific generation gates.
 - `pnpm smoke:ui` runs the Playwright browser smoke suite against isolated temporary app data.
-  Each run clears `.tmp/playwright-data` before starting a fresh test server. Stop any process already using the configured Playwright ports before running it; existing fixture state is disposable and the smoke suite does not reuse a running development server.
+  Each run clears `.tmp/playwright-data` and starts separate desktop and mobile app servers so their mutable fixtures cannot overlap. Stop any process already using the configured Playwright ports before running it; existing fixture state is disposable and the smoke suite does not reuse a running development server.
 - `pnpm regression` runs both lanes.
 
 These checks are intentionally small and do not replace manual verification. When you change behavior, include the manual verification you performed and add or update a regression guard for the bug class when practical.
@@ -217,6 +217,7 @@ The overlay is not a substitute for this guide. When instructions conflict, foll
   - Brazilian Portuguese (`pt-br`): natural Brazilian Portuguese, never European forms ("você" with its imperative — "Clique", "Abra"; arquivo/salvar/tela/usuário — never ficheiro/guardar/ecrã/utilizador; current Acordo Ortográfico spelling; straight quotes and en dashes; mode names Conversation/Roleplay/Game Mode stay English).
   - Polish: natural Polish ("ty" with 2nd-person imperatives — "Kliknij", "Otwórz"; avoid reader-gendering past-tense forms; product names stay UNDECLINED with a carrier noun where the case demands — "w aplikacji Marinara Engine", never "w Marinarze" — while assimilated loanwords decline normally; straight ASCII quotes only, never „…", and no non-breaking spaces; mode names Conversation/Roleplay/Game Mode stay English).
   - Russian: natural Russian (lowercase "вы" with its imperative — "Нажмите", "Откройте" — matching mainstream Russian software convention and keeping phrasing gender-neutral via plural agreement, never capitalized "Вы" mid-sentence, never "ты"; product names stay in LATIN SCRIPT and undeclined with a carrier noun where the case demands — "в приложении Marinara Engine", never "в Маринаре" — while Cyrillic-assimilated loanwords such as "промпт", "токен", "пресет", and "лорбук" decline normally; en dashes `–` wherever Russian wants тире, never em dashes; straight ASCII quotes only, never «ёлочки», and no non-breaking spaces; "е" instead of "ё" except in "всё/всём/всё-таки"; mode names Conversation/Roleplay/Game Mode stay English).
+  - Japanese: natural Japanese (polite です・ます prose with noun-phrase 体言止め headings and no "あなた" floods — Japanese drops subjects; product names stay in LATIN SCRIPT, never katakanized — "Marinara Engineでは", never "マリナーラ"; katakana loanwords use the modern trailing-ー spelling — "サーバー"/"ユーザー"/"フォルダー", never "サーバ"/"ユーザ"/"フォルダ" — with community-standard terms such as "ロアブック"; ALL Latin letters and digits stay half-width ASCII (full-width "７８６０" never matches a search for `7860`); no ideographic space U+3000, no non-breaking spaces, no space between Japanese and Latin/bold/code spans, text NFC-normalized; 「」 for Japanese quoting while quoted English UI strings stay byte-exact to the app; mode names Conversation/Roleplay/Game Mode stay English).
 - After editing a pack, run `node scripts/docs-i18n/build-manifest.mjs <pack-dir>` to refresh hashes, then `node scripts/docs-i18n/validate-pack.mjs <pack-dir>` from the Engine repo root, before committing to `docs-i18n`.
 
 ## Localization

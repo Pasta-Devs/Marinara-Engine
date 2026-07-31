@@ -2982,6 +2982,13 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             help={localizeUi("ui.noodle.noodlehome.controlsTheModelConnectionAndHowOftenNoodleCan")}
           >
             <div className="space-y-3">
+              <div
+                className="flex items-start gap-2 rounded-md border border-[var(--warning)]/30 bg-[var(--warning)]/10 px-3 py-2.5 text-xs leading-5 text-[var(--muted-foreground)]"
+                role="note"
+              >
+                <AlertTriangle className="mt-0.5 shrink-0 text-[var(--warning)]" size={14} />
+                <p>{localizeUi("ui.noodle.noodlehome.contextWindowWarning")}</p>
+              </div>
               <label className="block space-y-1.5">
                 <FieldLabel help={localizeUi("ui.noodle.noodlehome.theTextGenerationConnectionUsedToWriteNewNoodle")}>
                   {localizeUi("ui.noodle.noodlehome.generationConnection")}

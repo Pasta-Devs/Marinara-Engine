@@ -189,12 +189,26 @@ function runProcess(bin: string, args: string[], options: { cwd: string; timeout
     let settled = false;
     let timedOut = false;
 
-    const child = spawn(bin, args, {
-      cwd: options.cwd,
-      env: process.env,
-      shell: process.platform === "win32",
-      windowsHide: true,
-    });
+    const useWindowsCommand = process.platform === "win32" && bin === "pnpm";
+    const windowsCommand = useWindowsCommand
+      ? [bin, ...args]
+          .map((part) => {
+            if (!/^[A-Za-z0-9@._/:=+-]+$/u.test(part)) {
+              throw new Error(`Unsupported character in command argument: ${part}`);
+            }
+            return part;
+          })
+          .join(" ")
+      : "";
+    const child = spawn(
+      useWindowsCommand ? (process.env.ComSpec ?? "cmd.exe") : bin,
+      useWindowsCommand ? ["/d", "/s", "/c", windowsCommand] : args,
+      {
+        cwd: options.cwd,
+        env: process.env,
+        windowsHide: true,
+      },
+    );
 
     const timer = setTimeout(() => {
       timedOut = true;

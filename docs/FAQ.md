@@ -168,11 +168,11 @@ Note: on an ordinary remote address, Professor Mari's data-changing actions need
 
 ## How do storyboard animations work?
 
-A **storyboard** turns completed story text into a short sequence of keyframe images and can add animated clips. In **Game Mode**, it follows one finished game master narration turn. In **Roleplay**, the Storyboard Agent combines newly completed exchanges into an inline episode after a configurable number of assistant responses.
+A **storyboard** turns completed story text into a short sequence of keyframe images and can add animated clips. In **Game Mode**, it follows one finished game master narration turn. In **Roleplay**, the Storyboard Agent combines newly completed exchanges into an inline episode after a configurable number of user and assistant messages.
 
 To make one by hand, open the **Gallery** and click **Create storyboard**. Game Mode can reopen its viewer with **View storyboard**; Roleplay displays the result below the assistant response that ends the episode.
 
-To make them automatically, open **Chat Settings**, go to **Agents**, and find the **Storyboards** card. Game Mode has separate illustration and animation toggles. Roleplay offers **Manual only**, **Still images**, or **Animations**, plus **Assistant messages per episode**. Video clips need a Video Generation connection. For both workflows, see [Storyboard Engine Guide](game/storyboard.md).
+To make them automatically, open **Chat Settings**, go to **Agents**, and find the **Storyboards** card. Game Mode has separate illustration and animation toggles. Roleplay offers **Manual only**, **Still images**, or **Animations**, plus **Messages per episode**, which counts both user and assistant messages. Video clips need a Video Generation connection. For both workflows, see [Storyboard Engine Guide](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 

@@ -1206,17 +1206,10 @@ export function useGenerate() {
       // A stale in-flight message refetch can overwrite the saved assistant
       // message after it is upserted into the cache. Cancel early so the
       // post-save refresh owns the query lifecycle for this generation.
-      await qc.cancelQueries({ queryKey: chatKeys.messages(params.chatId), exact: true });
-      const assistantMessagesBeforeGeneration = snapshotMessagesByRole(qc, params.chatId, "assistant");
-      const expectedPersistedRole: Message["role"] = params.impersonate ? "user" : "assistant";
-      const expectedMessagesBeforeGeneration =
-        expectedPersistedRole === "assistant"
-          ? assistantMessagesBeforeGeneration
-          : snapshotMessagesByRole(qc, params.chatId, expectedPersistedRole);
-      if (params.regenerateMessageId) {
-        forgetRecentMessageContentEdit(params.chatId, params.regenerateMessageId);
-      }
-
+      const cancellation = qc.cancelQueries(
+        { queryKey: chatKeys.messages(params.chatId), exact: true },
+        { silent: true, revert: false },
+      );
       const pendingAttachments = params.attachments ?? [];
 
       // Optimistically show the user message in the chat immediately
@@ -1293,6 +1286,17 @@ export function useGenerate() {
           return { ...old, pages };
         });
         requestChatScrollToBottom({ chatId: params.chatId, behavior: "auto" });
+      }
+
+      await cancellation;
+      const assistantMessagesBeforeGeneration = snapshotMessagesByRole(qc, params.chatId, "assistant");
+      const expectedPersistedRole: Message["role"] = params.impersonate ? "user" : "assistant";
+      const expectedMessagesBeforeGeneration =
+        expectedPersistedRole === "assistant"
+          ? assistantMessagesBeforeGeneration
+          : snapshotMessagesByRole(qc, params.chatId, expectedPersistedRole);
+      if (params.regenerateMessageId) {
+        forgetRecentMessageContentEdit(params.chatId, params.regenerateMessageId);
       }
 
       // ── SillyTavern-style smooth streaming ──

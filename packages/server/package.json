@@ -22,6 +22,8 @@
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
     "adm-zip": "^0.5.17",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "buttplug": "4.0.1",
     "dotenv": "^16.6.1",
     "fastify": "^5.8.5",

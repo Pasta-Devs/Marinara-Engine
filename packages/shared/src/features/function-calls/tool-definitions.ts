@@ -10,7 +10,7 @@ export interface ToolParameterSchema {
   description?: string;
   properties?: Record<string, ToolParameterProperty>;
   required?: string[];
-  oneOf?: Array<{ required: string[] }>;
+  anyOf?: Array<{ required: string[] }>;
   additionalProperties?: boolean;
   items?: ToolParameterProperty;
 }

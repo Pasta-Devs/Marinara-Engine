@@ -56,7 +56,6 @@ import {
   resolveDefaultAgentPromptTemplateId,
   isAgentManifestAvailableInChatMode,
   isAgentConfigDeleted,
-  isAgentHiddenFromChatSettingsPicker,
   isBuiltInAgentRuntimeDisabled,
   isRetiredBuiltInAgentId,
   mergeBuiltInAgentSettings,
@@ -1862,7 +1861,6 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
     for (const agent of installedAgentManifests) {
       if (agent.libraryHidden) continue;
       if (!isAgentManifestAvailableInChatMode(activeChatMode, agent)) continue;
-      if (isAgentHiddenFromChatSettingsPicker(activeChatMode, agent.id)) continue;
       const existing = agentConfigsByType.get(agent.id);
       if (existing && isAgentConfigDeleted(existing.settings)) continue;
       agents.push({

@@ -3,6 +3,8 @@ import type { AgentContext } from "@marinara-engine/shared";
 import type { LLMToolDefinition } from "../llm/base-provider.js";
 import type { ResolvedAgent } from "../agents/agent-pipeline.js";
 import {
+  createCustomToolArgumentsValidator,
+  executeToolCallForModel,
   executeToolCalls,
   type CustomToolDef,
   type CustomToolHiddenContext,
@@ -400,6 +402,7 @@ async function loadToolDefinitions(args: {
         staticResult: customTool.staticResult,
         scriptBody: customTool.scriptBody,
         includeHiddenContext: booleanText(customTool.includeHiddenContext),
+        validateArguments: createCustomToolArgumentsValidator(schemaObject),
       });
 
       allToolDefs.push({
@@ -861,12 +864,11 @@ export async function resolveGenerationTools({
             allowed: Array.from(allowedToolNames),
           });
         }
-        const results = await executeToolCalls([call], {
+        const result = await executeToolCallForModel(call, {
           ...baseToolExecutionContext,
           saveLorebookEntry,
           replaceChatMessageContent: replaceChatMessageContentForAgent,
         });
-        const result = results[0]?.result ?? "Tool execution failed";
         if (agent.type === "spotify" && call.function.name === "spotify_play") {
           try {
             const parsed = JSON.parse(result) as Record<string, unknown>;

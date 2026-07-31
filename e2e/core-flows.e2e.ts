@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 
@@ -47,6 +47,41 @@ async function prepareFreshClient(page: Page) {
       }),
     );
   }, APP_VERSION);
+}
+
+async function setAppAccentColor(page: Page, color: string) {
+  await page.evaluate(async (nextColor) => {
+    const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+      useUIStore: {
+        getState: () => {
+          setAppAccentColor: (value: string) => void;
+        };
+      };
+    };
+    useUIStore.getState().setAppAccentColor(nextColor);
+  }, color);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue("--marinara-app-accent-static").trim(),
+      ),
+    )
+    .toBe(color);
+}
+
+async function readCssVariableColor(page: Page, variableName: string) {
+  return page.evaluate((name) => {
+    const probe = document.createElement("span");
+    probe.style.color = `var(${name})`;
+    document.body.append(probe);
+    const color = getComputedStyle(probe).color;
+    probe.remove();
+    return color;
+  }, variableName);
+}
+
+async function bestEffortDelete(request: APIRequestContext, url: string) {
+  await request.delete(url, { timeout: 5_000 }).catch(() => undefined);
 }
 
 async function expectHomeContentFits(page: Page) {
@@ -104,6 +139,8 @@ async function updateLiveReasoningState(
 }
 
 test.beforeEach(async ({ page }) => {
+  const resetUiSettings = await page.request.put("/api/app-settings/ui", { data: { value: "" } });
+  expect(resetUiSettings.ok()).toBeTruthy();
   await prepareFreshClient(page);
 });
 
@@ -960,9 +997,7 @@ test("message deletion uses unified chroma controls and selection states", async
 
     await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
     await page.goto("/");
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--marinara-app-accent-solid", "rgb(20, 184, 166)");
-    });
+    await setAppAccentColor(page, "#14b8a6");
 
     const messageRow = page.locator(`[data-message-id="${targetMessage.id}"]`);
     await expect(messageRow).toBeVisible();
@@ -1006,9 +1041,7 @@ test("message deletion uses unified chroma controls and selection states", async
       expect(className).not.toMatch(/destructive|pink|red|rose/iu);
     }
 
-    await page.evaluate(() => {
-      document.documentElement.style.setProperty("--marinara-app-accent-solid", "rgb(59, 130, 246)");
-    });
+    await setAppAccentColor(page, "#3b82f6");
     await expect.poll(async () => (await readChromeStyles(dialogActions))[0]?.color).not.toBe(tealStyles[0]?.color);
     const blueStyles = await readChromeStyles(dialogActions);
     expect(new Set(blueStyles.map(({ backgroundColor }) => backgroundColor)).size).toBe(1);
@@ -1091,7 +1124,6 @@ test("message deletion uses unified chroma controls and selection states", async
 test("bulk chat deletion uses the shared primary accent control", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop chat-sidebar selection chrome is covered here.");
 
-  const accentColor = "rgb(20, 184, 166)";
   const chatNames = ["Bulk Delete Chroma One", "Bulk Delete Chroma Two"];
   const chatResponses = await Promise.all(
     chatNames.map((name) =>
@@ -1118,10 +1150,8 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
       );
     }, chats[0]!.id);
     await page.goto("/");
-    await page.evaluate((accent) => {
-      document.documentElement.style.setProperty("--marinara-app-accent-solid", accent);
-      document.documentElement.style.setProperty("--marinara-chat-chrome-button-text-active", accent);
-    }, accentColor);
+    await setAppAccentColor(page, "#14b8a6");
+    const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
 
     const sidebar = page.locator('[data-component="ChatSidebar"]');
     await expect(sidebar).toBeVisible();
@@ -1159,7 +1189,7 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
     );
     expect(styles).toHaveLength(2);
     await expect(deleteAction).toHaveClass(/mari-chrome-control--primary/u);
-    await expect(deleteAction).toHaveCSS("color", accentColor);
+    await expect(deleteAction).toHaveCSS("color", activeAccentColor);
     expect(styles[1]?.className).not.toMatch(/danger|destructive|pink|red|rose/iu);
 
     await deleteAction.click();
@@ -1177,12 +1207,12 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
 test("destructive confirmation actions use the shared accent button treatment", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop confirmation-dialog chrome is covered here.");
 
-  const accentColor = "rgb(20, 184, 166)";
   await page.goto("/");
-  await page.evaluate((accent) => {
-    document.documentElement.style.setProperty("--marinara-chat-chrome-button-text-active", accent);
+  await setAppAccentColor(page, "#14b8a6");
+  const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
+  await page.evaluate(() => {
     document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
-  }, accentColor);
+  });
 
   await page.evaluate(async () => {
     const { showConfirmDialog } = (await import("/src/lib/app-dialogs.ts")) as {
@@ -1204,7 +1234,7 @@ test("destructive confirmation actions use the shared accent button treatment", 
   const confirmDialog = page.getByRole("dialog", { name: "Delete Resource" });
   const confirmDelete = confirmDialog.getByRole("button", { name: "Delete", exact: true });
   await expect(confirmDelete).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(confirmDelete).toHaveCSS("color", accentColor);
+  await expect(confirmDelete).toHaveCSS("color", activeAccentColor);
   expect(await confirmDelete.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
   await confirmDialog.getByRole("button", { name: "Cancel" }).click();
 
@@ -1226,7 +1256,7 @@ test("destructive confirmation actions use the shared accent button treatment", 
   const choiceDialog = page.getByRole("dialog", { name: "Delete Resources" });
   const deleteAll = choiceDialog.getByRole("button", { name: "Delete All", exact: true });
   await expect(deleteAll).toHaveClass(/mari-chrome-control--primary/u);
-  await expect(deleteAll).toHaveCSS("color", accentColor);
+  await expect(deleteAll).toHaveCSS("color", activeAccentColor);
   expect(await deleteAll.getAttribute("class")).not.toMatch(/destructive|pink|red|rose/iu);
   await choiceDialog.getByRole("button", { name: "Cancel" }).click();
 });
@@ -1515,10 +1545,10 @@ test("Connection Discard uses the configured editor accent", async ({ page }, te
 
   try {
     await page.goto("/");
-    await page.evaluate((accent) => {
-      document.documentElement.style.setProperty("--marinara-chat-chrome-accent", accent);
+    await setAppAccentColor(page, "#14b8a6");
+    await page.evaluate(() => {
       document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
-    }, accentColor);
+    });
 
     await page.locator('[data-tour="panel-connections"]').click();
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
@@ -1562,13 +1592,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
 
   try {
     await page.goto("/");
-    await page.evaluate((accent) => {
-      document.documentElement.style.setProperty("--marinara-app-accent-solid", accent);
-      document.documentElement.style.setProperty("--marinara-app-accent-static", accent);
-      document.documentElement.style.setProperty("--marinara-chat-chrome-accent", accent);
-      document.documentElement.style.setProperty("--marinara-chat-chrome-button-text-active", accent);
-      document.documentElement.style.setProperty("--marinara-editor-accent", accent);
-    }, accentColor);
+    await setAppAccentColor(page, "#1256aa");
 
     await page.locator('[data-tour="panel-characters"]').click();
     const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
@@ -1593,10 +1617,11 @@ test("Character favorite tags and stars inherit the configured accent color", as
 
     const cardFavorite = library.locator('[data-character-favorite-indicator="card"]');
     const detailFavorite = library.locator('[data-character-favorite-indicator="detail"]:visible');
+    const surfaceAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
     for (const indicator of [cardFavorite, detailFavorite]) {
       await expect(indicator).toBeVisible();
       await expect(indicator).toHaveClass(/mari-chrome-accent-surface/u);
-      await expect(indicator).toHaveCSS("color", accentColor);
+      await expect(indicator).toHaveCSS("color", surfaceAccentColor);
       expect(await indicator.getAttribute("class")).not.toMatch(/amber|yellow/iu);
     }
   } finally {
@@ -3636,7 +3661,7 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
     const expectedScale = Math.max(0.65, expectedWidth / 420);
     const appliedScale = Number(await trackerContent.getAttribute("data-tracker-content-scale"));
     expect(Math.abs(appliedScale - expectedScale)).toBeLessThanOrEqual(0.001);
-    const emptyTrackerText = tracker.getByText("No tracker data yet.", { exact: true });
+    const emptyTrackerText = tracker.getByText("No enabled tracker panels.", { exact: true });
     await expect(emptyTrackerText).toBeVisible();
     const [emptyTextFontSize, rootFontSize] = await emptyTrackerText.evaluate((element) => [
       parseFloat(getComputedStyle(element).fontSize),
@@ -4616,10 +4641,10 @@ test("Chat Settings edits only the selected cards and lorebook entries inline", 
     expect(detailGetPaths).not.toContain(`/api/characters/${unselectedCharacter.id}`);
     expect(detailGetPaths).not.toContain(`/api/lorebooks/${lorebook.id}/entries`);
     const accentColor = "rgb(20, 184, 166)";
-    await page.evaluate((accent) => {
-      document.documentElement.style.setProperty("--marinara-chat-chrome-accent", accent);
+    await setAppAccentColor(page, "#14b8a6");
+    await page.evaluate(() => {
       document.documentElement.style.setProperty("--destructive", "rgb(255, 0, 0)");
-    }, accentColor);
+    });
 
     await drawer.getByText("Persona", { exact: true }).first().click();
     const removePersonaButton = drawer.locator('[data-chat-settings-remove-resource="persona"]');
@@ -11767,7 +11792,14 @@ test("Roleplay displays a selected background when its file route is GET-only", 
           ),
       )
       .toBe(true);
-    await page.locator(`img[src^="${backgroundUrl}"]`).locator("..").click();
+    await page.getByRole("button", { name: "Browse library" }).click();
+    const library = page.getByRole("dialog", { name: "Background Library" });
+    await expect(library).toBeVisible();
+    await library
+      .locator('[data-background-id="user:rp-background-smoke.png"]')
+      .getByRole("button", { name: /Use .* for this chat/u })
+      .click();
+    await expect(library).toBeHidden();
 
     await expect
       .poll(async () =>
@@ -11816,7 +11848,7 @@ test("Roleplay displays a selected background when its file route is GET-only", 
     expect(requestedMethods).toContain("GET");
     expect(requestedMethods).not.toContain("HEAD");
   } finally {
-    await page.request.delete(`/api/chats/${chat.id}`);
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}`);
   }
 });
 
@@ -11857,7 +11889,7 @@ test("Background library organization works with desktop drag and touch drag", a
 
     const backgroundRowBeforeRename = page.locator(`[data-background-id="${backgroundId}"]:not([aria-hidden="true"])`);
     await backgroundRowBeforeRename.getByTitle("Rename background").click();
-    const renameInput = backgroundRowBeforeRename.getByLabel(`Rename ${currentFilename}`);
+    const renameInput = backgroundRowBeforeRename.getByRole("textbox", { name: `Rename ${currentFilename}` });
     await renameInput.fill(`rainy-arcade-${suffix}`);
     const [renameResponse] = await Promise.all([
       page.waitForResponse(
@@ -11876,12 +11908,11 @@ test("Background library organization works with desktop drag and touch drag", a
       }),
     ).toBeVisible();
 
-    await page.reload();
-    await page.locator('[data-tour="panel-settings"]').click();
-    await page.getByRole("tab", { name: "Appearance" }).click();
-    await page.getByPlaceholder("Search settings").fill("Backgrounds");
-    await page.getByRole("button", { name: /Backgrounds Section/ }).click();
+    const backgroundLibrary = page.getByRole("dialog", { name: "Background Library" });
+    await backgroundLibrary.getByRole("button", { name: "Close Background Library" }).click();
+    await expect(backgroundLibrary).toBeHidden();
     await page.getByRole("button", { name: "Browse library" }).click();
+    await expect(backgroundLibrary).toBeVisible();
     await page.getByPlaceholder("Search backgrounds").fill(`rainy-arcade-${suffix}`);
 
     await expect(page.getByText("Drag a background onto a folder chip to file it.")).toBeVisible();
@@ -11897,11 +11928,13 @@ test("Background library organization works with desktop drag and touch drag", a
     const backgroundActions = backgroundRow.locator("[data-background-actions]");
     const defaultToggle = backgroundRow.locator("[data-background-default-toggle]");
     if (testInfo.project.name.includes("mobile")) {
-      await expect(backgroundActions).toBeVisible();
+      await expect(backgroundActions).toHaveCSS("opacity", "1");
     } else {
-      await expect(backgroundActions).toBeHidden();
+      await page.getByPlaceholder("Search backgrounds").focus();
+      await page.mouse.move(0, 0);
+      await expect(backgroundActions).toHaveCSS("opacity", "0");
       await backgroundRow.hover();
-      await expect(backgroundActions).toBeVisible();
+      await expect(backgroundActions).toHaveCSS("opacity", "1");
     }
     await defaultToggle.scrollIntoViewIfNeeded();
     const starBefore = await defaultToggle.boundingBox();
@@ -11911,16 +11944,17 @@ test("Background library organization works with desktop drag and touch drag", a
     expect(Math.abs((starAfter?.x ?? 0) - (starBefore?.x ?? 0))).toBeLessThan(1);
     expect(Math.abs((starAfter?.y ?? 0) - (starBefore?.y ?? 0))).toBeLessThan(1);
     if (!testInfo.project.name.includes("mobile")) {
+      await sortSelect.focus();
       await sortSelect.hover();
-      await expect(backgroundActions).toBeHidden();
+      await expect(backgroundActions).toHaveCSS("opacity", "0");
       await expect(backgroundRow.locator("[data-background-default-indicator]")).toBeVisible();
       await backgroundRow.hover();
-      await expect(backgroundActions).toBeVisible();
+      await expect(backgroundActions).toHaveCSS("opacity", "1");
     }
     await defaultToggle.click();
 
     await page.getByRole("button", { name: "New Folder" }).click();
-    const newFolderPrompt = page.getByRole("dialog").getByRole("textbox");
+    const newFolderPrompt = page.getByRole("dialog", { name: "New Folder" }).getByRole("textbox");
     await expect(newFolderPrompt).toBeVisible();
     const [createFolderResponse] = await Promise.all([
       page.waitForResponse(
@@ -12043,7 +12077,7 @@ test("Background library organization works with desktop drag and touch drag", a
     // Rename and delete the active folder from the folder chips; its background falls back to unfiled.
     await page.locator(`[data-background-folder-filter-id="${folderId}"]`).click();
     await page.getByRole("button", { name: /^Rename folder / }).click();
-    const folderNamePrompt = page.getByRole("dialog").getByRole("textbox");
+    const folderNamePrompt = page.getByRole("dialog", { name: "Rename Folder" }).getByRole("textbox");
     await folderNamePrompt.fill(`Alleys ${suffix}`);
     await folderNamePrompt.press("Enter");
     await expect(page.locator(`[data-background-folder-filter-id="${folderId}"]`)).toContainText(`Alleys ${suffix}`);
@@ -12060,8 +12094,10 @@ test("Background library organization works with desktop drag and touch drag", a
       .toBeNull();
     folderId = null;
   } finally {
-    if (folderId) await page.request.delete(`/api/backgrounds/folders/${encodeURIComponent(folderId)}`);
-    await page.request.delete(`/api/backgrounds/${encodeURIComponent(currentFilename)}`);
+    if (folderId) {
+      await bestEffortDelete(page.request, `/api/backgrounds/folders/${encodeURIComponent(folderId)}`);
+    }
+    await bestEffortDelete(page.request, `/api/backgrounds/${encodeURIComponent(currentFilename)}`);
   }
 });
 

@@ -13,24 +13,24 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
     case "illustrator":
       return {
         label: "Run Interval",
-        unit: "assistant messages",
-        help: "How many assistant messages should pass before the Illustrator is allowed to create another image.",
+        unit: "messages",
+        help: "How many user and assistant messages should pass before the Illustrator is allowed to create another image.",
         defaultValue: 5,
         max: 100,
       };
     case "lorebook-keeper":
       return {
         label: "Run Interval",
-        unit: "assistant messages",
-        help: "How many assistant messages should pass between Lorebook Keeper updates.",
+        unit: "messages",
+        help: "How many user and assistant messages should pass between Lorebook Keeper updates.",
         defaultValue: 8,
         max: 100,
       };
     case "card-evolution-auditor":
       return {
         label: "Run Interval",
-        unit: "assistant messages",
-        help: "How many assistant messages should pass between Card Evolution Auditor checks.",
+        unit: "messages",
+        help: "How many user and assistant messages should pass between Card Evolution Auditor checks.",
         defaultValue: 8,
         max: 100,
       };
@@ -38,8 +38,8 @@ export function getAgentRunIntervalMeta(agentType: string, isBuiltIn = true): Ag
       if (!isBuiltIn) {
         return {
           label: "Trigger Cadence",
-          unit: "user messages",
-          help: "How many user messages should pass since this custom agent last ran before it triggers again. Set to 1 to run whenever its phase runs.",
+          unit: "messages",
+          help: "How many user and assistant messages should pass since this custom agent last ran before it triggers again. Set to 1 to run whenever its phase runs.",
           defaultValue: 1,
           max: 200,
         };

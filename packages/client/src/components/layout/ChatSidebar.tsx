@@ -65,7 +65,11 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { Modal } from "../ui/Modal";
 import { Reorder, useDragControls } from "framer-motion";
 import { parseChatMetadata } from "../../lib/chat-display";
-import { compareChatsByActivityAsc, compareChatsByActivityDesc } from "../../lib/chat-recency";
+import {
+  compareChatsByActivityDesc,
+  compareChatsByCreatedAtAsc,
+  compareChatsByCreatedAtDesc,
+} from "../../lib/chat-recency";
 import { getCurrentGameGroupRepresentative } from "../../lib/game-session-resolution";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -73,7 +77,7 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
-type ChatSortOption = "newest" | "oldest" | "name-asc" | "name-desc";
+type ChatSortOption = "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
 const CHAT_LIST_PAGE_SIZE = 100;
 
 const CONVERSATION_STATUS_PRIORITY: Record<ConversationPresenceStatus, number> = {
@@ -260,7 +264,7 @@ export function ChatSidebar() {
   const moveChatMut = useMoveChat();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [sort, setSort] = useState<ChatSortOption>("newest");
+  const [sort, setSort] = useState<ChatSortOption>("recent");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"conversation" | "roleplay" | "game">("conversation");
@@ -415,12 +419,14 @@ export function ChatSidebar() {
     const sorted = [...filtered].sort((a, b) => {
       switch (sort) {
         case "oldest":
-          return compareChatsByActivityAsc(a, b);
+          return compareChatsByCreatedAtAsc(a, b);
         case "name-asc":
           return toSearchText(a.name).localeCompare(toSearchText(b.name));
         case "name-desc":
           return toSearchText(b.name).localeCompare(toSearchText(a.name));
         case "newest":
+          return compareChatsByCreatedAtDesc(a, b);
+        case "recent":
         default:
           return compareChatsByActivityDesc(a, b);
       }
@@ -1382,6 +1388,7 @@ export function ChatSidebar() {
               className="mari-chrome-field mari-chrome-sort-field mari-accent-animated h-10 w-[6.5rem] appearance-none py-0 pl-2.5 pr-7 text-[0.6875rem] md:h-9"
               title={localize("Sort chats")}
             >
+              <option value="recent">{localizeUi("ui.layout.chatsidebar.recent")}</option>
               <option value="newest">{localize("Newest")}</option>
               <option value="oldest">{localize("Oldest")}</option>
               <option value="name-asc">{localizeUi("ui.panels.backgroundpicker.aZ")}</option>

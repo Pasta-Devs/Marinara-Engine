@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
-import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
+import type { Chat, ChatMode, Message } from "../../packages/shared/src/types/chat.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 import { characterCardVersions, characters, chats, messages } from "../../packages/server/src/db/schema/index.js";
@@ -18,6 +18,7 @@ import {
 } from "../../packages/shared/src/utils/speaker-segments.js";
 import type { Lorebook } from "../../packages/shared/src/types/lorebook.js";
 import {
+  createLorebookEntrySchema,
   createLorebookSchema,
   bulkUpdateLorebookEntriesSchema,
   normalizeLorebookCategory,
@@ -62,6 +63,11 @@ import {
 } from "../../packages/client/src/lib/game-npc-avatar.js";
 import { characterMatchesSearch, parseCharacterDisplayData } from "../../packages/client/src/lib/character-display.js";
 import {
+  compareChatsByActivityDesc,
+  compareChatsByCreatedAtAsc,
+  compareChatsByCreatedAtDesc,
+} from "../../packages/client/src/lib/chat-recency.js";
+import {
   DEFAULT_GENERATION_PARAMS,
   DEFAULT_TRANSLATION_SYSTEM_PROMPT,
   MAX_FILE_SIZES,
@@ -73,7 +79,8 @@ import {
   parseManagedGenerationParameterDefinitions,
   resolveManagedGenerationParameters,
 } from "../../packages/shared/src/utils/managed-generation-parameters.js";
-import { getChatModeCapabilities } from "../../packages/shared/src/constants/chat-mode-capabilities.js";
+import { isAgentManifestAvailableInChatMode } from "../../packages/shared/src/constants/chat-mode-agent-policy.js";
+import { CHAT_SETTINGS_SURFACES } from "../../packages/client/src/components/chat/chat-settings-surfaces.js";
 import { mergeNoodleCustomEmojiMap } from "../../packages/client/src/lib/noodle-custom-emojis.js";
 import {
   isBundledGameAssetFolderPath,
@@ -175,7 +182,9 @@ import { ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import { createAgentsStorage } from "../../packages/server/src/services/storage/agents.storage.js";
 import { createCustomToolsStorage } from "../../packages/server/src/services/storage/custom-tools.storage.js";
 import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
+import { createLorebooksStorage } from "../../packages/server/src/services/storage/lorebooks.storage.js";
 import { createNoodleStorage } from "../../packages/server/src/services/storage/noodle.storage.js";
+import { buildReferencedCharacterContext } from "../../packages/server/src/services/prompt/macro-context.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
   findMissingComfyReferenceSlots,
@@ -206,6 +215,12 @@ import {
   parseVeniceImageResponse,
 } from "../../packages/server/src/services/image/venice-image.js";
 import {
+  buildZaiImageRequest,
+  buildZaiImageUrl,
+  parseZaiImageUrl,
+  resolveZaiImageSize,
+} from "../../packages/server/src/services/image/zai-image.js";
+import {
   buildAtlasCloudImageRequest,
   buildAtlasCloudUrl,
   buildAtlasCloudVideoRequest,
@@ -214,6 +229,8 @@ import {
 import {
   ATLAS_CLOUD_IMAGE_MODELS,
   ATLAS_CLOUD_VIDEO_MODELS,
+  IMAGE_GENERATION_SOURCES,
+  ZAI_IMAGE_MODELS,
   inferImageSource,
   inferVideoSource,
 } from "../../packages/shared/src/constants/model-lists.js";
@@ -389,8 +406,85 @@ assert.equal(
   "merged",
   "pre-existing Conversation groups without mode metadata must retain Grouped behavior",
 );
-assert.equal(getChatModeCapabilities("conversation").supportsGroupChatControls, true);
-assert.equal(getChatModeCapabilities("conversation").modeSections.includes("group-chat"), true);
+const expectedChatModeSurfaces = {
+  conversation: {
+    showSettingsProfiles: true,
+    promptSettingsSurface: "conversation",
+    agentSettingsSurface: "conversation",
+    showGroupChatControls: true,
+  },
+  roleplay: {
+    showSettingsProfiles: true,
+    promptSettingsSurface: "roleplay",
+    agentSettingsSurface: "generation",
+    showGroupChatControls: true,
+  },
+  game: {
+    showSettingsProfiles: false,
+    promptSettingsSurface: "game",
+    agentSettingsSurface: "generation",
+    showGroupChatControls: false,
+  },
+} as const satisfies Record<
+  Exclude<ChatMode, "visual_novel">,
+  {
+    showSettingsProfiles: boolean;
+    promptSettingsSurface: "conversation" | "roleplay" | "game";
+    agentSettingsSurface: "conversation" | "generation";
+    showGroupChatControls: boolean;
+  }
+>;
+for (const mode of Object.keys(expectedChatModeSurfaces) as Array<Exclude<ChatMode, "visual_novel">>) {
+  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[mode];
+  assert.deepEqual(
+    {
+      showSettingsProfiles: modeSettingsSurfaces.showSettingsProfiles,
+      promptSettingsSurface: modeSettingsSurfaces.promptSettingsSurface,
+      agentSettingsSurface: modeSettingsSurfaces.agentSettingsSurface,
+      showGroupChatControls: modeSettingsSurfaces.showGroupChatControls,
+    },
+    expectedChatModeSurfaces[mode],
+    `Chat mode ${mode} must expose the expected settings surfaces`,
+  );
+}
+assert.equal(
+  Object.hasOwn(CHAT_SETTINGS_SURFACES, "visual_novel"),
+  false,
+  "Legacy Visual Novel must alias Roleplay instead of owning a settings-surface row",
+);
+const downloadableAgent = { id: "downloadable-agent", execution: "pipeline" as const };
+assert.equal(isAgentManifestAvailableInChatMode("conversation", downloadableAgent), false);
+assert.equal(isAgentManifestAvailableInChatMode("roleplay", downloadableAgent), true);
+assert.equal(isAgentManifestAvailableInChatMode("visual_novel", downloadableAgent), true);
+assert.equal(isAgentManifestAvailableInChatMode("game", downloadableAgent), false);
+assert.equal(
+  isAgentManifestAvailableInChatMode("visual_novel", {
+    id: "roleplay-limited-agent",
+    execution: "pipeline",
+    modeAllowlist: ["roleplay"],
+  }),
+  true,
+  "Legacy Visual Novel must use the normalized Roleplay mode for manifest allowlists",
+);
+assert.equal(
+  isAgentManifestAvailableInChatMode("game", { id: "spotify", execution: "pipeline" }),
+  true,
+  "Game mode must retain its opt-in Spotify agent",
+);
+assert.equal(
+  isAgentManifestAvailableInChatMode("game", {
+    id: "mode-limited-feature",
+    execution: "feature",
+    modeAllowlist: ["roleplay"],
+  }),
+  false,
+  "An explicit mode allowlist must still take precedence over feature-agent availability",
+);
+assert.equal(
+  isAgentManifestAvailableInChatMode(null, downloadableAgent),
+  true,
+  "Missing legacy mode metadata must retain the Roleplay agent policy",
+);
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
@@ -519,6 +613,7 @@ try {
   closeCharacterUpdateDb = closeDB;
   const db = await getDB();
   const characterStorage = createCharactersStorage(db);
+  const lorebookStorage = createLorebooksStorage(db);
   const noodleStorage = createNoodleStorage(db);
   const storageTrimFixture = await characterStorage.create({
     ...characterDataSchema.parse({ name: "Storage trim fixture" }),
@@ -555,6 +650,77 @@ try {
     (JSON.parse(duplicateTrimFixture?.data ?? "{}") as { name?: string }).name,
     "Duplicate fixture (Copy)",
     "Duplicating a Character must normalize legacy padded names",
+  );
+
+  const referencedCharacter = await characterStorage.create(
+    characterDataSchema.parse({
+      name: "Susie",
+      description: "A trusted friend from the western district.",
+      first_mes: "REFERENCED_GREETING_MUST_STAY_OUT",
+      mes_example: "REFERENCED_EXAMPLE_MUST_STAY_OUT",
+      extensions: {
+        appearance: "Blonde hair and a blue summer dress.",
+      },
+    }),
+  );
+  const hiddenCharacterLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({
+      name: "Susie's private memories",
+      category: "character",
+      characterIds: [referencedCharacter.id],
+      hiddenFromLibrary: true,
+    }),
+  );
+  await lorebookStorage.createEntry(
+    createLorebookEntrySchema.parse({
+      lorebookId: hiddenCharacterLorebook.id,
+      name: "The cafe meeting",
+      content: "REFERENCED_LOREBOOK_MEMORY",
+      keys: ["cafe"],
+    }),
+  );
+  assert.equal(
+    (await lorebookStorage.list()).some((book) => book.id === hiddenCharacterLorebook.id),
+    true,
+    "Hidden lorebooks must remain available to internal prompt processing",
+  );
+  assert.equal(
+    (await lorebookStorage.listPage({ limit: 100, offset: 0, search: "Susie's private memories" })).items.length,
+    0,
+    "Hidden embedded lorebooks must not appear in general library searches",
+  );
+
+  const referencedContext = await buildReferencedCharacterContext({
+    db,
+    activeCharacterIds: [storageTrimFixture.id],
+    sources: [],
+    chatMessages: [
+      {
+        role: "user",
+        content: `I went to the cafe with {{${referencedCharacter.id}}}.`,
+      },
+    ],
+    macroCtx: {
+      user: "Mari",
+      char: "Version snapshot fixture",
+      characters: ["Version snapshot fixture"],
+      variables: {},
+    },
+    wrapFormat: "xml",
+    chatId: "character-reference-regression",
+  });
+  assert.equal(referencedContext.references[referencedCharacter.id], "Susie");
+  assert.match(referencedContext.content, /A trusted friend from the western district\./u);
+  assert.match(referencedContext.content, /Blonde hair and a blue summer dress\./u);
+  assert.match(referencedContext.content, /REFERENCED_LOREBOOK_MEMORY/u);
+  assert.doesNotMatch(referencedContext.content, /REFERENCED_GREETING_MUST_STAY_OUT/u);
+  assert.doesNotMatch(referencedContext.content, /REFERENCED_EXAMPLE_MUST_STAY_OUT/u);
+
+  await lorebookStorage.update(hiddenCharacterLorebook.id, { hiddenFromLibrary: false });
+  assert.equal(
+    (await lorebookStorage.listPage({ limit: 100, offset: 0, search: "Susie's private memories" })).items.length,
+    1,
+    "Making an embedded lorebook visible must restore it to general library searches",
   );
 
   const restoreTrimFixture = await characterStorage.create(characterDataSchema.parse({ name: "Restore source" }));
@@ -817,9 +983,8 @@ try {
   await customToolsStore.remove(customTool.id);
   const cleanedToolAgent = await agentsStore.getById(toolAgent.id);
   assert.deepEqual(JSON.parse(cleanedToolAgent?.settings ?? "{}").enabledTools, ["roll_dice"]);
-  const { resolveGenerationTools } = await import(
-    "../../packages/server/src/services/generation/tool-resolution-runtime.js"
-  );
+  const { resolveGenerationTools } =
+    await import("../../packages/server/src/services/generation/tool-resolution-runtime.js");
   const diceAgent = {
     id: "dice-agent-regression",
     type: "dice-agent-regression",
@@ -1224,6 +1389,45 @@ assert.deepEqual(
   }),
   [{ id: "chroma", name: "Chroma" }],
 );
+assert.equal(buildZaiImageUrl("https://api.z.ai/api/paas/v4"), "https://api.z.ai/api/paas/v4/images/generations");
+assert.throws(
+  () => buildZaiImageUrl("https://api.z.ai/api/coding/paas/v4"),
+  /general API URL/u,
+);
+assert.equal(resolveZaiImageSize("glm-image", 1600, 900), "1728x960");
+assert.equal(resolveZaiImageSize("cogview-4-250304", 900, 1600), "768x1344");
+assert.deepEqual(buildZaiImageRequest({ model: "glm-image", prompt: "canal", width: 1600, height: 900 }), {
+  model: "glm-image",
+  prompt: "canal",
+  size: "1728x960",
+});
+assert.equal(parseZaiImageUrl({ data: [{ url: "https://cdn.example/zai.png" }] }), "https://cdn.example/zai.png");
+assert.equal(inferImageSource("", "https://api.z.ai/api/paas/v4"), "zai");
+assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "zai"));
+assert.deepEqual(
+  ZAI_IMAGE_MODELS.map((model) => model.id),
+  ["glm-image", "cogview-4-250304"],
+);
+const pullRequestTriageWorkflow = readFileSync(
+  new URL("../../.github/workflows/pull-request-triage.yml", import.meta.url),
+  "utf8",
+);
+assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.review\.state == 'commented'/u);
+assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
+assert.match(pullRequestTriageWorkflow, /APPROVAL_EVENT_RELEVANT/u);
+assert.match(pullRequestTriageWorkflow, /if: env\.APPROVAL_EVENT_RELEVANT != 'true'/u);
+assert.match(
+  pullRequestTriageWorkflow,
+  /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
+);
+assert.match(
+  pullRequestTriageWorkflow,
+  /github\.event\.action != 'edited' \|\| contains\(toJSON\(github\.event\.changes\), '\\?"base\\?"'\)/u,
+);
+assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
+assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base\.ref\.from != ''/u);
 assert.equal(
   buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
   "https://api.atlascloud.ai/api/v1/model/generateImage",
@@ -1515,6 +1719,32 @@ assert.equal(characterMatchesSearch(searchableCharacter, "modern au"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "snezhnaya"), true);
 assert.equal(characterMatchesSearch(searchableCharacter, "friendly bard"), false);
 
+const olderActiveChat = {
+  id: "older-active",
+  createdAt: "2026-01-01T00:00:00.000Z",
+  lastMessageAt: "2026-07-31T10:00:00.000Z",
+};
+const newerIdleChat = {
+  id: "newer-idle",
+  createdAt: "2026-07-30T00:00:00.000Z",
+  lastMessageAt: "2026-07-30T01:00:00.000Z",
+};
+assert.deepEqual(
+  [newerIdleChat, olderActiveChat].sort(compareChatsByActivityDesc).map((chat) => chat.id),
+  ["older-active", "newer-idle"],
+  "Recent chat sorting must use last-message activity",
+);
+assert.deepEqual(
+  [olderActiveChat, newerIdleChat].sort(compareChatsByCreatedAtDesc).map((chat) => chat.id),
+  ["newer-idle", "older-active"],
+  "Newest chat sorting must use creation time",
+);
+assert.deepEqual(
+  [newerIdleChat, olderActiveChat].sort(compareChatsByCreatedAtAsc).map((chat) => chat.id),
+  ["older-active", "newer-idle"],
+  "Oldest chat sorting must use creation time",
+);
+
 const termuxLauncher = readFileSync(new URL("../../start-termux.sh", import.meta.url), "utf8");
 assert.doesNotMatch(termuxLauncher, /run_pnpm install --force/u);
 assert.match(termuxLauncher, /run_pnpm store prune/u);
@@ -1529,7 +1759,15 @@ assert.doesNotMatch(preserveSharedBuild, /\bdist\b/u);
 const serverPackageJson = JSON.parse(
   readFileSync(new URL("../../packages/server/package.json", import.meta.url), "utf8"),
 ) as { scripts?: Record<string, string> };
+const rootPackageJson = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as {
+  scripts?: Record<string, string>;
+};
 assert.match(serverPackageJson.scripts?.dev ?? "", /--ignore \.\.\/shared\/dist/u);
+assert.match(
+  rootPackageJson.scripts?.["dev:server"] ?? "",
+  /^pnpm build:shared && pnpm --filter @marinara-engine\/server dev$/u,
+  "The server-only development command must establish shared build output first",
+);
 assert.equal(resolveDevSharedBuildScript({ DEV_PRESERVE_SHARED_DIST: "true" }), "build:preserve");
 assert.equal(resolveDevSharedBuildScript({}), "build");
 const conversationImageConnections = [
@@ -1607,6 +1845,14 @@ const professorMariHomeSource = readFileSync(
   new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
   "utf8",
 );
+assert.match(professorMariHomeSource, /chatHistorySelectionMode/u);
+assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
+assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
+assert.match(
+  professorMariHomeSource,
+  /Promise\.allSettled\([\s\S]*?api\.delete\(`\/chats\/internal\/professor-mari\/chats\/\$\{id\}`\)/u,
+  "Professor Mari chat history should delete all selected chats through the existing endpoint",
+);
 const roleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
   "utf8",
@@ -1622,10 +1868,21 @@ assert.match(
   /ui\.chat\.chatsettingsdrawer\.individualRepliesCanUseManyTokens/u,
   "Conversation group-token warning must remain wired through localization",
 );
+const groupChatLabelIndex = conversationGroupSettingsSource.indexOf("ui.chat.chatsettingsdrawer.groupChat");
+assert.notEqual(groupChatLabelIndex, -1, "Chat Settings Drawer must retain the Group Chat section");
+const groupChatVisibilitySource = conversationGroupSettingsSource.slice(
+  Math.max(0, groupChatLabelIndex - 500),
+  groupChatLabelIndex,
+);
 assert.match(
-  conversationGroupSettingsSource,
-  /chatCharIds\.length > 1 && modeCapabilities\.supportsGroupChatControls/u,
-  "pre-existing multi-character Conversation chats must show Group Chat settings without requiring mode metadata",
+  groupChatVisibilitySource,
+  /chatCharIds\.length\s*>\s*1/u,
+  "pre-existing multi-character Conversation chats must retain the Group Chat character-count gate",
+);
+assert.match(
+  groupChatVisibilitySource,
+  /\bshowGroupChatControls\b/u,
+  "Group Chat visibility must consume the settings-surface policy",
 );
 assert.match(
   conversationGroupSettingsSource,
@@ -1761,6 +2018,21 @@ const playwrightWebServer = Array.isArray(playwrightConfig.webServer)
   ? playwrightConfig.webServer[0]
   : playwrightConfig.webServer;
 assert.equal(playwrightWebServer?.env?.DEV_PRESERVE_SHARED_DIST, "true");
+assert.match(playwrightWebServer?.command ?? "", /e2e\/start-servers\.mjs/u);
+const desktopPlaywrightProject = playwrightConfig.projects?.find((project) => project.name === "desktop-chromium");
+const mobilePlaywrightProject = playwrightConfig.projects?.find((project) => project.name === "mobile-chromium");
+assert.ok(desktopPlaywrightProject);
+assert.ok(mobilePlaywrightProject);
+assert.notEqual(
+  desktopPlaywrightProject.use?.baseURL,
+  mobilePlaywrightProject.use?.baseURL,
+  "desktop and mobile Playwright projects must use isolated app servers",
+);
+const playwrightServerSource = readFileSync(join(REPOSITORY_ROOT, "e2e/start-servers.mjs"), "utf8");
+assert.match(playwrightServerSource, /startProject\("mobile", mobileClientPort, mobileServerPort\)/u);
+assert.match(playwrightServerSource, /startProject\("desktop", desktopClientPort, desktopServerPort\)/u);
+assert.match(playwrightServerSource, /resolve\(dataRoot, name\)/u);
+assert.match(playwrightServerSource, /DATA_DIR:\s*dataDir/u);
 
 const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const agentEditorSource = readFileSync(
@@ -1829,6 +2101,43 @@ const gameSetupWizardSource = readFileSync(
 const chatSettingsDrawerSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
+);
+assert.match(
+  chatSettingsDrawerSource,
+  /CHAT_SETTINGS_SURFACES\s*\[\s*chatMode\s*===\s*["']visual_novel["']\s*\?\s*["']roleplay["']\s*:\s*chatMode\s*\]/u,
+  "Chat Settings Drawer must normalize legacy Visual Novel to the Roleplay settings surface",
+);
+for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "agentSettingsSurface"]) {
+  assert.match(
+    chatSettingsDrawerSource,
+    new RegExp(`\\b${surfaceField}\\b`, "u"),
+    `Chat Settings Drawer must consume the ${surfaceField} settings-surface policy`,
+  );
+}
+assert.match(
+  chatSettingsDrawerSource,
+  /agentSettingsSurface\s*===\s*["']conversation["']\s*&&\s*\(\s*<Section\s+id=["']conversation-agents["']/u,
+  "Conversation Agents visibility must consume the conversation agent-settings surface",
+);
+assert.match(
+  chatSettingsDrawerSource,
+  /agentSettingsSurface\s*===\s*["']generation["']\s*&&\s*\(\s*<Section\s+id=\{`\$\{chatMode\}-agents`\}/u,
+  "Roleplay and Game Agents visibility must consume the generation agent-settings surface",
+);
+assert.doesNotMatch(
+  chatSettingsDrawerSource,
+  /getChatModeCapabilities|modeCapabilities/u,
+  "Chat Settings Drawer must use the settings-surface policy instead of shared capabilities",
+);
+assert.doesNotMatch(
+  chatSettingsDrawerSource,
+  /supportsPromptPresets\s*&&\s*isRoleplayMode/u,
+  "Prompt preset visibility must not contradict the matrix with a duplicate roleplay gate",
+);
+assert.doesNotMatch(
+  chatSettingsDrawerSource,
+  /sharedSections\s*\.includes\(\s*["']agents["']\s*\)\s*&&\s*!isConversation/u,
+  "Agent settings visibility must not retain the obsolete sharedSections/isConversation gate",
 );
 const conversationInputSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ConversationInput.tsx", import.meta.url),
@@ -2453,6 +2762,21 @@ const imagePromptReviewModalSource = readFileSync(
 const retryAgentsPromptReviewSource = readFileSync(
   new URL("../../packages/server/src/routes/generate/retry-agents-route.ts", import.meta.url),
   "utf8",
+);
+assert.match(
+  agentEditorSource,
+  /isCustomImagePromptAgent[\s\S]{0,180}supportsImagePromptSettings/u,
+  "Custom Image Prompt agents must expose the shared Illustrator image settings",
+);
+assert.match(
+  conversationGenerationSource,
+  /const resultAgent = resolvedAgents\.find[\s\S]{0,300}resultAgent \?\? \(result\.agentType === "illustrator" \? fallbackIllustratorAgent : undefined\)/u,
+  "Image generation must use the custom producing agent and reserve Illustrator fallback for Illustrator results",
+);
+assert.match(
+  retryAgentsPromptReviewSource,
+  /const resultAgent = resolvedAgents\.find[\s\S]{0,360}resultAgent \?\? \(result\.agentType === "illustrator" \? fallbackIllustratorAgent : undefined\)/u,
+  "Image Prompt retries must retain custom agent settings without borrowing Illustrator configuration",
 );
 const uiStoreSource = readFileSync(new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url), "utf8");
 const settingsSyncSource = readFileSync(
@@ -3336,10 +3660,53 @@ assert.match(
   /if \(existing\.mode === "conversation" && hasStartedChat\) \{/u,
   "Only Conversation chats should create character membership timeline notices",
 );
+const summaryPopoverSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/client/src/components/chat/SummaryPopover.tsx"),
+  "utf8",
+);
+assert.match(
+  summaryPopoverSource,
+  /summaryEntryIds:\s*selectedEntries\.map\(\(entry\) => entry\.id\)/u,
+  "The summary UI must submit every selected entry to the combine endpoint",
+);
+assert.match(
+  chatRoutesSource,
+  /requestedSummaryEntryIds[\s\S]{0,6500}nextEntries\.splice\(Math\.max\(0, firstIndex\), 0, combinedEntry\)/u,
+  "Combined summaries must replace their selected entries at the first selected chronological position",
+);
+assert.match(
+  chatRoutesSource,
+  /combinedTokenEstimate[\s\S]{0,500}Selected summaries are too large to combine at once[\s\S]{0,3000}provider\.chatComplete/u,
+  "Combined summaries must be rejected before provider generation when they exceed the input budget",
+);
+const chatSidebarSource = readFileSync(
+  join(REPOSITORY_ROOT, "packages/client/src/components/layout/ChatSidebar.tsx"),
+  "utf8",
+);
+assert.match(
+  chatSidebarSource,
+  /useState<ChatSortOption>\("recent"\)/u,
+  "Recent activity must be the default chat sort",
+);
 
 const windowsLauncherSource = readFileSync(join(REPOSITORY_ROOT, "start.bat"), "utf8");
 for (const workspace of ["shared", "server", "client"]) {
   assert.match(windowsLauncherSource, new RegExp(`--filter @marinara-engine/${workspace} run clean`, "u"));
+}
+for (const relativePath of [
+  "packages/client/scripts/build.mjs",
+  "packages/server/src/config/build-info.ts",
+  "packages/server/src/routes/updates.routes.ts",
+  "packages/server/src/services/mari-db/mari-db.service.ts",
+  "scripts/check-tracked-installers.mjs",
+  "scripts/ensure-native-deps.mjs",
+]) {
+  const source = readFileSync(join(REPOSITORY_ROOT, relativePath), "utf8");
+  assert.doesNotMatch(
+    source,
+    /shell:\s*process\.platform\s*===\s*"win32"/u,
+    `${relativePath} must not pass an argument array through shell: true on Windows`,
+  );
 }
 
 const longSceneNarration = Array.from(
@@ -3778,6 +4145,11 @@ try {
     connectionEditorSource,
     /setRemoteModels\(\[\]\);\s*setRemoteLoras\(\[\]\);\s*setFetchError\(null\);/u,
     "Changing media providers must clear stale remote LoRA choices",
+  );
+  assert.match(
+    connectionEditorSource,
+    /src\.id === "zai"[\s\S]{0,180}!ZAI_IMAGE_MODELS\.some[\s\S]{0,180}setLocalModel\("glm-image"\)/u,
+    "Switching to Z.AI must replace a model that Z.AI does not support",
   );
 
   const backgroundAutonomousSource = readFileSync(

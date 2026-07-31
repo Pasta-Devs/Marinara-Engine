@@ -66,6 +66,22 @@ function resolvePnpmCommand() {
   return { command: "pnpm", args: [] };
 }
 
+function spawnPnpm(runner, args, options) {
+  if (process.platform !== "win32" || runner.command === process.execPath) {
+    return spawnSync(runner.command, args, options);
+  }
+
+  const commandLine = [runner.command, ...args]
+    .map((part) => {
+      if (!/^[A-Za-z0-9@._/:=+-]+$/u.test(part)) {
+        throw new Error(`Unsupported character in pnpm command argument: ${part}`);
+      }
+      return part;
+    })
+    .join(" ");
+  return spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", commandLine], options);
+}
+
 function rebuildOnnxRuntime() {
   if (process.env.MARINARA_NATIVE_DEPS_REPAIRING === "1") {
     warn("Skipping nested onnxruntime-node rebuild.");
@@ -82,11 +98,10 @@ function rebuildOnnxRuntime() {
   ];
 
   log(`Rebuilding onnxruntime-node for ${tuple}...`);
-  const result = spawnSync(runner.command, args, {
+  const result = spawnPnpm(runner, args, {
     cwd: repoRoot,
     env: { ...process.env, MARINARA_NATIVE_DEPS_REPAIRING: "1" },
     stdio: "inherit",
-    shell: process.platform === "win32",
   });
 
   if (result.status === 0) return true;
@@ -111,11 +126,10 @@ function forceInstallNativeDeps() {
   ];
 
   log(`Refreshing native dependencies for ${tuple}...`);
-  const result = spawnSync(runner.command, args, {
+  const result = spawnPnpm(runner, args, {
     cwd: repoRoot,
     env: { ...process.env, MARINARA_NATIVE_DEPS_REPAIRING: "1" },
     stdio: "inherit",
-    shell: process.platform === "win32",
   });
 
   if (result.status === 0) return true;

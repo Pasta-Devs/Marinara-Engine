@@ -315,7 +315,7 @@ export interface ChatMetadata {
   narrativeDirectorMode?: "natural" | "random";
   /** Whether Narrative Director maintains a hidden Secret Plot arc for this roleplay chat. */
   narrativeDirectorSecretPlotEnabled?: boolean;
-  /** Assistant-message cadence for Narrative Director Secret Plot maintenance. */
+  /** User/assistant message cadence for Narrative Director Secret Plot maintenance. */
   narrativeDirectorSecretPlotRunInterval?: number;
   /** Explicit target lorebook for the Lorebook Keeper in this chat. Null/omitted = auto-pick. */
   lorebookKeeperTargetLorebookId?: string | null;

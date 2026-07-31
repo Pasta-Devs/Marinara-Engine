@@ -1314,7 +1314,8 @@ export function ChatRoleplaySurface({
       const currentTop = el.scrollTop;
       const previousTop = composerScrollTopRef.current;
       const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
-      if (!isMobile || shouldKeepMobileComposerOpen || nearBottom) {
+      const composerHasFocus = document.activeElement?.matches("[data-chat-composer]") === true;
+      if (!isMobile || shouldKeepMobileComposerOpen || composerHasFocus || nearBottom) {
         setMobileHistoryComposerCollapsed(false);
       } else if (currentTop > previousTop + 18) {
         setMobileHistoryComposerCollapsed(false);

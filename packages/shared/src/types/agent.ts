@@ -335,6 +335,12 @@ export interface AgentContext {
   }>;
   /** The main response text (available for post-processing agents) */
   mainResponse: string | null;
+  /** Speaker-attributed response segments when Roleplay Name Prefix is enabled. */
+  mainResponseSegments?: Array<{
+    characterId?: string;
+    characterName: string;
+    content: string;
+  }>;
   /** Current game state (if any) */
   gameState: import("./game-state.js").GameState | null;
   /**

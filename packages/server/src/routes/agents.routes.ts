@@ -288,28 +288,30 @@ export async function agentsRoutes(app: FastifyInstance) {
 
     const lastRun = await storage.getLastSuccessfulRunByType(agentType, chatId);
     const messages = await chats.listMessages(chatId);
-    let assistantMessagesSinceLastRun: number | null = null;
+    let messagesSinceLastRun: number | null = null;
     let lastRunMessageFound: boolean | null = null;
 
     if (lastRun) {
       const lastRunIdx = messages.findIndex((message: any) => message.id === lastRun.messageId);
       lastRunMessageFound = lastRunIdx >= 0;
-      assistantMessagesSinceLastRun =
+      messagesSinceLastRun =
         lastRunIdx >= 0
-          ? messages.slice(lastRunIdx + 1).filter((message: any) => message.role === "assistant").length
+          ? messages
+              .slice(lastRunIdx + 1)
+              .filter((message: any) => message.role === "user" || message.role === "assistant").length
           : runInterval;
     }
 
-    const remainingAssistantMessages =
-      runInterval <= 1 || !lastRun ? 0 : Math.max(0, runInterval - ((assistantMessagesSinceLastRun ?? 0) + 1));
+    const remainingMessages =
+      runInterval <= 1 || !lastRun ? 0 : Math.max(0, runInterval - ((messagesSinceLastRun ?? 0) + 1));
 
     return {
       agentType,
       runInterval,
       lastSuccessfulRun: lastRun ? { messageId: lastRun.messageId, createdAt: lastRun.createdAt } : null,
-      assistantMessagesSinceLastRun,
-      remainingAssistantMessages,
-      runsNextAssistantMessage: remainingAssistantMessages === 0,
+      messagesSinceLastRun,
+      remainingMessages,
+      runsNextMessage: remainingMessages === 0,
       lastRunMessageFound,
     };
   });

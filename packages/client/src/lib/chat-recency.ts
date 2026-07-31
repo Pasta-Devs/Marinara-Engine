@@ -31,3 +31,13 @@ export function compareChatsByActivityAsc(left: ChatRecencyFields, right: ChatRe
 export function compareChatsByActivityDesc(left: ChatRecencyFields, right: ChatRecencyFields): number {
   return compareChatsByActivityAsc(right, left);
 }
+
+export function compareChatsByCreatedAtAsc(left: ChatRecencyFields, right: ChatRecencyFields): number {
+  const created = readTimestamp(left.createdAt) - readTimestamp(right.createdAt);
+  if (created !== 0) return created;
+  return (left.id ?? "").localeCompare(right.id ?? "");
+}
+
+export function compareChatsByCreatedAtDesc(left: ChatRecencyFields, right: ChatRecencyFields): number {
+  return compareChatsByCreatedAtAsc(right, left);
+}

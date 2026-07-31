@@ -16,7 +16,7 @@ export function resolveAgentRunInterval(settings: unknown, fallback: number): nu
   return Number.isFinite(parsed) && parsed >= 1 ? Math.min(100, Math.floor(parsed)) : normalizedFallback;
 }
 
-export async function shouldSkipAgentByAssistantInterval({
+export async function shouldSkipAgentByMessageInterval({
   agentsStore,
   chatId,
   agentType,
@@ -41,7 +41,9 @@ export async function shouldSkipAgentByAssistantInterval({
 
   const lastRunIdx = messages.findIndex((message) => message.id === lastRun.messageId);
   if (lastRunIdx < 0) return false;
-  const assistantMessagesSince = messages.slice(lastRunIdx + 1).filter((message) => message.role === "assistant");
-  const upcomingAssistantMessages = countUpcomingAssistantMessage ? 1 : 0;
-  return assistantMessagesSince.length + upcomingAssistantMessages < runInterval;
+  const messagesSince = messages
+    .slice(lastRunIdx + 1)
+    .filter((message) => message.role === "user" || message.role === "assistant");
+  const upcomingMessages = countUpcomingAssistantMessage ? 1 : 0;
+  return messagesSince.length + upcomingMessages < runInterval;
 }

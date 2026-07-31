@@ -407,7 +407,9 @@ export function GenerationParametersFields({
                   value.reasoningEffort === level ? PARAM_CHOICE_ACTIVE_CLASS : PARAM_CHOICE_IDLE_CLASS,
                 )}
               >
-                {level ? level.charAt(0).toUpperCase() + level.slice(1) :localizeUi("ui.game.gamesurfacecomponent.none")}
+                {level
+                  ? level.charAt(0).toUpperCase() + level.slice(1)
+                  : localizeUi("ui.ui.generationparametersfields.reasoningOff")}
               </button>
             ))}
           </div>

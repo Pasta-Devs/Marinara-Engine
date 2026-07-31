@@ -1,6 +1,6 @@
 # Image Generation Providers and Setup
 
-This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 16 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
+This guide explains how to connect an image generation service to Marinara Engine. It also covers what each of the 17 services needs. Image generation powers scene illustrations, selfies, scene backgrounds, and generated avatars, portraits, and sprites.
 
 You set up image generation as a special kind of connection. Once one image connection works, every image feature in the app can use it.
 
@@ -23,7 +23,7 @@ If **Test Image** returns a picture, your connection is ready. If it fails, chec
 
 ## Choosing a service
 
-The 16 services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
+The 17 services fall into three groups. Cloud services need an API key and an account. Free services need no key. Local services run image software on your own computer.
 
 The table below shows each service at a glance. Details and quirks follow in the per-service sections.
 
@@ -36,6 +36,7 @@ The table below shows each service at a glance. Details and quirks follow in the
 | OpenRouter Images | Yes | Cloud |
 | xAI / Grok Imagine | Yes | Cloud |
 | Venice.ai | Yes | Cloud |
+| Z.AI | Yes | Cloud |
 | Atlas Cloud | Yes | Cloud |
 | NanoGPT | Yes | Cloud |
 | Block Entropy | Yes | Cloud |
@@ -73,6 +74,10 @@ Cloud service with the default Base URL `https://api.x.ai/v1`. It needs an xAI A
 ## Venice.ai
 
 Cloud service with the default Base URL `https://api.venice.ai/api/v1`. It needs a Venice API key. Use **Fetch Models from API** to load the image models available to your account. Marinara uses Venice's native image endpoint, disables Venice's optional safe-mode blur, and automatically maps requested dimensions to each model's pixel, aspect-ratio, or resolution-tier sizing format. Provider-side policy or model limits can still reject a request.
+
+## Z.AI
+
+Cloud service with the default Base URL `https://api.z.ai/api/paas/v4`. It needs a general Z.AI API key; GLM Coding Plan keys and the `/api/coding/paas/v4` endpoint are not valid for image generation. Use **Fetch Models from API** to choose **GLM-Image** or **CogView 4**. Marinara maps the requested aspect ratio to a size supported by the selected model, sends the request to Z.AI's native image endpoint, and downloads the temporary result URL into local storage. This first version is text-to-image only and does not send reference images.
 
 ## Atlas Cloud
 
@@ -170,6 +175,7 @@ A **reference image** is an existing picture you send along with your prompt. It
 | NovelAI | Up to 16, V4.5 model only |
 | xAI / Grok Imagine | Up to 3 |
 | Venice.ai | Not supported for text-to-image generation |
+| Z.AI | Not supported in the current text-to-image integration |
 | Atlas Cloud | First image for compatible image-to-image, edit, or Kontext model IDs |
 | NanoGPT | Up to 3 |
 | Stability AI | First image only, used as image to image |

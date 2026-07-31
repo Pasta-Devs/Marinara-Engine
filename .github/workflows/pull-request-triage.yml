@@ -2,10 +2,10 @@ name: Pull Request Triage
 
 on:
   pull_request_target:
-    types: [opened, reopened, edited, synchronize]
+    types: [opened, reopened, edited, synchronize, ready_for_review]
     branches: [staging, main]
   pull_request_review:
-    types: [submitted, edited, dismissed]
+    types: [submitted, dismissed]
 
 concurrency:
   group: pull-request-triage-${{ github.event.pull_request.number }}
@@ -14,6 +14,9 @@ concurrency:
 jobs:
   branch-policy:
     name: Branch policy check
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      (github.event.action != 'edited' || contains(toJSON(github.event.changes), '"base"'))
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -47,13 +50,19 @@ jobs:
           exit 1
 
   external-contributor-approval:
-    name: Owner approval for outside contributors
-    if: github.event.pull_request.base.ref == 'staging'
+    name: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || contains(toJSON(github.event.changes), '\"base\"'))) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested' || github.event.review.state == 'commented'))) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event' }}"
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
+    env:
+      APPROVAL_EVENT_RELEVANT: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || contains(toJSON(github.event.changes), '\"base\"'))) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested' || github.event.review.state == 'commented'))) }}"
     steps:
+      - name: Ignore unrelated triage event
+        if: env.APPROVAL_EVENT_RELEVANT != 'true'
+        run: exit 0
+
       - name: Classify pull request author
+        if: env.APPROVAL_EVENT_RELEVANT == 'true'
         id: internal-author
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         env:
@@ -113,7 +122,7 @@ jobs:
             core.setOutput('internal', 'false');
 
       - name: Require owner approval for outside staging contributions
-        if: steps.internal-author.outputs.internal != 'true'
+        if: env.APPROVAL_EVENT_RELEVANT == 'true' && steps.internal-author.outputs.internal != 'true'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
@@ -144,6 +153,7 @@ jobs:
 
   label:
     name: Auto-label
+    if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -205,6 +215,7 @@ jobs:
     name: Pull Request template check
     runs-on: ubuntu-latest
     if: >-
+      github.event_name == 'pull_request_target' &&
       github.event.pull_request.author_association != 'MEMBER' &&
       github.event.pull_request.author_association != 'OWNER' &&
       github.event.pull_request.author_association != 'COLLABORATOR'

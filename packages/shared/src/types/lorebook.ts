@@ -82,6 +82,8 @@ export interface Lorebook {
   isGlobal: boolean;
   /** Master on/off switch for this lorebook */
   enabled: boolean;
+  /** Hide this lorebook from general library searches and selection menus without disabling it. */
+  hiddenFromLibrary: boolean;
   /** Optional runtime scope for character/persona-linked lorebooks */
   scope: LorebookScope;
   /** Tags for organizing/filtering lorebooks */

@@ -88,7 +88,9 @@ process.on("SIGINT", () => stopChildren("SIGINT"));
 process.on("SIGTERM", () => stopChildren("SIGTERM"));
 
 try {
-  await runPnpm(["--filter", "@marinara-engine/shared", SHARED_BUILD_SCRIPT]);
+  if (process.env.DEV_SKIP_SHARED_BUILD !== "true") {
+    await runPnpm(["--filter", "@marinara-engine/shared", SHARED_BUILD_SCRIPT]);
+  }
 
   const server = spawnPnpm(["--filter", "@marinara-engine/server", "dev"]);
   server.once("exit", (code, signal) => {

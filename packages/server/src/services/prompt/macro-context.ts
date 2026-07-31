@@ -6,16 +6,21 @@
 // ──────────────────────────────────────────────
 
 import {
+  CHARACTER_REFERENCE_ID_PATTERN,
+  formatRpgStatsForPrompt,
   resolveMacros,
   stripMacroComments,
   type CharacterMacroProfile,
   type CharacterData,
   type MacroContext,
+  type RPGStatsConfig,
   type ResolveMacroOptions,
   type WrapFormat,
 } from "@marinara-engine/shared";
 import type { DB } from "../../db/connection.js";
+import { processLorebooks, type LorebookScanResult } from "../lorebook/index.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
+import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { wrapContent } from "./format-engine.js";
 import { sanitizePromptLeaf } from "./prompt-escaping.js";
 
@@ -65,6 +70,210 @@ export interface MacroResolutionTransaction {
   content: string;
   commit: () => void;
   rollback: () => void;
+}
+
+const MAX_REFERENCED_CHARACTERS = 8;
+const MAX_REFERENCED_FIELD_CHARS = 8_000;
+const MAX_REFERENCED_LOREBOOK_CHARS = 8_000;
+
+export function extractCharacterReferenceIds(sources: readonly string[]): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const source of sources) {
+    for (const match of source.matchAll(CHARACTER_REFERENCE_ID_PATTERN)) {
+      const id = match[1]!;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      ids.push(id);
+      if (ids.length >= MAX_REFERENCED_CHARACTERS) return ids;
+    }
+  }
+  return ids;
+}
+
+function referencedCharacterSourceFields(data: CharacterData): string[] {
+  const depthPrompt = data.extensions?.depth_prompt?.prompt;
+  const convoBehavior = data.extensions?.convoBehavior?.instruction;
+  return [
+    data.description,
+    data.personality,
+    data.scenario,
+    data.creator_notes,
+    data.system_prompt,
+    data.post_history_instructions,
+    data.extensions?.backstory,
+    data.extensions?.appearance,
+    depthPrompt,
+    data.extensions?.aboutMe,
+    convoBehavior,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+function referencedCharacterProfile(data: CharacterData): CharacterMacroProfile {
+  return {
+    name: data.name || "Character",
+    phoneticName: data.extensions?.phoneticName ?? "",
+    description: data.description ?? "",
+    personality: data.personality ?? "",
+    backstory: data.extensions?.backstory ?? "",
+    appearance: data.extensions?.appearance ?? "",
+    scenario: data.scenario ?? "",
+    example: "",
+    systemPrompt: data.system_prompt ?? "",
+    postHistoryInstructions: data.post_history_instructions ?? "",
+  };
+}
+
+function clipReferencedText(value: string, limit: number): string {
+  return value.length <= limit ? value : value.slice(0, limit);
+}
+
+function resolveReferencedField(value: string, macroCtx: MacroContext, wrapFormat: WrapFormat): string {
+  const resolved = resolveMacros(
+    clipReferencedText(stripMacroComments(value), MAX_REFERENCED_FIELD_CHARS),
+    { ...macroCtx, variables: { ...macroCtx.variables } },
+    { trimResult: false },
+  ).trim();
+  return resolved ? sanitizePromptLeaf(resolved, wrapFormat) : "";
+}
+
+function buildReferencedCharacterFields(
+  id: string,
+  data: CharacterData,
+  macroCtx: MacroContext,
+  wrapFormat: WrapFormat,
+  lorebookScan: LorebookScanResult | null,
+): string {
+  const scopedContext = scopePromptMacroContextToCharacter(macroCtx, referencedCharacterProfile(data));
+  const stats = formatRpgStatsForPrompt(data.extensions?.rpgStats as RPGStatsConfig | undefined);
+  const trackerDefaults = Array.isArray(data.extensions?.trackerCustomFieldDefaults)
+    ? data.extensions.trackerCustomFieldDefaults
+        .filter((field) => field?.name?.trim() && field?.value?.trim())
+        .map((field) => `${field.name}: ${field.value}`)
+        .join("\n")
+    : "";
+  const convoBehavior = data.extensions?.convoBehavior?.instruction ?? "";
+  const fields = [
+    { label: "character_id", value: id },
+    { label: "name", value: data.name },
+    { label: "description", value: data.description },
+    { label: "personality", value: data.personality },
+    { label: "backstory", value: data.extensions?.backstory },
+    { label: "appearance", value: data.extensions?.appearance },
+    { label: "scenario", value: data.scenario },
+    { label: "creator", value: data.creator },
+    { label: "character_version", value: data.character_version },
+    { label: "creator_notes", value: data.creator_notes },
+    { label: "system_prompt", value: data.system_prompt },
+    { label: "post_history_instructions", value: data.post_history_instructions },
+    { label: "depth_prompt", value: data.extensions?.depth_prompt?.prompt },
+    { label: "about_me", value: data.extensions?.aboutMe },
+    { label: "conversation_behavior", value: convoBehavior },
+    { label: "tags", value: data.tags?.join(", ") },
+    { label: "rpg_attributes", value: stats },
+    { label: "tracker_defaults", value: trackerDefaults },
+  ].flatMap(({ label, value }) => {
+    if (typeof value !== "string" || !value.trim()) return [];
+    const content = resolveReferencedField(value, scopedContext, wrapFormat);
+    return content ? [wrapContent(content, label, wrapFormat, 2)] : [];
+  });
+
+  const lorebookContent = clipReferencedText(
+    (lorebookScan?.activatedEntries ?? [])
+      .map((entry) => entry.content.trim())
+      .filter(Boolean)
+      .join("\n\n"),
+    MAX_REFERENCED_LOREBOOK_CHARS,
+  );
+  if (lorebookContent) {
+    fields.push(
+      wrapContent(sanitizePromptLeaf(lorebookContent, wrapFormat), "attached_lorebook_context", wrapFormat, 2),
+    );
+  }
+
+  return wrapContent(fields.join("\n"), "referenced_character", wrapFormat, 1);
+}
+
+export async function buildReferencedCharacterContext(input: {
+  db: DB;
+  activeCharacterIds: string[];
+  sources: readonly string[];
+  chatMessages: Array<{ role: string; content: string }>;
+  macroCtx: MacroContext;
+  wrapFormat: WrapFormat;
+  chatId: string;
+  gameState?: Record<string, unknown> | null;
+  generationTriggers?: string[];
+  includeLorebooks?: boolean;
+  excludedLorebookIds?: string[];
+  excludedLorebookSourceAgentIds?: string[];
+}): Promise<{ content: string; references: Record<string, string> }> {
+  const characters = createCharactersStorage(input.db);
+  const activeIds = new Set(input.activeCharacterIds);
+  const sources = [...input.sources, ...input.chatMessages.map((message) => message.content)];
+
+  const activeRows = await Promise.all([...activeIds].map((id) => characters.getById(id)));
+  for (const row of activeRows) {
+    const data = parseCharacterData(row?.data);
+    if (data) sources.push(...referencedCharacterSourceFields(data));
+  }
+
+  const candidateIds = extractCharacterReferenceIds(sources).filter((id) => !activeIds.has(id));
+  const referencedRows = await Promise.all(candidateIds.map((id) => characters.getById(id)));
+  const referenced = candidateIds.flatMap((id, index) => {
+    const data = parseCharacterData(referencedRows[index]?.data);
+    return data ? [{ id, data }] : [];
+  });
+  if (referenced.length === 0) return { content: "", references: {} };
+
+  const references = Object.fromEntries(referenced.map(({ id, data }) => [id, data.name || "Character"]));
+  const macroCtx = { ...input.macroCtx, characterReferences: references };
+  const lorebooks = createLorebooksStorage(input.db);
+  const allLorebooks = (await lorebooks.list()) as unknown as Array<{
+    id: string;
+    characterId?: string | null;
+    characterIds?: string[];
+  }>;
+  const excludedByRequest = new Set(input.excludedLorebookIds ?? []);
+  const scanMessages = input.chatMessages.map((message) => ({
+    ...message,
+    content: resolveMacros(
+      message.content,
+      { ...macroCtx, variables: { ...macroCtx.variables } },
+      { trimResult: false },
+    ),
+  }));
+  const blocks: string[] = [];
+
+  for (const { id, data } of referenced) {
+    const attachedIds = new Set(
+      allLorebooks.filter((book) => book.characterId === id || book.characterIds?.includes(id)).map((book) => book.id),
+    );
+    const excludedLorebookIds = allLorebooks
+      .filter((book) => !attachedIds.has(book.id) || excludedByRequest.has(book.id))
+      .map((book) => book.id);
+    const scopedContext = scopePromptMacroContextToCharacter(macroCtx, referencedCharacterProfile(data));
+    const lorebookScan =
+      input.includeLorebooks !== false && attachedIds.size > 0
+        ? await processLorebooks(input.db, scanMessages, input.gameState, {
+            chatId: input.chatId,
+            characterIds: [id],
+            activeLorebookIds: [],
+            excludedLorebookIds,
+            excludedSourceAgentIds: input.excludedLorebookSourceAgentIds,
+            previewOnly: true,
+            generationTriggers: input.generationTriggers,
+            resolveContent: (value) =>
+              resolveMacros(value, { ...scopedContext, variables: { ...scopedContext.variables } }),
+          })
+        : null;
+    blocks.push(buildReferencedCharacterFields(id, data, macroCtx, input.wrapFormat, lorebookScan));
+  }
+
+  return {
+    content: wrapContent(blocks.join("\n"), "referenced_characters", input.wrapFormat),
+    references,
+  };
 }
 
 export function resolveMacrosWithVariableSnapshot(

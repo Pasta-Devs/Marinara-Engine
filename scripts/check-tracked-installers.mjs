@@ -10,7 +10,6 @@ const REPO_ROOT = resolve(__dirname, "..");
 try {
   const { stdout } = await execFileAsync("git", ["ls-files", "--", "installer/*.exe", "win/installer/*.exe"], {
     cwd: REPO_ROOT,
-    shell: process.platform === "win32",
   });
 
   const trackedInstallers = stdout

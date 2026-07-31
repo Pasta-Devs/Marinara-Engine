@@ -123,7 +123,7 @@ For step-by-step setup and the **Treat as local/custom endpoint** toggle, read [
 
 ## Image Generation
 
-**Image Generation** is a special provider. After you pick it, you also pick a **Service**, which is the image backend that does the work. Each service has its own default base URL and its own rule about whether an API key is required. Services include paid cloud APIs like **OpenAI (DALL-E)**, **Stability AI**, and **NovelAI**. They also include free options like **Pollinations** and **Stable Horde**. Local servers like **ComfyUI** and **SD Web UI (AUTOMATIC1111 / Forge)** work too.
+**Image Generation** is a special provider. After you pick it, you also pick a **Service**, which is the image backend that does the work. Each service has its own default base URL and its own rule about whether an API key is required. Services include paid cloud APIs like **OpenAI (DALL-E)**, **Stability AI**, **NovelAI**, and **Z.AI**. They also include free options like **Pollinations** and **Stable Horde**. Local servers like **ComfyUI** and **SD Web UI (AUTOMATIC1111 / Forge)** work too.
 
 The full list of image services, their setup, and generation settings lives in [Image Generation Providers and Setup](../media/image-providers.md).
 

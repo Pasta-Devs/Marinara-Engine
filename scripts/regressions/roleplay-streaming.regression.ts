@@ -853,6 +853,17 @@ assert.match(
   "message edits should paint optimistically before query cancellation finishes",
 );
 
+assert.match(
+  generateHookSource,
+  /const cancellation = qc\.cancelQueries[\s\S]*?id: `__optimistic_\$\{Date\.now\(\)\}`[\s\S]*?qc\.setQueryData[\s\S]*?await cancellation/u,
+  "submitted user messages should paint optimistically before query cancellation finishes",
+);
+assert.match(
+  generateHookSource,
+  /qc\.cancelQueries\([\s\S]{0,180}silent: true, revert: false/u,
+  "message query cancellation must not roll back the optimistic submitted message",
+);
+
 const makeAgent = (type: string, resultType: string): ResolvedAgent =>
   ({
     id: type,

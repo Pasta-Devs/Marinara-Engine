@@ -447,16 +447,34 @@ type PnpmRunner = {
   prefixArgs: string[];
 };
 
+function commandInvocation(command: string, args: string[]) {
+  if (process.platform !== "win32") {
+    return { command, args };
+  }
+
+  const commandLine = [command, ...args]
+    .map((part) => {
+      if (!/^[A-Za-z0-9@._/:=+-]+$/u.test(part)) {
+        throw new Error(`Unsupported character in update command argument: ${part}`);
+      }
+      return part;
+    })
+    .join(" ");
+  return {
+    command: process.env.ComSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", commandLine],
+  };
+}
+
 async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
   const pnpmVersion = getPinnedPnpmVersion(root);
-  const shell = process.platform === "win32";
 
   try {
-    const { stdout } = await execFileAsync("corepack", [`pnpm@${pnpmVersion}`, "--version"], {
+    const invocation = commandInvocation("corepack", [`pnpm@${pnpmVersion}`, "--version"]);
+    const { stdout } = await execFileAsync(invocation.command, invocation.args, {
       cwd: root,
       // First run downloads the pinned pnpm; slow devices need extra headroom.
       timeout: updateStepTimeout(20_000),
-      shell,
     });
     if (stdout.trim() === pnpmVersion) {
       return { command: "corepack", prefixArgs: [`pnpm@${pnpmVersion}`] };
@@ -468,10 +486,10 @@ async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
   }
 
   try {
-    const { stdout } = await execFileAsync("pnpm", ["--version"], {
+    const invocation = commandInvocation("pnpm", ["--version"]);
+    const { stdout } = await execFileAsync(invocation.command, invocation.args, {
       cwd: root,
       timeout: updateStepTimeout(10_000),
-      shell,
     });
     if (stdout.trim() === pnpmVersion) {
       return { command: "pnpm", prefixArgs: [] };
@@ -481,10 +499,10 @@ async function resolvePinnedPnpmRunner(root: string): Promise<PnpmRunner> {
   }
 
   try {
-    const { stdout } = await execFileAsync("npx", ["--yes", `pnpm@${pnpmVersion}`, "--version"], {
+    const invocation = commandInvocation("npx", ["--yes", `pnpm@${pnpmVersion}`, "--version"]);
+    const { stdout } = await execFileAsync(invocation.command, invocation.args, {
       cwd: root,
       timeout: updateStepTimeout(60_000),
-      shell,
     });
     if (stdout.trim() === pnpmVersion) {
       return { command: "npx", prefixArgs: ["--yes", `pnpm@${pnpmVersion}`] };
@@ -530,12 +548,12 @@ function describePnpmFailure(err: unknown, args: string[], timeout: number): Err
 async function runPinnedPnpm(root: string, args: string[], baseTimeout: number) {
   const runner = await resolvePinnedPnpmRunner(root);
   const timeout = updateStepTimeout(baseTimeout);
+  const invocation = commandInvocation(runner.command, [...runner.prefixArgs, ...PNPM_NONINTERACTIVE_ARGS, ...args]);
   try {
-    await execFileAsync(runner.command, [...runner.prefixArgs, ...PNPM_NONINTERACTIVE_ARGS, ...args], {
+    await execFileAsync(invocation.command, invocation.args, {
       cwd: root,
       timeout,
       maxBuffer: PNPM_OUTPUT_MAX_BUFFER,
-      shell: process.platform === "win32",
     });
   } catch (err) {
     throw describePnpmFailure(err, args, timeout);

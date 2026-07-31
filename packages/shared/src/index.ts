@@ -61,7 +61,7 @@ export * from "./schemas/scene-analysis.schema.js";
 // Constants
 export * from "./constants/providers.js";
 export * from "./constants/defaults.js";
-export * from "./constants/chat-mode-capabilities.js";
+export * from "./constants/chat-mode-agent-policy.js";
 export * from "./constants/model-lists.js"; // also exports IMAGE_GENERATION_SOURCES
 export * from "./constants/agent-prompts.js";
 export * from "./constants/agent-activation.js";

@@ -38,6 +38,7 @@ These macros pull in the names and card fields of the person speaking and the ch
 | `{{user}}` / `{{userName}}` | Your current display name (or persona name). Defaults to `User` when no persona is set. |
 | `{{userNamePhonetic}}` | Your persona's Phonetic name, or `{{user}}` when it is empty. |
 | `{{char}}` / `{{charName}}` | The current character's name. Defaults to `Character`. |
+| `{{<21-character-card-ID>}}` | Placeholder syntax for the name of another character card. Replace the angle-bracketed text with that card's exact 21-character ID. |
 | `{{charNamePhonetic}}` | The character's Phonetic name, or `{{char}}` when it is empty. |
 | `{{characters}}` | Every character in the chat, joined by commas. |
 | `{{group}}` | Every other active character in the group chat, excluding the current responder. The persona is not part of this character roster. |
@@ -66,6 +67,8 @@ In a chat with one character, these resolve against that character. In a group c
 `{{group}}` follows the character currently responding, including during individual group generations. For example, if Pantalone is responding in a Roleplay group containing Powers That Be, Maukie, and Pantalone, `{{group}}` resolves to `Powers That Be, Maukie`. A character card remains in this roster even if its name happens to match `{{user}}`.
 
 The Phonetic name field has two jobs. It sets how the name is pronounced by text-to-speech. It also feeds `{{charNamePhonetic}}` and `{{userNamePhonetic}}`. You will find it in both the **Character Editor** and the **Persona Editor**.
+
+To reference a character who is not part of the current chat, copy that card's ID and place it directly inside double braces, such as `{{V1StGXR8_Z5jdHi6B-myT}}`. Marinara replaces the macro with the card's name and adds the referenced card's character context to the system prompt. The referenced card's initial greetings and example dialogue are excluded. Enabled lorebooks attached to that card remain subject to their normal keyword, constant, filter, probability, and token-budget rules.
 
 ## Conversation mode macros
 

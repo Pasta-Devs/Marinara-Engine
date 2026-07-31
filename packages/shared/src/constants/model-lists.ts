@@ -683,6 +683,13 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "zai",
+    name: "Z.AI",
+    description: "GLM-Image and CogView image generation through Z.AI's native API.",
+    defaultBaseUrl: "https://api.z.ai/api/paas/v4",
+    requiresApiKey: true,
+  },
+  {
     id: "atlas",
     name: "Atlas Cloud",
     description: "Image generation across Atlas Cloud's model catalog.",
@@ -759,6 +766,11 @@ export const ATLAS_CLOUD_IMAGE_MODELS: KnownModel[] = [
   { id: "black-forest-labs/flux-1.1-pro", name: "FLUX 1.1 Pro (Atlas Cloud)", context: 0, maxOutput: 0 },
 ];
 
+export const ZAI_IMAGE_MODELS: KnownModel[] = [
+  { id: "glm-image", name: "GLM-Image", context: 0, maxOutput: 0 },
+  { id: "cogview-4-250304", name: "CogView 4", context: 0, maxOutput: 0 },
+];
+
 export const ATLAS_CLOUD_VIDEO_MODELS: KnownModel[] = [
   { id: "google/veo3.1/text-to-video", name: "Veo 3.1 Text to Video (Atlas Cloud)", context: 0, maxOutput: 0 },
   { id: "google/veo3.1/image-to-video", name: "Veo 3.1 Image to Video (Atlas Cloud)", context: 0, maxOutput: 0 },
@@ -830,6 +842,7 @@ const IMAGE_GEN_MODELS: KnownModel[] = [
   { id: "chroma", name: "Chroma (Venice)", context: 0, maxOutput: 0 },
   { id: "flux-2-pro", name: "FLUX 2 Pro (Venice)", context: 0, maxOutput: 0 },
   { id: "venice-sd35", name: "Venice SD3.5", context: 0, maxOutput: 0 },
+  ...ZAI_IMAGE_MODELS,
   ...ATLAS_CLOUD_IMAGE_MODELS,
   // NovelAI
   { id: "nai-diffusion-4-curated-preview", name: "NAI Diffusion 4 Curated", context: 0, maxOutput: 0 },
@@ -887,6 +900,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     m === "openrouter" ||
     m === "xai" ||
     m === "venice" ||
+    m === "zai" ||
     m === "atlas" ||
     m === "comfyui" ||
     m === "automatic1111" ||
@@ -900,7 +914,9 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (u.includes("openrouter.ai")) return "openrouter";
   if (u.includes("api.x.ai") || u.includes("x.ai")) return "xai";
   if (u.includes("venice.ai")) return "venice";
+  if (u.includes("api.z.ai")) return "zai";
   if (u.includes("atlascloud.ai")) return "atlas";
+  if (m === "glm-image" || m.startsWith("cogview")) return "zai";
   if (m.startsWith("grok-") && m.includes("image")) return "xai";
   if (m.includes("grok") && m.includes("imagine")) return "xai";
   if (m.startsWith("dall-e") || m.startsWith("gpt-image") || u.includes("openai.com")) return "openai";

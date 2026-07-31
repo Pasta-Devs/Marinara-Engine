@@ -178,8 +178,32 @@ try {
   assert.ok(customParametersRequestBody);
   assert.equal(customParametersRequestBody.top_k, 44);
   assert.equal(customParametersRequestBody.min_p, 0.12);
-  assert.equal(customParametersRequestBody.reasoning_effort, "high");
+  assert.equal(
+    "reasoning_effort" in customParametersRequestBody,
+    false,
+    "unknown custom models must not receive inherited reasoning effort",
+  );
   assert.equal(customParametersRequestBody.verbosity, "low");
+
+  customParametersRequestBody = null;
+  await provider.chatComplete([{ role: "user", content: "disable reasoning" }], {
+    model: "custom-model",
+    stream: false,
+    reasoningEffort: "none",
+    enabledParameters: { reasoningEffort: true },
+  });
+  assert.ok(customParametersRequestBody);
+  assert.equal(customParametersRequestBody.reasoning_effort, "none");
+
+  customParametersRequestBody = null;
+  await provider.chatComplete([{ role: "user", content: "provider default reasoning" }], {
+    model: "gpt-5.6-local",
+    stream: false,
+    reasoningEffort: "high",
+    enabledParameters: { reasoningEffort: false },
+  });
+  assert.ok(customParametersRequestBody);
+  assert.equal("reasoning_effort" in customParametersRequestBody, false);
 
   customParametersRequestBody = null;
   await provider.chatComplete([{ role: "user", content: "fetch current data" }], {
@@ -223,6 +247,7 @@ try {
   assert.equal(customParametersRequestBody.presence_penalty, -0.2);
   assert.equal(customParametersRequestBody.top_n_sigma, 1.5);
   assert.deepEqual(customParametersRequestBody.chat_template_kwargs, { enable_thinking: true });
+  assert.equal(customParametersRequestBody.reasoning_effort, "high");
   assert.equal("temperature" in customParametersRequestBody, false);
   assert.equal("top_p" in customParametersRequestBody, false);
 
@@ -1101,6 +1126,25 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
       effort: "xhigh",
       summary: "auto",
     });
+
+    responsesReasoningRequestBody = null;
+    await provider.chatComplete([{ role: "user", content: "test provider default" }], {
+      model: "gpt-5.6-sol",
+      stream: true,
+      reasoningEffort: "xhigh",
+      enabledParameters: { reasoningEffort: false },
+    });
+    assert.ok(responsesReasoningRequestBody);
+    assert.equal(
+      "reasoning" in responsesReasoningRequestBody,
+      false,
+      "disabled Responses reasoning must leave the provider default untouched",
+    );
+    assert.equal(
+      "include" in responsesReasoningRequestBody,
+      false,
+      "disabled Responses reasoning must not request encrypted reasoning output",
+    );
   } finally {
     await new Promise<void>((resolve, reject) =>
       responsesReasoningServer.close((error) => (error ? reject(error) : resolve())),

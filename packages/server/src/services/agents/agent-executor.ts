@@ -2271,9 +2271,7 @@ function buildAgentMessages(
 
   if (context.mainResponse) {
     finalParts.push(`<assistant_response>`);
-    finalParts.push(
-      options.preserveAssistantResponseMarkup ? context.mainResponse : stripHtmlTags(context.mainResponse),
-    );
+    finalParts.push(formatAgentMainResponseForPrompt(context, options.preserveAssistantResponseMarkup === true));
     finalParts.push(`</assistant_response>`);
   }
 
@@ -2318,6 +2316,21 @@ function buildAgentMessages(
   }
 
   return messages;
+}
+
+export function formatAgentMainResponseForPrompt(context: AgentContext, preserveMarkup = false): string {
+  if (preserveMarkup || !context.mainResponseSegments?.length) {
+    return preserveMarkup ? (context.mainResponse ?? "") : stripHtmlTags(context.mainResponse ?? "");
+  }
+
+  return context.mainResponseSegments
+    .map((segment) => ({
+      characterName: stripHtmlTags(segment.characterName).trim(),
+      content: stripHtmlTags(segment.content).trim(),
+    }))
+    .filter((segment) => segment.characterName && segment.content)
+    .map((segment) => `${segment.characterName}: ${segment.content}`)
+    .join("\n\n");
 }
 
 /**

@@ -306,6 +306,8 @@ export function SummaryPopover({
 }: SummaryPopoverProps) {
   const { t: localizeUi } = useUiTranslation();
   const [expandedEntryIds, setExpandedEntryIds] = useState<Set<string>>(() => new Set());
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(() => new Set());
+  const [combiningEntries, setCombiningEntries] = useState(false);
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [draftEntry, setDraftEntry] = useState<ChatSummaryEntry | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
@@ -493,6 +495,17 @@ export function SummaryPopover({
       }),
     [summary, summaryEntries],
   );
+  const selectedEntries = useMemo(
+    () => displayEntries.filter((entry) => selectedEntryIds.has(entry.id)),
+    [displayEntries, selectedEntryIds],
+  );
+  useEffect(() => {
+    setSelectedEntryIds((current) => {
+      const existingIds = new Set(displayEntries.map((entry) => entry.id));
+      const next = new Set([...current].filter((id) => existingIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [displayEntries]);
   const enabledEntryCount = displayEntries.filter((entry) => entry.enabled).length;
   const inactiveEntryCount = displayEntries.length - enabledEntryCount;
   const visibleEntries = useMemo(() => {
@@ -715,6 +728,49 @@ export function SummaryPopover({
       return next;
     });
   }, []);
+
+  const handleToggleSelected = useCallback((entryId: string) => {
+    setSelectedEntryIds((current) => {
+      const next = new Set(current);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
+  }, []);
+
+  const handleCombineSelected = useCallback(async () => {
+    if (selectedEntries.length < 2 || generateSummary.isPending) return;
+    try {
+      await persistSummaryMaxTokens(summaryMaxTokensDraft);
+    } catch {
+      return;
+    }
+    setCombiningEntries(true);
+    generateSummary.mutate(
+      {
+        chatId,
+        summaryEntryIds: selectedEntries.map((entry) => entry.id),
+        promptTemplateId: normalizedActivePromptTemplateId,
+      },
+      {
+        onSuccess: (data) => {
+          setSelectedEntryIds(new Set());
+          const entryId = data.entry?.id;
+          if (entryId) setExpandedEntryIds((current) => new Set(current).add(entryId));
+        },
+        onError: (error) => toast.error(summaryErrorMessage(error, localizeUi)),
+        onSettled: () => setCombiningEntries(false),
+      },
+    );
+  }, [
+    chatId,
+    generateSummary,
+    localizeUi,
+    normalizedActivePromptTemplateId,
+    persistSummaryMaxTokens,
+    selectedEntries,
+    summaryMaxTokensDraft,
+  ]);
 
   const handleStartEditEntry = useCallback((entry: ChatSummaryEntry) => {
     setEditingEntryId(entry.id);
@@ -1452,28 +1508,55 @@ export function SummaryPopover({
           <div>
             <div className="space-y-2">
               {hasPersistedEntries && (
-                <div className="flex items-center justify-end gap-1.5 px-0.5">
-                  {inactiveEntryCount > 0 && (
+                <div className="flex items-center justify-between gap-1.5 px-0.5">
+                  <div>
+                    {selectedEntries.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={() => void handleCombineSelected()}
+                        disabled={combiningEntries || generateSummary.isPending}
+                        className="inline-flex items-center gap-1 rounded-md bg-[var(--primary)]/12 px-2 py-1 text-[0.625rem] font-semibold text-[var(--primary)] transition-colors hover:bg-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {combiningEntries ? (
+                          <Loader2 size="0.6875rem" className="animate-spin" />
+                        ) : (
+                          <Sparkles size="0.6875rem" />
+                        )}
+                        {combiningEntries
+                          ? localizeUi("ui.chat.summarypopover.combiningSummaries")
+                          : localizeUi("ui.chat.summarypopover.combineSelectedSummaries", {
+                              count: selectedEntries.length,
+                            })}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {inactiveEntryCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowInactiveSummaries((show) => !show)}
+                        className={cn(
+                          "rounded-md px-1 py-0.5 text-[0.625rem] font-semibold transition-colors hover:text-[var(--foreground)]",
+                          showInactiveSummaries ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
+                        )}
+                      >
+                        {showInactiveSummaries
+                          ? localizeUi("ui.chat.summarypopover.hideInactive")
+                          : localizeUi("ui.chat.summarypopover.showInactive")}
+                      </button>
+                    )}
+                    {inactiveEntryCount === 0 && <span aria-hidden="true" />}
                     <button
                       type="button"
-                      onClick={() => setShowInactiveSummaries((show) => !show)}
-                      className={cn(
-                        "rounded-md px-1 py-0.5 text-[0.625rem] font-semibold transition-colors hover:text-[var(--foreground)]",
-                        showInactiveSummaries ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]",
-                      )}
+                      onClick={() => void handleToggleAllEntries()}
+                      disabled={entryMutationPending}
+                      className="rounded-md px-1 py-0.5 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {showInactiveSummaries ?localizeUi("ui.chat.summarypopover.hideInactive") :localizeUi("ui.chat.summarypopover.showInactive")}
+                      {enabledEntryCount === 0
+                        ? localizeUi("ui.chat.summarypopover.activateAll")
+                        : localizeUi("ui.chat.summarypopover.deactivateAll")}
                     </button>
-                  )}
-                  {inactiveEntryCount === 0 && <span aria-hidden="true" />}
-                  <button
-                    type="button"
-                    onClick={() => void handleToggleAllEntries()}
-                    disabled={entryMutationPending}
-                    className="rounded-md px-1 py-0.5 text-[0.625rem] font-semibold text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {enabledEntryCount === 0 ?localizeUi("ui.chat.summarypopover.activateAll") :localizeUi("ui.chat.summarypopover.deactivateAll")}
-                  </button>
+                  </div>
                 </div>
               )}
 
@@ -1503,6 +1586,8 @@ export function SummaryPopover({
                     draftEntry={editingEntryId === entry.id ? draftEntry : null}
                     textareaRef={entryTextareaRef}
                     mutationPending={entryMutationPending}
+                    selected={selectedEntryIds.has(entry.id)}
+                    onToggleSelected={() => handleToggleSelected(entry.id)}
                     onToggleExpanded={() => handleToggleExpanded(entry.id)}
                     onToggleEnabled={(enabled) => handleToggleEntry(entry, enabled)}
                     onStartEdit={() => handleStartEditEntry(entry)}
@@ -1690,6 +1775,8 @@ interface SummaryEntryRowProps {
   draftEntry: ChatSummaryEntry | null;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
   mutationPending: boolean;
+  selected: boolean;
+  onToggleSelected: () => void;
   onToggleExpanded: () => void;
   onToggleEnabled: (enabled: boolean) => void;
   onStartEdit: () => void;
@@ -1706,6 +1793,8 @@ function SummaryEntryRow({
   draftEntry,
   textareaRef,
   mutationPending,
+  selected,
+  onToggleSelected,
   onToggleExpanded,
   onToggleEnabled,
   onStartEdit,
@@ -1730,7 +1819,15 @@ function SummaryEntryRow({
         editing && "border-[var(--primary)]/60 bg-[var(--primary)]/10 ring-[var(--primary)]/30",
       )}
     >
-      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2 py-1.5">
+      <div className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-2 px-2 py-1.5">
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          disabled={editing}
+          className="h-3.5 w-3.5 shrink-0 accent-[var(--primary)]"
+          aria-label={localizeUi("ui.chat.summaryentryrow.selectSummaryEntry", { title: entry.title })}
+        />
         <button
           type="button"
           onClick={() => onToggleEnabled(!entry.enabled)}

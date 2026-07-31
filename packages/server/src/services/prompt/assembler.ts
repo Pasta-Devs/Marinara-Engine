@@ -23,6 +23,7 @@ import { mergeAdjacentMessages, squashLeadingSystemMessages } from "./merger.js"
 import { injectAtDepth } from "../lorebook/prompt-injector.js";
 import type { LorebookScanResult } from "../lorebook/index.js";
 import {
+  buildReferencedCharacterContext,
   buildPromptMacroContext,
   collectCharacterAdvancedPromptEntries,
   resolveMacrosWithVariableSnapshot,
@@ -354,6 +355,42 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     idleDuration: input.idleDuration,
     timeZone: input.timeZone,
   });
+  const enabledSectionContents = sectionOrder.flatMap((sectionId) => {
+    const section = sectionMap.get(sectionId);
+    if (!section || section.enabled !== "true") return [];
+    if (input.impersonate === true && input.preserveImpersonatePresetSections !== true && section.isMarker !== "true") {
+      return [];
+    }
+    if (section.groupId) {
+      const group = groupMap.get(section.groupId);
+      if (group && group.enabled !== "true") return [];
+    }
+    return [section.content];
+  });
+  const personaReferenceSources = Object.values(input.personaFields ?? {}).filter(
+    (value): value is string => typeof value === "string",
+  );
+  const referencedCharacterContext = await buildReferencedCharacterContext({
+    db: input.db,
+    activeCharacterIds: input.groupCharacterIds ?? input.characterIds,
+    sources: [
+      ...enabledSectionContents,
+      ...Object.values(variableValues),
+      input.chatSummary ?? "",
+      input.personaDescription,
+      ...personaReferenceSources,
+    ],
+    chatMessages: input.lorebookScanMessages ?? input.chatMessages,
+    macroCtx,
+    wrapFormat,
+    chatId: input.chatId,
+    gameState: input.gameState,
+    generationTriggers: input.generationTriggers,
+    includeLorebooks: input.disableLorebooks !== true,
+    excludedLorebookIds: input.excludedLorebookIds,
+    excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
+  });
+  macroCtx.characterReferences = referencedCharacterContext.references;
 
   // Resolve macros inside variable values themselves (e.g. {{user}} in a choice value)
   for (const key of Object.keys(variableValues)) {
@@ -508,6 +545,13 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
         messages.push(...section.messages.map((message) => ({ ...message, contextKind: "prompt" as const })));
       }
     }
+  }
+  if (referencedCharacterContext.content) {
+    messages.unshift({
+      role: "system",
+      content: referencedCharacterContext.content,
+      contextKind: "prompt",
+    });
   }
 
   // ── Phase 3: Adjacent same-role merging ──

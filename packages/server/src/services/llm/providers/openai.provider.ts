@@ -803,7 +803,9 @@ export class OpenAIProvider extends BaseLLMProvider {
     }
 
     if (this.isGenericCustomProvider()) {
-      if (this.hasActiveReasoningEffort(options.reasoningEffort)) {
+      if (this.hasExplicitReasoningDisable(options.reasoningEffort)) {
+        body.reasoning_effort = "none";
+      } else if (this.shouldSendReasoningEffort(options.model, options.reasoningEffort)) {
         body.reasoning_effort = options.reasoningEffort;
       }
       return;
@@ -1883,7 +1885,12 @@ export class OpenAIProvider extends BaseLLMProvider {
       body.stream = false;
     }
 
-    if (!isOpenAIChatGPT && !suppressModelParameters && options.reasoningEffort !== "none") {
+    if (
+      !isOpenAIChatGPT &&
+      !suppressModelParameters &&
+      this.shouldSendParameter(options, "reasoningEffort") &&
+      options.reasoningEffort !== "none"
+    ) {
       // Request encrypted reasoning items so we can replay them on the next turn.
       body.include = ["reasoning.encrypted_content"];
     }
@@ -1913,7 +1920,7 @@ export class OpenAIProvider extends BaseLLMProvider {
       if (topP != null) body.top_p = topP;
     }
 
-    if (!isOpenAIChatGPT && !suppressModelParameters) {
+    if (!isOpenAIChatGPT && !suppressModelParameters && this.shouldSendParameter(options, "reasoningEffort")) {
       this.applyResponsesReasoning(body, options);
     }
 

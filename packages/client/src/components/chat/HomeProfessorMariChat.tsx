@@ -70,6 +70,7 @@ import { chatKeys } from "../../hooks/use-chats";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import { api, getPrivilegedActionErrorMessage, StreamResumeDisconnectError } from "../../lib/api-client";
 import { formatGenerationParameterError } from "../../lib/generation-parameter-errors";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useChatStore } from "../../stores/chat.store";
 import { useAgentStore } from "../../stores/agent.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
@@ -2076,6 +2077,8 @@ export function HomeProfessorMariChat({
   const [chatHistoryOpen, setChatHistoryOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState<ProfessorMariChatSummary[]>([]);
   const [chatHistoryLoading, setChatHistoryLoading] = useState(false);
+  const [chatHistorySelectionMode, setChatHistorySelectionMode] = useState(false);
+  const [selectedChatHistoryIds, setSelectedChatHistoryIds] = useState<Set<string>>(new Set());
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [skillsMenuOpen, setSkillsMenuOpen] = useState(false);
@@ -2233,6 +2236,10 @@ export function HomeProfessorMariChat({
     try {
       const items = await api.get<ProfessorMariChatSummary[]>("/chats/internal/professor-mari/chats");
       setChatHistory(items);
+      setSelectedChatHistoryIds((current) => {
+        const availableIds = new Set(items.map((item) => item.id));
+        return new Set([...current].filter((id) => availableIds.has(id)));
+      });
     } finally {
       setChatHistoryLoading(false);
     }
@@ -2382,6 +2389,12 @@ export function HomeProfessorMariChat({
       });
     });
   }, [chatHistoryOpen, loadChatHistory, localizeUi]);
+
+  useEffect(() => {
+    if (chatHistoryOpen) return;
+    setChatHistorySelectionMode(false);
+    setSelectedChatHistoryIds(new Set());
+  }, [chatHistoryOpen]);
 
   useEffect(() => {
     if (!selectedSkill) {
@@ -2985,6 +2998,63 @@ export function HomeProfessorMariChat({
     },
     [chatHistory, chatId, effectiveConnectionId, ensureProfessorMariChat, loadChatHistory, loadMessages, localizeUi],
   );
+
+  const toggleProfessorChatSelection = useCallback((id: string) => {
+    setSelectedChatHistoryIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleBulkDeleteProfessorChats = useCallback(async () => {
+    if (selectedChatHistoryIds.size === 0) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats"),
+      message: localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChatsConfirmation", {
+        count: selectedChatHistoryIds.size,
+      }),
+      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+
+    const selectedIds = [...selectedChatHistoryIds];
+    try {
+      const results = await Promise.allSettled(
+        selectedIds.map((id) => api.delete(`/chats/internal/professor-mari/chats/${id}`)),
+      );
+      const deletedIds = new Set(
+        selectedIds.filter((_, index) => results[index]?.status === "fulfilled"),
+      );
+      const failedDeletion = results.find((result) => result.status === "rejected");
+      setChatHistorySelectionMode(false);
+      setSelectedChatHistoryIds(new Set());
+      if (chatId && deletedIds.has(chatId)) {
+        const chat = await ensureProfessorMariChat(effectiveConnectionId);
+        setChatId(chat.id);
+        await loadMessages(chat.id);
+      }
+      await loadChatHistory();
+      if (failedDeletion?.status === "rejected") throw failedDeletion.reason;
+    } catch (error) {
+      console.error("[Professor Mari] Failed to delete selected chats", error);
+      await loadChatHistory().catch(() => undefined);
+      toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotDeleteSelectedChats"), {
+        description: describeProfessorMariError(error),
+        duration: 12_000,
+      });
+    }
+  }, [
+    chatId,
+    effectiveConnectionId,
+    ensureProfessorMariChat,
+    loadChatHistory,
+    loadMessages,
+    localizeUi,
+    selectedChatHistoryIds,
+  ]);
 
   const handleAttachmentUpload = useCallback(async (files: FileList | null) => {
     const acceptedFiles = Array.from(files ?? []).filter((file) => {
@@ -3594,15 +3664,38 @@ export function HomeProfessorMariChat({
                           </div>
                           <div className="truncate text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.chat.homeprofessormarichat.restartSavesTheCurrentChatHere")}</div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setChatHistoryOpen(false)}
-                          className="mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
-                          aria-label={t("home.professorMari.closeChats")}
-                          title={t("home.professorMari.closeChats")}
-                        >
-                          <X size="0.85rem" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (chatHistorySelectionMode) {
+                                setChatHistorySelectionMode(false);
+                                setSelectedChatHistoryIds(new Set());
+                              } else {
+                                setChatHistorySelectionMode(true);
+                              }
+                            }}
+                            disabled={chatHistory.length === 0 || chatHistoryLoading}
+                            className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
+                            aria-pressed={chatHistorySelectionMode}
+                          >
+                            <Check size="0.75rem" />
+                            {localizeUi(
+                              chatHistorySelectionMode
+                                ? "ui.chat.homeprofessormarichat.cancelSelection"
+                                : "ui.chat.homeprofessormarichat.selectChats",
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChatHistoryOpen(false)}
+                            className="mari-chrome-control mari-chrome-control--small h-8 w-8 p-0"
+                            aria-label={t("home.professorMari.closeChats")}
+                            title={t("home.professorMari.closeChats")}
+                          >
+                            <X size="0.85rem" />
+                          </button>
+                        </div>
                       </div>
                       <div className="min-h-0 flex-1 overflow-y-auto p-2">
                         {chatHistoryLoading ? (
@@ -3617,12 +3710,14 @@ export function HomeProfessorMariChat({
                             {chatHistory.map((item) => {
                               const active = item.id === chatId || isProfessorMariChatActive(item);
                               const renaming = renamingChatId === item.id;
+                              const selected = selectedChatHistoryIds.has(item.id);
                               return (
                                 <div
                                   key={item.id}
                                   className={cn(
                                     "rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2",
                                     active && "border-[var(--primary)]/50 bg-[var(--primary)]/5",
+                                    selected && "ring-1 ring-[var(--primary)]",
                                   )}
                                 >
                                   {renaming ? (
@@ -3654,10 +3749,20 @@ export function HomeProfessorMariChat({
                                     </form>
                                   ) : (
                                     <div className="flex items-start gap-2">
+                                      {chatHistorySelectionMode && (
+                                        <span className="mt-1 shrink-0 text-[var(--primary)]" aria-hidden="true">
+                                          {selected ? <Check size="0.875rem" /> : <Square size="0.875rem" />}
+                                        </span>
+                                      )}
                                       <button
                                         type="button"
-                                        onClick={() => void handleSelectProfessorChat(item.id)}
+                                        onClick={() =>
+                                          chatHistorySelectionMode
+                                            ? toggleProfessorChatSelection(item.id)
+                                            : void handleSelectProfessorChat(item.id)
+                                        }
                                         disabled={isBusy}
+                                        aria-pressed={chatHistorySelectionMode ? selected : undefined}
                                         className="min-w-0 flex-1 text-left disabled:cursor-not-allowed disabled:opacity-60"
                                       >
                                         <div className="truncate text-xs font-semibold text-[var(--foreground)]">
@@ -3668,19 +3773,23 @@ export function HomeProfessorMariChat({
                                           {active && <span>{localizeUi("ui.characters.lorebooktab.active")}</span>}
                                         </div>
                                       </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setRenamingChatId(item.id);
-                                          setRenameDraft(item.name || "");
-                                        }}
-                                        className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                      >{localizeUi("ui.noodle.noodlepostcard.edit")}</button>
-                                      <button
-                                        type="button"
-                                        onClick={() => void handleDeleteProfessorChat(item.id)}
-                                        className="mari-chrome-control mari-chrome-control--danger mari-chrome-control--small h-8 px-2 text-[0.625rem]"
-                                      >{localizeUi("lorebook.editor.batch.delete")}</button>
+                                      {!chatHistorySelectionMode && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setRenamingChatId(item.id);
+                                              setRenameDraft(item.name || "");
+                                            }}
+                                            className="mari-chrome-control mari-chrome-control--small h-8 px-2 text-[0.625rem]"
+                                          >{localizeUi("ui.noodle.noodlepostcard.edit")}</button>
+                                          <button
+                                            type="button"
+                                            onClick={() => void handleDeleteProfessorChat(item.id)}
+                                            className="mari-chrome-control mari-chrome-control--danger mari-chrome-control--small h-8 px-2 text-[0.625rem]"
+                                          >{localizeUi("lorebook.editor.batch.delete")}</button>
+                                        </>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -3689,6 +3798,24 @@ export function HomeProfessorMariChat({
                           </div>
                         )}
                       </div>
+                      {chatHistorySelectionMode && (
+                        <div className="flex items-center gap-2 border-t border-[var(--border)]/60 px-3 py-2">
+                          <span className="min-w-0 flex-1 text-xs text-[var(--muted-foreground)]">
+                            {localizeUi("ui.chat.homeprofessormarichat.selectedChats", {
+                              count: selectedChatHistoryIds.size,
+                            })}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => void handleBulkDeleteProfessorChats()}
+                            disabled={selectedChatHistoryIds.size === 0}
+                            className="mari-chrome-control mari-chrome-control--danger mari-chrome-control--small h-8 px-3 text-[0.625rem]"
+                          >
+                            <Trash2 size="0.75rem" />
+                            {localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats")}
+                          </button>
+                        </div>
+                      )}
                     </section>
                   </motion.div>
                 ) : skillsMenuOpen ? (

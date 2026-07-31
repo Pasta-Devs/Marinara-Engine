@@ -1315,6 +1315,7 @@ export type GenerateSummaryInput = {
   rangeEndMessageId?: string;
   rangeStartIndex?: number;
   rangeEndIndex?: number;
+  summaryEntryIds?: string[];
   promptTemplateId?: string | null;
 };
 
@@ -1328,6 +1329,7 @@ export function useGenerateSummary() {
       rangeEndMessageId,
       rangeStartIndex,
       rangeEndIndex,
+      summaryEntryIds,
       promptTemplateId,
     }: GenerateSummaryInput) =>
       api.post<{
@@ -1343,6 +1345,7 @@ export function useGenerateSummary() {
         rangeEndMessageId,
         rangeStartIndex,
         rangeEndIndex,
+        summaryEntryIds,
         promptTemplateId,
       }),
     onSuccess: (data, vars) => {

@@ -1013,6 +1013,8 @@ export function AgentEditor() {
 
   // Illustrator agent — run interval setting
   const isIllustratorAgent = agentDetailId === "illustrator" || dbConfig?.type === "illustrator";
+  const isCustomImagePromptAgent = (isCustomAgent || isNewCustomAgent) && localResultType === "image_prompt";
+  const supportsImagePromptSettings = isIllustratorAgent || isCustomImagePromptAgent;
   const isStoryboardAgent = agentDetailId === "storyboard" || dbConfig?.type === "storyboard";
 
   // Knowledge Retrieval agent — lorebook source selector
@@ -1268,7 +1270,7 @@ export function AgentEditor() {
         ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
         ...(savedImageConnectionId ? { imageConnectionId: savedImageConnectionId } : {}),
         ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
-        ...(isIllustratorAgent
+        ...(supportsImagePromptSettings
           ? {
               useAvatarReferences: localUseAvatarReferences,
               includeCharacterAppearance: localIncludeCharacterAppearance,
@@ -1366,7 +1368,7 @@ export function AgentEditor() {
     builtIn,
     isCustomAgent,
     isNewCustomAgent,
-    isIllustratorAgent,
+    supportsImagePromptSettings,
     isStoryboardAgent,
     isProseGuardianAgent,
     isContinuityAgent,
@@ -1460,7 +1462,7 @@ export function AgentEditor() {
       ...(isKnowledgeRetrievalAgent && localSourceFileIds.length > 0 ? { sourceFileIds: localSourceFileIds } : {}),
       ...(agentType !== "background" && localImageConnectionId ? { imageConnectionId: localImageConnectionId } : {}),
       ...(localAutoGenerateAvatars ? { autoGenerateAvatars: true } : {}),
-      ...(isIllustratorAgent
+      ...(supportsImagePromptSettings
         ? {
             useAvatarReferences: localUseAvatarReferences,
             includeCharacterAppearance: localIncludeCharacterAppearance,
@@ -2140,8 +2142,8 @@ export function AgentEditor() {
             </p>
           </FieldGroup>
 
-          {/* ── Image Generation Connection (Illustrator only) ── */}
-          {(agentDetailId === "illustrator" || dbConfig?.type === "illustrator") && (
+          {/* ── Image Generation Connection ── */}
+          {supportsImagePromptSettings && (
             <FieldGroup
               label={localizeUi("ui.agents.agenteditor.imageGenerationConnectionOverride")}
               icon={<ImageIcon size="0.875rem" className="text-[var(--primary)]" />}
@@ -2157,9 +2159,12 @@ export function AgentEditor() {
               >
                 <option value="">
                   {defaultAgentImageConn
-                    ? localizeUi("ui.agents.agenteditor.illustratorAgentDefaultValue1", {
-                        value1: defaultAgentImageConn.name,
-                      })
+                    ? localizeUi(
+                        isIllustratorAgent
+                          ? "ui.agents.agenteditor.illustratorAgentDefaultValue1"
+                          : "ui.agents.agenteditor.imageAgentDefaultValue1",
+                        { value1: defaultAgentImageConn.name },
+                      )
                     : localizeUi("ui.agents.agenteditor.noneNoImageGeneration")}
                 </option>
                 {imageConnections.map((conn) => (
@@ -2169,7 +2174,11 @@ export function AgentEditor() {
                 ))}
               </select>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                {localizeUi("ui.agents.agenteditor.theIllustratorUsesTwoConnectionsTheLlmAboveAnalyzes")}
+                {localizeUi(
+                  isIllustratorAgent
+                    ? "ui.agents.agenteditor.theIllustratorUsesTwoConnectionsTheLlmAboveAnalyzes"
+                    : "ui.agents.agenteditor.customImageAgentsUseTheLlmConnectionAboveToWrite",
+                )}
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
@@ -2206,7 +2215,11 @@ export function AgentEditor() {
                 </div>
               </div>
               <p className="mt-1 text-[0.625rem] text-[var(--muted-foreground)]">
-                {localizeUi("ui.agents.agenteditor.savedOnTheIllustratorAgentPositiveTagsAreAppended")}
+                {localizeUi(
+                  isIllustratorAgent
+                    ? "ui.agents.agenteditor.savedOnTheIllustratorAgentPositiveTagsAreAppended"
+                    : "ui.agents.agenteditor.savedOnThisImageAgentPositiveTagsAreAppended",
+                )}
               </p>
               <div className="mt-3 grid gap-2">
                 <EditorSwitchRow
