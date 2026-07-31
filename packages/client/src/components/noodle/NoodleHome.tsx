@@ -3498,6 +3498,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
 
           <Section
             visible={settingsTab === "noodle" && settingsSection === "general"}
+            accent={NOODLE_PINK}
             title={localizeUi("ui.noodle.noodlehome.noodlerAccess")}
             help={localizeUi("ui.noodle.noodlehome.keepsNoodlerCreatorAccountsIsolatedFromThePublicNoodle")}
           >
@@ -3513,9 +3514,10 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   else saveSettings({ enableNoodler: false });
                 }}
               />
-              <p className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
-                {localizeUi("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}
-              </p>
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--noodle-accent)]/35 bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--noodle-accent)]" />
+                <p>{localizeUi("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}</p>
+              </div>
             </div>
           </Section>
 

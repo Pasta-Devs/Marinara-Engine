@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
+  AlertTriangle,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -414,6 +415,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   <p className="font-semibold">{t("ui.noodle.noodlerwizard.intro.welcome.lead")}</p>
                   <p className="text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.intro.welcome.detail")}</p>
                 </div>
+              </div>
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--noodle-accent)]/35 bg-[var(--noodle-accent)]/10 px-3 py-2 text-xs leading-5 text-[var(--muted-foreground)]">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--noodle-accent)]" />
+                <p>{t("ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable")}</p>
               </div>
             </div>
           )}

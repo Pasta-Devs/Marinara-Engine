@@ -38,6 +38,7 @@ export function NoodlerAgeGate({ personaName, onComplete, onSkip, isPending }: P
 
   const [typed, setTyped] = useState(reducedMotion ? CARD_NUMBER.length : 0);
   const [charged, setCharged] = useState(reducedMotion);
+  const [chargeAmount, setChargeAmount] = useState("9.99");
   const [confetti, setConfetti] = useState(false);
   const chargeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,6 +59,14 @@ export function NoodlerAgeGate({ personaName, onComplete, onSkip, isPending }: P
       if (chargeTimer.current) clearTimeout(chargeTimer.current);
     };
   }, [reducedMotion]);
+
+  useEffect(() => {
+    if (reducedMotion || charged) return;
+    const interval = setInterval(() => {
+      setChargeAmount((Math.floor(Math.random() * 99_999) + 1).toString().padStart(3, "0").replace(/(..)$/, ".$1"));
+    }, 110);
+    return () => clearInterval(interval);
+  }, [charged, reducedMotion]);
 
   const shownNumber = CARD_NUMBER.slice(0, typed).padEnd(CARD_NUMBER.length, "•");
 
@@ -114,7 +123,10 @@ export function NoodlerAgeGate({ personaName, onComplete, onSkip, isPending }: P
         ) : (
           <>
             <Loader2 size={13} className="animate-spin" />
-            {tt("cardCharging", "Charging $0.00…")}
+            {t("ui.noodle.agegate.cardCharging", {
+              amount: chargeAmount,
+              defaultValue: "Charging ${{amount}}...",
+            })}
           </>
         )}
       </p>
@@ -136,9 +148,6 @@ export function NoodlerAgeGate({ personaName, onComplete, onSkip, isPending }: P
       >
         {tt("skipTheGate", "Skip the joke and continue")}
       </button>
-      <p className="text-center text-xs leading-5 text-[var(--muted-foreground)]">
-        {tt("privacyNote", "This is only a joke. No ID, card, or personal information is collected.")}
-      </p>
     </div>
   );
 }

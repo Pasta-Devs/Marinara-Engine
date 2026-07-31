@@ -4934,7 +4934,6 @@
   "ui.noodle.noodlehome.noodlePromptSaved": "Noodle 프롬프트 저장됨.",
   "ui.noodle.noodlehome.noodlerAccess": "NoodleR 접근 권한",
   "ui.noodle.noodlehome.noodlerAutomation": "NoodleR 자동화",
-  "ui.noodle.noodlehome.noodlerIsStillBeingImplementedAndIsNotUsable": "NoodleR은 아직 구현 중이므로 사용할 수 없으며 최종 버전도 아닙니다. 개발 중에는 버그 신고나 기능 요청을 제출하지 마세요.",
   "ui.noodle.noodlehome.noodleSettings": "Noodle 설정",
   "ui.noodle.noodlehome.noodleTimelineRefreshed": "Noodle 타임라인 새로고침됨.",
   "ui.noodle.noodlehome.noodleTimelineReset": "Noodle 타임라인 초기화됨.",
