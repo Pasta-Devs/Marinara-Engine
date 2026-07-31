@@ -7,7 +7,6 @@ import { tryNoodlerAccountOperation } from "./noodle-noodler-account-operation-l
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { tryBackgroundConnection } from "../generation/connection-admission.js";
-import { createChatsStorage } from "../storage/chats.storage.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -21,37 +20,6 @@ function plannedPublicationTimes(now: Date, postsPerDay: number): string[] {
 export function isNoodlerNightQuietTime(at: Date): boolean {
   const hour = at.getHours();
   return hour >= 23 || hour < 7;
-}
-
-function parseRecord(value: unknown): Record<string, unknown> {
-  if (typeof value === "string") {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : {};
-    } catch {
-      return {};
-    }
-  }
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-async function scheduledCharacterIds(db: DB): Promise<Set<string>> {
-  const ids = new Set<string>();
-  for (const chat of await createChatsStorage(db).list()) {
-    const metadata = parseRecord(chat.metadata);
-    const schedules = parseRecord(metadata.characterSchedules);
-    const enabled =
-      typeof metadata.conversationSchedulesEnabled === "boolean"
-        ? metadata.conversationSchedulesEnabled
-        : Object.keys(schedules).length > 0;
-    if (!enabled) continue;
-    for (const [characterId, schedule] of Object.entries(schedules)) {
-      if (schedule && typeof schedule === "object") ids.add(characterId);
-    }
-  }
-  return ids;
 }
 
 export async function prepareNextNoodlerReservePost(
@@ -80,10 +48,7 @@ export async function prepareNextNoodlerReservePost(
   if (accounts.length === 0) return "ineligible";
   let eligibleAccounts = accounts;
   if (settings.noodlerNightQuiet && isNoodlerNightQuietTime(new Date(publishAt))) {
-    const scheduled = await scheduledCharacterIds(db);
-    eligibleAccounts = accounts.filter(
-      (account) => account.kind !== "character" || scheduled.has(account.entityId),
-    );
+    eligibleAccounts = accounts.filter((account) => account.kind !== "character");
   }
   if (eligibleAccounts.length === 0) return "ineligible";
 

@@ -961,7 +961,11 @@ class FileTableStore {
     this.activeTransactionCount++;
 
     try {
-      return await this.txContext.run(ctx, () => fn(tx));
+      const result = await this.txContext.run(ctx, () => fn(tx));
+      if (ctx.dirtyTables.size > 0) {
+        await this.txContext.run(ctx, () => this.flush(true, true));
+      }
+      return result;
     } catch (err) {
       for (const tableName of ctx.dirtyTables) {
         const snapshot = ctx.snapshots.get(tableName);

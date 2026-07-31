@@ -303,6 +303,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       noodle.listPostUnlocksForViewer(viewer.id),
     ]);
     const subscribedIds = new Set(subscriptions.map((item) => item.creatorAccountId));
+    const followedIds = new Set(viewer.settings.social.followingAccountIds ?? []);
     const unlockedIds = new Set(unlocks.map((item) => item.postId));
     const profileById = new Map(
       profiles.map(({ access: _access, ...profile }) => [
@@ -352,6 +353,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       return {
         profile: profileById.get(account.id)!,
         subscribed,
+        followed: followedIds.has(account.id),
         posts: posts.map((post): NoodlerPostView => {
           const locked = !viewablePostIds.has(post.id);
           const interactions = interactionsByPostId.get(post.id) ?? [];
@@ -360,11 +362,11 @@ export async function noodleRoutes(app: FastifyInstance) {
             authorAccountId: post.authorAccountId,
             access: post.access,
             locked,
-            // Locked posts still surface title, image, and engagement counts (Patreon-style
-            // teaser); only the body text and image prompt stay hidden until unlocked.
+            // Titles and engagement counts are public teaser data. Protected media is not:
+            // a browser-side blur would still disclose the original image bytes.
             title: post.title,
             content: locked ? null : post.content,
-            imageUrl: post.imageUrl,
+            imageUrl: locked ? null : post.imageUrl,
             imagePrompt: locked ? null : post.imagePrompt,
             metadata: locked ? null : post.metadata,
             createdAt: post.createdAt,
@@ -416,16 +418,15 @@ export async function noodleRoutes(app: FastifyInstance) {
     return readable;
   }
 
-  // Access-checked serving for NoodleR-owned media. A persona query gates as a fan
-  // (subscriber/PPV/hidden all enforced); no persona is the trusted owner/management path.
-  // The bytes live outside any publicly readable gallery namespace, so this is the only way
-  // to reach them.
+  // Access-checked serving for NoodleR-owned media. The bytes live outside any publicly
+  // readable gallery namespace, so every request must identify a persona with read access.
   app.get("/noodler/posts/:id/media", async (req, reply) => {
     const settings = await noodle.getSettings();
     if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
     const { id } = req.params as { id: string };
     const personaId = (req.query as { personaId?: string }).personaId;
-    const post = personaId ? (await resolveGatedNoodlerPost(personaId, id))?.post : await noodle.getNoodlerPostById(id);
+    if (!personaId) return reply.code(404).send({ error: "Not Found" });
+    const post = (await resolveReadableNoodlerPost(personaId, id))?.post;
     if (!post) return reply.code(404).send({ error: "Not Found" });
     const mediaPath = readNoodlerMediaPath(post);
     const absolute = mediaPath ? resolveNoodlerMediaAbsolutePath(mediaPath) : null;
@@ -622,7 +623,8 @@ export async function noodleRoutes(app: FastifyInstance) {
     }
     const subscription = await noodle.subscribe(viewer.id, creator.id);
     if (!subscription) return reply.code(400).send({ error: "Could not subscribe to this stage profile" });
-    return reply.code(201).send(await buildViewerScope(viewer));
+    const freshViewer = await resolveViewerPersona(parsed.data.personaId);
+    return reply.code(201).send(await buildViewerScope(freshViewer ?? viewer));
   });
 
   app.delete("/noodler/accounts/:id/subscribe", async (req, reply) => {
@@ -634,7 +636,8 @@ export async function noodleRoutes(app: FastifyInstance) {
     if (!viewer) return reply.code(404).send({ error: "Noodle persona not found" });
     const { id } = req.params as { id: string };
     await noodle.unsubscribe(viewer.id, id);
-    return await buildViewerScope(viewer);
+    const freshViewer = await resolveViewerPersona(parsed.data.personaId);
+    return await buildViewerScope(freshViewer ?? viewer);
   });
 
   app.get("/noodler/accounts/:id/subscribers", async (req, reply) => {
@@ -662,6 +665,25 @@ export async function noodleRoutes(app: FastifyInstance) {
       )
     ).filter((subscriber): subscriber is NoodlerSubscriber => subscriber !== null);
     return subscribers;
+  });
+
+  app.patch("/noodler/accounts/:id/follow", async (req, reply) => {
+    const settings = await noodle.getSettings();
+    if (!settings.enableNoodler) return reply.code(404).send({ error: "Not Found" });
+    const parsed = noodlerSubscriptionSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const { id } = req.params as { id: string };
+    const viewer = await resolveViewerPersona(parsed.data.personaId);
+    const creator = await noodle.getNoodlerAccountById(id);
+    if (!viewer || !creator || creator.noodleAccountId === viewer.id || isNoodlerHiddenFromViewer(creator, viewer.id)) {
+      return reply.code(404).send({ error: "NoodleR stage profile not found" });
+    }
+    const body = req.body as { followed?: unknown };
+    if (typeof body.followed !== "boolean") return reply.code(400).send({ error: "followed must be boolean" });
+    const updated = await noodle.updateAccountFollow(viewer.id, creator.id, body.followed);
+    if (!updated) return reply.code(400).send({ error: "Could not update follow state" });
+    const freshViewer = await resolveViewerPersona(parsed.data.personaId);
+    return buildViewerScope(freshViewer ?? updated.account);
   });
 
   app.post("/noodler/posts/:id/unlock", async (req, reply) => {

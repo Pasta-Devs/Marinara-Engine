@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DB } from "../../packages/server/src/db/connection.js";
@@ -37,6 +37,16 @@ assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 23, 0)), true);
 assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 6, 59)), true);
 assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 7, 0)), false);
 assert.equal(isNoodlerNightQuietTime(new Date(2026, 6, 29, 22, 59)), false);
+
+const reserveOperationSource = readFileSync(
+  new URL("../../packages/server/src/services/noodle/noodle-noodler-reserve.operation.ts", import.meta.url),
+  "utf8",
+);
+assert.doesNotMatch(
+  reserveOperationSource,
+  /createChatsStorage|scheduledCharacterIds|characterSchedules|conversationSchedulesEnabled/u,
+  "Noodler reserve selection must not consume source chat schedules without per-creator opt-in",
+);
 
 resetConnectionAdmissionForTests();
 const releaseForeground = beginForegroundConnection("connection-1");

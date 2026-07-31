@@ -1607,6 +1607,16 @@ export function createNoodleStorage(db: DB) {
         const didPublish = await db.transaction(async (tx) => {
           const current = (await tx.select().from(noodlerPreparedPosts).where(eq(noodlerPreparedPosts.id, item.id)))[0];
           if (!current || current.state !== "prepared" || Date.parse(current.publishAt) > at.getTime()) return false;
+          const existingPost = (await tx.select().from(noodlePosts)).find(
+            (post) => parseRecord(post.metadata).noodlerPreparedPostId === current.id,
+          );
+          if (existingPost) {
+            await tx
+              .update(noodlerPreparedPosts)
+              .set({ state: "published", publishedPostId: existingPost.id, updatedAt: at.toISOString() })
+              .where(eq(noodlerPreparedPosts.id, current.id));
+            return false;
+          }
           const accountRow = (await tx.select().from(noodleAccounts).where(eq(noodleAccounts.id, current.creatorAccountId)))[0];
           if (!accountRow || accountRow.platform !== "noodler") {
             await tx.update(noodlerPreparedPosts).set({ state: "discarded", updatedAt: at.toISOString() }).where(eq(noodlerPreparedPosts.id, current.id));
@@ -1656,6 +1666,43 @@ export function createNoodleStorage(db: DB) {
 
     async reconcileNoodlerPreparedPosts(at = new Date()): Promise<number> {
       const settings = await this.getSettings();
+      const repaired = await db.transaction(async (tx) => {
+        const [items, posts] = await Promise.all([
+          tx.select().from(noodlerPreparedPosts),
+          tx.select().from(noodlePosts),
+        ]);
+        const postsByPreparedId = new Map<string, typeof posts>();
+        for (const post of posts) {
+          const preparedId = parseRecord(post.metadata).noodlerPreparedPostId;
+          if (typeof preparedId !== "string") continue;
+          const existing = postsByPreparedId.get(preparedId) ?? [];
+          existing.push(post);
+          postsByPreparedId.set(preparedId, existing);
+        }
+        let count = 0;
+        for (const item of items) {
+          const linkedPosts = (postsByPreparedId.get(item.id) ?? []).sort((left, right) =>
+            left.id.localeCompare(right.id),
+          );
+          const linkedPost = linkedPosts[0];
+          if (linkedPost) {
+            if (item.state !== "published" || item.publishedPostId !== linkedPost.id) {
+              await tx
+                .update(noodlerPreparedPosts)
+                .set({ state: "published", publishedPostId: linkedPost.id, updatedAt: at.toISOString() })
+                .where(eq(noodlerPreparedPosts.id, item.id));
+              count += 1;
+            }
+          } else if (item.state === "published") {
+            await tx
+              .update(noodlerPreparedPosts)
+              .set({ state: "prepared", publishedPostId: null, updatedAt: at.toISOString() })
+              .where(eq(noodlerPreparedPosts.id, item.id));
+            count += 1;
+          }
+        }
+        return count;
+      });
       const items = await this.listNoodlerPreparedPosts();
       const prepared = items.filter((item) => item.state === "prepared");
       const accounts = new Map(
@@ -1684,7 +1731,7 @@ export function createNoodleStorage(db: DB) {
         }
         await db.update(noodlerPreparedPosts).set({ state: "discarded", updatedAt: at.toISOString() }).where(inArray(noodlerPreparedPosts.id, discarded));
       }
-      return discarded.length;
+      return repaired + discarded.length;
     },
 
     async getNoodlerReserveStatus(at = new Date()): Promise<NoodlerReserveStatus> {
@@ -2833,7 +2880,28 @@ export function createNoodleStorage(db: DB) {
               eq(noodleAccountSubscriptions.creatorAccountId, creatorAccountId),
             ),
           );
-        if (existing[0]) return mapSubscription(existing[0]);
+        if (existing[0]) {
+          const followingAccountIds = viewer.settings.social.followingAccountIds ?? [];
+          const followingAccountTimestamps = { ...viewer.settings.social.followingAccountTimestamps };
+          if (!followingAccountIds.includes(creatorAccountId)) {
+            followingAccountTimestamps[creatorAccountId] ??= existing[0].createdAt;
+            await tx
+              .update(noodleAccounts)
+              .set({
+                settings: JSON.stringify({
+                  ...viewer.settings,
+                  social: {
+                    ...viewer.settings.social,
+                    followingAccountIds: [...followingAccountIds, creatorAccountId],
+                    followingAccountTimestamps,
+                  },
+                }),
+                updatedAt: now(),
+              })
+              .where(eq(noodleAccounts.id, viewerAccountId));
+          }
+          return mapSubscription(existing[0]);
+        }
         if (viewer.settings.wallet.coins < NOODLER_SUBSCRIPTION_COST) return null;
         const timestamp = now();
         const followingAccountIds = viewer.settings.social.followingAccountIds ?? [];

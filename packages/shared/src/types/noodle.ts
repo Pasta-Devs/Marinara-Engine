@@ -280,6 +280,7 @@ export interface NoodlerPostView {
 export interface NoodlerViewerCreator {
   profile: NoodlerStageProfile;
   subscribed: boolean;
+  followed: boolean;
   posts: NoodlerPostView[];
 }
 

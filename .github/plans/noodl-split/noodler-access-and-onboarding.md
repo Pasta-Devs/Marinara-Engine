@@ -5,7 +5,7 @@ Detail design document for Slice 8f. The
 authority for slice ordering and product decisions; this file owns 8f's design detail
 because it does not fit the Living Plan's per-slice section length.
 
-**Status as of 2026-07-30: 8f-1, 8f-2, 8f-3, and 8f-4 are implemented on branch
+**Status as of 2026-07-31: 8f-1, 8f-2, 8f-3, and 8f-4 are implemented on branch
 `big-chungus-1` and unmerged; 8f-5 and 8f-6 have not started.** The design below is
 therefore a record of what shipped for those four units, not a forward plan. Open questions
 are listed at the bottom and are part of the document, not a defect in it. Update the
@@ -330,18 +330,18 @@ has not happened yet or depend on another future post. Slice 8g replies remain r
 work generated from the interaction path, not reserve content. The 24-hour horizon bounds
 how stale an otherwise valid prepared post can become.
 
-### State belongs in a private outbox
+### State belongs in a NoodleR-owned outbox
 
 Prepared content must not be placed into the ordinary post table with only a future
 createdAt value. Existing projections and queries assume rows in that table are published,
 so doing that risks exposing locked future content or making it reachable through an
 unrelated endpoint.
 
-Use a capability-owned private outbox. Each item needs, conceptually:
+Use a capability-owned NoodleR outbox. Each item needs, conceptually:
 
 - a durable item ID and creator account ID;
 - generatedAt and publishAt;
-- the complete validated private-post payload;
+- the complete validated NoodleR-post payload;
 - ownership of any prepared private media;
 - a source/policy/schedule fingerprint sufficient to detect invalidation;
 - a state such as prepared, published, discarded, or failed.
@@ -540,7 +540,7 @@ Use controlled-clock/provider regression coverage for:
 ### This revises Slice 8
 
 **Survives:** the global product kill switch, the automatic-schedule switch, per-stage-
-profile enablement, per-creator image preference, the shared private-post generation core,
+profile enablement, per-creator image preference, the shared NoodleR-post generation core,
 same-account exclusion, and explicit manual generation through the immediate-publish
 operation.
 
@@ -754,8 +754,8 @@ experience has never had a slice of its own, and it shows in three concrete gaps
 
 ### The feed is an audience surface
 
-Authoring lives on the creator's own page — composer, automation state, source-changed
-notice. The feed carries no operator controls. Every operator button in the feed is a
+Authoring lives on the creator's own page — composer, automation state, source-change and
+source-missing notices. The feed carries no operator controls. Every operator button in the feed is a
 reminder that the whole thing is scenery, which is exactly what the watching mode should
 not be reminded of. This continues Slice 7's direction of removing the main-timeline
 stage-profile picker.
@@ -766,10 +766,10 @@ order the user cannot predict is a feed in which they quietly miss things.
 ### The creator page keeps its two roles apart
 
 Slice 7 requires one profile surface rather than separate viewer and management modes,
-and that stands. But the operator controls are gathered into one clearly delimited area
+and that stands. But 8f-6 gathers the operator controls into one clearly delimited area
 instead of being interleaved with the audience view: the profile reads as a profile —
-image, bio, Subscribe, posts — and composer, automation toggle, and the source-changed
-notice sit together below it.
+image, bio, Subscribe, posts — and composer, automation toggle, and the source-change or
+source-missing notice sit together below it.
 
 Same single page, same Slice 7 contract, without Subscribe and Delete sitting side by
 side as if they were the same kind of act.
@@ -881,7 +881,7 @@ harness.
 
 The user-visible cases are broader than renames — "the character now has blonde hair
 instead of black" is the same class of problem. Appearance drift additionally affects
-generated images, because `noodle-private-images.service.ts` builds image prompts from
+generated images, because `noodle-noodler-images.service.ts` builds image prompts from
 character appearance while the stage profile still describes the old look.
 
 ### One mechanism: a source-changed notice
@@ -914,11 +914,12 @@ actions to **relink** the creator to an existing character or **delete** it. Rel
 always an explicit user choice — never guessed from a matching name, because guessing
 wrong would bind the wrong character to an 18+ stage profile.
 
-## What the code already provides
+## What the pre-8f code provided
 
-Most of this exists and mainly needs consolidating.
+Most of this existed before 8f and mainly needed consolidating. Retired access values in
+this inventory describe that migration source, not the current contract.
 
-| Concept | Where it lives today |
+| Concept | Where it lived before 8f |
 | --- | --- |
 | Follow | `followingAccountIds` on the account, `packages/shared/src/types/noodle.ts` |
 | Subscribe | `noodle_account_subscriptions` table |
@@ -935,7 +936,7 @@ Most of this exists and mainly needs consolidating.
 | Bulk creation | `POST /noodler/accounts/bulk` and `NoodlerBulkCreatePanel` (Slice 8c) |
 | Generate now | global "Refresh NoodleR now" from Slice 8 |
 
-`unlockPost` charges nothing today, and `ppvPrice` is already display-only. 8f-2 changes the
+Before 8f-2, `unlockPost` charged nothing and `ppvPrice` was display-only. 8f-2 changes the
 first of those: `unlockPost` and `subscribe` become charging operations against a new coin
 balance (1 and 5, default 999999, nothing rendered). `ppvPrice` is deleted rather than
 repurposed — it was a per-post display number, while coin costs are two fixed constants.
@@ -956,8 +957,8 @@ when the slice runs long.
 | **8f-2** access collapse | A, B, C, D, H | 8e |
 | **8f-3** scheduling | E | 8f-2 |
 | **8f-4** onboarding | F, G | 8f-2, 8f-3, 8c |
-| **8f-5** watching surface | I, plus "What is new since last time" | 8f-2 |
-| **8f-6** source-drift notice | J | nothing beyond 8f-1 |
+| **8f-5** watching surface | "What is new since last time" | 8f-2 |
+| **8f-6** creator operator area and source drift | I and J | nothing beyond 8f-1 |
 
 8f-1 is a defect, not a design change: a `hinted` or `secret` profile can emit the real
 name after a rename. It ships on its own and must not wait behind a scheduler rewrite.
@@ -998,7 +999,7 @@ the 8e rename):
 
 | Touch point | What 8f-3 does to it |
 | --- | --- |
-| `services/noodle/noodle-autopost-scheduler.service.ts` | the actual per-creator poll loop — claims a due run by advancing `nextRunAt` before provider work. This is the file the rewrite is really about. It ships `MAX_CONCURRENT_AUTOPOSTS = 2`, which is precisely what the reserve's concurrency-1 rule replaces. |
+| `services/noodle/noodle-autopost-scheduler.service.ts` | the historical per-creator poll loop — claimed a due run by advancing `nextRunAt` before provider work. This was the rewrite's primary target. It shipped `MAX_CONCURRENT_AUTOPOSTS = 2`, which the reserve's concurrency-1 rule replaced. |
 | `services/noodle/noodle-autopost-cadence.ts` | delete; the `now + 24h/intensity ± jitter` helper has no successor |
 | `app.ts:42` | `startNoodleAutoPostScheduler` registration — repointed at the reserve scheduler |
 | `services/storage/noodle.storage.ts:56` | imports `nextAutoPostRunAt` from the cadence helper; the import and its call sites go with it |
@@ -1019,9 +1020,9 @@ three-level model and `subscriptionIncludesPpv`. Translated packs on `docs-i18n`
 follow, or a `[docs-i18n]` follow-up issue must be opened.
 
 **I. Creator-page role separation.** Gather composer, automation toggle, and the
-source-changed notice into one delimited operator area below the profile, per "The creator
-page keeps its two roles apart". Still one surface, per Slice 7; layout only, no contract
-change. Ships with 8f-5 because it is the same watching-side concern.
+source-change or source-missing notice into one delimited operator area below the profile,
+per "The creator page keeps its two roles apart". Still one surface, per Slice 7. 8f-6 owns
+the area because its notice states and actions determine the complete operator layout.
 
 **J. Source-changed notice.** Snapshot the source card fields used at draft time on the
 noodler account, compare on creator-page read, and surface one notice with adopt
@@ -1089,10 +1090,10 @@ Two consequences, both mandatory:
 
 ### The one real behaviour change
 
-The collapse is not purely cosmetic. Today's gate (`noodler-access.ts:12-15`) says a `ppv`
+The collapse is not purely cosmetic. The pre-8f-2 gate (`noodler-access.ts:12-15`) said a `ppv`
 post is visible only if individually unlocked, *or* if the viewer subscribes **and** the
 creator has `subscriptionIncludesPpv` enabled. For a creator with that flag **off**, a
-subscriber currently cannot see `ppv` posts at all. After the collapse the rule is
+subscriber could not see `ppv` posts at all. After the collapse the rule is
 `subscribed || unlocked`, so those posts become visible to that subscriber.
 
 Migration therefore *reveals* previously hidden posts — it never hides a visible one. That is
@@ -1142,7 +1143,7 @@ framing went wrong. `routes:335,409` and `storage:813` disappear because
 branches that stop having a value to match.
 
 **The generation service and the shared schema are on this list, which the rough plan's
-"single edit plus a migration" framing understates.** `noodle-private-generation.service.ts`
+"single edit plus a migration" framing understates.** `noodle-noodler-generation.service.ts`
 holds the structured response format the model fills in, so step C is not optional
 polish — the model cannot emit an access value the schema no longer has.
 
@@ -1197,7 +1198,7 @@ workflow rules, so this is a build break, not a follow-up.
 - Slice 8's "automatic posts default to `subscriber` access" becomes "default to
   `locked`". Same meaning, new name.
 - `subscriptionIncludesPpv`, from Slice 6, is removed with no replacement.
-- Slice 8's per-creator interval cadence is replaced by a rolling private reserve of
+- Slice 8's per-creator interval cadence is replaced by a rolling NoodleR reserve of
   pre-generated posts with fixed future publication times. Per-creator enable/disable
   survives; `intensity`, per-creator `nextRunAt`, recurring rescheduling, startup catch-up,
   and generated-after-the-fact historical timestamps are removed.
@@ -1343,6 +1344,12 @@ deferred. If any part of the watching work survives a scope cut, it should be th
 
 ## Changelog
 
+- **2026-07-31** — Corrected F11/F12 planning ownership and current terminology. 8f-5 now
+  owns only the new-since-last-visit divider and entry-point counter; 8f-6 owns the complete
+  creator-page operator area, including source-change and source-missing states and actions.
+  Current-contract prose now uses `public | locked`, NoodleR symbols, and scheduler-pass
+  wording; dated migration and shipped-contract references retain the retired terms they
+  document. Refreshed the branch status date; the Living Plan records the current diff stats.
 - **2026-07-29** — Specced the 8f-1 fix, not just the diagnosis. Traced against staging and
   found the defect is wider than recorded: `stageProfileContainsPublicIdentity()`, the
   validator gating drafts at `noodle-stage-profile-draft.service.ts:190` and
