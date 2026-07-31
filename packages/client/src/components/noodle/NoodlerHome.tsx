@@ -928,8 +928,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
     onOpenSearch:
       navigation.view === "hub" && !creationStep && !profileDraft
         ? () => {
-            setDiscoveryOpen(true);
-            window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
+            setDiscoveryOpen((open) => {
+              if (!open) window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
+              return !open;
+            });
           }
         : undefined,
     onOpenProfile: mainAuthorProfile
@@ -2847,7 +2849,7 @@ function ViewerHub({
               onDiscoveryOpenChange(!discoveryOpen);
               if (!discoveryOpen) window.requestAnimationFrame(() => discoveryInputRef.current?.focus());
             }}
-            className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] xl:hidden"
+            className="ml-1 hidden h-9 w-9 shrink-0 items-center justify-center rounded-md text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)] lg:flex xl:hidden"
             aria-expanded={discoveryOpen}
             aria-label={localizeUi("ui.noodle.noodleshell.discoverCreators")}
           >

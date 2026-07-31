@@ -33,6 +33,8 @@ interface ModalProps {
   mobileFullscreen?: boolean;
   /** Optional feature-local classes applied to the full panel, including its header. */
   panelClassName?: string;
+  /** Optional feature-local classes applied to the scrollable content area. */
+  contentClassName?: string;
   /** Optional feature-local style variables applied to the full panel. */
   panelStyle?: CSSProperties;
   closeDisabled?: boolean;
@@ -51,6 +53,7 @@ export function Modal({
   chatFloatingPanel = false,
   mobileFullscreen = false,
   panelClassName,
+  contentClassName,
   panelStyle,
   closeDisabled = false,
 }: ModalProps) {
@@ -189,7 +192,7 @@ export function Modal({
         {/* Content */}
         <div
           ref={contentRef}
-          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 ${NEUTRAL_PANEL_SCROLL_AREA}`}
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4 ${NEUTRAL_PANEL_SCROLL_AREA} ${contentClassName ?? ""}`}
         >
           {children}
         </div>

@@ -336,11 +336,15 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
       title={selectionOnly ? t("ui.noodle.noodlerwizard.addCreators") : t("ui.noodle.noodlerwizard.title")}
       width="max-w-3xl"
       mobileFullscreen
+      contentClassName="max-sm:flex max-sm:overflow-hidden max-sm:px-4 max-sm:py-2"
       panelStyle={getNoodleAccentStyle(NOODLE_PINK)}
     >
-      <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col">
+      <div className="flex max-h-[min(78vh,46rem)] min-h-[26rem] flex-col max-sm:min-h-0 max-sm:flex-1 max-sm:self-stretch">
         {intro !== null && (
-          <div className="flex items-center gap-2 border-b border-[var(--border)] pb-3" aria-hidden="true">
+          <div
+            className="flex items-center gap-2 border-b border-[var(--border)] pb-3 max-sm:gap-1.5 max-sm:pb-2"
+            aria-hidden="true"
+          >
             {[0, 1, 2, 3].map((dot) => (
               <span
                 key={dot}
@@ -353,7 +357,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           </div>
         )}
         {intro === null && setupLane !== null && step < 5 && (
-          <div className="border-b border-[var(--border)] pb-3">
+          <div className="border-b border-[var(--border)] pb-3 max-sm:pb-1.5">
             {/* Progress rail: done steps stay reachable, later ones stay locked until you get there. */}
             <ol className="flex gap-1.5">
               {summaries.map((item) => {
@@ -366,7 +370,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       aria-current={step === item.step ? "step" : undefined}
                       onClick={() => setStep(item.step)}
                       className={cn(
-                        "w-full min-w-0 rounded-md px-2 pb-1.5 pt-2 text-left transition-colors",
+                        "w-full min-w-0 rounded-md px-2 pb-1.5 pt-2 text-left transition-colors max-sm:px-1 max-sm:pb-1 max-sm:pt-1.5",
                         reachable ? "hover:bg-[var(--accent)]" : "cursor-default opacity-45",
                       )}
                     >
@@ -380,8 +384,10 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                               : "bg-[var(--border)]",
                         )}
                       />
-                      <span className="mt-1.5 block truncate text-[0.7rem] font-bold">{item.label}</span>
-                      <span className="block truncate text-[0.7rem] text-[var(--muted-foreground)]">{item.value}</span>
+                      <span className="mt-1.5 block truncate text-[0.7rem] font-bold max-sm:mt-1">{item.label}</span>
+                      <span className="block truncate text-[0.7rem] text-[var(--muted-foreground)] max-sm:hidden">
+                        {item.value}
+                      </span>
                     </button>
                   </li>
                 );
@@ -390,17 +396,21 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           </div>
         )}
 
-        <div className="min-h-0 flex-1 overflow-y-auto py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto py-4 max-sm:py-2.5">
           {intro === 0 && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-sm:space-y-3">
               <StepHeading
                 icon={<Sparkles size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.welcome.title")}
                 help={t("ui.noodle.noodlerwizard.intro.welcome.help")}
               />
-              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4">
-                <img src="/sprites/mari/Mari_wave.png" alt="" className="h-36 w-auto shrink-0 object-contain" />
-                <div className="space-y-3 text-sm leading-6">
+              <div className="flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4 max-sm:items-start max-sm:gap-3 max-sm:p-3">
+                <img
+                  src="/sprites/mari/Mari_wave.png"
+                  alt=""
+                  className="h-36 w-auto shrink-0 object-contain max-sm:h-24"
+                />
+                <div className="space-y-3 text-sm leading-6 max-sm:space-y-1.5 max-sm:leading-5">
                   <p className="font-semibold">{t("ui.noodle.noodlerwizard.intro.welcome.lead")}</p>
                   <p className="text-[var(--muted-foreground)]">{t("ui.noodle.noodlerwizard.intro.welcome.detail")}</p>
                 </div>
@@ -409,14 +419,14 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
 
           {intro === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-sm:space-y-3">
               <StepHeading
                 icon={<Eye size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.identity.title")}
                 help={t("ui.noodle.noodlerwizard.intro.identity.help")}
               />
-              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-                <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4 text-center">
+              <div className="grid gap-3 max-sm:grid-cols-[5.5rem_minmax(0,1fr)] sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+                <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--accent)]/25 p-4 text-center max-sm:p-2">
                   <Avatar
                     account={{
                       displayName: demoProfile.displayName,
@@ -425,9 +435,9 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     }}
                     size="lg"
                   />
-                  <p className="mt-3 font-bold">{demoProfile.displayName}</p>
+                  <p className="mt-3 font-bold max-sm:mt-2 max-sm:text-xs">{demoProfile.displayName}</p>
                   <p className="text-xs text-[var(--muted-foreground)]">@{demoProfile.handle}</p>
-                  <p className="mt-2 text-xs font-semibold text-[var(--noodle-accent)]">
+                  <p className="mt-2 text-xs font-semibold text-[var(--noodle-accent)] max-sm:mt-1 max-sm:text-[0.625rem]">
                     {t(`ui.noodle.noodlerwizard.identityPreview.${disclosure}.connection`)}
                   </p>
                 </div>
@@ -442,7 +452,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                         setPostExplored(false);
                       }}
                       className={cn(
-                        "w-full rounded-lg border px-3 py-2.5 text-left transition-colors",
+                        "w-full rounded-lg border px-3 py-2.5 text-left transition-colors max-sm:px-2.5 max-sm:py-2",
                         disclosure === value
                           ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
                           : "border-[var(--border)] hover:bg-[var(--accent)]",
@@ -451,7 +461,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       <span className="block text-sm font-bold">
                         {t(`ui.noodle.noodlerwizard.disclosure.${value}.title`)}
                       </span>
-                      <span className="mt-0.5 block text-xs leading-5 text-[var(--muted-foreground)]">
+                      <span className="mt-0.5 block text-xs leading-5 text-[var(--muted-foreground)] max-sm:line-clamp-2 max-sm:leading-4">
                         {t(`ui.noodle.noodlerwizard.disclosure.${value}.detail`)}
                       </span>
                     </button>
@@ -462,7 +472,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
 
           {intro === 2 && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-sm:space-y-3">
               <StepHeading
                 icon={<Lock size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.locked.title")}
@@ -470,7 +480,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
               />
               {/* Capped width: the wizard modal is 3xl, and a full-bleed card makes the demo post
                   read as a page rather than as one item in a feed. */}
-              <div className="mx-auto max-w-sm overflow-hidden rounded-xl border border-[var(--noodle-divider)]">
+              <div className="mx-auto max-w-sm overflow-hidden rounded-xl border border-[var(--noodle-divider)] max-sm:max-w-[18rem]">
                 <LockedNoodlerPostCard
                   key={disclosure}
                   post={{
@@ -502,7 +512,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
 
           {intro === 3 && (
-            <div className="space-y-4">
+            <div className="space-y-4 max-sm:space-y-3">
               <StepHeading
                 icon={<Clock size={18} />}
                 title={t("ui.noodle.noodlerwizard.intro.activity.title")}
@@ -515,7 +525,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     type="button"
                     onClick={() => chooseActivity(choice)}
                     className={cn(
-                      "rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      "rounded-lg border px-3 py-2.5 text-left transition-colors max-sm:py-2",
                       activityChoice === choice
                         ? "border-[var(--noodle-accent)] bg-[var(--noodle-accent)]/10"
                         : "border-[var(--border)] hover:bg-[var(--accent)]",
@@ -550,8 +560,12 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   {t("ui.noodle.noodlerwizard.imagesShort")}
                 </label>
               </div>
-              <div className="flex items-center gap-3 rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2.5">
-                <img src="/sprites/mari/Mari_explaining.png" alt="" className="h-16 w-auto object-contain" />
+              <div className="flex items-center gap-3 rounded-lg border border-[var(--noodle-accent)]/30 bg-[var(--noodle-accent)]/8 px-3 py-2.5 max-sm:py-2">
+                <img
+                  src="/sprites/mari/Mari_explaining.png"
+                  alt=""
+                  className="h-16 w-auto object-contain max-sm:h-12"
+                />
                 <p className="text-sm leading-5">
                   {activityChoice === "manual"
                     ? t("ui.noodle.noodlerwizard.intro.activity.manualPreview")
@@ -1058,14 +1072,14 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
           )}
         </div>
 
-        <div className="border-t border-[var(--border)] pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+        <div className="border-t border-[var(--border)] pt-3 max-sm:pt-2">
+          <div className="flex items-center justify-between gap-3 max-sm:gap-1.5">
+            <div className="flex items-center gap-2 max-sm:gap-0.5">
               {intro !== null && intro > 0 && (
                 <button
                   type="button"
                   onClick={() => setIntro((intro - 1) as Intro)}
-                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold max-sm:px-2"
                 >
                   <ChevronLeft size={15} />
                   {t("ui.noodle.noodlerwizard.back")}
@@ -1075,7 +1089,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 <button
                   type="button"
                   onClick={() => setStep(setupLane === "easy" ? 1 : ((step - 1) as Step))}
-                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold max-sm:px-2"
                 >
                   <ChevronLeft size={15} />
                   {t("ui.noodle.noodlerwizard.back")}
@@ -1085,7 +1099,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 <button
                   type="button"
                   onClick={() => setSetupLane(null)}
-                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold"
+                  className="flex min-h-10 items-center gap-1 rounded-md border border-[var(--border)] px-3 text-sm font-bold max-sm:px-2"
                 >
                   <ChevronLeft size={15} />
                   {t("ui.noodle.noodlerwizard.back")}
@@ -1096,7 +1110,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                   type="button"
                   disabled={pending}
                   onClick={() => (intro === null ? void skip() : setIntro(null))}
-                  className="min-h-10 rounded-md px-2 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50"
+                  className="min-h-10 rounded-md px-2 text-sm font-semibold text-[var(--muted-foreground)] hover:text-[var(--foreground)] disabled:opacity-50 max-sm:px-1.5 max-sm:text-xs"
                 >
                   {intro === null ? t("ui.noodle.noodlerwizard.skip") : t("ui.noodle.noodlerwizard.skipIntro")}
                 </button>
@@ -1107,7 +1121,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                 type="button"
                 disabled={intro === 1 ? !identityExplored : intro === 2 ? !postExplored : false}
                 onClick={() => setIntro(intro < LAST_INTRO ? ((intro + 1) as Intro) : null)}
-                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
+                className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50 max-sm:px-3"
               >
                 {intro < LAST_INTRO ? t("ui.noodle.noodlerwizard.continue") : t("ui.noodle.noodlerwizard.introDone")}
                 <ChevronRight size={15} />
@@ -1122,7 +1136,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                     else if (setupLane === "easy" && step === 1) setStep(4);
                     else setStep((step + 1) as Step);
                   }}
-                  className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50"
+                  className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50 max-sm:px-3 max-sm:text-xs"
                 >
                   {pending && <Loader2 size={15} className="animate-spin" />}
                   {step === (selectionOnly ? 1 : 4)
@@ -1148,7 +1162,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             )}
           </div>
           {/* Creating profiles then writing first posts can take a while; say which half we are in. */}
-          <p aria-live="polite" className="mt-2 min-h-4 text-xs text-[var(--muted-foreground)]">
+          <p aria-live="polite" className="mt-2 min-h-4 text-xs text-[var(--muted-foreground)] max-sm:mt-1">
             {bulkCreate.isPending
               ? t("ui.noodle.noodlerwizard.progressCreating")
               : refreshTargeted.isPending
@@ -1163,13 +1177,13 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
 
 function StepHeading({ icon, title, help }: { icon: ReactNode; title: string; help: string }) {
   return (
-    <div className="flex gap-3">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)]">
+    <div className="flex gap-3 max-sm:gap-2">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-accent)]/12 text-[var(--noodle-accent)] max-sm:h-8 max-sm:w-8">
         {icon}
       </span>
       <div className="min-w-0">
-        <h3 className="text-xl font-bold leading-snug">{title}</h3>
-        <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)]">{help}</p>
+        <h3 className="text-xl font-bold leading-snug max-sm:text-lg">{title}</h3>
+        <p className="mt-1 max-w-[70ch] text-sm leading-6 text-[var(--muted-foreground)] max-sm:leading-5">{help}</p>
       </div>
     </div>
   );
