@@ -2,6 +2,7 @@ import {
   getFolderImportEntries,
   getFolderManifestConfig,
   isJsonRecord,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   normalizePersonalExtensionCapabilities,
   type PersonalExtensionCapability,
 } from "@marinara-engine/shared";
@@ -104,12 +105,23 @@ export function normalizePersonalExtensionImportEntry(
     resolvePackageTextPaths(entry.resolveTextFile, record.jsPath ?? record.jsPaths) ??
     (typeof record.js === "string" ? record.js : null);
   if (!css?.trim() && !js?.trim()) return null;
+  const capabilities = normalizePersonalExtensionCapabilities(record.capabilities);
+  // `marinara.extension` is the pre-sandbox browser-extension envelope. Those
+  // packages were authored for the host page and otherwise import successfully
+  // only to fail at runtime. An explicit capabilities field always wins so a
+  // modern package can deliberately opt into the safe sandbox.
+  if (
+    kind === "marinara.extension" &&
+    !Object.prototype.hasOwnProperty.call(record, "capabilities")
+  ) {
+    capabilities.push(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
+  }
   return {
     name,
     version: normalizePersonalExtensionVersion(record.version),
     description: typeof record.description === "string" ? record.description : "",
     runtime,
-    capabilities: normalizePersonalExtensionCapabilities(record.capabilities),
+    capabilities,
     css,
     js,
     serverJs: null,

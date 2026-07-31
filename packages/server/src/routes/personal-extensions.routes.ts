@@ -9,6 +9,7 @@ import {
   updatePersonalExtensionSchema,
   PERSONAL_EXTENSION_CONTRIBUTION_ICONS,
   PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   PERSONAL_EXTENSION_UI_ELEMENT_KINDS,
   PERSONAL_EXTENSION_UI_LIMITS,
   normalizePersonalExtensionCapabilities,
@@ -187,6 +188,30 @@ function privileged(
 
 function escapeClosingTag(source: string, tag: "style") {
   return source.replace(new RegExp(`</${tag}`, "giu"), `<\\/${tag}`);
+}
+
+function hasFullPageAccess(extension: Pick<PersonalExtension, "capabilities">) {
+  return extension.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
+}
+
+export function fullPageExtensionSource(extension: PersonalExtension) {
+  const identity = JSON.stringify({
+    id: extension.id,
+    name: extension.name,
+    contentHash: extension.contentHash,
+  }).replace(/</gu, "\\u003c");
+  return `(() => {
+  "use strict";
+  const extension = ${identity};
+  const run = window.__marinaraRunFullPageExtension;
+  if (typeof run !== "function") {
+    throw new Error("Marinara full-page extension host is unavailable");
+  }
+  run(extension, async (marinara) => {
+    "use strict";
+${extension.js ?? ""}
+  });
+})();`;
 }
 
 export function browserWorkerSource(extension: PersonalExtension) {
@@ -1118,7 +1143,14 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
         description: extension.description,
         capabilities: extension.capabilities,
         contentHash: extension.contentHash,
-        sandboxUrl: `/api/personal-extensions/${encodeURIComponent(extension.id)}/sandbox.html?hash=${encodeURIComponent(extension.contentHash)}`,
+        executionMode: hasFullPageAccess(extension) ? "full-page" : "sandboxed",
+        runtimeUrl: hasFullPageAccess(extension)
+          ? `/api/personal-extensions/${encodeURIComponent(extension.id)}/page-runtime.js?hash=${encodeURIComponent(extension.contentHash)}`
+          : `/api/personal-extensions/${encodeURIComponent(extension.id)}/sandbox.html?hash=${encodeURIComponent(extension.contentHash)}`,
+        styleUrl:
+          hasFullPageAccess(extension) && extension.css
+            ? `/api/personal-extensions/${encodeURIComponent(extension.id)}/page-style.css?hash=${encodeURIComponent(extension.contentHash)}`
+            : null,
       }));
   });
 
@@ -1132,6 +1164,7 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       !extension.enabled ||
       extension.approvedHash !== extension.contentHash ||
       req.query.hash !== extension.contentHash ||
+      hasFullPageAccess(extension) ||
       !canExecutePersonalExtension(extension, policy)
     ) {
       return reply.status(404).send("Not Found");
@@ -1145,6 +1178,43 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       `default-src 'none'; script-src 'nonce-${nonce}'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`,
     );
     return sandboxDocument(extension, nonce);
+  });
+
+  const approvedFullPageExtension = async (id: string, hash: string | undefined) => {
+    const extension = ID_PATTERN.test(id) ? await storage.getById(id) : null;
+    if (
+      !extension ||
+      extension.runtime !== "client" ||
+      !extension.enabled ||
+      extension.approvedHash !== extension.contentHash ||
+      hash !== extension.contentHash ||
+      !hasFullPageAccess(extension) ||
+      !isExternalPersonalExtensionSource(extension.source) ||
+      !canExecutePersonalExtension(extension, await getPersonalExtensionPolicy(app.db))
+    ) {
+      return null;
+    }
+    return extension;
+  };
+
+  app.get<{ Params: { id: string }; Querystring: { hash?: string } }>("/:id/page-runtime.js", async (req, reply) => {
+    const extension = await approvedFullPageExtension(req.params.id, req.query.hash);
+    if (!extension) return reply.status(404).send("Not Found");
+    reply.type("application/javascript; charset=utf-8");
+    reply.header("Cache-Control", "no-store");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Cross-Origin-Resource-Policy", "same-origin");
+    return fullPageExtensionSource(extension);
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { hash?: string } }>("/:id/page-style.css", async (req, reply) => {
+    const extension = await approvedFullPageExtension(req.params.id, req.query.hash);
+    if (!extension || !extension.css) return reply.status(404).send("Not Found");
+    reply.type("text/css; charset=utf-8");
+    reply.header("Cache-Control", "no-store");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Cross-Origin-Resource-Policy", "same-origin");
+    return extension.css;
   });
 
   app.post("/", async (req, reply) => {
@@ -1193,6 +1263,9 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       return reply
         .status(503)
         .send({ error: policy.serverSandboxReason ?? "No supported server sandbox is available." });
+    }
+    if (hasFullPageAccess(existing) && input.acknowledgeFullPageAccess !== true) {
+      return reply.status(400).send({ error: "Full page access must be explicitly acknowledged." });
     }
     const approved = await storage.approve(req.params.id, input.contentHash);
     if (!approved) return reply.status(404).send({ error: "Personal Extension not found" });

@@ -12,7 +12,7 @@ There is no New Draft action and there are no import controls in this section. A
 
 Every draft starts disabled. Marinara fingerprints the exact executable code with SHA-256. Open the draft, inspect the code, compare the displayed hash, then choose **Review and Run** only if you accept that exact version. Any executable edit or restored revision disables the extension and requires a fresh approval.
 
-Sandboxing reduces authority; it does not make arbitrary code trustworthy. A malicious extension can still waste CPU until the watchdog stops it, flood its own storage within enforced limits, or behave deceptively through logs. Always review code before enabling it.
+Sandboxing reduces authority; it does not make arbitrary code trustworthy. A malicious extension can still waste CPU until the watchdog stops it, flood its own storage within enforced limits, or behave deceptively through logs. Full page extensions deliberately give up that isolation. Always review code before enabling it.
 
 ## Runtime isolation
 
@@ -20,7 +20,7 @@ A Browser Extension runs in a dedicated Worker inside an opaque-origin sandboxed
 
 Extensions can add top-bar actions, Extensions menu items, and persistent right-side panels with `marinara.ui.registerContribution(...)`. Marinara renders these surfaces using the active theme and a fixed set of controls: headings, text, preformatted output, buttons, text inputs, selects, toggles, sliders, color controls, and spacers. An extension supplies content and state, never HTML, CSS, URLs, React components, or host event handlers.
 
-These UI capabilities and rules are identical for every Browser Extension regardless of source. An imported third-party (External) Extension gets the same contribution API once it clears the `.env` and Danger Zone opt-ins plus exact-hash approval. It still cannot reach Marinara's DOM or APIs.
+These UI capabilities and rules are identical for every sandboxed Browser Extension regardless of source. An imported third-party (External) Extension uses this safe runtime unless its package explicitly requests **Full page access** or uses the pre-sandbox `marinara.extension` format described below.
 
 ### Add a Marinara-rendered panel
 
@@ -108,17 +108,32 @@ Chat and Character IDs are always available and let an extension namespace its o
 - `read_active_characters` populates `characters` for cards participating in the active chat.
 - `read_active_persona` populates `persona` for the Persona selected by the active chat.
 
-Without a permission, its value remains `[]` or `null`. Marinara shows every requested permission in **Requested data access** and again in the exact-hash approval dialog. Adding or removing a permission changes the executable hash, disables the extension, and requires fresh approval.
+Without a permission, its value remains `[]` or `null`. Marinara shows every requested permission in **Requested access** and again in the exact-hash approval dialog. Adding or removing a permission changes the executable hash, disables the extension, and requires fresh approval.
 
 Character snapshots contain only `id`, `name`, `description`, `personality`, `scenario`, `firstMessage`, `exampleDialogue`, `creator`, `characterVersion`, `tags`, `backstory`, `appearance`, `aboutMe`, and `conversationDisplayName`. Persona snapshots contain only `id`, `name`, `description`, `personality`, `scenario`, `backstory`, `appearance`, `tags`, `aboutMe`, and `conversationDisplayName`. Text is bounded before it crosses the sandbox bridge.
 
 Marinara never sends messages, creator notes, system prompts, post-history instructions, comments, avatar paths, full Character or Persona libraries, undeclared fields, chat metadata, database handles, network access, or mutation operations. Context updates remain bound to the approved code hash and are delivered when the active chat, its Character list, or its selected Persona changes.
 
-### Legacy extension ports
+### Legacy and full page extensions
 
 Weather controllers, prompt editors, and other substantial workflows are valid contribution use cases. Their safe ports can use a menu or top-bar launcher plus progressively updated panels. Existing packages that inject DOM overlays, query Marinara CSS selectors, traverse React internals, or call same-origin `/api` routes cannot be imported unchanged into the safe runtime.
 
 UI contributions provide the interface, not ambient authority. The context API always exposes active chat and Character IDs and may expose only the declared, active-record fields listed above. Features that need messages, presets, lorebooks, undeclared Character or Persona data, or visual scene effects still need a separate, narrowly scoped broker capability exposed by Marinara. An extension must not simulate one through host DOM access or unrestricted network requests.
+
+If an External Extension genuinely depends on host DOM access, it may request:
+
+```json
+{
+  "runtime": "client",
+  "capabilities": ["full_page_access"]
+}
+```
+
+**Full page access is not a sandbox capability.** The approved JavaScript and CSS run inside Marinara's page. The code can read or change anything visible to the current browser session, inspect chats and cards, use browser storage, make network requests, and call same-origin Marinara APIs. It has the same practical page authority as code pasted into the browser console. Professor Mari drafts cannot request it.
+
+Marinara recognizes the older `kind: "marinara.extension"` v1 envelope without an explicit `capabilities` field as a pre-sandbox package and assigns **Full page access** during import. This allows legacy packages such as WeatherTweaker to reach the correct review flow instead of silently failing in a Worker. A modern package that uses that envelope but wants the safe runtime must include `"capabilities": []`.
+
+The two External Extension gates and exact-hash approval still apply. A code, CSS, or permission change disables the extension and requires fresh approval. Disabling removes Marinara's script and stylesheet nodes, cancels timers created through the compatibility API, and runs callbacks registered through `marinara.onCleanup(...)`. Because page code can create unregistered listeners, timers, globals, or DOM changes, cleanup is best effort; reload the page after disabling an extension if anything remains.
 
 The older `marinara.ui.showWindow(...)` API remains available for a temporary window inside the opaque-origin iframe. It uses the same fixed controls and returns `update(...)` and `close()` handles. Prefer contributions when the tool should be reachable through Marinara's normal navigation.
 
@@ -128,13 +143,13 @@ A Server Extension runs in a separate permission-restricted Node process inside 
 
 Browser Extensions are sandboxed by the browser itself, so they work everywhere. Server Extensions need a supported OS sandbox; where none exists, they stay disabled and cannot be enabled — Marinara never falls back to running them unsandboxed.
 
-| Platform                | Browser Extensions | Server Extensions                     |
-| ----------------------- | ------------------ | ------------------------------------- |
-| macOS                   | ✅ Sandboxed       | ✅ Sandboxed (Seatbelt)               |
-| Linux (with Bubblewrap) | ✅ Sandboxed       | ✅ Sandboxed (Bubblewrap)             |
-| Linux (without `bwrap`) | ✅ Sandboxed       | ⛔ Disabled — install `bwrap`         |
-| Windows                 | ✅ Sandboxed       | ⛔ Disabled — use a Browser Extension |
-| Android                 | ✅ Sandboxed       | ⛔ Disabled — use a Browser Extension |
+| Platform                | Sandboxed Browser Extensions | Full page External Extensions | Server Extensions                     |
+| ----------------------- | ---------------------------- | ----------------------------- | ------------------------------------- |
+| macOS                   | ✅ Sandboxed                 | ⚠️ Explicit trust required    | ✅ Sandboxed (Seatbelt)               |
+| Linux (with Bubblewrap) | ✅ Sandboxed                 | ⚠️ Explicit trust required    | ✅ Sandboxed (Bubblewrap)             |
+| Linux (without `bwrap`) | ✅ Sandboxed                 | ⚠️ Explicit trust required    | ⛔ Disabled — install `bwrap`         |
+| Windows                 | ✅ Sandboxed                 | ⚠️ Explicit trust required    | ⛔ Disabled — use a Browser Extension |
+| Android                 | ✅ Sandboxed                 | ⚠️ Explicit trust required    | ⛔ Disabled — use a Browser Extension |
 
 On Windows and Android there is no supported OS process sandbox, so Server Extensions are unavailable by design. Use a Browser Extension instead, or run the Marinara server on macOS or Linux (with `bwrap`) if you need a Server Extension.
 
@@ -155,7 +170,9 @@ Only then does **Settings** > **Addons** show **External Extensions** with file 
 
 Imports never carry approval and cannot enable themselves. Legacy, profile-imported, manually stored, and unknown-source records are also treated as external. They stay hidden, cannot be approved, and are excluded from both runtimes until both gates are open.
 
-Turning either gate off stops active external server processes, removes browser workers, and disables stored external records. Reopening the gates does not automatically run them again.
+Review the **Requested access** list before approving an exact hash. Most Browser Extensions should remain in the safe sandbox. A package marked **Full page access** is deliberately not isolated and should be enabled only when you have inspected and trust that exact version.
+
+Turning either gate off stops active external server processes, removes browser workers and full page runtime nodes, and disables stored external records. Reopening the gates does not automatically run them again. Reload the page if a full page extension left behind changes it did not register for cleanup.
 
 Third-party extensions may contain malicious or dangerous code. Always inspect every line before downloading, importing, or enabling it. You proceed entirely at your own responsibility.
 

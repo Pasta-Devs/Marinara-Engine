@@ -62,6 +62,8 @@ The environment variable is the host-operator permission; the Danger Zone toggle
 
 Professor Mari drafts remain available without this flag. They are created disabled and still require approval of their exact code hash.
 
+Sandboxed Browser Extensions remain the default. Some older third-party packages are marked **Full page access** because they depend on Marinara's DOM. That mode runs the exact approved code inside Marinara's page and can access page content, browser storage, network APIs, and the current same-origin session. It is available only to External Extensions after both gates are open and requires a separate warning acknowledgement. Disable it and reload the page if the extension leaves visual or behavioral changes behind.
+
 ## Where the .env file is
 
 Configuration lives in a file named `.env`. This is a plain text file with one setting per line, in the form `KEY=value`. Lines that start with `#` are comments and the server ignores them.

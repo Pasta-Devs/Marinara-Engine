@@ -324,6 +324,14 @@ If the Danger Zone switch is disabled, the host flag is still false or the app h
 
 When either gate is closed, external, legacy, profile-imported, manually stored, and unknown-source extension records do not appear and cannot run. Reopening the gates does not automatically re-enable them.
 
+### An imported browser extension appears but does not work
+
+Open the extension in **Settings → Addons → External Extensions** and inspect **Requested access**. Older packages that use the `marinara.extension` v1 format without a capabilities declaration should show **Full page access**. Approve only the exact hash you inspected and trust.
+
+If an older package was exported again with an explicit empty capabilities list, Marinara treats it as a safe sandbox extension; DOM-dependent code will not work there. Add `full_page_access` to its manifest only if you understand that the code will gain access to the whole Marinara page, browser storage, network APIs, and same-origin session.
+
+After disabling a full page extension, reload Marinara if a toolbar item, overlay, listener, or visual change remains. Cleanup is best effort because page code can create side effects outside Marinara's tracked compatibility API.
+
 ### A Server Extension says no supported sandbox is available
 
 Server Extensions run only with macOS Seatbelt or Linux Bubblewrap. Install `bwrap` on the Linux host, then restart Marinara. Windows, Android, and other unsupported hosts deliberately refuse Server Extension execution instead of falling back to the main server process. Browser Extensions can still use their opaque-origin Worker sandbox.

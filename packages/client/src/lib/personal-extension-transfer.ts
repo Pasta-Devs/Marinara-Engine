@@ -10,7 +10,9 @@ export function createPersonalExtensionPackageFiles(extension: PersonalExtension
     description: extension.description,
     runtime,
     enabled: false,
-    ...(extension.capabilities.length > 0 ? { capabilities: extension.capabilities } : {}),
+    // Keep the empty declaration too: its presence distinguishes a modern
+    // sandbox package from a pre-sandbox `marinara.extension` import.
+    capabilities: extension.capabilities,
     ...(runtime === "server"
       ? { serverJsPath: "server-extension.js" }
       : {

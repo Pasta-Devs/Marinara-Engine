@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Added an external-only **Full page access** compatibility mode for legacy Browser Extensions such as WeatherTweaker. The safe opaque-origin Worker remains the default; page-level code requires both External Extension gates, explicit exact-hash approval with a dedicated high-risk disclosure, and fresh approval after every code, CSS, or permission change. Pre-sandbox `marinara.extension` v1 packages without an explicit capabilities field are classified into this review flow instead of silently failing in the Worker (#4319).
 - Added Browser Personal Extension API version 5 with read-only active chat and Character identifiers, plus separately reviewable permissions for bounded snapshots of the active Character cards and selected Persona. Extensions such as Notepad can keep per-chat or per-Character state and display active profile context without gaining access to messages, full libraries, undeclared fields, chat metadata, DOM, database, network, or mutation operations (#4316).
 - Added per-agent context controls for custom agents, allowing each agent to request only the chat history, Character, Persona, lorebook, summary, Author's Note, tracker, and recalled-memory context it needs (#4305).
 - Added Markdown preview toggles to Character, Persona, and lorebook text fields, and rendered formatted card text in library detail views (#4306).

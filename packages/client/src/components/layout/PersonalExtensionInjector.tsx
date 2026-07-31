@@ -26,6 +26,45 @@ type ActiveClientExtension = {
   iframe: HTMLIFrameElement;
 };
 
+type FullPageExtensionIdentity = {
+  id: string;
+  name: string;
+  contentHash: string;
+};
+
+type FullPageExtensionApi = {
+  version: 1;
+  extension: Readonly<FullPageExtensionIdentity>;
+  log: Readonly<Pick<Console, "debug" | "info" | "warn" | "error">>;
+  storage: Readonly<{
+    get: () => Promise<Record<string, unknown>>;
+    patch: (value: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    clear: () => Promise<void>;
+  }>;
+  setTimeout: (callback: (...args: unknown[]) => void, delay?: number, ...args: unknown[]) => number;
+  clearTimeout: (timerId: number) => void;
+  setInterval: (callback: (...args: unknown[]) => void, delay?: number, ...args: unknown[]) => number;
+  clearInterval: (timerId: number) => void;
+  onCleanup: (cleanup: () => unknown) => void;
+};
+
+type ActiveFullPageExtension = {
+  contentHash: string;
+  extension: PersonalClientExtensionRuntime;
+  script: HTMLScriptElement;
+  style: HTMLLinkElement | null;
+  cleanupFns: Array<() => unknown>;
+  timeoutIds: Set<number>;
+  intervalIds: Set<number>;
+};
+
+type FullPageExtensionHostWindow = Window & {
+  __marinaraRunFullPageExtension?: (
+    identity: FullPageExtensionIdentity,
+    main: (api: FullPageExtensionApi) => unknown,
+  ) => void;
+};
+
 type SandboxMessage = {
   channel?: string;
   type?:
@@ -173,6 +212,7 @@ async function postSandboxContext(active: ActiveClientExtension, context = readP
 }
 
 const activeExtensions = new Map<string, ActiveClientExtension>();
+const activeFullPageExtensions = new Map<string, ActiveFullPageExtension>();
 
 function extensionFetch(id: string, path: string, init: RequestInit = {}) {
   const method = (init.method ?? "GET").toUpperCase();
@@ -192,13 +232,98 @@ async function cleanupExtension(id: string) {
   const active = activeExtensions.get(id);
   activeExtensions.delete(id);
   removePersonalExtensionContributions(id);
-  if (!active) return;
-  active.iframe.contentWindow?.postMessage({ channel: "marinara-personal-extension", type: "stop" }, "*");
-  active.iframe.remove();
+  if (active) {
+    active.iframe.contentWindow?.postMessage({ channel: "marinara-personal-extension", type: "stop" }, "*");
+    active.iframe.remove();
+  }
+
+  const fullPage = activeFullPageExtensions.get(id);
+  activeFullPageExtensions.delete(id);
+  if (!fullPage) return;
+  fullPage.script.remove();
+  fullPage.style?.remove();
+  for (const timerId of fullPage.timeoutIds) window.clearTimeout(timerId);
+  for (const timerId of fullPage.intervalIds) window.clearInterval(timerId);
+  for (const cleanup of fullPage.cleanupFns.reverse()) {
+    try {
+      await cleanup();
+    } catch (error) {
+      console.warn(`[Personal Extension ${fullPage.extension.name}] cleanup failed`, error);
+    }
+  }
+  window.dispatchEvent(
+    new CustomEvent("marinara-personal-extension-stopped", {
+      detail: { id: fullPage.extension.id, contentHash: fullPage.contentHash },
+    }),
+  );
 }
 
 const STORAGE_ACTIONS = new Set<SandboxMessage["action"]>(["get", "patch", "delete"]);
 const LOG_LEVELS = new Set<NonNullable<SandboxMessage["level"]>>(["debug", "info", "warn", "error"]);
+
+function createFullPageExtensionApi(active: ActiveFullPageExtension): FullPageExtensionApi {
+  const extension = Object.freeze({
+    id: active.extension.id,
+    name: active.extension.name,
+    contentHash: active.contentHash,
+  });
+  const storage = Object.freeze({
+    async get() {
+      const response = await extensionFetch(active.extension.id, "storage");
+      if (!response.ok) throw new Error(`Storage read failed (${response.status})`);
+      return ((await response.json()) as { value?: Record<string, unknown> }).value ?? {};
+    },
+    async patch(value: Record<string, unknown>) {
+      const response = await extensionFetch(active.extension.id, "storage", {
+        method: "PATCH",
+        body: JSON.stringify(value),
+      });
+      if (!response.ok) throw new Error(`Storage update failed (${response.status})`);
+      return ((await response.json()) as { value?: Record<string, unknown> }).value ?? {};
+    },
+    async clear() {
+      const response = await extensionFetch(active.extension.id, "storage", { method: "DELETE" });
+      if (!response.ok) throw new Error(`Storage clear failed (${response.status})`);
+    },
+  });
+  const api: FullPageExtensionApi = {
+    version: 1,
+    extension,
+    log: Object.freeze({
+      debug: console.debug.bind(console, `[Personal Extension ${active.extension.name}]`),
+      info: console.info.bind(console, `[Personal Extension ${active.extension.name}]`),
+      warn: console.warn.bind(console, `[Personal Extension ${active.extension.name}]`),
+      error: console.error.bind(console, `[Personal Extension ${active.extension.name}]`),
+    }),
+    storage,
+    setTimeout(callback, delay, ...args) {
+      const timerId = window.setTimeout(() => {
+        active.timeoutIds.delete(timerId);
+        callback(...args);
+      }, delay);
+      active.timeoutIds.add(timerId);
+      return timerId;
+    },
+    clearTimeout(timerId) {
+      active.timeoutIds.delete(timerId);
+      window.clearTimeout(timerId);
+    },
+    setInterval(callback, delay, ...args) {
+      const timerId = window.setInterval(callback, delay, ...args);
+      active.intervalIds.add(timerId);
+      return timerId;
+    },
+    clearInterval(timerId) {
+      active.intervalIds.delete(timerId);
+      window.clearInterval(timerId);
+    },
+    onCleanup(cleanup) {
+      if (typeof cleanup !== "function") throw new TypeError("onCleanup requires a function");
+      active.cleanupFns.push(cleanup);
+    },
+  };
+  return Object.freeze(api);
+}
 
 async function handleStorage(active: ActiveClientExtension, message: SandboxMessage) {
   // Never infer DELETE from an unknown action: a malformed message must be
@@ -259,6 +384,65 @@ async function handleStorage(active: ActiveClientExtension, message: SandboxMess
 
 export function PersonalExtensionInjector() {
   const { data: extensions = [] } = usePersonalExtensionRuntime();
+
+  useEffect(() => {
+    const host = window as FullPageExtensionHostWindow;
+    const runFullPageExtension = (
+      identity: FullPageExtensionIdentity,
+      main: (api: FullPageExtensionApi) => unknown,
+    ) => {
+      const active =
+        identity && typeof identity.id === "string" ? activeFullPageExtensions.get(identity.id) : undefined;
+      if (
+        !active ||
+        identity.contentHash !== active.contentHash ||
+        identity.name !== active.extension.name ||
+        typeof main !== "function"
+      ) {
+        throw new Error("Full-page extension identity did not match the approved runtime");
+      }
+      Promise.resolve()
+        .then(() => main(createFullPageExtensionApi(active)))
+        .then(async (cleanup) => {
+          const stale = activeFullPageExtensions.get(identity.id) !== active;
+          if (typeof cleanup === "function") {
+            if (stale) {
+              try {
+                await cleanup();
+              } catch (error) {
+                console.warn(`[Personal Extension ${active.extension.name}] late cleanup failed`, error);
+              }
+              return;
+            }
+            active.cleanupFns.push(() => cleanup());
+          }
+          if (stale) return;
+          window.dispatchEvent(
+            new CustomEvent("marinara-personal-extension-ready", {
+              detail: { id: identity.id, contentHash: identity.contentHash },
+            }),
+          );
+        })
+        .catch((error) => {
+          console.error(`[Personal Extension ${active.extension.name}] failed`, error);
+          window.dispatchEvent(
+            new CustomEvent("marinara-personal-extension-error", {
+              detail: {
+                id: identity.id,
+                contentHash: identity.contentHash,
+                message: error instanceof Error ? error.message : String(error),
+              },
+            }),
+          );
+        });
+    };
+    host.__marinaraRunFullPageExtension = runFullPageExtension;
+    return () => {
+      if (host.__marinaraRunFullPageExtension === runFullPageExtension) {
+        delete host.__marinaraRunFullPageExtension;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent<unknown>) => {
@@ -344,10 +528,59 @@ export function PersonalExtensionInjector() {
     const expected = new Map(extensions.map((extension) => [extension.id, extension]));
     for (const [id, active] of activeExtensions) {
       const next = expected.get(id);
-      if (!next || next.contentHash !== active.contentHash) void cleanupExtension(id);
+      if (!next || next.executionMode !== "sandboxed" || next.contentHash !== active.contentHash) {
+        void cleanupExtension(id);
+      }
+    }
+    for (const [id, active] of activeFullPageExtensions) {
+      const next = expected.get(id);
+      if (!next || next.executionMode !== "full-page" || next.contentHash !== active.contentHash) {
+        void cleanupExtension(id);
+      }
     }
 
     for (const extension of extensions) {
+      if (extension.executionMode === "full-page") {
+        const active = activeFullPageExtensions.get(extension.id);
+        if (active?.contentHash === extension.contentHash) continue;
+        const script = document.createElement("script");
+        script.src = extension.runtimeUrl;
+        script.async = true;
+        script.dataset.personalExtensionFullPage = extension.id;
+        script.addEventListener("error", () => {
+          console.error(`[Personal Extension ${extension.name}] full-page runtime could not be loaded`);
+          if (activeFullPageExtensions.get(extension.id)?.script === script) {
+            void cleanupExtension(extension.id);
+          }
+          window.dispatchEvent(
+            new CustomEvent("marinara-personal-extension-error", {
+              detail: {
+                id: extension.id,
+                contentHash: extension.contentHash,
+                message: "Full-page extension runtime could not be loaded",
+              },
+            }),
+          );
+        });
+        const style = extension.styleUrl ? document.createElement("link") : null;
+        if (style) {
+          style.rel = "stylesheet";
+          style.href = extension.styleUrl!;
+          style.dataset.personalExtensionFullPageStyle = extension.id;
+          document.head.appendChild(style);
+        }
+        activeFullPageExtensions.set(extension.id, {
+          contentHash: extension.contentHash,
+          extension,
+          script,
+          style,
+          cleanupFns: [],
+          timeoutIds: new Set(),
+          intervalIds: new Set(),
+        });
+        document.head.appendChild(script);
+        continue;
+      }
       const active = activeExtensions.get(extension.id);
       if (active?.contentHash === extension.contentHash) continue;
       const iframe = document.createElement("iframe");
@@ -355,7 +588,7 @@ export function PersonalExtensionInjector() {
       iframe.setAttribute("aria-hidden", "true");
       iframe.tabIndex = -1;
       iframe.hidden = true;
-      iframe.src = extension.sandboxUrl;
+      iframe.src = extension.runtimeUrl;
       iframe.dataset.personalExtensionSandbox = extension.id;
       iframe.referrerPolicy = "no-referrer";
       const nextActive = {
@@ -374,7 +607,8 @@ export function PersonalExtensionInjector() {
 
   useEffect(
     () => () => {
-      for (const id of [...activeExtensions.keys()]) void cleanupExtension(id);
+      const ids = new Set([...activeExtensions.keys(), ...activeFullPageExtensions.keys()]);
+      for (const id of ids) void cleanupExtension(id);
     },
     [],
   );

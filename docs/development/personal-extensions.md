@@ -7,7 +7,7 @@ Personal Extensions are disabled-by-default, hash-approved code with two isolate
 Keep these properties true:
 
 1. Creation and import always produce a disabled, unapproved draft.
-2. Approval requires the exact current `sha256:` content hash and an explicit sandboxed-code acknowledgement.
+2. Approval requires the exact current `sha256:` content hash and an explicit code-execution acknowledgement. Full page access requires an additional explicit acknowledgement.
 3. Any executable change disables the extension and clears `approvedHash`.
 4. Rollback restores a disabled draft.
 5. Backup and profile import clear approval and enabled state.
@@ -15,12 +15,13 @@ Keep these properties true:
 7. Every source other than `professor_mari` is external, including `external`, `local`, `legacy`, `profile_import`, and unknown values normalized to `legacy`.
 8. External records are absent from management and runtime responses unless `ENABLE_EXTERNAL_EXTENSIONS=true` and the persisted Danger Zone opt-in is also true.
 9. Closing either gate disables stored external records and stops active server processes. Browser runtime polling removes active browser workers.
-10. Browser code never executes in the Marinara document. Server code never executes in the Marinara server process.
+10. Sandboxed Browser code never executes in the Marinara document. Only an external Browser Extension with exact-hash-approved `full_page_access` may use the separate page runtime. Server code never executes in the Marinara server process.
 11. There is no URL installer, remote catalog, or automatic updater.
 12. Host contributions are plain validated descriptors. Extension markup, styles, URLs, components, and callbacks never cross into Marinara's React tree.
 13. Contribution registration, activation, events, updates, and removal remain bound to the enabled extension's exact approved content hash.
 14. Browser context snapshots always contain only the active chat ID and Character IDs at baseline. Optional `read_active_characters` and `read_active_persona` permissions may add bounded, allowlisted fields from only records active in that chat; they never expose messages, full libraries, undeclared fields, metadata, or application access.
 15. Requested permissions are part of the executable hash. Any permission change disables the extension and requires fresh exact-hash approval.
+16. `full_page_access` is external-only, requires both External Extension gates, and is never available to Professor Mari drafts. It is an explicit trust mode, not a claim of sandboxing.
 
 The gates are enforced in routes and runtime services. Hiding controls is not a security boundary. A manually added, restored, legacy, or out-of-band external record must remain invisible and unexecutable while either gate is closed.
 
@@ -45,9 +46,9 @@ The management surface is under `/api/personal-extensions`:
 - `POST /:id/rollback` restores a prior disabled revision.
 - `DELETE /:id` deletes the extension and private settings.
 
-Approved Browser runtime metadata is read from `GET /runtime/client`. The executable document is served by `GET /:id/sandbox.html?hash=...` only while the exact hash is enabled, approved, and allowed by policy.
+Approved Browser runtime metadata is read from `GET /runtime/client`. Sandboxed code is served by `GET /:id/sandbox.html?hash=...`. Full page code and CSS are served by `GET /:id/page-runtime.js?hash=...` and `GET /:id/page-style.css?hash=...`. Every endpoint requires the exact hash to remain enabled, approved, and allowed by policy; the page endpoints additionally require an external source and `full_page_access`.
 
-## Browser runtime
+## Sandboxed Browser runtime
 
 `PersonalExtensionInjector.tsx` creates a hidden iframe with `sandbox="allow-scripts"` and no `allow-same-origin`. The iframe therefore has an opaque origin and cannot access Marinara's DOM, cookies, storage, or same-origin APIs.
 
@@ -99,11 +100,17 @@ The client independently validates every descriptor before adding it to the runt
 
 There is no DOM helper, Marinara API fetch, parent event access, or arbitrary network capability. The iframe validates and rate-limits messages. A heartbeat watchdog terminates an unresponsive or busy-looping worker.
 
-## Complex extension compatibility
+## Full page compatibility runtime
 
-The contribution protocol is intended to support real settings-heavy tools and multi-step workflows, not only decorative buttons. A complex extension can progressively replace a panel's elements and keep its own state in private extension storage.
+The contribution protocol remains the preferred path for settings-heavy tools and multi-step workflows. A complex extension can progressively replace a panel's elements and keep its own state in private extension storage.
 
-Existing legacy packages that inject buttons with host selectors, traverse React internals, write arbitrary overlays, or call same-origin `/api` routes do not run unchanged in the safe runtime. Port them by replacing their interface with contribution descriptors. Chat- or Character-keyed private state can use `marinara.context`; active card displays can request the relevant active-record permission. Functionality that needs messages, whole libraries, undeclared record fields, or scene-level visual effects must use a separate, narrowly scoped broker capability when one exists. Never restore raw DOM or unrestricted API authority as a compatibility shortcut.
+Existing legacy packages that inject buttons with host selectors, traverse React internals, write arbitrary overlays, or call same-origin `/api` routes do not run unchanged in the safe runtime. Prefer porting them to contribution descriptors and narrow broker capabilities.
+
+When compatibility genuinely requires the host page, an External Extension may request `full_page_access`. `PersonalExtensionInjector.tsx` loads that exact approved revision through a same-origin script element and an optional stylesheet. The source runs in an async function with a small compatibility `marinara` object for identity, logging, private storage, managed timers, and cleanup registration; ambient page globals remain available because that is the requested authority.
+
+The page loader validates the `id`, name, and content hash against the runtime metadata before invoking code. The server separately verifies the exact hash, enabled state, external source, permission, and two-gate policy on every script or stylesheet request. Closing a gate disables the record; runtime polling then removes the injected nodes and performs best-effort cleanup. This cannot revoke arbitrary side effects already created by full-trust page code, so the user-facing flow warns that a reload may be necessary.
+
+Legacy imports with `kind: "marinara.extension"` and no explicit `capabilities` declaration are assigned `full_page_access`. Modern exports always write the capabilities field, including an empty array, so safe packages are not reclassified on re-import.
 
 ## Server runtime
 
@@ -127,4 +134,4 @@ pnpm regression:professor-mari-shell-sandbox
 pnpm smoke:ui
 ```
 
-The security regression must prove the two-step gate, exact-hash invalidation, opaque-origin worker shape, bounded and hash-bound context snapshots, host contribution validation and cleanup, removal of same-origin injection, environment stripping, filesystem/network denial, private storage, and fail-closed sandbox availability.
+The security regression must prove the two-step gate, exact-hash invalidation, opaque-origin worker shape, bounded and hash-bound context snapshots, host contribution validation and cleanup, external-only full page routing and acknowledgement, legacy-package classification, environment stripping, filesystem/network denial, private storage, and fail-closed sandbox availability.

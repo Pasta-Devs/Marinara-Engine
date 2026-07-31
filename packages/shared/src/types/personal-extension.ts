@@ -8,7 +8,12 @@ export type PersonalExtensionSource = "external" | "local" | "professor_mari" | 
 
 export type PersonalExtensionSandboxBackend = "browser-opaque-origin" | "macos-seatbelt" | "linux-bubblewrap";
 
-export const PERSONAL_EXTENSION_CAPABILITIES = ["read_active_characters", "read_active_persona"] as const;
+export const PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY = "full_page_access" as const;
+export const PERSONAL_EXTENSION_CAPABILITIES = [
+  "read_active_characters",
+  "read_active_persona",
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
+] as const;
 export type PersonalExtensionCapability = (typeof PERSONAL_EXTENSION_CAPABILITIES)[number];
 
 export function normalizePersonalExtensionCapabilities(value: unknown): PersonalExtensionCapability[] {
@@ -219,5 +224,7 @@ export interface PersonalClientExtensionRuntime {
   description: string;
   capabilities: PersonalExtensionCapability[];
   contentHash: string;
-  sandboxUrl: string;
+  executionMode: "sandboxed" | "full-page";
+  runtimeUrl: string;
+  styleUrl: string | null;
 }

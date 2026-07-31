@@ -31,6 +31,7 @@ const clientSettingsSource = readSource(
 );
 const settingsPanelSource = readSource("../../packages/client/src/components/panels/SettingsPanel.tsx");
 const clientHooksSource = readSource("../../packages/client/src/hooks/use-personal-extensions.ts");
+const clientImportSource = readSource("../../packages/client/src/lib/personal-extension-import.ts");
 const localizationSource = readSource("../../packages/client/src/localization/locales/en.json");
 const routeSource = readSource("../../packages/server/src/routes/personal-extensions.routes.ts");
 const runtimeSource = readSource("../../packages/server/src/services/extensions/personal-server-extension-runtime.ts");
@@ -47,6 +48,8 @@ assert.match(localizationSource, /read-only active chat and Character IDs\./u);
 assert.match(localizationSource, /It also requests: \{\{permissions\}\}\./u);
 assert.match(localizationSource, /Read active Character cards/u);
 assert.match(localizationSource, /Read active Persona/u);
+assert.match(localizationSource, /Full page access/u);
+assert.match(localizationSource, /call same-origin Marinara APIs with your current session/u);
 assert.match(clientSettingsSource, /mode="personal"/u);
 assert.match(clientSettingsSource, /mode="external"/u);
 assert.match(clientSettingsSource, /isExternal && \(/u);
@@ -54,7 +57,9 @@ assert.match(clientSettingsSource, /settings\.externalExtensions\.formats\.title
 assert.match(localizationSource, /"settings\.externalExtensions\.formats\.title": "Supported local formats"/u);
 assert.match(clientSettingsSource, /const fingerprint = extension\.contentHash/u);
 assert.match(clientSettingsSource, /settings\.personalExtensions\.capabilities\.title/u);
-assert.match(clientSettingsSource, /PERSONAL_EXTENSION_CAPABILITIES\.map/u);
+assert.match(clientSettingsSource, /PERSONAL_EXTENSION_CAPABILITIES\.filter/u);
+assert.match(clientSettingsSource, /settings\.personalExtensions\.approval\.titleFullPage/u);
+assert.match(clientSettingsSource, /acknowledgeFullPageAccess:\s*fullPageAccess/u);
 assert.doesNotMatch(clientSettingsSource, /\+ New Draft/u);
 assert.match(settingsPanelSource, /extensionPolicy\?\.externalExtensionsEnabled && <ExternalExtensionsSettings/u);
 assert.match(settingsPanelSource, /settings\.externalExtensions\.warning/u);
@@ -62,7 +67,18 @@ assert.match(settingsPanelSource, /settings\.externalExtensions\.warning/u);
 assert.match(clientInjectorSource, /iframe\.setAttribute\("sandbox", "allow-scripts"\)/u);
 assert.doesNotMatch(clientInjectorSource, /allow-same-origin/u);
 assert.match(clientInjectorSource, /event\.origin !== "null"/u);
-assert.doesNotMatch(clientInjectorSource, /document\.head|createElement\("script"\)|runtime\.js/u);
+assert.match(clientInjectorSource, /extension\.executionMode === "full-page"/u);
+assert.match(clientInjectorSource, /document\.createElement\("script"\)/u);
+assert.match(clientInjectorSource, /__marinaraRunFullPageExtension/u);
+assert.match(clientInjectorSource, /activeFullPageExtensions\.get\(identity\.id\)/u);
+assert.match(clientInjectorSource, /identity\.contentHash !== active\.contentHash/u);
+assert.match(clientInjectorSource, /const stale = activeFullPageExtensions\.get\(identity\.id\) !== active/u);
+assert.match(clientInjectorSource, /late cleanup failed/u);
+assert.match(clientInjectorSource, /Full-page extension runtime could not be loaded/u);
+assert.match(
+  clientInjectorSource,
+  /activeFullPageExtensions\.get\(extension\.id\)\?\.script === script[\s\S]*cleanupExtension\(extension\.id\)/u,
+);
 assert.match(clientInjectorSource, /registerPersonalExtensionContribution/u);
 assert.match(clientInjectorSource, /removePersonalExtensionContributions/u);
 assert.match(clientInjectorSource, /message\.contentHash === active\.contentHash/u);
@@ -92,9 +108,16 @@ assert.match(routeSource, /read_active_characters/u);
 assert.match(routeSource, /read_active_persona/u);
 assert.match(routeSource, /parseContextCharacterIds\(chat\.characterIds\)/u);
 assert.match(routeSource, /allowedIds\.has\(id\)/u);
+assert.match(routeSource, /approvedFullPageExtension/u);
+assert.match(routeSource, /page-runtime\.js/u);
+assert.match(routeSource, /page-style\.css/u);
+assert.match(routeSource, /Full page access must be explicitly acknowledged/u);
+assert.match(routeSource, /isExternalPersonalExtensionSource\(extension\.source\)/u);
+assert.match(clientImportSource, /kind === "marinara\.extension"/u);
+assert.match(clientImportSource, /hasOwnProperty\.call\(record, "capabilities"\)/u);
 
 assert.match(schemaSource, /acknowledgeSandboxedCode:\s*z\.literal\(true\)/u);
-assert.doesNotMatch(schemaSource, /acknowledgeFullTrust/u);
+assert.match(schemaSource, /acknowledgeFullPageAccess:\s*z\.literal\(true\)\.optional/u);
 assert.match(runtimeSource, /spawnSandboxedPersonalExtension/u);
 assert.doesNotMatch(runtimeSource, /pathToFileURL|safeFetch|await import\(/u);
 assert.match(sandboxSource, /--permission/u);
@@ -166,6 +189,30 @@ try {
   assert.ok(externalDraft);
   assert.equal(externalDraft.enabled, false);
   assert.deepEqual(externalDraft.capabilities, []);
+
+  const fullPageDraft = await storage.create(
+    {
+      name: "Trusted legacy page extension",
+      runtime: "client",
+      capabilities: ["full_page_access"],
+      js: "document.documentElement.dataset.fullPageProof = 'active';",
+    },
+    { source: "external" },
+  );
+  assert.ok(fullPageDraft);
+  assert.deepEqual(fullPageDraft.capabilities, ["full_page_access"]);
+  await assert.rejects(
+    storage.create(
+      {
+        name: "Professor full page attempt",
+        runtime: "client",
+        capabilities: ["full_page_access"],
+        js: "document.body.remove();",
+      },
+      { source: "professor_mari" },
+    ),
+    /Professor Mari extensions cannot request full page access/u,
+  );
 
   const capabilityDraft = await storage.create(
     {
@@ -377,7 +424,7 @@ try {
 // generated worker/bootstrap source so a regression cannot silently widen the
 // sandbox (e.g. reintroduce innerHTML or leak DOM/network to the extension).
 {
-  const { browserWorkerSource, sandboxDocument } =
+  const { browserWorkerSource, fullPageExtensionSource, sandboxDocument } =
     await import("../../packages/server/src/routes/personal-extensions.routes.js");
   const uiExtension = {
     id: "ui-demo",
@@ -521,9 +568,8 @@ try {
   });
   await new Promise<void>((resolve) => setImmediate(resolve));
   assert.equal(
-    lifecycleMessages.filter(
-      (message) => message.type === "log" && message.args?.[0] === "context-update-delivery",
-    ).length,
+    lifecycleMessages.filter((message) => message.type === "log" && message.args?.[0] === "context-update-delivery")
+      .length,
     2,
     "Stopping the worker must cancel every remaining context subscription",
   );
@@ -550,6 +596,54 @@ try {
     doc.includes("new Worker(") && doc.includes("marinara.ui.showWindow"),
     "Extension JS must run in the worker embedded by the bootstrap, not in the document",
   );
+
+  const fullPageExtension = {
+    ...uiExtension,
+    id: "legacy-page-demo",
+    name: "Legacy Page Demo",
+    contentHash: "sha256:full-page-demo",
+    capabilities: ["full_page_access"] as const,
+    source: "external" as const,
+    js: `
+      document.documentElement.dataset.fullPageProof = marinara.extension.id;
+      marinara.onCleanup(() => delete document.documentElement.dataset.fullPageProof);
+    `,
+  };
+  let fullPageMain:
+    | ((api: {
+        extension: Readonly<{ id: string; name: string; contentHash: string }>;
+        onCleanup: (cleanup: () => unknown) => void;
+      }) => unknown)
+    | undefined;
+  const fullPageIdentity: Array<{ id: string; name: string; contentHash: string }> = [];
+  const fullPageDocument = { documentElement: { dataset: {} as Record<string, string> } };
+  runInNewContext(fullPageExtensionSource(fullPageExtension), {
+    document: fullPageDocument,
+    window: {
+      __marinaraRunFullPageExtension: (
+        identity: { id: string; name: string; contentHash: string },
+        main: typeof fullPageMain,
+      ) => {
+        fullPageIdentity.push(identity);
+        fullPageMain = main;
+      },
+    },
+  });
+  assert.deepEqual(Array.from(fullPageIdentity[0] ? Object.values(fullPageIdentity[0]) : []), [
+    "legacy-page-demo",
+    "Legacy Page Demo",
+    "sha256:full-page-demo",
+  ]);
+  assert.ok(fullPageMain);
+  const fullPageCleanups: Array<() => unknown> = [];
+  await fullPageMain({
+    extension: Object.freeze(fullPageIdentity[0]!),
+    onCleanup: (cleanup) => fullPageCleanups.push(cleanup),
+  });
+  assert.equal(fullPageDocument.documentElement.dataset.fullPageProof, "legacy-page-demo");
+  assert.equal(fullPageCleanups.length, 1);
+  fullPageCleanups[0]!();
+  assert.equal(fullPageDocument.documentElement.dataset.fullPageProof, undefined);
 
   const { createPersonalExtensionRecordContext } =
     await import("../../packages/server/src/routes/personal-extensions.routes.js");
@@ -615,6 +709,34 @@ try {
     }),
     { characters: [], persona: null },
   );
+}
+
+{
+  const { normalizePersonalExtensionImportEntry, personalExtensionEntriesFromJson } =
+    await import("../../packages/client/src/lib/personal-extension-import.js");
+  const [legacyEntry] = personalExtensionEntriesFromJson(
+    {
+      kind: "marinara.extension",
+      version: 1,
+      config: { name: "WeatherTweaker", js: "document.querySelector('canvas');" },
+    },
+    "weatherTweaker.extension.json",
+  );
+  assert.ok(legacyEntry);
+  const legacyDraft = normalizePersonalExtensionImportEntry(legacyEntry, "WeatherTweaker");
+  assert.deepEqual(legacyDraft?.capabilities, ["full_page_access"]);
+
+  const [explicitSandboxEntry] = personalExtensionEntriesFromJson(
+    {
+      kind: "marinara.extension",
+      version: 1,
+      config: { name: "Safe modern package", capabilities: [], js: "marinara.log.info('safe');" },
+    },
+    "safe.extension.json",
+  );
+  assert.ok(explicitSandboxEntry);
+  const explicitSandboxDraft = normalizePersonalExtensionImportEntry(explicitSandboxEntry, "Safe");
+  assert.deepEqual(explicitSandboxDraft?.capabilities, []);
 }
 
 {

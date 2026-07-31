@@ -98,6 +98,7 @@ export const updatePersonalExtensionSchema = personalExtensionPayloadSchema
 export const approvePersonalExtensionSchema = z.object({
   contentHash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   acknowledgeSandboxedCode: z.literal(true),
+  acknowledgeFullPageAccess: z.literal(true).optional(),
 });
 
 export const externalExtensionsPolicyUpdateSchema = z.object({

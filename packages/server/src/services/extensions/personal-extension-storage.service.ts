@@ -1,5 +1,6 @@
 import {
   createPersonalExtensionSchema,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   normalizePersonalExtensionCapabilities,
   type CreatePersonalExtensionInput,
   type PersonalExtension,
@@ -31,6 +32,13 @@ function parseCapabilities(value: unknown) {
   } catch {
     return [];
   }
+}
+
+function capabilitiesForSource(value: unknown, source: PersonalExtensionSource) {
+  const capabilities = parseCapabilities(value);
+  return source === "professor_mari"
+    ? capabilities.filter((capability) => capability !== PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY)
+    : capabilities;
 }
 
 function parseRevisions(value: unknown): PersonalExtensionRevision[] {
@@ -68,9 +76,10 @@ function parseRevisions(value: unknown): PersonalExtensionRevision[] {
 
 function mapExtension(row: ExtensionRow): PersonalExtension {
   const runtime = row.runtime === "server" ? "server" : "client";
+  const source = normalizeSource(row.source);
   const executable = {
     runtime,
-    capabilities: runtime === "client" ? parseCapabilities(row.capabilities) : [],
+    capabilities: runtime === "client" ? capabilitiesForSource(row.capabilities, source) : [],
     css: runtime === "client" ? (row.css ?? null) : null,
     js: runtime === "client" ? (row.js ?? null) : null,
     serverJs: runtime === "server" ? (row.serverJs ?? null) : null,
@@ -87,7 +96,7 @@ function mapExtension(row: ExtensionRow): PersonalExtension {
     enabled: row.enabled === "true" && storedHash === actualHash && approvedHash === actualHash,
     contentHash: actualHash,
     approvedHash: approvedHash === actualHash ? approvedHash : null,
-    source: normalizeSource(row.source),
+    source,
     revisions: parseRevisions(row.revisions),
     installedAt: row.installedAt,
     createdAt: row.createdAt,
@@ -108,15 +117,21 @@ function revisionFrom(extension: PersonalExtension): PersonalExtensionRevision {
   };
 }
 
-function normalizePayload(input: CreatePersonalExtensionInput) {
+function normalizePayload(input: CreatePersonalExtensionInput, source: PersonalExtensionSource) {
   const parsed = createPersonalExtensionSchema.parse(input);
   const runtime = parsed.runtime === "server" ? "server" : "client";
+  if (
+    source === "professor_mari" &&
+    parsed.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY)
+  ) {
+    throw new Error("Professor Mari extensions cannot request full page access");
+  }
   return {
     name: parsed.name,
     version: parsed.version == null ? null : String(parsed.version),
     description: parsed.description ?? "",
     runtime,
-    capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
+    capabilities: runtime === "client" ? capabilitiesForSource(parsed.capabilities, source) : [],
     css: runtime === "client" ? (parsed.css ?? null) : null,
     js: runtime === "client" ? (parsed.js ?? null) : null,
     serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -157,7 +172,8 @@ export function createPersonalExtensionsStorage(db: DB) {
       input: CreatePersonalExtensionInput,
       options: { source?: PersonalExtensionSource; id?: string; installedAt?: string } = {},
     ) {
-      const payload = normalizePayload(input);
+      const source = options.source ?? "external";
+      const payload = normalizePayload(input, source);
       const id = options.id ?? newId();
       const timestamp = now();
       const contentHash = computePersonalExtensionHash(payload);
@@ -168,7 +184,7 @@ export function createPersonalExtensionsStorage(db: DB) {
         enabled: "false",
         contentHash,
         approvedHash: null,
-        source: options.source ?? "external",
+        source,
         revisions: "[]",
         installedAt: options.installedAt ?? timestamp,
         createdAt: timestamp,
@@ -181,17 +197,20 @@ export function createPersonalExtensionsStorage(db: DB) {
       const existing = await getById(id);
       if (!existing) return null;
       const runtime = data.runtime ?? existing.runtime;
-      const payload = normalizePayload({
-        name: data.name ?? existing.name,
-        version: data.version === undefined ? existing.version : data.version,
-        description: data.description ?? existing.description,
-        runtime,
-        capabilities:
-          runtime === "client" ? (data.capabilities === undefined ? existing.capabilities : data.capabilities) : [],
-        css: runtime === "client" ? (data.css === undefined ? existing.css : data.css) : null,
-        js: runtime === "client" ? (data.js === undefined ? existing.js : data.js) : null,
-        serverJs: runtime === "server" ? (data.serverJs === undefined ? existing.serverJs : data.serverJs) : null,
-      });
+      const payload = normalizePayload(
+        {
+          name: data.name ?? existing.name,
+          version: data.version === undefined ? existing.version : data.version,
+          description: data.description ?? existing.description,
+          runtime,
+          capabilities:
+            runtime === "client" ? (data.capabilities === undefined ? existing.capabilities : data.capabilities) : [],
+          css: runtime === "client" ? (data.css === undefined ? existing.css : data.css) : null,
+          js: runtime === "client" ? (data.js === undefined ? existing.js : data.js) : null,
+          serverJs: runtime === "server" ? (data.serverJs === undefined ? existing.serverJs : data.serverJs) : null,
+        },
+        existing.source,
+      );
       const contentHash = computePersonalExtensionHash(payload);
       const executableChanged = contentHash !== existing.contentHash;
       const revisions = executableChanged
