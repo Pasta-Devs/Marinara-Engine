@@ -43,6 +43,8 @@ export const GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES = [
   "contextBlock",
   "sourceTurnBlock",
   "modeRulesBlock",
+  "sectionRulesBlock",
+  "outputSchemaBlock",
   "gameContextBlock",
   "sourceSectionsBlock",
   "sourceNarration",

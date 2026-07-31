@@ -48,23 +48,58 @@ const LEGACY_BUILT_IN_AGENT_DESCRIPTIONS: Record<string, readonly string[]> = {
 
 const LEGACY_BUILT_IN_NAMED_PROMPT_HASHES: Record<string, Record<string, readonly string[]>> = {
   storyboard: {
-    "still-keyframes": ["35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d"],
-    "novelai-keyframes": ["d023603b074be76aa5319666bd7fe763c0a3e874738ee0a455545804e93baa3a"],
-    "comic-page-keyframes": ["45bb3de5cd09ce7d695e05220ac156589bee602c570fe17f8560044ab31b945d"],
-    "colored-manga-keyframes": ["da11bd4cc1205dc20a8939d263d4d89a144760edca11fa86ace2e97aaf4a5683"],
-    "bw-manga-keyframes": ["a5bd8a39e287bc19ef269e73e4dd8bdf4b945e34dccae86d3cf63076ae744668"],
-    "still-keyframes-animation": ["d7625e2dd230dda9fac625653de8f9fa7e95d631a5f7ded9eaf7981322b9d69b"],
-    "anime-episode-director": ["a63e7679b525d801776fed8bda108da63c9850b8f551e19f2a2d8bb8c91f8849"],
-    "novelai-keyframes-animation": ["22968ccd5d14f6ff548ee9ff7b6e6afa20a2e6fe15b7822feb4486400e8949a1"],
-    "comic-page-animation": ["8818b2004dd4967710eeec8ab95cfff01fc65a8f6428f5b3c5f8894abd604284"],
+    "still-keyframes": [
+      "35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d",
+      "b0d88c61750da6e72b4fee4322f10e6cc13ddcb71ee649c96f325f586fb69cb3",
+    ],
+    "novelai-keyframes": [
+      "d023603b074be76aa5319666bd7fe763c0a3e874738ee0a455545804e93baa3a",
+      "ea7dbd0b93c324d8dcabc5e32bf6fa4692837b2b4088ccdaf4069d17a2cf8bf0",
+    ],
+    "comic-page-keyframes": [
+      "45bb3de5cd09ce7d695e05220ac156589bee602c570fe17f8560044ab31b945d",
+      "c7cc9821f58dccb86daf0bd273e450a1abca66905f2cc1a6a171889517c618e5",
+    ],
+    "colored-manga-keyframes": [
+      "da11bd4cc1205dc20a8939d263d4d89a144760edca11fa86ace2e97aaf4a5683",
+      "17670d62e1e1a9b9dfdfee6b8cf48cf2404bc4987968dc0018f692ac4e3b8005",
+    ],
+    "bw-manga-keyframes": [
+      "a5bd8a39e287bc19ef269e73e4dd8bdf4b945e34dccae86d3cf63076ae744668",
+      "b92692c69b25f03efa223eec2ed12ae04007fb81b072819f29986ee624582226",
+    ],
+    "still-keyframes-animation": [
+      "d7625e2dd230dda9fac625653de8f9fa7e95d631a5f7ded9eaf7981322b9d69b",
+      "a57cc45d9c4c687f08f2ac640c48cb1da6111d5356fe5b0484aa0e8e9afd1b9a",
+    ],
+    "anime-episode-director": [
+      "a63e7679b525d801776fed8bda108da63c9850b8f551e19f2a2d8bb8c91f8849",
+      "0d6427988423bbbe54ceadf372ab72073708afc3574b0fb0c466dd296bf42ffe",
+    ],
+    "novelai-keyframes-animation": [
+      "22968ccd5d14f6ff548ee9ff7b6e6afa20a2e6fe15b7822feb4486400e8949a1",
+      "875602ed9b24d94b40f15fe9ab014bd63d5529fc710cc86b35b11c16abcb9f8d",
+    ],
+    "comic-page-animation": [
+      "8818b2004dd4967710eeec8ab95cfff01fc65a8f6428f5b3c5f8894abd604284",
+      "dc3f1a54da90ab67559778d1819a449252e83cca37f206df56b558fef7762954",
+    ],
     "colored-manga-keyframes-animation": [
       "4134c0e0b365aabb5027f33883a7f1d1593774d997ce007159ffdb8708b3b285",
+      "d68badeac6e84cd0e13fc4f0c8b00242c0ebb069381aa4b8ec740599ece29ec3",
     ],
     "bw-manga-keyframes-animation": [
       "bbe2fafc87395af962176f95fdc4e95067ab9c0f7db7883915c979bcf856b285",
+      "e85bb980a176d9b2db2233abb64433daf103ba10e20cbd763a237f11fc225e41",
     ],
-    "ltx-director-storyboard": ["e2b231eef33ca21d7b183974577ee476fb72acdbde2d0012c8218b130893893e"],
-    "ltx-simple-image-to-video": ["d56bf37473e124e399fd6e2fa93835391ef0986a41e7bfcc65972e02e475b185"],
+    "ltx-director-storyboard": [
+      "e2b231eef33ca21d7b183974577ee476fb72acdbde2d0012c8218b130893893e",
+      "1b39a315d41417576f09cc111d5afbcacdad30490aad90bfea8681af392cd3d8",
+    ],
+    "ltx-simple-image-to-video": [
+      "d56bf37473e124e399fd6e2fa93835391ef0986a41e7bfcc65972e02e475b185",
+      "72aecd237bf417fbb7809f6cdf4a67101f080fb9b70c4ef248b77ac0d2ae12cf",
+    ],
   },
 };
 

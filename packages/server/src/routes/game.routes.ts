@@ -5627,6 +5627,8 @@ interface GameStoryboardIllustratorCtx extends Record<string, string | number | 
   contextBlock: string;
   sourceTurnBlock: string;
   modeRulesBlock: string;
+  sectionRulesBlock: string;
+  outputSchemaBlock: string;
   gameContextBlock: string;
   sourceSectionsBlock: string;
   sourceNarration: string;
@@ -5672,7 +5674,7 @@ export async function buildStoryboardIllustratorMessages(args: {
           trackedCharacters: storyboardTrackedNpcsFromState(args.latestState),
           spatialBreadcrumb: args.spatialBreadcrumb,
         });
-  const sourceSectionsBlock = buildStoryboardSectionsBlock(args.sections);
+  const sourceSectionsBlock = ownerMode === "game" ? buildStoryboardSectionsBlock(args.sections) : "";
   const sourceTurnLabel =
     ownerMode === "game"
       ? "GM narration"
@@ -5682,15 +5684,25 @@ export async function buildStoryboardIllustratorMessages(args: {
   const sourceRoleLabel =
     ownerMode === "game" ? "GM" : args.roleplaySourceIncludesUserMessages ? "user and assistant" : "assistant";
   const sourceTurnBlock =
-    args.sections.length > 0
+    ownerMode === "game" && args.sections.length > 0
       ? `<source_turn>\nUse the ordered <turn_sections> block above as the full ${sourceTurnLabel} source.\n</source_turn>`
-      : `<source_turn>\n${args.sourceNarration}\n</source_turn>`;
+      : ownerMode === "roleplay"
+        ? `<source_exchange>\n${args.sourceNarration}\n</source_exchange>`
+        : `<source_turn>\n${args.sourceNarration}\n</source_turn>`;
   const modeRulesBlock =
     ownerMode === "game"
       ? "Storyboard only this completed GM turn, not the user's next action or choice."
       : args.roleplaySourceIncludesUserMessages
-        ? "Create one strongest visual scene from only the latest completed Roleplay exchange. The user sections establish the immediate action, dialogue, or request; the assistant section establishes the canonical completed outcome. Treat out-of-character, meta, and generation instructions as context rather than visible in-world events. Character cards establish identity and appearance, while this exchange establishes current visibility, action, pose, expression, clothing changes, and events. Older conversation is continuity context only. Do not turn the run interval into a multi-exchange episode, and do not invent characters, events, or the user's next reply beyond this exchange."
+        ? "Create one strongest visual scene from only the latest completed Roleplay exchange. The user message or messages establish the immediate action, dialogue, or request; the assistant response establishes the canonical completed outcome. Treat out-of-character, meta, and generation instructions as context rather than visible in-world events. Character cards establish identity and appearance, while this exchange establishes current visibility, action, pose, expression, clothing changes, and events. Older conversation is continuity context only. Do not turn the run interval into a multi-exchange episode, and do not invent characters, events, or the user's next reply beyond this exchange."
         : "Create one strongest visual scene from only the latest assistant response. Character cards establish identity and appearance, while the response establishes current visibility, action, pose, expression, clothing changes, and events. Older conversation is continuity context only. Do not turn the run interval into a multi-response episode, and do not invent characters, events, or the user's next reply beyond this response.";
+  const sectionRulesBlock =
+    ownerMode === "game"
+      ? "Use the supplied turn_sections indices to anchor every keyframe to the story text. Prefer contiguous section ranges that cover the whole turn in order.\nFor each keyframe, set sectionStartIndex and sectionEndIndex to the first and last covered section indices. Set anchorQuote to a short exact phrase from those sections, and anchorKind to the dominant section kind."
+      : "";
+  const outputSchemaBlock =
+    ownerMode === "game"
+      ? '{ "title": string, "keyframes": [ { "title": string, "sectionStartIndex": number, "sectionEndIndex": number, "anchorQuote": string, "anchorKind": "narration" | "dialogue" | "readable" | "system", "narrationBeat": string, "imagePrompt": string, "characters": string[] } ] }'
+      : '{ "title": string, "keyframes": [ { "title": string, "narrationBeat": string, "imagePrompt": string, "characters": string[] } ] }';
   const promptCtx: GameStoryboardIllustratorCtx = {
     ownerMode,
     sourceTurnLabel,
@@ -5698,6 +5710,8 @@ export async function buildStoryboardIllustratorMessages(args: {
     contextBlock,
     sourceTurnBlock,
     modeRulesBlock,
+    sectionRulesBlock,
+    outputSchemaBlock,
     gameContextBlock: contextBlock,
     sourceSectionsBlock,
     sourceNarration: args.sourceNarration,

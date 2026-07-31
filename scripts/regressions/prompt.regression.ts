@@ -2609,7 +2609,7 @@ const cases: RegressionCase[] = [
       assert.match(routeSource, /meta\.storyboardAgentUseAvatarReferences !== false/u);
       assert.match(
         defaultPromptMigrationSource,
-        /"still-keyframes": \["35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d"\]/u,
+        /"still-keyframes":\s*\[\s*"35f010080454700cf509a5ec07636e75e812c594f33c4c58e5c5b72e8de64d4d",\s*"b0d88c61750da6e72b4fee4322f10e6cc13ddcb71ee649c96f325f586fb69cb3",?\s*\]/u,
       );
       assert.match(
         appSource,
@@ -3190,6 +3190,8 @@ const cases: RegressionCase[] = [
               promptTemplate: [
                 "You are Marinara's Game Mode Storyboard Illustrator.",
                 "Turn exactly one completed GM narration into a concise storyboard.",
+                "\${sectionRulesBlock}",
+                "\${outputSchemaBlock}",
                 "If a visual trait is not supplied, omit it instead of guessing.",
               ].join("\n"),
             },
@@ -3222,6 +3224,9 @@ const cases: RegressionCase[] = [
           storyboardMessages.systemPrompt.indexOf("Turn exactly one completed GM narration"),
       );
       assert.match(storyboardMessages.systemPrompt, /omit it instead of guessing/iu);
+      assert.match(storyboardMessages.systemPrompt, /Use the supplied turn_sections indices/u);
+      assert.match(storyboardMessages.systemPrompt, /sectionStartIndex/u);
+      assert.match(storyboardMessages.messages[1]?.content ?? "", /<turn_sections>/u);
 
       const roleplayStoryboardMessages = await buildStoryboardIllustratorMessages({
         meta: {
@@ -3229,7 +3234,8 @@ const cases: RegressionCase[] = [
             {
               id: "regression-roleplay-planner",
               name: "Regression Roleplay Planner",
-              promptTemplate: "Mode=\${ownerMode}\n\${modeRulesBlock}\n\${contextBlock}",
+              promptTemplate:
+                "Mode=\${ownerMode}\n\${modeRulesBlock}\n\${sectionRulesBlock}\n\${outputSchemaBlock}\n\${contextBlock}",
             },
           ],
           gameStoryboardIllustrationPlannerTemplateIds: ["regression-roleplay-planner"],
@@ -3238,7 +3244,15 @@ const cases: RegressionCase[] = [
         setupConfig: null,
         latestState: null,
         sourceNarration: "Lyra closes the rain-darkened door behind her.",
-        sections: [],
+        sections: [
+          { index: 0, kind: "narration", speaker: "user", content: "Come inside before the rain gets worse." },
+          {
+            index: 1,
+            kind: "narration",
+            speaker: "assistant",
+            content: "Lyra closes the rain-darkened door behind her.",
+          },
+        ],
         keyframeCount: 1,
         durationSeconds: 6,
         aspectRatio: "16:9",
@@ -3263,6 +3277,13 @@ const cases: RegressionCase[] = [
       assert.match(roleplayStoryboardMessages.systemPrompt, /Town &gt; Inn/u);
       assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /latest completed Roleplay exchange/u);
       assert.doesNotMatch(roleplayStoryboardMessages.messages[1]?.content ?? "", /gm_turn_narration/u);
+      assert.doesNotMatch(roleplayStoryboardMessages.systemPrompt, /turn_sections|sectionStartIndex|anchorQuote/u);
+      assert.doesNotMatch(
+        roleplayStoryboardMessages.messages[1]?.content ?? "",
+        /turn_sections|sectionStartIndex|anchorQuote/u,
+      );
+      assert.match(roleplayStoryboardMessages.systemPrompt, /"narrationBeat": string/u);
+      assert.match(roleplayStoryboardMessages.messages[1]?.content ?? "", /<source_exchange>/u);
 
       const roleplaySourceWindow = selectRoleplayStoryboardLatestExchange(
         [
