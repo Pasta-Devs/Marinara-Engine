@@ -16,7 +16,11 @@ import {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "../game/GameStoryboardViewer";
-import { resolveRoleplayStoryboardDisplayMode } from "./roleplay-storyboard-display";
+import {
+  advanceRoleplayStoryboardAutomaticTrigger,
+  resolveRoleplayStoryboardDisplayMode,
+  type RoleplayStoryboardAutomaticTriggerState,
+} from "./roleplay-storyboard-display";
 
 type RoleplayStoryboardMessage = {
   id: string;
@@ -75,9 +79,15 @@ export function RoleplayStoryboardOverlay({
       : settings.autoGenerateMode !== "manual");
   const automaticMode = autoAnimationsEnabled ? "animation" : autoIllustrationsEnabled ? "illustration" : "manual";
   const swipeIndex = latestMessage?.activeSwipeIndex ?? 0;
+  const storyboardTargetKey = latestMessage ? `${chatId}:${latestMessage.id}:${swipeIndex}` : null;
   const storyboardsQuery = useGameTurnStoryboards(chatId, latestMessage?.id, swipeIndex, active);
   const generateStoryboard = useGenerateGameTurnStoryboard();
   const attemptedKeyRef = useRef<string | null>(null);
+  const automaticTriggerChatIdRef = useRef(chatId);
+  const automaticTriggerRef = useRef<RoleplayStoryboardAutomaticTriggerState>({
+    generationWasBusy: generationBusy,
+    completedTargetKey: null,
+  });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [muted, setMuted] = useState(true);
@@ -89,7 +99,12 @@ export function RoleplayStoryboardOverlay({
   const frames = storyboard?.keyframes ?? [];
   const firstVisibleFrame = frames.find((keyframe) => keyframe.video || keyframe.image) ?? frames[0] ?? null;
   const frame = frames.find((keyframe) => keyframe.id === activeFrameId) ?? firstVisibleFrame;
-  const activeFrameIndex = frame ? Math.max(0, frames.findIndex((keyframe) => keyframe.id === frame.id)) : 0;
+  const activeFrameIndex = frame
+    ? Math.max(
+        0,
+        frames.findIndex((keyframe) => keyframe.id === frame.id),
+      )
+    : 0;
   const rendering = generateStoryboard.isPending || isGameTurnStoryboardRendering(storyboard);
 
   useEffect(() => {
@@ -124,12 +139,45 @@ export function RoleplayStoryboardOverlay({
   }, [frame?.video?.id, viewerDisplayMode]);
 
   useEffect(() => {
-    if (!active || !latestMessage || agentConfigs === undefined || !storyboardsQuery.isFetched) return;
-    if (automaticMode === "manual" || generationBusy || postProcessingPending) return;
-    if (storyboardsQuery.data?.length || storyboardsQuery.isError) return;
-    const attemptKey = `${chatId}:${latestMessage.id}:${swipeIndex}`;
+    if (automaticTriggerChatIdRef.current !== chatId) {
+      automaticTriggerChatIdRef.current = chatId;
+      automaticTriggerRef.current = { generationWasBusy: generationBusy, completedTargetKey: null };
+      attemptedKeyRef.current = null;
+      return;
+    }
+    if (generationBusy && !automaticTriggerRef.current.generationWasBusy) {
+      attemptedKeyRef.current = null;
+    }
+    automaticTriggerRef.current = advanceRoleplayStoryboardAutomaticTrigger(
+      automaticTriggerRef.current,
+      generationBusy,
+      storyboardTargetKey,
+    );
+  }, [chatId, generationBusy, storyboardTargetKey]);
+
+  useEffect(() => {
+    if (!active) {
+      automaticTriggerRef.current.completedTargetKey = null;
+      return;
+    }
+    if (!latestMessage || !storyboardTargetKey || agentConfigs === undefined || !storyboardsQuery.isFetched) return;
+    if (automaticMode === "manual") {
+      automaticTriggerRef.current.completedTargetKey = null;
+      return;
+    }
+    if (generationBusy || postProcessingPending) return;
+    const attemptKey = storyboardTargetKey;
+    if (automaticTriggerRef.current.completedTargetKey !== attemptKey) {
+      automaticTriggerRef.current.completedTargetKey = null;
+      return;
+    }
+    if (storyboardsQuery.data?.length || storyboardsQuery.isError) {
+      automaticTriggerRef.current.completedTargetKey = null;
+      return;
+    }
     if (attemptedKeyRef.current === attemptKey) return;
     attemptedKeyRef.current = attemptKey;
+    automaticTriggerRef.current.completedTargetKey = null;
     void generateStoryboard
       .mutateAsync({
         chatId,
@@ -165,6 +213,7 @@ export function RoleplayStoryboardOverlay({
     storyboardsQuery.isError,
     storyboardsQuery.isFetched,
     swipeIndex,
+    storyboardTargetKey,
     generateStoryboard,
   ]);
 

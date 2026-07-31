@@ -252,6 +252,7 @@ import { loadGameStoryboardImagePrompt } from "../../packages/server/src/service
 import { formatAgentFailuresToast, toAgentFailure } from "../../packages/client/src/lib/agent-failures.js";
 import { formatGenerationParameterError } from "../../packages/client/src/lib/generation-parameter-errors.js";
 import { normalizeCustomMusicSource } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
+import { advanceRoleplayStoryboardAutomaticTrigger } from "../../packages/client/src/components/chat/roleplay-storyboard-display.js";
 
 const assistantCadenceMessages = [
   { id: "illustrator-anchor", role: "assistant" },
@@ -2586,6 +2587,25 @@ const cases: RegressionCase[] = [
       assert.match(agentResolutionSource, /if \(isBuiltInAgentHostManaged\(agent\.id\)\) return false/u);
       assert.doesNotMatch(agentResolutionSource, /storyboardOwnsAutomaticVisuals/u);
       assert.match(roleplayStoryboardOverlaySource, /automatic: true/u);
+      let automaticTrigger = {
+        generationWasBusy: false,
+        completedTargetKey: null as string | null,
+      };
+      automaticTrigger = advanceRoleplayStoryboardAutomaticTrigger(automaticTrigger, false, "chat:greeting:0");
+      automaticTrigger = advanceRoleplayStoryboardAutomaticTrigger(automaticTrigger, false, "chat:greeting:1");
+      assert.equal(
+        automaticTrigger.completedTargetKey,
+        null,
+        "browsing existing greetings or swipes must not arm automatic Storyboard",
+      );
+      automaticTrigger = advanceRoleplayStoryboardAutomaticTrigger(automaticTrigger, true, "chat:greeting:1");
+      automaticTrigger = advanceRoleplayStoryboardAutomaticTrigger(automaticTrigger, false, "chat:response:0");
+      assert.equal(
+        automaticTrigger.completedTargetKey,
+        "chat:response:0",
+        "a completed generation cycle should arm only its resulting response",
+      );
+      assert.match(roleplayStoryboardOverlaySource, /completedTargetKey !== attemptKey/u);
       assert.match(roleplayStoryboardOverlaySource, /reopenToken/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardInlineViewer/u);
       assert.match(roleplayStoryboardOverlaySource, /GameStoryboardBackgroundVisual/u);
