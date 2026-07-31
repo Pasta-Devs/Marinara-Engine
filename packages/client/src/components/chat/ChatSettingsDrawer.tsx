@@ -580,9 +580,7 @@ const MODE_INTROS: Record<ChatMode, string> = {
   conversation:
     "Plain chat — no roleplay or game systems built in; autonomous messaging and other tools are optional below.",
   roleplay:
-    "Plain roleplay surface — no built-in dice, combat, or GM pipeline; sprites, world-state tracking, and other helpers are available as optional agents below.",
-  visual_novel:
-    "Legacy roleplay chat — expressions, world state, and CYOA choices are available as optional agents below.",
+    "Classic roleplay mode — choose characters, prompt, persona, and add optional agents to enhance the sandbox experience.",
   game: "Full Game Master with built-in dice, combat, encounters, world state, and session/map tracking — the Scene Analysis toggle below adds optional cinematic visuals (backgrounds, music, weather).",
 };
 
