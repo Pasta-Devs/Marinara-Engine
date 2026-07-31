@@ -96,7 +96,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
   const [step, setStep] = useState<Step>(1);
   const [intro, setIntro] = useState<Intro>(selectionOnly ? null : 0);
   const [setupLane, setSetupLane] = useState<SetupLane>(selectionOnly ? "easy" : null);
-  const [identityExplored, setIdentityExplored] = useState(false);
   const [postExplored, setPostExplored] = useState(false);
   const [activityChoice, setActivityChoice] = useState<ActivityChoice>("lively");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -141,7 +140,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
     setStep(1);
     setIntro(selectionOnly ? null : 0);
     setSetupLane(selectionOnly ? "easy" : null);
-    setIdentityExplored(false);
     setPostExplored(false);
     setActivityChoice("lively");
     setSelected(new Set());
@@ -461,7 +459,6 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
                       type="button"
                       onClick={() => {
                         setDisclosure(value);
-                        setIdentityExplored(true);
                         setPostExplored(false);
                       }}
                       className={cn(
@@ -1147,7 +1144,7 @@ export function NoodlerOnboardingWizard({ open, selectionOnly = false, onClose, 
             {intro !== null ? (
               <button
                 type="button"
-                disabled={intro === 1 ? !identityExplored : intro === 2 ? !postExplored : false}
+                disabled={intro === 2 && !postExplored}
                 onClick={() => setIntro(intro < LAST_INTRO ? ((intro + 1) as Intro) : null)}
                 className="flex min-h-10 items-center gap-2 rounded-md bg-[var(--noodle-accent)] px-4 text-sm font-bold text-zinc-950 disabled:opacity-50 max-sm:px-3"
               >

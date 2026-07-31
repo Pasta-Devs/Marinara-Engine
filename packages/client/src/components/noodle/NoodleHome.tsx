@@ -4935,7 +4935,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       <Modal
         open={gateOpen}
         onClose={() => setGateOpen(false)}
-        title={localizeUi("ui.noodle.agegate.enter")}
+        title={localizeUi("ui.noodle.noodlemodetoggle.noodler")}
         width="max-w-md"
         panelClassName={NOODLE_ICON_SCOPE_CLASS}
         panelStyle={getNoodleAccentStyle(NOODLE_PINK)}
@@ -4945,6 +4945,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           personaName={personaAccount?.displayName ?? ""}
           onComplete={enterNoodlerFromGate}
           onSkip={enterNoodlerFromGate}
+          onDismiss={() => setGateOpen(false)}
           isPending={updateSettings.isPending}
         />
       </Modal>
