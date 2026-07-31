@@ -47,6 +47,12 @@ import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import {
+  formatCardLibraryMeta,
+  getCardLibrarySummary,
+  matchesCardLibrarySearch,
+  parseCardLibrarySearchQuery,
+} from "../../lib/card-library-search";
 
 type PersonaRow = {
   id: string;
@@ -160,7 +166,8 @@ export function PersonasPanel() {
   const clientOnlyPersonaFilterActive = favFilter !== "all" || activeTag !== null;
   const [completeFilteredPersonas, setCompleteFilteredPersonas] = useState<PersonaRow[] | null>(null);
   const [completePersonasLoading, setCompletePersonasLoading] = useState(false);
-  const personaPages = usePersonaPages({ search, sort });
+  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
+  const personaPages = usePersonaPages({ search: serverSearch, sort });
   const pagedPersonas = useMemo(() => flattenPersonaPages(personaPages.data), [personaPages.data]);
   const personas = useMemo(
     () => (clientOnlyPersonaFilterActive ? (completeFilteredPersonas ?? []) : pagedPersonas),
@@ -192,7 +199,7 @@ export function PersonasPanel() {
     }
 
     setCompletePersonasLoading(true);
-    fetchAllPersonaPages({ search, sort })
+    fetchAllPersonaPages({ search: serverSearch, sort })
       .then((rows) => {
         if (!cancelled) setCompleteFilteredPersonas(rows as PersonaRow[]);
       })
@@ -209,7 +216,7 @@ export function PersonasPanel() {
     return () => {
       cancelled = true;
     };
-  }, [clientOnlyPersonaFilterActive, search, sort, localizeUi]);
+  }, [clientOnlyPersonaFilterActive, serverSearch, sort, localizeUi]);
 
   const handleCreate = () => {
     openModal("create-persona");
@@ -435,23 +442,33 @@ export function PersonasPanel() {
 
   const filteredList = useMemo(() => {
     let arr = rawList;
+    const query = parseCardLibrarySearchQuery(search);
     // Filter by active status
     if (favFilter === "active") {
       arr = arr.filter((p) => p.isActive === true || p.isActive === "true");
     } else if (favFilter === "inactive") {
       arr = arr.filter((p) => p.isActive !== true && p.isActive !== "true");
     }
-    // Filter by search text
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      arr = arr.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.description ?? "").toLowerCase().includes(q) ||
-          (p.comment ?? "").toLowerCase().includes(q) ||
-          parseTags(p).some((t) => t.toLowerCase().includes(q)),
+    arr = arr.filter((p) => {
+      const tags = parseTags(p);
+      return matchesCardLibrarySearch(
+        {
+          name: p.name,
+          title: p.comment,
+          meta: formatCardLibraryMeta(p.creator, p.personaVersion),
+          summary: getCardLibrarySummary([p.creatorNotes, p.description, p.personality, p.backstory]),
+          tags,
+          sections: [
+            { content: p.description },
+            { content: p.personality },
+            { content: p.scenario },
+            { content: p.backstory },
+            { content: p.appearance },
+          ],
+        },
+        query,
       );
-    }
+    });
     // Filter by active tag
     if (activeTag) {
       arr = arr.filter((p) => parseTags(p).includes(activeTag));

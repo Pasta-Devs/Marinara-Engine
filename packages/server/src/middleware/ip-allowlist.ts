@@ -421,7 +421,7 @@ export function isTrustedInterfaceRequest(request: FastifyRequest): boolean {
   if (dockerProxyForwarded && isDockerBypassEnabled()) {
     if (!bypassAnnounced.dockerProxyForwarded) {
       logger.warn(
-        "[auth-bypass] Docker bridge request includes proxy forwarding headers; forwarded clients will skip Basic Auth and IP allowlist unless REQUIRE_AUTH_FOR_DOCKER_PROXY=true or BYPASS_AUTH_DOCKER=false",
+        "[auth-bypass] REQUIRE_AUTH_FOR_DOCKER_PROXY=false — forwarded Docker clients will skip Basic Auth and IP allowlist while BYPASS_AUTH_DOCKER remains enabled",
       );
       bypassAnnounced.dockerProxyForwarded = true;
     }

@@ -250,6 +250,9 @@ function sanitizeImportedMarinaraMetadata(
   delete sanitized.activeSceneChatId;
   delete sanitized.sceneOriginChatId;
   delete sanitized.sceneStatus;
+  delete sanitized.branchParentChatId;
+  delete sanitized.branchParentMessageId;
+  delete sanitized.branchMessageId;
 
   if (typeof sanitized.gameId === "string" && sanitized.gameId.trim().length > 0) {
     sanitized.gameId = localGameId;

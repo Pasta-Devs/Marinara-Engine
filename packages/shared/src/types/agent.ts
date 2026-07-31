@@ -2,10 +2,7 @@
 // Agent System Types
 // ──────────────────────────────────────────────
 
-import {
-  BUILT_IN_AGENT_MANIFESTS,
-  replaceBuiltInAgentManifestRegistry,
-} from "../features/agents/agent-registry.js";
+import { BUILT_IN_AGENT_MANIFESTS, replaceBuiltInAgentManifestRegistry } from "../features/agents/agent-registry.js";
 import type { BuiltInAgentManifest } from "../features/agents/agent-manifest.types.js";
 import type { AgentToolConfig, ToolDefinition } from "../features/function-calls/tool-definitions.js";
 import type { ChatMode } from "./chat.js";
@@ -217,10 +214,7 @@ export function getAgentPromptTemplateOptions(input: {
 
 export function resolveDefaultAgentPromptTemplateId(settingsValue: unknown): string {
   const settings = parseAgentSettingsRecord(settingsValue);
-  const configuredId = normalizePromptTemplateId(
-    settings.defaultPromptTemplateId,
-    DEFAULT_AGENT_PROMPT_TEMPLATE_ID,
-  );
+  const configuredId = normalizePromptTemplateId(settings.defaultPromptTemplateId, DEFAULT_AGENT_PROMPT_TEMPLATE_ID);
   if (configuredId === DEFAULT_AGENT_PROMPT_TEMPLATE_ID) return configuredId;
   return normalizeAgentPromptTemplateOptions(settings.promptTemplates).some((option) => option.id === configuredId)
     ? configuredId
@@ -390,6 +384,13 @@ export interface AgentContext {
   writableLorebookIds: string[] | null;
   /** Chat summary text (if any) — helps agents avoid duplicating summarized info */
   chatSummary: string | null;
+  /** Resolved Author's Notes for custom agents that explicitly opt into them. */
+  authorNotes?: string | null;
+  /** Lorebook entries activated for the main generation on this turn. */
+  activatedLorebookEntries?: Array<{
+    id: string;
+    content: string;
+  }>;
   /**
    * Semantic source material resolved for custom agents that opt into vector access.
    * The runtime keeps this out of ordinary agent prompts and injects it only for
@@ -488,24 +489,24 @@ export interface BuiltInAgentMeta {
   runtimeDisabled?: boolean;
   modeAllowlist?: readonly ChatMode[];
   promptTemplates?: AgentPromptTemplateOption[];
-  execution?: "pipeline" | "feature";
+  execution?: "pipeline" | "feature" | "host";
 }
 
 function toBuiltInAgentMeta(agent: BuiltInAgentManifest): BuiltInAgentMeta {
   return {
-  id: agent.id,
-  name: agent.name,
-  description: agent.description,
-  author: agent.author ?? DEFAULT_AGENT_AUTHOR,
-  phase: normalizeAgentPhaseForType(agent.id, agent.phase),
-  enabledByDefault: agent.enabledByDefault,
-  ...(agent.defaultInjectAsSection !== undefined ? { defaultInjectAsSection: agent.defaultInjectAsSection } : {}),
-  category: agent.category,
-  ...(agent.libraryHidden !== undefined ? { libraryHidden: agent.libraryHidden } : {}),
-  ...(agent.runtimeDisabled !== undefined ? { runtimeDisabled: agent.runtimeDisabled } : {}),
-  ...(agent.modeAllowlist !== undefined ? { modeAllowlist: [...agent.modeAllowlist] } : {}),
-  ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
-  ...(agent.execution !== undefined ? { execution: agent.execution } : {}),
+    id: agent.id,
+    name: agent.name,
+    description: agent.description,
+    author: agent.author ?? DEFAULT_AGENT_AUTHOR,
+    phase: normalizeAgentPhaseForType(agent.id, agent.phase),
+    enabledByDefault: agent.enabledByDefault,
+    ...(agent.defaultInjectAsSection !== undefined ? { defaultInjectAsSection: agent.defaultInjectAsSection } : {}),
+    category: agent.category,
+    ...(agent.libraryHidden !== undefined ? { libraryHidden: agent.libraryHidden } : {}),
+    ...(agent.runtimeDisabled !== undefined ? { runtimeDisabled: agent.runtimeDisabled } : {}),
+    ...(agent.modeAllowlist !== undefined ? { modeAllowlist: [...agent.modeAllowlist] } : {}),
+    ...(agent.promptTemplates !== undefined ? { promptTemplates: [...agent.promptTemplates] } : {}),
+    ...(agent.execution !== undefined ? { execution: agent.execution } : {}),
   };
 }
 
@@ -534,6 +535,42 @@ export const CUSTOM_AGENT_CAPABILITY_IDS = [
 
 export type CustomAgentCapability = (typeof CUSTOM_AGENT_CAPABILITY_IDS)[number];
 export type CustomAgentCapabilityMap = Partial<Record<CustomAgentCapability, boolean>>;
+
+export const CUSTOM_AGENT_CONTEXT_SOURCE_IDS = [
+  "chatHistory",
+  "characters",
+  "persona",
+  "activatedLorebookEntries",
+  "chatSummary",
+  "authorNotes",
+  "trackerData",
+  "recalledMemories",
+] as const;
+
+export type CustomAgentContextSource = (typeof CUSTOM_AGENT_CONTEXT_SOURCE_IDS)[number];
+export type CustomAgentContextSources = Record<CustomAgentContextSource, boolean>;
+
+export const DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
+  chatHistory: true,
+  characters: false,
+  persona: false,
+  activatedLorebookEntries: false,
+  chatSummary: false,
+  authorNotes: false,
+  trackerData: false,
+  recalledMemories: false,
+};
+
+export function normalizeCustomAgentContextSources(settings: unknown): CustomAgentContextSources {
+  const stored = parseAgentSettingsRecord(settings).contextSources;
+  if (!isRecord(stored)) return { ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES };
+
+  const normalized = { ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES };
+  for (const source of CUSTOM_AGENT_CONTEXT_SOURCE_IDS) {
+    if (typeof stored[source] === "boolean") normalized[source] = stored[source];
+  }
+  return normalized;
+}
 
 export interface CustomAgentImportPolicy {
   enabled: boolean;
@@ -667,19 +704,33 @@ const OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS: Record<string, ReadonlySet<string>>
   illustrator: new Set(["illustration", "sketch"]),
 };
 
+const RETIRED_BUILT_IN_AGENT_TOOLS: Record<string, ReadonlySet<string>> = {
+  expression: new Set(["set_expression"]),
+};
+
+export function normalizeBuiltInAgentEnabledTools(agentType: string, value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const enabledTools = value.filter((tool): tool is string => typeof tool === "string");
+  const retiredTools = RETIRED_BUILT_IN_AGENT_TOOLS[agentType];
+  return retiredTools ? enabledTools.filter((tool) => !retiredTools.has(tool)) : enabledTools;
+}
+
 export function mergeBuiltInAgentSettings(agentType: string, settings: unknown): Record<string, unknown> {
   const parsed = parseAgentSettingsRecord(settings);
+  const normalizedEnabledTools = normalizeBuiltInAgentEnabledTools(agentType, parsed.enabledTools);
+  const normalizedSettings =
+    normalizedEnabledTools === null ? parsed : { ...parsed, enabledTools: normalizedEnabledTools };
   const builtIn = BUILT_IN_AGENT_MANIFESTS.find((agent) => agent.id === agentType);
-  if (!builtIn) return parsed;
+  if (!builtIn) return normalizedSettings;
 
   const defaults = getDefaultBuiltInAgentSettings(agentType);
   const merged: Record<string, unknown> = {
     ...defaults,
-    ...parsed,
+    ...normalizedSettings,
   };
 
   const defaultPromptTemplates = normalizeAgentPromptTemplateOptions(defaults.promptTemplates);
-  const savedPromptTemplates = normalizeAgentPromptTemplateOptions(parsed.promptTemplates);
+  const savedPromptTemplates = normalizeAgentPromptTemplateOptions(normalizedSettings.promptTemplates);
   const obsoleteIds = OBSOLETE_BUILT_IN_PROMPT_TEMPLATE_IDS[agentType] ?? new Set<string>();
   const savedPromptTemplatesById = new Map(
     savedPromptTemplates.filter((entry) => !obsoleteIds.has(entry.id)).map((entry) => [entry.id, entry]),
@@ -714,7 +765,7 @@ export function replaceBuiltInAgentDefinitions(manifests: readonly BuiltInAgentM
   BUILT_IN_AGENTS.splice(0, BUILT_IN_AGENTS.length, ...manifests.map(toBuiltInAgentMeta));
   for (const key of Object.keys(DEFAULT_AGENT_TOOLS)) delete DEFAULT_AGENT_TOOLS[key];
   for (const agent of manifests) {
-    DEFAULT_AGENT_TOOLS[agent.id] = [...(agent.defaultTools ?? [])];
+    DEFAULT_AGENT_TOOLS[agent.id] = normalizeBuiltInAgentEnabledTools(agent.id, agent.defaultTools ?? []) ?? [];
   }
 }
 

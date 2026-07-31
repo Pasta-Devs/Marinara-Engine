@@ -11,7 +11,7 @@ This feature is only about picture and video prompts. It does not change the tex
 Some terms used below:
 
 - A **sprite** is a piece of character art, such as a facial expression or a full-body pose.
-- A **storyboard** is a set of illustrated frames generated from a Game Mode turn.
+- A **storyboard** is a set of illustrated frames generated from a Game Mode turn or a completed Roleplay episode.
 
 ## Where to find them
 

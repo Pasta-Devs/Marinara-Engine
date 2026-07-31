@@ -46,6 +46,21 @@ const attachments = await prepareNoodleVisionAttachments(candidates);
 assert.equal(attachments.length, 2);
 assert.ok(attachments.every((attachment) => attachment.dataUrl.startsWith("data:image/jpeg;base64,")));
 
+const corruptPng = Buffer.concat([
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+  Buffer.from("not-a-decodable-png"),
+]);
+assert.deepEqual(
+  await prepareNoodleVisionAttachments([
+    {
+      ...candidates[0]!,
+      key: "corrupt-image",
+      imageUrl: `data:image/png;base64,${corruptPng.toString("base64")}`,
+    },
+  ]),
+  [],
+);
+
 const attachedKeys = new Set(attachments.map((attachment) => attachment.key));
 const multimodalTimeline = formatNoodleTimelineForPrompt([post], [reply], { attachedImageKeys: attachedKeys });
 assert.match(multimodalTimeline, new RegExp(`attached image: ${noodlePostImageKey(post.id)}`));

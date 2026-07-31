@@ -31,6 +31,7 @@
   - [Community \& Support](#community--support)
   - [Contributors](#contributors)
   - [License](#license)
+  - [Trademark \& Branding](#trademark--branding)
 
 ---
 
@@ -135,7 +136,7 @@ Each guide covers installation, updating, and LAN access for that platform. See 
 
 Upgrading from an older release? See [Upgrading Marinara Engine](docs/UPGRADING.md) for the platform-by-platform upgrade path.
 
-Security defaults are intentionally local-first: loopback access works out of the box, ordinary LAN and public clients require Basic Auth unless you explicitly opt back in, and Tailscale (`100.64.0.0/10`) plus same-host Docker bridge/gateway traffic are trusted by default for easier private installs. Set `BYPASS_AUTH_TAILSCALE=false` or `BYPASS_AUTH_DOCKER=false` if you want those clients to authenticate too. `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores unauthenticated access for other trusted private networks; public clients still require `ALLOW_UNAUTHENTICATED_REMOTE=true`. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control).
+Security defaults are intentionally local-first: loopback access works out of the box, ordinary LAN and public clients require Basic Auth unless you explicitly opt back in, and direct Tailscale (`100.64.0.0/10`) plus same-host Docker bridge/gateway traffic are trusted by default for easier private installs. Proxy-forwarded Docker traffic requires normal authorization by default. Set `BYPASS_AUTH_TAILSCALE=false` or `BYPASS_AUTH_DOCKER=false` if you want direct clients to authenticate too; set `REQUIRE_AUTH_FOR_DOCKER_PROXY=false` only when every upstream client is trusted. `ALLOW_UNAUTHENTICATED_PRIVATE_NETWORK=true` restores unauthenticated access for other trusted private networks; public clients still require `ALLOW_UNAUTHENTICATED_REMOTE=true`. Powerful actions such as backups, bulk import, update apply, sidecar install/download/delete, haptics, and custom tool mutation also require `ADMIN_SECRET`; see [Access Control](docs/CONFIGURATION.md#access-control).
 
 ---
 
@@ -147,14 +148,14 @@ Three chat modes — **Conversation** (Discord-style DMs), **Roleplay** (immersi
 
 ### Visual & Immersive
 
-Character expression sprites with automatic emotion switching, custom scene backgrounds, dynamic weather overlays, gallery illustrations, short scene videos from generated illustrations, Game Mode storyboards with selectable keyframe and video prompt styles, two visual themes (Y2K Marinara and SillyTavern classic), and light/dark mode.
+Character expression sprites with automatic emotion switching, custom scene backgrounds, dynamic weather overlays, gallery illustrations, short scene videos from generated illustrations, Game Mode storyboards, inline Roleplay storyboard episodes with selectable prompt layers, two visual themes (Y2K Marinara and SillyTavern classic), and light/dark mode.
 
 ### AI Agent System
 
 An optional one-click catalog of 29 first-party agents and feature packages. Fresh installs stay lightweight with no bundled agents. Open **Agents → Download Agents** to install only what you want or uninstall packages you no longer need. When a compatible update appears, Marinara asks before downloading it. Choosing **No** keeps the installed version and leaves **Update** available in Download Agents for later; installed packages also remain available while the server is offline. Existing installations retain their agents during Engine upgrades. Stable Engine builds use the released Agent catalog, while git installations on the Engine `staging` update channel automatically use the matching Marinara-Agents `staging` catalog and artifacts for testing. Package sources, artifacts, and the complete catalog are published in [Pasta-Devs/Marinara-Agents](https://github.com/Pasta-Devs/Marinara-Agents). You can also create custom Agents. External Agent imports require the **Allow custom Agent imports** Danger Zone toggle and an explicit capability review; official downloads and Agents you create yourself are unaffected.
 
 - **Writer Agents:** Prose Guardian, Continuity Checker, Narrative Director, Knowledge Retrieval, Knowledge Router, and Card Evolution Auditor.
-- **Tracker Agents:** World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, and Hierarchical Maps.
+- **Tracker Agents:** World State, Expression Engine, Quest Tracker, Background, Character Tracker, Persona Stats, Custom Tracker, and World Maps.
 - **Misc Agents:** Echo Chamber, Illustrator, Lorebook Keeper, Combat, Immersive HTML, Music DJ, Haptic Feedback, CYOA Choices, Calls, UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe, and Rock-Paper-Scissors.
 
 See the [Downloadable Agents Reference](docs/agents/built-in-agents.md) for modes, behavior, and setup guidance for every package, or browse the [official Agent repository](https://github.com/Pasta-Devs/Marinara-Agents) directly.
@@ -165,7 +166,7 @@ Preset system with drag-and-drop prompt ordering, lorebooks with keyword trigger
 
 ### Local Customization
 
-Personal Extensions are disabled-by-default drafts authored for you by Professor Mari. Every executable change invalidates approval, and only the exact reviewed SHA-256 fingerprint can run inside Marinara's restricted browser or OS sandbox. Third-party imports stay hidden until the host and user deliberately open both External Extensions safety gates; arbitrary code still requires careful review. See the [Personal Extensions guide](docs/extending/personal-extensions.md).
+Personal Extensions are disabled-by-default drafts authored for you by Professor Mari. Every executable change invalidates approval, and only the exact reviewed SHA-256 fingerprint can run inside Marinara's restricted browser or OS sandbox. Third-party imports stay hidden until the host and user deliberately open both External Extensions safety gates. Legacy tools can request separately disclosed **Full page access** for DOM compatibility, but that mode is deliberately unsandboxed and should be enabled only for exact code you trust. See the [Personal Extensions guide](docs/extending/personal-extensions.md).
 
 ### Connections & Providers
 
@@ -198,7 +199,7 @@ The full guide library is browsable inside the app: open **Documentation** from 
 | [docs/media/style-profiles.md](docs/media/style-profiles.md)                         | Image style profiles and prompt grammar                                                                            |
 | [docs/media/tts-setup.md](docs/media/tts-setup.md)                                   | Text to speech (TTS) setup and voices                                                                              |
 | [docs/media/scene-video.md](docs/media/scene-video.md)                               | Scene-video provider setup and the Gallery animation workflow                                                      |
-| [docs/game/storyboard.md](docs/game/storyboard.md)                                   | Step-by-step guide to manual and automatic Game Mode storyboards                                                   |
+| [docs/game/storyboard.md](docs/game/storyboard.md)                                   | Manual and automatic Game Mode storyboards plus inline Roleplay storyboard episodes                                |
 | [docs/game/ltx-2-3-storyboards.md](docs/game/ltx-2-3-storyboards.md)                   | Krea 2 first frames, local LTX 2.3 ComfyUI animation, and tested Game Mode settings                               |
 | [docs/agents/agents-overview.md](docs/agents/agents-overview.md)                     | Agent system overview: phases, per-chat enablement, built-in and custom agents                                     |
 | [docs/extending/custom-tools.md](docs/extending/custom-tools.md)                     | Function calling, custom tools, webhooks, scripts, and agent tool enablement                                       |
@@ -244,4 +245,13 @@ The full guide library is browsable inside the app: open **Documentation** from 
 
 ## License
 
-[AGPL-3.0](LICENSE)
+Marinara Engine source code is licensed under the [GNU AGPLv3](LICENSE).
+
+## Trademark & Branding
+
+The software license does not grant permission to imply that a third-party
+product or hosted service is official, endorsed, certified, or supported by
+Pasta-Devs. Ordinary truthful descriptive and nominative references to Marinara
+Engine remain welcome. When a reference is used to market or operate a hosted
+service, its operator and independent status must be clear. See the [Trademark
+and Branding Policy](TRADEMARKS.md) for the complete guidelines.

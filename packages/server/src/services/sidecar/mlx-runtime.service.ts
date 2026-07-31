@@ -1,9 +1,25 @@
 import { execFileSync, spawn, type ChildProcess } from "child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { createHash } from "crypto";
+import {
+  chmodSync,
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { join } from "path";
+import { fileURLToPath } from "url";
 import type { SidecarDownloadProgress, SidecarRuntimeInfo } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
-import { isAbortError, retry } from "./sidecar-download.js";
+import { assertInsideDir } from "../../utils/security.js";
+import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
+import {
+  MLX_RUNTIME_MANIFEST,
+  serializeMlxRuntimeManifestStamp,
+} from "./runtime-integrity-manifest.js";
 
 const MLX_RUNTIME_DIR = join(getDataDir(), "sidecar-runtime", "mlx");
 const MLX_UV_DIR = join(MLX_RUNTIME_DIR, "uv");
@@ -13,13 +29,14 @@ const MLX_PYTHON_BIN_DIR = join(MLX_RUNTIME_DIR, "python-bin");
 const MLX_VENV_DIR = join(MLX_RUNTIME_DIR, ".venv");
 const MLX_HF_HOME = join(MLX_RUNTIME_DIR, "hf-home");
 const MLX_LM_PACKAGE_STAMP_PATH = join(MLX_RUNTIME_DIR, "mlx-lm-package.txt");
+const MLX_UV_STAMP_PATH = join(MLX_RUNTIME_DIR, "uv-package.txt");
+const MLX_REQUIREMENTS_LOCK_PATH = fileURLToPath(
+  new URL("../../assets/mlx-runtime-requirements.lock", import.meta.url),
+);
 const UV_BIN = process.platform === "win32" ? join(MLX_UV_DIR, "uv.exe") : join(MLX_UV_DIR, "uv");
 const VENV_PYTHON =
   process.platform === "win32" ? join(MLX_VENV_DIR, "Scripts", "python.exe") : join(MLX_VENV_DIR, "bin", "python");
-const UV_INSTALLER_URL = "https://astral.sh/uv/install.sh";
 const PYTHON_VERSION = "3.12";
-// PyPI mlx-lm 0.31.3 lacks Gemma 4 model support, so the private MLX runtime uses upstream source.
-const MLX_LM_PACKAGE_SPEC = "mlx-lm @ https://github.com/ml-explore/mlx-lm/archive/refs/heads/main.zip";
 
 export interface MlxRuntimeInstall {
   backend: "mlx";
@@ -55,6 +72,32 @@ function readBundledUvVersion(): string | null {
   }
 }
 
+function readStamp(path: string): string | null {
+  if (!existsSync(path)) return null;
+  try {
+    const value = readFileSync(path, "utf-8").trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+function uvManifestStamp(): string {
+  return JSON.stringify({
+    version: MLX_RUNTIME_MANIFEST.uv.version,
+    sha256: MLX_RUNTIME_MANIFEST.uv.archive.sha256,
+  });
+}
+
+function isBundledUvCurrent(): boolean {
+  const version = readBundledUvVersion();
+  return (
+    version !== null &&
+    version.includes(MLX_RUNTIME_MANIFEST.uv.version) &&
+    readStamp(MLX_UV_STAMP_PATH) === uvManifestStamp()
+  );
+}
+
 function readInstalledVersion(): string | null {
   if (!isInstalled()) {
     return null;
@@ -71,25 +114,40 @@ function readInstalledVersion(): string | null {
 }
 
 function readInstalledPackageSpec(): string | null {
-  if (!existsSync(MLX_LM_PACKAGE_STAMP_PATH)) {
-    return null;
-  }
-
-  try {
-    const value = readFileSync(MLX_LM_PACKAGE_STAMP_PATH, "utf-8").trim();
-    return value || null;
-  } catch {
-    return null;
-  }
+  return readStamp(MLX_LM_PACKAGE_STAMP_PATH);
 }
 
 function isInstalledPackageCurrent(): boolean {
-  return readInstalledPackageSpec() === MLX_LM_PACKAGE_SPEC;
+  return readInstalledPackageSpec() === serializeMlxRuntimeManifestStamp() && isBundledUvCurrent();
 }
 
 function writeInstalledPackageSpec(): void {
   mkdirSync(MLX_RUNTIME_DIR, { recursive: true });
-  writeFileSync(MLX_LM_PACKAGE_STAMP_PATH, `${MLX_LM_PACKAGE_SPEC}\n`, "utf-8");
+  writeFileSync(MLX_LM_PACKAGE_STAMP_PATH, `${serializeMlxRuntimeManifestStamp()}\n`, "utf-8");
+}
+
+function verifyRequirementsLock(): void {
+  const actualSha256 = createHash("sha256")
+    .update(readFileSync(MLX_REQUIREMENTS_LOCK_PATH))
+    .digest("hex");
+  if (actualSha256 !== MLX_RUNTIME_MANIFEST.mlxLm.requirementsLockSha256) {
+    throw new Error(
+      "The bundled MLX dependency lock failed integrity verification. Update or reinstall Marinara Engine before retrying; do not bypass the runtime integrity check.",
+    );
+  }
+}
+
+function findFileRecursive(directoryPath: string, filename: string): string | null {
+  for (const entry of readdirSync(directoryPath, { withFileTypes: true })) {
+    const entryPath = join(directoryPath, entry.name);
+    if (entry.isDirectory()) {
+      const nested = findFileRecursive(entryPath, filename);
+      if (nested) return nested;
+    } else if (entry.isFile() && entry.name === filename) {
+      return entryPath;
+    }
+  }
+  return null;
 }
 
 function getMlxRepoCachePath(repo: string): string {
@@ -279,18 +337,38 @@ class MlxRuntimeService {
     this.cancelRequested = false;
 
     await this.ensureUvInstalled(onProgress);
+    const mlxArchivePath = join(MLX_RUNTIME_DIR, MLX_RUNTIME_MANIFEST.mlxLm.archive.name);
 
     try {
+      verifyRequirementsLock();
+      await this.downloadVerifiedAsset(
+        MLX_RUNTIME_MANIFEST.mlxLm.archive,
+        mlxArchivePath,
+        "mlx-lm source",
+        onProgress,
+      );
       this.emitProgress(onProgress, "downloading", `Python ${PYTHON_VERSION} runtime`);
       await this.runCommand(UV_BIN, ["venv", MLX_VENV_DIR, "--python", PYTHON_VERSION], {
         cwd: MLX_RUNTIME_DIR,
         env: this.getUvEnv(),
       });
       this.emitProgress(onProgress, "downloading", "MLX runtime dependencies");
-      await this.runCommand(UV_BIN, ["pip", "install", "--python", VENV_PYTHON, "--upgrade", MLX_LM_PACKAGE_SPEC], {
-        cwd: MLX_RUNTIME_DIR,
-        env: this.getUvEnv(),
-      });
+      await this.runCommand(
+        UV_BIN,
+        ["pip", "sync", "--python", VENV_PYTHON, "--require-hashes", MLX_REQUIREMENTS_LOCK_PATH],
+        {
+          cwd: MLX_RUNTIME_DIR,
+          env: this.getUvEnv(),
+        },
+      );
+      await this.runCommand(
+        UV_BIN,
+        ["pip", "install", "--python", VENV_PYTHON, "--no-deps", "--no-build-isolation", mlxArchivePath],
+        {
+          cwd: MLX_RUNTIME_DIR,
+          env: this.getUvEnv(),
+        },
+      );
       writeInstalledPackageSpec();
       this.emitProgress(onProgress, "downloading", "Verifying MLX runtime");
     } catch (error) {
@@ -301,6 +379,8 @@ class MlxRuntimeService {
         error instanceof Error ? error.message : "Failed to prepare the MLX runtime",
       );
       throw error;
+    } finally {
+      rmSync(mlxArchivePath, { force: true });
     }
 
     const version = readInstalledVersion();
@@ -324,39 +404,96 @@ class MlxRuntimeService {
   }
 
   private async ensureUvInstalled(onProgress?: (progress: SidecarDownloadProgress) => void): Promise<void> {
-    if (readBundledUvVersion()) {
+    if (isBundledUvCurrent()) {
       return;
     }
 
     this.emitProgress(onProgress, "downloading", "uv dependency manager");
-
-    let script: string;
+    const archivePath = join(MLX_RUNTIME_DIR, MLX_RUNTIME_MANIFEST.uv.archive.name);
+    const extractDirectory = join(MLX_RUNTIME_DIR, "uv.extract");
     try {
-      script = await retry(
+      await this.downloadVerifiedAsset(
+        MLX_RUNTIME_MANIFEST.uv.archive,
+        archivePath,
+        "uv dependency manager",
+        onProgress,
+      );
+      this.emitProgress(onProgress, "downloading", "Extracting uv dependency manager");
+      rmSync(extractDirectory, { recursive: true, force: true });
+      mkdirSync(extractDirectory, { recursive: true });
+      const entries = execFileSync("tar", ["-tzf", archivePath], {
+        encoding: "utf-8",
+        timeout: 120_000,
+      })
+        .split(/\r?\n/u)
+        .filter(Boolean);
+      for (const entry of entries) {
+        assertInsideDir(extractDirectory, join(extractDirectory, entry));
+      }
+      execFileSync("tar", ["-xzf", archivePath, "-C", extractDirectory], {
+        timeout: 120_000,
+      });
+      const extractedUv = findFileRecursive(extractDirectory, "uv");
+      if (!extractedUv) {
+        throw new Error(`The approved uv archive did not contain the uv executable.`);
+      }
+      rmSync(MLX_UV_DIR, { recursive: true, force: true });
+      mkdirSync(MLX_UV_DIR, { recursive: true });
+      copyFileSync(extractedUv, UV_BIN);
+      chmodSync(UV_BIN, 0o755);
+      writeFileSync(MLX_UV_STAMP_PATH, `${uvManifestStamp()}\n`, "utf-8");
+    } catch (error) {
+      if (isAbortError(error) || this.cancelRequested) {
+        throw new Error("Install aborted");
+      }
+
+      throw new Error(
+        error instanceof Error
+          ? `Failed to install the verified uv runtime.\n${error.message}`
+          : "Failed to install the verified uv runtime.",
+      );
+    } finally {
+      rmSync(archivePath, { force: true });
+      rmSync(extractDirectory, { recursive: true, force: true });
+    }
+
+    if (!isBundledUvCurrent()) {
+      throw new Error("The approved uv runtime was installed, but its version or manifest stamp could not be verified.");
+    }
+  }
+
+  private async downloadVerifiedAsset(
+    asset: {
+      browser_download_url: string;
+      name: string;
+      sha256: string;
+      size: number;
+    },
+    destinationPath: string,
+    label: string,
+    onProgress?: (progress: SidecarDownloadProgress) => void,
+  ): Promise<void> {
+    try {
+      await retry(
         async () => {
+          if (this.cancelRequested) {
+            throw new Error("Install aborted");
+          }
           const abortController = new AbortController();
           this.activeFetchAbort = abortController;
           try {
-            const response = await fetch(UV_INSTALLER_URL, {
+            await downloadFileWithProgress({
+              url: asset.browser_download_url,
+              destPath: destinationPath,
               signal: abortController.signal,
-              headers: {
-                "User-Agent": "MarinaraEngine",
+              expectedBytes: asset.size,
+              expectedSha256: asset.sha256,
+              progress: {
+                phase: "runtime",
+                label,
               },
+              onProgress,
             });
-
-            if (!response.ok) {
-              const raw = await response.text().catch(() => "");
-              throw new Error(
-                `Failed to download the uv installer: HTTP ${response.status} ${raw || response.statusText}`.trim(),
-              );
-            }
-
-            const text = await response.text();
-            if (!text.trim()) {
-              throw new Error("Failed to download the uv installer: received an empty response.");
-            }
-
-            return text;
           } finally {
             this.activeFetchAbort = null;
           }
@@ -368,36 +505,13 @@ class MlxRuntimeService {
         },
       );
     } catch (error) {
-      if (isAbortError(error) || this.cancelRequested) {
-        throw new Error("Install aborted");
+      const message = error instanceof Error ? error.message : String(error);
+      if (/(?:file size|SHA-256) mismatch/iu.test(message)) {
+        throw new Error(
+          `The ${label} download no longer matches the Engine-approved runtime manifest. Update or reinstall Marinara Engine before retrying; do not bypass the integrity check. Original verification error: ${message}`,
+        );
       }
       throw error;
-    }
-
-    try {
-      this.emitProgress(onProgress, "downloading", "Installing uv dependency manager");
-      await this.runCommand("/bin/sh", ["-s"], {
-        cwd: MLX_RUNTIME_DIR,
-        env: {
-          UV_UNMANAGED_INSTALL: MLX_UV_DIR,
-          UV_NO_MODIFY_PATH: "1",
-        },
-        stdin: script,
-      });
-    } catch (error) {
-      if (isAbortError(error) || this.cancelRequested) {
-        throw new Error("Install aborted");
-      }
-
-      throw new Error(
-        error instanceof Error
-          ? `Failed to bootstrap uv for the MLX runtime.\n${error.message}`
-          : "Failed to bootstrap uv for the MLX runtime.",
-      );
-    }
-
-    if (!readBundledUvVersion()) {
-      throw new Error("The private uv bootstrap completed, but the bundled uv binary could not be verified.");
     }
   }
 

@@ -63,6 +63,7 @@ try {
   assert.ok(supported.includes("fr"), "the shared label map must offer French");
   assert.ok(supported.includes("pt-br"), "the shared label map must offer Brazilian Portuguese");
   assert.ok(supported.includes("pl"), "the shared label map must offer Polish");
+  assert.ok(supported.includes("ru"), "the shared label map must offer Russian");
   assert.deepEqual([...supported].sort(), Object.keys(DOCS_LANGUAGE_LABELS).sort());
 
   // ── Build a valid installed fixture pack under DATA_DIR/doc-packs/es ──

@@ -1,9 +1,9 @@
-# Hierarchical Maps: Setup, Authoring, and Travel
+# World Maps: Setup, Authoring, and Travel
 
-> **Current compatibility:** This guide matches Hierarchical Maps **1.2.0** on
+> **Current compatibility:** This guide matches World Maps **1.2.1** on
 > Marinara Engine **2.3.5**. The package supports Roleplay and Game chats.
 
-Hierarchical Maps adds persistent world state to Roleplay and Game. Instead of
+World Maps adds persistent world state to Roleplay and Game. Instead of
 keeping one free-text location, it represents the world as nested places:
 
 ```text
@@ -21,24 +21,27 @@ lore can ground the next response. Maps can also follow a completed narrated
 journey to a known place or add a newly discovered place when the story truly
 arrives there.
 
-Each chat receives its own working copy of a map. Account-wide templates let you
-prepare an original or fandom world once and then add a clean copy to any
-Roleplay or Game chat.
+Maps can be independent per chat or linked to one account-owned shared world.
+Templates create clean copies that can diverge. A shared world instead keeps one
+canonical hierarchy and artwork set while each linked chat retains its own
+current location, travel history, snapshots, and Game bindings.
 
 ## Feature overview
 
-Hierarchical Maps 1.2.0 provides:
+World Maps 1.2.1 provides:
 
 - nested regions, settlements, places, buildings, floors, and rooms;
 - breadcrumbs and an authoritative current story location;
 - list, positioned-map, and ordered-layer views for child locations;
 - parent/child travel, direct links, and multi-turn route planning;
 - validated movement from completed narration and discovery of new locations;
+- account-owned shared worlds that can be linked across Roleplay and Game chats;
+- reviewed per-chat drafts with publish, discard, conflict, and independent-fork controls;
 - account-wide map templates created manually, with AI, or by import;
 - AI-assisted map drafts and expansions grounded in setup or selected lore;
 - public location descriptions, private model memory, and exact-location lore;
-- one optional Gallery reference image for each location;
-- a separate Gallery background for each positioned child map;
+- one optional chat or Global Gallery reference image for each location;
+- a separate chat or Global Gallery background for each positioned child map;
 - reviewed batch generation for missing location artwork;
 - a global, variable-based Maps artwork prompt override;
 - location-reference support for Roleplay illustrations and Game Storyboards;
@@ -51,10 +54,10 @@ the next options. The exact choices remain model-generated.
 
 ## Quick start
 
-1. Open **Agents**, click **Download Agents**, and install **Hierarchical Maps**.
+1. Open **Agents**, click **Download Agents**, and install **World Maps**.
 2. Restart Marinara when prompted. The package contains server code.
 3. Open a Roleplay or Game chat.
-4. Open **Agents → Hierarchical Maps** and enable it for the current chat. You
+4. Open **Agents → World Maps** and enable it for the current chat. You
    can also enable it from that chat's **Chat Settings → Agents** section.
 5. Create the map with **Use template**, **Create with AI**, or **Build
    manually**. Existing chats can also import a map file.
@@ -73,12 +76,12 @@ saved.
 ## Install and activate the package
 
 Open **Agents** from the Sparkles tab in the right sidebar. Click **Download
-Agents**, select **Hierarchical Maps**, and click **Install**. If the catalog
+Agents**, select **World Maps**, and click **Install**. If the catalog
 then offers **Update**, install that too. Follow the restart prompt before using
 the package.
 
-The Hierarchical Maps page reports the installed package version and readiness,
-offers the account-wide template library, and shows the current chat's map
+The World Maps page reports the installed package version and readiness,
+offers the account-wide world map library, and shows the current chat's map
 status. Installing the package makes it available but does not enable it in
 every chat.
 
@@ -87,16 +90,16 @@ every chat.
 1. Open the Roleplay chat.
 2. Open **Chat Settings** with the gear button.
 3. Turn on **Enable Agents**.
-4. Under **Tracker Agents**, enable **Hierarchical Maps**.
-5. Open **Edit hierarchical map** or the **Map templates** library.
+4. Under **Tracker Agents**, enable **World Maps**.
+5. Open **Edit world map** or the **World map library**.
 
-The template library behaves the same whether it is opened from the main Agents
-page or from Roleplay Chat Settings. Use **Add to chat** to copy a template into
-the active chat.
+The library behaves the same whether it is opened from the main Agents page or
+from Roleplay Chat Settings. Use **Add to chat** for an independent template
+copy, or **Link to chat** for a durable shared world.
 
 ### Game
 
-During Game setup, choose Hierarchical Maps and then select one of its setup
+During Game setup, choose World Maps and then select one of its setup
 routes:
 
 - **Create with AI** prepares a generated hierarchy for review.
@@ -108,12 +111,12 @@ creates a Game-owned working copy for review; it never edits the account
 template. The selected template's locations become the hierarchical starting
 world. A fallback regular Game map is not promoted into its place.
 
-You can also add Hierarchical Maps to an existing Game later from **Chat
+You can also add World Maps to an existing Game later from **Chat
 Settings → Agents**.
 
 ## Create and reuse map templates
 
-Open **Agents → Hierarchical Maps → Open map templates**. Templates belong to
+Open **Agents → World Maps → Open map templates**. Templates belong to
 your account rather than one chat, so they are suitable for reusable fandom
 worlds, campaign settings, dungeons, cities, or personal starter maps.
 
@@ -130,9 +133,50 @@ Each application creates an independent working copy. Later edits to the
 template do not change chats that already copied it, and chat edits do not
 change the template.
 
-Templates do not copy chat Gallery artwork. Image IDs belong to the source
-chat's Gallery and would not be portable. Add or generate the working chat's
-location references and map backgrounds after applying the template.
+Templates keep account-wide Global Gallery artwork references. When you use
+**Save as template** from a chat, Maps promotes referenced chat artwork to the
+Global Gallery and reuses an identical shared image when one already exists.
+Each chat that applies the template then points to the same shared artwork
+without creating another Gallery copy.
+
+Only the artwork is shared. Each applied map definition is still an independent
+working copy; editing the template does not update maps already added to chats.
+
+## Link chats to one shared world
+
+Use **Shared worlds** in the World map library when several Roleplay or Game
+chats should read the same canonical hierarchy. Create a blank shared world,
+import one, promote an existing template with **Make shared**, or open a saved
+chat map and choose **Make shared**. The last option promotes its referenced
+chat artwork to Global Gallery, creates the account-owned world, and links the
+original chat back to it.
+
+Choose **Link to chat** to attach an open chat. The current location and any
+location IDs already used by campaign history must exist in the shared world.
+Otherwise, use **Independent copy** or first migrate the chat's current map into
+a new shared world.
+
+Linked chats share only the map definition and Global Gallery artwork. They do
+not share messages, current locations, travel snapshots, Game state, Game map
+bindings, provider connections, or credentials.
+
+Edits and discoveries made inside a linked chat are saved as an unpublished
+draft for that chat. They do not change the canonical world or other chats until
+you choose **Publish changes**. You can instead **Discard** the draft or **Fork
+independent** to detach the chat while keeping its current version. If the
+canonical world changes while a draft is pending, Maps reports a conflict and
+requires a fork or discard instead of silently overwriting either version.
+
+Editing a shared world from the library updates the canonical definition
+directly. Locations used by linked chats cannot be deleted; archive them so
+their stable IDs remain available. A shared world also cannot be deleted until
+all linked chats are forked or relinked.
+
+Shared worlds and templates retain Global Gallery artwork references without
+copying the image file into every chat. Marinara blocks deletion of a Global
+Gallery image while a saved template, shared world, independent chat map, or
+linked-chat draft still references it. Remove the artwork links first when you
+intend to delete the asset itself.
 
 ## Understand the map editor
 
@@ -337,12 +381,12 @@ scene art, and eligible Storyboard reference.
 
 Game can contain two map systems:
 
-- **Hierarchical Maps** is the authoritative story or world location, such as
+- **World Maps** is the authoritative story or world location, such as
   `The Shattered Coast → Brinewatch → Tideglass Inn`.
 - A regular Game grid or node map is local or tactical detail inside that story
   location and also participates in Game time and weather.
 
-When Hierarchical Maps owns Game startup, its selected template or reviewed
+When World Maps owns Game startup, its selected template or reviewed
 draft supplies the starting world. The regular Game map is not reused as prompt
 input or promoted as a fallback hierarchy.
 
@@ -359,7 +403,7 @@ reuse the same Gallery image.
 
 | Artwork                      | Purpose                                                                                                                 | Sent to image generation?                                                                                 |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| **Location reference image** | Anchors the visual identity of the exact current place. Choose from Gallery or create with AI.                          | Yes, when **Use for Roleplay illustrations and Game storyboards** is enabled and the request is eligible. |
+| **Location reference image** | Anchors the visual identity of the exact current place. Choose chat or shared Global Gallery art, or create with AI.    | Yes, when **Use for Roleplay illustrations and Game storyboards** is enabled and the request is eligible. |
 | **Child map background**     | Appears behind movable child locations for a parent using Map presentation. Each map layer can have its own background. | No. It is display-only.                                                                                   |
 
 Character or persona references preserve who is present; the location reference
@@ -379,7 +423,8 @@ and character references can reduce how many automatic references fit.
 
 Select a location in the editor and open **Location reference image**.
 
-- **Choose from Gallery** assigns an existing reviewed image.
+- **Choose artwork** assigns a reviewed image from the current chat or the
+  shared Global Gallery. The picker labels each source.
 - **Create with AI** opens an editable establishing-image prompt and saves the
   result to Gallery before you decide whether to use it.
 - **Use for Roleplay illustrations and Game storyboards** controls whether the
@@ -455,7 +500,7 @@ review field.
 
 ## Link lore to locations
 
-Hierarchical Maps uses lore in two ways:
+World Maps uses lore in two ways:
 
 1. The AI builder can read selected lorebooks while drafting or expanding.
 2. A saved location can activate entries while that exact location is current.
@@ -474,7 +519,7 @@ or detached.
 
 ## Advanced Maps prompt settings
 
-The main **Agents → Hierarchical Maps** page owns two global prompt systems:
+The main **Agents → World Maps** page owns two global prompt systems:
 
 - **Generation prompt** is a named Roleplay/Game library for AI map drafts and
   expansions. Each chat can select an option independently. The resolved
@@ -495,12 +540,19 @@ variables and use the resolved previews before saving.
 
 ## Import, export, and archive safely
 
-Use **Export** to download the working hierarchy as a
-`.hierarchical-map.json` file. Export before major edits when you want a small,
-map-only backup.
+Use **Export** from a chat, template, or shared-world editor to download the
+working hierarchy as a `.world-map.json` file.
+Leave **Include map artwork** enabled to bundle referenced location images and
+child-map backgrounds in the same file. Disable it when you want a smaller,
+definition-only backup. Older `.hierarchical-map.json` files remain importable.
 
-Use **Import** to load a hierarchy into the working copy. Review it and click
-**Save** to make it authoritative. Import does not save immediately.
+Use **Import** to load a hierarchy into a chat working copy, independent
+template, or shared world. Bundled artwork is
+restored and its image links are remapped. Chat-owned artwork returns to the
+destination chat's Gallery. Shared artwork is reused from the Global Gallery
+when the same image already exists, or added there once when a template or
+shared reference needs it. Review the result and click **Save** to make it
+authoritative. Import does not save immediately.
 
 Once campaign history refers to a map, imported changes must retain existing
 location IDs. Add or update locations instead of replacing the hierarchy with
@@ -516,16 +568,16 @@ Archived locations can be restored from the Details pane.
 
 ## Troubleshooting
 
-### Hierarchical Maps is missing from Chat Settings
+### World Maps is missing from Chat Settings
 
 Confirm that the package is installed and Marinara was restarted. The active
 chat must be Roleplay or Game. Turn on **Enable Agents**, then enable
-**Hierarchical Maps** under **Tracker Agents**.
+**World Maps** under **Tracker Agents**.
 
 ### Add to chat is missing from the template library
 
 Open a supported Roleplay or Game chat before opening the library. The library
-shows **Add to chat** from either the main Hierarchical Maps page or that chat's
+shows **Add to chat** from either the main World Maps page or that chat's
 settings. During Game setup the equivalent action is **Use template**.
 
 ### Game setup used the wrong or fallback locations
@@ -597,7 +649,7 @@ unless the same Gallery image is also assigned as the location reference.
 
 ### The model ignores the map
 
-Confirm that Hierarchical Maps is active for the chat, the hierarchy is
+Confirm that World Maps is active for the chat, the hierarchy is
 **Enabled**, the latest changes were saved, and a current location appears in
 the Story location control. Use the **Turn prompt insert** resolved preview for
 advanced diagnosis.

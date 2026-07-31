@@ -89,7 +89,7 @@ To animate the newest picture:
 
 1. Make sure at least one picture exists under the **Images** tab. Use **Illustrate** or upload a picture first.
 2. Click **Video** in the action row at the top of the Gallery.
-3. If **Expose media prompts before sending** is enabled under **Settings**, **Generations**, **Image Generation**, review or edit the compiled animation prompt and click **Generate**. Canceling this window does not start a provider request.
+3. If **Expose media prompts before sending** is enabled under **Settings**, **Generations**, **Overall Generations**, review or edit the compiled animation prompt and click **Generate**. Canceling this window does not start a provider request.
 4. The button changes to **Generating...**, and a banner tells you video generation is running.
 5. When it finishes, the clip appears under the **Videos** tab.
 
@@ -99,7 +99,7 @@ To animate one specific picture instead of the newest one:
 2. Hover over the picture you want.
 3. Click the **Animate illustration** button (the film icon) in the hover controls.
 
-The same **Review Video Prompt** window appears for **Animate illustration** when prompt review is enabled. It shows the exact server-compiled prompt, duration, aspect ratio, and resolution that will be used for that selected image. Your edit applies only to that generation and does not replace the reusable Game Video Prompt template.
+The same **Review Video Prompt** window appears for **Animate illustration** when prompt review is enabled. It shows the exact server-compiled prompt, duration, aspect ratio, and resolution that will be used for that selected image. Your edit applies only to that generation. In Roleplay, the reusable instructions that produce this prompt are controlled separately by **Roleplay Gallery Animation Director** under **Settings**, **Generations**, **Video Generation Prompt Overrides**.
 
 Under the **Videos** tab, each clip plays inline and shows its length and model name. You can pin a clip with **Pin video to chat**, or save it with **Download scene video**. If there are no clips yet, the tab reads **No videos yet**.
 
@@ -132,7 +132,7 @@ Each chat picks its own video connection. You set this under **Chat Settings**, 
 - **Game Video Prompt**: the prompt template that decides how the picture animates. The built-in default is **Cinematic Scene Video**.
 - **Edit Video Presets**: add and edit your own copies of the video prompt template for this chat.
 
-The **Game Video Prompt** continues to control manual Gallery and Game Assets videos. Storyboard keyframe clips can choose a different **Storyboard Video Prompt** in **Chat Settings**, **Agents**, then **Storyboards**. If no separate storyboard choice is set, they inherit the Game Video Prompt.
+The **Game Video Prompt** continues to control manual Gallery and Game Assets videos in Game Mode. Roleplay Gallery animations use **Roleplay Gallery Animation Director** instead. Storyboard keyframe clips can choose a different **Storyboard Video Prompt** in **Chat Settings**, **Agents**, then **Storyboards**. If no separate storyboard choice is set, they inherit the Game Video Prompt.
 
 When you first create a Game Mode chat, the setup wizard also has a **Video Generation Connection** picker. It is on the **Features** step, and it appears after you turn on **Visual Generation**.
 
@@ -144,7 +144,7 @@ Some video defaults live in the app settings, not on a connection. Open **Settin
 
 The main scene-video setting here is **Scene video fallback length**, which defaults to 10 seconds. It is used only when the selected video connection has no length of its own. You can set it from 1 to 60 seconds.
 
-This section also holds **Video Generation Prompt Overrides**, where you can edit the reusable video prompt templates. This is the advanced way to change how clips move without editing any code.
+This section also holds **Video Generation Prompt Overrides**, where you can edit the reusable video prompt templates. **Roleplay Gallery Animation Director** controls the instructions sent to the selected Prompt Model before a Roleplay Gallery clip is generated. Its `${durationSeconds}` variable is replaced with the selected clip length. This is the advanced way to change how clips move without editing any code.
 
 The same section has an **Animated expression length** setting. That belongs to a separate feature, animated portrait sprites. See [Animated Expressions](animated-expressions.md) for that feature.
 

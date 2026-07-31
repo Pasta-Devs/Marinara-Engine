@@ -757,6 +757,8 @@ export function useSyncGameState(activeChatId: string, chatMeta: Record<string, 
       useGameModeStore.getState().setMaps(metadataMaps, activeMapId);
     } else if (chatMeta.gameMap && chatMeta.gameMap !== state.currentMap) {
       useGameModeStore.getState().setCurrentMap(chatMeta.gameMap as GameMap);
+    } else if (!chatMeta.gameMap) {
+      useGameModeStore.getState().setMaps([], null);
     }
     if (Array.isArray(chatMeta.gameNpcs)) {
       useGameModeStore.getState().setNpcs(chatMeta.gameNpcs as any[]);

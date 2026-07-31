@@ -100,6 +100,8 @@ export interface ImageGenRequest {
   imageDefaults?: ImageGenerationDefaultsProfile | null;
   /** Allow this explicit image-generation connection to call local/private URLs. */
   allowLocalUrls?: boolean;
+  /** Internal exact provider origin allowed to serve a private generated-image result. */
+  privateImageResultOrigin?: string;
   /** Optional base64-encoded reference image for img2img / character consistency. */
   referenceImage?: string;
   /** Optional array of base64-encoded reference images (avatars). Providers that support multiple refs use all; others use the first. */
@@ -210,12 +212,14 @@ export async function generateImage(
 
   try {
     return await withImageGenerationDeadline(request, generationTimeoutMs, async (signal) => {
+      const allowLocalUrls =
+        request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource));
       const scopedRequest = {
         ...request,
         fallback: undefined,
         signal,
-        allowLocalUrls:
-          request.allowLocalUrls ?? (await shouldAllowLocalUrlsForImageConnection(normalizedBaseUrl, resolvedSource)),
+        allowLocalUrls,
+        privateImageResultOrigin: allowLocalUrls ? imageProviderOrigin(normalizedBaseUrl) : undefined,
       };
 
       switch (resolvedSource) {
@@ -301,12 +305,26 @@ export async function generateImage(
   }
 }
 
+export type SaveImageToDiskOptions = {
+  /**
+   * Store one canonical file for images referenced by more than one gallery.
+   * Gallery metadata remains responsible for deciding where the image appears.
+   */
+  shared?: boolean;
+};
+
 /**
  * Save a generated image to the gallery directory on disk.
- * Returns the relative file path (chatId/filename).
+ * Returns a path relative to data/gallery/.
  */
-export function saveImageToDisk(chatId: string, base64: string, ext: string): string {
-  const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, chatId));
+export function saveImageToDisk(
+  chatId: string,
+  base64: string,
+  ext: string,
+  options: SaveImageToDiskOptions = {},
+): string {
+  const ownerDir = options.shared ? "shared" : chatId;
+  const dir = assertInsideDir(GALLERY_DIR, join(GALLERY_DIR, ownerDir));
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const filename = `${newId()}.${ext}`;
   const filePath = assertInsideDir(GALLERY_DIR, join(dir, filename));
@@ -322,7 +340,7 @@ export function saveImageToDisk(chatId: string, base64: string, ext: string): st
     }
     throw error;
   }
-  return `${chatId}/${filename}`;
+  return `${ownerDir}/${filename}`;
 }
 
 export function removeSavedImageFromDisk(filePath: string): void {
@@ -465,6 +483,14 @@ function normalizeImageUrl(url: string | URL): string {
   }
 }
 
+function imageProviderOrigin(baseUrl: string): string | undefined {
+  try {
+    return new URL(normalizeImageUrl(baseUrl)).origin;
+  } catch {
+    return undefined;
+  }
+}
+
 async function shouldAllowLocalUrlsForImageConnection(baseUrl: string, resolvedSource: string): Promise<boolean> {
   if (isImageLocalUrlsEnabled() || LOCAL_IMAGE_BACKENDS.has(resolvedSource)) return true;
 
@@ -480,12 +506,19 @@ async function shouldAllowLocalUrlsForImageConnection(baseUrl: string, resolvedS
   }
 }
 
-function imageFetch(url: string | URL, init?: RequestInit, options: { allowLocal?: boolean } = {}) {
+type ImageFetchOptions = {
+  allowLocal?: boolean;
+  allowLoopback?: boolean;
+  allowedOrigins?: string[];
+};
+
+function imageFetch(url: string | URL, init?: RequestInit, options: ImageFetchOptions = {}) {
   return safeFetch(url, {
     ...(init ?? {}),
     policy: {
       allowLocal: options.allowLocal ?? isImageLocalUrlsEnabled(),
-      allowLoopback: true,
+      allowLoopback: options.allowLoopback ?? true,
+      allowedOrigins: options.allowedOrigins,
       allowedProtocols: ["https:", "http:"],
       flagName: "IMAGE_LOCAL_URLS_ENABLED",
     },
@@ -795,7 +828,7 @@ async function readOpenAIImageResult(
   };
   const item = data.data?.[0];
   const b64 = item?.b64_json ?? item?.image_base64;
-  if (!b64 && item?.url) return downloadImageUrl(item.url, request.allowLocalUrls, request.signal);
+  if (!b64 && item?.url) return downloadImageUrl(item.url, request.privateImageResultOrigin, request.signal);
   if (!b64) {
     const fields = item
       ? Object.keys(item).join(", ")
@@ -810,18 +843,23 @@ async function readOpenAIImageResult(
 
 async function downloadImageUrl(
   imageUrl: string,
-  allowLocalUrls = false,
+  privateProviderOrigin?: string,
   signal?: AbortSignal,
 ): Promise<ImageGenResult> {
   if (imageUrl.trim().startsWith("data:")) {
     return decodeImageDataUrl(imageUrl);
   }
 
-  const normalizedImageUrl = normalizeImageUrl(imageUrl);
+  const resultPolicy = await resolveImageResultUrlPolicy(imageUrl, privateProviderOrigin);
+  const normalizedImageUrl = resultPolicy.url;
   const imgResp = await imageFetch(
     normalizedImageUrl,
     { signal: imageRequestSignal({ signal }) },
-    { allowLocal: allowLocalUrls },
+    {
+      allowLocal: resultPolicy.allowLocal,
+      allowLoopback: resultPolicy.allowLoopback,
+      allowedOrigins: resultPolicy.allowedOrigins,
+    },
   );
   if (!imgResp.ok) {
     throw new Error(`Failed to download generated image (${imgResp.status})`);
@@ -845,6 +883,52 @@ async function downloadImageUrl(
   }
 
   return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
+}
+
+export type ImageResultUrlPolicy = {
+  url: string;
+  allowLocal: boolean;
+  allowLoopback: boolean;
+  allowedOrigins?: string[];
+};
+
+/**
+ * Public provider results retain ordinary CDN redirect support. Private
+ * results are accepted only from the exact configured provider origin.
+ */
+export async function resolveImageResultUrlPolicy(
+  imageUrl: string,
+  privateProviderOrigin?: string,
+): Promise<ImageResultUrlPolicy> {
+  const normalizedImageUrl = normalizeImageUrl(imageUrl);
+  try {
+    await validateOutboundUrl(normalizedImageUrl, {
+      allowLocal: false,
+      allowLoopback: false,
+      allowedProtocols: ["https:", "http:"],
+    });
+    return {
+      url: normalizedImageUrl,
+      allowLocal: false,
+      allowLoopback: false,
+    };
+  } catch (publicPolicyError) {
+    let allowedOrigin: string | undefined;
+    let resultOrigin: string | undefined;
+    try {
+      allowedOrigin = privateProviderOrigin ? new URL(normalizeImageUrl(privateProviderOrigin)).origin : undefined;
+      resultOrigin = new URL(normalizedImageUrl).origin;
+    } catch {
+      throw publicPolicyError;
+    }
+    if (!allowedOrigin || resultOrigin !== allowedOrigin) throw publicPolicyError;
+    return {
+      url: normalizedImageUrl,
+      allowLocal: true,
+      allowLoopback: true,
+      allowedOrigins: [allowedOrigin],
+    };
+  }
 }
 
 function openAITextPrompt(request: ImageGenRequest): string {
@@ -990,7 +1074,7 @@ async function generateXAI(baseUrl: string, apiKey: string, request: ImageGenReq
   const data = (await resp.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
   const result = data.data?.[0];
   if (result?.b64_json) return { base64: result.b64_json, mimeType: "image/png", ext: "png" };
-  if (result?.url) return downloadImageUrl(result.url, request.allowLocalUrls, request.signal);
+  if (result?.url) return downloadImageUrl(result.url, request.privateImageResultOrigin, request.signal);
 
   throw new Error("No image data in xAI response");
 }
@@ -1055,7 +1139,7 @@ async function generateAtlasCloudImage(
     body,
     signal: imageRequestSignal(request),
   });
-  return downloadImageUrl(outputUrl, false, request.signal);
+  return downloadImageUrl(outputUrl, request.privateImageResultOrigin, request.signal);
 }
 
 async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
@@ -1104,7 +1188,7 @@ async function generateNanoGPT(baseUrl: string, apiKey: string, request: ImageGe
   const data = (await resp.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
   const result = data.data?.[0];
   if (result?.b64_json) return { base64: result.b64_json, mimeType: "image/png", ext: "png" };
-  if (result?.url) return downloadImageUrl(result.url, request.allowLocalUrls, request.signal);
+  if (result?.url) return downloadImageUrl(result.url, request.privateImageResultOrigin, request.signal);
 
   throw new Error("No image data in NanoGPT response");
 }
@@ -1265,7 +1349,9 @@ async function generateHorde(baseUrl: string, apiKey: string, request: ImageGenR
 
   const image = generation.img.trim();
   if (image.startsWith("data:")) return decodeImageDataUrl(image);
-  if (/^https?:\/\//i.test(image)) return downloadImageUrl(image, request.allowLocalUrls, request.signal);
+  if (/^https?:\/\//i.test(image)) {
+    return downloadImageUrl(image, request.privateImageResultOrigin, request.signal);
+  }
 
   const mimeType = detectImageMimeType(image) ?? "image/png";
   return { base64: image, mimeType, ext: imageExtensionFromMimeType(mimeType) };
@@ -2013,7 +2099,18 @@ function crc32(buf: Buffer): number {
  * Uses the central directory (at the end of the zip) to get reliable offset/size,
  * since local file headers may have zeroed-out sizes when a data descriptor is used.
  */
-function extractFirstFileFromZip(zip: Uint8Array): Uint8Array | null {
+export const MAX_NOVELAI_ZIP_OUTPUT_BYTES = 64 * 1024 * 1024;
+
+function readZipUint32Le(zip: Uint8Array, offset: number): number | null {
+  if (offset < 0 || offset + 4 > zip.length) return null;
+  return new DataView(zip.buffer, zip.byteOffset, zip.byteLength).getUint32(offset, true);
+}
+
+export function extractFirstFileFromZip(
+  zip: Uint8Array,
+  maxOutputBytes = MAX_NOVELAI_ZIP_OUTPUT_BYTES,
+): Uint8Array | null {
+  if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 1) return null;
   // Find End of Central Directory record (search backwards for signature 0x06054b50)
   let eocdOffset = -1;
   for (let i = zip.length - 22; i >= 0; i--) {
@@ -2026,25 +2123,25 @@ function extractFirstFileFromZip(zip: Uint8Array): Uint8Array | null {
   if (eocdOffset + 19 >= zip.length) return null;
 
   // Read first central directory entry offset
-  const cdOffset =
-    zip[eocdOffset + 16]! |
-    (zip[eocdOffset + 17]! << 8) |
-    (zip[eocdOffset + 18]! << 16) |
-    (zip[eocdOffset + 19]! << 24);
+  const cdOffset = readZipUint32Le(zip, eocdOffset + 16);
+  if (cdOffset === null) return null;
 
   // Parse central directory entry for the first file
   const cd = cdOffset;
-  if (cd + 45 >= zip.length) return null;
+  if (cd + 46 > zip.length) return null;
   if (zip[cd] !== 0x50 || zip[cd + 1] !== 0x4b || zip[cd + 2] !== 0x01 || zip[cd + 3] !== 0x02) return null;
 
   const method = zip[cd + 10]! | (zip[cd + 11]! << 8);
-  const compSize = zip[cd + 20]! | (zip[cd + 21]! << 8) | (zip[cd + 22]! << 16) | (zip[cd + 23]! << 24);
-  const uncompSize = zip[cd + 24]! | (zip[cd + 25]! << 8) | (zip[cd + 26]! << 16) | (zip[cd + 27]! << 24);
-  const localHeaderOffset = zip[cd + 42]! | (zip[cd + 43]! << 8) | (zip[cd + 44]! << 16) | (zip[cd + 45]! << 24);
+  const compSize = readZipUint32Le(zip, cd + 20);
+  const uncompSize = readZipUint32Le(zip, cd + 24);
+  const localHeaderOffset = readZipUint32Le(zip, cd + 42);
+  if (compSize === null || uncompSize === null || localHeaderOffset === null) return null;
+  if (uncompSize > maxOutputBytes) return null;
 
   // Skip past local file header to reach data
   const lh = localHeaderOffset;
-  if (lh + 29 >= zip.length) return null;
+  if (lh + 30 > zip.length) return null;
+  if (zip[lh] !== 0x50 || zip[lh + 1] !== 0x4b || zip[lh + 2] !== 0x03 || zip[lh + 3] !== 0x04) return null;
   const lhFnLen = zip[lh + 26]! | (zip[lh + 27]! << 8);
   const lhExtraLen = zip[lh + 28]! | (zip[lh + 29]! << 8);
   const dataStart = lh + 30 + lhFnLen + lhExtraLen;
@@ -2053,6 +2150,7 @@ function extractFirstFileFromZip(zip: Uint8Array): Uint8Array | null {
   if (dataStart + dataSize > zip.length) return null;
   if (method === 0) {
     // Stored (no compression)
+    if (compSize !== uncompSize) return null;
     return zip.slice(dataStart, dataStart + uncompSize);
   }
 
@@ -2060,7 +2158,11 @@ function extractFirstFileFromZip(zip: Uint8Array): Uint8Array | null {
     // Deflate
     const compressed = zip.slice(dataStart, dataStart + compSize);
     try {
-      return inflateRawSync(Buffer.from(compressed));
+      const inflated = inflateRawSync(Buffer.from(compressed), {
+        maxOutputLength: Math.max(1, Math.min(maxOutputBytes, uncompSize)),
+      });
+      if (inflated.length !== uncompSize || inflated.length > maxOutputBytes) return null;
+      return inflated;
     } catch {
       // Malformed or unsupported deflate data
       return null;
@@ -2256,7 +2358,7 @@ async function generateOpenRouterImageApi(
     const mimeType = normalizeImageMimeType(result?.media_type) ?? detectImageMimeType(base64) ?? "image/png";
     return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
   }
-  if (result?.url) return downloadImageUrl(result.url, request.allowLocalUrls, request.signal);
+  if (result?.url) return downloadImageUrl(result.url, request.privateImageResultOrigin, request.signal);
   throw new Error("No image data in OpenRouter Images API response");
 }
 
@@ -2357,7 +2459,7 @@ async function generateOpenRouter(baseUrl: string, apiKey: string, request: Imag
     );
   }
 
-  return downloadImageUrl(imageUrl, request.allowLocalUrls, request.signal);
+  return downloadImageUrl(imageUrl, request.privateImageResultOrigin, request.signal);
 }
 
 /**
@@ -2411,7 +2513,7 @@ async function generateViaChatCompletions(
     throw new Error(`No image URL found in proxy response: ${content.slice(0, 200)}`);
   }
 
-  return downloadImageUrl(imageUrl, request.allowLocalUrls, request.signal);
+  return downloadImageUrl(imageUrl, request.privateImageResultOrigin, request.signal);
 }
 
 // ── ComfyUI ──

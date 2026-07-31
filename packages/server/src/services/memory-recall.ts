@@ -4,7 +4,7 @@
 // Chunks conversation messages into groups, embeds them, and provides
 // semantic recall: given a query, find the most relevant past
 // conversation fragments from specified chats.
-import { eq, desc, and, gt, inArray, isNotNull, isNull } from "../db/file-query.js";
+import { eq, desc, and, gt, inArray, isNotNull, isNull, lt } from "../db/file-query.js";
 import type { DB } from "../db/connection.js";
 import { messages, memoryChunks } from "../db/schema/index.js";
 import { newId, now } from "../utils/id-generator.js";
@@ -72,6 +72,12 @@ export interface MemoryRecallEmbeddingOptions {
   embeddingSource?: MemoryRecallEmbeddingSource | null;
   localEmbedder?: (texts: string[], signal?: AbortSignal) => Promise<number[][] | null>;
   signal?: AbortSignal;
+}
+
+export interface RecallMemoriesOptions extends MemoryRecallEmbeddingOptions {
+  topK?: number;
+  /** Exclude chunks covering this message timestamp or anything newer. */
+  excludeFromMessageAt?: string | null;
 }
 
 export interface ChunkAndEmbedMessagesOptions extends MemoryRecallEmbeddingOptions {
@@ -406,7 +412,7 @@ export async function recallMemories(
   db: DB,
   query: string,
   chatIds: string[],
-  options: MemoryRecallEmbeddingOptions & { topK?: number } = {},
+  options: RecallMemoriesOptions = {},
 ): Promise<RecalledMemory[]> {
   if (isLite) return [];
   if (chatIds.length === 0) return [];
@@ -418,6 +424,7 @@ export async function recallMemories(
   if (queryEmbedding.length === 0) return [];
 
   const matchingChatIds = chatIds.slice(0, 50);
+  const excludeFromMessageAt = options.excludeFromMessageAt?.trim() || null;
 
   // Load every embedded chunk in scope before scoring. Applying a recency cap
   // here would exclude old-but-relevant memories before cosine similarity can
@@ -432,7 +439,13 @@ export async function recallMemories(
       lastMessageAt: memoryChunks.lastMessageAt,
     })
     .from(memoryChunks)
-    .where(and(inArray(memoryChunks.chatId, matchingChatIds), isNotNull(memoryChunks.embedding)));
+    .where(
+      and(
+        inArray(memoryChunks.chatId, matchingChatIds),
+        isNotNull(memoryChunks.embedding),
+        excludeFromMessageAt ? lt(memoryChunks.lastMessageAt, excludeFromMessageAt) : undefined,
+      ),
+    );
 
   if (chunks.length === 0) return [];
 

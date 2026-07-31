@@ -296,7 +296,7 @@ async function generateSelfie(
   });
 
   for (const [variantIndex, imageResult] of imageResults.entries()) {
-    const filePath = saveImageToDisk(args.chatId, imageResult.base64, imageResult.ext);
+    const filePath = saveImageToDisk(args.chatId, imageResult.base64, imageResult.ext, { shared: true });
     const effectiveImageProvider =
       imageResult.effectiveConnection?.provider ?? imgConnFull.provider ?? "image_generation";
     const effectiveImageModel = imageResult.effectiveConnection?.model || imgModel || "unknown";
@@ -311,6 +311,7 @@ async function generateSelfie(
     });
     await persistGeneratedImageToEntityGalleries({
       sourceFilePath: filePath,
+      sourceChatImageId: galleryEntry?.id,
       characterIds: args.characterId ? [args.characterId] : [],
       characterGallery: createCharacterGalleryStorage(args.db),
       personaGallery: createPersonaGalleryStorage(args.db),

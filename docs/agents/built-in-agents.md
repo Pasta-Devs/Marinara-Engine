@@ -130,14 +130,14 @@ Tracks fields you define yourself, such as currencies, counters, or flags. Use i
 - **Where it works**: Roleplay.
 - **Key settings**: **Add as Prompt Section** (on by default).
 
-### Hierarchical Maps
+### World Maps
 
 Adds persistent nested locations and spatial relationships to a story. You can author regions, areas, rooms, and connections, move between locations, and let the current position contribute spatial context to generation. Game Mode also gains the package's world-map view.
 
 - **Integration**: Feature package; it contributes map UI and chat runtime context instead of running as a normal generation-phase agent.
 - **Where it works**: Roleplay and Game.
 - **Key settings**: enable it for the Roleplay chat from **Chat Settings → Agents**, or select it during Game creation and manage it later from that game's settings. Installing or removing it requires a Marinara restart.
-- **Full guide**: [Hierarchical Maps: Setup, Authoring, and Travel](hierarchical-maps.md).
+- **Full guide**: [World Maps: Setup, Authoring, and Travel](hierarchical-maps.md).
 
 ## Misc agents
 

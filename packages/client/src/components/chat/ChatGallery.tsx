@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import {
   useChatAssetBrowser,
+  useDeleteSceneVideo,
   useGalleryImages,
   useSceneVideos,
   useUploadGalleryImage,
@@ -35,6 +36,7 @@ import { useGalleryStore } from "../../stores/gallery.store";
 import { toast } from "sonner";
 import { ImageUploadDropzone } from "../ui/ImageUploadDropzone";
 import { buildCardAssetMarkdown, dispatchCardAssetInsert } from "../../lib/card-asset-links";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn, copyToClipboard } from "../../lib/utils";
 import {
   ChatImageLightbox,
@@ -99,9 +101,11 @@ export function ChatGallery({
   const sceneVideos = sceneVideosQuery.data ?? EMPTY_SCENE_VIDEOS;
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
+  const deleteVideo = useDeleteSceneVideo(chatId);
   const [lightbox, setLightbox] = useState<ChatImage | null>(null);
   const [videoLightbox, setVideoLightbox] = useState<GeneratedSceneVideo | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingVideoId, setDeletingVideoId] = useState<string | null>(null);
   const [assetSearch, setAssetSearch] = useState("");
   const [copiedPromptImageId, setCopiedPromptImageId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<GalleryTab>("images");
@@ -295,6 +299,38 @@ export function ChatGallery({
       pinVideo({ ...video, chatId });
     },
     [chatId, pinVideo],
+  );
+
+  const handleDeleteVideo = useCallback(
+    async (video: GeneratedSceneVideo) => {
+      if (
+        !(await showConfirmDialog({
+          title: localizeUi("ui.chat.chatgallery.deleteSceneVideo"),
+          message: localizeUi("ui.chat.chatgallery.deleteThisVideo"),
+          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+          tone: "destructive",
+        }))
+      ) {
+        return;
+      }
+
+      const wasPinned = useGalleryStore.getState().pinnedImages.some((item) => item.id === video.id);
+      unpinImage(video.id);
+      if (videoLightbox?.id === video.id) setVideoLightbox(null);
+      setDeletingVideoId(video.id);
+      try {
+        await deleteVideo.mutateAsync(video.id);
+        toast.success(localizeUi("ui.chat.chatgallery.videoDeleted"));
+      } catch (error) {
+        if (wasPinned) pinVideo({ ...video, chatId });
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.chat.chatgallery.failedToDeleteVideo"),
+        );
+      } finally {
+        setDeletingVideoId(null);
+      }
+    },
+    [chatId, deleteVideo, localizeUi, pinVideo, unpinImage, videoLightbox?.id],
   );
 
   const handleInsertAsset = useCallback(
@@ -782,6 +818,20 @@ export function ChatGallery({
                             >
                               <Download size="0.75rem" />
                             </a>
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteVideo(video)}
+                              disabled={deleteVideo.isPending}
+                              aria-label={localizeUi("ui.chat.chatgallery.deleteSceneVideo")}
+                              className="pointer-events-auto rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60 disabled:cursor-wait disabled:opacity-60"
+                              title={localizeUi("ui.chat.chatgallery.deleteSceneVideo")}
+                            >
+                              {deletingVideoId === video.id ? (
+                                <Loader2 size="0.75rem" className="animate-spin" />
+                              ) : (
+                                <Trash2 size="0.75rem" />
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>

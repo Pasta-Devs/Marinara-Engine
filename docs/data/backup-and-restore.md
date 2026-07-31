@@ -27,7 +27,7 @@ From a phone, tablet, or any other device, backup and restore need the **Admin A
 2. Go to the **Advanced** tab.
 3. Find the **Backup & Export** section.
 4. Click **Download Backup**.
-5. The button shows **Creating backup...** while it works.
+5. The button shows **Creating backup…** while it works.
 6. On desktop Chrome or Edge, a **Save As** dialog opens so you pick where the file goes. Choose a folder and save.
 7. You should see **Backup saved!** or **Backup downloaded!** when it finishes.
 

@@ -19,6 +19,11 @@ export interface GalleryVideoNarrationSwipe {
   extra?: unknown;
 }
 
+export interface GalleryVideoSourceExchange {
+  sourceMessageId: string | null;
+  content: string;
+}
+
 const XAI_PROMPT_MAX_LENGTH = 3800;
 const UNBOUNDED_PROMPT_PART_LENGTH = Number.MAX_SAFE_INTEGER;
 
@@ -109,9 +114,7 @@ export function resolveGalleryVideoNarrationSummary(
       );
     }
 
-    const sourceMessage = messages.find((message) =>
-      extraReferencesGalleryImage(message.extra, targetGalleryImageId),
-    );
+    const sourceMessage = messages.find((message) => extraReferencesGalleryImage(message.extra, targetGalleryImageId));
     if (sourceMessage) {
       return (
         summarizeVideoNarration(sourceMessage.content, maxLength) ||
@@ -127,6 +130,52 @@ export function resolveGalleryVideoNarrationSummary(
     if (summary) return summary;
   }
   return "Animate the latest illustrated roleplay scene with motion that fits the reference image.";
+}
+
+export function clipVerbatimVideoSource(value: unknown, maxLength: number): string {
+  if (typeof value !== "string" || maxLength <= 0) return "";
+  const trimmed = value.trim();
+  if (trimmed.length <= maxLength) return trimmed;
+  return trimmed.slice(0, maxLength).trimEnd();
+}
+
+export function resolveGalleryVideoSourceExchange(
+  messages: GalleryVideoNarrationMessage[],
+  swipes: GalleryVideoNarrationSwipe[],
+  galleryImageId: string,
+  maxLength = 12_000,
+): GalleryVideoSourceExchange {
+  const targetGalleryImageId = galleryImageId.trim();
+  const sourceSwipe = targetGalleryImageId
+    ? swipes.find((swipe) => extraReferencesGalleryImage(swipe.extra, targetGalleryImageId))
+    : undefined;
+  const sourceMessage = sourceSwipe
+    ? messages.find((message) => message.id === sourceSwipe.messageId)
+    : targetGalleryImageId
+      ? messages.find((message) => extraReferencesGalleryImage(message.extra, targetGalleryImageId))
+      : undefined;
+  const fallbackMessage = [...messages].reverse().find((message) => message.role === "assistant");
+  const anchor = sourceMessage ?? fallbackMessage ?? null;
+  const anchorIndex = anchor ? messages.findIndex((message) => message.id === anchor.id) : -1;
+  const precedingUser =
+    anchorIndex > 0
+      ? messages
+          .slice(0, anchorIndex)
+          .reverse()
+          .find((message) => message.role === "user")
+      : undefined;
+  const assistantContent = clipVerbatimVideoSource(
+    sourceSwipe?.content ?? anchor?.content,
+    Math.floor(maxLength * 0.75),
+  );
+  const userContent = clipVerbatimVideoSource(precedingUser?.content, Math.floor(maxLength * 0.25));
+  const content = [
+    userContent ? `User:\n${userContent}` : "",
+    assistantContent ? `Assistant:\n${assistantContent}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+  return { sourceMessageId: anchor?.id ?? null, content };
 }
 
 export function excerptIllustrationPromptForVideo(value: unknown, maxLength: number): string {

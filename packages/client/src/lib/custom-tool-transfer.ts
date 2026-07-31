@@ -1,7 +1,4 @@
-import {
-  getFolderManifestConfig,
-  isJsonRecord,
-} from "@marinara-engine/shared";
+import { getFolderManifestConfig, isJsonRecord } from "@marinara-engine/shared";
 import type { CustomToolRow } from "../hooks/use-custom-tools";
 import type { ZipFileInput } from "./download-zip";
 import {
@@ -22,6 +19,19 @@ export type CustomToolTransferConfig = {
   scriptBody: string | null;
   includeHiddenContext: boolean;
   enabled: boolean;
+};
+
+export type CustomToolImportReview = {
+  name: string;
+  executionType: "webhook";
+  destinationOrigin: string | null;
+  requestedEnabled: boolean;
+  requestedHiddenContext: boolean;
+};
+
+export type PreparedCustomToolImport = {
+  config: CustomToolTransferConfig;
+  review: CustomToolImportReview | null;
 };
 
 export type CustomToolFolderPackageEntry = {
@@ -55,7 +65,10 @@ function parseToolParametersSchema(value: unknown): JsonRecord {
   return {};
 }
 
-function parseToolParametersSchemaFile(resolveTextFile: ((path: unknown) => string | null) | undefined, value: unknown) {
+function parseToolParametersSchemaFile(
+  resolveTextFile: ((path: unknown) => string | null) | undefined,
+  value: unknown,
+) {
   const text = resolvePackageTextPaths(resolveTextFile ?? (() => null), value);
   return text ? parseToolParametersSchema(text) : null;
 }
@@ -78,7 +91,7 @@ export function serializeCustomToolForTransfer(tool: CustomToolRow): CustomToolT
   };
 }
 
-export function normalizeCustomToolImportEntry(
+function normalizeCustomToolImportCandidate(
   entry: unknown,
   resolveTextFile?: (path: unknown) => string | null,
 ): CustomToolTransferConfig | null {
@@ -108,15 +121,58 @@ export function normalizeCustomToolImportEntry(
     webhookUrl: executionType === "webhook" && typeof source.webhookUrl === "string" ? source.webhookUrl : null,
     staticResult:
       executionType === "static"
-        ? staticResultFromFile ?? (typeof source.staticResult === "string" ? source.staticResult : null)
+        ? (staticResultFromFile ?? (typeof source.staticResult === "string" ? source.staticResult : null))
         : null,
     scriptBody:
       executionType === "script"
-        ? scriptBodyFromFile ?? (typeof source.scriptBody === "string" ? source.scriptBody : null)
+        ? (scriptBodyFromFile ?? (typeof source.scriptBody === "string" ? source.scriptBody : null))
         : null,
     includeHiddenContext: parseBooleanValue(source.includeHiddenContext, false),
     enabled: parseBooleanValue(source.enabled),
   };
+}
+
+function getWebhookOrigin(webhookUrl: string | null): string | null {
+  if (!webhookUrl) return null;
+  try {
+    const parsed = new URL(webhookUrl.trim());
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+export function prepareCustomToolImportEntry(
+  entry: unknown,
+  resolveTextFile?: (path: unknown) => string | null,
+): PreparedCustomToolImport | null {
+  const candidate = normalizeCustomToolImportCandidate(entry, resolveTextFile);
+  if (!candidate) return null;
+  if (candidate.executionType !== "webhook") {
+    return { config: candidate, review: null };
+  }
+
+  return {
+    config: {
+      ...candidate,
+      enabled: false,
+      includeHiddenContext: false,
+    },
+    review: {
+      name: candidate.name,
+      executionType: "webhook",
+      destinationOrigin: getWebhookOrigin(candidate.webhookUrl),
+      requestedEnabled: candidate.enabled,
+      requestedHiddenContext: candidate.includeHiddenContext,
+    },
+  };
+}
+
+export function normalizeCustomToolImportEntry(
+  entry: unknown,
+  resolveTextFile?: (path: unknown) => string | null,
+): CustomToolTransferConfig | null {
+  return prepareCustomToolImportEntry(entry, resolveTextFile)?.config ?? null;
 }
 
 export function createCustomToolFolderPackageEntries(
@@ -198,15 +254,17 @@ export async function importCustomToolEntries(
 ) {
   let imported = 0;
   const failed: string[] = [];
+  const reviews: CustomToolImportReview[] = [];
   for (const entry of entries) {
-    const normalized = normalizeCustomToolImportEntry(entry.raw, entry.resolveTextFile);
-    if (!normalized) continue;
+    const prepared = prepareCustomToolImportEntry(entry.raw, entry.resolveTextFile);
+    if (!prepared) continue;
     try {
-      await createCustomTool.mutateAsync(normalized);
+      await createCustomTool.mutateAsync(prepared.config);
       imported++;
+      if (prepared.review) reviews.push(prepared.review);
     } catch (error) {
-      failed.push(error instanceof Error ? error.message : `Failed to import ${normalized.name}`);
+      failed.push(error instanceof Error ? error.message : `Failed to import ${prepared.config.name}`);
     }
   }
-  return { imported, failed };
+  return { imported, failed, reviews };
 }

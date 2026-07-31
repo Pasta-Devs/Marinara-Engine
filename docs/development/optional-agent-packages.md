@@ -41,6 +41,27 @@ lore-entry selection, JSON-ish response parsing, and resolved language-model cal
 Connection credentials, provider implementations, database handles, and storage
 objects remain private to Engine.
 
+### Capability API 1.7 chat branches
+
+Capability API 1.7 adds normalized branch metadata to `CapabilityChatRecord`:
+
+```ts
+branch: {
+  title: string | null;
+  parentChatId: string | null;
+  parentMessageId: string | null;
+  childMessageId: string | null;
+} | null;
+```
+
+`title` is the trimmed persisted branch name. Roots return `null`. Known
+Engine-created branches expose the immediate parent chat, the source fork
+message, and the copied child message. Empty branches use null message anchors.
+Legacy branches, malformed metadata, and imported group siblings without a
+known relationship return null lineage fields; Engine does not infer historical
+relationships. Generic export/import omits parent and message IDs because IDs
+change between installations. Parent deletion leaves child lineage untouched.
+
 ## Initial packages
 
 - all currently built-in agents;

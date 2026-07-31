@@ -1,4 +1,11 @@
-import { getFolderImportEntries, getFolderManifestConfig, isJsonRecord } from "@marinara-engine/shared";
+import {
+  getFolderImportEntries,
+  getFolderManifestConfig,
+  isJsonRecord,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
+  normalizePersonalExtensionCapabilities,
+  type PersonalExtensionCapability,
+} from "@marinara-engine/shared";
 import {
   getPackagePathBasename,
   resolvePackageTextPaths,
@@ -11,6 +18,7 @@ export type PersonalExtensionImportDraft = {
   version: string | null;
   description: string;
   runtime: "client" | "server";
+  capabilities: PersonalExtensionCapability[];
   css: string | null;
   js: string | null;
   serverJs: string | null;
@@ -76,14 +84,14 @@ export function normalizePersonalExtensionImportEntry(
       resolvePackageTextPaths(
         entry.resolveTextFile,
         record.serverJsPath ?? record.serverJsPaths ?? record.jsPath ?? record.jsPaths,
-      ) ??
-      (typeof record.serverJs === "string" ? record.serverJs : typeof record.js === "string" ? record.js : null);
+      ) ?? (typeof record.serverJs === "string" ? record.serverJs : typeof record.js === "string" ? record.js : null);
     if (!serverJs?.trim()) return null;
     return {
       name,
       version: normalizePersonalExtensionVersion(record.version),
       description: typeof record.description === "string" ? record.description : "",
       runtime,
+      capabilities: [],
       css: null,
       js: null,
       serverJs,
@@ -97,11 +105,23 @@ export function normalizePersonalExtensionImportEntry(
     resolvePackageTextPaths(entry.resolveTextFile, record.jsPath ?? record.jsPaths) ??
     (typeof record.js === "string" ? record.js : null);
   if (!css?.trim() && !js?.trim()) return null;
+  const capabilities = normalizePersonalExtensionCapabilities(record.capabilities);
+  // `marinara.extension` is the pre-sandbox browser-extension envelope. Those
+  // packages were authored for the host page and otherwise import successfully
+  // only to fail at runtime. An explicit capabilities field always wins so a
+  // modern package can deliberately opt into the safe sandbox.
+  if (
+    kind === "marinara.extension" &&
+    !Object.prototype.hasOwnProperty.call(record, "capabilities")
+  ) {
+    capabilities.push(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
+  }
   return {
     name,
     version: normalizePersonalExtensionVersion(record.version),
     description: typeof record.description === "string" ? record.description : "",
     runtime,
+    capabilities,
     css,
     js,
     serverJs: null,
@@ -123,6 +143,7 @@ export function createLoosePersonalExtensionEntries(
           name: fallbackName || "Personal Extension",
           description: "Server Personal Extension imported from local files",
           runtime: "server",
+          capabilities: [],
           serverJs,
         },
         fallbackName,
@@ -144,6 +165,7 @@ export function createLoosePersonalExtensionEntries(
         name: fallbackName || "Personal Extension",
         description: "Browser Personal Extension imported from local files",
         runtime: "client",
+        capabilities: [],
         css: css || null,
         js: js || null,
       },
@@ -156,25 +178,46 @@ export function personalExtensionEntriesFromJson(parsed: unknown, path: string) 
   return getFolderImportEntries(parsed, ["extensions", "personalExtensions"]).map((entry) => inlineEntry(entry, path));
 }
 
-export function personalExtensionEntryFromSourceFile(fileName: string, source: string): FolderPackageImportEntry | null {
+export function personalExtensionEntryFromSourceFile(
+  fileName: string,
+  source: string,
+): FolderPackageImportEntry | null {
   if (/\.server\.(js|mjs|cjs)$/i.test(fileName)) {
     const name = fileName.replace(/\.server\.(js|mjs|cjs)$/i, "");
     return inlineEntry(
-      { name, description: "Server Personal Extension imported from a local file", runtime: "server", serverJs: source },
+      {
+        name,
+        description: "Server Personal Extension imported from a local file",
+        runtime: "server",
+        capabilities: [],
+        serverJs: source,
+      },
       fileName,
     );
   }
   if (/\.(js|mjs|cjs)$/i.test(fileName)) {
     const name = fileName.replace(/\.(js|mjs|cjs)$/i, "");
     return inlineEntry(
-      { name, description: "Browser Personal Extension imported from a local file", runtime: "client", js: source },
+      {
+        name,
+        description: "Browser Personal Extension imported from a local file",
+        runtime: "client",
+        capabilities: [],
+        js: source,
+      },
       fileName,
     );
   }
   if (/\.css$/i.test(fileName)) {
     const name = fileName.replace(/\.css$/i, "");
     return inlineEntry(
-      { name, description: "CSS Personal Extension imported from a local file", runtime: "client", css: source },
+      {
+        name,
+        description: "CSS Personal Extension imported from a local file",
+        runtime: "client",
+        capabilities: [],
+        css: source,
+      },
       fileName,
     );
   }

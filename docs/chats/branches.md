@@ -10,6 +10,8 @@ All branches of the same chat are grouped together. In the chat list, a chat wit
 
 Each branch can have its own display name, so you can label them like "friendly ending" and "dark ending". This display name is separate from the underlying chat name.
 
+Branch lineage records the immediate source chat and the message where the fork was made. The source message ID and its copied message ID are both retained; this lets integrations identify the fork boundary even though copied messages receive new IDs. Branching a branch records that branch as the immediate parent, not the original root. Older branches and imported siblings keep their display name but have no known lineage.
+
 ## Branch from here
 
 You create a branch from any message in the chat.
@@ -24,6 +26,8 @@ Marinara copies the chat up to and including that message into a new branch. The
 - Copies tracker and game state snapshots tied to the copied messages, so Roleplay and Game chats keep their state.
 - Starts with the display name **New Branch**. You can rename it (see below).
 - Stays in the same chat folder as the source chat.
+
+An empty chat has null message anchors. Deleting a parent chat does not change its children's historical lineage. Deleting the whole branch group still deletes every chat in that group.
 
 Day and week summaries do not carry over. Rolling summaries with persisted message ranges fully contained in the copied branch are carried over and remapped to the branch's new message IDs. Summaries whose source range crosses the branch point, or legacy summaries without message metadata, are left out. The new branch starts those fresh.
 

@@ -1,19 +1,30 @@
 // ──────────────────────────────────────────────
 // Storage: Character Gallery Images
 // ──────────────────────────────────────────────
-import { eq, desc } from "../../db/file-query.js";
+import { and, desc, eq, gte, isNull, lte } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import { characterImages } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 
 export interface CreateCharacterImageInput {
   characterId: string;
+  sourceChatImageId?: string | null;
   filePath: string;
   prompt?: string;
   provider?: string;
   model?: string;
   width?: number;
   height?: number;
+}
+
+export interface LegacyCharacterImageCandidateInput {
+  createdAfter: string;
+  createdBefore: string;
+  prompt: string;
+  provider: string;
+  model: string;
+  width: number | null;
+  height: number | null;
 }
 
 export function createCharacterGalleryStorage(db: DB) {
@@ -23,6 +34,33 @@ export function createCharacterGalleryStorage(db: DB) {
         .select()
         .from(characterImages)
         .where(eq(characterImages.characterId, characterId))
+        .orderBy(desc(characterImages.createdAt));
+    },
+
+    async listLegacyCandidates(input: LegacyCharacterImageCandidateInput) {
+      return db
+        .select()
+        .from(characterImages)
+        .where(
+          and(
+            isNull(characterImages.sourceChatImageId),
+            gte(characterImages.createdAt, input.createdAfter),
+            lte(characterImages.createdAt, input.createdBefore),
+            eq(characterImages.prompt, input.prompt),
+            eq(characterImages.provider, input.provider),
+            eq(characterImages.model, input.model),
+            input.width === null ? isNull(characterImages.width) : eq(characterImages.width, input.width),
+            input.height === null ? isNull(characterImages.height) : eq(characterImages.height, input.height),
+          ),
+        )
+        .orderBy(desc(characterImages.createdAt));
+    },
+
+    async listBySourceChatImageId(sourceChatImageId: string) {
+      return db
+        .select()
+        .from(characterImages)
+        .where(eq(characterImages.sourceChatImageId, sourceChatImageId))
         .orderBy(desc(characterImages.createdAt));
     },
 
@@ -36,6 +74,7 @@ export function createCharacterGalleryStorage(db: DB) {
       await db.insert(characterImages).values({
         id,
         characterId: input.characterId,
+        sourceChatImageId: input.sourceChatImageId ?? null,
         filePath: input.filePath,
         prompt: input.prompt ?? "",
         provider: input.provider ?? "",

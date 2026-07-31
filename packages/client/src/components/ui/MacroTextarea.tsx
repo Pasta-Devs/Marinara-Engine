@@ -9,9 +9,10 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Maximize2, X } from "lucide-react";
+import { BookOpen, Eye, Maximize2, Pencil, X } from "lucide-react";
 import { SUPPORTED_MACROS } from "@marinara-engine/shared";
 
+import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn } from "../../lib/utils";
 import { handleTextareaTab } from "../../lib/textarea-editing";
 import { Trans, useTranslation as useUiTranslation } from "react-i18next";
@@ -134,7 +135,9 @@ function ExpandedMacroEditor({
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
               <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
-              <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}</p>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
+              </p>
             </div>
             <button
               type="button"
@@ -203,8 +206,12 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
         <div className="max-h-[88vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:max-h-[88dvh]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
             <div>
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">{localizeUi("ui.ui.macrosreferencemodal.macroReference")}</h3>
-              <p className="text-xs text-[var(--muted-foreground)]">{localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}</p>
+              <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                {localizeUi("ui.ui.macrosreferencemodal.macroReference")}
+              </h3>
+              <p className="text-xs text-[var(--muted-foreground)]">
+                {localizeUi("ui.ui.macrosreferencemodal.macrosAreReplacedWithLiveChatCharacterAndPreset")}
+              </p>
             </div>
             <button
               type="button"
@@ -231,21 +238,38 @@ function MacrosReferenceModal({ open, onClose }: MacrosReferenceModalProps) {
               </p>
               <div className="mt-3 grid gap-2 md:grid-cols-2">
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
-                  <p className="font-semibold text-[var(--foreground)]">{localizeUi("ui.ui.macrosreferencemodal.conditionalBlock")}</p>
-                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">{"{{#if character == \"Dottore\"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}"}</code>
+                  <p className="font-semibold text-[var(--foreground)]">
+                    {localizeUi("ui.ui.macrosreferencemodal.conditionalBlock")}
+                  </p>
+                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
+                    {
+                      '{{#if character == "Dottore"}}\nWrite this for Dottore.\n{{else}}\nWrite this for anyone else.\n{{/if}}'
+                    }
+                  </code>
                 </div>
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
-                  <p className="font-semibold text-[var(--foreground)]">{localizeUi("ui.ui.macrosreferencemodal.comparisonsAndLogic")}</p>
-                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">{"{{#if character == \"Maukie\" || \"Pantalone\"}}\n...\n{{/if}}\n{{#if scenario && user contains \"Mari\"}}\n...\n{{/if}}"}</code>
+                  <p className="font-semibold text-[var(--foreground)]">
+                    {localizeUi("ui.ui.macrosreferencemodal.comparisonsAndLogic")}
+                  </p>
+                  <code className="mt-1 block whitespace-pre-wrap text-[var(--primary)]">
+                    {
+                      '{{#if character == "Maukie" || "Pantalone"}}\n...\n{{/if}}\n{{#if scenario && user contains "Mari"}}\n...\n{{/if}}'
+                    }
+                  </code>
                 </div>
               </div>
             </section>
             {MACRO_REFERENCE.map(([category, macros]) => (
               <section key={category} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3">
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">{category}</h4>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  {category}
+                </h4>
                 <div className="grid gap-2 md:grid-cols-2">
                   {macros.map((macro) => (
-                    <div key={macro.syntax} className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2">
+                    <div
+                      key={macro.syntax}
+                      className="rounded-lg border border-[var(--border)] bg-[var(--background)] p-2"
+                    >
                       <code className="text-xs font-semibold text-[var(--foreground)]">{macro.syntax}</code>
                       <p className="mt-1 text-xs text-[var(--muted-foreground)]">{macro.description}</p>
                     </div>
@@ -280,6 +304,7 @@ export interface MacroTextareaProps {
   formatOnChange?: (textarea: HTMLTextAreaElement, inputEvent: InputEvent) => string;
   showMacroReference?: boolean;
   showExpand?: boolean;
+  showMarkdownPreview?: boolean;
   spellCheck?: boolean;
   /** Optional ref to the underlying textarea (e.g. to insert emoji at the caret). */
   textareaRef?: Ref<HTMLTextAreaElement>;
@@ -305,12 +330,14 @@ export function MacroTextarea({
   formatOnChange,
   showMacroReference = true,
   showExpand = true,
+  showMarkdownPreview = false,
   spellCheck = true,
   textareaRef,
 }: MacroTextareaProps) {
   const { t: localizeUi } = useUiTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showMacroRef, setShowMacroRef] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleExpandedClose = useCallback(() => {
     setExpanded(false);
@@ -348,25 +375,60 @@ export function MacroTextarea({
   return (
     <>
       <div className={cn("relative", wrapperClassName)}>
-        <textarea
-          ref={textareaRef}
-          value={value}
-          onChange={handleChange}
-          onBlur={onBlur}
-          onFocus={onFocus}
-          onKeyDown={handleKeyDown}
-          rows={rows}
-          aria-label={ariaLabel}
-          placeholder={placeholder}
-          spellCheck={spellCheck}
-          className={cn(
-            "w-full resize-y rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)] transition placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
-            className,
-            controlPaddingClassName ?? (toolbarExtra ? "pr-12" : "pr-8"),
-          )}
-        />
-        {(showExpand || showMacroReference || toolbarExtra) && (
+        {showMarkdownPreview && showPreview ? (
+          <div
+            role="region"
+            aria-label={ariaLabel ?? localizeUi("ui.ui.macrotextarea.markdownPreview")}
+            style={{ minHeight: `${rows * 1.5 + 1.25}rem` }}
+            className={cn(
+              "mari-message-content w-full overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)]",
+              className,
+              controlPaddingClassName ?? (toolbarExtra ? "pr-12" : "pr-8"),
+            )}
+          >
+            {value.trim() ? (
+              renderMarkdownBlocks(value, applyInlineMarkdown, "field-preview")
+            ) : (
+              <span className="text-[var(--muted-foreground)]">{placeholder}</span>
+            )}
+          </div>
+        ) : (
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleChange}
+            onBlur={onBlur}
+            onFocus={onFocus}
+            onKeyDown={handleKeyDown}
+            rows={rows}
+            aria-label={ariaLabel}
+            placeholder={placeholder}
+            spellCheck={spellCheck}
+            className={cn(
+              "w-full resize-y rounded-lg bg-[var(--secondary)] p-2.5 text-sm leading-6 text-[var(--foreground)] ring-1 ring-[var(--border)] transition placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]",
+              className,
+              controlPaddingClassName ?? (toolbarExtra ? "pr-12" : "pr-8"),
+            )}
+          />
+        )}
+        {(showExpand || showMacroReference || showMarkdownPreview || toolbarExtra) && (
           <div className={cn("absolute right-1.5 top-1.5 flex flex-col gap-0.5", toolbarClassName)}>
+            {showMarkdownPreview ? (
+              <button
+                type="button"
+                onClick={() => setShowPreview((current) => !current)}
+                className={affordanceButtonClassName}
+                aria-pressed={showPreview}
+                aria-label={localizeUi(
+                  showPreview ? "ui.ui.macrotextarea.editMarkdownSource" : "ui.ui.macrotextarea.previewMarkdown",
+                )}
+                title={localizeUi(
+                  showPreview ? "ui.ui.macrotextarea.editMarkdownSource" : "ui.ui.macrotextarea.previewMarkdown",
+                )}
+              >
+                {showPreview ? <Pencil className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              </button>
+            ) : null}
             {showExpand ? (
               <button
                 type="button"

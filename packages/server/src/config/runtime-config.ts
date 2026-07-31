@@ -428,10 +428,11 @@ export function isDockerBypassEnabled() {
  * Require normal auth/allowlist handling for Docker bridge requests that look
  * like they were forwarded by a reverse proxy or tunnel container.
  *
- * Default: OFF for compatibility with existing Docker installs.
+ * Default: ON. Set REQUIRE_AUTH_FOR_DOCKER_PROXY=false only when every client
+ * behind the Docker proxy is intentionally inside the trusted boundary.
  */
 export function isDockerProxyAuthRequired() {
-  return isEnabledFlag(process.env.REQUIRE_AUTH_FOR_DOCKER_PROXY);
+  return !isDisabledFlag(process.env.REQUIRE_AUTH_FOR_DOCKER_PROXY);
 }
 
 export function isDebugAgentsEnabled() {

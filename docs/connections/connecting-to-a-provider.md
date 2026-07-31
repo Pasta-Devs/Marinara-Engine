@@ -31,7 +31,7 @@ Follow these steps to add your first provider.
 3. Under **Provider**, click the button for the service you want, for example **OpenAI**, **Anthropic**, or **OpenRouter**.
 4. Click **Create**. Marinara creates the connection and opens the full **Connection Editor** for it.
 5. Find the **API Key** field. Paste your key from the provider here. If you do not have a key yet, click the **Get your {Provider} API key** link under the field. That link opens the provider's key page in your browser.
-6. Open the **Model** dropdown and pick a model. You can type in the **Search models...** box to filter the list. If the list is empty, click **Fetch Models from API** to load the models your account can use.
+6. Open the **Model** dropdown and pick a model. You can type in the **Search models…** box to filter the list. If the list is empty, click **Fetch Models from API** to load the models your account can use.
 7. Click **Save**. The status text near the top changes to **Saved**.
 
 You usually do not need to touch the **Base URL** field. Marinara fills it in for known providers. Only change it if you use a proxy or a local server.

@@ -179,6 +179,8 @@ You can move tools between installs.
 - To export every tool, click **Export functions to ZIP** in the **Functions** section.
 - To import, click **Import functions from ZIP or JSON** and pick a `.json` or `.zip` file. A message reports how many tools imported.
 
+Imported webhook tools are always saved with the tool disabled and **Include hidden chat context** off, even if the file asks for either permission. After the import, Marinara shows the webhook's destination origin and the permissions the file requested. Open each imported webhook, inspect its complete URL and hidden-context setting, then turn it on only if you trust the destination. Static and Script tools keep their imported enabled state.
+
 An import skips any tool whose name clashes with an existing tool or a built-in tool name. Agent packages do not bundle or import custom tools: export trusted functions separately, review them in **Function Calls**, and explicitly attach them after importing the agent.
 
 ## Reserved names

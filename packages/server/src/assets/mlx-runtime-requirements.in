@@ -1,0 +1,11 @@
+# Direct runtime and build dependencies declared by the approved mlx-lm source revision.
+# Regenerate mlx-runtime-requirements.lock only during an Engine-reviewed runtime update.
+mlx==0.31.2
+numpy
+transformers>=5.7.0
+sentencepiece
+protobuf
+pyyaml
+jinja2
+setuptools
+wheel

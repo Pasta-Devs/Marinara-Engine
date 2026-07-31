@@ -51,10 +51,7 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
     <div>
       <div className="flex flex-wrap gap-1.5">
         {keys.map((key, i) => (
-          <span
-            key={i}
-            className="mari-editor-chip mari-editor-chip--accent px-2 py-1 text-[0.6875rem]"
-          >
+          <span key={i} className="mari-editor-chip mari-editor-chip--accent px-2 py-1 text-[0.6875rem]">
             {key}
             <button
               onClick={() => onChange(keys.filter((_, j) => j !== i))}
@@ -78,7 +75,9 @@ export function KeysEditor({ keys, onChange }: { keys: string[]; onChange: (keys
           type="button"
           onClick={addKey}
           className="mari-editor-action mari-editor-action--compact px-2 py-1.5 text-[0.6875rem]"
-        >{localizeUi("ui.lorebooks.keyseditor.add")}</button>
+        >
+          {localizeUi("ui.lorebooks.keyseditor.add")}
+        </button>
       </div>
     </div>
   );
@@ -171,6 +170,7 @@ export function ExpandableTextarea({
       placeholder={placeholder}
       title={title ?? "Edit"}
       showMacroReference={showMacroReference}
+      showMarkdownPreview
       className="mari-editor-field w-full resize-y p-2.5 text-sm"
     />
   );

@@ -219,6 +219,13 @@ function parseShareConfig(value: unknown): GameSetupConfig {
     throw new Error("This file has an invalid combat style.");
   }
   if (
+    value.gameWorldMapMode !== undefined &&
+    value.gameWorldMapMode !== "standard" &&
+    value.gameWorldMapMode !== "hierarchical"
+  ) {
+    throw new Error("This file has an invalid world map mode.");
+  }
+  if (
     value.spotifySourceType !== undefined &&
     value.spotifySourceType !== "liked" &&
     value.spotifySourceType !== "playlist" &&
@@ -702,7 +709,7 @@ export function buildGameSetupSummarySections(source: GameSetupShareSource): Gam
       title: "World tools",
       rows: [
         { label: "Active lorebooks", value: lorebooks },
-        { label: "Hierarchical map creation prompt", value: config.spatialMapInstructions?.trim() || "None" },
+        { label: "World map creation prompt", value: config.spatialMapInstructions?.trim() || "None" },
         { label: "HUD widgets", value: formatWidgets(config) },
         { label: "Music DJ", value: formatMusicSource(config) },
         { label: "Lorebook Keeper", value: config.enableLorebookKeeper ? "On" : "Off" },

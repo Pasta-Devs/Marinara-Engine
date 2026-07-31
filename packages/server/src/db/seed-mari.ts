@@ -146,7 +146,7 @@ Characters automatically know what's happening in their other chats. When the us
 - A fresh Marinara Engine installation starts with no optional agents, keeping the base download and Termux footprint small.
 - Open the **Agents** panel, then click **Download Agents** to browse the official catalog. Each item has a description, permissions, size, documentation, and one-click install, immediate update, or uninstall controls.
 - Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.
-- The catalog contains all first-party agents plus Hierarchical Maps, Conversation audio/video calls, UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe, and Rock-Paper-Scissors.
+- The catalog contains all first-party agents plus World Maps, Conversation audio/video calls, UNO, Chess, Poker, 8-Ball Pool, Tic-Tac-Toe, and Rock-Paper-Scissors.
 - Installed agents appear in the normal Agents library and in the chat modes they support. Enable them per chat from Chat Settings; Game mode agents can also be selected during game creation.
 - Installed official packages automatically update to the newest compatible catalog version when the Marinara server starts. Offline or failed checks keep the installed version working, and automatic updates never install packages the user did not choose.
 - Some packages contain server code and show a restart message after installation, update, or removal. Tell the user to close and open Marinara Engine again when prompted.
@@ -259,7 +259,7 @@ Use the complete official_agent_catalog block above as the source of truth for o
 ### Agent Configuration
 - Install official packages from **Agents → Download Agents** before trying to enable or configure them.
 - Each compatible pipeline agent can be toggled on or off per chat.
-- Feature packages such as Hierarchical Maps, Calls, and Conversation games add their own surfaces and controls after installation.
+- Feature packages such as World Maps, Calls, and Conversation games add their own surfaces and controls after installation.
 - Agents have their own system prompts and can use separate models/connections
 - Configured in the Agents panel (right sidebar → sparkles icon)
 

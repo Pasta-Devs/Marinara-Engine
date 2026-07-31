@@ -98,6 +98,7 @@ export const CHAT_PRESET_EXCLUDED_METADATA_KEYS: readonly string[] = [
   "gameMap",
   "gameMaps",
   "activeGameMapId",
+  "gameInitialMapFallback",
   "gamePreviousSessionSummaries",
   "gameStoryArc",
   "gamePlotTwists",

@@ -26,7 +26,7 @@ Click **Download Agents** at the top to open the full-screen official catalog. I
 
 The in-app catalog is backed by the public [Marinara-Agents repository](https://github.com/Pasta-Devs/Marinara-Agents). You can inspect every package and artifact there, but normal users should install through **Download Agents** so Marinara can validate compatibility, permissions, hashes, archive contents, and restart requirements.
 
-The catalog includes first-party chat agents, Hierarchical Maps, Conversation audio/video calls, and every optional Conversation game. Installed agents are grouped into **Writer Agents**, **Tracker Agents**, and **Misc Agents**, plus a **Custom Agents** section for ones you make. Uninstalling a catalog package removes its code and settings from the Engine while preserving chat messages and history. Deleting a custom agent removes it for good.
+The catalog includes first-party chat agents, World Maps, Conversation audio/video calls, and every optional Conversation game. Installed agents are grouped into **Writer Agents**, **Tracker Agents**, and **Misc Agents**, plus a **Custom Agents** section for ones you make. Uninstalling a catalog package removes its code and settings from the Engine while preserving chat messages and history. Deleting a custom agent removes it for good.
 
 When upgrading from an Engine version that bundled these features, Marinara downloads the matching packages once and preserves existing chat selections, agent settings, stored runtime data, and history. If that migration cannot reach the catalog, it retries at the next startup instead of discarding anything.
 
@@ -60,9 +60,9 @@ This readout turns amber with a warning icon when the load gets heavy. The real 
 
 A fresh installation starts with no optional agents installed or active. Each chat mode shows only compatible packages you have installed.
 
-- **Roleplay**: install Roleplay agents from the catalog, then add them in Chat Settings. Hierarchical Maps appears there like any other supported agent.
+- **Roleplay**: install Roleplay agents from the catalog, then add them in Chat Settings. World Maps appears there like any other supported agent.
 - **Conversation**: install Calls or individual table games from the catalog. Games appear in the games picker and register their slash commands; calls add their toolbar and Chat Settings controls.
-- **Game Mode**: installed Game-compatible agents can be selected during game creation or added later. Hierarchical Maps contributes its map workspace and world-map view only when it is active for that game.
+- **Game Mode**: installed Game-compatible agents can be selected during game creation or added later. World Maps contributes its map workspace and world-map view only when it is active for that game.
 
 You can add or remove compatible agents at any time.
 

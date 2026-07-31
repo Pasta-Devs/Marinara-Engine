@@ -24,8 +24,13 @@ import type {
   SidecarRuntimeSource,
 } from "@marinara-engine/shared";
 import { getDataDir } from "../../utils/data-dir.js";
-import { downloadFileWithProgress, fetchJson, isAbortError, retry } from "./sidecar-download.js";
+import { downloadFileWithProgress, isAbortError, retry } from "./sidecar-download.js";
 import { assertInsideDir } from "../../utils/security.js";
+import {
+  LLAMA_CPP_RUNTIME_MANIFEST,
+  getLlamaRuntimeManifestEntry,
+  type RuntimeManifestAsset,
+} from "./runtime-integrity-manifest.js";
 import {
   buildPreferredRuntimeVariants,
   formatRuntimePreference,
@@ -45,23 +50,14 @@ const WINDOWS_CUDA_DLL_PATTERNS = [
   { label: "cublasLt64_*.dll", pattern: /^cublasLt64_\d+\.dll$/i },
 ];
 
-interface GitHubReleaseAsset {
-  name: string;
-  browser_download_url: string;
-  size?: number;
-}
-
-interface GitHubReleaseResponse {
-  tag_name: string;
-  assets: GitHubReleaseAsset[];
-}
-
 interface RuntimeRecord {
   build: string;
   variant: string;
   platform: NodeJS.Platform;
   arch: string;
   assetName: string;
+  assetSha256: string;
+  dependencyAssetSha256: string[];
   directoryName: string;
   serverRelativePath: string;
   installedAt: string;
@@ -78,8 +74,8 @@ export interface SidecarRuntimeInstall extends RuntimeRecord {
 
 interface RuntimeMatch {
   variant: string;
-  asset: GitHubReleaseAsset;
-  dependencyAssets?: GitHubReleaseAsset[];
+  asset: RuntimeManifestAsset;
+  dependencyAssets?: RuntimeManifestAsset[];
 }
 
 function ensureWithinRuntimeDir(targetPath: string): string {
@@ -91,28 +87,22 @@ function ensureWithinRuntimeDir(targetPath: string): string {
   return resolvedTarget;
 }
 
-function compareVersionStrings(a: string, b: string): number {
-  const aParts = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const bParts = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
-  const len = Math.max(aParts.length, bParts.length);
-  for (let i = 0; i < len; i += 1) {
-    const delta = (aParts[i] ?? 0) - (bParts[i] ?? 0);
-    if (delta !== 0) return delta;
-  }
-  return 0;
-}
-
-function extractVersion(assetName: string): string {
-  const match = assetName.match(/(?:cuda|rocm|openvino)-([0-9.]+)/i);
-  return match?.[1] ?? "0";
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function isWindowsAsset(assetName: string): boolean {
   return assetName.endsWith(".zip");
+}
+
+export function isLlamaRuntimeRecordCurrent(
+  record: Pick<RuntimeRecord, "assetName" | "assetSha256" | "build" | "dependencyAssetSha256" | "variant">,
+): boolean {
+  const entry = getLlamaRuntimeManifestEntry(record.variant);
+  if (!entry || record.build !== LLAMA_CPP_RUNTIME_MANIFEST.releaseTag) return false;
+  if (record.assetName !== entry.asset.name || record.assetSha256 !== entry.asset.sha256) return false;
+  const expectedDependencies = (entry.dependencyAssets ?? []).map((asset) => asset.sha256);
+  return dependencyAssetDigestsMatch(record.dependencyAssetSha256, expectedDependencies);
+}
+
+export function dependencyAssetDigestsMatch(recorded: readonly string[], expected: readonly string[]): boolean {
+  return recorded.length === expected.length && recorded.every((sha256, index) => sha256 === expected[index]);
 }
 
 async function commandSucceeds(command: string, args: string[] = []): Promise<boolean> {
@@ -298,6 +288,9 @@ class SidecarRuntimeService {
 
     try {
       const record = JSON.parse(readFileSync(CURRENT_RUNTIME_PATH, "utf-8")) as RuntimeRecord;
+      if ((record.source ?? "bundled") === "bundled" && !isLlamaRuntimeRecordCurrent(record)) {
+        return null;
+      }
       const directoryPath = ensureWithinRuntimeDir(join(RUNTIME_DIR, record.directoryName));
       const serverPath = ensureWithinRuntimeDir(join(directoryPath, record.serverRelativePath));
       if (!existsSync(serverPath)) {
@@ -396,6 +389,8 @@ class SidecarRuntimeService {
       platform: install.platform,
       arch: install.arch,
       assetName: install.assetName,
+      assetSha256: install.assetSha256,
+      dependencyAssetSha256: install.dependencyAssetSha256,
       directoryName: install.directoryName,
       serverRelativePath: install.serverRelativePath,
       installedAt: install.installedAt,
@@ -455,22 +450,7 @@ class SidecarRuntimeService {
     let finalDirectory: string | null = null;
 
     try {
-      const release = await retry(
-        () =>
-          fetchJson<GitHubReleaseResponse>("https://api.github.com/repos/ggml-org/llama.cpp/releases/latest", {
-            signal: abortController.signal,
-            headers: {
-              Accept: "application/vnd.github+json",
-            },
-          }),
-        {
-          retries: 3,
-          baseDelayMs: 500,
-          shouldRetry: (error) => !isAbortError(error),
-        },
-      );
-
-      const match = await this.selectBestAsset(release.assets, excludedVariants, preference);
+      const match = await this.selectBestAsset(excludedVariants, preference);
       if (!match) {
         if (preference !== "auto") {
           throw new Error(
@@ -482,7 +462,7 @@ class SidecarRuntimeService {
         );
       }
 
-      const directoryName = `${release.tag_name}-${match.variant}`;
+      const directoryName = `${LLAMA_CPP_RUNTIME_MANIFEST.releaseTag}-${match.variant}`;
       finalDirectory = ensureWithinRuntimeDir(join(RUNTIME_DIR, directoryName));
       archivePath = ensureWithinRuntimeDir(join(RUNTIME_DIR, match.asset.name));
       extractDirectory = ensureWithinRuntimeDir(join(RUNTIME_DIR, `${directoryName}.extract`));
@@ -550,11 +530,13 @@ class SidecarRuntimeService {
       }
 
       const install: SidecarRuntimeInstall = {
-        build: release.tag_name,
+        build: LLAMA_CPP_RUNTIME_MANIFEST.releaseTag,
         variant: match.variant,
         platform: process.platform,
         arch: process.arch,
         assetName: match.asset.name,
+        assetSha256: match.asset.sha256,
+        dependencyAssetSha256: (match.dependencyAssets ?? []).map((asset) => asset.sha256),
         directoryName,
         serverRelativePath: relative(finalDirectory, finalExecutable).replace(/\\/g, "/"),
         installedAt: new Date().toISOString(),
@@ -588,7 +570,7 @@ class SidecarRuntimeService {
   }
 
   private async downloadAndExtractAsset(options: {
-    asset: GitHubReleaseAsset;
+    asset: RuntimeManifestAsset;
     archivePath: string;
     extractDirectory: string;
     signal: AbortSignal;
@@ -609,6 +591,8 @@ class SidecarRuntimeService {
             url: options.asset.browser_download_url,
             destPath: options.archivePath,
             signal: options.signal,
+            expectedBytes: options.asset.size,
+            expectedSha256: options.asset.sha256,
             progress: {
               phase: "runtime",
               label: options.asset.name,
@@ -748,49 +732,6 @@ class SidecarRuntimeService {
     return false;
   }
 
-  private pickLatestVersionedAsset(
-    assets: GitHubReleaseAsset[],
-    pattern: RegExp,
-    options?: { preferPrefix?: string },
-  ): GitHubReleaseAsset | null {
-    const matches = assets.filter((asset) => pattern.test(asset.name));
-    if (matches.length === 0) {
-      return null;
-    }
-
-    matches.sort((left, right) => {
-      if (options?.preferPrefix) {
-        const leftPref = left.name.startsWith(options.preferPrefix) ? 1 : 0;
-        const rightPref = right.name.startsWith(options.preferPrefix) ? 1 : 0;
-        if (leftPref !== rightPref) {
-          return rightPref - leftPref;
-        }
-      }
-      return compareVersionStrings(extractVersion(right.name), extractVersion(left.name));
-    });
-
-    return matches[0] ?? null;
-  }
-
-  private findFirstAsset(assets: GitHubReleaseAsset[], pattern: RegExp): GitHubReleaseAsset | null {
-    return assets.find((asset) => pattern.test(asset.name)) ?? null;
-  }
-
-  private findWindowsCudaDllAsset(
-    assets: GitHubReleaseAsset[],
-    cudaRuntimeAsset: GitHubReleaseAsset,
-  ): GitHubReleaseAsset | null {
-    const cudaVersion = extractVersion(cudaRuntimeAsset.name);
-    if (cudaVersion === "0") {
-      return null;
-    }
-
-    return this.findFirstAsset(
-      assets,
-      new RegExp(`^cudart-llama(?:-.*)?-bin-win-cuda-${escapeRegExp(cudaVersion)}-x64\\.zip$`, "i"),
-    );
-  }
-
   private parseGpuVendors(output: string): GpuVendor[] {
     const vendors = new Set<GpuVendor>();
     const normalized = output.toLowerCase();
@@ -879,6 +820,8 @@ class SidecarRuntimeService {
       platform: process.platform,
       arch: process.arch,
       assetName: "system",
+      assetSha256: "",
+      dependencyAssetSha256: [],
       directoryName: "",
       serverRelativePath: basename(systemPath),
       installedAt: new Date(0).toISOString(),
@@ -939,8 +882,8 @@ class SidecarRuntimeService {
     matches: RuntimeMatch[],
     excludedVariants: Set<string>,
     variant: string,
-    asset: GitHubReleaseAsset | null,
-    dependencyAssets: GitHubReleaseAsset[] = [],
+    asset: RuntimeManifestAsset | null,
+    dependencyAssets: RuntimeManifestAsset[] = [],
   ): void {
     if (!asset || excludedVariants.has(variant) || matches.some((match) => match.variant === variant)) {
       return;
@@ -949,7 +892,6 @@ class SidecarRuntimeService {
   }
 
   private async selectBestAsset(
-    assets: GitHubReleaseAsset[],
     excludedVariants: Set<string> = new Set(),
     preference: SidecarRuntimePreference = "auto",
   ): Promise<RuntimeMatch | null> {
@@ -957,37 +899,16 @@ class SidecarRuntimeService {
     const matches: RuntimeMatch[] = [];
 
     const orderedVariants = buildPreferredRuntimeVariants(capabilities, preference);
-    const assetByVariant = new Map<string, GitHubReleaseAsset | null>([
-      ["android-arm64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-android-arm64\.tar\.gz$/i)],
-      [
-        "macos-arm64-metal",
-        this.findFirstAsset(assets, /^llama-.*-bin-macos-arm64\.tar\.gz$/i) ??
-          this.findFirstAsset(assets, /^llama-.*-bin-macos-arm64-kleidiai\.tar\.gz$/i),
-      ],
-      ["macos-x64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-macos-x64\.tar\.gz$/i)],
-      ["win-x64-cuda", this.pickLatestVersionedAsset(assets, /^llama(?:-.*)?-bin-win-cuda-[0-9.]+-x64\.zip$/i)],
-      ["win-x64-hip", this.findFirstAsset(assets, /^llama-.*-bin-win-hip-x64\.zip$/i)],
-      ["win-x64-sycl", this.findFirstAsset(assets, /^llama-.*-bin-win-sycl-x64\.zip$/i)],
-      ["win-x64-vulkan", this.findFirstAsset(assets, /^llama-.*-bin-win-vulkan-x64\.zip$/i)],
-      ["win-x64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-win-cpu-x64\.zip$/i)],
-      ["win-arm64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-win-cpu-arm64\.zip$/i)],
-      ["linux-x64-cuda", this.pickLatestVersionedAsset(assets, /^llama-.*-bin-ubuntu-cuda-[0-9.]+-x64\.tar\.gz$/i)],
-      ["linux-x64-rocm", this.pickLatestVersionedAsset(assets, /^llama-.*-bin-ubuntu-rocm-[0-9.]+-x64\.tar\.gz$/i)],
-      ["linux-x64-vulkan", this.findFirstAsset(assets, /^llama-.*-bin-ubuntu-vulkan-x64\.tar\.gz$/i)],
-      ["linux-x64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-ubuntu-x64\.tar\.gz$/i)],
-      ["linux-arm64-vulkan", this.findFirstAsset(assets, /^llama-.*-bin-ubuntu-vulkan-arm64\.tar\.gz$/i)],
-      ["linux-arm64-cpu", this.findFirstAsset(assets, /^llama-.*-bin-ubuntu-arm64\.tar\.gz$/i)],
-    ]);
 
     for (const variant of orderedVariants) {
-      const asset = assetByVariant.get(variant) ?? null;
-      const dependencyAssets =
-        variant === "win-x64-cuda" && asset
-          ? [this.findWindowsCudaDllAsset(assets, asset)].filter(
-              (dependencyAsset): dependencyAsset is GitHubReleaseAsset => dependencyAsset !== null,
-            )
-          : [];
-      this.pushCandidate(matches, excludedVariants, variant, asset, dependencyAssets);
+      const entry = getLlamaRuntimeManifestEntry(variant);
+      this.pushCandidate(
+        matches,
+        excludedVariants,
+        variant,
+        entry?.asset ?? null,
+        entry?.dependencyAssets ? [...entry.dependencyAssets] : [],
+      );
     }
 
     return matches[0] ?? null;

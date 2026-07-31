@@ -154,7 +154,7 @@ export function parseCustomAgentRepositoryArchive(archive: Buffer): PackagedAgen
   const ids = new Set<string>();
   for (const definition of definitions) {
     if (ids.has(definition.id)) throw new Error(`agents.json contains duplicate agent id ${definition.id}`);
-    if (definition.execution === "feature") {
+    if (definition.execution === "feature" || definition.execution === "host") {
       throw new Error(`Agent ${definition.id} requires a package runtime and cannot be imported as a custom agent`);
     }
     ids.add(definition.id);

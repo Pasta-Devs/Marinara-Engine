@@ -24,7 +24,11 @@ import { createPromptsStorage } from "../services/storage/prompts.storage.js";
 import { createAgentsStorage } from "../services/storage/agents.storage.js";
 import { createThemesStorage } from "../services/storage/themes.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
-import { canReparentFolder, type ExportEnvelope } from "@marinara-engine/shared";
+import {
+  canReparentFolder,
+  normalizePersonalExtensionCapabilities,
+  type ExportEnvelope,
+} from "@marinara-engine/shared";
 import { getDataDir } from "../utils/data-dir.js";
 import { getFileStorageDir } from "../config/runtime-config.js";
 import { normalizeTimestampOverrides } from "../services/import/import-timestamps.js";
@@ -495,6 +499,22 @@ for (const candidate of Object.values(schema)) {
 }
 
 export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<string, unknown>>) {
+  if (tableName === "chats") {
+    return rows.map((row) => {
+      if (typeof row.metadata !== "string") return row;
+      try {
+        const metadata = JSON.parse(row.metadata) as unknown;
+        if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return row;
+        const sanitized = { ...(metadata as Record<string, unknown>) };
+        delete sanitized.branchParentChatId;
+        delete sanitized.branchParentMessageId;
+        delete sanitized.branchMessageId;
+        return { ...row, metadata: JSON.stringify(sanitized) };
+      } catch {
+        return row;
+      }
+    });
+  }
   if (tableName === "api_connections") {
     return rows.map((row) => ({ ...row, apiKeyEncrypted: "" }));
   }
@@ -517,8 +537,21 @@ export function sanitizeProfileTableRows(tableName: string, rows: Array<Record<s
 
 export function quarantineProfilePersonalExtensionRow(row: Record<string, unknown>) {
   const runtime = row.runtime === "server" ? "server" : "client";
+  const capabilities =
+    runtime === "client"
+      ? (() => {
+          try {
+            return normalizePersonalExtensionCapabilities(
+              typeof row.capabilities === "string" ? JSON.parse(row.capabilities) : row.capabilities,
+            );
+          } catch {
+            return [];
+          }
+        })()
+      : [];
   const contentHash = computePersonalExtensionHash({
     runtime,
+    capabilities,
     css: runtime === "client" && typeof row.css === "string" ? row.css : null,
     js: runtime === "client" && typeof row.js === "string" ? row.js : null,
     serverJs: runtime === "server" && typeof row.serverJs === "string" ? row.serverJs : null,
@@ -526,6 +559,7 @@ export function quarantineProfilePersonalExtensionRow(row: Record<string, unknow
   return {
     ...row,
     runtime,
+    capabilities: JSON.stringify(capabilities),
     enabled: "false",
     contentHash,
     approvedHash: null,
@@ -1876,7 +1910,10 @@ async function hydrateProfileArchiveStorageSnapshot(
       rssMiB,
     );
     // Hydration currently re-materializes tables; retain peak visibility until imports can consume table streams.
-    if (!memoryWarningLogged && Math.max(memoryUsage.heapUsed, memoryUsage.rss) >= PROFILE_IMPORT_MEMORY_WARNING_BYTES) {
+    if (
+      !memoryWarningLogged &&
+      Math.max(memoryUsage.heapUsed, memoryUsage.rss) >= PROFILE_IMPORT_MEMORY_WARNING_BYTES
+    ) {
       memoryWarningLogged = true;
       logger.warn(
         "[backup] Profile import hydration exceeded 512 MiB after table %s; heap=%d MiB, rss=%d MiB",
@@ -2134,7 +2171,11 @@ async function collectDirectoryZipSources(sourceDir: string, entryRoot: string) 
         fileStat = await stat(fullPath);
       } catch (error) {
         if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") {
-          logger.warn("[backup] Skipping ZIP source that disappeared during collection: %s/%s", entryRoot, relativePath);
+          logger.warn(
+            "[backup] Skipping ZIP source that disappeared during collection: %s/%s",
+            entryRoot,
+            relativePath,
+          );
           continue;
         }
         throw error;
@@ -2300,9 +2341,7 @@ export async function backupRoutes(app: FastifyInstance) {
   }>("/automatic", async (req, reply) => {
     if (!requirePrivilegedAccess(req, reply, { feature: "Automatic backup settings" })) return;
     const parsedRetentionCount =
-      req.body?.retentionCount === undefined
-        ? undefined
-        : parseAutomaticBackupRetentionCount(req.body.retentionCount);
+      req.body?.retentionCount === undefined ? undefined : parseAutomaticBackupRetentionCount(req.body.retentionCount);
     if (
       typeof req.body?.enabled !== "boolean" ||
       !["daily", "weekly", "monthly"].includes(String(req.body?.frequency)) ||

@@ -8,6 +8,10 @@ import {
   generateRequestSchema,
   BUILT_IN_AGENTS,
   getDefaultBuiltInAgentSettings,
+  isBuiltInAgentHostManaged,
+  mergeBuiltInAgentSettings,
+  normalizeStoryboardAgentSettings,
+  STORYBOARD_AGENT_ID,
   resolveMacros,
   resolveDeferredCharacterMacros,
   hasDeferredCharacterMacros,
@@ -57,6 +61,7 @@ import type {
 } from "@marinara-engine/shared";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { commitSpatialOwnerTurn, SpatialOwnerTurnError } from "../services/spatial-context/owner-turn.js";
+import { shouldSuppressIllustratorForegroundForStoryboard } from "../services/game/storyboard-agent-settings.js";
 import {
   formatOwnerSpatialBreadcrumb,
   injectOwnerSpatialPrompt,
@@ -1219,6 +1224,8 @@ export async function generateRoutes(app: FastifyInstance) {
         chatMessages = chatMessages.filter((m: any) => m.id !== input.regenerateMessageId);
         lorebookKeeperMessages = lorebookKeeperMessages.filter((m: any) => m.id !== input.regenerateMessageId);
       }
+      const regenerateContextCutoff =
+        input.regenerateMessageId && typeof regenMsg?.createdAt === "string" ? regenMsg.createdAt : null;
       const promptLastGenerationType = resolvePromptLastGenerationType(input);
       const promptIdleDuration = resolvePromptIdleDuration(chatMessages, {
         excludeMessageId: currentTurnUserMessageId,
@@ -1620,7 +1627,9 @@ export async function generateRoutes(app: FastifyInstance) {
         const agentPromptTemplateSelections = normalizeAgentPromptTemplateSelectionMap(chatMeta.agentPromptTemplateIds);
         const hasPerChatAgentList = chatActiveAgentIds.length > 0;
         const perChatAgentSet = new Set(chatActiveAgentIds);
-        const activeChatSummary = resolveRoleplayChatSummary(chatMode, chatMeta);
+        const activeChatSummary = resolveRoleplayChatSummary(chatMode, chatMeta, {
+          excludeMessageIds: input.regenerateMessageId ? [input.regenerateMessageId] : undefined,
+        });
         const runtimeSectionEligibleAgentTypes = buildRuntimeAgentSectionEligibleTypes({
           enableAgents: chatEnableAgents,
           activeAgentIds: chatActiveAgentIds,
@@ -3064,6 +3073,7 @@ export async function generateRoutes(app: FastifyInstance) {
               currentInputMessages: currentInputMessages(),
               chatId: input.chatId,
               embeddingSource: memoryRecallEmbeddingSource,
+              excludeFromMessageAt: regenerateContextCutoff,
               contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
               sendProgress,
               signal: abortController.signal,
@@ -3087,6 +3097,7 @@ export async function generateRoutes(app: FastifyInstance) {
             currentInputMessages: currentInputMessages(),
             chatId: input.chatId,
             embeddingSource: memoryRecallEmbeddingSource,
+            excludeFromMessageAt: regenerateContextCutoff,
             contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
             sendProgress,
             signal: abortController.signal,
@@ -3101,6 +3112,7 @@ export async function generateRoutes(app: FastifyInstance) {
             currentInputMessages: currentInputMessages(),
             chatId: input.chatId,
             embeddingSource: memoryRecallEmbeddingSource,
+            excludeFromMessageAt: regenerateContextCutoff,
             contextLimit: suppressModelParameters ? undefined : (effectiveMaxContext ?? connectionMaxContext),
             sendProgress,
             signal: abortController.signal,
@@ -3376,6 +3388,11 @@ export async function generateRoutes(app: FastifyInstance) {
           memory: {},
           writableLorebookIds: null,
           chatSummary: activeChatSummary,
+          authorNotes: authorNotes || null,
+          activatedLorebookEntries: lorebookScanSnapshot.activatedEntries.map((entry) => ({
+            id: entry.id,
+            content: entry.content,
+          })),
           ...(customAgentVectorAccessEnabled
             ? {
                 vectorContext: {
@@ -3467,6 +3484,22 @@ export async function generateRoutes(app: FastifyInstance) {
 
         const illustratorAgentForInterval = resolvedAgents.find((a) => a.type === "illustrator");
         const createsAssistantMessage = !input.impersonate && !input.regenerateMessageId && !input.continueMessageId;
+        const storyboardAgentConfig = configuredPromptAgents.find((agent) => agent.type === STORYBOARD_AGENT_ID);
+        const storyboardAgentSettings = normalizeStoryboardAgentSettings(
+          mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, storyboardAgentConfig?.settings),
+        );
+        const storyboardAgentActive =
+          chatEnableAgents &&
+          hasPerChatAgentList &&
+          perChatAgentSet.has(STORYBOARD_AGENT_ID) &&
+          isBuiltInAgentHostManaged(STORYBOARD_AGENT_ID);
+        const storyboardOwnsAutomaticForeground = shouldSuppressIllustratorForegroundForStoryboard({
+          ownerMode: requestChatMode,
+          storyboardAgentActive,
+          createsAssistantMessage,
+          meta: chatMeta,
+          defaultAutoGenerateMode: storyboardAgentSettings.autoGenerateMode,
+        });
         if (
           illustratorAgentForInterval &&
           (await shouldSkipAgentByAssistantInterval({
@@ -4261,6 +4294,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     id: knowledgeRetrievalAgent!.id,
                     type: knowledgeRetrievalAgent!.type,
                     name: knowledgeRetrievalAgent!.name,
+                    isCustomAgent: knowledgeRetrievalAgent!.isCustomAgent,
                     phase: knowledgeRetrievalAgent!.phase,
                     promptTemplate: knowledgeRetrievalAgent!.promptTemplate,
                     connectionId: knowledgeRetrievalAgent!.connectionId,
@@ -4312,6 +4346,7 @@ export async function generateRoutes(app: FastifyInstance) {
                     id: knowledgeRouterAgent!.id,
                     type: knowledgeRouterAgent!.type,
                     name: knowledgeRouterAgent!.name,
+                    isCustomAgent: knowledgeRouterAgent!.isCustomAgent,
                     phase: knowledgeRouterAgent!.phase,
                     promptTemplate: knowledgeRouterAgent!.promptTemplate,
                     connectionId: knowledgeRouterAgent!.connectionId,
@@ -8246,6 +8281,8 @@ export async function generateRoutes(app: FastifyInstance) {
                     : undefined;
               const requestedBackground = illustratorRequestedBackground(illData.generateBackground);
               const automaticBackgroundsEnabled = illustratorBackgroundGenerationEnabled(chatMode, chatMeta);
+              const storyboardSuppressesForeground =
+                storyboardOwnsAutomaticForeground && result.agentType === "illustrator";
 
               // Always log what the illustrator decided
               logger.debug(
@@ -8367,7 +8404,27 @@ export async function generateRoutes(app: FastifyInstance) {
                 };
               }
 
-              if (shouldGenerate && imagePrompt) {
+              if (storyboardSuppressesForeground) {
+                if (shouldGenerate && imagePrompt) {
+                  logger.info(
+                    "[illustrator] Skipping foreground image because automatic Roleplay Storyboard owns this response",
+                  );
+                }
+                if (resultMessageId) {
+                  try {
+                    await agentsStore.saveRun({
+                      agentConfigId: result.agentId,
+                      chatId: input.chatId,
+                      messageId: resultMessageId,
+                      result,
+                    });
+                  } catch (err) {
+                    logger.warn(err, "[illustrator] Failed to persist Storyboard-suppressed run");
+                  }
+                }
+              }
+
+              if (!storyboardSuppressesForeground && shouldGenerate && imagePrompt) {
                 // Resolve connections: text LLM = connectionId, image gen = settings.imageConnectionId
                 const imagePositivePrompt = ((illustratorAgent?.settings?.imagePositivePrompt as string) ?? "").trim();
                 const savedNegativePrompt = ((illustratorAgent?.settings?.imageNegativePrompt as string) ?? "").trim();
@@ -8521,8 +8578,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         styleProfileId,
                         imageDefaults,
                         generatedStyle: style,
-                        omitProfileStyleText:
-                          typeof agentContext.memory._illustratorImageStyleInstruction === "string",
+                        omitProfileStyleText: typeof agentContext.memory._illustratorImageStyleInstruction === "string",
                         omitProfileSubjectTags: true,
                       });
                       fullPrompt = compiledPrompt.prompt;
@@ -8555,7 +8611,9 @@ export async function generateRoutes(app: FastifyInstance) {
 
                       for (const [variantIndex, imageResult] of imageResults.entries()) {
                         // Save to disk
-                        const filePath = saveImageToDisk(input.chatId, imageResult.base64, imageResult.ext);
+                        const filePath = saveImageToDisk(input.chatId, imageResult.base64, imageResult.ext, {
+                          shared: true,
+                        });
 
                         // A fallback connection may have rendered this variant;
                         // record the connection that actually produced it.
@@ -8575,6 +8633,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         });
                         await persistGeneratedImageToEntityGalleries({
                           sourceFilePath: filePath,
+                          sourceChatImageId: galleryEntry?.id,
                           characterIds: referenceResolution.characterIds,
                           personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                           characterGallery,

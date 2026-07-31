@@ -149,7 +149,7 @@ export function ChatGalleryDrawer({
             onIllustrate={illustratorAvailable ? onIllustrate : undefined}
             onGenerateSelfie={illustratorAvailable ? onGenerateSelfie : undefined}
             selfieCharacters={selfieCharacters}
-            onGenerateStoryboard={illustratorAvailable ? onGenerateStoryboard : undefined}
+            onGenerateStoryboard={onGenerateStoryboard}
             onViewStoryboard={onViewStoryboard}
             onGenerateVideo={illustratorAvailable ? onGenerateVideo : undefined}
             onAnimateImage={illustratorAvailable ? onAnimateImage : undefined}

@@ -36,6 +36,8 @@ export interface OutboundUrlPolicy {
   allowedProtocols?: string[];
   /** Restrict every request and redirect hop to these exact hostnames. */
   allowedHostnames?: string[];
+  /** Restrict every request and redirect hop to these exact scheme, hostname, and port origins. */
+  allowedOrigins?: string[];
   maxRedirects?: number;
   /**
    * Optional name of the env var that, when set to true, would allow this
@@ -331,6 +333,19 @@ export async function validateOutboundUrl(url: string | URL, policy: OutboundUrl
     throw new Error(
       `Refused to fetch ${original}: protocol '${parsed.protocol.replace(/:$/, "")}' is not allowed (allowed: ${allowedProtocols.map((proto) => proto.replace(/:$/, "")).join(", ")}).`,
     );
+  }
+
+  if (
+    policy.allowedOrigins?.length &&
+    !policy.allowedOrigins.some((origin) => {
+      try {
+        return new URL(origin).origin === parsed.origin;
+      } catch {
+        return false;
+      }
+    })
+  ) {
+    throw new Error(`Refused to fetch ${original}: origin '${parsed.origin}' is not allowed.`);
   }
 
   if (

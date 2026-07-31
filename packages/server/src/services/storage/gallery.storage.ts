@@ -31,6 +31,10 @@ export function createGalleryStorage(db: DB) {
         .orderBy(desc(chatImages.createdAt));
     },
 
+    async listByFilePath(filePath: string) {
+      return db.select().from(chatImages).where(eq(chatImages.filePath, filePath)).orderBy(desc(chatImages.createdAt));
+    },
+
     async getById(id: string) {
       const rows = await db.select().from(chatImages).where(eq(chatImages.id, id));
       return rows[0] ?? null;

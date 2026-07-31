@@ -1186,9 +1186,7 @@ export function PersonaEditor() {
       return true;
     } catch (error) {
       console.error("[PersonaEditor] Save failed:", error);
-      toast.error(
-        error instanceof Error ? error.message : localizeUi("ui.personas.personaeditor.failedToSavePersona"),
-      );
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.personas.personaeditor.failedToSavePersona"));
       return false;
     } finally {
       setSaving(false);
@@ -2676,11 +2674,8 @@ function PersonaStatsTab({
   const removeBar = (index: number) => {
     const nextBars = parsed.bars.filter((_, i) => i !== index);
     updateStatIcons(
-      remapStatIconAssignments(
-        formData.trackerCardColors.statIcons ?? [],
-        parsed.bars,
-        nextBars,
-        (nextIndex) => (nextIndex < index ? nextIndex : nextIndex + 1),
+      remapStatIconAssignments(formData.trackerCardColors.statIcons ?? [], parsed.bars, nextBars, (nextIndex) =>
+        nextIndex < index ? nextIndex : nextIndex + 1,
       ),
     );
     save({ ...parsed, bars: nextBars });
@@ -3200,6 +3195,7 @@ function PersonaMetadataTab({
           onChange={(value) => updateField("creatorNotes", value)}
           rows={4}
           title={localizeUi("ui.personas.personametadatatab.creatorNotes")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi("ui.personas.personametadatatab.notesAboutThisPersonaIntendedUseTipsForBest")}
         />
@@ -3749,6 +3745,7 @@ function DescriptionTab({
         placeholder={localizeUi("ui.personas.descriptiontab.describeWhoYouAreYourRoleInTheStory")}
         rows={12}
         title={localizeUi("chat.settings.inlineEditor.fields.description")}
+        showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
@@ -3806,6 +3803,7 @@ function TextareaTab({
         placeholder={placeholder}
         rows={rows}
         title={title}
+        showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-emerald-400/40 focus:ring-1 focus:ring-emerald-400/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">

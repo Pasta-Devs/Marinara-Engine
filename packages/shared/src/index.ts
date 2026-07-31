@@ -84,7 +84,12 @@ export * from "./constants/docs-languages.js";
 
 // Feature registries
 export * from "./features/agents/agent-manifest.types.js";
-export { BUILT_IN_AGENT_MANIFESTS, isBuiltInAgentRuntimeDisabled } from "./features/agents/agent-registry.js";
+export * from "./features/agents/storyboard-agent-settings.js";
+export {
+  BUILT_IN_AGENT_MANIFESTS,
+  isBuiltInAgentHostManaged,
+  isBuiltInAgentRuntimeDisabled,
+} from "./features/agents/agent-registry.js";
 export * from "./features/function-calls/tool-definitions.js";
 export * from "./features/folder-packages/manifest-package.js";
 

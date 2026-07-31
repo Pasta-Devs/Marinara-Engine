@@ -19,13 +19,16 @@ import {
   compactQuestProgressForContext,
   DEFAULT_AGENT_CONTEXT_SIZE,
   DEFAULT_AGENT_MAX_TOKENS,
+  DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
   isTrackerFieldHidden,
   MIN_AGENT_MAX_TOKENS,
   normalizeTrackerHiddenFields,
   normalizeCustomAgentCapabilities,
+  normalizeCustomAgentContextSources,
   getDefaultAgentPrompt,
   normalizeRpgStatPools,
   resolveMacros,
+  type CustomAgentContextSources,
 } from "@marinara-engine/shared";
 import { getAgentCallTimeoutMs, getMaxToolRounds, isDebugAgentsEnabled } from "../../config/runtime-config.js";
 import { logger, logDebugOverride } from "../../lib/logger.js";
@@ -76,6 +79,39 @@ export interface AgentExecConfig {
   enableCaching?: boolean;
   anthropicExtendedCacheTtl?: boolean;
   cachingAtDepth?: number;
+  /** Distinguishes user-created agents from built-ins when selecting prompt context. */
+  isCustomAgent: boolean;
+}
+
+const ALL_AGENT_CONTEXT_SOURCES: CustomAgentContextSources = {
+  chatHistory: true,
+  characters: true,
+  persona: true,
+  activatedLorebookEntries: true,
+  chatSummary: true,
+  authorNotes: true,
+  trackerData: true,
+  recalledMemories: true,
+};
+
+function getAgentContextSources(
+  config: Pick<AgentExecConfig, "isCustomAgent" | "settings">,
+): CustomAgentContextSources {
+  return config.isCustomAgent ? normalizeCustomAgentContextSources(config.settings) : ALL_AGENT_CONTEXT_SOURCES;
+}
+
+function getBatchContextSources(configs: Array<Pick<AgentExecConfig, "isCustomAgent" | "settings">>) {
+  const combined: CustomAgentContextSources = {
+    ...DEFAULT_CUSTOM_AGENT_CONTEXT_SOURCES,
+    chatHistory: false,
+  };
+  for (const config of configs) {
+    const sources = getAgentContextSources(config);
+    for (const source of Object.keys(sources) as Array<keyof CustomAgentContextSources>) {
+      combined[source] ||= sources[source];
+    }
+  }
+  return combined;
 }
 
 /** Optional tool context for agents that need function calling. */
@@ -347,7 +383,9 @@ export function compactGameStateForAgentContext(gameState: unknown, agentTypes: 
   const presentCharacters = compactPresentCharactersForHiddenFields(gameState.presentCharacters, hiddenFields);
   const playerStats = compactQuestPlayerStatsForContext(gameState.playerStats, agentTypes);
   const visibleFieldLocks = omitHiddenFieldLocksForContext(gameState.fieldLocks, hiddenFields);
-  const fieldLocks = shouldIncludeQuestContext(agentTypes) ? visibleFieldLocks : omitQuestFieldLocksForContext(visibleFieldLocks);
+  const fieldLocks = shouldIncludeQuestContext(agentTypes)
+    ? visibleFieldLocks
+    : omitQuestFieldLocksForContext(visibleFieldLocks);
 
   if (
     presentCharacters === gameState.presentCharacters &&
@@ -519,7 +557,8 @@ function agentCallSignal(parentSignal?: AbortSignal, agentType?: "illustrator"):
   // while streaming; slow local models need a raised value (#3958). The
   // illustrator keeps at least its generous image-generation budget.
   const configuredMs = getAgentCallTimeoutMs();
-  const timeoutMs = agentType === "illustrator" ? Math.max(ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS, configuredMs) : configuredMs;
+  const timeoutMs =
+    agentType === "illustrator" ? Math.max(ILLUSTRATOR_AGENT_CALL_TIMEOUT_MS, configuredMs) : configuredMs;
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   return parentSignal ? combineAbortSignals([parentSignal, timeoutSignal]) : timeoutSignal;
 }
@@ -1045,18 +1084,27 @@ export async function executeAgentBatch(
   const batchMaxTokens = applyAgentMaxTokensCaps(provider, rawBatchMaxTokens, modelMaxOutput);
 
   try {
-    // Build merged system prompt (includes lore + agent extras)
+    // Build merged system prompt (includes the union of context requested by
+    // every agent in the batch).
     const renderedTemplates = renderAgentTemplatesForOutput(configs, context, { escapeValues: true });
     const systemPrompt = buildBatchSystemPrompt(configs, context, renderedTemplates);
-    // Batch uses the max contextSize among its members
-    const batchContextSize = Math.max(...configs.map((c) => normalizeAgentContextSize(c.settings.contextSize)));
+    const batchContextSize = Math.max(
+      0,
+      ...configs.map((config) =>
+        getAgentContextSources(config).chatHistory ? normalizeAgentContextSize(config.settings.contextSize) : 0,
+      ),
+    );
+    const batchContextSources = getBatchContextSources(configs);
     const messages = buildAgentMessages(
       systemPrompt,
       context,
       "__batch__",
       batchContextSize,
       configs.map((config) => config.type),
-      { outputFormatBlock: buildAgentOutputFormatBlock(configs, context, renderedTemplates) },
+      {
+        includeTrackerData: batchContextSources.trackerData,
+        outputFormatBlock: buildAgentOutputFormatBlock(configs, context, renderedTemplates),
+      },
     );
 
     // Each agent reserves its own configured output budget. The context fitter
@@ -1111,7 +1159,10 @@ export async function executeAgentBatch(
             responseText += chunk;
           }
         : undefined,
-      signal: agentCallSignal(context.signal, configs.some((config) => config.type === "illustrator") ? "illustrator" : undefined),
+      signal: agentCallSignal(
+        context.signal,
+        configs.some((config) => config.type === "illustrator") ? "illustrator" : undefined,
+      ),
     });
 
     // chatComplete also accumulates content, but streaming via onToken is
@@ -1214,6 +1265,7 @@ function buildBatchSystemPrompt(
   renderedTemplates?: RenderedAgentTemplateMap,
 ): string {
   const parts: string[] = [];
+  const contextSources = getBatchContextSources(configs);
 
   // ── Role ──
   parts.push(`<role>`);
@@ -1227,7 +1279,7 @@ function buildBatchSystemPrompt(
 
   // ── Lore ──
   parts.push(``);
-  parts.push(buildLoreBlock(context));
+  parts.push(buildLoreBlock(context, contextSources));
 
   // ── Agents ──
   parts.push(``);
@@ -1246,6 +1298,7 @@ function buildBatchSystemPrompt(
   const extras = buildAgentExtras(
     context,
     configs.map((c) => c.type),
+    contextSources,
   );
   if (extras) {
     parts.push(``);
@@ -1518,7 +1571,9 @@ function buildCustomAgentVectorContextBlock(config: AgentExecConfig, context: Ag
   if (!normalizeCustomAgentCapabilities(config.settings).access_vectors) return "";
 
   const vectorContext = context.vectorContext;
-  const recalledMemories = vectorContext?.recalledMemories.filter((memory) => memory.trim()) ?? [];
+  const recalledMemories = getAgentContextSources(config).recalledMemories
+    ? (vectorContext?.recalledMemories.filter((memory) => memory.trim()) ?? [])
+    : [];
   const semanticLorebookEntries = vectorContext?.semanticLorebookEntries.filter((entry) => entry.content.trim()) ?? [];
   if (recalledMemories.length === 0 && semanticLorebookEntries.length === 0) return "";
 
@@ -1620,8 +1675,9 @@ function buildCustomAgentCapabilityBlock(config: AgentExecConfig, context: Agent
   }
 
   if (capabilities.access_vectors) {
+    const contextSources = getAgentContextSources(config);
     const vectorContextAvailable =
-      (context.vectorContext?.recalledMemories.length ?? 0) > 0 ||
+      (contextSources.recalledMemories ? (context.vectorContext?.recalledMemories.length ?? 0) : 0) > 0 ||
       (context.vectorContext?.semanticLorebookEntries.length ?? 0) > 0;
     parts.push(
       vectorContextAvailable
@@ -1650,13 +1706,14 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   systemParts.push(`You are a specialized agent. Fulfill your task and return the requested output.`);
   systemParts.push(`</role>`);
   systemParts.push(``);
-  systemParts.push(buildLoreBlock(context));
+  const contextSources = getAgentContextSources(config);
+  systemParts.push(buildLoreBlock(context, contextSources));
   systemParts.push(``);
   systemParts.push(`<agents>`);
   systemParts.push(`Fulfill the requested task here and return the output in the format specified:`);
   systemParts.push(template);
   systemParts.push(`</agents>`);
-  const extras = buildAgentExtras(context, [config.type]);
+  const extras = buildAgentExtras(context, [config.type], contextSources);
   if (extras) {
     systemParts.push(``);
     systemParts.push(extras);
@@ -1678,11 +1735,12 @@ function buildStandardAgentMessages(config: AgentExecConfig, template: string, c
   }
 
   // Build multi-turn message array for this agent (sliced to its own contextSize)
-  const agentContextSize = normalizeAgentContextSize(config.settings.contextSize);
+  const agentContextSize = contextSources.chatHistory ? normalizeAgentContextSize(config.settings.contextSize) : 0;
   const resultType = resolveAgentResultType(config);
   const renderedTemplates = new Map([[config.type, template]]);
   return buildAgentMessages(systemParts.join("\n"), context, config.type, agentContextSize, [config.type], {
     includeMessageIds: normalizeCustomAgentCapabilities(config.settings).edit_messages === true,
+    includeTrackerData: contextSources.trackerData,
     preserveAssistantResponseMarkup: resultType === "text_rewrite",
     outputFormatBlock: buildAgentOutputFormatBlock([config], context, renderedTemplates),
   });
@@ -2079,7 +2137,9 @@ function buildCommittedTrackerStateContext(
   contextAgentTypes: string[],
   options: { includeMessageIds?: boolean },
 ): string | null {
-  const gs = msg.gameState ? (compactGameStateForAgentContext(msg.gameState, contextAgentTypes) as typeof msg.gameState) : null;
+  const gs = msg.gameState
+    ? (compactGameStateForAgentContext(msg.gameState, contextAgentTypes) as typeof msg.gameState)
+    : null;
   if (!gs) return null;
 
   const trackerSummary: Record<string, unknown> = {};
@@ -2147,19 +2207,24 @@ function buildAgentMessages(
   agentType: string,
   contextSize = 5,
   contextAgentTypes: string[] = [agentType],
-  options: { includeMessageIds?: boolean; preserveAssistantResponseMarkup?: boolean; outputFormatBlock?: string } = {},
+  options: {
+    includeMessageIds?: boolean;
+    includeTrackerData?: boolean;
+    preserveAssistantResponseMarkup?: boolean;
+    outputFormatBlock?: string;
+  } = {},
 ): ChatMessage[] {
   // ── 1. System message — already contains <role>, <lore>, <agents>, and extras ──
   const messages: ChatMessage[] = [{ role: "system", content: systemPrompt }];
 
   // ── 2. Chat history as proper multi-turn messages ──
   // Slice to this agent's own contextSize (the shared pool may be larger)
-  const recent = context.recentMessages.slice(-contextSize);
+  const recent = contextSize > 0 ? context.recentMessages.slice(-contextSize) : [];
   if (recent.length > 0) {
     // Only include committed tracker state for the last 3 assistant messages to save tokens.
     const assistantIndices: number[] = [];
     for (let i = 0; i < recent.length; i++) {
-      if (recent[i]!.role === "assistant" && recent[i]!.gameState) {
+      if (options.includeTrackerData !== false && recent[i]!.role === "assistant" && recent[i]!.gameState) {
         assistantIndices.push(i);
       }
     }
@@ -2184,7 +2249,7 @@ function buildAgentMessages(
       // Tracker state is reference material, not assistant prose. Keep it in a
       // user-role context block so text rewrite agents can use it without
       // accidentally treating tracker JSON as response text to preserve or edit.
-      if (msg.gameState && trackerEligible.has(msgIdx)) {
+      if (options.includeTrackerData !== false && msg.gameState && trackerEligible.has(msgIdx)) {
         const trackerContext = buildCommittedTrackerStateContext(msg, contextAgentTypes, options);
         if (trackerContext) {
           const lastAfterHistory = messages[messages.length - 1]!;
@@ -2257,14 +2322,13 @@ function buildAgentMessages(
 
 /**
  * Build the lore block for the system message from the agent context.
- * Contains character and persona context. Runtime lorebook entries are
- * intentionally excluded to keep non-lorebook agent prompts compact.
+ * Contains the character and persona context selected for this request.
  */
-function buildLoreBlock(context: AgentContext): string {
+function buildLoreBlock(context: AgentContext, sources: CustomAgentContextSources = ALL_AGENT_CONTEXT_SOURCES): string {
   const parts: string[] = [];
   parts.push(`<lore>`);
 
-  if (context.characters.length > 0) {
+  if (sources.characters && context.characters.length > 0) {
     parts.push(`<characters>`);
     for (const char of context.characters) {
       parts.push(`<character id="${char.id}" name="${char.name}">`);
@@ -2276,7 +2340,9 @@ function buildLoreBlock(context: AgentContext): string {
       if (char.rpgStats?.enabled) {
         const pools = normalizeRpgStatPools(char.rpgStats);
         if (pools.length > 0) {
-          parts.push(`Configured RPG pools: ${pools.map((pool) => `${pool.name}: ${pool.value}/${pool.max}`).join(", ")}`);
+          parts.push(
+            `Configured RPG pools: ${pools.map((pool) => `${pool.name}: ${pool.value}/${pool.max}`).join(", ")}`,
+          );
         }
         if (Array.isArray(char.rpgStats.attributes) && char.rpgStats.attributes.length > 0) {
           parts.push(
@@ -2291,7 +2357,7 @@ function buildLoreBlock(context: AgentContext): string {
     parts.push(`</characters>`);
   }
 
-  if (context.persona) {
+  if (sources.persona && context.persona) {
     parts.push(`<user_persona>`);
     parts.push(`Name: ${context.persona.name}`);
     if (context.persona.description) parts.push(`Description: ${context.persona.description.slice(0, 2000)}`);
@@ -2361,7 +2427,11 @@ function buildAvailableSpritesBlock(context: AgentContext): string {
  * Build agent-specific context blocks (sprites, backgrounds, source material, etc.)
  * that go into the system message after lore.
  */
-function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): string {
+function buildAgentExtras(
+  context: AgentContext,
+  agentTypes: string[] = [],
+  sources: CustomAgentContextSources = ALL_AGENT_CONTEXT_SOURCES,
+): string {
   const parts: string[] = [];
 
   // Card Evolution Auditor needs the FULL character card (not just description)
@@ -2408,7 +2478,7 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     }
   }
 
-  if (context.gameState) {
+  if (sources.trackerData && context.gameState) {
     parts.push(`<current_game_state>`);
     parts.push(JSON.stringify(compactGameStateForAgentContext(context.gameState, agentTypes)));
     parts.push(`</current_game_state>`);
@@ -2474,7 +2544,9 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     } else {
       parts.push(`Currently active background: none`);
     }
-    parts.push(`The host writes a separate background-only prompt after this decision; do not replace the normal illustration prompt.`);
+    parts.push(
+      `The host writes a separate background-only prompt after this decision; do not replace the normal illustration prompt.`,
+    );
     parts.push(`</illustrator_background_generation>`);
   }
 
@@ -2483,7 +2555,7 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     if (availableSpritesBlock) parts.push(availableSpritesBlock);
   }
 
-  if (context.memory._availableBackgrounds) {
+  if (agentTypes.includes("background") && context.memory._availableBackgrounds) {
     const bgs = context.memory._availableBackgrounds as Array<{
       filename: string;
       tags: string[];
@@ -2556,10 +2628,27 @@ function buildAgentExtras(context: AgentContext, agentTypes: string[] = []): str
     }
   }
 
-  if (context.chatSummary) {
+  if (sources.activatedLorebookEntries && context.activatedLorebookEntries?.length) {
+    parts.push(`<activated_lorebook_context>`);
+    parts.push(`Lorebook entries activated for the main generation on this turn:`);
+    for (const entry of context.activatedLorebookEntries) {
+      parts.push(`<entry id="${escapeXml(entry.id)}">`);
+      parts.push(escapeXml(entry.content));
+      parts.push(`</entry>`);
+    }
+    parts.push(`</activated_lorebook_context>`);
+  }
+
+  if (sources.chatSummary && context.chatSummary) {
     parts.push(`<chat_summary>`);
-    parts.push(context.chatSummary);
+    parts.push(escapeXml(context.chatSummary));
     parts.push(`</chat_summary>`);
+  }
+
+  if (sources.authorNotes && context.authorNotes) {
+    parts.push(`<author_notes>`);
+    parts.push(escapeXml(context.authorNotes));
+    parts.push(`</author_notes>`);
   }
 
   if (context.memory._sourceMaterial) {

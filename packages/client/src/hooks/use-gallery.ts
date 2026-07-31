@@ -70,6 +70,27 @@ export function useSceneVideos(chatId: string | undefined, enabled = true) {
   });
 }
 
+export function useDeleteSceneVideo(chatId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (videoId: string) => api.delete(`/gallery/scene-videos/${chatId}/${videoId}`),
+    onMutate: async (videoId) => {
+      await qc.cancelQueries({ queryKey: galleryKeys.sceneVideos(chatId) });
+      const previousVideos = qc.getQueryData<GeneratedSceneVideo[]>(galleryKeys.sceneVideos(chatId));
+      qc.setQueryData<GeneratedSceneVideo[]>(galleryKeys.sceneVideos(chatId), (old) =>
+        old?.filter((video) => video.id !== videoId),
+      );
+      return { previousVideos };
+    },
+    onError: (_error, _videoId, context) => {
+      if (context?.previousVideos) qc.setQueryData(galleryKeys.sceneVideos(chatId), context.previousVideos);
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: galleryKeys.sceneVideos(chatId) });
+    },
+  });
+}
+
 export function useUploadGalleryImage(chatId: string) {
   const qc = useQueryClient();
   return useMutation({

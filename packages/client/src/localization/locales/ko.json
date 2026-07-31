@@ -579,7 +579,7 @@
   "settings.notifications.sounds.description": "다른 채팅을 보고 있을 때 새 메시지를 받으면 알림음을 재생합니다.",
   "settings.notifications.sounds.title": "알림음",
   "settings.notifications.unfocusedOnly": "Marinara가 비활성 상태일 때만",
-  "settings.personalExtensions.approval.browser": "해시 {{hash}}로 확인된 \"{{name}}\"의 브라우저 코드를 활성화하시겠습니까? 이 코드는 Marinara의 DOM, 출처 데이터 또는 네트워크에 접근할 수 없는 불투명 출처(opaque origin) iframe에서 실행됩니다. 전용 확장 스토리지, 로깅 및 관리형 타이머만 제공받습니다.",
+  "settings.personalExtensions.approval.browser": "해시 {{hash}}로 확인된 \"{{name}}\"의 브라우저 코드를 활성화하시겠습니까? 이 코드는 Marinara의 DOM, 출처 데이터 또는 네트워크에 접근할 수 없는 불투명 출처(opaque origin) iframe에서 실행됩니다. 전용 확장 스토리지, 로깅 및 관리형 타이머만 제공받습니다. {{permissions}}",
   "settings.personalExtensions.approval.cancelLabel": "비활성화 유지",
   "settings.personalExtensions.approval.confirmLabel": "이 코드 그대로 실행",
   "settings.personalExtensions.approval.server": "해시 {{hash}}로 확인된 \"{{name}}\"의 서버 JavaScript를 활성화하시겠습니까? 이 코드는 별도의 운영체제 샌드박스 프로세스에서 실행되며 Marinara나 사용자 파일, 네트워크, 상속된 서버 비밀 정보, 자식 프로세스, 워커 또는 네이티브 애드온에 접근할 수 없습니다. 전용 확장 스토리지, 로깅 및 관리형 타이머만 제공받습니다.",

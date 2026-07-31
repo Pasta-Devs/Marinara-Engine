@@ -5,13 +5,7 @@
 // narration summarization for illustrations).
 // ──────────────────────────────────────────────
 import type { PromptOverrideKeyDef } from "../types.js";
-import {
-  GAME_VIDEO_PROMPT_TEMPLATE,
-  GAME_VIDEO_PROMPT_TEMPLATE_VARIABLES,
-  GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES,
-  GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE,
-  GAME_STORYBOARD_STILL_PROMPT_TEMPLATE,
-} from "@marinara-engine/shared";
+import { GAME_VIDEO_PROMPT_TEMPLATE, GAME_VIDEO_PROMPT_TEMPLATE_VARIABLES } from "@marinara-engine/shared";
 import { renderTemplate } from "../template.js";
 
 // ── NPC portrait ──
@@ -110,6 +104,111 @@ export const GAME_BACKGROUND: PromptOverrideKeyDef<GameBackgroundCtx> = {
     sceneDescription: "moonlit graveyard with crumbling tombstones",
     styleLine:
       "Style: Watercolor fantasy illustration, soft edges, warm palette, Ghibli-inspired, fantasy, medieval kingdom.",
+  },
+};
+
+// ── World Maps location artwork ──
+
+export interface MapsLocationArtworkCtx extends Record<string, string | number | undefined> {
+  locationName: string;
+  locationDescription: string;
+  locationType: string;
+  parentLocationName: string;
+  parentLocationDescription: string;
+  locationPath: string;
+  locationPrompt: string;
+  genre: string;
+  genreLine: string;
+  campaignArtStyle: string;
+  campaignArtStyleLine: string;
+  imageInstructions: string;
+  imageInstructionsLine: string;
+}
+
+export const MAPS_LOCATION_ARTWORK: PromptOverrideKeyDef<MapsLocationArtworkCtx> = {
+  key: "maps.locationArtwork",
+  label: "Maps location artwork",
+  description:
+    "Automatic World Maps location and child-map artwork. Engine style profiles and global positive/negative image settings are applied after this template.",
+  variables: [
+    { name: "locationName", description: "The location name.", example: "Moonwell Floor" },
+    {
+      name: "locationDescription",
+      description: "The location's public description from World Maps.",
+      example: "A quiet tiled bath beneath blue crystals.",
+    },
+    { name: "locationType", description: "The configured Maps hierarchy type.", example: "Floor" },
+    {
+      name: "parentLocationName",
+      description: "The direct parent location name, or empty for a root location.",
+      example: "Ascendant Spire",
+    },
+    {
+      name: "parentLocationDescription",
+      description: "The direct parent's public description, or empty for a root location.",
+      example: "A colossal shifting dungeon tower.",
+    },
+    {
+      name: "locationPath",
+      description: "The full Maps breadcrumb from root to this location.",
+      example: "Asterreach > Ascendant Spire > Moonwell Floor",
+    },
+    {
+      name: "locationPrompt",
+      description: "The complete fallback prompt prepared by World Maps for this location.",
+      example:
+        "Wide establishing image of Moonwell Floor. A quiet tiled bath beneath blue crystals. Show the environment, architecture, lighting, palette, and stable landmarks clearly. No text.",
+    },
+    {
+      name: "genre",
+      description: "The raw Game genre text, or empty outside Game mode.",
+      example: "Fantasy, Anime JRPG dungeon crawler",
+    },
+    {
+      name: "genreLine",
+      description: "The Game genre with terminal punctuation, or empty outside Game mode.",
+      example: "Fantasy, Anime JRPG dungeon crawler.",
+    },
+    {
+      name: "campaignArtStyle",
+      description: "The raw campaign art style when Use campaign art style is on, otherwise empty.",
+      example: "Luminous violet anime fantasy illustration",
+    },
+    {
+      name: "campaignArtStyleLine",
+      description: "A formatted campaign art-style line when enabled, otherwise empty.",
+      example: "Campaign art style: Luminous violet anime fantasy illustration.",
+    },
+    {
+      name: "imageInstructions",
+      description: "The raw saved image instructions from Chat Settings, or empty.",
+      example: "Use ornate brass machinery and deep blue reflections.",
+    },
+    {
+      name: "imageInstructionsLine",
+      description: "A formatted Chat Settings image-instructions line, or empty.",
+      example: "User image instructions: Use ornate brass machinery and deep blue reflections.",
+    },
+  ],
+  defaultBuilder: (ctx) =>
+    [ctx.locationPrompt, ctx.genreLine, ctx.campaignArtStyleLine, ctx.imageInstructionsLine]
+      .filter(Boolean)
+      .join(" "),
+  exampleContext: {
+    locationName: "Moonwell Floor",
+    locationDescription: "A quiet tiled bath beneath blue crystals.",
+    locationType: "Floor",
+    parentLocationName: "Ascendant Spire",
+    parentLocationDescription: "A colossal shifting dungeon tower.",
+    locationPath: "Asterreach > Ascendant Spire > Moonwell Floor",
+    locationPrompt:
+      "Wide establishing image of Moonwell Floor. A quiet tiled bath beneath blue crystals. Show the environment, architecture, lighting, palette, and stable landmarks clearly. No text.",
+    genre: "Fantasy, Anime JRPG dungeon crawler",
+    genreLine: "Fantasy, Anime JRPG dungeon crawler.",
+    campaignArtStyle: "Luminous violet anime fantasy illustration",
+    campaignArtStyleLine: "Campaign art style: Luminous violet anime fantasy illustration.",
+    imageInstructions: "Use ornate brass machinery and deep blue reflections.",
+    imageInstructionsLine: "User image instructions: Use ornate brass machinery and deep blue reflections.",
   },
 };
 
@@ -283,6 +382,7 @@ export interface GameImagePromptDirectorCtx extends Record<string, string | numb
   kindLabel: string;
   gameContextBlock: string;
   assetContextBlock: string;
+  latestTurnBlock: string;
   sourcePrompt: string;
   maxCharacters: number;
 }
@@ -305,6 +405,13 @@ export const GAME_IMAGE_PROMPT_DIRECTOR: PromptOverrideKeyDef<GameImagePromptDir
       example: "<asset_context>\nNPC: Lyra\nAppearance: auburn hair, green eyes, leather jacket\n</asset_context>",
     },
     {
+      name: "latestTurnBlock",
+      description:
+        "Pre-formatted <latest_gm_turn> block used as the primary scene source for Game backgrounds, or an empty string for other asset kinds.",
+      example:
+        "<latest_gm_turn>\nRain lashes the glass-roofed station while blue signal lamps flicker over the abandoned platforms.\n</latest_gm_turn>",
+    },
+    {
       name: "sourcePrompt",
       description: "The deterministic draft prompt generated by Marinara before LLM rewriting.",
       example: "Lyra, auburn hair, green eyes, centered portrait...",
@@ -315,6 +422,7 @@ export const GAME_IMAGE_PROMPT_DIRECTOR: PromptOverrideKeyDef<GameImagePromptDir
     [
       "You are Marinara's Game Mode Image Prompt Director.",
       `Rewrite the provided draft into one optimized positive image-generation prompt for this ${ctx.kindLabel}.`,
+      "For location backgrounds, when a latest GM turn is provided, treat it as the primary source for the visible environment; use the deterministic draft only as supporting context.",
       "Preserve canonical identity, setting, composition, art style, user instructions, and all important visual facts.",
       "For NPC portraits, the Appearance / Required canonical NPC visual profile lines are mandatory subject identity; carry those physical traits into the final prompt before adding style polish.",
       "Make the prompt concrete and provider-friendly: subject, pose/action, expression, camera/composition, setting, lighting, mood, materials, and style tags when useful.",
@@ -329,76 +437,10 @@ export const GAME_IMAGE_PROMPT_DIRECTOR: PromptOverrideKeyDef<GameImagePromptDir
       "<game_context>\nGenre: fantasy\nSetting: snowy alchemy fortress\nArt style: polished anime VN art\n</game_context>",
     assetContextBlock:
       "<asset_context>\nNPC: Lyra\nAppearance: auburn hair, green eyes, leather jacket\n</asset_context>",
+    latestTurnBlock: "",
     sourcePrompt: "Lyra, auburn hair, green eyes, centered portrait, polished anime VN art...",
     maxCharacters: 1400,
   },
-};
-
-// ── Turn storyboard directors (GM narration -> illustration or animation storyboard) ──
-
-export interface GameStoryboardIllustratorCtx extends Record<string, string | number | undefined> {
-  gameContextBlock: string;
-  sourceSectionsBlock: string;
-  sourceNarration: string;
-  keyframeCount: number;
-  durationSeconds: number;
-  aspectRatio: string;
-}
-
-export const GAME_STORYBOARD_ILLUSTRATION_DIRECTOR: PromptOverrideKeyDef<GameStoryboardIllustratorCtx> = {
-  key: "game.storyboardIllustrationDirector",
-  label: "Game Mode Storyboard Illustrator",
-  description:
-    "Game Mode storyboard illustrator instructions that split one GM turn narration into keyframe image prompts.",
-  variables: [
-    {
-      name: "gameContextBlock",
-      description: "Pre-formatted context block with mode, location, weather, world, style, and image instructions.",
-      example:
-        "<game_context>\nMode: exploration\nLocation: moonlit graveyard\nWeather: cold rain\nArt style: manga ink and watercolor\n</game_context>",
-    },
-    {
-      name: "sourceNarration",
-      description: "The stripped GM narration for one completed Game Mode turn.",
-      example: "Korr drops to one knee in the rain while Lyra steadies herself over the fallen blade.",
-    },
-    {
-      name: "sourceSectionsBlock",
-      description: "Pre-formatted <turn_sections> block with stable narration section indices from the reader UI.",
-      example:
-        '<turn_sections>\n<section index="0" kind="narration">Korr drops to one knee.</section>\n<section index="1" kind="dialogue" speaker="Lyra">Stay down.</section>\n</turn_sections>',
-    },
-    { name: "keyframeCount", description: "Target number of storyboard frames.", example: "4" },
-    {
-      name: "durationSeconds",
-      description: "Unused for illustration-only planning; present for template compatibility.",
-      example: "6",
-    },
-    { name: "aspectRatio", description: "Output aspect ratio.", example: "16:9" },
-  ],
-  defaultBuilder: (ctx) =>
-    renderTemplate(GAME_STORYBOARD_STILL_PROMPT_TEMPLATE, ctx, GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES),
-  exampleContext: {
-    gameContextBlock:
-      "<game_context>\nMode: exploration\nLocation: moonlit graveyard\nWeather: cold rain\nArt style: manga ink and watercolor\n</game_context>",
-    sourceSectionsBlock:
-      '<turn_sections>\n<section index="0" kind="narration">Korr drops to one knee in the rain.</section>\n<section index="1" kind="dialogue" speaker="Lyra">Stay down.</section>\n</turn_sections>',
-    sourceNarration: "Korr drops to one knee in the rain while Lyra steadies herself over the fallen blade.",
-    keyframeCount: 4,
-    durationSeconds: 6,
-    aspectRatio: "16:9",
-  },
-};
-
-export const GAME_STORYBOARD_ANIMATION_DIRECTOR: PromptOverrideKeyDef<GameStoryboardIllustratorCtx> = {
-  key: "game.storyboardAnimationDirector",
-  label: "Game Mode Storyboard Animation Planner",
-  description:
-    "Game Mode storyboard animation planner instructions that split one GM turn into first frames and motion directions.",
-  variables: GAME_STORYBOARD_ILLUSTRATION_DIRECTOR.variables,
-  defaultBuilder: (ctx) =>
-    renderTemplate(GAME_STORYBOARD_STILL_ANIMATION_PROMPT_TEMPLATE, ctx, GAME_STORYBOARD_PROMPT_TEMPLATE_VARIABLES),
-  exampleContext: GAME_STORYBOARD_ILLUSTRATION_DIRECTOR.exampleContext,
 };
 
 // ── Game video prompt (scene illustration -> animated clip) ──

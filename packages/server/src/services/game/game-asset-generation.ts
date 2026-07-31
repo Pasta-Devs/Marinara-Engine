@@ -15,7 +15,13 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { generateImage, type ImageGenRequest, type ImageGenResult } from "../image/image-generation.js";
 import { buildAssetManifest, GAME_ASSETS_DIR } from "./asset-manifest.service.js";
 import type { PromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
-import { loadPrompt, GAME_NPC_PORTRAIT, GAME_BACKGROUND, GAME_SCENE_ILLUSTRATION } from "../prompt-overrides/index.js";
+import {
+  loadPrompt,
+  GAME_NPC_PORTRAIT,
+  GAME_BACKGROUND,
+  MAPS_LOCATION_ARTWORK,
+  GAME_SCENE_ILLUSTRATION,
+} from "../prompt-overrides/index.js";
 import {
   inferImageSource,
   type ImageGenerationDefaultsProfile,
@@ -591,6 +597,7 @@ function compileGameImagePrompt(
     "styleProfiles" | "styleProfileId" | "imgDefaults" | "artStyle"
   > & {
     appearance?: string | null;
+    preserveFullBackgroundPrompt?: boolean;
     preserveFullScenePrompt?: boolean;
     omitProfileStyleText?: boolean;
     omitProfileSubjectTags?: boolean;
@@ -658,7 +665,9 @@ function compileGameImagePrompt(
     styleProfileId: req.styleProfileId,
     imageDefaults: req.imgDefaults,
     generatedStyle: req.artStyle,
-    applyPromptModeToSourcePrompt: kind === "background" || (kind === "illustration" && !req.preserveFullScenePrompt),
+    applyPromptModeToSourcePrompt:
+      (kind === "background" && !req.preserveFullBackgroundPrompt) ||
+      (kind === "illustration" && !req.preserveFullScenePrompt),
     omitProfileStyleText: req.omitProfileStyleText,
     omitProfileSubjectTags: req.omitProfileSubjectTags,
   });
@@ -828,6 +837,10 @@ export interface BackgroundGenRequest {
   worldOverview?: string | null;
   /** Unified art style prompt for visual consistency. */
   artStyle?: string;
+  /** Chat-level image instructions appended after the Maps or background scene prompt. */
+  imagePromptInstructions?: string | null;
+  /** Structured context for the dedicated global Maps location-artwork prompt override. */
+  mapsArtworkContext?: MapsLocationArtworkContext;
   /** Connection credentials. */
   imgSource?: string | null;
   imgModel: string;
@@ -848,6 +861,8 @@ export interface BackgroundGenRequest {
   size?: ImageGenerationSize;
   promptOverride?: string;
   negativePromptOverride?: string;
+  /** Preserve the complete background prompt instead of distilling it into tagged source cues. */
+  preserveFullBackgroundPrompt?: boolean;
   /** Preserve a prompt-writer's complete scene description instead of distilling it into tagged cues. */
   preserveFullScenePrompt?: boolean;
   /** The scene description is already a provider-ready prompt and should not receive the generic background wrapper. */
@@ -860,6 +875,18 @@ export interface BackgroundGenRequest {
   force?: boolean;
   /** Optional request-scoped abort signal. */
   signal?: AbortSignal;
+}
+
+export interface MapsLocationArtworkContext {
+  locationName: string;
+  locationDescription: string;
+  locationType: string;
+  parentLocationName: string;
+  parentLocationDescription: string;
+  locationPath: string;
+  genre: string;
+  campaignArtStyle: string;
+  imageInstructions: string;
 }
 
 export interface ChatBackgroundGenRequest extends BackgroundGenRequest {
@@ -923,6 +950,27 @@ export interface SceneIllustrationGenRequest {
 }
 
 async function buildBackgroundRawPrompt(req: BackgroundGenRequest): Promise<string> {
+  if (req.mapsArtworkContext) {
+    const context = req.mapsArtworkContext;
+    const sentence = (value: string) => {
+      const clean = value.trim();
+      return !clean || /[.!?]$/u.test(clean) ? clean : `${clean}.`;
+    };
+    const variables = {
+      ...context,
+      locationPrompt: req.sceneDescription.trim(),
+      genreLine: sentence(context.genre),
+      campaignArtStyleLine: context.campaignArtStyle.trim()
+        ? `Campaign art style: ${sentence(context.campaignArtStyle)}`
+        : "",
+      imageInstructionsLine: context.imageInstructions.trim()
+        ? `User image instructions: ${context.imageInstructions.trim()}`
+        : "",
+    };
+    return req.promptOverridesStorage
+      ? await loadPrompt(req.promptOverridesStorage, MAPS_LOCATION_ARTWORK, variables)
+      : MAPS_LOCATION_ARTWORK.defaultBuilder(variables);
+  }
   if (req.providerReadyPrompt) return req.sceneDescription.trim();
   const styleHint = [req.artStyle, req.genre, req.setting].filter(Boolean).join(", ");
   const worldContext = buildBackgroundWorldContext(req);
@@ -931,9 +979,15 @@ async function buildBackgroundRawPrompt(req: BackgroundGenRequest): Promise<stri
     sceneDescription: groundedSceneDescription,
     styleLine: styleHint ? `Style: ${styleHint}.` : "",
   };
-  return req.promptOverridesStorage
+  const rawPrompt = req.promptOverridesStorage
     ? await loadPrompt(req.promptOverridesStorage, GAME_BACKGROUND, backgroundVars)
     : GAME_BACKGROUND.defaultBuilder(backgroundVars);
+  const imagePromptInstructionsLine = req.imagePromptInstructions?.trim()
+    ? `User image instructions: ${req.imagePromptInstructions.trim().replace(/\s+/g, " ").slice(0, 5000)}`
+    : "";
+  return imagePromptInstructionsLine && !rawPrompt.includes(imagePromptInstructionsLine)
+    ? `${rawPrompt}\n${imagePromptInstructionsLine}`
+    : rawPrompt;
 }
 
 function buildBackgroundWorldContext(req: BackgroundGenRequest): string {
@@ -997,13 +1051,14 @@ export async function buildBackgroundProviderPrompt(req: BackgroundGenRequest): 
       req.currentTimeOfDay ? `Time of day: ${req.currentTimeOfDay}` : "",
       req.worldOverview ? `World overview: ${req.worldOverview}` : "",
       req.artStyle ? `Art style: ${req.artStyle}` : "",
+      req.imagePromptInstructions ? `User image instructions: ${req.imagePromptInstructions}` : "",
     ],
   });
   return compileGameImagePrompt(
-    req,
+    req.mapsArtworkContext ? { ...req, artStyle: undefined } : req,
     "background",
     prompt,
-    req.preserveFullScenePrompt ? 7000 : 1000,
+    req.preserveFullBackgroundPrompt || req.preserveFullScenePrompt ? 7000 : 1000,
     GAME_BACKGROUND_NEGATIVE_PROMPT,
   );
 }
@@ -1098,7 +1153,6 @@ async function buildSceneIllustrationRawPrompt(req: SceneIllustrationGenRequest)
     ? directPromptWithAppearance
     : hasStoryboardImagePromptSelection
       ? await loadGameStoryboardImagePrompt({
-          promptOverridesStorage: req.promptOverridesStorage,
           templateId: req.storyboardImagePromptTemplateId,
           customTemplates: req.storyboardImagePromptTemplates,
           ctx: sceneIllustrationVars,

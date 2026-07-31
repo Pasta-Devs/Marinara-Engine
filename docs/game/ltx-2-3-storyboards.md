@@ -101,27 +101,22 @@ Replace the corresponding values in the API export with quoted Marinara placehol
 | `%reference_image_name%` | The first-frame image uploaded to ComfyUI |
 | `%duration_seconds%` | The Storyboard clip duration in seconds |
 | `%length%` | The duration converted to Marinara's 16 FPS frame contract |
+| `%fps%` | The frame rate Marinara uses for the clip |
 | `%width%`, `%height%` | Dimensions selected from the video connection's resolution and aspect ratio |
 | `%seed%` | A new random seed for the request |
 | `%model%` | Optional model value from the connection when the workflow does not hard-code its loader model |
 
-The reference segment inside LTX Director's `timeline_data` should use the uploaded filename:
+The reference image belongs inside the `segments` array of LTX Director's `timeline_data`. In the API workflow, `timeline_data` is a serialized JSON string. `%length%` keeps the clip length dynamic through `normalDurationFrames`; the frame-zero reference-image segment intentionally keeps its own fixed short `"length":16` value:
 
 ```json
 {
-  "id": "marinara-reference",
-  "start": 0,
-  "length": 16,
-  "prompt": "",
-  "type": "image",
-  "imageFile": "%reference_image_name%",
-  "isEndFrame": false
+  "timeline_data": "{\"global_prompt\":\"\",\"normalStartFrame\":0,\"normalDurationFrames\":%length%,\"segments\":[{\"id\":\"marinara-reference\",\"start\":0,\"length\":16,\"prompt\":\"\",\"type\":\"image\",\"imageFile\":\"%reference_image_name%\",\"isEndFrame\":false}],\"motionSegments\":[],\"audioSegments\":[]}"
 }
 ```
 
-Also make the timeline duration dynamic with `%length%`. If the LTX Director node exposes second-based duration inputs, use `%duration_seconds%` there instead of leaving a fixed five-second value.
+Do not place `%reference_image_name%` beside `timeline_data` or in a separate top-level image field. Keep frame count, seconds, and frame rate connected to the workflow's external inputs with `%length%`, `%duration_seconds%`, and `%fps%`; the numeric values shown by an editable ComfyUI graph are not Marinara defaults.
 
-Keep placeholder values quoted in a local ComfyUI workflow. Marinara parses the JSON and converts exact numeric placeholders to numbers before submitting it.
+Keep string placeholders such as `%reference_image_name%` quoted. Exact numeric node inputs may quote `%length%`, `%duration_seconds%`, and `%fps%` because Marinara converts them to numbers. Inside the serialized `timeline_data` string, leave `%length%` unquoted as shown so the decoded timeline value is numeric.
 
 ### Export after every edit
 

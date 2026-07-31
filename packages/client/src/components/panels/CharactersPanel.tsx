@@ -40,6 +40,12 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
+import {
+  formatCardLibraryMeta,
+  getCardLibrarySummary,
+  matchesCardLibrarySearch,
+  parseCardLibrarySearchQuery,
+} from "../../lib/card-library-search";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
@@ -90,23 +96,6 @@ function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
   } catch {
     return { ...char, parsed: { name: "Unknown", description: "" } };
   }
-}
-
-function parseCharacterSearchQuery(value: string) {
-  const excludedTags: string[] = [];
-  const text = value
-    .replace(/(?:^|\s)(?:-|!)(?:tag:|#)?(?:"([^"]+)"|(\S+))/gi, (_match, quoted: string, bare: string) => {
-      const tag = (quoted ?? bare ?? "").trim();
-      if (tag) excludedTags.push(tag.toLowerCase());
-      return " ";
-    })
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return {
-    text: text.toLowerCase(),
-    excludedTags,
-  };
 }
 
 function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
@@ -177,7 +166,7 @@ export function CharactersPanel() {
   const favFilter = useUIStore((s) => s.characterPanelFavoriteFilter);
   const setFavFilter = useUIStore((s) => s.setCharacterPanelFavoriteFilter);
   const setCharacterPanelScrollTop = useUIStore((s) => s.setCharacterPanelScrollTop);
-  const serverSearch = useMemo(() => parseCharacterSearchQuery(search).text, [search]);
+  const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
   const serverFavoriteFilter = favFilter === "favorites" || favFilter === "non-favorites" ? favFilter : "";
   const characterPages = useCharacterPages({ search: serverSearch, sort, favoriteFilter: serverFavoriteFilter });
   const characters = useMemo(() => flattenCharacterPages(characterPages.data), [characterPages.data]);
@@ -229,7 +218,7 @@ export function CharactersPanel() {
 
   const filteredCharacters = useMemo(() => {
     let list = parsedCharacters;
-    const query = parseCharacterSearchQuery(search);
+    const query = parseCardLibrarySearchQuery(search);
     // Filter by favorites
     if (favFilter === "favorites") {
       list = list.filter((c) => c.parsed.extensions?.fav);
@@ -244,10 +233,7 @@ export function CharactersPanel() {
         return [...lowerIncludedTags].some((tag) => tags.has(tag));
       });
     }
-    const excludedTagFilters = new Set([
-      ...Array.from(excludedTags, (tag) => tag.toLowerCase()),
-      ...query.excludedTags,
-    ]);
+    const excludedTagFilters = new Set(Array.from(excludedTags, (tag) => tag.toLowerCase()));
     if (excludedTagFilters.size > 0) {
       list = list.filter((c) => {
         const tags = new Set(getCharacterTags(c).map((tag) => tag.toLowerCase()));
@@ -257,16 +243,29 @@ export function CharactersPanel() {
         return true;
       });
     }
-    // Filter by search text
-    if (query.text) {
-      list = list.filter(
-        (c) =>
-          (c.parsed.name ?? "").toLowerCase().includes(query.text) ||
-          (typeof c.comment === "string" && c.comment.toLowerCase().includes(query.text)) ||
-          (c.parsed.description ?? "").toLowerCase().includes(query.text) ||
-          getCharacterTags(c).some((t) => t.toLowerCase().includes(query.text)),
+    list = list.filter((c) => {
+      const tags = getCharacterTags(c);
+      return matchesCardLibrarySearch(
+        {
+          name: c.parsed.name,
+          title: getCharacterTitle({ name: c.parsed.name ?? "", comment: c.comment }),
+          meta: formatCardLibraryMeta(c.parsed.creator, c.parsed.character_version),
+          summary: getCardLibrarySummary([
+            c.parsed.creator_notes,
+            c.parsed.description,
+            c.parsed.personality,
+          ]),
+          tags,
+          sections: [
+            { content: c.parsed.description },
+            { content: c.parsed.personality },
+            { content: c.parsed.scenario },
+            { content: c.parsed.first_mes },
+          ],
+        },
+        query,
       );
-    }
+    });
     return list;
   }, [parsedCharacters, search, includedTags, excludedTags, favFilter]);
 

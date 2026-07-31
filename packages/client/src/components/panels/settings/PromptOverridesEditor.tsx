@@ -20,6 +20,7 @@ import { SettingsSwitch } from "./SettingControls";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const PREFERRED_PROMPT_KEY = "conversation.selfie";
+const ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY = "roleplay.galleryVideoDirector";
 
 type PromptOverridesEditorProps = {
   title?: string;
@@ -177,6 +178,14 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
     () => filteredEntries.find((entry) => entry.key === selectedKey),
     [filteredEntries, selectedKey],
   );
+  const localizedEntryLabel = (entry: PromptOverrideSummary | null | undefined) =>
+    entry?.key === ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY
+      ? localizeUi("settings.promptOverrides.roleplayGalleryVideoDirector.label")
+      : promptOverrideLabel(entry);
+  const selectedEntryDescription =
+    selectedEntry?.key === ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY
+      ? localizeUi("settings.promptOverrides.roleplayGalleryVideoDirector.description")
+      : selectedEntry?.description;
   const detailQuery = usePromptOverride(selectedKey);
   const defaultQuery = usePromptOverrideDefault(selectedKey);
   const saveOverride = useSavePromptOverride();
@@ -271,7 +280,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
 
     const confirmed = await showConfirmDialog({
       title:localizeUi("ui.panels.promptoverrideseditorbody.resetPromptOverride"),
-      message:localizeUi("ui.panels.promptoverrideseditorbody.value1WillUseItsBuiltInDefaultAgainYour", { value1: promptOverrideLabel(selectedEntry) }),
+      message:localizeUi("ui.panels.promptoverrideseditorbody.value1WillUseItsBuiltInDefaultAgainYour", { value1: localizedEntryLabel(selectedEntry) }),
       confirmLabel:localizeUi("ui.panels.promptoverrideseditorbody.resetToDefault"),
       cancelLabel: "Cancel",
       tone: "destructive",
@@ -317,7 +326,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
           {!loadingEntries && filteredEntries.length === 0 && <option value="">{localizeUi("ui.panels.promptoverrideseditorbody.noRegisteredPrompts")}</option>}
           {filteredEntries.map((entry) => (
             <option key={entry.key} value={entry.key}>
-              {promptOverrideLabel(entry)}
+              {localizedEntryLabel(entry)}
             </option>
           ))}
         </select>
@@ -325,7 +334,7 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
 
       {selectedEntry && (
         <p className="rounded-lg bg-[var(--background)]/50 px-2.5 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]/70">
-          {selectedEntry.description}
+          {selectedEntryDescription}
         </p>
       )}
 
@@ -338,7 +347,12 @@ function PromptOverridesEditorBody({ keys, preferredKey }: { keys?: readonly str
                 type="button"
                 key={variable.name}
                 onClick={() => insertVariable(variable.name)}
-                title={variable.description}
+                title={
+                  selectedEntry?.key === ROLEPLAY_GALLERY_VIDEO_DIRECTOR_PROMPT_KEY &&
+                  variable.name === "durationSeconds"
+                    ? localizeUi("settings.promptOverrides.roleplayGalleryVideoDirector.durationSeconds")
+                    : variable.description
+                }
                 className="inline-flex items-center gap-1 rounded-md bg-[var(--background)] px-2 py-1 font-mono text-[0.6rem] text-[var(--primary)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
               >
                 <Code2 size="0.625rem" />

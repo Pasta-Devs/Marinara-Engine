@@ -261,7 +261,7 @@ type ChatCommonOverlaysProps = {
   selfieCharacters?: Array<{ id: string; name: string }>;
   /** Run Illustrator in its background prompt mode. */
   onGenerateBackground?: () => void | Promise<void>;
-  /** Generate a storyboard for the latest completed Game Mode GM turn. */
+  /** Generate a storyboard for the latest completed Game or Roleplay episode. */
   onGenerateStoryboard?: () => void | Promise<void>;
   /** Show the latest Game Mode storyboard viewer. */
   onViewStoryboard?: () => void;

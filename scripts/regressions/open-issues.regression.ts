@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,8 @@ import AdmZip from "adm-zip";
 import type { Chat, Message } from "../../packages/shared/src/types/chat.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
+import { characterCardVersions, characters, chats, messages } from "../../packages/server/src/db/schema/index.js";
+import { eq } from "../../packages/server/src/db/file-query.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
@@ -330,6 +332,7 @@ assert.equal(renamedBackgroundOrganization.assignments["user:moonlit-courtyard.j
 assert.deepEqual(removeBackgroundFolder(renamedBackgroundOrganization, "folder-night"), {
   folders: [],
   assignments: {},
+  favorites: [],
 });
 assert.equal(getNextBackgroundFolderName([{ name: "Unnamed" }, { name: "unnamed 2" }]), "unnamed 3");
 
@@ -475,6 +478,16 @@ assert.deepEqual(
   },
   "Character PATCH parsing must not materialize omitted nested defaults",
 );
+assert.equal(
+  characterDataSchema.parse({ name: "  Trimmed Character  " }).name,
+  "Trimmed Character",
+  "Character validation must trim leading and trailing name whitespace",
+);
+assert.equal(
+  updateCharacterSchema.parse({ data: { name: "  Renamed Character  " } }).data.name,
+  "Renamed Character",
+  "Character rename validation must trim leading and trailing whitespace",
+);
 
 assert.equal(
   normalizeNativeCharacterData({}),
@@ -507,6 +520,77 @@ try {
   const db = await getDB();
   const characterStorage = createCharactersStorage(db);
   const noodleStorage = createNoodleStorage(db);
+  const storageTrimFixture = await characterStorage.create({
+    ...characterDataSchema.parse({ name: "Storage trim fixture" }),
+    name: "  Storage trim fixture  ",
+  });
+  assert.equal(
+    (JSON.parse(storageTrimFixture.data) as { name: string }).name,
+    "Storage trim fixture",
+    "Character storage must normalize names even when a caller bypasses route validation",
+  );
+  const storageTrimFixtureData = JSON.parse(storageTrimFixture.data) as Record<string, unknown>;
+  await db
+    .update(characters)
+    .set({ data: JSON.stringify({ ...storageTrimFixtureData, name: "  Version snapshot fixture  " }) })
+    .where(eq(characters.id, storageTrimFixture.id));
+  const normalizedSnapshot = await characterStorage.createVersionSnapshot(storageTrimFixture.id);
+  assert.equal(
+    normalizedSnapshot?.data.name,
+    "Version snapshot fixture",
+    "Character version snapshots must normalize legacy padded names",
+  );
+  const resetTrimFixture = await characterStorage.resetVersions(storageTrimFixture.id);
+  assert.equal(
+    (JSON.parse(resetTrimFixture?.data ?? "{}") as { name?: string }).name,
+    "Version snapshot fixture",
+    "Resetting Character versions must normalize legacy padded names",
+  );
+  await db
+    .update(characters)
+    .set({ data: JSON.stringify({ ...storageTrimFixtureData, name: "  Duplicate fixture  " }) })
+    .where(eq(characters.id, storageTrimFixture.id));
+  const duplicateTrimFixture = await characterStorage.duplicateCharacter(storageTrimFixture.id);
+  assert.equal(
+    (JSON.parse(duplicateTrimFixture?.data ?? "{}") as { name?: string }).name,
+    "Duplicate fixture (Copy)",
+    "Duplicating a Character must normalize legacy padded names",
+  );
+
+  const restoreTrimFixture = await characterStorage.create(characterDataSchema.parse({ name: "Restore source" }));
+  await db
+    .update(characters)
+    .set({ data: JSON.stringify({ ...JSON.parse(restoreTrimFixture.data), name: "  Current legacy  " }) })
+    .where(eq(characters.id, restoreTrimFixture.id));
+  const restoreVersionId = "padded-name-restore-version";
+  await db.insert(characterCardVersions).values({
+    id: restoreVersionId,
+    characterId: restoreTrimFixture.id,
+    data: JSON.stringify({ ...JSON.parse(restoreTrimFixture.data), name: "  Restored fixture  " }),
+    comment: "",
+    avatarPath: null,
+    version: "1.0",
+    source: "regression",
+    reason: "Padded legacy fixture",
+    createdAt: "2026-07-30T12:00:00.000Z",
+  });
+  const restoredTrimFixture = await characterStorage.restoreVersion(restoreTrimFixture.id, restoreVersionId);
+  const restoreSnapshots = await db
+    .select()
+    .from(characterCardVersions)
+    .where(eq(characterCardVersions.characterId, restoreTrimFixture.id));
+  const preRestoreSnapshot = restoreSnapshots.find((row) => row.source === "restore");
+  assert.equal(
+    (JSON.parse(preRestoreSnapshot?.data ?? "{}") as { name?: string }).name,
+    "Current legacy",
+    "Restoring a Character version must normalize the pre-restore snapshot",
+  );
+  assert.equal(
+    (JSON.parse(restoredTrimFixture?.data ?? "{}") as { name?: string }).name,
+    "Restored fixture",
+    "Restoring a Character version must normalize legacy padded names",
+  );
+
   const patchFixture = characterDataSchema.parse({
     name: "Nested patch fixture",
     extensions: {
@@ -648,6 +732,63 @@ try {
   );
 
   const mariDb = new MariDbService(db);
+  const rangedChatId = "professor-mari-range-regression";
+  const rangedChatTimestamp = "2026-07-30T12:00:00.000Z";
+  await db.insert(chats).values({
+    id: rangedChatId,
+    name: "Professor Mari range regression",
+    mode: "roleplay",
+    characterIds: "[]",
+    metadata: "{}",
+    sortOrder: 0,
+    createdAt: rangedChatTimestamp,
+    updatedAt: rangedChatTimestamp,
+  });
+  for (let index = 1; index <= 6; index += 1) {
+    await db.insert(messages).values({
+      id: `${rangedChatId}-${index}`,
+      chatId: rangedChatId,
+      role: index % 2 === 0 ? "assistant" : "user",
+      content: `Message ${index}`,
+      activeSwipeIndex: 0,
+      extra: "{}",
+      createdAt: `2026-07-30T12:00:0${index}.000Z`,
+    });
+  }
+  const lastMessagesResult = await mariDb.executeCli({
+    argv: ["chats", "messages", rangedChatId, "--last", "3"],
+  });
+  assert.deepEqual(
+    (lastMessagesResult.output as Array<{ postNumber: number; content: string }>).map(({ postNumber, content }) => ({
+      postNumber,
+      content,
+    })),
+    [
+      { postNumber: 4, content: "Message 4" },
+      { postNumber: 5, content: "Message 5" },
+      { postNumber: 6, content: "Message 6" },
+    ],
+    "Professor Mari must be able to retrieve exactly the last requested messages",
+  );
+  const afterPostResult = await mariDb.executeCli({
+    argv: ["chats", "messages", rangedChatId, "--after-post", "2", "--limit", "2", "--offset", "1"],
+  });
+  assert.deepEqual(
+    (afterPostResult.output as Array<{ postNumber: number; content: string }>).map(({ postNumber, content }) => ({
+      postNumber,
+      content,
+    })),
+    [
+      { postNumber: 4, content: "Message 4" },
+      { postNumber: 5, content: "Message 5" },
+    ],
+    "Professor Mari must page inside the requested post-number range",
+  );
+  const invalidRangeResult = await mariDb.executeCli({
+    argv: ["chats", "messages", rangedChatId, "--last", "201"],
+  });
+  assert.equal(invalidRangeResult.ok, false);
+  assert.match(String(invalidRangeResult.error), /--last must be an integer from 1 to 200/u);
   const customToolsStore = createCustomToolsStorage(db);
   const agentsStore = createAgentsStorage(db);
   const customTool = await customToolsStore.create({
@@ -676,6 +817,94 @@ try {
   await customToolsStore.remove(customTool.id);
   const cleanedToolAgent = await agentsStore.getById(toolAgent.id);
   assert.deepEqual(JSON.parse(cleanedToolAgent?.settings ?? "{}").enabledTools, ["roll_dice"]);
+  const { resolveGenerationTools } = await import(
+    "../../packages/server/src/services/generation/tool-resolution-runtime.js"
+  );
+  const diceAgent = {
+    id: "dice-agent-regression",
+    type: "dice-agent-regression",
+    name: "Dice Agent Regression",
+    phase: "parallel",
+    promptTemplate: "Roll the configured dice.",
+    connectionId: null,
+    settings: { enabledTools: ["roll_dice"] },
+    isCustomAgent: true,
+    provider: {},
+    model: "regression",
+  } as any;
+  await resolveGenerationTools({
+    requestBody: {},
+    chatId: rangedChatId,
+    chatMetadata: {},
+    chats: {
+      async getMessage() {
+        return null;
+      },
+      async updateMessageContent() {
+        return null;
+      },
+      async patchMetadata(_chatId, patcher) {
+        return { metadata: await patcher({}) };
+      },
+    },
+    agentsStore,
+    customToolsStore,
+    lorebooksStore: {
+      async listActiveEntries() {
+        return [];
+      },
+      async getById() {
+        return null;
+      },
+      async listEntries() {
+        return [];
+      },
+      async createEntry() {
+        return null;
+      },
+      async updateEntry() {
+        return null;
+      },
+    },
+    resolvedAgents: [diceAgent],
+    enabledConfigs: [],
+    promptCharacterIds: [],
+    personaId: null,
+    activeLorebookIds: [],
+    excludedLorebookIds: [],
+    excludedSourceAgentIds: [],
+    gameState: null,
+    gameSpotifyMusicEnabled: false,
+    agentContext: {
+      chatId: rangedChatId,
+      chatMode: "roleplay",
+      recentMessages: [],
+      mainResponse: null,
+      gameState: null,
+      characters: [],
+      persona: null,
+      memory: {},
+      writableLorebookIds: null,
+      chatSummary: null,
+    },
+    emitMetadataPatch() {},
+  });
+  assert.deepEqual(
+    diceAgent.toolContext?.tools.map((tool: { function: { name: string } }) => tool.function.name),
+    ["roll_dice"],
+    "An agent that enables roll_dice must receive the built-in dice definition",
+  );
+  const diceResult = JSON.parse(
+    await diceAgent.toolContext.executeToolCall({
+      id: "dice-agent-regression-call",
+      type: "function",
+      function: { name: "roll_dice", arguments: JSON.stringify({ notation: "1d2" }) },
+    }),
+  );
+  assert.ok(
+    diceResult.total === 1 || diceResult.total === 2,
+    "The agent tool context must execute roll_dice through the shared executor",
+  );
   const characterId = "partial-update-preservation";
   const createResult = await mariDb.executeAction({
     action: "character.create",
@@ -1663,6 +1892,14 @@ const notificationSettingsSource = readFileSync(
   new URL("../../packages/client/src/components/panels/settings/SettingControls.tsx", import.meta.url),
   "utf8",
 );
+const chatGallerySource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatGallery.tsx", import.meta.url),
+  "utf8",
+);
+const galleryHooksSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-gallery.ts", import.meta.url),
+  "utf8",
+);
 const globalStyles = readFileSync(new URL("../../packages/client/src/styles/globals.css", import.meta.url), "utf8");
 const galleryRoutesSource = readFileSync(
   new URL("../../packages/server/src/routes/gallery.routes.ts", import.meta.url),
@@ -1687,6 +1924,14 @@ assert.doesNotMatch(localMusicPlayerSource, /return `\/api\/game-assets\/local-m
 assert.match(gameAssetsRoutesSource, /app\.get\("\/local-music-file"/u);
 assert.match(gameAssetsRoutesSource, /const \{ path: encoded \} = \(req\.query as \{ path\?: string \}\)/u);
 assert.doesNotMatch(gameAssetsRoutesSource, /app\.get\("\/local-music-file\/:encoded"/u);
+assert.match(galleryRoutesSource, /app\.delete<[\s\S]*>\("\/scene-videos\/:chatId\/:id"/u);
+assert.match(
+  galleryRoutesSource,
+  /video\.chatId !== chatId[\s\S]*sceneVideos\.remove\(video\.id\)[\s\S]*removeSavedVideoFromDisk\(video\.filePath\)\.catch/u,
+);
+assert.match(galleryHooksSource, /api\.delete\(`\/gallery\/scene-videos\/\$\{chatId\}\/\$\{videoId\}`\)/u);
+assert.match(chatGallerySource, /handleDeleteVideo\(video\)/u);
+assert.match(chatGallerySource, /ui\.chat\.chatgallery\.deleteSceneVideo/u);
 assert.match(characterEditorSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
@@ -1777,7 +2022,7 @@ assert.equal(
 );
 assert.match(
   gameRoutesSource,
-  /if \(templateId === fallbackTemplateId \|\| !selectedTemplate\?\.promptTemplate\.trim\(\)\)/u,
+  /if \(!selectedTemplate\?\.promptTemplate\.trim\(\)\) \{[\s\S]*The Storyboard Agent has no/u,
 );
 assert.match(presetsPanelSource, /\{!selectionMode && isSelected && \(/u);
 assert.match(
@@ -2830,11 +3075,11 @@ try {
   assert.equal(personaRows.length, 1);
   const characterFile = join(entityGalleryRoot, String(characterRows[0]!.filePath));
   const personaFile = join(entityGalleryRoot, String(personaRows[0]!.filePath));
+  assert.equal(characterFile, join(sourceDir, "generated.png"));
+  assert.equal(personaFile, join(sourceDir, "generated.png"));
   assert.equal(readFileSync(characterFile, "utf8"), "generated-image");
   assert.equal(readFileSync(personaFile, "utf8"), "generated-image");
-  unlinkSync(characterFile);
   assert.equal(existsSync(join(sourceDir, "generated.png")), true);
-  assert.equal(existsSync(personaFile), true);
 } finally {
   rmSync(entityGalleryRoot, { recursive: true, force: true });
 }
@@ -3483,6 +3728,16 @@ try {
     /role="checkbox"[\s\S]{0,100}aria-checked=\{effectiveValue\}/u,
     "Memory Recall must expose its switch state to assistive technology",
   );
+  assert.match(
+    chatSettingsSource,
+    /const openLorebookFromSettings = useCallback\([\s\S]{0,220}onClose\(\);[\s\S]{0,80}openLorebookDetail\(lorebookId\);/u,
+    "Opening linked Maps lore from Chat Settings must close the drawer before navigating",
+  );
+  assert.equal(
+    chatSettingsSource.match(/onOpenLorebook: openLorebookFromSettings/gu)?.length,
+    2,
+    "Every Chat Settings Maps host must use the close-and-open lorebook callback",
+  );
 
   const generateHookSource = readFileSync(join(REPOSITORY_ROOT, "packages/client/src/hooks/use-generate.ts"), "utf8");
   const clearStreamIndex = generateHookSource.indexOf("clearStreamBuffer(params.chatId);");
@@ -3694,9 +3949,8 @@ try {
     "A live Conversation stream must apply depth-scoped regex as the newest message",
   );
 
-  const { normalizeVideoGenerationProfile } = await import(
-    "../../packages/shared/src/constants/video-generation-defaults.js"
-  );
+  const { normalizeVideoGenerationProfile } =
+    await import("../../packages/shared/src/constants/video-generation-defaults.js");
   assert.equal(
     normalizeVideoGenerationProfile({
       service: "comfyui",
@@ -3742,6 +3996,22 @@ try {
     presetEditorSource,
     /injectableAgents\.map[\s\S]{0,700}justify-start[\s\S]{0,120}text-left/u,
     "Agent section choices must align with the preset editor's other add-section choices",
+  );
+}
+
+// Issue #4277 — the Secret Plot interval remains editable after Narrative
+// Director is installed instead of passing a string through a number-only
+// normalizer and immediately restoring the previous value.
+{
+  assert.match(
+    chatSettingsDrawerSource,
+    /<DraftNumberInput\s+value=\{narrativeDirectorSecretPlotRunInterval\}\s+min=\{1\}\s+max=\{100\}\s+onCommit=\{\(value\) =>\s+updateMeta\.mutate\(\{\s+id: chat\.id,\s+narrativeDirectorSecretPlotRunInterval: value,/u,
+    "Secret Plot run interval must use a draft number input that commits the edited numeric value",
+  );
+  assert.doesNotMatch(
+    chatSettingsDrawerSource,
+    /narrativeDirectorSecretPlotRunInterval:\s*normalizePositiveInteger\(\s*event\.target\.value/u,
+    "Secret Plot run interval must not reject the browser's string input value",
   );
 }
 

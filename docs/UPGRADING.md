@@ -24,7 +24,7 @@ Upgrades are safe, but a backup is cheap insurance. Make one before any large ju
 4. Click **Download Backup**.
 5. Save the `.zip` file somewhere safe.
 
-You should see the button change to **Creating backup...** while it works. When it finishes, your browser saves a `.zip` archive of your data.
+You should see the button change to **Creating backup…** while it works. When it finishes, your browser saves a `.zip` archive of your data.
 
 Full steps for backups and restoring are in [Backing Up and Restoring Marinara](data/backup-and-restore.md).
 
@@ -132,11 +132,11 @@ The **Release Channel** dropdown picks which builds you track. It has two choice
 
 Choosing **Staging/UAT** shows a warning: "Staging builds are pre-release tester builds. Back up your app data before applying them."
 
-Switching channels is treated as a deliberate choice. When you pick a different channel from a browser on the machine that runs the server, the update button changes to **Switch to** followed by the channel name, and it works even when ordinary in-app updates are turned off. It shows **Switching...** while it runs. Normal same-channel updates still need the setup described under Apply Update below, and remote devices always do.
+Switching channels is treated as a deliberate choice. When you pick a different channel from a browser on the machine that runs the server, the update button changes to **Switch to** followed by the channel name, and it works even when ordinary in-app updates are turned off. It shows **Switching…** while it runs. Normal same-channel updates still need the setup described under Apply Update below, and remote devices always do.
 
 ### Check for Updates
 
-Click **Check for Updates**. The button shows **Checking...** while it works.
+Click **Check for Updates**. The button shows **Checking…** while it works.
 
 Below the button you see your **Release** version and your **Build** commit code. A **Branch** line also appears when the branch is known.
 
@@ -179,7 +179,7 @@ The **Refresh App** button sits in the same **Updates** section. It is not a ser
 
 Use **Refresh App** when the app looks stale or shows a blank screen after an update, but the server is already running the new version. It fixes a stuck web page. It does not change the server code, so it is not a substitute for a real upgrade.
 
-The button shows **Refreshing...** while it works, then the app reloads.
+The button shows **Refreshing…** while it works, then the app reloads.
 
 ## If an upgrade fails
 

@@ -471,21 +471,21 @@ export function validateSpatialTransition(
     return {
       ok: false,
       code: "spatial_definition_invalid",
-      message: "The hierarchical map must be repaired before moving.",
+      message: "The world map must be repaired before moving.",
     };
   }
   if (!definition.enabled) {
     return {
       ok: false,
       code: "spatial_context_disabled",
-      message: "Hierarchical maps are disabled for this chat.",
+      message: "World maps are disabled for this chat.",
     };
   }
   if (request.expectedDefinitionRevision !== definition.revision) {
     return {
       ok: false,
       code: "spatial_transition_stale_definition",
-      message: "The hierarchical map changed. Review the available destinations.",
+      message: "The world map changed. Review the available destinations.",
     };
   }
   if (request.expectedCurrentLocationId !== currentLocationId) {

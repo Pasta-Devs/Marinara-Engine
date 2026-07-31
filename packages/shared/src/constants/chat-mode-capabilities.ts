@@ -196,7 +196,7 @@ export function isAgentManifestAvailableInChatMode(
   if (isRetiredBuiltInAgentId(agent.id)) return false;
   const normalizedMode = mode ?? "roleplay";
   if (agent.modeAllowlist?.length && !agent.modeAllowlist.includes(normalizedMode)) return false;
-  if (agent.execution === "feature") return true;
+  if (agent.execution === "feature" || agent.execution === "host") return true;
   const policy = getChatModeCapabilities(mode).agentPolicy;
   return policy.kind === "all" || policy.allowedAgentIds.includes(agent.id);
 }

@@ -53,6 +53,15 @@ export function createGameStoryboardsStorage(db: DB) {
         .orderBy(desc(gameTurnStoryboards.createdAt));
     },
 
+    async listRecentByChatId(chatId: string, limit: number) {
+      return db
+        .select()
+        .from(gameTurnStoryboards)
+        .where(eq(gameTurnStoryboards.chatId, chatId))
+        .orderBy(desc(gameTurnStoryboards.createdAt))
+        .limit(limit);
+    },
+
     async listForTurn(chatId: string, messageId: string, swipeIndex: number) {
       return db
         .select()

@@ -18,11 +18,12 @@ import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../lib
 import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import { sanitizeAppCss } from "../lib/theme-css";
 import {
-  getRoleplayTypewriterRevealCharsPerSecond,
-  getTypewriterRevealCharsPerSecond,
+  getStreamingCharsPerSecond,
+  getTypewriterFrameBudget,
   isGenerationStartBlocked,
   reconcileTypewriterReplacement,
   shouldKeepStreamLiveThroughPostProcessing,
+  takeTypewriterCharacters,
 } from "../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../lib/chat-scroll-events";
 import { startSceneWithPromptPreferences } from "../lib/scene-generation";
@@ -919,7 +920,7 @@ const pendingVisibleGameStateRefreshes = new Map<string, Promise<void>>();
 const activeGenerateLocks = new Set<string>();
 const PASSIVE_STREAM_SETTLE_POLL_MS = 1_500;
 const PASSIVE_STREAM_SETTLE_MAX_WAIT_MS = 30 * 60_000;
-const ROLEPLAY_TYPEWRITER_PREBUFFER_MS = 160;
+const STREAM_TYPEWRITER_PREBUFFER_MS = 320;
 
 function wait(ms: number, signal?: AbortSignal) {
   if (!signal) return new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -1302,7 +1303,6 @@ export function useGenerate() {
       const transportStreaming = useUIStore.getState().enableStreaming;
       const streamingEnabled = transportStreaming;
       const chatModeForGeneration = getCachedChatMode(qc, params.chatId);
-      const smoothRoleplayTypewriter = chatModeForGeneration === "roleplay" || chatModeForGeneration === "visual_novel";
       const shouldDisplayRawStream =
         chatModeForGeneration !== "conversation" || !!params.regenerateMessageId || !!params.continueMessageId;
       const keepStreamLiveThroughPostProcessing = shouldKeepStreamLiveThroughPostProcessing({
@@ -1318,8 +1318,6 @@ export function useGenerate() {
       ]);
       let fullBuffer = ""; // What the user sees (or accumulates silently when streaming is off)
       let pendingText = ""; // Tokens waiting to be typed out
-      let lastVisibleChunkAt = 0;
-      let observedArrivalCharsPerSecond: number | null = null;
       let receivedContent = false; // Whether any actual message content was received
       let receivedThinking = false; // Whether provider-native thinking chunks were received
       let gameTurnLoadedSoundPlayed = false;
@@ -1328,14 +1326,14 @@ export function useGenerate() {
       let illustrationSettled = false;
       let passiveStreamRecovered = false;
       let spatialTransitionCommitted = false;
+      let spatialCapabilityRefreshDispatched = false;
       let passiveStreamSettled = false;
       let passiveRecoveryDurableMessage: Message | null = null;
       let typingActive = false;
       let typewriterDone: (() => void) | null = null;
       let rafId = 0;
-      let roleplayTypewriterStarted = false;
-      let roleplayTypewriterBufferUntil = 0;
-      let roleplayTypewriterCharsPerSecond: number | null = null;
+      let typewriterStarted = false;
+      let typewriterBufferUntil = 0;
       const persistedMessages = new Map<string, Message>();
       let sawGroupTurn = false;
       let currentGroupTurnSavedMessage: Message | null = null;
@@ -1360,20 +1358,9 @@ export function useGenerate() {
         }
         if (!normalizedChunk) return;
         if (streamingEnabled && shouldDisplayRawStream) {
-          const now = performance.now();
-          if (smoothRoleplayTypewriter && !roleplayTypewriterStarted && roleplayTypewriterBufferUntil === 0) {
-            roleplayTypewriterBufferUntil = now + ROLEPLAY_TYPEWRITER_PREBUFFER_MS;
-          } else if (!smoothRoleplayTypewriter && lastVisibleChunkAt > 0) {
-            const elapsedMs = now - lastVisibleChunkAt;
-            if (elapsedMs >= 16 && elapsedMs <= 5000) {
-              const sampleRate = (normalizedChunk.length * 1000) / elapsedMs;
-              observedArrivalCharsPerSecond =
-                observedArrivalCharsPerSecond === null
-                  ? sampleRate
-                  : observedArrivalCharsPerSecond * 0.5 + sampleRate * 0.5;
-            }
+          if (!typewriterStarted && typewriterBufferUntil === 0) {
+            typewriterBufferUntil = performance.now() + STREAM_TYPEWRITER_PREBUFFER_MS;
           }
-          if (!smoothRoleplayTypewriter) lastVisibleChunkAt = now;
           pendingText += normalizedChunk;
           startTypewriter();
         } else {
@@ -1401,20 +1388,13 @@ export function useGenerate() {
         if (flushed.visible) appendGeneratedChunk(flushed.visible);
       };
 
-      // Compute visible characters per second from the user's streamingSpeed setting (1–100).
-      // Read per-tick so changes to the slider take effect immediately.
-      // speed 1   → slow read-along reveal
-      // speed 30  → deliberate typewriter pace
-      // speed 100 → flush instantly
+      // Read per tick so slider and reduced-motion changes apply immediately.
+      // Values 1–99 are literal visible characters per second; 100 is instant.
+      const reducedMotionMedia =
+        typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
       const getCharsPerSecond = () => {
         const speed = useUIStore.getState().streamingSpeed;
-        if (speed >= 100) return Infinity;
-        const normalized = Math.max(0, Math.min(1, (speed - 1) / 98));
-        return 12 + Math.pow(normalized, 1.65) * 248;
-      };
-      const getMaxCharsPerTypewriterFrame = (charsPerSecond: number) => {
-        if (charsPerSecond === Infinity) return Infinity;
-        return Math.max(1, Math.ceil(charsPerSecond / 60));
+        return getStreamingCharsPerSecond(speed, reducedMotionMedia?.matches === true);
       };
 
       const TYPEWRITER_MAX_FRAME_MS = 120;
@@ -1430,7 +1410,6 @@ export function useGenerate() {
         typingActive = false;
         typewriterRemainder = 0;
         lastTypewriterPaintAt = 0;
-        roleplayTypewriterCharsPerSecond = null;
         if (streamingEnabled && shouldDisplayRawStream && fullBuffer) setStreamBuffer(fullBuffer, params.chatId);
         if (typewriterDone) {
           const done = typewriterDone;
@@ -1483,35 +1462,20 @@ export function useGenerate() {
           }
           const selectedCharsPerSecond = getCharsPerSecond();
           if (
-            smoothRoleplayTypewriter &&
-            !roleplayTypewriterStarted &&
+            !typewriterStarted &&
             selectedCharsPerSecond !== Infinity &&
             !sawDoneEvent &&
-            now < roleplayTypewriterBufferUntil
+            now < typewriterBufferUntil
           ) {
             rafId = requestAnimationFrame(tick);
             return;
           }
-          roleplayTypewriterStarted = true;
+          typewriterStarted = true;
           if (!lastTypewriterPaintAt) lastTypewriterPaintAt = now;
           const elapsedMs = Math.min(TYPEWRITER_MAX_FRAME_MS, Math.max(0, now - lastTypewriterPaintAt));
           lastTypewriterPaintAt = now;
 
-          const charsPerSecond = smoothRoleplayTypewriter
-            ? getRoleplayTypewriterRevealCharsPerSecond({
-                selectedCharsPerSecond,
-                pendingCharacters: pendingText.length,
-                previousCharsPerSecond: roleplayTypewriterCharsPerSecond,
-                elapsedMs,
-                streamComplete: sawDoneEvent,
-              })
-            : getTypewriterRevealCharsPerSecond({
-                selectedCharsPerSecond,
-                pendingCharacters: pendingText.length,
-                observedArrivalCharsPerSecond,
-                streamComplete: sawDoneEvent,
-              });
-          if (smoothRoleplayTypewriter) roleplayTypewriterCharsPerSecond = charsPerSecond;
+          const charsPerSecond = selectedCharsPerSecond;
           if (charsPerSecond === Infinity) {
             fullBuffer += pendingText;
             pendingText = "";
@@ -1520,17 +1484,17 @@ export function useGenerate() {
             return;
           }
 
-          typewriterRemainder += (charsPerSecond * elapsedMs) / 1000;
-          const maxCharsThisFrame = getMaxCharsPerTypewriterFrame(charsPerSecond);
-          const n = Math.min(Math.floor(typewriterRemainder), maxCharsThisFrame, pendingText.length);
+          const frameBudget = getTypewriterFrameBudget(charsPerSecond, elapsedMs, typewriterRemainder);
+          typewriterRemainder = frameBudget.accruedCharacters;
+          const n = Math.min(Math.floor(typewriterRemainder), frameBudget.maxCharacters, pendingText.length);
           if (n < 1) {
             rafId = requestAnimationFrame(tick);
             return;
           }
-          typewriterRemainder -= n;
-          const batch = pendingText.slice(0, n);
-          pendingText = pendingText.slice(n);
-          fullBuffer += batch;
+          const reveal = takeTypewriterCharacters(pendingText, n);
+          typewriterRemainder -= reveal.characterCount;
+          pendingText = reveal.pendingText;
+          fullBuffer += reveal.visibleText;
           setStreamBuffer(fullBuffer, params.chatId);
           rafId = requestAnimationFrame(tick);
         };
@@ -1637,7 +1601,16 @@ export function useGenerate() {
                 | undefined;
               if (transitionData?.chatId === params.chatId && transitionData.commandId) {
                 spatialTransitionCommitted = true;
-                useChatStore.getState().clearPendingSpatialTransition(params.chatId, transitionData.commandId);
+                spatialCapabilityRefreshDispatched = true;
+                useChatStore
+                  .getState()
+                  .clearPendingSpatialTransition(params.chatId, transitionData.commandId);
+                dispatchCapabilityClientEvent({
+                  packageId: "hierarchical-maps",
+                  type: event.type,
+                  chatId: params.chatId,
+                  data: event.data,
+                });
                 void qc.invalidateQueries({ queryKey: spatialContextKeys.detail(params.chatId) });
                 void qc.invalidateQueries({ queryKey: chatKeys.detail(params.chatId) });
               }
@@ -2009,9 +1982,8 @@ export function useGenerate() {
                 // Reset the stream buffer for the new character
                 fullBuffer = "";
                 pendingText = "";
-                roleplayTypewriterStarted = false;
-                roleplayTypewriterBufferUntil = 0;
-                roleplayTypewriterCharsPerSecond = null;
+                typewriterStarted = false;
+                typewriterBufferUntil = 0;
                 leadingSpeakerPrefixFilter.reset();
                 thinkingStreamFilter.reset();
                 setStreamBuffer("", params.chatId);
@@ -2823,6 +2795,24 @@ export function useGenerate() {
         }
         const stillOwnerAtCleanupStart =
           useChatStore.getState().abortControllers.get(params.chatId) === abortController;
+        if (
+          (chatModeForGeneration === "roleplay" || chatModeForGeneration === "game") &&
+          !spatialCapabilityRefreshDispatched
+        ) {
+          // Narrated Maps transitions commit near the end of the server stream.
+          // Reconcile both client caches when the transition SSE was missed.
+          dispatchCapabilityClientEvent({
+            packageId: "hierarchical-maps",
+            type: "spatial_context_refresh",
+            chatId: params.chatId,
+            data: null,
+          });
+          void qc.invalidateQueries({
+            queryKey: spatialContextKeys.detail(params.chatId),
+            exact: true,
+            refetchType: "active",
+          });
+        }
         if (stillOwnerAtCleanupStart) {
           useChatStore.getState().clearPerChatState(params.chatId);
           useChatStore.getState().setAbortController(params.chatId, null);

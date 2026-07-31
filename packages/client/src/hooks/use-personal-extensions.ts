@@ -77,10 +77,19 @@ export function useUpdatePersonalExtension() {
 export function useApprovePersonalExtension() {
   const invalidate = useInvalidatePersonalExtensions();
   return useMutation({
-    mutationFn: ({ id, contentHash }: { id: string; contentHash: string }) =>
+    mutationFn: ({
+      id,
+      contentHash,
+      acknowledgeFullPageAccess,
+    }: {
+      id: string;
+      contentHash: string;
+      acknowledgeFullPageAccess?: boolean;
+    }) =>
       api.post<PersonalExtension>(`/personal-extensions/${id}/approve`, {
         contentHash,
         acknowledgeSandboxedCode: true,
+        ...(acknowledgeFullPageAccess ? { acknowledgeFullPageAccess: true } : {}),
       }),
     onSuccess: invalidate,
   });

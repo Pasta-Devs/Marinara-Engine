@@ -21,6 +21,10 @@ export interface BuiltInAgentManifest {
   runInterval?: number;
   /** Default prompt supplied by an installed package. Bundled compatibility manifests may omit it. */
   defaultPromptTemplate?: string;
-  /** Feature entries use the Agents library for installation/activation but do not run through the LLM pipeline. */
-  execution?: "pipeline" | "feature";
+  /**
+   * Feature entries provide their own package UI/runtime. Host entries use the
+   * normal Agent editor, but are orchestrated by a dedicated Engine workflow
+   * instead of the generic LLM pipeline.
+   */
+  execution?: "pipeline" | "feature" | "host";
 }

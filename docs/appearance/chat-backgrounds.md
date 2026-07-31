@@ -107,7 +107,7 @@ AI-generated scene backgrounds you create from the Gallery also land in this sam
 
 ## Where your background choices are saved
 
-Two different settings decide what background a chat shows, and they save in different ways:
+Three different settings decide what background a chat shows, and they save in different ways:
 
 - The **Chat Background** you pick for a chat is saved with that chat on the server. It follows the chat to any device you open it on.
 - Background folders and their assignments are saved on the server and follow the library to other devices.

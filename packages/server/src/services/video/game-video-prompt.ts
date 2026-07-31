@@ -91,14 +91,21 @@ export async function loadGameVideoPrompt(args: {
   promptOverridesStorage: PromptOverridesStorage;
   meta: Record<string, unknown>;
   templateId?: string | null;
+  customTemplates?: unknown;
   ctx: GameVideoCtx;
   debugMode?: boolean;
 }): Promise<string> {
+  const customTemplates =
+    args.customTemplates === undefined
+      ? normalizeGameVideoPromptTemplates(args.meta.gameVideoPromptTemplates)
+      : normalizeAgentPromptTemplateOptions(args.customTemplates).slice(0, 20);
+  const customIds = new Set(customTemplates.map((template) => template.id));
   const options = [
-    ...GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
-    ...normalizeGameVideoPromptTemplates(args.meta.gameVideoPromptTemplates),
+    ...customTemplates,
+    ...GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES.filter((template) => !customIds.has(template.id)),
   ];
-  const explicitTemplateId = readTrimmedString(args.templateId) ?? readTrimmedString(args.meta.gameVideoPromptTemplateId);
+  const explicitTemplateId =
+    readTrimmedString(args.templateId) ?? readTrimmedString(args.meta.gameVideoPromptTemplateId);
   const hasExplicitTemplateSelection =
     explicitTemplateId !== null && options.some((option) => option.id === explicitTemplateId);
   const templateId = resolveGameVideoPromptTemplateId({

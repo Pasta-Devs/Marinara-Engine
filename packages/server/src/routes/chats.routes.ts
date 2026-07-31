@@ -119,6 +119,7 @@ import {
   resolveChatSummaryPrompt,
 } from "../services/generation/roleplay-summary-runtime.js";
 import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
+import { resolveGameGmPromptTemplate } from "../services/generation/game-gm-prompt-runtime.js";
 
 type TrackerWrapFormat = "xml" | "markdown" | "none";
 type EntryStateOverrides = Record<string, { ephemeral?: number | null; enabled?: boolean }>;
@@ -2089,7 +2090,7 @@ export async function chatsRoutes(app: FastifyInstance) {
     const ownerSpatialProjection = await resolveOwnerSpatialProjection(req.params.id, {}, chat.metadata);
     if (manual && body.location !== undefined && ownerSpatialProjection?.ownerMode === "game") {
       return reply.status(409).send({
-        error: "Story location is controlled by the hierarchical map.",
+        error: "Story location is controlled by the world map.",
         code: "spatial_location_authoritative",
         field: "location",
         location: formatOwnerSpatialBreadcrumb(ownerSpatialProjection),
@@ -2538,10 +2539,13 @@ export async function chatsRoutes(app: FastifyInstance) {
             };
           }
           if (chatMode === "game") {
-            const customPrompt =
-              typeof chatMeta.gameSystemPrompt === "string" && chatMeta.gameSystemPrompt.trim()
-                ? (chatMeta.gameSystemPrompt as string).trim()
+            const setupConfig =
+              chatMeta.gameSetupConfig &&
+              typeof chatMeta.gameSetupConfig === "object" &&
+              !Array.isArray(chatMeta.gameSetupConfig)
+                ? (chatMeta.gameSetupConfig as Record<string, unknown>)
                 : null;
+            const customPrompt = resolveGameGmPromptTemplate(chatMeta, setupConfig);
             const selectedGamePrompt = presetStringField(preset as Record<string, unknown> | null, "gamePrompt");
             const gamePromptTemplate = customPrompt ?? (selectedGamePrompt || DEFAULT_GAME_SYSTEM_PROMPT);
             const renderedGamePrompt = resolveMacros(gamePromptTemplate, promptMacroContext);
@@ -2722,7 +2726,7 @@ export async function chatsRoutes(app: FastifyInstance) {
                 charNames.push(charData.name ?? "Unknown");
               }
             }
-            const speakerInstruction = `- Since this is a group chat, wrap each character's dialogue in <speaker="name"> tags. Tags can appear inline with narration, they don't need to be on separate lines. Example: <speaker="${charNames[0] ?? "John"}">"Hello there,"</speaker> [action beat/dialogue tag].`;
+            const speakerInstruction = `- Since this is a group chat, wrap each character's dialogue in <speaker="name"> tags. Tags can appear inline with narration, they don't need to be on separate lines. Example: <speaker="${charNames[0] ?? "John"}">"Hello there,"</speaker> [action beat/dialogue tag]. Available characters: ${charNames.join(", ")}. Use their exact names.`;
             const wrapFmt = (preset as any).wrapFormat || "xml";
             const instructionBlock =
               wrapFmt === "markdown" ? `\n## Group Chat\n${speakerInstruction}` : speakerInstruction;
@@ -3181,11 +3185,14 @@ export async function chatsRoutes(app: FastifyInstance) {
     metadata: Record<string, unknown>,
     knownNpcNames: Set<string>,
   ): Record<string, unknown> => {
-    if (!("gameJournal" in metadata)) return metadata;
-    return {
-      ...metadata,
-      gameJournal: sanitizeGameJournalForExport(metadata.gameJournal, knownNpcNames),
-    };
+    const sanitized = { ...metadata };
+    delete sanitized.branchParentChatId;
+    delete sanitized.branchParentMessageId;
+    delete sanitized.branchMessageId;
+    if ("gameJournal" in sanitized) {
+      sanitized.gameJournal = sanitizeGameJournalForExport(sanitized.gameJournal, knownNpcNames);
+    }
+    return sanitized;
   };
 
   const safeExportNamePart = (value: unknown, fallback: string): string => {
@@ -3642,6 +3649,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const branchedId = branchedMessageIds[index];
       if (branchedId) sourceToBranchedMessageId.set(msg.id, branchedId);
     });
+    const forkSourceMessage = copiedSourceMessages.at(-1);
 
     const inheritedEntries = inheritedSourceEntries.map((entry) => ({
       ...entry,
@@ -3660,6 +3668,9 @@ export async function chatsRoutes(app: FastifyInstance) {
     await storage.updateMetadata(newChat.id, {
       ...settingsToKeep,
       branchName: "New Branch",
+      branchParentChatId: sourceChat.id,
+      branchParentMessageId: forkSourceMessage?.id ?? null,
+      branchMessageId: forkSourceMessage ? sourceToBranchedMessageId.get(forkSourceMessage.id) ?? null : null,
       summary: compileChatSummaryEntries(inheritedEntries),
       summaryEntries: inheritedEntries,
       ...(inheritedLastAutomaticSummaryMessageId

@@ -58,6 +58,7 @@ import {
   FolderPlus,
   Wrench,
   Upload,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
@@ -68,6 +69,7 @@ import {
   createCustomToolFolderPackageFiles,
   importCustomToolEntries,
   serializeCustomToolForTransfer,
+  type CustomToolImportReview,
 } from "../../lib/custom-tool-transfer";
 import { collectFolderPackageEntries, type FolderPackageImportEntry } from "../../lib/folder-package-transfer";
 import { isZipFile, readTextFilesFromZip } from "../../lib/read-zip-text";
@@ -190,7 +192,9 @@ function serializeRegexScript(script: RegexScriptRow) {
     placement: parseStringArray(script.placement),
     flags: script.flags,
     promptOnly: parseBooleanValue(script.promptOnly, false),
-    applyMode: isRegexApplyMode(script.applyMode) ? script.applyMode : readRegexApplyMode(script as unknown as Record<string, unknown>),
+    applyMode: isRegexApplyMode(script.applyMode)
+      ? script.applyMode
+      : readRegexApplyMode(script as unknown as Record<string, unknown>),
     targetCharacterIds: parseStringArray(script.targetCharacterIds),
     order: script.order,
     minDepth: script.minDepth,
@@ -307,6 +311,7 @@ export function PresetsPanel() {
   const [regexImportSuccess, setRegexImportSuccess] = useState<string | null>(null);
   const [functionImportError, setFunctionImportError] = useState<string | null>(null);
   const [functionImportSuccess, setFunctionImportSuccess] = useState<string | null>(null);
+  const [functionImportReviews, setFunctionImportReviews] = useState<CustomToolImportReview[]>([]);
   const [draggedRegexId, setDraggedRegexId] = useState<string | null>(null);
   const [regexDragReadyId, setRegexDragReadyId] = useState<string | null>(null);
   const [draggedFunctionId, setDraggedFunctionId] = useState<string | null>(null);
@@ -447,9 +452,14 @@ export function PresetsPanel() {
     setExportingSelected(true);
     try {
       await api.downloadPost("/prompts/export-bulk", { ids: [...selectedPresetIds] }, "marinara-presets.zip");
-      toast.success(localizeUi("ui.panels.presetspanel.exportedValue1PresetValue2", { value1: selectedPresetIds.size, value2: selectedPresetIds.size === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }));
+      toast.success(
+        localizeUi("ui.panels.presetspanel.exportedValue1PresetValue2", {
+          value1: selectedPresetIds.size,
+          value2: selectedPresetIds.size === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+        }),
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.panels.presetspanel.failedToExportPresets"));
+      toast.error(error instanceof Error ? error.message : localizeUi("ui.panels.presetspanel.failedToExportPresets"));
     } finally {
       setExportingSelected(false);
     }
@@ -478,7 +488,12 @@ export function PresetsPanel() {
       },
       "marinara-regexes.json",
     );
-    toast.success(localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", { value1: sortedRegexScripts.length, value2: sortedRegexScripts.length === 1 ? "" :localizeUi("ui.lorebooks.lorebookeditor.es") }));
+    toast.success(
+      localizeUi("ui.panels.presetspanel.exportedValue1RegexValue2", {
+        value1: sortedRegexScripts.length,
+        value2: sortedRegexScripts.length === 1 ? "" : localizeUi("ui.lorebooks.lorebookeditor.es"),
+      }),
+    );
   }, [sortedRegexScripts, localizeUi]);
 
   const handleImportRegex = useCallback(
@@ -546,13 +561,19 @@ export function PresetsPanel() {
       createCustomToolFolderPackageFiles(customToolRows.map(serializeCustomToolForTransfer)),
       "marinara-functions.zip",
     );
-    toast.success(localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", { value1: customToolRows.length, value2: customToolRows.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }));
+    toast.success(
+      localizeUi("ui.panels.presetspanel.exportedValue1FunctionValue2", {
+        value1: customToolRows.length,
+        value2: customToolRows.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+      }),
+    );
   }, [customToolRows, localizeUi]);
 
   const handleImportFunctions = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       setFunctionImportError(null);
       setFunctionImportSuccess(null);
+      setFunctionImportReviews([]);
       const file = event.target.files?.[0];
       if (!file) return;
 
@@ -570,27 +591,37 @@ export function PresetsPanel() {
                 resolveTextFile: () => null,
               }),
             );
-        if (entries.length === 0) throw new Error("No functions found in file");
+        if (entries.length === 0) {
+          throw new Error(localizeUi("ui.panels.functionssection.noFunctionsFoundInFile"));
+        }
 
-        const { imported, failed } = await importCustomToolEntries(entries, createCustomTool);
+        const { imported, failed, reviews } = await importCustomToolEntries(entries, createCustomTool);
+        setFunctionImportReviews(reviews);
 
         if (imported === 0 && failed.length === 0) {
-          throw new Error("No valid functions found in file");
+          throw new Error(localizeUi("ui.panels.functionssection.noValidFunctionsFoundInFile"));
         }
 
         if (imported > 0) {
-          setFunctionImportSuccess(`Imported ${imported} function${imported === 1 ? "" : "s"}.`);
+          setFunctionImportSuccess(localizeUi("ui.panels.functionssection.importedFunctions", { count: imported }));
         }
         if (failed.length > 0) {
-          setFunctionImportError(`${failed.length} function${failed.length === 1 ? "" : "s"} failed. ${failed[0]}`);
+          setFunctionImportError(
+            localizeUi("ui.panels.functionssection.failedFunctions", {
+              count: failed.length,
+              error: failed[0],
+            }),
+          );
         }
       } catch (error) {
-        setFunctionImportError(error instanceof Error ? error.message : "Failed to import functions");
+        setFunctionImportError(
+          error instanceof Error ? error.message : localizeUi("ui.panels.functionssection.failedToImportFunctions"),
+        );
       }
 
       event.target.value = "";
     },
-    [createCustomTool],
+    [createCustomTool, localizeUi],
   );
 
   const handleRegexReorderToIndex = useCallback(
@@ -655,9 +686,12 @@ export function PresetsPanel() {
 
     if (
       !(await showConfirmDialog({
-        title:localizeUi("ui.panels.presetspanel.deletePresets"),
-        message:localizeUi("ui.panels.presetspanel.deleteValue1PresetValue2", { value1: ids.length, value2: ids.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }),
-        confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+        title: localizeUi("ui.panels.presetspanel.deletePresets"),
+        message: localizeUi("ui.panels.presetspanel.deleteValue1PresetValue2", {
+          value1: ids.length,
+          value2: ids.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+        }),
+        confirmLabel: localizeUi("lorebook.editor.batch.delete"),
         tone: "destructive",
       }))
     ) {
@@ -669,12 +703,22 @@ export function PresetsPanel() {
     const deletedCount = ids.length - failedIds.length;
 
     if (deletedCount > 0) {
-      toast.success(localizeUi("ui.panels.presetspanel.deletedValue1PresetValue2", { value1: deletedCount, value2: deletedCount === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }));
+      toast.success(
+        localizeUi("ui.panels.presetspanel.deletedValue1PresetValue2", {
+          value1: deletedCount,
+          value2: deletedCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+        }),
+      );
     }
 
     if (failedIds.length > 0) {
       setSelectedPresetIds(new Set(failedIds));
-      toast.error(localizeUi("ui.panels.presetspanel.failedToDeleteValue1PresetValue2", { value1: failedIds.length, value2: failedIds.length === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s") }));
+      toast.error(
+        localizeUi("ui.panels.presetspanel.failedToDeleteValue1PresetValue2", {
+          value1: failedIds.length,
+          value2: failedIds.length === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s"),
+        }),
+      );
       return;
     }
 
@@ -852,7 +896,9 @@ export function PresetsPanel() {
                   {preset.name}
                 </span>
                 {isDefault && (
-                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">{localizeUi("ui.panels.presetspanel.default")}</span>
+                  <span className="mari-chrome-muted-badge shrink-0 rounded px-1 py-0.5 text-[0.5625rem]">
+                    {localizeUi("ui.panels.presetspanel.default")}
+                  </span>
                 )}
               </div>
               <div className="flex min-w-0 items-center gap-2 text-[0.6875rem] leading-4 text-[var(--muted-foreground)]">
@@ -860,9 +906,15 @@ export function PresetsPanel() {
                   {wrapFormat === "xml" ? <Code2 size="0.5625rem" /> : <Hash size="0.5625rem" />}
                   {wrapFormat.toUpperCase()}
                 </span>
-                <span className="shrink-0">{sectionCount} {localizeUi("ui.presets.sectionstab.sections")}</span>
+                <span className="shrink-0">
+                  {sectionCount} {localizeUi("ui.presets.sectionstab.sections")}
+                </span>
                 {preset.author && (
-                  <span className="min-w-0 truncate" title={localizeUi("ui.panels.presetspanel.byValue1", { value1: preset.author })}>{localizeUi("ui.panels.presetspanel.by")} {preset.author}
+                  <span
+                    className="min-w-0 truncate"
+                    title={localizeUi("ui.panels.presetspanel.byValue1", { value1: preset.author })}
+                  >
+                    {localizeUi("ui.panels.presetspanel.by")} {preset.author}
                   </span>
                 )}
               </div>
@@ -882,8 +934,16 @@ export function PresetsPanel() {
                     "mari-chrome-control mari-chrome-control--small p-1.5",
                     isSelected && "mari-chrome-control--selected",
                   )}
-                  title={isSelected ?localizeUi("ui.panels.presetspanel.unassignFromChat") :localizeUi("ui.panels.presetspanel.assignToChat")}
-                  aria-label={isSelected ?localizeUi("ui.panels.presetspanel.unassignPresetFromChat") :localizeUi("ui.panels.presetspanel.assignPresetToChat")}
+                  title={
+                    isSelected
+                      ? localizeUi("ui.panels.presetspanel.unassignFromChat")
+                      : localizeUi("ui.panels.presetspanel.assignToChat")
+                  }
+                  aria-label={
+                    isSelected
+                      ? localizeUi("ui.panels.presetspanel.unassignPresetFromChat")
+                      : localizeUi("ui.panels.presetspanel.assignPresetToChat")
+                  }
                 >
                   <Check size="0.75rem" />
                 </button>
@@ -900,8 +960,16 @@ export function PresetsPanel() {
                     ? "text-yellow-500"
                     : "text-[var(--muted-foreground)] hover:bg-yellow-500/10 hover:text-yellow-500",
                 )}
-                title={isDefault ?localizeUi("ui.panels.presetspanel.defaultPreset") :localizeUi("ui.panels.presetspanel.setAsDefault")}
-                aria-label={isDefault ?localizeUi("ui.panels.presetspanel.defaultPreset") :localizeUi("ui.panels.presetspanel.setAsDefaultPreset")}
+                title={
+                  isDefault
+                    ? localizeUi("ui.panels.presetspanel.defaultPreset")
+                    : localizeUi("ui.panels.presetspanel.setAsDefault")
+                }
+                aria-label={
+                  isDefault
+                    ? localizeUi("ui.panels.presetspanel.defaultPreset")
+                    : localizeUi("ui.panels.presetspanel.setAsDefaultPreset")
+                }
               >
                 <Star size="0.75rem" className={isDefault ? "fill-yellow-500" : ""} />
               </button>
@@ -923,9 +991,9 @@ export function PresetsPanel() {
                   event.stopPropagation();
                   if (
                     await showConfirmDialog({
-                      title:localizeUi("ui.panels.presetspanel.deletePreset_a513ba6"),
-                      message:localizeUi("ui.panels.agentspanel.deleteValue1", { value1: preset.name }),
-                      confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+                      title: localizeUi("ui.panels.presetspanel.deletePreset_a513ba6"),
+                      message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: preset.name }),
+                      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                       tone: "destructive",
                     })
                   ) {
@@ -957,7 +1025,8 @@ export function PresetsPanel() {
       selectionMode,
       setDefaultPreset,
       startPresetTouchDrag,
-      toggleSelection, localizeUi,
+      toggleSelection,
+      localizeUi,
     ],
   );
 
@@ -993,7 +1062,11 @@ export function PresetsPanel() {
             "mari-chrome-control mari-chrome-control--primary flex-1 text-xs",
             selectionMode && "mari-chrome-control--selected",
           )}
-          aria-label={selectionMode ?localizeUi("ui.panels.presetspanel.exitPresetSelectionMode") :localizeUi("ui.panels.presetspanel.selectPresets")}
+          aria-label={
+            selectionMode
+              ? localizeUi("ui.panels.presetspanel.exitPresetSelectionMode")
+              : localizeUi("ui.panels.presetspanel.selectPresets")
+          }
           title={localizeUi("settings.common.select")}
         >
           <Check size="0.8125rem" />
@@ -1041,9 +1114,15 @@ export function PresetsPanel() {
             onClick={handleCreateFolder}
             className="mari-chrome-control mari-chrome-control--small flex-1 justify-start text-[0.6875rem]"
           >
-            <FolderPlus size="0.75rem" />{localizeUi("ui.panels.backgroundpicker.newFolder")}</button>
+            <FolderPlus size="0.75rem" />
+            {localizeUi("ui.panels.backgroundpicker.newFolder")}
+          </button>
         </div>
-        {presetFolders.length > 0 && <p className="mari-folder-helper">{localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}</p>}
+        {presetFolders.length > 0 && (
+          <p className="mari-folder-helper">
+            {localizeUi("ui.panels.presetspanel.dragAndDropPresetsToFoldersDoubleClickOr")}
+          </p>
+        )}
       </div>
 
       <PanelSection title={localizeUi("ui.panels.presetspanel.prompts")} icon={<FileText size="0.8125rem" />}>
@@ -1080,7 +1159,12 @@ export function PresetsPanel() {
                   role="button"
                   tabIndex={0}
                   aria-expanded={isExpanded}
-                  aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", { value1: isExpanded ?localizeUi("ui.panels.ttsconfigcard.collapse") :localizeUi("ui.panels.ttsconfigcard.expand"), value2: folder.name })}
+                  aria-label={localizeUi("ui.panels.agentspanel.value1FolderValue2DoubleTapOrPressF2To", {
+                    value1: isExpanded
+                      ? localizeUi("ui.panels.ttsconfigcard.collapse")
+                      : localizeUi("ui.panels.ttsconfigcard.expand"),
+                    value2: folder.name,
+                  })}
                   title={localizeUi("ui.panels.backgroundpicker.doubleClickDoubleTapOrPressF2ToRename")}
                   className="group relative flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all hover:bg-[var(--sidebar-accent)]/40"
                   onClick={(event) =>
@@ -1170,7 +1254,9 @@ export function PresetsPanel() {
                   innerClassName="flex flex-col gap-0.5"
                 >
                   {folderItems.length === 0 ? (
-                    <p className="mari-chrome-text-muted py-2 text-[0.625rem] italic">{localizeUi("ui.panels.presetspanel.dropPresetsHere")}</p>
+                    <p className="mari-chrome-text-muted py-2 text-[0.625rem] italic">
+                      {localizeUi("ui.panels.presetspanel.dropPresetsHere")}
+                    </p>
                   ) : (
                     folderItems.map((preset) => renderPresetRow(preset))
                   )}
@@ -1196,7 +1282,9 @@ export function PresetsPanel() {
               <FileText size="1.25rem" />
             </div>
             <p className="mari-chrome-text-muted text-xs">
-              {search ?localizeUi("ui.panels.presetspanel.noMatchingPresets") :localizeUi("ui.panels.presetspanel.noPresetsYet")}
+              {search
+                ? localizeUi("ui.panels.presetspanel.noMatchingPresets")
+                : localizeUi("ui.panels.presetspanel.noPresetsYet")}
             </p>
           </div>
         )}
@@ -1215,7 +1303,9 @@ export function PresetsPanel() {
               handlePresetDrop(null, payload ? (JSON.parse(payload) as string[]) : undefined);
             }}
             className="rounded-xl border border-dashed border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-3 py-2 text-[0.625rem] text-[var(--marinara-chat-chrome-button-text-active)]"
-          >{localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}</div>
+          >
+            {localizeUi("ui.panels.agentspanel.dropHereToMoveOutOfFolder")}
+          </div>
         )}
 
         <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
@@ -1225,8 +1315,8 @@ export function PresetsPanel() {
         {activeChat && !selectionMode && (
           <p className="px-1 text-[0.625rem] text-[var(--muted-foreground)]/60">
             {canAssignToActiveChat
-              ?localizeUi("ui.panels.presetspanel.clickAPresetToEditHoverUseToAssign")
-              :localizeUi("ui.panels.presetspanel.clickAPresetToEdit")}
+              ? localizeUi("ui.panels.presetspanel.clickAPresetToEditHoverUseToAssign")
+              : localizeUi("ui.panels.presetspanel.clickAPresetToEdit")}
           </p>
         )}
       </PanelSection>
@@ -1257,6 +1347,7 @@ export function PresetsPanel() {
         handleExportFunctions={handleExportFunctions}
         functionImportError={functionImportError}
         functionImportSuccess={functionImportSuccess}
+        functionImportReviews={functionImportReviews}
         draggedFunctionId={draggedFunctionId}
         functionDragReadyId={functionDragReadyId}
         setDraggedFunctionId={setDraggedFunctionId}
@@ -1390,7 +1481,9 @@ function RegexSection({
         </div>
       }
     >
-      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}</div>
+      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+        {localizeUi("ui.panels.regexsection.findReplacePatternsAppliedToAiOutputOrUser")}
+      </div>
       {regexImportError && (
         <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
           {regexImportError}
@@ -1398,7 +1491,9 @@ function RegexSection({
       )}
       {regexImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{regexImportSuccess}</div>}
       {sortedRegexScripts.length === 0 ? (
-        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("ui.panels.regexsection.noRegexesYet")}</p>
+        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+          {localizeUi("ui.panels.regexsection.noRegexesYet")}
+        </p>
       ) : (
         <div data-preset-regex-root className="flex flex-col gap-0.5">
           {sortedRegexScripts.map((script, index) => {
@@ -1475,7 +1570,10 @@ function RegexSection({
                   <div className="mt-0.5 flex min-w-0 items-center gap-1">
                     <span
                       className="min-w-0 flex-1 truncate font-mono text-[0.5625rem] text-[var(--muted-foreground)]"
-                      title={localizeUi("ui.panels.regexsection.value1Value2", { value1: script.findRegex, value2: script.flags })}
+                      title={localizeUi("ui.panels.regexsection.value1Value2", {
+                        value1: script.findRegex,
+                        value2: script.flags,
+                      })}
                     >
                       /{script.findRegex}/{script.flags}
                     </span>
@@ -1484,7 +1582,9 @@ function RegexSection({
                         key={placement}
                         className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]"
                       >
-                        {placement === "ai_output" ?localizeUi("ui.characters.characterregexsection.ai") :localizeUi("ui.characters.advancedtab.user")}
+                        {placement === "ai_output"
+                          ? localizeUi("ui.characters.characterregexsection.ai")
+                          : localizeUi("ui.characters.advancedtab.user")}
                       </span>
                     ))}
                   </div>
@@ -1492,7 +1592,11 @@ function RegexSection({
                 <div className="ml-auto flex shrink-0 items-center gap-1">
                   <div
                     className="shrink-0"
-                    title={enabled ?localizeUi("ui.characters.characterregexsection.disableRegex") :localizeUi("ui.characters.characterregexsection.enableRegex")}
+                    title={
+                      enabled
+                        ? localizeUi("ui.characters.characterregexsection.disableRegex")
+                        : localizeUi("ui.characters.characterregexsection.enableRegex")
+                    }
                     onClick={(event) => {
                       event.stopPropagation();
                     }}
@@ -1521,9 +1625,9 @@ function RegexSection({
                     onClick={async () => {
                       if (
                         await showConfirmDialog({
-                          title:localizeUi("ui.panels.regexsection.deleteRegex"),
-                          message:localizeUi("ui.panels.agentspanel.deleteValue1", { value1: script.name }),
-                          confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+                          title: localizeUi("ui.panels.regexsection.deleteRegex"),
+                          message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: script.name }),
+                          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                           tone: "destructive",
                         })
                       ) {
@@ -1551,6 +1655,7 @@ function FunctionsSection({
   handleExportFunctions,
   functionImportError,
   functionImportSuccess,
+  functionImportReviews,
   draggedFunctionId,
   functionDragReadyId,
   setDraggedFunctionId,
@@ -1568,6 +1673,7 @@ function FunctionsSection({
   handleExportFunctions: () => void;
   functionImportError: string | null;
   functionImportSuccess: string | null;
+  functionImportReviews: CustomToolImportReview[];
   draggedFunctionId: string | null;
   functionDragReadyId: string | null;
   setDraggedFunctionId: Dispatch<SetStateAction<string | null>>;
@@ -1644,15 +1750,83 @@ function FunctionsSection({
         </div>
       }
     >
-      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}</div>
+      <div className="mb-1.5 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
+        {localizeUi("ui.panels.functionssection.customFunctionCallsAvailableFromChatSettings")}
+      </div>
       {functionImportError && (
         <div className="mb-1 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--marinara-chat-chrome-highlight-bg)] px-2 py-1.5 text-xs text-[var(--marinara-chat-chrome-panel-text)]">
           {functionImportError}
         </div>
       )}
       {functionImportSuccess && <div className="mb-1 px-1 text-xs text-green-500">{functionImportSuccess}</div>}
+      {functionImportReviews.length > 0 && (
+        <section
+          aria-live="polite"
+          aria-label={localizeUi("ui.panels.functionssection.importReviewTitle")}
+          className="mb-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/45 p-2.5"
+        >
+          <div className="flex items-start gap-2">
+            <ShieldCheck aria-hidden="true" size="0.9375rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
+            <div className="min-w-0">
+              <h3 className="text-xs font-semibold text-[var(--foreground)]">
+                {localizeUi("ui.panels.functionssection.importReviewTitle")}
+              </h3>
+              <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+                {localizeUi("ui.panels.functionssection.importReviewDescription")}
+              </p>
+            </div>
+          </div>
+          <dl className="mt-2 divide-y divide-[var(--border)]">
+            {functionImportReviews.map((review, index) => (
+              <div key={`${review.name}-${index}`} className="grid gap-1 py-2 first:pt-0 last:pb-0">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <dt className="sr-only">{localizeUi("ui.panels.functionssection.functionName")}</dt>
+                  <dd className="min-w-0 flex-1 truncate font-mono text-[0.6875rem] font-semibold">{review.name}</dd>
+                  <span className="shrink-0 rounded bg-[var(--background)] px-1.5 py-0.5 text-[0.5625rem] text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.functionssection.webhook")}
+                  </span>
+                </div>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 gap-y-0.5 text-[0.625rem]">
+                  <dt className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.functionssection.destinationOrigin")}
+                  </dt>
+                  <dd className="max-w-40 break-all text-right font-mono text-[var(--foreground)]">
+                    {review.destinationOrigin ?? localizeUi("ui.panels.functionssection.invalidWebhookOrigin")}
+                  </dd>
+                  <dt className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.functionssection.requestedEnabled")}
+                  </dt>
+                  <dd className="text-right font-medium">
+                    {localizeUi(
+                      review.requestedEnabled ? "ui.panels.functionssection.yes" : "ui.panels.functionssection.no",
+                    )}
+                  </dd>
+                  <dt className="text-[var(--muted-foreground)]">
+                    {localizeUi("ui.panels.functionssection.requestedHiddenContext")}
+                  </dt>
+                  <dd className="text-right font-medium">
+                    {localizeUi(
+                      review.requestedHiddenContext
+                        ? "ui.panels.functionssection.yes"
+                        : "ui.panels.functionssection.no",
+                    )}
+                  </dd>
+                </div>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-[0.625rem] font-medium leading-relaxed text-[var(--foreground)]">
+            {localizeUi("ui.panels.functionssection.importedWebhookSafeState")}
+          </p>
+          <p className="mt-0.5 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
+            {localizeUi("ui.panels.functionssection.reviewBeforeEnabling")}
+          </p>
+        </section>
+      )}
       {customToolRows.length === 0 ? (
-        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">{localizeUi("ui.panels.functionssection.noFunctionsYet")}</p>
+        <p className="mari-chrome-text-muted px-1 py-2 text-[0.625rem]">
+          {localizeUi("ui.panels.functionssection.noFunctionsYet")}
+        </p>
       ) : (
         <div data-preset-functions-root className="flex flex-col gap-0.5">
           {customToolRows.map((tool, index) => {
@@ -1730,10 +1904,13 @@ function FunctionsSection({
                       {formatFunctionExecutionType(tool.executionType)}
                     </span>
                     <span className="shrink-0 rounded bg-[var(--secondary)] px-1 py-0.5 text-[0.5rem] text-[var(--muted-foreground)]">
-                      {parameterCount} {localizeUi("ui.panels.functionssection.param")}{parameterCount === 1 ? "" :localizeUi("ui.noodle.stageprofileview.s")}
+                      {parameterCount} {localizeUi("ui.panels.functionssection.param")}
+                      {parameterCount === 1 ? "" : localizeUi("ui.noodle.stageprofileview.s")}
                     </span>
                     {scriptUnavailable && (
-                      <span className="shrink-0 rounded bg-amber-500/10 px-1 py-0.5 text-[0.5rem] text-amber-400">{localizeUi("ui.panels.functionssection.scriptDisabled")}</span>
+                      <span className="shrink-0 rounded bg-amber-500/10 px-1 py-0.5 text-[0.5rem] text-amber-400">
+                        {localizeUi("ui.panels.functionssection.scriptDisabled")}
+                      </span>
                     )}
                   </div>
                   <div className="mt-0.5 truncate text-[0.5625rem] text-[var(--muted-foreground)]">
@@ -1743,7 +1920,11 @@ function FunctionsSection({
                 <div className="ml-auto flex shrink-0 items-center gap-1">
                   <div
                     className="shrink-0"
-                    title={enabled ?localizeUi("ui.panels.functionssection.disableFunction") :localizeUi("ui.panels.functionssection.enableFunction")}
+                    title={
+                      enabled
+                        ? localizeUi("ui.panels.functionssection.disableFunction")
+                        : localizeUi("ui.panels.functionssection.enableFunction")
+                    }
                     onClick={(event) => {
                       event.stopPropagation();
                     }}
@@ -1772,9 +1953,9 @@ function FunctionsSection({
                     onClick={async () => {
                       if (
                         await showConfirmDialog({
-                          title:localizeUi("ui.panels.functionssection.deleteFunction"),
-                          message:localizeUi("ui.panels.agentspanel.deleteValue1", { value1: tool.name }),
-                          confirmLabel:localizeUi("lorebook.editor.batch.delete"),
+                          title: localizeUi("ui.panels.functionssection.deleteFunction"),
+                          message: localizeUi("ui.panels.agentspanel.deleteValue1", { value1: tool.name }),
+                          confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                           tone: "destructive",
                         })
                       ) {

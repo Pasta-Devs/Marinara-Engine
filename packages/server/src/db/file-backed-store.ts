@@ -194,6 +194,7 @@ export const FILE_BACKED_TABLES = [
   "custom_tools",
   "game_state_snapshots",
   "spatial_context_snapshots",
+  "capability_documents",
   "game_engine_state",
   "game_checkpoints",
   "game_scene_videos",

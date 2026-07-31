@@ -134,6 +134,28 @@ const DIR_LABELS_BY_DOCS_LANG: Record<string, Record<string, string>> = {
     integrations: "Integracje",
     development: "Rozwój",
   },
+  ru: {
+    "": "Руководства",
+    home: "Главная",
+    installation: "Установка",
+    connections: "Подключения",
+    conversation: "Conversation",
+    roleplay: "Roleplay",
+    game: "Game Mode",
+    characters: "Персонажи",
+    chats: "Чаты",
+    lorebooks: "Лорбуки",
+    agents: "Агенты",
+    media: "Медиа",
+    prompts: "Промпты",
+    noodle: "Noodle",
+    appearance: "Оформление",
+    settings: "Настройки",
+    data: "Данные",
+    extending: "Расширения",
+    integrations: "Интеграции",
+    development: "Разработка",
+  },
 };
 
 function dirLabel(dir: string, docsLanguage: string) {

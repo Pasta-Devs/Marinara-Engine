@@ -80,7 +80,7 @@ export function getSpatialContextProblem(error: unknown): SpatialContextProblem 
     return {
       status: null,
       code: null,
-      message: error instanceof Error ? error.message : "The hierarchical map could not be saved.",
+      message: error instanceof Error ? error.message : "The world map could not be saved.",
       issues: [],
       conflict: false,
     };
@@ -91,7 +91,7 @@ export function getSpatialContextProblem(error: unknown): SpatialContextProblem 
   return {
     status: error.status,
     code,
-    message: error.message || "The hierarchical map could not be saved.",
+    message: error.message || "The world map could not be saved.",
     issues: readIssues(payload.issues),
     conflict: error.status === 409 || code === "spatial_definition_stale" || code === "spatial_current_location_stale",
   };

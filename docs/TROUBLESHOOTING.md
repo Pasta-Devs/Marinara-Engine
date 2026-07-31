@@ -88,7 +88,7 @@ If you cannot access Marinara from a phone, tablet, or another computer on your 
 - Bind the server to a reachable address. The server listens on `127.0.0.1` (loopback, your own machine only) by default. The shell launchers set `HOST=0.0.0.0` for you. If you started with `pnpm start` by hand, set `HOST=0.0.0.0` in your `.env` file first.
 - Confirm both devices are on the same Wi-Fi network.
 - Confirm no firewall blocks the port. The default port is `7860`, or whatever you set as `PORT`.
-- Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless. Traffic over Tailscale and the same-host Docker bridge or detected container gateway is trusted by default.
+- Set up access control. For ordinary network or public clients, set `BASIC_AUTH_USER` and `BASIC_AUTH_PASS` in `.env`. Loopback stays passwordless. Direct traffic over Tailscale and the same-host Docker bridge or detected container gateway is trusted by default; proxy-forwarded Docker traffic requires normal authorization unless you explicitly set `REQUIRE_AUTH_FOR_DOCKER_PROXY=false`.
 - For privileged actions from that device (backups, data clearing, updates), set `ADMIN_SECRET` in the server `.env`. Then paste the same value into **Settings** > **Advanced** > **Admin Access** on that device and click **Save**.
 - If you use a public or reverse-proxy domain and see **Untrusted request host**, add its exact hostname to `TRUSTED_HOSTS` in `.env`. Direct IP addresses used by phones, LAN computers, and Tailscale peers remain accepted automatically.
 
@@ -128,6 +128,17 @@ The **Local Model** is an AI model that runs on your own machine with no API key
 
 - If installing a runtime fails with **Sidecar runtime install is disabled**, the server has that action turned off for safety. On your own machine, set `SIDECAR_RUNTIME_INSTALL_ENABLED=true` in `.env`. From another device, paste your admin secret into **Settings** > **Advanced** > **Admin Access** first.
 - If the model download or setup fails from another device (a network address or Docker), it may also need the admin secret. On your own machine, no admin secret is needed. See the point above for where to paste the secret.
+- If a bundled llama.cpp, MLX, uv, or MLX dependency-lock check reports a file-size or SHA-256 mismatch, Marinara has discarded or refused it before extraction or installation. Update or reinstall Marinara and retry; do not manually run, unpack, edit, or bypass the rejected artifact.
+
+### Maintainers: updating pinned local runtimes
+
+GitHub-generated source archives are not guaranteed to remain byte-for-byte stable, even when their commit contents do not change. Never “fix” a user mismatch by accepting the bytes seen on their machine or weakening verification. Re-pin runtime inputs only in a reviewed Engine change:
+
+1. Select an immutable upstream revision or release asset and review the upstream changes.
+2. Download the artifact into a temporary directory, record its exact byte count, and calculate its SHA-256 digest independently.
+3. Update `runtime-integrity-manifest.ts` with the revision, URL, size, and digest. For MLX, regenerate `packages/server/src/assets/mlx-runtime-requirements.lock` from its `.in` file with the pinned uv version on Apple Silicon/Python 3.12, review every dependency change, and update `requirementsLockSha256`.
+4. Run `pnpm regression:runtime-integrity`, `pnpm check`, and a real clean runtime installation on the affected platform.
+5. Ship the reviewed Engine update before asking users to retry. Do not provide a manual checksum override.
 
 For full setup, see [Local Model Setup](connections/local-model.md).
 
@@ -176,17 +187,18 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 - Rebuild the tool with `pnpm backgroundremover:reinstall`.
 - To force automatic matte cleanup without the AI fallback while you troubleshoot, set `SPRITE_BACKGROUND_REMOVAL_ENGINE=builtin` in `.env`.
 
-### Game Mode storyboards or scene videos do not appear
+### Game Mode or Roleplay storyboards do not appear
 
-Storyboards are a Game Mode feature. They turn a completed narration turn into keyframe images and optional clips.
+Game Mode Storyboards turn a completed GM narration into keyframe images and optional clips. Roleplay Storyboards combine completed exchanges and display the result inline after the assistant response.
 
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
-- For automatic storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
-- Keyframe images need a Game image connection. Clips also need a video connection.
+- For automatic Game Mode Storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
+- In Roleplay, add the **Storyboard** Agent to the chat. Choose **Still images** or **Animations**, set **Assistant messages per episode**, and select the Storyboard image connection. **Manual only** runs from **Create storyboard** in the Gallery instead.
+- Keyframe images need an image connection. Clips also need a video connection.
 - If a custom prompt works better with all characters combined, turn off **Use NovelAI Character Prompts**.
 - Slow providers can hit a timeout. Raise `IMAGE_GEN_TIMEOUT_MS` or `VIDEO_GEN_TIMEOUT_MS` in `.env`, then restart Marinara. The server only reads these values at startup.
 
-See [Game Mode: Getting Started](game/getting-started.md) for the full setup.
+See [Storyboard Engine Guide](game/storyboard.md) for both workflows and [Game Mode: Getting Started](game/getting-started.md) for Game setup.
 
 ### Game Mode world generation shows a JSON error
 
@@ -310,6 +322,14 @@ The section is intentionally hidden until both safety gates are open:
 If the Danger Zone switch is disabled, the host flag is still false or the app has not observed the change. Confirm that you edited the active `.env` path described in [Server Configuration](CONFIGURATION.md). On Docker, that is normally `/app/data/.env`.
 
 When either gate is closed, external, legacy, profile-imported, manually stored, and unknown-source extension records do not appear and cannot run. Reopening the gates does not automatically re-enable them.
+
+### An imported browser extension appears but does not work
+
+Open the extension in **Settings → Addons → External Extensions** and inspect **Requested access**. Older packages that use the `marinara.extension` v1 format without a capabilities declaration should show **Full page access**. Approve only the exact hash you inspected and trust.
+
+If an older package was exported again with an explicit empty capabilities list, Marinara treats it as a safe sandbox extension; DOM-dependent code will not work there. Add `full_page_access` to its manifest only if you understand that the code will gain access to the whole Marinara page, browser storage, network APIs, and same-origin session.
+
+After disabling a full page extension, reload Marinara if a toolbar item, overlay, listener, or visual change remains. Cleanup is best effort because page code can create side effects outside Marinara's tracked compatibility API.
 
 ### A Server Extension says no supported sandbox is available
 

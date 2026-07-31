@@ -107,7 +107,7 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
   },
   {
     id: "hierarchical-maps",
-    name: "Hierarchical Maps",
+    name: "World Maps",
     category: "tracker",
     modes: "Roleplay and Game",
     summary: "adds persistent nested locations, spatial context, map authoring, movement, and a Game world-map view",

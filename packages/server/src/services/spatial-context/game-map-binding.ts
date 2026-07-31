@@ -31,6 +31,6 @@ export function updateGameMapBinding(
   input: UpdateGameMapBindingInput,
 ): Record<string, unknown> {
   const provider = getCapabilityService<GameMapBindingService>("hierarchical-maps:game-map-binding");
-  if (!provider) throw new GameMapBindingError("feature_unavailable", "Hierarchical Maps is not active.");
+  if (!provider) throw new GameMapBindingError("feature_unavailable", "World Maps is not active.");
   return provider.updateGameMapBinding(metadata, input);
 }

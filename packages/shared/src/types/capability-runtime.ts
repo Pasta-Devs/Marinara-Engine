@@ -20,6 +20,12 @@ export interface CapabilityChatRecord {
   personaId: string | null;
   connectionId: string | null;
   metadata: unknown;
+  branch: {
+    title: string | null;
+    parentChatId: string | null;
+    parentMessageId: string | null;
+    childMessageId: string | null;
+  } | null;
   lastMessageAt: string | null;
   updatedAt: string;
 }
@@ -170,6 +176,49 @@ export interface CapabilitySpatialSnapshotStore {
   replaceAtAnchor(input: CapabilitySpatialSnapshotWrite): Promise<SpatialContextSnapshot>;
 }
 
+/** Package-owned JSON document stored independently from chats. */
+export interface CapabilityDocumentRecord {
+  id: string;
+  packageId: string;
+  kind: string;
+  name: string;
+  description: string;
+  data: unknown;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CapabilityDocumentWrite {
+  id: string;
+  packageId: string;
+  kind: string;
+  name: string;
+  description: string;
+  data: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CapabilityDocumentUpdate {
+  id: string;
+  packageId: string;
+  expectedRevision: number;
+  name: string;
+  description: string;
+  data: unknown;
+  updatedAt: string;
+}
+
+/** Generic persistence for package-owned reusable records such as map templates. */
+export interface CapabilityDocumentStore {
+  list(packageId: string, kind: string): Promise<CapabilityDocumentRecord[]>;
+  getById(packageId: string, id: string): Promise<CapabilityDocumentRecord | null>;
+  create(input: CapabilityDocumentWrite): Promise<CapabilityDocumentRecord>;
+  update(input: CapabilityDocumentUpdate): Promise<CapabilityDocumentRecord | null>;
+  remove(packageId: string, id: string, expectedRevision: number): Promise<boolean>;
+}
+
 export interface CapabilityCreateMessageWithSwipeInput {
   id: string;
   swipeId: string;
@@ -203,6 +252,7 @@ export interface CapabilityPersistenceSession {
   markGameStateSnapshotCommitted(chatId: string, snapshotId: string): Promise<void>;
   updateChatActivity(input: CapabilityChatActivityUpdate): Promise<void>;
   updateChatMetadata(input: CapabilityChatMetadataUpdate): Promise<void>;
+  documents: CapabilityDocumentStore;
   spatialSnapshots: CapabilitySpatialSnapshotStore;
 }
 

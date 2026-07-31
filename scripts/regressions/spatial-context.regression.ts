@@ -40,6 +40,11 @@ import {
 import { ensureTimestampAfter } from "../../packages/server/src/services/import/import-timestamps.js";
 import { resolveVisibleGameStateAnchor } from "../../packages/server/src/routes/generate/generate-route-utils.js";
 import { mergeSpatialLocationReferenceImages } from "../../packages/server/src/services/image/spatial-location-reference.js";
+import {
+  buildInitialGameMapPatch,
+  resolveGameStartWorldMapPatch,
+  resolveInitialMapLocationName,
+} from "../../packages/server/src/services/game/world-map-mode.js";
 
 assert.equal(ensureTimestampAfter("2026-07-16T07:47:03.766Z", "2026-07-16T07:47:03.765Z"), "2026-07-16T07:47:03.766Z");
 assert.equal(ensureTimestampAfter("2026-07-16T07:47:03.765Z", "2026-07-16T07:47:03.765Z"), "2026-07-16T07:47:03.766Z");
@@ -97,6 +102,84 @@ function definition(
     ...overrides,
   };
 }
+
+const stagedSetupMap = {
+  type: "node" as const,
+  name: "Starting Coast",
+  description: "The setup-generated recovery map.",
+  nodes: [{ id: "region_1", emoji: "⚓", label: "Gloam Harbor", x: 50, y: 50, discovered: true }],
+  edges: [],
+  partyPosition: "region_1",
+};
+const hierarchicalSetupConfig = {
+  genre: "Fantasy",
+  setting: "A fogbound coast",
+  tone: "Heroic",
+  difficulty: "Normal",
+  playerGoals: "Explore",
+  gmMode: "standalone" as const,
+  rating: "sfw" as const,
+  partyCharacterIds: [],
+  enableAgents: true,
+  gameWorldMapMode: "hierarchical" as const,
+};
+const stagedMapPatch = buildInitialGameMapPatch({}, hierarchicalSetupConfig, stagedSetupMap);
+assert.equal(stagedMapPatch.gameMap, null);
+assert.deepEqual(stagedMapPatch.gameMaps, []);
+assert.equal(stagedMapPatch.activeGameMapId, null);
+assert.equal((stagedMapPatch.gameInitialMapFallback as { name: string }).name, "Starting Coast");
+assert.equal(resolveInitialMapLocationName(stagedSetupMap, "region_1"), "Gloam Harbor");
+const standardMapPatch = buildInitialGameMapPatch(
+  {},
+  { ...hierarchicalSetupConfig, gameWorldMapMode: "standard" },
+  stagedSetupMap,
+);
+assert.equal((standardMapPatch.gameMap as { name: string }).name, "Starting Coast");
+assert.equal((standardMapPatch.gameMaps as unknown[]).length, 1);
+assert.equal(standardMapPatch.gameInitialMapFallback, null);
+
+const validGameHierarchy = definition(
+  [location("world", "Known World", { kind: "region", childPresentation: "map" })],
+  { ownerMode: "game", startingLocationId: "world" },
+);
+const hierarchicalStart = resolveGameStartWorldMapPatch({
+  gameSetupConfig: hierarchicalSetupConfig,
+  gameInitialMapFallback: stagedMapPatch.gameInitialMapFallback,
+  gameMap: null,
+  gameMaps: [],
+  activeGameMapId: null,
+  enableAgents: true,
+  activeAgentIds: ["hierarchical-maps"],
+  spatialContext: validGameHierarchy,
+});
+assert.equal(hierarchicalStart.resolution, "hierarchical");
+assert.equal(hierarchicalStart.patch.gameInitialMapFallback, null);
+assert.deepEqual(hierarchicalStart.patch.gameMaps, []);
+
+const fallbackStart = resolveGameStartWorldMapPatch({
+  gameSetupConfig: hierarchicalSetupConfig,
+  gameInitialMapFallback: stagedMapPatch.gameInitialMapFallback,
+  enableAgents: true,
+  activeAgentIds: ["hierarchical-maps"],
+});
+assert.equal(fallbackStart.resolution, "standard_fallback");
+assert.equal((fallbackStart.patch.gameMap as { name: string }).name, "Starting Coast");
+assert.equal((fallbackStart.patch.gameSetupConfig as { gameWorldMapMode: string }).gameWorldMapMode, "standard");
+
+const maplessStart = resolveGameStartWorldMapPatch({
+  gameSetupConfig: hierarchicalSetupConfig,
+  enableAgents: true,
+  activeAgentIds: ["hierarchical-maps"],
+});
+assert.equal(maplessStart.resolution, "standard_mapless");
+assert.equal(maplessStart.patch.gameMap, null);
+assert.equal((maplessStart.patch.gameSetupConfig as { gameWorldMapMode: string }).gameWorldMapMode, "standard");
+
+const standardStart = resolveGameStartWorldMapPatch({
+  gameSetupConfig: { ...hierarchicalSetupConfig, gameWorldMapMode: "standard" },
+  gameMap: stagedSetupMap,
+});
+assert.deepEqual(standardStart, { patch: {}, resolution: "unchanged" });
 
 function issueCodes(value: SpatialContextDefinition): SpatialDefinitionIssueCode[] {
   return validateSpatialContextDefinition(value).issues.map((entry) => entry.code);
@@ -308,7 +391,7 @@ assert.deepEqual(
   {
     ok: false,
     code: "spatial_transition_stale_definition",
-    message: "The hierarchical map changed. Review the available destinations.",
+    message: "The world map changed. Review the available destinations.",
   },
 );
 assert.equal(
@@ -462,7 +545,7 @@ assert.throws(
   (error: unknown) =>
     error instanceof GameMapBindingError &&
     error.code === "feature_unavailable" &&
-    error.message === "Hierarchical Maps is not active.",
+    error.message === "World Maps is not active.",
 );
 
 const fallbackProjection: ResolvedOwnerSpatialProjection = {

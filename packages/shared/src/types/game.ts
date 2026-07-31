@@ -21,6 +21,9 @@ export type GameCombatStyle = "classic" | "tactical";
 /** Status of a game session. */
 export type GameSessionStatus = "setup" | "active" | "concluded";
 
+/** Which system owns the campaign-scale map when a new game begins. */
+export type GameWorldMapMode = "standard" | "hierarchical";
+
 /** Spotify source constraints for Game Mode DJ selection. */
 export type GameSpotifySourceType = SpotifySourceType;
 
@@ -184,6 +187,8 @@ export interface GameSetupConfig {
   combatStyle?: GameCombatStyle;
   /** Optional user prompt used to create the initial hierarchical world map draft. */
   spatialMapInstructions?: string;
+  /** Campaign-scale map authority selected during New Game. Older saves default to "standard". */
+  gameWorldMapMode?: GameWorldMapMode;
   /** Character ID to use as GM (only when gmMode is "character") */
   gmCharacterId?: string | null;
   /** Party member IDs; library character IDs or `npc:<slug>` tracked-NPC IDs. */
@@ -710,7 +715,7 @@ export interface GameTurnStoryboardKeyframe {
   sectionStartIndex: number | null;
   sectionEndIndex: number | null;
   anchorQuote: string;
-  anchorKind: "narration" | "dialogue" | "readable" | "system" | "";
+  anchorKind: "narration" | "dialogue" | "readable" | "system" | "user" | "assistant" | "";
   narrationBeat: string;
   mangaPanelPrompt: string;
   imagePrompt: string;

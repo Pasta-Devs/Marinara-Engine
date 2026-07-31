@@ -31,7 +31,7 @@ interface SpatialStorageProvider {
 }
 
 function unavailableWrite(): never {
-  throw new Error("Hierarchical Maps is not installed or active");
+  throw new Error("World Maps is not installed or active");
 }
 
 const unavailableStorage: SpatialContextStorage = {

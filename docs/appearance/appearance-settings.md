@@ -60,7 +60,7 @@ The **Font** dropdown lives in this same section. To add your own fonts or downl
 
 ## Chat text colors and outline
 
-Also in the **Text & Scale** section, three controls change how chat text reads over your background.
+Also in the **Text & Scale** section, four controls change how chat text reads over your background.
 
 - **Chat Text Color** sets the main chat message text color. The default is `#d4d4d4` in Dark mode and `#1a1025` in Light mode.
 - **Default Dialogue Color** colors quoted dialogue when a Character or Persona card does not define its own Dialogue Highlight Color. It is always active; card-specific colors take priority.

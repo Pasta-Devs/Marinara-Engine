@@ -1014,6 +1014,10 @@ export function CharacterEditor() {
               <input
                 value={formData.name}
                 onChange={(e) => updateField("name", e.target.value)}
+                onBlur={() => {
+                  const trimmedName = formData.name.trim();
+                  if (trimmedName !== formData.name) updateField("name", trimmedName);
+                }}
                 className="mari-editor-title-input"
                 placeholder={localizeUi("ui.characters.charactereditor.characterName")}
                 size={Math.max(1, Math.min(formData.name.length || 14, 80))}
@@ -1305,6 +1309,7 @@ function CharacterDescriptionTab({
         placeholder={localizeUi("ui.characters.characterdescriptiontab.describeWhoThisCharacterIsTheirRoleAndTheir")}
         rows={12}
         title={localizeUi("chat.settings.inlineEditor.fields.description")}
+        showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1341,6 +1346,7 @@ function TextareaTab({
         placeholder={placeholder}
         rows={rows}
         title={title}
+        showMarkdownPreview
         className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
       />
       <p className="mt-1.5 text-right text-[0.625rem] text-[var(--muted-foreground)]">
@@ -1502,6 +1508,10 @@ function MetadataTab({
           <input
             value={formData.name}
             onChange={(e) => updateField("name", e.target.value)}
+            onBlur={() => {
+              const trimmedName = formData.name.trim();
+              if (trimmedName !== formData.name) updateField("name", trimmedName);
+            }}
             className="w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-sm outline-none focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           />
         </label>
@@ -1653,6 +1663,7 @@ function MetadataTab({
           onChange={(value) => updateField("creator_notes", value)}
           rows={4}
           title={localizeUi("ui.characters.metadatatab.creatorNotes")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi("ui.characters.metadatatab.notesAboutThisCharacterIntendedUseTipsForBest")}
         />
@@ -2100,6 +2111,7 @@ function DialogueTab({
           onChange={(value) => updateField("first_mes", value)}
           rows={6}
           title={localizeUi("ui.characters.dialoguetab.firstMessage")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi("ui.characters.dialoguetab.whatIsTheCharacterSFirstMessageWhenA")}
         />
@@ -2172,6 +2184,7 @@ function DialogueTab({
               onChange={(value) => updateGreeting(i, value)}
               rows={3}
               title={localizeUi("ui.characters.dialoguetab.alternateGreetingValue1", { value1: i + 1 })}
+              showMarkdownPreview
               className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40"
               placeholder={localizeUi("ui.characters.dialoguetab.greetingValue1", { value1: i + 1 })}
             />
@@ -2195,6 +2208,7 @@ function DialogueTab({
           onChange={(value) => updateField("mes_example", value)}
           rows={10}
           title={localizeUi("chat.settings.inlineEditor.fields.exampleDialogue")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 font-mono text-xs leading-relaxed outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi("ui.characters.dialoguetab.startUserHelloCharWavesExcitedlyHeyThere")}
         />
@@ -2237,6 +2251,7 @@ function AdvancedTab({
           onChange={(value) => updateField("system_prompt", value)}
           rows={6}
           title={localizeUi("ui.characters.advancedtab.systemPrompt")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi(
             "ui.characters.advancedtab.characterSpecificInstructionsInsertedThroughCharsysinfoOrTheCharacter",
@@ -2254,6 +2269,7 @@ function AdvancedTab({
           onChange={(value) => updateField("post_history_instructions", value)}
           rows={4}
           title={localizeUi("ui.characters.advancedtab.postHistoryInstructions")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-4 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
           placeholder={localizeUi("ui.characters.advancedtab.textInsertedAfterTheChatHistoryButBeforeGeneration")}
         />
@@ -2270,6 +2286,7 @@ function AdvancedTab({
           onChange={(value) => updateExtension("depth_prompt", { ...depthPrompt, prompt: value })}
           rows={4}
           title={localizeUi("ui.characters.advancedtab.depthPrompt")}
+          showMarkdownPreview
           className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none focus:border-[var(--primary)]/40"
           placeholder={localizeUi("ui.characters.advancedtab.promptInjectedAtASpecificDepthInTheChat")}
         />
@@ -4329,10 +4346,7 @@ function StatsTab({
   const trackerCardAppearance = parseTrackerCardColorConfig(formData.extensions.trackerCardColors);
 
   const updateStatIcons = (statIcons: NonNullable<typeof trackerCardAppearance.statIcons>) => {
-    updateExtension(
-      "trackerCardColors",
-      serializeTrackerCardColorConfig({ ...trackerCardAppearance, statIcons }),
-    );
+    updateExtension("trackerCardColors", serializeTrackerCardColorConfig({ ...trackerCardAppearance, statIcons }));
   };
 
   const update = (patch: Partial<RPGStatsConfig>) => {
@@ -4350,12 +4364,7 @@ function StatsTab({
     const nextPools = pools.map((pool, poolIndex) => (poolIndex === index ? { ...pool, ...patch } : pool));
     if (typeof patch.name === "string" && patch.name !== pools[index]?.name) {
       updateStatIcons(
-        remapStatIconAssignments(
-          trackerCardAppearance.statIcons ?? [],
-          pools,
-          nextPools,
-          (nextIndex) => nextIndex,
-        ),
+        remapStatIconAssignments(trackerCardAppearance.statIcons ?? [], pools, nextPools, (nextIndex) => nextIndex),
       );
     }
     updatePools(nextPools);
@@ -4364,11 +4373,8 @@ function StatsTab({
   const removePool = (index: number) => {
     const nextPools = pools.filter((_, poolIndex) => poolIndex !== index);
     updateStatIcons(
-      remapStatIconAssignments(
-        trackerCardAppearance.statIcons ?? [],
-        pools,
-        nextPools,
-        (nextIndex) => (nextIndex < index ? nextIndex : nextIndex + 1),
+      remapStatIconAssignments(trackerCardAppearance.statIcons ?? [], pools, nextPools, (nextIndex) =>
+        nextIndex < index ? nextIndex : nextIndex + 1,
       ),
     );
     updatePools(nextPools);

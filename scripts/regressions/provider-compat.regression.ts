@@ -330,18 +330,14 @@ assert.equal(
   "max",
 );
 
-// Roleplay captures readable reasoning, independently of whether the provider
-// needs an explicit "enable thinking" toggle. OpenAI Responses may stream no
-// summary deltas or final reasoning output item, but still send the requested
-// summary through the completed summary events.
+// OpenAI Responses always requests a readable reasoning summary when reasoning
+// is active. Display/capture flags control what the app does with that summary,
+// but must not silently remove it from the provider request.
 {
   let responsesReasoningRequestBody: Record<string, unknown> | null = null;
   const responsesReasoningSse = [
-    "event: response.reasoning_summary_part.done",
-    'data: {"type":"response.reasoning_summary_part.done","part":{"type":"summary_text","text":"Checked the roleplay context."}}',
-    "",
-    "event: response.reasoning_summary_text.done",
-    'data: {"type":"response.reasoning_summary_text.done","text":"Checked the roleplay context."}',
+    "event: response.reasoning_summary_part.added",
+    'data: {"type":"response.reasoning_summary_part.added","part":{"type":"summary_text","text":"Checked the roleplay context."}}',
     "",
     "event: response.output_text.delta",
     'data: {"type":"response.output_text.delta","delta":"Visible reply"}',
@@ -376,7 +372,6 @@ assert.equal(
       await collectProviderOutput(provider, {
         model: "gpt-5.6-sol",
         stream: true,
-        captureReasoning: true,
         reasoningEffort: "xhigh",
         excludePastReasoning: false,
         onThinking: (chunk) => {

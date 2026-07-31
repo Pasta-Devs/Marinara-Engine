@@ -11,6 +11,7 @@ export const installedExtensions = fileTable("installed_extensions", {
   version: text("version"),
   description: text("description").notNull().default(""),
   runtime: text("runtime").notNull().default("client"),
+  capabilities: text("capabilities").notNull().default("[]"),
   css: text("css"),
   js: text("js"),
   serverJs: text("server_js"),

@@ -61,6 +61,6 @@ interface OwnerTurnService {
 
 export async function commitSpatialOwnerTurn(input: CommitSpatialOwnerTurnInput): Promise<CommitResult> {
   const provider = getCapabilityService<OwnerTurnService>("hierarchical-maps:owner-turn");
-  if (!provider) throw new SpatialOwnerTurnError("spatial_feature_unavailable", "Hierarchical Maps is not active.", 409);
+  if (!provider) throw new SpatialOwnerTurnError("spatial_feature_unavailable", "World Maps is not active.", 409);
   return provider.commitSpatialOwnerTurn(input);
 }

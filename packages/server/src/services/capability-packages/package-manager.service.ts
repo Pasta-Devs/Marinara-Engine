@@ -14,6 +14,7 @@ import {
   packagedAgentDefinitionsSchema,
   type CapabilityCatalog,
   type CapabilityCatalogPackage,
+  type PackagedAgentDefinition,
   type CapabilityPackageUpdate,
   type InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
@@ -64,7 +65,7 @@ const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
     (version) =>
       [
         `hierarchical-maps@${version}`,
-        `Hierarchical Maps ${version} is incompatible with file-native storage. Update the package before using maps.`,
+        `World Maps ${version} is incompatible with file-native storage. Update the package before using maps.`,
       ] as const,
   ),
 ]);
@@ -266,6 +267,16 @@ export function getCapabilityPackageInstallIssue(manifest: CapabilityCatalogPack
   return null;
 }
 
+export function getCapabilityAgentDetailDefinitionIssue(
+  agentId: string,
+  agentDefinitions: readonly PackagedAgentDefinition[],
+): string | null {
+  const definition = agentDefinitions.find((agent) => agent.id === agentId);
+  return definition && (definition.execution === "feature" || definition.execution === "host")
+    ? null
+    : `Agent detail contribution ${agentId} must identify a feature or host agent from this package`;
+}
+
 export function getCapabilityPackageArtifactSourceIssue(
   entry: CapabilityCatalogPackage,
   catalogUrl = CATALOG_URL,
@@ -407,10 +418,8 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
     if (!agentsFile) throw new Error("Package agent definitions are missing");
     const agentDefinitions = packagedAgentDefinitionsSchema.parse(JSON.parse(agentsFile.toString("utf8")));
     for (const agentId of agentDetailIds) {
-      const definition = agentDefinitions.find((agent) => agent.id === agentId);
-      if (!definition || definition.execution !== "feature") {
-        throw new Error(`Agent detail contribution ${agentId} must identify a feature agent from this package`);
-      }
+      const detailIssue = getCapabilityAgentDetailDefinitionIssue(agentId, agentDefinitions);
+      if (detailIssue) throw new Error(detailIssue);
     }
   }
 

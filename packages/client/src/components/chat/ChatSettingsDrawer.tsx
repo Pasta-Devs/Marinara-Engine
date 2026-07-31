@@ -1,18 +1,7 @@
 // ──────────────────────────────────────────────
 // Chat: Settings Drawer — per-chat configuration
 // ──────────────────────────────────────────────
-import {
-  Fragment,
-  lazy,
-  Suspense,
-  useState,
-  useRef,
-  useEffect,
-  useId,
-  useMemo,
-  useCallback,
-  type CSSProperties,
-} from "react";
+import { Fragment, lazy, Suspense, useState, useRef, useEffect, useMemo, useCallback, type CSSProperties } from "react";
 import { useQuery, useQueryClient, useQueries } from "@tanstack/react-query";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -100,6 +89,17 @@ import { HelpTooltip } from "../ui/HelpTooltip";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { Modal } from "../ui/Modal";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
+import {
+  AgentCategorySection,
+  AgentDefaultStatus,
+  AgentSettingsCard,
+  AgentSettingsSubsection,
+  AgentSettingsTextarea,
+  AgentSettingsToggle,
+  GamePromptTemplateSelect,
+  GenerationSettingsLink,
+  SpriteRangeSlider,
+} from "./AgentSettingsControls";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SecretPlotPanel } from "../agents/SecretPlotPanel";
@@ -182,8 +182,6 @@ import type {
   ConversationCommandKey,
   ConversationNote,
   ExportEnvelope,
-  GameStoryboardPromptTemplateKind,
-  GameStoryboardViewerDisplayMode,
   HapticFeedbackSensitivity,
   HudWidget,
   KnowledgeAgentSourceSettings,
@@ -208,27 +206,14 @@ import {
   DEFAULT_AGENT_TOOLS,
   DEFAULT_AGENT_MAX_TOKENS,
   GAME_GM_BUILT_IN_PROMPT_TEMPLATES,
-  GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATE_ID,
-  GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATES,
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT,
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX,
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN,
-  GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATES,
-  GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID,
-  GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATES,
-  GAME_STORYBOARD_IMAGE_BUILT_IN_PROMPT_TEMPLATES,
   getDefaultAgentPrompt,
-  GAME_STORYBOARD_IMAGE_PROMPT_TEMPLATE_ID,
-  GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
   GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATES,
   GAME_VIDEO_PROMPT_TEMPLATE_ID,
   getChatModeCapabilities,
-  getGameStoryboardPromptTemplateKind,
   LIMITS,
   MIN_AGENT_MAX_TOKENS,
   PROFESSOR_MARI_ID,
+  STORYBOARD_AGENT_ID,
   SUMMARY_TAIL_MESSAGES,
   estimateAgentLoadCost,
   getAgentPromptTemplateOptions,
@@ -308,6 +293,7 @@ const InlineLorebookEntriesEditor = lazy(() =>
     default: module.InlineLorebookEntriesEditor,
   })),
 );
+const StoryboardChatSettingsPanel = lazy(() => import("./StoryboardChatSettingsPanel"));
 
 interface ChatSettingsDrawerProps {
   chat: Chat;
@@ -367,6 +353,11 @@ const ROLEPLAY_AGENT_SETTINGS_ORDER = new Map<string, number>(
     })
     .map(({ agent }, index) => [agent.id, index]),
 );
+ROLEPLAY_AGENT_SETTINGS_ORDER.set(
+  STORYBOARD_AGENT_ID,
+  ROLEPLAY_AGENT_SETTINGS_ORDER.get(STORYBOARD_AGENT_ID) ??
+    (ROLEPLAY_AGENT_SETTINGS_ORDER.get("illustrator") ?? ROLEPLAY_AGENT_SETTINGS_ORDER.size) + 0.5,
+);
 const CUSTOM_AGENT_SETTINGS_ORDER = ROLEPLAY_AGENT_SETTINGS_ORDER.size + 100;
 
 function getRoleplayAgentSettingsOrder(agentId: string): number {
@@ -375,95 +366,6 @@ function getRoleplayAgentSettingsOrder(agentId: string): number {
 
 function getAgentSettingsMenuId(chatId: string, agentId: string): string {
   return `chat-settings-agent-menu-${chatId}-${agentId}`.replace(/[^a-zA-Z0-9_-]/g, "-");
-}
-
-const GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
-  GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATES.map((template) => template.id),
-);
-
-function normalizeGameStoryboardKeyframeCount(value: unknown): number {
-  if (value == null || value === "") return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
-  return Math.max(
-    GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
-    Math.min(GAME_STORYBOARD_KEYFRAME_COUNT_MAX, Math.trunc(numeric)),
-  );
-}
-
-function hasGameStoryboardAnimationDuration(value: unknown): boolean {
-  if (value == null || value === "") return false;
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numeric);
-}
-
-function normalizeGameStoryboardAnimationDuration(value: unknown): number {
-  if (!hasGameStoryboardAnimationDuration(value)) return GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT;
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Math.max(
-    GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN,
-    Math.min(GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX, Math.trunc(numeric)),
-  );
-}
-
-function normalizeGameStoryboardPromptTemplateId(value: unknown, fallback: string): string {
-  const raw = typeof value === "string" ? value.trim() : "";
-  const normalized = raw
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-  return normalized || fallback;
-}
-
-function getUniqueGameStoryboardPromptTemplateId(
-  id: string,
-  usedIds: Set<string>,
-  fallback = "custom-storyboard-prompt",
-): string {
-  const base = normalizeGameStoryboardPromptTemplateId(id, fallback);
-  let candidate = base;
-  let attempt = 2;
-  while (usedIds.has(candidate)) {
-    candidate = `${base}-${attempt}`;
-    attempt++;
-  }
-  usedIds.add(candidate);
-  return candidate;
-}
-
-function normalizeGameStoryboardPromptTemplates(value: unknown): AgentPromptTemplateOption[] {
-  const usedIds = new Set(GAME_STORYBOARD_BUILT_IN_PROMPT_TEMPLATE_IDS);
-  return normalizeAgentPromptTemplateOptions(value)
-    .map((template) => ({
-      ...template,
-      id: getUniqueGameStoryboardPromptTemplateId(template.id, usedIds),
-    }))
-    .slice(0, 20);
-}
-
-function getGameStoryboardPromptTemplateOptions(
-  customTemplates: AgentPromptTemplateOption[],
-  kind: GameStoryboardPromptTemplateKind,
-  selectedAnimationTemplateId?: string | null,
-): AgentPromptTemplateOption[] {
-  const builtInTemplates =
-    kind === "animation" ? GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATES : GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATES;
-  return [
-    ...builtInTemplates,
-    ...customTemplates.filter(
-      (template) => getGameStoryboardPromptTemplateKind(template, selectedAnimationTemplateId) === kind,
-    ),
-  ];
-}
-
-function resolveSelectedGameStoryboardPromptTemplateId(
-  value: unknown,
-  fallback: string,
-  options: AgentPromptTemplateOption[],
-): string {
-  const selected = typeof value === "string" ? value.trim() : "";
-  if (selected && options.some((option) => option.id === selected)) return selected;
-  return fallback;
 }
 
 const GAME_VIDEO_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
@@ -515,20 +417,6 @@ function resolveSelectedGameVideoPromptTemplateId(value: unknown, options: Agent
   return GAME_VIDEO_PROMPT_TEMPLATE_ID;
 }
 
-const GAME_STORYBOARD_IMAGE_BUILT_IN_PROMPT_TEMPLATE_IDS = new Set(
-  GAME_STORYBOARD_IMAGE_BUILT_IN_PROMPT_TEMPLATES.map((template) => template.id),
-);
-
-function normalizeGameStoryboardImagePromptTemplates(value: unknown): AgentPromptTemplateOption[] {
-  const usedIds = new Set(GAME_STORYBOARD_IMAGE_BUILT_IN_PROMPT_TEMPLATE_IDS);
-  return normalizeAgentPromptTemplateOptions(value)
-    .map((template) => ({
-      ...template,
-      id: getUniqueGameVideoPromptTemplateId(template.id, usedIds, "custom-storyboard-image-prompt"),
-    }))
-    .slice(0, 20);
-}
-
 function renderRoleplayAgentMenuIcon(agentId: string, variant: "card" | "chip" = "card"): React.ReactNode {
   const size = variant === "chip" ? "0.6875rem" : "0.75rem";
   const className = variant === "chip" ? "shrink-0 text-[var(--primary)]" : "mt-0.5 shrink-0 text-[var(--primary)]";
@@ -555,10 +443,14 @@ function renderRoleplayAgentMenuIcon(agentId: string, variant: "card" | "chip" =
       return <MessageCircle size={size} className={className} />;
     case "illustrator":
       return <Paintbrush size={size} className={className} />;
+    case STORYBOARD_AGENT_ID:
+      return <Image size={size} className={className} />;
     case "spotify":
       return <Music2 size={size} className={className} />;
     case "haptic":
       return <Vibrate size={size} className={className} />;
+    case "hierarchical-maps":
+      return <MapIcon size={size} className={className} />;
     case "custom-agents":
       return <Bot size={size} className={className} />;
     default:
@@ -736,7 +628,7 @@ type AvailableAgent = {
   phase: AgentPhase;
   builtIn: boolean;
   runtimeDisabled?: boolean;
-  execution?: "pipeline" | "feature";
+  execution?: "pipeline" | "feature" | "host";
 };
 
 type DrawerPersona = {
@@ -1168,6 +1060,13 @@ export function ChatSettingsDrawer({
     openRightPanel("agents");
     openAgentCatalog();
   }, [onClose, openAgentCatalog, openRightPanel]);
+  const openLorebookFromSettings = useCallback(
+    (lorebookId: string) => {
+      onClose();
+      openLorebookDetail(lorebookId);
+    },
+    [onClose, openLorebookDetail],
+  );
   const inactiveCharacterIds = useMemo<string[]>(
     () =>
       Array.isArray(metadata.inactiveCharacterIds)
@@ -1710,25 +1609,17 @@ export function ChatSettingsDrawer({
   const selfieIncludeCharacterAppearance = metadata.selfieIncludeCharacterAppearance === true;
   const gameImageUseAvatarReferences = metadata.gameImageUseAvatarReferences !== false;
   const gameImageIncludeCharacterAppearance = metadata.gameImageIncludeCharacterAppearance !== false;
-  const gameStoryboardUsePromptTemplate = metadata.gameStoryboardUsePromptTemplate !== false;
   const gameImageAutoGenerationEnabled = metadata.gameImageAutoGenerationEnabled !== false;
   const gameImageDynamicPromptEnabled = metadata.gameImageDynamicPromptEnabled === true;
   const effectiveCombatStyle: GameCombatStyle =
     (metadata.gameCombatStyle as GameCombatStyle | undefined) ??
     (metadata.gameSetupConfig?.combatStyle as GameCombatStyle | undefined) ??
     "classic";
-  const gameStoryboardAutoIllustrationsEnabled = metadata.gameStoryboardAutoIllustrationsEnabled === true;
-  const gameStoryboardAutoAnimationsEnabled = metadata.gameStoryboardAutoGenerationEnabled === true;
   const gameSceneVideosEnabled =
     metadata.gameSceneVideosEnabled === true ||
     (metadata.gameSceneVideosEnabled !== false &&
       typeof metadata.gameVideoConnectionId === "string" &&
       metadata.gameVideoConnectionId.trim().length > 0);
-  const gameStoryboardsEnabled =
-    metadata.gameStoryboardsEnabled === true ||
-    (metadata.gameStoryboardsEnabled !== false &&
-      (gameStoryboardAutoIllustrationsEnabled || gameStoryboardAutoAnimationsEnabled));
-  const gameStoryboardUseNovelAiCharacterPrompts = metadata.gameStoryboardUseNovelAiCharacterPrompts !== false;
   const selectedGameGmPromptTemplateId = useMemo(() => {
     const selected = typeof metadata.gameGmPromptTemplateId === "string" ? metadata.gameGmPromptTemplateId.trim() : "";
     return selected && GAME_GM_BUILT_IN_PROMPT_TEMPLATES.some((template) => template.id === selected) ? selected : null;
@@ -1736,110 +1627,6 @@ export function ChatSettingsDrawer({
   const updateGameGmPromptTemplateSelection = useCallback(
     (templateId: string | null) => {
       updateMeta.mutate({ id: chat.id, gameGmPromptTemplateId: templateId });
-    },
-    [chat.id, updateMeta],
-  );
-  const gameStoryboardKeyframeCount = normalizeGameStoryboardKeyframeCount(metadata.gameStoryboardKeyframeCount);
-  const gameStoryboardAnimationDurationConfigured = hasGameStoryboardAnimationDuration(
-    metadata.gameStoryboardAnimationDurationSeconds,
-  );
-  const gameStoryboardAnimationDurationSeconds = normalizeGameStoryboardAnimationDuration(
-    metadata.gameStoryboardAnimationDurationSeconds,
-  );
-  const commitGameStoryboardAnimationDuration = useCallback(
-    (durationSeconds: number) => {
-      const normalized = normalizeGameStoryboardAnimationDuration(durationSeconds);
-      if (!gameStoryboardAnimationDurationConfigured && normalized === gameStoryboardAnimationDurationSeconds) return;
-      updateMeta.mutate({
-        id: chat.id,
-        gameStoryboardAnimationDurationSeconds: normalized,
-      });
-    },
-    [chat.id, gameStoryboardAnimationDurationConfigured, gameStoryboardAnimationDurationSeconds, updateMeta],
-  );
-  const gameStoryboardViewerDisplayMode: GameStoryboardViewerDisplayMode =
-    metadata.gameStoryboardViewerDisplayMode === "background" ? "background" : "floating";
-  const gameStoryboardPromptTemplates = useMemo(
-    () => normalizeGameStoryboardPromptTemplates(metadata.gameStoryboardPromptTemplates),
-    [metadata.gameStoryboardPromptTemplates],
-  );
-  const configuredGameStoryboardAnimationPromptTemplateId =
-    typeof metadata.gameStoryboardAnimationPromptTemplateId === "string"
-      ? metadata.gameStoryboardAnimationPromptTemplateId.trim()
-      : null;
-  const gameStoryboardIllustrationPromptOptions = useMemo(
-    () =>
-      getGameStoryboardPromptTemplateOptions(
-        gameStoryboardPromptTemplates,
-        "illustration",
-        configuredGameStoryboardAnimationPromptTemplateId,
-      ),
-    [configuredGameStoryboardAnimationPromptTemplateId, gameStoryboardPromptTemplates],
-  );
-  const gameStoryboardAnimationPromptOptions = useMemo(
-    () =>
-      getGameStoryboardPromptTemplateOptions(
-        gameStoryboardPromptTemplates,
-        "animation",
-        configuredGameStoryboardAnimationPromptTemplateId,
-      ),
-    [configuredGameStoryboardAnimationPromptTemplateId, gameStoryboardPromptTemplates],
-  );
-  const selectedGameStoryboardIllustrationPromptTemplateId = useMemo(
-    () =>
-      resolveSelectedGameStoryboardPromptTemplateId(
-        metadata.gameStoryboardIllustrationPromptTemplateId,
-        GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID,
-        gameStoryboardIllustrationPromptOptions,
-      ),
-    [gameStoryboardIllustrationPromptOptions, metadata.gameStoryboardIllustrationPromptTemplateId],
-  );
-  const selectedGameStoryboardAnimationPromptTemplateId = useMemo(
-    () =>
-      resolveSelectedGameStoryboardPromptTemplateId(
-        metadata.gameStoryboardAnimationPromptTemplateId,
-        GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATE_ID,
-        gameStoryboardAnimationPromptOptions,
-      ),
-    [gameStoryboardAnimationPromptOptions, metadata.gameStoryboardAnimationPromptTemplateId],
-  );
-  const updateGameStoryboardPromptSelection = useCallback(
-    (
-      field: "gameStoryboardIllustrationPromptTemplateId" | "gameStoryboardAnimationPromptTemplateId",
-      promptTemplateId: string,
-    ) => {
-      const fallback =
-        field === "gameStoryboardIllustrationPromptTemplateId"
-          ? GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID
-          : GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATE_ID;
-      updateMeta.mutate({ id: chat.id, [field]: promptTemplateId === fallback ? null : promptTemplateId });
-    },
-    [chat.id, updateMeta],
-  );
-  const gameStoryboardImagePromptTemplates = useMemo(
-    () => normalizeGameStoryboardImagePromptTemplates(metadata.gameStoryboardImagePromptTemplates),
-    [metadata.gameStoryboardImagePromptTemplates],
-  );
-  const gameStoryboardImagePromptOptions = useMemo(
-    () => [...GAME_STORYBOARD_IMAGE_BUILT_IN_PROMPT_TEMPLATES, ...gameStoryboardImagePromptTemplates],
-    [gameStoryboardImagePromptTemplates],
-  );
-  const selectedGameStoryboardImagePromptTemplateId = useMemo(() => {
-    const selected =
-      typeof metadata.gameStoryboardImagePromptTemplateId === "string"
-        ? metadata.gameStoryboardImagePromptTemplateId.trim()
-        : "";
-    return selected && gameStoryboardImagePromptOptions.some((option) => option.id === selected)
-      ? selected
-      : GAME_STORYBOARD_IMAGE_PROMPT_TEMPLATE_ID;
-  }, [gameStoryboardImagePromptOptions, metadata.gameStoryboardImagePromptTemplateId]);
-  const updateGameStoryboardImagePromptSelection = useCallback(
-    (promptTemplateId: string) => {
-      updateMeta.mutate({
-        id: chat.id,
-        gameStoryboardImagePromptTemplateId:
-          promptTemplateId === GAME_STORYBOARD_IMAGE_PROMPT_TEMPLATE_ID ? null : promptTemplateId,
-      });
     },
     [chat.id, updateMeta],
   );
@@ -1855,15 +1642,6 @@ export function ChatSettingsDrawer({
     () => resolveSelectedGameVideoPromptTemplateId(metadata.gameVideoPromptTemplateId, gameVideoPromptOptions),
     [gameVideoPromptOptions, metadata.gameVideoPromptTemplateId],
   );
-  const selectedGameStoryboardVideoPromptTemplateId = useMemo(() => {
-    const selected =
-      typeof metadata.gameStoryboardVideoPromptTemplateId === "string"
-        ? metadata.gameStoryboardVideoPromptTemplateId.trim()
-        : "";
-    return selected && gameVideoPromptOptions.some((option) => option.id === selected)
-      ? selected
-      : selectedGameVideoPromptTemplateId;
-  }, [gameVideoPromptOptions, metadata.gameStoryboardVideoPromptTemplateId, selectedGameVideoPromptTemplateId]);
   const updateGameVideoPromptSelection = useCallback(
     (promptTemplateId: string) => {
       updateMeta.mutate({
@@ -1872,16 +1650,6 @@ export function ChatSettingsDrawer({
       });
     },
     [chat.id, updateMeta],
-  );
-  const updateGameStoryboardVideoPromptSelection = useCallback(
-    (promptTemplateId: string) => {
-      updateMeta.mutate({
-        id: chat.id,
-        gameStoryboardVideoPromptTemplateId:
-          promptTemplateId === selectedGameVideoPromptTemplateId ? null : promptTemplateId,
-      });
-    },
-    [chat.id, selectedGameVideoPromptTemplateId, updateMeta],
   );
   const updateIllustratorPromptConnection = useCallback(
     (connectionId: string) => {
@@ -2156,6 +1924,9 @@ export function ChatSettingsDrawer({
     () => customAgents.filter((agent) => !activeAgentIds.includes(agent.id)),
     [activeAgentIds, customAgents],
   );
+  const mapsAgent = availableAgents.find((agent) => agent.id === mapsPackage?.id);
+  const storyboardAgent = availableAgents.find((agent) => agent.id === STORYBOARD_AGENT_ID);
+  const [pendingAgentMenuTargetId, setPendingAgentMenuTargetId] = useState<string | null>(null);
   const roleplayAgentMenuLinks = useMemo(() => {
     if (!metadata.enableAgents || !isRoleplayMode || isGame) return [];
     const links: Array<{
@@ -2187,6 +1958,10 @@ export function ChatSettingsDrawer({
     addLink("illustrator", illustratorActive, illustratorAgentMeta.name);
     addLink("spotify", spotifyActive, musicDjAgentMeta.name);
     addLink("haptic", hapticActive, hapticAgentMeta.name);
+    if (storyboardAgent) {
+      addLink(STORYBOARD_AGENT_ID, activeAgentIds.includes(STORYBOARD_AGENT_ID), storyboardAgent.name);
+    }
+    if (mapsAgent && mapsPackage) addLink(mapsPackage.id, mapsPackageEnabledForChat, mapsAgent.name);
     if (activeCustomAgents.length > 0) {
       links.push({
         id: "custom-agents",
@@ -2199,6 +1974,7 @@ export function ChatSettingsDrawer({
     return links.sort((a, b) => a.order - b.order || a.label.localeCompare(b.label));
   }, [
     activeCustomAgents,
+    activeAgentIds,
     cardEvolutionAuditorActive,
     cardEvolutionAuditorAgentMeta.name,
     chat.id,
@@ -2224,18 +2000,42 @@ export function ChatSettingsDrawer({
     knowledgeRouterAgentMeta.name,
     lorebookKeeperActive,
     lorebookKeeperAgentMeta.name,
+    mapsAgent,
+    mapsPackage,
+    mapsPackageEnabledForChat,
     metadata.enableAgents,
     musicDjAgentMeta.name,
     proseGuardianActive,
     proseGuardianAgentMeta.name,
     spotifyActive,
+    storyboardAgent,
   ]);
-  const scrollToAgentMenu = useCallback((targetId: string) => {
+  const focusAgentMenu = useCallback((targetId: string) => {
     const target = document.getElementById(targetId);
-    if (!target) return;
+    if (!target) return false;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     if (target instanceof HTMLElement) target.focus({ preventScroll: true });
+    return true;
   }, []);
+  const scrollToAgentMenu = useCallback(
+    (targetId: string) => {
+      if (!focusAgentMenu(targetId)) setPendingAgentMenuTargetId(targetId);
+    },
+    [focusAgentMenu],
+  );
+  useEffect(() => {
+    if (!pendingAgentMenuTargetId) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        if (focusAgentMenu(pendingAgentMenuTargetId)) setPendingAgentMenuTargetId(null);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [focusAgentMenu, pendingAgentMenuTargetId]);
   const gameAgentFeatureCount =
     (metadata.enableAgents ? 1 : 0) +
     (gameLorebookKeeperEnabled ? 1 : 0) +
@@ -3207,6 +3007,7 @@ export function ChatSettingsDrawer({
           agent.id !== "spotify" &&
           agent.id !== "youtube" &&
           agent.id !== "lorebook-keeper" &&
+          agent.id !== "storyboard" &&
           agent.category !== "custom",
       ),
     [availableAgents],
@@ -7132,19 +6933,14 @@ export function ChatSettingsDrawer({
                                       {localizeUi("ui.agents.agenteditor.runInterval")}
                                     </span>
                                     <div className="flex items-center gap-2">
-                                      <input
-                                        type="number"
+                                      <DraftNumberInput
+                                        value={narrativeDirectorSecretPlotRunInterval}
                                         min={1}
                                         max={100}
-                                        value={narrativeDirectorSecretPlotRunInterval}
-                                        onChange={(event) =>
+                                        onCommit={(value) =>
                                           updateMeta.mutate({
                                             id: chat.id,
-                                            narrativeDirectorSecretPlotRunInterval: normalizePositiveInteger(
-                                              event.target.value,
-                                              narrativeDirectorSecretPlotRunInterval,
-                                              100,
-                                            ),
+                                            narrativeDirectorSecretPlotRunInterval: value,
                                           })
                                         }
                                         className="w-24 rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs tabular-nums text-[var(--foreground)] outline-none transition-colors focus:border-[var(--ring)] focus:ring-1 focus:ring-[var(--ring)]"
@@ -8020,15 +7816,9 @@ export function ChatSettingsDrawer({
                         <div className="space-y-2">
                           <AgentSettingsToggle
                             label={localizeUi("ui.chat.chatsettingsdrawer.automaticVisuals")}
-                            description={
-                              gameStoryboardViewerDisplayMode === "background"
-                                ? localizeUi(
-                                    "ui.chat.chatsettingsdrawer.automaticallyRequestNpcPortraitsAndSceneIllustrationsLocationBackground",
-                                  )
-                                : localizeUi(
-                                    "ui.chat.chatsettingsdrawer.letGameModeAutomaticallyRequestBackgroundsNpcPortraitsAnd",
-                                  )
-                            }
+                            description={localizeUi(
+                              "ui.chat.chatsettingsdrawer.letGameModeAutomaticallyRequestBackgroundsNpcPortraitsAnd",
+                            )}
                             enabled={gameImageAutoGenerationEnabled}
                             onToggle={() =>
                               updateMeta.mutate({
@@ -8212,25 +8002,6 @@ export function ChatSettingsDrawer({
                               })
                             }
                           />
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.chatsettingsdrawer.enableStoryboards")}
-                            description={localizeUi(
-                              "ui.chat.chatsettingsdrawer.showStoryboardControlsAndAllowAutomaticKeyframeMedia",
-                            )}
-                            enabled={gameStoryboardsEnabled}
-                            onToggle={() =>
-                              updateMeta.mutate({
-                                id: chat.id,
-                                gameStoryboardsEnabled: !gameStoryboardsEnabled,
-                                ...(!gameStoryboardsEnabled
-                                  ? {}
-                                  : {
-                                      gameStoryboardAutoIllustrationsEnabled: false,
-                                      gameStoryboardAutoGenerationEnabled: false,
-                                    }),
-                              })
-                            }
-                          />
                         </div>
                       )}
                       {illustratorInstalled && gameSceneVideosEnabled && (
@@ -8278,9 +8049,7 @@ export function ChatSettingsDrawer({
                           )}
                           <GamePromptTemplateSelect
                             label={localizeUi("ui.chat.chatsettingsdrawer.gameVideoPrompt")}
-                            description={localizeUi(
-                              "ui.chat.chatsettingsdrawer.usedForGameSceneVideosAndStoryboardKeyframeClips",
-                            )}
+                            description={localizeUi("ui.chat.chatsettingsdrawer.usedForGameSceneVideos")}
                             options={gameVideoPromptOptions}
                             selectedId={selectedGameVideoPromptTemplateId}
                             fallbackId={GAME_VIDEO_PROMPT_TEMPLATE_ID}
@@ -8293,302 +8062,14 @@ export function ChatSettingsDrawer({
                           </p>
                         </AgentSettingsSubsection>
                       )}
-                      {illustratorInstalled && gameStoryboardsEnabled && (
-                        <AgentSettingsSubsection
-                          id="storyboards"
-                          title={localizeUi("ui.chat.chatsettingsdrawer.storyboards")}
-                          description={localizeUi(
-                            "ui.chat.chatsettingsdrawer.createKeyframeMediaForCompletedGmTurnsAndFollow",
-                          )}
-                        >
-                          <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--background)]/60 px-3 py-2 text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                            <Image size="0.75rem" className="mt-0.5 shrink-0 text-[var(--primary)]" />
-                            <p>{localizeUi("ui.chat.chatsettingsdrawer.recommendedUseAStrongStateOfTheArtImage")}</p>
-                          </div>
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.chatsettingsdrawer.automaticStoryboardIllustrations")}
-                            description={localizeUi(
-                              "ui.chat.chatsettingsdrawer.automaticallyCreateStillKeyframeIllustrationsAfterCompletedGmTurns",
-                            )}
-                            enabled={gameStoryboardAutoIllustrationsEnabled}
-                            onToggle={() => {
-                              const nextEnabled = !gameStoryboardAutoIllustrationsEnabled;
-                              updateMeta.mutate({
-                                id: chat.id,
-                                gameStoryboardAutoIllustrationsEnabled: nextEnabled,
-                                ...(nextEnabled ? {} : { gameStoryboardAutoGenerationEnabled: false }),
-                              });
-                            }}
-                          />
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.chatsettingsdrawer.automaticStoryboardAnimations")}
-                            description={localizeUi(
-                              "ui.chat.chatsettingsdrawer.alsoGenerateMp4ClipsForEachStoryboardKeyframeRequires",
-                            )}
-                            enabled={gameStoryboardAutoAnimationsEnabled}
-                            onToggle={() => {
-                              const nextEnabled = !gameStoryboardAutoAnimationsEnabled;
-                              updateMeta.mutate({
-                                id: chat.id,
-                                gameStoryboardAutoGenerationEnabled: nextEnabled,
-                                ...(nextEnabled ? { gameStoryboardAutoIllustrationsEnabled: true } : {}),
-                              });
-                            }}
-                          />
-                          <AgentSettingsToggle
-                            label={localizeUi("ui.chat.chatsettingsdrawer.useNovelaiCharacterPrompts")}
-                            description={localizeUi(
-                              "ui.chat.chatsettingsdrawer.forOfficialNovelaiV4V45StoryboardsSendVisible",
-                            )}
-                            enabled={gameStoryboardUseNovelAiCharacterPrompts}
-                            onToggle={() =>
-                              updateMeta.mutate({
-                                id: chat.id,
-                                gameStoryboardUseNovelAiCharacterPrompts: !gameStoryboardUseNovelAiCharacterPrompts,
-                              })
-                            }
-                          />
-                          <div className="space-y-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)]">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1 text-[0.625rem] font-medium text-[var(--foreground)]">
-                                  {localizeUi("ui.chat.chatsettingsdrawer.keyframesPerTurn")}
-                                  <HelpTooltip
-                                    text={localizeUi(
-                                      "ui.chat.chatsettingsdrawer.controlsHowManyStoryboardIllustrationsArePlannedForEach",
-                                    )}
-                                  />
-                                </div>
-                                <p className="mt-0.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                                  {localizeUi(
-                                    "ui.chat.chatsettingsdrawer.usedForAutomaticIllustrationsManualStoryboardsAndAnimationSource",
-                                  )}
-                                </p>
-                              </div>
-                              <span className="shrink-0 rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] tabular-nums text-[var(--foreground)] ring-1 ring-[var(--border)]">
-                                {gameStoryboardKeyframeCount}
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={GAME_STORYBOARD_KEYFRAME_COUNT_MIN}
-                              max={GAME_STORYBOARD_KEYFRAME_COUNT_MAX}
-                              step={1}
-                              value={gameStoryboardKeyframeCount}
-                              onChange={(event) =>
-                                updateMeta.mutate({
-                                  id: chat.id,
-                                  gameStoryboardKeyframeCount: normalizeGameStoryboardKeyframeCount(event.target.value),
-                                })
-                              }
-                              className="h-7 w-full cursor-pointer accent-[var(--primary)]"
-                              aria-label={localizeUi("ui.chat.chatsettingsdrawer.storyboardKeyframesPerTurn")}
-                            />
-                            <div className="flex justify-between text-[0.5625rem] text-[var(--muted-foreground)]">
-                              <span>{GAME_STORYBOARD_KEYFRAME_COUNT_MIN}</span>
-                              <span>{GAME_STORYBOARD_KEYFRAME_COUNT_MAX}</span>
-                            </div>
-                          </div>
-                          <div
-                            className={cn(
-                              "grid gap-2 rounded-lg bg-[var(--background)]/75 px-3 py-2 ring-1 ring-[var(--border)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
-                              !gameStoryboardAutoAnimationsEnabled && "opacity-60",
-                            )}
-                          >
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1 text-[0.625rem] font-medium text-[var(--foreground)]">
-                                {localizeUi("ui.chat.chatsettingsdrawer.animationClipDuration")}
-                                <HelpTooltip
-                                  text={localizeUi(
-                                    "ui.chat.chatsettingsdrawer.controlsTheDurationOfEachStoryboardMp4ClipIn",
-                                  )}
-                                />
-                              </div>
-                              <p className="mt-0.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                                {gameStoryboardAnimationDurationConfigured
-                                  ? localizeUi("ui.chat.chatsettingsdrawer.usedForEachGeneratedStoryboardAnimationClip")
-                                  : localizeUi(
-                                      "ui.chat.chatsettingsdrawer.usesTheValue1SecondStoryboardDefaultUntilSet",
-                                      {
-                                        value1: GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT,
-                                      },
-                                    )}
-                              </p>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-                              <div className="grid grid-cols-[minmax(0,4rem)_auto] items-center gap-1.5">
-                                <DraftNumberInput
-                                  value={gameStoryboardAnimationDurationSeconds}
-                                  min={GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN}
-                                  max={GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX}
-                                  disabled={!gameStoryboardAutoAnimationsEnabled}
-                                  onCommit={commitGameStoryboardAnimationDuration}
-                                  className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--foreground)] outline-none transition-colors focus:border-[var(--primary)]/50 disabled:cursor-not-allowed disabled:opacity-70"
-                                  ariaLabel="Storyboard animation clip duration in seconds"
-                                />
-                                <span className="text-[0.625rem] text-[var(--muted-foreground)]">
-                                  {localizeUi("ui.noodle.stageprofileview.s")}
-                                </span>
-                              </div>
-                              {gameStoryboardAnimationDurationConfigured ? (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    updateMeta.mutate({
-                                      id: chat.id,
-                                      gameStoryboardAnimationDurationSeconds: null,
-                                    })
-                                  }
-                                  className="rounded-md border border-[var(--border)] px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] transition-colors hover:border-[var(--primary)]/40 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {localizeUi("ui.chat.chatsettingsdrawer.useStoryboardDefault")}
-                                </button>
-                              ) : (
-                                <span className="rounded-md bg-[var(--secondary)]/70 px-2 py-1 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                                  {localizeUi("ui.chat.chatsettingsdrawer.storyboardDefault")}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-1 text-[0.625rem] font-medium text-[var(--foreground)]">
-                              {localizeUi("ui.chat.chatsettingsdrawer.viewerDisplay")}
-                              <HelpTooltip
-                                text={localizeUi(
-                                  "ui.chat.chatsettingsdrawer.floatingKeepsTheDraggableStoryboardPanelBackgroundPlacesThe",
-                                )}
-                              />
-                            </div>
-                            <AgentSettingsSegmentedControl<GameStoryboardViewerDisplayMode>
-                              value={gameStoryboardViewerDisplayMode}
-                              options={[
-                                {
-                                  id: "floating",
-                                  label: "Floating",
-                                  description: "Draggable panel above the game.",
-                                },
-                                {
-                                  id: "background",
-                                  label: "Background",
-                                  description: "Visual layer behind controls.",
-                                },
-                              ]}
-                              onChange={(mode) =>
-                                updateMeta.mutate({
-                                  id: chat.id,
-                                  gameStoryboardViewerDisplayMode: mode === "floating" ? null : mode,
-                                })
-                              }
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                {localizeUi("ui.chat.chatsettingsdrawer.storyboardPlanners")}
-                              </p>
-                              <p className="mt-0.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                                {localizeUi(
-                                  "ui.chat.chatsettingsdrawer.plannersSplitACompletedGmTurnIntoOrderedKeyframes",
-                                )}
-                              </p>
-                            </div>
-                            <div className="grid items-stretch gap-2 md:grid-cols-2">
-                              <div className="h-full space-y-2 rounded-lg bg-[var(--secondary)]/35 p-2 ring-1 ring-[var(--border)]">
-                                <p className="text-[0.625rem] font-semibold text-[var(--foreground)]">
-                                  {localizeUi("ui.chat.chatsettingsdrawer.stillStoryboards")}
-                                </p>
-                                <GamePromptTemplateSelect
-                                  label={localizeUi("ui.chat.chatsettingsdrawer.illustrationPlanner")}
-                                  description={localizeUi(
-                                    "ui.chat.chatsettingsdrawer.plansFinishedStillKeyframesAndWritesTheirImageDescriptions",
-                                  )}
-                                  options={gameStoryboardIllustrationPromptOptions}
-                                  selectedId={selectedGameStoryboardIllustrationPromptTemplateId}
-                                  fallbackId={GAME_STORYBOARD_ILLUSTRATION_PROMPT_TEMPLATE_ID}
-                                  onChange={(promptTemplateId) =>
-                                    updateGameStoryboardPromptSelection(
-                                      "gameStoryboardIllustrationPromptTemplateId",
-                                      promptTemplateId,
-                                    )
-                                  }
-                                />
-                              </div>
-                              <div className="h-full space-y-2 rounded-lg bg-[var(--secondary)]/35 p-2 ring-1 ring-[var(--border)]">
-                                <p className="text-[0.625rem] font-semibold text-[var(--foreground)]">
-                                  {localizeUi("ui.chat.chatsettingsdrawer.animatedStoryboards")}
-                                </p>
-                                <GamePromptTemplateSelect
-                                  label={localizeUi("ui.chat.chatsettingsdrawer.animationPlanner")}
-                                  description={localizeUi(
-                                    "ui.chat.chatsettingsdrawer.plansAnimationReadySourceImagesAndAMotionDirection",
-                                  )}
-                                  options={gameStoryboardAnimationPromptOptions}
-                                  selectedId={selectedGameStoryboardAnimationPromptTemplateId}
-                                  fallbackId={GAME_STORYBOARD_ANIMATION_PROMPT_TEMPLATE_ID}
-                                  onChange={(promptTemplateId) =>
-                                    updateGameStoryboardPromptSelection(
-                                      "gameStoryboardAnimationPromptTemplateId",
-                                      promptTemplateId,
-                                    )
-                                  }
-                                />
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            <div>
-                              <p className="text-[0.6875rem] font-semibold text-[var(--foreground)]">
-                                {localizeUi("ui.chat.chatsettingsdrawer.finalGenerationPrompts")}
-                              </p>
-                              <p className="mt-0.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-                                {localizeUi(
-                                  "ui.chat.chatsettingsdrawer.theseFormatEachPlannerResultIntoTheFinalRequest",
-                                )}
-                              </p>
-                            </div>
-                            <AgentSettingsToggle
-                              label={localizeUi("ui.chat.chatsettingsdrawer.useStoryboardTemplate")}
-                              description={localizeUi(
-                                "ui.chat.chatsettingsdrawer.offBypassesTheStoryboardPromptTemplateWhileKeepingFinal",
-                              )}
-                              enabled={gameStoryboardUsePromptTemplate}
-                              onToggle={() =>
-                                updateMeta.mutate({
-                                  id: chat.id,
-                                  gameStoryboardUsePromptTemplate: !gameStoryboardUsePromptTemplate,
-                                })
-                              }
-                            />
-                            <div className="grid gap-2 md:grid-cols-2">
-                              <GamePromptTemplateSelect
-                                label={localizeUi("ui.chat.chatsettingsdrawer.storyboardIllustrationPrompt")}
-                                description={localizeUi(
-                                  "ui.chat.chatsettingsdrawer.formatsEachPlannedKeyframeIntoTheFinalPromptSent",
-                                )}
-                                options={gameStoryboardImagePromptOptions}
-                                selectedId={selectedGameStoryboardImagePromptTemplateId}
-                                fallbackId={GAME_STORYBOARD_IMAGE_PROMPT_TEMPLATE_ID}
-                                onChange={updateGameStoryboardImagePromptSelection}
-                              />
-                              <GamePromptTemplateSelect
-                                label={localizeUi("ui.chat.chatsettingsdrawer.storyboardVideoPrompt")}
-                                description={localizeUi(
-                                  "ui.chat.chatsettingsdrawer.combinesTheGeneratedKeyframeAndMotionPlanIntoThe",
-                                )}
-                                options={gameVideoPromptOptions}
-                                selectedId={selectedGameStoryboardVideoPromptTemplateId}
-                                fallbackId={selectedGameVideoPromptTemplateId}
-                                onChange={updateGameStoryboardVideoPromptSelection}
-                              />
-                            </div>
-                          </div>
-                          <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                            {localizeUi(
-                              "ui.chat.chatsettingsdrawer.flowTheSelectedPlannerCreatesEachKeyframePlanStoryboard",
-                            )}
-                          </p>
-                        </AgentSettingsSubsection>
-                      )}
+                      <Suspense fallback={null}>
+                        <StoryboardChatSettingsPanel
+                          chatId={chat.id}
+                          metadata={metadata as Record<string, unknown>}
+                          onClose={onClose}
+                          ownerMode="game"
+                        />
+                      </Suspense>
                     </AgentSettingsCard>
                   )}
 
@@ -8615,6 +8096,8 @@ export function ChatSettingsDrawer({
                                           view="settings"
                                           capabilityProps={{
                                             chatId: chat.id,
+                                            chatName: chat.name,
+                                            chatMode,
                                             debugMode,
                                             enabledForChat: mapsPackageEnabledForChat,
                                             onEnabledForChatChange: async (enabled: boolean) => {
@@ -8630,7 +8113,7 @@ export function ChatSettingsDrawer({
                                             },
                                             confirmAction: showConfirmDialog,
                                             onDirtyChange: setEditorDirty,
-                                            onOpenLorebook: openLorebookDetail,
+                                            onOpenLorebook: openLorebookFromSettings,
                                           }}
                                           className="block overflow-hidden rounded-lg"
                                         />
@@ -8652,8 +8135,7 @@ export function ChatSettingsDrawer({
                                           capabilityProps={{
                                             chatId: chat.id,
                                             enabledForChat:
-                                              metadata.enableAgents === true &&
-                                              activeAgentIds.includes(ltmPackage.id),
+                                              metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
                                             chatSettings: {
                                               longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
                                               longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
@@ -8870,6 +8352,9 @@ export function ChatSettingsDrawer({
                                 icon={cat.icon}
                                 description={cat.description}
                                 count={activeInCat.length}
+                                openRequest={catAgents.some(
+                                  (agent) => getAgentSettingsMenuId(chat.id, agent.id) === pendingAgentMenuTargetId,
+                                )}
                               >
                                 {/* Active agents in this category */}
                                 {activeInCat.length > 0 && (
@@ -8879,8 +8364,18 @@ export function ChatSettingsDrawer({
                                       return (
                                         <div
                                           key={agent.id}
+                                          id={
+                                            agent.id === "hierarchical-maps" || agent.id === STORYBOARD_AGENT_ID
+                                              ? getAgentSettingsMenuId(chat.id, agent.id)
+                                              : undefined
+                                          }
+                                          tabIndex={
+                                            agent.id === "hierarchical-maps" || agent.id === STORYBOARD_AGENT_ID
+                                              ? -1
+                                              : undefined
+                                          }
                                           data-chat-agent-entry={agent.id}
-                                          className="rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
+                                          className="scroll-mt-3 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/60"
                                         >
                                           <div className="flex items-start gap-2.5">
                                             <Sparkles
@@ -8922,6 +8417,8 @@ export function ChatSettingsDrawer({
                                               view="settings"
                                               capabilityProps={{
                                                 chatId: chat.id,
+                                                chatName: chat.name,
+                                                chatMode,
                                                 debugMode,
                                                 enabledForChat: mapsPackageEnabledForChat,
                                                 onEnabledForChatChange: async (enabled: boolean) => {
@@ -8937,7 +8434,7 @@ export function ChatSettingsDrawer({
                                                 },
                                                 confirmAction: showConfirmDialog,
                                                 onDirtyChange: setEditorDirty,
-                                                onOpenLorebook: openLorebookDetail,
+                                                onOpenLorebook: openLorebookFromSettings,
                                               }}
                                               className="mt-2 block overflow-hidden rounded-lg"
                                             />
@@ -8948,7 +8445,9 @@ export function ChatSettingsDrawer({
                                               view="settings"
                                               capabilityProps={{
                                                 chatId: chat.id,
-                                                enabledForChat: metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
+                                                enabledForChat:
+                                                  metadata.enableAgents === true &&
+                                                  activeAgentIds.includes(ltmPackage.id),
                                                 chatSettings: {
                                                   longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
                                                   longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
@@ -8969,13 +8468,24 @@ export function ChatSettingsDrawer({
                                                 },
                                                 onOpenAgentSettings: () => {
                                                   void requestClose().then((closed) => {
-                                                    if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                                                    if (closed)
+                                                      useUIStore.getState().openAgentDetail("long-term-memory");
                                                   });
                                                 },
                                                 onDirtyChange: setEditorDirty,
                                               }}
                                               className="mt-2 block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/45"
                                             />
+                                          )}
+                                          {agent.id === STORYBOARD_AGENT_ID && (
+                                            <Suspense fallback={null}>
+                                              <StoryboardChatSettingsPanel
+                                                chatId={chat.id}
+                                                metadata={metadata as Record<string, unknown>}
+                                                onClose={onClose}
+                                                ownerMode="roleplay"
+                                              />
+                                            </Suspense>
                                           )}
                                         </div>
                                       );
@@ -9961,260 +9471,6 @@ function MemoryRecallMemoriesModal({
   );
 }
 
-// ── Agent category sub-section (collapsible within Agents section) ──
-function AgentCategorySection({
-  label,
-  icon,
-  description,
-  count,
-  children,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  description: string;
-  count?: number;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="rounded-lg border border-[var(--border)] overflow-hidden">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-[var(--accent)]/50"
-      >
-        <span className="text-[var(--muted-foreground)]">{icon}</span>
-        <div className="flex-1 min-w-0">
-          <span className="text-[0.6875rem] font-semibold">{label}</span>
-          {!open && (
-            <p className="text-[0.5625rem] text-[var(--muted-foreground)] leading-tight truncate">{description}</p>
-          )}
-        </div>
-        {count != null && count > 0 && (
-          <span className="rounded-full bg-[var(--primary)]/15 px-1.5 py-0.5 text-[0.5625rem] font-medium text-[var(--primary)]">
-            {count}
-          </span>
-        )}
-        <ChevronDown
-          size="0.625rem"
-          className={cn("text-[var(--muted-foreground)] transition-transform shrink-0", open && "rotate-180")}
-        />
-      </button>
-      {open && (
-        <div className="px-3 pb-2.5 pt-2.5 space-y-1.5">
-          <p className="text-[0.5625rem] text-[var(--muted-foreground)] leading-tight">{description}</p>
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GenerationSettingsLink({
-  onClick,
-  title,
-  label,
-  description,
-}: {
-  onClick: () => void;
-  title: string;
-  label: string;
-  description: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mari-chat-option-field flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-[var(--secondary)]/60"
-      title={title}
-    >
-      <Settings2 size="0.8125rem" className="shrink-0 text-[var(--primary)]" />
-      <span className="min-w-0 flex-1">
-        <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{label}</span>
-        <span className="mt-0.5 block text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">
-          {description}
-        </span>
-      </span>
-      <ChevronRight size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
-    </button>
-  );
-}
-
-function AgentSettingsSubsection({
-  id,
-  title,
-  description,
-  children,
-}: {
-  id: string;
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section data-agent-settings-subsection={id} className="space-y-2 border-t border-[var(--border)] pt-3">
-      <div data-agent-settings-subsection-header className="space-y-0.5 px-0.5">
-        <h4 className="text-[0.6875rem] font-semibold text-[var(--foreground)]">{title}</h4>
-        <p className="text-[0.59375rem] leading-snug text-[var(--muted-foreground)]">{description}</p>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function AgentSettingsCard({
-  id,
-  icon,
-  title,
-  description,
-  badge,
-  order,
-  onRemove,
-  children,
-}: {
-  id?: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  badge?: React.ReactNode;
-  order?: number;
-  onRemove?: () => void;
-  children?: React.ReactNode;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(true);
-  const contentId = useId();
-  const toggleLabel = localizeUi(
-    open ? "ui.chat.agentsettingscard.collapseValue1" : "ui.chat.agentsettingscard.expandValue1",
-    { value1: title },
-  );
-
-  return (
-    <div
-      id={id}
-      tabIndex={id ? -1 : undefined}
-      className="scroll-mt-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/45"
-      style={order == null ? undefined : { order }}
-    >
-      <div className="flex items-start p-3">
-        <button
-          type="button"
-          onClick={() => setOpen((current) => !current)}
-          aria-expanded={open}
-          aria-controls={contentId}
-          aria-label={toggleLabel}
-          title={toggleLabel}
-          className="-m-1 flex min-w-0 flex-1 items-start gap-2 rounded-lg p-1 text-left transition-colors hover:bg-[var(--accent)]/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)]/60"
-        >
-          {icon}
-          <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-1.5 text-[0.6875rem] font-medium">
-              <span className="min-w-0 truncate">{title}</span>
-              {badge}
-            </span>
-            <span className="mt-1 block text-[0.625rem] text-[var(--muted-foreground)]">{description}</span>
-          </span>
-          <ChevronRight
-            size="0.75rem"
-            className={cn(
-              "mt-0.5 shrink-0 text-[var(--muted-foreground)] transition-transform",
-              open && "rotate-90",
-            )}
-          />
-        </button>
-      </div>
-      {open && (
-        <div id={contentId} className="space-y-2 px-3 pb-2">
-          {children}
-        </div>
-      )}
-      {onRemove && open && (
-        <div className="flex justify-end px-3 pb-3 pt-1">
-          <button
-            type="button"
-            onClick={onRemove}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)] ring-1 ring-[var(--primary)]/25 transition-colors hover:bg-[var(--primary)]/15 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/55 active:scale-95"
-            title={localizeUi("ui.chat.agentsettingscard.removeValue1FromChat", { value1: title })}
-            aria-label={localizeUi("ui.chat.agentsettingscard.removeValue1FromChat", { value1: title })}
-          >
-            <Trash2 size="0.75rem" />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AgentSettingsTextarea({
-  label,
-  value,
-  placeholder,
-  rows,
-  onChange,
-  onBlur,
-}: {
-  label: string;
-  value: string;
-  placeholder?: string;
-  rows?: number;
-  onChange: (value: string) => void;
-  onBlur?: () => void;
-}) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-[0.625rem] font-medium text-[var(--foreground)]">{label}</span>
-      <textarea
-        value={value}
-        placeholder={placeholder}
-        rows={rows ?? 3}
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onBlur}
-        className="min-h-[3.25rem] w-full resize-y rounded-lg border border-[var(--border)] bg-[var(--background)] px-2.5 py-2 text-xs leading-relaxed text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)]/45 focus:border-[var(--primary)]/50"
-      />
-    </label>
-  );
-}
-
-function AgentSettingsToggle({
-  label,
-  description,
-  enabled,
-  onToggle,
-  overridden = false,
-  onReset,
-  surface = "card",
-}: {
-  label: string;
-  description: string;
-  enabled: boolean;
-  onToggle: () => void;
-  overridden?: boolean;
-  onReset?: () => void;
-  surface?: "card" | "secondary";
-}) {
-  return (
-    <div className="space-y-1">
-      <SettingsSwitch
-        label={label}
-        description={description}
-        checked={enabled}
-        onChange={() => onToggle()}
-        labelPosition="start"
-        className={cn(
-          "justify-between rounded-lg px-3 py-2.5 text-left",
-          enabled
-            ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-            : surface === "secondary"
-              ? "bg-[var(--secondary)] hover:bg-[var(--accent)]"
-              : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-        )}
-        labelClassName="text-[0.6875rem] font-medium"
-      />
-      {onReset ? <AgentDefaultStatus overridden={overridden} onReset={onReset} /> : null}
-    </div>
-  );
-}
-
 function KnowledgeAgentSettingsCard({
   id,
   agentType,
@@ -10483,123 +9739,6 @@ function KnowledgeAgentSettingsCard({
         </p>
       )}
     </AgentSettingsCard>
-  );
-}
-
-function AgentSettingsSegmentedControl<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: Array<{ id: T; label: string; description?: string }>;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg border border-[var(--border)] bg-[var(--background)]/75 p-1">
-      {options.map((option) => (
-        <button
-          key={option.id}
-          type="button"
-          onClick={() => onChange(option.id)}
-          aria-pressed={value === option.id}
-          className={cn(
-            "rounded-md px-2.5 py-2 text-left transition-all",
-            value === option.id
-              ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/35"
-              : "text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-          )}
-        >
-          <span className="block text-[0.6875rem] font-semibold">{option.label}</span>
-          {option.description ? <span className="mt-0.5 block text-[0.625rem]">{option.description}</span> : null}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// Game prompt controls
-function GamePromptTemplateSelect({
-  label,
-  description,
-  options,
-  selectedId,
-  fallbackId,
-  onChange,
-}: {
-  label: string;
-  description: string;
-  options: AgentPromptTemplateOption[];
-  selectedId: string;
-  fallbackId: string;
-  onChange: (promptTemplateId: string) => void;
-}) {
-  const { t: localizeUi } = useUiTranslation();
-  const activeOption = options.find((option) => option.id === selectedId) ?? options[0];
-
-  return (
-    <div className="rounded-lg bg-[var(--background)]/75 px-2.5 py-2 ring-1 ring-[var(--border)]">
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[0.625rem] font-semibold text-[var(--foreground)]">{label}</span>
-        <select
-          value={activeOption?.id ?? fallbackId}
-          onChange={(event) => onChange(event.target.value)}
-          className="w-full rounded-md bg-[var(--secondary)] px-2 py-1.5 text-[0.6875rem] text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          {options.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="mt-1.5 text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
-        {description}
-        {activeOption?.description
-          ? localizeUi("ui.chat.gameprompttemplateselect.value1", { value1: activeOption.description })
-          : ""}
-      </p>
-    </div>
-  );
-}
-
-// Sprite display slider
-function SpriteRangeSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  suffix,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  suffix: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1.5 rounded-lg bg-[var(--secondary)]/50 px-2.5 py-2 text-[0.625rem] text-[var(--muted-foreground)]">
-      <span className="flex items-center justify-between gap-2">
-        <span className="font-medium text-[var(--foreground)]">{label}</span>
-        <span className="rounded-full bg-[var(--background)] px-2 py-0.5 text-[0.5625rem] tabular-nums text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-          {value}
-          {suffix}
-        </span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-8 w-full cursor-pointer accent-[var(--primary)]"
-      />
-    </label>
   );
 }
 
@@ -10876,28 +10015,6 @@ function AgentPromptTemplateSelect({
         </p>
       ) : null}
       <AgentDefaultStatus overridden={overridden} onReset={() => onChange("")} />
-    </div>
-  );
-}
-
-function AgentDefaultStatus({ overridden, onReset }: { overridden: boolean; onReset: () => void }) {
-  const { t: localizeUi } = useUiTranslation();
-  return (
-    <div className="flex items-center justify-between gap-2 px-1 text-[0.625rem] text-[var(--muted-foreground)]">
-      <span>
-        {overridden
-          ? localizeUi("ui.chat.agentdefaultstatus.chatOverride")
-          : localizeUi("ui.chat.agentdefaultstatus.usingAgentDefault")}
-      </span>
-      {overridden ? (
-        <button
-          type="button"
-          onClick={onReset}
-          className="font-medium text-[var(--primary)] transition-opacity hover:opacity-80"
-        >
-          {localizeUi("ui.chat.agentdefaultstatus.useAgentDefault")}
-        </button>
-      ) : null}
     </div>
   );
 }

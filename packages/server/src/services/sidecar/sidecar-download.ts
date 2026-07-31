@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from "fs";
 import { dirname } from "path";
 import { Readable } from "stream";
@@ -22,6 +23,7 @@ export interface DownloadFileOptions {
   signal?: AbortSignal;
   headers?: Record<string, string>;
   expectedBytes?: number | null;
+  expectedSha256?: string | null;
   progress: Omit<SidecarDownloadProgress, "downloaded" | "total" | "speed" | "status">;
   onProgress?: (progress: SidecarDownloadProgress) => void;
 }
@@ -74,6 +76,10 @@ export async function retry<T>(
 }
 
 export async function downloadFileWithProgress(options: DownloadFileOptions): Promise<void> {
+  const expectedSha256 = options.expectedSha256?.trim().toLowerCase() || null;
+  if (expectedSha256 && !/^[a-f0-9]{64}$/u.test(expectedSha256)) {
+    throw new Error("Expected download SHA-256 must contain exactly 64 hexadecimal characters.");
+  }
   mkdirSync(dirname(options.destPath), { recursive: true });
 
   const tempPath = `${options.destPath}.download`;
@@ -110,6 +116,7 @@ export async function downloadFileWithProgress(options: DownloadFileOptions): Pr
   const expectedBytes =
     typeof options.expectedBytes === "number" && options.expectedBytes > 0 ? options.expectedBytes : total;
   const canValidateSize = expectedBytes > 0 && (!contentEncoding || contentEncoding === "identity");
+  const sha256 = expectedSha256 ? createHash("sha256") : null;
   let downloaded = 0;
   let lastReportTime = Date.now();
   let lastReportBytes = 0;
@@ -127,6 +134,7 @@ export async function downloadFileWithProgress(options: DownloadFileOptions): Pr
         }
 
         downloaded += value.byteLength;
+        sha256?.update(value);
         const now = Date.now();
         if (now - lastReportTime >= 250) {
           const elapsedSeconds = (now - lastReportTime) / 1000;
@@ -154,6 +162,12 @@ export async function downloadFileWithProgress(options: DownloadFileOptions): Pr
     const writtenBytes = statSync(tempPath).size;
     if (canValidateSize && writtenBytes !== expectedBytes) {
       throw new Error(`Downloaded file size mismatch: expected ${expectedBytes} bytes, received ${writtenBytes} bytes.`);
+    }
+    if (expectedSha256) {
+      const actualSha256 = sha256!.digest("hex");
+      if (actualSha256 !== expectedSha256) {
+        throw new Error(`Downloaded file SHA-256 mismatch: expected ${expectedSha256}, received ${actualSha256}.`);
+      }
     }
     renameSync(tempPath, options.destPath);
     options.onProgress?.({

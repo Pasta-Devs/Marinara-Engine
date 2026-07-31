@@ -1,10 +1,10 @@
 # Storyboard Engine Guide
 
-This guide explains storyboards in Marinara Engine. A storyboard turns one finished Game Mode turn into a short run of keyframe images. It can also add short animated clips, including continuous anime-style shots. The turn then reads like a mini cutscene. Storyboards are a Game Mode feature only. They do not exist in Roleplay or Conversation chats.
+This guide explains storyboards in Marinara Engine. A storyboard turns completed story text into a short run of keyframe images and can add animated clips. Game Mode storyboards follow one finished GM turn. Roleplay storyboards combine completed exchanges into an inline episode. Conversation chats do not use Storyboards.
 
 ## What storyboards are
 
-Game Mode is the chat mode where an AI Game Master (GM) narrates a turn-based adventure. When the GM finishes a narration turn, the Storyboard Engine can illustrate that single turn.
+Game Mode is the chat mode where an AI Game Master (GM) narrates a turn-based adventure. When the GM finishes a narration turn, the Storyboard Engine can illustrate that single turn. In Roleplay, the Storyboard Agent reads completed user and assistant messages since its previous successful episode.
 
 Marinara reads the GM narration and splits it into a short run of ordered keyframes. Each keyframe is one picture of a moment in the turn. A storyboard holds 1 to 6 keyframes. The default is 3.
 
@@ -14,11 +14,38 @@ Before it plans the images, Marinara strips the turn's GM command tags. GM comma
 
 Keyframe still images are saved in the **Gallery**, under the **Images** tab. Keyframe clips are saved as scene videos, under the **Videos** tab. Because they are normal Gallery items, you can preview, download, pin, or copy the prompt of any keyframe on its own.
 
+## Roleplay storyboard episodes
+
+Roleplay Storyboards are separate from Illustrator. Illustrator can keep making its usual single images while Storyboard plans one or more ordered keyframes from a completed section of the chat.
+
+1. Install **Storyboard** from **Agents > Download Agents**.
+2. Open a Roleplay chat, then add **Storyboard** in **Chat Settings > Agents**.
+3. In the Storyboard card, choose **Manual only**, **Still images**, or **Animations**.
+4. Select the prompt, image, and optional video connections. The image connection is required.
+5. For a manual episode, open **Gallery** and choose **Create storyboard**. Automatic episodes run after the configured number of newly completed assistant responses.
+
+The default interval is 1, so an automatic episode can appear after every newly completed assistant response. A larger **Assistant messages per episode** value lets dialogue and back-and-forth accumulate. When the interval is reached, Marinara combines the messages since the previous successful Storyboard, within a bounded recent window. Opening an existing chat does not backfill old messages, and a failed episode does not advance the successful cadence anchor.
+
+Roleplay keyframes render inline after the assistant response that ends the episode. Use the arrows on multi-keyframe Storyboards to move between frames. Images and clips are also saved in the Gallery.
+
+Roleplay planning has four editable layers under global **Agents > Storyboard** settings:
+
+- **Episode contract** selects completed story beats from the supplied messages.
+- **Visual style** provides normal/anime, NovelAI, comic, colored manga, and black-and-white manga choices.
+- **Animation addon** is included only for animated Storyboards. It treats the illustration as the exact T=0 frame, then describes simple action, camera behavior, source dialogue, sound effects, ambience, and an ending hold.
+- **Output contract** defines the keyframe JSON returned by the planning model.
+
+These Roleplay prompts do not replace the optimized Game Mode planner library. Image and video provider formatters remain shared and selectable. The animation plan is provider-neutral, so it can use Google Gemini Omni, LTX/ComfyUI, or another configured Video Generation connection that accepts image-to-video requests. Provider capabilities and output quality still vary.
+
+## Game Mode storyboards
+
+This section explains how to configure, generate, review, and animate storyboards for Game Mode turns.
+
 ## Before you start
 
 You need a few things set up before a storyboard can render.
 
-1. A Game Mode chat. This feature only works in Game Mode.
+1. A Game Mode chat. The setup below is specifically for the Game Mode workflow.
 2. A working image connection for the game's illustrator. Set it in either place. You only need one:
    - Existing game: open **Chat Settings**, go to **Agents**, then the **Illustrator** card. Turn on **Game Illustrator** and pick an **Image Connection**.
    - New game: in the setup wizard, turn on **Visual Generation** and pick an **Image Generation Connection**.

@@ -15,7 +15,9 @@ import {
   isAgentConfigDeleted,
   isExternallyImportedAgent,
   isBuiltInAgentRuntimeDisabled,
+  isBuiltInAgentHostManaged,
   isRetiredBuiltInAgentId,
+  normalizeBuiltInAgentEnabledTools,
   normalizeWorldCustomFields,
   normalizeAgentPhaseValue,
   normalizeAgentPromptTemplateSelectionMap,
@@ -249,7 +251,10 @@ function applyDefaultBuiltInAgentTools(agentType: string, settings: unknown): Re
     return next;
   }
 
-  if (agentType === "spotify" && currentTools.length === 0) {
+  const normalizedTools = normalizeBuiltInAgentEnabledTools(agentType, currentTools) ?? [];
+  next.enabledTools = normalizedTools;
+
+  if (agentType === "spotify" && normalizedTools.length === 0) {
     next.enabledTools = [...(DEFAULT_AGENT_TOOLS.spotify ?? [])];
   }
 
@@ -794,6 +799,13 @@ async function buildRetryAgentContext(args: {
     !Array.isArray(lastAssistantExtra.lorebookScan)
       ? (lastAssistantExtra.lorebookScan as Record<string, unknown>)
       : {};
+  const activatedLorebookEntries = (
+    Array.isArray(rawLorebookScan.activatedEntries) ? rawLorebookScan.activatedEntries : []
+  ).flatMap((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+    const row = entry as Record<string, unknown>;
+    return typeof row.id === "string" && typeof row.content === "string" ? [{ id: row.id, content: row.content }] : [];
+  });
   const semanticLorebookEntries = (
     Array.isArray(rawLorebookScan.activatedEntries) ? rawLorebookScan.activatedEntries : []
   ).flatMap((entry) => {
@@ -891,6 +903,11 @@ async function buildRetryAgentContext(args: {
         : null,
     writableLorebookIds: null,
     chatSummary: resolveRoleplayChatSummary(chatMode, chatMeta),
+    authorNotes:
+      typeof chatMeta.authorNotes === "string" && chatMeta.authorNotes.trim()
+        ? resolveMacros(chatMeta.authorNotes, promptMacroContext, { trimResult: false }).trim()
+        : null,
+    activatedLorebookEntries,
     ...(customAgentVectorAccessEnabled
       ? {
           vectorContext: {
@@ -1222,6 +1239,7 @@ async function resolveRetryAgents(args: {
     (config: any) =>
       !isAgentConfigDeleted(config.settings) &&
       !isBuiltInAgentRuntimeDisabled(config.type) &&
+      !isBuiltInAgentHostManaged(config.type) &&
       !isRetiredBuiltInAgentId(config.type) &&
       agentTypeSet.has(config.type),
   );
@@ -1231,6 +1249,7 @@ async function resolveRetryAgents(args: {
       agentTypeSet.has(agent.id) &&
       !resolvedTypeSet.has(agent.id) &&
       !isBuiltInAgentRuntimeDisabled(agent.id) &&
+      !isBuiltInAgentHostManaged(agent.id) &&
       !isRetiredBuiltInAgentId(agent.id),
   );
 
@@ -1462,6 +1481,7 @@ async function resolveRetryAgents(args: {
         id: cfg.id,
         type: cfg.type,
         name: cfg.name,
+        isCustomAgent: !BUILT_IN_AGENTS.some((agent) => agent.id === cfg.type),
         phase: normalizeAgentPhaseValue(cfg.phase),
         promptTemplate: selectedPromptTemplate,
         connectionId: effectiveConnectionId,
@@ -1535,6 +1555,7 @@ async function resolveRetryAgents(args: {
         id: `builtin:${builtIn.id}`,
         type: builtIn.id,
         name: builtIn.name,
+        isCustomAgent: false,
         phase: normalizeAgentPhaseValue(builtIn.phase),
         promptTemplate: selectedPromptTemplate,
         connectionId: builtInConnection.entry.connectionId,
@@ -3426,7 +3447,7 @@ async function applyRetryResultEffects(args: {
             });
 
             for (const [variantIndex, imageResult] of imageResults.entries()) {
-              const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext);
+              const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
               // A fallback connection may have rendered this variant; record
               // the connection that actually produced it.
               const effectiveImageProvider =
@@ -3443,6 +3464,7 @@ async function applyRetryResultEffects(args: {
               });
               await persistGeneratedImageToEntityGalleries({
                 sourceFilePath: filePath,
+                sourceChatImageId: galleryEntry?.id,
                 characterIds: referenceResolution.characterIds,
                 personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                 characterGallery: createCharacterGalleryStorage(app.db),

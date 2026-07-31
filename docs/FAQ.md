@@ -140,9 +140,11 @@ leaves provider secrets blank, so re-enter keys after importing. For the full gu
 
 By default, only Professor Mari can create a Personal Extension draft for you. It starts disabled, and you must inspect its code and approve the exact SHA-256 hash before it runs.
 
-Browser code runs in a dedicated Worker inside an opaque-origin iframe. Server code runs in a separate OS-sandboxed process on supported macOS and Linux hosts. Both runtimes receive only narrow logging, private-storage, timer, and cleanup capabilities.
+Browser code uses a dedicated Worker inside an opaque-origin iframe by default. In addition to narrow logging, private-storage, timer, cleanup, and declarative UI capabilities, it receives the opaque IDs of the currently active chat and Characters so extensions such as Notepad can keep chat-specific state. A Browser Extension may separately request bounded snapshots of only the Character cards participating in that chat and/or the Persona selected for it. Those permissions are shown during exact-hash approval; without them, the corresponding records are absent. Sandboxed extensions never receive messages, whole Character or Persona libraries, undeclared fields, chat metadata, DOM access, network access, or mutation APIs. Server code runs in a separate OS-sandboxed process on supported macOS and Linux hosts and does not receive browser chat context.
 
-Third-party imports are hidden by default. The host operator must set `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`, then the user must accept the warning under **Settings → Advanced → Danger Zone**. Until both gates are open, external records—including manually stored and profile-imported records—do not appear, cannot be approved, and cannot execute. See [Personal Extensions](extending/personal-extensions.md).
+Third-party imports are hidden by default. The host operator must set `ENABLE_EXTERNAL_EXTENSIONS=true` in `.env`, then the user must accept the warning under **Settings → Advanced → Danger Zone**. Until both gates are open, external records—including manually stored and profile-imported records—do not appear, cannot be approved, and cannot execute.
+
+An External Extension may request **Full page access** when legacy compatibility genuinely requires Marinara's DOM. This is not sandboxed: the exact approved code runs in Marinara's page and can access page content, browser storage, network APIs, and the current same-origin session. Professor Mari drafts cannot request it. Enable it only after inspecting and trusting that exact version; reload after disabling if unregistered changes remain. See [Personal Extensions](extending/personal-extensions.md).
 
 ## Where is my data stored?
 
@@ -164,13 +166,13 @@ Professor Mari can still edit ordinary Marinara source files. Dependency files, 
 
 Note: on an ordinary remote address, Professor Mari's data-changing actions need both Basic Auth and an admin secret. Trusted or allowlisted network routes can use the bypasses described in [Remote Access](REMOTE_ACCESS.md).
 
-## How do Game Mode storyboard animations work?
+## How do storyboard animations work?
 
-A **storyboard** turns one finished game master narration turn into a short sequence of manga-style keyframe images. It can also add short animated clips. The turn then plays back like a mini cutscene. Storyboards exist only in **Game Mode**.
+A **storyboard** turns completed story text into a short sequence of keyframe images and can add animated clips. In **Game Mode**, it follows one finished game master narration turn. In **Roleplay**, the Storyboard Agent combines newly completed exchanges into an inline episode after a configurable number of assistant responses.
 
-To make one by hand, open the **Gallery** and click **Create storyboard** for the latest narration turn. To reopen a storyboard you closed, click **View storyboard**.
+To make one by hand, open the **Gallery** and click **Create storyboard**. Game Mode can reopen its viewer with **View storyboard**; Roleplay displays the result below the assistant response that ends the episode.
 
-To make them automatically, open **Chat Settings**, go to **Agents**, find the **Storyboards** card, and turn on **Automatic Storyboard Illustrations**. Turn on **Automatic Storyboard Animations** too if you also want video clips, which needs a Video Generation connection. For the full workflow, see [Game Mode Storyboards](game/storyboard.md).
+To make them automatically, open **Chat Settings**, go to **Agents**, and find the **Storyboards** card. Game Mode has separate illustration and animation toggles. Roleplay offers **Manual only**, **Still images**, or **Animations**, plus **Assistant messages per episode**. Video clips need a Video Generation connection. For both workflows, see [Storyboard Engine Guide](game/storyboard.md).
 
 ## Can characters talk out loud in a call?
 

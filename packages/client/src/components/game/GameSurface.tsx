@@ -75,6 +75,7 @@ import {
   useUpdateMessage,
 } from "../../hooks/use-chats";
 import { useConnections } from "../../hooks/use-connections";
+import { useAgentConfigs } from "../../hooks/use-agents";
 import { useGenerate } from "../../hooks/use-generate";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
 import { useGenerateSpatialMapDraft, useSpatialContext } from "../../hooks/use-spatial-context";
@@ -126,7 +127,6 @@ import type {
   GameActiveState,
   GeneratedSceneVideo,
   GameTurnStoryboard,
-  GameTurnStoryboardKeyframe,
   CombatInitState,
   CombatPartyMember,
   CombatEnemy,
@@ -147,22 +147,19 @@ import type {
 } from "@marinara-engine/shared";
 import type { SceneSegmentEffect } from "@marinara-engine/shared";
 import {
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT,
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX,
-  GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN,
-  GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
   PROFESSOR_MARI_ID,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
+  STORYBOARD_AGENT_ID,
   formatTextQuotes,
+  mergeBuiltInAgentSettings,
+  normalizeStoryboardAgentSettings,
   normalizeRpgStatPools,
   normalizeTextForMatch,
   resolveGameSetupArtStylePrompt,
   scoreMusic,
   scoreAmbient,
 } from "@marinara-engine/shared";
-import { GameNarration, formatNarration, parseNarrationSegments, type NarrationSegment } from "./GameNarration";
+import { GameNarration, formatNarration } from "./GameNarration";
 import { GameInput } from "./GameInput";
 import { GameMapPanel, MobileMapButton } from "./GameMap";
 import { GamePartyBar } from "./GamePartyBar";
@@ -177,12 +174,29 @@ import { GameTransitionManager } from "./GameTransitionManager";
 import { GameChoiceCards } from "./GameChoiceCards";
 import { GameQteOverlay } from "./GameQteOverlay";
 import { GameJsonRepairModal } from "./GameJsonRepairModal";
+import { CapabilityElement } from "../capabilities/CapabilityElement";
 import {
   GameImagePromptReviewModal,
   type GameImagePromptOverride,
   type GameImagePromptReviewItem,
 } from "./GameImagePromptReviewModal";
 import { GameTutorial } from "./GameTutorial";
+import { GameStoryboardBackgroundVisual, GameStoryboardInlineViewer } from "./GameStoryboardViewer";
+import { GameVolumeMixer } from "./GameVolumeMixer";
+import {
+  buildStoryboardSectionsFromMessage,
+  buildStoryboardVisibleNarration,
+  clampStoryboardViewerPosition,
+  clampStoryboardViewerWidth,
+  formatStoryboardSectionLabel,
+  getInitialStoryboardViewerPosition,
+  getStoryboardViewerPresetWidth,
+  nextStoryboardViewerSize,
+  normalizeGameStoryboardAnimationDuration,
+  normalizeGameStoryboardKeyframeCount,
+  shouldIgnoreStoryboardViewerDragTarget,
+  type StoryboardViewerSize,
+} from "./game-storyboard-ui";
 import { DirectionEngine } from "./DirectionEngine";
 import { GameWidgetPanel, GameWidgetSessionPrepModal, MobileWidgetPanel } from "./GameWidgetPanel";
 import { WeatherEffects } from "../chat/WeatherEffects";
@@ -220,10 +234,6 @@ type JournalReadable = ReadableTag & {
   sourceMessageId?: string | null;
   sourceSegmentIndex?: number | null;
 };
-
-type GameStoryboardSourceSection = NonNullable<GenerateGameTurnStoryboardInput["sections"]>[number];
-type StoryboardViewerSize = "small" | "medium" | "large";
-type StoryboardViewerPosition = { x: number; y: number };
 
 type GameAssetGenerationPayload = {
   chatId: string;
@@ -302,104 +312,13 @@ const GAME_MOBILE_ROOT_BUTTON = getChatToolbarButtonClass({
 const GAME_MOBILE_ICON_BUTTON = getChatToolbarButtonClass({ compact: true });
 const GAME_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw-2rem)] flex-col gap-1 p-1.5");
 const GAME_MOBILE_ACTIONS_MENU = cn(CHAT_TOOLBAR_OVERFLOW_MENU_CLASS, "absolute right-0 top-9");
-const GAME_MOBILE_CHOICE_STAGE_HEIGHT =
-  "max-h-[clamp(8rem,30svh,14rem)] sm:max-h-[clamp(9rem,36svh,20rem)]";
+const GAME_MOBILE_CHOICE_STAGE_HEIGHT = "max-h-[clamp(8rem,30svh,14rem)] sm:max-h-[clamp(9rem,36svh,20rem)]";
 const GAME_MOBILE_ACTION_MENU = cn(ROLEPLAY_POPOVER_SHELL, "flex w-72 max-w-[calc(100vw-4rem)] flex-col gap-1 p-1.5");
 const GAME_MOBILE_FLOATING_PANEL =
   "fixed z-[9999] h-[min(42rem,calc(100dvh-4.75rem))] w-[min(42rem,calc(100vw-4.75rem))]";
 const GAME_MOBILE_FLOATING_MENU = "fixed z-[9999] max-h-[min(32rem,calc(100dvh-4.75rem))] overflow-y-auto";
 const GAME_ACTION_MENU_ITEM =
   "marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent";
-const STORYBOARD_VIEWER_PRESET_WIDTH: Record<StoryboardViewerSize, number> = {
-  small: 288,
-  medium: 368,
-  large: 544,
-};
-const STORYBOARD_VIEWER_VERTICAL_CHROME = 116;
-const STORYBOARD_VIEWER_CONTROL_BUTTON =
-  "flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-white/10";
-
-function normalizeGameStoryboardKeyframeCount(value: unknown): number {
-  if (value == null || value === "") return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
-  const numeric = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(numeric)) return GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT;
-  return Math.max(
-    GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
-    Math.min(GAME_STORYBOARD_KEYFRAME_COUNT_MAX, Math.trunc(numeric)),
-  );
-}
-
-function hasGameStoryboardAnimationDuration(value: unknown): boolean {
-  if (value == null || value === "") return false;
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(numeric);
-}
-
-function normalizeGameStoryboardAnimationDuration(value: unknown): number {
-  if (!hasGameStoryboardAnimationDuration(value)) return GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_DEFAULT;
-  const numeric = typeof value === "number" ? value : Number(value);
-  return Math.max(
-    GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MIN,
-    Math.min(GAME_STORYBOARD_ANIMATION_DURATION_SECONDS_MAX, Math.trunc(numeric)),
-  );
-}
-
-function nextStoryboardViewerSize(size: StoryboardViewerSize): StoryboardViewerSize {
-  if (size === "small") return "medium";
-  if (size === "medium") return "large";
-  return "small";
-}
-
-function clampStoryboardViewerWidth(width: number): number {
-  const viewportWidth = typeof window === "undefined" ? 1024 : window.innerWidth;
-  const minWidth = viewportWidth < 640 ? 180 : 240;
-  const maxWidth = viewportWidth - 24;
-  return Math.max(minWidth, Math.min(width, Math.max(minWidth, maxWidth)));
-}
-
-function getStoryboardViewerPresetWidth(size: StoryboardViewerSize): number {
-  return clampStoryboardViewerWidth(STORYBOARD_VIEWER_PRESET_WIDTH[size]);
-}
-
-function getStoryboardViewerViewport(): { width: number; height: number } {
-  return {
-    width: typeof window === "undefined" ? 1024 : window.innerWidth,
-    height: typeof window === "undefined" ? 768 : window.innerHeight,
-  };
-}
-
-function estimateStoryboardViewerHeight(width: number): number {
-  return Math.min(getStoryboardViewerViewport().height - 16, width * (9 / 16) + STORYBOARD_VIEWER_VERTICAL_CHROME);
-}
-
-function clampStoryboardViewerPosition(pos: StoryboardViewerPosition, width: number): StoryboardViewerPosition {
-  const viewport = getStoryboardViewerViewport();
-  const height = estimateStoryboardViewerHeight(width);
-  return {
-    x: Math.max(8, Math.min(pos.x, Math.max(8, viewport.width - width - 8))),
-    y: Math.max(8, Math.min(pos.y, Math.max(8, viewport.height - height - 8))),
-  };
-}
-
-function getInitialStoryboardViewerPosition(width: number): StoryboardViewerPosition {
-  const viewport = getStoryboardViewerViewport();
-  const mobile = viewport.width < 640;
-  return clampStoryboardViewerPosition(
-    {
-      x: mobile ? (viewport.width - width) / 2 : viewport.width - width - 16,
-      y: mobile ? 76 : 72,
-    },
-    width,
-  );
-}
-
-function shouldIgnoreStoryboardViewerDragTarget(target: EventTarget | null): boolean {
-  return (
-    target instanceof Element &&
-    !!target.closest("button,a,video,input,textarea,select,[data-storyboard-viewer-no-drag]")
-  );
-}
-
 function getGameMobileFloatingPanelStyle(anchor: ChatToolbarFloatingPanelAnchor): CSSProperties {
   if (!anchor) {
     return {
@@ -2008,14 +1927,11 @@ import {
   Feather,
   Folder,
   Film,
-  GripHorizontal,
   Image,
   ImagePlus,
   Loader2,
-  Maximize2,
   MoreHorizontal,
   PanelsTopLeft,
-  Pause,
   Play,
   Plug,
   RefreshCw,
@@ -2027,110 +1943,6 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-
-interface GameVolumeMixerProps {
-  audioMuted: boolean;
-  masterVolume: number;
-  musicVolume: number;
-  sfxVolume: number;
-  ttsVolume: number;
-  ambientVolume: number;
-  onMasterVolumeChange: (value: number) => void;
-  onMusicVolumeChange: (value: number) => void;
-  onSfxVolumeChange: (value: number) => void;
-  onTtsVolumeChange: (value: number) => void;
-  onAmbientVolumeChange: (value: number) => void;
-  onToggleMute: () => void;
-  onClose: () => void;
-  onAudioInteract?: () => void;
-  className?: string;
-  style?: CSSProperties;
-}
-
-function GameVolumeMixer({
-  audioMuted,
-  masterVolume,
-  musicVolume,
-  sfxVolume,
-  ttsVolume,
-  ambientVolume,
-  onMasterVolumeChange,
-  onMusicVolumeChange,
-  onSfxVolumeChange,
-  onTtsVolumeChange,
-  onAmbientVolumeChange,
-  onToggleMute,
-  onClose,
-  onAudioInteract,
-  className,
-  style,
-}: GameVolumeMixerProps) {
-  const { t: localizeUi } = useUiTranslation();
-  const rows = [
-    { id: "master", label: "Master", value: masterVolume, onChange: onMasterVolumeChange },
-    { id: "music", label: "Music", value: musicVolume, onChange: onMusicVolumeChange },
-    { id: "sfx", label: "Sound Effects", value: sfxVolume, onChange: onSfxVolumeChange },
-    { id: "tts", label: "TTS", value: ttsVolume, onChange: onTtsVolumeChange },
-    { id: "ambient", label: "Ambient", value: ambientVolume, onChange: onAmbientVolumeChange },
-  ];
-
-  return (
-    <div
-      data-chat-floating-panel
-      className={cn(ROLEPLAY_POPOVER_SHELL, "w-64 max-w-[calc(100vw-1.5rem)] p-3", className)}
-      style={style}
-    >
-      <div className="mb-2 flex items-center justify-between gap-3 border-b border-[var(--marinara-chat-chrome-panel-divider)] pb-2">
-        <span className="text-[0.6875rem] font-semibold uppercase text-[var(--marinara-chat-chrome-panel-muted)]">{localizeUi("game.toolbar.volume")}</span>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-lg transition-colors",
-              audioMuted
-                ? "bg-red-500/30 text-red-300 hover:bg-red-500/50"
-                : "bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] ring-1 ring-[var(--marinara-chat-chrome-button-border)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)]",
-            )}
-            title={audioMuted ?localizeUi("ui.game.gamevolumemixer.unmute") :localizeUi("ui.game.gamevolumemixer.mute")}
-            aria-label={audioMuted ?localizeUi("ui.game.gamevolumemixer.unmute") :localizeUi("ui.game.gamevolumemixer.mute")}
-          >
-            {audioMuted ? <VolumeX size={12} /> : <Volume2 size={12} />}
-          </button>
-          <button type="button" onClick={onClose} className={ROLEPLAY_POPOVER_CLOSE_BUTTON} aria-label={localizeUi("ui.game.gamevolumemixer.closeVolume")}>
-            <X size={ROLEPLAY_POPOVER_CLOSE_ICON_SIZE} />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-2.5">
-        {rows.map((row) => (
-          <label key={row.id} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-2">
-            <span className="truncate text-[0.6875rem] text-[var(--foreground)]/75">{row.label}</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={row.value}
-              onPointerDown={onAudioInteract}
-              onTouchStart={onAudioInteract}
-              onInput={(e) => {
-                onAudioInteract?.();
-                row.onChange(Number(e.currentTarget.value));
-              }}
-              onChange={(e) => {
-                onAudioInteract?.();
-                row.onChange(Number(e.target.value));
-              }}
-              className="h-1.5 w-full cursor-pointer accent-[var(--foreground)]"
-            />
-            <span className="text-right text-[0.6875rem] tabular-nums text-[var(--muted-foreground)]">{row.value}</span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /** Randomly sample up to `max` items from an array (Fisher-Yates shuffle). */
 function sampleTags(tags: string[], max: number): string[] {
@@ -2207,60 +2019,6 @@ function formatCombatLogContent(message: Message): string {
   return content.replace(/^\[(?:To the party|To the GM)]\s*/i, "").trim();
 }
 
-const EMPTY_GAME_SPEAKER_COLORS = new Map<string, string>();
-
-function formatNarrationSegmentForContext(segment: NarrationSegment, edit?: GameSegmentEdit): string {
-  const content =
-    segment.type === "readable"
-      ? (edit?.readableContent ?? edit?.content ?? segment.readableContent ?? segment.content)
-      : (edit?.content ?? segment.content);
-  const trimmed = content.trim();
-  if (!trimmed) return "";
-
-  if (segment.type === "dialogue") {
-    const speaker = edit?.speaker?.trim() || segment.speaker?.trim();
-    return speaker ? `${speaker}: ${trimmed}` : trimmed;
-  }
-
-  if (segment.type === "readable") {
-    const type = edit?.readableType ?? segment.readableType;
-    if (type === "book") return `Book: ${trimmed}`;
-    if (type === "note") return `Note: ${trimmed}`;
-  }
-
-  return trimmed;
-}
-
-function buildStoryboardSectionsFromMessage(
-  message: Message | null,
-  segmentEdits: Map<string, GameSegmentEdit>,
-  segmentDeletes: Set<string>,
-): GameStoryboardSourceSection[] {
-  if (!message?.id || !message.content) return [];
-  return parseNarrationSegments(message, EMPTY_GAME_SPEAKER_COLORS)
-    .map((segment, fallbackIndex): GameStoryboardSourceSection | null => {
-      const sourceIndex = segment.sourceSegmentIndex ?? fallbackIndex;
-      if (segmentDeletes.has(`${message.id}:${sourceIndex}`)) return null;
-      const content = formatNarrationSegmentForContext(segment, segmentEdits.get(`${message.id}:${sourceIndex}`));
-      if (!content) return null;
-      return {
-        index: sourceIndex,
-        kind: segment.type,
-        speaker: segment.speaker?.trim() || null,
-        content: content.slice(0, 6000),
-      };
-    })
-    .filter((section): section is GameStoryboardSourceSection => Boolean(section));
-}
-
-function formatStoryboardSectionLabel(frame: GameTurnStoryboardKeyframe): string {
-  const start = frame.sectionStartIndex ?? frame.sectionEndIndex;
-  const end = frame.sectionEndIndex ?? frame.sectionStartIndex;
-  if (start == null || end == null) return `Keyframe ${frame.index + 1}`;
-  if (start === end) return `Section ${start + 1}`;
-  return `Sections ${Math.min(start, end) + 1}-${Math.max(start, end) + 1}`;
-}
-
 function buildSegmentEditMap(chatMeta: Record<string, unknown>): Map<string, GameSegmentEdit> {
   const map = new Map<string, GameSegmentEdit>();
   for (const [key, value] of Object.entries(chatMeta)) {
@@ -2296,6 +2054,15 @@ function getGameMapId(map: GameMap | null | undefined, fallbackIndex = 0): strin
   const explicit = map.id?.trim();
   if (explicit) return explicit;
   return slugifyGameMapId(map.name || "") || `map-${fallbackIndex + 1}`;
+}
+
+function hasGeneratedGameSetupWorld(chatMeta: Record<string, unknown>): boolean {
+  if (chatMeta.gameSessionStatus === "ready" || chatMeta.gameSessionStatus === "active") return true;
+  if (typeof chatMeta.gameWorldOverview === "string" && chatMeta.gameWorldOverview.trim()) return true;
+  if (typeof chatMeta.gameStoryArc === "string" && chatMeta.gameStoryArc.trim()) return true;
+  if (chatMeta.gameBlueprint && typeof chatMeta.gameBlueprint === "object") return true;
+  if (chatMeta.gameMap && typeof chatMeta.gameMap === "object") return true;
+  return Array.isArray(chatMeta.gameNpcs) && chatMeta.gameNpcs.length > 0;
 }
 
 interface GameSurfaceProps {
@@ -2361,9 +2128,7 @@ function GameSurfaceComponent({
   const { t: localizeUi } = useUiTranslation();
   const { t } = useTranslation();
   useRenderTimer("game-surface"); // [#3104 diagnostic]
-  const backgroundIllustration = useChatStore((state) =>
-    state.backgroundIllustrationChatIds.has(activeChatId),
-  );
+  const backgroundIllustration = useChatStore((state) => state.backgroundIllustrationChatIds.has(activeChatId));
   const agentsProcessing = useAgentStore((state) => state.processingChatIds.includes(activeChatId));
   const gameInputGenerationBlocked = isGenerationSendBlocked({
     streamActive: isStreaming,
@@ -2377,6 +2142,22 @@ function GameSurfaceComponent({
     Array.isArray(chatMeta.activeAgentIds) &&
     (chatMeta.activeAgentIds as string[]).includes("hierarchical-maps");
   const spatialContext = useSpatialContext(activeChatId, hierarchicalMapsActive);
+  const activeSpatialContext = hierarchicalMapsActive ? spatialContext.data : null;
+  const activeSpatialContextLoading = hierarchicalMapsActive && spatialContext.isLoading;
+  const storyboardAgentActive =
+    chatMeta.enableAgents === true &&
+    Array.isArray(chatMeta.activeAgentIds) &&
+    (chatMeta.activeAgentIds as string[]).includes(STORYBOARD_AGENT_ID);
+  const { data: agentConfigs } = useAgentConfigs(storyboardAgentActive);
+  const storyboardAgentConfig = useMemo(
+    () => agentConfigs?.find((config) => config.type === STORYBOARD_AGENT_ID) ?? null,
+    [agentConfigs],
+  );
+  const storyboardAgentSettings = useMemo(
+    () =>
+      normalizeStoryboardAgentSettings(mergeBuiltInAgentSettings(STORYBOARD_AGENT_ID, storyboardAgentConfig?.settings)),
+    [storyboardAgentConfig?.settings],
+  );
 
   useEffect(() => {
     return () => {
@@ -3747,17 +3528,7 @@ function GameSurfaceComponent({
     narrationDoneMsgId === latestAssistantMsg.id;
 
   const latestNarrationText = useMemo(() => {
-    if (!latestAssistantMsg?.content) return "";
-    const segments = parseNarrationSegments(latestAssistantMsg, EMPTY_GAME_SPEAKER_COLORS);
-    const visibleText: string[] = [];
-    for (let index = 0; index < segments.length; index++) {
-      const segment = segments[index]!;
-      if (segmentDeletes.has(`${latestAssistantMsg.id}:${index}`)) continue;
-      if (segment.partyType === "side" || segment.partyType === "extra") continue;
-      const text = formatNarrationSegmentForContext(segment, segmentEdits.get(`${latestAssistantMsg.id}:${index}`));
-      if (text) visibleText.push(text);
-    }
-    return visibleText.join("\n").trim();
+    return buildStoryboardVisibleNarration(latestAssistantMsg, segmentEdits, segmentDeletes);
   }, [latestAssistantMsg, segmentDeletes, segmentEdits]);
   const latestAssistantStoryboardSections = useMemo(
     () => buildStoryboardSectionsFromMessage(latestAssistantMsg, segmentEdits, segmentDeletes),
@@ -3768,7 +3539,10 @@ function GameSurfaceComponent({
     [activeStoryboardSegmentIndex, latestTurnStoryboard?.keyframes],
   );
   const gameStoryboardViewerDisplayMode: GameStoryboardViewerDisplayMode =
-    chatMeta.gameStoryboardViewerDisplayMode === "background" ? "background" : "floating";
+    chatMeta.gameStoryboardViewerDisplayMode === "background" ||
+    (chatMeta.gameStoryboardViewerDisplayMode == null && storyboardAgentSettings.viewerDisplayMode === "background")
+      ? "background"
+      : "floating";
   const storyboardViewerPlaying =
     !!activeStoryboardKeyframe?.video?.id && storyboardViewerPlayingVideoId === activeStoryboardKeyframe.video.id;
   const storyboardBackgroundAnimationPlaying =
@@ -3907,6 +3681,14 @@ function GameSurfaceComponent({
     setStoryboardViewerWidth(nextWidth);
     setStoryboardViewerPosition((pos) => clampStoryboardViewerPosition(pos, nextWidth));
   }, []);
+  const handleStoryboardViewerResizeByKeyboard = useCallback(
+    (delta: number) => {
+      const nextWidth = clampStoryboardViewerWidth(storyboardViewerWidth + delta);
+      setStoryboardViewerWidth(nextWidth);
+      setStoryboardViewerPosition((position) => clampStoryboardViewerPosition(position, nextWidth));
+    },
+    [storyboardViewerWidth],
+  );
   const handleStoryboardViewerResizeEnd = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     storyboardViewerResizeRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId))
@@ -3975,6 +3757,8 @@ function GameSurfaceComponent({
     chatMeta.enableSpriteGeneration === true &&
     typeof chatMeta.gameImageConnectionId === "string" &&
     chatMeta.gameImageConnectionId.trim().length > 0;
+  const storyboardImageGenerationEnabled =
+    storyboardAgentActive && (gameImageGenerationEnabled || Boolean(storyboardAgentSettings.imageConnectionId));
   const gameSceneVideosEnabled = chatMeta.gameSceneVideosEnabled !== false;
   const gameVideoGenerationEnabled =
     gameSceneVideosEnabled &&
@@ -3985,20 +3769,22 @@ function GameSurfaceComponent({
   const gameStoryboardBackgroundVisualEnabled = gameStoryboardViewerDisplayMode === "background";
   const gameBackgroundGenerationEnabled = gameImageGenerationEnabled && !gameStoryboardBackgroundVisualEnabled;
   const gameBackgroundAutoGenerationEnabled = gameImageAutoGenerationEnabled && !gameStoryboardBackgroundVisualEnabled;
-  const gameStoryboardAutoIllustrationsEnabled = chatMeta.gameStoryboardAutoIllustrationsEnabled === true;
-  const gameStoryboardAutoAnimationsEnabled = chatMeta.gameStoryboardAutoGenerationEnabled === true;
-  const gameStoryboardsEnabled =
-    chatMeta.gameStoryboardsEnabled === true ||
-    (chatMeta.gameStoryboardsEnabled !== false &&
-      (gameStoryboardAutoIllustrationsEnabled || gameStoryboardAutoAnimationsEnabled));
+  const gameStoryboardAutoIllustrationsEnabled =
+    typeof chatMeta.gameStoryboardAutoIllustrationsEnabled === "boolean"
+      ? chatMeta.gameStoryboardAutoIllustrationsEnabled
+      : storyboardAgentSettings.autoGenerateMode !== "manual";
+  const gameStoryboardAutoAnimationsEnabled =
+    typeof chatMeta.gameStoryboardAutoGenerationEnabled === "boolean"
+      ? chatMeta.gameStoryboardAutoGenerationEnabled
+      : storyboardAgentSettings.autoGenerateMode === "animation";
+  const gameStoryboardsEnabled = storyboardAgentActive;
   const gameStoryboardAutoGenerationEnabled =
     gameStoryboardAutoIllustrationsEnabled || gameStoryboardAutoAnimationsEnabled;
-  const gameStoryboardKeyframeCount = normalizeGameStoryboardKeyframeCount(chatMeta.gameStoryboardKeyframeCount);
-  const gameStoryboardAnimationDurationConfigured = hasGameStoryboardAnimationDuration(
-    chatMeta.gameStoryboardAnimationDurationSeconds,
+  const gameStoryboardKeyframeCount = normalizeGameStoryboardKeyframeCount(
+    chatMeta.gameStoryboardKeyframeCount ?? storyboardAgentSettings.keyframeCount,
   );
   const gameStoryboardAnimationDurationSeconds = normalizeGameStoryboardAnimationDuration(
-    chatMeta.gameStoryboardAnimationDurationSeconds,
+    chatMeta.gameStoryboardAnimationDurationSeconds ?? storyboardAgentSettings.animationDurationSeconds,
   );
   const gameImageUseAvatarReferences = chatMeta.gameImageUseAvatarReferences !== false;
   const gameImageIncludeCharacterAppearance = chatMeta.gameImageIncludeCharacterAppearance !== false;
@@ -4151,7 +3937,9 @@ function GameSurfaceComponent({
         await queryClient.invalidateQueries({ queryKey: ["spotify", "player"] });
       } catch (error) {
         console.warn("[spotify/game] Failed to play scene track:", error);
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.spotifySceneMusicFailed"));
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.spotifySceneMusicFailed"),
+        );
       } finally {
         setSpotifyRetryPending(false);
       }
@@ -5222,7 +5010,9 @@ function GameSurfaceComponent({
               api.post<GameAssetGenerationPreview>("/game/generate-assets/preview", payload, { signal }),
             GAME_ASSET_PREVIEW_TIMEOUT_MS,
             () => {
-              toast.error(localizeUi("ui.game.gamesurfacecomponent.imagePromptPreviewTimedOutContinuingWithTheDefault"));
+              toast.error(
+                localizeUi("ui.game.gamesurfacecomponent.imagePromptPreviewTimedOutContinuingWithTheDefault"),
+              );
             },
           );
         } catch (error) {
@@ -5250,7 +5040,9 @@ function GameSurfaceComponent({
               GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS,
               () => {
                 closeImagePromptReview(null);
-                toast.error(localizeUi("ui.game.gamesurfacecomponent.imagePromptReviewTimedOutContinuingWithTheDefault"));
+                toast.error(
+                  localizeUi("ui.game.gamesurfacecomponent.imagePromptReviewTimedOutContinuingWithTheDefault"),
+                );
               },
             );
           } catch (error) {
@@ -5282,7 +5074,8 @@ function GameSurfaceComponent({
       gameImageIncludeCharacterAppearance,
       gameImageUseAvatarReferences,
       gameStoryboardBackgroundVisualEnabled,
-      openImagePromptReview, localizeUi,
+      openImagePromptReview,
+      localizeUi,
     ],
   );
 
@@ -5639,7 +5432,9 @@ function GameSurfaceComponent({
   const handleManualSceneBackground = useCallback(async () => {
     if (!activeChatId || manualBackgroundGenerating) return;
     if (gameStoryboardBackgroundVisualEnabled) {
-      toast.error(localizeUi("ui.game.gamesurfacecomponent.sceneBackgroundGenerationIsDisabledWhileStoryboardVisualsAre"));
+      toast.error(
+        localizeUi("ui.game.gamesurfacecomponent.sceneBackgroundGenerationIsDisabledWhileStoryboardVisualsAre"),
+      );
       return;
     }
     if (!gameBackgroundGenerationEnabled) {
@@ -5694,7 +5489,9 @@ function GameSurfaceComponent({
       toast.success(localizeUi("ui.game.gamesurfacecomponent.backgroundGenerated"), { duration: 1800 });
     } catch (error) {
       setAssetGenerationFailed(true);
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.backgroundGenerationFailed"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.backgroundGenerationFailed"),
+      );
     } finally {
       setManualBackgroundGenerating(false);
       setAssetGenerationBlocksScene(false);
@@ -5712,7 +5509,8 @@ function GameSurfaceComponent({
     gameSnapshot?.weather,
     manualBackgroundGenerating,
     metaTime,
-    runGameAssetGeneration, localizeUi,
+    runGameAssetGeneration,
+    localizeUi,
   ]);
 
   const handleManualSceneIllustration = useCallback(async () => {
@@ -5787,7 +5585,9 @@ function GameSurfaceComponent({
       }
     } catch (error) {
       setAssetGenerationFailed(true);
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.sceneIllustrationFailed"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.sceneIllustrationFailed"),
+      );
     } finally {
       setAssetGenerationBlocksScene(false);
     }
@@ -5804,7 +5604,8 @@ function GameSurfaceComponent({
     metaTime,
     npcs,
     runGameAssetGeneration,
-    sceneWrapCharacterNames, localizeUi,
+    sceneWrapCharacterNames,
+    localizeUi,
   ]);
 
   const handleGenerateSceneVideo = useCallback(
@@ -5843,7 +5644,9 @@ function GameSurfaceComponent({
                 ),
               GAME_ASSET_PREVIEW_TIMEOUT_MS,
               () => {
-                toast.error(localizeUi("ui.game.gamesurfacecomponent.videoPromptPreviewTimedOutContinuingWithTheDefault"));
+                toast.error(
+                  localizeUi("ui.game.gamesurfacecomponent.videoPromptPreviewTimedOutContinuingWithTheDefault"),
+                );
               },
             );
           } catch (error) {
@@ -5873,7 +5676,9 @@ function GameSurfaceComponent({
                 GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS,
                 () => {
                   closeImagePromptReview(null);
-                  toast.error(localizeUi("ui.game.gamesurfacecomponent.videoPromptReviewTimedOutContinuingWithTheDefault"));
+                  toast.error(
+                    localizeUi("ui.game.gamesurfacecomponent.videoPromptReviewTimedOutContinuingWithTheDefault"),
+                  );
                 },
               );
             } catch (error) {
@@ -5906,7 +5711,11 @@ function GameSurfaceComponent({
         toast.success(localizeUi("ui.game.gamesurfacecomponent.sceneVideoGenerated"), { duration: 1800 });
       } catch (error) {
         setSceneVideoFailed(true);
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.sceneVideoGenerationFailed"));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.game.gamesurfacecomponent.sceneVideoGenerationFailed"),
+        );
       } finally {
         setImagePromptReviewSubmitting(false);
         setSceneVideoGenerating(false);
@@ -5920,7 +5729,8 @@ function GameSurfaceComponent({
       openImagePromptReview,
       queryClient,
       sceneVideoGenerating,
-      sceneVideosQuery, localizeUi,
+      sceneVideosQuery,
+      localizeUi,
     ],
   );
 
@@ -5962,8 +5772,8 @@ function GameSurfaceComponent({
       toast.error(localizeUi("ui.game.gamesurfacecomponent.waitForTheCurrentGmNarrationToFinishBefore"));
       return;
     }
-    if (!gameImageGenerationEnabled) {
-      toast.error(localizeUi("ui.game.gamesurfacecomponent.chooseAnIllustratorImageConnectionInGameSettingsFirst"));
+    if (!storyboardImageGenerationEnabled) {
+      toast.error(localizeUi("ui.game.gamesurfacecomponent.chooseAStoryboardImageConnectionFirst"));
       return;
     }
 
@@ -5973,10 +5783,7 @@ function GameSurfaceComponent({
       swipeIndex: latestAssistantSwipeIndex,
       sections: latestAssistantStoryboardSections,
       keyframeCount: gameStoryboardKeyframeCount,
-      durationSeconds:
-        gameStoryboardAutoAnimationsEnabled && gameStoryboardAnimationDurationConfigured
-          ? gameStoryboardAnimationDurationSeconds
-          : undefined,
+      durationSeconds: gameStoryboardAutoAnimationsEnabled ? gameStoryboardAnimationDurationSeconds : undefined,
       generateVideos: gameStoryboardAutoAnimationsEnabled,
       debugMode: useUIStore.getState().debugMode,
     };
@@ -5992,7 +5799,9 @@ function GameSurfaceComponent({
             () => previewTurnStoryboardPrompts.mutateAsync(payload),
             GAME_ASSET_PREVIEW_TIMEOUT_MS,
             () => {
-              toast.error(localizeUi("ui.game.gamesurfacecomponent.storyboardPromptPreviewTimedOutContinuingWithTheDefault"));
+              toast.error(
+                localizeUi("ui.game.gamesurfacecomponent.storyboardPromptPreviewTimedOutContinuingWithTheDefault"),
+              );
             },
           );
         } catch (error) {
@@ -6009,7 +5818,9 @@ function GameSurfaceComponent({
                 GAME_ASSET_PROMPT_REVIEW_TIMEOUT_MS,
                 () => {
                   closeImagePromptReview(null);
-                  toast.error(localizeUi("ui.game.gamesurfacecomponent.storyboardPromptReviewTimedOutContinuingWithTheDefault"));
+                  toast.error(
+                    localizeUi("ui.game.gamesurfacecomponent.storyboardPromptReviewTimedOutContinuingWithTheDefault"),
+                  );
                 },
               );
             } catch (error) {
@@ -6031,26 +5842,32 @@ function GameSurfaceComponent({
         plannedStoryboard,
         promptOverrides,
       });
+      if (!("storyboard" in result)) return;
       applyGeneratedStoryboardToCache(result.storyboard, { refetchTurnStoryboards: true });
       const frameCount = result.storyboard.keyframes.length;
       toast.success(
         isGameTurnStoryboardRendering(result.storyboard)
-          ?localizeUi("ui.game.gamesurfacecomponent.storyboardPlannedWithValue1KeyframesImagesAreRendering", { value1: frameCount })
+          ? localizeUi("ui.game.gamesurfacecomponent.storyboardPlannedWithValue1KeyframesImagesAreRendering", {
+              value1: frameCount,
+            })
           : result.storyboard.status === "partial"
-            ?localizeUi("ui.game.gamesurfacecomponent.storyboardSavedWithValue1KeyframesSomeMediaFailed", { value1: frameCount })
-            :localizeUi("ui.game.gamesurfacecomponent.storyboardSavedWithValue1Keyframes", { value1: frameCount }),
+            ? localizeUi("ui.game.gamesurfacecomponent.storyboardSavedWithValue1KeyframesSomeMediaFailed", {
+                value1: frameCount,
+              })
+            : localizeUi("ui.game.gamesurfacecomponent.storyboardSavedWithValue1Keyframes", { value1: frameCount }),
         { duration: 2200 },
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.storyboardGenerationFailed"));
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.storyboardGenerationFailed"),
+      );
     } finally {
       setManualStoryboardReviewActive(false);
     }
   }, [
     activeChatId,
-    gameStoryboardAnimationDurationConfigured,
     gameStoryboardAnimationDurationSeconds,
-    gameImageGenerationEnabled,
+    storyboardImageGenerationEnabled,
     gameStoryboardAutoAnimationsEnabled,
     gameStoryboardKeyframeCount,
     generateTurnStoryboard,
@@ -6064,12 +5881,13 @@ function GameSurfaceComponent({
     openImagePromptReview,
     previewTurnStoryboardPrompts,
     applyGeneratedStoryboardToCache,
-    storyboardGenerating, localizeUi,
+    storyboardGenerating,
+    localizeUi,
   ]);
 
   useEffect(() => {
     if (!activeChatId || !latestAssistantMsg?.id || !latestAssistantMsg.content) return;
-    if (!gameStoryboardAutoGenerationEnabled || !gameImageGenerationEnabled) {
+    if (!gameStoryboardAutoGenerationEnabled || !storyboardImageGenerationEnabled) {
       autoStoryboardGenerationKeyRef.current = null;
       return;
     }
@@ -6086,9 +5904,7 @@ function GameSurfaceComponent({
       latestAssistantMsg.content.length,
       latestAssistantStoryboardSections.length,
       gameStoryboardKeyframeCount,
-      gameStoryboardAutoAnimationsEnabled && gameStoryboardAnimationDurationConfigured
-        ? gameStoryboardAnimationDurationSeconds
-        : "default",
+      gameStoryboardAutoAnimationsEnabled ? gameStoryboardAnimationDurationSeconds : "default",
       lastSection?.index ?? 0,
       lastSection?.content.length ?? 0,
     ].join(":");
@@ -6102,24 +5918,20 @@ function GameSurfaceComponent({
         swipeIndex: latestAssistantSwipeIndex,
         sections: latestAssistantStoryboardSections,
         keyframeCount: gameStoryboardKeyframeCount,
-        durationSeconds:
-          gameStoryboardAutoAnimationsEnabled && gameStoryboardAnimationDurationConfigured
-            ? gameStoryboardAnimationDurationSeconds
-            : undefined,
+        durationSeconds: gameStoryboardAutoAnimationsEnabled ? gameStoryboardAnimationDurationSeconds : undefined,
         generateVideos: gameStoryboardAutoAnimationsEnabled,
         debugMode: useUIStore.getState().debugMode,
       })
       .then((result) => {
-        applyGeneratedStoryboardToCache(result.storyboard);
+        if ("storyboard" in result) applyGeneratedStoryboardToCache(result.storyboard);
       })
       .catch((error) => {
         console.warn("[game/storyboard] auto storyboard generation failed", error);
       });
   }, [
     activeChatId,
-    gameStoryboardAnimationDurationConfigured,
     gameStoryboardAnimationDurationSeconds,
-    gameImageGenerationEnabled,
+    storyboardImageGenerationEnabled,
     gameStoryboardAutoAnimationsEnabled,
     gameStoryboardAutoGenerationEnabled,
     gameStoryboardKeyframeCount,
@@ -6362,8 +6174,8 @@ function GameSurfaceComponent({
       await retryAgents(activeChatId, ["spotify"]);
       toast.success(
         musicPlayerSource === "custom"
-          ?localizeUi("ui.game.gamesurfacecomponent.musicDjPickingAFreshLocalTrack")
-          :localizeUi("ui.game.gamesurfacecomponent.musicDjPickingAFreshYoutubeTrack"),
+          ? localizeUi("ui.game.gamesurfacecomponent.musicDjPickingAFreshLocalTrack")
+          : localizeUi("ui.game.gamesurfacecomponent.musicDjPickingAFreshYoutubeTrack"),
         { duration: 1800 },
       );
     } catch (error) {
@@ -6372,7 +6184,15 @@ function GameSurfaceComponent({
     } finally {
       setYoutubeRetryPending(false);
     }
-  }, [activeChatId, isStreaming, musicPlayerSource, retryAgents, sceneAnalysis.isPending, useJsonMusicDjGameMusic, localizeUi]);
+  }, [
+    activeChatId,
+    isStreaming,
+    musicPlayerSource,
+    retryAgents,
+    sceneAnalysis.isPending,
+    useJsonMusicDjGameMusic,
+    localizeUi,
+  ]);
 
   const handleRetrySpotifyMusic = useCallback(async () => {
     if (!activeChatId || !useSpotifyGameMusic || isStreaming || sceneAnalysis.isPending) return;
@@ -6494,7 +6314,8 @@ function GameSurfaceComponent({
     sceneWrapCharacterNames,
     sidecarConfig.useForGameScene,
     sidecarReady,
-    useSpotifyGameMusic, localizeUi,
+    useSpotifyGameMusic,
+    localizeUi,
   ]);
 
   const sendMessage = useCallback(
@@ -6539,13 +6360,69 @@ function GameSurfaceComponent({
   const gameSetupResetRef = useRef(gameSetup.reset);
   const startGameResetRef = useRef(startGame.reset);
   const startSessionResetRef = useRef(startSession.reset);
-  const pendingSetupMapDraftRef = useRef<{
-    size: SpatialMapDraftSize;
-    groundingMode: SpatialMapGroundingMode;
-    sourceLorebookIds: string[];
-    instructions?: string;
-    connectionId?: string;
-  } | null>(null);
+  type PendingSharedWorldSetupApply = {
+    chatId: string;
+    selection: unknown;
+    attempt: number;
+  };
+  const [pendingSharedWorldSetupApply, setPendingSharedWorldSetupApply] =
+    useState<PendingSharedWorldSetupApply | null>(null);
+  const pendingSharedWorldSetupApplyRef = useRef<PendingSharedWorldSetupApply | null>(null);
+  const updatePendingSharedWorldSetupApply = useCallback((pending: PendingSharedWorldSetupApply | null) => {
+    pendingSharedWorldSetupApplyRef.current = pending;
+    setPendingSharedWorldSetupApply(pending);
+  }, []);
+  const activeChatIdRef = useRef(activeChatId);
+  activeChatIdRef.current = activeChatId;
+  const clearPendingSharedWorldSetupApply = useCallback((chatId: string, attempt: number) => {
+    const pending = pendingSharedWorldSetupApplyRef.current;
+    if (
+      activeChatIdRef.current !== chatId ||
+      !pending ||
+      pending.chatId !== chatId ||
+      pending.attempt !== attempt
+    ) {
+      return false;
+    }
+    pendingSharedWorldSetupApplyRef.current = null;
+    setPendingSharedWorldSetupApply((current) =>
+      current?.chatId === chatId && current.attempt === attempt ? null : current,
+    );
+    return true;
+  }, []);
+  useEffect(() => {
+    const pending = pendingSharedWorldSetupApplyRef.current;
+    if (pending && pending.chatId !== activeChatId) {
+      updatePendingSharedWorldSetupApply(null);
+    }
+  }, [activeChatId, updatePendingSharedWorldSetupApply]);
+  const activePendingSharedWorldSetupApply =
+    pendingSharedWorldSetupApply?.chatId === activeChatId ? pendingSharedWorldSetupApply : null;
+  type PostSetupMapPlan =
+    | { mode: "manual" }
+    | { mode: "template"; selection: unknown }
+    | { mode: "shared-world"; selection: unknown }
+    | {
+        mode: "ai";
+        size: SpatialMapDraftSize;
+        groundingMode: SpatialMapGroundingMode;
+        sourceLorebookIds: string[];
+        instructions?: string;
+        connectionId?: string;
+      };
+  const pendingSetupMapPlanRef = useRef<{ chatId: string; plan: PostSetupMapPlan } | null>(null);
+  const clearPendingSetupMapPlan = useCallback((chatId: string) => {
+    const pending = pendingSetupMapPlanRef.current;
+    if (activeChatIdRef.current !== chatId || pending?.chatId !== chatId) return false;
+    pendingSetupMapPlanRef.current = null;
+    return true;
+  }, []);
+  useEffect(() => {
+    const pending = pendingSetupMapPlanRef.current;
+    if (pending && pending.chatId !== activeChatId) {
+      pendingSetupMapPlanRef.current = null;
+    }
+  }, [activeChatId]);
   createGameResetRef.current = createGame.reset;
   gameSetupResetRef.current = gameSetup.reset;
   startGameResetRef.current = startGame.reset;
@@ -6558,12 +6435,34 @@ function GameSurfaceComponent({
     startSessionResetRef.current();
   }, [activeChatId]);
 
-  const completePostSetupMapDraft = useCallback(
+  const completePostSetupMapPlan = useCallback(
     async (chatId: string) => {
-      const request = pendingSetupMapDraftRef.current;
-      pendingSetupMapDraftRef.current = null;
-      if (!request) {
+      const pending = pendingSetupMapPlanRef.current;
+      if (!pending || pending.chatId !== chatId || activeChatIdRef.current !== chatId) return;
+      pendingSetupMapPlanRef.current = null;
+      const { plan } = pending;
+      if (plan.mode === "manual") {
         useGameModeStore.getState().setSetupActive(false);
+        useUIStore.getState().openSpatialMapDetail(chatId);
+        return;
+      }
+      if (plan.mode === "template") {
+        useGameModeStore.getState().setSetupActive(false);
+        useUIStore.getState().openSpatialMapDraftReview({
+          chatId,
+          source: "game_setup",
+          mode: "template",
+          selection: plan.selection,
+        });
+        toast.info(localizeUi("ui.game.gamesurfacecomponent.chooseAMapTemplateThenReviewItBeforeSaving"));
+        return;
+      }
+      if (plan.mode === "shared-world") {
+        updatePendingSharedWorldSetupApply({
+          chatId,
+          selection: plan.selection,
+          attempt: Date.now(),
+        });
         return;
       }
 
@@ -6571,13 +6470,14 @@ function GameSurfaceComponent({
         const result = await generateSetupMapDraft.mutateAsync({
           chatId,
           operation: "create",
-          size: request.size,
-          groundingMode: request.groundingMode,
-          sourceLorebookIds: request.sourceLorebookIds,
-          instructions: request.instructions,
-          connectionId: request.connectionId,
+          size: plan.size,
+          groundingMode: plan.groundingMode,
+          sourceLorebookIds: plan.sourceLorebookIds,
+          instructions: plan.instructions,
+          connectionId: plan.connectionId,
           debugMode: useUIStore.getState().debugMode,
         });
+        if (activeChatIdRef.current !== chatId) return;
         useGameModeStore.getState().setSetupActive(false);
         useUIStore.getState().openSpatialMapDraftReview({
           chatId,
@@ -6586,16 +6486,35 @@ function GameSurfaceComponent({
         });
         toast.success(localizeUi("ui.game.gamesurfacecomponent.worldCreatedReviewTheHierarchicalMapBeforeSavingIt"));
       } catch (error) {
+        if (activeChatIdRef.current !== chatId) return;
         useGameModeStore.getState().setSetupActive(false);
         toast.error(
           error instanceof Error
-            ?localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsMapDraftFailed_7b65e53", { value1: error.message })
-            :localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsMapDraftFailed"),
+            ? localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsMapDraftFailed_7b65e53", {
+                value1: error.message,
+              })
+            : localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsMapDraftFailed"),
           { duration: 10000 },
         );
       }
     },
-    [generateSetupMapDraft, localizeUi],
+    [generateSetupMapDraft, localizeUi, updatePendingSharedWorldSetupApply],
+  );
+
+  const handleSharedWorldSetupApplyError = useCallback(
+    (chatId: string, attempt: number, message: unknown) => {
+      if (!clearPendingSharedWorldSetupApply(chatId, attempt)) return;
+      const detail = typeof message === "string" && message.trim() ? message.trim() : null;
+      toast.error(
+        detail
+          ? localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsSharedWorldCouldNotBeLinkedValue1", {
+              value1: detail,
+            })
+          : localizeUi("ui.game.gamesurfacecomponent.theGameWasCreatedButItsSharedWorldCouldNotBeLinked"),
+        { duration: 10000 },
+      );
+    },
+    [clearPendingSharedWorldSetupApply, localizeUi],
   );
 
   const handleStartGameNow = useCallback(() => {
@@ -6618,7 +6537,9 @@ function GameSurfaceComponent({
         onError: (err) => {
           startGameGuardRef.current = false;
           setStartGameRequested(false);
-          toast.error(err instanceof Error ? err.message :localizeUi("ui.game.gamesurfacecomponent.failedToStartGame"));
+          toast.error(
+            err instanceof Error ? err.message : localizeUi("ui.game.gamesurfacecomponent.failedToStartGame"),
+          );
           console.error("[GameSurface] startGame failed:", err);
         },
       },
@@ -6660,7 +6581,9 @@ function GameSurfaceComponent({
         api.patch(`/chats/${activeChatId}/game-state`, { time: formattedTime }).catch(() => {});
         toast.success(localizeUi("ui.game.gamesurfacecomponent.setGameDayToValue1", { value1: nextTime.day }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToUpdateGameDay"));
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.failedToUpdateGameDay"),
+        );
       }
     },
     [activeChatId, gameTimeMeta?.hour, gameTimeMeta?.minute, updateChatMetadata, localizeUi],
@@ -6708,9 +6631,15 @@ function GameSurfaceComponent({
           });
         }
         api.patch(`/chats/${activeChatId}/game-state`, { time: formattedTime }).catch(() => {});
-        toast.success(localizeUi("ui.game.gamesurfacecomponent.setGameTimeToValue1", { value1: getGameTimeOfDayLabel(nextTime.hour) }));
+        toast.success(
+          localizeUi("ui.game.gamesurfacecomponent.setGameTimeToValue1", {
+            value1: getGameTimeOfDayLabel(nextTime.hour),
+          }),
+        );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToUpdateGameTime"));
+        toast.error(
+          error instanceof Error ? error.message : localizeUi("ui.game.gamesurfacecomponent.failedToUpdateGameTime"),
+        );
       }
     },
     [activeChatId, currentGameDay, metaWeather, updateChatMetadata, localizeUi],
@@ -6746,10 +6675,13 @@ function GameSurfaceComponent({
       }
 
       if (request.kind === "game_setup") {
-        if (pendingSetupMapDraftRef.current) {
-          void completePostSetupMapDraft(targetChatId);
-        } else {
-          useGameModeStore.getState().setSetupActive(false);
+        if (targetChatId && activeChatIdRef.current === targetChatId) {
+          const pendingPlan = pendingSetupMapPlanRef.current;
+          if (pendingPlan?.chatId === targetChatId) {
+            void completePostSetupMapPlan(targetChatId);
+          } else if (!pendingPlan) {
+            useGameModeStore.getState().setSetupActive(false);
+          }
         }
       }
       if (request.kind === "session_conclusion") {
@@ -6757,7 +6689,7 @@ function GameSurfaceComponent({
       }
       setJsonRepairRequest(null);
     },
-    [activeChatId, completePostSetupMapDraft, gameId, queryClient],
+    [activeChatId, completePostSetupMapPlan, gameId, queryClient],
   );
 
   const handleNpcPortraitClick = useCallback(
@@ -6826,7 +6758,11 @@ function GameSurfaceComponent({
         clearFailedNpcAvatars([targetNpc.name]);
         toast.success(localizeUi("ui.game.gamesurfacecomponent.value1PortraitUpdated", { value1: targetNpc.name }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToUpdateValue1Portrait", { value1: npcName }));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.game.gamesurfacecomponent.failedToUpdateValue1Portrait", { value1: npcName }),
+        );
       }
     },
     [activeChatId, clearFailedNpcAvatars, updateChatMetadata, localizeUi],
@@ -6892,10 +6828,16 @@ function GameSurfaceComponent({
           clearFailedNpcAvatars([targetNpc.name]);
           toast.success(localizeUi("ui.game.gamesurfacecomponent.value1PortraitGenerated", { value1: targetNpc.name }));
         } else {
-          toast.error(localizeUi("ui.game.gamesurfacecomponent.noPortraitWasGeneratedForValue1", { value1: targetNpc.name }));
+          toast.error(
+            localizeUi("ui.game.gamesurfacecomponent.noPortraitWasGeneratedForValue1", { value1: targetNpc.name }),
+          );
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToGenerateValue1Portrait", { value1: displayName }));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.game.gamesurfacecomponent.failedToGenerateValue1Portrait", { value1: displayName }),
+        );
       } finally {
         setGeneratingNpcPortraitNames((current) => {
           const next = new Set(current);
@@ -6911,7 +6853,8 @@ function GameSurfaceComponent({
       chatMeta.gameImageConnectionId,
       chatMeta.gameNpcs,
       clearFailedNpcAvatars,
-      runGameAssetGeneration, localizeUi,
+      runGameAssetGeneration,
+      localizeUi,
     ],
   );
 
@@ -6933,9 +6876,17 @@ function GameSurfaceComponent({
           gameJournal: prunedJournal,
         });
         useGameModeStore.getState().setNpcs(nextNpcs);
-        toast.success(localizeUi("ui.game.gamesurfacecomponent.value1RemovedFromTheNpcJournal", { value1: cleanGameNpcDisplayName(npcName) }));
+        toast.success(
+          localizeUi("ui.game.gamesurfacecomponent.value1RemovedFromTheNpcJournal", {
+            value1: cleanGameNpcDisplayName(npcName),
+          }),
+        );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToRemoveValue1FromTheNpcJournal", { value1: npcName }));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.game.gamesurfacecomponent.failedToRemoveValue1FromTheNpcJournal", { value1: npcName }),
+        );
         throw error;
       }
     },
@@ -7131,7 +7082,11 @@ function GameSurfaceComponent({
       const normalizedItemName = normalizeInventoryName(itemName);
       const updatedInventory = removeInventoryUnit(inventoryItems, normalizedItemName);
       if (updatedInventory === inventoryItems) {
-        toast.error(localizeUi("ui.game.gamesurfacecomponent.value1IsNoLongerInYourInventory", { value1: normalizedItemName || itemName }));
+        toast.error(
+          localizeUi("ui.game.gamesurfacecomponent.value1IsNoLongerInYourInventory", {
+            value1: normalizedItemName || itemName,
+          }),
+        );
         return;
       }
 
@@ -7199,7 +7154,9 @@ function GameSurfaceComponent({
 
       const renamedInventory = renameInventoryItem(inventoryItems, currentName, nextName);
       if (!renamedInventory) {
-        toast.error(localizeUi("ui.game.gamesurfacecomponent.value1IsNoLongerInYourInventory", { value1: currentName }));
+        toast.error(
+          localizeUi("ui.game.gamesurfacecomponent.value1IsNoLongerInYourInventory", { value1: currentName }),
+        );
         return null;
       }
 
@@ -7243,7 +7200,12 @@ function GameSurfaceComponent({
           });
         }
 
-        toast.success(localizeUi("ui.game.gamesurfacecomponent.renamedValue1ToValue2", { value1: currentName, value2: resolvedName }));
+        toast.success(
+          localizeUi("ui.game.gamesurfacecomponent.renamedValue1ToValue2", {
+            value1: currentName,
+            value2: resolvedName,
+          }),
+        );
         return resolvedName;
       } catch (error) {
         if (patchedGameState) {
@@ -7735,9 +7697,11 @@ function GameSurfaceComponent({
     async (member: { id: string; name: string; canRemove?: boolean }) => {
       if (!activeChatId || !member.canRemove) return;
       const confirmed = await showConfirmDialog({
-        title:localizeUi("ui.game.gamesurfacecomponent.removePartyMember"),
-        message:localizeUi("ui.game.gamesurfacecomponent.removeValue1FromTheActivePartyTheirGameCharacter", { value1: member.name }),
-        confirmLabel:localizeUi("settings.notifications.customSound.actions.remove"),
+        title: localizeUi("ui.game.gamesurfacecomponent.removePartyMember"),
+        message: localizeUi("ui.game.gamesurfacecomponent.removeValue1FromTheActivePartyTheirGameCharacter", {
+          value1: member.name,
+        }),
+        confirmLabel: localizeUi("settings.notifications.customSound.actions.remove"),
         cancelLabel: "Keep",
         tone: "destructive",
       });
@@ -8003,7 +7967,8 @@ function GameSurfaceComponent({
       gameBackgroundAutoGenerationEnabled,
       gameImageAutoGenerationEnabled,
       hydrateGeneratedCombatState,
-      requestAssetGeneration, localizeUi,
+      requestAssetGeneration,
+      localizeUi,
     ],
   );
 
@@ -8196,9 +8161,9 @@ function GameSurfaceComponent({
       return;
     }
     const confirmed = await showConfirmDialog({
-      title:localizeUi("ui.game.gamesurfacecomponent.startCombat"),
-      message:localizeUi("ui.game.gamesurfacecomponent.generateATacticalCombatEncounterFromTheCurrentGame"),
-      confirmLabel:localizeUi("ui.game.gamesurfacecomponent.yes"),
+      title: localizeUi("ui.game.gamesurfacecomponent.startCombat"),
+      message: localizeUi("ui.game.gamesurfacecomponent.generateATacticalCombatEncounterFromTheCurrentGame"),
+      confirmLabel: localizeUi("ui.game.gamesurfacecomponent.yes"),
       cancelLabel: "No",
     });
     if (!confirmed) return;
@@ -8736,7 +8701,11 @@ function GameSurfaceComponent({
         await updateChatMetadata.mutateAsync({ id: activeChatId, gameCharacterCards: updatedCards });
         toast.success(localizeUi("ui.game.gamesurfacecomponent.value1SheetUpdated", { value1: normalizedTitle }));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message :localizeUi("ui.game.gamesurfacecomponent.failedToSaveCharacterSheet"));
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.game.gamesurfacecomponent.failedToSaveCharacterSheet"),
+        );
         throw error;
       }
     },
@@ -8864,7 +8833,9 @@ function GameSurfaceComponent({
           id: activeChatId,
           gamePreviousSessionSummaries: updatedSummaries,
         });
-        toast.success(localizeUi("ui.game.gamesurfacecomponent.sessionValue1DetailsUpdated", { value1: sessionNumber }));
+        toast.success(
+          localizeUi("ui.game.gamesurfacecomponent.sessionValue1DetailsUpdated", { value1: sessionNumber }),
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : "Failed to update session details.";
         toast.error(message);
@@ -8957,7 +8928,7 @@ function GameSurfaceComponent({
         const response = await rollDice.mutateAsync({ chatId: activeChatId, notation });
         return response.result;
       } catch (err) {
-        toast.error(err instanceof Error ? err.message :localizeUi("ui.game.gamesurfacecomponent.failedToRollDice"));
+        toast.error(err instanceof Error ? err.message : localizeUi("ui.game.gamesurfacecomponent.failedToRollDice"));
         return null;
       }
     },
@@ -9051,17 +9022,19 @@ function GameSurfaceComponent({
         typeof position === "string"
           ? viewedMap?.nodes?.find((node) => node.id === position)?.spatialLocationId
           : viewedMap?.cells?.find((cell) => cell.x === position.x && cell.y === position.y)?.spatialLocationId;
-      if (boundSpatialLocationId && spatialContext.isLoading) {
+      if (boundSpatialLocationId && activeSpatialContextLoading) {
         toast.info(localizeUi("ui.game.gamesurfacecomponent.storyLocationsAreStillLoadingTryThatMapPosition"));
         setPendingMapMove(null);
         return;
       }
-      if (boundSpatialLocationId && spatialContext.data?.definition?.enabled) {
-        const spatial = spatialContext.data;
+      if (boundSpatialLocationId && activeSpatialContext?.definition?.enabled) {
+        const spatial = activeSpatialContext;
         const definition = spatial.definition;
         if (!definition) return;
         if (!spatial.currentLocationId) {
-          toast.error(localizeUi("ui.game.gamesurfacecomponent.theCurrentStoryLocationIsUnavailableRepairTheHierarchy"));
+          toast.error(
+            localizeUi("ui.game.gamesurfacecomponent.theCurrentStoryLocationIsUnavailableRepairTheHierarchy"),
+          );
           setPendingMapMove(null);
           return;
         }
@@ -9103,10 +9076,11 @@ function GameSurfaceComponent({
       describeMapPosition,
       isSameMapPosition,
       sessionInteractive,
-      spatialContext.data,
-      spatialContext.isLoading,
+      activeSpatialContext,
+      activeSpatialContextLoading,
       viewedMap,
-      viewedMapIsActive, localizeUi,
+      viewedMapIsActive,
+      localizeUi,
     ],
   );
 
@@ -9188,7 +9162,8 @@ function GameSurfaceComponent({
       sendMessage,
       sessionInteractive,
       setDiceRollResult,
-      updateMessage, localizeUi,
+      updateMessage,
+      localizeUi,
     ],
   );
 
@@ -9314,7 +9289,8 @@ function GameSurfaceComponent({
 
   const handleReturnToPreCombatTurn = useCallback(() => {
     if (!latestAssistantMsg?.id) return;
-    const confirmed = window.confirm(localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
+    const confirmed = window.confirm(
+      localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheGmTurnThatStarted"),
     );
     if (!confirmed) return;
 
@@ -9596,7 +9572,11 @@ function GameSurfaceComponent({
             toast.success(localizeUi("ui.game.gamesurfacecomponent.branchCreated"));
           },
           onError: (error) => {
-            toast.error(error instanceof Error ?localizeUi("ui.game.gamesurfacecomponent.branchFailedValue1", { value1: error.message }) :localizeUi("ui.game.gamesurfacecomponent.branchFailed"));
+            toast.error(
+              error instanceof Error
+                ? localizeUi("ui.game.gamesurfacecomponent.branchFailedValue1", { value1: error.message })
+                : localizeUi("ui.game.gamesurfacecomponent.branchFailed"),
+            );
           },
           onSettled: () => {
             toast.dismiss(branchToastId);
@@ -9700,7 +9680,8 @@ function GameSurfaceComponent({
     sceneAnalysis,
     sceneWrapCharacterNames,
     sceneAnalysisEnabled,
-    metaTime, localizeUi,
+    metaTime,
+    localizeUi,
   ]);
 
   // Remap legacy hud_bottom widgets to left/right (hud_bottom was removed)
@@ -9903,6 +9884,7 @@ function GameSurfaceComponent({
 
   // Does this chat need initial game creation?
   const needsCreation = !chatMeta.gameId;
+  const hasExistingGameWorld = !needsCreation && hasGeneratedGameSetupWorld(chatMeta);
   const initialSetupPartyCharacterIds = useMemo(
     () => getChatCharacterIds(chat.characterIds).filter((id) => id !== PROFESSOR_MARI_ID),
     [chat.characterIds],
@@ -9937,34 +9919,79 @@ function GameSurfaceComponent({
           }
         >
           <GameSetupWizard
-            onComplete={(config, preferences, conns, wizardGameName, mapDraft) => {
+            onComplete={(config, preferences, conns, wizardGameName, mapPlan) => {
+              const queueSetupMapPlan = (chatId: string) => {
+                if (activeChatIdRef.current !== chatId) return false;
+                const plan: PostSetupMapPlan | null =
+                  mapPlan?.mode === "ai"
+                    ? {
+                        ...mapPlan,
+                        connectionId: conns.gmConnectionId,
+                      }
+                    : (mapPlan ?? null);
+                if (plan) {
+                  pendingSetupMapPlanRef.current = { chatId, plan };
+                } else if (pendingSetupMapPlanRef.current?.chatId === chatId) {
+                  pendingSetupMapPlanRef.current = null;
+                }
+                return true;
+              };
               const runSetup = (chatId: string) => {
-                pendingSetupMapDraftRef.current = mapDraft
-                  ? {
-                      size: mapDraft.size,
-                      groundingMode: mapDraft.groundingMode,
-                      sourceLorebookIds: mapDraft.sourceLorebookIds,
-                      instructions: mapDraft.instructions,
-                      connectionId: conns.gmConnectionId,
-                    }
-                  : null;
+                if (!queueSetupMapPlan(chatId)) return;
                 gameSetup.mutate(
                   {
                     chatId,
                     connectionId: conns.gmConnectionId,
                     preferences,
                     promptPresetId: config.promptPresetId ?? null,
-                    keepSetupActive: Boolean(mapDraft),
+                    keepSetupActive: Boolean(mapPlan),
                   },
                   {
                     onSuccess: () => {
-                      if (mapDraft) void completePostSetupMapDraft(chatId);
+                      if (mapPlan) void completePostSetupMapPlan(chatId);
                     },
                     onError: (error) => {
-                      if (!handleJsonRepairError(error)) pendingSetupMapDraftRef.current = null;
+                      if (activeChatIdRef.current !== chatId) return;
+                      if (!handleJsonRepairError(error)) clearPendingSetupMapPlan(chatId);
                     },
                   },
                 );
+              };
+              const continueExistingSetup = async (chatId: string) => {
+                if (!queueSetupMapPlan(chatId)) return;
+                const storedSetupConfig =
+                  chatMeta.gameSetupConfig &&
+                  typeof chatMeta.gameSetupConfig === "object" &&
+                  !Array.isArray(chatMeta.gameSetupConfig)
+                    ? (chatMeta.gameSetupConfig as Record<string, unknown>)
+                    : {};
+                try {
+                  await Promise.all([
+                    updateChat.mutateAsync({
+                      id: chatId,
+                      connectionId: conns.gmConnectionId ?? null,
+                      promptPresetId: config.promptPresetId ?? null,
+                    }),
+                    updateChatMetadata.mutateAsync({
+                      id: chatId,
+                      gameSetupConfig: { ...storedSetupConfig, ...config },
+                    }),
+                  ]);
+                  if (mapPlan) {
+                    await completePostSetupMapPlan(chatId);
+                  } else if (activeChatIdRef.current === chatId) {
+                    useGameModeStore.getState().setSetupActive(false);
+                  }
+                } catch (error) {
+                  if (activeChatIdRef.current !== chatId) return;
+                  clearPendingSetupMapPlan(chatId);
+                  toast.error(
+                    error instanceof Error && error.message.trim()
+                      ? error.message
+                      : localizeUi("ui.game.gamesurfacecomponent.couldNotUpdateTheExistingGameSetup"),
+                    { duration: 10000 },
+                  );
+                }
               };
 
               if (needsCreation) {
@@ -9985,12 +10012,21 @@ function GameSurfaceComponent({
                     },
                   },
                 );
+              } else if (hasExistingGameWorld) {
+                void continueExistingSetup(activeChatId);
               } else {
                 runSetup(activeChatId);
               }
             }}
             onCancel={() => {
-              if (createGame.isPending || gameSetup.isPending || generateSetupMapDraft.isPending) return;
+              if (
+                createGame.isPending ||
+                gameSetup.isPending ||
+                generateSetupMapDraft.isPending ||
+                updateChat.isPending ||
+                updateChatMetadata.isPending ||
+                activePendingSharedWorldSetupApply
+              ) return;
               useGameModeStore.getState().setSetupActive(false);
               if (canAutoDeleteEmptySetupChat) {
                 deleteChat.mutate(activeChatId, {
@@ -10003,11 +10039,66 @@ function GameSurfaceComponent({
                 toast.info(localizeUi("ui.game.gamesurfacecomponent.gameSetupDismissedTheCampaignWasKept"));
               }
             }}
-            isLoading={createGame.isPending || gameSetup.isPending || generateSetupMapDraft.isPending}
+            isLoading={
+              createGame.isPending ||
+              gameSetup.isPending ||
+              generateSetupMapDraft.isPending ||
+              updateChat.isPending ||
+              updateChatMetadata.isPending ||
+              Boolean(activePendingSharedWorldSetupApply)
+            }
             isDraftingMap={generateSetupMapDraft.isPending}
+            isLinkingSharedWorld={Boolean(activePendingSharedWorldSetupApply)}
             characters={characters}
             initialPartyCharacterIds={initialSetupPartyCharacterIds}
           />
+          {activePendingSharedWorldSetupApply ? (
+            <CapabilityElement
+              key={`${activePendingSharedWorldSetupApply.chatId}:${activePendingSharedWorldSetupApply.attempt}`}
+              packageId="hierarchical-maps"
+              view="setup-apply"
+              className="hidden"
+              onHostError={(message) =>
+                handleSharedWorldSetupApplyError(
+                  activePendingSharedWorldSetupApply.chatId,
+                  activePendingSharedWorldSetupApply.attempt,
+                  message,
+                )
+              }
+              capabilityProps={{
+                chatId: activePendingSharedWorldSetupApply.chatId,
+                selection: activePendingSharedWorldSetupApply.selection,
+                onApplied: (result: unknown) => {
+                  if (
+                    !clearPendingSharedWorldSetupApply(
+                      activePendingSharedWorldSetupApply.chatId,
+                      activePendingSharedWorldSetupApply.attempt,
+                    )
+                  )
+                    return;
+                  const applied = result && typeof result === "object" ? (result as Record<string, unknown>) : null;
+                  const worldName =
+                    typeof applied?.worldName === "string" && applied.worldName.trim()
+                      ? applied.worldName.trim()
+                      : localizeUi("ui.game.gamesurfacecomponent.theSelectedSharedWorld");
+                  useGameModeStore.getState().setSetupActive(false);
+                  void queryClient.invalidateQueries({
+                    queryKey: chatKeys.detail(activePendingSharedWorldSetupApply.chatId),
+                  });
+                  void queryClient.invalidateQueries({ queryKey: chatKeys.list() });
+                  toast.success(
+                    localizeUi("ui.game.gamesurfacecomponent.linkedToSharedWorldValue1", { value1: worldName }),
+                  );
+                },
+                onError: (message: unknown) =>
+                  handleSharedWorldSetupApplyError(
+                    activePendingSharedWorldSetupApply.chatId,
+                    activePendingSharedWorldSetupApply.attempt,
+                    message,
+                  ),
+              }}
+            />
+          ) : null}
         </Suspense>
         <GameJsonRepairModal
           request={jsonRepairRequest}
@@ -10071,7 +10162,9 @@ function GameSurfaceComponent({
             <div className="flex w-full flex-shrink-0 flex-col items-center gap-4">
               <label className="flex w-full max-w-sm flex-col gap-1.5 text-left">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)] dark:text-white/50">
-                  <Plug size={12} />{localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}</span>
+                  <Plug size={12} />
+                  {localizeUi("ui.game.gamesurfacecomponent.gmPartyModel")}
+                </span>
                 <select
                   value={chat.connectionId ?? ""}
                   onChange={(e) => handleStartScreenConnectionChange(e.target.value)}
@@ -10083,7 +10176,9 @@ function GameSurfaceComponent({
                   {languageConnections.map((connection) => (
                     <option key={connection.id} value={connection.id}>
                       {connection.name}
-                      {connection.model ?localizeUi("ui.game.gamesetupwizard.value1", { value1: connection.model }) : ""}
+                      {connection.model
+                        ? localizeUi("ui.game.gamesetupwizard.value1", { value1: connection.model })
+                        : ""}
                     </option>
                   ))}
                 </select>
@@ -10106,11 +10201,15 @@ function GameSurfaceComponent({
                         audioManager.retryPending();
                       }}
                       className="group flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-700/80 transition-all hover:scale-105 hover:bg-zinc-800 hover:shadow-lg hover:shadow-black/25"
-                    >{localizeUi("ui.noodle.wizardfooter.continue")}</button>
+                    >
+                      {localizeUi("ui.noodle.wizardfooter.continue")}
+                    </button>
                   ) : (
                     <>
                       {initialTurnFailed ? (
-                        <div className="max-w-sm text-sm text-[var(--muted-foreground)] dark:text-white/60">{localizeUi("ui.game.gamesurfacecomponent.gameGenerationFailedChooseAnotherGmPartyModelOr")}</div>
+                        <div className="max-w-sm text-sm text-[var(--muted-foreground)] dark:text-white/60">
+                          {localizeUi("ui.game.gamesurfacecomponent.gameGenerationFailedChooseAnotherGmPartyModelOr")}
+                        </div>
                       ) : (
                         <div className="flex items-center gap-3 text-sm text-[var(--muted-foreground)] dark:text-white/60">
                           <div className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--muted)]/40 border-t-[var(--foreground)]/70 dark:border-white/20 dark:border-t-white/70" />
@@ -10130,8 +10229,12 @@ function GameSurfaceComponent({
                       {hasEverHadPlayableContent && !isStreaming && sceneAnalysisFailed && (
                         <div className="flex items-center gap-2">
                           <button onClick={() => retrySceneAnalysis()} className={SURFACE_BTN}>
-                            <RefreshCw size={14} />{localizeUi("ui.game.gamesurfacecomponent.retrySceneAnalysis")}</button>
-                          <button onClick={() => skipSceneAnalysis()} className={SURFACE_BTN}>{localizeUi("onboarding.actions.skip")}</button>
+                            <RefreshCw size={14} />
+                            {localizeUi("ui.game.gamesurfacecomponent.retrySceneAnalysis")}
+                          </button>
+                          <button onClick={() => skipSceneAnalysis()} className={SURFACE_BTN}>
+                            {localizeUi("onboarding.actions.skip")}
+                          </button>
                         </div>
                       )}
                       {/* Show skip only after stuck timeout — scene processing hung, not failed */}
@@ -10140,14 +10243,18 @@ function GameSurfaceComponent({
                         !sceneProcessed &&
                         sceneStuckVisible &&
                         !sceneAnalysisFailed && (
-                          <button onClick={() => skipSceneAnalysis()} className={cn("mt-1", SURFACE_BTN)}>{localizeUi("onboarding.actions.skip")}</button>
+                          <button onClick={() => skipSceneAnalysis()} className={cn("mt-1", SURFACE_BTN)}>
+                            {localizeUi("onboarding.actions.skip")}
+                          </button>
                         )}
                     </>
                   )}
                   {/* Show retry when generation stopped but no content arrived. */}
                   {!isStreaming && !hasEverHadPlayableContent && !startGame.isPending && (
                     <button onClick={generateInitialGameTurn} className={SURFACE_BTN}>
-                      <RefreshCw size={14} />{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
+                      <RefreshCw size={14} />
+                      {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                    </button>
                   )}
                 </div>
               ) : (
@@ -10159,7 +10266,9 @@ function GameSurfaceComponent({
                   disabled={startGame.isPending || startGameRequested}
                   className="group flex items-center gap-2 rounded-lg bg-zinc-900 px-6 py-3 text-sm font-semibold text-zinc-100 ring-1 ring-zinc-700/80 transition-all hover:scale-105 hover:bg-zinc-800 hover:shadow-lg hover:shadow-black/25 disabled:opacity-50 disabled:hover:scale-100"
                 >
-                  <Play size={18} className="transition-transform group-hover:scale-110" />{localizeUi("ui.game.gamesurfacecomponent.startGame")}</button>
+                  <Play size={18} className="transition-transform group-hover:scale-110" />
+                  {localizeUi("ui.game.gamesurfacecomponent.startGame")}
+                </button>
               )}
             </div>
           </div>
@@ -10216,8 +10325,11 @@ function GameSurfaceComponent({
         <div className={cn(ROLEPLAY_POPOVER_HEADER, "flex items-start gap-3")}>
           <div className="min-w-0 flex-1">
             <div className={ROLEPLAY_POPOVER_TITLE}>
-              <Feather size="0.8rem" className="shrink-0 text-[var(--muted-foreground)]" />{localizeUi("game.toolbar.session")}</div>
-            <div className={ROLEPLAY_POPOVER_SUBTITLE}>{localizeUi("game.toolbar.session")} {displaySessionNumber} · {sessionStatus}
+              <Feather size="0.8rem" className="shrink-0 text-[var(--muted-foreground)]" />
+              {localizeUi("game.toolbar.session")}
+            </div>
+            <div className={ROLEPLAY_POPOVER_SUBTITLE}>
+              {localizeUi("game.toolbar.session")} {displaySessionNumber} · {sessionStatus}
             </div>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-1 pt-0.5">
@@ -10255,7 +10367,9 @@ function GameSurfaceComponent({
               )}
             >
               {tab === "history" ? <ScrollText size={12} /> : <BookOpen size={12} />}
-              {tab === "history" ?localizeUi("ui.game.gamesurfacecomponent.sessionHistory") :localizeUi("ui.game.gamesurfacecomponent.journal")}
+              {tab === "history"
+                ? localizeUi("ui.game.gamesurfacecomponent.sessionHistory")
+                : localizeUi("ui.game.gamesurfacecomponent.journal")}
             </button>
           ))}
         </div>
@@ -10350,199 +10464,55 @@ function GameSurfaceComponent({
     return mobile ? renderGameMobilePortal(panel) : panel;
   };
 
+  const handleStoryboardViewerSizeChange = () => {
+    const nextSize = nextStoryboardViewerSize(storyboardViewerSize);
+    const nextWidth = getStoryboardViewerPresetWidth(nextSize);
+    setStoryboardViewerSize(nextSize);
+    setStoryboardViewerWidth(nextWidth);
+    setStoryboardViewerPosition((position) => clampStoryboardViewerPosition(position, nextWidth));
+  };
+
+  const handleStoryboardVideoPlayingChange = (videoId: string, playing: boolean) => {
+    setStoryboardViewerPlayingVideoId((current) => (playing ? videoId : current === videoId ? null : current));
+  };
+
   const renderStoryboardInlineViewer = () => {
     if (gameStoryboardViewerDisplayMode !== "floating") return null;
-    if (!latestAssistantMsg?.id) return null;
-    if (!latestTurnStoryboard && !storyboardGenerating) return null;
-    if (storyboardViewerDismissed) return null;
-
-    const frame = activeStoryboardKeyframe;
-    const framePosition =
-      latestTurnStoryboard && frame
-        ? Math.max(
-            0,
-            latestTurnStoryboard.keyframes.findIndex((item) => item.id === frame.id),
-          )
-        : 0;
-    const hasVideo = !!frame?.video;
-
+    if (!latestAssistantMsg?.id || (!latestTurnStoryboard && !storyboardGenerating) || storyboardViewerDismissed) {
+      return null;
+    }
     return (
-      <div
-        data-game-skip-bg-nav="true"
-        className="group pointer-events-auto fixed z-[60] cursor-grab select-none touch-none active:cursor-grabbing"
-        style={{
-          left: storyboardViewerPosition.x,
-          top: storyboardViewerPosition.y,
-          width: storyboardViewerWidth,
-          maxWidth: "calc(100vw - 1.5rem)",
+      <GameStoryboardInlineViewer
+        storyboard={latestTurnStoryboard ?? null}
+        frame={activeStoryboardKeyframe ?? null}
+        frameSectionLabel={activeStoryboardKeyframe ? formatStoryboardSectionLabel(activeStoryboardKeyframe) : null}
+        generating={storyboardGenerating || latestTurnStoryboardRendering}
+        position={storyboardViewerPosition}
+        width={storyboardViewerWidth}
+        size={storyboardViewerSize}
+        playing={storyboardViewerPlaying}
+        muted={storyboardViewerMuted}
+        videoRef={storyboardViewerVideoRef}
+        dragHandlers={{
+          onPointerDown: handleStoryboardViewerDragStart,
+          onPointerMove: handleStoryboardViewerDragMove,
+          onPointerUp: handleStoryboardViewerDragEnd,
+          onPointerCancel: handleStoryboardViewerDragEnd,
         }}
-        onClick={(event) => event.stopPropagation()}
-        onPointerDown={handleStoryboardViewerDragStart}
-        onPointerMove={handleStoryboardViewerDragMove}
-        onPointerUp={handleStoryboardViewerDragEnd}
-        onPointerCancel={handleStoryboardViewerDragEnd}
-        aria-label={localizeUi("ui.game.gamesurfacecomponent.storyboardViewerDragToMove")}
-      >
-        <div className="relative">
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setStoryboardViewerDismissedKey(latestStoryboardViewerTurnKey);
-            }}
-            onPointerDown={(event) => event.stopPropagation()}
-            className={getChatToolbarButtonClass({
-              compact: true,
-              sizeClassName: "h-7 w-7",
-              className: "absolute -right-2 -top-2 z-20 shadow-lg",
-            })}
-            aria-label={localizeUi("ui.game.gamesurfacecomponent.closeStoryboardViewer")}
-            title={localizeUi("ui.game.gamesurfacecomponent.closeStoryboardViewer")}
-          >
-            <X size={14} />
-          </button>
-          <div className="overflow-hidden rounded-xl border border-white/15 bg-black/75 shadow-2xl backdrop-blur-md">
-            <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-              <div
-                className="flex min-w-0 cursor-grab items-center gap-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-white/75 active:cursor-grabbing"
-                aria-label={localizeUi("ui.game.gamesurfacecomponent.dragStoryboardViewer")}
-              >
-                <GripHorizontal size={13} className="shrink-0 text-white/45" />
-                <PanelsTopLeft size={13} className="shrink-0 text-[var(--primary)]" />
-                <span className="truncate">{localizeUi("ui.game.gamesurfacecomponent.storyboard")}</span>
-              </div>
-              <span className="shrink-0 text-[0.625rem] text-white/45">
-                {frame ? formatStoryboardSectionLabel(frame) :localizeUi("ui.game.gamesurfacecomponent.rendering")}
-              </span>
-            </div>
-
-            {frame?.video ? (
-              <video
-                ref={storyboardViewerVideoRef}
-                key={frame.video.id}
-                src={frame.video.url}
-                autoPlay={storyboardViewerPlaying}
-                controls
-                muted={storyboardViewerMuted}
-                playsInline
-                onPlay={() => setStoryboardViewerPlayingVideoId(frame.video!.id)}
-                onPause={() =>
-                  setStoryboardViewerPlayingVideoId((current) => (current === frame.video!.id ? null : current))
-                }
-                onEnded={() =>
-                  setStoryboardViewerPlayingVideoId((current) => (current === frame.video!.id ? null : current))
-                }
-                className="aspect-video w-full touch-auto cursor-auto bg-black object-cover"
-                data-storyboard-viewer-no-drag
-              />
-            ) : frame?.image ? (
-              <img
-                src={frame.image.url}
-                alt={frame.title || `Storyboard keyframe ${frame.index + 1}`}
-                className="aspect-video w-full bg-black object-cover"
-                draggable={false}
-              />
-            ) : (
-              <div className="flex aspect-video w-full items-center justify-center gap-2 bg-black/45 text-xs text-white/55">
-                {storyboardGenerating || latestTurnStoryboardRendering ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : null}
-                {frame ? frame.status.replace("_", " ") :localizeUi("ui.game.gamesurfacecomponent.creatingStoryboard")}
-              </div>
-            )}
-
-            <div className="space-y-2 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <p className="min-w-0 truncate text-xs font-semibold text-white/90">
-                  {frame?.title || latestTurnStoryboard?.title || "Storyboard turn"}
-                </p>
-                <div className="flex shrink-0 items-center gap-1">
-                  {hasVideo ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleStoryboardViewerReplay}
-                        className={STORYBOARD_VIEWER_CONTROL_BUTTON}
-                        title={localizeUi("ui.game.gamesurfacecomponent.replayStoryboardVideo")}
-                        aria-label={localizeUi("ui.game.gamesurfacecomponent.replayStoryboardVideo")}
-                      >
-                        <RotateCcw size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleStoryboardViewerPlaybackToggle}
-                        className={STORYBOARD_VIEWER_CONTROL_BUTTON}
-                        title={storyboardViewerPlaying ?localizeUi("ui.game.gamesurfacecomponent.pauseStoryboardVideo") :localizeUi("ui.game.gamesurfacecomponent.playStoryboardVideo")}
-                        aria-label={storyboardViewerPlaying ?localizeUi("ui.game.gamesurfacecomponent.pauseStoryboardVideo") :localizeUi("ui.game.gamesurfacecomponent.playStoryboardVideo")}
-                      >
-                        {storyboardViewerPlaying ? <Pause size={13} /> : <Play size={13} />}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStoryboardViewerMuted((muted) => !muted)}
-                        className={STORYBOARD_VIEWER_CONTROL_BUTTON}
-                        title={storyboardViewerMuted ?localizeUi("ui.game.gamesurfacecomponent.unmuteStoryboardVideo") :localizeUi("ui.game.gamesurfacecomponent.muteStoryboardVideo")}
-                        aria-label={storyboardViewerMuted ?localizeUi("ui.game.gamesurfacecomponent.unmuteStoryboardVideo") :localizeUi("ui.game.gamesurfacecomponent.muteStoryboardVideo")}
-                      >
-                        {storyboardViewerMuted ? <VolumeX size={13} /> : <Volume2 size={13} />}
-                      </button>
-                    </>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setStoryboardViewerSize((size) => {
-                        const nextSize = nextStoryboardViewerSize(size);
-                        const nextWidth = getStoryboardViewerPresetWidth(nextSize);
-                        setStoryboardViewerWidth(nextWidth);
-                        setStoryboardViewerPosition((pos) => clampStoryboardViewerPosition(pos, nextWidth));
-                        return nextSize;
-                      })
-                    }
-                    className={STORYBOARD_VIEWER_CONTROL_BUTTON}
-                    title={localizeUi("ui.game.replaystoryboardmedia.changeStoryboardViewerSizeCurrentValue1", { value1: storyboardViewerSize })}
-                    aria-label={localizeUi("ui.game.replaystoryboardmedia.changeStoryboardViewerSizeCurrentValue1", { value1: storyboardViewerSize })}
-                  >
-                    <Maximize2 size={13} />
-                  </button>
-                  {latestTurnStoryboard?.keyframes.length ? (
-                    <span className="ml-1 text-[0.625rem] text-white/45">
-                      {framePosition + 1}/{latestTurnStoryboard.keyframes.length}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <p className="line-clamp-2 text-[0.6875rem] leading-4 text-white/58">
-                {frame?.anchorQuote || frame?.narrationBeat || latestTurnStoryboard?.error || "Generating keyframes..."}
-              </p>
-              {latestTurnStoryboard?.keyframes.length ? (
-                <div className="flex gap-1">
-                  {latestTurnStoryboard.keyframes.map((item) => (
-                    <span
-                      key={item.id}
-                      className={cn(
-                        "h-1 flex-1 rounded-full transition-colors",
-                        frame?.id === item.id ? "bg-[var(--primary)]" : "bg-white/15",
-                      )}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-          <div
-            className="absolute -bottom-2 -right-2 z-20 flex h-7 w-7 cursor-nwse-resize items-center justify-center rounded-lg border border-[var(--marinara-chat-chrome-button-border)] bg-[var(--marinara-chat-chrome-button-bg)] text-[var(--marinara-chat-chrome-button-text)] shadow-lg transition-all duration-150 hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:bg-[var(--marinara-chat-chrome-button-bg-hover)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] active:scale-95"
-            aria-label={localizeUi("ui.game.gamesurfacecomponent.resizeStoryboardViewer")}
-            tabIndex={0}
-            onPointerDown={handleStoryboardViewerResizeStart}
-            onPointerMove={handleStoryboardViewerResizeMove}
-            onPointerUp={handleStoryboardViewerResizeEnd}
-            onPointerCancel={handleStoryboardViewerResizeEnd}
-          >
-            <span className="h-2.5 w-2.5 rounded-br-sm border-b-2 border-r-2 border-current" />
-          </div>
-        </div>
-      </div>
+        resizeHandlers={{
+          onPointerDown: handleStoryboardViewerResizeStart,
+          onPointerMove: handleStoryboardViewerResizeMove,
+          onPointerUp: handleStoryboardViewerResizeEnd,
+          onPointerCancel: handleStoryboardViewerResizeEnd,
+        }}
+        onClose={() => setStoryboardViewerDismissedKey(latestStoryboardViewerTurnKey)}
+        onReplay={handleStoryboardViewerReplay}
+        onTogglePlayback={handleStoryboardViewerPlaybackToggle}
+        onToggleMute={() => setStoryboardViewerMuted((muted) => !muted)}
+        onChangeSize={handleStoryboardViewerSizeChange}
+        onResizeByKeyboard={handleStoryboardViewerResizeByKeyboard}
+        onVideoPlayingChange={handleStoryboardVideoPlayingChange}
+      />
     );
   };
 
@@ -10565,46 +10535,19 @@ function GameSurfaceComponent({
 
   const renderStoryboardBackgroundVisual = () => {
     if (gameStoryboardViewerDisplayMode !== "background") return null;
-    if (!latestAssistantMsg?.id) return null;
-    if (!latestTurnStoryboard && !storyboardGenerating) return null;
-    if (storyboardViewerDismissed) return null;
-
+    if (!latestAssistantMsg?.id || (!latestTurnStoryboard && !storyboardGenerating) || storyboardViewerDismissed) {
+      return null;
+    }
     const frame = activeStoryboardKeyframe;
     if (!frame?.video && !frame?.image) return null;
-
     return (
-      <div
-        data-game-skip-bg-nav="true"
-        className="pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-black"
-        aria-hidden="true"
-      >
-        {frame.video ? (
-          <video
-            ref={storyboardViewerVideoRef}
-            key={frame.video.id}
-            src={frame.video.url}
-            poster={frame.image?.url}
-            autoPlay={storyboardViewerPlaying}
-            muted={storyboardViewerMuted}
-            playsInline
-            onPlay={() => setStoryboardViewerPlayingVideoId(frame.video!.id)}
-            onPause={() =>
-              setStoryboardViewerPlayingVideoId((current) => (current === frame.video!.id ? null : current))
-            }
-            onEnded={() =>
-              setStoryboardViewerPlayingVideoId((current) => (current === frame.video!.id ? null : current))
-            }
-            className="h-full w-full bg-black object-contain transition-opacity duration-500"
-          />
-        ) : frame.image ? (
-          <img
-            src={frame.image.url}
-            alt=""
-            className="h-full w-full bg-black object-contain transition-opacity duration-500"
-            draggable={false}
-          />
-        ) : null}
-      </div>
+      <GameStoryboardBackgroundVisual
+        frame={frame}
+        playing={storyboardViewerPlaying}
+        muted={storyboardViewerMuted}
+        videoRef={storyboardViewerVideoRef}
+        onVideoPlayingChange={handleStoryboardVideoPlayingChange}
+      />
     );
   };
 
@@ -10629,11 +10572,15 @@ function GameSurfaceComponent({
             className="marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
             title={
               gameStoryboardBackgroundVisualEnabled
-                ?localizeUi("ui.game.gamesurfacecomponent.storyboardBackgroundDisplayIsActiveSoSceneBackgroundGeneration")
-                :localizeUi("ui.game.gamesurfacecomponent.generateABackgroundForTheCurrentScene")
+                ? localizeUi(
+                    "ui.game.gamesurfacecomponent.storyboardBackgroundDisplayIsActiveSoSceneBackgroundGeneration",
+                  )
+                : localizeUi("ui.game.gamesurfacecomponent.generateABackgroundForTheCurrentScene")
             }
           >
-            {manualBackgroundGenerating ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}{localizeUi("ui.game.gamesurfacecomponent.generateBackground")}</button>
+            {manualBackgroundGenerating ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} />}
+            {localizeUi("ui.game.gamesurfacecomponent.generateBackground")}
+          </button>
           {gameSceneVideosEnabled && (
             <button
               type="button"
@@ -10660,7 +10607,7 @@ function GameSurfaceComponent({
                 latestTurnStoryboardRendering ||
                 manualStoryboardReviewActive ||
                 isStreaming ||
-                !gameImageGenerationEnabled ||
+                !storyboardImageGenerationEnabled ||
                 !latestAssistantMsg?.id
               }
               className="marinara-chat-popover__item flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
@@ -10685,7 +10632,7 @@ function GameSurfaceComponent({
                   </h3>
                   <p className="mt-0.5 text-[0.6875rem] uppercase tracking-wide text-[var(--marinara-chat-chrome-panel-muted)]">
                     {storyboardGenerating || latestTurnStoryboardRendering
-                      ?localizeUi("ui.characters.charactercallclipsgallery.generating")
+                      ? localizeUi("ui.characters.charactercallclipsgallery.generating")
                       : (latestTurnStoryboard?.status ?? "ready").replace("_", " ")}
                   </p>
                 </div>
@@ -10697,21 +10644,26 @@ function GameSurfaceComponent({
                       className="marinara-chat-popover__item flex items-center gap-1.5 rounded-md border border-[var(--marinara-chat-chrome-panel-divider)] px-2 py-1 text-[0.6875rem] font-medium text-[var(--marinara-chat-chrome-panel-text)] transition-colors hover:bg-[var(--marinara-chat-chrome-highlight-bg-hover)] hover:text-[var(--marinara-chat-chrome-highlight-text)]"
                       title={
                         gameStoryboardViewerDisplayMode === "background"
-                          ?localizeUi("ui.game.gamesurfacecomponent.showStoryboardBackground")
-                          :localizeUi("ui.game.gamesurfacecomponent.showTheFloatingStoryboardViewer")
+                          ? localizeUi("ui.game.gamesurfacecomponent.showStoryboardBackground")
+                          : localizeUi("ui.game.gamesurfacecomponent.showTheFloatingStoryboardViewer")
                       }
                     >
-                      <PanelsTopLeft size={12} />{localizeUi("ui.game.gamesurfacecomponent.showViewer")}</button>
+                      <PanelsTopLeft size={12} />
+                      {localizeUi("ui.game.gamesurfacecomponent.showViewer")}
+                    </button>
                   ) : null}
                   {latestTurnStoryboard?.turnNumber ? (
-                    <span className="rounded-md border border-[var(--marinara-chat-chrome-panel-divider)] px-2 py-1 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">{localizeUi("ui.game.gamesurfacecomponent.turn")} {latestTurnStoryboard.turnNumber}
+                    <span className="rounded-md border border-[var(--marinara-chat-chrome-panel-divider)] px-2 py-1 text-[0.6875rem] text-[var(--marinara-chat-chrome-panel-muted)]">
+                      {localizeUi("ui.game.gamesurfacecomponent.turn")} {latestTurnStoryboard.turnNumber}
                     </span>
                   ) : null}
                 </div>
               </div>
               {storyboardGenerating && !latestTurnStoryboard ? (
                 <div className="flex items-center gap-2 rounded-lg border border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-4 text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
-                  <Loader2 size={14} className="animate-spin" />{localizeUi("ui.game.gamesurfacecomponent.creatingStoryboardKeyframes")}</div>
+                  <Loader2 size={14} className="animate-spin" />
+                  {localizeUi("ui.game.gamesurfacecomponent.creatingStoryboardKeyframes")}
+                </div>
               ) : null}
               {latestTurnStoryboard?.error ? (
                 <p className="mb-3 rounded-lg border border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2 text-[0.6875rem] text-[var(--destructive)]">
@@ -10732,7 +10684,9 @@ function GameSurfaceComponent({
                 />
               ) : null}
               {sceneVideoFailed && (
-                <p className="mt-2 text-[0.6875rem] text-[var(--destructive)]">{localizeUi("ui.game.gamesurfacecomponent.sceneVideoGenerationFailed")}</p>
+                <p className="mt-2 text-[0.6875rem] text-[var(--destructive)]">
+                  {localizeUi("ui.game.gamesurfacecomponent.sceneVideoGenerationFailed")}
+                </p>
               )}
             </div>
           )}
@@ -11345,8 +11299,8 @@ function GameSurfaceComponent({
                       day={currentGameDay}
                       onDayChange={handleGameDayChange}
                       onTimeChange={handleGameTimeChange}
-                      spatialContext={spatialContext.data}
-                      spatialContextLoading={spatialContext.isLoading}
+                      spatialContext={activeSpatialContext}
+                      spatialContextLoading={activeSpatialContextLoading}
                     />
                   </div>
                   {/* Desktop: inline minimap */}
@@ -11367,8 +11321,8 @@ function GameSurfaceComponent({
                       day={currentGameDay}
                       onDayChange={handleGameDayChange}
                       onTimeChange={handleGameTimeChange}
-                      spatialContext={spatialContext.data}
-                      spatialContextLoading={spatialContext.isLoading}
+                      spatialContext={activeSpatialContext}
+                      spatialContextLoading={activeSpatialContextLoading}
                       chatId={activeChatId}
                       constraintsRef={hudSurfaceRef}
                     />
@@ -11407,12 +11361,20 @@ function GameSurfaceComponent({
                       <div className="flex items-start gap-3">
                         <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-400" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-amber-200">{localizeUi("ui.game.gamesurfacecomponent.localSceneHelperFailedToStart")}</div>
-                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/70">{localizeUi("ui.game.gamesurfacecomponent.marinaraWillKeepTheGameRunningWithoutTheLocal")}{sidecarFailedRuntimeVariant &&
-                              ` Runtime: ${sidecarFailedRuntimeVariant.replace(/-/g, " ")}.`}
-                            {sidecarStartupError ?localizeUi("ui.game.gamesurfacecomponent.value1", { value1: sidecarStartupError }) : ""}
+                          <div className="text-xs font-medium text-amber-200">
+                            {localizeUi("ui.game.gamesurfacecomponent.localSceneHelperFailedToStart")}
                           </div>
-                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/55">{localizeUi("ui.game.gamesurfacecomponent.openLocalAiModelToRetryStartupSwitchModels")}</div>
+                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/70">
+                            {localizeUi("ui.game.gamesurfacecomponent.marinaraWillKeepTheGameRunningWithoutTheLocal")}
+                            {sidecarFailedRuntimeVariant &&
+                              ` Runtime: ${sidecarFailedRuntimeVariant.replace(/-/g, " ")}.`}
+                            {sidecarStartupError
+                              ? localizeUi("ui.game.gamesurfacecomponent.value1", { value1: sidecarStartupError })
+                              : ""}
+                          </div>
+                          <div className="mt-1 text-[0.6875rem] leading-relaxed text-white/55">
+                            {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModelToRetryStartupSwitchModels")}
+                          </div>
                         </div>
                         <button
                           onClick={() => {
@@ -11420,7 +11382,9 @@ function GameSurfaceComponent({
                             openSidecarModal(true);
                           }}
                           className="rounded-lg bg-white/10 px-3 py-1.5 text-[0.6875rem] font-medium text-white/80 transition-colors hover:bg-white/20 hover:text-white"
-                        >{localizeUi("ui.game.gamesurfacecomponent.openLocalAiModel")}</button>
+                        >
+                          {localizeUi("ui.game.gamesurfacecomponent.openLocalAiModel")}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -11431,12 +11395,16 @@ function GameSurfaceComponent({
                   <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
                     <div className="flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm">
                       <AlertTriangle size={14} className="shrink-0 text-amber-400" />
-                      <span className="text-xs text-white/70">{localizeUi("ui.game.gamesurfacecomponent.imageGenerationFailed")}</span>
+                      <span className="text-xs text-white/70">
+                        {localizeUi("ui.game.gamesurfacecomponent.imageGenerationFailed")}
+                      </span>
                       <button
                         onClick={() => retryAssetGeneration()}
                         className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
                       >
-                        <RefreshCw size={12} />{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
+                        <RefreshCw size={12} />
+                        {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                      </button>
                       <button
                         onClick={() => {
                           setAssetGenerationFailed(false);
@@ -11456,12 +11424,16 @@ function GameSurfaceComponent({
                   <div className="pointer-events-auto absolute bottom-32 left-1/2 z-30 -translate-x-1/2">
                     <div className="flex items-center gap-3 rounded-xl bg-black/80 px-4 py-2.5 shadow-lg backdrop-blur-sm">
                       <AlertTriangle size={14} className="shrink-0 text-amber-400" />
-                      <span className="text-xs text-white/70">{localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}</span>
+                      <span className="text-xs text-white/70">
+                        {localizeUi("ui.game.gamesurfacecomponent.sceneAnalysisFailed")}
+                      </span>
                       <button
                         onClick={() => retrySceneAnalysis()}
                         className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs text-white/80 transition-colors hover:bg-white/20 hover:text-white"
                       >
-                        <RefreshCw size={12} />{localizeUi("ui.game.gamesurfacecomponent.retry")}</button>
+                        <RefreshCw size={12} />
+                        {localizeUi("ui.game.gamesurfacecomponent.retry")}
+                      </button>
                       <button
                         onClick={() => setSceneAnalysisFailed(false)}
                         className="text-white/40 transition-colors hover:text-white/70"
@@ -11493,66 +11465,56 @@ function GameSurfaceComponent({
 
                   // Choice cards slot — rendered inside GameNarration above the narration box
                   const choicesSlot =
-                    activeChoices && narrationDone
-                      ? compactHudWidgets && !combatUiActive && hudWidgets.length > 0
-                        ? (
-                            <div
-                              data-component="GameSurface.MobileChoiceStage"
-                              className={cn(
-                                "pointer-events-auto mb-2 flex min-h-0 w-full shrink items-stretch gap-1.5 overflow-hidden",
-                                GAME_MOBILE_CHOICE_STAGE_HEIGHT,
-                              )}
-                            >
-                              <div
-                                data-component="GameSurface.MobileWidgetRailLeft"
-                                className="relative z-10 flex shrink-0 items-center"
-                              >
-                                <MobileWidgetPanel
-                                  widgets={normalizedWidgets}
-                                  position="hud_left"
-                                  chatId={activeChatId}
-                                />
-                              </div>
-                              <div
-                                data-component="GameSurface.MobileChoiceStack"
-                                className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
-                              >
-                                <GameChoiceCards
-                                  choices={activeChoices}
-                                  onSelect={handleChoiceSelect}
-                                  onDismiss={handleDismissChoices}
-                                  disabled={isStreaming || !sessionInteractive}
-                                />
-                              </div>
-                              <div
-                                data-component="GameSurface.MobileWidgetRailRight"
-                                className="relative z-10 flex shrink-0 items-center"
-                              >
-                                <MobileWidgetPanel
-                                  widgets={normalizedWidgets}
-                                  position="hud_right"
-                                  chatId={activeChatId}
-                                />
-                              </div>
-                            </div>
-                          )
-                        : (
-                            <div
-                              data-component="GameSurface.MobileChoiceStack"
-                              className={cn(
-                                "pointer-events-auto mb-2 flex min-h-0 w-full shrink justify-center overflow-hidden md:max-h-[min(52dvh,32rem)]",
-                                GAME_MOBILE_CHOICE_STAGE_HEIGHT,
-                              )}
-                            >
-                              <GameChoiceCards
-                                choices={activeChoices}
-                                onSelect={handleChoiceSelect}
-                                onDismiss={handleDismissChoices}
-                                disabled={isStreaming || !sessionInteractive}
-                              />
-                            </div>
-                          )
-                      : undefined;
+                    activeChoices && narrationDone ? (
+                      compactHudWidgets && !combatUiActive && hudWidgets.length > 0 ? (
+                        <div
+                          data-component="GameSurface.MobileChoiceStage"
+                          className={cn(
+                            "pointer-events-auto mb-2 flex min-h-0 w-full shrink items-stretch gap-1.5 overflow-hidden",
+                            GAME_MOBILE_CHOICE_STAGE_HEIGHT,
+                          )}
+                        >
+                          <div
+                            data-component="GameSurface.MobileWidgetRailLeft"
+                            className="relative z-10 flex shrink-0 items-center"
+                          >
+                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_left" chatId={activeChatId} />
+                          </div>
+                          <div
+                            data-component="GameSurface.MobileChoiceStack"
+                            className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+                          >
+                            <GameChoiceCards
+                              choices={activeChoices}
+                              onSelect={handleChoiceSelect}
+                              onDismiss={handleDismissChoices}
+                              disabled={isStreaming || !sessionInteractive}
+                            />
+                          </div>
+                          <div
+                            data-component="GameSurface.MobileWidgetRailRight"
+                            className="relative z-10 flex shrink-0 items-center"
+                          >
+                            <MobileWidgetPanel widgets={normalizedWidgets} position="hud_right" chatId={activeChatId} />
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          data-component="GameSurface.MobileChoiceStack"
+                          className={cn(
+                            "pointer-events-auto mb-2 flex min-h-0 w-full shrink justify-center overflow-hidden md:max-h-[min(52dvh,32rem)]",
+                            GAME_MOBILE_CHOICE_STAGE_HEIGHT,
+                          )}
+                        >
+                          <GameChoiceCards
+                            choices={activeChoices}
+                            onSelect={handleChoiceSelect}
+                            onDismiss={handleDismissChoices}
+                            disabled={isStreaming || !sessionInteractive}
+                          />
+                        </div>
+                      )
+                    ) : undefined;
 
                   const skillCheckSlot = pendingSkillCheck ? (
                     <GameSkillCheckResult result={pendingSkillCheck} onDismiss={() => setPendingSkillCheck(null)} />
@@ -11567,7 +11529,9 @@ function GameSurfaceComponent({
                       <Suspense
                         fallback={
                           <div className="flex h-full flex-1 items-center justify-center text-sm text-white/70">
-                            <Loader2 size={15} className="mr-2 animate-spin" />{localizeUi("ui.game.gamesurfacecomponent.loadingReplay")}</div>
+                            <Loader2 size={15} className="mr-2 animate-spin" />
+                            {localizeUi("ui.game.gamesurfacecomponent.loadingReplay")}
+                          </div>
                         }
                       >
                         <GameSessionReplay
@@ -11601,7 +11565,9 @@ function GameSurfaceComponent({
                           className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-black/65 px-3 py-1.5 text-xs font-semibold text-white/80 shadow-lg backdrop-blur-md transition-colors hover:bg-black/80 hover:text-white"
                           title={localizeUi("ui.game.gamesurfacecomponent.openCombatLogs")}
                         >
-                          <ScrollText size={13} />{localizeUi("ui.game.gamesurfacecomponent.logs")}</button>
+                          <ScrollText size={13} />
+                          {localizeUi("ui.game.gamesurfacecomponent.logs")}
+                        </button>
                         <button
                           type="button"
                           onClick={handleReturnToPreCombatTurn}
@@ -11609,7 +11575,9 @@ function GameSurfaceComponent({
                           className="flex items-center gap-1.5 rounded-lg border border-amber-300/25 bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-100 shadow-lg backdrop-blur-md transition-colors hover:bg-amber-500/30 disabled:opacity-50"
                           title={localizeUi("ui.game.gamesurfacecomponent.exitCombatAndRemoveTheTurnThatStartedIt")}
                         >
-                          <RotateCcw size={13} />{localizeUi("ui.game.gamesurfacecomponent.previousTurn")}</button>
+                          <RotateCcw size={13} />
+                          {localizeUi("ui.game.gamesurfacecomponent.previousTurn")}
+                        </button>
                       </>
                     );
 
@@ -11617,7 +11585,9 @@ function GameSurfaceComponent({
                       <div className="relative h-full min-h-0">
                         <Suspense
                           fallback={
-                            <div className="flex h-full items-center justify-center text-sm text-white/70">{localizeUi("ui.game.gamesurfacecomponent.loadingCombat")}</div>
+                            <div className="flex h-full items-center justify-center text-sm text-white/70">
+                              {localizeUi("ui.game.gamesurfacecomponent.loadingCombat")}
+                            </div>
                           }
                         >
                           {effectiveCombatStyle === "tactical" ? (
@@ -11870,7 +11840,9 @@ function GameSurfaceComponent({
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div className="flex items-center gap-2">
                           <ScrollText size={16} className="text-[var(--muted-foreground)]" />
-                          <span className="text-sm font-semibold text-[var(--foreground)]">{localizeUi("ui.game.gamesurfacecomponent.combatLogs")}</span>
+                          <span className="text-sm font-semibold text-[var(--foreground)]">
+                            {localizeUi("ui.game.gamesurfacecomponent.combatLogs")}
+                          </span>
                         </div>
                         <button
                           type="button"
@@ -11893,7 +11865,9 @@ function GameSurfaceComponent({
                         }}
                       >
                         {combatLogEntries.length === 0 ? (
-                          <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesurfacecomponent.noLogsYet")}</p>
+                          <p className="text-sm text-[var(--muted-foreground)]">
+                            {localizeUi("ui.game.gamesurfacecomponent.noLogsYet")}
+                          </p>
                         ) : (
                           <>
                             {hiddenCombatLogCount > 0 && (
@@ -11907,7 +11881,9 @@ function GameSurfaceComponent({
                                     );
                                   }}
                                   className="rounded-full border border-white/10 bg-black/55 px-3 py-1.5 text-xs font-medium text-white/70 shadow-lg transition-colors hover:bg-white/10 hover:text-white"
-                                >{localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}{hiddenCombatLogCount})
+                                >
+                                  {localizeUi("ui.game.gamesurfacecomponent.showMoreOlderLogs")}
+                                  {hiddenCombatLogCount})
                                 </button>
                               </div>
                             )}
@@ -12076,20 +12052,29 @@ function GameSurfaceComponent({
 
       {imagePromptReviewModal}
 
-      <Modal open={interruptModalOpen} onClose={closeInterruptModal} title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")} width="max-w-md">
+      <Modal
+        open={interruptModalOpen}
+        onClose={closeInterruptModal}
+        title={localizeUi("ui.game.gamesurfacecomponent.attemptToInterrupt")}
+        width="max-w-md"
+      >
         <div className="flex flex-col gap-4">
           <div className="flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/15">
               <AlertTriangle size="1.125rem" className="text-red-300" />
             </div>
-            <p className="text-sm text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesurfacecomponent.interruptionAttemptsCanGoBadlyDependingOnTheSituation")}</p>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              {localizeUi("ui.game.gamesurfacecomponent.interruptionAttemptsCanGoBadlyDependingOnTheSituation")}
+            </p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <button
               onClick={closeInterruptModal}
               className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)]"
-            >{localizeUi("ui.game.gamesurfacecomponent.no")}</button>
+            >
+              {localizeUi("ui.game.gamesurfacecomponent.no")}
+            </button>
             <button
               onClick={() => confirmInterrupt("force")}
               className="rounded-lg px-3 py-1.5 text-xs font-semibold ring-1 transition-colors"
@@ -12100,12 +12085,16 @@ function GameSurfaceComponent({
                 boxShadow: "0 0 0 1px rgba(32, 194, 14, 0.35) inset",
               }}
               title={localizeUi("ui.game.gamesurfacecomponent.cutInWithoutTellingTheGmItWasAn")}
-            >{localizeUi("ui.game.gamesurfacecomponent.forceInterrupt")}</button>
+            >
+              {localizeUi("ui.game.gamesurfacecomponent.forceInterrupt")}
+            </button>
             <button
               onClick={() => confirmInterrupt("risky")}
               className="rounded-lg bg-red-500/20 px-3 py-1.5 text-xs font-semibold text-red-200 ring-1 ring-red-500/40 transition-colors hover:bg-red-500/30"
               title={localizeUi("ui.game.gamesurfacecomponent.attemptAnInFictionInterruptionOutcomesCanFail")}
-            >{localizeUi("ui.game.gamesurfacecomponent.yes")}</button>
+            >
+              {localizeUi("ui.game.gamesurfacecomponent.yes")}
+            </button>
           </div>
         </div>
       </Modal>
@@ -12113,7 +12102,11 @@ function GameSurfaceComponent({
       <Modal
         open={confirmEndSessionOpen}
         onClose={handleCloseEndSessionDialog}
-        title={concludeSession.isPending ?localizeUi("ui.game.gamesurfacecomponent.endingSession") :localizeUi("ui.game.gamesurfacecomponent.endSession")}
+        title={
+          concludeSession.isPending
+            ? localizeUi("ui.game.gamesurfacecomponent.endingSession")
+            : localizeUi("ui.game.gamesurfacecomponent.endSession")
+        }
         width="max-w-md"
       >
         <div className="flex flex-col gap-4">
@@ -12123,8 +12116,8 @@ function GameSurfaceComponent({
             </div>
             <p className="text-sm text-[var(--muted-foreground)]">
               {concludeSession.isPending
-                ?localizeUi("ui.game.gamesurfacecomponent.endingThisSessionAndGeneratingItsSummaryPleaseWait")
-                :localizeUi("ui.game.gamesurfacecomponent.areYouSureYouWantToEndThisSession")}
+                ? localizeUi("ui.game.gamesurfacecomponent.endingThisSessionAndGeneratingItsSummaryPleaseWait")
+                : localizeUi("ui.game.gamesurfacecomponent.areYouSureYouWantToEndThisSession")}
             </p>
           </div>
 
@@ -12136,7 +12129,9 @@ function GameSurfaceComponent({
 
           {!concludeSession.isPending && (
             <label className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-[var(--foreground)]">{localizeUi("ui.game.gamesurfacecomponent.whatDoYouWantToHappenInTheNext")}</span>
+              <span className="text-xs font-medium text-[var(--foreground)]">
+                {localizeUi("ui.game.gamesurfacecomponent.whatDoYouWantToHappenInTheNext")}
+              </span>
               <textarea
                 value={nextSessionRequest}
                 onChange={(event) => setNextSessionRequest(event.target.value)}
@@ -12153,13 +12148,17 @@ function GameSurfaceComponent({
               onClick={handleCloseEndSessionDialog}
               disabled={concludeSession.isPending}
               className="rounded-lg bg-zinc-950/80 px-3 py-1.5 text-xs font-medium text-[var(--muted-foreground)] ring-1 ring-zinc-700/80 transition-colors hover:bg-zinc-800/80 hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-50"
-            >{localizeUi("chat.delete.dialog.cancel")}</button>
+            >
+              {localizeUi("chat.delete.dialog.cancel")}
+            </button>
             <button
               onClick={handleConfirmEndSession}
               disabled={concludeSession.isPending}
               className="rounded-lg bg-[var(--destructive)]/15 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] ring-1 ring-[var(--destructive)]/25 transition-colors hover:bg-[var(--destructive)]/25 disabled:opacity-50"
             >
-              {concludeSession.isPending ?localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f") :localizeUi("ui.game.gamesurfacecomponent.endSession")}
+              {concludeSession.isPending
+                ? localizeUi("ui.game.gamesurfacecomponent.endingSession_06ef62f")
+                : localizeUi("ui.game.gamesurfacecomponent.endSession")}
             </button>
           </div>
         </div>

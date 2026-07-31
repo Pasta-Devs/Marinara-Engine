@@ -6158,6 +6158,60 @@ test("Browser labels and the Persona full library stay available across viewport
   expect(errors.filter((error) => !error.includes("status of 503 (Service Unavailable)"))).toEqual([]);
 });
 
+test("Character and Persona sidebars find cards by creator", async ({ page, request }, testInfo) => {
+  const suffix = `${testInfo.project.name}-${Date.now().toString(36)}`;
+  const characterName = `Sidebar Character ${suffix}`;
+  const characterCreator = `Character Author ${suffix}`;
+  const personaName = `Sidebar Persona ${suffix}`;
+  const personaCreator = `Persona Author ${suffix}`;
+
+  const characterResponse = await request.post("/api/characters", {
+    data: {
+      data: {
+        name: characterName,
+        creator: characterCreator,
+        description: "The name deliberately does not contain the creator.",
+      },
+    },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+
+  const personaResponse = await request.post("/api/characters/personas", {
+    data: {
+      name: personaName,
+      creator: personaCreator,
+      description: "The name deliberately does not contain the creator.",
+    },
+  });
+  expect(personaResponse.ok()).toBeTruthy();
+  const persona = (await personaResponse.json()) as { id: string };
+
+  const mobile = testInfo.project.name.includes("mobile");
+  const rightPanel = page.locator(`[data-component="${mobile ? "RightPanelMobile" : "RightPanelDesktop"}"]`);
+
+  try {
+    await page.goto("/");
+
+    await page.locator('[data-tour="panel-characters"]').click();
+    await expect(rightPanel).toBeVisible();
+    await rightPanel.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterCreator);
+    await expect(
+      rightPanel.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`),
+    ).toContainText(characterName);
+
+    await page.locator('[data-tour="panel-personas"]').click();
+    await expect(rightPanel).toBeVisible();
+    await rightPanel.getByPlaceholder("Search personas").fill(personaCreator);
+    await expect(rightPanel.locator('[data-touch-drag-card="persona"]').filter({ hasText: personaName })).toBeVisible();
+  } finally {
+    await Promise.all([
+      request.delete(`/api/characters/${character.id}`).catch(() => undefined),
+      request.delete(`/api/characters/personas/${persona.id}`).catch(() => undefined),
+    ]);
+  }
+});
+
 test("downloadable agent catalog is usable on desktop and mobile", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const catalogPackages = [
@@ -7518,6 +7572,17 @@ test("Game setup only shows features owned by installed agents", async ({ page, 
     await expect(dialog.getByRole("heading", { name: "Features", exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: /^Enable Agents\b/u }).click();
     await expect(dialog.getByText("Hierarchical world map", { exact: true })).toBeVisible();
+    const manualMapButton = dialog.getByRole("button", { name: /^Create manually\b/u });
+    const aiMapButton = dialog.getByRole("button", { name: /^Draft with AI\b/u });
+    await expect(manualMapButton).toBeVisible();
+    await expect(manualMapButton).toHaveAttribute("aria-pressed", "false");
+    await manualMapButton.click();
+    await expect(manualMapButton).toHaveAttribute("aria-pressed", "true");
+    await expect(aiMapButton).toHaveAttribute("aria-pressed", "false");
+    await aiMapButton.click();
+    await expect(aiMapButton).toHaveAttribute("aria-pressed", "true");
+    await expect(manualMapButton).toHaveAttribute("aria-pressed", "false");
+    await expect(dialog.getByText("Map size", { exact: true })).toBeVisible();
     expect(errors).toEqual([]);
   } finally {
     await request.delete(`/api/chats/${chat.id}`, { timeout: 10_000 });
@@ -7607,6 +7672,119 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
   } finally {
     if (chatId) await request.delete(`/api/chats/${chatId}`);
     if (agentId) await request.delete(`/api/agents/${agentId}`);
+  }
+});
+
+test("Secret Plot run interval stays editable across repeated commits", async ({ page, request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Secret Plot interval editing is covered on desktop.");
+
+  let chatId: string | undefined;
+  try {
+    const chatResponse = await request.post("/api/chats", {
+      data: { name: "Secret Plot Interval Smoke", mode: "roleplay", characterIds: [] },
+    });
+    expect(chatResponse.ok()).toBeTruthy();
+    const chat = (await chatResponse.json()) as { id: string };
+    chatId = chat.id;
+    const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: {
+        enableAgents: true,
+        activeAgentIds: ["director"],
+        narrativeDirectorSecretPlotEnabled: true,
+        narrativeDirectorSecretPlotRunInterval: 8,
+      },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+
+    const readRunInterval = async () => {
+      const response = await request.get(`/api/chats/${chat.id}`);
+      if (!response.ok()) return null;
+      const current = (await response.json()) as { metadata?: unknown };
+      const metadata =
+        typeof current.metadata === "string"
+          ? (JSON.parse(current.metadata) as Record<string, unknown>)
+          : ((current.metadata ?? {}) as Record<string, unknown>);
+      return metadata.narrativeDirectorSecretPlotRunInterval;
+    };
+
+    await page.route("**/api/capability-packages/agents", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "director",
+            name: "Narrative Director",
+            description: "Creates one-shot story directions.",
+            author: "Pasta Devs",
+            phase: "pre_generation",
+            execution: "host",
+            enabledByDefault: false,
+            category: "writer",
+            modeAllowlist: ["roleplay"],
+            defaultPromptTemplate: "Return the next story direction.",
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/capability-packages/installed", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    await page.route("**/api/agents", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    await page.addInitScript((chatId) => {
+      localStorage.setItem("marinara-active-chat-id", chatId);
+    }, chat.id);
+
+    await page.goto("/");
+    await page.getByRole("button", { name: "Chat Settings" }).click();
+    const drawer = page.locator(".mari-chat-settings-drawer");
+    const agentsSection = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents/ });
+    if ((await agentsSection.getAttribute("aria-expanded")) !== "true") await agentsSection.click();
+
+    const directorCard = drawer.locator(`#chat-settings-agent-menu-${chat.id}-director`);
+    const intervalInput = directorCard.locator("label").filter({ hasText: "Run Interval" }).locator("input");
+    await expect(intervalInput).toHaveValue("8");
+
+    await intervalInput.fill("3");
+    await intervalInput.blur();
+    await expect.poll(readRunInterval).toBe(3);
+    await expect(intervalInput).toHaveValue("3");
+
+    await intervalInput.fill("11");
+    await intervalInput.press("Enter");
+    await expect.poll(readRunInterval).toBe(11);
+    await expect(intervalInput).toHaveValue("11");
+
+    await intervalInput.fill("0");
+    await intervalInput.blur();
+    await expect.poll(readRunInterval).toBe(1);
+    await expect(intervalInput).toHaveValue("1");
+
+    await intervalInput.fill("101");
+    await intervalInput.press("Enter");
+    await expect.poll(readRunInterval).toBe(100);
+    await expect(intervalInput).toHaveValue("100");
+
+    await page.reload();
+    await page.getByRole("button", { name: "Chat Settings" }).click();
+    const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
+    const reloadedAgentsSection = reloadedDrawer
+      .locator('[role="button"][aria-expanded]')
+      .filter({ hasText: /^Agents/ });
+    if ((await reloadedAgentsSection.getAttribute("aria-expanded")) !== "true") {
+      await reloadedAgentsSection.click();
+    }
+    await expect(
+      reloadedDrawer
+        .locator(`#chat-settings-agent-menu-${chat.id}-director`)
+        .locator("label")
+        .filter({ hasText: "Run Interval" })
+        .locator("input"),
+    ).toHaveValue("100");
+  } finally {
+    if (chatId) await request.delete(`/api/chats/${chatId}`, { timeout: 10_000 });
   }
 });
 
@@ -7764,7 +7942,7 @@ test("Roleplay and Game chat settings link empty agent libraries to Download Age
   }
 });
 
-test("Illustrator owns conditional media subsections and agent removal stays away from collapse", async ({
+test("Illustrator owns the merged scene-video and Storyboard subsections while agent removal stays away from collapse", async ({
   page,
   request,
 }, testInfo) => {
@@ -7789,9 +7967,9 @@ test("Illustrator owns conditional media subsections and agent removal stays awa
       gameSessionNumber: 1,
       gameIntroPresented: true,
       enableAgents: true,
-      activeAgentIds: ["illustrator"],
+      activeAgentIds: ["illustrator", "storyboard"],
+      enableSpriteGeneration: true,
       gameSceneVideosEnabled: false,
-      gameStoryboardsEnabled: false,
     },
   });
   expect(gameMetadataResponse.ok()).toBeTruthy();
@@ -7811,12 +7989,24 @@ test("Illustrator owns conditional media subsections and agent removal stays awa
     modeAllowlist: ["roleplay", "game"],
     defaultPromptTemplate: "Return a scene image prompt.",
   };
+  const storyboardManifest = {
+    id: "storyboard",
+    name: "Storyboard",
+    description: "Plans still and animated Game keyframes.",
+    author: "Pasta Devs",
+    phase: "post_processing",
+    execution: "host",
+    enabledByDefault: false,
+    category: "misc",
+    modeAllowlist: ["game"],
+    defaultPromptTemplate: "Plan storyboard keyframes.",
+  };
 
   await page.route("**/api/capability-packages/agents", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify([illustratorManifest]),
+      body: JSON.stringify([illustratorManifest, storyboardManifest]),
     });
   });
   await page.route("**/api/capability-packages/installed", async (route) => {
@@ -7901,13 +8091,51 @@ test("Illustrator owns conditional media subsections and agent removal stays awa
 
     const gameIllustratorCard = drawer.locator(`#chat-settings-agent-menu-${gameChat.id}-illustrator`);
     const featureToggles = gameIllustratorCard.locator('[data-agent-settings-feature-toggles="illustrator"]');
+    const storyboardFeatureToggles = gameIllustratorCard.locator('[data-agent-settings-feature-toggles="storyboard"]');
     const sceneVideosToggle = featureToggles.getByRole("checkbox", { name: /Enable Scene Videos/ });
-    const storyboardsToggle = featureToggles.getByRole("checkbox", { name: /Enable Storyboards/ });
+    const storyboardsToggle = storyboardFeatureToggles.getByRole("checkbox", { name: /Enable Storyboards/ });
     await expect(gameIllustratorCard).toBeVisible();
     await expect(sceneVideosToggle).not.toBeChecked();
-    await expect(storyboardsToggle).not.toBeChecked();
+    await expect(storyboardsToggle).toBeChecked();
     await expect(gameIllustratorCard.locator('[data-agent-settings-subsection="scene-videos"]')).toHaveCount(0);
-    await expect(gameIllustratorCard.locator('[data-agent-settings-subsection="storyboards"]')).toHaveCount(0);
+    const storyboardsSubsection = gameIllustratorCard.locator('[data-agent-settings-subsection="storyboards"]');
+    await expect(storyboardsSubsection).toBeVisible();
+    await expect(storyboardsSubsection.getByRole("heading", { name: "Storyboards" })).toBeVisible();
+    await expect(
+      storyboardsSubsection.getByRole("checkbox", { name: /Automatic Storyboard Illustrations/ }),
+    ).toBeChecked();
+    const automaticAnimationsToggle = storyboardsSubsection.getByRole("checkbox", {
+      name: /Automatic Storyboard Animations/,
+    });
+    await expect(automaticAnimationsToggle).not.toBeChecked();
+    const keyframeSlider = storyboardsSubsection.getByRole("slider", { name: "Keyframes per Turn" });
+    const keyframeControl = storyboardsSubsection
+      .locator("label")
+      .filter({ hasText: "Keyframes per Turn" })
+      .locator("..");
+    await expect(keyframeSlider).toHaveValue("3");
+    await keyframeSlider.fill("5");
+    await expect(keyframeSlider).toHaveValue("5");
+    await keyframeControl.getByRole("button", { name: "Use agent default" }).click();
+    await expect(keyframeSlider).toHaveValue("3");
+    await expect(keyframeControl.getByText("Using agent default", { exact: true })).toBeVisible();
+    const durationInput = storyboardsSubsection.getByRole("spinbutton", { name: "Animation Clip Duration" });
+    const durationControl = storyboardsSubsection
+      .locator("label")
+      .filter({ hasText: "Animation Clip Duration" })
+      .locator("..");
+    await expect(durationInput).toBeDisabled();
+    await storyboardsSubsection.getByText("Automatic Storyboard Animations", { exact: true }).click();
+    await expect(automaticAnimationsToggle).toBeChecked();
+    await expect(durationInput).toBeEnabled();
+    await durationInput.fill("9");
+    await durationInput.blur();
+    await expect(durationInput).toHaveValue("9");
+    await durationControl.getByRole("button", { name: "Use agent default" }).click();
+    await expect(durationInput).toHaveValue("6");
+    await expect(durationControl.getByText("Using agent default", { exact: true })).toBeVisible();
+    await expect(gameIllustratorCard.getByText("Attach Card Appearance", { exact: true })).toHaveCount(1);
+    await expect(gameIllustratorCard.getByText("Send Avatar References", { exact: true })).toHaveCount(1);
 
     await featureToggles.getByText("Enable Scene Videos", { exact: true }).click();
     const gameSceneVideosSubsection = gameIllustratorCard.locator('[data-agent-settings-subsection="scene-videos"]');
@@ -7915,13 +8143,6 @@ test("Illustrator owns conditional media subsections and agent removal stays awa
     await expect(gameSceneVideosSubsection).toBeVisible();
     await expect(gameSceneVideosSubsection.getByRole("heading", { name: "Scene Videos" })).toBeVisible();
     await expect(gameSceneVideosSubsection.locator("[data-agent-settings-subsection-header] > svg")).toHaveCount(0);
-
-    await featureToggles.getByText("Enable Storyboards", { exact: true }).click();
-    const gameStoryboardsSubsection = gameIllustratorCard.locator('[data-agent-settings-subsection="storyboards"]');
-    await expect(storyboardsToggle).toBeChecked();
-    await expect(gameStoryboardsSubsection).toBeVisible();
-    await expect(gameStoryboardsSubsection.getByRole("heading", { name: "Storyboards" })).toBeVisible();
-    await expect(gameStoryboardsSubsection.locator("[data-agent-settings-subsection-header] > svg")).toHaveCount(0);
     expect(errors).toEqual([]);
   } finally {
     await Promise.all([chat.id, gameChat.id].map((chatId) => request.delete(`/api/chats/${chatId}`)));
@@ -8122,11 +8343,16 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
       const agentsSection = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents/ });
       await agentsSection.click();
       if (chat.mode === "roleplay") {
-        await drawer.getByRole("button", { name: /Tracker Agents/ }).click();
+        const mapsMenuLink = drawer.locator('button[title="Jump to Hierarchical Maps"]');
+        await expect(mapsMenuLink).toBeVisible();
+        await mapsMenuLink.click();
+      } else {
+        await expect(drawer.locator('button[title="Jump to Hierarchical Maps"]')).toHaveCount(0);
       }
 
       const agentEntry = drawer.locator('[data-chat-agent-entry="hierarchical-maps"]');
       await expect(agentEntry, `${chat.mode} Hierarchical Maps agent entry`).toBeVisible();
+      if (chat.mode === "roleplay") await expect(agentEntry).toBeFocused();
       await expect(agentEntry.getByTestId("hierarchical-maps-controls")).toBeVisible();
       await expect(drawer.locator("marinara-capability-hierarchical-maps")).toHaveCount(1);
       await expect(agentEntry.locator("marinara-capability-hierarchical-maps")).toHaveCount(1);
@@ -11874,6 +12100,47 @@ test("character editor preserves unsaved fields across responsive layout changes
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect(desktopEditor).toBeVisible();
     await expect(desktopEditor.locator(".mari-editor-title-input")).toHaveValue(unsavedName);
+  } finally {
+    await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+  }
+});
+
+test("character card fields can preview Markdown without changing their source", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "The shared field preview needs one desktop browser proof.");
+
+  const characterName = `Markdown Character ${Date.now().toString(36)}`;
+  const response = await request.post("/api/characters", {
+    data: {
+      data: {
+        name: characterName,
+        description: "Saved description",
+      },
+    },
+  });
+  expect(response.ok()).toBeTruthy();
+  const character = (await response.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-characters"]').click();
+    await page.locator(`[data-touch-drag-card="character"][data-character-id="${character.id}"]`).click();
+
+    const editor = page.locator('[data-component="DetailEditor"]');
+    await editor.getByRole("button", { name: "Card", exact: true }).click();
+    const description = editor.locator("#character-card-description");
+    const source = "**Bold detail**\n\n- First point";
+    await description.locator("textarea").fill(source);
+    await description.getByRole("button", { name: "Preview Markdown", exact: true }).click();
+
+    const preview = description.getByRole("region", { name: "Markdown preview", exact: true });
+    await expect(preview.locator("strong")).toHaveText("Bold detail");
+    await expect(preview.locator("li")).toHaveText("First point");
+
+    await description.getByRole("button", { name: "Edit Markdown source", exact: true }).click();
+    await expect(description.locator("textarea")).toHaveValue(source);
   } finally {
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
   }

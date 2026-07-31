@@ -236,6 +236,14 @@ export interface ChatMetadata {
   >;
   /** Compiled enabled rolling summary text for context injection. Derived from summaryEntries when present. */
   summary: string | null;
+  /** Display label for a branch; absent on root chats and older branches. */
+  branchName?: string;
+  /** Immediate source chat for Engine-created branches. */
+  branchParentChatId?: string | null;
+  /** Source message at which an Engine-created branch was forked. */
+  branchParentMessageId?: string | null;
+  /** Copied message corresponding to branchParentMessageId. */
+  branchMessageId?: string | null;
   /** Structured rolling summary entries. Missing means legacy summary-only metadata. */
   summaryEntries?: ChatSummaryEntry[];
   /** Recent message count used by manual rolling summary generation and automatic summaries. */
@@ -519,6 +527,8 @@ export interface ChatMetadata {
   gameMaps?: import("./game.js").GameMap[];
   /** ID of the map the party is currently on. */
   activeGameMapId?: string | null;
+  /** Inactive recovery map retained only until an initial hierarchical map is saved or Game start falls back. */
+  gameInitialMapFallback?: import("./game.js").GameMap | null;
   /** Summaries of all previous sessions */
   gamePreviousSessionSummaries?: import("./game.js").SessionSummary[];
   /** GM-only: overarching story arc and plot (never sent to party agent) */

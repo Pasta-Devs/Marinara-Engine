@@ -23,9 +23,10 @@ type CapabilityElementNode = HTMLElement & {
 
 interface CapabilityElementProps {
   packageId: string;
-  view: "surface" | "setup" | "settings" | "toolbar" | "detail" | "workspace" | "runtime" | "world-map";
+  view: "surface" | "setup" | "setup-apply" | "settings" | "toolbar" | "detail" | "workspace" | "runtime" | "world-map";
   capabilityProps?: Record<string, unknown>;
   className?: string;
+  onHostError?: (message: string) => void;
 }
 
 function capabilityTag(packageId: string) {
@@ -268,7 +269,13 @@ function CapabilityFailureState({
   );
 }
 
-export function CapabilityElement({ packageId, view, capabilityProps, className }: CapabilityElementProps) {
+export function CapabilityElement({
+  packageId,
+  view,
+  capabilityProps,
+  className,
+  onHostError,
+}: CapabilityElementProps) {
   const { i18n: localization } = useTranslation();
   const ref = useRef<CapabilityElementNode | null>(null);
   const clientModule = useCapabilityClientModuleState(packageId);
@@ -293,6 +300,11 @@ export function CapabilityElement({ packageId, view, capabilityProps, className 
   useEffect(() => {
     setRuntimeError(null);
   }, [clientModule.version, packageId]);
+
+  useEffect(() => {
+    const message = runtimeError ?? (clientModule.status === "error" ? clientModule.error : null);
+    if (message) onHostError?.(message);
+  }, [clientModule.error, clientModule.status, onHostError, runtimeError]);
 
   useLayoutEffect(() => {
     if (!ref.current) return;

@@ -5,6 +5,7 @@ import { api } from "../lib/api-client";
 export const gameStoryboardKeys = {
   all: ["game", "storyboards"] as const,
   chat: (chatId: string) => [...gameStoryboardKeys.all, chatId] as const,
+  list: (chatId: string) => [...gameStoryboardKeys.chat(chatId), "list"] as const,
   turn: (chatId: string, messageId: string, swipeIndex: number) =>
     [...gameStoryboardKeys.chat(chatId), "turn", messageId, swipeIndex] as const,
 };
@@ -15,7 +16,7 @@ export type GenerateGameTurnStoryboardInput = {
   swipeIndex?: number;
   sections?: Array<{
     index: number;
-    kind: "narration" | "dialogue" | "readable" | "system";
+    kind: "narration" | "dialogue" | "readable" | "system" | "user" | "assistant";
     speaker?: string | null;
     content: string;
   }>;
@@ -23,6 +24,7 @@ export type GenerateGameTurnStoryboardInput = {
   durationSeconds?: number;
   aspectRatio?: GameSceneVideoAspectRatio;
   generateVideos?: boolean;
+  automatic?: boolean;
   plannedStoryboard?: unknown;
   promptOverrides?: Array<{
     id: string;
@@ -51,6 +53,22 @@ export function isGameTurnStoryboardRendering(storyboard: GameTurnStoryboard | n
 
 function hasRenderingStoryboard(storyboards: GameTurnStoryboard[] | undefined): boolean {
   return storyboards?.some(isGameTurnStoryboardRendering) ?? false;
+}
+
+export function useGameChatStoryboards(chatId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: gameStoryboardKeys.list(chatId ?? ""),
+    queryFn: async () => {
+      const result = await api.get<{ storyboards: GameTurnStoryboard[] }>(`/game/storyboards/${chatId}`);
+      return result.storyboards;
+    },
+    enabled: enabled && !!chatId,
+    refetchInterval: (query) => {
+      const storyboards = query.state.data as GameTurnStoryboard[] | undefined;
+      return hasRenderingStoryboard(storyboards) ? 2500 : false;
+    },
+    staleTime: 30_000,
+  });
 }
 
 export function useGameTurnStoryboards(
@@ -84,7 +102,10 @@ export function useGameTurnStoryboards(
 export function useGenerateGameTurnStoryboard() {
   return useMutation({
     mutationFn: (input: GenerateGameTurnStoryboardInput) =>
-      api.post<{ storyboard: GameTurnStoryboard }>("/game/storyboard/generate", input),
+      api.post<{ storyboard: GameTurnStoryboard } | { skipped: true; reason: "manual" | "interval" | "duplicate" }>(
+        "/game/storyboard/generate",
+        input,
+      ),
   });
 }
 

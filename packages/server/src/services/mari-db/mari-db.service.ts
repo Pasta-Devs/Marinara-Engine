@@ -25,6 +25,7 @@ import {
   PROFESSOR_MARI_ID,
   createPersonalExtensionSchema,
   normalizeLorebookCategory,
+  normalizePersonalExtensionCapabilities,
   type MariDbCommandResult,
   type MariDbDiffSummary,
   type MariDbHistoryEntry,
@@ -303,7 +304,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   agent_runs: ["resultData"],
   agent_memory: ["value"],
   custom_tools: ["parametersSchema"],
-  installed_extensions: ["revisions"],
+  installed_extensions: ["capabilities", "revisions"],
   game_state_snapshots: [
     "presentCharacters",
     "recentEvents",
@@ -558,6 +559,15 @@ function normalizeOffset(value: unknown) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return 0;
   return Math.floor(parsed);
+}
+
+function parseChatRangeInteger(value: string | undefined, flag: string, options: { minimum: number; maximum: number }) {
+  if (value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < options.minimum || parsed > options.maximum) {
+    throw new Error(`--${flag} must be an integer from ${options.minimum} to ${options.maximum}`);
+  }
+  return parsed;
 }
 
 function validationFromIssues(issues: MariDbValidationIssue[]): MariDbValidationResult {
@@ -2439,12 +2449,22 @@ export class MariDbService {
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
     const table = "installed_extensions";
+    const capabilitiesFromRow = (row: Row) => {
+      try {
+        return normalizePersonalExtensionCapabilities(
+          typeof row.capabilities === "string" ? JSON.parse(row.capabilities) : row.capabilities,
+        );
+      } catch {
+        return [];
+      }
+    };
     const summarize = (row: Row) => ({
       id: row.id,
       name: row.name,
       version: row.version ?? null,
       description: row.description ?? "",
       runtime: row.runtime === "server" ? "server" : "client",
+      capabilities: capabilitiesFromRow(row),
       enabled: row.enabled === "true",
       contentHash: row.contentHash ?? null,
       approvedHash: row.approvedHash ?? null,
@@ -2455,6 +2475,7 @@ export class MariDbService {
       const runtime = row.runtime === "server" ? "server" : "client";
       return {
         runtime,
+        capabilities: runtime === "client" ? capabilitiesFromRow(row) : [],
         css: runtime === "client" && typeof row.css === "string" ? row.css : null,
         js: runtime === "client" && typeof row.js === "string" ? row.js : null,
         serverJs: runtime === "server" && typeof row.serverJs === "string" ? row.serverJs : null,
@@ -2489,6 +2510,7 @@ export class MariDbService {
           "version",
           "description",
           "runtime",
+          "capabilities",
           "css",
           "js",
           "serverJs",
@@ -2497,6 +2519,7 @@ export class MariDbService {
         const runtime = parsed.runtime === "server" ? "server" : "client";
         const executable = {
           runtime,
+          capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
           css: runtime === "client" ? (parsed.css ?? null) : null,
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -2509,6 +2532,7 @@ export class MariDbService {
           version: parsed.version == null ? null : String(parsed.version),
           description: parsed.description ?? "",
           ...executable,
+          capabilities: JSON.stringify(executable.capabilities),
           enabled: "false",
           contentHash: computePersonalExtensionHash(executable),
           approvedHash: null,
@@ -2545,6 +2569,7 @@ export class MariDbService {
           "version",
           "description",
           "runtime",
+          "capabilities",
           "css",
           "js",
           "serverJs",
@@ -2558,12 +2583,19 @@ export class MariDbService {
           version: textOrFallback("version", existing.version),
           description: textOrFallback("description", existing.description),
           runtime,
+          capabilities:
+            runtime === "client"
+              ? data.capabilities === undefined
+                ? capabilitiesFromRow(existing)
+                : normalizePersonalExtensionCapabilities(data.capabilities)
+              : [],
           css: runtime === "client" ? textOrFallback("css", existing.css) : null,
           js: runtime === "client" ? textOrFallback("js", existing.js) : null,
           serverJs: runtime === "server" ? textOrFallback("serverJs", existing.serverJs) : null,
         });
         const executable = {
           runtime,
+          capabilities: runtime === "client" ? normalizePersonalExtensionCapabilities(parsed.capabilities) : [],
           css: runtime === "client" ? (parsed.css ?? null) : null,
           js: runtime === "client" ? (parsed.js ?? null) : null,
           serverJs: runtime === "server" ? (parsed.serverJs ?? null) : null,
@@ -2596,6 +2628,7 @@ export class MariDbService {
           version: parsed.version == null ? null : String(parsed.version),
           description: parsed.description ?? "",
           ...executable,
+          capabilities: JSON.stringify(executable.capabilities),
           enabled: executableChanged ? "false" : existing.enabled,
           contentHash,
           approvedHash: executableChanged ? null : existing.approvedHash,
@@ -3979,25 +4012,44 @@ export class MariDbService {
       }
       case "messages": {
         const chatId = parsed.positionals[0];
-        if (!chatId) throw new Error("Usage: mari chats messages <chat-id> [--limit <n>] [--offset <n>] [--tail]");
+        if (!chatId) {
+          throw new Error(
+            "Usage: mari chats messages <chat-id> [--last <n> | --after-post <n>] [--limit <n>] [--offset <n>] [--tail]",
+          );
+        }
         const limitFlag = flagString(flags, "limit");
         const limit = limitFlag !== undefined ? normalizeLimit(limitFlag, 20, 200) : null;
         const offset = normalizeOffset(flagString(flags, "offset"));
         const tail = hasFlag(flags, "tail");
+        const last = parseChatRangeInteger(flagString(flags, "last"), "last", { minimum: 1, maximum: 200 });
+        const afterPost = parseChatRangeInteger(flagString(flags, "after-post"), "after-post", {
+          minimum: 0,
+          maximum: Number.MAX_SAFE_INTEGER,
+        });
+        if (last !== null && afterPost !== null) throw new Error("Use either --last or --after-post, not both");
+        if (afterPost !== null && tail) throw new Error("--after-post cannot be combined with --tail");
         let messages = (await this.rawRows("messages")).filter((m) => m.chatId === chatId);
         messages.sort((a, b) => String(a.createdAt ?? "").localeCompare(String(b.createdAt ?? "")));
-        if (tail) {
-          const offsetMessages = offset > 0 ? messages.slice(0, Math.max(0, messages.length - offset)) : messages;
-          messages = limit !== null ? offsetMessages.slice(-limit) : offsetMessages;
+        const numberedMessages = messages.map((message, index) => ({ message, postNumber: index + 1 }));
+        let selectedMessages: typeof numberedMessages;
+        if (last !== null || afterPost !== null) {
+          const scopedMessages =
+            last !== null ? numberedMessages.slice(-last) : numberedMessages.slice(afterPost ?? 0);
+          selectedMessages = scopedMessages.slice(offset, limit !== null ? offset + limit : undefined);
+        } else if (tail) {
+          const offsetMessages =
+            offset > 0 ? numberedMessages.slice(0, Math.max(0, numberedMessages.length - offset)) : numberedMessages;
+          selectedMessages = limit !== null ? offsetMessages.slice(-limit) : offsetMessages;
         } else {
-          messages = messages.slice(offset, limit !== null ? offset + limit : undefined);
+          selectedMessages = numberedMessages.slice(offset, limit !== null ? offset + limit : undefined);
         }
-        const result = messages.map((row) => ({
-          id: row.id,
-          role: row.role,
-          characterId: row.characterId ?? null,
-          content: typeof row.content === "string" ? row.content : "",
-          createdAt: row.createdAt,
+        const result = selectedMessages.map(({ message, postNumber }) => ({
+          postNumber,
+          id: message.id,
+          role: message.role,
+          characterId: message.characterId ?? null,
+          content: typeof message.content === "string" ? message.content : "",
+          createdAt: message.createdAt,
         }));
         return { ok: true, mode: "read", command: context.command, output: result };
       }
@@ -5039,7 +5091,9 @@ export class MariDbService {
       "Usage: mari chats <command>",
       "Read:  list [--limit <n>] [--character <id>]",
       "Read:  get <id>",
-      "Read:  messages <chat-id> [--limit <n>] [--offset <n>] [--tail]",
+      "Read:  messages <chat-id> [--last <n> | --after-post <n>] [--limit <n>] [--offset <n>] [--tail]",
+      "       --last counts back from the newest post; --after-post uses the 1-indexed #post shown in chat.",
+      "       Add --limit and advance --offset to page within either requested range.",
       "Read:  search <query> [--limit <n>]",
       "All chat commands are read-only.",
     ].join("\n");

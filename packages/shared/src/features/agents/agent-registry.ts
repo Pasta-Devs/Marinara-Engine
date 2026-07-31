@@ -14,3 +14,8 @@ export function getBuiltInAgentManifest(agentId: string): BuiltInAgentManifest |
 export function isBuiltInAgentRuntimeDisabled(agentId: string): boolean {
   return getBuiltInAgentManifest(agentId)?.runtimeDisabled === true;
 }
+
+/** Dedicated Engine workflows invoke host-managed agents outside the generic agent pipeline. */
+export function isBuiltInAgentHostManaged(agentId: string): boolean {
+  return getBuiltInAgentManifest(agentId)?.execution === "host";
+}

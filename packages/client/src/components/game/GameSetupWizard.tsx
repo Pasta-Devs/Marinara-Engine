@@ -18,7 +18,6 @@ import {
   Plug,
   Image,
   Film,
-  PanelsTopLeft,
   BookOpen,
   Music2,
   Volume2,
@@ -34,13 +33,7 @@ import {
 import {
   ANIME_GAME_PROMPT_TEMPLATE_ID,
   ANIME_GAME_SYSTEM_PROMPT,
-  COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID,
   DEFAULT_GAME_SYSTEM_PROMPT,
-  STORYBOARD_OPTIMIZED_IMAGE_PROMPT_TEMPLATE_ID,
-  GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID,
-  GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
-  GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
   type CharacterGroup,
   type GameInitialSetupLabels,
   type GameSetupConfig,
@@ -85,10 +78,26 @@ import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useUIStore } from "../../stores/ui.store";
 import { parseGameSetupShareFileJson, resolveGameSetupImport } from "../../lib/game-setup-share";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { CapabilityElement } from "../capabilities/CapabilityElement";
 
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
+
+interface CapabilitySetupSelection {
+  kind: "template" | "shared-world";
+  id: string;
+  label: string;
+  payload: unknown;
+}
+
+function normalizeCapabilitySetupSelectionKind(
+  candidate: Record<string, unknown> | null,
+): CapabilitySetupSelection["kind"] | null {
+  if (candidate?.kind === "shared-world") return "shared-world";
+  if (candidate?.kind === undefined || candidate.kind === "template") return "template";
+  return null;
+}
 
 interface GameSetupWizardProps {
   onComplete: (
@@ -96,16 +105,22 @@ interface GameSetupWizardProps {
     preferences: string,
     connections: { gmConnectionId?: string; shareLabels?: GameInitialSetupLabels },
     gameName?: string,
-    mapDraft?: {
-      size: SpatialMapDraftSize;
-      groundingMode: SpatialMapGroundingMode;
-      sourceLorebookIds: string[];
-      instructions?: string;
-    },
+    mapPlan?:
+      | { mode: "manual" }
+      | { mode: "template"; selection: CapabilitySetupSelection }
+      | { mode: "shared-world"; selection: CapabilitySetupSelection }
+      | {
+          mode: "ai";
+          size: SpatialMapDraftSize;
+          groundingMode: SpatialMapGroundingMode;
+          sourceLorebookIds: string[];
+          instructions?: string;
+        },
   ) => void;
   onCancel: () => void;
   isLoading: boolean;
   isDraftingMap: boolean;
+  isLinkingSharedWorld: boolean;
   characters: Array<{
     id: string;
     name: string;
@@ -417,6 +432,7 @@ export function GameSetupWizard({
   onCancel,
   isLoading,
   isDraftingMap,
+  isLinkingSharedWorld,
   characters,
   initialPartyCharacterIds = [],
 }: GameSetupWizardProps) {
@@ -464,11 +480,6 @@ export function GameSetupWizard({
   const [enableLorebookKeeper, setEnableLorebookKeeper] = useState(false);
   const [imageConnectionId, setImageConnectionId] = useState<string | null>(null);
   const [videoConnectionId, setVideoConnectionId] = useState<string | null>(null);
-  const [enableStoryboardIllustrations, setEnableStoryboardIllustrations] = useState(true);
-  const [enableStoryboardAnimations, setEnableStoryboardAnimations] = useState(false);
-  const [storyboardKeyframeCount, setStoryboardKeyframeCount] = useState(
-    GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
-  );
   const [sceneConnectionId, setSceneConnectionId] = useState<string | null>(null);
   const [activeLorebookIds, setActiveLorebookIds] = useState<string[]>([]);
   const [lbSearch, setLbSearch] = useState("");
@@ -480,14 +491,18 @@ export function GameSetupWizard({
   const [gameSpecialInstructions, setGameSpecialInstructions] = useState("");
   const [promptPresetId, setPromptPresetId] = useState<string | null>(null);
   const [promptPresetTouched, setPromptPresetTouched] = useState(false);
+  const [gamePresentation, setGamePresentation] = useState<"standard" | "anime">("standard");
   const [customGamePromptEnabled, setCustomGamePromptEnabled] = useState(false);
   const [gameSystemPromptDraft, setGameSystemPromptDraft] = useState(DEFAULT_GAME_SYSTEM_PROMPT);
   const [gameSystemPromptEdited, setGameSystemPromptEdited] = useState(false);
-  const [gamePresentation, setGamePresentation] = useState<"standard" | "anime">("standard");
   const [language, setLanguage] = useState("English");
   const [startMuted, setStartMuted] = useState(false);
   const [adjustGameAssetsOpen, setAdjustGameAssetsOpen] = useState(false);
   const [draftSpatialMap, setDraftSpatialMap] = useState(false);
+  const [manualSpatialMap, setManualSpatialMap] = useState(false);
+  const [templateSpatialMap, setTemplateSpatialMap] = useState(false);
+  const [spatialTemplatePickerOpen, setSpatialTemplatePickerOpen] = useState(false);
+  const [spatialTemplateSelection, setSpatialTemplateSelection] = useState<CapabilitySetupSelection | null>(null);
   const [spatialMapDraftSize, setSpatialMapDraftSize] = useState<SpatialMapDraftSize>("medium");
   const [spatialMapGroundingMode, setSpatialMapGroundingMode] = useState<SpatialMapGroundingMode>("setup");
   const [spatialMapInstructions, setSpatialMapInstructions] = useState("");
@@ -594,7 +609,6 @@ export function GameSetupWizard({
   const imageConnections = useMemo(() => connections.filter((c) => c.provider === "image_generation"), [connections]);
   const videoConnections = useMemo(() => connections.filter((c) => c.provider === "video_generation"), [connections]);
   const preferredImageConnectionId = useMemo(() => getPreferredConnectionId(imageConnections), [imageConnections]);
-  const preferredVideoConnectionId = useMemo(() => getPreferredConnectionId(videoConnections), [videoConnections]);
   const promptPresets = useMemo(
     () =>
       (promptPresetsList as Array<{
@@ -794,12 +808,6 @@ export function GameSetupWizard({
   }, [enableSpriteGeneration, imageConnectionId, preferredImageConnectionId]);
 
   useEffect(() => {
-    if (enableStoryboardAnimations && !videoConnectionId && preferredVideoConnectionId) {
-      setVideoConnectionId(preferredVideoConnectionId);
-    }
-  }, [enableStoryboardAnimations, preferredVideoConnectionId, videoConnectionId]);
-
-  useEffect(() => {
     if (!promptPresetTouched && !promptPresetId && defaultPreset?.id) {
       setPromptPresetId(defaultPreset.id);
     }
@@ -813,13 +821,17 @@ export function GameSetupWizard({
 
   useEffect(() => {
     if (installedAgentsLoading) return;
-    if (!hierarchicalMapsInstalled) setDraftSpatialMap(false);
+    if (!hierarchicalMapsInstalled) {
+      setDraftSpatialMap(false);
+      setManualSpatialMap(false);
+      setTemplateSpatialMap(false);
+      setSpatialTemplateSelection(null);
+      setSpatialTemplatePickerOpen(false);
+    }
     if (!musicDjInstalled) setEnableSpotifyDj(false);
     if (!lorebookKeeperInstalled) setEnableLorebookKeeper(false);
     if (!illustratorInstalled) {
       setEnableSpriteGeneration(false);
-      setEnableStoryboardIllustrations(false);
-      setEnableStoryboardAnimations(false);
     }
   }, [
     hierarchicalMapsInstalled,
@@ -828,6 +840,35 @@ export function GameSetupWizard({
     lorebookKeeperInstalled,
     musicDjInstalled,
   ]);
+
+  const handleSpatialTemplateSelected = useCallback((selection: unknown) => {
+    const candidate = selection && typeof selection === "object" && !Array.isArray(selection)
+      ? (selection as Record<string, unknown>)
+      : null;
+    const kind = normalizeCapabilitySetupSelectionKind(candidate);
+    if (
+      !candidate ||
+      !kind ||
+      typeof candidate.id !== "string" ||
+      !candidate.id.trim() ||
+      typeof candidate.label !== "string" ||
+      !candidate.label.trim() ||
+      !("payload" in candidate)
+    ) {
+      toast.error(localizeUi("ui.game.gamesetupwizard.theSelectedSavedMapCouldNotBeRead"));
+      return;
+    }
+    setSpatialTemplateSelection({
+      kind,
+      id: candidate.id,
+      label: candidate.label,
+      payload: candidate.payload,
+    });
+    setTemplateSpatialMap(true);
+    setDraftSpatialMap(false);
+    setManualSpatialMap(false);
+    setSpatialTemplatePickerOpen(false);
+  }, [localizeUi]);
 
   const handlePromptPresetChange = useCallback((presetId: string | null) => {
     setPromptPresetTouched(true);
@@ -839,8 +880,6 @@ export function GameSetupWizard({
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
   const musicDjEnabled = enableAgents && musicDjInstalled && enableSpotifyDj;
   const lorebookKeeperEnabled = enableAgents && lorebookKeeperInstalled && enableLorebookKeeper;
-  const storyboardIllustrationsEnabled = illustratorEnabled && enableStoryboardIllustrations;
-  const storyboardAnimationsEnabled = storyboardIllustrationsEnabled && enableStoryboardAnimations && !!videoConnectionId;
 
   const openDownloadAgents = useCallback(() => {
     onCancel();
@@ -853,40 +892,6 @@ export function GameSetupWizard({
     setEnableSpriteGeneration(nextEnabled);
     if (nextEnabled && !imageConnectionId && preferredImageConnectionId) {
       setImageConnectionId(preferredImageConnectionId);
-    }
-    if (nextEnabled) {
-      setEnableStoryboardIllustrations(true);
-    }
-    if (!nextEnabled) {
-      setEnableStoryboardIllustrations(false);
-      setEnableStoryboardAnimations(false);
-    }
-  };
-
-  const toggleStoryboardIllustrations = () => {
-    const nextEnabled = !enableStoryboardIllustrations;
-    setEnableSpriteGeneration(true);
-    setEnableStoryboardIllustrations(nextEnabled);
-    if (nextEnabled && !imageConnectionId && preferredImageConnectionId) {
-      setImageConnectionId(preferredImageConnectionId);
-    }
-    if (!nextEnabled) {
-      setEnableStoryboardAnimations(false);
-    }
-  };
-
-  const toggleStoryboardAnimations = () => {
-    const nextEnabled = !enableStoryboardAnimations;
-    setEnableSpriteGeneration(true);
-    setEnableStoryboardIllustrations(true);
-    setEnableStoryboardAnimations(nextEnabled);
-    if (nextEnabled) {
-      if (!imageConnectionId && preferredImageConnectionId) {
-        setImageConnectionId(preferredImageConnectionId);
-      }
-      if (!videoConnectionId && preferredVideoConnectionId) {
-        setVideoConnectionId(preferredVideoConnectionId);
-      }
     }
   };
 
@@ -921,14 +926,12 @@ export function GameSetupWizard({
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean);
-      const importedPresentation =
-        config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID ? "anime" : "standard";
+      const importedStoryboardGamePrompt = config.gameGmPromptTemplateId === ANIME_GAME_PROMPT_TEMPLATE_ID;
       const importedPromptPreset = promptPresets.find((preset) => preset.id === config.promptPresetId) ?? null;
       const importedCustomPrompt = config.gameSystemPrompt?.trim() ?? "";
-      const importedBasePrompt =
-        importedPresentation === "anime"
-          ? ANIME_GAME_SYSTEM_PROMPT
-          : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
+      const importedBasePrompt = importedStoryboardGamePrompt
+        ? ANIME_GAME_SYSTEM_PROMPT
+        : importedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT;
       const importedWidgets = normalizeGameHudWidgets(config.customHudWidgets ?? []);
       const importedGenerationParameters = imported.effectiveGenerationParameters ?? config.generationParameters ?? null;
       const importedParameterOverrides = parseEditableGenerationParameters(importedGenerationParameters);
@@ -992,28 +995,12 @@ export function GameSetupWizard({
           visualGenerationEnabled ||
           config.enableSpotifyDj === true ||
           config.enableLorebookKeeper === true ||
+          config.gameWorldMapMode === "hierarchical" ||
           Boolean(config.spatialMapInstructions?.trim()),
       );
       setEnableSpriteGeneration(visualGenerationEnabled);
       setImageConnectionId(config.imageConnectionId ?? null);
       setVideoConnectionId(config.videoConnectionId ?? null);
-      setEnableStoryboardIllustrations(
-        config.gameStoryboardAutoIllustrationsEnabled === true ||
-          config.gameStoryboardAutoGenerationEnabled === true,
-      );
-      setEnableStoryboardAnimations(config.gameStoryboardAutoGenerationEnabled === true);
-      setStoryboardKeyframeCount(
-        Math.min(
-          GAME_STORYBOARD_KEYFRAME_COUNT_MAX,
-          Math.max(
-            GAME_STORYBOARD_KEYFRAME_COUNT_MIN,
-            Number.isFinite(config.gameStoryboardKeyframeCount)
-              ? Math.round(config.gameStoryboardKeyframeCount!)
-              : GAME_STORYBOARD_KEYFRAME_COUNT_DEFAULT,
-          ),
-        ),
-      );
-      setGamePresentation(importedPresentation);
       setActiveLorebookIds(config.activeLorebookIds ?? []);
       setLbSearch("");
       setEnableCustomWidgets(config.enableCustomWidgets !== false);
@@ -1031,12 +1018,20 @@ export function GameSetupWizard({
       setEnableLorebookKeeper(config.enableLorebookKeeper === true);
       setPromptPresetTouched(true);
       setPromptPresetId(config.promptPresetId ?? null);
+      setGamePresentation(importedStoryboardGamePrompt ? "anime" : "standard");
       setCustomGamePromptEnabled(Boolean(importedCustomPrompt));
       setGameSystemPromptDraft(importedCustomPrompt || importedBasePrompt);
       setGameSystemPromptEdited(Boolean(importedCustomPrompt));
       setGameSpecialInstructions(config.gameSpecialInstructions?.trim() || "");
       const importedSpatialMapInstructions = config.spatialMapInstructions?.trim() || "";
-      setDraftSpatialMap(hierarchicalMapsInstalled && Boolean(importedSpatialMapInstructions));
+      setDraftSpatialMap(
+        hierarchicalMapsInstalled &&
+          (config.gameWorldMapMode === "hierarchical" || Boolean(importedSpatialMapInstructions)),
+      );
+      setManualSpatialMap(false);
+      setTemplateSpatialMap(false);
+      setSpatialTemplateSelection(null);
+      setSpatialTemplatePickerOpen(false);
       setSpatialMapDraftSize("medium");
       setSpatialMapGroundingMode("setup");
       setSpatialMapInstructions(importedSpatialMapInstructions);
@@ -1100,6 +1095,10 @@ export function GameSetupWizard({
           enableAgents && hierarchicalMapsInstalled && draftSpatialMap
             ? spatialMapInstructions.trim() || undefined
             : undefined,
+        gameWorldMapMode:
+          enableAgents && hierarchicalMapsInstalled && (draftSpatialMap || manualSpatialMap || templateSpatialMap)
+            ? "hierarchical"
+            : "standard",
         rating,
         gmMode,
         gmCharacterId: gmMode === "character" && gmCharacterId ? gmCharacterId : undefined,
@@ -1112,20 +1111,6 @@ export function GameSetupWizard({
         imageConnectionId: illustratorEnabled && imageConnectionId ? imageConnectionId : undefined,
         videoConnectionId: illustratorEnabled && videoConnectionId ? videoConnectionId : undefined,
         ...(importedArtStyleSettingsRef.current ?? {}),
-        gameStoryboardAutoIllustrationsEnabled: illustratorEnabled
-          ? enableStoryboardIllustrations
-          : undefined,
-        gameStoryboardAutoGenerationEnabled: storyboardAnimationsEnabled || undefined,
-        gameStoryboardsEnabled:
-          illustratorEnabled && (enableStoryboardIllustrations || storyboardAnimationsEnabled) ? true : undefined,
-        gameStoryboardKeyframeCount: illustratorEnabled ? storyboardKeyframeCount : undefined,
-        gameGmPromptTemplateId: gamePresentation === "anime" ? ANIME_GAME_PROMPT_TEMPLATE_ID : null,
-        gameStoryboardAnimationPromptTemplateId:
-          gamePresentation === "anime" ? GAME_STORYBOARD_COMIC_ANIMATION_PROMPT_TEMPLATE_ID : null,
-        gameStoryboardImagePromptTemplateId:
-          gamePresentation === "anime" ? STORYBOARD_OPTIMIZED_IMAGE_PROMPT_TEMPLATE_ID : null,
-        gameStoryboardVideoPromptTemplateId:
-          gamePresentation === "anime" ? COMIC_PAGE_GAME_VIDEO_PROMPT_TEMPLATE_ID : null,
         activeLorebookIds: activeLorebookIds.length > 0 ? activeLorebookIds : undefined,
         enableCustomWidgets,
         customHudWidgets:
@@ -1148,6 +1133,7 @@ export function GameSetupWizard({
           ? { ...(importedGenerationParametersRef.current ?? {}), ...generationParameters }
           : undefined,
         promptPresetId,
+        gameGmPromptTemplateId: gamePresentation === "anime" ? ANIME_GAME_PROMPT_TEMPLATE_ID : null,
         gameSystemPrompt: customGameSystemPrompt,
         gameSpecialInstructions: trimmedGameSpecialInstructions || null,
       },
@@ -1176,11 +1162,20 @@ export function GameSetupWizard({
       gameName.trim() || undefined,
       enableAgents && hierarchicalMapsInstalled && draftSpatialMap
         ? {
+            mode: "ai" as const,
             size: spatialMapDraftSize,
             groundingMode: spatialMapGroundingMode,
             sourceLorebookIds: spatialMapGroundingMode === "setup" ? [] : activeLorebookIds,
             instructions: spatialMapInstructions.trim() || undefined,
           }
+        : enableAgents && hierarchicalMapsInstalled && manualSpatialMap
+          ? { mode: "manual" as const }
+        : enableAgents && hierarchicalMapsInstalled && templateSpatialMap
+          ? spatialTemplateSelection
+            ? spatialTemplateSelection.kind === "shared-world"
+              ? { mode: "shared-world" as const, selection: spatialTemplateSelection }
+              : { mode: "template" as const, selection: spatialTemplateSelection }
+            : undefined
         : undefined,
     );
   };
@@ -2220,102 +2215,7 @@ export function GameSetupWizard({
                       {imageConnections.length === 0 && (
                         <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">{localizeUi("ui.game.gamesetupwizard.noImageGenerationConnectionsFoundAddOneInSettings")}</p>
                       )}
-                      <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsSceneIllustrationsAndStoryboardKeyframes")}</p>
-                      <div className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
-                        <div className="flex items-start gap-2">
-                          <PanelsTopLeft size={12} className="mt-0.5 shrink-0 text-[var(--muted-foreground)]" />
-                          <div className="min-w-0">
-                            <p className="text-[0.625rem] font-medium text-[var(--foreground)]">{localizeUi("ui.game.gamesetupwizard.storyboards")}</p>
-                            <p className="text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.attachKeyframesToGmNarrationSoTheFloatingViewer")}</p>
-                            <p className="mt-1 text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.recommendedUseAStrongStateOfTheArtImage")}</p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={toggleStoryboardIllustrations}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-all",
-                            enableStoryboardIllustrations
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "bg-[var(--background)]/70 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                          )}
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{localizeUi("ui.game.gamesetupwizard.automaticStoryboardIllustrations")}</span>
-                            <span className="block text-[0.575rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.lowCostMangaKeyframeImagesAfterCompletedGmTurns")}</span>
-                          </span>
-                          <span
-                            className={cn(
-                              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                              enableStoryboardIllustrations
-                                ? "bg-[var(--primary)]"
-                                : "bg-[var(--muted-foreground)]/50",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "block h-4 w-4 rounded-full bg-white transition-transform",
-                                enableStoryboardIllustrations && "translate-x-3.5",
-                              )}
-                            />
-                          </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={toggleStoryboardAnimations}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left transition-all",
-                            enableStoryboardAnimations
-                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                              : "bg-[var(--background)]/70 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
-                          )}
-                        >
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{localizeUi("ui.game.gamesetupwizard.automaticStoryboardAnimations")}</span>
-                            <span className="block text-[0.575rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.addsVideoClipsToEveryStoryboardKeyframe")}</span>
-                          </span>
-                          <span
-                            className={cn(
-                              "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
-                              enableStoryboardAnimations ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
-                            )}
-                          >
-                            <span
-                              className={cn(
-                                "block h-4 w-4 rounded-full bg-white transition-transform",
-                                enableStoryboardAnimations && "translate-x-3.5",
-                              )}
-                            />
-                          </span>
-                        </button>
-                        {enableStoryboardIllustrations && (
-                          <label className="block rounded-lg bg-[var(--background)]/70 px-3 py-2 ring-1 ring-[var(--border)]">
-                            <span className="flex items-center justify-between gap-3">
-                              <span>
-                                <span className="block text-[0.6875rem] font-medium text-[var(--foreground)]">{localizeUi("ui.game.gamesetupwizard.keyframesPerTurn")}</span>
-                                <span className="block text-[0.575rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.targetStoryboardShotsShortTurnsMayProduceFewer")}</span>
-                              </span>
-                              <span className="min-w-7 rounded-md bg-[var(--secondary)] px-2 py-1 text-center text-xs font-semibold text-[var(--foreground)] ring-1 ring-[var(--border)]">
-                                {storyboardKeyframeCount}
-                              </span>
-                            </span>
-                            <input
-                              type="range"
-                              min={GAME_STORYBOARD_KEYFRAME_COUNT_MIN}
-                              max={GAME_STORYBOARD_KEYFRAME_COUNT_MAX}
-                              step={1}
-                              value={storyboardKeyframeCount}
-                              onChange={(event) => setStoryboardKeyframeCount(Number(event.target.value))}
-                              className="mt-2 w-full accent-[var(--primary)]"
-                              aria-label={localizeUi("ui.game.gamesetupwizard.keyframesPerTurn")}
-                            />
-                          </label>
-                        )}
-                        <p className="text-[0.55rem] leading-relaxed text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.illustrationsUseTheImageConnectionAnimationsAlsoNeedThe")}</p>
-                        {enableStoryboardAnimations && !videoConnectionId && (
-                          <p className="text-[0.55rem] leading-relaxed text-amber-700 dark:text-amber-400/80">{localizeUi("ui.game.gamesetupwizard.chooseAVideoGenerationConnectionBelowToSaveAutomatic")}</p>
-                        )}
-                      </div>
+                      <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.powersAutomaticPortraitsBackgroundsAndSceneIllustrations")}</p>
                       <div className="mt-3 border-t border-[var(--border)] pt-3">
                         <label className="mb-1 flex items-center gap-1 text-[0.625rem] font-medium text-[var(--muted-foreground)]">
                           <Film size={11} />{localizeUi("ui.game.gamesetupwizard.videoGenerationConnection")}</label>
@@ -2335,7 +2235,7 @@ export function GameSetupWizard({
                         {videoConnections.length === 0 && (
                           <p className="mt-1 text-[0.55rem] text-amber-700 dark:text-amber-400/80">{localizeUi("ui.game.gamesetupwizard.noVideoGenerationConnectionsFoundAddOneInSettings")}</p>
                         )}
-                        <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.usedForManualSceneVideosAndStoryboardAnimations")}</p>
+                        <p className="mt-1 text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.game.gamesetupwizard.usedForManualSceneVideos")}</p>
                       </div>
                     </div>
                   )}
@@ -2571,7 +2471,12 @@ export function GameSetupWizard({
                 <button
                 type="button"
                 aria-pressed={draftSpatialMap}
-                onClick={() => setDraftSpatialMap((enabled) => !enabled)}
+                onClick={() => {
+                  setDraftSpatialMap((enabled) => !enabled);
+                  setManualSpatialMap(false);
+                  setTemplateSpatialMap(false);
+                  setSpatialTemplateSelection(null);
+                }}
                 className={cn(
                   "flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
                   draftSpatialMap
@@ -2603,6 +2508,102 @@ export function GameSetupWizard({
                     )}
                   />
                 </span>
+                </button>
+
+                <button
+                  type="button"
+                  aria-pressed={manualSpatialMap}
+                  onClick={() => {
+                    setManualSpatialMap((enabled) => !enabled);
+                    setDraftSpatialMap(false);
+                    setTemplateSpatialMap(false);
+                    setSpatialTemplateSelection(null);
+                  }}
+                  className={cn(
+                    "mt-2 flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                    manualSpatialMap
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] ring-1 ring-transparent hover:ring-[var(--border)]",
+                  )}
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <Plus
+                      size={14}
+                      className={manualSpatialMap ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.game.gamesetupwizard.createManually")}
+                      </span>
+                      <span className="block text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+                        {localizeUi("ui.game.gamesetupwizard.openTheBlankMapDesignerAfterSetupWithoutGeneratingAMap")}
+                      </span>
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      manualSpatialMap ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "block h-4 w-4 rounded-full bg-white transition-transform",
+                        manualSpatialMap && "translate-x-3.5",
+                      )}
+                    />
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  aria-pressed={templateSpatialMap}
+                  onClick={() => {
+                    setSpatialTemplatePickerOpen(true);
+                  }}
+                  className={cn(
+                    "mt-2 flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-all",
+                    templateSpatialMap
+                      ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                      : "bg-[var(--secondary)] ring-1 ring-transparent hover:ring-[var(--border)]",
+                  )}
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <FolderOpen
+                      size={14}
+                      className={templateSpatialMap ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]"}
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium text-[var(--foreground)]">
+                        {localizeUi("ui.game.gamesetupwizard.useATemplateOrSharedWorld")}
+                      </span>
+                      <span className="block text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
+                        {spatialTemplateSelection
+                          ? localizeUi(
+                              spatialTemplateSelection.kind === "shared-world"
+                                ? "ui.game.gamesetupwizard.selectedSharedWorldValue1"
+                                : "ui.game.gamesetupwizard.selectedMapTemplateValue1",
+                              { value1: spatialTemplateSelection.label },
+                            )
+                          : localizeUi("ui.game.gamesetupwizard.chooseASavedMapTemplateOrSharedWorld")}
+                      </span>
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "h-5 w-9 shrink-0 rounded-full p-0.5 transition-colors",
+                      templateSpatialMap ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/50",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "block h-4 w-4 rounded-full bg-white transition-transform",
+                        templateSpatialMap && "translate-x-3.5",
+                      )}
+                    />
+                  </span>
                 </button>
 
                 {draftSpatialMap && (
@@ -2768,7 +2769,9 @@ export function GameSetupWizard({
           <>
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--foreground)]">
-                <Sparkles size={12} />{localizeUi("settings.sections.gamePresentation.title")}</label>
+                <Sparkles size={12} />
+                {localizeUi("settings.sections.gamePresentation.title")}
+              </label>
               <select
                 value={gamePresentation}
                 onChange={(event) => setGamePresentation(event.target.value === "anime" ? "anime" : "standard")}
@@ -2779,26 +2782,9 @@ export function GameSetupWizard({
               </select>
               <p className="mt-1 text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
                 {gamePresentation === "anime"
-                  ?localizeUi("ui.game.gamesetupwizard.coordinatesTheGameNarrationStoryboardPlanningImageFormattingAnd")
-                  :localizeUi("ui.game.gamesetupwizard.usesTheStandardFlexibleGameModeNarrationAndMedia")}
+                  ? localizeUi("ui.game.gamesetupwizard.storyboardOptimizedNarrationDescription")
+                  : localizeUi("ui.game.gamesetupwizard.usesTheStandardFlexibleGameModeNarrationAndMedia")}
               </p>
-              {gamePresentation === "anime" && (
-                <dl className="mt-2 grid gap-1.5 rounded-lg bg-[var(--secondary)]/55 p-2 ring-1 ring-[var(--border)] sm:grid-cols-2">
-                  {[
-                    ["Game Prompt", "Storyboard Game Prompt"],
-                    ["Animation Planner", "Comic Page Animation"],
-                    ["Storyboard Illustration Prompt", "Storyboard Illustration"],
-                    ["Storyboard Video Prompt", "Comic Page Video"],
-                  ].map(([label, value]) => (
-                    <div key={label} className="min-w-0 rounded-md bg-[var(--background)]/65 px-2 py-1.5">
-                      <dt className="text-[0.525rem] font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-                        {label}
-                      </dt>
-                      <dd className="truncate text-[0.625rem] font-semibold text-[var(--foreground)]">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
             </div>
             <div>
               <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--foreground)]">
@@ -2817,8 +2803,8 @@ export function GameSetupWizard({
               </select>
               <p className="mt-1 text-[0.575rem] leading-relaxed text-[var(--muted-foreground)]">
                 {gamePresentation === "anime"
-                  ?localizeUi("ui.game.gamesetupwizard.theStoryboardGamePromptReplacesTheSelectedPresetS")
-                  :localizeUi("ui.game.gamesetupwizard.usesTheGameModePromptFromTheSelectedPreset")}
+                  ? localizeUi("ui.game.gamesetupwizard.theStoryboardGamePromptReplacesTheSelectedPresetS")
+                  : localizeUi("ui.game.gamesetupwizard.usesTheGameModePromptFromTheSelectedPreset")}
               </p>
             </div>
 
@@ -2857,7 +2843,7 @@ export function GameSetupWizard({
                           ?localizeUi("ui.game.gamesetupwizard.customPromptWillOverrideTheSelectedPrompt")
                           :localizeUi("ui.game.gamesetupwizard.previewingTheSelectedPromptEditItToOverride")
                         : gamePresentation === "anime"
-                          ?localizeUi("ui.game.gamesetupwizard.usingStoryboardGamePrompt")
+                          ? localizeUi("ui.game.gamesetupwizard.usingStoryboardGamePrompt")
                           : selectedPromptPresetName
                           ?localizeUi("ui.game.gamesetupwizard.usingValue1", { value1: selectedPromptPresetName })
                           :localizeUi("ui.game.gamesetupwizard.usingDefaultGamePrompt")}
@@ -2871,7 +2857,7 @@ export function GameSetupWizard({
                         ?localizeUi("settings.notifications.customSound.status.custom")
                         :localizeUi("settings.notifications.customSound.actions.preview")
                       : gamePresentation === "anime"
-                        ?localizeUi("ui.game.gamesurfacecomponent.storyboard")
+                        ? localizeUi("ui.game.gamesurfacecomponent.storyboard")
                         : selectedPromptPresetName
                           ?localizeUi("chat.toolbar.preset")
                           :localizeUi("ui.noodle.noodlehome.default")}
@@ -2931,7 +2917,9 @@ export function GameSetupWizard({
                     <span className="font-medium text-[var(--foreground)]" role="status" aria-live="polite">
                       {isDraftingMap
                         ?localizeUi("ui.game.gamesetupwizard.theWorldIsReadyNowDraftingItsMapFor")
-                        :localizeUi("ui.game.gamesetupwizard.holdOnTightTheGameIsBeingGeneratedRight")}
+                        : isLinkingSharedWorld
+                          ? localizeUi("ui.game.gamesetupwizard.theGameIsReadyNowLinkingItsSharedWorld")
+                          : localizeUi("ui.game.gamesetupwizard.holdOnTightTheGameIsBeingGeneratedRight")}
                     </span>
                     <span aria-hidden="true" className="shrink-0 tabular-nums text-[var(--muted-foreground)]">
                       {generationElapsedSeconds}{localizeUi("ui.noodle.stageprofileview.s")}</span>
@@ -2939,7 +2927,11 @@ export function GameSetupWizard({
                   <div
                     className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--muted)]/60"
                     role="progressbar"
-                    aria-label={isDraftingMap ?localizeUi("ui.game.gamesetupwizard.draftingHierarchicalWorldMap") :localizeUi("ui.game.gamesetupwizard.generatingGameWorld")}
+                    aria-label={isDraftingMap
+                      ? localizeUi("ui.game.gamesetupwizard.draftingHierarchicalWorldMap")
+                      : isLinkingSharedWorld
+                        ? localizeUi("ui.game.gamesetupwizard.linkingSharedWorld")
+                        : localizeUi("ui.game.gamesetupwizard.generatingGameWorld")}
                   >
                     <motion.div
                       className="h-full w-2/5 rounded-full bg-[var(--primary)]"
@@ -3010,7 +3002,11 @@ export function GameSetupWizard({
                     {isLoading ? (
                       <>
                         <Loader2 size={14} className="animate-spin" />
-                        {isDraftingMap ?localizeUi("ui.game.gamesetupwizard.draftingMap") :localizeUi("ui.game.gamesetupwizard.generatingWorld")}
+                        {isDraftingMap
+                          ?localizeUi("ui.game.gamesetupwizard.draftingMap")
+                          : isLinkingSharedWorld
+                            ? localizeUi("ui.game.gamesetupwizard.linkingWorld")
+                            : localizeUi("ui.game.gamesetupwizard.generatingWorld")}
                       </>
                     ) : (
                       <>
@@ -3023,6 +3019,17 @@ export function GameSetupWizard({
           </motion.div>
         </AnimatePresence>
       </div>
+      {spatialTemplatePickerOpen && (
+        <CapabilityElement
+          packageId="hierarchical-maps"
+          view="setup"
+          capabilityProps={{
+            supportedSelectionKinds: ["template", "shared-world"],
+            onSelect: handleSpatialTemplateSelected,
+            onClose: () => setSpatialTemplatePickerOpen(false),
+          }}
+        />
+      )}
     </>
   );
 }

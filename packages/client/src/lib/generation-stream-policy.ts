@@ -11,19 +11,15 @@ interface TypewriterReplacement {
   pendingText: string;
 }
 
-interface TypewriterRevealRateInput {
-  selectedCharsPerSecond: number;
-  pendingCharacters: number;
-  observedArrivalCharsPerSecond: number | null;
-  streamComplete: boolean;
+interface TypewriterSlice {
+  visibleText: string;
+  pendingText: string;
+  characterCount: number;
 }
 
-interface RoleplayTypewriterRevealRateInput {
-  selectedCharsPerSecond: number;
-  pendingCharacters: number;
-  previousCharsPerSecond: number | null;
-  elapsedMs: number;
-  streamComplete: boolean;
+interface TypewriterFrameBudget {
+  accruedCharacters: number;
+  maxCharacters: number;
 }
 
 interface GenerationSendBlockInput {
@@ -39,10 +35,6 @@ interface GenerationStartBlockInput {
   backgroundIllustration: boolean;
 }
 
-const ROLEPLAY_QUEUE_RESERVE_SECONDS = 0.9;
-const ROLEPLAY_SLOWDOWN_RESPONSE_MS = 120;
-const ROLEPLAY_SPEEDUP_RESPONSE_MS = 480;
-
 /** Keep send actions guarded while leaving the draft field itself editable. */
 export function isGenerationSendBlocked(input: GenerationSendBlockInput): boolean {
   return !input.backgroundIllustration && !input.delayedResponse && (input.streamActive || input.agentsProcessing);
@@ -54,52 +46,51 @@ export function isGenerationStartBlocked(input: GenerationStartBlockInput): bool
 }
 
 /**
- * Keep the reveal slightly behind an open transport so provider-sized bursts
- * remain a continuous typewriter queue instead of draining into visible gaps.
- * Once transport completes, return to the user's selected speed so completion
- * is never artificially delayed.
+ * Map the 1–100 streaming-speed control directly to visible characters per
+ * second. Provider arrival rate and queue depth must not change the animation
+ * cadence: those inputs are bursty and were what made the typewriter appear to
+ * lurch. The final setting remains an intentional instant-reveal shortcut.
  */
-export function getTypewriterRevealCharsPerSecond(input: TypewriterRevealRateInput): number {
-  if (!Number.isFinite(input.selectedCharsPerSecond) || input.streamComplete) {
-    return input.selectedCharsPerSecond;
-  }
-
-  const arrivalRate = input.observedArrivalCharsPerSecond ?? input.pendingCharacters;
-  const initialRateFloor =
-    input.observedArrivalCharsPerSecond === null ? Math.min(12, input.selectedCharsPerSecond) : 1;
-  return Math.max(initialRateFloor, Math.min(input.selectedCharsPerSecond, arrivalRate * 0.95));
+export function getStreamingCharsPerSecond(streamingSpeed: number, prefersReducedMotion = false): number {
+  if (prefersReducedMotion || streamingSpeed >= 100) return Infinity;
+  if (!Number.isFinite(streamingSpeed)) return 50;
+  return Math.max(1, Math.min(99, Math.round(streamingSpeed)));
 }
 
-/**
- * Pace Roleplay from one continuous reveal clock instead of mirroring the
- * provider's token bursts. The open-stream target leaves roughly a second of
- * text in the queue; asymmetric easing slows down quickly when that reserve
- * shrinks and speeds up gently when another provider chunk arrives.
- *
- * The user's selected speed remains the ceiling. Completion removes the queue
- * reserve, but still eases toward that ceiling so the final chunk cannot flash
- * in at a suddenly faster cadence.
- */
-export function getRoleplayTypewriterRevealCharsPerSecond(input: RoleplayTypewriterRevealRateInput): number {
-  if (!Number.isFinite(input.selectedCharsPerSecond)) return input.selectedCharsPerSecond;
+/** Preserve the selected reveal rate even when animation frames arrive below 60 Hz. */
+export function getTypewriterFrameBudget(
+  charsPerSecond: number,
+  elapsedMs: number,
+  carriedRemainder: number,
+): TypewriterFrameBudget {
+  const newlyAccruedCharacters = (charsPerSecond * Math.max(0, elapsedMs)) / 1000;
+  return {
+    accruedCharacters: carriedRemainder + newlyAccruedCharacters,
+    maxCharacters: Math.max(1, Math.ceil(newlyAccruedCharacters)),
+  };
+}
 
-  const minimumRate = Math.min(6, input.selectedCharsPerSecond);
-  const queueSmoothedTarget = Math.max(
-    minimumRate,
-    input.pendingCharacters / ROLEPLAY_QUEUE_RESERVE_SECONDS,
-  );
-  const targetRate = input.streamComplete
-    ? input.selectedCharsPerSecond
-    : Math.min(input.selectedCharsPerSecond, queueSmoothedTarget);
+const typewriterGraphemeSegmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 
-  if (input.previousCharsPerSecond === null || !Number.isFinite(input.previousCharsPerSecond)) {
-    return targetRate;
+/** Reveal whole user-perceived characters so emoji and combining marks never flash half-formed. */
+export function takeTypewriterCharacters(text: string, maxCharacters: number): TypewriterSlice {
+  if (!text || maxCharacters < 1) {
+    return { visibleText: "", pendingText: text, characterCount: 0 };
   }
 
-  const responseTimeMs =
-    targetRate < input.previousCharsPerSecond ? ROLEPLAY_SLOWDOWN_RESPONSE_MS : ROLEPLAY_SPEEDUP_RESPONSE_MS;
-  const blend = 1 - Math.exp(-Math.max(0, input.elapsedMs) / responseTimeMs);
-  return input.previousCharsPerSecond + (targetRate - input.previousCharsPerSecond) * blend;
+  let endIndex = 0;
+  let characterCount = 0;
+  for (const segment of typewriterGraphemeSegmenter.segment(text)) {
+    if (characterCount >= maxCharacters) break;
+    endIndex = segment.index + segment.segment.length;
+    characterCount += 1;
+  }
+
+  return {
+    visibleText: text.slice(0, endIndex),
+    pendingText: text.slice(endIndex),
+    characterCount,
+  };
 }
 
 /**

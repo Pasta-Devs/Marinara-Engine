@@ -9,15 +9,23 @@ import {
   updatePersonalExtensionSchema,
   PERSONAL_EXTENSION_CONTRIBUTION_ICONS,
   PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
+  PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY,
   PERSONAL_EXTENSION_UI_ELEMENT_KINDS,
   PERSONAL_EXTENSION_UI_LIMITS,
+  normalizePersonalExtensionCapabilities,
+  type CharacterData,
   type PersonalClientExtensionRuntime,
   type PersonalExtension,
+  type PersonalExtensionCapability,
+  type PersonalExtensionCharacterSnapshot,
+  type PersonalExtensionPersonaSnapshot,
 } from "@marinara-engine/shared";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { createPersonalExtensionsStorage } from "../services/extensions/personal-extension-storage.service.js";
 import { createPersonalExtensionSettingsStorage } from "../services/extensions/personal-extension-settings.service.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
+import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { createChatsStorage } from "../services/storage/chats.storage.js";
 import { personalServerExtensionRuntime } from "../services/extensions/personal-server-extension-runtime.js";
 import {
   canExecutePersonalExtension,
@@ -27,6 +35,149 @@ import {
 } from "../services/extensions/personal-extension-policy.service.js";
 
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+const CONTEXT_MAX_ID_LENGTH = 256;
+const CONTEXT_MAX_CHARACTER_IDS = 256;
+const CONTEXT_TEXT_BUDGET = 256_000;
+const CONTEXT_FIELD_LENGTH = 32_000;
+const CONTEXT_TAG_COUNT = 100;
+const CONTEXT_TAG_LENGTH = 256;
+
+type ContextTextBudget = { remaining: number };
+type ContextCharacterSource = { id: string; data: CharacterData };
+type ContextPersonaSource = {
+  id: string;
+  name: unknown;
+  description: unknown;
+  personality: unknown;
+  scenario: unknown;
+  backstory: unknown;
+  appearance: unknown;
+  tags: unknown;
+  aboutMe: unknown;
+  convoDisplayName: unknown;
+};
+
+function boundedContextText(value: unknown, budget: ContextTextBudget, max = CONTEXT_FIELD_LENGTH) {
+  if (typeof value !== "string" || budget.remaining <= 0) return "";
+  const text = value.slice(0, Math.min(max, budget.remaining));
+  budget.remaining -= text.length;
+  return text;
+}
+
+function boundedContextTags(value: unknown, budget: ContextTextBudget) {
+  if (!Array.isArray(value)) return [];
+  const tags: string[] = [];
+  for (const candidate of value) {
+    const tag = boundedContextText(candidate, budget, CONTEXT_TAG_LENGTH);
+    if (!tag || tags.includes(tag)) continue;
+    tags.push(tag);
+    if (tags.length >= CONTEXT_TAG_COUNT) break;
+  }
+  return tags;
+}
+
+function characterContextSnapshot(
+  character: ContextCharacterSource,
+  budget: ContextTextBudget,
+): PersonalExtensionCharacterSnapshot {
+  const data = character.data;
+  const extensions =
+    data.extensions && typeof data.extensions === "object" ? (data.extensions as Record<string, unknown>) : {};
+  return {
+    id: character.id,
+    name: boundedContextText(data.name, budget),
+    description: boundedContextText(data.description, budget),
+    personality: boundedContextText(data.personality, budget),
+    scenario: boundedContextText(data.scenario, budget),
+    firstMessage: boundedContextText(data.first_mes, budget),
+    exampleDialogue: boundedContextText(data.mes_example, budget),
+    creator: boundedContextText(data.creator, budget),
+    characterVersion: boundedContextText(data.character_version, budget),
+    tags: boundedContextTags(data.tags, budget),
+    backstory: boundedContextText(extensions.backstory, budget),
+    appearance: boundedContextText(extensions.appearance, budget),
+    aboutMe: boundedContextText(extensions.aboutMe, budget),
+    conversationDisplayName: boundedContextText(extensions.convoDisplayName, budget),
+  };
+}
+
+function personaContextSnapshot(
+  persona: ContextPersonaSource,
+  budget: ContextTextBudget,
+): PersonalExtensionPersonaSnapshot {
+  return {
+    id: persona.id,
+    name: boundedContextText(persona.name, budget),
+    description: boundedContextText(persona.description, budget),
+    personality: boundedContextText(persona.personality, budget),
+    scenario: boundedContextText(persona.scenario, budget),
+    backstory: boundedContextText(persona.backstory, budget),
+    appearance: boundedContextText(persona.appearance, budget),
+    tags: boundedContextTags(persona.tags, budget),
+    aboutMe: boundedContextText(persona.aboutMe, budget),
+    conversationDisplayName: boundedContextText(persona.convoDisplayName, budget),
+  };
+}
+
+export function createPersonalExtensionRecordContext(options: {
+  capabilities: readonly PersonalExtensionCapability[];
+  characters: ContextCharacterSource[];
+  persona: ContextPersonaSource | null;
+}) {
+  const capabilities = new Set(normalizePersonalExtensionCapabilities(options.capabilities));
+  const budget = { remaining: CONTEXT_TEXT_BUDGET };
+  return {
+    characters: capabilities.has("read_active_characters")
+      ? options.characters
+          .slice(0, CONTEXT_MAX_CHARACTER_IDS)
+          .map((character) => characterContextSnapshot(character, budget))
+      : [],
+    persona:
+      capabilities.has("read_active_persona") && options.persona
+        ? personaContextSnapshot(options.persona, budget)
+        : null,
+  };
+}
+
+function parseContextCharacterIds(value: unknown) {
+  let candidates: unknown = value;
+  if (typeof value === "string") {
+    try {
+      candidates = JSON.parse(value);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(candidates)) return [];
+  return Array.from(
+    new Set(
+      candidates.filter(
+        (candidate): candidate is string => typeof candidate === "string" && ID_PATTERN.test(candidate),
+      ),
+    ),
+  ).slice(0, CONTEXT_MAX_CHARACTER_IDS);
+}
+
+function parseContextCharacter(row: { id: string; data: string } | null): ContextCharacterSource | null {
+  if (!row) return null;
+  try {
+    const data = JSON.parse(row.data) as CharacterData;
+    return data && typeof data === "object" ? { id: row.id, data } : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseContextPersonaTags(value: unknown) {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function privileged(
   req: Parameters<typeof requirePrivilegedAccess>[0],
@@ -39,11 +190,36 @@ function escapeClosingTag(source: string, tag: "style") {
   return source.replace(new RegExp(`</${tag}`, "giu"), `<\\/${tag}`);
 }
 
+function hasFullPageAccess(extension: Pick<PersonalExtension, "capabilities">) {
+  return extension.capabilities.includes(PERSONAL_EXTENSION_FULL_PAGE_CAPABILITY);
+}
+
+export function fullPageExtensionSource(extension: PersonalExtension) {
+  const identity = JSON.stringify({
+    id: extension.id,
+    name: extension.name,
+    contentHash: extension.contentHash,
+  }).replace(/</gu, "\\u003c");
+  return `(() => {
+  "use strict";
+  const extension = ${identity};
+  const run = window.__marinaraRunFullPageExtension;
+  if (typeof run !== "function") {
+    throw new Error("Marinara full-page extension host is unavailable");
+  }
+  run(extension, async (marinara) => {
+    "use strict";
+${extension.js ?? ""}
+  });
+})();`;
+}
+
 export function browserWorkerSource(extension: PersonalExtension) {
   const identity = JSON.stringify({
     id: extension.id,
     name: extension.name,
     contentHash: extension.contentHash,
+    capabilities: extension.capabilities,
   });
   const contributionContract = JSON.stringify({
     kinds: PERSONAL_EXTENSION_CONTRIBUTION_KINDS,
@@ -60,6 +236,131 @@ export function browserWorkerSource(extension: PersonalExtension) {
   const cleanupFns = [];
   let requestId = 0;
   const pending = new Map();
+  const MAX_CONTEXT_ID_LENGTH = ${CONTEXT_MAX_ID_LENGTH};
+  const MAX_CONTEXT_CHARACTER_IDS = ${CONTEXT_MAX_CHARACTER_IDS};
+  const MAX_CONTEXT_TEXT = ${CONTEXT_TEXT_BUDGET};
+  const MAX_CONTEXT_FIELD = ${CONTEXT_FIELD_LENGTH};
+  const MAX_CONTEXT_TAGS = ${CONTEXT_TAG_COUNT};
+  const MAX_CONTEXT_TAG = ${CONTEXT_TAG_LENGTH};
+  const capabilities = new Set(extension.capabilities);
+  const contextSubscriptions = new Set();
+  const freezeContext = (chatId, characterIds, personaId = null, characters = [], persona = null) => Object.freeze({
+    chatId,
+    characterId: characterIds.length === 1 ? characterIds[0] : null,
+    characterIds: Object.freeze(characterIds),
+    personaId,
+    characters: Object.freeze(characters),
+    persona,
+  });
+  let currentContext = freezeContext(null, []);
+  let resolveInitialContext;
+  let initialContextResolved = false;
+  const initialContextReady = new Promise((resolve) => { resolveInitialContext = resolve; });
+  const markInitialContextReady = () => {
+    if (initialContextResolved) return;
+    initialContextResolved = true;
+    resolveInitialContext();
+  };
+  const initialContextTimer = self.setTimeout(markInitialContextReady, 1_000);
+  const normalizeContextId = (value) => (
+    typeof value === "string" && value.trim() && value.length <= MAX_CONTEXT_ID_LENGTH ? value : null
+  );
+  const boundedContextText = (value, budget, max = MAX_CONTEXT_FIELD) => {
+    if (typeof value !== "string" || budget.remaining <= 0) return "";
+    const text = value.slice(0, Math.min(max, budget.remaining));
+    budget.remaining -= text.length;
+    return text;
+  };
+  const boundedContextTags = (value, budget) => {
+    if (!Array.isArray(value)) return Object.freeze([]);
+    const tags = [];
+    for (const candidate of value) {
+      const tag = boundedContextText(candidate, budget, MAX_CONTEXT_TAG);
+      if (!tag || tags.includes(tag)) continue;
+      tags.push(tag);
+      if (tags.length >= MAX_CONTEXT_TAGS) break;
+    }
+    return Object.freeze(tags);
+  };
+  const normalizeCharacterContext = (value, allowedIds, budget) => {
+    const id = normalizeContextId(value?.id);
+    if (!id || !allowedIds.has(id)) return null;
+    return Object.freeze({
+      id,
+      name: boundedContextText(value.name, budget),
+      description: boundedContextText(value.description, budget),
+      personality: boundedContextText(value.personality, budget),
+      scenario: boundedContextText(value.scenario, budget),
+      firstMessage: boundedContextText(value.firstMessage, budget),
+      exampleDialogue: boundedContextText(value.exampleDialogue, budget),
+      creator: boundedContextText(value.creator, budget),
+      characterVersion: boundedContextText(value.characterVersion, budget),
+      tags: boundedContextTags(value.tags, budget),
+      backstory: boundedContextText(value.backstory, budget),
+      appearance: boundedContextText(value.appearance, budget),
+      aboutMe: boundedContextText(value.aboutMe, budget),
+      conversationDisplayName: boundedContextText(value.conversationDisplayName, budget),
+    });
+  };
+  const normalizePersonaContext = (value, expectedId, budget) => {
+    const id = normalizeContextId(value?.id);
+    if (!id || id !== expectedId) return null;
+    return Object.freeze({
+      id,
+      name: boundedContextText(value.name, budget),
+      description: boundedContextText(value.description, budget),
+      personality: boundedContextText(value.personality, budget),
+      scenario: boundedContextText(value.scenario, budget),
+      backstory: boundedContextText(value.backstory, budget),
+      appearance: boundedContextText(value.appearance, budget),
+      tags: boundedContextTags(value.tags, budget),
+      aboutMe: boundedContextText(value.aboutMe, budget),
+      conversationDisplayName: boundedContextText(value.conversationDisplayName, budget),
+    });
+  };
+  const normalizeContext = (value) => {
+    const chatId = normalizeContextId(value?.chatId);
+    const characterIds = [];
+    const seen = new Set();
+    if (chatId && Array.isArray(value?.characterIds)) {
+      for (const candidate of value.characterIds) {
+        const id = normalizeContextId(candidate);
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        characterIds.push(id);
+        if (characterIds.length >= MAX_CONTEXT_CHARACTER_IDS) break;
+      }
+    }
+    const personaId =
+      chatId && capabilities.has("read_active_persona") ? normalizeContextId(value?.personaId) : null;
+    const budget = { remaining: MAX_CONTEXT_TEXT };
+    const allowedIds = new Set(characterIds);
+    const characters = [];
+    const seenCharacters = new Set();
+    if (capabilities.has("read_active_characters") && Array.isArray(value?.characters)) {
+      for (const candidate of value.characters) {
+        const character = normalizeCharacterContext(candidate, allowedIds, budget);
+        if (!character || seenCharacters.has(character.id)) continue;
+        seenCharacters.add(character.id);
+        characters.push(character);
+        if (characters.length >= MAX_CONTEXT_CHARACTER_IDS) break;
+      }
+    }
+    const persona =
+      personaId && value?.persona && typeof value.persona === "object"
+        ? normalizePersonaContext(value.persona, personaId, budget)
+        : null;
+    return freezeContext(chatId, characterIds, personaId, characters, persona);
+  };
+  const contextKey = (value) => JSON.stringify(value);
+  const notifyContextSubscription = (subscription) => {
+    Promise.resolve()
+      .then(() => {
+        if (!contextSubscriptions.has(subscription)) return;
+        subscription.listener(currentContext);
+      })
+      .catch((error) => log("error", [error instanceof Error ? error.message : String(error)]));
+  };
   for (const name of ["fetch", "WebSocket", "EventSource", "XMLHttpRequest", "Worker", "SharedWorker", "WebTransport", "importScripts"]) {
     try { Object.defineProperty(self, name, { value: undefined, writable: false, configurable: false }); } catch {}
   }
@@ -327,9 +628,10 @@ export function browserWorkerSource(extension: PersonalExtension) {
   };
   const marinara = Object.freeze({
     runtime: "client",
-    version: 4,
+    version: 5,
     extensionId: extension.id,
     extensionName: extension.name,
+    capabilities: Object.freeze([...capabilities]),
     log: Object.freeze({
       debug: (...args) => log("debug", args),
       info: (...args) => log("info", args),
@@ -340,6 +642,16 @@ export function browserWorkerSource(extension: PersonalExtension) {
       get: () => storage("get"),
       patch: (patch) => storage("patch", patch),
       delete: () => storage("delete"),
+    }),
+    context: Object.freeze({
+      get: () => currentContext,
+      subscribe: (listener) => {
+        if (typeof listener !== "function") throw new Error("context.subscribe requires a function");
+        const subscription = { listener };
+        contextSubscriptions.add(subscription);
+        notifyContextSubscription(subscription);
+        return () => contextSubscriptions.delete(subscription);
+      },
     }),
     ui: Object.freeze({
       showWindow,
@@ -356,6 +668,16 @@ export function browserWorkerSource(extension: PersonalExtension) {
   });
   self.addEventListener("message", (event) => {
     const message = event.data;
+    if (message?.type === "context-update") {
+      const nextContext = normalizeContext(message.context);
+      const changed = contextKey(nextContext) !== contextKey(currentContext);
+      currentContext = nextContext;
+      self.clearTimeout(initialContextTimer);
+      markInitialContextReady();
+      if (changed) {
+        for (const subscription of contextSubscriptions) notifyContextSubscription(subscription);
+      }
+    }
     if (message?.type === "storage-result") {
       const request = pending.get(message.requestId);
       if (!request) return;
@@ -412,6 +734,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
       uiContributions.clear();
       uiContributionActivateHandlers.clear();
       uiContributionEventHandlers.clear();
+      contextSubscriptions.clear();
       for (const cleanup of [...cleanupFns].reverse()) {
         try { cleanup(); } catch {}
       }
@@ -423,6 +746,7 @@ export function browserWorkerSource(extension: PersonalExtension) {
   self.setInterval(() => send({ type: "heartbeat" }), 1_000);
   Promise.resolve((async () => {
     "use strict";
+    await initialContextReady;
 ${extension.js ?? ""}
   })()).then(
     () => send({ type: "ready", contentHash: extension.contentHash }),
@@ -736,6 +1060,14 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
     if (event.source !== window.parent || event.data?.channel !== "marinara-personal-extension") return;
     const message = event.data;
     if (message.type === "storage-result") worker.postMessage(message);
+    if (
+      message.type === "context-update" &&
+      message.contentHash === extension.contentHash &&
+      message.context &&
+      typeof message.context === "object"
+    ) {
+      worker.postMessage({ type: "context-update", context: message.context });
+    }
     if (message.type === "ui-contribution-activate" || message.type === "ui-contribution-event") {
       worker.postMessage(message);
     }
@@ -767,6 +1099,8 @@ export function sandboxDocument(extension: PersonalExtension, nonce: string) {
 export async function personalExtensionsRoutes(app: FastifyInstance) {
   const storage = createPersonalExtensionsStorage(app.db);
   const settings = createPersonalExtensionSettingsStorage(createAppSettingsStorage(app.db));
+  const charactersStorage = createCharactersStorage(app.db);
+  const chatsStorage = createChatsStorage(app.db);
 
   app.get("/policy", async () => getPersonalExtensionPolicy(app.db));
 
@@ -807,8 +1141,16 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
         id: extension.id,
         name: extension.name,
         description: extension.description,
+        capabilities: extension.capabilities,
         contentHash: extension.contentHash,
-        sandboxUrl: `/api/personal-extensions/${encodeURIComponent(extension.id)}/sandbox.html?hash=${encodeURIComponent(extension.contentHash)}`,
+        executionMode: hasFullPageAccess(extension) ? "full-page" : "sandboxed",
+        runtimeUrl: hasFullPageAccess(extension)
+          ? `/api/personal-extensions/${encodeURIComponent(extension.id)}/page-runtime.js?hash=${encodeURIComponent(extension.contentHash)}`
+          : `/api/personal-extensions/${encodeURIComponent(extension.id)}/sandbox.html?hash=${encodeURIComponent(extension.contentHash)}`,
+        styleUrl:
+          hasFullPageAccess(extension) && extension.css
+            ? `/api/personal-extensions/${encodeURIComponent(extension.id)}/page-style.css?hash=${encodeURIComponent(extension.contentHash)}`
+            : null,
       }));
   });
 
@@ -822,6 +1164,7 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       !extension.enabled ||
       extension.approvedHash !== extension.contentHash ||
       req.query.hash !== extension.contentHash ||
+      hasFullPageAccess(extension) ||
       !canExecutePersonalExtension(extension, policy)
     ) {
       return reply.status(404).send("Not Found");
@@ -835,6 +1178,43 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       `default-src 'none'; script-src 'nonce-${nonce}'; worker-src blob:; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; font-src 'none'; media-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`,
     );
     return sandboxDocument(extension, nonce);
+  });
+
+  const approvedFullPageExtension = async (id: string, hash: string | undefined) => {
+    const extension = ID_PATTERN.test(id) ? await storage.getById(id) : null;
+    if (
+      !extension ||
+      extension.runtime !== "client" ||
+      !extension.enabled ||
+      extension.approvedHash !== extension.contentHash ||
+      hash !== extension.contentHash ||
+      !hasFullPageAccess(extension) ||
+      !isExternalPersonalExtensionSource(extension.source) ||
+      !canExecutePersonalExtension(extension, await getPersonalExtensionPolicy(app.db))
+    ) {
+      return null;
+    }
+    return extension;
+  };
+
+  app.get<{ Params: { id: string }; Querystring: { hash?: string } }>("/:id/page-runtime.js", async (req, reply) => {
+    const extension = await approvedFullPageExtension(req.params.id, req.query.hash);
+    if (!extension) return reply.status(404).send("Not Found");
+    reply.type("application/javascript; charset=utf-8");
+    reply.header("Cache-Control", "no-store");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Cross-Origin-Resource-Policy", "same-origin");
+    return fullPageExtensionSource(extension);
+  });
+
+  app.get<{ Params: { id: string }; Querystring: { hash?: string } }>("/:id/page-style.css", async (req, reply) => {
+    const extension = await approvedFullPageExtension(req.params.id, req.query.hash);
+    if (!extension || !extension.css) return reply.status(404).send("Not Found");
+    reply.type("text/css; charset=utf-8");
+    reply.header("Cache-Control", "no-store");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("Cross-Origin-Resource-Policy", "same-origin");
+    return extension.css;
   });
 
   app.post("/", async (req, reply) => {
@@ -883,6 +1263,9 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
       return reply
         .status(503)
         .send({ error: policy.serverSandboxReason ?? "No supported server sandbox is available." });
+    }
+    if (hasFullPageAccess(existing) && input.acknowledgeFullPageAccess !== true) {
+      return reply.status(400).send({ error: "Full page access must be explicitly acknowledged." });
     }
     const approved = await storage.approve(req.params.id, input.contentHash);
     if (!approved) return reply.status(404).send({ error: "Personal Extension not found" });
@@ -935,6 +1318,33 @@ export async function personalExtensionsRoutes(app: FastifyInstance) {
     if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
     await settings.remove(extension.id);
     return { value: {} };
+  });
+
+  app.post<{ Params: { id: string }; Body: { chatId?: unknown } }>("/:id/context", async (req, reply) => {
+    const extension = await browserStorageExtension(req.params.id);
+    if (!extension) return reply.status(404).send({ error: "Personal Extension not found" });
+    const chatId = typeof req.body?.chatId === "string" && ID_PATTERN.test(req.body.chatId) ? req.body.chatId : null;
+    if (!chatId) return { characters: [], persona: null };
+    const chat = await chatsStorage.getById(chatId);
+    if (!chat) return { characters: [], persona: null };
+
+    const capabilities = new Set(extension.capabilities);
+    const characterIds = parseContextCharacterIds(chat.characterIds);
+    const characters = capabilities.has("read_active_characters")
+      ? (await charactersStorage.getByIds(characterIds))
+          .map((row) => parseContextCharacter(row))
+          .filter((character): character is ContextCharacterSource => Boolean(character))
+      : [];
+    const personaRow =
+      capabilities.has("read_active_persona") && chat.personaId && ID_PATTERN.test(chat.personaId)
+        ? await charactersStorage.getPersona(chat.personaId)
+        : null;
+    const persona = personaRow ? { ...personaRow, tags: parseContextPersonaTags(personaRow.tags) } : null;
+    return createPersonalExtensionRecordContext({
+      capabilities: extension.capabilities,
+      characters,
+      persona,
+    });
   });
 
   app.delete<{ Params: { id: string } }>("/:id", async (req, reply) => {
