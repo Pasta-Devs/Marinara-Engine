@@ -1414,6 +1414,7 @@ const pullRequestTriageWorkflow = readFileSync(
 );
 assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
 assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.review\.state == 'commented'/u);
 assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
 assert.match(pullRequestTriageWorkflow, /APPROVAL_EVENT_RELEVANT/u);
 assert.match(pullRequestTriageWorkflow, /if: env\.APPROVAL_EVENT_RELEVANT != 'true'/u);
