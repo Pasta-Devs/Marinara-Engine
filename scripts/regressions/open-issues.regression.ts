@@ -1421,7 +1421,8 @@ assert.match(
   pullRequestTriageWorkflow,
   /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
 );
-assert.match(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
+assert.match(pullRequestTriageWorkflow, /github\.event\.changes\.base\.ref\.from != ''/u);
+assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
 assert.equal(
   buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
   "https://api.atlascloud.ai/api/v1/model/generateImage",
