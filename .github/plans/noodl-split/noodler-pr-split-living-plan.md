@@ -1,12 +1,16 @@
 # NoodleR PR-Split — Living Plan
 
-Authoritative repository plan as of 2026-07-23. Update the status table and merged list as
+Authoritative repository plan as of 2026-07-31. Update the status table and merged list as
 work lands. Historical slice numbers are retained where useful, but the order below
 is the current intended order.
 
 This Living Plan replaces the historical repository v2 plan. Kickoff prompts remain
 self-contained; this file is the planning authority unless product direction
 explicitly replaces it.
+
+Slice 8f additionally has a detail design document,
+[NoodleR Access Model and Onboarding Overhaul](./noodler-access-and-onboarding.md). This
+file stays authoritative for ordering and decisions; that file owns 8f's design detail.
 
 ## Terminology — "private" is retired
 
@@ -26,9 +30,11 @@ current vocabulary**:
 | `privatePostGuide` | `noodlerPostGuide` |
 | `privateGenerationGuidance` | `noodlerGenerationGuidance` |
 
-The one thing that keeps the word: post-level `access: "public" | "subscriber" | "ppv"`
-(`noodler-access.ts`) is the actual paywall/visibility control and is deliberately unchanged.
-`platform` says *which simulated app an account lives on*; `access` says *who may read a post*.
+The current post-level access enum is `access: "public" | "locked"`
+(`noodler-access.ts`). `subscriber`, `ppv`, `ppvPrice`, and `subscriptionIncludesPpv` are
+retired access-model terms retained below only where a historical shipped contract or the
+8f-2 migration needs to name them. `platform` says *which simulated app an account lives
+on*; `access` says *who may read a post*.
 
 ## Product charter
 
@@ -64,6 +70,12 @@ The product experience therefore needs both agency and life:
 | 6 | Subscriptions & access (subscriber posts, PPV unlocks, hidden-from, viewer-persona scoping) | #3856 |
 | 6b | Shell/feed parity and private interactions (real component reuse, pink theming, merged feed, access-gated interactions, coin popover, mode toggle) | #3888 |
 | 7 | Roleplay authoring and creator-profile parity (literal Post, optional Guide, titles, unified profiles, stage creation) | #3969 |
+| 8 | Text-only automatic creator posting and control plane | #3984 |
+| 10 | Composer media parity (one uploaded image, optional poll, private media storage) | #3981 |
+| 8b | Access-protected generated creator images | #4001 |
+| 8c | Bulk creator operations, creation-flow hardening, noodle-blue → noodle-accent migration | #4047 |
+| 8d | NoodleR shell/profile UI pass (pink shell, profile return navigation, viewer scope, reply-manage override) | #4063 |
+| 8e | `private` → `noodler` rename across code, data, and UI | #4129 |
 
 ## Current status and intended order
 
@@ -71,16 +83,39 @@ The product experience therefore needs both agency and life:
 | --- | --- | --- | --- |
 | 0 | Slice 6b stabilization and browser proof | Integrated Playwright proof passed with a Guided-output coverage gap; bare staging proof not isolated | Merged 1A–6b |
 | 1 | Slice 7 — roleplay authoring and creator-profile parity | Merged through #3969 | 4, 5, 6, 6b |
-| 2 | Slice 8 — toggleable text-only automatic creator posting and control plane | **Release-candidate requirement** | 7 authoring operation and stabilization gate |
-| 3 | Slice 8b — access-protected generated creator images | Local branch implements image generation on the manual Guide and automatic-post paths (NoodleR-owned enablement + single-image-per-post `imagesEnabled` policy on the autoPosting subtree), identity-protected image prompts, private-media namespace served through an access-checked endpoint, prompt-review lease path, and delete cleanup; `pnpm check` + `regression:noodle` pass; real-provider image smoke remains; not merged | 7 and 8 posting paths |
-| 4 | Slice 9a — quiet synthetic fan engagement | Planned after auto-posting | 6, 6b, 8 |
-| 5 | Slice 9c — persona-first named superfans and non-economic visible moments | Roleplay-first, compute-bounded follow-up | 9a |
-| 6 | Slice 9d — opt-in real-character named fans | Planned later | 9c |
-| 7 | Slice 9b — support points and visible economic events | Optional low-priority fun addition | 9a; defer if scope grows |
-| 8 | Slice 9e — named-fan profiles and access-filtered history | Ambient identity follow-up | 9c; extended by 9d |
-| 9 | Slice 10 — composer media parity | Implemented in draft PR #3981; automated gate passed, manual UI proof pending | 6b, 7 authoring UI |
-| 10 | Slice 11 — cross-mode integration | Blocked on product contract | manual/automatic posting paths |
-| 11 | Slice 12 — creator projects/milestones | Last | Explicit prerequisites to be defined |
+| 2 | Slices 8, 8b, 8c, 8d, 10 | Merged; see the table above | — |
+| 3 | Slice 8e — `private` → `noodler` rename across code, data, and UI | Merged through #4129 (2026-07-27), with `noodle-platform-migration.ts` and its regression | none beyond merged staging |
+| 4 | Slice 8f-1 — identity-redaction fix (rename-then-redraft) | Implemented on `big-chungus-1`, unmerged; `buildNoodlerPublicIdentity()` widens the identity union, covered by `noodle-prompt.regression.ts` | none |
+| 5 | Slice 8f-2 — access collapse to `public \| locked` + migration | Implemented on `big-chungus-1`, unmerged; see [detail document](./noodler-access-and-onboarding.md) | 8e (same files) |
+| 6 | Slice 8g — creators reply to the viewer | Implemented on `big-chungus-1`, unmerged; `noodle-noodler-creator-reply.operation.ts` + `noodle-noodler-reply-generation.service.ts`, covered by `noodle-creator-reply.regression.ts` | 8f-2 access model only |
+| 7 | Slice 8f-3 — front-loaded scheduled-post reserve | Implemented on `big-chungus-1`, unmerged; `noodle-noodler-reserve.operation.ts`, `noodle-autopost-cadence.ts` deleted | 8f-2 |
+| 8 | Slice 8f-4 — setup wizard with an emulated Professor Mari teaching post | Implemented on `big-chungus-1`, unmerged; `noodler-onboarding.ts` + wizard screens | 8f-2, 8f-3, 8c bulk creation |
+| 9 | Slice 8f-5 — watching surface: new-since-last-visit divider and entry-point counter | Planning; cheapest win in the design, split out so a scope cut cannot eat it | 8f-2 |
+| 9+ | Slice 8f-6 — creator-page operator area, including source-changed and source-missing notices | Planning; independent of the access and scheduling work, so it may land any time after 8f-1 | 8f-1 |
+| 10 | Slice 9a — quiet synthetic fan engagement | Later, and **optional** rather than the road ahead — see the note below | 6, 6b, 8, 8f-2, 8g |
+| 11 | Slice 9c — persona-first named superfans and non-economic visible moments | Roleplay-first, compute-bounded follow-up | 9a |
+| 12 | Slice 9d — opt-in real-character named fans | Planned later | 9c |
+| 13 | Slice 9b — support points and visible economic events | Optional low-priority fun addition | 9a; defer if scope grows |
+| 14 | Slice 9e — named-fan profiles and access-filtered history | Ambient identity follow-up | 9c; extended by 9d |
+| 15 | Slice 11 — cross-mode integration | Blocked on product contract | manual/automatic posting paths |
+| 16 | Slice 12 — creator projects/milestones | Last | Explicit prerequisites to be defined |
+
+Order note: after Slice 8b the actual work ran 8c → 8d — UX consolidation rather than the
+originally planned jump to fan simulation. That deviation is deliberate and is recorded
+rather than reversed. Slices 8e and 8f continue it, and both precede 9a on purpose:
+Slices 9a, 9b, and 9e depend on the settled `public | locked` model, so simplifying access
+after the fan work would have meant writing those slices twice.
+
+**The 9 band is optional, not the road ahead.** Slices 9a–9e and 12 simulate an audience
+economy — invented fans, named superfans, support points, fan profiles, milestones — and
+NoodleR has no economy for them to be an economy of. Coins exist as of 8f-2 and are charged,
+but at a 999999 starting balance with no prices rendered, nothing is scarce and no user
+reaches zero — so subscribing is still effectively free. They are scenery for scenery, and
+every one of them spends provider budget on ambience. If coins are ever made scarce, revisit
+this judgement; until then it stands. What actually carries the product is watching (the 8 band's audience surface) and
+being addressed (8g). They are listed but deliberately kept thin — see "The 9 band" below —
+because a slice that may never ship should not carry a design that must be maintained.
+Reassess after 8g is real.
 
 ## Product and UX principles
 
@@ -114,10 +149,11 @@ A release candidate must support roleplay autonomy: at minimum, required Slice 7
 authoring/profile shape plus toggleable per-character automatic posting and a user-
 approved way to guide and control the experience in Slice 8.
 
-### Stabilization gate — NEXT
+### Stabilization gate — passed on the integrated branch, see the receipt below
 
-No speculative product work belongs in this gate. Use the current merged behavior
-and fix only reproduced blockers.
+Historical. No speculative product work belonged in this gate; it used the merged behavior
+and fixed only reproduced blockers. Retained because the residual gap it names — an
+isolated run of bare `origin/staging` — was never closed.
 
 Required proof:
 
@@ -152,13 +188,11 @@ provider smoke remains separate from the deterministic local-provider proof.
 non-null `imagePrompt`, while its stub returned `poll: null`. It therefore did not
 assert Slice 7's text-only output constraint. A real Guided run subsequently
 reproduced one composite post containing a title, body, poll, and image prompt.
-Static tracing confirms that the inherited private generator asks for, validates,
-persists, and displays those fields together. This does not invalidate the access,
-persistence, responsive-layout, or identity-redaction results above, but it blocks
-Slice 7 readiness until the output policy conforms to the slice boundary. A local
-correction now requests only title/body and defensively persists neither poll nor
-image-prompt output; server typechecking and build pass, while provider/browser
-regression proof remains required.
+Static tracing confirmed that the inherited private generator asked for, validated,
+persisted, and displayed those fields together. This did not invalidate the access,
+persistence, responsive-layout, or identity-redaction results above. It was corrected
+before #3969 merged: generation requests only title/body and defensively persists neither
+poll nor image-prompt output.
 
 Passing this gate proves the merged foundation and unblocks Slice 7. It does **not**
 make 6b a release candidate.
@@ -183,8 +217,9 @@ The currently specified minimum control-plane proposal is:
   “pause all” feature;
 - a global **Refresh NoodleR now** action over automation-enabled creators;
 - per-stage-profile automatic-posting enable/disable;
-- per-stage-profile Low/Medium/High cadence;
-- next-run status and schedule editing/rescheduling;
+- one rolling NoodleR reserve of pre-generated posts with fixed future publication times
+  (Slice 8f; replaces per-creator cadence, per-creator next-run status, and startup
+  catch-up);
 - editable stage profile identity/personality as durable generation guidance;
 - Slice 7's optional one-shot guide for user-triggered posts.
 
@@ -194,13 +229,14 @@ Settings and creator-specific controls on the creator page. They still use separ
 typed capability leaves and server-owned timestamps; shared UI placement does not
 permit one raw settings object or one shared schedule.
 
-Automatic posts default to `subscriber` access: in the current no-currency product,
-this is the follow/subscribe-to-see path. Slice 8 does not automatically create PPV
-posts or add currency.
+Slice 8 originally defaulted automatic posts to `subscriber` and excluded automatic PPV
+posts and currency. The current default is `locked`; coins now exist under the 8f-2 hidden
+balance contract, and automatic posting still does not create a distinct higher access tier.
 
-There is no separate quiet-hours field. Users control timing through the NoodleR
-schedule and can reschedule planned/next runs, following Noodle's existing schedule
-UX within the per-creator `nextRunAt` model.
+Quiet time constrains future publication planning for creators without a weekly schedule
+of their own and is asked once in the Slice 8f wizard. It is not a per-creator field.
+Character schedules and night quiet decide whether a creator is plausible at a proposed
+future publication time; they do not create another clock.
 
 “Automatic-post creative brief” would mean persistent per-creator instructions used
 only for scheduled posts, for example “focus on backstage updates; avoid spoilers.”
@@ -218,15 +254,15 @@ sequence of posts.
 - **The user manually triggers AI generation from direction text.** This already
   exists on merged staging.
 - **The user triggers AI generation without a guide.** The server contract already
-  permits an omitted `privatePostGuide`, but the merged composer currently requires
+  permits an omitted `noodlerPostGuide`, but the merged composer at that point required
   non-empty direction text. Slice 7 must expose this as the normal unguided path and
   make guidance optional.
 - **The user's literal text is published without an LLM.** This does not exist on
   staging or on the reference `noodl-split-7-post-as-character` branch. Product
   direction explicitly selected this behavior for Slice 7: **Post** publishes the draft literally, while
-  **Guide** sends the current draft through the existing private generation pipeline.
+  **Guide** sends the current draft through the existing NoodleR generation pipeline.
 
-Literal authoring therefore lands in Slice 7 through a strict private-post input,
+Literal authoring therefore landed in Slice 7 through a strict NoodleR-post input,
 stage-profile author scope, existing access choices, one server operation, and one
 client mutation. It does not need images, scheduling, fan activity, or a separate
 generation path.
@@ -282,15 +318,11 @@ follows the user's selected persona instead of a second local picker.
 **Depends on:** merged Slices 4, 5, 6, and 6b plus the stabilization proof. The old fan
 branch is unrelated prior art. The reference branch is behavior reference only.
 
-**Current implementation status (2026-07-23):** implemented on branch
-`noodl-split-7-roleplay-authoring`; not yet merged. The current local diff adds the
-title/body-only Guided correction and the unified creator-profile layout described
-below. Shared/server/client focused lint or type checks, the client production build,
-`regression:noodle`, and `regression:prompt` pass. Seeded desktop/mobile Playwright
-verification passes for the unified layout and subscriber-list contract. The earlier
-provider/browser coverage gap for a real Guided request remains: a successful
-real-external-provider title/body-only generation smoke and human usability pass are
-still required before readiness is claimed.
+**Implementation status: merged through PR #3969.** The section below is retained as the
+shipped contract. It shipped the title/body-only Guided correction and the unified
+creator-profile layout described below, with focused lint/type checks, the client
+production build, `regression:noodle`, `regression:prompt`, and seeded desktop/mobile
+Playwright verification of the unified layout and subscriber-list contract.
 
 **Unified-profile proof receipt (2026-07-23):** a seeded Playwright Chromium pass
 opened a managed profile as its linked persona and as a different viewer persona.
@@ -307,22 +339,22 @@ No temporary browser artifacts remain.
 ### Commit 1 — Private post contracts, operations, and deterministic author identity
 
 - Put connection resolution, per-stage-profile operation locking, and
-  `generatePrivatePost()` behind one typed application operation used by every
+  `generateNoodlerPost()` behind one typed application operation used by every
   authoring entry point. Preserve Slice 6 access/interaction policy; authoring does
   not grant viewing or interaction access.
-- Add a separate typed manual-private-post command. **Post** stores the normalized
+- Add a separate typed manual NoodleR-post command. **Post** stores the normalized
   optional title and body literally with `source: "manual"`; it never disguises user
-  text as `privatePostGuide` or invokes the provider.
-- Treat `privatePostGuide` as optional end to end. Omit it for unguided generation;
+  text as `noodlerPostGuide` or invokes the provider.
+- Treat `noodlerPostGuide` as optional end to end. Omit it for unguided generation;
   do not send an empty-string pseudo-guide or create a parallel generation path.
-- Add `title: string | null` as a first-class private-post field across storage,
-  shared post/view DTOs, generated private-post output, private create/update
+- Add `title: string | null` as a first-class NoodleR-post field across storage,
+  shared post/view DTOs, generated NoodleR-post output, NoodleR create/update
   validation, and post-card presentation. Keep public Noodle create/update inputs
   unchanged; public posts have no title.
 - **Guide** submits the current title/body draft as one-shot guidance through the
   generated-post operation and persists the generated optional title/body result.
   Apply disclosure/identity protection to both generated title and body.
-- If Guide is invoked with no title/body direction, omit `privatePostGuide` and perform
+- If Guide is invoked with no title/body direction, omit `noodlerPostGuide` and perform
   ordinary unguided generation; never send an empty-string pseudo-guide.
 - Normalize a whitespace-only title to `null` and use one shared bounded title limit.
   Legacy rows project `null`. Locked subscriber/PPV views return `title: null`.
@@ -391,7 +423,7 @@ No temporary browser artifacts remain.
   profile, show a small, unobtrusive create-stage-profile action on its Noodle profile.
 - Route into the existing typed creation flow with the source account preselected.
 - Hide or replace the action when a stage profile already exists; never create a
-  second private account for the same `publicAccountId`.
+  second NoodleR account for the same `noodleAccountId`.
 - This commit may land as a later Slice 7 follow-up, but the capability is required
   and remains tracked until merged.
 
@@ -413,15 +445,25 @@ No temporary browser artifacts remain.
   request; absent an enabled request capability, both outputs must be `null` and
   must not be persisted. Do not introduce persistent defaults or infer whether these
   request-scoped toggles land in Slice 7 until the maintainer confirms their timing.
-- **Reproduced blocker and local remedy (2026-07-23):** the inherited private-generation contract
-  currently permits a single Guided post to contain title, body, poll, and image
-  prompt together without explicit selection. The minimum safe correction is to
-  generate title/body only by default and suppress poll/image output unless the
-  request explicitly opts into those capabilities. The current local fix narrows
-  both the prompt and strict response format to title/body and writes `imagePrompt:
-  null` with empty metadata even if a non-strict provider returns extra fields.
+- **Reproduced blocker, fixed in #3969:** the inherited private-generation contract
+  permitted a single Guided post to contain title, body, poll, and image prompt together
+  without explicit selection. The shipped correction generates title/body only by default
+  and suppresses poll/image output unless the request explicitly opts into those
+  capabilities: it narrows both the prompt and the strict response format to title/body and
+  writes `imagePrompt: null` with empty metadata even if a non-strict provider returns extra
+  fields.
 
 ## Slice 8 — Text-only automatic creator posting
+
+Implementation status: merged through PR #3984. The section below is retained as the
+shipped contract.
+
+**Amended by 8f-3.** Slice 8 shipped a per-creator cadence model (`intensity`, `nextRunAt`,
+`noodle-autopost-cadence.ts`). 8f-3 replaces it with front-loaded generation into one
+rolling private scheduled-post reserve; the per-account `enabled` flag survives. The
+settings block and reserve/publication proof bullets below are therefore stated in their
+**post-8f-3** form, marked where they differ from what shipped. Per-stage-profile
+enable/disable is unchanged, so the release-candidate condition still holds.
 
 **Goal:** make characters autonomously produce content while Marinara is running,
 with per-character toggles and an accepted user control plane, using the same private-
@@ -433,16 +475,24 @@ or on fan activity.
 
 ### Service boundary
 
-The route currently owns connection resolution and per-account in-flight
-coordination around `generatePrivatePost()`. In a behavior-preserving first commit,
-move that orchestration behind one typed private creator-post application operation:
+The route ownership at Slice 8 kickoff included connection resolution and per-account
+in-flight coordination around `generateNoodlerPost()`. Move that orchestration behind
+capability-owned operations:
 
-- HTTP guided generation and the scheduler call the same operation directly.
-- Keep `generatePrivatePost()` as the capability-owned generation core.
+- HTTP guided generation uses an immediate-publish operation.
+- Reserve preparation uses a prepare-for-later operation whose terminal write is the
+  NoodleR-owned outbox rather than the ordinary post table.
+- Both operations share `generateNoodlerPost()` as the capability-owned generation core
+  and share policy, redaction, media, and typed-outcome logic; they do not duplicate the
+  prompt pipeline.
 - Schedulers never import routes or call `app.inject()`.
-- Use one in-process operation lock per private account. Different creators remain
+- Use one in-process operation lock per NoodleR account. Different creators remain
   independently runnable.
-- Revalidate mutable stage/disclosure policy after provider work before persistence.
+- Foreground and background model operations also share a narrow connection-scoped
+  admission seam. Background work may start only after the configured connection has been
+  foreground-idle for 30 seconds; an already-running call is never preempted.
+- Revalidate mutable stage/disclosure policy after provider work before either immediate
+  persistence or outbox persistence. Due publication revalidates again.
 
 This is the extension seam later projects/chat commands may call; do not prebuild
 those features.
@@ -451,48 +501,64 @@ those features.
 
 Use one per-account model:
 
+Slice 8 shipped a per-creator model (`intensity`, `nextRunAt`,
+`noodle-autopost-cadence.ts`). Slice 8f replaces it with one NoodleR-wide reserve and
+automatic attempt budget; the per-account enable flag survives:
+
 ```ts
 interface NoodleAutoPostingSettings {
   enabled: boolean;
-  intensity: 1 | 3 | 6;
-  nextRunAt: string | null;
+  imagesEnabled: boolean;
 }
 
 interface NoodleAccountSchedulerSettings {
   autoPosting?: NoodleAutoPostingSettings;
 }
+
+interface NoodlerCreatorPostScheduleSettings {
+  enabled: boolean;
+  postsPerDay: number; // integer, 1..24; default 4
+}
 ```
 
-- Default projection: disabled, intensity 1, `nextRunAt: null`.
-- `nextRunAt` is server-owned and excluded from client-editable patches.
-- `enableNoodler` is sufficient as the global feature kill switch. Do not add a
-  competing global posts-per-day schedule or `lastAutomaticPostAt`.
+- Default projection: disabled.
+- `enableNoodler` remains the product kill switch. The separate automatic-schedule switch
+  and `postsPerDay` are capability controls, not competing product enablement.
 - The NoodleR Settings schedule toggle may disable automatic posting globally without
   disabling the NoodleR product. This is the schedule's enabled state, not a second
   “pause all” concept.
-- Intensity means at most 1/3/6 automatic posts per day for that profile.
-- Enabling or changing intensity clears `nextRunAt` transactionally; the scheduler
-  seeds a future first run.
-- Claim a due run by advancing `nextRunAt` before provider work.
-- After downtime, run at most once; never replay every missed interval.
-- Expected skips/provider failures move to a bounded future cadence and cannot
-  hot-loop.
-- Shutdown clears timers and awaits the active poll before storage closes.
+- `postsPerDay` is both the targeted maximum publication density and the automatic
+  text-attempt ceiling across any rolling 24 hours. Failed potentially billable
+  attempts count. Atomically persist an attempt claim before provider work; crashes and
+  ambiguous outcomes keep the claim. A bounded rolling ledger and last-observed budget time
+  prevent midnight, timezone, or backward-clock resets.
+- Automatic image-provider attempts use the same claim mechanism with a separate kind and
+  the same derived N ceiling, for at most 2N combined attempts; retries consume claims.
+  With prompt review enabled, publication atomically closes pending or in-flight image work
+  at `publishAt`, publishes text-only, and cleans any late result without attaching it.
+- Maintain a NoodleR-owned 24-hour rolling reserve of validated prepared posts. Preparation is
+  low priority and concurrency 1; active foreground provider work wins.
+- Publication is a separate idempotent local transaction with no provider call. Startup
+  materializes valid due items at their preassigned times and returns. Future preparation
+  begins only through the normal post-start 30-second idle scheduler.
+- Expected skips/provider failures leave reserve coverage incomplete and cannot hot-loop.
+- Shutdown clears timers and awaits the active scheduler pass before storage closes.
 
-The first automatic-post slice is text-only. Scheduler and any confirmed manual-
-refresh posts use `subscriber` access by default. Do not generate automatic PPV posts
-or add a currency/access-default settings system in this slice.
+Slice 8 first shipped text-only automatic posts with `subscriber` access. In the post-8f
+state, automatic posts use `locked` by default and the already-merged Slice 8b generated-
+image preference survives into prepared items. 8f-3 does not create a second image pipeline
+or add a currency/access-default settings system.
 
 ### UI and proof
 
 - Add a dedicated NoodleR section to application Settings for the global kill switch
   and approved global automation controls, including automatic schedule on/off and
   the confirmed Generate/Refresh-now scope.
-- Put per-profile automatic-posting toggle, Low/Medium/High intensity, and next-run
-  status on that creator's Slice 7 profile page rather than hiding them only in the
-  profile manager.
-- Let the user inspect and reschedule that creator's next planned run. Do not add a
-  separate quiet-hours setting when the schedule itself provides timing control.
+- Put the per-profile automatic-posting toggle on that creator's Slice 7 profile page
+  rather than hiding it only in the profile manager.
+- Let the user inspect automatic attempts used in the last 24 hours and how far the NoodleR reserve
+  currently reaches. The creator page may show its next prepared publication time.
+  Individual recurring rescheduling is removed; the first reserve version is inspect-only.
 - Define and prove automation precedence before adding a global default plus creator
   override. The global kill switch always wins; do not infer whether other automatic-
   posting fields are defaults, hard limits, or bulk actions.
@@ -500,29 +566,31 @@ or add a currency/access-default settings system in this slice.
   not imply that Slice 7's one-shot guide controls future scheduled posts.
 - Slice 7's per-creator composer already supplies single-creator generate-now. Slice
   8 adds a global **Refresh NoodleR now** over automation-enabled creators. Prioritize
-  creators scheduled in the near future, then process the remaining enabled creators.
-  Call the same creator-post operation with bounded concurrency and per-creator typed
+  least-recently-active creators, then process the remaining enabled creators.
+  Call the immediate-publish operation with bounded concurrency and per-creator typed
   outcomes; one creator's failure must not roll back successful creators.
 - Each successful selected creator contributes one visible feed action/post so the
   manual refresh rewards the user immediately.
-- A successful manual refresh consumes a creator's near-future scheduled slot and
-  advances `nextRunAt` using that creator's configured cadence/schedule policy. Keep
-  the spirit of an explicitly set schedule rather than resetting to an unrelated
-  default or allowing an immediate duplicate automatic post.
-- Enabling autopost without a user-chosen schedule uses a sensible randomized default
-  cadence. It is not a second scheduler mode. Exact jitter/distribution is an
-  implementation choice bounded by the selected intensity and anti-burst rules.
+- Ad-hoc posting is not a second schedule. After a successful immediate post, discard any
+  prepared item for that creator where
+  `manualCreatedAt < publishAt <= manualCreatedAt + 60 minutes`; normal low-priority
+  preparation may replace it later.
 - Preserve mobile layout, themes, loading/disabled states, and actionable errors.
 - Prove strict schema/default normalization and atomic config/timestamp updates.
-- Use a temporary controlled-clock/provider proof for future first run, 1/3/6
-  cadence, claim-before-generation, no catch-up burst, simultaneous polls, same-
-  account exclusion, different-account independence, provider failure, and shutdown.
+- Use a temporary controlled-clock/provider proof for overlapping scheduler passes, same-account
+  exclusion, different-account independence, provider failure, and shutdown.
+- **8f-3 addition, not shipped in Slice 8:** controlled-clock/provider proof covers
+  rolling-horizon preparation, atomic text/image attempt claims, connection-scoped
+  foreground admission, due publication, startup-with-zero-provider-work, crash
+  idempotence, pause/re-enable, source/policy/schedule/timezone invalidation, prompt-review
+  expiry, the 60-minute manual boundary, private-media cleanup, and reserve exhaustion.
 - Remove temporary proof artifacts before handoff.
 
-**Explicit non-scope:** private images, user uploads, polls, fan actions, named fans,
-support points/events, active/passive posting policy, automatic PPV, a separate
-automatic-post creative brief, cross-mode publication, projects, and new profile/
-navigation destinations.
+**Explicit non-scope:** new image capabilities, user uploads, polls, fan actions, named
+fans, support points/events, active/passive posting policy, automatic PPV, a separate
+automatic-post creative brief, cross-mode publication, project implementation, and new
+profile/navigation destinations. Existing Slice 8b private generated images must remain
+safe through outbox ownership, publication, invalidation, and cleanup.
 
 ## Slice 8b — Access-protected generated creator images
 
@@ -558,177 +626,204 @@ This slice enables the approved **image** output choice only when the full path 
 exists. It does not add image upload, gallery attachment, polls, or a second posting
 operation. Slice 10 still owns user-uploaded media and polls.
 
-## Slice 9a — Quiet synthetic fan engagement
+## Slice 8e — `private` → `noodler` rename
 
-**Goal:** make existing creator content receive access-valid synthetic engagement
-without bundling economics, moments, or real-character identity sourcing.
+**Goal:** remove the last naming split between the internal `private` vocabulary and the
+user-facing NoodleR product name, across code, stored data, and UI.
 
-**Depends on:** Slices 6/6b and preferably Slice 8 so creator content exists.
+**Status:** merged through PR #4129 (2026-07-27), including
+`packages/server/src/db/noodle-platform-migration.ts` and
+`scripts/regressions/noodle-platform-migration.regression.ts`. The retired vocabulary is
+recorded in "Terminology — `private` is retired" above; 8f-2's migration follows the
+pattern this slice established.
 
-- Synthetic fans are scoped to a creator and do not borrow real character state.
-- Start with routine likes/replies/reposts against posts the synthetic actor may
-  actually view. Subscriber/PPV content remains unavailable until the later economic
-  slice grants access.
-- One LLM call may propose engagement; deterministic quotas, target validation,
-  deduplication, and anti-spam guards apply afterward.
-- Access gating occurs before prompt target selection and again transactionally
-  before persistence.
-- Introduce a fan-identity provider seam even if the first provider only supplies
-  synthetic identities.
-- Routine reactions appear quietly on posts. No viral/big-spender moment layer.
-- Use dedicated generated-audience commands; never widen persona-facing interaction,
-  subscribe, or unlock APIs to arbitrary generated actors.
-- Extend the established control-plane surfaces: NoodleR-wide fan controls belong in
-  the NoodleR Settings section, while creator-specific fan controls belong on that
-  creator's profile page.
-- Global fan settings provide defaults and creator pages may override them. Include a
-  configurable audience-archetype mix rather than assuming one generic fan mass:
-  ordinary fans, eccentric fans, cross-fandom visitors, raiders, organic discovery,
-  and audiences suited to non-adult/free-resource creators are approved directions.
-  Exact labels, weights, and schema remain Slice 9 implementation design. Do not reuse
-  auto-post settings, timestamps, or enablement merely because the controls share
-  screens.
+Mechanical but wide. It renames services, storage helpers, operation locks, media paths,
+shared types, and schemas, and migrates existing rows.
 
-Fan activity may reuse Slice 8's scheduler infrastructure and pure cadence helper,
-but it owns a separate `scheduler.fanActivity` leaf, `nextRunAt`, transactional claim,
-service, retry behavior, and enable/disable state. One shared timestamp would couple
-independent capabilities and is prohibited.
+**Non-scope:** no behavior change whatsoever. Nothing about access, generation,
+scheduling, or presentation may change under cover of the rename. Any behavior fix found
+along the way belongs in its own change.
 
-## Slice 9c — Named superfans and visible moments
+Sequence it before 8f: 8f edits many of the same files, and doing the mechanical rename
+first avoids conflicts that teach nobody anything.
 
-Add persistent named synthetic superfans with personality/relationship continuity,
-then visible non-economic moments such as a recurring fan becoming a superfan or a
-post receiving an unusual burst of attention. Keep this above the quiet engine and
-fan-identity provider rather than mixing it into baseline target/access logic.
+## Slice 8f — Access model, onboarding, and scheduling overhaul
 
-This is persona-first, not one expensive named-fan simulation per character-backed
-creator. Default 9c eligibility means a stage profile linked through `publicAccountId`
-to a public Noodle account of kind `persona`. Character-backed stage profiles still
-receive the cheaper access-valid quiet activity from 9a.
+**Goal:** collapse the Follow/Subscribe/PPV confusion into two profile levels and three
+post states, give first-time users a working entry ramp instead of an empty NoodleR home,
+and replace per-creator interval cadence with an inspectable reserve of posts generated
+before their future publication times.
 
-Compute rules:
+**Design detail:** [NoodleR Access Model and Onboarding Overhaul](./noodler-access-and-onboarding.md).
+That document owns the design and its open questions; this section records only the slice
+boundary.
 
-- Generate a named synthetic superfan once, persist it, and reuse its identity/
-  personality; do not regenerate the fan on every activity tick.
-- Derive ordinary visible moments deterministically from persisted engagement where
-  possible. Do not make one LLM call per creator merely to decide whether a moment
-  appears.
-- Apply a global/per-tick quota before any optional LLM work.
-- Keep 9a engagement batching bounded; neither 9a nor 9c scales provider calls
-  linearly with every character in the library.
+In short: a profile has **Follow** (does this creator appear in my feed) and **Subscribe**
+(may I read their locked posts); subscribing implies following. The feed's tabs become
+Following and All creators. A post is **public**, **locked**, or **unlocked**, and carries
+one **Unlock** button whose sheet offers "unlock this post" or "subscribe to unlock
+everything", without prices. `access` collapses to `public | locked`; `ppvPrice` and
+`subscriptionIncludesPpv` are removed. Onboarding gets one wizard at two densities —
+Simple is the same wizard with defaults applied and collapsed, and each Simple line
+expands its advanced control in place, so Advanced is a click rather than a separate mode
+or a separate code path. Scheduling front-loads provider work into a private 24-hour
+reserve, then publishes prepared items locally at their fixed times. The ordinary feed
+shows ordinary chronological posts, with no absence recap or startup-generated history.
 
-One presentation decision remains. Normal likes/replies/reposts stay quiet. A **fan
-moment** is an extra prominent story event, such as recurring Mina becoming a superfan
-or one post receiving an unusual burst of attention. Before 9c implementation, decide:
+**Non-scope:** no *visible* prices or balance, no top-up/purchase path, no earning path, and
+no fan activity; no new settings surface — the wizard is an on-ramp onto the existing
+two-level control plane, not a third place where settings live. Coins themselves are in
+scope: a balance field defaulting to 999999, charged 1 on unlock and 5 on subscribe, with
+nothing rendered.
 
-- which moments ship first;
-- whether they appear as a compact feed card, creator-profile activity item, or both;
-- the deterministic activity threshold that triggers each one.
+### 8f ships as six units, not one slice
 
-Recommended smallest answer: **Superfan formed** and **Post taking off**, shown as
-compact feed and creator-profile activity cards. Let implementation choose conservative
-deterministic starting thresholds and tune them later from actual behavior, rather than
-adding threshold sliders.
+Access collapse, scheduler rewrite, onboarding, the redaction fix, the watching surface,
+and the source-drift notice share no code and no risk profile. Bundled, the watching work
+is what gets cut when the slice runs long. Each unit below is independently shippable:
 
-Selected character-backed creators may opt into 9c through an explicit per-creator
-setting. The setting is off by default; persona-backed creators remain the default 9c
-eligible group. This is creator eligibility only and does not change fan identity
-sourcing.
+| Unit | Content | Depends on |
+| --- | --- | --- |
+| 8f-1 | Widen `PublicIdentity` to the union of stored **and** live source identifiers, fixing both `protectNoodlerGeneratedIdentity()` (the redactor) and `stageProfileContainsPublicIdentity()` (the validator, which is equally blind); regression covers rename-then-redraft for `hinted` and `secret`, and asserts `open` still shows the identity | nothing |
+| 8f-2 | `access` → `public \| locked`, remove `ppvPrice`/`subscriptionIncludesPpv`, Unlock sheet, Following/All tabs, forward-only fail-closed migration, and a hidden coin balance (default 999999) charged 1 by `unlockPost` and 5 by `subscribe`. Also updates `noodle-prompt.regression.ts` and `noodle-settings.regression.ts`, which encode the deleted enum and break at compile time | 8e |
+| 8f-3 | Front-loaded scheduled-post reserve: NoodleR-owned outbox, 24-hour rolling horizon, one rolling `postsPerDay` automatic-attempt ceiling, concurrency-1 low-priority preparation, idempotent due publication, policy invalidation, no startup generation or after-the-fact historical timestamps. Replaces the historical `noodle-autopost-scheduler.service.ts` poll loop (`MAX_CONCURRENT_AUTOPOSTS = 2`), deletes `noodle-autopost-cadence.ts`/`intensity`/`nextRunAt`, and repoints `app.ts:42` plus the `nextAutoPostRunAt` import at `noodle.storage.ts:56` | 8f-2 |
+| 8f-4 | Four-step wizard at two densities, emulated Professor Mari teaching post in step 1, character pre-check threshold 8, recognition-test disclosure copy | 8f-2, 8f-3, 8c |
+| 8f-5 | New-since-last-visit divider plus entry-point counter (one stored timestamp per viewer persona) | 8f-2 |
+| 8f-6 | Creator-page operator area containing the composer, automation controls, and source-change handling: field snapshot and compare, adopt name/handle (`open` only), re-draft, dismiss, and the source-missing relink/delete variant | nothing beyond 8f-1 |
 
-This slice deliberately precedes economics so roleplay payoff can be tested without a
-ledger. Big-spender, paid-unlock, and earnings moments remain Slice 9b scope.
+8f-1 is a disclosure-guarantee defect, not a design change. It must not wait on a
+scheduling rewrite to ship. 8g needs only 8f-2's settled access model, so it sequences
+ahead of 8f-3/4/5/6 rather than behind all of 8f.
 
-## Slice 9d — Opt-in real-character named fans
+### Implementation status — 8f-5 and 8f-6 remain
 
-Swap the named-superfan provider to optionally borrow approved character identity:
+**As of 2026-07-31, four of the six units plus 8g are implemented on branch
+`big-chungus-1` and unmerged: 8f-1, 8f-2, 8f-3, 8f-4, 8g.** `pnpm check`,
+`pnpm regression:noodle`, `pnpm regression:localization`, and `pnpm version:check` pass on
+that branch. Browser proof has not been run.
 
-- Opt-in per character.
-- Read-only name/avatar/persona flavor.
-- No writeback into character chat, memory, relationship, or state.
-- Subscribing/unlocking as a fan never mutates the borrowed character.
+**Remaining: 8f-5** (new-since-last-visit divider and entry-point counter) and **8f-6**
+(creator-page operator area, including source-changed / source-missing notices). Neither has
+any code on the branch — no `lastVisit`-style field exists in
+`packages/shared/src/types/noodle.ts`, and no source-snapshot compare exists.
 
-Depends on the synthetic named-superfan engine being proven first.
+The six units were specified to ship independently; in practice five landed on one branch.
+That is recorded rather than reversed, but it makes the branch a large review unit — see
+"Splitting `big-chungus-1` for review" below.
 
-9c creator eligibility and 9d fan identity sourcing are separate axes. A persona-
-backed creator can have a synthetic or later real-character fan; opting a real
-character into being a fan does not make every character-backed creator eligible for
-9c processing.
+Two items remain recorded as non-blocking rather than dropped: a comprehension check on the
+`hinted` disclosure wording, and real paid/local provider runs to tune `postsPerDay` away
+from 4.
 
-## Slice 9e — Named-fan profiles and access-filtered history
+### Splitting `big-chungus-1` for review
 
-Durable faux profiles belong only to actors whose identity continuity matters:
+The committed branch diff against `origin/staging` is 8,524 insertions and 4,799 deletions
+across 97 files. Unrelated unstaged code changes are present in the worktree; they are not
+part of this plan update or the committed branch count. 8f-1 is separable and worth
+extracting as
+its own PR: it is a live disclosure-guarantee fix with a standalone regression, and it should
+not sit behind review of a scheduler rewrite. 8f-2/8f-3/8f-4/8g touch overlapping storage,
+schema, and settings surfaces and are expensive to unpick after the fact, so they are
+reviewable as one integrated PR.
 
-- persistent synthetic named superfans from 9c;
-- opted-in borrowed real-character named fans from 9d; and
-- any later ambient fan explicitly promoted into the named-superfan layer.
+Before implementation on any unit, per `CONTRIBUTING.md` and `CLAUDE.md`: confirm or open a
+GitHub issue, check for an existing issue-linked branch or PR so two agents do not duplicate
+the work, open a draft PR immediately so the board shows it in progress, and identify the
+owner on the issue.
 
-A named-fan profile contains its stable display name/handle, deterministic local avatar
-or approved borrowed avatar, short persona/relationship bio, creator-scoped “following
-since” date, and visible activity with that creator. Do not spend an image-provider call
-on every fan avatar. Public history reuses existing access-filtered post/interaction
-projections: show replies, reposts, visible moments, and support events only when the
-current viewer may see their targets. Never reveal a locked post's title, body, image,
-prompt, or existence through profile history.
+## Slice 8g — Creators reply to the viewer
 
-The ordinary anonymous fan mass receives no account row, clickable route, follower
-graph, or cross-post identity. Represent it through aggregate counts and compact
-ambient phrases such as “24 people liked this.” When an anonymous generated reply must
-show an author, persist an event-local display snapshot and deterministic placeholder
-avatar with that interaction so reloads remain stable, but do not turn it into a fan
-profile. This is ambience, not another social network.
+**Goal:** let a creator respond, in their stage persona, to the interactions a real viewer
+leaves on their posts.
 
-Reuse shared profile/post presentation and the fan-identity provider. Do not create a
-third post model or allow a fan profile to bypass creator/viewer access policy.
+Viewer interactions are already stored through `POST /noodler/posts/:id/interactions`, but
+no generation path consumes them. The generation service has no notion of replies at all;
+it produces posts and nothing else. So today the feed is a one-way street: you can comment
+on your own character's post and she never answers.
 
-## Slice 9b — Support points and visible economic events
+For a product whose stated purpose is exposing sides of a character that ordinary
+conversation does not, this is the missing centre. It is the one moment where the figure
+addresses the user directly from a role the chat does not show. It ranks above synthetic
+fan ambience: Slices 9a–9e invest heavily in making *invented* fans talk, while the
+*real* user is never spoken to.
 
-**Status:** accepted as a low-priority fun addition, not a release requirement. Defer
-it if the scope grows materially.
+Sequenced after **8f-2** — the settled access and interaction model is all it needs — and
+before 9a, because it reuses interaction plumbing that fan work would otherwise build first
+with a different shape. It needs nothing from 8f-3/4/5/6, so it does not wait behind them.
+Nothing in 8f depends on it either: 8f ships without a reply path.
 
-Treat “Coins or Points” as a score for now, not currency:
+**Cost requirement, to be designed with the slice, not after it.** The trigger is the user,
+so the load is unbounded by construction: ten comments would mean ten provider calls. 8g
+needs a stated daily reply ceiling in the same spirit as the posting plan's
+refreshes × creators-per-refresh, rather than one call per interaction. This is the third
+generation path in NoodleR after posts and images, and the only one whose rate a user can
+drive directly.
 
-- no spendable balance, transfer ledger, reversal system, or cash-like claims;
-- no subscription tiers;
-- support/economic events are available across creator profiles, not only persona-
-  backed creators;
-- events are visible to all viewers of the creator profile;
-- points and events are persisted/idempotent so reloads or retries do not double-count
-  them.
+**Non-scope:** synthetic fans, named fans, economics. Disclosure and access policy apply
+to replies exactly as they do to posts.
 
-Keep the first version to two idempotent state-transition events:
+## The 9 band — audience simulation, specified thin on purpose
 
-- **Joined the inner circle**: the fan successfully subscribes for the first time;
-  add **10 support points**.
-- **Unlocked a post**: the fan successfully unlocks one previously locked post; add
-  **5 support points** once for that fan/post pair.
+**These may never be built.** They simulate an audience economy for a product that does not
+yet have one: coins are charged as of 8f-2, but a 999999 starting balance and hidden prices
+mean nothing is scarce and subscribing stays effectively free. Every one of them spends
+provider budget on ambience. What carries the product is watching (the 8 band) and being addressed (8g). Kept
+listed so the ideas are not lost, deliberately not specified in depth — a slice that may
+never ship should not carry a design that must be maintained. Reassess after 8g is real.
+If one is picked up, it gets its own detail document then.
 
-The wording may adapt to the creator's theme, but the stored event kinds and weights
-remain stable. Do not add tips, renewals, tiers, balances, transfers, spending, or
-exchange-rate semantics merely to make the score look economic.
+**9a — quiet synthetic fan engagement.** Creator-scoped synthetic fans leave access-valid
+likes/replies/reposts on posts they may actually view. One LLM call may propose engagement;
+deterministic quotas, target validation, deduplication and anti-spam apply afterward.
+Access is gated before target selection and again transactionally before persistence. A
+fan-identity provider seam is introduced even if the first provider is synthetic-only. Fan
+activity gets its own platform day plan and its own `scheduler.fanActivity` leaf; shared
+scheduler construction never means shared schedule state. Fan controls extend the existing
+two levels — NoodleR Settings and the creator page — with a configurable audience-archetype
+mix rather than one generic fan mass.
 
-### Roleplay example
+**9c — named superfans and visible moments.** Persistent named synthetic superfans with
+personality and relationship continuity, plus non-economic visible moments. Generate a fan
+once and persist it; derive moments deterministically from persisted engagement; apply a
+quota before any optional LLM work. Neither 9a nor 9c may scale provider calls linearly
+with library size. Default eligibility is persona-backed creators; character-backed
+creators may opt in explicitly, off by default. Recommended first moments: **Superfan
+formed** and **Post taking off**, as compact feed and profile activity cards on
+conservative deterministic thresholds.
 
-1. A creator posts a subscriber-only backstage entry.
-2. A recurring synthetic superfan, Mina, chooses to subscribe. Every viewer of the
-   creator profile can see a small in-world event: “Mina joined the inner circle.”
-3. That access lets Mina read the entry and leave an in-character reply that continues
-   her established relationship with the creator.
-4. A later support/unlock event adds to the creator's points score and appears in the
-   public profile activity.
+**9d — opt-in real-character named fans.** Swap the named-fan provider to optionally borrow
+approved character identity: opt-in per character, read-only name/avatar/persona flavor, no
+writeback into chat, memory, relationship, or state. Creator eligibility (9c) and fan
+identity sourcing (9d) are separate axes.
 
-The fun is visible support, recognition, relationship progress, and changed access;
-the score is feedback rather than spendable money. Events may use named or anonymous
-synthetic fans, so 9b does not require 9c identity continuity merely to record support.
+**9e — named-fan profiles and access-filtered history.** Durable faux profiles only for
+identity-continuity actors (9c superfans, 9d borrowed fans, later promotions). Stable
+name/handle, deterministic local avatar, short bio, creator-scoped "following since",
+and activity filtered through the current viewer's post-access projection — a locked post's
+title, body, image, prompt, or **existence** must never leak through profile history. The
+anonymous fan mass gets no account row, route, or follower graph: aggregate counts and
+ambient phrases, with an event-local display snapshot when an anonymous reply needs an
+author. No image-provider call per fan avatar.
 
-Access-changing actions must commit before later interactions in the same generated
-batch and all targets must be revalidated transactionally.
+**9b — support points and visible economic events.** Low priority; defer if scope grows.
+Points are a score, not currency: no spendable balance, ledger, reversals, tiers, or
+cash-like claims. Two idempotent state-transition events: **Joined the inner circle**
+(+10, first subscription) and **Unlocked a post** (+5, once per fan/post pair). Wording may
+adapt to the creator's theme; stored event kinds and weights stay stable. Access-changing
+actions commit before later interactions in the same generated batch, and all targets are
+revalidated transactionally.
 
 ## Slice 10 — Composer media parity
 
-Implementation status: draft PR #3981 contains the complete code and documentation
-path. `pnpm check`, the Noodle regression suite, the installer-artifact guard, and a
-focused upload/access/persistence/deletion proof pass. Final browser and usability
-verification remains manual.
+Implementation status: merged through PR #3981. `pnpm check`, the Noodle regression
+suite, the installer-artifact guard, and a focused upload/access/persistence/deletion
+proof passed. The section below is retained as the shipped contract.
+
+**Amended by 8f-2.** Slice 10 shipped before the access collapse, so its contract below
+still says Post and Guide carry "PPV values". Under 8f-2 there is no `ppvPrice` and
+`access` is `public | locked`: the composer's PPV price field and the PPV access option
+are removed, and Guide preserves image, poll, and the two-state access as before. This is
+the only place merged Slice 10 behavior changes; everything else in the section stands.
 
 Add one user-uploaded image and one optional two-to-four-option poll through real
 schema, private storage, mutation, projection, voting, and cleanup plumbing. Enable
@@ -758,13 +853,13 @@ Slice 10 does not reopen Slice 8b's generation, disclosure, or prompt-review con
 ## Slice 11 — Cross-mode integration
 
 Global persona, slash commands, and roleplay/chat posting may create NoodleR posts
-through the typed private-post operation. NoodleR posts never mirror, leak, or appear
+through the typed NoodleR-post operation. NoodleR posts never mirror, leak, or appear
 on the public Noodle timeline. A NoodleR post with `access: "public"` means free to view
 inside NoodleR; it does not become a public-Noodle post.
 
 The controller can explicitly choose Free/Public for an individual manual, Guided, or
 project-planned NoodleR post through the existing access input. Automatic posts remain
-subscriber by default and must not silently widen access. If public-Noodle posting is
+`locked` by default and must not silently widen access. If public-Noodle posting is
 ever desired, it is a separate explicit action through Noodle's own posting operation,
 with no shared post identity or automatic mirroring.
 
@@ -789,9 +884,13 @@ current source context without copying it or writing back to the character.
 Keep this behind one context-provider/adapter boundary, not direct reads scattered
 through generation. Lorebook and schedule context are supplementary; stage-profile
 identity/personality and an explicit one-shot Guide are more specific instructions,
-while safety and access policy always win. A source-character schedule guides content
-only—what the character may be doing—not publication timing. Slice 8's per-creator
-`nextRunAt` remains the sole timing authority. Do not add a global enable-all toggle.
+while safety and access policy always win. Do not add a global enable-all toggle.
+
+Timing note, narrowed by Slice 8f: a source-character schedule primarily guides content,
+what the character may be doing, and it additionally makes a sleeping or busy character
+ineligible for a proposed future publication time. It never owns a clock and never
+determines how often a creator posts. The reserve planner remains the sole publication
+authority.
 
 ## Slice 12 — Creator projects and milestones
 
@@ -808,13 +907,14 @@ resume, or end the project. A failed/skipped generation does not consume a beat.
 literal manual post does not consume the project unless the controller explicitly
 attaches it to the project.
 
-Slice 8's per-creator scheduler remains the only publication clock. An active project
-supplies content context to the same generated private-post operation when that
-creator's normal automatic slot or explicit Guide runs; it owns no `nextRunAt`, polling
-loop, or route self-call. When the source-character schedule-context toggle is enabled,
-the current schedule may inform what a project post depicts, but never when it is
-published. On success, associate the post, advance the beat/count, and complete the
-project when exhausted in the smallest transaction after policy revalidation.
+The reserve planner remains the only publication clock. An active project supplies content
+context through the shared NoodleR-post generation core when the prepare-for-later
+operation or an explicit Guide runs; it owns no schedule state, polling loop, or route
+self-call. When the
+source-character schedule-context toggle is enabled, the current schedule may inform what
+a project post depicts, but never when it is published. Because generation now precedes
+publication, reserve a project beat with the outbox item and finalize it when that item
+publishes; discarding the item releases the reservation.
 
 The `noooooods` project implementation is reference-only and materially overstates
 this contract: do not port its `startsAt`/`endsAt`, milestone `dueAt`/`notBefore`,
@@ -830,8 +930,8 @@ defaults and per-beat media controls remain open rather than inferred.
 
 - Noodle and NoodleR remain two capabilities on one social-data substrate.
 - Share contracts, storage invariants, narrow pure helpers, provider mechanics,
-  operation locks, cadence infrastructure, and capability-based presentation.
-- Keep public refresh, private generation, automatic posting, fan engagement,
+  operation locks, scheduling infrastructure, and capability-based presentation.
+- Keep public refresh, NoodleR generation, automatic posting, fan engagement,
   economics, projects, prompts, projections, and schedule state separate when their
   actors, access, output, or persistence policy differs.
 - Routes are HTTP adapters. Schedulers/projects/commands call application services,
@@ -889,18 +989,194 @@ defaults and per-beat media controls remain open rather than inferred.
   explicitly accepted user guidance/control plane.
 - NoodleR controls use two levels: a global NoodleR Settings section and per-creator
   controls on creator pages. Capability state remains independently typed.
-- Slice 8 automatic/manual-refresh posts default to subscriber access. Automatic PPV
-  and currency are excluded.
-- Slice 8 uses schedule enable/disable and schedule rescheduling; it does not add
-  separate pause-all or quiet-hours fields.
+- Slice 8 originally defaulted automatic/manual-refresh posts to `subscriber` and excluded
+  automatic PPV and currency. Slice 8f-2 replaced that enum with `public | locked` and added
+  hidden coin charging; automatic posts now default to `locked`.
+- After Slice 8b the work deviated from the planned jump to fan simulation and ran
+  8c → 8d instead, consolidating bulk creation, the control plane, and the NoodleR UI.
+  The deviation is accepted and recorded. Slices 8e and 8f continue that consolidation.
+- New work is numbered inside the 8 band (8e, 8f) rather than renumbering the 9 band.
+  9a–9e are referenced throughout this file and in merged PR descriptions; reusing those
+  labels would silently repoint existing references. The 8 band means platform
+  coherence, the 9 band means audience simulation.
+- Slice 8e is a pure rename of `private` to `noodler` across code, data, and UI, with no
+  behavior change, sequenced before 8f because both touch the same files.
+- Slice 8f collapses post access to `public | locked`, removes `ppvPrice` and Slice 6's
+  `subscriptionIncludesPpv`, and gives every locked post one Unlock control offering
+  either that post or a subscription.
+- **Access migration fails closed.** The stored-post normalizer currently falls back to
+  `public` for any unrecognized access value (`noodle.storage.ts:510`), so collapsing the
+  type before migrating the rows would make every locked post world-readable — the failure
+  Slice 9e prohibits, arriving through a default rather than a leak. The data step runs
+  first, and the new normalizer maps unknown → `locked`. Settings removals need no data step:
+  the settings normalizer rebuilds field by field, so a field it stops reading disappears.
+- The collapse reveals content in exactly one case, accepted deliberately: a subscriber to a
+  creator with `subscriptionIncludesPpv` off could not see that creator's `ppv` posts and now
+  can. Nobody loses access, nothing was paid for, and the subscriber is the owner. Forward-only.
+- **Coins exist and are charged; prices stay hidden in 8f** (decided 2026-07-29, replacing
+  the earlier no-prices-ever rule). Unlock costs **1 coin**, Subscribe costs **5 coins**, and
+  every user starts at **999999**. The balance is decremented for real, but no price or
+  balance is rendered, so Unlock options still read as distinguished by reach rather than
+  price. `unlockPost` and `subscribe` are the only two mutation points that touch a balance.
+  With a 999999 start nothing is gated in practice — this buys the data model now so that
+  revealing prices later is a UI and balance change, not a schema migration through the
+  access path. The prior framing rested on Slice 9b, which sits in the may-never-ship band.
+- **Coins and support points are different numbers.** Slice 9b's support points remain a
+  non-spendable score and never become currency; coins are the spendable axis. Do not merge
+  them.
+- **The coin balance is a settings leaf on the viewer persona, not a table or a ledger.**
+  It lives on the viewer's Noodle persona account settings, which the normalizer already
+  rebuilds field by field, so it needs no data migration and existing users pick up 999999 on
+  first read. An absent or corrupt value normalizes to the default, never to zero. `subscribe`
+  and `unlockPost` are already single transactions that early-return on an existing row, so
+  the debit goes on the insert path only and idempotency comes free — re-subscribing cannot
+  double-charge. Insufficient balance reuses each function's existing `null` return rather
+  than adding a failure channel. No ledger, history, or reversals until coins are scarce
+  enough that a user needs to ask where theirs went.
+- Slice 8f's onboarding is one wizard at two densities, not two wizards. Simple is the
+  same flow with defaults applied and collapsed; each Simple line expands its advanced
+  control in place. The wizard is an on-ramp onto the existing two-level control plane
+  and never becomes a third home for settings.
+- **The wizard pre-checks at most 8 characters** (decided 2026-07-29). One Continue click
+  costs one provider call per checked character, so the threshold bounds a first run at 8
+  text calls; "select all" above it is an explicit act. Eight still fills a feed, and matches
+  the Simple-mode summary line's own example.
+- **Disclosure uses recognition-test copy** (decided 2026-07-29): "A friend scrolling past
+  would recognise them instantly" / "might do a double-take" / "would never guess", mapping
+  to `open`/`hinted`/`secret`. The earlier draft described the mechanism, which has no
+  referent for a user who has not yet seen a stage profile. `hinted` is the one most likely
+  to be misread; a comprehension check on a real person before 8f-4 ships is still worth
+  doing, but no longer blocks the unit.
+- There is no tutorial overlay or coach-mark tour, and no separate tutorial screen before
+  the wizard. The wizard opens immediately after the age gate, and its first step carries
+  the tutorial content inline (why creators appear, why posts are locked, that characters
+  post on their own). Those concepts are taught through an **emulated, hand-written post
+  from Professor Mari** rendered inside that step with the real post card, showing a locked
+  example so the padlock explains itself. **Decided 2026-07-29:** it is a mock, not a seeded
+  feed post. Mari has no NoodleR account — `allowProfessorMari` is a public-Noodle flag — so
+  a real post would have required minting one for her and answering whether she is
+  followable, subscribable, and deletable; and with no auto-follow it would have landed in an
+  empty Following tab, invisible exactly when it should be read. Hand-written rather than
+  generated because the first impression cannot tolerate a wobbly provider response.
+- The NoodleR feed stays strictly chronological. No interest ranking: an order the user
+  cannot predict is an order in which they quietly miss things.
+- Slice 8f-6 keeps the creator page as one surface per Slice 7, but gathers operator controls
+  into one delimited area rather than interleaving them with the audience view, so Subscribe
+  and Delete no longer sit side by side as if they were the same kind of act.
+- Follow means feed curation and Subscribe means access; subscribing implies following.
+  The NoodleR feed's tabs become Following and All creators, and the Subscribed tab is
+  dropped because a post's own lock already shows subscription state. Bulk creation does
+  not auto-follow the creators it makes. **Decided:** Following is the tab the UI opens to
+  by default; onboarding's completion step is the one exception, selecting All creators
+  once because Following starts empty right after setup.
+- **Subscribe-implies-follow does not contradict no-auto-follow** (decided 2026-07-29).
+  Someone who subscribes wants the service delivered; a subscription that left the creator
+  out of the feed would be a subscription to nothing. The rule no-auto-follow protects is
+  that the *system* never follows on the user's behalf — bulk-creating 40 creators must not
+  mint 40 follows. The Unlock sheet's Subscribe row states the follow in its label.
+- **`postsPerDay` defaults to 4**, validated 1..24 (decided 2026-07-29). Deliberately low:
+  it caps automatic load at 4 text plus at most 4 image attempts per rolling 24 hours and is
+  raised on purpose rather than discovered through a bill. Real paid and local-model runs
+  remain worth doing to tune it, but no longer gate 8f-3.
+- Automatic posts stay locked by default, but generation may produce public teaser posts,
+  and those are visible to non-followers in the All-creators tab. Discovery is the
+  teaser's job; without it a new creator is only a wall of padlocks.
+- Slice 8f replaces NoodleR's per-creator interval cadence with **front-loaded
+  generation into a private scheduled-post reserve**. Provider work happens before the
+  assigned publication time. Due publication is a local idempotent transition with no
+  provider call.
+- The reserve covers a rolling 24-hour horizon. Windowed time placement may reuse the
+  narrow planning principle from public Noodle, but NoodleR does not reuse public
+  refresh-state semantics or put unpublished content in the ordinary post table.
+- **NoodleR generation stays one provider call per post.** `generateAndApplyNoodlerPost()`
+  remains per account because disclosure, identity redaction, media policy, and operation
+  locking differ per creator.
+- **Daily automatic load has one user-set number and two explicit ceilings.**
+  `postsPerDay = N` is the targeted maximum publication density and rolling text-attempt
+  ceiling; when automatic images are enabled, the derived rolling image-attempt ceiling is
+  also N, for at most 2N combined automatic provider attempts. Failed potentially billable
+  attempts count. Text and image attempts are atomically claimed before provider work in
+  separate ledger kinds; image retries consume the image ceiling rather than exceeding it.
+- Preparation is low priority and concurrency 1. A connection-scoped admission lease starts
+  it only after 30 foreground-idle seconds; an already-running call is never preempted.
+- The capability-owned NoodleR outbox stores validated payload, creator, generated and
+  publication times, private-media ownership, policy/source/schedule fingerprint, and lifecycle
+  state. Publication atomically creates the ordinary post and marks the item published;
+  a unique link makes restart reconciliation idempotent.
+- **Revision of Slice 8's scheduling contract.** Per-stage-profile enable/disable survives,
+  so the release-candidate condition still holds. Removed: `intensity`,
+  `noodle-autopost-cadence.ts`, `noodle-autopost-scheduler.service.ts`'s poll-and-claim loop,
+  per-creator `nextRunAt`, recurring rescheduling, startup catch-up, and
+  generated-after-the-fact historical timestamps.
+- Ad-hoc "post now" is not a second schedule. After a successful immediate post, discard
+  prepared items for that creator where
+  `manualCreatedAt < publishAt <= manualCreatedAt + 60 minutes`; normal preparation may
+  replace them later. Future-dated user-authored posts remain out of scope.
+- Startup publishes only valid due items that were already prepared with fixed times,
+  discards invalid items, and returns. Future preparation starts only through the normal
+  post-start idle scheduler. If an absence exceeds the reserve horizon, NoodleR goes quiet
+  rather than creating a burst or invented history.
+- **Narrowing of the Slice 11 rule, not a reversal:** character schedules and night quiet
+  constrain which creator is plausible at a proposed future publication time and may guide
+  that post's content. They never own a clock or determine frequency. If nobody is eligible,
+  that time remains uncovered rather than becoming debt.
+- Creator selection uses a NoodleR-specific least-recently-active ordering that also
+  considers already prepared future items. Public Noodle's participant selector carries
+  invitation, follow, random-user, and priority semantics that do not port.
+- Prepared automatic posts are standalone snapshots. They cannot answer a future viewer
+  interaction or depend on another unpublished post; Slice 8g replies remain reactive work
+  generated from the interaction path.
+- Schedule, night-quiet, timezone, source, stage, disclosure, access, and media-policy
+  changes invalidate affected prepared items. With image prompt review enabled, an
+  unapproved or still-running image expires at `publishAt` and the post publishes
+  text-only; late image results are cleaned up and cannot mutate it.
+- Roughly two thirds of real NoodleR use is watching rather than directing. The feed is
+  therefore an audience surface with no operator controls; authoring lives on the
+  creator's own page, continuing Slice 7's removal of the main-timeline picker.
+- NoodleR gets a "new since your last visit" divider in the feed plus a counter on the
+  NoodleR entry point. The divider needs one stored timestamp **per viewer persona**, not
+  one per user and not per-post read
+  state.
+- **8f is six units, not five.** The source-changed/orphaned-creator notice and the creator
+  page's delimited operator area ship together in 8f-6. 8f-5 is limited to the feed divider
+  and entry-point counter.
+- **Merged slices are amended in place with an explicit banner**, never rewritten silently.
+  Slice 10 carries "Amended by 8f-2" and Slice 8 carries "Amended by 8f-3"; without one, the
+  shipped contract becomes unrecoverable from this document.
+- **Slice 8g is added between 8f and 9a:** creators reply to real viewer interactions.
+  Interactions are already persisted but no generation path consumes them, so the feed is
+  currently one-way. This outranks synthetic fan ambience because it is the moment the
+  character addresses the user directly.
+- A stage profile is a curated snapshot, not a mirror of its source character. Editing
+  the character never changes the creator automatically. Instead the creator page carries
+  one **source-changed** notice covering renames, appearance edits, and personality edits,
+  offering to adopt name/handle (for `open` profiles only), re-draft the stage profile, or
+  dismiss. Drift is detected by snapshotting exactly the card fields that feed the draft
+  and image prompts, and comparing when the creator page is read.
+- Orphaned creators — deleted characters, and profile imports that mint fresh character
+  IDs — surface through the same notice in a "source missing" variant, offering explicit
+  relink or delete. Relinking is never guessed from a matching name; guessing wrong would
+  bind the wrong character to an 18+ stage profile.
+- **Identity-protection defect to fix in 8f:** `protectNoodlerGeneratedIdentity()` redacts
+  the stored account name and handle, while the stage-profile draft feeds the live
+  character card including its current name. After a rename, a `hinted` or `secret` draft
+  can therefore emit the new real name unredacted. Redaction must protect the current
+  source identity as well as the stored snapshot, with a regression covering
+  rename-then-redraft.
+- **8f-1 fixes the identity, not the call sites.** `stageProfileContainsPublicIdentity()` —
+  the validator gating drafts at `noodle-stage-profile-draft.service.ts:190` and
+  `noodle.routes.ts:725,781,826` — reads the same stored-only `PublicIdentity` and is
+  therefore equally blind; fixing only the redactor leaves the gate open. Widen the type to
+  the union of stored and live source identifiers and both are fixed at once, rather than
+  guarding seven call sites. The redactor already dedupes and sorts longest-first, so extra
+  identifiers preserve correct overlapping-name behaviour for free. Scope stays identity
+  only: appearance and personality drift are 8f-6's notice, not a redaction bug.
+- NoodleR has schedule enable/disable, `postsPerDay`, rolling automatic-attempt usage, and reserve
+  reach; it does not add a separate pause-all field. The first reserve version is
+  inspect-only rather than individually reschedulable.
 - Global **Refresh NoodleR now** runs automation-enabled creators, prioritizing those
-  scheduled soon and then the remaining enabled creators. Slice 7's composer owns the
+  least recently active and then the remaining enabled creators. Slice 7's composer owns the
   single-creator path.
-- A successful global/manual refresh consumes a near-future automatic slot and
-  advances the creator's `nextRunAt` under the existing cadence/schedule policy,
-  preserving explicit schedule intent and preventing an immediate duplicate run.
-- Autopost enabled without a user-authored schedule uses a sensible randomized
-  default cadence; exact jitter is implementation detail, not a separate scheduler.
 - Global fan policy values are defaults with per-creator overrides. Fan policy may
   shape the audience archetype mix, including ordinary, eccentric, cross-fandom,
   raider, organic-discovery, and non-adult/free-resource audiences. Slice 9 defines
@@ -920,18 +1196,19 @@ defaults and per-beat media controls remain open rather than inferred.
   mass stays aggregate; anonymous replies retain only an event-local display snapshot.
   All fan history is filtered through the current viewer's post-access projection.
 - NoodleR posts never mirror into public Noodle. `access: "public"` means Free/Public
-  inside NoodleR, selected explicitly per post; automatic posts stay subscriber by
+  inside NoodleR, selected explicitly per post; automatic posts stay `locked` by
   default and cannot silently widen access.
 - A creator project is an editable bounded content arc over the next 1–20 successful
-  generated posts (default 5), with at most one active project per creator. It reuses
-  Slice 8 timing and the private-post operation; source schedules may guide content but
-  never publication time. Exact project-level media controls remain undecided.
+  generated posts (default 5), with at most one active project per creator. It reuses the
+  Slice 8f reserve planner and prepare-for-later operation; source schedules may guide
+  content but never own publication timing. A project beat is reserved with a prepared
+  item and finalized on publication. Exact project-level media controls remain undecided.
 - There is no permanent auto-post-only creative brief. Durable stage identity, one-post
   Guide, and bounded Projects are the complete instruction layers.
 - Slice 7 guidance is a button/action over the current composer draft, not a required
   always-on mode. **Post** publishes the draft literally; **Guide** transforms it
-  through the existing private generation pipeline.
-- Literal non-LLM private posting is required product behavior, not merely a fallback
+  through the existing NoodleR generation pipeline.
+- Literal non-LLM NoodleR posting is required product behavior, not merely a fallback
   or implementation convenience.
 - Guided generation ultimately exposes four independent output choices: **enable
   title**, **enable text**, **enable image**, and **enable poll**. The image and poll
