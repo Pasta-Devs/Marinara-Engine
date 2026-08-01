@@ -15,7 +15,7 @@ import {
 const settings = noodleAutoPostingSettingsSchema.parse({ imagesEnabled: true });
 assert.equal(settings.imagesEnabled, true);
 assert.equal(noodleAutoPostingSettingsSchema.parse({}).imagesEnabled, false);
-// The client patch may carry the image toggle but never the server-owned nextRunAt.
+// The client patch carries only creator enablement and image preference.
 assert.ok(noodleAccountSchedulerPatchSchema.parse({ autoPosting: { imagesEnabled: true } }));
 // The removed per-run quota is rejected by the strict schema.
 assert.throws(() => noodleAccountSchedulerPatchSchema.parse({ autoPosting: { maxImagesPerRun: 3 } }));

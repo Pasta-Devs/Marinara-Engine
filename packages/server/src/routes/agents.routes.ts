@@ -560,6 +560,7 @@ export async function agentsRoutes(app: FastifyInstance) {
       conn.claudeFastMode === "true",
       conn.treatAsLocalEndpoint === "true",
       conn.defaultParameters,
+      conn.id,
     );
 
     const contextLines: string[] = [];

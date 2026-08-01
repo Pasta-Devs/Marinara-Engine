@@ -138,5 +138,6 @@ export * from "./utils/conversation-presence.js";
 export * from "./utils/noodle-mentions.js";
 export * from "./utils/noodle-polls.js";
 export * from "./utils/noodle-post-images.js";
+export * from "./utils/noodler-onboarding.js";
 export * from "./utils/noodle-interactions.js";
 export * from "./utils/spatial-context.js";

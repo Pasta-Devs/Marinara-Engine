@@ -1,107 +1,49 @@
-// ──────────────────────────────────────────────
-// NoodleR per-creator automatic-posting scheduler.
-// Polls enabled creator accounts, claims a due run by advancing its server-owned
-// nextRunAt before provider work, then drives the same NoodleR-post application
-// operation as user-triggered generation. Text-only, subscriber access.
-// ──────────────────────────────────────────────
 import type { FastifyInstance } from "fastify";
 import { logger } from "../../lib/logger.js";
 import { createNoodleStorage } from "../storage/noodle.storage.js";
-import { generateAndApplyNoodlerPost } from "./noodle-noodler-post.operation.js";
+import { prepareNextNoodlerReservePost, reconcileNoodlerReserve } from "./noodle-noodler-reserve.operation.js";
 
-const AUTOPOST_INITIAL_DELAY_MS = 20_000;
-const AUTOPOST_POLL_MS = 60_000;
-const MAX_CONCURRENT_AUTOPOSTS = 2;
+const INITIAL_DELAY_MS = 30_000;
+const POLL_MS = 60_000;
 
 export function startNoodleAutoPostScheduler(app: FastifyInstance) {
-  const noodle = createNoodleStorage(app.db);
-  const inFlight = new Set<Promise<void>>();
   let stopped = false;
-  let polling = false;
-  let pollTimer: ReturnType<typeof setTimeout> | null = null;
-  // Tracks the currently-running poll so shutdown can await a poll that has already claimed
-  // work (and registered it in inFlight) before draining, instead of racing storage close.
-  let activePoll: Promise<void> = Promise.resolve();
+  let running: Promise<void> = Promise.resolve();
+  let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const scheduleNext = (delayMs = AUTOPOST_POLL_MS) => {
+  const schedule = (delay = POLL_MS) => {
     if (stopped) return;
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = setTimeout(() => {
-      activePoll = poll();
-    }, delayMs);
-    pollTimer.unref?.();
-  };
-
-  const runGeneration = async (accountId: string): Promise<void> => {
-    // nextRunAt was already advanced to a future slot by the claim, so any outcome here
-    // — success, provider failure, or transient miss — simply waits a full cadence
-    // interval before the next attempt. That advance is the anti-hot-loop guarantee;
-    // no extra backoff map is needed.
-    try {
-      const result = await generateAndApplyNoodlerPost(app.db, {
-        mode: "noodler",
-        targetAccountId: accountId,
-        access: "subscriber",
-      });
-      if (result.status !== "generated") {
-        logger.warn("[noodle-autopost] Skipped creator %s automatic post: %s", accountId, result.status);
-      }
-    } catch (err) {
-      logger.error(err, "[noodle-autopost] Automatic post failed for creator %s", accountId);
-    }
+    timer = setTimeout(() => {
+      running = poll();
+    }, delay);
+    timer.unref?.();
   };
 
   const poll = async () => {
-    if (stopped || polling) return;
-    polling = true;
+    if (stopped) return;
     try {
-      const settings = await noodle.getSettings();
-      // Master schedule switch pauses automatic posting without disabling NoodleR itself.
-      if (!settings.enableNoodler || !settings.autoPostingScheduleEnabled) return;
-      const accounts = await noodle.listAutoPostEnabledAccounts();
-      const nowIso = new Date().toISOString();
-      for (const account of accounts) {
-        if (stopped) break;
-        if (inFlight.size >= MAX_CONCURRENT_AUTOPOSTS) break;
-        const auto = account.settings.scheduler.autoPosting;
-        if (!auto?.enabled) continue;
-        // Cheap due-check before any write.
-        if (auto.nextRunAt !== null && Date.parse(auto.nextRunAt) > Date.parse(nowIso)) continue;
-        // The next slot is derived inside the claim transaction from the current intensity.
-        const outcome = await noodle.advanceAutoPostRun(account.id, nowIso);
-        // "seeded" gives a freshly enabled creator its first future slot without posting;
-        // only "claimed" means a due run was consumed and should generate now.
-        if (outcome !== "claimed") continue;
-        const task = runGeneration(account.id).finally(() => {
-          inFlight.delete(task);
-        });
-        inFlight.add(task);
-      }
-    } catch (err) {
-      logger.error(err, "[noodle-autopost] Poll failed");
+      await reconcileNoodlerReserve(app.db);
+      const outcome = await prepareNextNoodlerReservePost(app.db);
+      if (outcome === "prepared") logger.info("[noodle-autopost] Prepared one future NoodleR post");
+    } catch (error) {
+      logger.error(error, "[noodle-autopost] Reserve poll failed");
     } finally {
-      polling = false;
-      scheduleNext();
+      schedule();
     }
   };
 
-  const stop = () => {
-    stopped = true;
-    if (pollTimer) clearTimeout(pollTimer);
-    pollTimer = null;
-  };
-
-  scheduleNext(AUTOPOST_INITIAL_DELAY_MS);
+  // Own reserve-state initialization here so upgrades begin their hold at server startup,
+  // even when automatic posting is disabled. Provider work still waits for the normal delay.
+  void (async () => {
+    await createNoodleStorage(app.db).ensureNoodlerReserveState();
+    await reconcileNoodlerReserve(app.db);
+  })().catch((error) => logger.error(error, "[noodle-autopost] Startup reconciliation failed"));
+  schedule(INITIAL_DELAY_MS);
   app.addHook("onClose", async () => {
-    // Stop the timer, await any in-progress poll so a run it just claimed is registered in
-    // inFlight, then drain active generations before storage closes. Fastify runs onClose
-    // hooks LIFO, so this (registered after the closeDB hook) completes first.
-    stop();
-    await activePoll.catch(() => {});
-    await Promise.allSettled([...inFlight]);
+    stopped = true;
+    if (timer) clearTimeout(timer);
+    await running.catch(() => {});
   });
-
-  logger.info("[noodle-autopost] Per-creator automatic-posting scheduler started");
-
-  return { stop };
+  logger.info("[noodle-autopost] Private reserve scheduler started");
+  return { stop: () => { stopped = true; if (timer) clearTimeout(timer); } };
 }

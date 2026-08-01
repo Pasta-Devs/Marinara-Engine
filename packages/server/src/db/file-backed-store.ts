@@ -13,6 +13,7 @@ import { getFileStorageDir } from "../config/runtime-config.js";
 import * as schema from "./schema/index.js";
 import { inArray, isFileCondition, isFileOrdering, type FileCondition, type FileOrdering } from "./file-query.js";
 import { migrateLegacyNoodleAccountRow } from "./noodle-platform-migration.js";
+import { migrateLegacyNoodlePostAccessRow } from "./noodle-access-migration.js";
 import { migrateRetiredChatModeRow, RETIRED_CHAT_MODE_TABLES } from "./retired-chat-mode-migration.js";
 import {
   getFileTableConfig,
@@ -171,6 +172,10 @@ export const FILE_BACKED_TABLES = [
   "noodle_account_subscriptions",
   "noodle_post_unlocks",
   "noodle_interactions",
+  "noodler_creator_reply_claims",
+  "noodler_prepared_posts",
+  "noodler_automatic_attempts",
+  "noodler_reserve_state",
   "noodle_activity_digests",
   "noodle_refresh_runs",
   "lorebooks",
@@ -226,6 +231,18 @@ const warnedFlushFailures = new Set<string>();
 // Parent→child delete graph. Exported as the single source of truth: the Mari
 // DB CLI (services/mari-db) consumes it for cascade deletes and its
 // dangling-reference validator, so every new relation added here reaches both.
+/**
+ * Tables whose rows are claims against a provider budget: a commit that survives in memory
+ * but not on disk would hand back capacity that was already spent, so these flush durably
+ * at commit instead of on the batched timer.
+ */
+const DURABLE_ON_COMMIT_TABLES = new Set<string>([
+  "noodler_automatic_attempts",
+  "noodler_creator_reply_claims",
+  "noodler_reserve_state",
+  "noodler_prepared_posts",
+]);
+
 export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; parentKey: string; childKey: string }> =
   [
     {
@@ -245,6 +262,14 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "noodle_accounts", child: "noodle_posts", parentKey: "id", childKey: "authorAccountId" },
     { parent: "noodle_posts", child: "noodle_post_unlocks", parentKey: "id", childKey: "postId" },
     { parent: "noodle_posts", child: "noodle_interactions", parentKey: "id", childKey: "postId" },
+    { parent: "noodle_posts", child: "noodler_creator_reply_claims", parentKey: "id", childKey: "postId" },
+    {
+      parent: "noodle_accounts",
+      child: "noodler_creator_reply_claims",
+      parentKey: "id",
+      childKey: "creatorAccountId",
+    },
+    { parent: "noodle_accounts", child: "noodler_prepared_posts", parentKey: "id", childKey: "creatorAccountId" },
     { parent: "chats", child: "messages", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_sessions", parentKey: "id", childKey: "chatId" },
     { parent: "chats", child: "conversation_call_messages", parentKey: "id", childKey: "chatId" },
@@ -970,7 +995,14 @@ class FileTableStore {
     this.activeTransactionCount++;
 
     try {
-      return await this.txContext.run(ctx, () => fn(tx));
+      const result = await this.txContext.run(ctx, () => fn(tx));
+      // Flush on commit only for tables whose durability the caller reasons about across a
+      // crash (attempt claims must never be replayed as free budget). Everything else keeps
+      // the batched flush: this runs on hot per-turn paths like setMemories.
+      if ([...ctx.dirtyTables].some((table) => DURABLE_ON_COMMIT_TABLES.has(table))) {
+        await this.txContext.run(ctx, () => this.flush(true, true));
+      }
+      return result;
     } catch (err) {
       for (const tableName of ctx.dirtyTables) {
         const snapshot = ctx.snapshots.get(tableName);
@@ -1324,11 +1356,14 @@ class FileTableStore {
         this.dirtyTables.add(table);
         this.dirty = true;
       }
-      const migrate = table === "noodle_accounts"
-        ? migrateLegacyNoodleAccountRow
-        : (RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)
-          ? migrateRetiredChatModeRow
-          : null;
+      const migrate =
+        table === "noodle_accounts"
+          ? migrateLegacyNoodleAccountRow
+          : table === "noodle_posts"
+            ? migrateLegacyNoodlePostAccessRow
+            : (RETIRED_CHAT_MODE_TABLES as readonly string[]).includes(table)
+              ? migrateRetiredChatModeRow
+              : null;
       const normalized = source.map((row) => normalizeRow(meta, migrate ? migrate(row) : row));
       this.tables.set(table, normalized);
       counts[table] = normalized.length;
@@ -1337,7 +1372,16 @@ class FileTableStore {
         this.dirtyTables.add(table);
         this.dirty = true;
       }
-      if (migrate === migrateLegacyNoodleAccountRow && source.some((row) => row.platform === undefined)) {
+      const needsMigration =
+        table === "noodle_accounts"
+          ? source.some((row) => row.platform === undefined)
+          : table === "noodle_posts"
+            ? source.some(
+                (row) =>
+                  (row.access !== "public" && row.access !== "locked") || "ppvPrice" in row || "ppv_price" in row,
+              )
+            : false;
+      if (migrate && needsMigration) {
         // Persist the renamed keys on the next flush, alongside the `visibility` /
         // `publicAccountId` rollback mirrors the migration deliberately retains.
         this.dirtyTables.add(table);

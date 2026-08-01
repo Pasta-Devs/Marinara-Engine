@@ -9,14 +9,75 @@ import { noodleAccounts } from "../../packages/server/src/db/schema/noodle.js";
 import { createAppSettingsStorage } from "../../packages/server/src/services/storage/app-settings.storage.js";
 import {
   DEFAULT_NOODLE_SETTINGS,
+  NOODLER_POSTS_PER_DAY_MAX,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
+  noodleBulkNoodlerAccountCreateSchema,
+  noodlerTargetedRefreshSchema,
 } from "../../packages/shared/src/schemas/noodle.schema.js";
+import { resolveNoodlerOnboardingCompletion } from "../../packages/shared/src/utils/noodler-onboarding.js";
 import {
   createNoodleStorage,
   normalizeNoodleSettings,
 } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { resolveNoodleAvatarCropAfterProfileUpdate } from "../../packages/server/src/services/noodle/noodle-profile-avatar.js";
+
+const generated = [{ status: "generated" }, { status: "generated" }];
+// Nothing selected is a deliberate skip, not a failure.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 0, createdCount: 0, createFailures: 0, outcomes: null }),
+  "zero",
+);
+// Selections that produced no profiles are a failure, whatever generation would have done.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 3, createdCount: 0, createFailures: 3, outcomes: null }),
+  "failed",
+);
+// Profiles created, generation not attempted.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 2, createdCount: 2, createFailures: 0, outcomes: null }),
+  "declined",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 2, createdCount: 2, createFailures: 0, outcomes: generated }),
+  "generated",
+);
+// Every post generated, but a selection never became a profile: still only partial.
+assert.equal(
+  resolveNoodlerOnboardingCompletion({ selectedCount: 3, createdCount: 2, createFailures: 1, outcomes: generated }),
+  "partial",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({
+    selectedCount: 2,
+    createdCount: 2,
+    createFailures: 0,
+    outcomes: [{ status: "generated" }, { status: "error" }],
+  }),
+  "partial",
+);
+assert.equal(
+  resolveNoodlerOnboardingCompletion({
+    selectedCount: 2,
+    createdCount: 2,
+    createFailures: 0,
+    outcomes: [{ status: "error" }, { status: "busy" }],
+  }),
+  "failed",
+);
+const bulkOnboarding = noodleBulkNoodlerAccountCreateSchema.parse({
+  noodleAccountIds: [],
+  disclosureMode: "hinted",
+  autoPosting: { enabled: true, imagesEnabled: true },
+});
+assert.deepEqual(bulkOnboarding.noodleAccountIds, []);
+assert.equal(bulkOnboarding.autoPosting.imagesEnabled, true);
+assert.equal(normalizeNoodleSettings({ noodlerOnboardingComplete: true }).noodlerOnboardingState, "completed");
+assert.equal(normalizeNoodleSettings({ noodlerOnboardingComplete: false }).noodlerOnboardingState, "incomplete");
+assert.deepEqual(
+  noodlerTargetedRefreshSchema.parse({ accountIds: ["creator-1"], executionId: "wizard-run-1" }),
+  { accountIds: ["creator-1"], executionId: "wizard-run-1" },
+);
 
 const sourceCrop = { x: 12, y: 18, width: 62, height: 62, unit: "%" as const };
 assert.equal(
@@ -64,10 +125,11 @@ assert.equal(
   null,
 );
 
-// One invalid stored field must not reset unrelated settings: a bad autoPostingDefaultIntensity
+// One invalid stored field must not reset unrelated settings.
 // used to wipe lorebook context, invited character folders, and the generation connection.
+assert.equal(normalizeNoodleSettings({ postsPerDay: NOODLER_POSTS_PER_DAY_MAX }).postsPerDay, NOODLER_POSTS_PER_DAY_MAX);
 const salvaged = normalizeNoodleSettings({
-  autoPostingDefaultIntensity: 4,
+  postsPerDay: NOODLER_POSTS_PER_DAY_MAX + 1,
   enableLorebookContext: true,
   invitedCharacterGroupIds: ["folder-1"],
   generationConnectionId: "conn-1",
@@ -77,7 +139,9 @@ assert.equal(salvaged.enableLorebookContext, true);
 assert.deepEqual(salvaged.invitedCharacterGroupIds, ["folder-1"]);
 assert.equal(salvaged.generationConnectionId, "conn-1");
 assert.equal(salvaged.refreshesPerDay, 6);
-assert.equal(salvaged.autoPostingDefaultIntensity, DEFAULT_NOODLE_SETTINGS.autoPostingDefaultIntensity);
+assert.equal(salvaged.postsPerDay, DEFAULT_NOODLE_SETTINGS.postsPerDay);
+assert.equal(salvaged.noodlerOnboardingComplete, false);
+assert.equal(salvaged.noodlerNightQuiet, true);
 
 // The pre-rename guidance key must still be read (rename must not reset customized text).
 assert.equal(
@@ -91,6 +155,8 @@ process.env.FILE_STORAGE_DIR = storageDir;
 try {
   const firstDb = await createFileNativeDB();
   const firstNoodle = createNoodleStorage(firstDb as unknown as DB);
+  await firstNoodle.updateSettings({ noodlerOnboardingComplete: true, noodlerOnboardingState: "zero" });
+  assert.equal((await firstNoodle.getSettings()).noodlerOnboardingState, "zero");
   const updated = await firstNoodle.updateSettings({
     maxImagesPerRefresh: 9,
     allowRandomUsers: true,
@@ -127,10 +193,10 @@ try {
   assert.equal(concurrentlyUpdatedAccount?.settings.profile.bannerUrl, "/banner.png");
   assert.equal(concurrentlyUpdatedAccount?.settings.social.notificationsReadAt, "2026-07-17T09:00:00.000Z");
   assert.deepEqual(concurrentlyUpdatedAccount?.settings.scheduler, {
-    autoPosting: { enabled: false, intensity: 1, imagesEnabled: false, nextRunAt: null },
+    autoPosting: { enabled: false, imagesEnabled: false },
   });
   assert.deepEqual(concurrentlyUpdatedAccount?.settings.privacy, {
-    access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false },
+    access: { hiddenFromAccountIds: [] },
   });
   assert.equal(
     noodleAccountSettingsPatchSchema.safeParse({ subtree: "social", patch: { followingAccountIds: ["blocked"] } })
@@ -176,8 +242,9 @@ try {
       followingAccountTimestamps: { "legacy-follow": "2026-07-17T10:00:00.000Z" },
       notificationsReadAt: "2026-07-17T11:00:00.000Z",
     },
-    scheduler: { autoPosting: { enabled: false, intensity: 1, imagesEnabled: false, nextRunAt: null } },
-    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
+    scheduler: { autoPosting: { enabled: false, imagesEnabled: false } },
+    privacy: { access: { hiddenFromAccountIds: [] } },
+    wallet: { coins: 999999 },
   });
   await firstDb
     .update(noodleAccounts)
@@ -202,8 +269,9 @@ try {
       followingAccountIds: ["valid-follow"],
       followingAccountTimestamps: { "valid-follow": "2026-07-17T12:00:00.000Z" },
     },
-    scheduler: { autoPosting: { enabled: false, intensity: 1, imagesEnabled: false, nextRunAt: null } },
-    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
+    scheduler: { autoPosting: { enabled: false, imagesEnabled: false } },
+    privacy: { access: { hiddenFromAccountIds: [] } },
+    wallet: { coins: 999999 },
   });
   const followTargetA = await firstNoodle.upsertAccountFromProfile({
     kind: "character",
@@ -315,8 +383,9 @@ try {
   assert.deepEqual(renamedCharacterAccount.settings, {
     profile: { profileGenerated: true, location: "Snezhnaya" },
     social: {},
-    scheduler: { autoPosting: { enabled: false, intensity: 1, imagesEnabled: false, nextRunAt: null } },
-    privacy: { access: { hiddenFromAccountIds: [], subscriptionIncludesPpv: false } },
+    scheduler: { autoPosting: { enabled: false, imagesEnabled: false } },
+    privacy: { access: { hiddenFromAccountIds: [] } },
+    wallet: { coins: 999999 },
   });
   const creatorSource = await firstNoodle.upsertAccountFromProfile({
     kind: "character",
@@ -336,11 +405,21 @@ try {
     entityId: "access-viewer",
     displayName: "Access Viewer",
   });
+  assert.equal(viewer.settings.wallet.coins, 999999);
+  await firstDb
+    .update(noodleAccounts)
+    .set({ settings: JSON.stringify({ wallet: { coins: -4 } }) })
+    .where(eq(noodleAccounts.id, viewer.id));
+  assert.equal((await firstNoodle.getAccountById(viewer.id))?.settings.wallet.coins, 999999);
+  await firstDb
+    .update(noodleAccounts)
+    .set({ settings: JSON.stringify({ wallet: { coins: "not-a-number" } }) })
+    .where(eq(noodleAccounts.id, viewer.id));
+  assert.equal((await firstNoodle.getAccountById(viewer.id))?.settings.wallet.coins, 999999);
   const ppvPost = await firstNoodle.createNoodlerPost({
     authorAccountId: noodlerCreator.id,
     content: "Locked content",
-    access: "ppv",
-    ppvPrice: 5,
+    access: "locked",
   });
   assert.ok(ppvPost);
   const [firstSubscription, duplicateSubscription] = await Promise.all([
@@ -349,12 +428,31 @@ try {
   ]);
   assert.ok(firstSubscription);
   assert.equal(firstSubscription?.id, duplicateSubscription?.id);
+  const afterSubscription = await firstNoodle.getAccountById(viewer.id);
+  assert.equal(afterSubscription?.settings.wallet.coins, 999994);
+  assert.ok(afterSubscription?.settings.social.followingAccountIds?.includes(noodlerCreator.id));
+  assert.equal(typeof afterSubscription?.settings.social.followingAccountTimestamps?.[noodlerCreator.id], "string");
   const [firstUnlock, duplicateUnlock] = await Promise.all([
     firstNoodle.unlockPost(viewer.id, ppvPost.id),
     firstNoodle.unlockPost(viewer.id, ppvPost.id),
   ]);
   assert.ok(firstUnlock);
   assert.equal(firstUnlock?.id, duplicateUnlock?.id);
+  assert.equal((await firstNoodle.getAccountById(viewer.id))?.settings.wallet.coins, 999993);
+  const zeroBalanceViewer = await firstNoodle.upsertAccountFromProfile({
+    kind: "persona",
+    entityId: "zero-balance-viewer",
+    displayName: "Zero Balance Viewer",
+  });
+  await firstDb
+    .update(noodleAccounts)
+    .set({ settings: JSON.stringify({ ...zeroBalanceViewer.settings, wallet: { coins: 0 } }) })
+    .where(eq(noodleAccounts.id, zeroBalanceViewer.id));
+  assert.equal(await firstNoodle.subscribe(zeroBalanceViewer.id, noodlerCreator.id), null);
+  assert.equal(await firstNoodle.unlockPost(zeroBalanceViewer.id, ppvPost.id), null);
+  assert.equal((await firstNoodle.listSubscriptionsForViewer(zeroBalanceViewer.id)).length, 0);
+  assert.equal((await firstNoodle.listPostUnlocksForViewer(zeroBalanceViewer.id)).length, 0);
+  assert.equal((await firstNoodle.getAccountById(zeroBalanceViewer.id))?.settings.wallet.coins, 0);
   assert.equal(await firstNoodle.subscribe(creatorSource.id, noodlerCreator.id), null);
   const personaCreatorSource = await firstNoodle.upsertAccountFromProfile({
     kind: "persona",
@@ -372,8 +470,7 @@ try {
   const personaPpvPost = await firstNoodle.createNoodlerPost({
     authorAccountId: personaNoodlerCreator!.id,
     content: "Persona locked content",
-    access: "ppv",
-    ppvPrice: 5,
+    access: "locked",
   });
   assert.ok(personaPpvPost);
   assert.equal(await firstNoodle.subscribe(personaCreatorSource.id, personaNoodlerCreator!.id), null);

@@ -20,6 +20,7 @@ import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createNoodleStorage } from "../storage/noodle.storage.js";
 import { noodleResponseFormat } from "./noodle-response-format.js";
 import {
+  buildNoodlerPublicIdentity,
   protectNoodlerGeneratedIdentity,
   stageProfileContainsPublicIdentity,
 } from "./noodle-noodler-generation.service.js";
@@ -27,10 +28,17 @@ import {
 type GenerationConnection = NonNullable<Awaited<ReturnType<ReturnType<typeof createConnectionsStorage>["getWithKey"]>>>;
 
 function record(value: unknown): Record<string, unknown> {
+  if (typeof value === "string") {
+    try {
+      return record(JSON.parse(value));
+    } catch {
+      return {};
+    }
+  }
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-function sourceText(data: unknown): string {
+export function noodlerSourceText(data: unknown): string {
   const source = record(data);
   const extensions = record(source.extensions);
   return [
@@ -82,7 +90,7 @@ export async function generateNoodlerStageProfileDraft(
   if (!publicAccount) throw new Error("Noodle source account not found.");
   const characters = createCharactersStorage(db);
   const source = publicAccount.kind === "character" ? await characters.getById(publicAccount.entityId) : null;
-  const identity = { displayName: publicAccount.displayName, handle: publicAccount.handle };
+  const identity = buildNoodlerPublicIdentity(publicAccount, source);
   const seed = defaultDraft(publicAccount, input.request.disclosureMode);
   const currentDraft = input.request.currentDraft ? { ...seed, ...input.request.currentDraft } : seed;
   const protectedDraft = Object.fromEntries(
@@ -94,7 +102,7 @@ export async function generateNoodlerStageProfileDraft(
     ]),
   );
   const sourceDetails = source
-    ? sourceText(source.data)
+    ? noodlerSourceText(source.data)
     : "General temperament and creative interests from the source profile.";
   const rawSourceContext =
     input.request.disclosureMode === "secret"

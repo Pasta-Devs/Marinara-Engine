@@ -24,6 +24,18 @@ export function noodlerPostMediaUrl(postId: string): string {
   return `/api/noodle/noodler/posts/${encodeURIComponent(postId)}/media`;
 }
 
+const NOODLER_MEDIA_URL_PREFIX = "/api/noodle/noodler/posts/";
+
+/**
+ * Bind a stored NoodleR media URL to the persona it is being served to. The media route
+ * gates on the persona, so audience-facing projections must carry it; unrelated (uploaded
+ * or external) image URLs are returned untouched.
+ */
+export function noodlerPostMediaUrlForPersona(imageUrl: string | null, personaId: string): string | null {
+  if (!imageUrl?.startsWith(NOODLER_MEDIA_URL_PREFIX)) return imageUrl;
+  return `${imageUrl}?personaId=${encodeURIComponent(personaId)}`;
+}
+
 /**
  * Promote uploaded NoodleR media and persist its stable post-owned references as one
  * compensating operation. A null result means the target disappeared before persistence.

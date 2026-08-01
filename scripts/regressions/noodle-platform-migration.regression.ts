@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { migrateLegacyNoodleAccountRow } from "../../packages/server/src/db/noodle-platform-migration.js";
+import { migrateLegacyNoodlePostAccessRow } from "../../packages/server/src/db/noodle-access-migration.js";
 
 // ── Pure migration ────────────────────────────────────────────────
 // A legacy NoodleR profile must survive as one. Without the rename it would fall
@@ -28,6 +29,23 @@ assert.deepEqual(migrateLegacyNoodleAccountRow({ id: "c" }), { id: "c", platform
 // Idempotent: already-migrated rows are returned untouched.
 const migrated = { id: "d", platform: "noodler", noodleAccountId: "pub-2" };
 assert.equal(migrateLegacyNoodleAccountRow(migrated), migrated);
+
+assert.deepEqual(
+  migrateLegacyNoodlePostAccessRow({ id: "public", access: "public", ppvPrice: 5 }),
+  { id: "public", access: "public" },
+);
+assert.deepEqual(
+  migrateLegacyNoodlePostAccessRow({ id: "subscriber", access: "subscriber", ppvPrice: 5 }),
+  { id: "subscriber", access: "locked" },
+);
+assert.deepEqual(
+  migrateLegacyNoodlePostAccessRow({ id: "ppv", access: "ppv", ppv_price: 7 }),
+  { id: "ppv", access: "locked" },
+);
+assert.deepEqual(
+  migrateLegacyNoodlePostAccessRow({ id: "unknown", access: "corrupt" }),
+  { id: "unknown", access: "locked" },
+);
 
 // ── End to end through the file store ─────────────────────────────
 const storageDir = mkdtempSync(join(tmpdir(), "marinara-noodle-platform-"));

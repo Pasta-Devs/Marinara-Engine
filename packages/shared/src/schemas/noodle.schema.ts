@@ -5,18 +5,21 @@ import { z } from "zod";
 
 export const noodleAccountKindSchema = z.enum(["persona", "character", "random_user"]);
 export const noodleInteractionTypeSchema = z.enum(["like", "repost", "reply", "vote"]);
-export const noodlePostAccessSchema = z.enum(["public", "subscriber", "ppv"]);
+export const noodlePostAccessSchema = z.enum(["public", "locked"]);
+export const DEFAULT_NOODLE_WALLET_COINS = 999_999;
 export const noodleParticipantSelectionModeSchema = z.enum(["all", "random_range", "exact"]);
 export const noodleCarryoverModeSchema = z.enum(["off", "conversation", "roleplay", "game", "all"]);
 export const noodleCarryoverTargetSchema = z.enum(["conversation", "roleplay", "game"]);
 export const noodleThemeSchema = z.enum(["system", "light", "dark"]);
 export const noodleIdentityDisclosureSchema = z.enum(["open", "hinted", "secret"]);
-export const noodleAutoPostingIntensitySchema = z.union([z.literal(1), z.literal(3), z.literal(6)]);
+export const noodlerOnboardingStateSchema = z.enum(["incomplete", "zero", "completed"]);
 export const NOODLER_POST_TITLE_MAX_LENGTH = 200;
 export const NOODLER_POST_CONTENT_MAX_LENGTH = 4000;
+export const NOODLER_REPLY_CONTENT_MAX_LENGTH = 2000;
+export const DEFAULT_NOODLER_CREATOR_REPLIES_PER_24_HOURS = 10;
+export const NOODLER_POSTS_PER_DAY_MAX = 24;
 // Exact `Title:\n` + `\n\n` + `Body:\n` framing overhead from serializeNoodlerPostGuide.
-export const NOODLER_POST_GUIDE_MAX_LENGTH =
-  NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
+export const NOODLER_POST_GUIDE_MAX_LENGTH = NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
 
 export const DEFAULT_NOODLE_SETTINGS = {
   refreshesPerDay: 2,
@@ -54,7 +57,10 @@ export const DEFAULT_NOODLE_SETTINGS = {
   noodlerGenerationGuidance:
     "All NoodleR creators and viewers are adults (18+). NSFW and explicit content are allowed when appropriate to the creator's personality and current context. Do not force it: stay true to each creator's voice rather than making every post sexual.",
   autoPostingScheduleEnabled: true,
-  autoPostingDefaultIntensity: 1,
+  postsPerDay: 4,
+  noodlerOnboardingComplete: false,
+  noodlerOnboardingState: "incomplete",
+  noodlerNightQuiet: true,
 } as const;
 
 export const noodleSettingsSchema = z.object({
@@ -90,9 +96,7 @@ export const noodleSettingsSchema = z.object({
     .min(1)
     .nullable()
     .default(DEFAULT_NOODLE_SETTINGS.imageCaptioningConnectionId),
-  imageCaptioningUseConnectionDefault: z
-    .boolean()
-    .default(DEFAULT_NOODLE_SETTINGS.imageCaptioningUseConnectionDefault),
+  imageCaptioningUseConnectionDefault: z.boolean().default(DEFAULT_NOODLE_SETTINGS.imageCaptioningUseConnectionDefault),
   enableLorebookContext: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableLorebookContext),
   includeCharacterSchedules: z.boolean().default(DEFAULT_NOODLE_SETTINGS.includeCharacterSchedules),
   enableEnhancedTimelineWriting: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableEnhancedTimelineWriting),
@@ -110,9 +114,10 @@ export const noodleSettingsSchema = z.object({
   enableNoodler: z.boolean().default(DEFAULT_NOODLE_SETTINGS.enableNoodler),
   noodlerGenerationGuidance: z.string().max(4000).default(DEFAULT_NOODLE_SETTINGS.noodlerGenerationGuidance),
   autoPostingScheduleEnabled: z.boolean().default(DEFAULT_NOODLE_SETTINGS.autoPostingScheduleEnabled),
-  autoPostingDefaultIntensity: noodleAutoPostingIntensitySchema.default(
-    DEFAULT_NOODLE_SETTINGS.autoPostingDefaultIntensity,
-  ),
+  postsPerDay: z.number().int().min(1).max(NOODLER_POSTS_PER_DAY_MAX).default(DEFAULT_NOODLE_SETTINGS.postsPerDay),
+  noodlerOnboardingComplete: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerOnboardingComplete),
+  noodlerOnboardingState: noodlerOnboardingStateSchema.default(DEFAULT_NOODLE_SETTINGS.noodlerOnboardingState),
+  noodlerNightQuiet: z.boolean().default(DEFAULT_NOODLE_SETTINGS.noodlerNightQuiet),
 });
 
 export const noodleSettingsUpdateSchema = noodleSettingsSchema.partial();
@@ -143,6 +148,7 @@ export const noodleAccountProfileSettingsSchema = z
     location: z.string().max(120).optional(),
     profileGenerated: z.boolean().optional(),
     profileManuallyEdited: z.boolean().optional(),
+    noodlerWizardExecutionId: z.string().min(1).max(128).optional(),
   })
   .strict();
 
@@ -157,9 +163,7 @@ export const noodleAccountSocialSettingsSchema = z
 export const noodleAutoPostingSettingsSchema = z
   .object({
     enabled: z.boolean().default(false),
-    intensity: noodleAutoPostingIntensitySchema.default(1),
     imagesEnabled: z.boolean().default(false),
-    nextRunAt: z.string().datetime().nullable().default(null),
   })
   .strict();
 
@@ -170,23 +174,19 @@ export const noodleAccountSchedulerSettingsSchema = z
   })
   .strict();
 
-/** Reschedule a creator's next automatic run to an explicit future time. */
-export const noodleAutoPostRescheduleSchema = z.object({ nextRunAt: z.string().datetime() }).strict();
-
-/** Client-editable subset: nextRunAt is server-owned and excluded. */
 export const noodleAccountSchedulerPatchSchema = z
   .object({
-    autoPosting: noodleAutoPostingSettingsSchema
-      .pick({ enabled: true, intensity: true, imagesEnabled: true })
-      .partial()
-      .optional(),
+    autoPosting: noodleAutoPostingSettingsSchema.pick({ enabled: true, imagesEnabled: true }).partial().optional(),
   })
   .strict();
 export const noodleAccountAccessSettingsSchema = z
   .object({
     hiddenFromAccountIds: z.array(z.string().min(1)).default([]),
-    subscriptionIncludesPpv: z.boolean().default(false),
   })
+  .strict();
+
+export const noodleWalletSettingsSchema = z
+  .object({ coins: z.number().int().min(0).default(DEFAULT_NOODLE_WALLET_COINS) })
   .strict();
 
 export const noodleAccountPrivacySettingsSchema = z
@@ -195,7 +195,6 @@ export const noodleAccountPrivacySettingsSchema = z
     stagePersonality: z.string().trim().max(1000).optional(),
     access: noodleAccountAccessSettingsSchema.default({
       hiddenFromAccountIds: [],
-      subscriptionIncludesPpv: false,
     }),
   })
   .strict();
@@ -251,10 +250,23 @@ export const noodleBulkNoodlerAccountCreateSchema = z
     // duplicated sequential create work, and each public account has exactly one outcome.
     noodleAccountIds: z
       .array(z.string().min(1).max(64))
-      .min(1)
+      .min(0)
       .max(100)
       .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
     disclosureMode: noodleIdentityDisclosureSchema,
+    disclosureExceptions: z.record(z.string().min(1).max(64), noodleIdentityDisclosureSchema).default({}),
+    autoPosting: noodleAutoPostingSettingsSchema.default({ enabled: true, imagesEnabled: false }),
+    executionId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+export const noodlerTargetedRefreshSchema = z
+  .object({
+    accountIds: z
+      .array(z.string().min(1).max(64))
+      .min(1)
+      .max(100)
+      .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
+    executionId: z.string().min(1).max(128).optional(),
   })
   .strict();
 export const noodleStageProfileUpdateSchema = z.object(noodleStageProfileShape).strict();
@@ -398,6 +410,10 @@ export const noodlerRemoveInteractionSchema = noodlerPersonaIdSchema
     }
   });
 
+export const noodlerCreatorReplyRequestSchema = noodlerPersonaIdSchema
+  .extend({ debugMode: z.boolean().optional() })
+  .strict();
+
 export const noodlePostUpdateSchema = z.object({
   content: z.string().trim().max(4000).optional(),
   imageUrl: z.string().max(2000).nullable().optional(),
@@ -407,9 +423,7 @@ export const noodlePostUpdateSchema = z.object({
 });
 
 const noodlerPostTitleValueSchema = z.string().trim().max(NOODLER_POST_TITLE_MAX_LENGTH).nullable();
-const noodlerPostTitleSchema = noodlerPostTitleValueSchema
-  .optional()
-  .transform((value) => value?.trim() || null);
+const noodlerPostTitleSchema = noodlerPostTitleValueSchema.optional().transform((value) => value?.trim() || null);
 const noodlerPostTitleUpdateSchema = noodlerPostTitleValueSchema
   .optional()
   .transform((value) => (value === undefined ? undefined : value?.trim() || null));
@@ -423,28 +437,19 @@ const noodlerPostCreateShape = {
   poll: noodlePollInputSchema.nullable().optional(),
 };
 
-export const noodlerPostCreateWithMediaSchema = z.union([
-  z.object({ ...noodlerPostCreateShape, access: z.literal("public").default("public") }).strict(),
-  z.object({ ...noodlerPostCreateShape, access: z.literal("subscriber") }).strict(),
-  z
-    .object({
-      ...noodlerPostCreateShape,
-      access: z.literal("ppv"),
-      ppvPrice: z.number().finite().min(0).max(999_999).nullable().optional(),
-    })
-    .strict(),
-]);
+export const noodlerPostCreateWithMediaSchema = z
+  .object({ ...noodlerPostCreateShape, access: noodlePostAccessSchema.default("public") })
+  .strict();
 
-export const noodlerPostCreateSchema = noodlerPostCreateWithMediaSchema
-  .superRefine((input, ctx) => {
-    if (!input.content && !input.poll && !input.uploadedImageUrl) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["content"],
-        message: "Posts need a body, image, or poll.",
-      });
-    }
-  });
+export const noodlerPostCreateSchema = noodlerPostCreateWithMediaSchema.superRefine((input, ctx) => {
+  if (!input.content && !input.poll && !input.uploadedImageUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["content"],
+      message: "Posts need a body, image, or poll.",
+    });
+  }
+});
 
 export const noodlerPostUpdateSchema = z
   .object({
@@ -560,6 +565,7 @@ const noodlerGenerationRequestShape = {
   mode: z.literal("noodler"),
   ...noodleGenerationConnectionShape,
   targetAccountId: z.string().min(1),
+  executionId: z.string().min(1).max(128).optional(),
   noodlerPostGuide: noodlerPostGuideSchema.optional(),
   noodlerProjectWork: noodlerProjectWorkSchema.optional(),
   // Manual Guide path may ask to review the image prompt before rendering; the autonomous
@@ -570,17 +576,9 @@ const noodlerGenerationRequestShape = {
   poll: noodlePollInputSchema.nullable().optional(),
 };
 
-export const noodlerGenerationRequestSchema = z.union([
-  z.object({ ...noodlerGenerationRequestShape, access: z.literal("public").default("public") }).strict(),
-  z.object({ ...noodlerGenerationRequestShape, access: z.literal("subscriber") }).strict(),
-  z
-    .object({
-      ...noodlerGenerationRequestShape,
-      access: z.literal("ppv"),
-      ppvPrice: z.number().finite().min(0).max(999_999).nullable().optional(),
-    })
-    .strict(),
-]);
+export const noodlerGenerationRequestSchema = z
+  .object({ ...noodlerGenerationRequestShape, access: noodlePostAccessSchema.default("public") })
+  .strict();
 
 export const noodleGenerationRequestSchema = z.union([
   noodlePublicGenerationRequestSchema,
@@ -610,6 +608,10 @@ export const noodleGeneratedNoodlerPostSchema = z
   })
   .strict()
   .transform(({ title, content, imagePrompt }) => ({ title, content, imagePrompt: imagePrompt ?? null }));
+
+export const noodleGeneratedNoodlerReplySchema = z
+  .object({ content: z.string().trim().min(1).max(NOODLER_REPLY_CONTENT_MAX_LENGTH) })
+  .strict();
 
 export const noodleGeneratedInteractionSchema = z
   .object({
@@ -738,7 +740,6 @@ export type NoodlerProjectWork = z.infer<typeof noodlerProjectWorkSchema>;
 export type NoodlerGenerationRequest = z.infer<typeof noodlerGenerationRequestSchema>;
 export type NoodleGenerationRequest = z.infer<typeof noodleGenerationRequestSchema>;
 export type NoodleRescheduleRefreshInput = z.infer<typeof noodleRescheduleRefreshSchema>;
-export type NoodleAutoPostRescheduleInput = z.infer<typeof noodleAutoPostRescheduleSchema>;
 export type NoodleGeneratedRefresh = z.infer<typeof noodleGeneratedRefreshSchema>;
 export type NoodleGeneratedProfiles = z.infer<typeof noodleGeneratedProfilesSchema>;
 export type NoodleGeneratedProfile = z.infer<typeof noodleGeneratedProfileSchema>;
