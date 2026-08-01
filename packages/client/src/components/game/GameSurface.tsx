@@ -7899,6 +7899,7 @@ function GameSurfaceComponent({
     if (isStreaming || scenePreparing || assetGenerationBlocksScene || directionsPlaying) return;
     if (latestNarrationText && !narrationDone) return;
 
+    combatAftermathPendingRef.current = false;
     useGameModeStore.getState().setGameState("combat");
     transitionGameState.mutate({ chatId: activeChatId, newState: "combat" });
     setCombatStartMessageId(queuedEncounter.messageId);
@@ -8124,6 +8125,7 @@ function GameSurfaceComponent({
     setQueuedCombatGeneration(null);
     setPreparedCombatState(null);
     setCombatGenerationError(null);
+    combatAftermathPendingRef.current = false;
     useGameModeStore.getState().setGameState("combat");
     transitionGameState.mutate({ chatId: activeChatId, newState: "combat" });
   }, [
@@ -9421,6 +9423,7 @@ function GameSurfaceComponent({
       useGameModeStore.getState().setGameState("exploration");
     }
     onDeleteMessage(latestAssistantMsg.id);
+    combatAftermathPendingRef.current = false;
   }, [activeChatId, clearCombatSnapshot, latestAssistantMsg?.id, onDeleteMessage, queryClient, localizeUi]);
 
   const handleCombatantsChange = useCallback((nextParty: Combatant[], nextEnemies: Combatant[]) => {
@@ -9748,6 +9751,11 @@ function GameSurfaceComponent({
           },
         })
         .catch(() => {});
+
+      // Release the reentrancy guard so the NEXT battle's end can resolve. Without
+      // this, the second combat in a chat early-returns above and its victory
+      // overlay waits on an aftermath that never runs.
+      combatAftermathPendingRef.current = false;
     },
     [
       sendMessage,
