@@ -54,6 +54,12 @@ import {
 } from "../../packages/server/src/services/generation/fallback-notification.js";
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
+import {
+  ConnectionAttemptRejectedError,
+  resetConnectionAdmissionForTests,
+  tryBackgroundConnection,
+  withConnectionAdmissionProvider,
+} from "../../packages/server/src/services/generation/connection-admission.js";
 
 class RegressionProvider extends BaseLLMProvider {
   calls = 0;
@@ -759,6 +765,81 @@ const fallbackConnection: FallbackConnection = {
     },
   }),
 };
+
+resetConnectionAdmissionForTests();
+let releasePrimaryCall!: () => void;
+const primaryCallHeld = new Promise<void>((resolve) => {
+  releasePrimaryCall = resolve;
+});
+class HeldProvider extends BaseLLMProvider {
+  started!: () => void;
+  readonly startedPromise = new Promise<void>((resolve) => {
+    this.started = resolve;
+  });
+
+  constructor(private readonly held: Promise<void>, private readonly failure?: Error) {
+    super("", "");
+  }
+
+  async *chat(): AsyncGenerator<string, LLMUsage | void, unknown> {
+    this.started();
+    await this.held;
+    if (this.failure) throw this.failure;
+    yield "held response";
+  }
+}
+const heldPrimary = new HeldProvider(primaryCallHeld, new Error("primary unavailable"));
+const admittedPrimary = withConnectionAdmissionProvider(heldPrimary, "primary-connection");
+const primaryRun = collectProviderOutput(admittedPrimary, { model: "primary-model" });
+await heldPrimary.startedPromise;
+assert.equal(tryBackgroundConnection("primary-connection", new Date()).acquired, false);
+const unrelatedFallbackAdmission = tryBackgroundConnection("fallback-connection", new Date());
+assert.equal(unrelatedFallbackAdmission.acquired, true, "primary work must not occupy the fallback connection");
+if (unrelatedFallbackAdmission.acquired) unrelatedFallbackAdmission.release();
+releasePrimaryCall();
+await assert.rejects(primaryRun, /primary unavailable/);
+
+let releaseFallbackCall!: () => void;
+const fallbackCallHeld = new Promise<void>((resolve) => {
+  releaseFallbackCall = resolve;
+});
+const heldFallback = new HeldProvider(fallbackCallHeld);
+const admittedFallback = withConnectionAdmissionProvider(heldFallback, "fallback-connection");
+const fallbackRun = collectProviderOutput(admittedFallback, { model: "fallback-model" });
+await heldFallback.startedPromise;
+assert.equal(tryBackgroundConnection("fallback-connection", new Date()).acquired, false);
+const unrelatedPrimaryAdmission = tryBackgroundConnection("other-primary-connection", new Date());
+assert.equal(unrelatedPrimaryAdmission.acquired, true, "fallback work must not occupy a primary connection");
+if (unrelatedPrimaryAdmission.acquired) unrelatedPrimaryAdmission.release();
+releaseFallbackCall();
+assert.equal(await fallbackRun, "held response");
+
+let backgroundAttempts = 0;
+const backgroundOutcomes: string[] = [];
+const admittedRepeated = withConnectionAdmissionProvider(new RegressionProvider(["ok"]), "background-connection", {
+  kind: "background",
+  beforeAttempt: () => {
+    backgroundAttempts += 1;
+    return (outcome) => {
+      backgroundOutcomes.push(outcome);
+    };
+  },
+});
+await admittedRepeated.chatComplete([{ role: "user", content: "first" }], { model: "model" });
+await admittedRepeated.chatComplete([{ role: "user", content: "correction" }], { model: "model" });
+assert.equal(backgroundAttempts, 2, "each physical correction/retry call must claim separately");
+assert.deepEqual(backgroundOutcomes, ["completed", "completed"]);
+
+const rejectedAttempt = withConnectionAdmissionProvider(new RegressionProvider(["unused"]), "rejected-connection", {
+  kind: "background",
+  beforeAttempt: () => {
+    throw new Error("attempt budget exhausted");
+  },
+});
+await assert.rejects(
+  rejectedAttempt.chatComplete([{ role: "user", content: "test" }], { model: "model" }),
+  (error) => error instanceof ConnectionAttemptRejectedError && error.cause instanceof Error && /budget exhausted/.test(error.cause.message),
+);
 const primaryFailure = new RegressionProvider([], new Error("primary unavailable"));
 const successfulFallback = new RegressionProvider(["fallback response"]);
 const fallbackProvider = new ConnectionFallbackProvider(primaryFailure, successfulFallback, fallbackConnection, "main");

@@ -9,6 +9,7 @@ import { GrokSubscriptionProvider } from "./providers/grok-subscription.provider
 import { GoogleProvider } from "./providers/google.provider.js";
 import type { BaseLLMProvider } from "./base-provider.js";
 import { withConnectionDefaultParameters } from "./connection-default-provider.js";
+import { withConnectionAdmissionProvider } from "../generation/connection-admission.js";
 
 export function normalizeCohereOpenAIBaseUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, "");
@@ -48,6 +49,8 @@ export function createLLMProvider(
   treatAsLocalEndpoint?: boolean,
   /** Stored connection defaults. Custom Parameters are bound to every text request made by this provider. */
   defaultParameters?: unknown,
+  /** Configured connection ID for direct foreground calls. Fallback wrappers admit their providers separately. */
+  connectionId?: string,
 ): BaseLLMProvider {
   const normalizedMaxContext =
     typeof maxContext === "number" && Number.isFinite(maxContext) && maxContext > 0
@@ -159,5 +162,6 @@ export function createLLMProvider(
       );
       break;
   }
-  return withConnectionDefaultParameters(resolved, defaultParameters);
+  const configured = withConnectionDefaultParameters(resolved, defaultParameters);
+  return connectionId ? withConnectionAdmissionProvider(configured, connectionId) : configured;
 }
