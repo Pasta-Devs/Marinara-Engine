@@ -7790,6 +7790,25 @@ function GameSurfaceComponent({
   useEffect(() => {
     const session = surfaceCombatSessionQuery.data?.session;
     if (!session || combatParty || combatEnemies || chatMeta.gameActiveState !== "combat") return;
+    if (session.status !== "active") {
+      // The active-session endpoint falls back to the latest COMPLETED session so a
+      // refresh interrupted mid-aftermath can still recover. Hydrating that corpse
+      // state as a live battle would instantly re-resolve it as a win, so never
+      // mount it. If nothing is preparing a new encounter, the "combat" flag is
+      // stale — unwind it; otherwise the in-flight encounter owns the state and
+      // will start its own session.
+      const encounterPreparing =
+        !!pendingEncounter ||
+        !!queuedEncounter ||
+        !!queuedCombatGeneration ||
+        combatGenerationPending ||
+        !!preparedCombatState;
+      if (!encounterPreparing && activeChatId && !transitionGameState.isPending) {
+        useGameModeStore.getState().setGameState("exploration");
+        transitionGameState.mutate({ chatId: activeChatId, newState: "exploration" });
+      }
+      return;
+    }
     if (session.style === "classic") {
       setCombatParty(session.canonicalState.party);
       setCombatEnemies(session.canonicalState.enemies);
@@ -7814,7 +7833,19 @@ function GameSurfaceComponent({
     }
     setCombatObjectives(session.objectives);
     useGameModeStore.getState().setGameState("combat");
-  }, [chatMeta.gameActiveState, combatEnemies, combatParty, surfaceCombatSessionQuery.data?.session]);
+  }, [
+    activeChatId,
+    chatMeta.gameActiveState,
+    combatEnemies,
+    combatGenerationPending,
+    combatParty,
+    pendingEncounter,
+    preparedCombatState,
+    queuedCombatGeneration,
+    queuedEncounter,
+    surfaceCombatSessionQuery.data?.session,
+    transitionGameState,
+  ]);
   const tacticalCombatActive = combatUiActive && effectiveCombatStyle === "tactical";
   const topOverlayOffsetClass = "top-3";
   const queuedCombatMatchesLatest =
