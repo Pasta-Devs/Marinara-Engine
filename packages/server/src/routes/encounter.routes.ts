@@ -589,6 +589,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.claudeFastMode === "true",
         conn.treatAsLocalEndpoint === "true",
         conn.defaultParameters,
+        conn.id,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
@@ -699,6 +700,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.claudeFastMode === "true",
         conn.treatAsLocalEndpoint === "true",
         conn.defaultParameters,
+        conn.id,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);
@@ -800,6 +802,7 @@ export async function encounterRoutes(app: FastifyInstance) {
         conn.claudeFastMode === "true",
         conn.treatAsLocalEndpoint === "true",
         conn.defaultParameters,
+        conn.id,
       );
 
       const characterIds: string[] = JSON.parse(chat.characterIds as string);

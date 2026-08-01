@@ -164,6 +164,7 @@ export async function resolveMemoryRecallEmbeddingSource(
     embeddingConnection.claudeFastMode === "true",
     embeddingConnection.treatAsLocalEndpoint === "true",
     embeddingConnection.defaultParameters,
+    embeddingConnection.id,
   );
   const label = `${embeddingConnection.name || embeddingConnection.provider} (${embeddingModel})`;
 

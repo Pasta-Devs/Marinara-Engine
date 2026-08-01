@@ -77,6 +77,8 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
         connection.maxTokensOverride,
         connection.claudeFastMode === "true",
         connection.treatAsLocalEndpoint === "true",
+        undefined,
+        connection.id,
       ),
       connection.id,
       requireModel(model ?? connection.model),
