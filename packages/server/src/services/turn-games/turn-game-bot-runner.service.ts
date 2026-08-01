@@ -274,6 +274,7 @@ export async function runTurnGameBotTurns(args: RunBotTurnsArgs): Promise<void> 
           conn.claudeFastMode === "true",
           conn.treatAsLocalEndpoint === "true",
           conn.defaultParameters,
+          conn.id,
         )
       : null);
   if (!provider) {

@@ -840,6 +840,7 @@ function createProviderForConnection(connection: WorkspaceConnection): BaseLLMPr
     bool(connection.claudeFastMode),
     bool(connection.treatAsLocalEndpoint),
     connection.defaultParameters,
+    connection.id,
   );
 }
 

@@ -1615,6 +1615,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
             conn.claudeFastMode === "true",
             conn.treatAsLocalEndpoint === "true",
             conn.defaultParameters,
+            connId ?? undefined,
           );
 
     // ── Mirror /api/generate: normalize + fit prompt to context ──

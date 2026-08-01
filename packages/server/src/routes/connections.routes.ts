@@ -460,6 +460,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           conn.claudeFastMode === "true",
           conn.treatAsLocalEndpoint === "true",
           conn.defaultParameters,
+          conn.id,
         );
         let responseText = "";
         for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
@@ -502,6 +503,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
           conn.claudeFastMode === "true",
           conn.treatAsLocalEndpoint === "true",
           conn.defaultParameters,
+          conn.id,
         );
         let responseText = "";
         for await (const chunk of provider.chat([{ role: "user", content: "Reply with OK." }], {
@@ -1369,6 +1371,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         conn.claudeFastMode === "true",
         conn.treatAsLocalEndpoint === "true",
         conn.defaultParameters,
+        conn.id,
       );
 
       let fullResponse = "";
