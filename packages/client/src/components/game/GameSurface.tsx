@@ -7803,7 +7803,18 @@ function GameSurfaceComponent({
         !!queuedCombatGeneration ||
         combatGenerationPending ||
         !!preparedCombatState;
-      if (!encounterPreparing && activeChatId && !transitionGameState.isPending) {
+      // The server flips the chat to "combat" when the GM's [state: combat] turn
+      // lands, which can be a beat BEFORE the scene processor sets any of the
+      // queue flags above. An unconsumed combat declaration on the latest GM
+      // message means a battle is on its way, so leave the state alone.
+      const combatDeclarationPending = (() => {
+        if (isStreaming) return true;
+        if (!latestAssistantMsg?.content) return false;
+        const tags = parseGmTags(latestAssistantMsg.content);
+        if (!tags.combatEncounter && tags.stateChange !== "combat") return false;
+        return !hasCombatResultAfterMessage(latestAssistantMsg.id);
+      })();
+      if (!encounterPreparing && !combatDeclarationPending && activeChatId && !transitionGameState.isPending) {
         useGameModeStore.getState().setGameState("exploration");
         transitionGameState.mutate({ chatId: activeChatId, newState: "exploration" });
       }
@@ -7839,6 +7850,10 @@ function GameSurfaceComponent({
     combatEnemies,
     combatGenerationPending,
     combatParty,
+    hasCombatResultAfterMessage,
+    isStreaming,
+    latestAssistantMsg?.content,
+    latestAssistantMsg?.id,
     pendingEncounter,
     preparedCombatState,
     queuedCombatGeneration,
