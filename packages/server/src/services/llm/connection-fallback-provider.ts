@@ -7,6 +7,11 @@ import {
 } from "../../routes/generate/generate-route-utils.js";
 import { logger } from "../../lib/logger.js";
 import { notifyGenerationFallback, type GenerationFallbackNotifier } from "../generation/fallback-notification.js";
+import {
+  isConnectionAdmissionFailure,
+  withConnectionAdmissionProvider,
+  type ConnectionAdmissionMode,
+} from "../generation/connection-admission.js";
 
 export type FallbackConnection = {
   id: string;
@@ -34,6 +39,7 @@ type ConnectionFallbackProviderArgs = {
   fallbackBaseUrl: string;
   category: "main" | "agents";
   onFallback?: GenerationFallbackNotifier;
+  admissionMode?: ConnectionAdmissionMode;
 };
 
 function isEnabled(value: unknown): boolean {
@@ -157,7 +163,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
       if (emittedUsableOutput || options.signal?.aborted) return result.value;
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
-      if (emittedUsableOutput || isAbortFailure(error, options.signal)) throw error;
+      if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
       await this.logFallback(error);
     }
     options.signal?.throwIfAborted();
@@ -171,7 +177,7 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
       if (hasUsableOutput || options.signal?.aborted) return result;
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
-      if (isAbortFailure(error, options.signal)) throw error;
+      if (isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
       await this.logFallback(error);
     }
     options.signal?.throwIfAborted();
@@ -190,26 +196,31 @@ export function withConnectionFallbackProvider({
   fallbackBaseUrl,
   category,
   onFallback,
+  admissionMode = { kind: "foreground" },
 }: ConnectionFallbackProviderArgs): BaseLLMProvider {
+  const admittedPrimary = withConnectionAdmissionProvider(primary, primaryConnectionId, admissionMode);
   if (
     !fallbackConnection ||
     fallbackConnection.id === primaryConnectionId ||
     !fallbackConnection.model?.trim() ||
     !fallbackBaseUrl
   ) {
-    return primary;
+    return admittedPrimary;
   }
-
-  const fallback = createLLMProvider(
-    fallbackConnection.provider,
-    fallbackBaseUrl,
-    fallbackConnection.apiKey,
-    fallbackConnection.maxContext,
-    fallbackConnection.openrouterProvider,
-    fallbackConnection.maxTokensOverride,
-    isEnabled(fallbackConnection.claudeFastMode),
-    isEnabled(fallbackConnection.treatAsLocalEndpoint),
-    fallbackConnection.defaultParameters,
+  const fallback = withConnectionAdmissionProvider(
+    createLLMProvider(
+      fallbackConnection.provider,
+      fallbackBaseUrl,
+      fallbackConnection.apiKey,
+      fallbackConnection.maxContext,
+      fallbackConnection.openrouterProvider,
+      fallbackConnection.maxTokensOverride,
+      isEnabled(fallbackConnection.claudeFastMode),
+      isEnabled(fallbackConnection.treatAsLocalEndpoint),
+      fallbackConnection.defaultParameters,
+    ),
+    fallbackConnection.id,
+    admissionMode,
   );
-  return new ConnectionFallbackProvider(primary, fallback, fallbackConnection, category, onFallback);
+  return new ConnectionFallbackProvider(admittedPrimary, fallback, fallbackConnection, category, onFallback);
 }
