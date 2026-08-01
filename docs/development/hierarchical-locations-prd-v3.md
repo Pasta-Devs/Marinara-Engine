@@ -12,7 +12,7 @@ This plan treats spatial orientation as a focused product capability with a narr
 
 The feature is a hierarchical map and spatial-orientation system, not a generic Voxta-style scenario engine. It borrows one useful Voxta pattern: persistent state selects a small, relevant prompt context. It does not initially add flags, variables, events, scripts, timers, or a separate action-inference model.
 
-The supported owner modes are Roleplay and Game. The legacy `visual_novel` enum value is compatibility residue and is not a supported product mode.
+The supported owner modes are Roleplay and Game.
 
 The plan has five focused layers:
 

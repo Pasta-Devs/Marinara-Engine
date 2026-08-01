@@ -21,7 +21,7 @@ export function BrowserChrome({
   badgeLabel?: string;
 }) {
   return (
-    <div className="hidden h-11 shrink-0 items-center gap-2 border-b border-[var(--noodle-divider)] bg-[var(--background)] px-3 lg:flex">
+    <div className="hidden h-11 shrink-0 items-center gap-2 border-b border-[var(--noodle-divider)] bg-[var(--background)] px-3 @min-[1024px]:flex">
       <div className="hidden items-center gap-1.5 sm:flex" aria-hidden="true">
         <span className="h-2.5 w-2.5 rounded-full bg-[var(--noodle-accent)]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[var(--muted-foreground)]/35" />

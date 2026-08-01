@@ -51,6 +51,7 @@ import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
+import { isFileDrag } from "../../lib/chat-resource-drag";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
 import { EmojiPicker } from "../ui/EmojiPicker";
@@ -734,6 +735,7 @@ export const ChatInput = memo(function ChatInput({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
+      if (!isFileDrag(e.dataTransfer)) return;
       e.preventDefault();
       setIsDragging(false);
       if (!activeChatId) return;
@@ -744,6 +746,7 @@ export const ChatInput = memo(function ChatInput({
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e.dataTransfer)) return;
     e.preventDefault();
     setIsDragging(true);
   }, []);
@@ -2010,6 +2013,7 @@ export const ChatInput = memo(function ChatInput({
       {/* Main input container */}
       <div
         ref={inputBarRef}
+        data-chat-resource-drop-exclude
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

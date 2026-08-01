@@ -517,7 +517,7 @@ export async function galleryRoutes(app: FastifyInstance) {
   async function resolveGalleryImageGenerationContext(chatId: string, debugMode: boolean) {
     const chat = await chats.getById(chatId);
     if (!chat) throw new GalleryImageRequestError(404, "Chat not found");
-    if (!new Set(["roleplay", "visual_novel", "game"]).has(chat.mode)) {
+    if (!new Set(["roleplay", "game"]).has(chat.mode)) {
       throw new GalleryImageRequestError(400, "Gallery image generation is available in Roleplay and Game modes.");
     }
 

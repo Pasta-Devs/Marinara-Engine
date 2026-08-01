@@ -90,6 +90,7 @@ import {
   shouldAutoplayGeneratedTTS,
 } from "../../lib/tts-autoplay";
 import { CHAT_SCROLL_TO_BOTTOM_EVENT, type ChatScrollToBottomDetail } from "../../lib/chat-scroll-events";
+import { CHAT_RESOURCE_AGENT_SETUP_EVENT } from "../../lib/chat-resource-drag";
 import { blurActiveChatFloatingUiControl, CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
 import {
   CHAT_TOOLBAR_ACTION_EVENT,
@@ -131,6 +132,7 @@ import {
   type ImagePromptReviewItem,
 } from "../ui/ImagePromptReviewModal";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
+import { ChatResourceDropOverlay } from "./ChatResourceDropOverlay";
 
 export type { CharacterMap };
 
@@ -265,7 +267,7 @@ function resolveExpressionAvatarSpriteUrl(sprites: SpriteInfo[] | undefined, exp
 }
 
 function suppressBuiltInProfessorMariForMode(mode: string | undefined): boolean {
-  return mode === "game" || mode === "roleplay" || mode === "visual_novel";
+  return mode === "game" || mode === "roleplay";
 }
 
 const INTUITIVE_SWIPE_MIN_DISTANCE = 56;
@@ -686,6 +688,7 @@ export function ChatArea() {
     setSettingsAnchor(null);
     setSettingsInitialSection(null);
   }, []);
+
   const handleCloseGalleryPanel = useCallback(() => {
     blurActiveChatFloatingUiControl();
     setGalleryOpen(false);
@@ -712,6 +715,17 @@ export function ChatArea() {
     setPeekPromptData(null);
     setDeleteDialogMessageId(null);
   }, []);
+  // A dropped agent parks a setup request; open chat settings so its modal can run.
+  useEffect(() => {
+    const openAgentSetup = (event: Event) => {
+      const chatId = (event as CustomEvent<{ chatId?: string }>).detail?.chatId;
+      if (chatId && chatId !== useChatStore.getState().activeChatId) return;
+      handleOpenSettingsPanel();
+    };
+    window.addEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, openAgentSetup);
+    return () => window.removeEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, openAgentSetup);
+  }, [handleOpenSettingsPanel]);
+
   useEffect(() => {
     window.addEventListener(CHAT_TOOLBAR_ACTION_EVENT, closeFloatingChatDrawers);
     window.addEventListener(CHAT_FLOATING_UI_DISMISS_EVENT, closeFloatingChatDrawers);
@@ -728,7 +742,7 @@ export function ChatArea() {
   const lastModeRef = useRef<string>("conversation");
   if (rawMode) lastModeRef.current = rawMode;
   const chatMode = rawMode ?? lastModeRef.current;
-  const isRoleplay = chatMode === "roleplay" || chatMode === "visual_novel";
+  const isRoleplay = chatMode === "roleplay";
   const suppressBuiltInProfessorMari = suppressBuiltInProfessorMariForMode(chatMode);
   const isGameChat = chatMode === "game";
   const messagePageSize = messagesPerPage;
@@ -1279,7 +1293,7 @@ export function ChatArea() {
 
   const handleGenerateRoleplaySceneVideo = useCallback(
     async (source?: { galleryImageId?: string }) => {
-      if (!activeChatId || !chat || (chatMode !== "roleplay" && chatMode !== "visual_novel")) return;
+      if (!activeChatId || !chat || chatMode !== "roleplay") return;
       if (roleplaySceneVideoGeneratingRef.current) return;
       const sceneVideoConnectionId =
         typeof chatMeta.sceneVideoConnectionId === "string" ? chatMeta.sceneVideoConnectionId.trim() : "";
@@ -1419,8 +1433,8 @@ export function ChatArea() {
   );
 
   // Creator-notes card CSS: resolve the per-chat mode (default "chat") and map
-  // the chat mode onto the @chat-mode filter surface (visual novel shares the
-  // roleplay surface). One injector element, reused across every render path.
+  // it onto the @chat-mode filter surface. One injector element is reused
+  // across every render path.
   const cardCssMode: CardCssMode =
     chatMeta.cardCssMode === "exclusive" || chatMeta.cardCssMode === "chat" ? chatMeta.cardCssMode : "disabled";
   const cardCssChatMode: ChatModeFilter =
@@ -1527,7 +1541,7 @@ export function ChatArea() {
     const savedUrl = chatBackgroundMetadataToUrl(chatMeta.background);
     const restoredUrl =
       savedUrl ??
-      (chat.mode === "roleplay" || chat.mode === "visual_novel"
+      (chat.mode === "roleplay"
         ? useUIStore.getState().defaultRoleplayBackground
         : null);
     restoredChatBackgroundRef.current = { chatId: chat.id, url: restoredUrl, isSyncing: true };
@@ -2611,7 +2625,7 @@ export function ChatArea() {
 
     const mode = chatModeRef.current;
     const shouldAutoplay =
-      mode === "roleplay" || mode === "visual_novel" ? cfg.autoplayRP : mode === "game" ? false : cfg.autoplayConvo;
+      mode === "roleplay" ? cfg.autoplayRP : mode === "game" ? false : cfg.autoplayConvo;
     if (!shouldAutoplay) return;
 
     const msgs = messagesRef.current ?? [];
@@ -3103,6 +3117,7 @@ export function ChatArea() {
       />
     </Suspense>
   ) : null;
+  const resourceDropOverlay = chat ? <ChatResourceDropOverlay chat={chat} /> : null;
 
   // ═══════════════════════════════════════════════
   // Game mode — RPG surface with GM narration, map, party chat
@@ -3115,6 +3130,7 @@ export function ChatArea() {
         <>
           {cardCssInjector}
           {scheduleModal}
+          {resourceDropOverlay}
           <GameSurface
             activeChatId={activeChatId}
             chat={chat!}
@@ -3192,6 +3208,7 @@ export function ChatArea() {
       <>
         {cardCssInjector}
         {scheduleModal}
+        {resourceDropOverlay}
         <Suspense fallback={surfaceFallback}>
           <ChatConversationSurface
             activeChatId={activeChatId}
@@ -3279,7 +3296,7 @@ export function ChatArea() {
   }
 
   // ═══════════════════════════════════════════════
-  // Roleplay / Visual Novel mode — existing layout
+  // Roleplay mode — existing layout
   // ═══════════════════════════════════════════════
   const shouldAnimateMessages = !hasAnimatedRef.current;
   if (messages?.length) hasAnimatedRef.current = true;
@@ -3288,6 +3305,7 @@ export function ChatArea() {
     <>
       {cardCssInjector}
       {scheduleModal}
+      {resourceDropOverlay}
       <Suspense fallback={surfaceFallback}>
         <ChatRoleplaySurface
           activeChatId={activeChatId}

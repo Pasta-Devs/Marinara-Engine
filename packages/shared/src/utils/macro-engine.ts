@@ -67,7 +67,7 @@ export interface MacroContext {
   };
   /** Conversation-mode-only fields for {{convo_display}}/{{char_about}}/{{persona_about}}/{{convo_behavior}}.
    *  Populated ONLY by the conversation prompt branch, so these macros resolve to ""
-   *  in Roleplay/Visual-Novel/Game — even if placed in a shared surface those modes render. */
+   *  in Roleplay/Game — even if placed in a shared surface those modes render. */
   convoFields?: {
     charDisplayName?: string;
     charAbout?: string;

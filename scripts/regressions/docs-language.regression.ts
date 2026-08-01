@@ -65,6 +65,7 @@ try {
   assert.ok(supported.includes("pl"), "the shared label map must offer Polish");
   assert.ok(supported.includes("ru"), "the shared label map must offer Russian");
   assert.ok(supported.includes("ja"), "the shared label map must offer Japanese");
+  assert.ok(supported.includes("ko"), "the shared label map must offer Korean");
   assert.deepEqual([...supported].sort(), Object.keys(DOCS_LANGUAGE_LABELS).sort());
 
   // ── Build a valid installed fixture pack under DATA_DIR/doc-packs/es ──

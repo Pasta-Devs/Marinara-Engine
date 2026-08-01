@@ -180,21 +180,22 @@ try {
     getCapabilityAgentDetailDefinitionIssue,
     getCapabilityPackageArtifactSourceIssue,
     getCapabilityPackageInstallIssue,
+    resolveOfficialAgentBranch,
     resolveCapabilityCatalogUrl,
     resolveCapabilityPackageArtifactUrl,
   } = await import(
     "../../packages/server/src/services/capability-packages/package-manager.service.js"
   );
   assert.equal(
-    resolveCapabilityCatalogUrl("2.3.1", ""),
+    resolveCapabilityCatalogUrl("2.3.1", "", "main"),
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/catalog/v2/catalog.json",
   );
   assert.equal(
-    resolveCapabilityCatalogUrl("3.2.2-beta.1", ""),
+    resolveCapabilityCatalogUrl("3.2.2-beta.1", "", "main"),
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/catalog/v3/catalog.json",
   );
   assert.equal(
-    resolveCapabilityCatalogUrl("development", ""),
+    resolveCapabilityCatalogUrl("development", "", "main"),
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/catalog/catalog.json",
     "Non-release builds must fall back to the legacy catalog instead of requesting a nonexistent lane",
   );
@@ -203,6 +204,10 @@ try {
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/catalog/v2/catalog.json",
     "Engine staging must read the matching versioned Agent catalog from Marinara-Agents staging",
   );
+  assert.equal(resolveOfficialAgentBranch("staging"), "staging");
+  assert.equal(resolveOfficialAgentBranch("release/v2.4.0"), "staging");
+  assert.equal(resolveOfficialAgentBranch("main"), "main");
+  assert.equal(resolveOfficialAgentBranch("feature/catalog-ui"), "main");
   assert.equal(getCapabilityPackageInstallIssue(legacyManifest), null);
   const agentDetailFixture = {
     name: "Agent detail fixture",
@@ -377,7 +382,7 @@ try {
       bytes: 1,
     },
   };
-  const officialCatalogUrl = resolveCapabilityCatalogUrl("development", "");
+  const officialCatalogUrl = resolveCapabilityCatalogUrl("development", "", "main");
   const stagingCatalogUrl = resolveCapabilityCatalogUrl("development", "", "staging");
   assert.equal(getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, officialCatalogUrl), null);
   assert.equal(

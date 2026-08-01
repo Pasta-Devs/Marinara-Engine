@@ -1160,8 +1160,7 @@ export async function generateRoutes(app: FastifyInstance) {
         !input.userMessage?.trim() &&
         (input.attachments?.length ?? 0) === 0;
       const lorebookGenerationTriggers = resolveLorebookGenerationTriggers(input, chatMode);
-      const supportsHiddenFromAI =
-        chatMode === "conversation" || chatMode === "roleplay" || chatMode === "visual_novel";
+      const supportsHiddenFromAI = chatMode === "conversation" || chatMode === "roleplay";
       const preferLatestVisibleGameState = shouldPreferLatestVisibleGameState(input);
 
       // ── Conversation-start filter: find the latest "isConversationStart" marker ──
@@ -1575,7 +1574,7 @@ export async function generateRoutes(app: FastifyInstance) {
         let effectiveMaxContext = modelAccessPolicy.effectiveMaxContext;
 
         // Determine whether agents are enabled for this chat (needed by assembler + agent pipeline).
-        // Mode policy filters which agents may run for conversation, roleplay, visual novel, and game chats.
+        // Mode policy filters which agents may run for Conversation, Roleplay, and Game chats.
         logger.info("[generate] chatId=%s, chatMode=%s", input.chatId, chatMode);
         const activeMusicPlayerSource =
           input.musicPlayerEnabled === false
@@ -2516,10 +2515,10 @@ export async function generateRoutes(app: FastifyInstance) {
           }
         }
 
-        // ── Lorebook injection for preset-less roleplay / visual_novel ──
+        // ── Lorebook injection for preset-less Roleplay ──
         // Conversation mode handles this above; game mode handles it below;
         // preset-driven chats get lorebook content via the preset assembler.
-        if (!presetId && (chatMode === "roleplay" || chatMode === "visual_novel")) {
+        if (!presetId && chatMode === "roleplay") {
           sendProgress("lorebooks");
           const lorebookResult = await processLorebooks(app.db, toLorebookScanMessages(), null, {
             chatId: input.chatId,
@@ -3145,7 +3144,7 @@ export async function generateRoutes(app: FastifyInstance) {
         }
 
         const roleplayDmCommandsEnabled =
-          (chatMode === "roleplay" || chatMode === "visual_novel") &&
+          chatMode === "roleplay" &&
           chatMeta.roleplayDmCommandsEnabled === true &&
           !input.impersonate;
         if (roleplayDmCommandsEnabled) {
@@ -4463,7 +4462,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
 
           const shouldReviewWriterAgentOutputs =
-            (chatMode === "roleplay" || chatMode === "visual_novel") &&
+            chatMode === "roleplay" &&
             requireAgentWriteApproval &&
             reviewedAgentInjections.length === 0 &&
             !input.regenerateMessageId;
@@ -8355,7 +8354,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       chatId: input.chatId,
                       chatName: chat.name,
                       chatMode:
-                        chatMode === "game" ? "game" : chatMode === "visual_novel" ? "visual_novel" : "roleplay",
+                        chatMode === "game" ? "game" : "roleplay",
                       chatMetadata: freshMeta,
                       currentBackground: backgroundBeforeGeneration ?? currentBackground,
                       illustratorAgent: illustratorBackgroundAgent,

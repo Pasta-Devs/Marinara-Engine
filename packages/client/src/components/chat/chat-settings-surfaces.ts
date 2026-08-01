@@ -2,7 +2,7 @@ import type { ChatMode } from "@marinara-engine/shared";
 
 /** Owns only active ChatSettingsDrawer surface visibility, not the complete chat shell. */
 export const CHAT_SETTINGS_SURFACES: Record<
-  Exclude<ChatMode, "visual_novel">,
+  ChatMode,
   {
     showSettingsProfiles: boolean;
     promptSettingsSurface: "conversation" | "roleplay" | "game";

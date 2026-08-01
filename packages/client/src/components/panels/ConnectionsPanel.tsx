@@ -94,6 +94,9 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
+import { isLanguageGenerationConnection } from "../../lib/connection-filters";
+import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
 const CONNECTION_ICON_COLORS = {
   from: "from-sky-400",
@@ -1067,7 +1070,7 @@ function ConnectionRow({
           </div>
         )}
       </button>
-      <div className="min-w-0 flex-1 pr-0 transition-[padding] max-md:pr-24 [@media(pointer:coarse)]:pr-24 [@media(pointer:fine)]:group-hover:pr-24">
+      <div className="min-w-0 flex-1 pr-0 transition-[padding] max-md:pr-32 [@media(pointer:coarse)]:pr-32 [@media(pointer:fine)]:group-hover:pr-32">
         <div className="truncate text-sm font-medium leading-5" title={conn.name}>
           {conn.name}
         </div>
@@ -1076,6 +1079,15 @@ function ConnectionRow({
         </div>
       </div>
       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-foreground/10 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+        <ChatResourceActionButton
+          payload={{
+            version: 1,
+            kind: "connection",
+            ids: [conn.id],
+            label: conn.name,
+            ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
+          }}
+        />
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -1670,12 +1682,22 @@ export function ConnectionsPanel() {
         onDragStart={(event) => {
           const ids = getDraggedConnectionIds(conn.id);
           setDraggedConnectionId(conn.id);
-          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.effectAllowed = "copyMove";
           event.dataTransfer.setData("application/x-marinara-connection-ids", JSON.stringify(ids));
           event.dataTransfer.setData("application/x-marinara-connection-id", conn.id);
           event.dataTransfer.setData("text/plain", conn.id);
+          writeChatResourceDragPayload(event.dataTransfer, {
+            version: 1,
+            kind: "connection",
+            ids: [conn.id],
+            label: conn.name,
+            ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
+          });
         }}
-        onDragEnd={() => setDraggedConnectionId(null)}
+        onDragEnd={() => {
+          setDraggedConnectionId(null);
+          clearActiveChatResourceDrag();
+        }}
         onDropOnRow={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -1684,6 +1706,13 @@ export function ConnectionsPanel() {
         onTouchStart={(event) => {
           startConnectionTouchDrag(event, conn.id, {
             allowInteractiveTarget: true,
+            chatResourcePayload: {
+              version: 1,
+              kind: "connection",
+              ids: [conn.id],
+              label: conn.name,
+              ...(isLanguageGenerationConnection(conn) ? {} : { unsupported: "connection-kind" as const }),
+            },
             sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="connection"]'),
           });
         }}
@@ -1747,7 +1776,7 @@ export function ConnectionsPanel() {
           />
           <input
             type="text"
-            placeholder={localize("Search connections...")}
+            placeholder={localize("Search connections")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"

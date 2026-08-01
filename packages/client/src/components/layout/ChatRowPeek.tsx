@@ -151,7 +151,7 @@ export function ChatRowPeek({ containerRef, activeChatId, disabled }: ChatRowPee
           ))}
         </div>
       ) : (
-        <p className="text-[0.6875rem] text-[var(--muted-foreground)]">
+        <p className="mari-accent-animated text-[0.6875rem] text-[var(--marinara-chat-chrome-button-text-active)]">
           {localizeUi("ui.layout.chatsidebar.peekEmpty")}
         </p>
       )}

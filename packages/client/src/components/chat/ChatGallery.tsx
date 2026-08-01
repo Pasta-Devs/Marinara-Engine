@@ -96,9 +96,9 @@ export function ChatGallery({
 }: ChatGalleryProps) {
   const { t: localizeUi } = useUiTranslation();
   const { data: images, isLoading } = useGalleryImages(chatId);
-  const sceneVideosEnabled = mode === "game" || mode === "roleplay" || mode === "visual_novel";
+  const sceneVideosEnabled = mode === "game" || mode === "roleplay";
   const sceneVideosQuery = useSceneVideos(chatId, sceneVideosEnabled);
-  const sceneVideos = sceneVideosQuery.data ?? EMPTY_SCENE_VIDEOS;
+  const sceneVideos = sceneVideosEnabled ? (sceneVideosQuery.data ?? EMPTY_SCENE_VIDEOS) : EMPTY_SCENE_VIDEOS;
   const upload = useUploadGalleryImage(chatId);
   const remove = useDeleteGalleryImage(chatId);
   const deleteVideo = useDeleteSceneVideo(chatId);
@@ -226,7 +226,13 @@ export function ChatGallery({
   };
 
   const handleGenerateVideo = async () => {
-    if (!onGenerateVideo || useGalleryStore.getState().videoGeneratingChatIds.has(chatId)) return;
+    if (
+      !sceneVideosEnabled ||
+      !onGenerateVideo ||
+      useGalleryStore.getState().videoGeneratingChatIds.has(chatId)
+    ) {
+      return;
+    }
 
     setChatGeneratingVideo(chatId, true);
     try {
@@ -253,7 +259,13 @@ export function ChatGallery({
   };
 
   const handleAnimateImage = async (image: ChatImage) => {
-    if (!onAnimateImage || useGalleryStore.getState().videoGeneratingChatIds.has(chatId)) return;
+    if (
+      !sceneVideosEnabled ||
+      !onAnimateImage ||
+      useGalleryStore.getState().videoGeneratingChatIds.has(chatId)
+    ) {
+      return;
+    }
 
     setChatGeneratingVideo(chatId, true);
     try {
@@ -296,13 +308,15 @@ export function ChatGallery({
 
   const handlePinVideo = useCallback(
     (video: GeneratedSceneVideo) => {
+      if (!sceneVideosEnabled) return;
       pinVideo({ ...video, chatId });
     },
-    [chatId, pinVideo],
+    [chatId, pinVideo, sceneVideosEnabled],
   );
 
   const handleDeleteVideo = useCallback(
     async (video: GeneratedSceneVideo) => {
+      if (!sceneVideosEnabled) return;
       if (
         !(await showConfirmDialog({
           title: localizeUi("ui.chat.chatgallery.deleteSceneVideo"),
@@ -330,7 +344,7 @@ export function ChatGallery({
         setDeletingVideoId(null);
       }
     },
-    [chatId, deleteVideo, localizeUi, pinVideo, unpinImage, videoLightbox?.id],
+    [chatId, deleteVideo, localizeUi, pinVideo, sceneVideosEnabled, unpinImage, videoLightbox?.id],
   );
 
   const handleInsertAsset = useCallback(
@@ -347,7 +361,7 @@ export function ChatGallery({
     onIllustrate,
     onGenerateSelfie,
     onGenerateStoryboard,
-    onGenerateVideo,
+    sceneVideosEnabled && onGenerateVideo,
     onGenerateBackground,
   ].filter(Boolean).length;
   const actionGridClass =
@@ -364,13 +378,20 @@ export function ChatGallery({
   const videoCount = sceneVideos.length;
 
   useEffect(() => {
-    if (!sceneVideosEnabled && activeTab === "videos") setActiveTab("images");
-  }, [activeTab, sceneVideosEnabled]);
+    if (!sceneVideosEnabled) {
+      if (activeTab === "videos") setActiveTab("images");
+      if (videoLightbox) setVideoLightbox(null);
+    }
+  }, [activeTab, sceneVideosEnabled, videoLightbox]);
 
   return (
     <>
       <div className="flex flex-col gap-3 p-4">
-        {(onIllustrate || onGenerateSelfie || onGenerateStoryboard || onGenerateVideo || onGenerateBackground) && (
+        {(onIllustrate ||
+          onGenerateSelfie ||
+          onGenerateStoryboard ||
+          (sceneVideosEnabled && onGenerateVideo) ||
+          onGenerateBackground) && (
           <div className={actionGridClass}>
             {onIllustrate && (
               <button
@@ -437,7 +458,7 @@ export function ChatGallery({
                 <span className="min-w-0 truncate">{isGeneratingStoryboard ?localizeUi("ui.chat.chatgallery.creating") :localizeUi("ui.chat.chatgallery.createStoryboard")}</span>
               </button>
             )}
-            {onGenerateVideo && (
+            {sceneVideosEnabled && onGenerateVideo && (
               <button
                 type="button"
                 onClick={() => void handleGenerateVideo()}
@@ -702,7 +723,7 @@ export function ChatGallery({
                           >
                             <Download size="0.75rem" />
                           </a>
-                          {onAnimateImage && (
+                          {sceneVideosEnabled && onAnimateImage && (
                             <button
                               type="button"
                               onClick={() => void handleAnimateImage(img)}
@@ -750,7 +771,7 @@ export function ChatGallery({
           </>
         )}
 
-        {!assetSearchActive && activeTab === "videos" && (
+        {!assetSearchActive && sceneVideosEnabled && activeTab === "videos" && (
           <>
             {sceneVideosQuery.isLoading && sceneVideosEnabled && (
               <p className="text-center text-xs text-[var(--muted-foreground)]">{localizeUi("ui.chat.chatgallery.loadingSceneVideos")}</p>
@@ -871,7 +892,7 @@ export function ChatGallery({
 
       {/* Lightbox */}
       {lightbox && <ChatImageLightbox image={lightbox} onPin={handlePinImage} onClose={() => setLightbox(null)} />}
-      {videoLightbox && (
+      {sceneVideosEnabled && videoLightbox && (
         <ChatVideoLightbox video={videoLightbox} onPin={handlePinVideo} onClose={() => setVideoLightbox(null)} />
       )}
     </>

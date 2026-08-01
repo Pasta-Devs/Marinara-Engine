@@ -183,7 +183,6 @@ const MATCHING_SOURCE_OPTIONS: Array<{ value: LorebookMatchingSource; label: str
 const GENERATION_TRIGGER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "conversation", label: "Conversation" },
   { value: "roleplay", label: "Roleplay" },
-  { value: "visual_novel", label: "Legacy Roleplay" },
   { value: "game", label: "Game" },
   { value: "chat", label: "Chat reply" },
   { value: "continue", label: "Continue" },
@@ -706,7 +705,7 @@ export function LorebookEntryRow({
                     <span className={cn("mt-1 h-2 w-2 shrink-0 rounded-full", STATUS_DOT_COLOR[status])} />
                     <span className="min-w-0">
                       <span className="block text-[0.6875rem] font-semibold leading-tight">{STATUS_LABEL[status]}</span>
-                      <span className="mt-0.5 block text-[0.625rem] leading-snug text-[var(--muted-foreground)]">
+                      <span className="mt-0.5 block text-[0.625rem] leading-snug text-[var(--marinara-editor-muted)]">
                         {description}
                       </span>
                     </span>
@@ -848,8 +847,8 @@ export function LorebookEntryRow({
                   patch({ position: n });
                 }}
                 options={[
-                  { value: "0", label: localizeUi("ui.lorebooks.lorebookentryrow.beforeChat") },
-                  { value: "1", label: localizeUi("ui.lorebooks.lorebookentryrow.afterChat") },
+                  { value: "0", label: localizeUi("ui.lorebooks.lorebookentryrow.beforeCharacter") },
+                  { value: "1", label: localizeUi("ui.lorebooks.lorebookentryrow.afterCharacter") },
                   { value: "2", label: localizeUi("ui.lorebooks.lorebookentryrow.atDepth") },
                   { value: "7", label: localizeUi("ui.lorebooks.lorebookentryrow.outlet") },
                 ]}
@@ -923,7 +922,7 @@ export function LorebookEntryRow({
               setLocalPosition(n);
               patch({ position: n });
             }}
-            title={localizeUi("ui.lorebooks.lorebookentryrow.positionInThePromptBeforeChatAfterChatOr")}
+            title={localizeUi("ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr")}
             options={[
               { value: "0", label: localizeUi("ui.lorebooks.lorebookentryrow.beforeCompact") },
               { value: "1", label: localizeUi("ui.lorebooks.lorebookentryrow.afterCompact") },

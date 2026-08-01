@@ -27,6 +27,7 @@ import {
   CalendarClock,
   RefreshCw,
   Settings2,
+  Info,
   ArrowRightLeft,
   Unlink,
   Brain,
@@ -137,6 +138,7 @@ import {
 import { useUpdateGameWidgets } from "../../hooks/use-game";
 import { useRegexScripts, useUpdateRegexScript, type RegexScriptRow } from "../../hooks/use-regex-scripts";
 import { api } from "../../lib/api-client";
+import { readCharacterGreetings, type CharacterGreeting } from "../../lib/character-greetings";
 import { trackChatMetadataSave, waitForPendingChatMetadataSaves } from "../../lib/chat-metadata-save-barrier";
 import { appendLocalSidecarConnectionOption, filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import {
@@ -277,6 +279,11 @@ import {
   type CustomMusicSource,
   type MusicProvider,
 } from "./AgentAddSetupFields";
+import {
+  CHAT_RESOURCE_AGENT_SETUP_EVENT,
+  takePendingChatAgentSetupIds,
+  takePendingChatResourcePanelRestore,
+} from "../../lib/chat-resource-drag";
 import { GameWidgetFileControls, GameWidgetSetupEditor, normalizeGameHudWidgets } from "../game/GameWidgetSetupEditor";
 
 const QuickPresetSectionsEditor = lazy(() =>
@@ -308,11 +315,6 @@ interface ChatSettingsDrawerProps {
   onSpriteVisualSettingsChange?: (patch: Partial<LocalSpriteVisualSettings>) => void;
   onOpenScheduleEditor?: (characterId: string, options?: { initialDay?: string | null }) => void;
 }
-
-type GreetingOption = {
-  text: string;
-  alternateIndex: number | null;
-};
 
 const SPOTIFY_SOURCE_OPTIONS: Array<{ id: SpotifySourceType; label: string; description: string }> = [
   { id: "liked", label: "Liked Songs", description: "Pick from the user's saved tracks first." },
@@ -576,14 +578,10 @@ function isConversationCommandToggleEnabled(
   return toggles[command] !== false;
 }
 
-const MODE_INTROS: Record<ChatMode, string> = {
-  conversation:
-    "Plain chat — no roleplay or game systems built in; autonomous messaging and other tools are optional below.",
-  roleplay:
-    "Plain roleplay surface — no built-in dice, combat, or GM pipeline; sprites, world-state tracking, and other helpers are available as optional agents below.",
-  visual_novel:
-    "Legacy roleplay chat — expressions, world state, and CYOA choices are available as optional agents below.",
-  game: "Full Game Master with built-in dice, combat, encounters, world state, and session/map tracking — the Scene Analysis toggle below adds optional cinematic visuals (backgrounds, music, weather).",
+const MODE_INTRO_KEYS: Record<ChatMode, string> = {
+  conversation: "settings.chat.modeIntro.conversation",
+  roleplay: "settings.chat.modeIntro.roleplay",
+  game: "settings.chat.modeIntro.game",
 };
 
 const MARINARA_UNIVERSAL_PRESET_NAME = "Marinara's Universal Preset";
@@ -811,12 +809,16 @@ export function ChatSettingsDrawer({
   const { data: defaultPromptPreset } = useDefaultPreset();
   const { data: installedAgentManifests = [] } = useCapabilityAgentRegistry();
   const { data: installedCapabilities = [] } = useInstalledCapabilityPackages(open);
-  const chatMode = (chat as unknown as { mode?: ChatMode }).mode ?? "roleplay";
+  const persistedChatMode = (chat as unknown as { mode?: unknown }).mode;
+  const chatMode: ChatMode =
+    persistedChatMode === "conversation" || persistedChatMode === "roleplay" || persistedChatMode === "game"
+      ? persistedChatMode
+      : "roleplay";
   const isConversation = chatMode === "conversation";
   const isGame = chatMode === "game";
-  const isRoleplayMode = chatMode === "roleplay" || chatMode === "visual_novel";
+  const isRoleplayMode = chatMode === "roleplay";
   const supportsNarrativeDirectorSecretPlot = chatMode === "roleplay";
-  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[chatMode === "visual_novel" ? "roleplay" : chatMode];
+  const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[chatMode];
   const metadata = useMemo(
     () => (typeof chat.metadata === "string" ? JSON.parse(chat.metadata) : (chat.metadata ?? {})),
     [chat.metadata],
@@ -2221,7 +2223,7 @@ export function ChatSettingsDrawer({
     charId: string;
     charName: string;
     dialogueColor?: string;
-    greetings: GreetingOption[];
+    greetings: CharacterGreeting[];
     selectedIndex: number;
   } | null>(null);
   const greetingDialogRef = useRef<HTMLDivElement | null>(null);
@@ -2338,37 +2340,15 @@ export function ChatSettingsDrawer({
             if (isConversation) return;
             const char = characters.find((c) => c.id === charId);
             if (!char) return;
-            try {
-              const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-              const firstMes = (parsed as { first_mes?: unknown }).first_mes;
-              const alternateGreetings = (parsed as { alternate_greetings?: unknown }).alternate_greetings;
-              const greetings: GreetingOption[] = [];
-              if (typeof firstMes === "string" && firstMes.trim()) {
-                greetings.push({ text: firstMes.trim(), alternateIndex: null });
-              }
-              if (Array.isArray(alternateGreetings)) {
-                alternateGreetings.forEach((greeting, index) => {
-                  if (typeof greeting !== "string" || !greeting.trim()) return;
-                  greetings.push({ text: greeting.trim(), alternateIndex: index + 1 });
-                });
-              }
-              if (greetings.length > 0) {
-                const extensions = (parsed as { extensions?: unknown }).extensions;
-                const dialogueColor =
-                  extensions && typeof extensions === "object"
-                    ? (extensions as { dialogueColor?: unknown }).dialogueColor
-                    : undefined;
-                setFirstMesConfirm({
-                  charId,
-                  charName: charName(char),
-                  dialogueColor:
-                    typeof dialogueColor === "string" && dialogueColor.trim() ? dialogueColor.trim() : undefined,
-                  greetings,
-                  selectedIndex: 0,
-                });
-              }
-            } catch {
-              /* ignore parse errors */
+            const { greetings, dialogueColor } = readCharacterGreetings(char.data);
+            if (greetings.length > 0) {
+              setFirstMesConfirm({
+                charId,
+                charName: charName(char),
+                dialogueColor,
+                greetings,
+                selectedIndex: 0,
+              });
             }
           },
         },
@@ -2897,6 +2877,7 @@ export function ChatSettingsDrawer({
   const [lbSearch, setLbSearch] = useState("");
   const [toolSearch, setToolSearch] = useState("");
   const [agentAddPreview, setAgentAddPreview] = useState<AgentAddPreview | null>(null);
+  const [agentSetupQueue, setAgentSetupQueue] = useState<string[]>([]);
   const [agentAddCadenceInputFocused, setAgentAddCadenceInputFocused] = useState(false);
   const [addingAgentToChat, setAddingAgentToChat] = useState(false);
   const [isRegeneratingSchedules, setIsRegeneratingSchedules] = useState(false);
@@ -3029,7 +3010,7 @@ export function ChatSettingsDrawer({
   const [gameSpotifyArtistDraft, setGameSpotifyArtistDraft] = useState(gameSpotifyArtist);
 
   // ── Chat settings profiles (legacy API/type names still use "chat preset") ──
-  const presetMode = (chatMode === "visual_novel" ? "roleplay" : chatMode) as ChatMode;
+  const presetMode = chatMode;
   const { data: chatPresets } = useChatPresets(presetMode);
   const saveChatPreset = useSaveChatPresetSettings();
   const duplicateChatPreset = useDuplicateChatPreset();
@@ -3109,7 +3090,7 @@ export function ChatSettingsDrawer({
     [chat.id, fallbackPromptPreset?.id, isConversation, isGame, setPreset, updateMeta],
   );
 
-  const openAgentAddModal = (agent: AvailableAgent) => {
+  const openAgentAddModal = useCallback((agent: AvailableAgent) => {
     setAgentAddCadenceInputFocused(false);
     const config = agentConfigsByType.get(agent.id) ?? null;
     const mergedSettings = mergeBuiltInAgentSettings(agent.id, config?.settings);
@@ -3131,7 +3112,53 @@ export function ChatSettingsDrawer({
         allowSecretPlot: supportsNarrativeDirectorSecretPlot,
       }),
     });
-  };
+  }, [
+    agentConfigsByType,
+    metadata,
+    musicPlayerSource,
+    roleplaySpriteScale,
+    supportsNarrativeDirectorSecretPlot,
+  ]);
+
+  useEffect(() => {
+    setAgentAddPreview(null);
+    setAgentSetupQueue([]);
+  }, [chat.id]);
+
+  // A mobile dock drop closed the library panel and handed the restore to this drawer, so the user
+  // only goes back to the library once the agent setup modal is done with.
+  useEffect(() => {
+    if (!open) return;
+    return () => {
+      const panel = takePendingChatResourcePanelRestore();
+      if (panel && !useUIStore.getState().rightPanelOpen) useUIStore.getState().openRightPanel(panel);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const consumeRequest = () => {
+      const ids = takePendingChatAgentSetupIds(chat.id);
+      if (ids.length > 0) {
+        // Dropped agents are already active by this point, so only dedupe against the setup queue.
+        setAgentSetupQueue((current) => Array.from(new Set([...current, ...ids])));
+      }
+    };
+    consumeRequest();
+    window.addEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, consumeRequest);
+    return () => window.removeEventListener(CHAT_RESOURCE_AGENT_SETUP_EVENT, consumeRequest);
+  }, [chat.id, open]);
+
+  useEffect(() => {
+    if (!open || agentAddPreview || agentSetupQueue.length === 0) return;
+    const agent = availableAgents.find((entry) => entry.id === agentSetupQueue[0]);
+    if (!agent) {
+      setAgentSetupQueue((current) => current.slice(1));
+      toast.error(localizeUi("ui.chat.chatresourcedropoverlay.agentUnavailable"));
+      return;
+    }
+    openAgentAddModal(agent);
+  }, [agentAddPreview, agentSetupQueue, availableAgents, open, openAgentAddModal, localizeUi]);
 
   const confirmAddAgent = async () => {
     if (!agentAddPreview) return;
@@ -3195,6 +3222,7 @@ export function ChatSettingsDrawer({
         localizeUi("ui.chat.chatsettingsdrawer.addedValue1YouCanAccessItsSettingsInAgents", { value1: agent.name }),
       );
       setAgentAddPreview(null);
+      setAgentSetupQueue((current) => (current[0] === agent.id ? current.slice(1) : current));
     } catch (error) {
       await showAlertDialog({
         title: "Couldn’t Add Agent",
@@ -3869,6 +3897,12 @@ export function ChatSettingsDrawer({
           </button>
         </div>
 
+        {/* Desktop-only: drag-and-drop hint (sidebar drag is disabled on mobile overlays) */}
+        <div className="flex shrink-0 items-start gap-2 border-b border-[var(--border)] px-4 py-2 text-[0.6875rem] leading-snug text-[var(--muted-foreground)] max-md:hidden">
+          <Info size="0.8125rem" className="mt-px shrink-0" />
+          <span>{localizeUi("chat.settings.dragDropHint")}</span>
+        </div>
+
         <div
           className={cn(
             ROLEPLAY_POPOVER_SCROLL_AREA,
@@ -4033,13 +4067,13 @@ export function ChatSettingsDrawer({
           )}
 
           {/* Keep this display tied to the runtime defaults below. */}
-          {MODE_INTROS[chatMode as ChatMode] && (
+          {MODE_INTRO_KEYS[chatMode] && (
             <div
               style={{ order: CHAT_SETTINGS_ORDER.modeIntro }}
               className="border-b border-[var(--border)] px-4 py-2.5"
             >
               <p className="text-[0.625rem] leading-relaxed text-[var(--muted-foreground)]">
-                {MODE_INTROS[chatMode as ChatMode]}
+                {localizeUi(MODE_INTRO_KEYS[chatMode])}
               </p>
             </div>
           )}
@@ -8804,7 +8838,10 @@ export function ChatSettingsDrawer({
       <Modal
         open={!!agentAddPreview}
         onClose={() => {
-          if (!addingAgentToChat) setAgentAddPreview(null);
+          if (!addingAgentToChat) {
+            setAgentAddPreview(null);
+            setAgentSetupQueue([]);
+          }
         }}
         title={
           agentAddPreview
@@ -9071,7 +9108,10 @@ export function ChatSettingsDrawer({
 
             <div className="flex items-center justify-end gap-2 pt-1">
               <button
-                onClick={() => setAgentAddPreview(null)}
+                onClick={() => {
+                  setAgentAddPreview(null);
+                  setAgentSetupQueue([]);
+                }}
                 disabled={addingAgentToChat}
                 className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
               >

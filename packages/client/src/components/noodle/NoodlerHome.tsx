@@ -960,7 +960,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
 
   // Reserve the same rail width as the feed view (see NoodleHome's "settings" rail) so
   // non-feed screens don't stretch the shell wider and look like a different layout.
-  const emptyRightRail = <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block" aria-hidden="true" />;
+  const emptyRightRail = <aside className="hidden w-[22rem] shrink-0 px-4 py-3 @min-[1280px]:block" aria-hidden="true" />;
 
   // Shared review layer: Guide generation can be triggered from both the selected stage-profile
   // view and the hub, so the confirmation modal must render on every branch that owns that action.
@@ -1247,10 +1247,10 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   // Creator discovery stays in the wide-screen rail. Narrow layouts omit it so the
   // timeline remains the primary surface instead of stacking sidebar content above it.
   const feedRightRail = (
-    <aside className="hidden w-[22rem] shrink-0 px-4 py-3 xl:block">
+    <aside className="hidden w-[22rem] shrink-0 px-4 py-3 @min-[1280px]:block">
       <div className="sticky top-3 space-y-4">
         <label className="flex h-11 items-center gap-2 rounded-full border border-[var(--noodle-divider)] bg-[var(--background)] px-4 text-sm transition-colors focus-within:border-[var(--noodle-accent)]">
-          <Search size={17} className="shrink-0 text-[var(--noodle-accent)]" />
+          <Search size={17} className="shrink-0 !text-[var(--noodle-accent)]" />
           <input
             value={feedSearch}
             onChange={(event) => setFeedSearch(event.target.value)}
@@ -1646,7 +1646,7 @@ function StageProfileForm({
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col">
-      <div className="px-4 py-5 sm:px-6 lg:py-6">
+      <div className="px-4 py-5 sm:px-6 @min-[1024px]:py-6">
         <div className="rounded-lg border border-[var(--noodle-divider)] bg-[var(--accent)]/40 p-4">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--noodle-accent)]/15 text-[var(--noodle-accent)]">
@@ -1971,7 +1971,7 @@ function StageProfileSourcePicker({
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col">
-      <div className="px-4 py-5 sm:px-6 lg:py-6">
+      <div className="px-4 py-5 sm:px-6 @min-[1024px]:py-6">
         <h2 className="text-xl font-black">
           {localizeUi("ui.noodle.stageprofilesourcepicker.chooseASourceCharacterOrPersona")}
         </h2>
@@ -1979,7 +1979,7 @@ function StageProfileSourcePicker({
           {localizeUi("ui.noodle.stageprofilesourcepicker.noodlerWillCreateASeparateStageIdentityFromThis")}
         </p>
         <label className="relative mt-5 block">
-          <Search size={16} className="absolute left-3 top-3 text-[var(--muted-foreground)]" />
+          <Search size={16} className="absolute left-3 top-3 !text-[var(--noodle-accent)]" />
           <input
             value={search}
             onChange={(event) => onSearch(event.target.value)}
@@ -2113,7 +2113,7 @@ function DisclosureStep({
   const { t: localizeUi } = useUiTranslation();
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col">
-      <div className="px-4 py-5 sm:px-6 lg:py-6">
+      <div className="px-4 py-5 sm:px-6 @min-[1024px]:py-6">
         <h2 className="text-xl font-black">{localizeUi("ui.noodle.disclosurestep.howConnectedShouldThisFeel")}</h2>
         <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
           {localizeUi("ui.noodle.disclosurestep.chooseTheRelationshipBetweenThisNoodlerStageIdentityAnd")}
@@ -2468,7 +2468,7 @@ function StageProfileView({
           <button
             type="button"
             onClick={onBack}
-            className="absolute left-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/45 lg:hidden"
+            className="absolute left-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-colors hover:bg-black/45 @min-[1024px]:hidden"
             title={localizeUi("ui.noodle.mobiletimelinebackbutton.backToTimeline")}
             aria-label={localizeUi("ui.noodle.mobiletimelinebackbutton.backToNoodleTimeline")}
           >
@@ -3041,7 +3041,7 @@ function ViewerHub({
           </button>
         </div>
       </div>
-      <div className="border-b border-[var(--noodle-divider)] py-3 lg:px-4 xl:hidden">
+      <div className="border-b border-[var(--noodle-divider)] py-3 @min-[1024px]:px-4 @min-[1280px]:hidden">
         <SubscriptionSections
           creators={(scope?.creators ?? []).filter((creator) => creator.profile.id !== authorProfile?.id)}
           onToggleSubscription={onToggleSubscription}
@@ -3874,7 +3874,7 @@ function EmptyState({
 }) {
   return (
     <div className="px-8 py-8 text-center sm:py-16">
-      <UserRound size={36} className="mx-auto text-[var(--noodle-accent)]" />
+      <UserRound size={36} className="mx-auto !text-[var(--noodle-accent)]" />
       <p className="mt-4 font-bold">{title}</p>
       {detail && <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--muted-foreground)]">{detail}</p>}
       {action && onAction && (

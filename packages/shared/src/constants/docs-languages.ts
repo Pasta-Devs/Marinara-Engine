@@ -23,6 +23,7 @@ export const DOCS_LANGUAGE_LABELS: Record<string, DocsLanguageLabel> = {
   pl: { label: "Polski", englishLabel: "Polish" },
   ru: { label: "Русский", englishLabel: "Russian" },
   ja: { label: "日本語", englishLabel: "Japanese" },
+  ko: { label: "한국어", englishLabel: "Korean" },
 };
 
 /** BCP 47-ish subset: "es", "pt-br". One path segment, no separators beyond "-". */

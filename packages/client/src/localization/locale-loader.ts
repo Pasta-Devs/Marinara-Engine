@@ -9,6 +9,11 @@ import {
 
 type LocaleAssetLoader = () => Promise<string>;
 
+const INTENTIONALLY_EMPTY_TRANSLATION_KEYS = new Set([
+  "ui.lorebooks.lorebookeditor.es",
+  "ui.noodle.stageprofileview.s",
+]);
+
 const localeAssets = import.meta.glob<string>("./locales/*.json", {
   import: "default",
   query: "?url",
@@ -96,7 +101,9 @@ export function normalizeLocaleResource(locale: string, input: unknown): LoadedL
   const messages: Record<string, string> = {};
   for (const [key, value] of Object.entries(resource)) {
     if (key === "_meta") continue;
-    if (typeof value !== "string" || !value.trim()) {
+    const intentionallyEmpty =
+      value === "" && locale !== DEFAULT_APP_LANGUAGE && INTENTIONALLY_EMPTY_TRANSLATION_KEYS.has(key);
+    if (typeof value !== "string" || (!value.trim() && !intentionallyEmpty)) {
       throw new Error(`${locale}.json key ${key} must contain non-empty text`);
     }
     messages[key] = value;

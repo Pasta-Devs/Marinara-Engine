@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, Plus, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, Loader2, Plus, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import {
   CONVERSATION_SCHEDULE_DAYS,
   type ConversationMessageIntent,
@@ -14,6 +14,13 @@ import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import {
+  createCharacterScheduleExport,
+  getCurrentMondayIso,
+  MAX_CHARACTER_SCHEDULE_FILE_SIZE,
+  parseCharacterScheduleImport,
+} from "../../lib/character-schedule-transfer";
+import { downloadJsonFile, sanitizeExportFilenamePart } from "../../lib/download-json";
 
 type CharacterScheduleEditorModalProps = {
   open: boolean;
@@ -99,14 +106,6 @@ const WEEK_DRAFT_MODE_LABELS: Record<WeekDraftMode, string> = {
   vary: "Vary",
   repair: "Repair",
 };
-
-function getCurrentMondayIso(): string {
-  const date = new Date();
-  const diff = date.getDate() - date.getDay() + (date.getDay() === 0 ? -6 : 1);
-  date.setDate(diff);
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
-}
 
 function cloneDays(schedule?: WeekSchedule): Record<string, ScheduleBlock[]> {
   const days: Record<string, ScheduleBlock[]> = {};
@@ -330,6 +329,7 @@ export function CharacterScheduleEditorModal({
   const [weekGuideOpen, setWeekGuideOpen] = useState(false);
   const [weekDraftMode, setWeekDraftMode] = useState<WeekDraftMode>(() => (schedule ? "adjust" : "rewrite"));
   const draftRef = useRef(draft);
+  const scheduleFileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -525,6 +525,51 @@ export function CharacterScheduleEditorModal({
     onSave(characterId, currentSchedule);
     onClose();
   };
+
+  const exportSchedule = () => {
+    downloadJsonFile(
+      createCharacterScheduleExport(currentSchedule, characterName),
+      `${sanitizeExportFilenamePart(characterName, "character")}.marinara-schedule.json`,
+    );
+    toast.success(localizeUi("ui.chat.characterscheduleeditormodal.scheduleExported"));
+  };
+
+  const importSchedule = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      if (file.size > MAX_CHARACTER_SCHEDULE_FILE_SIZE) {
+        toast.error(localizeUi("ui.chat.characterscheduleeditormodal.scheduleFileTooLarge"));
+        return;
+      }
+
+      const parsed = JSON.parse(await file.text()) as unknown;
+      const result = parseCharacterScheduleImport(parsed);
+      if (!result.ok) {
+        toast.error(
+          localizeUi(
+            result.reason === "unsupported-version"
+              ? "ui.chat.characterscheduleeditormodal.scheduleVersionNotSupported"
+              : "ui.chat.characterscheduleeditormodal.invalidScheduleFile",
+          ),
+        );
+        return;
+      }
+
+      const nextDraft = createDraft(result.schedule);
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+      setSummaryStale(false);
+      setDayGenerationStatus({});
+      setOpenStatusMenu(null);
+      toast.success(localizeUi("ui.chat.characterscheduleeditormodal.scheduleImportedAsDraft"));
+    } catch {
+      toast.error(localizeUi("ui.chat.characterscheduleeditormodal.invalidScheduleFile"));
+    } finally {
+      if (scheduleFileInputRef.current) scheduleFileInputRef.current.value = "";
+    }
+  };
+
+  const scheduleTransferDisabled = isGeneratingSummary || isGeneratingWeek || !!generatingDay;
 
   return (
     <Modal open={open} onClose={onClose} title={localizeUi("ui.chat.characterscheduleeditormodal.editValue1Schedule", { value1: characterName })} width="max-w-5xl" chatFloatingPanel>
@@ -935,8 +980,37 @@ export function CharacterScheduleEditorModal({
           })}
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-[0.6875rem] font-medium text-[var(--muted-foreground)]">{localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}</div>
+        <div className="flex flex-col gap-3 border-t border-[var(--border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="mr-1 text-[0.6875rem] font-medium text-[var(--muted-foreground)]">
+              {localizeUi("ui.chat.characterscheduleeditormodal.unsavedDraft")}
+            </span>
+            <input
+              ref={scheduleFileInputRef}
+              type="file"
+              accept=".json,application/json"
+              className="hidden"
+              onChange={(event) => void importSchedule(event.target.files?.[0])}
+            />
+            <button
+              type="button"
+              onClick={() => scheduleFileInputRef.current?.click()}
+              disabled={scheduleTransferDisabled}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Upload size="0.75rem" />
+              {localizeUi("ui.chat.characterscheduleeditormodal.importSchedule")}
+            </button>
+            <button
+              type="button"
+              onClick={exportSchedule}
+              disabled={scheduleTransferDisabled}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Download size="0.75rem" />
+              {localizeUi("ui.chat.characterscheduleeditormodal.exportSchedule")}
+            </button>
+          </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"

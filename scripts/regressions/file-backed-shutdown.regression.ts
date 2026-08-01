@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { eq } from "../../packages/server/src/db/file-query.js";
@@ -53,6 +53,32 @@ try {
 } finally {
   releaseWrite();
   rmSync(storageDir, { recursive: true, force: true });
+}
+
+const malformedRowStorageDir = mkdtempSync(join(tmpdir(), "marinara-file-malformed-row-"));
+process.env.FILE_STORAGE_DIR = malformedRowStorageDir;
+try {
+  const tablesDir = join(malformedRowStorageDir, "tables");
+  const settingsPath = join(tablesDir, "app_settings.json");
+  const originalRows = [{ key: "valid-setting", value: "preserved", updatedAt: "2026-08-01" }, null, "invalid", 42, []];
+  mkdirSync(tablesDir, { recursive: true });
+  writeFileSync(settingsPath, JSON.stringify(originalRows));
+
+  const db = await createFileNativeDB();
+  const rows = await db.select().from(appSettings);
+  assert.deepEqual(rows, [{ key: "valid-setting", value: "preserved", updatedAt: "2026-08-01" }]);
+
+  const quarantined = db._fileStore.getQuarantinedTables().find((entry) => entry.table === "app_settings");
+  assert.equal(quarantined?.files.length, 1);
+  const preservedPath = quarantined?.files[0]?.to;
+  assert.ok(preservedPath);
+  assert.deepEqual(JSON.parse(readFileSync(preservedPath, "utf8")), originalRows);
+  assert.deepEqual(JSON.parse(readFileSync(settingsPath, "utf8")), [originalRows[0]]);
+
+  await db._fileStore.close();
+  console.info("File-backed malformed-row recovery regression passed.");
+} finally {
+  rmSync(malformedRowStorageDir, { recursive: true, force: true });
 }
 
 const failingStorageDir = mkdtempSync(join(tmpdir(), "marinara-file-close-failure-"));

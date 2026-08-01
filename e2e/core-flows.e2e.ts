@@ -84,6 +84,25 @@ async function bestEffortDelete(request: APIRequestContext, url: string) {
   await request.delete(url, { timeout: 5_000 }).catch(() => undefined);
 }
 
+async function getChatCharacterIds(request: APIRequestContext, chatId: string): Promise<string[]> {
+  const response = await request.get(`/api/chats/${chatId}`);
+  const stored = (await response.json()) as { characterIds?: string[] | string };
+  return typeof stored.characterIds === "string" ? JSON.parse(stored.characterIds) : (stored.characterIds ?? []);
+}
+
+async function dragChatResource(page: Page, source: Locator, target: Locator) {
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  try {
+    await source.dispatchEvent("dragstart", { dataTransfer });
+    await target.dispatchEvent("dragenter", { dataTransfer });
+    await target.dispatchEvent("dragover", { dataTransfer });
+    await target.dispatchEvent("drop", { dataTransfer });
+    await source.dispatchEvent("dragend", { dataTransfer });
+  } finally {
+    await dataTransfer.dispose();
+  }
+}
+
 async function expectHomeContentFits(page: Page) {
   const home = page.locator('[data-component="ChatArea.EmptyState"]');
   await expect
@@ -158,12 +177,13 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   const announcement = page.getByRole("dialog", { name: "What's New?" });
   await expect(announcement).toBeVisible();
   await expect(announcement.getByText(`Version ${APP_VERSION}`, { exact: true })).toBeVisible();
-  await expect(announcement.getByRole("heading", { name: "More control, polished down to the card." })).toBeVisible();
-  await expect(announcement.getByText(/custom quick replies/)).toBeVisible();
-  await expect(announcement.getByText(/richer translation controls/)).toBeVisible();
-  await expect(announcement.getByText(/Atlas image and video generation/)).toBeVisible();
-  await expect(announcement.getByText(/interface localization/)).toBeVisible();
-  await expect(announcement.getByText(/Character and Persona cards/)).toBeVisible();
+  await expect(
+    announcement.getByRole("heading", { name: "Broader horizons, finer control, stronger foundations." }),
+  ).toBeVisible();
+  await expect(announcement.getByText(/Z\.AI image generation/)).toBeVisible();
+  await expect(announcement.getByText(/smarter Roleplay animation planning/)).toBeVisible();
+  await expect(announcement.getByText(/four new documentation languages/)).toBeVisible();
+  await expect(announcement.getByText(/runtime security/)).toBeVisible();
   await expect(announcement.getByText("Marinara Engine has been updated.", { exact: true })).toHaveCount(0);
   await expect(announcement.getByText("Tactical Combat Mode in Games")).toHaveCount(0);
   await expect(announcement.getByRole("link", { name: "View release" })).toHaveAttribute(
@@ -372,6 +392,58 @@ test("default dialogue color fills only cards without their own dialogue color",
       page.request.delete(`/api/characters/${uncoloredCharacter.id}`).catch(() => undefined),
       page.request.delete(`/api/characters/${coloredCharacter.id}`).catch(() => undefined),
     ]);
+  }
+});
+
+test("roleplay hides contentless user anchors without hiding visible payloads", async ({ page }) => {
+  const chatResponse = await page.request.post("/api/chats", {
+    data: { name: "Spatial-only Message Visibility Smoke", mode: "roleplay", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    const anchorResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "user", characterId: null, content: "" },
+    });
+    expect(anchorResponse.ok()).toBeTruthy();
+    const anchor = (await anchorResponse.json()) as { id: string };
+
+    const textResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "user", characterId: null, content: "We enter the kitchen." },
+    });
+    expect(textResponse.ok()).toBeTruthy();
+    const textMessage = (await textResponse.json()) as { id: string };
+
+    const attachmentResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+      data: { role: "user", characterId: null, content: "" },
+    });
+    expect(attachmentResponse.ok()).toBeTruthy();
+    const attachmentMessage = (await attachmentResponse.json()) as { id: string };
+    const attachmentExtraResponse = await page.request.patch(
+      `/api/chats/${chat.id}/messages/${attachmentMessage.id}/extra`,
+      {
+        data: {
+          attachments: [
+            {
+              type: "image",
+              data: `data:image/gif;base64,${TRANSPARENT_GIF_BASE64}`,
+              filename: "spatial-only-control.gif",
+            },
+          ],
+        },
+      },
+    );
+    expect(attachmentExtraResponse.ok()).toBeTruthy();
+
+    await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+    await page.goto("/");
+
+    await expect(page.locator(`[data-message-id="${anchor.id}"]`)).toHaveCount(0);
+    await expect(page.locator(`[data-message-id="${textMessage.id}"]`)).toContainText("We enter the kitchen.");
+    await expect(page.locator(`[data-message-id="${attachmentMessage.id}"]`)).toBeVisible();
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
   }
 });
 
@@ -1204,6 +1276,68 @@ test("bulk chat deletion uses the shared primary accent control", async ({ page 
   }
 });
 
+test("empty chat hover previews inherit the configured accent", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Chat row hover previews are desktop-only.");
+
+  const response = await page.request.post("/api/chats", {
+    data: { name: "Empty Chat Accent Preview", mode: "conversation", characterIds: [] },
+  });
+  expect(response.ok()).toBeTruthy();
+  const chat = (await response.json()) as { id: string };
+
+  try {
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        "marinara-engine-ui",
+        JSON.stringify({
+          state: {
+            hasCompletedOnboarding: true,
+            sidebarOpen: true,
+          },
+          version: 75,
+        }),
+      );
+    });
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
+
+    const chatRow = page.locator(`[data-component="ChatSidebar"] [data-chat-id="${chat.id}"]`);
+    await expect(chatRow).toBeVisible();
+    await chatRow.hover();
+
+    const emptyPreview = page.getByRole("tooltip").getByText("No messages yet", { exact: true });
+    await expect(emptyPreview).toBeVisible();
+    await expect(emptyPreview).toHaveCSS("color", activeAccentColor);
+    expect(await emptyPreview.getAttribute("class")).not.toMatch(/pink|red|rose/iu);
+  } finally {
+    await page.request.delete(`/api/chats/${chat.id}`).catch(() => undefined);
+  }
+});
+
+test("resource panel sort fields share the canonical width", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop resource panel control geometry is covered here.");
+
+  await page.goto("/");
+  const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
+
+  await page.locator('[data-tour="panel-lorebooks"]').click();
+  const lorebookSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  await expect(lorebookSort).toBeVisible();
+  const lorebookWidth = await lorebookSort.evaluate((element) => element.getBoundingClientRect().width);
+
+  await page.locator('[data-tour="panel-personas"]').click();
+  const personaSort = rightPanel.locator("select.mari-chrome-sort-field:visible");
+  await expect(personaSort).toBeVisible();
+  const personaWidth = await personaSort.evaluate((element) => element.getBoundingClientRect().width);
+  const rootFontSize = await page.locator("html").evaluate((element) =>
+    Number.parseFloat(getComputedStyle(element).fontSize),
+  );
+
+  expect(lorebookWidth / rootFontSize).toBeCloseTo(6.5, 2);
+  expect(lorebookWidth).toBe(personaWidth);
+});
+
 test("destructive confirmation actions use the shared accent button treatment", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name.includes("mobile"), "Desktop confirmation-dialog chrome is covered here.");
 
@@ -1611,7 +1745,7 @@ test("Character favorite tags and stars inherit the configured accent color", as
     expect(await favoriteToggle.getAttribute("class")).not.toMatch(/amber|yellow/iu);
     await editor.getByTitle("Back").click();
 
-    await rightPanel.getByRole("button", { name: "Open Full Library" }).click();
+    await rightPanel.getByRole("button", { name: "Open Characters Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
     await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
 
@@ -1626,6 +1760,144 @@ test("Character favorite tags and stars inherit the configured accent color", as
     }
   } finally {
     await request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+  }
+});
+
+test("Characters can be dragged from the right panel into the active chat", async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "HTML resource dragging is covered on desktop.");
+
+  const suffix = Date.now().toString(36);
+  const characterName = `Chat Drop Character ${suffix}`;
+  const characterResponse = await request.post("/api/characters", {
+    data: { data: { name: characterName } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: `Chat Drop ${suffix}`, mode: "conversation", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async (chatId) => {
+      const module = await import("/src/stores/chat.store.ts");
+      module.useChatStore.getState().setActiveChatId(chatId);
+    }, chat.id);
+    const dropSurface = page.locator('[data-chat-resource-drop-surface]');
+    await expect(dropSurface).toBeVisible();
+
+    await page.locator('[data-tour="panel-characters"]').click();
+    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
+    const characterRow = rightPanel.locator('[data-touch-drag-card="character"]').filter({ hasText: characterName });
+    await expect(characterRow).toBeVisible();
+
+    await dragChatResource(page, characterRow, dropSurface);
+
+    await expect.poll(() => getChatCharacterIds(request, chat.id)).toContain(character.id);
+  } finally {
+    await Promise.all([
+      request.delete(`/api/chats/${chat.id}`).catch(() => undefined),
+      request.delete(`/api/characters/${character.id}`).catch(() => undefined),
+    ]);
+  }
+});
+
+test("Character row actions can add a resource to the active chat without dragging", async ({ page, request }) => {
+  const suffix = Date.now().toString(36);
+  const characterName = `Chat Action Character ${suffix}`;
+  const characterResponse = await request.post("/api/characters", {
+    data: { data: { name: characterName } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: `Chat Action ${suffix}`, mode: "conversation", characterIds: [] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async (chatId) => {
+      const module = await import("/src/stores/chat.store.ts");
+      module.useChatStore.getState().setActiveChatId(chatId);
+    }, chat.id);
+    await expect(page.locator('[data-chat-resource-drop-surface]')).toBeVisible();
+    await page.locator('[data-tour="panel-characters"]').click();
+
+    const characterRow = page.locator('[data-touch-drag-card="character"]').filter({ hasText: characterName });
+    const addAction = characterRow.locator('[data-chat-resource-action="character"]');
+    await expect(addAction).toBeVisible();
+    await addAction.click();
+
+    await expect.poll(() => getChatCharacterIds(request, chat.id)).toContain(character.id);
+    await expect(characterRow.locator('[data-chat-resource-action="character"]')).toHaveCount(0);
+  } finally {
+    await Promise.all([
+      request.delete(`/api/chats/${chat.id}`).catch(() => undefined),
+      request.delete(`/api/characters/${character.id}`).catch(() => undefined),
+    ]);
+  }
+});
+
+test("Dropping a persona confirms before replacing the active chat persona", async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "HTML resource dragging is covered on desktop.");
+
+  const suffix = Date.now().toString(36);
+  const currentResponse = await request.post("/api/characters/personas", {
+    data: { name: `Current Drop Persona ${suffix}` },
+  });
+  const nextResponse = await request.post("/api/characters/personas", {
+    data: { name: `Next Drop Persona ${suffix}` },
+  });
+  expect(currentResponse.ok()).toBeTruthy();
+  expect(nextResponse.ok()).toBeTruthy();
+  const currentPersona = (await currentResponse.json()) as { id: string; name: string };
+  const nextPersona = (await nextResponse.json()) as { id: string; name: string };
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: `Persona Drop ${suffix}`, mode: "roleplay", characterIds: [], personaId: currentPersona.id },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async (chatId) => {
+      const module = await import("/src/stores/chat.store.ts");
+      module.useChatStore.getState().setActiveChatId(chatId);
+    }, chat.id);
+    await expect(page.locator('[data-chat-resource-drop-surface]')).toBeVisible();
+    await page.locator('[data-tour="panel-personas"]').click();
+    const personaRow = page.locator('[data-touch-drag-card="persona"]').filter({ hasText: nextPersona.name });
+    const dropSurface = page.locator('[data-chat-resource-drop-surface]');
+    await expect(personaRow).toBeVisible();
+
+    await dragChatResource(page, personaRow, dropSurface);
+    const dialog = page.getByRole("dialog", { name: "Replace chat persona?" });
+    await expect(dialog).toContainText(currentPersona.name);
+    await expect(dialog).toContainText(nextPersona.name);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    expect(((await (await request.get(`/api/chats/${chat.id}`)).json()) as { personaId: string }).personaId).toBe(
+      currentPersona.id,
+    );
+
+    await dragChatResource(page, personaRow, dropSurface);
+    await page
+      .getByRole("dialog", { name: "Replace chat persona?" })
+      .getByRole("button", { name: "Replace", exact: true })
+      .click();
+    await expect
+      .poll(async () => ((await (await request.get(`/api/chats/${chat.id}`)).json()) as { personaId: string }).personaId)
+      .toBe(nextPersona.id);
+  } finally {
+    await Promise.all([
+      request.delete(`/api/chats/${chat.id}`).catch(() => undefined),
+      request.delete(`/api/characters/personas/${currentPersona.id}`).catch(() => undefined),
+      request.delete(`/api/characters/personas/${nextPersona.id}`).catch(() => undefined),
+    ]);
   }
 });
 
@@ -1689,7 +1961,7 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     await page.goto("/");
     await ensureCharacterPanelOpen();
 
-    await rightPanel.getByRole("button", { name: "Open Full Library" }).click();
+    await rightPanel.getByRole("button", { name: "Open Characters Library" }).click();
     const library = page.locator('[data-component="CharacterLibraryView"]');
     await library.getByPlaceholder('Search characters or -tag:"tag name"').fill(characterName);
     const editCharacter = library.getByRole("button", { name: "Edit Character", exact: true });
@@ -1783,8 +2055,9 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
     expect(deleteIconBox).not.toBeNull();
     expect(chatIconBox).not.toBeNull();
     expect(Math.abs(duplicateBox!.height - deleteBox!.height)).toBeLessThan(0.1);
+    expect(Math.abs(duplicateBox!.width - deleteBox!.width)).toBeLessThan(0.1);
     expect(Math.abs(duplicateBox!.height - chatBox!.height)).toBeLessThan(0.1);
-    expect(Math.abs(chatBox!.width - (duplicateBox!.width + deleteBox!.width + 2))).toBeLessThan(0.5);
+    expect(Math.abs(chatBox!.width - (duplicateBox!.width * 3 + 4))).toBeLessThan(0.5);
     expect(duplicateIconBox!.height / duplicateBox!.height).toBeGreaterThan(0.52);
     expect(duplicateIconBox!.width / duplicateBox!.width).toBeGreaterThan(0.52);
     expect(deleteIconBox!.height / deleteBox!.height).toBeGreaterThan(0.52);
@@ -2374,6 +2647,166 @@ test("Conversation membership notices begin only after the chat starts", async (
     await request.delete(`/api/characters/${firstCharacter.id}`);
     await request.delete(`/api/characters/${secondCharacter.id}`);
     await request.delete(`/api/characters/${thirdCharacter.id}`);
+  }
+});
+
+test("character schedules export the live draft and import safely", async ({ page, request }) => {
+  const suffix = Date.now().toString(36);
+  const characterName = `Schedule Transfer ${suffix}`;
+  const characterResponse = await request.post("/api/characters", {
+    data: { data: { name: characterName, first_mes: "Good morning." } },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+  const chatResponse = await request.post("/api/chats", {
+    data: { name: `Schedule Transfer ${suffix}`, mode: "conversation", characterIds: [character.id] },
+  });
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const emptyDays = () => ({
+    Monday: [] as Array<{ time: string; activity: string; status: string }>,
+    Tuesday: [] as Array<{ time: string; activity: string; status: string }>,
+    Wednesday: [] as Array<{ time: string; activity: string; status: string }>,
+    Thursday: [] as Array<{ time: string; activity: string; status: string }>,
+    Friday: [] as Array<{ time: string; activity: string; status: string }>,
+    Saturday: [] as Array<{ time: string; activity: string; status: string }>,
+    Sunday: [] as Array<{ time: string; activity: string; status: string }>,
+  });
+  const originalSchedule = {
+    weekStart: "2026-07-20T00:00:00.000Z",
+    days: {
+      ...emptyDays(),
+      Monday: [{ time: "09:00-17:00", activity: "Original research", status: "dnd" }],
+    },
+    inactivityThresholdMinutes: 120,
+    autonomousDailyCapOverride: null,
+    routineSummary: "An exacting weekly routine.",
+    routineSummaryGeneratedAt: "2026-07-20T12:00:00.000Z",
+    disabledAutonomousIntents: [],
+    talkativeness: 50,
+  };
+  const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+    data: {
+      conversationSetupComplete: true,
+      conversationSchedulesEnabled: true,
+      characterSchedules: { [character.id]: originalSchedule },
+    },
+  });
+  expect(metadataResponse.ok()).toBeTruthy();
+
+  const storedSchedule = async () => {
+    const response = await request.get(`/api/chats/${chat.id}`);
+    const stored = (await response.json()) as { metadata: string | Record<string, unknown> };
+    const metadata =
+      typeof stored.metadata === "string"
+        ? (JSON.parse(stored.metadata) as Record<string, unknown>)
+        : stored.metadata;
+    return (metadata.characterSchedules as Record<string, typeof originalSchedule>)[character.id];
+  };
+  const openScheduleEditor = async () => {
+    const drawer = page.locator(".mari-chat-settings-drawer");
+    if (!(await drawer.isVisible())) {
+      const settingsButton = page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true });
+      if ((page.viewportSize()?.width ?? 0) < 768) {
+        await page.getByRole("button", { name: "More options", exact: true }).click();
+      }
+      await settingsButton.click();
+    }
+    await expect(drawer).toBeVisible();
+    const section = drawer.locator('[data-chat-settings-section="conversation-autonomous-messaging"]');
+    const sectionHeader = section.locator('[role="button"][aria-expanded]').first();
+    if ((await sectionHeader.getAttribute("aria-expanded")) !== "true") await sectionHeader.click();
+    await section.getByRole("button").filter({ hasText: characterName }).click();
+    const dialog = page.getByRole("dialog", { name: `Edit ${characterName} Schedule` });
+    await expect(dialog).toBeVisible();
+    return dialog;
+  };
+  const expandMonday = async (dialog: Locator) => {
+    const monday = dialog.locator("section").filter({ hasText: /^Monday/ }).first();
+    await monday.getByRole("button").first().click();
+    return dialog.getByLabel("Monday block activity");
+  };
+
+  await page.addInitScript((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
+  try {
+    await page.goto("/");
+    let dialog = await openScheduleEditor();
+    let activity = await expandMonday(dialog);
+    await activity.fill("Unsaved export draft");
+
+    const downloadPromise = page.waitForEvent("download");
+    await dialog.getByRole("button", { name: "Export schedule", exact: true }).click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe(`${characterName.replaceAll(" ", "_")}.marinara-schedule.json`);
+    const downloadPath = await download.path();
+    expect(downloadPath).not.toBeNull();
+    const exported = JSON.parse(readFileSync(downloadPath!, "utf8")) as {
+      kind: string;
+      version: number;
+      schedule: typeof originalSchedule;
+    };
+    expect(exported.kind).toBe("marinara.character-schedule");
+    expect(exported.version).toBe(1);
+    expect(exported.schedule.days.Monday[0]?.activity).toBe("Unsaved export draft");
+
+    const fileInput = dialog.locator('input[type="file"][accept*=".json"]');
+    await fileInput.setInputFiles({ name: "invalid.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+    await expect(page.getByText("That file does not contain a valid character schedule.", { exact: true })).toBeVisible();
+    await expect(activity).toHaveValue("Unsaved export draft");
+    await fileInput.setInputFiles({
+      name: "oversized.json",
+      mimeType: "application/json",
+      buffer: Buffer.alloc(1024 * 1024 + 1, 0x20),
+    });
+    await expect(page.getByText("Schedule files must be smaller than 1 MB.", { exact: true })).toBeVisible();
+    await expect(activity).toHaveValue("Unsaved export draft");
+
+    const importedSchedule = {
+      ...originalSchedule,
+      days: {
+        ...emptyDays(),
+        Monday: [{ time: "10:00-18:00", activity: "Imported current format", status: "online" }],
+      },
+      inactivityThresholdMinutes: 75,
+      talkativeness: 70,
+    };
+    await fileInput.setInputFiles({
+      name: "current.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(
+        JSON.stringify({ kind: "marinara.character-schedule", version: 1, schedule: importedSchedule }),
+      ),
+    });
+    await expect(page.getByText("Schedule imported as an unsaved draft.", { exact: true })).toBeVisible();
+    await expect(activity).toHaveValue("Imported current format");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect.poll(async () => (await storedSchedule()).days.Monday[0]?.activity).toBe("Original research");
+
+    dialog = await openScheduleEditor();
+    activity = await expandMonday(dialog);
+    await expect(activity).toHaveValue("Original research");
+    const legacySchedule = {
+      ...originalSchedule,
+      days: {
+        ...emptyDays(),
+        Monday: [{ time: "11:00-19:00", activity: "Imported legacy format", status: "idle" }],
+      },
+      talkativeness: 90,
+    };
+    await dialog.locator('input[type="file"][accept*=".json"]').setInputFiles({
+      name: "legacy.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(legacySchedule)),
+    });
+    await expect(activity).toHaveValue("Imported legacy format");
+    await dialog.getByRole("button", { name: "Save schedule", exact: true }).click();
+    await expect.poll(async () => (await storedSchedule()).days.Monday[0]?.activity).toBe("Imported legacy format");
+    expect((await storedSchedule()).talkativeness).toBe(90);
+  } finally {
+    await Promise.allSettled([
+      request.delete(`/api/chats/${chat.id}`),
+      request.delete(`/api/characters/${character.id}`),
+    ]);
   }
 });
 
@@ -3943,7 +4376,15 @@ test("external Agent imports require the Danger Zone gate and explicit capabilit
     expect(enabledPolicy.ok()).toBeTruthy();
     await page.reload();
     await page.locator('[data-tour="panel-agents"]').click();
-    await expect(page.getByTitle("Import agents")).toHaveAttribute("aria-disabled", "false");
+    const importAgents = page.getByTitle("Import agents");
+    await expect(importAgents).toHaveCount(1);
+    await expect(importAgents).toHaveAttribute("aria-disabled", "false");
+    await expect(page.getByTitle("Import agent folder")).toHaveCount(0);
+    await importAgents.click();
+    const importSourceDialog = page.getByRole("dialog", { name: "Import agents" });
+    await expect(importSourceDialog.getByRole("button", { name: "Choose Files" })).toBeVisible();
+    await expect(importSourceDialog.getByRole("button", { name: "Choose Folder" })).toBeVisible();
+    await importSourceDialog.getByRole("button", { name: "Cancel" }).click();
 
     const packageInput = page
       .getByRole("region", { name: "Agents" })
@@ -6168,7 +6609,7 @@ test("Browser labels and the Persona full library stay available across viewport
   await closeCardLibrary.click();
 
   await page.locator('[data-tour="panel-personas"]').click();
-  const openPersonaLibrary = page.getByRole("button", { name: "Open Full Library" });
+  const openPersonaLibrary = page.getByRole("button", { name: "Open Personas Library" });
   await expect(openPersonaLibrary).toBeVisible();
   await openPersonaLibrary.click();
 
@@ -6235,6 +6676,75 @@ test("Character and Persona sidebars find cards by creator", async ({ page, requ
       request.delete(`/api/characters/personas/${persona.id}`).catch(() => undefined),
     ]);
   }
+});
+
+test("right-panel controls keep their width with and without a scrollbar", async ({ page, request }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop scrollbar geometry regression.");
+  const suffix = Date.now().toString(36);
+  const characterIds: string[] = [];
+  let personaId: string | undefined;
+  const personaName = `Short Persona ${suffix}`;
+  let testFailure: { error: unknown } | null = null;
+
+  try {
+    const characterResponses = await Promise.all(
+      Array.from({ length: 16 }, (_, index) =>
+        request.post("/api/characters", {
+          data: { data: { name: `Scrollbar Character ${suffix} ${index + 1}` } },
+        }),
+      ),
+    );
+    for (const response of characterResponses) {
+      if (response.ok()) {
+        const character = (await response.json()) as { id: string };
+        characterIds.push(character.id);
+      }
+    }
+    for (const response of characterResponses) expect(response.ok()).toBeTruthy();
+
+    const personaResponse = await request.post("/api/characters/personas", { data: { name: personaName } });
+    if (personaResponse.ok()) personaId = ((await personaResponse.json()) as { id: string }).id;
+    expect(personaResponse.ok()).toBeTruthy();
+
+    await page.goto("/");
+    const rightPanel = page.locator('[data-component="RightPanelDesktop"]');
+    await page.locator('[data-tour="panel-characters"]').click();
+    const characterScroll = rightPanel.locator('[data-component="CharactersPanelScroll"]');
+    await expect
+      .poll(() => characterScroll.evaluate((element) => element.scrollHeight > element.clientHeight))
+      .toBe(true);
+    const characterLibraryButton = rightPanel.getByRole("button", { name: "Open Characters Library" });
+    const characterButtonBox = await characterLibraryButton.boundingBox();
+    expect(characterButtonBox).not.toBeNull();
+    await expect(characterScroll).toHaveCSS("scrollbar-gutter", /stable/u);
+
+    await page.locator('[data-tour="panel-personas"]').click();
+    await rightPanel.getByPlaceholder("Search personas").fill(personaName);
+    const personaScroll = rightPanel.locator('[data-panel-key="personas"]');
+    await expect
+      .poll(() => personaScroll.evaluate((element) => element.scrollHeight <= element.clientHeight))
+      .toBe(true);
+    const personaLibraryButton = rightPanel.getByRole("button", { name: "Open Personas Library" });
+    const personaButtonBox = await personaLibraryButton.boundingBox();
+    expect(personaButtonBox).not.toBeNull();
+    await expect(personaScroll).toHaveCSS("scrollbar-gutter", /stable/u);
+    expect(Math.abs(characterButtonBox!.width - personaButtonBox!.width)).toBeLessThan(0.5);
+  } catch (error) {
+    testFailure = { error };
+  }
+
+  const cleanupRequests = characterIds.map((id) => request.delete(`/api/characters/${id}`));
+  if (personaId) cleanupRequests.push(request.delete(`/api/characters/personas/${personaId}`));
+  const cleanupResults = await Promise.allSettled(cleanupRequests);
+  const cleanupFailures: unknown[] = [];
+  for (const result of cleanupResults) {
+    if (result.status === "rejected") cleanupFailures.push(result.reason);
+    else if (!result.value.ok()) cleanupFailures.push(new Error(`Fixture cleanup failed with HTTP ${result.value.status()}`));
+  }
+
+  const failures = [...(testFailure ? [testFailure.error] : []), ...cleanupFailures];
+  if (failures.length > 1) throw new AggregateError(failures, "Test and fixture cleanup failed");
+  if (failures.length === 1) throw failures[0];
 });
 
 test("downloadable agent catalog is usable on desktop and mobile", async ({ page }, testInfo) => {
@@ -6355,7 +6865,7 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   });
   await page.goto("/");
   await page.locator('[data-tour="panel-characters"]').click();
-  await page.getByRole("button", { name: "Open Full Library" }).click();
+  await page.getByRole("button", { name: "Open Characters Library" }).click();
   await expect(page.getByRole("heading", { name: "Browse your characters" })).toBeVisible();
   await expect(
     page.locator('[data-component="CharacterLibraryView"]').getByPlaceholder('Search characters or -tag:"tag name"'),
@@ -6398,11 +6908,28 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
     await expect(allAgentsButton).toBeHidden();
   }
   await expect(catalogView.getByText("Marinara Engine v2.3.0+")).toBeVisible();
-  await expect(catalogView.getByRole("link", { name: "Read how this agent works" })).toHaveAttribute(
+  const documentationLink = catalogView.getByRole("link", { name: "Read how this agent works" });
+  await expect(documentationLink).toHaveAttribute(
     "href",
     "https://github.com/Pasta-Devs/Marinara-Agents#uno",
   );
-  await expect(catalogView.getByRole("button", { name: "Install", exact: true })).toBeVisible();
+  const installButton = catalogView.getByRole("button", { name: "Install", exact: true });
+  await expect(installButton).toBeVisible();
+  await expect(documentationLink).toHaveClass(/mari-chrome-control--primary/u);
+  expect(await documentationLink.getAttribute("class")).toBe(await installButton.getAttribute("class"));
+  const readActionStyles = async (selector: typeof documentationLink) =>
+    selector.evaluate((element) => {
+      const styles = getComputedStyle(element);
+      return {
+        borderRadius: styles.borderRadius,
+        fontFamily: styles.fontFamily,
+        fontSize: styles.fontSize,
+        fontWeight: styles.fontWeight,
+        minHeight: styles.minHeight,
+        padding: styles.padding,
+      };
+    });
+  expect(await readActionStyles(documentationLink)).toEqual(await readActionStyles(installButton));
   await catalogView.getByRole("button", { name: "Custom Sources" }).click();
   const customSources = page.getByRole("dialog", { name: "Custom Agent Repositories" });
   await expect(customSources.getByText(/not affiliated with or vetted by PastaDevs/u)).toBeVisible();
@@ -6418,7 +6945,7 @@ test("downloadable agent catalog is usable on desktop and mobile", async ({ page
   expect(errors).toEqual([]);
 });
 
-test("Agent updates require consent and remain available after No", async ({ page }, testInfo) => {
+test("Agent updates share one dismissible prompt and remain available after Not now", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const installedManifest = {
     schemaVersion: 1,
@@ -6434,31 +6961,36 @@ test("Agent updates require consent and remain available after No", async ({ pag
     restartRequired: false,
   };
   const catalogManifest = { ...installedManifest, version: "1.1.0" };
-  let declined = false;
+  const availableUpdates = [
+    {
+      id: "prose-guardian",
+      name: "Prose Guardian",
+      installedVersion: "1.0.0",
+      version: "1.1.0",
+      restartRequired: false,
+    },
+    {
+      id: "world-builder",
+      name: "World Builder",
+      installedVersion: "2.0.0",
+      version: "2.1.0",
+      restartRequired: true,
+    },
+  ];
+  const declinedUpdateIds = new Set<string>();
   let declineRequests = 0;
 
   await page.route("**/api/capability-packages/updates/pending", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(
-        declined
-          ? []
-          : [
-              {
-                id: "prose-guardian",
-                name: "Prose Guardian",
-                installedVersion: "1.0.0",
-                version: "1.1.0",
-                restartRequired: false,
-              },
-            ],
-      ),
+      body: JSON.stringify(availableUpdates.filter((update) => !declinedUpdateIds.has(update.id))),
     });
   });
-  await page.route("**/api/capability-packages/prose-guardian/updates/1.1.0/decline", async (route) => {
+  await page.route("**/api/capability-packages/*/updates/*/decline", async (route) => {
     declineRequests += 1;
-    declined = true;
+    const packageId = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[3] ?? "");
+    declinedUpdateIds.add(packageId);
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -6515,12 +7047,13 @@ test("Agent updates require consent and remain available after No", async ({ pag
 
   await page.goto("/");
 
-  const updateDialog = page.getByRole("dialog", { name: "Agent Prose Guardian has been updated" });
+  const updateDialog = page.getByRole("dialog", { name: "Agent updates available" });
   await expect(updateDialog).toBeVisible();
-  await expect(updateDialog.getByText(/Version 1\.1\.0 is available/u)).toBeVisible();
-  await expect(updateDialog.getByText(/update it later in Download Agents/u)).toBeVisible();
-  await expect(updateDialog.getByRole("button", { name: "Yes", exact: true })).toBeVisible();
-  await expect(updateDialog.getByRole("button", { name: "No", exact: true })).toBeVisible();
+  await expect(updateDialog.getByText(/update Agents later in Download Agents/u)).toBeVisible();
+  await expect(updateDialog).toContainText("• Prose Guardian (1.0.0 → 1.1.0)");
+  await expect(updateDialog).toContainText("• World Builder (2.0.0 → 2.1.0)");
+  await expect(updateDialog.getByRole("button", { name: "Update all", exact: true })).toBeVisible();
+  await expect(updateDialog.getByRole("button", { name: "Not now", exact: true })).toBeVisible();
   await expect
     .poll(async () => {
       const box = await updateDialog.boundingBox();
@@ -6536,8 +7069,9 @@ test("Agent updates require consent and remain available after No", async ({ pag
     })
     .toBe(true);
 
-  await updateDialog.getByRole("button", { name: "No", exact: true }).click();
-  await expect.poll(() => declineRequests).toBe(1);
+  await updateDialog.getByRole("button", { name: "Not now", exact: true }).click();
+  await expect.poll(() => declineRequests).toBe(2);
+  expect([...declinedUpdateIds].sort()).toEqual(["prose-guardian", "world-builder"]);
   await expect(updateDialog).toBeHidden();
 
   await page.locator('[data-tour="panel-agents"]').click();
@@ -8174,7 +8708,7 @@ test("Illustrator owns the merged scene-video and Storyboard subsections while a
   }
 });
 
-test("Hierarchical Maps settings stay inside the active agent entry", async ({ page, request }, testInfo) => {
+test("World Maps stays in Agents and Chat Settings", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Hierarchical Maps agent placement is covered on desktop.");
   test.setTimeout(90_000);
 
@@ -8341,7 +8875,12 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
       sessionStorage.setItem("maps-feature-detail-chat-seeded", "true");
     }, chats[0]!.id);
     await page.goto("/");
+    await expect(page.locator('[data-tour="world-maps"]')).toHaveCount(0);
+    await expect(page.locator('[data-component="ChatSidebar"] button[aria-label="World Maps"]')).toHaveCount(0);
+
     await page.locator('[data-tour="panel-agents"]').click();
+    await expect(page.locator('[data-tour="panel-agents"]')).toHaveClass(/mari-topbar-panel-icon--active/);
+
     const agentsPanel = page.locator('[data-component="RightPanelDesktop"]');
     const mapsCard = agentsPanel.locator('[data-agent-name="Hierarchical Maps"]');
     await expect(mapsCard).toBeVisible();
@@ -8353,6 +8892,7 @@ test("Hierarchical Maps settings stay inside the active agent entry", async ({ p
     await expect(page.getByText("System Prompt", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Back to Agents" }).click();
     await expect(page.getByTestId("hierarchical-maps-detail")).toHaveCount(0);
+    await expect(page.locator('[data-tour="panel-agents"]')).toHaveClass(/mari-topbar-panel-icon--active/);
 
     for (const chat of chats) {
       await page.evaluate((chatId) => localStorage.setItem("marinara-active-chat-id", chatId), chat.id);
@@ -8684,7 +9224,7 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
 
   const topBar = page.locator('[data-component="TopBar"]');
   const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
-  const composer = window.getByPlaceholder("Ask Professor Mari...");
+  const composer = window.getByPlaceholder("Ask Professor Mari");
   await expect(window).toBeVisible();
   await expect(composer).toBeVisible();
   await expect
@@ -8704,6 +9244,45 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
       );
     })
     .toBe(true);
+});
+
+test("Professor Mari bulk chat deletion follows the active accent", async ({ page }) => {
+  const firstResponse = await page.request.get("/api/chats/internal/professor-mari");
+  expect(firstResponse.ok()).toBeTruthy();
+  const firstChat = (await firstResponse.json()) as { id: string };
+  const secondResponse = await page.request.post("/api/chats/internal/professor-mari/restart");
+  expect(secondResponse.ok()).toBeTruthy();
+  const secondChat = (await secondResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await setAppAccentColor(page, "#14b8a6");
+    const activeAccentColor = await readCssVariableColor(page, "--marinara-chat-chrome-button-text-active");
+    await page
+      .locator('[data-component="HomeProfessorMariChat.MariPanel"]')
+      .getByRole("button", { name: "Ask Professor Mari" })
+      .click();
+
+    const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
+    await window.getByRole("button", { name: "Chats" }).click();
+    await window.getByRole("button", { name: "Select", exact: true }).click();
+    await window
+      .locator(`[data-professor-mari-chat-id="${firstChat.id}"]`)
+      .getByRole("button", { name: /Professor Mari/u })
+      .click();
+
+    const deleteSelected = window.getByRole("button", { name: "Delete selected" });
+    await expect(deleteSelected).toBeEnabled();
+    await expect(deleteSelected).toHaveClass(/mari-chrome-control--primary/u);
+    await expect(deleteSelected).toHaveCSS("color", activeAccentColor);
+    expect(await deleteSelected.getAttribute("class")).not.toMatch(/danger|destructive|pink|red|rose/iu);
+  } finally {
+    await Promise.all(
+      [firstChat.id, secondChat.id].map((id) =>
+        page.request.delete(`/api/chats/internal/professor-mari/chats/${id}`).catch(() => undefined),
+      ),
+    );
+  }
 });
 
 test("Professor Mari dependency and sensitive-file reviews stay explicit across viewports", async ({ page }) => {
@@ -8836,6 +9415,43 @@ test("Lorebook Save keeps Overview stable while the updated detail cache settles
       await page.unroute(`**/api/lorebooks/${lorebook.id}`);
       await page.request.delete(`/api/lorebooks/${lorebook.id}`);
     }
+  }
+});
+
+test("Lorebook entry type descriptions inherit editor chrome text", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop entry-type popover regression.");
+
+  const name = `Lorebook entry chrome ${Date.now()}`;
+  const createResponse = await page.request.post("/api/lorebooks", {
+    data: { name, description: "Temporary entry-type color regression lorebook.", category: "world", enabled: true },
+  });
+  expect(createResponse.ok()).toBeTruthy();
+  const lorebook = (await createResponse.json()) as { id: string };
+  const entryResponse = await page.request.post(`/api/lorebooks/${lorebook.id}/entries`, {
+    data: { name: "Entry type color", content: "Regression content", keys: ["regression"] },
+  });
+  expect(entryResponse.ok()).toBeTruthy();
+  const entry = (await entryResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="panel-lorebooks"]').click();
+    await page.getByText(name, { exact: true }).click();
+    await page.getByRole("button", { name: /^Entries/ }).click();
+    const row = page.locator(`[data-lorebook-entry-row-id="${entry.id}"]`);
+    await row.getByRole("button", { name: /Entry type: Normal\. Choose entry type\./ }).click();
+    const menu = page.getByRole("menu", { name: "Choose entry type" });
+    await expect(menu).toBeVisible();
+    const editorMutedColor = await readCssVariableColor(page, "--marinara-editor-muted");
+    for (const description of [
+      "Triggers when primary keys match the scanned text.",
+      "Injects every time this lorebook is active.",
+      "Primary keys must match with the secondary-key logic.",
+    ]) {
+      await expect(menu.getByText(description, { exact: true })).toHaveCSS("color", editorMutedColor);
+    }
+  } finally {
+    await page.request.delete(`/api/lorebooks/${lorebook.id}`);
   }
 });
 
@@ -9347,6 +9963,69 @@ test("Noodle interface icons consistently use Noodle blue", async ({ page }, tes
   await resetDialog.getByRole("button", { name: "Cancel" }).click();
 
   expect(errors).toEqual([]);
+});
+
+test("NoodleR profile controls and mobile navigation use its pink accent", async ({ page }, testInfo) => {
+  const initialResponse = await page.request.get("/api/noodle");
+  expect(initialResponse.ok()).toBe(true);
+  const initial = (await initialResponse.json()) as { settings: { enableNoodler: boolean } };
+  const personaResponse = await page.request.post("/api/characters/personas", {
+    data: { name: `NoodleR color viewer ${Date.now()}` },
+  });
+  expect(personaResponse.ok()).toBe(true);
+  const persona = (await personaResponse.json()) as { id: string };
+
+  try {
+    const enableResponse = await page.request.put("/api/noodle/settings", { data: { enableNoodler: true } });
+    expect(enableResponse.ok()).toBe(true);
+
+    await page.goto("/");
+    await page.locator('[data-tour="noodle-tab"]').click();
+    await page.evaluate(async (personaId) => {
+      const { useUIStore } = (await import("/src/stores/ui.store.ts")) as {
+        useUIStore: {
+          getState: () => {
+            setNoodleSelectedPersonaId: (id: string | null) => void;
+            setNoodleNavigation: (destination: { mode: "noodler"; view: "hub" }) => void;
+          };
+        };
+      };
+      const ui = useUIStore.getState();
+      ui.setNoodleSelectedPersonaId(personaId);
+      ui.setNoodleNavigation({ mode: "noodler", view: "hub" });
+    }, persona.id);
+
+    const noodle = page.locator('[data-component="NoodleView"]');
+    await expect
+      .poll(() => noodle.evaluate((element) => getComputedStyle(element).getPropertyValue("--noodle-accent").trim()))
+      .toBe("#FF7EC1");
+    const emptyMessage = noodle.getByText("No stage profiles are visible to this persona.", { exact: true });
+    await expect(emptyMessage).toBeVisible();
+    await expect(emptyMessage.locator("..").locator("svg")).toHaveCSS("color", "rgb(255, 126, 193)");
+
+    const bottomNav = noodle.locator('[data-component="NoodleView.MobileBottomNav"]');
+    if (testInfo.project.name.includes("mobile")) {
+      await expect(bottomNav).toBeVisible();
+      const colors = await bottomNav
+        .locator("svg:visible")
+        .evaluateAll((icons) => Array.from(new Set(icons.map((icon) => getComputedStyle(icon).color))));
+      expect(colors.length).toBeGreaterThan(0);
+      expect(colors).toEqual(["rgb(255, 126, 193)"]);
+    } else {
+      await expect(bottomNav).toBeHidden();
+      const search = noodle.getByPlaceholder("Search posts or @creators").locator("..").locator("svg").first();
+      await expect(search).toHaveCSS("color", "rgb(255, 126, 193)");
+      const bulkCreate = noodle.getByRole("button", { name: "Bulk-create creators", exact: true });
+      await expect(bulkCreate.locator("svg")).toHaveCSS("color", "rgb(255, 126, 193)");
+      await bulkCreate.click();
+      const bulkDialog = page.getByRole("dialog", { name: "Bulk-create creators" });
+      const bulkSearch = bulkDialog.locator('input[placeholder="Search accounts"]').locator("..").locator("svg").first();
+      await expect(bulkSearch).toHaveCSS("color", "rgb(255, 126, 193)");
+    }
+  } finally {
+    await page.request.put("/api/noodle/settings", { data: { enableNoodler: initial.settings.enableNoodler } });
+    await page.request.delete(`/api/characters/personas/${persona.id}`);
+  }
 });
 
 test("Noodle settings edit and restore the timeline base prompt", async ({ page }, testInfo) => {
@@ -10525,6 +11204,43 @@ test("Noodle only bumps posts when another account replies to the persona's comm
   }
 });
 
+test("Noodle uses its mobile shell when the desktop center pane is narrow", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "Desktop center-pane responsiveness is covered here.");
+
+  const errors = collectUnexpectedErrors(page);
+  await page.goto("/");
+  await page.locator('[data-tour="noodle-tab"]').click();
+
+  const center = page.locator('[data-component="CenterContent"]');
+  const noodle = page.locator('[data-component="NoodleView"]');
+  const desktopAccountSwitcher = noodle.locator('[data-component="NoodleView.AccountSwitcher"]');
+  const mobileHeader = noodle.locator('[data-component="NoodleView.MobileHeader"]');
+  const mobileBottomNav = noodle.locator('[data-component="NoodleView.MobileBottomNav"]');
+
+  await expect(desktopAccountSwitcher).toBeVisible();
+  await expect(mobileHeader).toBeHidden();
+  await expect(mobileBottomNav).toBeHidden();
+
+  await page.locator('[data-tour="sidebar-toggle"]').click();
+  await page.locator('[data-tour="panel-settings"]').click();
+  await expect.poll(() => center.evaluate((element) => element.getBoundingClientRect().width)).toBeLessThan(1024);
+  await expect(mobileHeader).toBeVisible();
+  await expect(mobileBottomNav).toBeVisible();
+  await expect(desktopAccountSwitcher).toBeHidden();
+
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.locator('[data-tour="sidebar-toggle"]').click();
+  await expect(desktopAccountSwitcher).toBeVisible();
+  await expect(mobileHeader).toBeHidden();
+  await expect(mobileBottomNav).toBeHidden();
+
+  await page.setViewportSize({ width: 900, height: 800 });
+  await expect(mobileHeader).toBeVisible();
+  await expect(mobileBottomNav).toBeVisible();
+  await expect(desktopAccountSwitcher).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 test("Noodle mobile shell keeps navigation usable across every view", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("mobile"), "The responsive Noodle shell is covered on mobile.");
 
@@ -10538,6 +11254,11 @@ test("Noodle mobile shell keeps navigation usable across every view", async ({ p
   await expect(header).toBeVisible();
   await expect(bottomNav).toBeVisible();
   await expect(header.locator('img[src="/noodle-klusek.png"]')).toBeVisible();
+  const bottomNavIconColors = await bottomNav
+    .locator("svg:visible")
+    .evaluateAll((icons) => Array.from(new Set(icons.map((icon) => getComputedStyle(icon).color))));
+  expect(bottomNavIconColors.length).toBeGreaterThan(0);
+  expect(bottomNavIconColors).toEqual(["rgb(126, 167, 255)"]);
 
   const [noodleRect, logoRect, bottomNavRect, bottomNavRowRect] = await Promise.all([
     noodle.boundingBox(),
@@ -11256,7 +11977,7 @@ test("Conversation media searches match GIFs and internal presses keep the picke
     await mediaButton.click();
     const mediaPicker = page.locator("[data-conversation-media-picker]:visible");
     await expect(mediaPicker).toBeVisible();
-    const emojiSearchInput = page.locator('input[placeholder="Search emojis..."]:visible');
+    const emojiSearchInput = page.getByRole("textbox", { name: "Search emojis", exact: true });
     const emojiSearchStyle = await emojiSearchInput.evaluate((input) => {
       const style = getComputedStyle(input);
       const shellStyle = getComputedStyle(input.parentElement!);
@@ -11456,8 +12177,9 @@ test("mobile topbar remains reachable while sidebars switch", async ({ page }, t
   expect((await mobileChatSidebar.boundingBox())?.width ?? 0).toBeGreaterThan(
     (await page.evaluate(() => innerWidth)) * 0.9,
   );
-  await page.waitForTimeout(70);
-  expect((await mobileChatSidebar.boundingBox())?.x ?? 0).toBeLessThan(openMobileSidebarX - 8);
+  await expect
+    .poll(async () => (await mobileChatSidebar.boundingBox())?.x ?? Number.POSITIVE_INFINITY)
+    .toBeLessThan(openMobileSidebarX - 8);
   await expect(mobileChatSidebar).toHaveAttribute("aria-hidden", "true");
 
   await page.locator('[data-tour="sidebar-toggle"]').click();

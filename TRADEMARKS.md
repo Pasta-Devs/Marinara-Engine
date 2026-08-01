@@ -36,8 +36,8 @@ You may make truthful, descriptive references such as:
 
 - "This service runs Marinara Engine."
 - "Compatible with Marinara Engine."
-- "Based on Marinara Engine version 2.3.5."
-- "Deploys an unmodified copy of the Marinara Engine 2.3.5 release."
+- "Based on Marinara Engine version 2.4.0."
+- "Deploys an unmodified copy of the Marinara Engine 2.4.0 release."
 
 You may also link to the official repository, identify the upstream project in
 license notices, and show accurate, unaltered screenshots for documentation or

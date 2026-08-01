@@ -27,6 +27,12 @@ type ReleaseAnnouncement = {
 // Add each release here before its version ships. Versions without a tailored
 // entry still get a one-time update notice and a link to their full release.
 const RELEASE_ANNOUNCEMENTS: Record<string, ReleaseAnnouncement> = {
+  "2.4.0": {
+    headline: "Broader horizons, finer control, stronger foundations.",
+    intro:
+      "Professor Mari here! This release adds Z.AI image generation, richer custom Agent context and image controls, smarter Roleplay animation planning, bulk history and summary tools, and four new documentation languages. It also strengthens extension and runtime security while polishing chat, card, model, gallery, and mobile behavior throughout the Engine.",
+    highlights: [],
+  },
   "2.3.5": {
     headline: "More control, polished down to the card.",
     intro:

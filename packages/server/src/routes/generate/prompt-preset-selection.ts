@@ -35,7 +35,7 @@ function pushUnique(
 }
 
 export function supportsConnectionPromptPresetOverride(chatMode: unknown): boolean {
-  return chatMode === "roleplay" || chatMode === "visual_novel";
+  return chatMode === "roleplay";
 }
 
 export function buildGenerationPromptPresetCandidates(args: {

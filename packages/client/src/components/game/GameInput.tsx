@@ -391,6 +391,7 @@ export function GameInput({
 
   return (
     <div
+      data-chat-resource-drop-exclude
       className={cn(inline ? "" : "px-3 pt-2 pb-3")}
       style={inline ? undefined : { minHeight: 61 }}
     >

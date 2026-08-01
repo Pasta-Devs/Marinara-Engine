@@ -9,6 +9,12 @@ import {
   type InstalledCapabilityPackage,
 } from "@marinara-engine/shared";
 import { api } from "../lib/api-client";
+import {
+  beginCapabilityClientImport,
+  capabilityClientNeedsRefresh,
+  finishCapabilityClientImport,
+  getCapabilityClientImport,
+} from "../lib/capability-client-version";
 
 export const capabilityPackageKeys = {
   all: ["capability-packages"] as const,
@@ -67,7 +73,7 @@ const capabilityClientModuleIdleStates = new Map<string, CapabilityClientModuleS
 const capabilityClientModuleListeners = new Set<() => void>();
 let capabilityClientModuleRevision = 0;
 
-export type CapabilityClientModuleStatus = "idle" | "loading" | "ready" | "error";
+export type CapabilityClientModuleStatus = "idle" | "loading" | "ready" | "error" | "refresh-required";
 
 export interface CapabilityClientModuleState {
   packageId: string;
@@ -120,7 +126,9 @@ function publishCapabilityClientModuleState(next: CapabilityClientModuleState): 
 
 function removeCapabilityClientModuleState(packageId: string): void {
   if (!capabilityClientModuleStates.delete(packageId)) return;
-  loadedClientModules.delete(packageId);
+  // Imported code and its custom-element constructor remain in this document
+  // even while a restart-required package is temporarily ineligible. Keep the
+  // loaded version so the next ready version can require a truthful refresh.
   capabilityClientModuleRevision += 1;
   for (const listener of capabilityClientModuleListeners) listener();
 }
@@ -163,7 +171,26 @@ export function useCapabilityClientModules() {
       eligiblePackageIds.add(item.id);
       const current = getCapabilityClientModuleState(item.id);
       const attempt = current.version === item.version ? current.attempt : 0;
-      if (loadedClientModules.get(item.id) === item.version) {
+      const loadedVersion = loadedClientModules.get(item.id);
+      const tag = `marinara-capability-${item.id}`;
+      if (
+        capabilityClientNeedsRefresh(
+          loadedVersion,
+          item.version,
+          typeof customElements !== "undefined" && Boolean(customElements.get(tag)),
+        )
+      ) {
+        publishCapabilityClientModuleState({
+          packageId: item.id,
+          name: item.manifest.name,
+          version: item.version,
+          status: "refresh-required",
+          error: null,
+          attempt,
+        });
+        continue;
+      }
+      if (loadedVersion === item.version) {
         publishCapabilityClientModuleState({
           packageId: item.id,
           name: item.manifest.name,
@@ -174,7 +201,24 @@ export function useCapabilityClientModules() {
         });
         continue;
       }
-      if (current.version === item.version && (current.status === "loading" || current.status === "error")) {
+      const inFlight = getCapabilityClientImport(item.id);
+      if (inFlight) {
+        if (current.version !== item.version || current.status !== "loading") {
+          publishCapabilityClientModuleState({
+            packageId: item.id,
+            name: item.manifest.name,
+            version: item.version,
+            status: "loading",
+            error: null,
+            attempt,
+          });
+        }
+        continue;
+      }
+      if (
+        current.version === item.version &&
+        (current.status === "loading" || current.status === "error" || current.status === "refresh-required")
+      ) {
         continue;
       }
       publishCapabilityClientModuleState({
@@ -186,15 +230,25 @@ export function useCapabilityClientModules() {
         attempt,
       });
       const source = `/api/capability-packages/${encodeURIComponent(item.id)}/client?v=${encodeURIComponent(item.version)}${attempt > 0 ? `&retry=${attempt}` : ""}`;
+      if (!beginCapabilityClientImport(item.id, { version: item.version, attempt })) continue;
       void import(/* @vite-ignore */ source)
         .then(() => {
-          const tag = `marinara-capability-${item.id}`;
           if (!customElements.get(tag)) {
             throw new Error(`Client module did not register ${tag}`);
           }
           loadedClientModules.set(item.id, item.version);
+          finishCapabilityClientImport(item.id, { version: item.version, attempt });
           const latest = getCapabilityClientModuleState(item.id);
-          if (latest.version !== item.version || latest.attempt !== attempt) return;
+          if (latest.version !== item.version || latest.attempt !== attempt) {
+            if (latest.version && customElements.get(tag)) {
+              publishCapabilityClientModuleState({
+                ...latest,
+                status: "refresh-required",
+                error: null,
+              });
+            }
+            return;
+          }
           publishCapabilityClientModuleState({
             packageId: item.id,
             name: item.manifest.name,
@@ -205,8 +259,25 @@ export function useCapabilityClientModules() {
           });
         })
         .catch((error) => {
+          finishCapabilityClientImport(item.id, { version: item.version, attempt });
           const latest = getCapabilityClientModuleState(item.id);
-          if (latest.version !== item.version || latest.attempt !== attempt) return;
+          if (latest.version !== item.version || latest.attempt !== attempt) {
+            if (latest.version && customElements.get(tag)) {
+              loadedClientModules.set(item.id, item.version);
+              publishCapabilityClientModuleState({
+                ...latest,
+                status: "refresh-required",
+                error: null,
+              });
+            } else if (latest.version) {
+              publishCapabilityClientModuleState({
+                ...latest,
+                status: "idle",
+                error: null,
+              });
+            }
+            return;
+          }
           publishCapabilityClientModuleState({
             packageId: item.id,
             name: item.manifest.name,
@@ -280,7 +351,8 @@ export function useInstallCapabilityPackage() {
   const invalidate = useInvalidateCapabilityState();
   return useMutation({
     mutationFn: (variables: string | { id: string; expectedVersion: string }) => {
-      const { id, expectedVersion } = typeof variables === "string" ? { id: variables, expectedVersion: undefined } : variables;
+      const { id, expectedVersion } =
+        typeof variables === "string" ? { id: variables, expectedVersion: undefined } : variables;
       return api.post<InstalledCapabilityPackage>(
         `/capability-packages/${encodeURIComponent(id)}/install`,
         expectedVersion ? { expectedVersion } : undefined,

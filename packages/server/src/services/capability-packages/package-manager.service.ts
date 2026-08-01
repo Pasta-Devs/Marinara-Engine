@@ -33,8 +33,8 @@ const HIERARCHICAL_MAPS_SELECTION_CORRECTION = join(ROOT, "hierarchical-maps-sel
 const NON_DOWNLOADABLE_CORE_PACKAGE_IDS = new Set(["about-me-keeper"]);
 const OFFICIAL_AGENT_RAW_ROOT = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents";
 type OfficialAgentBranch = "main" | "staging";
-function resolveOfficialAgentBranch(engineBranch: string | null = getBuildBranch()): OfficialAgentBranch {
-  return engineBranch === "staging" ? "staging" : "main";
+export function resolveOfficialAgentBranch(engineBranch: string | null = getBuildBranch()): OfficialAgentBranch {
+  return engineBranch === "staging" || engineBranch?.startsWith("release/") ? "staging" : "main";
 }
 function officialCatalogRoot(branch: OfficialAgentBranch): string {
   return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/catalog`;

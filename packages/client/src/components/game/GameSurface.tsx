@@ -11271,7 +11271,11 @@ function GameSurfaceComponent({
               )}
 
               {/* Main content area */}
-              <div ref={hudSurfaceRef} className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div
+                ref={hudSurfaceRef}
+                data-chat-resource-drop-surface
+                className="relative flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
                 {/* Top-left: Map + Party portraits side by side */}
                 <div
                   className={cn(

@@ -3714,6 +3714,7 @@ export function HomeProfessorMariChat({
                               return (
                                 <div
                                   key={item.id}
+                                  data-professor-mari-chat-id={item.id}
                                   className={cn(
                                     "rounded-lg border border-[var(--border)] bg-[var(--card)]/70 p-2",
                                     active && "border-[var(--primary)]/50 bg-[var(--primary)]/5",
@@ -3809,7 +3810,7 @@ export function HomeProfessorMariChat({
                             type="button"
                             onClick={() => void handleBulkDeleteProfessorChats()}
                             disabled={selectedChatHistoryIds.size === 0}
-                            className="mari-chrome-control mari-chrome-control--danger mari-chrome-control--small h-8 px-3 text-[0.625rem]"
+                            className="mari-chrome-control mari-chrome-control--primary mari-chrome-control--small h-8 px-3 text-[0.625rem]"
                           >
                             <Trash2 size="0.75rem" />
                             {localizeUi("ui.chat.homeprofessormarichat.deleteSelectedChats")}

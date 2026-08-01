@@ -141,7 +141,12 @@ export function RightPanel() {
           return (
             <div
               key={key}
-              className={`absolute inset-0 overflow-y-auto ${active ? "" : "hidden"}`}
+              data-panel-key={key}
+              className={cn(
+                "absolute inset-0",
+                key === "characters" ? "overflow-hidden" : "overflow-y-auto [scrollbar-gutter:stable]",
+                !active && "hidden",
+              )}
               aria-hidden={!active}
             >
               <Suspense fallback={active ? <PanelFallback /> : null}>

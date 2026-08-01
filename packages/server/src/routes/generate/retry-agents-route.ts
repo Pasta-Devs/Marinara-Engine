@@ -3664,12 +3664,7 @@ async function applyRetryResultEffects(args: {
         db: app.db,
         chatId,
         chatName: chat.name,
-        chatMode:
-          (chat as { mode?: unknown }).mode === "game"
-            ? "game"
-            : (chat as { mode?: unknown }).mode === "visual_novel"
-              ? "visual_novel"
-              : "roleplay",
+        chatMode: (chat as { mode?: unknown }).mode === "game" ? "game" : "roleplay",
         chatMetadata: freshMeta,
         currentBackground:
           backgroundBeforeGeneration ??
@@ -3886,8 +3881,7 @@ export async function registerRetryAgentsRoute(app: FastifyInstance) {
         };
       }
 
-      const supportsHiddenFromAI =
-        chat.mode === "conversation" || chat.mode === "roleplay" || chat.mode === "visual_novel";
+      const supportsHiddenFromAI = chat.mode === "conversation" || chat.mode === "roleplay";
       if (supportsHiddenFromAI) {
         recentMessages = recentMessages.filter((message: any) => !isMessageHiddenFromAI(message));
         if (preGenerationRecentMessages) {

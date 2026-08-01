@@ -178,6 +178,28 @@ const DIR_LABELS_BY_DOCS_LANG: Record<string, Record<string, string>> = {
     integrations: "連携",
     development: "開発",
   },
+  ko: {
+    "": "가이드",
+    home: "홈",
+    installation: "설치",
+    connections: "연결",
+    conversation: "Conversation",
+    roleplay: "Roleplay",
+    game: "Game Mode",
+    characters: "캐릭터",
+    chats: "채팅",
+    lorebooks: "로어북",
+    agents: "에이전트",
+    media: "미디어",
+    prompts: "프롬프트",
+    noodle: "Noodle",
+    appearance: "모양",
+    settings: "설정",
+    data: "데이터",
+    extending: "확장",
+    integrations: "연동",
+    development: "개발",
+  },
 };
 
 function dirLabel(dir: string, docsLanguage: string) {

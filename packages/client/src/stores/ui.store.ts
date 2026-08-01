@@ -21,7 +21,7 @@ import { detectConversationTimeZone, normalizeConversationTimeZone } from "../li
 import { BASIC_PANEL_SORT_OPTIONS, normalizeBasicPanelSort, type BasicPanelSort } from "../lib/panel-sort";
 import { DEFAULT_APP_LANGUAGE, type AppLanguage } from "../localization/locale-types";
 
-type Panel =
+export type Panel =
   | "chat"
   | "characters"
   | "lorebooks"

@@ -20,6 +20,7 @@ const initialization = i18n.use(initReactI18next).init({
   load: "currentOnly",
   keySeparator: false,
   nsSeparator: false,
+  returnEmptyString: true,
   returnNull: false,
   interpolation: {
     escapeValue: false,

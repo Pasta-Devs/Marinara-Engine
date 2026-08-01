@@ -55,6 +55,8 @@ import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
+import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
 type CharacterRow = {
   id: string;
@@ -740,15 +742,16 @@ export function CharactersPanel() {
     <div
       ref={panelScrollRef}
       onScroll={handlePanelScroll}
-      className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto p-3"
+      data-component="CharactersPanelScroll"
+      className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto p-3 [scrollbar-gutter:stable]"
     >
       <button
         onClick={openCharacterLibrary}
         className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
-        title={localizeUi("ui.panels.characterspanel.openFullLibrary")}
+        title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
       >
         <Users size="0.875rem" />
-        {localizeUi("ui.panels.characterspanel.openFullLibrary_336ca82")}
+        {localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
       </button>
 
       {/* Actions */}
@@ -1073,11 +1076,23 @@ export function CharactersPanel() {
                       onDragStart={(event) => {
                         const ids = getDraggedCharacterIds(memberId);
                         setDraggedCharacterId(memberId);
-                        event.dataTransfer.effectAllowed = "move";
+                        event.dataTransfer.effectAllowed = "copyMove";
                         event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
                         event.dataTransfer.setData("text/plain", memberId);
+                        writeChatResourceDragPayload(event.dataTransfer, {
+                          version: 1,
+                          kind: "character",
+                          ids,
+                          label:
+                            ids.length === 1
+                              ? memberName
+                              : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", { count: ids.length }),
+                        });
                       }}
-                      onDragEnd={() => setDraggedCharacterId(null)}
+                      onDragEnd={() => {
+                        setDraggedCharacterId(null);
+                        clearActiveChatResourceDrag();
+                      }}
                       role="button"
                       tabIndex={0}
                       className={cn(
@@ -1116,6 +1131,17 @@ export function CharactersPanel() {
                         onTouchStart={(event) => {
                           startCharacterTouchDrag(event, memberId, {
                             allowInteractiveTarget: true,
+                            chatResourcePayload: {
+                              version: 1,
+                              kind: "character",
+                              ids: getDraggedCharacterIds(memberId),
+                              label:
+                                getDraggedCharacterIds(memberId).length === 1
+                                  ? memberName
+                                  : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                                      count: getDraggedCharacterIds(memberId).length,
+                                    }),
+                            },
                             sourceElement: event.currentTarget.closest<HTMLElement>(
                               '[data-touch-drag-card="character"]',
                             ),
@@ -1218,6 +1244,10 @@ export function CharactersPanel() {
                           data-character-row-actions
                           className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] p-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover/member:opacity-100 max-md:opacity-100"
                         >
+                          <ChatResourceActionButton
+                            payload={{ version: 1, kind: "character", ids: [memberId], label: memberName }}
+                            className="flex h-5 min-h-5 w-5 items-center justify-center rounded-md p-0"
+                          />
                           <button
                             type="button"
                             onClick={(e) => {
@@ -1385,11 +1415,23 @@ export function CharactersPanel() {
               onDragStart={(event) => {
                 const ids = getDraggedCharacterIds(char.id);
                 setDraggedCharacterId(char.id);
-                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.effectAllowed = "copyMove";
                 event.dataTransfer.setData("application/x-marinara-character-ids", JSON.stringify(ids));
                 event.dataTransfer.setData("text/plain", char.id);
+                writeChatResourceDragPayload(event.dataTransfer, {
+                  version: 1,
+                  kind: "character",
+                  ids,
+                  label:
+                    ids.length === 1
+                      ? charName
+                      : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", { count: ids.length }),
+                });
               }}
-              onDragEnd={() => setDraggedCharacterId(null)}
+              onDragEnd={() => {
+                setDraggedCharacterId(null);
+                clearActiveChatResourceDrag();
+              }}
               className={cn(
                 "group relative flex min-h-[4.5rem] shrink-0 touch-pan-y cursor-pointer items-center gap-2.5 rounded-xl p-2 transition-all hover:bg-[var(--sidebar-accent)] max-md:min-h-16",
                 selectionMode &&
@@ -1425,6 +1467,17 @@ export function CharactersPanel() {
                 onTouchStart={(event) => {
                   startCharacterTouchDrag(event, char.id, {
                     allowInteractiveTarget: true,
+                    chatResourcePayload: {
+                      version: 1,
+                      kind: "character",
+                      ids: getDraggedCharacterIds(char.id),
+                      label:
+                        getDraggedCharacterIds(char.id).length === 1
+                          ? charName
+                          : localizeUi("ui.chat.chatresourcedropoverlay.characterCount", {
+                              count: getDraggedCharacterIds(char.id).length,
+                            }),
+                    },
                     sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="character"]'),
                   });
                 }}
@@ -1455,7 +1508,7 @@ export function CharactersPanel() {
               </div>
 
               {/* Info */}
-              <div className={cn("min-w-0 flex-1", !selectionMode && "pr-[4.5rem] max-md:pr-16")}>
+              <div className={cn("min-w-0 flex-1", !selectionMode && "pr-[6.5rem] max-md:pr-20")}>
                 <div
                   data-character-row-name
                   className="truncate text-sm font-medium"
@@ -1520,8 +1573,12 @@ export function CharactersPanel() {
               {!selectionMode && (
                 <div
                   data-character-row-actions
-                  className="absolute right-2 top-1/2 grid w-16 -translate-y-1/2 grid-cols-2 gap-0.5 rounded-lg bg-[var(--sidebar)] p-1 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:w-14 max-md:opacity-100"
+                  className="absolute right-2 top-1/2 grid w-24 -translate-y-1/2 grid-cols-3 gap-0.5 rounded-lg bg-[var(--sidebar)] p-1 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:w-20 max-md:opacity-100"
                 >
+                  <ChatResourceActionButton
+                    payload={{ version: 1, kind: "character", ids: [char.id], label: charName }}
+                    className="mari-character-row-action flex w-full items-center justify-center"
+                  />
                   <button
                     type="button"
                     onClick={(e) => {
@@ -1575,7 +1632,7 @@ export function CharactersPanel() {
                         characterName: charName,
                       });
                     }}
-                    className="mari-chrome-control mari-character-row-action col-span-2 flex w-full items-center justify-center gap-1 border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[0.625rem] font-semibold text-[var(--marinara-chat-chrome-button-text-active)] max-md:text-[0.5625rem]"
+                    className="mari-chrome-control mari-character-row-action col-span-3 flex w-full items-center justify-center gap-1 border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-button-bg-active)] text-[0.625rem] font-semibold text-[var(--marinara-chat-chrome-button-text-active)] max-md:text-[0.5625rem]"
                     title={localizeUi("ui.panels.characterspanel.startNewChatWithValue1", {
                       value1: charName,
                     })}

@@ -91,7 +91,7 @@
         "docs/conversation/getting-started.md"
       ],
       "checks": [
-        "Conversation, roleplay/visual-novel, and game behavior stay with their owning mode. Conversation must not know about game dice, GM tags, QTE, maps, or game combat.",
+        "Conversation, roleplay, and game behavior stay with their owning mode. Conversation must not know about game dice, GM tags, QTE, maps, or game combat.",
         "Game mode must not depend on chat-mode UI except through shared primitives or explicitly shared feature components.",
         "Shared generation or prompt changes (use-generate.ts, generate.routes.ts, services/prompt) must not silently alter the behavior of an unrelated mode."
       ]

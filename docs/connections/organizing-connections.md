@@ -24,7 +24,7 @@ To delete a folder, click the trash icon on the folder row. If the folder still 
 
 ## Search and sort
 
-The **Search connections...** box filters the list as you type. It matches the connection name, provider, model, base URL, image or video service, and embedding model. When nothing matches, you see "No connections match your search".
+The **Search connections** box filters the list as you type. It matches the connection name, provider, model, base URL, image or video service, and embedding model. When nothing matches, you see "No connections match your search".
 
 The **Sort order** dropdown next to the search box changes the list order. It has five options:
 

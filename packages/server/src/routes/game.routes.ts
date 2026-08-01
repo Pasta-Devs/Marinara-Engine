@@ -278,7 +278,7 @@ import { readIllustratorAppearance } from "./generate/illustrator-references.js"
 // Helpers
 // ──────────────────────────────────────────────
 
-const AVATAR_NAME_TITLE_WORDS = new Set([
+const CHARACTER_NAME_LEADING_PREFIX_WORDS = new Set([
   "a",
   "an",
   "the",
@@ -292,6 +292,11 @@ const AVATAR_NAME_TITLE_WORDS = new Set([
   "lady",
   "lord",
   "professor",
+  "old",
+  "young",
+  "elder",
+  "great",
+  "captain",
 ]);
 
 function normalizeAvatarLookupName(value: string): string {
@@ -305,17 +310,23 @@ function normalizeAvatarLookupName(value: string): string {
     .trim();
 }
 
+function nameLookupWithoutLeadingPrefix(normalizedName: string): string {
+  const words = normalizedName.split(/\s+/).filter(Boolean);
+  return words.length > 1 && CHARACTER_NAME_LEADING_PREFIX_WORDS.has(words[0]!)
+    ? words.slice(1).join(" ")
+    : normalizedName;
+}
+
 function avatarLookupAliases(value: string): string[] {
   const normalized = normalizeAvatarLookupName(value);
   const words = normalized.split(/\s+/).filter(Boolean);
-  const withoutLeadingTitle =
-    words.length > 1 && AVATAR_NAME_TITLE_WORDS.has(words[0]!) ? words.slice(1).join(" ") : normalized;
+  const withoutLeadingPrefix = nameLookupWithoutLeadingPrefix(normalized);
   return Array.from(
     new Set([
       value.normalize("NFKC").trim().toLocaleLowerCase(),
       normalized,
-      withoutLeadingTitle,
-      ...words.filter((word) => word.length >= 3 && !AVATAR_NAME_TITLE_WORDS.has(word)),
+      withoutLeadingPrefix,
+      ...words.filter((word) => word.length >= 3 && !CHARACTER_NAME_LEADING_PREFIX_WORDS.has(word)),
     ]),
   ).filter(Boolean);
 }
@@ -4989,17 +5000,36 @@ function storyboardSourceMentionsCharacter(sourceNarration: string, name: string
   return new RegExp(`(^|[^\\p{L}\\p{N}])${escapedName}([^\\p{L}\\p{N}]|$)`, "iu").test(sourceNarration);
 }
 
-function storyboardNormalizedMentionIndex(text: string, name: string): number {
+function storyboardMentionAliases(name: string): string[] {
+  const normalizedName = normalizeAvatarLookupName(name);
+  return Array.from(new Set([normalizedName, nameLookupWithoutLeadingPrefix(normalizedName)])).filter(Boolean);
+}
+
+function storyboardMentionAliasOwners(characterNames: string[]): Map<string, Set<string>> {
+  const owners = new Map<string, Set<string>>();
+  for (const name of characterNames) {
+    const normalizedName = normalizeAvatarLookupName(name);
+    if (!normalizedName) continue;
+    for (const alias of storyboardMentionAliases(name)) {
+      const aliasOwners = owners.get(alias) ?? new Set<string>();
+      aliasOwners.add(normalizedName);
+      owners.set(alias, aliasOwners);
+    }
+  }
+  return owners;
+}
+
+function storyboardNormalizedMentionIndex(text: string, name: string, aliasOwners: Map<string, Set<string>>): number {
   const normalizedText = ` ${normalizeAvatarLookupName(text.replace(/['\u2019]s\b/giu, ""))} `;
   if (!normalizedText.trim()) return -1;
   let bestIndex = -1;
   const normalizedName = normalizeAvatarLookupName(name);
-  const words = normalizedName.split(/\s+/).filter(Boolean);
-  const withoutLeadingTitle =
-    words.length > 1 && AVATAR_NAME_TITLE_WORDS.has(words[0]!) ? words.slice(1).join(" ") : normalizedName;
   // Visibility matching must not use per-word fuzzy aliases: color words like
   // "amber", "blue", and "violet" can otherwise promote old slime NPCs.
-  for (const normalizedAlias of Array.from(new Set([normalizedName, withoutLeadingTitle]))) {
+  // A shortened leading-prefix alias must also identify only one roster entry;
+  // otherwise "Grish" would promote both "Old Grish" and "Young Grish".
+  for (const normalizedAlias of storyboardMentionAliases(name)) {
+    if (normalizedAlias !== normalizedName && (aliasOwners.get(normalizedAlias)?.size ?? 0) !== 1) continue;
     if (normalizedAlias.length < 2) continue;
     const escapedAlias = normalizedAlias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const match = new RegExp(`(?:^| )${escapedAlias}(?= |$)`, "u").exec(normalizedText);
@@ -5019,11 +5049,12 @@ export function selectStoryboardAppearanceCharacterNames(args: {
     .filter(Boolean)
     .join("\n");
   const activePersonaName = normalizeAvatarLookupName(args.activePersonaName ?? "");
+  const aliasOwners = storyboardMentionAliasOwners(args.allowedCharacterNames);
   return args.allowedCharacterNames
     .map((name, order) => ({
       name,
       order,
-      mentionIndex: storyboardNormalizedMentionIndex(sourceText, name),
+      mentionIndex: storyboardNormalizedMentionIndex(sourceText, name, aliasOwners),
       isActivePersona: activePersonaName.length > 0 && normalizeAvatarLookupName(name) === activePersonaName,
     }))
     .filter((candidate) => candidate.isActivePersona || candidate.mentionIndex >= 0)
@@ -5078,8 +5109,9 @@ function reconcileStoryboardCharactersForFrame(args: {
 
   for (const name of characters) addCharacter(name);
 
+  const aliasOwners = storyboardMentionAliasOwners(args.allowedCharacterNames ?? []);
   const mentionedAllowed = (args.allowedCharacterNames ?? [])
-    .map((name) => ({ name, index: storyboardNormalizedMentionIndex(args.frameText, name) }))
+    .map((name) => ({ name, index: storyboardNormalizedMentionIndex(args.frameText, name, aliasOwners) }))
     .filter((entry) => entry.index >= 0)
     .sort((a, b) => a.index - b.index);
 

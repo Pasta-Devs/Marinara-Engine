@@ -151,7 +151,6 @@ function normalizeImportedMode(value: unknown): ChatMode | null {
   switch (normalized) {
     case "conversation":
     case "roleplay":
-    case "visual_novel":
     case "game":
       return normalized;
     default:

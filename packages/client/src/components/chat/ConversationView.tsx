@@ -1144,7 +1144,11 @@ export function ConversationView({
       style={{ ...gradientStyle, isolation: "isolate" }}
     >
       {/* ── Messages scroll area ── */}
-      <div ref={scrollRef} className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        ref={scrollRef}
+        data-chat-resource-drop-surface
+        className="mari-messages-scroll flex-1 overflow-y-auto overflow-x-hidden"
+      >
         {/* Floating header — character info + action buttons */}
         {renderHeader()}
 

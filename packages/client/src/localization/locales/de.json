@@ -285,7 +285,7 @@
   "settings.notifications.background.description": "Zeige eine private Betriebssystem-Benachrichtigung, wenn eine autonome Konversations-Nachricht ankommt, während Marinara nicht fokussiert ist. Der Nachrichteninhalt ist verborgen.",
   "settings.notifications.background.title": "Hintergrund-Benachrichtigungen",
   "settings.notifications.browser": "Browser",
-  "settings.notifications.completion.description": "Zeige eine private Betriebssystem-Benachrichtigung, wenn eine manuell gestartete Antwort in Konversation, Roleplay, Visual Novel oder Spielmodus endet, während Marinara nicht fokussiert ist. Der Nachrichteninhalt ist verborgen.",
+  "settings.notifications.completion.description": "Zeige eine private Betriebssystem-Benachrichtigung, wenn eine manuell gestartete Antwort in Konversation, Roleplay oder Game Mode endet, während Marinara nicht fokussiert ist. Der Nachrichteninhalt ist verborgen.",
   "settings.notifications.completion.title": "Generierungs-Abschluss-Benachrichtigungen",
   "settings.notifications.conversationMode": "Unterhaltungsmodus",
   "settings.notifications.customSound.actions.choose": "Sound auswählen",

@@ -5,6 +5,7 @@
 # ── Stage 1: Build ──
 FROM node:24-slim AS builder
 ARG BUILD_COMMIT
+ARG BUILD_BRANCH
 WORKDIR /app
 
 # Copy workspace config first (layer cache for deps)
@@ -34,11 +35,9 @@ COPY packages/client/ packages/client/
 ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm build
 
-# Bake the git commit into build-meta.json so the app can display it.
+# Bake the git ref into build-meta.json because the runtime image has no .git directory.
 # __dirname in build-info.js resolves to packages/server/dist/config/
-RUN if [ -n "$BUILD_COMMIT" ]; then \
-      echo "{\"commit\":\"$BUILD_COMMIT\"}" > packages/server/dist/config/build-meta.json; \
-    fi
+RUN BUILD_COMMIT="$BUILD_COMMIT" BUILD_BRANCH="$BUILD_BRANCH" node -e 'const fs = require("node:fs"); const meta = {}; if (process.env.BUILD_COMMIT) meta.commit = process.env.BUILD_COMMIT; if (process.env.BUILD_BRANCH) meta.branch = process.env.BUILD_BRANCH; if (Object.keys(meta).length > 0) fs.writeFileSync("packages/server/dist/config/build-meta.json", JSON.stringify(meta));'
 
 # ── Stage 2: Production ──
 FROM node:24-slim AS production

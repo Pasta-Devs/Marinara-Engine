@@ -89,6 +89,8 @@ import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { getTouchReorderDropIndex } from "../../lib/touch-reorder";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
+import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
 type PresetRow = {
   id: string;
@@ -832,17 +834,27 @@ export function PresetsPanel() {
           onDragStart={(event) => {
             const ids = getDraggedPresetIds(preset.id);
             setDraggedPresetId(preset.id);
-            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.effectAllowed = "copyMove";
             event.dataTransfer.setData("application/x-marinara-preset-ids", JSON.stringify(ids));
             event.dataTransfer.setData("text/plain", preset.id);
+            writeChatResourceDragPayload(event.dataTransfer, {
+              version: 1,
+              kind: "preset",
+              ids: [preset.id],
+              label: preset.name,
+            });
           }}
-          onDragEnd={() => setDraggedPresetId(null)}
+          onDragEnd={() => {
+            setDraggedPresetId(null);
+            clearActiveChatResourceDrag();
+          }}
         >
           <TouchDragHandle
             label={localizeUi("ui.panels.presetspanel.dragPreset")}
             onTouchStart={(event) => {
               startPresetTouchDrag(event, preset.id, {
                 allowInteractiveTarget: true,
+                chatResourcePayload: { version: 1, kind: "preset", ids: [preset.id], label: preset.name },
                 sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="preset"]'),
               });
             }}
@@ -923,7 +935,10 @@ export function PresetsPanel() {
 
           {!selectionMode && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
-              {canAssignToActiveChat && (
+              <ChatResourceActionButton
+                payload={{ version: 1, kind: "preset", ids: [preset.id], label: preset.name }}
+              />
+              {canAssignToActiveChat && isSelected && (
                 <button
                   type="button"
                   onClick={(event) => {
@@ -1082,7 +1097,7 @@ export function PresetsPanel() {
           />
           <input
             type="text"
-            placeholder={localize("Search presets…")}
+            placeholder={localize("Search presets")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="mari-chrome-field h-10 w-full py-0 pl-8 pr-3 text-xs md:h-9"

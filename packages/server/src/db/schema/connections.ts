@@ -68,7 +68,7 @@ export const apiConnections = fileTable("api_connections", {
   videoService: text("video_service"),
   /** Default generation parameters (stored as JSON) for new chats using this connection */
   defaultParameters: text("default_parameters"),
-  /** Optional prompt preset override for roleplay/visual-novel chats using this connection */
+  /** Optional prompt preset override for Roleplay chats using this connection */
   promptPresetId: text("prompt_preset_id"),
   /** Optional hard cap on max_tokens for the API response (for providers like DeepSeek that have lower limits). */
   maxTokensOverride: integer("max_tokens_override"),

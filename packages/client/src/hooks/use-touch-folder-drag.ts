@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, type TouchEvent as ReactTouchEvent } from "react";
+import {
+  beginChatResourceTouchDrag,
+  clearActiveChatResourceDrag,
+  type ChatResourceDragPayload,
+} from "../lib/chat-resource-drag";
 
 type TouchFolderDragState = {
   id: string;
@@ -19,6 +24,7 @@ type TouchFolderDragState = {
   lastY: number;
   scrollTargets: AutoScrollTarget[];
   autoScrollFrame: number | null;
+  chatResourcePayload: ChatResourceDragPayload | null;
 };
 
 type TouchFolderDragOptions = {
@@ -34,6 +40,8 @@ type TouchFolderDragOptions = {
 type StartTouchDragOptions = {
   allowInteractiveTarget?: boolean;
   sourceElement?: HTMLElement | null;
+  /** Set by rows that can also be dropped on a chat, so the mobile drop dock can offer itself. */
+  chatResourcePayload?: ChatResourceDragPayload | null;
 };
 
 type AutoScrollTarget = {
@@ -267,6 +275,7 @@ export function useTouchFolderDrag({
       drag.active = true;
       drag.sourceElement.style.touchAction = TOUCH_DRAG_ACTIVE_TOUCH_ACTION;
       createPreviewElement(drag);
+      if (drag.chatResourcePayload) beginChatResourceTouchDrag(drag.chatResourcePayload);
       optionsRef.current.onActivate(drag.id);
       scheduleAutoScroll(drag);
     },
@@ -300,6 +309,8 @@ export function useTouchFolderDrag({
       restoreSourceElement(drag);
       dragRef.current = null;
       removeListeners();
+      // The dock reads the payload in the capture phase, so it is safe to drop it here.
+      if (drag.chatResourcePayload) clearActiveChatResourceDrag();
 
       if (drop && drag.active) {
         optionsRef.current.onDrop(drag.id, drag.lastX, drag.lastY);
@@ -425,6 +436,7 @@ export function useTouchFolderDrag({
         lastY: touch.clientY,
         scrollTargets: getAutoScrollTargets(sourceElement),
         autoScrollFrame: null,
+        chatResourcePayload: options?.chatResourcePayload ?? null,
       };
 
       drag.timer = window.setTimeout(() => {

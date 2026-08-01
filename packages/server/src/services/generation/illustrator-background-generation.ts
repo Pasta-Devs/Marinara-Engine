@@ -15,7 +15,7 @@ import { createConnectionsStorage } from "../storage/connections.storage.js";
 import { createPromptOverridesStorage } from "../storage/prompt-overrides.storage.js";
 import { resolveImageConnectionFallback } from "./media-connection-fallback.js";
 
-const ROLEPLAY_BACKGROUND_MODES = new Set(["roleplay", "visual_novel"]);
+const ROLEPLAY_BACKGROUND_MODES = new Set(["roleplay"]);
 const BACKGROUND_PLAN_MAX_TOKENS = 1_200;
 const BACKGROUND_PLAN_SYSTEM_PROMPT = [
   "You write one reusable, character-free scene background prompt for Marinara Roleplay.",
@@ -298,7 +298,7 @@ export async function resolveIllustratorPromptStyle(args: {
 async function resolveIllustratorImageConnection(
   connections: ConnectionsStorage,
   illustratorAgent: ResolvedAgent,
-  chatMode: "roleplay" | "visual_novel" | "game",
+  chatMode: "roleplay" | "game",
   chatMetadata: Record<string, unknown>,
 ) {
   const configuredId = resolveIllustratorImageConnectionId(
@@ -326,7 +326,7 @@ export async function generateIllustratorSceneBackground(args: {
   db: DB;
   chatId: string;
   chatName?: string | null;
-  chatMode: "roleplay" | "visual_novel" | "game";
+  chatMode: "roleplay" | "game";
   chatMetadata: Record<string, unknown>;
   currentBackground: string | null;
   illustratorAgent: ResolvedAgent;

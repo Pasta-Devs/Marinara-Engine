@@ -17,7 +17,7 @@ import {
   type UpdateChatPresetInput,
 } from "@marinara-engine/shared";
 
-const CHAT_MODES: ChatMode[] = ["conversation", "roleplay", "visual_novel"];
+const CHAT_MODES: ChatMode[] = ["conversation", "roleplay"];
 const EXCLUDED_METADATA_SET = new Set(CHAT_PRESET_EXCLUDED_METADATA_KEYS);
 
 function isPresetExcludedMetadataKey(key: string) {

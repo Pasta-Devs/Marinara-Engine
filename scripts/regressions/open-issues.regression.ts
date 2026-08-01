@@ -5,10 +5,12 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
 import type { Chat, ChatMode, Message } from "../../packages/shared/src/types/chat.js";
+import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 import { characterCardVersions, characters, chats, messages } from "../../packages/server/src/db/schema/index.js";
 import { eq } from "../../packages/server/src/db/file-query.js";
+import { parseBuildMeta, resolveBuildBranch } from "../../packages/server/src/config/build-info.js";
 
 const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 import {
@@ -194,6 +196,7 @@ import {
   buildAgentAddMetadataPatch,
   buildInitialAgentAddSetupState,
 } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
+import { resolveSpriteTransition } from "../../packages/client/src/lib/sprite-transition.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -301,6 +304,9 @@ assert.equal(toAutonomousPresenceStatus("active"), "active");
 assert.equal(toAutonomousPresenceStatus("dnd"), "dnd");
 assert.equal(shouldSuppressAutonomousMessages("active"), false);
 assert.equal(shouldSuppressAutonomousMessages("dnd"), true);
+assert.equal(resolveSpriteTransition("full-body", "none"), "crossfade");
+assert.equal(resolveSpriteTransition("full-body", "shake"), "shake");
+assert.equal(resolveSpriteTransition("expressions", "none"), "none");
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image", 1), [1]);
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
 assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");
@@ -399,6 +405,49 @@ assert.strictEqual(
 );
 assert.strictEqual(parseDockerDefaultGatewayIp("Iface\tDestination\tGateway\tFlags\tMetric\n"), null);
 
+const validBuildMeta = parseBuildMeta('{"commit":"abcdef123456","branch":"staging"}');
+assert.deepEqual(validBuildMeta, { commit: "abcdef123456", branch: "staging" });
+assert.equal(parseBuildMeta('{"commit":"abcdef123456","branch":42}'), null);
+assert.equal(parseBuildMeta(undefined), null);
+assert.equal(resolveBuildBranch(undefined, validBuildMeta?.branch, "main"), "staging");
+assert.equal(resolveBuildBranch(undefined, parseBuildMeta(undefined)?.branch, "refs/heads/feature/test"), "feature/test");
+const lorebookEnglishLocale = JSON.parse(
+  readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/en.json"), "utf8"),
+) as Record<string, unknown>;
+const lorebookKoreanLocale = JSON.parse(
+  readFileSync(join(REPOSITORY_ROOT, "packages/client/src/localization/locales/ko.json"), "utf8"),
+) as Record<string, unknown>;
+assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookeditor.es"], "");
+assert.equal(lorebookKoreanLocale["ui.noodle.stageprofileview.s"], "");
+assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCharacter"], "Before character definitions");
+assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCharacter"], "After character definitions");
+assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.beforeCompact"], "↑Char");
+assert.equal(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.afterCompact"], "↓Char");
+assert.match(
+  String(lorebookEnglishLocale["ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr"]),
+  /Before Character Definitions, After Character Definitions/u,
+);
+assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.beforeCharacter"], "캐릭터 정의 전");
+assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.afterCharacter"], "캐릭터 정의 후");
+assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.beforeCompact"], "↑캐릭터");
+assert.equal(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.afterCompact"], "↓캐릭터");
+assert.match(
+  String(lorebookKoreanLocale["ui.lorebooks.lorebookentryrow.positionInThePromptBeforeCharacterAfterCharacterOr"]),
+  /캐릭터 정의 전, 캐릭터 정의 후/u,
+);
+const updatesRouteSource = readFileSync(join(REPOSITORY_ROOT, "packages/server/src/routes/updates.routes.ts"), "utf8");
+assert.match(updatesRouteSource, /gitInstall \? await getCurrentBranch\(root\)\.catch\(\(\) => null\) : getBuildBranch\(\)/u);
+assert.match(updatesRouteSource, /const currentChannel = await getUpdateChannelForCheckout\(root, currentBranch\)/u);
+for (const dockerfile of ["Dockerfile", "Dockerfile.lite"]) {
+  const dockerSource = readFileSync(join(REPOSITORY_ROOT, dockerfile), "utf8");
+  assert.match(dockerSource, /^ARG BUILD_BRANCH$/mu, `${dockerfile} must accept the source ref as build metadata`);
+  assert.match(dockerSource, /meta\.branch = process\.env\.BUILD_BRANCH/u);
+}
+for (const workflow of ["build-container.yml", "build-container-lite.yml"]) {
+  const workflowSource = readFileSync(join(REPOSITORY_ROOT, ".github/workflows", workflow), "utf8");
+  assert.match(workflowSource, /BUILD_BRANCH=\$\{\{ github\.ref_name \}\}/u);
+}
+
 assert.equal(resolveGroupGenerationMode("conversation", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("conversation", "merged"), "merged");
 assert.equal(
@@ -426,7 +475,7 @@ const expectedChatModeSurfaces = {
     showGroupChatControls: false,
   },
 } as const satisfies Record<
-  Exclude<ChatMode, "visual_novel">,
+  ChatMode,
   {
     showSettingsProfiles: boolean;
     promptSettingsSurface: "conversation" | "roleplay" | "game";
@@ -434,7 +483,8 @@ const expectedChatModeSurfaces = {
     showGroupChatControls: boolean;
   }
 >;
-for (const mode of Object.keys(expectedChatModeSurfaces) as Array<Exclude<ChatMode, "visual_novel">>) {
+assert.deepEqual(chatModeSchema.options, ["conversation", "roleplay", "game"]);
+for (const mode of Object.keys(expectedChatModeSurfaces) as ChatMode[]) {
   const modeSettingsSurfaces = CHAT_SETTINGS_SURFACES[mode];
   assert.deepEqual(
     {
@@ -447,25 +497,11 @@ for (const mode of Object.keys(expectedChatModeSurfaces) as Array<Exclude<ChatMo
     `Chat mode ${mode} must expose the expected settings surfaces`,
   );
 }
-assert.equal(
-  Object.hasOwn(CHAT_SETTINGS_SURFACES, "visual_novel"),
-  false,
-  "Legacy Visual Novel must alias Roleplay instead of owning a settings-surface row",
-);
+assert.deepEqual(Object.keys(CHAT_SETTINGS_SURFACES), ["conversation", "roleplay", "game"]);
 const downloadableAgent = { id: "downloadable-agent", execution: "pipeline" as const };
 assert.equal(isAgentManifestAvailableInChatMode("conversation", downloadableAgent), false);
 assert.equal(isAgentManifestAvailableInChatMode("roleplay", downloadableAgent), true);
-assert.equal(isAgentManifestAvailableInChatMode("visual_novel", downloadableAgent), true);
 assert.equal(isAgentManifestAvailableInChatMode("game", downloadableAgent), false);
-assert.equal(
-  isAgentManifestAvailableInChatMode("visual_novel", {
-    id: "roleplay-limited-agent",
-    execution: "pipeline",
-    modeAllowlist: ["roleplay"],
-  }),
-  true,
-  "Legacy Visual Novel must use the normalized Roleplay mode for manifest allowlists",
-);
 assert.equal(
   isAgentManifestAvailableInChatMode("game", { id: "spotify", execution: "pipeline" }),
   true,
@@ -488,7 +524,6 @@ assert.equal(
 assert.equal(resolveGroupGenerationMode("roleplay", "individual"), "individual");
 assert.equal(resolveGroupGenerationMode("roleplay", "merged"), "merged");
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a", "b"]), false);
-assert.equal(shouldRestoreRegenerationCharacterTarget("visual_novel", undefined, ["a", "b"]), false);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "individual", ["a", "b"]), true);
 assert.equal(shouldRestoreRegenerationCharacterTarget("roleplay", "merged", ["a"]), true);
 assert.deepEqual(resolveIllustratorImageSize({ width: 960, height: 540 }, "landscape"), {
@@ -898,6 +933,68 @@ try {
   );
 
   const mariDb = new MariDbService(db);
+  const professorMariLorebookId = "professor-mari-lorebook-create-regression";
+  const professorMariLorebookResult = await mariDb.executeAction({
+    action: "lorebook.create",
+    lorebookId: professorMariLorebookId,
+    data: {
+      name: "Professor Mari lorebook regression",
+      entries: [{ name: "Verified entry", content: "Saved with the lorebook.", keys: ["verified"] }],
+    },
+    apply: true,
+  });
+  assert.equal(professorMariLorebookResult.ok, true, "Professor Mari must create lorebooks after visibility was added");
+  const professorMariLorebook = await lorebookStorage.getById(professorMariLorebookId);
+  assert.equal(professorMariLorebook?.hiddenFromLibrary, false);
+  assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 1);
+  await lorebookStorage.remove(professorMariLorebookId);
+  assert.equal(await lorebookStorage.getById(professorMariLorebookId), null);
+  assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 0);
+
+  const professorMariCliLorebookId = "professor-mari-cli-lorebook-create-regression";
+  const professorMariCliLorebookResult = await mariDb.executeCli({
+    argv: [
+      "lorebooks",
+      "create",
+      "--id",
+      professorMariCliLorebookId,
+      "--name",
+      "Professor Mari CLI lorebook regression",
+      "--apply",
+    ],
+  });
+  assert.equal(
+    professorMariCliLorebookResult.ok,
+    true,
+    `Professor Mari CLI must create visible lorebooks: ${JSON.stringify(professorMariCliLorebookResult)}`,
+  );
+  const professorMariCliLorebook = await lorebookStorage.getById(professorMariCliLorebookId);
+  assert.deepEqual(
+    {
+      hiddenFromLibrary: professorMariCliLorebook?.hiddenFromLibrary,
+      scanDepth: professorMariCliLorebook?.scanDepth,
+      tokenBudget: professorMariCliLorebook?.tokenBudget,
+      recursiveScanning: professorMariCliLorebook?.recursiveScanning,
+      maxRecursionDepth: professorMariCliLorebook?.maxRecursionDepth,
+      excludeFromVectorization: professorMariCliLorebook?.excludeFromVectorization,
+      vectorQueryDepth: professorMariCliLorebook?.vectorQueryDepth,
+      vectorScoreThreshold: professorMariCliLorebook?.vectorScoreThreshold,
+      vectorMaxResults: professorMariCliLorebook?.vectorMaxResults,
+    },
+    {
+      hiddenFromLibrary: false,
+      scanDepth: 2,
+      tokenBudget: 2048,
+      recursiveScanning: false,
+      maxRecursionDepth: 3,
+      excludeFromVectorization: false,
+      vectorQueryDepth: 10,
+      vectorScoreThreshold: 0.3,
+      vectorMaxResults: 10,
+    },
+  );
+  await lorebookStorage.remove(professorMariCliLorebookId);
+  assert.equal(await lorebookStorage.getById(professorMariCliLorebookId), null);
   const rangedChatId = "professor-mari-range-regression";
   const rangedChatTimestamp = "2026-07-30T12:00:00.000Z";
   await db.insert(chats).values({
@@ -2104,8 +2201,8 @@ const chatSettingsDrawerSource = readFileSync(
 );
 assert.match(
   chatSettingsDrawerSource,
-  /CHAT_SETTINGS_SURFACES\s*\[\s*chatMode\s*===\s*["']visual_novel["']\s*\?\s*["']roleplay["']\s*:\s*chatMode\s*\]/u,
-  "Chat Settings Drawer must normalize legacy Visual Novel to the Roleplay settings surface",
+  /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
+  "Chat Settings Drawer must select the active mode's settings surface directly",
 );
 for (const surfaceField of ["showSettingsProfiles", "promptSettingsSurface", "agentSettingsSurface"]) {
   assert.match(

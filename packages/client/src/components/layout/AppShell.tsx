@@ -8,6 +8,7 @@ import { YouTubeMobileWidget } from "../chat/YouTubePlayer";
 import { LocalMusicMobileWidget } from "../chat/LocalMusicPlayer";
 import { MusicDjUnavailablePlayer } from "../music/MusicDjUnavailablePlayer";
 import { ProfessorMariFloatingAssistantHost } from "../chat/ProfessorMariFloatingAssistantHost";
+import { ChatResourceMobileDropDock } from "../chat/ChatResourceMobileDropDock";
 import { hasProfessorMariFloatingFollowup } from "../chat/professor-mari-floating-events";
 import {
   getTrackerPanelWidthForProfile,
@@ -349,6 +350,7 @@ export function AppShell() {
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const restoreTrackerPanelOpenForChat = useUIStore((s) => s.restoreTrackerPanelOpenForChat);
@@ -742,7 +744,10 @@ export function AppShell() {
         activeChatSupported={selectedFeatureSupportsActiveChat}
         enabledForChat={selectedFeatureEnabledForChat}
         onEnabledForChatChange={setSelectedFeatureEnabledForChat}
-        onClose={closeAgentDetail}
+        onClose={() => {
+          closeAgentDetail();
+          openRightPanel("agents");
+        }}
         onManagePackage={openAgentCatalog}
         capabilityProps={{
           debugMode,
@@ -771,7 +776,7 @@ export function AppShell() {
   const showAmbientDecor =
     isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !noodleOpen;
   const hasDetailView = detailView != null;
-  const trackerPanelModeAvailable = activeChat?.mode === "roleplay" || activeChat?.mode === "visual_novel";
+  const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
   const trackerPanelSurfaceAvailable =
@@ -1379,6 +1384,8 @@ export function AppShell() {
           onClick={() => closeRightPanel()}
         />
       )}
+
+      {shellOverlayMode && <ChatResourceMobileDropDock />}
 
       {/* Right panel - Context / Settings */}
       {shellOverlayMode ? (

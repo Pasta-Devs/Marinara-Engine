@@ -92,6 +92,9 @@ const MODE_BADGES: Record<CatalogMode, { label: string; className: string }> = {
   },
 };
 
+const DETAIL_ACTION_CLASS =
+  "mari-chrome-control mari-chrome-control--primary px-4 py-2.5 max-sm:flex-1";
+
 type BulkActionProgress = {
   action: "install" | "uninstall";
   completed: number;
@@ -622,7 +625,7 @@ export function AgentCatalogView() {
                     href={selected.documentationUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="mari-chrome-control px-4 py-2.5"
+                    className={DETAIL_ACTION_CLASS}
                   >
                     <ExternalLink size="0.85rem" /> {localizeUi("ui.agents.agentcatalogview.readHowThisAgentWorks")}</a>
                 )}
@@ -631,7 +634,7 @@ export function AgentCatalogView() {
                     <>
                       <button
                         type="button"
-                        className="mari-chrome-control mari-chrome-control--primary px-4 py-2.5 max-sm:flex-1"
+                        className={DETAIL_ACTION_CLASS}
                         disabled={packageActionPending}
                         onClick={() => void handleUninstall(selected)}
                       >
@@ -643,7 +646,7 @@ export function AgentCatalogView() {
                       {selectedVersionComparison > 0 && (
                         <button
                           type="button"
-                          className="mari-chrome-control mari-chrome-control--primary px-4 py-2.5 max-sm:flex-1"
+                          className={DETAIL_ACTION_CLASS}
                           disabled={packageActionPending}
                           onClick={() => void handleInstall(selected)}
                         >
@@ -653,7 +656,7 @@ export function AgentCatalogView() {
                   ) : (
                     <button
                       type="button"
-                      className="mari-chrome-control mari-chrome-control--primary px-4 py-2.5 max-sm:flex-1"
+                      className={DETAIL_ACTION_CLASS}
                       disabled={packageActionPending}
                       onClick={() => void handleInstall(selected)}
                     >

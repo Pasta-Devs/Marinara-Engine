@@ -41,6 +41,7 @@ import { cn, type AvatarCropValue } from "../../lib/utils";
 import { applyTextareaQuoteFormat } from "../../lib/textarea-quotes";
 import { translateDraftText } from "../../lib/draft-translation";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
+import { isFileDrag } from "../../lib/chat-resource-drag";
 import { CARD_ASSET_INSERT_EVENT, type CardAssetInsertDetail } from "../../lib/card-asset-links";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { requestChatScrollToBottom } from "../../lib/chat-scroll-events";
@@ -904,6 +905,7 @@ export function ConversationInput({
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
+      if (!isFileDrag(e.dataTransfer)) return;
       e.preventDefault();
       setIsDragging(false);
       if (!activeChatId) return;
@@ -916,6 +918,7 @@ export function ConversationInput({
   );
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
+    if (!isFileDrag(e.dataTransfer)) return;
     e.preventDefault();
     setIsDragging(true);
   }, []);
@@ -2166,6 +2169,7 @@ export function ConversationInput({
       {/* Input bar */}
       <div
         ref={inputBarRef}
+        data-chat-resource-drop-exclude
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}

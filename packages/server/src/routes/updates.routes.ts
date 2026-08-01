@@ -15,7 +15,7 @@ import {
   isUpdatesApplyEnabled,
   isUpdatesRemoteApplyAllowed,
 } from "../config/runtime-config.js";
-import { getBuildCommit, getBuildLabel } from "../config/build-info.js";
+import { getBuildBranch, getBuildCommit, getBuildLabel } from "../config/build-info.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import { isLoopbackIp } from "../middleware/ip-allowlist.js";
 import { isGitUpdateApplyAllowed } from "../services/updates/update-apply-policy.js";
@@ -718,8 +718,8 @@ export async function updatesRoutes(app: FastifyInstance) {
     const serverPlatform = getServerPlatform();
     const clientPlatform = getClientPlatform(req.headers["user-agent"]);
     const root = getMonorepoRoot();
-    const currentBranch = gitInstall ? await getCurrentBranch(root).catch(() => null) : null;
-    const currentChannel = gitInstall ? await getUpdateChannelForCheckout(root, currentBranch) : UPDATE_CHANNELS.stable;
+    const currentBranch = gitInstall ? await getCurrentBranch(root).catch(() => null) : getBuildBranch();
+    const currentChannel = await getUpdateChannelForCheckout(root, currentBranch);
     const channel = await resolveUpdateChannel(
       root,
       (req.query as { channel?: unknown } | undefined)?.channel,

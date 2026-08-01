@@ -108,6 +108,12 @@ The block status changes what a character does when the check-in time passes. A 
 
 When you finish, click **Save schedule**. **Cancel** closes the editor without saving.
 
+### Move a schedule between characters or installations
+
+Use **Export schedule** at the bottom of the editor to download the current draft as a JSON file. The export includes the weekly blocks, routine summary, talkativeness, check-in moments, and advanced timing settings.
+
+Open another character's schedule editor and choose **Import schedule** to load that file. Marinara validates the file before replacing the editor draft and moves the imported routine to the current week. The import is not saved automatically: choose **Save schedule** to keep it, or **Cancel** to leave the character's existing schedule unchanged.
+
 ### Schedule generation preferences
 
 Back in **Chat Settings**, the **Schedule generation preferences** box holds free-text guidance for how routines are written. This setting is global. It applies to every Conversation chat the next time schedules are generated, by hand or by the app. For example:

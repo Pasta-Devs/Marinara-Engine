@@ -23,11 +23,6 @@ const MODE_BADGE: Record<string, { icon: React.ReactNode; label: string; logoMod
     label: "Roleplay",
     logoModeClass: "mari-chat-logo-mode--roleplay",
   },
-  visual_novel: {
-    icon: <BookOpen size="0.375rem" />,
-    label: "Roleplay",
-    logoModeClass: "mari-chat-logo-mode--roleplay",
-  },
   game: {
     icon: <Theater size="0.375rem" />,
     label: "Game",

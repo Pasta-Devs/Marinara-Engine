@@ -3,7 +3,7 @@ import { BookOpen, Gamepad2, MessageSquare } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { Modal } from "../ui/Modal";
 
-export type ChatLaunchMode = Exclude<ChatMode, "visual_novel">;
+export type ChatLaunchMode = ChatMode;
 
 export const CHAT_MODE_OPTIONS: Array<{
   mode: ChatLaunchMode;

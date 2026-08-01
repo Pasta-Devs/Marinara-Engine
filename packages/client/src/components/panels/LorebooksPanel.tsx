@@ -65,6 +65,8 @@ import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
+import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
+import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
 const CATEGORIES: Array<{ id: LorebookCategory | "all" | "active"; label: string }> = [
   { id: "all", label: "All" },
@@ -654,14 +656,37 @@ export function LorebooksPanel() {
             if (isMobileOverlay) return;
             const ids = getDraggedLorebookIds(lb.id);
             setDraggedLorebookId(lb.id);
-            event.dataTransfer.effectAllowed = "move";
+            event.dataTransfer.effectAllowed = "copyMove";
             event.dataTransfer.setData("application/x-marinara-lorebook-ids", JSON.stringify(ids));
             event.dataTransfer.setData("text/plain", lb.id);
+            writeChatResourceDragPayload(event.dataTransfer, {
+              version: 1,
+              kind: "lorebook",
+              ids,
+              label:
+                ids.length === 1
+                  ? lb.name
+                  : localizeUi("ui.chat.chatresourcedropoverlay.lorebookCount", { count: ids.length }),
+            });
           }}
-          onDragEnd={() => setDraggedLorebookId(null)}
+          onDragEnd={() => {
+            setDraggedLorebookId(null);
+            clearActiveChatResourceDrag();
+          }}
           onTouchStart={(event) => {
             startLorebookTouchDrag(event, lb.id, {
               allowInteractiveTarget: true,
+              chatResourcePayload: {
+                version: 1,
+                kind: "lorebook",
+                ids: getDraggedLorebookIds(lb.id),
+                label:
+                  getDraggedLorebookIds(lb.id).length === 1
+                    ? lb.name
+                    : localizeUi("ui.chat.chatresourcedropoverlay.lorebookCount", {
+                        count: getDraggedLorebookIds(lb.id).length,
+                      }),
+              },
               sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="lorebook"]'),
             });
           }}
@@ -1213,7 +1238,7 @@ function LorebookRow({
           </span>
         </button>
       )}
-      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-16")}>
+      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-24")}>
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm font-medium">{lorebook.name}</span>
           {!lorebook.enabled && (
@@ -1234,6 +1259,9 @@ function LorebookRow({
       </div>
       {!selectionMode && (
         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 max-md:opacity-100">
+          <ChatResourceActionButton
+            payload={{ version: 1, kind: "lorebook", ids: [lorebook.id], label: lorebook.name }}
+          />
           <button
             onClick={(e) => {
               e.stopPropagation();

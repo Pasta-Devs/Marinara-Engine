@@ -645,7 +645,13 @@ import {
 } from "../../packages/server/src/services/lorebook/index.js";
 import { scanForActivatedEntries } from "../../packages/server/src/services/lorebook/keyword-scanner.js";
 import { processActivatedEntries } from "../../packages/server/src/services/lorebook/prompt-injector.js";
-import { parseAssistantWorkspaceAction } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
+import {
+  parseAssistantWorkspaceAction,
+  resolveWorkspaceMutationVerification,
+  workspaceActionNeedsVerification,
+  workspaceTextClaimsMutationCompletion,
+  type WorkspaceCommandResult,
+} from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import { fitMessagesForModelAccess } from "../../packages/server/src/services/generation/model-access-policy.js";
 import {
   assemblePrompt,
@@ -3785,6 +3791,55 @@ const cases: RegressionCase[] = [
         }),
         ["2B-"],
       );
+      assert.deepEqual(
+        selectStoryboardAppearanceCharacterNames({
+          sourceNarration: "Grish joins Elowen, Rowan, Tusk, and Voss beside the gate.",
+          sections: [],
+          allowedCharacterNames: [
+            "Old Grish",
+            "Young Elowen",
+            "Elder Rowan",
+            "Great Tusk",
+            "Captain Voss",
+            "Amber Slime",
+            "Blue Ooze",
+            "Violet Myconid",
+          ],
+        }),
+        ["Old Grish", "Young Elowen", "Elder Rowan", "Great Tusk", "Captain Voss"],
+      );
+      assert.deepEqual(
+        selectStoryboardAppearanceCharacterNames({
+          sourceNarration: "Amber light turns the old stone blue beside a violet banner.",
+          sections: [],
+          allowedCharacterNames: ["Old Grish", "Amber Slime", "Blue Ooze", "Violet Myconid"],
+        }),
+        [],
+      );
+      assert.deepEqual(
+        selectStoryboardAppearanceCharacterNames({
+          sourceNarration: "Grish raises his lantern.",
+          sections: [],
+          allowedCharacterNames: ["Old Grish", "Young Grish"],
+        }),
+        [],
+      );
+      assert.deepEqual(
+        selectStoryboardAppearanceCharacterNames({
+          sourceNarration: "Old Grish raises his lantern.",
+          sections: [],
+          allowedCharacterNames: ["Old Grish", "Young Grish"],
+        }),
+        ["Old Grish"],
+      );
+      assert.deepEqual(
+        selectStoryboardAppearanceCharacterNames({
+          sourceNarration: "Old waits beside the gate.",
+          sections: [],
+          allowedCharacterNames: ["Old"],
+        }),
+        ["Old"],
+      );
 
       const narrationSummaryMessages = await buildIllustrationNarrationSummaryMessages({
         illustration: {
@@ -4256,10 +4311,6 @@ const cases: RegressionCase[] = [
         illustratorBackgroundGenerationEnabled("roleplay", { illustratorAutoBackgroundsEnabled: true }),
         true,
       );
-      assert.equal(
-        illustratorBackgroundGenerationEnabled("visual_novel", { illustratorAutoBackgroundsEnabled: true }),
-        true,
-      );
       assert.equal(illustratorBackgroundGenerationEnabled("game", { illustratorAutoBackgroundsEnabled: true }), false);
       assert.equal(illustratorBackgroundGenerationEnabled("roleplay", {}), false);
       assert.equal(illustratorRequestedBackground(true), true);
@@ -4534,17 +4585,6 @@ const cases: RegressionCase[] = [
           );
         }
       }
-
-      const visualNovelTags = chatBackgroundTags(
-        {
-          sourceMode: "visual_novel",
-          locationSlug: "moonlit-garden",
-          tags: ["garden"],
-        } as any,
-        "moonlit-garden",
-      );
-      assert.ok(visualNovelTags.includes("visual_novel"));
-      assert.ok(!visualNovelTags.includes("roleplay"));
 
       const drawerSource = readFileSync(
         new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
@@ -6675,7 +6715,6 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
 
       assert.equal(resolveChatPersonaCandidate(personas, null, "roleplay"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "roleplay"), null);
-      assert.equal(resolveActivePersonaCandidate(personas, null, "visual_novel"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "game"), null);
       assert.equal(resolveActivePersonaCandidate(personas, null, "conversation")?.id, "active-persona");
       assert.equal(resolveActivePersonaCandidate(personas, "selected-persona", "roleplay")?.id, "selected-persona");
@@ -7465,7 +7504,7 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         }),
         true,
       );
-      for (const chatMode of ["conversation", "roleplay", "visual_novel", "game"] as const) {
+      for (const chatMode of ["conversation", "roleplay", "game"] as const) {
         assert.equal(
           isAgentAvailableInChatMode(chatMode, "custom-human-voice-rewriter"),
           true,
@@ -8554,6 +8593,45 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         '{say: "I noticed, name: value in prose", commands: [], stop: true}',
       );
       assert.equal(repairedProse.visibleText, "I noticed, name: value in prose");
+
+      const fencedTrailingComma = parseAssistantWorkspaceAction(
+        'Here is the action:\n```json\n{"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.search","query":"Recovered Lore"}},],"stop":false,}\n```',
+      );
+      assert.equal(fencedTrailingComma.commands.length, 1);
+      assert.equal(fencedTrailingComma.commands[0]?.arguments.action, "lorebook.search");
+      assert.equal(fencedTrailingComma.protocolValid, true);
+
+      const unsupportedCompletion = parseAssistantWorkspaceAction(
+        '{"say":"Done — I created it and verified it saved.","commands":[],"stop":true}',
+      );
+      assert.equal(workspaceTextClaimsMutationCompletion(unsupportedCompletion.visibleText), true);
+      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, []), "none");
+
+      const mutationResult: WorkspaceCommandResult = {
+        id: "create-lorebook",
+        name: "app_data",
+        input: { action: "lorebook.create" },
+        output: '{"saved": true}',
+        success: true,
+      };
+      const verificationResult: WorkspaceCommandResult = {
+        id: "verify-lorebook",
+        name: "app_data",
+        input: { action: "lorebook.get" },
+        output: '{"id":"lorebook-id"}',
+        success: true,
+      };
+      assert.equal(resolveWorkspaceMutationVerification([mutationResult]), "unverified");
+      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, [mutationResult]), "unverified");
+      assert.equal(resolveWorkspaceMutationVerification([mutationResult, verificationResult]), "verified");
+      assert.equal(workspaceActionNeedsVerification(unsupportedCompletion, [mutationResult, verificationResult]), null);
+
+      const dryRunMutation = { ...mutationResult, output: '{"saved": false}' };
+      assert.equal(resolveWorkspaceMutationVerification([dryRunMutation, verificationResult]), "none");
+      const honestBlocker = parseAssistantWorkspaceAction(
+        '{"say":"I could not create it because the name is missing.","commands":[],"stop":true}',
+      );
+      assert.equal(workspaceActionNeedsVerification(honestBlocker, []), null);
     },
   },
   {

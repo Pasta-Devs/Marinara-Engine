@@ -6,6 +6,10 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const LOCALES_DIR = join(ROOT, "packages", "client", "src", "localization", "locales");
 const DEFAULT_LOCALE = "en";
 const KEY_PATTERN = /^[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*(?:\.[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*)*$/u;
+const INTENTIONALLY_EMPTY_TRANSLATION_KEYS = new Set([
+  "ui.lorebooks.lorebookeditor.es",
+  "ui.noodle.stageprofileview.s",
+]);
 
 function canonicalizeLocale(value) {
   try {
@@ -91,7 +95,9 @@ async function readLocale(filename) {
     if (!KEY_PATTERN.test(key)) {
       throw new Error(`${filename}: ${key} is not a semantic localization key`);
     }
-    if (typeof value !== "string" || !value.trim()) {
+    const intentionallyEmpty =
+      value === "" && code !== DEFAULT_LOCALE && INTENTIONALLY_EMPTY_TRANSLATION_KEYS.has(key);
+    if (typeof value !== "string" || (!value.trim() && !intentionallyEmpty)) {
       throw new Error(`${filename}: ${key} must contain non-empty text`);
     }
   }

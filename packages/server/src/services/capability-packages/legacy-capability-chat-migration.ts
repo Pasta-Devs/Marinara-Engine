@@ -5,7 +5,7 @@ import { createChatsStorage } from "../storage/chats.storage.js";
 
 const CONVERSATION_GAME_PACKAGES = ["uno", "chess", "poker", "eightball", "tic-tac-toe", "rock-paper-scissors"];
 const HIERARCHICAL_MAPS_ID = "hierarchical-maps";
-const HIERARCHICAL_MAPS_MIGRATED_MODES = new Set(["roleplay", "game", "visual_novel"]);
+const HIERARCHICAL_MAPS_MIGRATED_MODES = new Set(["roleplay", "game"]);
 
 function parseMetadata(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;

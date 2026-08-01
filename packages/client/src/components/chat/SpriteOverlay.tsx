@@ -8,6 +8,11 @@ import { Check } from "lucide-react";
 import type { SpritePlacement, SpriteSide } from "@marinara-engine/shared";
 import { useCharacterSprites, type SpriteInfo } from "../../hooks/use-characters";
 import { normalizeSpriteExpressionKey, resolveSpriteExpression } from "../../lib/sprite-expression-match";
+import {
+  resolveSpriteTransition,
+  type SpriteRenderMode,
+  type SpriteTransition as Transition,
+} from "../../lib/sprite-transition";
 import { useAgentStore } from "../../stores/agent.store";
 import {
   SPRITE_DISPLAY_OPACITY_MAX,
@@ -56,14 +61,10 @@ interface SpriteOverlayProps {
   fullBodySpriteOpacity?: number;
 }
 
-type Transition = "crossfade" | "bounce" | "shake" | "hop" | "none";
-
 interface CharacterExpressionState {
   expression: string;
   transition: Transition;
 }
-
-type SpriteRenderMode = "expressions" | "full-body";
 
 interface VisibleSpriteEntry {
   characterId: string;
@@ -558,7 +559,8 @@ function CharacterSprite({
 
   if (!spriteUrl) return null;
 
-  const variant = TRANSITION_VARIANTS[activeTransition];
+  // Full-body stage changes should not blink when an agent explicitly returns `none`.
+  const variant = TRANSITION_VARIANTS[resolveSpriteTransition(renderMode, activeTransition)];
 
   return (
     <div

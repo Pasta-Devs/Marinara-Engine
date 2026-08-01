@@ -899,6 +899,12 @@
   --mari-panel-gradient-text: #f9fafb;
 }
 
+.mari-panel-gradient--backgrounds {
+  --mari-panel-gradient-start: #818cf8;
+  --mari-panel-gradient-end: #6366f1;
+  --mari-panel-gradient-text: #eef2ff;
+}
+
 .mari-suggestion-chips {
   display: flex;
   flex-wrap: wrap;
@@ -1162,6 +1168,7 @@
 }
 
 .mari-chrome-sort-field {
+  width: 6.5rem;
   border-color: var(--marinara-chat-chrome-button-border);
   color: var(--marinara-chat-chrome-button-text-active);
 }
@@ -3843,6 +3850,94 @@ strong {
 .group:focus-visible .roleplay-hud-scroll-track,
 .roleplay-hud-scroll-track--active {
   animation: roleplay-hud-field-scroll 9s linear infinite;
+}
+
+/* ── Chat resource drop target ──
+   Accent comes from the panel gradient tokens (.mari-panel-gradient--*), so a dropped
+   lorebook reads amber, a persona reads emerald, and so on. */
+@keyframes mari-chat-drop-zone-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mari-chat-drop-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mari-chat-drop-zone {
+  --mari-chat-drop-accent: var(--mari-panel-gradient-end, var(--primary));
+  --mari-chat-drop-accent-soft: var(--mari-panel-gradient-start, var(--primary));
+
+  border: 0.25rem dotted color-mix(in srgb, var(--mari-chat-drop-accent) 80%, transparent);
+  border-radius: 1rem;
+  background: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--mari-chat-drop-accent-soft) 18%, transparent),
+    color-mix(in srgb, var(--mari-chat-drop-accent) 10%, transparent)
+  );
+  box-shadow: inset 0 0 3rem color-mix(in srgb, var(--mari-chat-drop-accent) 16%, transparent);
+  animation: mari-chat-drop-zone-in 0.12s ease-out;
+}
+
+.mari-chat-drop-zone--blocked {
+  --mari-chat-drop-accent: var(--destructive);
+  --mari-chat-drop-accent-soft: var(--destructive);
+}
+
+.mari-chat-drop-card {
+  border-color: color-mix(in srgb, var(--mari-chat-drop-accent) 60%, transparent);
+  animation: mari-chat-drop-card-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Mobile-only edge dock: the library panel covers the chat, so the drop target comes to the finger. */
+.mari-chat-drop-dock {
+  --mari-chat-drop-accent: var(--mari-panel-gradient-end, var(--primary));
+  --mari-chat-drop-accent-soft: var(--mari-panel-gradient-start, var(--primary));
+
+  border-color: color-mix(in srgb, var(--mari-chat-drop-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%);
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+  animation: mari-chat-drop-card-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mari-chat-drop-dock--blocked {
+  --mari-chat-drop-accent: var(--destructive);
+  --mari-chat-drop-accent-soft: var(--destructive);
+}
+
+.mari-chat-drop-dock--over {
+  transform: translateY(-50%) scale(1.06);
+  box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--mari-chat-drop-accent) 26%, transparent);
+}
+
+.mari-chat-drop-icon {
+  background: linear-gradient(135deg, var(--mari-chat-drop-accent-soft), var(--mari-chat-drop-accent));
+  color: var(--mari-panel-gradient-text, var(--primary-foreground));
+  box-shadow: 0 0 0 0.4rem color-mix(in srgb, var(--mari-chat-drop-accent) 20%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-chat-drop-zone,
+  .mari-chat-drop-card,
+  .mari-chat-drop-dock {
+    animation: none;
+  }
+
+  .mari-chat-drop-dock--over {
+    transform: translateY(-50%);
+  }
 }
 
 @keyframes message-in {

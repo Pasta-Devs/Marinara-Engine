@@ -1,7 +1,8 @@
 # World Maps: Setup, Authoring, and Travel
 
-> **Current compatibility:** This guide matches World Maps **1.2.1** on
-> Marinara Engine **2.3.5**. The package supports Roleplay and Game chats.
+> **Current compatibility:** This guide matches World Maps **1.2.5** on
+> Marinara Engine **2.3.5 or later**. The package supports Roleplay and Game
+> chats.
 
 World Maps adds persistent world state to Roleplay and Game. Instead of
 keeping one free-text location, it represents the world as nested places:
@@ -17,9 +18,9 @@ The Shattered Coast
 
 Marinara keeps an authoritative current location in this hierarchy. The current
 breadcrumb, exact location details, nearby destinations, and eligible linked
-lore can ground the next response. Maps can also follow a completed narrated
-journey to a known place or add a newly discovered place when the story truly
-arrives there.
+lore can ground the next response. Maps can also follow explicit movement or
+discovery established by the latest user message. The visible AI narration can
+describe the result, but it cannot move the map or invent locations by itself.
 
 Maps can be independent per chat or linked to one account-owned shared world.
 Templates create clean copies that can diverge. A shared world instead keeps one
@@ -28,15 +29,15 @@ current location, travel history, snapshots, and Game bindings.
 
 ## Feature overview
 
-World Maps 1.2.1 provides:
+World Maps 1.2.5 provides:
 
 - nested regions, settlements, places, buildings, floors, and rooms;
 - breadcrumbs and an authoritative current story location;
 - list, positioned-map, and ordered-layer views for child locations;
 - parent/child travel, direct links, and multi-turn route planning;
-- validated movement from completed narration and discovery of new locations;
+- validated movement and discovery established by the latest user message;
 - account-owned shared worlds that can be linked across Roleplay and Game chats;
-- reviewed per-chat drafts with publish, discard, conflict, and independent-fork controls;
+- reviewed per-chat drafts with publish, discard, conflict, and detach controls;
 - account-wide map templates created manually, with AI, or by import;
 - AI-assisted map drafts and expansions grounded in setup or selected lore;
 - public location descriptions, private model memory, and exact-location lore;
@@ -52,20 +53,40 @@ Available destinations are included in the model context. When CYOA choices are
 enabled, the model can therefore offer current children or connected places as
 the next options. The exact choices remain model-generated.
 
+## Choose the right map relationship
+
+The library contains two reusable account-owned resources, while every chat
+keeps its own runtime location and history. A resource's friendly name is not
+its identity; World Maps 1.2.5 adds **(copy)** or a number when a newly saved
+resource would otherwise have the same name.
+
+| Resource or state             | Owned by                        | Choose it when                                                                    | What later edits affect                       |
+| ----------------------------- | ------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| **Independent chat map**      | One Roleplay or Game chat       | This story should have its own world                                              | Only that chat                                |
+| **Independent template**      | Your account                    | You want a reusable starting point                                                | New copies only; existing chats do not update |
+| **Canonical shared world**    | Your account                    | Several chats should use one maintained hierarchy                                 | The shared definition used by linked chats    |
+| **Linked-chat draft**         | One linked chat until published | A linked story discovered or edited something that may belong in the shared world | No other chat until you choose **Publish**    |
+| **Detached independent copy** | One formerly linked chat        | This story should keep its current map but stop receiving shared-world edits      | Only the detached chat                        |
+
+Copying is not linking. **Use template**, **Add to chat**, and **Independent
+copy** create separate maps. **Use shared world** during Game setup and **Link
+to chat** in the library attach the chat to the canonical shared world.
+
 ## Quick start
 
 1. Open **Agents**, click **Download Agents**, and install **World Maps**.
 2. Restart Marinara when prompted. The package contains server code.
 3. Open a Roleplay or Game chat.
-4. Open **Agents → World Maps** and enable it for the current chat. You
-   can also enable it from that chat's **Chat Settings → Agents** section.
+4. Open the dedicated **World Maps** globe when your Engine provides it, or use
+   **Agents → World Maps**, and enable it for the current chat. You can also
+   enable it from that chat's **Chat Settings → Agents** section.
 5. Create the map with **Use template**, **Create with AI**, or **Build
    manually**. Existing chats can also import a map file.
 6. Review the working hierarchy, choose a starting location, enable the map,
    and click **Save**.
 7. Open the **Story map** while chatting. Select a reachable destination and
-   send the next turn, or describe travel naturally and let the response update
-   the location when arrival is complete.
+   send the next turn, or directly establish the party's movement in your
+   message so Maps can validate and apply the arrival.
 8. Optionally assign Gallery artwork to locations or use **Location artwork**
    to review and generate the missing images.
 
@@ -81,9 +102,9 @@ then offers **Update**, install that too. Follow the restart prompt before using
 the package.
 
 The World Maps page reports the installed package version and readiness,
-offers the account-wide world map library, and shows the current chat's map
-status. Installing the package makes it available but does not enable it in
-every chat.
+offers the account-wide world map library, names the currently targeted chat,
+and shows that chat's map status. Installing the package makes it available but
+does not enable it in every chat.
 
 ### Roleplay
 
@@ -91,7 +112,9 @@ every chat.
 2. Open **Chat Settings** with the gear button.
 3. Turn on **Enable Agents**.
 4. Under **Tracker Agents**, enable **World Maps**.
-5. Open **Edit world map** or the **World map library**.
+5. Open **Edit world map** or the **World map library**. On supported Engine
+   builds, the globe in the desktop top bar opens the same library; on mobile,
+   use the globe in the Chats drawer.
 
 The library behaves the same whether it is opened from the main Agents page or
 from Roleplay Chat Settings. Use **Add to chat** for an independent template
@@ -99,24 +122,30 @@ copy, or **Link to chat** for a durable shared world.
 
 ### Game
 
-During Game setup, choose World Maps and then select one of its setup
-routes:
+During Game setup, choose World Maps and then select one of its setup routes:
 
 - **Create with AI** prepares a generated hierarchy for review.
-- **Use template** opens the template picker before the Game is created.
+- **Use template** opens the world library before the Game is created.
 - **Build manually** starts with an editable blank hierarchy.
 
-After choosing **Use template**, select and confirm a specific template. Setup
-creates a Game-owned working copy for review; it never edits the account
-template. The selected template's locations become the hierarchical starting
-world. A fallback regular Game map is not promoted into its place.
+After choosing **Use template**, the picker shows **Shared worlds** first and
+**Independent templates** second:
+
+- **Use shared world** links the new Game to that canonical account-owned
+  world. The Game still keeps its own current location, history, snapshots,
+  bindings, and unpublished discoveries.
+- **Use template** creates a Game-owned working copy for review. It never edits
+  the account template.
+
+The selected resource's locations become the hierarchical starting world. A
+fallback regular Game map is not promoted into its place.
 
 You can also add World Maps to an existing Game later from **Chat
 Settings → Agents**.
 
 ## Create and reuse map templates
 
-Open **Agents → World Maps → Open map templates**. Templates belong to
+Open **World Maps → Open world library**. Templates belong to
 your account rather than one chat, so they are suitable for reusable fandom
 worlds, campaign settings, dungeons, cities, or personal starter maps.
 
@@ -151,10 +180,10 @@ chat map and choose **Make shared**. The last option promotes its referenced
 chat artwork to Global Gallery, creates the account-owned world, and links the
 original chat back to it.
 
-Choose **Link to chat** to attach an open chat. The current location and any
-location IDs already used by campaign history must exist in the shared world.
-Otherwise, use **Independent copy** or first migrate the chat's current map into
-a new shared world.
+Choose **Link to chat** to attach the chat named by the library's target-chat
+status. The current location and any location IDs already used by campaign
+history must exist in the shared world. Otherwise, use **Independent copy** or
+first migrate the chat's current map into a new shared world.
 
 Linked chats share only the map definition and Global Gallery artwork. They do
 not share messages, current locations, travel snapshots, Game state, Game map
@@ -162,21 +191,45 @@ bindings, provider connections, or credentials.
 
 Edits and discoveries made inside a linked chat are saved as an unpublished
 draft for that chat. They do not change the canonical world or other chats until
-you choose **Publish changes**. You can instead **Discard** the draft or **Fork
-independent** to detach the chat while keeping its current version. If the
+you choose **Publish**. You can instead **Discard** the draft or **Detach and
+keep copy** to stop sharing while keeping the chat's current version. If the
 canonical world changes while a draft is pending, Maps reports a conflict and
-requires a fork or discard instead of silently overwriting either version.
+requires a detach or discard instead of silently overwriting either version.
 
 Editing a shared world from the library updates the canonical definition
-directly. Locations used by linked chats cannot be deleted; archive them so
-their stable IDs remain available. A shared world also cannot be deleted until
-all linked chats are forked or relinked.
+directly. The shared-world editor does not offer permanent location deletion;
+archive locations so their stable IDs remain available. A linked chat also
+cannot permanently delete any location until you choose **Detach and keep
+copy**. A shared world itself cannot be deleted until all linked chats are
+detached or relinked.
 
 Shared worlds and templates retain Global Gallery artwork references without
 copying the image file into every chat. Marinara blocks deletion of a Global
 Gallery image while a saved template, shared world, independent chat map, or
 linked-chat draft still references it. Remove the artwork links first when you
 intend to delete the asset itself.
+
+## Detach, replace, or start over
+
+These actions answer different questions:
+
+- To stop sharing but preserve the linked chat's current hierarchy, save or
+  discard pending editor changes, then choose **Detach and keep copy**. The chat
+  becomes independent and no longer receives canonical updates.
+- To keep sharing but use a different canonical world, open the world library
+  for the named target chat and choose **Link to chat** on the replacement. The
+  history-compatibility checks still apply.
+- To replace an independent chat map, open its editor and choose **Replace /
+  start over**. You can save a template or export a backup first, then choose
+  **Create with AI**, **Use template or shared world**, **Import map file**, or
+  **Start blank**.
+- To give a chat an unrelated map, use the same replacement flow. Removing and
+  re-adding the Agent is not a map reset.
+
+Replacement remains a working copy until **Save**. Saving a replacement clears
+any queued destination or route. Once message history refers to location IDs,
+Maps may reject an unrelated replacement to preserve historical breadcrumbs;
+in that case, keep an independent copy and expand or archive the existing map.
 
 ## Understand the map editor
 
@@ -299,9 +352,11 @@ the awareness summary alone.
 
 ## Move during a story
 
-Maps supports explicit travel, planned routes, and validated narrated arrival.
+Maps supports queued travel, planned routes, and validated user-led arrival.
 Movement is saved with the turn so the location follows the selected message
-history and swipe.
+history and swipe. Restarting Marinara does not intentionally reset the current
+location; switching to a message branch or swipe restores the spatial snapshot
+saved with that selected history.
 
 ### Queue an explicit destination
 
@@ -325,35 +380,56 @@ Select a distant active location on the world map. If the parent/child and
 available-link graph contains a path, Maps shows the shortest route and offers
 **Plan route**.
 
-A route queues its first step. Each subsequent turn commits one step and queues
-the next until the target is reached. Cancel the route at any time. If the map
-or current location changes unexpectedly, the route becomes **Needs review**
-instead of guessing a new path.
+A route queues its first step. Sending each subsequent user turn commits one
+step and queues the next until the target is reached; there is no separate
+advance button. Cancel the route at any time. If the map or current location
+changes unexpectedly, the route becomes **Needs review** instead of guessing a
+new path.
 
 For example, travel from Floor 1 to its sibling Floor 25 normally takes one turn
 to leave for the tower and another to enter Floor 25. A direct link can make
 that journey one step.
 
-### Follow narrated travel and discover new places
+### Follow user-led travel and discover new places
 
-The model receives guarded instructions for completed arrival:
+The latest user message is the authority for automatic map changes:
 
-- If the response actually arrives at a known active location, Maps can move
-  the current location there. If the story revealed a new route, Maps records a
-  direct available connection.
-- If the response actually arrives at an unknown lasting place, Maps can add it
-  as a child or connected location, move there, and preserve the route back.
-- Intentions, mentions, failed or unfinished travel, temporary camps, hallways,
-  and vehicles do not create a location or move the marker.
+- Direct present-tense or imperative movement by the focal party establishes
+  arrival. “We go to the Kitchen” and “She moves into the outdoor section; we
+  follow her” can move to matching known locations.
+- Explicit arrival at or discovery of a significant named, durable, revisitable
+  place can add it to the world. “We discover a hidden room” can create and
+  enter that location.
+- The visible response may narrate the consequence, but AI narration alone
+  never authorizes a move or new location.
+- Future intentions, failed or unfinished travel, mentions, NPC-only movement,
+  imagined places, temporary camps, hallways, vehicles, and other transient
+  details do not create or move locations.
 
-For example, after the user says “Let's get quests from the Quest Hall,” a
-response that completes the arrival can move the next story state to Quest
-Hall. “We should visit the Quest Hall later” should leave the current location
-unchanged.
+The model still has to interpret the user's phrasing and emit a hidden Maps
+directive, which the application validates. Different language models may vary
+on ambiguous prose. Use **Set destination** for a deterministic next-turn move,
+or **Set current story location** to correct already-saved state.
 
-This behavior is validated by the application, but the model still has to
-identify that arrival occurred. Use **Set destination** when you need a
-deterministic move.
+A validated user-led arrival can bypass one-step reachability: Maps records an
+available direct link from the current location when necessary. If a destination
+was already queued, that queued move is first saved with the user message, then
+the user-led arrival becomes the final location on the assistant response; the
+one-shot queue is cleared. On a planned route, arrival at the next planned step
+advances normally. Arrival elsewhere, including a jump to a later route step,
+puts the route in **Needs review** so Maps does not silently rewrite the plan.
+Cancel or re-plan that route from the resulting current location.
+
+### Starting location versus current story location
+
+The **starting location** is the default when a new story begins. The **current
+story location** is where this particular chat is now. Changing the starting
+location does not repair an existing chat's current position.
+
+To correct saved state, select an active location in the editor's **Details**
+pane and choose **Set current story location**. This is an administrative
+correction, not narrated travel. It takes effect when you click **Save**, clears
+the queued destination or route, and does not rewrite earlier messages.
 
 ### Roleplay travel
 
@@ -373,9 +449,10 @@ Game Mode adds a **Hierarchical world map**. **You are here** marks the current
 story location. Browsing, centering, and inspecting do not move the party.
 Queue a destination or route and then send the next Game turn.
 
-The generated Game response can also update the hierarchical location after a
-completed narrated arrival. Current location details then ground the GM, party,
-scene art, and eligible Storyboard reference.
+When the latest user message establishes the party's arrival, the generated
+Game response can emit the hidden command that updates the hierarchical
+location. Current location details then ground the GM, party, scene art, and
+eligible Storyboard reference.
 
 ## Hierarchical world map versus the regular Game map
 
@@ -508,6 +585,11 @@ World Maps uses lore in two ways:
 To attach runtime lore, select the location, open **Linked lore**, search the
 available entries, attach the desired entries, and save.
 
+Opening a linked lorebook entry leaves the map editor. Save the map first when
+you want to keep other pending edits, or intentionally confirm that they can be
+discarded. World Maps 1.2.5 warns before that action can discard unsaved map
+changes.
+
 Linked entries do not pass from parent to child. Lore attached to Brinewatch
 does not activate at the Tideglass Inn unless it is attached there too.
 
@@ -564,7 +646,22 @@ Archiving preserves old references. Before archiving a location:
 - choose another active starting location if needed; and
 - choose an active replacement if it is the current runtime location.
 
-Archived locations can be restored from the Details pane.
+Archived locations can be restored from the Details pane. World Maps 1.2.5
+also offers **Delete permanently** for an archived location or fully archived
+branch when it is safe to remove. The editor disables that action when the
+location is the saved starting or current story location, appears in message
+history, has a Game map binding, participates in a queued destination or route,
+or belongs to a chat that is still linked to a shared world. The shared-world
+and template editors do not offer permanent location deletion. Resolve the
+named dependency first, detach the linked chat when appropriate, or keep the
+location archived.
+
+Permanent deletion removes the location from the working draft and cleans up
+its hierarchy and direct-link references when you click **Save**. Closing
+without saving still discards the deletion. Deleted locations no longer appear
+in exports; archived locations that remain protected continue to be exported
+so their stable IDs can support history and linked data. Do not edit exported
+JSON to bypass these protections.
 
 ## Troubleshooting
 
@@ -574,17 +671,26 @@ Confirm that the package is installed and Marinara was restarted. The active
 chat must be Roleplay or Game. Turn on **Enable Agents**, then enable
 **World Maps** under **Tracker Agents**.
 
-### Add to chat is missing from the template library
+### Add to chat or Link to chat is missing from the world library
 
 Open a supported Roleplay or Game chat before opening the library. The library
-shows **Add to chat** from either the main World Maps page or that chat's
-settings. During Game setup the equivalent action is **Use template**.
+names the target chat and shows **Add to chat** for templates or **Link to chat**
+for shared worlds. During Game setup the equivalent actions are **Use template**
+and **Use shared world**.
+
+If the library lists shared worlds during Game setup but does not show **Use
+shared world**, the browser may still be running an older package client from
+before the update. In any open map editor, save the map or intentionally discard
+its draft, then close the editor. Save unrelated work, hard-refresh Marinara
+once, and reopen Game setup. Newer Engine builds explicitly report when a
+package update needs that refresh.
 
 ### Game setup used the wrong or fallback locations
 
-Choose **Use template**, select a concrete template in the picker, and confirm
-it before completing Game setup. Review the Game-owned working copy and save
-it. The account template remains unchanged.
+Choose **Use template**, then confirm either **Use template** for an independent
+copy or **Use shared world** for a canonical link before completing Game setup.
+Review and save the Game map. A template remains unchanged; a linked Game keeps
+changes unpublished until you choose **Publish**.
 
 ### The map cannot be enabled
 
@@ -600,15 +706,40 @@ generation, select at least one enabled, non-excluded lorebook.
 
 ### The current location did not follow a message
 
-Automatic movement requires the generated response to complete an arrival and
-produce a valid hidden Maps directive. Intent, discussion, failed travel, and
-transient places do not move the marker. Use **Set destination** for a
-deterministic next-turn move.
+Automatic movement requires the latest user message to directly establish the
+focal party's arrival and the model to produce a valid hidden Maps directive.
+AI narration alone, intent, discussion, failed travel, NPC-only movement, and
+transient places do not move the marker. Try a direct phrase such as “We go to
+the Kitchen.” Use **Set destination** for a deterministic next-turn move.
+
+### The current location changed after reopening the chat
+
+Confirm which message branch and swipe are selected; current location follows
+the spatial snapshot saved with that history. If the selected history is right
+but the marker is not, open the map editor, select the correct active location,
+choose **Set current story location**, and click **Save**.
 
 ### A destination or route says Needs review
 
 The map revision or current location changed after the move was queued. Open the
 story map, review the current path, and select the destination or route again.
+If the displayed destination is still queued, cancel it before selecting it
+again.
+
+### A planned route does not advance
+
+Each user turn should commit the displayed next step and queue the following
+one. There is no separate advance control. If one completed turn does not
+advance the route, cancel and re-plan it from the current location. If the
+saved location is already wrong, use **Set current story location** and **Save**;
+that administrative correction clears the stale route.
+
+### This chat should use a completely different map
+
+Open the map editor and choose **Replace / start over**. Preserve a template or
+export first if needed, then create, import, copy, or link the replacement. If
+the chat is linked and should preserve its current hierarchy, use **Detach and
+keep copy** first. Removing and re-adding World Maps does not erase its map.
 
 ### A distant location cannot be selected
 

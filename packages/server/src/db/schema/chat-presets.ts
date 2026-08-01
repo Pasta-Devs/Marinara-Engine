@@ -8,7 +8,7 @@ export const chatPresets = fileTable("chat_presets", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   /** Which chat mode this profile applies to. */
-  mode: text("mode", { enum: ["conversation", "roleplay", "visual_novel", "game"] }).notNull(),
+  mode: text("mode", { enum: ["conversation", "roleplay", "game"] }).notNull(),
   /** "true" for the built-in Default profile (cannot be deleted, renamed, or saved into). */
   isDefault: text("is_default").notNull().default("false"),
   /** "true" for the active profile of its mode (used as starting state for new chats). */

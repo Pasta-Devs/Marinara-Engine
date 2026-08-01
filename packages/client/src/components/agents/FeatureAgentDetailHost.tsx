@@ -24,7 +24,6 @@ interface FeatureAgentDetailHostProps {
 const MODE_LABELS: Record<string, string> = {
   conversation: "Conversation",
   roleplay: "Roleplay",
-  visual_novel: "Visual Novel",
   game: "Game",
 };
 
