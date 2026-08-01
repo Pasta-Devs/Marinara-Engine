@@ -18,7 +18,6 @@ import {
   Check,
   FolderPlus,
   ArrowUpDown,
-  GripVertical,
   ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
@@ -1582,7 +1581,7 @@ function renderAgentCard({
       )}
     >
       {onTouchStart && (
-        <TouchDragHandle label={localizeUi("ui.panels.agentspanel.dragAgent")} onTouchStart={onTouchStart} />
+        <TouchDragHandle label={localizeUi("ui.panels.agentcard.dragAgent")} onTouchStart={onTouchStart} />
       )}
       {selectionMode && (
         <div
@@ -1595,22 +1594,6 @@ function renderAgentCard({
         >
           {selected && <Check size="0.75rem" />}
         </div>
-      )}
-      {!selectionMode && (
-        <button
-          type="button"
-          aria-hidden="true"
-          tabIndex={-1}
-          title={localizeUi("ui.panels.agentcard.dragAgent")}
-          className="mari-chrome-accent-text-muted mari-accent-animated flex h-7 w-5 shrink-0 cursor-grab touch-none items-center justify-center rounded-md opacity-0 transition-all hover:bg-[var(--marinara-chat-chrome-highlight-bg)] hover:text-[var(--marinara-chat-chrome-button-text-hover)] active:cursor-grabbing active:scale-95 group-focus-within:opacity-100 group-hover:opacity-100 [@media(pointer:coarse)]:hidden"
-          onClick={(event) => event.stopPropagation()}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-        >
-          <GripVertical size="0.8125rem" />
-        </button>
       )}
       <button
         type="button"

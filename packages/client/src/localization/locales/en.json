@@ -6290,7 +6290,6 @@
   "ui.panels.agentspanel.deleteAgents": "Delete Agents",
   "ui.panels.agentspanel.deletedValue1AgentValue2": "Deleted {{value1}} agent{{value2}}",
   "ui.panels.agentspanel.deleteValue1": "Delete \"{{value1}}\"?",
-  "ui.panels.agentspanel.dragAgent": "Drag agent",
   "ui.panels.agentspanel.dragAndDropAgentsToFoldersDoubleClickOr": "Drag and drop agents to folders, double-click or double-tap to rename",
   "ui.panels.agentspanel.dropAgentsHere": "Drop agents here.",
   "ui.panels.agentspanel.dropHereToMoveOutOfFolder": "Drop here to move out of folder",
