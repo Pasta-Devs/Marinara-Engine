@@ -18,7 +18,7 @@ export const NOODLE_IMAGE_POST: PromptOverrideKeyDef<NoodleImagePostCtx> = {
   key: "noodle.imagePost",
   label: "Noodle Post Image",
   description:
-    "Template that assembles the final image-generation prompt. The default sends the visual idea, appearance notes, and Noodle image directions without the post text or meta-instructions.",
+    "Template that assembles the final image-generation prompt. Everything this produces is sent to the image model verbatim — no LLM pass runs after it. The default sends the visual idea, appearance notes, and character image habits, without the post text or your Noodle image instructions (those are given to the timeline model instead).",
   variables: [
     { name: "authorName", description: "Display name of the Noodle account posting.", example: "Dottore" },
     {
@@ -33,7 +33,8 @@ export const NOODLE_IMAGE_POST: PromptOverrideKeyDef<NoodleImagePostCtx> = {
     },
     {
       name: "userInstructions",
-      description: "Noodle-specific image instructions from Noodle Settings.",
+      description:
+        "Noodle image instructions from Noodle Settings. These go to the timeline model when it writes the visual idea, so the default template no longer appends them to the image prompt. Still available for custom templates.",
       example:
         "Create either a social-media-ready character image or a meme. Mention build, clothing, appearance, pose, expression, setting, lighting, mood, composition, meme format, and short visible meme text when relevant.",
     },
@@ -57,11 +58,10 @@ export const NOODLE_IMAGE_POST: PromptOverrideKeyDef<NoodleImagePostCtx> = {
     [
       ctx.draftPrompt.trim() || `A social-media-ready image posted by ${ctx.authorName}.`,
       ctx.characterDescription,
-      ctx.characterPersonality
-        ? `Character personality and traits: ${ctx.characterPersonality}\nLet these traits naturally influence the subject, image quality, camera habits, mood, and composition.`
-        : "",
-      ctx.characterImageInstructions ? `Character-specific image instructions: ${ctx.characterImageInstructions}` : "",
-      ctx.userInstructions,
+      // Bare values only: labels and "let these traits influence..." framing are instructions to a
+      // language model, and nothing downstream re-reads this string — it goes to the image model.
+      ctx.characterPersonality,
+      ctx.characterImageInstructions,
     ]
       .map((part) => part.trim())
       .filter(Boolean)

@@ -191,6 +191,13 @@ function localUrlPolicyForProvider(provider: string, imageSource: string) {
   };
 }
 
+export function buildGoogleModelsPageUrl(baseUrl: string, modelsEndpoint: string, pageToken = ""): string {
+  return (
+    `${baseUrl}${modelsEndpoint}?pageSize=1000` +
+    (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "")
+  );
+}
+
 function normalizeConnectionTestBaseUrl(baseUrl: string, provider: string): string {
   if (provider !== "image_generation") return baseUrl.replace(/\/+$/, "");
   try {
@@ -974,9 +981,7 @@ export async function connectionsRoutes(app: FastifyInstance) {
         const collected: unknown[] = [];
         let pageToken = "";
         for (let page = 0; page < 20; page++) {
-          const pageUrl =
-            `${baseUrl}${provider?.modelsEndpoint ?? "/models"}?key=${encodeURIComponent(conn.apiKey)}&pageSize=1000` +
-            (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "");
+          const pageUrl = buildGoogleModelsPageUrl(baseUrl, provider?.modelsEndpoint ?? "/models", pageToken);
           const pageRes = await safeFetch(pageUrl, {
             headers,
             policy: {

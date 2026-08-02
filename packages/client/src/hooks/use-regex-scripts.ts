@@ -20,6 +20,7 @@ export interface RegexScriptRow {
   promptOnly: string;
   applyMode?: string | null;
   targetCharacterIds: string;
+  targetPromptPresetIds: string;
   order: number;
   minDepth: number | null;
   maxDepth: number | null;

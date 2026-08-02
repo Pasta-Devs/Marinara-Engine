@@ -12,6 +12,7 @@ import {
 import { readCharacterGreetings } from "../../packages/client/src/lib/character-greetings.js";
 
 const baseChat = {
+  id: "chat-1",
   mode: "roleplay" as const,
   characterIds: ["character-1"],
   personaId: "persona-1",
@@ -83,7 +84,7 @@ assert.deepEqual(
     { version: 1, kind: "lorebook", ids: ["lorebook-2"], label: "New lorebook" },
     baseChat,
   ),
-  { type: "add-lorebooks", ids: ["lorebook-2"], label: "New lorebook" },
+  { type: "add-lorebooks", ids: ["lorebook-2"], label: "New lorebook", inheritedFrom: [] },
 );
 
 assert.deepEqual(
@@ -92,6 +93,95 @@ assert.deepEqual(
     baseChat,
   ),
   { type: "blocked", reason: "already-active", label: "Existing lorebook" },
+);
+
+// A book pulled in by the character or persona is not a no-op drop: pinning it to the chat keeps it
+// after that character or persona is swapped out, so the drop reports the source instead of blocking.
+const inheritedLorebooks = [
+  { id: "lorebook-2", name: "Character lore", characterIds: ["character-1"], enabled: true },
+  { id: "lorebook-3", name: "Persona lore", personaIds: ["persona-1"], enabled: true },
+  { id: "lorebook-4", name: "Unrelated lore", characterIds: ["character-9"], enabled: true },
+  { id: "lorebook-5", name: "Excluded lore", characterIds: ["character-1"], enabled: true },
+  { id: "lorebook-6", name: "Global lore", isGlobal: true, enabled: true },
+  { id: "lorebook-7", name: "Chat-scoped lore", chatId: "chat-1", enabled: true },
+] as unknown as Parameters<typeof resolveChatResourceDropAction>[3];
+
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    { version: 1, kind: "lorebook", ids: ["lorebook-2", "lorebook-3"], label: "Two lorebooks" },
+    baseChat,
+    undefined,
+    inheritedLorebooks,
+  ),
+  {
+    type: "add-lorebooks",
+    ids: ["lorebook-2", "lorebook-3"],
+    label: "Two lorebooks",
+    inheritedFrom: ["Character", "Persona"],
+  },
+);
+
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    { version: 1, kind: "lorebook", ids: ["lorebook-4"], label: "Unrelated lore" },
+    baseChat,
+    undefined,
+    inheritedLorebooks,
+  ),
+  { type: "add-lorebooks", ids: ["lorebook-4"], label: "Unrelated lore", inheritedFrom: [] },
+);
+
+// A book the user disabled for this chat is not actually in context, so it must not be reported.
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    { version: 1, kind: "lorebook", ids: ["lorebook-5"], label: "Excluded lore" },
+    { ...baseChat, metadata: { ...baseChat.metadata, excludedLorebookIds: ["lorebook-5"] } },
+    undefined,
+    inheritedLorebooks,
+  ),
+  { type: "add-lorebooks", ids: ["lorebook-5"], label: "Excluded lore", inheritedFrom: [] },
+);
+
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    { version: 1, kind: "lorebook", ids: ["lorebook-6"], label: "Global lore" },
+    baseChat,
+    undefined,
+    inheritedLorebooks,
+  ),
+  { type: "add-lorebooks", ids: ["lorebook-6"], label: "Global lore", inheritedFrom: ["Global"] },
+);
+
+// A book owned by this chat but never pinned still counts as an inherited source.
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    { version: 1, kind: "lorebook", ids: ["lorebook-7"], label: "Chat-scoped lore" },
+    baseChat,
+    undefined,
+    inheritedLorebooks,
+  ),
+  { type: "add-lorebooks", ids: ["lorebook-7"], label: "Chat-scoped lore", inheritedFrom: ["Chat"] },
+);
+
+// Sources report in the resolver's fixed order, not in the order the books happen to arrive.
+assert.deepEqual(
+  resolveChatResourceDropAction(
+    {
+      version: 1,
+      kind: "lorebook",
+      ids: ["lorebook-7", "lorebook-6", "lorebook-3", "lorebook-2"],
+      label: "Every source",
+    },
+    baseChat,
+    undefined,
+    inheritedLorebooks,
+  ),
+  {
+    type: "add-lorebooks",
+    ids: ["lorebook-7", "lorebook-6", "lorebook-3", "lorebook-2"],
+    label: "Every source",
+    inheritedFrom: ["Character", "Persona", "Global", "Chat"],
+  },
 );
 
 assert.deepEqual(

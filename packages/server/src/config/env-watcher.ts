@@ -47,8 +47,8 @@ const RESTART_REQUIRED_KEYS = new Set<string>([
   "OPENROUTER_VIDEO_POLL_INTERVAL_MS",
   "SEEDANCE_VIDEO_POLL_INTERVAL_MS",
   "COMFYUI_GEN_TIMEOUT",
-  // Fastify reads disableRequestLogging once from the factory options at boot
-  // (app.ts), so toggling this after startup has no effect until a restart.
+  // Fastify reads the LogController configuration once at boot (app.ts), so
+  // toggling this after startup has no effect until a restart.
   "LOG_DISABLE_REQUEST_LOGGING",
 ]);
 

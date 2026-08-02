@@ -323,6 +323,13 @@ function extractAccountSearchTerm(query: string) {
   return match ? match[1]!.toLowerCase() : "";
 }
 
+/** Uninvited characters and ambient users keep their profile row but stay out of search until re-invited. */
+function accountIsDiscoverable(account: NoodleAccount, folderInvitedCharacterIds: Set<string>, allowRandomUsers: boolean) {
+  if (account.kind === "character") return account.invited || folderInvitedCharacterIds.has(account.entityId);
+  if (account.kind === "random_user") return allowRandomUsers;
+  return true;
+}
+
 function accountMatchesSearch(account: NoodleAccount, term: string) {
   if (!term) return true;
   return [account.handle, account.displayName, account.bio].some((value) => value.toLowerCase().includes(term));
@@ -1516,7 +1523,11 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     if (!isAccountSearch) return [];
     const exactHandle = accountSearchTerm;
     return accounts
-      .filter((account) => accountMatchesSearch(account, exactHandle))
+      .filter(
+        (account) =>
+          accountIsDiscoverable(account, folderInvitedCharacterIds, settings?.allowRandomUsers === true) &&
+          accountMatchesSearch(account, exactHandle),
+      )
       .sort((left, right) => {
         const leftExact = left.handle.toLowerCase() === exactHandle;
         const rightExact = right.handle.toLowerCase() === exactHandle;
@@ -1527,7 +1538,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         return sortAccountsByDisplayName(left, right);
       })
       .slice(0, 50);
-  }, [accountSearchTerm, accounts, isAccountSearch]);
+  }, [accountSearchTerm, accounts, folderInvitedCharacterIds, isAccountSearch, settings?.allowRandomUsers]);
   const profilePosts = useMemo(
     () => (viewedProfileAccount ? posts.filter((post) => post.authorAccountId === viewedProfileAccount.id) : []),
     [posts, viewedProfileAccount],

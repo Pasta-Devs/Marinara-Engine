@@ -20,7 +20,8 @@ Everything else is optional and off by default. You can add these later:
 
 - **Image generation.** Game Mode has a visual layout with backgrounds and character art. To fill it, you need an image generation connection. The **Visual Generation** setting in the wizard is off by default, so you must turn it on yourself. Without it, you still get the story, state tracking, and combat, but the visual areas stay empty.
 - **A Local Model for scene effects.** Marinara can run a small model on your own machine, labeled **Local Model (Gemma)**. It powers background and music suggestions without extra cost. It is the default choice in the wizard. See [Local Model Setup](../connections/local-model.md).
-- **A video generation connection.** This is only needed for scene videos or animated storyboards.
+- **The Storyboard Agent.** Install it from **Agents > Download Agents**, then activate it for the finished Game under **Chat Settings > Agents** when you want still or animated Storyboards.
+- **A video generation connection.** This is only needed for scene videos or animated Storyboards.
 - **Music.** The **Music DJ** agent can play game music. It needs Spotify or a local music folder, and it is off by default.
 
 ## The setup wizard
@@ -34,7 +35,7 @@ The seven steps are:
 3. **Party.** Pick your persona (the character you play), the **Game Master Mode**, and any party members.
 4. **Goals.** Tell the GM what you want from the adventure.
 5. **Lorebooks.** Attach any lorebooks whose facts the GM should treat as canon. A lorebook is a set of background world facts. See [Lorebooks](../lorebooks/overview.md).
-6. **Features.** Turn on optional systems like Visual Generation, storyboards, Music DJ, and HUD widgets.
+6. **Features.** Turn on optional systems like Visual Generation, Music DJ, and HUD widgets. Installable Agents can be activated from Chat Settings after the Game is created.
 7. **GM.** Choose the presentation style and review advanced GM instructions before the world is built.
 
 When you finish, click **Start Game**.
@@ -52,17 +53,14 @@ These are the starting values in the **World**, **Party**, and **Features** step
 | Language | English | All in-game text is written in this language |
 | Game Master Mode | Standalone GM | Standalone GM builds a GM for you; Character GM uses one of your cards as the GM |
 | Visual Generation | Off | Turn on for images; needs an image generation connection |
-| Automatic Storyboard Illustrations | On | Only active once Visual Generation is on |
-| Automatic Storyboard Animations | Off | Needs a video generation connection |
-| Keyframes per Turn | 3 | Available with storyboard illustrations; range 1 to 6 |
-| Game Presentation | Standard | **Storyboard Optimized** coordinates the Storyboard Game Prompt, Comic Page Animation planner, Storyboard Illustration, and Comic Page Video prompts |
+| Game Presentation | Standard | **Storyboard Optimized** uses the Storyboard Game Prompt to shape the GM's narration; it does not install or activate the Storyboard Agent |
 | Music DJ | Off | Needs Spotify or a local music folder |
 | Custom HUD Widgets | On | Uses AI-made status widgets from the new world |
 | Start Muted | Off | Begins the game with audio muted |
 
 New to Game Mode? Leave **Game Master Mode** on **Standalone GM**. Marinara builds a fair, slightly snarky GM for you, and you can feel out the mode before writing a custom GM card.
 
-Choose **Storyboard Optimized** on the final step when you want GM turns written as filmable visual beats. It selects the built-in **Storyboard Game Prompt**, **Comic Page Animation** planner, **Storyboard Illustration**, and **Comic Page Video** presets. Comic Page Animation uses the clip duration to limit the number of chronological panels, Storyboard Illustration formats each planned keyframe for the image model, and Comic Page Video treats those panels as ordered animation references. It does not turn image or video generation on and does not change your selected connections. The GM uses the wizard's **Keyframes per Turn** value as a target for strong visual anchor moments, but it can write fewer for a short exchange and can use more narration paragraphs when the story needs them.
+Choose **Storyboard Optimized** on the final step when you want GM turns written as filmable visual beats. It selects the built-in **Storyboard Game Prompt** for GM narration. It does not install or activate the Storyboard Agent, turn image or video generation on, change your connections, or replace the Agent's planner and formatter defaults. After the Game is created, install and activate Storyboard separately and configure its keyframe, planner, image, and video settings under **Chat Settings > Agents > Storyboards**.
 
 The alternative anime single-shot combination remains available after setup: choose **Anime Episode Director** for the Animation Planner and **Anime Game Video** for the Storyboard Video Prompt.
 
@@ -120,7 +118,7 @@ This guide gets you into a game. Each deeper topic has its own guide:
 - [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md) covers the dice menu and skill-check rules.
 - [Game Mode: HUD Widgets](hud-widgets.md) covers the on-screen status widgets.
 - [Game Assets](game-assets.md) covers the music, sound, sprite, and background library.
-- [Storyboard Engine Guide](storyboard.md) covers turning a GM turn into manga-style keyframes.
+- [Storyboard Agent Guide](storyboard.md) covers installation plus Roleplay and Game Mode Storyboards.
 
 Author's Notes work the same way here as in other modes. See [Roleplay Mode: Getting Started](../roleplay/getting-started.md).
 
@@ -151,7 +149,7 @@ Some models stay upbeat no matter the tone. You have two options. Add a clear in
 - [Game Mode: Dice and Skill Checks](dice-and-skill-checks.md)
 - [Game Mode: HUD Widgets](hud-widgets.md)
 - [Game Assets](game-assets.md)
-- [Storyboard Engine Guide](storyboard.md)
+- [Storyboard Agent Guide](storyboard.md)
 - [Roleplay Mode: Getting Started](../roleplay/getting-started.md)
 - [Connecting to an AI Provider](../connections/connecting-to-a-provider.md)
 - [Agents: AI Helpers for Your Chats](../agents/agents-overview.md)

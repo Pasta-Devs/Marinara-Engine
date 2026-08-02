@@ -2493,6 +2493,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           applyRegexScriptsToPromptMessages(mappedMessages, await regexStore.list(), {
             resolveMacros: (value, randomSeed) =>
               resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
+            targetPromptPresetId: presetId,
           });
           promptMacroContext.lastInput = [...mappedMessages]
             .reverse()

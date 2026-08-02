@@ -28,6 +28,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function parseStoredChatMetadata(value: unknown): Record<string, unknown> | null {
+  if (isRecord(value)) return value;
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function sanitizePresetAgentIds(value: unknown) {
   if (!Array.isArray(value)) return [];
   return value.flatMap((agentId) => {
@@ -340,7 +351,36 @@ export function createChatPresetsStorage(db: DB) {
             .where(
               and(eq(chatPresets.mode, mode), eq(chatPresets.isDefault, "true")),
             )) as ChatPresetRow[];
-          let defaultId = defaultRows[0]?.id ?? null;
+          const canonicalDefault = [...defaultRows].sort(
+            (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+          )[0];
+          let defaultId = canonicalDefault?.id ?? null;
+          if (canonicalDefault) {
+            if (canonicalDefault.name !== "Default" || canonicalDefault.settings !== "{}") {
+              await tx
+                .update(chatPresets)
+                .set({ name: "Default", settings: JSON.stringify({}) })
+                .where(eq(chatPresets.id, canonicalDefault.id));
+            }
+            const duplicates = defaultRows.filter((row) => row.id !== canonicalDefault.id);
+            if (duplicates.length > 0) {
+              const duplicateIds = new Set(duplicates.map((row) => row.id));
+              const modeChats = await tx.select().from(chats).where(eq(chats.mode, mode));
+              for (const chat of modeChats) {
+                const metadata = parseStoredChatMetadata(chat.metadata);
+                if (!metadata || !duplicateIds.has(String(metadata.appliedChatPresetId ?? ""))) continue;
+                await tx
+                  .update(chats)
+                  .set({
+                    metadata: JSON.stringify({ ...metadata, appliedChatPresetId: canonicalDefault.id }),
+                  })
+                  .where(eq(chats.id, chat.id));
+              }
+              for (const duplicate of duplicates) {
+                await tx.delete(chatPresets).where(eq(chatPresets.id, duplicate.id));
+              }
+            }
+          }
           if (!defaultId) {
             const id = newId();
             const ts = now();

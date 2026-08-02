@@ -191,6 +191,7 @@ Then restart Marinara and click **Reapply Cleanup** in the sprite generation win
 
 Game Mode Storyboards turn a completed GM narration into keyframe images and optional clips. Roleplay Storyboards combine completed exchanges and display the result inline after the assistant response.
 
+- Confirm **Storyboard** is installed from **Agents** > **Download Agents**, then turn on **Enable Agents** and **Enable Storyboards** for the chat.
 - For a manual scene video, generate or upload a **Gallery** image first, then use its **Video** or **Animate** action. The **Gallery** splits **Images** and **Videos** into tabs, so check the **Videos** tab.
 - For automatic Game Mode Storyboards, open **Chat Settings** > **Agents** > **Storyboards** and confirm **Automatic Storyboard Illustrations** is on. Turn on **Automatic Storyboard Animations** too if you also want clips.
 - In Roleplay, add the **Storyboard** Agent to the chat. Choose **Still images** or **Animations**, set **Messages per episode**, and select the Storyboard image connection. **Manual only** runs from **Create storyboard** in the Gallery instead.
@@ -198,7 +199,7 @@ Game Mode Storyboards turn a completed GM narration into keyframe images and opt
 - If a custom prompt works better with all characters combined, turn off **Use NovelAI Character Prompts**.
 - Slow providers can hit a timeout. Raise `IMAGE_GEN_TIMEOUT_MS` or `VIDEO_GEN_TIMEOUT_MS` in `.env`, then restart Marinara. The server only reads these values at startup.
 
-See [Storyboard Engine Guide](game/storyboard.md) for both workflows and [Game Mode: Getting Started](game/getting-started.md) for Game setup.
+See the [Storyboard Agent Guide](game/storyboard.md) for both workflows and [Game Mode: Getting Started](game/getting-started.md) for Game setup.
 
 ### Game Mode world generation shows a JSON error
 

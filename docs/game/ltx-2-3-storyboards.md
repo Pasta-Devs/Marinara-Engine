@@ -24,7 +24,7 @@ You need:
 2. The editable `ltx-director-simple` workflow, or an equivalent LTX 2.3 image-to-video graph that completes successfully inside ComfyUI.
 3. Its `ltx-director-simple-api` API-format export for the Marinara connection.
 4. A Marinara image-generation connection for the first-frame illustrations.
-5. A Game Mode chat with Storyboard support.
+5. The **Storyboard** Agent installed from **Agents > Download Agents** and activated for the Game under **Chat Settings > Agents**.
 
 The editable ComfyUI workflow and its API export are different files. Open `ltx-director-simple` in ComfyUI, install every missing custom node reported by ComfyUI Manager, and test the graph there. Import `ltx-director-simple-api` into the Marinara connection. After every node or model change, export the graph again in API format and replace the JSON stored on the connection. Do not paste the normal visual-editor workflow into Marinara.
 
@@ -142,7 +142,7 @@ A text-only connection test cannot exercise `%reference_image_name%`. Validate i
 
 ## Configure the Game Mode chat
 
-Open the Game Mode chat, then open **Chat Settings** and select **Agents**.
+Open the Game Mode chat, then open **Chat Settings** and select **Agents**. Turn on **Enable Agents** and **Enable Storyboards** before configuring the sections below. Storyboard Optimized presentation in the new-game wizard does not activate the Agent.
 
 ### Illustrator
 
@@ -179,7 +179,7 @@ Use this starting profile:
 | **Automatic Storyboard Illustrations** | On |
 | **Automatic Storyboard Animations** | On |
 | **Use NovelAI Character Prompts** | Off |
-| **Keyframes per Turn** | 3; use any value from 1-6 that suits the turn and render budget |
+| **Keyframes per Turn** | 3 normally; start with 1 for the first 8 GB VRAM test |
 | **Animation Clip Duration** | 6 seconds |
 | **Viewer Display** | Floating while testing |
 | **Illustration Planner** | **Still Keyframes**; retained as the still-only fallback |
@@ -198,7 +198,7 @@ Use this starting profile:
 
 **LTX Director Video** is intentionally small. It passes the Animation Planner's completed `narrationBeat` through the universal video prompt contract without surrounding it with another scene recap.
 
-Each keyframe creates one Krea image job and one local LTX video job. Three keyframes therefore launch three first-frame renders and three video renders. Use one keyframe for the first 8 GB validation run if you want to prove the connection before committing to the full three-shot setup.
+Each keyframe creates one Krea image job and one local LTX video job. Three keyframes therefore launch three first-frame renders and three video renders. For an 8 GB VRAM GPU, start with one keyframe at 480p. After that succeeds, move toward three keyframes and higher resolutions.
 
 ## Run the first test
 
@@ -297,7 +297,7 @@ For detailed server traces, enable debug logging and look for `[debug/game/story
 
 ## Related guides
 
-- [Storyboard Engine Guide](storyboard.md)
+- [Storyboard Agent Guide](storyboard.md)
 - [ComfyUI Workflow Setup](../media/comfyui.md)
 - [Scene Video Generation](../media/scene-video.md)
 - [Game Mode: Getting Started](getting-started.md)

@@ -54,6 +54,7 @@ export function createRegexScriptsStorage(db: DB) {
         promptOnly: promptOnlyForApplyMode(applyMode),
         applyMode,
         targetCharacterIds: JSON.stringify(input.targetCharacterIds ?? []),
+        targetPromptPresetIds: JSON.stringify(input.targetPromptPresetIds ?? []),
         order,
         minDepth: input.minDepth ?? null,
         maxDepth: input.maxDepth ?? null,
@@ -79,6 +80,9 @@ export function createRegexScriptsStorage(db: DB) {
       }
       if (data.targetCharacterIds !== undefined) {
         updateFields.targetCharacterIds = JSON.stringify(data.targetCharacterIds);
+      }
+      if (data.targetPromptPresetIds !== undefined) {
+        updateFields.targetPromptPresetIds = JSON.stringify(data.targetPromptPresetIds);
       }
       if (data.order !== undefined) updateFields.order = data.order;
       if (data.minDepth !== undefined) updateFields.minDepth = data.minDepth;

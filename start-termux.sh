@@ -215,6 +215,19 @@ has_git_worktree_changes() {
         || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]
 }
 
+# Drop untracked leftovers in the source trees (files a failed checkout could not
+# delete after a channel switch); they break tsc. This is working-tree repair,
+# not an update, so it runs even when auto-update is disabled -- and before
+# "stash push -u", which would otherwise capture the stale file and restore it
+# again after every update. Not quiet: git prints "Removing <path>" only when it
+# deletes something.
+CLEAN_FAILED=0
+if [ -d ".git" ]; then
+    if ! git clean -fd -- packages/shared/src packages/server/src packages/client/src 2>/dev/null; then
+        CLEAN_FAILED=1
+    fi
+fi
+
 # ── Auto-update from Git ──
 if [ "$SKIP_UPDATE" = "1" ]; then
     echo "  [OK] Skipping update check; starting the current local install."
@@ -255,6 +268,12 @@ elif [ -d ".git" ]; then
         else
             SKIP_UPDATE_FOR_LOCAL_CHANGES=1
             echo "  [WARN] Could not create an update snapshot. Skipping auto-update to protect your data."
+        fi
+        if [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" != "1" ] && [ "$CLEAN_FAILED" = "1" ]; then
+            # A leftover we could not delete would be captured by "stash push -u"
+            # and restored afterwards, making the broken tree permanent.
+            SKIP_UPDATE_FOR_LOCAL_CHANGES=1
+            echo "  [WARN] Could not clear stale files under packages/*/src. Skipping auto-update so they are not stashed and restored."
         fi
         if [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" != "1" ] && has_git_worktree_changes; then
             if git stash push -u -q -m "auto-stash before update" 2>/dev/null; then

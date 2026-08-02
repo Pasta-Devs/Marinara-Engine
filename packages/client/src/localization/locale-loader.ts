@@ -66,7 +66,11 @@ export const APP_LANGUAGE_OPTIONS: readonly LocaleDescriptor[] = Object.freeze(
     .sort((left, right) => {
       if (left.id === DEFAULT_APP_LANGUAGE) return -1;
       if (right.id === DEFAULT_APP_LANGUAGE) return 1;
-      return left.label.localeCompare(right.label, left.id);
+      // Order by language code, not label: comparing native-script labels with
+      // a per-item collation locale is non-transitive across scripts and
+      // scrambled the dropdown. Code order also matches the Documentation
+      // Language selector, so the two pickers agree.
+      return left.id.localeCompare(right.id, "en");
     }),
 );
 
