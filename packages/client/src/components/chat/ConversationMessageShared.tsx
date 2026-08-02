@@ -577,7 +577,7 @@ export function ConversationMessageTranslation({
       {isTranslating ? (
         <span className="text-[0.75rem] italic text-[var(--muted-foreground)]">{localizeUi("ui.chat.chatmessage.translating")}</span>
       ) : (
-        <div className="whitespace-pre-wrap text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
+        <div className="translation-text whitespace-pre-wrap">
           {translatedText}
         </div>
       )}

@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Full-Page Regex Script Editor
 // ──────────────────────────────────────────────
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useUIStore } from "../../stores/ui.store";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import {
@@ -12,6 +12,7 @@ import {
   type RegexScriptRow,
 } from "../../hooks/use-regex-scripts";
 import { useCharacters } from "../../hooks/use-characters";
+import { usePresets } from "../../hooks/use-presets";
 import {
   ArrowLeft,
   Save,
@@ -25,6 +26,7 @@ import {
   Plus,
   Minus,
   Users,
+  FileText,
   Upload,
 } from "lucide-react";
 import { cn } from "../../lib/utils";
@@ -163,6 +165,64 @@ function describeRegexEditorError(error: unknown): string {
   return "Failed to save regex script";
 }
 
+function ScopeTargetPicker({
+  icon,
+  options,
+  selectedIds,
+  addLabel,
+  emptyLabel,
+  removeLabel,
+  onAdd,
+  onRemove,
+}: {
+  icon: ReactNode;
+  options: Array<{ id: string; name: string }>;
+  selectedIds: string[];
+  addLabel: string;
+  emptyLabel: string;
+  removeLabel: (name: string) => string;
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
+}) {
+  const selected = selectedIds.map((id) => options.find((option) => option.id === id) ?? { id, name: id });
+  const available = options.filter((option) => !selectedIds.includes(option.id));
+
+  return (
+    <div className="mt-3 space-y-2">
+      {selected.map((option) => (
+        <div key={option.id} className="mari-editor-panel mari-editor-panel--soft flex items-center gap-2.5 px-3 py-2">
+          <span className={REGEX_FIELD_ICON_CLASS}>{icon}</span>
+          <span className="min-w-0 flex-1 truncate text-xs">{option.name}</span>
+          <button
+            type="button"
+            onClick={() => onRemove(option.id)}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--destructive)]/15 hover:text-[var(--destructive)]"
+            aria-label={removeLabel(option.name)}
+            title={removeLabel(option.name)}
+          >
+            <X size="0.75rem" />
+          </button>
+        </div>
+      ))}
+      <select
+        value=""
+        disabled={available.length === 0}
+        onChange={(event) => {
+          if (event.target.value) onAdd(event.target.value);
+        }}
+        className="w-full rounded-xl bg-[var(--background)] px-3 py-2 text-xs ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-60"
+      >
+        <option value="">{available.length > 0 ? addLabel : emptyLabel}</option>
+        {available.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════
 //  Main Editor
 // ═══════════════════════════════════════════════
@@ -177,6 +237,7 @@ export function RegexScriptEditor() {
 
   const { data: regexScripts } = useRegexScripts();
   const { data: characters } = useCharacters();
+  const { data: promptPresets } = usePresets();
   const updateScript = useUpdateRegexScript();
   const createScript = useCreateRegexScript();
   const deleteScript = useDeleteRegexScript();
@@ -200,6 +261,8 @@ export function RegexScriptEditor() {
   const [localApplyMode, setLocalApplyMode] = useState<RegexApplyMode>("display");
   const [localCharacterScopeEnabled, setLocalCharacterScopeEnabled] = useState(false);
   const [localTargetCharacterIds, setLocalTargetCharacterIds] = useState<string[]>([]);
+  const [localPromptPresetScopeEnabled, setLocalPromptPresetScopeEnabled] = useState(false);
+  const [localTargetPromptPresetIds, setLocalTargetPromptPresetIds] = useState<string[]>([]);
   const [localOrder, setLocalOrder] = useState(0);
   const [localMinDepth, setLocalMinDepth] = useState<number | null>(null);
   const [localMaxDepth, setLocalMaxDepth] = useState<number | null>(null);
@@ -234,6 +297,13 @@ export function RegexScriptEditor() {
       .filter((character): character is { id: string; name: string } => character !== null)
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [characters]);
+  const promptPresetOptions = useMemo(
+    () =>
+      (promptPresets ?? [])
+        .map((preset) => ({ id: preset.id, name: preset.name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [promptPresets],
+  );
 
   // Populate from DB row or defaults for new
   useEffect(() => {
@@ -258,6 +328,9 @@ export function RegexScriptEditor() {
       const targetCharacterIds = parseStringArray(dbRow.targetCharacterIds);
       setLocalTargetCharacterIds(targetCharacterIds);
       setLocalCharacterScopeEnabled(targetCharacterIds.length > 0);
+      const targetPromptPresetIds = parseStringArray(dbRow.targetPromptPresetIds);
+      setLocalTargetPromptPresetIds(targetPromptPresetIds);
+      setLocalPromptPresetScopeEnabled(targetPromptPresetIds.length > 0);
       setLocalOrder(dbRow.order);
       setLocalMinDepth(dbRow.minDepth);
       setLocalMaxDepth(dbRow.maxDepth);
@@ -275,6 +348,8 @@ export function RegexScriptEditor() {
       const defaultScope = regexDetailDefaultCharacterIds ?? [];
       setLocalTargetCharacterIds(defaultScope);
       setLocalCharacterScopeEnabled(defaultScope.length > 0);
+      setLocalTargetPromptPresetIds([]);
+      setLocalPromptPresetScopeEnabled(false);
       setLocalOrder(0);
       setLocalMinDepth(null);
       setLocalMaxDepth(null);
@@ -344,7 +419,11 @@ export function RegexScriptEditor() {
     if (!regexDetailId) return;
     setSaveError(null);
     if (localCharacterScopeEnabled && localTargetCharacterIds.length === 0) {
-      setSaveError("Choose at least one target character.");
+      setSaveError(localizeUi("ui.agents.regexscripteditor.chooseAtLeastOneCharacter"));
+      return;
+    }
+    if (localPromptPresetScopeEnabled && localTargetPromptPresetIds.length === 0) {
+      setSaveError(localizeUi("ui.agents.regexscripteditor.chooseAtLeastOnePromptPreset"));
       return;
     }
     if (blockingRegexError) {
@@ -367,6 +446,7 @@ export function RegexScriptEditor() {
       promptOnly: localApplyMode === "prompt",
       applyMode: localApplyMode,
       targetCharacterIds: localCharacterScopeEnabled ? localTargetCharacterIds : [],
+      targetPromptPresetIds: localPromptPresetScopeEnabled ? localTargetPromptPresetIds : [],
       minDepth: localMinDepth,
       maxDepth: localMaxDepth,
     };
@@ -402,6 +482,8 @@ export function RegexScriptEditor() {
     localApplyMode,
     localCharacterScopeEnabled,
     localTargetCharacterIds,
+    localPromptPresetScopeEnabled,
+    localTargetPromptPresetIds,
     localOrder,
     localMinDepth,
     localMaxDepth,
@@ -412,6 +494,7 @@ export function RegexScriptEditor() {
     createScript,
     openRegexDetail,
     regexDetailReturn,
+    localizeUi,
   ]);
 
   const markDirty = useCallback(() => setDirty(true), []);
@@ -443,13 +526,6 @@ export function RegexScriptEditor() {
     markDirty();
   };
 
-  const toggleTargetCharacter = (characterId: string) => {
-    setLocalTargetCharacterIds((prev) =>
-      prev.includes(characterId) ? prev.filter((id) => id !== characterId) : [...prev, characterId],
-    );
-    markDirty();
-  };
-
   const handleExport = () => {
     downloadJsonFile(
       {
@@ -466,6 +542,7 @@ export function RegexScriptEditor() {
         promptOnly: localApplyMode === "prompt",
         applyMode: localApplyMode,
         targetCharacterIds: localCharacterScopeEnabled ? localTargetCharacterIds : [],
+        targetPromptPresetIds: localPromptPresetScopeEnabled ? localTargetPromptPresetIds : [],
         order: localOrder,
         minDepth: localMinDepth,
         maxDepth: localMaxDepth,
@@ -485,7 +562,13 @@ export function RegexScriptEditor() {
 
   const isPending = updateScript.isPending || createScript.isPending;
   const characterScopeError =
-    localCharacterScopeEnabled && localTargetCharacterIds.length === 0 ? "Choose at least one character." : null;
+    localCharacterScopeEnabled && localTargetCharacterIds.length === 0
+      ? localizeUi("ui.agents.regexscripteditor.chooseAtLeastOneCharacter")
+      : null;
+  const promptPresetScopeError =
+    localPromptPresetScopeEnabled && localTargetPromptPresetIds.length === 0
+      ? localizeUi("ui.agents.regexscripteditor.chooseAtLeastOnePromptPreset")
+      : null;
 
   return (
     <div className="mari-editor-shell mari-editor-legacy-bridge flex flex-1 flex-col overflow-hidden">
@@ -523,7 +606,13 @@ export function RegexScriptEditor() {
           {dirty && !saveError && <span className="mari-editor-status mr-2 text-amber-400">{localizeUi("ui.agents.agenteditor.unsaved")}</span>}
           <button
             onClick={handleSave}
-            disabled={isPending || !!blockingRegexError || !!characterScopeError || !!depthRangeError}
+            disabled={
+              isPending ||
+              !!blockingRegexError ||
+              !!characterScopeError ||
+              !!promptPresetScopeError ||
+              !!depthRangeError
+            }
             className="mari-editor-action mari-editor-action--primary inline-flex disabled:opacity-50"
             title={localizeUi("ui.agents.regexscripteditor.saveRegexScript")}
             aria-label={localizeUi("ui.agents.regexscripteditor.saveRegexScript")}
@@ -721,36 +810,84 @@ export function RegexScriptEditor() {
                 </div>
               </div>
               {localCharacterScopeEnabled && (
-                <div className="mt-3 rounded-lg bg-[var(--background)]/60 p-2 ring-1 ring-[var(--border)]">
-                  {characterOptions.length > 0 ? (
-                    <div className="grid max-h-36 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2">
-                      {characterOptions.map((character) => {
-                        const selected = localTargetCharacterIds.includes(character.id);
-                        return (
-                          <button
-                            key={character.id}
-                            type="button"
-                            onClick={() => toggleTargetCharacter(character.id)}
-                            title={character.name}
-                            className={cn(
-                              "flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[0.6875rem] ring-1 transition-all",
-                              selected
-                                ? REGEX_ACTIVE_OPTION_CLASS
-                                : "text-[var(--muted-foreground)] ring-[var(--border)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]",
-                            )}
-                          >
-                            <span className="min-w-0 truncate">{character.name}</span>
-                            {selected && <Check size="0.6875rem" className="shrink-0" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="px-2 py-1 text-[0.6875rem] text-[var(--muted-foreground)]">{localizeUi("ui.agents.regexscripteditor.noCharactersFound")}</div>
-                  )}
+                <div>
+                  <ScopeTargetPicker
+                    icon={<Users size="0.75rem" />}
+                    options={characterOptions}
+                    selectedIds={localTargetCharacterIds}
+                    addLabel={localizeUi("ui.agents.regexscripteditor.addCharacter")}
+                    emptyLabel={localizeUi("ui.agents.regexscripteditor.noCharactersFound")}
+                    removeLabel={(name) =>
+                      localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: name })
+                    }
+                    onAdd={(id) => {
+                      setLocalTargetCharacterIds((previous) => [...previous, id]);
+                      markDirty();
+                    }}
+                    onRemove={(id) => {
+                      setLocalTargetCharacterIds((previous) => previous.filter((value) => value !== id));
+                      markDirty();
+                    }}
+                  />
                   {characterScopeError && (
                     <div className="mt-2 flex items-center gap-1 text-[0.625rem] font-medium text-amber-400">
                       <AlertCircle size="0.6875rem" /> {characterScopeError}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="rounded-xl bg-[var(--secondary)]/60 p-3 ring-1 ring-[var(--border)]">
+              <div className="flex items-start gap-2.5">
+                <SettingsSwitch
+                  ariaLabel={localizeUi("ui.agents.regexscripteditor.togglePromptPresetScope")}
+                  checked={localPromptPresetScopeEnabled}
+                  onChange={(checked) => {
+                    setLocalPromptPresetScopeEnabled(checked);
+                    markDirty();
+                  }}
+                  className="mt-0.5 shrink-0 p-0 hover:bg-transparent"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-xs font-medium">
+                    <FileText size="0.75rem" className={REGEX_FIELD_ICON_CLASS} />
+                    {localizeUi("ui.agents.regexscripteditor.specificPromptPresets")}
+                    <HelpTooltip
+                      text={localizeUi("ui.agents.regexscripteditor.limitThisScriptToSelectedPromptPresets")}
+                    />
+                  </div>
+                  <div className="mt-0.5 text-[0.625rem] text-[var(--muted-foreground)]">
+                    {localPromptPresetScopeEnabled
+                      ? localizeUi("ui.agents.regexscripteditor.value1Selected", {
+                          value1: localTargetPromptPresetIds.length,
+                        })
+                      : localizeUi("ui.agents.regexscripteditor.appliesToAllPromptPresets")}
+                  </div>
+                </div>
+              </div>
+              {localPromptPresetScopeEnabled && (
+                <div>
+                  <ScopeTargetPicker
+                    icon={<FileText size="0.75rem" />}
+                    options={promptPresetOptions}
+                    selectedIds={localTargetPromptPresetIds}
+                    addLabel={localizeUi("ui.agents.regexscripteditor.addPromptPreset")}
+                    emptyLabel={localizeUi("ui.agents.regexscripteditor.noPromptPresetsFound")}
+                    removeLabel={(name) =>
+                      localizeUi("ui.agents.regexscripteditor.removeValue1", { value1: name })
+                    }
+                    onAdd={(id) => {
+                      setLocalTargetPromptPresetIds((previous) => [...previous, id]);
+                      markDirty();
+                    }}
+                    onRemove={(id) => {
+                      setLocalTargetPromptPresetIds((previous) => previous.filter((value) => value !== id));
+                      markDirty();
+                    }}
+                  />
+                  {promptPresetScopeError && (
+                    <div className="mt-2 flex items-center gap-1 text-[0.625rem] font-medium text-amber-400">
+                      <AlertCircle size="0.6875rem" /> {promptPresetScopeError}
                     </div>
                   )}
                 </div>

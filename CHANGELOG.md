@@ -4,6 +4,35 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Added
+
+- Added the **Hindi** documentation language pack, covering all 124 in-app guides (developer docs included) in natural Hindi, with English UI control names preserved for following instructions against the interface and Hindi sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4471).
+
+### Fixed
+
+- Sorted the **Settings → General → Language** dropdown by language code with English pinned first, matching the Documentation Language selector. The previous native-label sort used a different collation per entry, which scrambled the order across scripts (#4471).
+- Sent Noodle image instructions to the timeline model, and stopped the default Noodle Post Image template from appending them to the image-generation prompt, so directions like "mention build, clothing, pose, lighting" now shape the generated image description instead of reaching ComfyUI as literal prompt text. Custom templates that still reference `{{userInstructions}}` continue to append it verbatim. Raw style tokens belong in an image style profile, which applies to every Noodle image.
+- Stripped label text and language-model framing from the character personality and image-habit blocks in the Noodle image prompt, so the image model receives the descriptive values instead of sentences written for an LLM.
+- Dropped the `Character appearance notes:` header from the shared illustrator appearance block, which every caller appends directly to an image prompt, so diffusion models stop receiving the label as drawable text.
+
+## [2.4.1]
+
+### Added
+
+- Added optional prompt-preset targeting to regex scripts and refreshed the existing character target picker so scoped regexes follow the selected preset or characters without clipped controls (#4446).
+
+### Changed
+
+- Advanced the stable release identity to v2.4.1 across the Engine, PWA manifest, Windows installer, Android bootstrap APK, update checks, Home page, and release references. Android uses `versionName` `2.4.1` with `versionCode` `42` so it updates over every previously published APK.
+
+### Fixed
+
+- Let Characters, Personas, Lorebooks, Agents, Presets, and Connections sidebar labels use the full desktop row width beneath hover actions, and made Conversation Call clip-length rows size to their panel instead of clipping labels beside fixed-width fields (#4449).
+- Removed accumulated duplicate built-in **Default** settings profiles during startup normalization while preserving one stable profile and active selection per chat mode (#4442).
+- Kept `/scene` chats and standalone conversions out of Conversation branch groups so original conversations remain visible in the Conversation sidebar (#4443).
+- Taught Professor Mari the supported custom `image_prompt` agent configuration, including marker activation and the image-generation capability, so she creates requested image agents instead of falsely refusing them (#4444).
+- Kept Google Gemini API keys in the `x-goog-api-key` header when fetching models instead of duplicating them in the URL, preventing compatible proxies from rejecting the query token with HTTP 401 (#4448).
+
 ## [2.4.0]
 
 ### Added
@@ -21,6 +50,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added Browser Personal Extension API version 5 with read-only active chat and Character identifiers, plus separately reviewable permissions for bounded snapshots of the active Character cards and selected Persona. Extensions such as Notepad can keep per-chat or per-Character state and display active profile context without gaining access to messages, full libraries, undeclared fields, chat metadata, DOM, database, network, or mutation operations (#4316).
 - Added per-agent context controls for custom agents, allowing each agent to request only the chat history, Character, Persona, lorebook, summary, Author's Note, tracker, and recalled-memory context it needs (#4305).
 - Added Markdown preview toggles to Character, Persona, and lorebook text fields, and rendered formatted card text in library detail views (#4306).
+- Added the **Simplified Chinese** documentation language pack, covering all 124 in-app guides (developer docs included) in natural Simplified Chinese (simplified characters only, the Chinese SillyTavern community's established terms such as 世界书 and 角色卡, one term and one CJK-Latin spacing convention per concept so search always matches, product names kept in Latin script), with English UI control names preserved for following instructions against the interface and Chinese sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4435).
 - Added the **Korean** documentation language pack, covering all 123 in-app guides (developer docs included) in natural Korean (the 합니다체 register standard in Korean software, one transcription and one spacing per term so search always matches, product names kept in Latin script with correct particle attachment), with English UI control names preserved for following instructions against the interface — glossed to match the app's Korean UI translation where a shipped string exists — and Korean sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4374).
 - Added the **Japanese** documentation language pack, covering all 123 in-app guides (developer docs included) in natural Japanese (the polite です・ます register standard in Japanese software, one katakana spelling per term and half-width Latin and digits everywhere so search always matches, product names kept in Latin script), with English UI control names preserved for following instructions against the interface and Japanese sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4345).
 - Added the **Russian** documentation language pack, covering all 123 in-app guides (developer docs included) in natural Russian (the "вы" address of mainstream Russian software with gender-neutral phrasing, product names kept in Latin script and undeclined so search always matches, standard Cyrillic loanword declension), with English UI control names preserved for following instructions against the interface and Russian sidebar category labels in the docs viewer. Select it under **Settings → General → Documentation Language** via **Download & Replace** (#4281).
@@ -57,6 +87,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Security
 
+- Updated the production web server, static-file serving, request client, archive, image-processing, HTML-sanitization, MCP transport, and supporting transitive dependencies to their patched releases; the shipped dependency graph now passes the production vulnerability audit with no known advisories.
 - Required normal authorization for proxy-forwarded Docker traffic by default while retaining `REQUIRE_AUTH_FOR_DOCKER_PROXY=false` as an explicit legacy opt-out for fully trusted upstream clients. Direct same-host Docker bridge/gateway traffic remains compatible with `BYPASS_AUTH_DOCKER`.
 - Pinned bundled llama.cpp, MLX, and uv runtime inputs to reviewed revisions and release assets with repository-owned sizes and SHA-256 digests, and locked every MLX Python dependency to hash-verified packages. Downloads now fail before extraction or execution when their content differs, cancellation remains effective between retries, and installed runtime stamps force explicit Engine-reviewed upgrades instead of following upstream `latest` or `main`.
 - Bounded NovelAI ZIP image decompression to 64 MiB, rejected oversized declared output before inflation, and required actual output to match the archive metadata so malformed or highly expanding provider responses fail safely.
@@ -65,6 +96,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Updated Professor Mari's official Agent knowledge and public catalog counts to cover all 31 downloadable packages, including Long-Term Memory and Storyboard, and corrected her package-update guidance to match the user-confirmed update flow.
 - Kept Noodle and NoodleR navigation, search, stage-profile, and bulk-create icons on their blue and pink mode accents, and made lorebook entry-type descriptions inherit editor chrome text instead of the default pink foreground (#4417).
 - Corrected several Korean interface strings surfaced by the Korean documentation review: stale character-card update items are now labeled 오래됨 instead of the self-contradictory 적용 불가 (the modal lets you override and apply them), the Mini Mari setting keeps the product name in Latin script, Custom Sources follows the 사용자 지정 convention, the regenerate concept is unified on 재생성 across ten strings, the Verbosity parameter reads 상세도, and the release labels use the 릴리스 spelling (#4376).
 - Made Name Prefix carry each responding character's identity into post-processing Agent prompts in multi-character Roleplay while keeping rewrite agents' raw response text unchanged (#4351).

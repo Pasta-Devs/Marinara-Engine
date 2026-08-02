@@ -159,7 +159,7 @@ Extracts durable memories from chat summaries, character records, and lorebooks 
 - **Where it works**: Conversation, Roleplay, and Game.
 - **Key settings**: enablement, recall token budget (128-16,384), maximum recalled chunks (1-100), score threshold, recent-message context (1-20), recall style and semantic, lexical, graph, and keyword weights, resolved-memory inclusion, recall preamble, extraction reasoning and verbosity, generation limits, source limits, prompt templates, AI keyword extraction, and Game-mode extraction.
 - **Data lifecycle**: use the Memory Settings backup controls to export or replace the vault, drafts, and settings. Delete all data permanently removes memories, drafts, activity, and derived indexes while retaining settings. Uninstalling the package preserves the Long-Term Memory vault for a later reinstall. Installing, updating, or removing it requires a Marinara restart.
-- **Compatibility**: Engine `2.3.3` through before `2.4.0`. The package uses `agent-runtime`, `chat-read`, `routes`, `storage`, and `ui` permissions.
+- **Compatibility**: Engine `2.3.5` through before `4.0.0`. The package uses `agent-runtime`, `chat-read`, `chat-write`, `routes`, `storage`, and `ui` permissions.
 
 ### Illustrator
 
@@ -216,6 +216,16 @@ Adds clickable "What will you do?" choice buttons after each reply, for a choose
 - **Phase**: Post-Processing.
 - **Where it works**: Roleplay.
 - **Key settings**: **Edit** to rewrite the choices and **Re-roll** to generate new ones.
+
+### Storyboard
+
+Plans still or animated visual storyboards from completed Roleplay exchanges and Game narration. Separate planning and provider-aware formatting preserve source chronology, character identity, and the selected visual style across generated keyframes and videos.
+
+- **Integration**: Agent package; Game and Roleplay use the installed package's prompt templates and settings through the Engine's Storyboard host integration.
+- **Where it works**: Roleplay and Game.
+- **Key settings**: choose still or animation planners, image and video connections, keyframe count, duration, display mode, character-reference handling, Roleplay episode and style templates, and Game illustration/video templates.
+- **Compatibility**: Engine `2.3.5` through before `3.0.0`. The package uses `agent-runtime`, `chat-read`, `prompt-context`, `storage`, and `ui` permissions and does not require a restart.
+- **Full guide**: [Storyboard Agent: Roleplay and Game Mode](../game/storyboard.md).
 
 ### Calls
 

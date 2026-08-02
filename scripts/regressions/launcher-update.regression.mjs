@@ -14,6 +14,7 @@ import {
   restoreLauncherDataIfMissing,
   snapshotLauncherData,
 } from "../protect-launcher-data.mjs";
+import { workspaceLockfileMatches } from "../check-workspace-install.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const releaseUrl = "https://github.com/Pasta-Devs/Marinara-Engine/releases/tag/v2.3.4";
@@ -94,9 +95,31 @@ for (const launcherName of ["start.sh", "start-termux.sh", "start.bat"]) {
   assert.match(launcherSource, /protect-launcher-data\.mjs restore-if-missing/u);
 }
 
+const devSource = readFileSync(join(repositoryRoot, "scripts/dev.mjs"), "utf8");
+assert.match(devSource, /check-workspace-install\.mjs/u);
+assert.match(devSource, /\["install", "--frozen-lockfile"\]/u);
+
 const fixtureRoot = mkdtempSync(join(tmpdir(), "marinara-launcher-data-"));
 const fixtureBackupRoot = resolve(fixtureRoot, "..", `${basename(fixtureRoot)}-backups`);
 try {
+  const installFixtureRoot = join(fixtureRoot, "install-check");
+  const installedLockfileDir = join(installFixtureRoot, "node_modules", ".pnpm");
+  mkdirSync(installedLockfileDir, { recursive: true });
+  assert.equal(workspaceLockfileMatches(installFixtureRoot), false);
+
+  writeFileSync(join(installFixtureRoot, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+  writeFileSync(join(installedLockfileDir, "lock.yaml"), "lockfileVersion: '9.0'\n");
+  assert.equal(workspaceLockfileMatches(installFixtureRoot), true);
+
+  writeFileSync(join(installFixtureRoot, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\r\n");
+  assert.equal(workspaceLockfileMatches(installFixtureRoot), true);
+
+  writeFileSync(join(installFixtureRoot, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\r");
+  assert.equal(workspaceLockfileMatches(installFixtureRoot), true);
+
+  writeFileSync(join(installedLockfileDir, "lock.yaml"), "lockfileVersion: '8.0'\n");
+  assert.equal(workspaceLockfileMatches(installFixtureRoot), false);
+
   const defaultDataDir = await resolveLauncherDataDir({ root: fixtureRoot, env: {} });
   mkdirSync(defaultDataDir, { recursive: true });
   writeFileSync(join(defaultDataDir, "characters.json"), '{"name":"Preserved"}\n');

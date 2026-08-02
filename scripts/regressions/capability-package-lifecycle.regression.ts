@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-capability-lifecycle-"));
 process.env.DATA_DIR = dataDir;
+process.env.MARINARA_GIT_BRANCH = "staging";
 
 const packagesRoot = join(dataDir, "capability-packages");
 const registryPath = join(packagesRoot, "installed.json");
@@ -183,6 +184,7 @@ try {
     resolveOfficialAgentBranch,
     resolveCapabilityCatalogUrl,
     resolveCapabilityPackageArtifactUrl,
+    resolveCapabilityPackageIconUrl,
   } = await import(
     "../../packages/server/src/services/capability-packages/package-manager.service.js"
   );
@@ -381,9 +383,33 @@ try {
       sha256: "1".repeat(64),
       bytes: 1,
     },
+    iconUrl: "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/main/artwork/agent-covers/legacy.png",
   };
   const officialCatalogUrl = resolveCapabilityCatalogUrl("development", "", "main");
   const stagingCatalogUrl = resolveCapabilityCatalogUrl("development", "", "staging");
+  const activeCatalogUrl = resolveCapabilityCatalogUrl();
+  let requestedCatalogUrl: string | URL | undefined;
+  const normalizedCatalog = await capabilityPackageManager.catalog(async (url) => {
+    requestedCatalogUrl = url;
+    return new Response(
+      JSON.stringify({
+        schemaVersion: 1,
+        generatedAt: "2026-08-01T00:00:00.000Z",
+        packages: [canonicalArtifactEntry],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  });
+  assert.equal(
+    requestedCatalogUrl,
+    activeCatalogUrl,
+    "The package manager must request the catalog URL selected for the current Engine channel",
+  );
+  assert.equal(
+    normalizedCatalog.packages[0]?.iconUrl,
+    "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/artwork/agent-covers/legacy.png",
+    "The catalog response must expose artwork normalized through the active catalog URL",
+  );
   assert.equal(getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, officialCatalogUrl), null);
   assert.equal(
     getCapabilityPackageArtifactSourceIssue(canonicalArtifactEntry, stagingCatalogUrl),
@@ -394,6 +420,11 @@ try {
     resolveCapabilityPackageArtifactUrl(canonicalArtifactEntry, stagingCatalogUrl),
     "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/artifacts/legacy-1.0.0.zip",
     "Engine staging must download official artifacts from Marinara-Agents staging even when generated metadata remains stable",
+  );
+  assert.equal(
+    resolveCapabilityPackageIconUrl(canonicalArtifactEntry, stagingCatalogUrl),
+    "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents/staging/artwork/agent-covers/legacy.png",
+    "Engine staging must load official artwork from Marinara-Agents staging even when generated metadata remains stable",
   );
   assert.match(
     getCapabilityPackageArtifactSourceIssue(
@@ -427,6 +458,14 @@ try {
     ),
     "https://packages.example/legacy.zip",
     "Explicit custom catalogs must retain their configured artifact URLs",
+  );
+  assert.equal(
+    resolveCapabilityPackageIconUrl(
+      { ...canonicalArtifactEntry, iconUrl: "https://packages.example/legacy.png" },
+      "https://catalog.example.test/custom.json",
+    ),
+    "https://packages.example/legacy.png",
+    "Explicit custom catalogs must retain their configured artwork URLs",
   );
   const {
     buildHierarchicalMapsSelectionCorrectionPatch,

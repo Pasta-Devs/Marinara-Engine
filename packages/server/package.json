@@ -1,6 +1,6 @@
 {
   "name": "@marinara-engine/server",
-  "version": "2.4.0",
+  "version": "2.4.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -18,28 +18,28 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.141",
     "@fastify/cors": "^11.2.0",
     "@fastify/multipart": "^9.4.0",
-    "@fastify/static": "^9.1.3",
+    "@fastify/static": "^10.1.2",
     "@huggingface/transformers": "^3.8.1",
     "@marinara-engine/shared": "workspace:*",
-    "adm-zip": "^0.5.17",
+    "adm-zip": "^0.6.0",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
     "buttplug": "4.0.1",
     "dotenv": "^16.6.1",
-    "fastify": "^5.8.5",
+    "fastify": "^5.11.0",
     "jsonrepair": "^3.15.0",
     "nanoid": "^5.1.11",
     "pdf-parse": "^2.4.5",
     "pino": "^9.14.0",
     "pino-pretty": "^13.1.3",
-    "undici": "^7.25.0",
+    "undici": "^7.28.0",
     "zod": "^3.25.76"
   },
   "optionalDependencies": {
-    "@img/sharp-wasm32": "0.34.5",
+    "@img/sharp-wasm32": "0.35.3",
     "onnxruntime-node": "^1.24.3",
     "onnxruntime-web": "^1.24.3",
-    "sharp": "^0.34.5"
+    "sharp": "^0.35.3"
   },
   "devDependencies": {
     "@types/adm-zip": "^0.5.8",

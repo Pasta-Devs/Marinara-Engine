@@ -2257,7 +2257,9 @@ export const ChatMessage = memo(function ChatMessage({
           {isTranslating ? (
             <span className="text-[0.75rem] italic text-white/40">{localizeUi("ui.chat.chatmessage.translating")}</span>
           ) : (
-            <div className="text-[0.8125rem] leading-relaxed text-blue-200/70">{renderedTranslation}</div>
+            <div className="translation-text whitespace-pre-wrap">
+              {renderedTranslation}
+            </div>
           )}
         </div>
       )}
@@ -3162,7 +3164,7 @@ export const ChatMessage = memo(function ChatMessage({
                     {isTranslating ? (
                       <span className="text-[0.75rem] italic text-[var(--muted-foreground)]">{localizeUi("ui.chat.chatmessage.translating")}</span>
                     ) : (
-                      <div className="text-[0.8125rem] leading-relaxed text-[var(--muted-foreground)]">
+                      <div className="translation-text whitespace-pre-wrap">
                         {renderedTranslation}
                       </div>
                     )}

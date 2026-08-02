@@ -11,6 +11,7 @@ import {
   type RegexPlacement,
 } from "@marinara-engine/shared";
 import { useUIStore } from "../stores/ui.store";
+import { useChatStore } from "../stores/chat.store";
 
 /** How character-scoped regex scripts apply at display time (mirrors card CSS modes). */
 export type ScopedRegexMode = "disabled" | "exclusive" | "chat";
@@ -55,6 +56,14 @@ function parseScript(row: RegexScriptRow) {
       return [];
     }
   })();
+  const targetPromptPresetIds: string[] = (() => {
+    try {
+      const parsed = JSON.parse(row.targetPromptPresetIds);
+      return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+    } catch {
+      return [];
+    }
+  })();
   return {
     ...row,
     enabledBool: row.enabled === "true",
@@ -62,6 +71,7 @@ function parseScript(row: RegexScriptRow) {
     placements,
     trimStrings,
     targetCharacterIds,
+    targetPromptPresetIds,
   };
 }
 
@@ -82,6 +92,7 @@ function applyScripts(
     targetedOnly?: boolean;
     scopedMode?: ScopedRegexMode;
     characterId?: string | null;
+    promptPresetId?: string | null;
   },
 ): string {
   let result = text;
@@ -112,6 +123,9 @@ function applyScripts(
           if (!charId || !script.targetCharacterIds.includes(charId)) continue;
         }
       }
+    }
+    if (script.targetPromptPresetIds.length > 0) {
+      if (!options?.promptPresetId || !script.targetPromptPresetIds.includes(options.promptPresetId)) continue;
     }
 
     // Depth range filtering
@@ -152,6 +166,7 @@ function applyScripts(
 export function useApplyRegex() {
   const { data: regexScripts } = useRegexScripts();
   const quoteFormat = useUIStore((s) => s.quoteFormat);
+  const activePromptPresetId = useChatStore((s) => s.activeChat?.promptPresetId ?? null);
 
   // Pre-parse all scripts (sorted by order, which is done server-side)
   const parsedScripts = useMemo(() => {
@@ -168,16 +183,24 @@ export function useApplyRegex() {
         scopedMode?: ScopedRegexMode;
         characterId?: string | null;
       },
-    ) => formatTextQuotes(applyScripts(text, parsedScripts, "ai_output", options), quoteFormat),
-    [parsedScripts, quoteFormat],
+    ) =>
+      formatTextQuotes(
+        applyScripts(text, parsedScripts, "ai_output", { ...options, promptPresetId: activePromptPresetId }),
+        quoteFormat,
+      ),
+    [activePromptPresetId, parsedScripts, quoteFormat],
   );
 
   const applyToUserInput = useCallback(
     (
       text: string,
       options?: { depth?: number; resolveMacros?: (value: string) => string; scopedMode?: ScopedRegexMode },
-    ) => formatTextQuotes(applyScripts(text, parsedScripts, "user_input", options), quoteFormat),
-    [parsedScripts, quoteFormat],
+    ) =>
+      formatTextQuotes(
+        applyScripts(text, parsedScripts, "user_input", { ...options, promptPresetId: activePromptPresetId }),
+        quoteFormat,
+      ),
+    [activePromptPresetId, parsedScripts, quoteFormat],
   );
 
   return { applyToAIOutput, applyToUserInput };

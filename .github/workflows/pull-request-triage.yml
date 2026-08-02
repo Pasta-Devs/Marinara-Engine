@@ -4,8 +4,6 @@ on:
   pull_request_target:
     types: [opened, reopened, edited, synchronize, ready_for_review]
     branches: [staging, main]
-  pull_request_review:
-    types: [submitted, dismissed]
 
 concurrency:
   group: pull-request-triage-${{ github.event.pull_request.number }}
@@ -14,9 +12,6 @@ concurrency:
 jobs:
   branch-policy:
     name: Branch policy check
-    if: >-
-      github.event_name == 'pull_request_target' &&
-      (github.event.action != 'edited' || contains(toJSON(github.event.changes), '"base"'))
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -49,107 +44,34 @@ jobs:
           echo "::error::Contributions must target staging. Main accepts only SpicyMarinara's same-repository staging promotion or hotfix/* PR."
           exit 1
 
-  external-contributor-approval:
-    name: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || contains(toJSON(github.event.changes), '\"base\"'))) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested' || github.event.review.state == 'commented'))) && 'Owner approval for outside contributors' || 'Ignore unrelated triage event' }}"
+  owner-approval:
+    name: Evaluate staging owner approval
+    if: github.event.pull_request.base.ref == 'staging'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
-    env:
-      APPROVAL_EVENT_RELEVANT: "${{ github.event.pull_request.base.ref == 'staging' && ((github.event_name == 'pull_request_target' && (github.event.action != 'edited' || contains(toJSON(github.event.changes), '\"base\"'))) || (github.event_name == 'pull_request_review' && github.event.review.user.login == 'SpicyMarinara' && (github.event.action == 'dismissed' || github.event.review.state == 'approved' || github.event.review.state == 'changes_requested' || github.event.review.state == 'commented'))) }}"
+      statuses: write
     steps:
-      - name: Ignore unrelated triage event
-        if: env.APPROVAL_EVENT_RELEVANT != 'true'
-        run: exit 0
+      - name: Checkout trusted base revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
 
-      - name: Classify pull request author
-        if: env.APPROVAL_EVENT_RELEVANT == 'true'
-        id: internal-author
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24
+
+      - name: Publish owner approval status
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           MEMBERS_TOKEN_CONFIGURED: ${{ secrets.PASTA_DEVS_MEMBERS_TOKEN != '' }}
-        with:
-          # Fine-grained PAT or GitHub App token with Pasta-Devs "Members: read".
-          github-token: ${{ secrets.PASTA_DEVS_MEMBERS_TOKEN || github.token }}
-          script: |
-            const organization = context.repo.owner;
-            const ownerLogin = 'SpicyMarinara';
-            const authorLogin = context.payload.pull_request.user.login;
-
-            if (authorLogin.toLowerCase() === ownerLogin.toLowerCase()) {
-              core.notice(`${authorLogin} is the repository owner; owner approval is not required.`);
-              core.setOutput('internal', 'true');
-              return;
-            }
-
-            if (process.env.MEMBERS_TOKEN_CONFIGURED !== 'true') {
-              core.setFailed('PASTA_DEVS_MEMBERS_TOKEN is required to verify Pasta-Devs organization membership.');
-              return;
-            }
-
-            async function getOrganizationMembership(username) {
-              return github.request('GET /orgs/{org}/memberships/{username}', {
-                org: organization,
-                username,
-              });
-            }
-
-            let organizationMembership;
-            try {
-              ({ data: organizationMembership } = await getOrganizationMembership(authorLogin));
-            } catch (error) {
-              if (error.status === 404) {
-                core.notice(`${authorLogin} is not a ${organization} organization member; owner approval is required.`);
-                core.setOutput('internal', 'false');
-                return;
-              }
-              core.setFailed(`Could not verify ${authorLogin}'s ${organization} membership (${error.status ?? 'unknown status'}).`);
-              return;
-            }
-
-            if (organizationMembership.state !== 'active') {
-              core.notice(`${authorLogin}'s ${organization} membership is not active; owner approval is required.`);
-              core.setOutput('internal', 'false');
-              return;
-            }
-
-            if (organizationMembership.role === 'admin' || organizationMembership.role === 'member') {
-              core.notice(`${authorLogin} is an active ${organization} ${organizationMembership.role}; owner approval is not required.`);
-              core.setOutput('internal', 'true');
-              return;
-            }
-
-            core.notice(`${authorLogin} does not have a trusted ${organization} organization role; owner approval is required.`);
-            core.setOutput('internal', 'false');
-
-      - name: Require owner approval for outside staging contributions
-        if: env.APPROVAL_EVENT_RELEVANT == 'true' && steps.internal-author.outputs.internal != 'true'
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          script: |
-            const pullNumber = context.payload.pull_request.number;
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pullNumber,
-            });
-
-            const reviews = await github.paginate(github.rest.pulls.listReviews, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pullNumber,
-              per_page: 100,
-            });
-            const ownerReviews = reviews
-              .filter((review) => review.user?.login?.toLowerCase() === 'spicymarinara')
-              .sort((left, right) => left.id - right.id);
-            const latestOwnerReview = ownerReviews.at(-1);
-
-            if (latestOwnerReview?.state === 'APPROVED' && latestOwnerReview.commit_id === pr.head?.sha) {
-              core.notice('Outside contribution approved by SpicyMarinara.');
-              return;
-            }
-
-            core.setFailed('Outside and first-time contributions to staging require an approving review from SpicyMarinara.');
+          PASTA_DEVS_MEMBERS_TOKEN: ${{ secrets.PASTA_DEVS_MEMBERS_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node scripts/evaluate-owner-approval.mjs
 
   label:
     name: Auto-label
@@ -214,16 +136,22 @@ jobs:
   template-check:
     name: Pull Request template check
     runs-on: ubuntu-latest
-    if: >-
-      github.event_name == 'pull_request_target' &&
-      github.event.pull_request.author_association != 'MEMBER' &&
-      github.event.pull_request.author_association != 'OWNER' &&
-      github.event.pull_request.author_association != 'COLLABORATOR'
     permissions:
       contents: read
       pull-requests: read
     steps:
+      - name: Exempt trusted contributor
+        if: >-
+          github.event.pull_request.author_association == 'MEMBER' ||
+          github.event.pull_request.author_association == 'OWNER' ||
+          github.event.pull_request.author_association == 'COLLABORATOR'
+        run: echo "Trusted contributor; pull request template validation is not required."
+
       - name: Check Pull Request body against template
+        if: >-
+          github.event.pull_request.author_association != 'MEMBER' &&
+          github.event.pull_request.author_association != 'OWNER' &&
+          github.event.pull_request.author_association != 'COLLABORATOR'
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |

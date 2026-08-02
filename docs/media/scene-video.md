@@ -132,7 +132,7 @@ Each chat picks its own video connection. You set this under **Chat Settings**, 
 - **Game Video Prompt**: the prompt template that decides how the picture animates. The built-in default is **Cinematic Scene Video**.
 - **Edit Video Presets**: add and edit your own copies of the video prompt template for this chat.
 
-The **Game Video Prompt** continues to control manual Gallery and Game Assets videos in Game Mode. Roleplay Gallery animations use **Roleplay Gallery Animation Director** instead. Storyboard keyframe clips can choose a different **Storyboard Video Prompt** in **Chat Settings**, **Agents**, then **Storyboards**. If no separate storyboard choice is set, they inherit the Game Video Prompt.
+The **Game Video Prompt** continues to control manual Gallery and Game Assets videos in Game Mode. Roleplay Gallery animations use **Roleplay Gallery Animation Director** instead. The installed Storyboard Agent owns a separate default **Storyboard Video Prompt**, and each Roleplay or Game chat can override it under **Chat Settings > Agents > Storyboards**. Resetting that choice returns to the Storyboard Agent default; it does not inherit a different chat's prompt.
 
 When you first create a Game Mode chat, the setup wizard also has a **Video Generation Connection** picker. It is on the **Features** step, and it appears after you turn on **Visual Generation**.
 
@@ -150,9 +150,9 @@ The same section has an **Animated expression length** setting. That belongs to 
 
 ## Storyboards
 
-Game Mode can also build a storyboard, which is an ordered set of keyframe pictures for one game turn. When storyboard animations are turned on, Marinara animates each keyframe into a clip using your video connection and the **Storyboard Video Prompt**. It inherits the **Game Video Prompt** unless you choose a separate template. A keyframe is one still frame in that ordered set.
+The downloadable Storyboard Agent can build ordered keyframe images and clips in Roleplay and Game Mode. Game Mode uses one completed GM turn; Roleplay combines completed exchanges into an inline episode. When animations are enabled, Marinara animates each successful keyframe with the selected video connection and the Agent's **Storyboard Video Prompt**.
 
-Storyboards have their own controls and their own guide. See [Game Mode Storyboards](../game/storyboard.md) for the full setup and workflow.
+Storyboards have their own controls and their own guide. See the [Storyboard Agent Guide](../game/storyboard.md) for installation and both mode workflows.
 
 ## Troubleshooting
 
@@ -179,7 +179,7 @@ Check that the connection has a valid API key and that your account has video ac
 ## Related guides
 
 - [Animated Expressions](animated-expressions.md)
-- [Game Mode Storyboards](../game/storyboard.md)
+- [Storyboard Agent Guide](../game/storyboard.md)
 - [LTX 2.3 Storyboards in Game Mode](../game/ltx-2-3-storyboards.md)
 - [Supported AI Providers](../connections/providers-reference.md)
 - [Server Configuration Reference](../CONFIGURATION.md)

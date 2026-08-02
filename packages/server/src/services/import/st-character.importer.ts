@@ -168,6 +168,7 @@ function convertStRegexScripts(
       promptOnly: applyMode === "prompt",
       applyMode,
       targetCharacterIds: scope === "global" ? [] : [characterId],
+      targetPromptPresetIds: [],
       // Preserve the card's authoring order so multi-script imports keep a stable
       // execution/list order (all-zero ties leave it undefined). Gaps from skipped
       // entries are harmless — list() only sorts by ascending order.
