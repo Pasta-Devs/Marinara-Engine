@@ -799,6 +799,12 @@ assert.equal(unrelatedFallbackAdmission.acquired, true, "primary work must not o
 if (unrelatedFallbackAdmission.acquired) unrelatedFallbackAdmission.release();
 releasePrimaryCall();
 await assert.rejects(primaryRun, /primary unavailable/);
+const releasedPrimaryAdmission = tryBackgroundConnection(
+  "primary-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS),
+);
+assert.equal(releasedPrimaryAdmission.acquired, true, "a failed primary call must release its foreground slot");
+if (releasedPrimaryAdmission.acquired) releasedPrimaryAdmission.release();
 
 let releaseFallbackCall!: () => void;
 const fallbackCallHeld = new Promise<void>((resolve) => {
@@ -814,6 +820,12 @@ assert.equal(unrelatedPrimaryAdmission.acquired, true, "fallback work must not o
 if (unrelatedPrimaryAdmission.acquired) unrelatedPrimaryAdmission.release();
 releaseFallbackCall();
 assert.equal(await fallbackRun, "held response");
+const releasedFallbackAdmission = tryBackgroundConnection(
+  "fallback-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS),
+);
+assert.equal(releasedFallbackAdmission.acquired, true, "a completed call must release its foreground slot");
+if (releasedFallbackAdmission.acquired) releasedFallbackAdmission.release();
 
 // A consumer that stops reading mid-stream must not strand the primary connection's
 // foreground slot: the fallback provider drains the primary manually, so an early return

@@ -166,8 +166,10 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
         // Drive the primary to completion if our consumer abandoned us mid-stream. The manual
         // loop above does not forward an early return the way `yield*` would, so without this
         // an admission wrapper around the primary never runs its own finally and leaks the
-        // connection's foreground slot for the lifetime of the process.
-        await generation.return(undefined);
+        // connection's foreground slot for the lifetime of the process. Swallow any cleanup
+        // rejection: the provider error the catch below inspects is what decides whether we
+        // fall back, and it must not be replaced by a teardown failure.
+        await generation.return(undefined).catch(() => undefined);
       }
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
