@@ -65,6 +65,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   "echo-chamber": ["roleplay"],
   haptic: ["conversation", "roleplay"],
   illustrator: ["conversation", "roleplay", "game"],
+  storyboard: ["roleplay", "game"],
   html: ["roleplay"],
   "lorebook-keeper": ["roleplay", "game"],
   spotify: ["conversation", "roleplay", "game"],

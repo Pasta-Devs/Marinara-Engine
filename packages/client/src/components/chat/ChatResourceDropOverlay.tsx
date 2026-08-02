@@ -3,9 +3,10 @@ import { createPortal } from "react-dom";
 import { Ban, Bot, BookOpen, FileText, Image, Link, UserPlus, VenetianMask } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { isAgentConfigDeleted, type Chat } from "@marinara-engine/shared";
+import { isAgentConfigDeleted, type Chat, type Lorebook } from "@marinara-engine/shared";
 import { useUpdateChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { usePersona } from "../../hooks/use-characters";
+import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useConnections } from "../../hooks/use-connections";
 import { api } from "../../lib/api-client";
@@ -105,6 +106,11 @@ const ACTION_HINT_KEY: Record<ChatResourceDropAction["type"], string> = {
   "set-background": "ui.chat.chatresourcedropoverlay.hintBackground",
 };
 
+/** Reason labels match the source chips in the chat settings lorebook list, so they read the same way. */
+export function formatInheritedSources(reasons: string[]) {
+  return reasons.join(", ");
+}
+
 export function chatResourceBlockedKey(action: ChatResourceDropBlock) {
   if (action.reason === "preset-unsupported-mode") return "ui.chat.chatresourcedropoverlay.presetUnsupportedMode";
   if (action.reason === "agent-unsupported-mode") return "ui.chat.chatresourcedropoverlay.agentUnsupportedMode";
@@ -129,7 +135,9 @@ function sameAction(left: ChatResourceDropResult, right: ChatResourceDropResult)
   if (left.type !== right.type || left.label !== right.label) return false;
   if (left.type === "blocked" && right.type === "blocked") return left.reason === right.reason;
   if (left.type === "add-characters" && right.type === "add-characters") return sameIds(left.ids, right.ids);
-  if (left.type === "add-lorebooks" && right.type === "add-lorebooks") return sameIds(left.ids, right.ids);
+  if (left.type === "add-lorebooks" && right.type === "add-lorebooks") {
+    return sameIds(left.ids, right.ids) && sameIds(left.inheritedFrom, right.inheritedFrom);
+  }
   if (left.type === "add-agents" && right.type === "add-agents") {
     return left.mustEnableAgents === right.mustEnableAgents && sameIds(left.ids, right.ids);
   }
@@ -216,6 +224,7 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
   const { data: currentPersona } = usePersona(chat.personaId);
   const { data: presets = [], refetch: refetchPresets } = usePresets();
   const { data: connections = [], refetch: refetchConnections } = useConnections();
+  const { data: lorebooks = [] } = useLorebooks(undefined, { includeHidden: true });
   const chatRef = useRef(chat);
   const overlayRef = useRef<OverlayState | null>(null);
   const [overlay, setOverlay] = useState<OverlayState | null>(null);
@@ -232,9 +241,9 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
     const payload = readChatResourceDragPayload(dataTransfer);
     if (!payload) return null;
     const currentChat = chatRef.current;
-    const action = resolveChatResourceDropAction(payload, currentChat);
+    const action = resolveChatResourceDropAction(payload, currentChat, undefined, lorebooks);
     return action ? { payload, action, surface } : null;
-  }, []);
+  }, [lorebooks]);
 
   const updateOverlay = useCallback((candidate: OverlayCandidate | null) => {
     const current = overlayRef.current;
@@ -277,7 +286,7 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
         toast.info(t("ui.chat.chatresourcedropoverlay.chatChanged"));
         return;
       }
-      let latestAction = resolveChatResourceDropAction(payload, currentChat);
+      let latestAction = resolveChatResourceDropAction(payload, currentChat, undefined, lorebooks);
       if (!latestAction) return;
       if (latestAction.type === "blocked") {
         toast.info(t(chatResourceBlockedKey(latestAction), { name: latestAction.label }));
@@ -297,7 +306,11 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
         }
         currentChat = useChatStore.getState().activeChat ?? chatRef.current;
         if (payload.kind === "connection") validatedConnectionRows = availableResources.rows;
-        latestAction = resolveChatResourceDropAction(payload, currentChat, availableResources.ids);
+        // A lorebook drop revalidates against /lorebooks, so prefer those rows over the cached query
+        // result: a book attached to the character seconds ago must still report its source.
+        const validatedLorebooks =
+          payload.kind === "lorebook" ? (availableResources.rows as unknown as Lorebook[]) : lorebooks;
+        latestAction = resolveChatResourceDropAction(payload, currentChat, availableResources.ids, validatedLorebooks);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : t("ui.chat.chatresourcedropoverlay.failed"));
         return;
@@ -355,7 +368,7 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
           if (useChatStore.getState().activeChatId !== targetChatId) return;
           currentChat = useChatStore.getState().activeChat ?? chatRef.current;
           if (payload.kind === "connection") validatedConnectionRows = availableResources.rows;
-          latestAction = resolveChatResourceDropAction(payload, currentChat, availableResources.ids);
+          latestAction = resolveChatResourceDropAction(payload, currentChat, availableResources.ids, lorebooks);
         } catch (error) {
           toast.error(error instanceof Error ? error.message : t("ui.chat.chatresourcedropoverlay.failed"));
           return;
@@ -428,9 +441,16 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
           toast.success(
             t(
               latestAction.type === "add-lorebooks"
-                ? "ui.chat.chatresourcedropoverlay.addedToContext"
+                ? latestAction.inheritedFrom.length > 0
+                  ? "ui.chat.chatresourcedropoverlay.addedToContextInherited"
+                  : "ui.chat.chatresourcedropoverlay.addedToContext"
                 : "ui.chat.chatresourcedropoverlay.addedToChat",
-              { name: latestAction.label },
+              {
+                name: latestAction.label,
+                ...(latestAction.type === "add-lorebooks"
+                  ? { sources: formatInheritedSources(latestAction.inheritedFrom) }
+                  : {}),
+              },
             ),
             {
               action: {
@@ -547,6 +567,7 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
     [
       connections,
       currentPersona?.name,
+      lorebooks,
       ensureConnectionReady,
       presets,
       refetchConnections,
@@ -675,7 +696,11 @@ export function ChatResourceDropOverlay({ chat }: { chat: Chat }) {
                 <span className="mt-1 block text-xs font-normal leading-relaxed text-[var(--muted-foreground)]">
                   {overlay.action.type === "blocked"
                     ? t("ui.chat.chatresourcedropoverlay.cannotDropHint")
-                    : t(ACTION_HINT_KEY[overlay.action.type])}
+                    : overlay.action.type === "add-lorebooks" && overlay.action.inheritedFrom.length > 0
+                      ? t("ui.chat.chatresourcedropoverlay.hintLorebooksInherited", {
+                          sources: formatInheritedSources(overlay.action.inheritedFrom),
+                        })
+                      : t(ACTION_HINT_KEY[overlay.action.type])}
                 </span>
               </span>
             </div>

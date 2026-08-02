@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Fastify App Factory
 // ──────────────────────────────────────────────
-import Fastify from "fastify";
+import Fastify, { LogController } from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
@@ -61,7 +61,7 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       level: getLogLevel(),
       transport: getNodeEnv() !== "production" ? { target: "pino-pretty", options: { colorize: true } } : undefined,
     },
-    disableRequestLogging: isRequestLoggingDisabled(),
+    logController: new LogController({ disableRequestLogging: isRequestLoggingDisabled() }),
     bodyLimit: MAX_UPLOAD_BYTES, // Large profile imports can include many base64 avatars.
     ...(https && { https }),
   });

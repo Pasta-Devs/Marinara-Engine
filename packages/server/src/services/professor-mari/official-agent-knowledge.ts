@@ -134,6 +134,14 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     summary: "creates and updates durable lorebook entries from important story facts",
   },
   {
+    id: "long-term-memory",
+    name: "Long-Term Memory",
+    category: "misc",
+    modes: "Conversation, Roleplay, and Game",
+    summary:
+      "extracts durable memories from chat summaries, character records, and lorebooks, then recalls relevant context from a package-owned vault",
+  },
+  {
     id: "combat",
     name: "Combat",
     category: "misc",
@@ -167,6 +175,13 @@ export const OFFICIAL_AGENT_KNOWLEDGE_ENTRIES: readonly OfficialAgentKnowledgeEn
     category: "misc",
     modes: "Roleplay",
     summary: "adds editable, rerollable choose-your-own-adventure response choices",
+  },
+  {
+    id: "storyboard",
+    name: "Storyboard",
+    category: "misc",
+    modes: "Roleplay and Game",
+    summary: "plans still or animated storyboards with separate planning prompts and shared provider formatters",
   },
   {
     id: "conversation-calls",
@@ -228,7 +243,7 @@ const CATEGORY_LABELS: Record<OfficialAgentKnowledgeCategory, string> = {
 
 export const PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE = [
   "<official_agent_catalog>",
-  "The official Marinara Engine v2.3.0+ catalog contains these 29 optional first-party packages:",
+  `The official Marinara Engine v2.3.0+ catalog contains these ${OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length} optional first-party packages:`,
   ...(["writer", "tracker", "misc"] as const).flatMap((category) => [
     `## ${CATEGORY_LABELS[category]}`,
     ...OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).map(
@@ -238,7 +253,7 @@ export const PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE = [
   "Catalog guidance:",
   "- Package sources, manifests, artifacts, and the complete official catalog are public at https://github.com/Pasta-Devs/Marinara-Agents.",
   "- Catalog availability is not proof that a package is installed. Inspect the user's installed agents before claiming one is active.",
-  "- Install, immediately update, or uninstall official packages from Agents → Download Agents. Installed packages also update automatically to the newest compatible catalog version when the Marinara server starts; offline or failed checks preserve the installed version.",
+  "- Install, update, or uninstall official packages from Agents → Download Agents. When a compatible update is found, Marinara asks before applying it; declining or failing an update preserves the installed version and leaves the manual Update action available.",
   "- Pipeline agents are enabled per compatible chat in Chat Settings → Agents. Feature packages such as Maps, Calls, and Conversation games expose their own controls after installation.",
   "- Do not describe About Me Keeper as an agent. Conversation About Me and its update tool are built into Marinara Engine.",
   "</official_agent_catalog>",

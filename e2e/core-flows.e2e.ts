@@ -177,13 +177,21 @@ test("What's New opens once for each Marinara Engine version", async ({ page }) 
   const announcement = page.getByRole("dialog", { name: "What's New?" });
   await expect(announcement).toBeVisible();
   await expect(announcement.getByText(`Version ${APP_VERSION}`, { exact: true })).toBeVisible();
-  await expect(
-    announcement.getByRole("heading", { name: "Broader horizons, finer control, stronger foundations." }),
-  ).toBeVisible();
-  await expect(announcement.getByText(/Z\.AI image generation/)).toBeVisible();
-  await expect(announcement.getByText(/smarter Roleplay animation planning/)).toBeVisible();
-  await expect(announcement.getByText(/four new documentation languages/)).toBeVisible();
-  await expect(announcement.getByText(/runtime security/)).toBeVisible();
+  await expect(announcement.getByRole("heading", { name: "The extensions are back!" })).toBeVisible();
+  await expect(announcement.getByText(/new Personas icon/)).toBeVisible();
+  await expect(announcement.getByText(/edit presets, characters, personas, and lorebooks/)).toBeVisible();
+  await expect(announcement.getByText(/three new Agents/)).toBeVisible();
+  await expect(announcement.getByText(/many bug fixes and QoL updates/)).toBeVisible();
+  await expect(announcement.locator('[data-release-story="2.4.0"] img')).toHaveCount(12);
+  await expect(announcement.getByAltText("The new Personas icon in Marinara Engine")).toHaveAttribute(
+    "src",
+    "https://i.imgur.com/K4Z9rSA.png",
+  );
+  const announcementScrollArea = announcement.locator('[data-component="WhatsNewModal"]').locator("..");
+  await expect.poll(() => announcementScrollArea.evaluate((element) => getComputedStyle(element).overflowY)).toBe("auto");
+  await expect
+    .poll(() => announcementScrollArea.evaluate((element) => element.scrollHeight > element.clientHeight))
+    .toBe(true);
   await expect(announcement.getByText("Marinara Engine has been updated.", { exact: true })).toHaveCount(0);
   await expect(announcement.getByText("Tactical Combat Mode in Games")).toHaveCount(0);
   await expect(announcement.getByRole("link", { name: "View release" })).toHaveAttribute(
@@ -234,6 +242,60 @@ test("turning off the custom mouse pointer persists immediately and after reload
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.marinaraCustomCursor ?? null))
     .toBeNull();
+});
+
+test("custom theme live preview batches stylesheet updates while typing", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('[data-tour="panel-settings"]').click();
+  await page.getByRole("tab", { name: "Addons" }).click();
+  await page.getByRole("button", { name: "Create Theme" }).click();
+
+  const themeCssEditor = page.getByPlaceholder("/* Enter your CSS here... */");
+  await expect(themeCssEditor).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => document.getElementById("marinara-css-editor-preview")?.textContent?.length ?? 0))
+    .toBeGreaterThan(0);
+
+  await page.evaluate(() => {
+    const previewStyle = document.getElementById("marinara-css-editor-preview");
+    if (!previewStyle) throw new Error("Expected the custom theme preview stylesheet");
+
+    const trackedWindow = window as Window & {
+      __themePreviewMutationCount?: number;
+      __themePreviewObserver?: MutationObserver;
+    };
+    trackedWindow.__themePreviewMutationCount = 0;
+    trackedWindow.__themePreviewObserver = new MutationObserver(() => {
+      trackedWindow.__themePreviewMutationCount = (trackedWindow.__themePreviewMutationCount ?? 0) + 1;
+    });
+    trackedWindow.__themePreviewObserver.observe(previewStyle, {
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+  });
+
+  const previewMarker = "\n:root { --issue-4452-preview: ready; }";
+  await themeCssEditor.pressSequentially(previewMarker, { delay: 2 });
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { __themePreviewMutationCount?: number }).__themePreviewMutationCount ?? 0,
+    ),
+  ).toBe(0);
+
+  await expect
+    .poll(() => page.evaluate(() => document.getElementById("marinara-css-editor-preview")?.textContent ?? ""))
+    .toContain("--issue-4452-preview: ready");
+  expect(
+    await page.evaluate(
+      () =>
+        (window as Window & { __themePreviewMutationCount?: number }).__themePreviewMutationCount ?? 0,
+    ),
+  ).toBe(1);
+
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect.poll(() => page.locator("#marinara-css-editor-preview").count()).toBe(0);
 });
 
 test("gradient Accent Pulse keeps animating while Appearance settings are open", async ({ page }, testInfo) => {
@@ -2233,7 +2295,7 @@ test("Character and Persona avatar actions stay separated and visually balanced"
     version: string,
   ) => {
     await page.locator(`[data-tour="panel-${panel}"]`).click();
-    await page.getByText(resourceName, { exact: true }).first().click();
+    await page.getByText(resourceName, { exact: true }).first().click({ position: { x: 2, y: 2 } });
 
     const editor = page.locator(".mari-editor-shell");
     await expect(editor).toBeVisible();
@@ -4526,6 +4588,9 @@ test("Roleplay Active Context shows rich lorebook activation provenance", async 
 
     const panel = page.locator('[data-component="RoleplayActiveContextPanel"]');
     await expect(panel).toBeVisible();
+    await expect.poll(() => panel.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    await expect(panel).toHaveCSS("position", "fixed");
+    await expect(panel).toHaveCSS("z-index", "9999");
     await expect(panel.getByText("2 active • ~321 tokens", { exact: true })).toBeVisible();
     await expect(panel.getByRole("region", { name: "Current location lore" })).toContainText("Northland Bank");
     await expect(panel.getByText("Whispered Archive", { exact: true })).toBeVisible();
@@ -4703,6 +4768,9 @@ test("chat toolbar panels close when their trigger is clicked again across modes
     const summaryPanel = page.locator("[data-chat-floating-panel]").filter({ hasText: "Chat Summary" });
     await summaryButton.click();
     await expect(summaryPanel).toBeVisible();
+    await expect.poll(() => summaryPanel.evaluate((element) => element.parentElement === document.body)).toBe(true);
+    await expect(summaryPanel).toHaveCSS("position", "fixed");
+    await expect(summaryPanel).toHaveCSS("z-index", "9999");
     await summaryButton.click();
     await expect(summaryPanel).toHaveCount(0);
 

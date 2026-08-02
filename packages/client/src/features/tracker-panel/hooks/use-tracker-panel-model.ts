@@ -15,7 +15,7 @@ import {
   normalizeStringArray,
   parseRecord,
 } from "../lib/tracker-metadata";
-import { getLatestSpriteExpressionsFromMessages, normalizeSpriteExpressionMap } from "../lib/sprite-expressions";
+import { resolveSpriteExpressionState } from "../../../lib/sprite-expression-state";
 import { useTrackerSpriteLookup } from "./use-tracker-sprite-lookup";
 
 interface UseTrackerPanelModelOptions {
@@ -93,10 +93,12 @@ export function useTrackerPanelModel({
   );
   const spriteExpressions = useMemo(
     () =>
-      getLatestSpriteExpressionsFromMessages(
-        (messageData?.pages.flat() ?? []) as Array<{ role?: string; extra?: unknown }>,
-      ) ??
-      normalizeSpriteExpressionMap(chatMeta.spriteExpressions),
+      resolveSpriteExpressionState(
+        (messageData?.pages ? [...messageData.pages].reverse().flat() : []) as Array<{
+          extra?: unknown;
+        }>,
+        chatMeta.spriteExpressions,
+      ),
     [messageData, chatMeta.spriteExpressions],
   );
   const featuredCharacterCardKeys = useMemo(

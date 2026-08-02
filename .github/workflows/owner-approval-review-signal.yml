@@ -1,0 +1,15 @@
+name: Owner Approval Review Signal
+
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+
+permissions: {}
+
+jobs:
+  signal:
+    name: Signal trusted owner approval refresh
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record review event
+        run: echo "A trusted workflow will re-evaluate the staging owner-approval status."

@@ -1,7 +1,7 @@
 {
   "name": "@marinara-engine/client",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.4.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,7 @@
     "@marinara-engine/shared": "workspace:*",
     "@tanstack/react-query": "^5.100.9",
     "clsx": "^2.1.1",
-    "dompurify": "^3.4.2",
+    "dompurify": "^3.4.12",
     "framer-motion": "^12.38.0",
     "i18next": "^26.3.6",
     "lucide-react": "^0.513.0",

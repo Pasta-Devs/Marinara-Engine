@@ -67,6 +67,7 @@ import {
   CHAT_TOOLBAR_OVERFLOW_MENU_SELECTOR,
   ChatToolbarButton,
   ChatToolbarMenu,
+  getChatFloatingPanelDesktopRight,
   getChatToolbarButtonClass,
   readChatToolbarFloatingPanelAnchor,
   type ChatToolbarFloatingPanelAnchor,
@@ -451,6 +452,7 @@ function ActiveContextLinksButton({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [mobileFrame, setMobileFrame] = useState<MobileFloatingPanelFrame | null>(null);
+  const [desktopAnchor, setDesktopAnchor] = useState<ChatToolbarFloatingPanelAnchor>(null);
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   const compact = useUIStore((s) => s.centerCompact);
   const { data: lorebooks } = useLorebooks();
@@ -473,11 +475,17 @@ function ActiveContextLinksButton({
   }, [open]);
 
   useLayoutEffect(() => {
-    if (!open || !isMobile) {
+    if (!open) {
       setMobileFrame(null);
+      setDesktopAnchor(null);
       return;
     }
-    const update = () => setMobileFrame(getMobileFloatingPanelFrame(buttonRef.current, 320));
+    const update = (event?: Event) => {
+      if (event?.target instanceof Node && panelRef.current?.contains(event.target)) return;
+      const mobile = window.innerWidth < 768;
+      setMobileFrame(mobile ? getMobileFloatingPanelFrame(buttonRef.current, 320) : null);
+      setDesktopAnchor(mobile ? null : readChatToolbarFloatingPanelAnchor(buttonRef.current));
+    };
     update();
     window.addEventListener("resize", update);
     window.addEventListener("scroll", update, true);
@@ -485,7 +493,7 @@ function ActiveContextLinksButton({
       window.removeEventListener("resize", update);
       window.removeEventListener("scroll", update, true);
     };
-  }, [isMobile, open]);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -623,13 +631,7 @@ function ActiveContextLinksButton({
     <div className="relative" ref={ref} onClick={(event) => event.stopPropagation()}>
       <button
         ref={buttonRef}
-        onClick={() => {
-          setOpen((prev) => {
-            const nextOpen = !prev;
-            setMobileFrame(nextOpen && isMobile ? getMobileFloatingPanelFrame(buttonRef.current, 320) : null);
-            return nextOpen;
-          });
-        }}
+        onClick={() => setOpen((prev) => !prev)}
         className={getChatToolbarButtonClass({ compact, open })}
         title={t("chat.toolbar.activeContext")}
         aria-label={t("chat.toolbar.activeContext")}
@@ -660,19 +662,27 @@ function ActiveContextLinksButton({
             document.body,
           )
         ) : (
-          <div
-            ref={panelRef}
-            role="menu"
-            data-chat-floating-panel
-            data-component="RoleplayActiveContextPanel"
-            className={cn(
-              ROLEPLAY_POPOVER_SHELL,
-              ROLEPLAY_POPOVER_SCROLL_AREA,
-              "absolute right-0 top-full z-50 mt-2 max-h-[min(32rem,calc(100vh-6rem))] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-2",
-            )}
-          >
-            {activeContextContent}
-          </div>
+          desktopAnchor &&
+          createPortal(
+            <div
+              ref={panelRef}
+              role="menu"
+              data-chat-floating-panel
+              data-component="RoleplayActiveContextPanel"
+              className={cn(
+                ROLEPLAY_POPOVER_SHELL,
+                ROLEPLAY_POPOVER_SCROLL_AREA,
+                "fixed z-[9999] max-h-[min(32rem,calc(100vh-6rem))] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto p-2",
+              )}
+              style={{
+                right: getChatFloatingPanelDesktopRight(desktopAnchor),
+                top: `${desktopAnchor.top}px`,
+              }}
+            >
+              {activeContextContent}
+            </div>,
+            document.body,
+          )
         ))}
     </div>
   );

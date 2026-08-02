@@ -23,6 +23,8 @@ export const regexScripts = fileTable("regex_scripts", {
   applyMode: text("apply_mode"),
   /** JSON array of target recipient character IDs (empty = all recipients) */
   targetCharacterIds: text("target_character_ids").notNull().default("[]"),
+  /** JSON array of target prompt preset IDs (empty = all presets) */
+  targetPromptPresetIds: text("target_prompt_preset_ids").notNull().default("[]"),
   /** Execution order (lower = first) */
   order: integer("order").notNull().default(0),
   /** Min message depth to apply (null = unlimited) */

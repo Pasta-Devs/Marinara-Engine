@@ -143,6 +143,23 @@ const summaryPopoverSource = readFileSync(
   new URL("../../packages/client/src/components/chat/SummaryPopover.tsx", import.meta.url),
   "utf8",
 );
+const activeContextLinksButtonSource =
+  chatRoleplaySurfaceSource.match(/function ActiveContextLinksButton[\s\S]*?\nfunction SummaryButton/u)?.[0] ?? "";
+assert.match(
+  summaryPopoverSource,
+  /className="fixed z-\[9999\]"[\s\S]*?return createPortal\(content, document\.body\)/u,
+  "the Roleplay Chat Summary panel should portal above independent floating-panel stacking contexts",
+);
+assert.match(
+  activeContextLinksButtonSource,
+  /desktopAnchor &&[\s\S]*?createPortal\([\s\S]*?data-component="RoleplayActiveContextPanel"[\s\S]*?fixed z-\[9999\][\s\S]*?document\.body/u,
+  "the desktop Roleplay Active Context panel should portal above independent floating-panel stacking contexts",
+);
+assert.doesNotMatch(
+  activeContextLinksButtonSource,
+  /absolute right-0 top-full/u,
+  "the desktop Roleplay Active Context panel must not remain trapped in the toolbar stacking context",
+);
 const spatialTransitionEventSource =
   useGenerateSource.match(/case "spatial_transition_committed": \{[\s\S]*?case "token":/u)?.[0] ?? "";
 assert.match(

@@ -53,6 +53,10 @@ import { resolveSpriteExpression } from "../../lib/sprite-expression-match";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { parseMessageExtraRecord } from "../../lib/chat-message-extra";
+import {
+  normalizeSpriteExpressionMap,
+  resolveSpriteExpressionState,
+} from "../../lib/sprite-expression-state";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "../../lib/backgrounds";
 import { useGameStateStore } from "../../stores/game-state.store";
 import { useGalleryStore } from "../../stores/gallery.store";
@@ -241,17 +245,6 @@ const normalizeSpriteDisplayValue = (value: unknown, fallback: number, min: numb
 
 function startsNewAssistantBubble(message: { extra?: unknown } | null | undefined): boolean {
   return parseMessageExtraRecord(message?.extra).startsNewAssistantBubble === true;
-}
-
-function normalizeMessageSpriteExpressions(value: unknown): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  const expressions: Record<string, string> = {};
-  for (const [key, expression] of Object.entries(value as Record<string, unknown>)) {
-    if (typeof expression !== "string") continue;
-    const trimmed = expression.trim();
-    if (key && trimmed) expressions[key] = trimmed;
-  }
-  return expressions;
 }
 
 function getPersonaSnapshotName(extra: Record<string, unknown>): string | null {
@@ -1157,23 +1150,12 @@ export function ChatArea() {
     : chatMeta.spritePlacements;
   const spritePlacements = useMemo(() => normalizeSpritePlacements(spritePlacementsSource), [spritePlacementsSource]);
   const hasCustomSpritePlacements = Object.keys(spritePlacements).length > 0;
-  // Prefer per-swipe expressions from the last assistant message's extra (survives swipe switching),
-  // falling back to chat-level metadata for backward compatibility.
-  const spriteExpressions: Record<string, string> = useMemo(() => {
-    if (messages?.length) {
-      for (let i = messages.length - 1; i >= 0; i--) {
-        const m = messages[i]!;
-        if (m.role === "assistant") {
-          const extra = typeof m.extra === "string" ? JSON.parse(m.extra) : (m.extra ?? {});
-          if (extra.spriteExpressions && Object.keys(extra.spriteExpressions).length > 0) {
-            return extra.spriteExpressions as Record<string, string>;
-          }
-          break; // only check the last assistant message
-        }
-      }
-    }
-    return chatMeta.spriteExpressions ?? {};
-  }, [messages, chatMeta.spriteExpressions]);
+  // Expression Engine results are sparse updates. Fold every loaded per-swipe update so
+  // a round that omits a character preserves that character's previous expression.
+  const spriteExpressions = useMemo(
+    () => resolveSpriteExpressionState(messages, chatMeta.spriteExpressions),
+    [messages, chatMeta.spriteExpressions],
+  );
   const groupChatMode: string | undefined = chatCharIds.length > 1 ? (chatMeta.groupChatMode ?? "merged") : undefined;
 
   const updateMeta = useUpdateChatMetadata();
@@ -1775,7 +1757,7 @@ export function ChatArea() {
     if (!expressionAvatarsEnabled) return undefined;
     return (message, characterId) => {
       const extra = parseMessageExtraRecord(message.extra);
-      const expressions = normalizeMessageSpriteExpressions(extra.spriteExpressions);
+      const expressions = normalizeSpriteExpressionMap(extra.spriteExpressions);
       const characterName = characterMap.get(characterId)?.name;
       const personaName =
         characterId === personaInfo?.id ? (getPersonaSnapshotName(extra) ?? personaInfo.name) : undefined;

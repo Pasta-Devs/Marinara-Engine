@@ -31,6 +31,8 @@ export interface RegexScript {
   applyMode?: RegexApplyMode;
   /** Prompt recipient character IDs this script is limited to (empty = all recipients) */
   targetCharacterIds: string[];
+  /** Prompt preset IDs this script is limited to (empty = all presets) */
+  targetPromptPresetIds: string[];
   /** Execution order (lower = runs first) */
   order: number;
   /** Optional minimum message depth to apply (null = no limit) */
