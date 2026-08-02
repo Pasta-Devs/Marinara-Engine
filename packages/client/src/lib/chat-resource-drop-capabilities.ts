@@ -1,11 +1,18 @@
-import { isAgentAvailableInChatMode, type Chat } from "@marinara-engine/shared";
+import { isAgentAvailableInChatMode, type Chat, type Lorebook } from "@marinara-engine/shared";
 import { chatBackgroundMetadataToUrl, chatBackgroundUrlToMetadata } from "./backgrounds";
 import { parseChatMetadata } from "./chat-display";
+import { deriveActiveLorebookViews, getChatExcludedLorebookIds, type LorebookActiveReason } from "./chat-lorebooks";
 import type { ChatResourceDragPayload } from "./chat-resource-drag";
 
 export type ChatResourceDropAction =
   | { type: "add-characters"; ids: string[]; label: string }
-  | { type: "add-lorebooks"; ids: string[]; label: string }
+  /**
+   * `inheritedFrom` lists the non-pin sources that already pull the dropped book into context:
+   * character, persona, global, or `Chat` for a book scoped or owned by this chat without being
+   * pinned. Pinning it is still a real change — the pin survives swapping that source out — so this
+   * is a note on the drop, not a reason to block it.
+   */
+  | { type: "add-lorebooks"; ids: string[]; label: string; inheritedFrom: LorebookActiveReason[] }
   | { type: "add-agents"; ids: string[]; label: string; mustEnableAgents: boolean }
   | { type: "set-persona"; id: string; label: string; replacesId: string | null }
   | { type: "set-preset"; id: string; label: string; replacesId: string | null }
@@ -27,10 +34,31 @@ function readStringArray(value: unknown): string[] {
     : [];
 }
 
+/** Sources other than a chat pin that already make these books active, deduped and stably ordered. */
+function inheritedReasons(
+  ids: string[],
+  chat: Pick<Chat, "characterIds" | "id" | "metadata" | "personaId">,
+  lorebooks: Lorebook[] | undefined,
+): LorebookActiveReason[] {
+  if (!lorebooks?.length) return [];
+  const dropped = new Set(ids);
+  const reasons = new Set(
+    deriveActiveLorebookViews({
+      activeLorebookIds: [],
+      chat,
+      dropExcluded: true,
+      excludedLorebookIds: getChatExcludedLorebookIds(chat),
+      lorebooks: lorebooks.filter((lorebook) => dropped.has(lorebook.id)),
+    }).flatMap((view) => view.activeReasons),
+  );
+  return (["Character", "Persona", "Global", "Chat"] as const).filter((reason) => reasons.has(reason));
+}
+
 export function resolveChatResourceDropAction(
   payload: ChatResourceDragPayload,
-  chat: Pick<Chat, "characterIds" | "metadata" | "mode" | "personaId" | "promptPresetId" | "connectionId">,
+  chat: Pick<Chat, "characterIds" | "id" | "metadata" | "mode" | "personaId" | "promptPresetId" | "connectionId">,
   availableIds?: ReadonlySet<string>,
+  lorebooks?: Lorebook[],
 ): ChatResourceDropResult | null {
   const metadata = parseChatMetadata(chat.metadata);
   if (payload.unsupported) {
@@ -53,7 +81,8 @@ export function resolveChatResourceDropAction(
   if (payload.kind === "lorebook") {
     const currentIds = new Set(readStringArray(metadata.activeLorebookIds));
     const ids = payloadIds.filter((id) => !currentIds.has(id));
-    return ids.length > 0 ? { type: "add-lorebooks", ids, label: payload.label } : alreadyActive;
+    if (ids.length === 0) return alreadyActive;
+    return { type: "add-lorebooks", ids, label: payload.label, inheritedFrom: inheritedReasons(ids, chat, lorebooks) };
   }
 
   if (payload.kind === "agent") {

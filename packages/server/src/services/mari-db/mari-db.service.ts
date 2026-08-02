@@ -331,7 +331,7 @@ const JSON_COLUMNS: Record<string, readonly string[]> = {
   // chat_images, character_images, assets, and custom_themes
   // have no JSON columns; their former entries named columns that do not exist.
   game_engine_state: ["state"],
-  regex_scripts: ["trimStrings", "placement", "targetCharacterIds"],
+  regex_scripts: ["trimStrings", "placement", "targetCharacterIds", "targetPromptPresetIds"],
 };
 
 function buildTableMetas() {

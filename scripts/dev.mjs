@@ -1,5 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { basename } from "node:path";
+import { getWorkspaceInstallProblems } from "./check-workspace-install.mjs";
 import { resolveDevSharedBuildScript } from "./dev-shared-build.mjs";
 
 function parseIntegerEnv(name, fallback) {
@@ -88,6 +89,18 @@ process.on("SIGINT", () => stopChildren("SIGINT"));
 process.on("SIGTERM", () => stopChildren("SIGTERM"));
 
 try {
+  const installProblems = getWorkspaceInstallProblems();
+  if (installProblems.length > 0) {
+    console.log(`[dev] Workspace dependencies are missing or stale: ${installProblems.join(", ")}. Synchronizing...`);
+    await runPnpm(["install", "--frozen-lockfile"]);
+    const remainingProblems = getWorkspaceInstallProblems();
+    if (remainingProblems.length > 0) {
+      throw new Error(
+        `Workspace dependency validation still fails after pnpm install. Missing: ${remainingProblems.join(", ")}`,
+      );
+    }
+  }
+
   if (process.env.DEV_SKIP_SHARED_BUILD !== "true") {
     await runPnpm(["--filter", "@marinara-engine/shared", SHARED_BUILD_SCRIPT]);
   }

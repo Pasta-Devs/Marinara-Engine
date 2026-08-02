@@ -20,6 +20,7 @@ type RegexScriptLike = {
   promptOnly?: unknown;
   applyMode?: unknown;
   targetCharacterIds?: unknown;
+  targetPromptPresetIds?: unknown;
   minDepth?: unknown;
   maxDepth?: unknown;
 };
@@ -39,6 +40,7 @@ type ApplyRegexScriptOptions = {
   resolveMacros?: RegexMacroResolver;
   randomSeed?: string;
   targetCharacterId?: string | null;
+  targetPromptPresetId?: string | null;
   targetedOnly?: boolean;
 };
 
@@ -148,6 +150,11 @@ export function applyRegexScriptsToPromptText(
     if (targetCharacterIds.length > 0) {
       const targetCharacterId = options?.targetCharacterId;
       if (!targetCharacterId || !targetCharacterIds.includes(targetCharacterId)) continue;
+    }
+    const targetPromptPresetIds = parseStringArray(script.targetPromptPresetIds);
+    if (targetPromptPresetIds.length > 0) {
+      const targetPromptPresetId = options?.targetPromptPresetId;
+      if (!targetPromptPresetId || !targetPromptPresetIds.includes(targetPromptPresetId)) continue;
     }
 
     const minDepth = depthValue(script.minDepth);

@@ -44,6 +44,7 @@ import {
 } from "../../packages/server/src/services/noodle/noodle-context.js";
 import { canCreateGeneratedNoodleInteraction } from "../../packages/server/src/services/noodle/noodle-interaction-policy.js";
 import { parseNoodleGeneratedProfiles } from "../../packages/server/src/services/noodle/noodle-generated-profiles.js";
+import { resolveIllustratorCharacterReferences } from "../../packages/server/src/services/image/illustrator-references.js";
 import {
   parseNoodleGeneratedRefresh,
   parseNoodleGeneratedRefreshResponse,
@@ -736,11 +737,13 @@ const instructions = (input: {
   allowRandomUsers?: boolean;
   enableImagePrompts?: boolean;
   allowGalleryImageAttachments?: boolean;
+  imageGenerationPrompt?: string;
 }) =>
   noodleTimelineFeatureInstructions({
     allowRandomUsers: input.allowRandomUsers ?? false,
     enableImagePrompts: input.enableImagePrompts ?? false,
     allowGalleryImageAttachments: input.allowGalleryImageAttachments ?? false,
+    imageGenerationPrompt: input.imageGenerationPrompt ?? "",
   });
 
 assert.deepEqual(instructions({}), []);
@@ -833,17 +836,58 @@ assert.equal(
   "moonlit laboratory portrait",
 );
 assert.equal(normalizeNoodleImagePrompt('{"content":"do not send this JSON to an image model"}'), null);
+// Source the appearance block from the real resolver rather than a hand-written string, so the
+// shared block's framing is covered by this test and not only the Noodle-side template.
+const noodleImageReferences = await resolveIllustratorCharacterReferences({
+  charactersStore: { list: async () => [] },
+  chatCharacters: [
+    { id: "dottore", name: "Dottore", avatarPath: null, appearance: "blue hair and a white mask" },
+  ],
+  persona: null,
+  requestedNames: ["Dottore"],
+  promptText: "Dottore",
+  includeReferenceImages: false,
+});
+assert.equal(noodleImageReferences.appearanceBlock, "Dottore's Appearance: blue hair and a white mask");
+
 const defaultNoodleImagePrompt = NOODLE_IMAGE_POST.defaultBuilder({
   authorName: "Dottore",
   postContent: "This entire post must not be sent to ComfyUI.",
   draftPrompt: "cel-shaded laboratory selfie",
-  userInstructions: "dramatic blue lighting",
-  characterDescription: "Dottore has blue hair and a white mask.",
+  userInstructions: "Create a social-media-ready character image. Mention build, clothing, pose, lighting.",
+  characterDescription: noodleImageReferences.appearanceBlock ?? "",
+  characterPersonality: "precise, arrogant, impatient",
+  characterImageInstructions: "stark lab photography with cold lighting",
 });
 assert.match(defaultNoodleImagePrompt, /^cel-shaded laboratory selfie/u);
-assert.match(defaultNoodleImagePrompt, /Dottore has blue hair/u);
+assert.match(defaultNoodleImagePrompt, /Dottore's Appearance: blue hair and a white mask/u);
+assert.doesNotMatch(defaultNoodleImagePrompt, /Character appearance notes:/u);
 assert.doesNotMatch(defaultNoodleImagePrompt, /This entire post/u);
 assert.doesNotMatch(defaultNoodleImagePrompt, /Output only|Draft image idea|Post text/u);
+
+// The image model must never receive text written for a language model. Settings instructions go
+// to the timeline model instead, and the surviving blocks carry no labels or framing sentences.
+assert.doesNotMatch(defaultNoodleImagePrompt, /social-media-ready character image|Mention build/u);
+assert.doesNotMatch(
+  defaultNoodleImagePrompt,
+  /Character personality and traits:|Character-specific image instructions:|Let these traits naturally influence/u,
+);
+assert.match(defaultNoodleImagePrompt, /precise, arrogant, impatient/u);
+assert.match(defaultNoodleImagePrompt, /stark lab photography/u);
+
+// ...and the timeline model must receive those instructions, marked as direction rather than text
+// to copy into imagePrompt.
+const imageDirectionInstructions = instructions({
+  enableImagePrompts: true,
+  imageGenerationPrompt: "Mention build, clothing, pose, lighting.",
+});
+assert.equal(imageDirectionInstructions.length, 2);
+assert.match(imageDirectionInstructions[1] ?? "", /Mention build, clothing, pose, lighting\./u);
+assert.match(imageDirectionInstructions[1] ?? "", /instructions to you, not text to copy/u);
+assert.deepEqual(instructions({ enableImagePrompts: true, imageGenerationPrompt: "   " }), [
+  imageGenerationInstruction,
+]);
+assert.deepEqual(instructions({ imageGenerationPrompt: "ignored while image prompts are off" }), []);
 
 assert.equal(
   characterAppearanceFromRow({

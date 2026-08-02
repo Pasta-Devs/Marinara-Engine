@@ -524,7 +524,7 @@ const SETTINGS_SEARCHABLE_CONTROLS: readonly SettingsSearchableControlMeta[] = [
     sectionId: "application",
     label: "Documentation Language",
     description: "Choose the language for Marinara's built-in guides.",
-    aliases: ["documentation", "guides", "docs", "manual", "spanish", "español", "german", "deutsch", "french", "français", "portuguese", "português", "brazilian", "polish", "polski", "russian", "русский", "japanese", "日本語", "korean", "한국어"],
+    aliases: ["documentation", "guides", "docs", "manual", "spanish", "español", "german", "deutsch", "french", "français", "portuguese", "português", "brazilian", "polish", "polski", "russian", "русский", "japanese", "日本語", "korean", "한국어", "chinese", "simplified", "简体中文", "中文", "hindi", "हिन्दी"],
     kind: "Select",
   },
   {
@@ -3751,22 +3751,22 @@ function VideoGenerationSettings() {
           <div className="rounded-lg bg-[var(--background)]/55 p-3 ring-1 ring-[var(--border)]">
             <div className="mb-2 flex items-center gap-1 text-xs font-medium text-[var(--foreground)]">{localizeUi("ui.panels.videogenerationsettings.conversationCallClips")}<HelpTooltip text={localizeUi("ui.panels.videogenerationsettings.lengthsForGeneratedCharacterVideoCallPresenceClipsIdle")} />
             </div>
-            <div className="grid gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-2">
               {CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.map((kind) => (
                 <label
                   key={kind}
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80"
+                  className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80"
                 >
                   <span className="truncate text-xs text-[var(--foreground)]">
                     {CONVERSATION_CALL_VIDEO_CLIP_LABELS[kind]}
                   </span>
-                  <span className="grid w-20 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+                  <span className="grid w-[3.75rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                     <DraftNumberInput
                       value={draft.callClipDurations[kind]}
                       min={VIDEO_CALL_CLIP_DURATION_MIN}
                       max={VIDEO_CALL_CLIP_DURATION_MAX}
                       onCommit={(duration) => handleCallClipDurationChange(kind, duration)}
-                      className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+                      className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-xs"
                       ariaLabel={`${CONVERSATION_CALL_VIDEO_CLIP_LABELS[kind]} length in seconds`}
                     />
                     <span className="text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.noodle.stageprofileview.s")}</span>
@@ -3774,18 +3774,18 @@ function VideoGenerationSettings() {
                 </label>
               ))}
             </div>
-            <label className="mt-2 flex min-w-0 items-center justify-between gap-3 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80">
+            <label className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80">
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-xs text-[var(--foreground)]">{localizeUi("ui.panels.videogenerationsettings.customRequest")}</span>
                 <span className="text-[0.55rem] leading-snug text-[var(--muted-foreground)]">{localizeUi("ui.panels.videogenerationsettings.usedForOneOffClipsCharactersGenerateFromExplicit")}</span>
               </span>
-              <span className="grid w-20 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+              <span className="grid w-[3.75rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
                 <DraftNumberInput
                   value={draft.callCustomClipDurationSeconds}
                   min={VIDEO_CALL_CLIP_DURATION_MIN}
                   max={VIDEO_CALL_CLIP_DURATION_MAX}
                   onCommit={handleCustomClipDurationChange}
-                  className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1 text-xs"
+                  className="min-w-0 rounded-md border border-[var(--border)] bg-[var(--background)] px-1.5 py-1 text-xs"
                   ariaLabel="Custom call clip length in seconds"
                 />
                 <span className="text-[0.625rem] text-[var(--muted-foreground)]">{localizeUi("ui.noodle.stageprofileview.s")}</span>
@@ -5342,6 +5342,8 @@ function AddonsSettings() {
   );
 }
 
+const THEME_PREVIEW_DEBOUNCE_MS = 300;
+
 function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const { t: localizeUi } = useUiTranslation();
   const { data: syncedThemes = [], isLoading } = useThemes();
@@ -5359,26 +5361,39 @@ function ThemesSettings({ showIntro = true }: { showIntro?: boolean } = {}) {
   const [themeCss, setThemeCss] = useState("");
   const [livePreview, setLivePreview] = useState(true);
 
-  // Inject live preview CSS
+  // Replacing a dense app-level stylesheet invalidates styles across the full
+  // document. Keep typing immediate and apply only the settled preview instead
+  // of forcing that work for every character entered.
   useEffect(() => {
+    const previewStyleId = "marinara-css-editor-preview";
+    const existingStyle = document.getElementById(previewStyleId) as HTMLStyleElement | null;
+
     if (!editorOpen || !livePreview) {
-      const el = document.getElementById("marinara-css-editor-preview");
-      if (el) el.textContent = "";
+      existingStyle?.remove();
       return;
     }
-    let style = document.getElementById("marinara-css-editor-preview") as HTMLStyleElement | null;
-    if (!style) {
-      style = document.createElement("style");
-      style.id = "marinara-css-editor-preview";
+
+    const style = existingStyle ?? document.createElement("style");
+    if (!existingStyle) {
+      style.id = previewStyleId;
+      document.head.appendChild(style);
     }
-    style.textContent = sanitizeAppCss(themeCss);
-    // Always (re-)append so it's the last <style> in <head>,
-    // overriding the active-theme injector's saved CSS.
-    document.head.appendChild(style);
-    return () => {
-      style!.textContent = "";
-    };
+
+    const previewTimeout = window.setTimeout(() => {
+      style.textContent = sanitizeAppCss(themeCss);
+      // Keep the preview after the active-theme injector's saved CSS.
+      document.head.appendChild(style);
+    }, THEME_PREVIEW_DEBOUNCE_MS);
+
+    return () => window.clearTimeout(previewTimeout);
   }, [editorOpen, livePreview, themeCss]);
+
+  useEffect(
+    () => () => {
+      document.getElementById("marinara-css-editor-preview")?.remove();
+    },
+    [],
+  );
 
   const openNewTheme = useCallback(() => {
     setEditingId(null);

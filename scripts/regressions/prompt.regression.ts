@@ -1285,8 +1285,10 @@ const cases: RegressionCase[] = [
         "utf8",
       );
 
-      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 29);
-      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 29);
+      assert.equal(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.length, 31);
+      assert.equal(new Set(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.map((entry) => entry.id)).size, 31);
+      assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "long-term-memory"));
+      assert.ok(OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.some((entry) => entry.id === "storyboard"));
       assert.deepEqual(
         Object.fromEntries(
           (["writer", "tracker", "misc"] as const).map((category) => [
@@ -1294,7 +1296,7 @@ const cases: RegressionCase[] = [
             OFFICIAL_AGENT_KNOWLEDGE_ENTRIES.filter((entry) => entry.category === category).length,
           ]),
         ),
-        { writer: 6, tracker: 8, misc: 15 },
+        { writer: 6, tracker: 8, misc: 17 },
       );
 
       for (const entry of OFFICIAL_AGENT_KNOWLEDGE_ENTRIES) {
@@ -1308,6 +1310,9 @@ const cases: RegressionCase[] = [
 
       assert.match(seededMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
       assert.match(workspaceMariSource, /\$\{PROFESSOR_MARI_AGENT_CATALOG_KNOWLEDGE\}/u);
+      assert.match(workspaceMariSource, /"resultType":"image_prompt"/u);
+      assert.match(workspaceMariSource, /"activationKeywords":\["IMG_PROMPT:"\]/u);
+      assert.match(workspaceMariSource, /"trigger_image_generation":true/u);
     },
   },
   {
@@ -2904,6 +2909,7 @@ const cases: RegressionCase[] = [
             promptOnly: "true",
             applyMode: "prompt",
             targetCharacterIds: "[]",
+            targetPromptPresetIds: "[]",
             minDepth: null,
             maxDepth: null,
           },
@@ -2919,6 +2925,35 @@ const cases: RegressionCase[] = [
       assert.match(cleaned, /<lie>Keep lie markup\.<\/lie>/u);
       assert.match(cleaned, /<filter>Keep filter markup\.<\/filter>/u);
       assert.match(cleaned, /<!-- keep the author comment -->/u);
+    },
+  },
+  {
+    name: "prompt preset-scoped regexes run only for their selected preset",
+    run() {
+      const script = {
+        id: "preset-scoped-regex",
+        enabled: "true",
+        findRegex: "LAB",
+        replaceString: "PALACE",
+        placement: '["user_input"]',
+        flags: "g",
+        applyMode: "prompt",
+        targetCharacterIds: "[]",
+        targetPromptPresetIds: '["preset-laboratory"]',
+      };
+      assert.equal(applyRegexScriptsToPromptText("LAB", [script], "user_input", 0), "LAB");
+      assert.equal(
+        applyRegexScriptsToPromptText("LAB", [script], "user_input", 0, {
+          targetPromptPresetId: "preset-ballroom",
+        }),
+        "LAB",
+      );
+      assert.equal(
+        applyRegexScriptsToPromptText("LAB", [script], "user_input", 0, {
+          targetPromptPresetId: "preset-laboratory",
+        }),
+        "PALACE",
+      );
     },
   },
   {

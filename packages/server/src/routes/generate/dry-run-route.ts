@@ -845,6 +845,7 @@ export async function registerDryRunRoute(app: FastifyInstance) {
     applyRegexScriptsToPromptMessages(mappedMessages, await regexScriptsStore.list(), {
       resolveMacros: (value, randomSeed) => resolveMacros(value, promptMacroContext, { trimResult: false, randomSeed }),
       targetCharacterId: promptTargetCharacterId,
+      targetPromptPresetId: effectivePresetId,
     });
 
     for (const msg of mappedMessages) {

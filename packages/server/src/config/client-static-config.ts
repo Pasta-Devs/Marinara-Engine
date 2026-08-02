@@ -19,23 +19,23 @@ export function createClientStaticOptions(clientDist: string): FastifyStaticOpti
       const fileName = basename(filePath);
 
       if (REVALIDATE_FILES.has(fileName)) {
-        res.setHeader("Cache-Control", "no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
+        res.header("Cache-Control", "no-cache, must-revalidate");
+        res.header("Pragma", "no-cache");
+        res.header("Expires", "0");
         return;
       }
 
       if (NO_STORE_FILES.has(fileName)) {
-        res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
-        res.setHeader("Pragma", "no-cache");
-        res.setHeader("Expires", "0");
+        res.header("Cache-Control", "no-store, no-cache, must-revalidate");
+        res.header("Pragma", "no-cache");
+        res.header("Expires", "0");
         return;
       }
 
       // Vite fingerprints every file emitted beneath dist/assets, including
       // lazy JS chunks, CSS, and fonts. Those URLs are safe to cache forever.
       if (filePath.startsWith(immutableAssetPrefix)) {
-        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        res.header("Cache-Control", "public, max-age=31536000, immutable");
       }
     },
   };

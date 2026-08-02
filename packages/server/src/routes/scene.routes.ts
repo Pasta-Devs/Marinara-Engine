@@ -326,7 +326,9 @@ export async function sceneRoutes(app: FastifyInstance) {
       name: plan.name,
       mode: "roleplay",
       characterIds: finalParticipantIds,
-      groupId: originChat.groupId,
+      // Scene linkage is represented by connectedChatId. Reusing the origin's
+      // branch group crosses chat modes and can hide Conversation rows.
+      groupId: null,
       personaId: originChat.personaId,
       // Scene chats use the generated sceneSystemPrompt as their prompt source.
       // Copying the origin conversation preset can make those instructions clash.
@@ -628,6 +630,8 @@ export async function sceneRoutes(app: FastifyInstance) {
     if (mode === "convert" && !originChatId) {
       return reply.status(400).send({ error: "convert requires originChatId" });
     }
+    const originGroupId = originChatId ? (await chats.getById(originChatId))?.groupId : null;
+    const forkGroupId = sceneChat.groupId && sceneChat.groupId !== originGroupId ? sceneChat.groupId : null;
 
     // Sort explicitly before validating/slicing `upToMessageId` so "clone from
     // here" always copies a chronological prefix even if storage ordering changes.
@@ -645,7 +649,7 @@ export async function sceneRoutes(app: FastifyInstance) {
       }`,
       mode: "roleplay",
       characterIds: parseCharacterIds(sceneChat.characterIds),
-      groupId: sceneChat.groupId,
+      groupId: forkGroupId,
       personaId: sceneChat.personaId,
       promptPresetId: sceneChat.promptPresetId,
       connectionId: sceneChat.connectionId,

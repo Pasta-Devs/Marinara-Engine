@@ -42,6 +42,9 @@ function officialCatalogRoot(branch: OfficialAgentBranch): string {
 function officialArtifactRoot(branch: OfficialAgentBranch): string {
   return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/artifacts`;
 }
+function officialArtworkRoot(branch: OfficialAgentBranch): string {
+  return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/artwork/agent-covers`;
+}
 const ENGINE_RELEASE_VERSION_PATTERN = /^v?(\d+)\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 export function resolveCapabilityCatalogUrl(
   engineVersion: string = APP_VERSION,
@@ -307,6 +310,15 @@ export function resolveCapabilityPackageArtifactUrl(
   return `${officialArtifactRoot(branch)}/${entry.manifest.id}-${entry.manifest.version}.zip`;
 }
 
+export function resolveCapabilityPackageIconUrl(
+  entry: CapabilityCatalogPackage,
+  catalogUrl = CATALOG_URL,
+): string | undefined {
+  const branch = getOfficialAgentBranchFromCatalogUrl(catalogUrl);
+  if (!branch || !entry.iconUrl) return entry.iconUrl;
+  return `${officialArtworkRoot(branch)}/${entry.manifest.id}.png`;
+}
+
 async function readInstalledAgentDefinitions(installed: InstalledCapabilityPackage) {
   const entrypoint = installed.manifest.entrypoints.agents;
   if (!entrypoint) return [];
@@ -465,8 +477,8 @@ async function installCatalogPackage(entry: CapabilityCatalogPackage, activateDu
 }
 
 export const capabilityPackageManager = {
-  async catalog(): Promise<CapabilityCatalog> {
-    const response = await safeFetch(CATALOG_URL, {
+  async catalog(fetchCatalog: typeof safeFetch = safeFetch): Promise<CapabilityCatalog> {
+    const response = await fetchCatalog(CATALOG_URL, {
       policy: { allowedProtocols: ["https:"] },
       maxResponseBytes: 2 * 1024 * 1024,
       allowedContentTypes: ["application/json", "text/plain"],
@@ -493,6 +505,7 @@ export const capabilityPackageManager = {
         .filter((entry) => !NON_DOWNLOADABLE_CORE_PACKAGE_IDS.has(entry.manifest.id))
         .map((entry) => ({
           ...entry,
+          iconUrl: resolveCapabilityPackageIconUrl(entry, CATALOG_URL),
           artifact: {
             ...entry.artifact,
             url: resolveCapabilityPackageArtifactUrl(entry, CATALOG_URL),

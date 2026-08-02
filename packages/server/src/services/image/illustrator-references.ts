@@ -409,6 +409,8 @@ export async function resolveIllustratorCharacterReferences(args: {
         ? `Attached are reference images of ${referenceNames.join(", ")}. Use them only to preserve character likeness and visual identity; the written scene prompt is authoritative for composition, setting, action, mood, framing, and whether any text appears.`
         : null,
     appearanceNames,
-    appearanceBlock: appearanceLines.length > 0 ? `Character appearance notes:\n${appearanceLines.join("\n")}` : null,
+    // No "Character appearance notes:" header: every consumer appends this straight to an image
+    // prompt, so the label is only ever read by a diffusion model as something to draw.
+    appearanceBlock: appearanceLines.length > 0 ? appearanceLines.join("\n") : null,
   };
 }

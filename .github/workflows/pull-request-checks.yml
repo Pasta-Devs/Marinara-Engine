@@ -36,6 +36,12 @@ jobs:
       - name: Run project checks
         run: pnpm check
 
+      - name: Validate pull request gate topology
+        run: node scripts/validate-pr-triage.mjs
+
+      - name: Test owner approval evaluator
+        run: node scripts/test-owner-approval.mjs
+
       - name: Check version drift
         run: pnpm version:check
 

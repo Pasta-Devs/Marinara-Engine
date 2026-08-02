@@ -630,7 +630,7 @@ export async function docsRoutes(app: FastifyInstance) {
 
     const language = await resolveRequestLanguage(lang, storage);
     let filePath: string;
-    let servedLanguage = DEFAULT_DOCS_LANGUAGE;
+    let servedLanguage: string;
     try {
       const { file: candidatePath, language: fileLanguage, root } = resolvePhysical(language, segments);
       if (!existsSync(candidatePath)) {

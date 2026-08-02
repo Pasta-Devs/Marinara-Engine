@@ -119,6 +119,7 @@ const SUMMARY_TOKEN_WARNING_THRESHOLD = 1800;
 const SUMMARY_HEADING_PATTERN = /^(?:#{1,6}\s*)?(?:\*\*)?([^:\n]{3,80})(?:\*\*)?:\s*$/;
 const SUMMARY_BULLET_PATTERN = /^[-*•]\s+/;
 const MOBILE_SUMMARY_PADDING = 8;
+const DESKTOP_SUMMARY_WIDTH = 576;
 
 function clampSummaryMaxTokens(value: unknown): number {
   const parsed = Number(value);
@@ -145,6 +146,22 @@ function getMobileSummaryFrame(anchor: SummaryPopoverAnchor | null | undefined) 
   );
   const top = Math.max(MOBILE_SUMMARY_PADDING, anchor?.overflowMenu ? anchor.top : (anchor?.bottom ?? 56));
   const maxHeight = Math.max(240, window.innerHeight - top - MOBILE_SUMMARY_PADDING);
+  return { top, left, width, maxHeight };
+}
+
+function getDesktopSummaryFrame(anchor: SummaryPopoverAnchor | null | undefined) {
+  if (typeof window === "undefined") return null;
+  const width = Math.min(DESKTOP_SUMMARY_WIDTH, window.innerWidth - MOBILE_SUMMARY_PADDING * 2);
+  const rightEdge = anchor?.right ?? window.innerWidth - MOBILE_SUMMARY_PADDING;
+  const left = Math.max(
+    MOBILE_SUMMARY_PADDING,
+    Math.min(rightEdge - width, window.innerWidth - width - MOBILE_SUMMARY_PADDING),
+  );
+  const top = Math.max(MOBILE_SUMMARY_PADDING, (anchor?.bottom ?? 52) + 4);
+  const maxHeight = Math.max(
+    240,
+    Math.min(736, window.innerHeight - top - MOBILE_SUMMARY_PADDING),
+  );
   return { top, left, width, maxHeight };
 }
 
@@ -1026,7 +1043,7 @@ export function SummaryPopover({
   const isGenerating = generateSummary.isPending;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
-  const mobileFrame = isMobile ? getMobileSummaryFrame(anchor) : null;
+  const panelFrame = isMobile ? getMobileSummaryFrame(anchor) : getDesktopSummaryFrame(anchor);
 
   const handlePanelMouseDown = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -1041,25 +1058,16 @@ export function SummaryPopover({
       data-chat-floating-panel
       onMouseDown={handlePanelMouseDown}
       onPointerDown={handlePanelPointerDown}
-      className={cn(isMobile ? "fixed z-[9999]" : "absolute right-0 top-full z-[100] mt-1")}
-      style={
-        mobileFrame
-          ? {
-              top: mobileFrame.top,
-              left: mobileFrame.left,
-              width: mobileFrame.width,
-            }
-          : undefined
-      }
+      className="fixed z-[9999]"
+      style={panelFrame ? { top: panelFrame.top, left: panelFrame.left, width: panelFrame.width } : undefined}
     >
       <div
         className={cn(
           ROLEPLAY_POPOVER_SHELL,
           ROLEPLAY_POPOVER_SCROLL_AREA,
-          "relative flex flex-col overflow-hidden p-3",
-          isMobile ? "w-full" : "max-h-[min(46rem,calc(100vh-5rem))] w-[36rem]",
+          "relative flex w-full flex-col overflow-hidden p-3",
         )}
-        style={mobileFrame ? { maxHeight: mobileFrame.maxHeight } : undefined}
+        style={panelFrame ? { maxHeight: panelFrame.maxHeight } : undefined}
       >
         {/* Header */}
         <div className="mb-2 flex items-start justify-between gap-3">
@@ -1745,7 +1753,7 @@ export function SummaryPopover({
     </div>
   );
 
-  return isMobile ? createPortal(content, document.body) : content;
+  return createPortal(content, document.body);
 }
 
 interface SummarySettingsToggleProps {

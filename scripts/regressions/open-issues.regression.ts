@@ -8,7 +8,8 @@ import type { Chat, ChatMode, Message } from "../../packages/shared/src/types/ch
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
-import { characterCardVersions, characters, chats, messages } from "../../packages/server/src/db/schema/index.js";
+import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
+import { characterCardVersions, characters, chatPresets, chats, messages } from "../../packages/server/src/db/schema/index.js";
 import { eq } from "../../packages/server/src/db/file-query.js";
 import { parseBuildMeta, resolveBuildBranch } from "../../packages/server/src/config/build-info.js";
 
@@ -186,6 +187,8 @@ import { createCustomToolsStorage } from "../../packages/server/src/services/sto
 import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
 import { createLorebooksStorage } from "../../packages/server/src/services/storage/lorebooks.storage.js";
 import { createNoodleStorage } from "../../packages/server/src/services/storage/noodle.storage.js";
+import { createChatPresetsStorage } from "../../packages/server/src/services/storage/chat-presets.storage.js";
+import { buildGoogleModelsPageUrl } from "../../packages/server/src/routes/connections.routes.js";
 import { buildReferencedCharacterContext } from "../../packages/server/src/services/prompt/macro-context.js";
 import { resolveRunPodComfyUiTimeoutSeconds } from "../../packages/server/src/services/image/runpod-comfyui.service.js";
 import {
@@ -197,6 +200,7 @@ import {
   buildInitialAgentAddSetupState,
 } from "../../packages/client/src/components/chat/AgentAddSetupFields.js";
 import { resolveSpriteTransition } from "../../packages/client/src/lib/sprite-transition.js";
+import { resolveSpriteExpressionState } from "../../packages/client/src/lib/sprite-expression-state.js";
 import {
   parseIllustratorPromptReviewOverride,
   resolveIllustratorPromptSubmission,
@@ -307,6 +311,36 @@ assert.equal(shouldSuppressAutonomousMessages("dnd"), true);
 assert.equal(resolveSpriteTransition("full-body", "none"), "crossfade");
 assert.equal(resolveSpriteTransition("full-body", "shake"), "shake");
 assert.equal(resolveSpriteTransition("expressions", "none"), "none");
+assert.deepEqual(
+  resolveSpriteExpressionState([
+    { extra: { spriteExpressions: { "character-a": "happy" } } },
+    { extra: {} },
+  ]),
+  { "character-a": "happy" },
+);
+assert.deepEqual(
+  resolveSpriteExpressionState(
+    [
+      { extra: { spriteExpressions: { "character-a": "happy" } } },
+      { extra: { spriteExpressions: { persona: "excited" } } },
+      { extra: JSON.stringify({ spriteExpressions: { "character-c": "angry" } }) },
+    ],
+    { "character-b": "thinking" },
+  ),
+  {
+    "character-a": "happy",
+    "character-b": "thinking",
+    "character-c": "angry",
+    persona: "excited",
+  },
+);
+assert.deepEqual(
+  resolveSpriteExpressionState([
+    { extra: { spriteExpressions: { "character-a": "happy" } } },
+    { extra: { spriteExpressions: { "character-a": "neutral" } } },
+  ]),
+  { "character-a": "neutral" },
+);
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image", 1), [1]);
 assert.deepEqual(findMissingComfyReferenceSlots(comfyReferenceWorkflow, "reference_image_name", 1), [2]);
 assert.equal(numberedComfyReferencePlaceholder("reference_image_name", 2), "%reference_image_name_03%");
@@ -650,6 +684,69 @@ try {
   const characterStorage = createCharactersStorage(db);
   const lorebookStorage = createLorebooksStorage(db);
   const noodleStorage = createNoodleStorage(db);
+  const chatPresetStorage = createChatPresetsStorage(db);
+  await chatPresetStorage.ensureDefaults();
+  const originalConversationDefault = await chatPresetStorage.getDefault("conversation");
+  assert.ok(originalConversationDefault, "Conversation mode must start with a Default settings profile");
+  await db
+    .update(chatPresets)
+    .set({ name: "Broken Default", settings: JSON.stringify({ connectionId: "must-be-reset" }) })
+    .where(eq(chatPresets.id, originalConversationDefault.id));
+  await db.insert(chatPresets).values({
+    id: "duplicate-conversation-default",
+    name: "Default Copy",
+    mode: "conversation",
+    isDefault: "true",
+    isActive: "true",
+    settings: JSON.stringify({ connectionId: "must-be-reset" }),
+    createdAt: "9999-12-31T23:59:59.000Z",
+    updatedAt: "9999-12-31T23:59:59.000Z",
+  });
+  const duplicateDefaultChatId = "duplicate-default-profile-reference";
+  await db.insert(chats).values({
+    id: duplicateDefaultChatId,
+    name: "Duplicate Default profile reference",
+    mode: "conversation",
+    characterIds: "[]",
+    metadata: JSON.stringify({ appliedChatPresetId: "duplicate-conversation-default", preserved: true }),
+    sortOrder: 0,
+    createdAt: "2026-08-02T06:00:00.000Z",
+    updatedAt: "2026-08-02T06:00:00.000Z",
+  });
+  await chatPresetStorage.ensureDefaults();
+  const normalizedConversationProfiles = await chatPresetStorage.listByMode("conversation");
+  assert.equal(
+    normalizedConversationProfiles.filter((profile) => profile.isDefault).length,
+    1,
+    "Default settings profile repair must remove duplicate built-ins",
+  );
+  assert.equal(
+    normalizedConversationProfiles.filter((profile) => profile.isActive).length,
+    1,
+    "Default settings profile repair must leave exactly one active profile",
+  );
+  assert.deepEqual(await chatPresetStorage.getDefault("conversation"), {
+    ...originalConversationDefault,
+    name: "Default",
+    isActive: true,
+    settings: {},
+  });
+  const reboundDefaultChat = (await db.select().from(chats).where(eq(chats.id, duplicateDefaultChatId)))[0];
+  assert.ok(reboundDefaultChat);
+  assert.deepEqual(JSON.parse(reboundDefaultChat.metadata), {
+    appliedChatPresetId: originalConversationDefault.id,
+    preserved: true,
+  });
+  assert.ok(
+    await chatPresetStorage.getById(JSON.parse(reboundDefaultChat.metadata).appliedChatPresetId),
+    "Rebound chat profile references must remain resolvable after duplicate cleanup",
+  );
+  await chatPresetStorage.ensureDefaults();
+  assert.equal(
+    (await chatPresetStorage.listByMode("conversation")).filter((profile) => profile.isDefault).length,
+    1,
+    "Default settings profile repair must be idempotent",
+  );
   const storageTrimFixture = await characterStorage.create({
     ...characterDataSchema.parse({ name: "Storage trim fixture" }),
     name: "  Storage trim fixture  ",
@@ -1230,6 +1327,17 @@ try {
   rmSync(characterUpdateStorageRoot, { recursive: true, force: true });
 }
 
+const googleModelsPageUrl = buildGoogleModelsPageUrl(
+  "https://gemini-proxy.example.test/v1beta",
+  "/models",
+  "next page/token",
+);
+assert.equal(
+  googleModelsPageUrl,
+  "https://gemini-proxy.example.test/v1beta/models?pageSize=1000&pageToken=next%20page%2Ftoken",
+);
+assert.equal(new URL(googleModelsPageUrl).searchParams.has("key"), false, "Gemini API keys must stay out of model URLs");
+
 const professorMariAboutMeCommands = parseCharacterCommands(
   '[update_character: name="Luna", about_me="fate dealer. tea hoarder. 🔮"]\n' +
     '[update_persona: name="Alex Storm", about_me=""]',
@@ -1505,26 +1613,7 @@ assert.deepEqual(
   ZAI_IMAGE_MODELS.map((model) => model.id),
   ["glm-image", "cogview-4-250304"],
 );
-const pullRequestTriageWorkflow = readFileSync(
-  new URL("../../.github/workflows/pull-request-triage.yml", import.meta.url),
-  "utf8",
-);
-assert.match(pullRequestTriageWorkflow, /pull_request_review:\s+types: \[submitted, dismissed\]/u);
-assert.match(pullRequestTriageWorkflow, /github\.event\.review\.user\.login == 'SpicyMarinara'/u);
-assert.match(pullRequestTriageWorkflow, /github\.event\.review\.state == 'commented'/u);
-assert.match(pullRequestTriageWorkflow, /'Ignore unrelated triage event'/u);
-assert.match(pullRequestTriageWorkflow, /APPROVAL_EVENT_RELEVANT/u);
-assert.match(pullRequestTriageWorkflow, /if: env\.APPROVAL_EVENT_RELEVANT != 'true'/u);
-assert.match(
-  pullRequestTriageWorkflow,
-  /name: "\$\{\{ github\.event\.pull_request\.base\.ref == 'staging'.*'Ignore unrelated triage event' \}\}"/u,
-);
-assert.match(
-  pullRequestTriageWorkflow,
-  /github\.event\.action != 'edited' \|\| contains\(toJSON\(github\.event\.changes\), '\\?"base\\?"'\)/u,
-);
-assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base != null/u);
-assert.doesNotMatch(pullRequestTriageWorkflow, /github\.event\.changes\.base\.ref\.from != ''/u);
+validatePullRequestTriage();
 assert.equal(
   buildAtlasCloudUrl("https://api.atlascloud.ai/v1/", "generateImage"),
   "https://api.atlascloud.ai/api/v1/model/generateImage",
@@ -2199,6 +2288,10 @@ const chatSettingsDrawerSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
   "utf8",
 );
+const characterGreetingsSource = readFileSync(
+  new URL("../../packages/client/src/lib/character-greetings.ts", import.meta.url),
+  "utf8",
+);
 assert.match(
   chatSettingsDrawerSource,
   /CHAT_SETTINGS_SURFACES\[chatMode\]/u,
@@ -2436,7 +2529,7 @@ assert.match(
   /PanelSection title=\{localizeUi\("ui\.panels\.presetspanel\.prompts"\)\}/u,
   "The prompt-preset section must be labelled Prompts alongside Regexes and Functions",
 );
-assert.match(chatSettingsDrawerSource, /type GreetingOption = \{[\s\S]*alternateIndex: number \| null;/u);
+assert.match(characterGreetingsSource, /type CharacterGreeting = \{[^}]*alternateIndex: number \| null[^}]*\};/u);
 assert.match(chatSettingsDrawerSource, /setFirstMesConfirm\(null\);[\s\S]*addSilentGreetingSwipes/u);
 assert.equal(
   chatSettingsDrawerSource.match(/<GenerationSettingsLink/gu)?.length,
@@ -4481,6 +4574,129 @@ try {
     chatSettingsDrawerSource,
     /narrativeDirectorSecretPlotRunInterval:\s*normalizePositiveInteger\(\s*event\.target\.value/u,
     "Secret Plot run interval must not reject the browser's string input value",
+  );
+}
+
+// Issue #4449 — desktop sidebar hover actions overlay row content instead of
+// permanently reserving text width, while touch layouts keep room for visible
+// actions and Conversation Call duration rows size from their panel width.
+{
+  const sidebarPanelSources = new Map(
+    ["Characters", "Personas", "Lorebooks", "Agents", "Presets", "Connections"].map((panelName) => [
+      panelName,
+      readFileSync(
+        join(REPOSITORY_ROOT, `packages/client/src/components/panels/${panelName}Panel.tsx`),
+        "utf8",
+      ),
+    ]),
+  );
+
+  for (const [panelName, source] of sidebarPanelSources) {
+    assert.match(
+      source,
+      /max-md:pr-(?:14|16|20|24|32|36) \[@media\(pointer:coarse\)\]:pr-(?:14|16|20|24|32|36)/u,
+      `${panelName} rows must reserve action space only for touch layouts`,
+    );
+    assert.doesNotMatch(
+      source,
+      /\[@media\(pointer:fine\)\]:group-hover:pr-/u,
+      `${panelName} rows must not shrink their text area when desktop hover actions appear`,
+    );
+    assert.match(
+      source,
+      /pointer-events-none[^"\n]*group-hover(?:\/member)?:opacity-100[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:opacity-100[^"\n]*\[@media\(pointer:coarse\)\]:opacity-100[^"\n]*group-hover(?:\/member)?:\[&_button\]:pointer-events-auto[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:\[&_button\]:pointer-events-auto[^"\n]*max-md:\[&_button\]:pointer-events-auto[^"\n]*\[@media\(pointer:coarse\)\]:\[&_button\]:pointer-events-auto/u,
+      `${panelName} action overlays must activate button hit targets only when their actions are visible`,
+    );
+    const hiddenActionOverlayCount = source.match(/pointer-events-none[^"\n]*opacity-0/gu)?.length ?? 0;
+    const focusVisibleOverlayCount =
+      source.match(
+        /pointer-events-none[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:opacity-100/gu,
+      )?.length ?? 0;
+    const focusInteractiveOverlayCount =
+      source.match(
+        /pointer-events-none[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:\[&_button\]:pointer-events-auto/gu,
+      )?.length ?? 0;
+    assert.equal(
+      focusVisibleOverlayCount,
+      hiddenActionOverlayCount,
+      `${panelName} must reveal every fine-pointer action overlay while it contains keyboard focus`,
+    );
+    assert.equal(
+      focusInteractiveOverlayCount,
+      hiddenActionOverlayCount,
+      `${panelName} must keep every focused fine-pointer action overlay interactive`,
+    );
+  }
+
+  const personasPanelSource = sidebarPanelSources.get("Personas")!;
+  const charactersPanelSource = sidebarPanelSources.get("Characters")!;
+  const presetsPanelSource = sidebarPanelSources.get("Presets")!;
+  for (const panelName of ["Characters", "Personas", "Lorebooks", "Agents", "Presets"]) {
+    assert.match(
+      sidebarPanelSources.get(panelName)!,
+      /group relative flex cursor-pointer[^"\n]*max-md:pr-12 \[@media\(pointer:coarse\)\]:pr-12/u,
+      `${panelName} folder headers must reserve space for always-visible touch actions`,
+    );
+  }
+  assert.match(
+    charactersPanelSource,
+    /max-md:pr-20 \[@media\(pointer:coarse\)\]:pr-24/u,
+    "Character rows must match their coarse-pointer padding to the desktop-width action toolbar",
+  );
+  assert.match(
+    charactersPanelSource,
+    /group-hover\/member:opacity-100[^"\n]*max-md:static max-md:translate-y-0[^"\n]*\[@media\(pointer:coarse\)\]:static \[@media\(pointer:coarse\)\]:translate-y-0/u,
+    "Character folder-member actions must participate in touch layout instead of overflowing their row",
+  );
+  assert.match(
+    presetsPanelSource,
+    /max-md:pr-36 \[@media\(pointer:coarse\)\]:pr-36/u,
+    "Preset rows must reserve space for the complete selected-preset touch toolbar",
+  );
+  assert.match(
+    charactersPanelSource,
+    /data-character-row-name\s+className="w-fit max-w-full truncate/u,
+    "Character names must keep a content-sized click target beneath overlaid actions",
+  );
+  assert.match(
+    personasPanelSource,
+    /className="w-fit max-w-full truncate text-sm font-medium">\{persona\.name\}/u,
+    "Persona names must keep a content-sized click target beneath overlaid actions",
+  );
+  assert.match(
+    charactersPanelSource,
+    /data-touch-drag-card="character"[\s\S]*?onKeyDown=\{\(e\) => \{\s*if \(e\.target !== e\.currentTarget\) return;/u,
+    "Character folder rows must preserve descendant action-button keyboard events",
+  );
+  assert.match(
+    personasPanelSource,
+    /data-touch-drag-card="persona"[\s\S]*?onKeyDown=\{\(e\) => \{\s*if \(e\.target !== e\.currentTarget\) return;/u,
+    "Persona folder rows must preserve descendant action-button keyboard events",
+  );
+  assert.match(
+    personasPanelSource,
+    /group group\/member relative flex/u,
+    "Persona folder rows must establish the positioning context for overlaid actions",
+  );
+  assert.match(
+    personasPanelSource,
+    /absolute right-1 top-1\/2 flex -translate-y-1\/2 items-center/u,
+    "Persona folder actions must overlay their row instead of occupying flex width",
+  );
+
+  const settingsPanelSource = readFileSync(
+    join(REPOSITORY_ROOT, "packages/client/src/components/panels/SettingsPanel.tsx"),
+    "utf8",
+  );
+  assert.match(
+    settingsPanelSource,
+    /grid-cols-\[repeat\(auto-fit,minmax\(min\(100%,10rem\),1fr\)\)\]/u,
+    "Conversation Call clip rows must wrap from the panel width instead of a viewport breakpoint",
+  );
+  assert.equal(
+    settingsPanelSource.match(/w-\[3\.75rem\] grid-cols-\[minmax\(0,1fr\)_auto\]/gu)?.length,
+    2,
+    "Conversation Call generated and custom clip duration controls must share the compact width",
   );
 }
 

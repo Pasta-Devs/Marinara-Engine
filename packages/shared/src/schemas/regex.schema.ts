@@ -46,6 +46,7 @@ const regexScriptShape = z.object({
   promptOnly: z.boolean().default(false),
   applyMode: regexApplyModeSchema.optional(),
   targetCharacterIds: z.array(z.string().min(1)).default([]),
+  targetPromptPresetIds: z.array(z.string().min(1)).default([]),
   order: z.number().int().optional(),
   minDepth: z.number().int().nullable().default(null),
   maxDepth: z.number().int().nullable().default(null),
