@@ -1070,7 +1070,7 @@ function ConnectionRow({
           </div>
         )}
       </button>
-      <div className="min-w-0 flex-1 pr-0 transition-[padding] max-md:pr-32 [@media(pointer:coarse)]:pr-32 [@media(pointer:fine)]:group-hover:pr-32">
+      <div className="min-w-0 flex-1 max-md:pr-32">
         <div className="truncate text-sm font-medium leading-5" title={conn.name}>
           {conn.name}
         </div>

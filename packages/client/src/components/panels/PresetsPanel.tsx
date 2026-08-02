@@ -901,8 +901,7 @@ export function PresetsPanel() {
             <div
               className={cn(
                 "min-w-0 flex-1",
-                !selectionMode &&
-                  "pr-0 transition-[padding] max-md:pr-32 [@media(pointer:coarse)]:pr-32 [@media(pointer:fine)]:group-hover:pr-32",
+                !selectionMode && "max-md:pr-32",
               )}
             >
               <div className="flex min-w-0 items-center gap-1.5">

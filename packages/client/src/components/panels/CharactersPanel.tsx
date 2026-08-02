@@ -1174,7 +1174,7 @@ export function CharactersPanel() {
                           </div>
                         )}
                       </div>
-                      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-24")}>
+                      <div className={cn("min-w-0 flex-1", !selectionMode && "max-md:pr-24")}>
                         <span
                           className="block truncate text-[0.75rem] font-medium"
                           style={
@@ -1508,7 +1508,7 @@ export function CharactersPanel() {
               </div>
 
               {/* Info */}
-              <div className={cn("min-w-0 flex-1", !selectionMode && "pr-[6.5rem] max-md:pr-20")}>
+              <div className={cn("min-w-0 flex-1", !selectionMode && "max-md:pr-20")}>
                 <div
                   data-character-row-name
                   className="truncate text-sm font-medium"

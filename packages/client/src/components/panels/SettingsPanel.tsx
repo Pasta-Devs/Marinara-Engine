@@ -3755,12 +3755,12 @@ function VideoGenerationSettings() {
               {CONVERSATION_CALL_CHARACTER_VIDEO_CLIP_KINDS.map((kind) => (
                 <label
                   key={kind}
-                  className="flex min-w-0 items-center justify-between gap-3 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80"
+                  className="flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80"
                 >
                   <span className="truncate text-xs text-[var(--foreground)]">
                     {CONVERSATION_CALL_VIDEO_CLIP_LABELS[kind]}
                   </span>
-                  <span className="grid w-20 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+                  <span className="grid w-[clamp(3.5rem,28%,5rem)] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
                     <DraftNumberInput
                       value={draft.callClipDurations[kind]}
                       min={VIDEO_CALL_CLIP_DURATION_MIN}
@@ -3774,12 +3774,12 @@ function VideoGenerationSettings() {
                 </label>
               ))}
             </div>
-            <label className="mt-2 flex min-w-0 items-center justify-between gap-3 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80">
+            <label className="mt-2 flex min-w-0 items-center justify-between gap-2 rounded-md bg-[var(--secondary)]/60 px-2.5 py-2 ring-1 ring-[var(--border)]/80">
               <span className="flex min-w-0 flex-col gap-0.5">
                 <span className="truncate text-xs text-[var(--foreground)]">{localizeUi("ui.panels.videogenerationsettings.customRequest")}</span>
                 <span className="text-[0.55rem] leading-snug text-[var(--muted-foreground)]">{localizeUi("ui.panels.videogenerationsettings.usedForOneOffClipsCharactersGenerateFromExplicit")}</span>
               </span>
-              <span className="grid w-20 shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
+              <span className="grid w-[clamp(3.5rem,28%,5rem)] shrink-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
                 <DraftNumberInput
                   value={draft.callCustomClipDurationSeconds}
                   min={VIDEO_CALL_CLIP_DURATION_MIN}

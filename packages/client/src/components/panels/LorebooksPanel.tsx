@@ -1238,7 +1238,7 @@ function LorebookRow({
           </span>
         </button>
       )}
-      <div className={cn("min-w-0 flex-1", !selectionMode && "pr-24")}>
+      <div className={cn("min-w-0 flex-1", !selectionMode && "max-md:pr-24")}>
         <div className="flex items-center gap-1.5">
           <span className="truncate text-sm font-medium">{lorebook.name}</span>
           {!lorebook.enabled && (

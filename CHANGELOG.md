@@ -4,6 +4,10 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ## [Unreleased]
 
+### Fixed
+
+- Let desktop sidebar item text use the full row width beneath overlaid hover actions, removed the extra Presets and Connections hover margin, and made Conversation Call clip-length fields scale compactly without clipping their labels (#4449).
+
 ## [2.4.1]
 
 ### Added
