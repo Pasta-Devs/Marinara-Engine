@@ -154,13 +154,21 @@ export class ConnectionFallbackProvider extends BaseLLMProvider {
           }
         : options;
       const generation = this.primary.chat(messages, primaryOptions);
-      let result = await generation.next();
-      while (!result.done) {
-        emittedUsableOutput ||= result.value.trim().length > 0;
-        yield result.value;
-        result = await generation.next();
+      try {
+        let result = await generation.next();
+        while (!result.done) {
+          emittedUsableOutput ||= result.value.trim().length > 0;
+          yield result.value;
+          result = await generation.next();
+        }
+        if (emittedUsableOutput || options.signal?.aborted) return result.value;
+      } finally {
+        // Drive the primary to completion if our consumer abandoned us mid-stream. The manual
+        // loop above does not forward an early return the way `yield*` would, so without this
+        // an admission wrapper around the primary never runs its own finally and leaks the
+        // connection's foreground slot for the lifetime of the process.
+        await generation.return(undefined);
       }
-      if (emittedUsableOutput || options.signal?.aborted) return result.value;
       await this.logFallback(new Error("Primary provider returned an empty completion"));
     } catch (error) {
       if (emittedUsableOutput || isAbortFailure(error, options.signal) || isConnectionAdmissionFailure(error)) throw error;
