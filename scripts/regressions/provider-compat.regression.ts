@@ -55,6 +55,7 @@ import {
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import {
+  BACKGROUND_CONNECTION_IDLE_MS,
   ConnectionAttemptRejectedError,
   resetConnectionAdmissionForTests,
   tryBackgroundConnection,
@@ -813,6 +814,34 @@ assert.equal(unrelatedPrimaryAdmission.acquired, true, "fallback work must not o
 if (unrelatedPrimaryAdmission.acquired) unrelatedPrimaryAdmission.release();
 releaseFallbackCall();
 assert.equal(await fallbackRun, "held response");
+
+// A consumer that stops reading mid-stream must not strand the primary connection's
+// foreground slot: the fallback provider drains the primary manually, so an early return
+// has to be forwarded explicitly or background work is locked out until a restart.
+resetConnectionAdmissionForTests();
+class EndlessProvider extends BaseLLMProvider {
+  constructor() {
+    super("", "");
+  }
+
+  async *chat(): AsyncGenerator<string, LLMUsage | void, unknown> {
+    while (true) yield "chunk";
+  }
+}
+const abandonedProvider = new ConnectionFallbackProvider(
+  withConnectionAdmissionProvider(new EndlessProvider(), "abandoned-connection"),
+  new RegressionProvider(["unused fallback"]),
+  fallbackConnection,
+  "main",
+);
+const abandonedStream = abandonedProvider.chat([{ role: "user", content: "hi" }], { model: "abandoned-model" });
+assert.equal((await abandonedStream.next()).value, "chunk");
+await abandonedStream.return(undefined);
+assert.equal(
+  tryBackgroundConnection("abandoned-connection", new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS)).acquired,
+  true,
+  "abandoning the stream must release the primary connection's foreground slot",
+);
 
 let backgroundAttempts = 0;
 const backgroundOutcomes: string[] = [];
