@@ -1303,6 +1303,8 @@ export function ChatRoleplaySurface({
   const composerFocused = useChatComposerFocused();
   const ambientVisualsPaused =
     generationVisualsPaused || (isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput));
+  const weatherEffectsPaused =
+    isMobileToolbarViewport && (keyboardOpen || composerFocused || hasMobileDraftInput);
   const shouldKeepMobileComposerOpen =
     keyboardOpen || composerFocused || hasLiveStream || hasMobileDraftInput || isFetchingNextPage;
 
@@ -1635,7 +1637,7 @@ export function ChatRoleplaySurface({
         <CrossfadeBackground url={chatBackground} blurPx={chatBackgroundBlur} />
         <div className="rpg-overlay absolute inset-0" />
         <div className="rpg-vignette pointer-events-none absolute inset-0" />
-        {weatherEffects && <WeatherEffectsConnected paused={ambientVisualsPaused} />}
+        {weatherEffects && <WeatherEffectsConnected paused={weatherEffectsPaused} />}
         {showSpriteOverlay && (
           <Suspense fallback={null}>
             <SpriteOverlay

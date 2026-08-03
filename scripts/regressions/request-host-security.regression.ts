@@ -115,6 +115,18 @@ try {
     /updateInstalledPackagesToLatest/u,
     "App startup must never download and execute Agent updates without user consent",
   );
+
+  const composeSource = readFileSync(join(repositoryRoot, "docker-compose.yml"), "utf8");
+  for (const name of ["TRUSTED_HOSTS", "CORS_ORIGINS", "CSRF_TRUSTED_ORIGINS"]) {
+    assert.match(
+      composeSource,
+      new RegExp(`${name}=\\$\\{${name}:-\\}`),
+      `Docker Compose must forward ${name} from the project environment`,
+    );
+  }
+
+  const dockerfileSource = readFileSync(join(repositoryRoot, "Dockerfile"), "utf8");
+  assert.match(dockerfileSource, /apt-get install[\s\S]*\bbubblewrap\b/u, "The official image must install Bubblewrap");
 } finally {
   delete process.env.TRUSTED_HOSTS;
   delete process.env.CSRF_TRUSTED_ORIGINS;

@@ -16,6 +16,9 @@ services:
       - FILE_STORAGE_DIR=/app/data/storage
       - MARINARA_DOCKER=true
       - AUTO_CREATE_DEFAULT_CONNECTION=${AUTO_CREATE_DEFAULT_CONNECTION:-true}
+      - TRUSTED_HOSTS=${TRUSTED_HOSTS:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
       # Set BASIC_AUTH_USER/BASIC_AUTH_PASS and ADMIN_SECRET before exposing beyond localhost.
       # - TZ=America/New_York          # IANA timezone for time-based features (e.g. character schedules)
       # - ENCRYPTION_KEY=              # AES key for API key encryption (generate: openssl rand -hex 32)

@@ -4,6 +4,7 @@ import { lstat, mkdtemp, readdir, rm } from "node:fs/promises";
 import { delimiter, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { workspacePathAccessPolicy } from "./workspace-change-review.service.js";
+import { getBubblewrapRuntimeStatus } from "../sandbox/bubblewrap-runtime.js";
 
 export type WorkspaceShellSandboxBackend = "macos-seatbelt" | "linux-bubblewrap";
 
@@ -24,7 +25,6 @@ type SpawnWorkspaceShellInput = {
 };
 
 const MACOS_SANDBOX_EXEC = "/usr/bin/sandbox-exec";
-const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap"];
 const SAFE_ENVIRONMENT_KEYS = new Set([
   "PATH",
   "LANG",
@@ -56,30 +56,23 @@ export function sanitizeWorkspaceShellEnv(source: NodeJS.ProcessEnv): NodeJS.Pro
 }
 
 function findBubblewrap() {
-  const explicit = BWRAP_CANDIDATES.find((candidate) => existsSync(candidate));
-  if (explicit) return explicit;
-  const path = process.env.PATH ?? "";
-  return path
-    .split(delimiter)
-    .filter(Boolean)
-    .map((entry) => join(entry, "bwrap"))
-    .find((candidate) => existsSync(candidate));
+  const status = getBubblewrapRuntimeStatus();
+  return status.available ? status.executable : undefined;
 }
 
 export function getWorkspaceShellSandboxStatus(): WorkspaceShellSandboxStatus {
   if (process.platform === "darwin" && existsSync(MACOS_SANDBOX_EXEC)) {
     return { available: true, backend: "macos-seatbelt" };
   }
-  if (process.platform === "linux" && findBubblewrap()) {
-    return { available: true, backend: "linux-bubblewrap" };
+  if (process.platform === "linux") {
+    const status = getBubblewrapRuntimeStatus();
+    if (status.available) return { available: true, backend: "linux-bubblewrap" };
+    return { available: false, backend: null, reason: `Professor Mari shell commands are disabled. ${status.reason}` };
   }
   return {
     available: false,
     backend: null,
-    reason:
-      process.platform === "linux"
-        ? "Bubblewrap (bwrap) is required for Professor Mari shell commands."
-        : `Professor Mari shell commands are disabled because no supported OS sandbox is available on ${process.platform}.`,
+    reason: `Professor Mari shell commands are disabled because no supported OS sandbox is available on ${process.platform}.`,
   };
 }
 

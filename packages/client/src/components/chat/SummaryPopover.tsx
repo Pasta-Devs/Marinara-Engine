@@ -56,7 +56,9 @@ import {
 } from "./roleplay-popover-styles";
 import {
   type APIConnection,
+  CHAT_SUMMARY_PROMPT_MAX_LENGTH,
   CHAT_SUMMARY_OUTPUT_TOKENS,
+  DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT,
   DEFAULT_CHAT_SUMMARY_PROMPT,
   DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
   LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
@@ -333,6 +335,7 @@ export function SummaryPopover({
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [templateNameDraft, setTemplateNameDraft] = useState("");
   const [templatePromptDraft, setTemplatePromptDraft] = useState("");
+  const [combinePromptDraft, setCombinePromptDraft] = useState(DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT);
   const summaryPopoverSettings = useUIStore((s) => s.summaryPopoverSettings);
   const setSummaryPopoverSettings = useUIStore((s) => s.setSummaryPopoverSettings);
   const persistedContextSize = summaryPopoverSettings.contextSize ?? contextSize;
@@ -352,6 +355,8 @@ export function SummaryPopover({
   const rangeInputFocused = useRef(false);
   const automaticIntervalFocused = useRef(false);
   const summaryMaxTokensFocused = useRef(false);
+  const combinePromptFocused = useRef(false);
+  const combinePromptSaveRef = useRef<{ prompt: string; promise: Promise<boolean> } | null>(null);
   const summaryMaxTokensSaveRef = useRef<{ key: string; promise: Promise<void> } | null>(null);
   const generateSummary = useGenerateSummary();
   const updateMeta = useUpdateChatMetadata();
@@ -389,38 +394,6 @@ export function SummaryPopover({
     if (path.includes(panel)) return true;
     return event.target instanceof Node && panel.contains(event.target);
   }, []);
-
-  // Close on outside interaction — defer by one frame so the synthesised
-  // pointer event from the tap that *opened* the popover doesn't immediately
-  // close it on touch devices (Android / iPadOS).
-  useEffect(() => {
-    const handler = (e: globalThis.PointerEvent) => {
-      if (eventTargetsPanel(e)) return;
-      if (isChatToolbarPanelTrigger(e.target, "summary")) return;
-      const activeElement = document.activeElement;
-      if (activeElement instanceof Node && panelRef.current?.contains(activeElement)) return;
-      if (rangeInputFocused.current || sizeInputFocused.current || automaticIntervalFocused.current) return;
-      if (panelRef.current) {
-        onClose();
-      }
-    };
-    const raf = requestAnimationFrame(() => {
-      document.addEventListener("pointerdown", handler);
-    });
-    return () => {
-      cancelAnimationFrame(raf);
-      document.removeEventListener("pointerdown", handler);
-    };
-  }, [eventTargetsPanel, onClose]);
-
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
 
   // Sync local size when the persisted/default context size changes externally.
   useEffect(() => {
@@ -474,6 +447,7 @@ export function SummaryPopover({
   });
   const globalTemplates = globalPromptSettings.data?.templates ?? [];
   const globalActivePromptTemplateId = globalPromptSettings.data?.activeTemplateId ?? null;
+  const globalCombinePrompt = globalPromptSettings.data?.combinePrompt ?? DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT;
   const hasGlobalPromptSettings = globalPromptSettings.data?.hasPersistedSettings === true;
   const sourcePromptTemplates = !globalPromptSettingsReady
     ? []
@@ -503,6 +477,10 @@ export function SummaryPopover({
   const promptTemplateSummary = isLongTermMemoryPromptSelected
     ? localizeUi("chat.summary.template.longTermMemory")
     : activePromptTemplate?.name ?? localizeUi("ui.chat.summarypopover.builtInDefault");
+
+  useEffect(() => {
+    if (!combinePromptFocused.current) setCombinePromptDraft(globalCombinePrompt);
+  }, [globalCombinePrompt]);
   const isEditingExistingTemplate = !!editingTemplateId;
   const hasTemplateDraft = templateNameDraft.trim().length > 0 && templatePromptDraft.trim().length > 0;
   const displayEntries = useMemo(
@@ -899,12 +877,20 @@ export function SummaryPopover({
   );
 
   const persistPromptTemplates = useCallback(
-    async (templates: ChatSummaryPromptTemplate[], activeId: string | null): Promise<boolean> => {
+    async (
+      templates: ChatSummaryPromptTemplate[],
+      activeId: string | null,
+      combinePrompt = combinePromptDraft,
+    ): Promise<boolean> => {
       if (!globalPromptSettingsReady) return false;
       try {
+        const normalizedCombinePrompt =
+          combinePrompt.trim().slice(0, CHAT_SUMMARY_PROMPT_MAX_LENGTH) ||
+          DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT;
         await updateGlobalPromptSettings.mutateAsync({
           templates,
           activeTemplateId: activeId,
+          combinePrompt: normalizedCombinePrompt,
         });
         return true;
       } catch {
@@ -912,8 +898,84 @@ export function SummaryPopover({
         return false;
       }
     },
-    [globalPromptSettingsReady, updateGlobalPromptSettings, localizeUi],
+    [combinePromptDraft, globalPromptSettingsReady, updateGlobalPromptSettings, localizeUi],
   );
+
+  const commitCombinePromptDraft = useCallback(async (): Promise<boolean> => {
+    combinePromptFocused.current = false;
+    const nextPrompt =
+      combinePromptDraft.trim().slice(0, CHAT_SUMMARY_PROMPT_MAX_LENGTH) ||
+      DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT;
+    setCombinePromptDraft(nextPrompt);
+
+    const pendingSave = combinePromptSaveRef.current;
+    if (pendingSave?.prompt === nextPrompt) return pendingSave.promise;
+    if (!pendingSave && nextPrompt === globalCombinePrompt) return true;
+
+    const promise = (async () => {
+      if (pendingSave) await pendingSave.promise;
+      return persistPromptTemplates(
+        cleanedPromptTemplates,
+        normalizedActivePromptTemplateId,
+        nextPrompt,
+      );
+    })();
+    combinePromptSaveRef.current = { prompt: nextPrompt, promise };
+    try {
+      return await promise;
+    } finally {
+      if (combinePromptSaveRef.current?.promise === promise) {
+        combinePromptSaveRef.current = null;
+      }
+    }
+  }, [
+    cleanedPromptTemplates,
+    combinePromptDraft,
+    globalCombinePrompt,
+    normalizedActivePromptTemplateId,
+    persistPromptTemplates,
+  ]);
+
+  const handleCombinePromptBlur = useCallback(async () => {
+    await commitCombinePromptDraft();
+  }, [commitCombinePromptDraft]);
+
+  const handleClose = useCallback(async () => {
+    await commitCombinePromptDraft();
+    onClose();
+  }, [commitCombinePromptDraft, onClose]);
+
+  // Close on outside interaction — defer by one frame so the synthesised
+  // pointer event from the tap that *opened* the popover doesn't immediately
+  // close it on touch devices (Android / iPadOS).
+  useEffect(() => {
+    const handler = (e: globalThis.PointerEvent) => {
+      if (eventTargetsPanel(e)) return;
+      if (isChatToolbarPanelTrigger(e.target, "summary")) return;
+      const activeElement = document.activeElement;
+      if (activeElement instanceof Node && panelRef.current?.contains(activeElement)) return;
+      if (rangeInputFocused.current || sizeInputFocused.current || automaticIntervalFocused.current) return;
+      if (panelRef.current) {
+        void handleClose();
+      }
+    };
+    const raf = requestAnimationFrame(() => {
+      document.addEventListener("pointerdown", handler);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("pointerdown", handler);
+    };
+  }, [eventTargetsPanel, handleClose]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") void handleClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [handleClose]);
 
   const handleSelectPromptTemplate = useCallback(
     async (templateId: string | null) => {
@@ -1088,7 +1150,7 @@ export function SummaryPopover({
           <div className="flex shrink-0 items-center gap-1">
             <button
               type="button"
-              onClick={onClose}
+              onClick={() => void handleClose()}
               className={ROLEPLAY_POPOVER_CLOSE_BUTTON}
               aria-label={localizeUi("ui.chat.summarypopover.closeSummary")}
             >
@@ -1452,6 +1514,27 @@ export function SummaryPopover({
                     )}
                   </div>
                 )}
+                <label className="block space-y-1 border-t border-[var(--border)] pt-2">
+                  <span className="text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.summarypopover.combinePrompt")}
+                  </span>
+                  <textarea
+                    value={combinePromptDraft}
+                    onFocus={() => {
+                      combinePromptFocused.current = true;
+                    }}
+                    onChange={(event) => setCombinePromptDraft(event.target.value)}
+                    onBlur={() => void handleCombinePromptBlur()}
+                    maxLength={CHAT_SUMMARY_PROMPT_MAX_LENGTH}
+                    rows={4}
+                    disabled={!globalPromptSettingsReady || updateGlobalPromptSettings.isPending}
+                    aria-label={localizeUi("ui.chat.summarypopover.combinePrompt")}
+                    className="max-h-36 w-full resize-y rounded-md bg-[var(--card)] px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--foreground)] ring-1 ring-[var(--border)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                  <span className="block text-[0.5625rem] leading-snug text-[var(--muted-foreground)]">
+                    {localizeUi("ui.chat.summarypopover.combinePromptHelp")}
+                  </span>
+                </label>
               </div>
             </div>
 

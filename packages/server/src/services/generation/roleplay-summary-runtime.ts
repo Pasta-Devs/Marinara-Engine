@@ -1,5 +1,6 @@
 import {
   CHAT_SUMMARY_OUTPUT_TOKENS,
+  DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT,
   DEFAULT_CHAT_SUMMARY_PROMPT,
   DEFAULT_LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT,
   LONG_TERM_MEMORY_CHAT_SUMMARY_PROMPT_ID,
@@ -115,6 +116,10 @@ export function resolveChatSummaryPrompt(args: {
   if (chatPrompt) return chatPrompt;
 
   return DEFAULT_CHAT_SUMMARY_PROMPT;
+}
+
+export function resolveChatSummaryCombinePrompt(globalSettingsValue?: string | null): string {
+  return normalizeChatSummaryPromptSettings(globalSettingsValue).combinePrompt || DEFAULT_CHAT_SUMMARY_COMBINE_PROMPT;
 }
 
 function resolvePromptFromTemplates(templates: unknown[], selectedId: string): string | null {

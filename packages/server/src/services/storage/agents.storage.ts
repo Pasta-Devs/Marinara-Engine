@@ -292,10 +292,16 @@ export function createAgentsStorage(db: DB) {
 
     // ── Agent Runs ──
 
-    async saveRun(input: { agentConfigId: string; chatId: string; messageId: string; result: AgentResult }) {
+    async saveRun(input: {
+      agentConfigId: string;
+      chatId: string;
+      messageId: string;
+      result: AgentResult;
+      runId?: string;
+    }) {
       const agentConfigId = await resolveAgentConfigId(input.agentConfigId);
-      const id = newId();
-      await db.insert(agentRuns).values({
+      const id = input.runId ?? newId();
+      const values = {
         id,
         agentConfigId,
         chatId: input.chatId,
@@ -307,7 +313,16 @@ export function createAgentsStorage(db: DB) {
         success: String(input.result.success),
         error: input.result.error,
         createdAt: now(),
-      });
+      };
+      const insert = db.insert(agentRuns).values(values);
+      if (input.runId) {
+        await insert.onConflictDoUpdate({
+          target: agentRuns.id,
+          set: values,
+        });
+      } else {
+        await insert;
+      }
       return id;
     },
 

@@ -54,6 +54,7 @@ import {
 } from "../../packages/server/src/services/generation/fallback-notification.js";
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
+import { imageAdmissionKey } from "../../packages/server/src/services/image/image-generation.js";
 import {
   BACKGROUND_CONNECTION_IDLE_MS,
   ConnectionAttemptRejectedError,
@@ -799,6 +800,12 @@ assert.equal(unrelatedFallbackAdmission.acquired, true, "primary work must not o
 if (unrelatedFallbackAdmission.acquired) unrelatedFallbackAdmission.release();
 releasePrimaryCall();
 await assert.rejects(primaryRun, /primary unavailable/);
+const releasedPrimaryAdmission = tryBackgroundConnection(
+  "primary-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS),
+);
+assert.equal(releasedPrimaryAdmission.acquired, true, "a failed primary call must release its foreground slot");
+if (releasedPrimaryAdmission.acquired) releasedPrimaryAdmission.release();
 
 let releaseFallbackCall!: () => void;
 const fallbackCallHeld = new Promise<void>((resolve) => {
@@ -814,6 +821,12 @@ assert.equal(unrelatedPrimaryAdmission.acquired, true, "fallback work must not o
 if (unrelatedPrimaryAdmission.acquired) unrelatedPrimaryAdmission.release();
 releaseFallbackCall();
 assert.equal(await fallbackRun, "held response");
+const releasedFallbackAdmission = tryBackgroundConnection(
+  "fallback-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS),
+);
+assert.equal(releasedFallbackAdmission.acquired, true, "a completed call must release its foreground slot");
+if (releasedFallbackAdmission.acquired) releasedFallbackAdmission.release();
 
 // A consumer that stops reading mid-stream must not strand the primary connection's
 // foreground slot: the fallback provider drains the primary manually, so an early return
@@ -841,6 +854,24 @@ assert.equal(
   tryBackgroundConnection("abandoned-connection", new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS)).acquired,
   true,
   "abandoning the stream must release the primary connection's foreground slot",
+);
+
+// RunPod connections share one API base URL and pick the physical endpoint with a separate
+// id, so the key has to carry that id or two independent endpoints contend for one slot.
+assert.notEqual(
+  imageAdmissionKey("https://api.runpod.ai/v2", "abc123"),
+  imageAdmissionKey("https://api.runpod.ai/v2", "def456"),
+  "RunPod endpoints sharing a base URL must not share an admission key",
+);
+assert.equal(
+  imageAdmissionKey("https://api.runpod.ai/v2", "abc123"),
+  imageAdmissionKey("https://api.runpod.ai/v2", "  abc123  "),
+  "endpoint ids must be compared after trimming",
+);
+assert.equal(
+  imageAdmissionKey("http://127.0.0.1:8188"),
+  "http://127.0.0.1:8188",
+  "backends whose base URL is the physical target keep the bare URL as their key",
 );
 
 let backgroundAttempts = 0;

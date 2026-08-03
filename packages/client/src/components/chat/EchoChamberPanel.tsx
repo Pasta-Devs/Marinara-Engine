@@ -51,7 +51,7 @@ const CORNERS: EchoChamberSide[] = ["top-left", "top-right", "bottom-left", "bot
 // Layout constants (px)
 const WIDGET_BAR_H = 76; // top HUD toolbar: py-2 (16px) + widget buttons h-[3.75rem] (60px)
 const INPUT_BOX_H = 72; // bottom chat input area height
-const HUD_EDGE_GAP = 16; // Aligns with the roleplay HUD edge padding.
+const HUD_EDGE_GAP = 24; // Keep the native chat scrollbar reachable beside floating panels.
 const FLOATING_EDGE_GAP = 16;
 const FLOATING_PANEL_STACK_GAP = 8;
 const TOP_BUTTON_GAP = 6; // Matches the tracker panel gap below the top controls.
@@ -130,9 +130,9 @@ function getDesktopPanelPosition(isTop: boolean, isLeft: boolean, stackBelowTrac
         : null;
   const rightEdgeOffset =
     trackerPanel && containerRect
-      ? Math.max(0, Math.round(containerRect.right - trackerPanel.offsetLeft - trackerPanel.offsetWidth))
+      ? Math.max(HUD_EDGE_GAP, Math.round(containerRect.right - trackerPanel.offsetLeft - trackerPanel.offsetWidth))
       : alignmentRect && containerRect
-        ? Math.max(0, Math.round(containerRect.right - alignmentRect.right))
+        ? Math.max(HUD_EDGE_GAP, Math.round(containerRect.right - alignmentRect.right))
         : null;
   const baseTop = isTop && containerRect ? getTopChromeBottomOffset(containerRect, alignmentRect) : undefined;
   const topLayout =

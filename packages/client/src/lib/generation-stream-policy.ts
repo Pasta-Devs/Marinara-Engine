@@ -22,6 +22,14 @@ interface TypewriterFrameBudget {
   maxCharacters: number;
 }
 
+interface RoleplayTypewriterRevealRateInput {
+  selectedCharsPerSecond: number;
+  pendingCharacters: number;
+  previousCharsPerSecond: number | null;
+  elapsedMs: number;
+  streamComplete: boolean;
+}
+
 interface GenerationSendBlockInput {
   streamActive: boolean;
   agentsProcessing: boolean;
@@ -35,6 +43,10 @@ interface GenerationStartBlockInput {
   backgroundIllustration: boolean;
 }
 
+const ROLEPLAY_QUEUE_RESERVE_SECONDS = 0.9;
+const ROLEPLAY_SLOWDOWN_RESPONSE_MS = 120;
+const ROLEPLAY_SPEEDUP_RESPONSE_MS = 480;
+
 /** Keep send actions guarded while leaving the draft field itself editable. */
 export function isGenerationSendBlocked(input: GenerationSendBlockInput): boolean {
   return !input.backgroundIllustration && !input.delayedResponse && (input.streamActive || input.agentsProcessing);
@@ -46,15 +58,36 @@ export function isGenerationStartBlocked(input: GenerationStartBlockInput): bool
 }
 
 /**
- * Map the 1–100 streaming-speed control directly to visible characters per
- * second. Provider arrival rate and queue depth must not change the animation
- * cadence: those inputs are bursty and were what made the typewriter appear to
- * lurch. The final setting remains an intentional instant-reveal shortcut.
+ * Map the 1–100 streaming-speed control to the visible-speed ceiling. Roleplay
+ * may ease below that ceiling to preserve a queue between provider bursts. The
+ * final setting remains an intentional instant-reveal shortcut.
  */
 export function getStreamingCharsPerSecond(streamingSpeed: number, prefersReducedMotion = false): number {
   if (prefersReducedMotion || streamingSpeed >= 100) return Infinity;
   if (!Number.isFinite(streamingSpeed)) return 50;
   return Math.max(1, Math.min(99, Math.round(streamingSpeed)));
+}
+
+/**
+ * Keep Roleplay's reveal queue slightly behind the open transport so provider
+ * bursts remain one continuous motion. The selected speed stays the ceiling.
+ */
+export function getRoleplayTypewriterRevealCharsPerSecond(input: RoleplayTypewriterRevealRateInput): number {
+  if (!Number.isFinite(input.selectedCharsPerSecond)) return input.selectedCharsPerSecond;
+  if (input.streamComplete) return input.selectedCharsPerSecond;
+
+  const minimumRate = Math.min(6, input.selectedCharsPerSecond);
+  const queueSmoothedTarget = Math.max(minimumRate, input.pendingCharacters / ROLEPLAY_QUEUE_RESERVE_SECONDS);
+  const targetRate = Math.min(input.selectedCharsPerSecond, queueSmoothedTarget);
+
+  if (input.previousCharsPerSecond === null || !Number.isFinite(input.previousCharsPerSecond)) {
+    return targetRate;
+  }
+
+  const responseTimeMs =
+    targetRate < input.previousCharsPerSecond ? ROLEPLAY_SLOWDOWN_RESPONSE_MS : ROLEPLAY_SPEEDUP_RESPONSE_MS;
+  const blend = 1 - Math.exp(-Math.max(0, input.elapsedMs) / responseTimeMs);
+  return input.previousCharsPerSecond + (targetRate - input.previousCharsPerSecond) * blend;
 }
 
 /** Preserve the selected reveal rate even when animation frames arrive below 60 Hz. */

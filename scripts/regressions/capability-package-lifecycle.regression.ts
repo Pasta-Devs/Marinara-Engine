@@ -783,6 +783,7 @@ try {
   }
   const agentSuite = {
     ...installedPackage("agent-suite", ["agent"]),
+    readiness: "ready" as const,
     manifest: {
       ...installedPackage("agent-suite", ["agent"]).manifest,
       entrypoints: { server: "server.mjs", client: "client.js", agents: "agents.json" },
@@ -815,6 +816,14 @@ try {
         defaultPromptTemplate: "Helper prompt.",
       },
     ]),
+  );
+  assert.deepEqual(
+    (await capabilityPackageManager.agentDefinitions()).map(({ id, packageId }) => ({ id, packageId })),
+    [
+      { id: "agent-suite", packageId: "agent-suite" },
+      { id: "suite-helper", packageId: "agent-suite" },
+    ],
+    "Capability agent registry rows must expose their owning package for package-aware uninstall controls",
   );
   assert.deepEqual(await capabilityPackageManager.packageAgentIds(agentSuite.id), ["agent-suite", "suite-helper"]);
   const removedAgentSuite = await capabilityPackageManager.uninstall(agentSuite.id);

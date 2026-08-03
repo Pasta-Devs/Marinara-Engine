@@ -111,7 +111,11 @@ const CONVERSATION_ONLY_TOOL_NAMES = new Set(["update_about_me"]);
 
 // Tools that are off unless the user explicitly enables them via activeToolIds
 // (excluded from the "no filter set = all tools on" default).
-const DEFAULT_OFF_TOOL_NAMES = new Set(["update_about_me"]);
+const DEFAULT_OFF_TOOL_NAMES = new Set(["update_about_me", ...(DEFAULT_AGENT_TOOLS.spotify ?? [])]);
+
+export function isChatToolEnabledByDefault(toolName: string): boolean {
+  return !AGENT_ONLY_TOOL_NAMES.has(toolName) && !DEFAULT_OFF_TOOL_NAMES.has(toolName);
+}
 
 function parseExtra(extra: unknown): Record<string, unknown> {
   if (!extra) return {};
@@ -432,8 +436,7 @@ async function loadToolDefinitions(args: {
             args.activeToolIds.includes(toolDef.function.name) && !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name),
         )
       : allToolDefs.filter(
-          (toolDef) =>
-            !AGENT_ONLY_TOOL_NAMES.has(toolDef.function.name) && !DEFAULT_OFF_TOOL_NAMES.has(toolDef.function.name),
+          (toolDef) => isChatToolEnabledByDefault(toolDef.function.name),
         );
   }
 

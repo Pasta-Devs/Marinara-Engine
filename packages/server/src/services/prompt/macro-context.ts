@@ -72,7 +72,7 @@ export interface MacroResolutionTransaction {
   rollback: () => void;
 }
 
-const MAX_REFERENCED_CHARACTERS = 8;
+export const MAX_REFERENCED_CHARACTERS = 8;
 const MAX_REFERENCED_FIELD_CHARS = 8_000;
 const MAX_REFERENCED_LOREBOOK_CHARS = 8_000;
 
@@ -118,7 +118,7 @@ function referencedCharacterProfile(data: CharacterData): CharacterMacroProfile 
     backstory: data.extensions?.backstory ?? "",
     appearance: data.extensions?.appearance ?? "",
     scenario: data.scenario ?? "",
-    example: "",
+    example: data.mes_example ?? "",
     systemPrompt: data.system_prompt ?? "",
     postHistoryInstructions: data.post_history_instructions ?? "",
   };
@@ -161,6 +161,7 @@ function buildReferencedCharacterFields(
     { label: "backstory", value: data.extensions?.backstory },
     { label: "appearance", value: data.extensions?.appearance },
     { label: "scenario", value: data.scenario },
+    { label: "example_dialogue", value: data.mes_example },
     { label: "creator", value: data.creator },
     { label: "character_version", value: data.character_version },
     { label: "creator_notes", value: data.creator_notes },
@@ -207,6 +208,7 @@ export async function buildReferencedCharacterContext(input: {
   includeLorebooks?: boolean;
   excludedLorebookIds?: string[];
   excludedLorebookSourceAgentIds?: string[];
+  maxReferences?: number;
 }): Promise<{ content: string; references: Record<string, string> }> {
   const characters = createCharactersStorage(input.db);
   const activeIds = new Set(input.activeCharacterIds);
@@ -218,7 +220,9 @@ export async function buildReferencedCharacterContext(input: {
     if (data) sources.push(...referencedCharacterSourceFields(data));
   }
 
-  const candidateIds = extractCharacterReferenceIds(sources).filter((id) => !activeIds.has(id));
+  const candidateIds = extractCharacterReferenceIds(sources)
+    .filter((id) => !activeIds.has(id))
+    .slice(0, Math.max(0, input.maxReferences ?? MAX_REFERENCED_CHARACTERS));
   const referencedRows = await Promise.all(candidateIds.map((id) => characters.getById(id)));
   const referenced = candidateIds.flatMap((id, index) => {
     const data = parseCharacterData(referencedRows[index]?.data);

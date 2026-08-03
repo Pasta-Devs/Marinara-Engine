@@ -48,6 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libssl3 \
       libgomp1 \
       libvulkan1 \
+      bubblewrap \
       python3 \
       python3-venv \
     && rm -rf /var/lib/apt/lists/*

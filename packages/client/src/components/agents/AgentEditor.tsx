@@ -1835,8 +1835,8 @@ export function AgentEditor() {
       )}
 
       {/* ── Body ── */}
-      <div className="mari-editor-content max-md:p-4">
-        <div className="mari-editor-content-inner mari-editor-content-inner--wide space-y-6">
+      <div className="mari-editor-content min-w-0 max-w-full overflow-x-hidden max-md:p-4">
+        <div className="mari-editor-content-inner mari-editor-content-inner--wide w-full min-w-0 max-w-full space-y-6">
           {/* ── Description ── */}
           <FieldGroup
             label={localizeUi("chat.settings.inlineEditor.fields.description")}
@@ -3935,7 +3935,7 @@ function FieldGroup({
 }) {
   const contentVisible = !collapsible || expanded;
   return (
-    <div className="mari-editor-panel space-y-2 p-3">
+    <div className="mari-editor-panel min-w-0 max-w-full space-y-2 overflow-hidden p-3">
       <div className="flex items-center gap-1.5">
         {collapsible ? (
           <button
@@ -3945,7 +3945,7 @@ function FieldGroup({
             aria-expanded={expanded}
           >
             {icon}
-            <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
+            <h3 className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{label}</h3>
             {summary && (
               <span className="ml-auto rounded-full bg-[var(--secondary)] px-2 py-0.5 text-[0.625rem] text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
                 {summary}
@@ -3960,7 +3960,7 @@ function FieldGroup({
         ) : (
           <>
             {icon}
-            <h3 className="text-xs font-semibold text-[var(--foreground)]">{label}</h3>
+            <h3 className="min-w-0 truncate text-xs font-semibold text-[var(--foreground)]">{label}</h3>
           </>
         )}
         {help && <HelpTooltip text={help} />}

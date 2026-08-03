@@ -118,6 +118,7 @@ import {
   clampRoleplaySummaryMaxTokens,
   formatRoleplaySummaryChatLog,
   resolveChatSummaryPrompt,
+  resolveChatSummaryCombinePrompt,
 } from "../services/generation/roleplay-summary-runtime.js";
 import { resolveLorebookTokenBudget } from "../services/generation/lorebook-generation-runtime.js";
 import { resolveGameGmPromptTemplate } from "../services/generation/game-gm-prompt-runtime.js";
@@ -128,7 +129,7 @@ const MEMORY_RECALL_IMPORT_BODY_LIMIT_BYTES = 25 * 1024 * 1024;
 const MEMORY_RECALL_IMPORT_BATCH_SIZE = 500;
 const PROFESSOR_MARI_INTERNAL_CHAT_MARKER = "professor-mari";
 const SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS = 32_768;
-const SUMMARY_COMBINE_PROMPT_RESERVE_TOKENS = 1_024;
+const SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS = 64;
 
 function presetStringField(preset: Record<string, unknown> | null | undefined, field: string): string {
   const value = preset?.[field];
@@ -3938,20 +3939,6 @@ export async function chatsRoutes(app: FastifyInstance) {
         summaryMaxTokens,
         provider.maxTokensOverrideValue ?? summaryMaxTokens,
       );
-      const combinedSummaryInputBudget = Math.max(
-        0,
-        (provider.maxContextValue ?? SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS) -
-          effectiveSummaryMaxTokens -
-          SUMMARY_COMBINE_PROMPT_RESERVE_TOKENS,
-      );
-      const combinedTokenEstimate = selectedEntries.reduce(
-        (total, entry) => total + Math.max(entry.tokenEstimate, estimateChatSummaryTokens(entry.content)),
-        0,
-      );
-      if (combinedTokenEstimate > combinedSummaryInputBudget) {
-        return reply.status(400).send({ error: "Selected summaries are too large to combine at once" });
-      }
-
       const requestedPromptTemplateId =
         typeof body.promptTemplateId === "string" && body.promptTemplateId.trim()
           ? body.promptTemplateId.trim()
@@ -3964,17 +3951,27 @@ export async function chatsRoutes(app: FastifyInstance) {
         chatMetadata: chatMeta,
         globalSettingsValue: globalSummaryPromptSettings,
       });
+      const combinePrompt = resolveChatSummaryCombinePrompt(globalSummaryPromptSettings);
       const sourceText = selectedEntries
         .map((entry, index) => `Summary ${index + 1} — ${entry.title}:\n${entry.content}`)
         .join("\n\n");
+      const combinedSummaryInputBudget = Math.max(
+        0,
+        (provider.maxContextValue ?? SUMMARY_COMBINE_DEFAULT_CONTEXT_TOKENS) -
+          effectiveSummaryMaxTokens -
+          estimateChatSummaryTokens(summaryPrompt) -
+          estimateChatSummaryTokens(combinePrompt) -
+          SUMMARY_COMBINE_MESSAGE_OVERHEAD_TOKENS,
+      );
+      if (estimateChatSummaryTokens(sourceText) > combinedSummaryInputBudget) {
+        return reply.status(400).send({ error: "Selected summaries are too large to combine at once" });
+      }
       const result = await provider.chatComplete(
         [
           { role: "system", content: summaryPrompt },
           {
             role: "user",
-            content:
-              "Condense the ordered summaries below into one summary. Preserve durable facts, relationships, decisions, and chronological order. Return the same summary format requested by the system prompt.\n\n" +
-              sourceText,
+            content: `${combinePrompt}\n\n${sourceText}`,
           },
         ],
         {
