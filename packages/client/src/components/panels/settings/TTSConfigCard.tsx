@@ -90,7 +90,7 @@ const TTS_SOURCE_DEFAULTS: Record<
   },
   pockettts: {
     label: "PocketTTS",
-    baseUrl: "http://localhost:49112",
+    baseUrl: "http://localhost:8000",
     model: "pocket-tts",
     voice: "alba",
     idleText: "Local PocketTTS",

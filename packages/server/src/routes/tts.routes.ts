@@ -56,7 +56,7 @@ const TTS_SOURCE_DEFAULTS: Record<TTSSource, { baseUrl: string; model: string }>
     model: "eleven_multilingual_v2",
   },
   pockettts: {
-    baseUrl: "http://localhost:49112",
+    baseUrl: "http://localhost:8000",
     model: "pocket-tts",
   },
   xai: {
@@ -332,6 +332,11 @@ function fallbackVoices(source: TTSSource): TTSVoicesResponse {
   if (source === "pockettts") {
     const voices = [
       "alba",
+      "giovanni",
+      "lola",
+      "juergen",
+      "rafael",
+      "estelle",
       "anna",
       "azelma",
       "bill_boerst",
@@ -408,6 +413,57 @@ function nanoGptV1BaseUrl(baseUrl: string) {
 
 function pocketTtsV1BaseUrl(baseUrl: string) {
   return baseUrl.endsWith("/v1") ? baseUrl : `${baseUrl}/v1`;
+}
+
+type PocketTtsApiMode = "official" | "openai";
+const pocketTtsApiModeCache = new Map<string, Promise<PocketTtsApiMode>>();
+
+export function resolvePocketTtsApiMode(openApi: unknown): PocketTtsApiMode {
+  const paths = asObject(asObject(openApi)?.["paths"]);
+  return paths?.["/tts"] ? "official" : "openai";
+}
+
+export function buildOfficialPocketTtsForm(text: string, voice: string): FormData {
+  const form = new FormData();
+  form.append("text", text);
+  if (voice) form.append("voice_url", voice);
+  return form;
+}
+
+async function detectPocketTtsApiMode(cfg: TTSConfig): Promise<PocketTtsApiMode> {
+  const base = configuredBaseUrl(cfg);
+  const cached = pocketTtsApiModeCache.get(base);
+  if (cached) return cached;
+
+  const pending = (async (): Promise<PocketTtsApiMode> => {
+    try {
+      const response = await safeFetch(`${base}/openapi.json`, {
+        headers: optionalBearerHeaders(cfg.apiKey),
+        signal: AbortSignal.timeout(5_000),
+        policy: {
+          allowLocal: true,
+          allowedProtocols: ["https:", "http:"],
+          flagName: "TTS_LOCAL_URLS_ENABLED",
+        },
+        maxResponseBytes: 2 * 1024 * 1024,
+      });
+      if (!response.ok) {
+        pocketTtsApiModeCache.delete(base);
+        return "openai";
+      }
+      return resolvePocketTtsApiMode(await response.json());
+    } catch {
+      pocketTtsApiModeCache.delete(base);
+      return "openai";
+    }
+  })();
+  pocketTtsApiModeCache.set(base, pending);
+  return pending;
+}
+
+function clearPocketTtsApiModeCache(cfg: TTSConfig): void {
+  if (cfg.source !== "pockettts") return;
+  pocketTtsApiModeCache.delete(configuredBaseUrl(cfg));
 }
 
 function normalizeElevenLabsTtsModelId(model: string) {
@@ -786,6 +842,7 @@ async function fetchProviderVoices(cfg: TTSConfig): Promise<TTSVoicesResponse> {
   const base = configuredBaseUrl(cfg);
 
   if (cfg.source === "pockettts") {
+    if ((await detectPocketTtsApiMode(cfg)) === "official") return fallbackVoices(cfg.source);
     const res = await safeFetch(`${pocketTtsV1BaseUrl(base)}/voices`, {
       headers: optionalBearerHeaders(cfg.apiKey),
       signal: AbortSignal.timeout(10_000),
@@ -874,6 +931,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     const input = ttsConfigSchema.parse(req.body);
     const existing = parseStoredConfig(await storage.get(TTS_SETTINGS_KEY));
     const storedConfig = prepareTTSConfigForStorage(input, existing);
+    clearPocketTtsApiModeCache(existing);
+    clearPocketTtsApiModeCache(storedConfig);
     await storage.set(TTS_SETTINGS_KEY, JSON.stringify(storedConfig));
     return reply.status(204).send();
   });
@@ -982,6 +1041,8 @@ export async function ttsRoutes(app: FastifyInstance) {
     const base = configuredBaseUrl(cfg);
     const useNanoGptSpeech = isNanoGptBaseUrl(base);
     const usePocketTtsSpeech = cfg.source === "pockettts";
+    const pocketTtsApiMode = usePocketTtsSpeech ? await detectPocketTtsApiMode(cfg) : null;
+    const useOfficialPocketTtsSpeech = pocketTtsApiMode === "official";
     const useXaiSpeech = cfg.source === "xai";
     const configuredModel = (cfg.model || TTS_SOURCE_DEFAULTS[cfg.source].model).trim();
     const model = useNanoGptSpeech
@@ -1011,7 +1072,9 @@ export async function ttsRoutes(app: FastifyInstance) {
     const url = useNanoGptSpeech
       ? `${nanoGptV1BaseUrl(base)}/audio/speech`
       : usePocketTtsSpeech
-        ? `${pocketTtsV1BaseUrl(base)}/audio/speech`
+        ? useOfficialPocketTtsSpeech
+          ? `${base}/tts`
+          : `${pocketTtsV1BaseUrl(base)}/audio/speech`
         : useXaiSpeech
           ? `${base}/tts`
           : cfg.source === "elevenlabs"
@@ -1027,6 +1090,9 @@ export async function ttsRoutes(app: FastifyInstance) {
       : cfg.source === "openai" && openAiModelSupportsSpeechInstructions(model)
         ? buildSpeechInstructions({ speaker, tone })
         : undefined;
+    const pocketTtsForm = useOfficialPocketTtsSpeech
+      ? buildOfficialPocketTtsForm(providerText, requestVoice)
+      : null;
 
     let providerRes: Response;
     try {
@@ -1038,7 +1104,9 @@ export async function ttsRoutes(app: FastifyInstance) {
             ? openAiHeaders(cfg.apiKey)
             : cfg.source === "elevenlabs"
               ? elevenLabsHeaders(cfg.apiKey)
-              : openAiHeaders(cfg.apiKey),
+              : useOfficialPocketTtsSpeech
+                ? optionalBearerHeaders(cfg.apiKey)
+                : openAiHeaders(cfg.apiKey),
         body: useNanoGptSpeech
           ? JSON.stringify({
               model,
@@ -1070,14 +1138,16 @@ export async function ttsRoutes(app: FastifyInstance) {
                     ...(includeSpeed ? { speed: elevenLabsSpeed } : {}),
                   },
                 })
-              : JSON.stringify({
-                  model,
-                  input: providerText,
-                  voice: requestVoice || (usePocketTtsSpeech ? "alba" : ""),
-                  ...(includeSpeed ? { speed: cfg.speed } : {}),
-                  response_format: audioFormat,
-                  ...(speechInstructions ? { instructions: speechInstructions } : {}),
-                }),
+              : useOfficialPocketTtsSpeech
+                ? pocketTtsForm
+                : JSON.stringify({
+                    model,
+                    input: providerText,
+                    voice: requestVoice || (usePocketTtsSpeech ? "alba" : ""),
+                    ...(includeSpeed ? { speed: cfg.speed } : {}),
+                    response_format: audioFormat,
+                    ...(speechInstructions ? { instructions: speechInstructions } : {}),
+                  }),
         signal: AbortSignal.timeout(60_000),
         policy: {
           allowLocal: allowLocalTtsUrl(cfg),
