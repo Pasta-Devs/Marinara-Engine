@@ -202,6 +202,16 @@ const IMAGE_GEN_TIMEOUT = Number(process.env.IMAGE_GEN_TIMEOUT_MS ?? 1_800_000);
 const COMFYUI_GEN_TIMEOUT_SECONDS = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 2400);
 
 /**
+ * Identify the physical image endpoint an admission slot belongs to. RunPod connections share
+ * one API base URL and select the actual endpoint with a separate id, so the base URL alone
+ * would make two independent endpoints contend for a single slot.
+ */
+export function imageAdmissionKey(normalizedBaseUrl: string, imageEndpointId?: string): string {
+  const endpointId = imageEndpointId?.trim();
+  return endpointId ? `${normalizedBaseUrl}#${endpointId}` : normalizedBaseUrl;
+}
+
+/**
  * Generate an image using the configured image generation connection.
  * Returns the base64 data and metadata needed to save it.
  */
@@ -283,7 +293,7 @@ export async function generateImage(
     // id, so the two do not hold each other off on a connection used for both. Unify the
     // key if that overlap ever shows up in practice.
     return await withConnectionAdmission(
-      normalizedBaseUrl,
+      imageAdmissionKey(normalizedBaseUrl, request.imageEndpointId),
       request.admissionMode ?? { kind: "foreground" },
       physicalRequest,
     );

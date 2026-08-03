@@ -3,9 +3,9 @@ import { BaseLLMProvider } from "../llm/base-provider.js";
 import { logger } from "../../lib/logger.js";
 
 // Admission keys identify one physical provider endpoint. Text work keys on the configured
-// connection id; image work keys on the resolved base URL, because most image callers have
-// no connection row in scope and unregistered foreground work would defeat the priority
-// rule. The two keyspaces do not overlap.
+// connection id; image work keys on the resolved base URL plus the endpoint id where the
+// backend needs one, because most image callers have no connection row in scope and
+// unregistered foreground work would defeat the priority rule. The keyspaces do not overlap.
 type ConnectionState = {
   foregroundActive: number;
   backgroundActive: boolean;
@@ -22,8 +22,7 @@ export type ConnectionAdmissionMode =
   | {
       kind: "background";
       beforeAttempt?: () => void | ConnectionAttemptFinalizer | Promise<void | ConnectionAttemptFinalizer>;
-    }
-  | { kind: "none" };
+    };
 
 export class BackgroundConnectionBusyError extends Error {
   constructor(readonly connectionId: string) {
@@ -60,15 +59,6 @@ function stateFor(connectionId: string): ConnectionState {
   const state = { foregroundActive: 0, backgroundActive: false, lastForegroundFinishedAt: 0 };
   states.set(connectionId, state);
   return state;
-}
-
-export async function withForegroundConnection<T>(connectionId: string, operation: () => Promise<T>): Promise<T> {
-  const release = beginForegroundConnection(connectionId);
-  try {
-    return await operation();
-  } finally {
-    release();
-  }
 }
 
 export function beginForegroundConnection(connectionId: string): () => void {
@@ -112,7 +102,6 @@ async function beginConnectionAttempt(
   connectionId: string,
   mode: ConnectionAdmissionMode,
 ): Promise<{ release: () => void; finalize?: ConnectionAttemptFinalizer }> {
-  if (mode.kind === "none") return { release: () => undefined };
   if (mode.kind === "foreground") return { release: beginForegroundConnection(connectionId) };
 
   const admission = tryBackgroundConnection(connectionId, new Date());
@@ -162,7 +151,7 @@ export async function withConnectionAdmission<T>(
 
 export class ConnectionAdmissionProvider extends BaseLLMProvider {
   constructor(
-    private readonly provider: BaseLLMProvider,
+    readonly provider: BaseLLMProvider,
     private readonly connectionId: string,
     private readonly mode: ConnectionAdmissionMode = { kind: "foreground" },
   ) {
@@ -190,10 +179,18 @@ export class ConnectionAdmissionProvider extends BaseLLMProvider {
   }
 }
 
+/**
+ * Look through the admission decorator to the provider that actually talks to the backend.
+ * Diagnostics that report a provider class need the concrete one, not the wrapper.
+ */
+export function unwrapConnectionAdmissionProvider(provider: BaseLLMProvider): BaseLLMProvider {
+  return provider instanceof ConnectionAdmissionProvider ? provider.provider : provider;
+}
+
 export function withConnectionAdmissionProvider(
   provider: BaseLLMProvider,
   connectionId: string,
   mode: ConnectionAdmissionMode = { kind: "foreground" },
 ): BaseLLMProvider {
-  return mode.kind === "none" ? provider : new ConnectionAdmissionProvider(provider, connectionId, mode);
+  return new ConnectionAdmissionProvider(provider, connectionId, mode);
 }
