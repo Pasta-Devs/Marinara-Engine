@@ -95,6 +95,10 @@ export interface MarkerContext {
   updatedEntryTimingStates?: Record<string, LorebookEntryTimingState>;
   /** Cached lorebook scan for all lorebook marker sections in this prompt build. */
   lorebookScanResult?: LorebookScanResult;
+  /** Adds context for character-ID macros found only after lorebook activation. */
+  onLorebookScan?: (result: LorebookScanResult) => Promise<void>;
+  /** True once the activated lorebook callback has completed. */
+  lorebookScanCallbackApplied?: boolean;
   /** True once cached lorebook state/depth side effects have been applied to this marker context. */
   lorebookScanResultApplied?: boolean;
   /** When set, replaces all individual character scenario fields with this shared group scenario. */
@@ -392,6 +396,11 @@ export async function ensureLorebookScan(ctx: MarkerContext): Promise<LorebookSc
         resolveContent: ctx.resolveLorebookContent,
       },
     ));
+
+  if (ctx.lorebookScanCallbackApplied !== true && ctx.onLorebookScan) {
+    await ctx.onLorebookScan(result);
+    ctx.lorebookScanCallbackApplied = true;
+  }
 
   ctx.macroCtx.outlets = result.outlets;
 

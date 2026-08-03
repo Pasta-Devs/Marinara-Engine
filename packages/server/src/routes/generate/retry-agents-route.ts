@@ -2960,12 +2960,12 @@ async function applyRetryResultEffects(args: {
             previousCharacters = [];
           }
         }
+        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters);
         preserveTrackerCharacterUiFields(presentCharacters, previousCharacters);
         preserveTrackerCharacterUiFields(
           presentCharacters,
           (agentContext.characterTrackerHistory ?? []) as unknown as Array<Record<string, unknown>>,
         );
-        applyTrackerCharacterCardIdentity(presentCharacters, agentContext.characters);
         const lockedCharacterPatch = applyTrackerFieldLocksToGameStatePatch(
           { presentCharacters },
           previousSnapshot ? parseGameStateRow(previousSnapshot as Record<string, unknown>) : null,

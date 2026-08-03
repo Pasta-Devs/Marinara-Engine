@@ -3,6 +3,8 @@ import type { ChatMode } from "../../types/chat.js";
 
 export interface BuiltInAgentManifest {
   id: string;
+  /** Downloaded package that owns this agent. Present for runtime package definitions. */
+  packageId?: string;
   name: string;
   description: string;
   author?: string;

@@ -131,10 +131,12 @@ function ExpandedMacroEditor({
           EDITOR_MODAL_SURFACE_VARIABLES,
         )}
       >
-        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
+        <div className="flex h-[min(92vh,56rem)] max-h-[calc(100vh-1.5rem)] w-full min-w-0 max-w-5xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)] shadow-2xl supports-[height:100dvh]:h-[min(92dvh,56rem)] supports-[height:100dvh]:max-h-[calc(100dvh-1.5rem)]">
           <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3">
-            <div>
-              <h3 className="text-sm font-semibold text-[var(--foreground)]">{title}</h3>
+            <div className="min-w-0 flex-1">
+              <h3 title={title} className="truncate text-sm font-semibold text-[var(--foreground)]">
+                {title}
+              </h3>
               <p className="text-xs text-[var(--muted-foreground)]">
                 {localizeUi("ui.ui.expandedmacroeditor.expandedEditor")}
               </p>
@@ -145,7 +147,7 @@ function ExpandedMacroEditor({
                 onChange(localValue);
                 onClose();
               }}
-              className="rounded-lg border border-[var(--border)] bg-[var(--secondary)] p-2 text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:bg-[var(--accent)] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
               aria-label={localizeUi("ui.ui.expandedmacroeditor.closeExpandedEditor")}
               title={localizeUi("capabilities.actions.close")}
             >

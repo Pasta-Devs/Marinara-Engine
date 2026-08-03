@@ -26,6 +26,7 @@ import {
   buildReferencedCharacterContext,
   buildPromptMacroContext,
   collectCharacterAdvancedPromptEntries,
+  MAX_REFERENCED_CHARACTERS,
   resolveMacrosWithVariableSnapshot,
 } from "./macro-context.js";
 
@@ -391,11 +392,59 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
   });
   macroCtx.characterReferences = referencedCharacterContext.references;
+  const referencedCharacterContextBlocks = referencedCharacterContext.content
+    ? [referencedCharacterContext.content]
+    : [];
 
   // Resolve macros inside variable values themselves (e.g. {{user}} in a choice value)
   for (const key of Object.keys(variableValues)) {
     variableValues[key] = resolveMacros(variableValues[key]!, macroCtx, deferAllMacroOptions);
   }
+
+  const addActivatedLorebookCharacterReferences = async (result: LorebookScanResult) => {
+    const existingReferenceIds = Object.keys(macroCtx.characterReferences ?? {});
+    const remainingReferenceSlots = Math.max(0, MAX_REFERENCED_CHARACTERS - existingReferenceIds.length);
+    if (remainingReferenceSlots === 0) return;
+
+    const extraContext = await buildReferencedCharacterContext({
+      db: input.db,
+      activeCharacterIds: [...(input.groupCharacterIds ?? input.characterIds), ...existingReferenceIds],
+      sources: result.activatedEntries.map((entry) => entry.content),
+      chatMessages: input.lorebookScanMessages ?? input.chatMessages,
+      macroCtx,
+      wrapFormat,
+      chatId: input.chatId,
+      gameState: input.gameState,
+      generationTriggers: input.generationTriggers,
+      includeLorebooks: input.disableLorebooks !== true,
+      excludedLorebookIds: input.excludedLorebookIds,
+      excludedLorebookSourceAgentIds: input.excludedLorebookSourceAgentIds,
+      maxReferences: remainingReferenceSlots,
+    });
+    if (Object.keys(extraContext.references).length === 0) return;
+
+    macroCtx.characterReferences = {
+      ...(macroCtx.characterReferences ?? {}),
+      ...extraContext.references,
+    };
+    if (extraContext.content) referencedCharacterContextBlocks.push(extraContext.content);
+
+    const resolveReferenceMacros = (value: string) =>
+      resolveMacros(value, { ...macroCtx, variables: { ...macroCtx.variables } }, deferNameMacroOptions);
+    result.worldInfoBefore = resolveReferenceMacros(result.worldInfoBefore);
+    result.worldInfoAfter = resolveReferenceMacros(result.worldInfoAfter);
+    result.depthEntries = result.depthEntries.map((entry) => ({
+      ...entry,
+      content: resolveReferenceMacros(entry.content),
+    }));
+    result.outlets = Object.fromEntries(
+      Object.entries(result.outlets).map(([name, content]) => [name, resolveReferenceMacros(content)]),
+    );
+    result.activatedEntries = result.activatedEntries.map((entry) => ({
+      ...entry,
+      content: resolveReferenceMacros(entry.content),
+    }));
+  };
 
   // Build marker context
   const markerCtx: MarkerContext = {
@@ -428,6 +477,7 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
     generationTriggers: input.generationTriggers ?? ["chat"],
     previewOnly: input.previewOnly === true,
     resolveLorebookContent: (value) => resolveMacrosWithVariableSnapshot(value, macroCtx, deferNameMacroOptions),
+    onLorebookScan: addActivatedLorebookCharacterReferences,
     groupScenarioOverrideText: input.groupScenarioOverrideText ?? null,
     hasDialogueExamplesMarker,
     macroCtx,
@@ -546,10 +596,10 @@ export async function assemblePrompt(input: AssemblerInput): Promise<AssemblerOu
       }
     }
   }
-  if (referencedCharacterContext.content) {
+  if (referencedCharacterContextBlocks.length > 0) {
     messages.unshift({
       role: "system",
-      content: referencedCharacterContext.content,
+      content: referencedCharacterContextBlocks.join("\n"),
       contextKind: "prompt",
     });
   }

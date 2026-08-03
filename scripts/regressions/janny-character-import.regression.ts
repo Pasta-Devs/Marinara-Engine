@@ -119,8 +119,23 @@ const clientSource = readFileSync(
 );
 assert.match(
   clientSource,
-  /sourceId === "janny"[\s\S]{0,160}\/api\/bot-browser\/janny\/download\//u,
+  /sourceId === "janny" \? await fetchCompleteJannyCard\(card\.id\)/u,
   "Janny imports must use the complete PNG card instead of rebuilding from search metadata",
+);
+assert.match(
+  clientSource,
+  /fetch\(JANNY_DOWNLOAD_API,[\s\S]{0,320}credentials: "include"/u,
+  "Janny imports should retry through the user's browser session when Cloudflare rejects the server",
+);
+assert.match(
+  clientSource,
+  /return fetch\(`\/api\/bot-browser\/janny\/download\/\$\{encodeURIComponent\(characterId\)\}`\)/u,
+  "Janny imports should retain the server download route as a CORS fallback",
+);
+assert.match(
+  clientSource,
+  /const cardRes = await fetchCompleteJannyCard\(charId\);/u,
+  "Janny detail loading must use the complete PNG card through the browser-first downloader",
 );
 
 console.info("Janny character-import regression passed.");

@@ -6301,6 +6301,180 @@ test("settings search divider stays aligned with editor headers across text scal
   }
 });
 
+test("Storyboard Agent settings stay organized and contained at phone widths", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Responsive Storyboard settings are covered once.");
+
+  const suffix = Date.now().toString(36);
+  const connectionResponse = await page.request.post("/api/connections", {
+    data: {
+      name: `A deliberately long Storyboard image connection name for narrow screens ${suffix}`,
+      provider: "image_generation",
+      imageGenerationSource: "openai",
+    },
+  });
+  expect(connectionResponse.ok()).toBeTruthy();
+  const connection = (await connectionResponse.json()) as { id: string };
+
+  await page.route("**/api/capability-packages/agents", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "storyboard",
+          name: "Storyboard",
+          description: "Plans still and animated storyboards.",
+          author: "Pasta Devs",
+          phase: "post_processing",
+          execution: "host",
+          enabledByDefault: false,
+          category: "misc",
+          modeAllowlist: ["roleplay", "game"],
+          defaultPromptTemplate: "Plan storyboard keyframes.",
+          promptTemplates: [
+            { id: "still", name: "Still planner", promptTemplate: "Plan one still frame." },
+            { id: "animation", name: "Animation planner", promptTemplate: "Plan an animation." },
+          ],
+          defaultSettings: {
+            illustrationPlannerTemplateIds: ["still"],
+            animationPlannerTemplateIds: ["animation"],
+            illustrationTemplates: [
+              { id: "image-default", name: "Image default", promptTemplate: "Format the image prompt." },
+            ],
+            videoTemplates: [
+              { id: "video-default", name: "Video default", promptTemplate: "Format the video prompt." },
+            ],
+            roleplayEpisodeTemplates: [
+              { id: "episode-default", name: "Episode default", promptTemplate: "Plan the episode." },
+            ],
+            roleplayStyleTemplates: [
+              { id: "style-default", name: "Style default", promptTemplate: "Apply the visual style." },
+            ],
+            roleplayAnimationTemplates: [
+              { id: "motion-default", name: "Motion default", promptTemplate: "Plan motion." },
+            ],
+            roleplayOutputTemplates: [
+              { id: "output-default", name: "Output default", promptTemplate: "Return structured output." },
+            ],
+          },
+        },
+      ]),
+    });
+  });
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const module = await import("/src/stores/ui.store.ts");
+      module.useUIStore.getState().openAgentDetail("storyboard");
+    });
+
+    const editor = page.locator(".mari-editor-shell");
+    const settingsPanel = editor.locator(".mari-editor-panel").filter({
+      has: page.getByRole("heading", { name: "Storyboard settings", exact: true }),
+    });
+    const shared = settingsPanel.locator('[data-storyboard-settings-scope="shared"]');
+    const roleplay = settingsPanel.locator('[data-storyboard-settings-scope="roleplay"]');
+    const game = settingsPanel.locator('[data-storyboard-settings-scope="game"]');
+
+    await expect(settingsPanel).toBeVisible();
+    await expect(shared).toBeVisible();
+    await expect(roleplay).toBeVisible();
+    await expect(game).toBeVisible();
+    await expect
+      .poll(() =>
+        settingsPanel.evaluate((panel) =>
+          Array.from(panel.querySelectorAll<HTMLElement>("[data-storyboard-settings-scope]")).map(
+            (section) => section.dataset.storyboardSettingsScope,
+          ),
+        ),
+      )
+      .toEqual(["shared", "roleplay", "game"]);
+
+    const gamePromptLibrary = editor.locator(".mari-editor-panel").filter({
+      has: page.getByRole("heading", { name: "Game prompt library", exact: true }),
+    });
+    await expect(gamePromptLibrary).toBeVisible();
+    expect(
+      await settingsPanel.evaluate(
+        (settingsElement, promptElement) => {
+          return Boolean(
+            settingsElement.compareDocumentPosition(promptElement as Node) & Node.DOCUMENT_POSITION_FOLLOWING,
+          );
+        },
+        await gamePromptLibrary.elementHandle(),
+      ),
+    ).toBe(true);
+
+    const imageConnection = shared.locator("select").first();
+    await imageConnection.selectOption(connection.id);
+    await expect(imageConnection).toHaveValue(connection.id);
+
+    const roleplayInterval = roleplay.getByLabel("Default Roleplay episode interval", { exact: true });
+    await roleplayInterval.fill("7");
+    await expect(roleplayInterval).toHaveValue("7");
+
+    const scopeToggle = (scope: Locator) => scope.locator(":scope > button");
+    await scopeToggle(roleplay).click();
+    await expect(scopeToggle(roleplay)).toHaveAttribute("aria-expanded", "false");
+    await expect(roleplayInterval).toHaveCount(0);
+    await scopeToggle(roleplay).click();
+    await expect(roleplay.getByLabel("Default Roleplay episode interval", { exact: true })).toHaveValue("7");
+
+    await scopeToggle(shared).click();
+    await expect(scopeToggle(shared)).toHaveAttribute("aria-expanded", "false");
+    await scopeToggle(shared).click();
+    await expect(shared.locator("select").first()).toHaveValue(connection.id);
+
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = "18px";
+    });
+
+    for (const width of [320, 360, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect
+        .poll(() =>
+          settingsPanel.evaluate((panel) => {
+            const panelRect = panel.getBoundingClientRect();
+            const visibleControls = Array.from(
+              panel.querySelectorAll<HTMLElement>("button, input, select, textarea"),
+            ).filter((control) => control.getClientRects().length > 0);
+            const overflowingControls = visibleControls.filter((control) => {
+              const rect = control.getBoundingClientRect();
+              return rect.left < panelRect.left - 1 || rect.right > panelRect.right + 1;
+            });
+            const overflowingScopes = Array.from(
+              panel.querySelectorAll<HTMLElement>("[data-storyboard-settings-scope]"),
+            ).filter((scope) => scope.scrollWidth > scope.clientWidth + 1);
+            return {
+              panelFits: panel.scrollWidth <= panel.clientWidth + 1,
+              overflowingControls: overflowingControls.length,
+              overflowingScopes: overflowingScopes.length,
+            };
+          }),
+        )
+        .toEqual({ panelFits: true, overflowingControls: 0, overflowingScopes: 0 });
+
+      for (const scope of [shared, roleplay, game]) {
+        const box = await scopeToggle(scope).boundingBox();
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
+
+      for (const control of [
+        settingsPanel.locator('button[title="Restore default prompt"]').first(),
+        settingsPanel.locator('button[title="Remove prompt option"]').first(),
+        settingsPanel.getByRole("button", { name: "Expand editor" }).first(),
+      ]) {
+        const box = await control.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+      }
+    }
+  } finally {
+    await page.request.delete(`/api/connections/${connection.id}`).catch(() => undefined);
+  }
+});
+
 test("Backup & Export identifies the automatic backup location", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-tour="panel-settings"]').click();

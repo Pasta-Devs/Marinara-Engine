@@ -313,8 +313,9 @@ export const SUPPORTED_MACROS: readonly SupportedMacroDefinition[] = [
   { category: "Identity", syntax: "{{charName}}", description: "Alias for {{char}}" },
   {
     category: "Identity",
-    syntax: "{{<21-character-card-ID>}}",
-    description: "Name of another character card, referenced by its exact 21-character ID",
+    syntax: "{{21-character-card-ID}}",
+    description:
+      "Name of another character, pulls the card into the context; referenced by its exact 21-character ID",
   },
   {
     category: "Identity",

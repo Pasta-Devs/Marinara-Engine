@@ -156,6 +156,7 @@ export const CHAT_SUMMARY_PROMPT_SETTINGS_KEY = "chat-summary-prompts";
 export interface ChatSummaryPromptSettings {
   templates: ChatSummaryPromptTemplate[];
   activeTemplateId: string | null;
+  combinePrompt: string;
 }
 
 /** Rolling summary entry category. Extensible beyond rolling summaries later. */

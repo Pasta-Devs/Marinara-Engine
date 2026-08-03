@@ -554,7 +554,7 @@ export const capabilityPackageManager = {
       for (const definition of parsed) {
         if (ids.has(definition.id)) throw new Error(`Agent ${definition.id} is provided by more than one package`);
         ids.add(definition.id);
-        definitions.push(definition);
+        definitions.push({ ...definition, packageId: installed.id });
       }
     }
     return definitions;

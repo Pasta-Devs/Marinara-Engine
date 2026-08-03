@@ -19,6 +19,7 @@ import { hasVisibleUserMessagePayload } from "../lib/chat-message-visibility";
 import { formatGenerationParameterError } from "../lib/generation-parameter-errors";
 import { sanitizeAppCss } from "../lib/theme-css";
 import {
+  getRoleplayTypewriterRevealCharsPerSecond,
   getStreamingCharsPerSecond,
   getTypewriterFrameBudget,
   isGenerationStartBlocked,
@@ -1304,6 +1305,7 @@ export function useGenerate() {
       const transportStreaming = useUIStore.getState().enableStreaming;
       const streamingEnabled = transportStreaming;
       const chatModeForGeneration = getCachedChatMode(qc, params.chatId);
+      const smoothRoleplayTypewriter = chatModeForGeneration === "roleplay";
       const shouldDisplayRawStream =
         chatModeForGeneration !== "conversation" || !!params.regenerateMessageId || !!params.continueMessageId;
       const keepStreamLiveThroughPostProcessing = shouldKeepStreamLiveThroughPostProcessing({
@@ -1335,6 +1337,7 @@ export function useGenerate() {
       let rafId = 0;
       let typewriterStarted = false;
       let typewriterBufferUntil = 0;
+      let roleplayTypewriterCharsPerSecond: number | null = null;
       const persistedMessages = new Map<string, Message>();
       let sawGroupTurn = false;
       let currentGroupTurnSavedMessage: Message | null = null;
@@ -1411,6 +1414,7 @@ export function useGenerate() {
         typingActive = false;
         typewriterRemainder = 0;
         lastTypewriterPaintAt = 0;
+        roleplayTypewriterCharsPerSecond = null;
         if (streamingEnabled && shouldDisplayRawStream && fullBuffer) setStreamBuffer(fullBuffer, params.chatId);
         if (typewriterDone) {
           const done = typewriterDone;
@@ -1476,7 +1480,16 @@ export function useGenerate() {
           const elapsedMs = Math.min(TYPEWRITER_MAX_FRAME_MS, Math.max(0, now - lastTypewriterPaintAt));
           lastTypewriterPaintAt = now;
 
-          const charsPerSecond = selectedCharsPerSecond;
+          const charsPerSecond = smoothRoleplayTypewriter
+            ? getRoleplayTypewriterRevealCharsPerSecond({
+                selectedCharsPerSecond,
+                pendingCharacters: pendingText.length,
+                previousCharsPerSecond: roleplayTypewriterCharsPerSecond,
+                elapsedMs,
+                streamComplete: sawDoneEvent,
+              })
+            : selectedCharsPerSecond;
+          if (smoothRoleplayTypewriter) roleplayTypewriterCharsPerSecond = charsPerSecond;
           if (charsPerSecond === Infinity) {
             fullBuffer += pendingText;
             pendingText = "";
@@ -1983,6 +1996,7 @@ export function useGenerate() {
                 pendingText = "";
                 typewriterStarted = false;
                 typewriterBufferUntil = 0;
+                roleplayTypewriterCharsPerSecond = null;
                 leadingSpeakerPrefixFilter.reset();
                 thinkingStreamFilter.reset();
                 setStreamBuffer("", params.chatId);

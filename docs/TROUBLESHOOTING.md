@@ -334,7 +334,24 @@ After disabling a full page extension, reload Marinara if a toolbar item, overla
 
 ### A Server Extension says no supported sandbox is available
 
-Server Extensions run only with macOS Seatbelt or Linux Bubblewrap. Install `bwrap` on the Linux host, then restart Marinara. Windows, Android, and other unsupported hosts deliberately refuse Server Extension execution instead of falling back to the main server process. Browser Extensions can still use their opaque-origin Worker sandbox.
+Server Extensions and Professor Mari's raw shell commands run only with macOS Seatbelt or Linux Bubblewrap. Install `bwrap` on a native Linux host, then restart Marinara. The official Docker image already includes Bubblewrap, but the default container remains least-privileged and cannot create Bubblewrap's nested namespaces and mounts. Marinara detects that state and keeps OS-sandbox features disabled instead of attempting broken commands.
+
+If you accept the broader container privileges and need these features in Docker, save this as `docker-compose.override.yml` next to `docker-compose.yml`:
+
+```yaml
+services:
+  marinara:
+    environment:
+      MARINARA_DOCKER_USER: root
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor=unconfined
+```
+
+Recreate the container after adding the override. Keeping the server process as root is necessary here so the added capability is not discarded when Marinara's entrypoint normally drops to the `node` user. Running the server as root with `SYS_ADMIN` is a broad privilege escalation, and disabling the container's AppArmor profile further weakens its outer security boundary; do not enable this merely to silence the unavailable-sandbox message. Docker's default seccomp profile adapts to added capabilities, so a blanket `seccomp=unconfined` setting should not be necessary on current Docker releases.
+
+Windows, Android, and other unsupported hosts deliberately refuse Server Extension execution instead of falling back to the main server process. Browser Extensions can still use their opaque-origin Worker sandbox.
 
 ## Getting more help
 

@@ -4,6 +4,7 @@ import { closeSync, existsSync, openSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { getBubblewrapRuntimeStatus } from "../sandbox/bubblewrap-runtime.js";
 
 export type PersonalExtensionSandboxBackend = "macos-seatbelt" | "linux-bubblewrap";
 
@@ -24,27 +25,26 @@ export type SandboxedPersonalExtensionProcess = {
 };
 
 const MACOS_SANDBOX_EXEC = "/usr/bin/sandbox-exec";
-const BWRAP_CANDIDATES = ["/usr/bin/bwrap", "/bin/bwrap", "/usr/local/bin/bwrap"];
 const RUNNER_SOURCE = fileURLToPath(new URL("../../assets/personal-extension-runner.mjs", import.meta.url));
 
 function findBubblewrap() {
-  return BWRAP_CANDIDATES.find((candidate) => existsSync(candidate)) ?? null;
+  const status = getBubblewrapRuntimeStatus();
+  return status.available ? status.executable : null;
 }
 
 export function getPersonalExtensionSandboxStatus(): PersonalExtensionSandboxStatus {
   if (process.platform === "darwin" && existsSync(MACOS_SANDBOX_EXEC)) {
     return { available: true, backend: "macos-seatbelt" };
   }
-  if (process.platform === "linux" && findBubblewrap()) {
-    return { available: true, backend: "linux-bubblewrap" };
+  if (process.platform === "linux") {
+    const status = getBubblewrapRuntimeStatus();
+    if (status.available) return { available: true, backend: "linux-bubblewrap" };
+    return { available: false, backend: null, reason: `Server extensions are disabled. ${status.reason}` };
   }
   return {
     available: false,
     backend: null,
-    reason:
-      process.platform === "linux"
-        ? "Server extensions are disabled because Bubblewrap (bwrap) is unavailable."
-        : `Server extensions are disabled because Marinara has no supported OS sandbox on ${process.platform}.`,
+    reason: `Server extensions are disabled because Marinara has no supported OS sandbox on ${process.platform}.`,
   };
 }
 

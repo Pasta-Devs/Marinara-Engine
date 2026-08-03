@@ -57,6 +57,42 @@ const TAG_IMPORT_OPTIONS: Array<{ value: TagImportMode; label: string; descripti
 
 const SOURCE_MENU_MIN_WIDTH = 180;
 const SOURCE_MENU_MARGIN = 8;
+const JANNY_DOWNLOAD_API = "https://api.jannyai.com/api/v1/download";
+
+async function fetchCompleteJannyCard(characterId: string): Promise<Response> {
+  try {
+    // Cloudflare can reject Marinara's server while accepting the user's real
+    // browser session. Ask Janny for the signed card URL in-browser first.
+    const downloadResponse = await fetch(JANNY_DOWNLOAD_API, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ characterId }),
+    });
+    if (!downloadResponse.ok) throw new Error(`JannyAI character-card request failed (${downloadResponse.status})`);
+
+    const payload = (await downloadResponse.json()) as { status?: unknown; downloadUrl?: unknown };
+    if (payload.status !== "ok" || typeof payload.downloadUrl !== "string") {
+      throw new Error("JannyAI did not return a character-card download");
+    }
+    const downloadUrl = new URL(payload.downloadUrl);
+    if (downloadUrl.protocol !== "https:") throw new Error("JannyAI returned an insecure download URL");
+
+    const cardResponse = await fetch(downloadUrl, {
+      credentials: "include",
+      headers: { Accept: "image/png,application/octet-stream;q=0.9" },
+    });
+    if (!cardResponse.ok) throw new Error(`JannyAI character-card download failed (${cardResponse.status})`);
+    return cardResponse;
+  } catch {
+    // Retain the server proxy for browsers where Janny permits server traffic
+    // but does not expose its download endpoint through CORS.
+    return fetch(`/api/bot-browser/janny/download/${encodeURIComponent(characterId)}`);
+  }
+}
 
 function encodeProxyPath(path: unknown): string {
   return String(path ?? "")
@@ -645,7 +681,7 @@ const jannyProvider: ProviderConfig = {
     // only catalog metadata, while the original PNG preserves the full V2/V3
     // definition used by imports and Start Chat.
     try {
-      const cardRes = await fetch(`/api/bot-browser/janny/download/${encodeURIComponent(charId)}`);
+      const cardRes = await fetchCompleteJannyCard(charId);
       if (cardRes.ok) {
         const cardFile = new File([await cardRes.blob()], "character.png", { type: "image/png" });
         const { json } = await parsePngCharacterCard(cardFile);
@@ -1660,7 +1696,7 @@ export function BotBrowserView() {
       else if (sourceId === "janny") downloadUrl = `/api/bot-browser/janny/download/${encodeURIComponent(card.id)}`;
 
       if (downloadUrl) {
-        const res = await fetch(downloadUrl);
+        const res = sourceId === "janny" ? await fetchCompleteJannyCard(card.id) : await fetch(downloadUrl);
         if (!res.ok) {
           throw new Error(
             sourceId === "janny"

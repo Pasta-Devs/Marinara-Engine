@@ -1,6 +1,7 @@
 // ──────────────────────────────────────────────
 // Layout: Main App Shell (Discord-like three-column)
 // ──────────────────────────────────────────────
+import { useQueryClient } from "@tanstack/react-query";
 import { ChatSidebar } from "./ChatSidebar";
 import { TopBar } from "./TopBar";
 import { SpotifyMobileWidget } from "../spotify/SpotifyMiniPlayer";
@@ -22,6 +23,7 @@ import {
 import { useChatStore } from "../../stores/chat.store";
 import { useBackgroundAutonomousPolling } from "../../hooks/use-background-autonomous";
 import { useClearAutonomousUnread, useUpdateChatMetadata } from "../../hooks/use-chats";
+import { lorebookKeys } from "../../hooks/use-lorebooks";
 import { useIdleDetection } from "../../hooks/use-idle-detection";
 import { dispatchChatVisualViewportChange } from "../../hooks/use-visual-viewport-chat-bottom";
 import { usePageActivity } from "../../hooks/use-page-activity";
@@ -111,6 +113,7 @@ const PANEL_RESIZE_LARGE_STEP = 48;
 const SHARED_SIDEBAR_WIDTH_MIN = Math.max(SIDEBAR_WIDTH_MIN, RIGHT_PANEL_WIDTH_MIN);
 const SHARED_SIDEBAR_WIDTH_MAX = Math.min(SIDEBAR_WIDTH_MAX, RIGHT_PANEL_WIDTH_MAX);
 const TRACKER_PANEL_EDGE_OFFSET = 8;
+const CHAT_SCROLLBAR_CLEARANCE = 16;
 const TRACKER_PANEL_HUD_GAP = 6;
 const TRACKER_PANEL_CHAT_GAP = 8;
 const TRACKER_PANEL_DESKTOP_MOTION_MS = 260;
@@ -222,6 +225,7 @@ function SidePanelFallback() {
 
 export function AppShell() {
   const { t: localizeUi } = useUiTranslation();
+  const queryClient = useQueryClient();
   const capabilityAgents = useCapabilityAgentRegistry();
   const installedCapabilities = useCapabilityClientModules();
   const updateChatMetadata = useUpdateChatMetadata();
@@ -354,6 +358,17 @@ export function AppShell() {
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
   const restoreTrackerPanelOpenForChat = useUIStore((s) => s.restoreTrackerPanelOpenForChat);
+  const refreshLorebooks = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: lorebookKeys.all }),
+    [queryClient],
+  );
+  const openSpatialLorebook = useCallback(
+    (lorebookId: string) => {
+      void refreshLorebooks();
+      openLorebookDetail(lorebookId);
+    },
+    [openLorebookDetail, refreshLorebooks],
+  );
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const sidebarDragWidthRef = useRef<number | null>(null);
@@ -753,7 +768,8 @@ export function AppShell() {
           debugMode,
           confirmAction: showConfirmDialog,
           onDirtyChange: setEditorDirty,
-          onOpenLorebook: openLorebookDetail,
+          onOpenLorebook: openSpatialLorebook,
+          onLorebooksChanged: refreshLorebooks,
         }}
       />
     ) : (
@@ -1159,7 +1175,7 @@ export function AppShell() {
           )}px`,
           ...(side === "left"
             ? { left: sidebarOpen ? liveSidebarWidth : 0 }
-            : { right: rightPanelOpen ? liveRightPanelWidth : 0 }),
+            : { right: (rightPanelOpen ? liveRightPanelWidth : 0) + CHAT_SCROLLBAR_CLEARANCE }),
           ...(trackerPanelBackgroundStyle ?? {}),
         }}
       >
@@ -1477,7 +1493,8 @@ export function AppShell() {
             confirmAction: showConfirmDialog,
             onClearPendingDraftReview: clearPendingSpatialMapDraftReview,
             onDirtyChange: setEditorDirty,
-            onOpenLorebook: openLorebookDetail,
+            onOpenLorebook: openSpatialLorebook,
+            onLorebooksChanged: refreshLorebooks,
             onClose: closeSpatialMapDetail,
           }}
         />
