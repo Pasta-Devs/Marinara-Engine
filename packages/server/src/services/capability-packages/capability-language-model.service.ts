@@ -10,6 +10,7 @@ import type { DB } from "../../db/connection.js";
 import { fitMessagesToContext, type BaseLLMProvider, type ChatMessage, type ChatOptions } from "../llm/base-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
+import { unwrapConnectionAdmissionProvider } from "../generation/connection-admission.js";
 import { createConnectionsStorage } from "../storage/connections.storage.js";
 
 export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageModelHost {
@@ -21,7 +22,7 @@ export function createCapabilityLanguageModelHost(db: DB): CapabilityLanguageMod
   };
   const resolvedModel = (provider: BaseLLMProvider, connectionId: string, model: string) =>
     Object.freeze({
-      name: provider.constructor.name,
+      name: unwrapConnectionAdmissionProvider(provider).constructor.name,
       connectionId,
       model,
       maxContext: provider.maxContextValue,
