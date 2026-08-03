@@ -204,9 +204,16 @@ const COMFYUI_GEN_TIMEOUT_SECONDS = Number(process.env.COMFYUI_GEN_TIMEOUT ?? 24
 /**
  * Identify the physical image endpoint an admission slot belongs to. RunPod connections share
  * one API base URL and select the actual endpoint with a separate id, so the base URL alone
- * would make two independent endpoints contend for a single slot.
+ * would make two independent endpoints contend for a single slot. Every other backend's base
+ * URL already is the physical target, and a stale `imageEndpointId` left on an imported or
+ * copied connection must not split one ComfyUI/A1111 endpoint into separate slots.
  */
-export function imageAdmissionKey(normalizedBaseUrl: string, imageEndpointId?: string): string {
+export function imageAdmissionKey(
+  normalizedBaseUrl: string,
+  resolvedSource: string,
+  imageEndpointId?: string,
+): string {
+  if (resolvedSource !== "runpod_comfyui") return normalizedBaseUrl;
   const endpointId = imageEndpointId?.trim();
   return endpointId ? `${normalizedBaseUrl}#${endpointId}` : normalizedBaseUrl;
 }
@@ -293,7 +300,7 @@ export async function generateImage(
     // id, so the two do not hold each other off on a connection used for both. Unify the
     // key if that overlap ever shows up in practice.
     return await withConnectionAdmission(
-      imageAdmissionKey(normalizedBaseUrl, request.imageEndpointId),
+      imageAdmissionKey(normalizedBaseUrl, resolvedSource, request.imageEndpointId),
       request.admissionMode ?? { kind: "foreground" },
       physicalRequest,
     );

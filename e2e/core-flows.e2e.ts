@@ -5718,6 +5718,11 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
       receivedPath = incoming.url ?? "";
       receivedContentType = String(incoming.headers["content-type"] ?? "");
       receivedBody = Buffer.concat(chunks).toString("utf8");
+      if (incoming.method === "GET" && incoming.url === "/openapi.json") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ paths: { "/v1/audio/speech": {}, "/v1/voices": {} } }));
+        return;
+      }
       if (incoming.method === "GET" && incoming.url === "/v1/voices") {
         response.writeHead(200, { "Content-Type": "application/json" });
         response.end(
@@ -5850,6 +5855,82 @@ test("PocketTTS discovers server voices and uses its speech endpoint", async ({ 
         return config.dialoguePauseMs;
       })
       .toBe(60_000);
+  } finally {
+    try {
+      if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        pocketTts.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  }
+});
+
+test("PocketTTS uses the official multipart speech API", async ({ request }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "PocketTTS routing is covered on desktop.");
+
+  let receivedPath = "";
+  let receivedContentType = "";
+  let receivedBody = "";
+  const pocketTts = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      receivedPath = incoming.url ?? "";
+      receivedContentType = String(incoming.headers["content-type"] ?? "");
+      receivedBody = Buffer.concat(chunks).toString("utf8");
+      if (incoming.method === "GET" && incoming.url === "/openapi.json") {
+        response.writeHead(200, { "Content-Type": "application/json" });
+        response.end(JSON.stringify({ paths: { "/health": {}, "/tts": {} } }));
+        return;
+      }
+      if (incoming.method === "POST" && incoming.url === "/tts") {
+        response.writeHead(200, { "Content-Type": "audio/wav" });
+        response.end(Buffer.from("RIFF\u0000\u0000\u0000\u0000WAVE", "binary"));
+        return;
+      }
+      response.writeHead(404).end();
+    });
+  });
+  await new Promise<void>((resolve) => pocketTts.listen(0, "127.0.0.1", resolve));
+  let originalConfig: unknown;
+
+  try {
+    const address = pocketTts.address();
+    if (!address || typeof address === "string") throw new Error("PocketTTS mock did not bind to a TCP port");
+
+    const originalConfigResponse = await request.get("/api/tts/config");
+    expect(originalConfigResponse.ok()).toBeTruthy();
+    originalConfig = await originalConfigResponse.json();
+
+    const configResponse = await request.put("/api/tts/config", {
+      data: {
+        enabled: true,
+        source: "pockettts",
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        model: "pocket-tts",
+        voice: "alba",
+        audioFormat: "wav",
+      },
+    });
+    expect(configResponse.ok()).toBeTruthy();
+
+    const voicesResponse = await request.get("/api/tts/voices");
+    expect(voicesResponse.ok()).toBeTruthy();
+    const voices = (await voicesResponse.json()) as { voices: string[]; fromProvider: boolean };
+    expect(voices.fromProvider).toBe(false);
+    expect(voices.voices).toEqual(expect.arrayContaining(["alba", "giovanni", "lola", "estelle"]));
+
+    const speechResponse = await request.post("/api/tts/speak", {
+      data: { text: "Hello from the official server." },
+    });
+    expect(speechResponse.ok()).toBeTruthy();
+    expect(receivedPath).toBe("/tts");
+    expect(receivedContentType).toContain("multipart/form-data; boundary=");
+    expect(receivedBody).toContain('name="text"');
+    expect(receivedBody).toContain("Hello from the official server.");
+    expect(receivedBody).toContain('name="voice_url"');
+    expect(receivedBody).toContain("alba");
   } finally {
     try {
       if (originalConfig !== undefined) await request.put("/api/tts/config", { data: originalConfig });

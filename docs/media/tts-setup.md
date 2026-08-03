@@ -39,16 +39,16 @@ The app fills in these defaults per Source:
 | ----------------- | ------------------------- | ---------------------- | ------------------------------- |
 | OpenAI-compatible | https://api.openai.com/v1 | tts-1                  | alloy                           |
 | ElevenLabs        | https://api.elevenlabs.io | eleven_multilingual_v2 | none (you must pick one)        |
-| PocketTTS         | http://localhost:49112    | pocket-tts             | alba                            |
+| PocketTTS         | http://localhost:8000     | pocket-tts             | alba                            |
 | xAI Voice         | https://api.x.ai/v1       | grok-tts               | eve                             |
 
 For **ElevenLabs**, the **Model** field loads the speech-capable models available through your connection and always keeps the full list visible when you open it. Pick a normal speech model. Model IDs that contain `ttv` are voice-design models, not speech models, and they cannot read text out loud. If you choose one by mistake, playback fails with an error that tells you to use a speech model instead.
 
 ### PocketTTS is a separate program
 
-PocketTTS is not built into Marinara Engine. Marinara's adapter uses the [PocketTTS OpenAI-compatible server](https://github.com/teddybear082/pocket-tts-openai_streaming_server), which exposes both the speech and voice-list endpoints Marinara needs. Install and run that server by following its instructions; Marinara does not download or manage it for you.
+PocketTTS is not built into Marinara Engine. Install [the official PocketTTS server](https://github.com/kyutai-labs/pocket-tts) separately, then start it with `uvx pocket-tts serve`. Marinara does not download or manage it for you.
 
-The compatible server uses `http://localhost:49112` by default. Leave the **Base URL** on that value unless you changed the server port. Existing custom PocketTTS URLs remain unchanged.
+The official server uses `http://localhost:8000` by default. Leave the **Base URL** on that value unless you changed the host or port. Marinara detects the official multipart `/tts` API automatically. Existing custom URLs for the [OpenAI-compatible PocketTTS wrapper](https://github.com/teddybear082/pocket-tts-openai_streaming_server) remain supported.
 
 ## Step 3: Choose a voice (Voice Option)
 
@@ -59,7 +59,7 @@ The **Voice Option** setting decides how voices are assigned:
 
 ### One voice for all characters
 
-Pick the voice in the **All Characters Voice** field. PocketTTS shows voices returned by your server in a dropdown and keeps a text field beside it for a custom voice ID, URL, or path.
+Pick the voice in the **All Characters Voice** field. The official PocketTTS server does not expose a voice-list endpoint, so Marinara shows its built-in voices and keeps a text field beside the dropdown for another built-in name or supported voice URL. Compatible wrapper servers can still return their own voice list and accept custom IDs or paths.
 
 To load the real voice list from your provider, enter the connection details and click the **Refresh voices** button (the circular-arrow icon). You can do this before enabling playback. Refresh saves the current card first, so a newly entered API key is used immediately. Before you connect, the app shows a short built-in fallback list so the field is not empty. A provider error is shown instead of silently presenting that fallback as a successful refresh.
 
@@ -103,7 +103,8 @@ The **Audio Format** setting chooses **MP3** (the default) or **WAV**. Use WAV f
 
 The **Speed** slider controls how fast the voice talks. The allowed range depends on the Source:
 
-- OpenAI-compatible and PocketTTS: 0.25 to 4.0 times normal speed.
+- OpenAI-compatible: 0.25 to 4.0 times normal speed.
+- PocketTTS: compatible wrappers can use the 0.25 to 4.0 speed setting; the official server currently controls synthesis speed itself.
 - ElevenLabs: 0.7 to 1.2 times.
 - xAI Voice: 0.7 to 1.5 times.
 
@@ -158,7 +159,7 @@ This override is used only during Conversation audio and video calls. The regula
 ## Troubleshooting
 
 - Nothing speaks: confirm the **Enable TTS** switch is on. Then check the right per-mode **Auto-play** toggle, or use the per-message **Speak** button. The **Speak** button and auto-play options only appear after TTS is enabled.
-- No voices in the dropdown: save the card with TTS enabled and a valid API key, then click **Refresh voices**. For PocketTTS, also verify that `<Base URL>/v1/voices` responds from the compatible server.
+- No voices in the dropdown: save the card with TTS enabled and a valid API key, then click **Refresh voices**. The official PocketTTS server uses Marinara's built-in list because it has no voice-list endpoint. For a compatible PocketTTS wrapper, verify that `<Base URL>/v1/voices` responds.
 - ElevenLabs will not speak: make sure you selected a real voice, not the "Select an ElevenLabs voice" placeholder. Also check that the **Model** is a speech model, not a voice-design model whose ID contains `ttv`.
 - A self-hosted TTS server on a local address is blocked: turn on the server setting `TTS_LOCAL_URLS_ENABLED`. It lets the app reach a local or private address for OpenAI-compatible or ElevenLabs-style servers. PocketTTS does not need this setting. See [Server Configuration Reference](../CONFIGURATION.md).
 - Test your setup fast: click the **Preview** button in the card to play a short sample line with your current settings.

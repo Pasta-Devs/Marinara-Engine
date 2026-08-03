@@ -59,7 +59,10 @@ const SOURCE_MENU_MIN_WIDTH = 180;
 const SOURCE_MENU_MARGIN = 8;
 const JANNY_DOWNLOAD_API = "https://api.jannyai.com/api/v1/download";
 
-async function fetchCompleteJannyCard(characterId: string): Promise<Response> {
+async function fetchCompleteJannyCard(characterId: string, signal?: AbortSignal): Promise<Response> {
+  const requestSignal = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(45_000)])
+    : AbortSignal.timeout(45_000);
   try {
     // Cloudflare can reject Marinara's server while accepting the user's real
     // browser session. Ask Janny for the signed card URL in-browser first.
@@ -71,6 +74,7 @@ async function fetchCompleteJannyCard(characterId: string): Promise<Response> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ characterId }),
+      signal: requestSignal,
     });
     if (!downloadResponse.ok) throw new Error(`JannyAI character-card request failed (${downloadResponse.status})`);
 
@@ -84,13 +88,16 @@ async function fetchCompleteJannyCard(characterId: string): Promise<Response> {
     const cardResponse = await fetch(downloadUrl, {
       credentials: "include",
       headers: { Accept: "image/png,application/octet-stream;q=0.9" },
+      signal: requestSignal,
     });
     if (!cardResponse.ok) throw new Error(`JannyAI character-card download failed (${cardResponse.status})`);
     return cardResponse;
   } catch {
     // Retain the server proxy for browsers where Janny permits server traffic
     // but does not expose its download endpoint through CORS.
-    return fetch(`/api/bot-browser/janny/download/${encodeURIComponent(characterId)}`);
+    return fetch(`/api/bot-browser/janny/download/${encodeURIComponent(characterId)}`, {
+      signal: requestSignal,
+    });
   }
 }
 
@@ -150,7 +157,7 @@ interface ProviderConfig {
   /** "free" = NSFW toggle enabled; "login" = toggle enabled once logged in; "wyvern" = toggle rendered disabled (only sourceId "wyvern" pairs this with a sort-hint toast on click — other "wyvern"-mode providers, e.g. DataCat, get no toast) */
   nsfwMode: "free" | "login" | "wyvern";
   search: (params: SearchParams) => Promise<{ cards: BrowseCard[]; totalCount: number }>;
-  fetchDetail: (card: BrowseCard) => Promise<CardDetail | null>;
+  fetchDetail: (card: BrowseCard, options?: { skipCompleteCard?: boolean }) => Promise<CardDetail | null>;
   siteName: string;
 }
 
@@ -183,6 +190,19 @@ interface CardDetail {
   embeddedLorebook?: unknown;
   extensions?: Record<string, unknown>;
   extra?: { title: string; content: string }[];
+}
+
+function hasJannyCharacterDefinition(detail: CardDetail | null | undefined): boolean {
+  return Boolean(
+    detail?.description ||
+      detail?.personality ||
+      detail?.scenario ||
+      detail?.firstMessage ||
+      detail?.exampleDialogs ||
+      detail?.systemPrompt ||
+      detail?.postHistoryInstructions ||
+      detail?.alternateGreetings?.length,
+  );
 }
 
 // ════════════════════════════════════════════════
@@ -667,7 +687,7 @@ const jannyProvider: ProviderConfig = {
       totalCount: result?.totalHits ?? totalPages * 80,
     };
   },
-  fetchDetail: async (card) => {
+  fetchDetail: async (card, options) => {
     const raw = card._raw as any;
     const charId = raw?.id || card.id;
     const slug = card.name
@@ -680,16 +700,18 @@ const jannyProvider: ProviderConfig = {
     // Prefer JannyAI's supported full-card download API. Search results contain
     // only catalog metadata, while the original PNG preserves the full V2/V3
     // definition used by imports and Start Chat.
-    try {
-      const cardRes = await fetchCompleteJannyCard(charId);
-      if (cardRes.ok) {
-        const cardFile = new File([await cardRes.blob()], "character.png", { type: "image/png" });
-        const { json } = await parsePngCharacterCard(cardFile);
-        const cardDetail = readCharacterCardDetailFields(json);
-        if (cardDetail) return cardDetail;
+    if (!options?.skipCompleteCard) {
+      try {
+        const cardRes = await fetchCompleteJannyCard(charId);
+        if (cardRes.ok) {
+          const cardFile = new File([await cardRes.blob()], "character.png", { type: "image/png" });
+          const { json } = await parsePngCharacterCard(cardFile);
+          const cardDetail = readCharacterCardDetailFields(json);
+          if (hasJannyCharacterDefinition(cardDetail)) return cardDetail;
+        }
+      } catch {
+        /* fall through to legacy page extraction */
       }
-    } catch {
-      /* fall through to legacy page extraction */
     }
 
     // Helper to decode Astro's [type, data] serialization
@@ -1695,18 +1717,33 @@ export function BotBrowserView() {
       else if (sourceId === "chartavern") downloadUrl = `/api/bot-browser/chartavern/download/${card.id}`;
       else if (sourceId === "janny") downloadUrl = `/api/bot-browser/janny/download/${encodeURIComponent(card.id)}`;
 
-      if (downloadUrl) {
-        const res = sourceId === "janny" ? await fetchCompleteJannyCard(card.id) : await fetch(downloadUrl);
-        if (!res.ok) {
-          throw new Error(
-            sourceId === "janny"
-              ? localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable")
-              : localizeUi("ui.botBrowser.botbrowserview.importFailed"),
-          );
+      let prefetchedJannyCard: Awaited<ReturnType<typeof parsePngCharacterCard>> | null = null;
+      if (sourceId === "janny") {
+        try {
+          const cardResponse = await fetchCompleteJannyCard(card.id);
+          if (!cardResponse.ok) throw new Error("JannyAI character-card download failed");
+          const cardFile = new File([await cardResponse.blob()], "character.png", { type: "image/png" });
+          const parsedCard = await parsePngCharacterCard(cardFile);
+          if (!hasJannyCharacterDefinition(readCharacterCardDetailFields(parsedCard.json))) {
+            throw new Error("JannyAI character-card definition is incomplete");
+          }
+          prefetchedJannyCard = parsedCard;
+        } catch {
+          downloadUrl = "";
         }
-        const blob = await res.blob();
-        const file = new File([blob], "character.png", { type: "image/png" });
-        const { json, imageDataUrl } = await parsePngCharacterCard(file);
+      }
+
+      if (downloadUrl) {
+        let parsedCard = prefetchedJannyCard;
+        if (sourceId !== "janny") {
+          const res = await fetch(downloadUrl);
+          if (!res.ok) throw new Error(localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+          const blob = await res.blob();
+          const file = new File([blob], "character.png", { type: "image/png" });
+          parsedCard = await parsePngCharacterCard(file);
+        }
+        if (!parsedCard) throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
+        const { json, imageDataUrl } = parsedCard;
         const cardDetail = sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card))) : detail;
         const importJsonWithLorebook = attachEmbeddedLorebookToCharacterJson(
           json as Record<string, unknown>,
@@ -1743,7 +1780,14 @@ export function BotBrowserView() {
         } else throw new Error(data.error ?? "Import failed");
       } else {
         let cardDetail = detail;
-        if (!cardDetail) cardDetail = await provider.fetchDetail(card);
+        if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
+          cardDetail = await provider.fetchDetail(card, { skipCompleteCard: true });
+        } else if (!cardDetail) {
+          cardDetail = await provider.fetchDetail(card);
+        }
+        if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
+          throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
+        }
         const importEmbeddedLorebook = confirmEmbeddedLorebookImport(card.name, cardDetail?.embeddedLorebook);
         // For extracted JanitorAI data, description contains the full personality definition
         const descriptionText = cardDetail?.description || "";

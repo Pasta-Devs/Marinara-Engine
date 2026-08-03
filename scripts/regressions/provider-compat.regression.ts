@@ -859,19 +859,31 @@ assert.equal(
 // RunPod connections share one API base URL and pick the physical endpoint with a separate
 // id, so the key has to carry that id or two independent endpoints contend for one slot.
 assert.notEqual(
-  imageAdmissionKey("https://api.runpod.ai/v2", "abc123"),
-  imageAdmissionKey("https://api.runpod.ai/v2", "def456"),
+  imageAdmissionKey("https://api.runpod.ai/v2", "runpod_comfyui", "abc123"),
+  imageAdmissionKey("https://api.runpod.ai/v2", "runpod_comfyui", "def456"),
   "RunPod endpoints sharing a base URL must not share an admission key",
 );
 assert.equal(
-  imageAdmissionKey("https://api.runpod.ai/v2", "abc123"),
-  imageAdmissionKey("https://api.runpod.ai/v2", "  abc123  "),
+  imageAdmissionKey("https://api.runpod.ai/v2", "runpod_comfyui", "abc123"),
+  imageAdmissionKey("https://api.runpod.ai/v2", "runpod_comfyui", "  abc123  "),
   "endpoint ids must be compared after trimming",
 );
 assert.equal(
-  imageAdmissionKey("http://127.0.0.1:8188"),
+  imageAdmissionKey("http://127.0.0.1:8188", "comfyui"),
   "http://127.0.0.1:8188",
   "backends whose base URL is the physical target keep the bare URL as their key",
+);
+// A stale endpoint id on an imported/copied non-RunPod connection must not split one
+// physical endpoint into two admission slots.
+assert.equal(
+  imageAdmissionKey("http://127.0.0.1:8188", "comfyui", "abc123"),
+  imageAdmissionKey("http://127.0.0.1:8188", "comfyui"),
+  "non-RunPod backends must ignore a leftover endpoint id",
+);
+assert.equal(
+  imageAdmissionKey("http://127.0.0.1:7860", "automatic1111", "def456"),
+  "http://127.0.0.1:7860",
+  "A1111 admission keys stay bare regardless of endpoint id",
 );
 
 let backgroundAttempts = 0;

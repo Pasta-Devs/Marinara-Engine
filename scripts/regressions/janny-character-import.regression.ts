@@ -119,7 +119,7 @@ const clientSource = readFileSync(
 );
 assert.match(
   clientSource,
-  /sourceId === "janny" \? await fetchCompleteJannyCard\(card\.id\)/u,
+  /const parsedCard = await parsePngCharacterCard\(cardFile\);[\s\S]{0,220}hasJannyCharacterDefinition\(readCharacterCardDetailFields\(parsedCard\.json\)\)[\s\S]{0,220}prefetchedJannyCard = parsedCard;/u,
   "Janny imports must use the complete PNG card instead of rebuilding from search metadata",
 );
 assert.match(
@@ -129,13 +129,52 @@ assert.match(
 );
 assert.match(
   clientSource,
-  /return fetch\(`\/api\/bot-browser\/janny\/download\/\$\{encodeURIComponent\(characterId\)\}`\)/u,
+  /return fetch\(`\/api\/bot-browser\/janny\/download\/\$\{encodeURIComponent\(characterId\)\}`, \{[\s\S]{0,80}signal: requestSignal/u,
   "Janny imports should retain the server download route as a CORS fallback",
+);
+const jannyDownloadHelper = clientSource.slice(
+  clientSource.indexOf("async function fetchCompleteJannyCard"),
+  clientSource.indexOf("function encodeProxyPath"),
+);
+assert.match(
+  jannyDownloadHelper,
+  /AbortSignal\.timeout\(45_000\)/u,
+  "Janny imports must bound the direct request, signed download, and server fallback with one timeout",
+);
+assert.equal(
+  jannyDownloadHelper.match(/signal: requestSignal/gu)?.length,
+  3,
+  "Janny imports must apply the bounded signal to all three character-card requests",
 );
 assert.match(
   clientSource,
   /const cardRes = await fetchCompleteJannyCard\(charId\);/u,
   "Janny detail loading must use the complete PNG card through the browser-first downloader",
+);
+assert.match(
+  clientSource,
+  /const cardResponse = await fetchCompleteJannyCard\(card\.id\);[\s\S]{0,650}catch \{\s*downloadUrl = "";/u,
+  "Janny imports must fall back to recovered page fields when the PNG request or validation fails",
+);
+assert.match(
+  clientSource,
+  /if \(!options\?\.skipCompleteCard\) \{[\s\S]{0,750}fetchCompleteJannyCard\(charId\)/u,
+  "Janny detail loading must allow imports to skip a second full-card request",
+);
+assert.match(
+  clientSource,
+  /provider\.fetchDetail\(card, \{ skipCompleteCard: true \}\)/u,
+  "Janny imports must use only page recovery after the complete-card prefetch fails",
+);
+assert.match(
+  clientSource,
+  /sourceId === "janny" && !hasJannyCharacterDefinition\(cardDetail\)/u,
+  "Janny imports must reject creator notes and search metadata when no character definition was recovered",
+);
+assert.match(
+  clientSource,
+  /description: descriptionText \|\| personalityText,[\s\S]{0,500}post_history_instructions: cardDetail\?\.postHistoryInstructions \|\| ""/u,
+  "Recovered Janny page imports must preserve the supported definition fields",
 );
 
 console.info("Janny character-import regression passed.");

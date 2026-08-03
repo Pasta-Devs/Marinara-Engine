@@ -1,18 +1,42 @@
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { readFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
+import { fileURLToPath } from "node:url";
 import { TTS_API_KEY_MASK, ttsConfigSchema } from "../../packages/shared/src/types/tts.js";
 import { buildTTSVoiceRequests } from "../../packages/client/src/lib/tts-dialogue.ts";
 import { normalizeTTSPlaybackDelayMs } from "../../packages/client/src/lib/tts-service.ts";
 import {
+  buildOfficialPocketTtsForm,
   maskTTSConfigForResponse,
   fetchAllElevenLabsVoiceOptions,
   fetchElevenLabsVoiceOptions,
   parseElevenLabsModelOptions,
   prepareTTSConfigForStorage,
+  resolvePocketTtsApiMode,
 } from "../../packages/server/src/routes/tts.routes.ts";
 
 const encryptForTest = (value: string) => (value ? `encrypted:${value}` : "");
+const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+
+assert.equal(resolvePocketTtsApiMode({ paths: { "/tts": {}, "/health": {} } }), "official");
+assert.equal(resolvePocketTtsApiMode({ paths: { "/v1/audio/speech": {}, "/v1/voices": {} } }), "openai");
+assert.deepEqual(
+  Object.fromEntries(buildOfficialPocketTtsForm("Hello from Marinara.", "alba").entries()),
+  { text: "Hello from Marinara.", voice_url: "alba" },
+);
+const ttsRouteSource = readFileSync(join(repositoryRoot, "packages/server/src/routes/tts.routes.ts"), "utf8");
+assert.match(
+  ttsRouteSource,
+  /if \(!response\.ok\) \{[\s\S]{0,120}pocketTtsApiModeCache\.delete\(base\)[\s\S]{0,180}catch \{[\s\S]{0,120}pocketTtsApiModeCache\.delete\(base\)/u,
+  "Failed PocketTTS OpenAPI probes must not remain cached",
+);
+assert.match(
+  ttsRouteSource,
+  /clearPocketTtsApiModeCache\(existing\);\s*clearPocketTtsApiModeCache\(storedConfig\);/u,
+  "Saving TTS settings must invalidate the old and new PocketTTS mode cache entries",
+);
 
 assert.deepEqual(
   parseElevenLabsModelOptions([
@@ -232,7 +256,7 @@ assert.ok(savedOpenAiProfile);
 const switchToNewPocketTts = ttsConfigSchema.parse({
   ...maskedElevenLabs,
   source: "pockettts",
-  baseUrl: "http://localhost:49112",
+  baseUrl: "http://localhost:8000",
   apiKey: "",
   model: "pocket-tts",
   voice: "alba",
