@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // User Persona Types
 // ──────────────────────────────────────────────
-import type { ConvoBehaviorConfig } from "./character.js";
+import type { ConvoBehaviorConfig, RPGStatsConfig } from "./character.js";
 import type { AvatarCrop } from "./avatar-crop.js";
 
 /** A user persona (the player's character/identity). */
@@ -10,6 +10,12 @@ export interface Persona {
   name: string;
   /** Short comment shown under the name (for disambiguation) */
   comment: string;
+  /** Creator/author of this persona card. */
+  creator: string;
+  /** Human-visible persona card version string. */
+  personaVersion: string;
+  /** Private notes about intended use, quirks, or recommended settings. */
+  creatorNotes: string;
   /** Optional pronunciation override used when this persona name is sent to TTS. */
   phoneticName?: string;
   description: string;
@@ -32,13 +38,13 @@ export interface Persona {
   /** Chat bubble / dialogue box background color */
   boxColor: string;
   /** Tracker card color source + optional custom palette. */
-  trackerCardColors?: TrackerCardColorConfig | string;
+  trackerCardColors: TrackerCardColorConfig;
   /** Persona status bars configuration (Satiety, Energy, etc.) */
   personaStats?: PersonaStatsConfig;
   /** Tags for organizing personas */
-  tags?: string[];
+  tags: string[];
   /** Saved Conversation mode activity/status text options for this persona */
-  savedStatusOptions?: string[];
+  savedStatusOptions: string[];
   /** Conversation mode ONLY: display name shown as the user's sender label in Convo. */
   convoDisplayName?: string;
   /** Conversation mode ONLY: public "about me" profile (cross-chat default). */
@@ -107,4 +113,6 @@ export interface PersonaStatsConfig {
   enabled: boolean;
   /** The stat bars to track */
   bars: PersonaStatBar[];
+  /** Optional Game mode RPG stats stored alongside the persona status bars. */
+  rpgStats?: RPGStatsConfig;
 }
