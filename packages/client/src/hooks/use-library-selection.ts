@@ -1,10 +1,14 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-export function useLibrarySelection(visibleIds: string[]) {
+export function useLibrarySelection(visibleIds: string[], queryKey?: string) {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const visibleIdSet = useMemo(() => new Set(visibleIds), [visibleIds]);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [queryKey]);
 
   const enterSelectionMode = useCallback(() => setSelectionMode(true), []);
   const exitSelectionMode = useCallback(() => {

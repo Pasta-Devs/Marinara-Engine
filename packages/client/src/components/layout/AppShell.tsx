@@ -74,6 +74,9 @@ const AgentCatalogView = lazy(() =>
 const LorebookEditor = lazy(() =>
   import("../lorebooks/LorebookEditor").then((module) => ({ default: module.LorebookEditor })),
 );
+const LorebookLibraryView = lazy(() =>
+  import("../lorebooks/LorebookLibraryView").then((module) => ({ default: module.LorebookLibraryView })),
+);
 const PresetEditor = lazy(() => import("../presets/PresetEditor").then((module) => ({ default: module.PresetEditor })));
 const ConnectionEditor = lazy(() =>
   import("../connections/ConnectionEditor").then((module) => ({ default: module.ConnectionEditor })),
@@ -528,6 +531,7 @@ export function AppShell() {
 
   const characterDetailId = useUIStore((s) => s.characterDetailId);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
+  const lorebookLibraryOpen = useUIStore((s) => s.lorebookLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const agentCatalogOpen = useUIStore((s) => s.agentCatalogOpen);
   const lorebookDetailId = useUIStore((s) => s.lorebookDetailId);
@@ -780,12 +784,14 @@ export function AppShell() {
     <PresetEditor />
   ) : characterDetailId ? (
     <CharacterEditor />
-  ) : characterLibraryOpen ? (
-    <CharacterLibraryView key={cardLibraryKind} />
-  ) : agentCatalogOpen ? (
-    <AgentCatalogView />
   ) : lorebookDetailId ? (
     <LorebookEditor />
+  ) : characterLibraryOpen ? (
+    <CharacterLibraryView key={cardLibraryKind} />
+  ) : lorebookLibraryOpen ? (
+    <LorebookLibraryView />
+  ) : agentCatalogOpen ? (
+    <AgentCatalogView />
   ) : null;
 
   const showAmbientDecor =

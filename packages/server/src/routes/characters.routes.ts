@@ -67,6 +67,10 @@ import {
   resolveStoredGalleryFile,
   unlinkGalleryFileIfUnreferenced,
 } from "../services/image/gallery-file-lifecycle.js";
+import {
+  ENTITY_SUMMARY_PROJECTION_VERSION,
+  projectAndHashEntitySummary,
+} from "../services/entity-summary/entity-summary-projection.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
 const PERSONA_GALLERY_ROOT = join(DATA_DIR, "gallery", "personas");
@@ -826,8 +830,21 @@ export async function charactersRoutes(app: FastifyInstance) {
     const body = req.body as Record<string, unknown>;
     const avatarPath = typeof body.avatarPath === "string" ? body.avatarPath : undefined;
     const comment = typeof body.comment === "string" ? body.comment : undefined;
+    const data = { ...input.data, extensions: { ...(input.data.extensions ?? {}) } } as CharacterData;
+    const summary = typeof data.extensions.entitySummary === "string" ? data.extensions.entitySummary.trim() : "";
+    delete data.extensions.entitySummaryGeneratedAt;
+    delete data.extensions.entitySummarySource;
+    delete data.extensions.entitySummaryContentHash;
+    delete data.extensions.entitySummaryProjectionVersion;
+    if (summary) {
+      data.extensions.entitySummary = summary;
+      data.extensions.entitySummaryGeneratedAt = new Date().toISOString();
+      data.extensions.entitySummarySource = "manual";
+      data.extensions.entitySummaryContentHash = projectAndHashEntitySummary("character", data).contentHash;
+      data.extensions.entitySummaryProjectionVersion = ENTITY_SUMMARY_PROJECTION_VERSION;
+    }
     return storage.create(
-      input.data,
+      data,
       avatarPath,
       normalizeTimestampOverrides({
         createdAt: body.createdAt,
@@ -845,14 +862,62 @@ export async function charactersRoutes(app: FastifyInstance) {
     const versionSource = typeof body.versionSource === "string" ? body.versionSource : undefined;
     const versionReason = typeof body.versionReason === "string" ? body.versionReason : undefined;
     const skipVersionSnapshot = body.skipVersionSnapshot === true;
-    return enqueueUpdate(characterUpdateQueues, req.params.id, () =>
-      storage.update(req.params.id, update.data ?? {}, avatarPath, {
+    return enqueueUpdate(characterUpdateQueues, req.params.id, async () => {
+      const current = await storage.getById(req.params.id);
+      if (!current) return null;
+      const currentData = parseCharacterDataRecord(current.data) as CharacterData;
+      const requestedData = update.data ?? {};
+      const requestedExtensions = requestedData.extensions as Record<string, unknown> | undefined;
+      const currentExtensions = (currentData.extensions ?? {}) as Record<string, unknown>;
+      const sanitizedExtensions = requestedExtensions ? { ...requestedExtensions } : undefined;
+      if (sanitizedExtensions) {
+        delete sanitizedExtensions.entitySummaryGeneratedAt;
+        delete sanitizedExtensions.entitySummarySource;
+        delete sanitizedExtensions.entitySummaryContentHash;
+        delete sanitizedExtensions.entitySummaryProjectionVersion;
+      }
+      const sanitizedData = sanitizedExtensions
+        ? { ...requestedData, extensions: { ...currentExtensions, ...sanitizedExtensions } }
+        : requestedData;
+      const summaryChanged =
+        typeof sanitizedExtensions?.entitySummary === "string" &&
+        sanitizedExtensions.entitySummary !== currentExtensions.entitySummary;
+      const data = summaryChanged
+        ? (sanitizedExtensions?.entitySummary as string).trim()
+          ? ({
+              ...sanitizedData,
+              extensions: {
+                ...currentExtensions,
+                ...sanitizedExtensions,
+                entitySummaryGeneratedAt: new Date().toISOString(),
+                entitySummarySource: "manual",
+                entitySummaryContentHash: projectAndHashEntitySummary("character", {
+                  ...currentData,
+                  ...sanitizedData,
+                  extensions: { ...currentExtensions, ...sanitizedExtensions },
+                } as CharacterData).contentHash,
+                entitySummaryProjectionVersion: ENTITY_SUMMARY_PROJECTION_VERSION,
+              },
+            } as Partial<CharacterData>)
+          : ({
+              ...sanitizedData,
+              extensions: {
+                ...currentExtensions,
+                ...sanitizedExtensions,
+                entitySummaryGeneratedAt: null,
+                entitySummarySource: null,
+                entitySummaryContentHash: null,
+                entitySummaryProjectionVersion: null,
+              },
+            } as Partial<CharacterData>)
+        : sanitizedData;
+      return storage.update(req.params.id, data, avatarPath, {
         comment,
         versionSource,
         versionReason,
         skipVersionSnapshot,
-      }),
-    );
+      });
+    });
   });
 
   app.patch<{ Params: { id: string }; Body: { paint?: unknown } }>("/:id/tracker-card-colors", async (req, reply) => {
@@ -1814,12 +1879,46 @@ export async function charactersRoutes(app: FastifyInstance) {
       entitySummarySource?: "ai" | "manual" | null;
       entitySummaryContentHash?: string | null;
       entitySummaryProjectionVersion?: number | null;
+      tags?: string;
     };
+    const {
+      entitySummaryGeneratedAt: _entitySummaryGeneratedAt,
+      entitySummarySource: _entitySummarySource,
+      entitySummaryContentHash: _entitySummaryContentHash,
+      entitySummaryProjectionVersion: _entitySummaryProjectionVersion,
+      ...callerExtra
+    } = extra;
+    const summary = callerExtra.entitySummary?.trim() ?? "";
+    const summaryFields = summary
+      ? {
+          entitySummary: summary,
+          entitySummaryGeneratedAt: new Date().toISOString(),
+          entitySummarySource: "manual" as const,
+          entitySummaryContentHash: projectAndHashEntitySummary("persona", {
+            name,
+            description: description ?? "",
+            personality: callerExtra.personality,
+            scenario: callerExtra.scenario,
+            backstory: callerExtra.backstory,
+            appearance: callerExtra.appearance,
+            creatorNotes: callerExtra.creatorNotes,
+            tags: (() => {
+              try {
+                const parsed = JSON.parse(callerExtra.tags ?? "[]");
+                return Array.isArray(parsed) ? parsed : [];
+              } catch {
+                return [];
+              }
+            })(),
+          }).contentHash,
+          entitySummaryProjectionVersion: ENTITY_SUMMARY_PROJECTION_VERSION,
+        }
+      : { entitySummary: "" };
     return storage.createPersona(
       name,
       description ?? "",
       undefined,
-      extra,
+      { ...callerExtra, ...summaryFields },
       normalizeTimestampOverrides({ createdAt, updatedAt }),
     );
   });
@@ -1829,6 +1928,10 @@ export async function charactersRoutes(app: FastifyInstance) {
       return reply.status(400).send({ error: "Persona update must be a JSON object" });
     }
     const body = req.body as Record<string, unknown>;
+    delete body.entitySummaryGeneratedAt;
+    delete body.entitySummarySource;
+    delete body.entitySummaryContentHash;
+    delete body.entitySummaryProjectionVersion;
     let parsedPaint: Record<string, unknown> | null = null;
     if (typeof body.trackerCardColors === "string") {
       try {
@@ -1842,11 +1945,46 @@ export async function charactersRoutes(app: FastifyInstance) {
     }
 
     const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, async () => {
-      if (!parsedPaint) return storage.updatePersona(req.params.id, body);
       const currentPersona = await storage.getPersona(req.params.id);
       if (!currentPersona) return null;
+      const summaryChanged =
+        typeof body.entitySummary === "string" && body.entitySummary !== currentPersona.entitySummary;
+      const summaryProvenance = summaryChanged
+        ? (body.entitySummary as string).trim()
+          ? {
+              entitySummaryGeneratedAt: new Date().toISOString(),
+              entitySummarySource: "manual" as const,
+              entitySummaryContentHash: projectAndHashEntitySummary("persona", {
+                name: typeof body.name === "string" ? body.name : currentPersona.name,
+                description: typeof body.description === "string" ? body.description : currentPersona.description,
+                personality: typeof body.personality === "string" ? body.personality : currentPersona.personality,
+                scenario: typeof body.scenario === "string" ? body.scenario : currentPersona.scenario,
+                backstory: typeof body.backstory === "string" ? body.backstory : currentPersona.backstory,
+                appearance: typeof body.appearance === "string" ? body.appearance : currentPersona.appearance,
+                creatorNotes: typeof body.creatorNotes === "string" ? body.creatorNotes : currentPersona.creatorNotes,
+                tags: (() => {
+                  const value = typeof body.tags === "string" ? body.tags : currentPersona.tags;
+                  try {
+                    const parsed = JSON.parse(value);
+                    return Array.isArray(parsed) ? parsed.filter((tag): tag is string => typeof tag === "string") : [];
+                  } catch {
+                    return [];
+                  }
+                })(),
+              }).contentHash,
+              entitySummaryProjectionVersion: ENTITY_SUMMARY_PROJECTION_VERSION,
+            }
+          : {
+              entitySummaryGeneratedAt: null,
+              entitySummarySource: null,
+              entitySummaryContentHash: null,
+              entitySummaryProjectionVersion: null,
+            }
+        : {};
+      if (!parsedPaint) return storage.updatePersona(req.params.id, { ...body, ...summaryProvenance });
       return storage.updatePersona(req.params.id, {
         ...body,
+        ...summaryProvenance,
         trackerCardColors: JSON.stringify(applyTrackerCardPaint(currentPersona.trackerCardColors, parsedPaint, false)),
       });
     });

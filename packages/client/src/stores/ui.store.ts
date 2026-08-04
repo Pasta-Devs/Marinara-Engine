@@ -37,6 +37,7 @@ export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest"
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas";
 export type CardLibraryViewMode = "grid" | "list";
+export type LorebookLibraryActiveFilter = "all" | "active";
 export const CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS = ["all", "favorites", "non-favorites"] as const;
 export type CharacterPanelFavoriteFilter = (typeof CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS)[number];
 export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
@@ -583,6 +584,8 @@ interface UIState {
   noodleNavigation: NoodleNavigationState;
   /** When true, the main area shows the full-page character library */
   characterLibraryOpen: boolean;
+  /** When true, the main area shows the full-page lorebook library */
+  lorebookLibraryOpen: boolean;
   /** Which resource collection the shared full-page card library displays */
   cardLibraryKind: CardLibraryKind;
   /** Last selected layout for the full-page card library */
@@ -613,6 +616,14 @@ interface UIState {
   characterLibraryScrollTop: number;
   /** Last scroll offset for the full-page Persona Library list */
   personaLibraryScrollTop: number;
+  /** Persisted full-page lorebook manager state. */
+  lorebookLibraryViewMode: CardLibraryViewMode;
+  lorebookLibrarySelectedId: string | null;
+  lorebookLibrarySearch: string;
+  lorebookLibraryCategory: LorebookPanelCategory;
+  lorebookLibraryActiveFilter: LorebookLibraryActiveFilter;
+  lorebookLibrarySort: LorebookPanelSort;
+  lorebookLibraryScrollTop: number;
   /** Selected category for the compact Lorebooks panel */
   lorebookPanelCategory: LorebookPanelCategory;
   /** Search text for the compact Lorebooks panel */
@@ -925,6 +936,13 @@ interface UIState {
   setCharacterPanelScrollTop: (scrollTop: number) => void;
   setCharacterLibraryScrollTop: (scrollTop: number) => void;
   setPersonaLibraryScrollTop: (scrollTop: number) => void;
+  setLorebookLibraryViewMode: (mode: CardLibraryViewMode) => void;
+  setLorebookLibrarySelectedId: (id: string | null) => void;
+  setLorebookLibrarySearch: (search: string) => void;
+  setLorebookLibraryCategory: (category: LorebookPanelCategory) => void;
+  setLorebookLibraryActiveFilter: (filter: LorebookLibraryActiveFilter) => void;
+  setLorebookLibrarySort: (sort: LorebookPanelSort) => void;
+  setLorebookLibraryScrollTop: (scrollTop: number) => void;
   setLorebookPanelCategory: (category: LorebookPanelCategory) => void;
   setLorebookPanelSearch: (search: string) => void;
   setLorebookPanelSort: (sort: LorebookPanelSort) => void;
@@ -936,7 +954,7 @@ interface UIState {
   setAgentPanelSort: (sort: ResourcePanelSort) => void;
   openCharacterDetail: (id: string, options?: { preserveCharacterLibrary?: boolean; initialTab?: string }) => void;
   closeCharacterDetail: () => void;
-  openLorebookDetail: (id: string, options?: { initialTab?: string }) => void;
+  openLorebookDetail: (id: string, options?: { initialTab?: string; preserveLorebookLibrary?: boolean }) => void;
   closeLorebookDetail: () => void;
   openPresetDetail: (id: string) => void;
   closePresetDetail: () => void;
@@ -960,6 +978,8 @@ interface UIState {
   openCharacterLibrary: () => void;
   openPersonaLibrary: () => void;
   closeCharacterLibrary: () => void;
+  openLorebookLibrary: () => void;
+  closeLorebookLibrary: () => void;
   openAgentCatalog: () => void;
   closeAgentCatalog: () => void;
   openBotBrowser: () => void;
@@ -1133,6 +1153,7 @@ function normalizePersistedMainSurface(persisted: Record<string, unknown>) {
     "characterDetailId",
     "lorebookDetailId",
     "characterLibraryOpen",
+    "lorebookLibraryOpen",
     "agentCatalogOpen",
     "botBrowserOpen",
     "gameAssetsBrowserOpen",
@@ -1351,6 +1372,7 @@ export const useUIStore = create<UIState>()(
       noodleSelectedPersonaId: null,
       noodleNavigation: { mode: "public", view: "home" },
       characterLibraryOpen: false,
+      lorebookLibraryOpen: false,
       cardLibraryKind: "characters" as CardLibraryKind,
       cardLibraryViewMode: "list" as CardLibraryViewMode,
       agentCatalogOpen: false,
@@ -1366,6 +1388,13 @@ export const useUIStore = create<UIState>()(
       characterPanelScrollTop: 0,
       characterLibraryScrollTop: 0,
       personaLibraryScrollTop: 0,
+      lorebookLibraryViewMode: "list" as CardLibraryViewMode,
+      lorebookLibrarySelectedId: null,
+      lorebookLibrarySearch: "",
+      lorebookLibraryCategory: "all" as LorebookPanelCategory,
+      lorebookLibraryActiveFilter: "all" as LorebookLibraryActiveFilter,
+      lorebookLibrarySort: "name-asc" as LorebookPanelSort,
+      lorebookLibraryScrollTop: 0,
       lorebookPanelCategory: "all" as LorebookPanelCategory,
       lorebookPanelSearch: "",
       lorebookPanelSort: "name-asc" as LorebookPanelSort,
@@ -1641,6 +1670,15 @@ export const useUIStore = create<UIState>()(
       setCharacterPanelScrollTop: (scrollTop) => set({ characterPanelScrollTop: normalizeScrollTop(scrollTop) }),
       setCharacterLibraryScrollTop: (scrollTop) => set({ characterLibraryScrollTop: normalizeScrollTop(scrollTop) }),
       setPersonaLibraryScrollTop: (scrollTop) => set({ personaLibraryScrollTop: normalizeScrollTop(scrollTop) }),
+      setLorebookLibraryViewMode: (mode) => set({ lorebookLibraryViewMode: mode === "grid" ? "grid" : "list" }),
+      setLorebookLibrarySelectedId: (id) => set({ lorebookLibrarySelectedId: id }),
+      setLorebookLibrarySearch: (search) => set({ lorebookLibrarySearch: normalizePanelText(search) }),
+      setLorebookLibraryCategory: (category) =>
+        set({ lorebookLibraryCategory: normalizeLorebookPanelCategory(category) }),
+      setLorebookLibraryActiveFilter: (filter) =>
+        set({ lorebookLibraryActiveFilter: filter === "active" ? "active" : "all" }),
+      setLorebookLibrarySort: (sort) => set({ lorebookLibrarySort: normalizeLorebookPanelSort(sort) }),
+      setLorebookLibraryScrollTop: (scrollTop) => set({ lorebookLibraryScrollTop: normalizeScrollTop(scrollTop) }),
       setLorebookPanelCategory: (category) => set({ lorebookPanelCategory: normalizeLorebookPanelCategory(category) }),
       setLorebookPanelSearch: (search) => set({ lorebookPanelSearch: normalizePanelText(search) }),
       setLorebookPanelSort: (sort) => set({ lorebookPanelSort: normalizeLorebookPanelSort(sort) }),
@@ -1666,6 +1704,7 @@ export const useUIStore = create<UIState>()(
             regexDetailId: null,
             spatialMapDetailChatId: null,
             characterLibraryOpen: preserveCharacterLibrary ? s.characterLibraryOpen : false,
+            lorebookLibraryOpen: false,
             agentCatalogOpen: false,
             characterLibrarySelectedId: preserveCharacterLibrary ? id : s.characterLibrarySelectedId,
             botBrowserOpen: false,
@@ -1681,24 +1720,29 @@ export const useUIStore = create<UIState>()(
           ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
         })),
       openLorebookDetail: (id, options) =>
-        set((s) => ({
-          lorebookDetailId: id,
-          lorebookDetailInitialTab: options?.initialTab ?? null,
-          characterLibraryOpen: false,
-          agentCatalogOpen: false,
-          botBrowserOpen: false,
-          gameAssetsBrowserOpen: false,
-          noodleOpen: false,
-          characterDetailId: null,
-          presetDetailId: null,
-          connectionDetailId: null,
-          agentDetailId: null,
-          toolDetailId: null,
-          personaDetailId: null,
-          regexDetailId: null,
-          spatialMapDetailChatId: null,
-          ...getMobileDetailReturnState(s),
-        })),
+        set((s) => {
+          const preserveLorebookLibrary = options?.preserveLorebookLibrary ?? s.lorebookLibraryOpen;
+          return {
+            lorebookDetailId: id,
+            lorebookDetailInitialTab: options?.initialTab ?? null,
+            characterLibraryOpen: false,
+            lorebookLibraryOpen: preserveLorebookLibrary,
+            lorebookLibrarySelectedId: preserveLorebookLibrary ? id : s.lorebookLibrarySelectedId,
+            agentCatalogOpen: false,
+            botBrowserOpen: false,
+            gameAssetsBrowserOpen: false,
+            noodleOpen: false,
+            characterDetailId: null,
+            presetDetailId: null,
+            connectionDetailId: null,
+            agentDetailId: null,
+            toolDetailId: null,
+            personaDetailId: null,
+            regexDetailId: null,
+            spatialMapDetailChatId: null,
+            ...getMobileDetailReturnState(s),
+          };
+        }),
       closeLorebookDetail: () =>
         set((s) => ({
           lorebookDetailId: null,
@@ -1709,6 +1753,7 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           presetDetailId: id,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1733,6 +1778,7 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           connectionDetailId: id,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1757,6 +1803,7 @@ export const useUIStore = create<UIState>()(
         set((s) => ({
           agentDetailId: agentType,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1782,6 +1829,7 @@ export const useUIStore = create<UIState>()(
           toolDetailId: id,
           agentDetailId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1809,6 +1857,7 @@ export const useUIStore = create<UIState>()(
             personaDetailId: id,
             personaDetailInitialTab: options?.initialTab ?? null,
             characterLibraryOpen: preservePersonaLibrary ? s.characterLibraryOpen : false,
+            lorebookLibraryOpen: false,
             personaLibrarySelectedId: preservePersonaLibrary ? id : s.personaLibrarySelectedId,
             agentCatalogOpen: false,
             botBrowserOpen: false,
@@ -1838,6 +1887,7 @@ export const useUIStore = create<UIState>()(
           regexDetailReturn: options?.returnTo ?? null,
           personaDetailId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1884,6 +1934,7 @@ export const useUIStore = create<UIState>()(
           personaDetailId: null,
           regexDetailId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1903,6 +1954,7 @@ export const useUIStore = create<UIState>()(
           personaDetailId: null,
           regexDetailId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -1920,6 +1972,7 @@ export const useUIStore = create<UIState>()(
       openCharacterLibrary: () =>
         set((state) => ({
           characterLibraryOpen: true,
+          lorebookLibraryOpen: false,
           cardLibraryKind: "characters",
           agentCatalogOpen: false,
           characterDetailId: null,
@@ -1942,6 +1995,7 @@ export const useUIStore = create<UIState>()(
       openPersonaLibrary: () =>
         set((state) => ({
           characterLibraryOpen: true,
+          lorebookLibraryOpen: false,
           cardLibraryKind: "personas",
           agentCatalogOpen: false,
           characterDetailId: null,
@@ -1962,10 +2016,34 @@ export const useUIStore = create<UIState>()(
           rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
         })),
       closeCharacterLibrary: () => set({ characterLibraryOpen: false }),
+      openLorebookLibrary: () =>
+        set((state) => ({
+          lorebookLibraryOpen: true,
+          characterLibraryOpen: false,
+          agentCatalogOpen: false,
+          characterDetailId: null,
+          lorebookDetailId: null,
+          presetDetailId: null,
+          connectionDetailId: null,
+          agentDetailId: null,
+          toolDetailId: null,
+          personaDetailId: null,
+          regexDetailId: null,
+          spatialMapDetailChatId: null,
+          pendingSpatialMapDraftReview: null,
+          botBrowserOpen: false,
+          gameAssetsBrowserOpen: false,
+          noodleOpen: false,
+          editorDirty: false,
+          detailReturnRightPanel: null,
+          rightPanelOpen: isMobileShellViewport() ? false : state.rightPanelOpen,
+        })),
+      closeLorebookLibrary: () => set({ lorebookLibraryOpen: false }),
       openAgentCatalog: () =>
         set((state) => ({
           agentCatalogOpen: true,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           characterDetailId: null,
           lorebookDetailId: null,
           presetDetailId: null,
@@ -1990,6 +2068,7 @@ export const useUIStore = create<UIState>()(
           gameAssetsBrowserOpen: false,
           noodleOpen: false,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           detailReturnRightPanel: null,
           regexDetailId: null,
@@ -2010,6 +2089,7 @@ export const useUIStore = create<UIState>()(
           botBrowserOpen: false,
           noodleOpen: false,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           detailReturnRightPanel: null,
           regexDetailId: null,
@@ -2030,6 +2110,7 @@ export const useUIStore = create<UIState>()(
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           detailReturnRightPanel: null,
           regexDetailId: null,
@@ -2061,6 +2142,7 @@ export const useUIStore = create<UIState>()(
           s.regexDetailId ||
           s.spatialMapDetailChatId ||
           s.characterLibraryOpen ||
+          s.lorebookLibraryOpen ||
           s.agentCatalogOpen ||
           s.botBrowserOpen ||
           s.gameAssetsBrowserOpen ||
@@ -2079,6 +2161,7 @@ export const useUIStore = create<UIState>()(
           regexDetailId: null,
           spatialMapDetailChatId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -2101,6 +2184,7 @@ export const useUIStore = create<UIState>()(
           regexDetailId: null,
           spatialMapDetailChatId: null,
           characterLibraryOpen: false,
+          lorebookLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
           gameAssetsBrowserOpen: false,
@@ -2415,7 +2499,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 89,
+      version: 90,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2893,6 +2977,24 @@ export const useUIStore = create<UIState>()(
         persisted.characterPanelScrollTop = normalizeScrollTop(persisted.characterPanelScrollTop);
         persisted.characterLibraryScrollTop = normalizeScrollTop(persisted.characterLibraryScrollTop);
         persisted.personaLibraryScrollTop = normalizeScrollTop(persisted.personaLibraryScrollTop);
+        if (version <= 89) {
+          persisted.lorebookLibraryOpen = false;
+          persisted.lorebookLibraryViewMode = "list";
+          persisted.lorebookLibrarySelectedId = null;
+          persisted.lorebookLibrarySearch = "";
+          persisted.lorebookLibraryCategory = "all";
+          persisted.lorebookLibraryActiveFilter = "all";
+          persisted.lorebookLibrarySort = "name-asc";
+          persisted.lorebookLibraryScrollTop = 0;
+        }
+        persisted.lorebookLibraryViewMode = persisted.lorebookLibraryViewMode === "grid" ? "grid" : "list";
+        persisted.lorebookLibrarySelectedId =
+          typeof persisted.lorebookLibrarySelectedId === "string" ? persisted.lorebookLibrarySelectedId : null;
+        persisted.lorebookLibrarySearch = normalizePanelText(persisted.lorebookLibrarySearch);
+        persisted.lorebookLibraryCategory = normalizeLorebookPanelCategory(persisted.lorebookLibraryCategory);
+        persisted.lorebookLibraryActiveFilter = persisted.lorebookLibraryActiveFilter === "active" ? "active" : "all";
+        persisted.lorebookLibrarySort = normalizeLorebookPanelSort(persisted.lorebookLibrarySort);
+        persisted.lorebookLibraryScrollTop = normalizeScrollTop(persisted.lorebookLibraryScrollTop);
         persisted.lorebookPanelCategory = normalizeLorebookPanelCategory(persisted.lorebookPanelCategory);
         persisted.lorebookPanelSearch = normalizePanelText(persisted.lorebookPanelSearch);
         persisted.lorebookPanelSort = normalizeLorebookPanelSort(persisted.lorebookPanelSort);
@@ -3051,6 +3153,7 @@ export const useUIStore = create<UIState>()(
         noodleSelectedPersonaId: state.noodleSelectedPersonaId,
         noodleNavigation: state.noodleNavigation,
         characterLibraryOpen: state.characterLibraryOpen,
+        lorebookLibraryOpen: state.lorebookLibraryOpen,
         cardLibraryKind: state.cardLibraryKind,
         cardLibraryViewMode: state.cardLibraryViewMode,
         agentCatalogOpen: state.agentCatalogOpen,
@@ -3060,6 +3163,13 @@ export const useUIStore = create<UIState>()(
         personaLibrarySort: state.personaLibrarySort,
         characterLibraryScrollTop: state.characterLibraryScrollTop,
         personaLibraryScrollTop: state.personaLibraryScrollTop,
+        lorebookLibraryViewMode: state.lorebookLibraryViewMode,
+        lorebookLibrarySelectedId: state.lorebookLibrarySelectedId,
+        lorebookLibrarySearch: state.lorebookLibrarySearch,
+        lorebookLibraryCategory: state.lorebookLibraryCategory,
+        lorebookLibraryActiveFilter: state.lorebookLibraryActiveFilter,
+        lorebookLibrarySort: state.lorebookLibrarySort,
+        lorebookLibraryScrollTop: state.lorebookLibraryScrollTop,
         lorebookPanelCategory: state.lorebookPanelCategory,
         lorebookPanelSearch: state.lorebookPanelSearch,
         lorebookPanelSort: state.lorebookPanelSort,

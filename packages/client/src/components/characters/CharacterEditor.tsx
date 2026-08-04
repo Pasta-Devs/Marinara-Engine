@@ -100,7 +100,7 @@ import {
   Pencil,
 } from "lucide-react";
 import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, projectCharacterForEntitySummary } from "@marinara-engine/shared";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { buildCardAssetMarkdown } from "../../lib/card-asset-links";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -115,6 +115,7 @@ import { SpriteWandCleanupEditor } from "../ui/SpriteWandCleanupEditor";
 import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatDialog";
 import { EditorTabRail } from "../ui/EditorTabRail";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
+import { EntitySummaryStatusBadge } from "../ui/EntitySummaryStatusBadge";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
   createDefaultRpgStatPools,
@@ -299,6 +300,7 @@ export function CharacterEditor() {
   const formatQuotes = useQuoteFormatter();
   const dirtyRef = useRef(false);
   const editRevisionRef = useRef(0);
+  const loadedEntitySummaryRef = useRef("");
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const lorebookEmbedInFlightRef = useRef(false);
   const [lorebookEmbedding, setLorebookEmbedding] = useState(false);
@@ -355,6 +357,10 @@ export function CharacterEditor() {
     try {
       const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
       setFormData(parsed as CharacterData);
+      loadedEntitySummaryRef.current =
+        typeof (parsed as CharacterData).extensions?.entitySummary === "string"
+          ? ((parsed as CharacterData).extensions.entitySummary ?? "")
+          : "";
       setCharacterComment(char.comment ?? "");
       setAvatarPreview(char.avatarPath);
       setDirtyState(false);
@@ -489,11 +495,21 @@ export function CharacterEditor() {
     setSaving(true);
     const editRevisionAtSaveStart = editRevisionRef.current;
     try {
+      const currentSummary = formData.extensions?.entitySummary ?? "";
+      const data = structuredClone(formData) as CharacterData;
+      const extensions = { ...(data.extensions ?? {}) } as Record<string, unknown>;
+      delete extensions.entitySummaryGeneratedAt;
+      delete extensions.entitySummarySource;
+      delete extensions.entitySummaryContentHash;
+      delete extensions.entitySummaryProjectionVersion;
+      if (currentSummary === loadedEntitySummaryRef.current) delete extensions.entitySummary;
+      data.extensions = extensions as CharacterData["extensions"];
       await updateCharacter.mutateAsync({
         id: characterId,
-        data: formData as unknown as Record<string, unknown>,
+        data: data as unknown as Record<string, unknown>,
         comment: characterComment,
       });
+      if (currentSummary !== loadedEntitySummaryRef.current) loadedEntitySummaryRef.current = currentSummary;
       if (editRevisionRef.current === editRevisionAtSaveStart) {
         setDirtyState(false);
       }
@@ -1650,6 +1666,33 @@ function MetadataTab({
             {localizeUi("ui.characters.metadatatab.add")}
           </button>
         </div>
+      </div>
+
+      {/* Creator Notes */}
+      <div className="block space-y-1.5">
+        <span className="flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
+          {localizeUi("entitySummary.editor.label")}
+          <HelpTooltip text={localizeUi("entitySummary.editor.help")} />
+          <EntitySummaryStatusBadge
+            input={{
+              entitySummary: formData.extensions.entitySummary,
+              entitySummarySource: formData.extensions.entitySummarySource,
+              entitySummaryContentHash: formData.extensions.entitySummaryContentHash,
+              entitySummaryProjectionVersion: formData.extensions.entitySummaryProjectionVersion,
+              projection: projectCharacterForEntitySummary(formData),
+            }}
+          />
+        </span>
+        <MacroTextarea
+          value={formData.extensions.entitySummary ?? ""}
+          onChange={(value) => updateExtension("entitySummary", value)}
+          rows={3}
+          title={localizeUi("entitySummary.editor.label")}
+          showMarkdownPreview
+          selfCharacterId={characterId}
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+          placeholder={localizeUi("entitySummary.editor.placeholder")}
+        />
       </div>
 
       {/* Creator Notes */}

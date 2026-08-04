@@ -43,6 +43,7 @@ import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
+import { EntitySummaryStatusBadge } from "../ui/EntitySummaryStatusBadge";
 import {
   useUIStore,
   type CardLibraryKind,
@@ -132,6 +133,7 @@ function CardLibraryDetailCard({
                     {card.meta}
                   </p>
                 )}
+                <EntitySummaryStatusBadge input={card.summaryStatusInput} className="mt-2" />
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <span
@@ -297,7 +299,10 @@ export function CharacterLibraryView() {
     }
   }, [filteredCards, sort]);
 
-  const selection = useLibrarySelection(useMemo(() => sortedCards.map((card) => card.id), [sortedCards]));
+  const selection = useLibrarySelection(
+    useMemo(() => sortedCards.map((card) => card.id), [sortedCards]),
+    `${kind}\u0000${search}\u0000${sort}`,
+  );
   const exitSelectionMode = selection.exitSelectionMode;
 
   useEffect(() => exitSelectionMode(), [exitSelectionMode, kind]);

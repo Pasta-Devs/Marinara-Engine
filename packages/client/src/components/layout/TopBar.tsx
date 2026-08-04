@@ -114,6 +114,7 @@ export function TopBar() {
   const noodleOpen = useUIStore((s) => s.noodleOpen);
   const musicPlayerEnabled = useUIStore((s) => s.musicPlayerEnabled);
   const characterLibraryOpen = useUIStore((s) => s.characterLibraryOpen);
+  const lorebookLibraryOpen = useUIStore((s) => s.lorebookLibraryOpen);
   const cardLibraryKind = useUIStore((s) => s.cardLibraryKind);
   const headerRef = useRef<HTMLElement | null>(null);
   const leftControlsRef = useRef<HTMLDivElement | null>(null);
@@ -135,7 +136,7 @@ export function TopBar() {
     Boolean(characterDetailId) ||
     (characterLibraryOpen && cardLibraryKind === "characters");
   const panelContextActive: Record<RightPanelButtonPanel, boolean> = {
-    lorebooks: (rightPanelOpen && rightPanel === "lorebooks") || Boolean(lorebookDetailId),
+    lorebooks: (rightPanelOpen && rightPanel === "lorebooks") || Boolean(lorebookDetailId) || lorebookLibraryOpen,
     presets:
       (rightPanelOpen && rightPanel === "presets") ||
       Boolean(presetDetailId) ||
@@ -161,7 +162,8 @@ export function TopBar() {
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
     !noodleOpen &&
-    !characterLibraryOpen;
+    !characterLibraryOpen &&
+    !lorebookLibraryOpen;
 
   const isTopbarHovered = (key: string) => hoveredTopbarKey === key;
 

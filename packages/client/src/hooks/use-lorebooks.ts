@@ -31,6 +31,7 @@ export const lorebookKeys = {
 export type LorebookListItem = Lorebook & {
   characterNames?: string[];
   personaNames?: string[];
+  entitySummaryCurrentContentHash?: string;
 };
 
 // ── Lorebooks ──

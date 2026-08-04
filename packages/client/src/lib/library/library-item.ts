@@ -1,4 +1,11 @@
-import { normalizeAvatarCrop, type AvatarCrop, type CharacterData } from "@marinara-engine/shared";
+import {
+  normalizeAvatarCrop,
+  projectCharacterForEntitySummary,
+  projectPersonaForEntitySummary,
+  type AvatarCrop,
+  type CharacterData,
+  type EntitySummarySource,
+} from "@marinara-engine/shared";
 import { getCharacterTitle } from "../character-display";
 import { formatCardLibraryMeta, getCardLibrarySummary } from "../card-library-search";
 import { estimateCharacterCardTokens } from "../character-token-count";
@@ -12,6 +19,10 @@ export type CharacterLibraryRow = {
   avatarPath: string | null;
   createdAt: string;
   updatedAt: string;
+  entitySummaryGeneratedAt?: string | null;
+  entitySummarySource?: EntitySummarySource | null;
+  entitySummaryContentHash?: string | null;
+  entitySummaryProjectionVersion?: number | null;
 };
 
 export type PersonaLibraryRow = {
@@ -27,6 +38,10 @@ export type PersonaLibraryRow = {
   backstory?: string | null;
   appearance?: string | null;
   entitySummary?: string | null;
+  entitySummaryGeneratedAt?: string | null;
+  entitySummarySource?: EntitySummarySource | null;
+  entitySummaryContentHash?: string | null;
+  entitySummaryProjectionVersion?: number | null;
   avatarPath: string | null;
   avatarCrop?: string | AvatarCrop | null;
   isActive?: boolean | string;
@@ -54,6 +69,13 @@ export type LibraryItem = {
   active: boolean;
   creatorNotes: string;
   sections: LibraryItemSection[];
+  summaryStatusInput: {
+    entitySummary: string;
+    entitySummarySource: EntitySummarySource | null;
+    entitySummaryContentHash: string | null;
+    entitySummaryProjectionVersion: number | null;
+    projection: unknown;
+  };
 };
 
 type ParsedCharacterLibraryRow = CharacterLibraryRow & {
@@ -146,6 +168,20 @@ export function characterToLibraryItem(characterRow: CharacterLibraryRow): Libra
     active: false,
     creatorNotes: getText(character.parsed.creator_notes),
     sections: getCharacterSections(character),
+    summaryStatusInput: {
+      entitySummary: getText(character.parsed.extensions?.entitySummary),
+      entitySummarySource:
+        character.parsed.extensions?.entitySummarySource === "ai" ||
+        character.parsed.extensions?.entitySummarySource === "manual"
+          ? character.parsed.extensions.entitySummarySource
+          : null,
+      entitySummaryContentHash: getText(character.parsed.extensions?.entitySummaryContentHash) || null,
+      entitySummaryProjectionVersion:
+        typeof character.parsed.extensions?.entitySummaryProjectionVersion === "number"
+          ? character.parsed.extensions.entitySummaryProjectionVersion
+          : null,
+      projection: projectCharacterForEntitySummary(character.parsed as CharacterData),
+    },
   };
 }
 
@@ -173,5 +209,15 @@ export function personaToLibraryItem(persona: PersonaLibraryRow): LibraryItem {
     active: persona.isActive === true || persona.isActive === "true",
     creatorNotes: getText(persona.creatorNotes),
     sections: getPersonaSections(persona),
+    summaryStatusInput: {
+      entitySummary: getText(persona.entitySummary),
+      entitySummarySource: persona.entitySummarySource ?? null,
+      entitySummaryContentHash: persona.entitySummaryContentHash ?? null,
+      entitySummaryProjectionVersion: persona.entitySummaryProjectionVersion ?? null,
+      projection: projectPersonaForEntitySummary({
+        ...persona,
+        tags: getPersonaTags(persona),
+      }),
+    },
   };
 }

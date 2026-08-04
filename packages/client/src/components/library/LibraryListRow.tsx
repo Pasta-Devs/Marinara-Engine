@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import type { LibraryItem } from "../../lib/library/library-item";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
+import { EntitySummaryStatusBadge } from "../ui/EntitySummaryStatusBadge";
 
 type LibraryListRowProps = {
   item: LibraryItem;
@@ -163,6 +164,7 @@ export function LibraryListRow({
             <p className="line-clamp-2 text-xs leading-5 text-[var(--marinara-chat-chrome-panel-text)] sm:line-clamp-3 sm:text-[0.8125rem]">
               {item.summary}
             </p>
+            <EntitySummaryStatusBadge input={item.summaryStatusInput} className="mt-1.5" />
             <div className="mt-2 hidden flex-wrap gap-1.5 sm:flex">
               {item.tags.slice(0, 3).map((tag) => (
                 <span

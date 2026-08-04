@@ -52,6 +52,10 @@ import { DATA_DIR } from "../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../utils/security.js";
 import { parseLibraryPageQuery } from "../utils/list-pagination.js";
 import AdmZip from "adm-zip";
+import {
+  ENTITY_SUMMARY_PROJECTION_VERSION,
+  projectAndHashEntitySummary,
+} from "../services/entity-summary/entity-summary-projection.js";
 
 const LOREBOOK_IMAGES_DIR = join(DATA_DIR, "lorebooks", "images");
 
@@ -415,7 +419,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
     const query = req.query as Record<string, string>;
     const page = parseLibraryPageQuery(query);
     if (page.hasPaging) {
-      return storage.listPage({
+      const result = await storage.listPage({
         limit: page.limit,
         offset: page.offset,
         search: page.search,
@@ -431,6 +435,17 @@ export async function lorebooksRoutes(app: FastifyInstance) {
               }
             : undefined,
       });
+      const items = await Promise.all(
+        result.items.map(async (item) => {
+          const lorebook = item as Lorebook;
+          const entries = await storage.listEntries(lorebook.id);
+          return {
+            ...lorebook,
+            entitySummaryCurrentContentHash: projectAndHashEntitySummary("lorebook", lorebook, entries).contentHash,
+          };
+        }),
+      );
+      return { ...result, items };
     }
     if (query.category) return storage.listByCategory(query.category);
     if (query.characterId) return storage.listByCharacter(query.characterId);
@@ -462,8 +477,25 @@ export async function lorebooksRoutes(app: FastifyInstance) {
   app.post("/", async (req) => {
     const input = createLorebookSchema.parse(req.body);
     const body = req.body as Record<string, unknown>;
+    const {
+      entitySummaryGeneratedAt: _entitySummaryGeneratedAt,
+      entitySummarySource: _entitySummarySource,
+      entitySummaryContentHash: _entitySummaryContentHash,
+      entitySummaryProjectionVersion: _entitySummaryProjectionVersion,
+      ...callerFields
+    } = input;
+    const summary = input.entitySummary.trim();
+    const summaryFields = summary
+      ? {
+          entitySummary: summary,
+          entitySummaryGeneratedAt: new Date().toISOString(),
+          entitySummarySource: "manual" as const,
+          entitySummaryContentHash: projectAndHashEntitySummary("lorebook", callerFields, []).contentHash,
+          entitySummaryProjectionVersion: ENTITY_SUMMARY_PROJECTION_VERSION,
+        }
+      : { entitySummary: "" };
     return storage.create(
-      input,
+      { ...callerFields, ...summaryFields },
       normalizeTimestampOverrides({
         createdAt: body.createdAt,
         updatedAt: body.updatedAt,
@@ -473,7 +505,49 @@ export async function lorebooksRoutes(app: FastifyInstance) {
 
   app.patch<{ Params: { id: string } }>("/:id", async (req, reply) => {
     const input = updateLorebookSchema.parse(req.body);
-    const updated = await storage.update(req.params.id, input);
+    const {
+      entitySummaryGeneratedAt: _entitySummaryGeneratedAt,
+      entitySummarySource: _entitySummarySource,
+      entitySummaryContentHash: _entitySummaryContentHash,
+      entitySummaryProjectionVersion: _entitySummaryProjectionVersion,
+      ...callerFields
+    } = input;
+    const current = (await storage.getById(req.params.id)) as Lorebook | null;
+    if (!current) return reply.status(404).send({ error: "Lorebook not found" });
+    const summaryChanged =
+      callerFields.entitySummary !== undefined && callerFields.entitySummary !== current.entitySummary;
+    const entries = summaryChanged
+      ? (await storage.listEntries(req.params.id)).map((entry) => {
+          const row = entry as Record<string, unknown>;
+          return {
+            name: row.name,
+            description: row.description,
+            content: row.content,
+            keys: row.keys,
+            secondaryKeys: row.secondaryKeys,
+            order: row.order,
+          };
+        })
+      : [];
+    const update = summaryChanged
+      ? callerFields.entitySummary?.trim()
+        ? {
+            ...callerFields,
+            entitySummaryGeneratedAt: new Date().toISOString(),
+            entitySummarySource: "manual" as const,
+            entitySummaryContentHash: projectAndHashEntitySummary("lorebook", { ...current, ...callerFields }, entries)
+              .contentHash,
+            entitySummaryProjectionVersion: ENTITY_SUMMARY_PROJECTION_VERSION,
+          }
+        : {
+            ...callerFields,
+            entitySummaryGeneratedAt: null,
+            entitySummarySource: null,
+            entitySummaryContentHash: null,
+            entitySummaryProjectionVersion: null,
+          }
+      : callerFields;
+    const updated = await storage.update(req.params.id, update);
     if (!updated) return reply.status(404).send({ error: "Lorebook not found" });
     await syncCharacterBookFromLorebook(app.db, req.params.id);
     return updated;

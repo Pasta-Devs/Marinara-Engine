@@ -257,20 +257,24 @@ function likePattern(value: string | undefined) {
   return trimmed ? `%${trimmed}%` : "";
 }
 
-function lorebookOrder(sort: string | undefined) {
-  switch (sort) {
-    case "name-desc":
-      return [desc(lorebooks.name), asc(lorebooks.id)];
-    case "newest":
-      return [desc(lorebooks.createdAt), asc(lorebooks.id)];
-    case "oldest":
-      return [asc(lorebooks.createdAt), asc(lorebooks.id)];
-    case "tokens":
-      return [desc(lorebooks.tokenBudget), asc(lorebooks.id)];
-    case "name-asc":
-    default:
-      return [asc(lorebooks.name), asc(lorebooks.id)];
-  }
+const englishNameCollator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+
+function sortLorebookRows(rows: LorebookRow[], sort: string | undefined) {
+  return [...rows].sort((left, right) => {
+    switch (sort) {
+      case "name-desc":
+        return englishNameCollator.compare(right.name, left.name) || left.id.localeCompare(right.id, "en");
+      case "newest":
+        return right.createdAt.localeCompare(left.createdAt, "en") || left.id.localeCompare(right.id, "en");
+      case "oldest":
+        return left.createdAt.localeCompare(right.createdAt, "en") || left.id.localeCompare(right.id, "en");
+      case "tokens":
+        return right.tokenBudget - left.tokenBudget || left.id.localeCompare(right.id, "en");
+      case "name-asc":
+      default:
+        return englishNameCollator.compare(left.name, right.name) || left.id.localeCompare(right.id, "en");
+    }
+  });
 }
 
 function parseCharacterName(row: typeof characters.$inferSelect) {
@@ -447,20 +451,13 @@ export function createLorebooksStorage(db: DB) {
       }
 
       const whereClause = clauses.length > 0 ? and(...clauses) : undefined;
-      const rows = await (whereClause
-        ? db
-            .select()
-            .from(lorebooks)
-            .where(whereClause)
-            .orderBy(...lorebookOrder(options.sort))
-            .limit(options.limit + 1)
-            .offset(options.offset)
-        : db
-            .select()
-            .from(lorebooks)
-            .orderBy(...lorebookOrder(options.sort))
-            .limit(options.limit + 1)
-            .offset(options.offset));
+      const matchingRows = await (whereClause
+        ? db.select().from(lorebooks).where(whereClause)
+        : db.select().from(lorebooks));
+      const rows = sortLorebookRows(matchingRows, options.sort).slice(
+        options.offset,
+        options.offset + options.limit + 1,
+      );
       const items = await hydrateLorebookRows(db, rows.slice(0, options.limit), { includeLinkedNames: true });
       return {
         ...toPaginatedList(rows, options.limit, options.offset),

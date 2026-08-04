@@ -67,7 +67,7 @@ import {
   Pencil,
 } from "lucide-react";
 import type { AvatarCrop } from "@marinara-engine/shared";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, projectPersonaForEntitySummary } from "@marinara-engine/shared";
 import { cn, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
@@ -112,6 +112,7 @@ import { ExportFormatDialog, type ExportFormatChoice } from "../ui/ExportFormatD
 import { Modal } from "../ui/Modal";
 import { EditorTabRail } from "../ui/EditorTabRail";
 import { EditorSectionAnchor, EditorSectionJumps } from "../ui/EditorSectionJumps";
+import { EntitySummaryStatusBadge } from "../ui/EntitySummaryStatusBadge";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import {
   createDefaultRpgStatPools,
@@ -201,6 +202,11 @@ interface PersonaFormData {
   creator: string;
   personaVersion: string;
   creatorNotes: string;
+  entitySummary: string;
+  entitySummaryGeneratedAt: string | null;
+  entitySummarySource: "ai" | "manual" | null;
+  entitySummaryContentHash: string | null;
+  entitySummaryProjectionVersion: number | null;
   description: string;
   personality: string;
   scenario: string;
@@ -231,6 +237,11 @@ interface PersonaRow {
   creator?: string;
   personaVersion?: string;
   creatorNotes?: string;
+  entitySummary?: string;
+  entitySummaryGeneratedAt?: string | null;
+  entitySummarySource?: "ai" | "manual" | null;
+  entitySummaryContentHash?: string | null;
+  entitySummaryProjectionVersion?: number | null;
   description: string;
   personality: string;
   scenario: string;
@@ -1036,6 +1047,8 @@ export function PersonaEditor() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const [avatarGeneratorOpen, setAvatarGeneratorOpen] = useState(false);
   const loadedPersonaIdRef = useRef<string | null>(null);
+  const loadedEntitySummaryRef = useRef("");
+  const editRevisionRef = useRef(0);
   const loadedTrackerCardColorsRef = useRef<string | null>(null);
   const latestAvatarUploadTokenRef = useRef<string | null>(null);
   const formatQuotes = useQuoteFormatter();
@@ -1078,6 +1091,11 @@ export function PersonaEditor() {
       creator: rawPersona.creator ?? "",
       personaVersion: rawPersona.personaVersion ?? "1.0",
       creatorNotes: rawPersona.creatorNotes ?? "",
+      entitySummary: rawPersona.entitySummary ?? "",
+      entitySummaryGeneratedAt: rawPersona.entitySummaryGeneratedAt ?? null,
+      entitySummarySource: rawPersona.entitySummarySource ?? null,
+      entitySummaryContentHash: rawPersona.entitySummaryContentHash ?? null,
+      entitySummaryProjectionVersion: rawPersona.entitySummaryProjectionVersion ?? null,
       description: rawPersona.description,
       personality: rawPersona.personality ?? "",
       scenario: rawPersona.scenario ?? "",
@@ -1110,6 +1128,7 @@ export function PersonaEditor() {
       avatarCrop: parsedAvatarCrop,
     });
     setAvatarPreview(rawPersona.avatarPath);
+    loadedEntitySummaryRef.current = rawPersona.entitySummary ?? "";
     setDirty(false);
   }, [rawPersona, dirty]);
 
@@ -1117,6 +1136,7 @@ export function PersonaEditor() {
     <K extends keyof PersonaFormData>(key: K, value: PersonaFormData[K]) => {
       const nextValue = formatPersonaFieldValue(key, value, formatQuotes);
       setFormData((prev) => (prev ? { ...prev, [key]: nextValue } : prev));
+      editRevisionRef.current += 1;
       setDirty(true);
     },
     [formatQuotes],
@@ -1125,13 +1145,26 @@ export function PersonaEditor() {
   const handleSave = async () => {
     if (!personaId || !formData) return false;
     setSaving(true);
+    const editRevisionAtSaveStart = editRevisionRef.current;
     try {
-      const { tags, avatarCrop, convoBehavior, trackerCardColors, ...rest } = formData;
+      const {
+        tags,
+        avatarCrop,
+        convoBehavior,
+        trackerCardColors,
+        entitySummary,
+        entitySummaryGeneratedAt: _entitySummaryGeneratedAt,
+        entitySummarySource: _entitySummarySource,
+        entitySummaryContentHash: _entitySummaryContentHash,
+        entitySummaryProjectionVersion: _entitySummaryProjectionVersion,
+        ...rest
+      } = formData;
       const serializedTrackerCardColors = serializeTrackerCardColorConfig(trackerCardColors);
       const trackerCardColorsChanged = serializedTrackerCardColors !== loadedTrackerCardColorsRef.current;
       await updatePersona.mutateAsync({
         id: personaId,
         ...rest,
+        ...(entitySummary !== loadedEntitySummaryRef.current ? { entitySummary } : {}),
         tags: JSON.stringify(tags),
         ...(trackerCardColorsChanged ? { trackerCardColors: serializedTrackerCardColors } : {}),
         // Persist as JSON string; empty string means "no crop" so the row keeps
@@ -1141,7 +1174,8 @@ export function PersonaEditor() {
         convoBehavior: convoBehavior && convoBehavior.instruction?.trim() ? JSON.stringify(convoBehavior) : "",
       });
       if (trackerCardColorsChanged) loadedTrackerCardColorsRef.current = serializedTrackerCardColors;
-      setDirty(false);
+      if (entitySummary !== loadedEntitySummaryRef.current) loadedEntitySummaryRef.current = entitySummary;
+      if (editRevisionRef.current === editRevisionAtSaveStart) setDirty(false);
       return true;
     } catch (error) {
       console.error("[PersonaEditor] Save failed:", error);
@@ -3140,6 +3174,31 @@ function PersonaMetadataTab({
             {localizeUi("ui.personas.personastatstab.add")}
           </button>
         </div>
+      </div>
+
+      <div className="block space-y-1.5">
+        <span className="flex items-center gap-2 text-xs font-medium text-[var(--muted-foreground)]">
+          {localizeUi("entitySummary.editor.label")}
+          <HelpTooltip text={localizeUi("entitySummary.editor.help")} />
+          <EntitySummaryStatusBadge
+            input={{
+              entitySummary: formData.entitySummary,
+              entitySummarySource: formData.entitySummarySource,
+              entitySummaryContentHash: formData.entitySummaryContentHash,
+              entitySummaryProjectionVersion: formData.entitySummaryProjectionVersion,
+              projection: projectPersonaForEntitySummary(formData),
+            }}
+          />
+        </span>
+        <MacroTextarea
+          value={formData.entitySummary}
+          onChange={(value) => updateField("entitySummary", value)}
+          rows={3}
+          title={localizeUi("entitySummary.editor.label")}
+          showMarkdownPreview
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 text-sm outline-none placeholder:text-[var(--muted-foreground)]/40 focus:border-[var(--primary)]/40 focus:ring-1 focus:ring-[var(--primary)]/20"
+          placeholder={localizeUi("entitySummary.editor.placeholder")}
+        />
       </div>
 
       <div className="block space-y-1.5">
