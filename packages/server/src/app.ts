@@ -50,6 +50,7 @@ import { capabilityModuleRuntime } from "./services/capability-packages/capabili
 import { migrateLegacyCapabilities } from "./services/capability-packages/legacy-capability-migration.js";
 import { createClientStaticOptions } from "./config/client-static-config.js";
 import { hostValidationHook } from "./middleware/host-validation.js";
+import { EntitySummaryBatchService } from "./services/entity-summary/entity-summary-batch.service.js";
 
 const isLite = process.env.MARINARA_LITE === "true" || process.env.MARINARA_LITE === "1";
 const MAX_UPLOAD_BYTES = 256 * 1024 * 1024;
@@ -88,10 +89,13 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── Storage ──
   const db = await getDB();
   app.decorate("db", db);
+  const entitySummaryBatchService = new EntitySummaryBatchService(db);
+  app.decorate("entitySummaryBatchService", entitySummaryBatchService);
   app.addHook("onClose", async () => {
     try {
       const stopResults = await Promise.allSettled([
         capabilityModuleRuntime.stop(),
+        entitySummaryBatchService.stop(),
         personalServerExtensionRuntime.stop(),
         sidecarProcessService.stop(),
       ]);
@@ -140,6 +144,9 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 
   // ── Recover orphaned gallery images (files on disk without DB records) ──
   await recoverGalleryImages(db);
+
+  // Requeue interrupted work only after defaults and storage migrations are ready.
+  await entitySummaryBatchService.start();
 
   // Legacy extension payloads and any out-of-band code changes are retained as
   // disabled drafts. Execution always requires approval of the exact hash.
@@ -290,5 +297,6 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
 declare module "fastify" {
   interface FastifyInstance {
     db: DB;
+    entitySummaryBatchService: EntitySummaryBatchService;
   }
 }

@@ -30,3 +30,4 @@ export * from "./prompt-overrides.js";
 export * from "./achievements.js";
 export * from "./noodle.js";
 export * from "./library-folders.js";
+export * from "./entity-summary-batches.js";

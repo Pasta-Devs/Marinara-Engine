@@ -59,6 +59,7 @@ import { customAgentRepositoriesRoutes } from "./custom-agent-repositories.route
 import { personalExtensionsRoutes } from "./personal-extensions.routes.js";
 import { notificationSoundRoutes } from "./notification-sound.routes.js";
 import { libraryFoldersRoutes } from "./library-folders.routes.js";
+import { librarySummarizeRoutes } from "./library-summarize.routes.js";
 
 export async function registerRoutes(app: FastifyInstance) {
   await app.register(chatsRoutes, { prefix: "/api/chats" });
@@ -70,6 +71,7 @@ export async function registerRoutes(app: FastifyInstance) {
   await app.register(connectionsRoutes, { prefix: "/api/connections" });
   await app.register(connectionFoldersRoutes, { prefix: "/api/connection-folders" });
   await app.register(libraryFoldersRoutes, { prefix: "/api/library-folders" });
+  await app.register(librarySummarizeRoutes, { prefix: "/api/library/summarize" });
   await app.register(agentsRoutes, { prefix: "/api/agents" });
   await app.register(customToolsRoutes, { prefix: "/api/custom-tools" });
   await app.register(generateRoutes, { prefix: "/api/generate" });

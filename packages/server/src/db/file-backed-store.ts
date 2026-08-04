@@ -221,6 +221,8 @@ export const FILE_BACKED_TABLES = [
   "prompt_overrides",
   "installed_extensions",
   "library_folders",
+  "entity_summary_batches",
+  "entity_summary_batch_items",
 ] as const;
 
 type FileBackedTable = (typeof FILE_BACKED_TABLES)[number];
@@ -238,6 +240,8 @@ const warnedFlushFailures = new Set<string>();
  * at commit instead of on the batched timer.
  */
 const DURABLE_ON_COMMIT_TABLES = new Set<string>([
+  "entity_summary_batches",
+  "entity_summary_batch_items",
   "noodler_automatic_attempts",
   "noodler_creator_reply_claims",
   "noodler_reserve_state",
@@ -314,6 +318,12 @@ export const CASCADES: Array<{ parent: FileBackedTable; child: FileBackedTable; 
     { parent: "prompt_presets", child: "choice_blocks", parentKey: "id", childKey: "presetId" },
     { parent: "agent_configs", child: "agent_runs", parentKey: "id", childKey: "agentConfigId" },
     { parent: "agent_configs", child: "agent_memory", parentKey: "id", childKey: "agentConfigId" },
+    {
+      parent: "entity_summary_batches",
+      child: "entity_summary_batch_items",
+      parentKey: "id",
+      childKey: "batchId",
+    },
   ];
 
 const SET_NULL_RELATIONS: Array<{
