@@ -16,6 +16,7 @@ import {
 } from "@marinara-engine/shared";
 import type { CharacterData, ConversationCallCharacterVideoClipKind, ExportEnvelope } from "@marinara-engine/shared";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
+import { projectPersona } from "../services/personas/persona-projector.js";
 import { createCharacterGalleryStorage } from "../services/storage/character-gallery.storage.js";
 import { createPersonaGalleryStorage } from "../services/storage/persona-gallery.storage.js";
 import { createChatsStorage } from "../services/storage/chats.storage.js";
@@ -1760,26 +1761,28 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req) => {
       const page = parseLibraryPageQuery(req.query);
       if (page.hasPaging) {
-        return storage.listPersonasPage({
+        const result = await storage.listPersonasPage({
           limit: page.limit,
           offset: page.offset,
           search: page.search,
           sort: page.sort,
         });
+        return { ...result, items: result.items.map(projectPersona) };
       }
-      return storage.listPersonas();
+      return (await storage.listPersonas()).map(projectPersona);
     },
   );
 
   app.get("/personas/active", async () => {
     const personas = await storage.listPersonas();
-    return personas.find((persona) => String(persona.isActive) === "true") ?? null;
+    const active = personas.find((persona) => persona.isActive === "true");
+    return active ? projectPersona(active) : null;
   });
 
   app.get<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
     const persona = await storage.getPersona(req.params.id);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
-    return persona;
+    return projectPersona(persona);
   });
 
   app.get<{ Params: { id: string } }>("/personas/:id/versions", async (req, reply) => {
@@ -1793,7 +1796,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const restored = await storage.restorePersonaVersion(req.params.id, req.params.versionId);
       if (!restored) return reply.status(404).send({ error: "Persona version not found" });
-      return restored;
+      return projectPersona(restored);
     },
   );
 
@@ -1818,10 +1821,10 @@ export async function charactersRoutes(app: FastifyInstance) {
       storage.resetPersonaVersions(req.params.id),
     );
     if (!reset) return reply.status(404).send({ error: "Persona not found" });
-    return reset;
+    return projectPersona(reset);
   });
 
-  app.post("/personas", async (req) => {
+  app.post("/personas", async (req, reply) => {
     const { name, description, createdAt, updatedAt, ...extra } = req.body as {
       name: string;
       description?: string;
@@ -1846,13 +1849,15 @@ export async function charactersRoutes(app: FastifyInstance) {
       aboutMe?: string;
       convoBehavior?: string;
     };
-    return storage.createPersona(
+    const created = await storage.createPersona(
       name,
       description ?? "",
       undefined,
       extra,
       normalizeTimestampOverrides({ createdAt, updatedAt }),
     );
+    if (!created) return reply.status(500).send({ error: "Created persona could not be loaded" });
+    return projectPersona(created);
   });
 
   app.patch<{ Params: { id: string } }>("/personas/:id", async (req, reply) => {
@@ -1884,7 +1889,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       });
     });
     if (!updated) return reply.status(404).send({ error: "Persona not found" });
-    return updated;
+    return projectPersona(updated);
   });
 
   app.patch<{ Params: { id: string } }>("/personas/:id/tracker-card-colors", async (req, reply) => {
@@ -1952,7 +1957,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       );
     });
     if (!updated) return reply.status(404).send({ error: "Persona not found" });
-    return updated;
+    return projectPersona(updated);
   });
 
   app.post<{ Params: { id: string } }>("/personas/:id/avatar", async (req, reply) => {
@@ -1979,7 +1984,7 @@ export async function charactersRoutes(app: FastifyInstance) {
       await removeCopiedAvatarFile(avatarPath);
       return reply.status(404).send({ error: "Persona not found" });
     }
-    return updated;
+    return projectPersona(updated);
   });
 
   app.put<{ Params: { id: string } }>("/personas/:id/activate", async (req, reply) => {
@@ -2496,7 +2501,7 @@ export async function charactersRoutes(app: FastifyInstance) {
           await removeCopiedAvatarFile(avatarPath);
           return reply.status(404).send({ error: "Persona not found" });
         }
-        return updated;
+        return projectPersona(updated);
       } catch (error) {
         if (avatarPath) await removeCopiedAvatarFile(avatarPath);
         logger.warn(error, "Failed to set persona %s avatar from gallery image %s", id, imageId);
@@ -2534,7 +2539,7 @@ export async function charactersRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>("/personas/:id/duplicate", async (req, reply) => {
     const result = await storage.duplicatePersona(req.params.id);
     if (!result) return reply.status(404).send({ error: "Persona not found" });
-    return result;
+    return projectPersona(result);
   });
 
   // ── Persona Export ──

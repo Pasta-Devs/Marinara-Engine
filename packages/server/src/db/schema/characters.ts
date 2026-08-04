@@ -33,6 +33,12 @@ export const characterCardVersions = fileTable("character_card_versions", {
   createdAt: text("created_at").notNull(),
 });
 
+/**
+ * Storage-only Persona representation. JSON-backed fields and booleans remain
+ * serialized text intentionally; do not cast these rows to the shared Persona
+ * type. Public API responses must pass through `projectPersona()` in
+ * `services/personas/persona-projector.ts`.
+ */
 export const personas = fileTable("personas", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

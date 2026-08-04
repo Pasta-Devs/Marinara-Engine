@@ -104,7 +104,8 @@ type CharacterListRow = {
   name: string;
   favorite: boolean;
 };
-type PersonaRow = typeof personas.$inferSelect;
+/** Serialized row shape used by the file-table persistence layer. */
+export type PersonaStorageRow = typeof personas.$inferSelect;
 type CharacterListPageOptions = {
   includeBuiltIn?: boolean;
   limit: number;
@@ -203,7 +204,7 @@ function getCharacterSummaryFromRow(row: typeof characters.$inferSelect) {
   }
 }
 
-function buildPersonaSnapshot(persona: PersonaRow): PersonaCardSnapshot {
+function buildPersonaSnapshot(persona: PersonaStorageRow): PersonaCardSnapshot {
   return {
     name: persona.name ?? "",
     creator: persona.creator ?? "",
