@@ -26,6 +26,7 @@ export type PersonaLibraryRow = {
   scenario?: string | null;
   backstory?: string | null;
   appearance?: string | null;
+  entitySummary?: string | null;
   avatarPath: string | null;
   avatarCrop?: string | AvatarCrop | null;
   isActive?: boolean | string;
@@ -130,6 +131,7 @@ export function characterToLibraryItem(characterRow: CharacterLibraryRow): Libra
     title: getCharacterTitle({ name, comment: character.comment }),
     meta: formatCardLibraryMeta(character.parsed.creator, character.parsed.character_version),
     summary: getCardLibrarySummary([
+      character.parsed.extensions?.entitySummary,
       character.parsed.creator_notes,
       character.parsed.description,
       character.parsed.personality,
@@ -154,7 +156,13 @@ export function personaToLibraryItem(persona: PersonaLibraryRow): LibraryItem {
     name: getText(persona.name) || "Unnamed",
     title: getText(persona.comment) || null,
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
-    summary: getCardLibrarySummary([persona.creatorNotes, persona.description, persona.personality, persona.backstory]),
+    summary: getCardLibrarySummary([
+      persona.entitySummary,
+      persona.creatorNotes,
+      persona.description,
+      persona.personality,
+      persona.backstory,
+    ]),
     avatarPath: persona.avatarPath,
     avatarCrop: normalizeAvatarCrop(persona.avatarCrop) ?? undefined,
     createdAt: persona.createdAt,

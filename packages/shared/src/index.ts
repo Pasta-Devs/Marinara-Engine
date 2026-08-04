@@ -35,6 +35,7 @@ export * from "./types/spatial-context.js";
 export * from "./types/capability-runtime.js";
 export * from "./types/localization.js";
 export * from "./types/personal-extension.js";
+export * from "./types/entity-summary.js";
 
 // Schemas
 export * from "./schemas/chat.schema.js";
@@ -60,6 +61,7 @@ export * from "./schemas/personal-extension.schema.js";
 export * from "./schemas/folder.schema.js";
 export * from "./schemas/scene-analysis.schema.js";
 export * from "./schemas/library-folder.schema.js";
+export * from "./schemas/entity-summary.schema.js";
 
 // Constants
 export * from "./constants/providers.js";

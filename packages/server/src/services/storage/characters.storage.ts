@@ -119,6 +119,14 @@ type PersonaListPageOptions = {
   sort?: string;
 };
 
+type PersonaEntitySummaryUpdate = {
+  entitySummary?: string;
+  entitySummaryGeneratedAt?: string | null;
+  entitySummarySource?: "ai" | "manual" | null;
+  entitySummaryContentHash?: string | null;
+  entitySummaryProjectionVersion?: number | null;
+};
+
 function likePattern(value: string | undefined) {
   const trimmed = value?.trim();
   return trimmed ? `%${trimmed}%` : "";
@@ -654,6 +662,7 @@ export function createCharactersStorage(db: DB) {
             like(personas.backstory, pattern),
             like(personas.appearance, pattern),
             like(personas.tags, pattern),
+            like(personas.entitySummary, pattern),
           )
         : undefined;
       const rows = await (whereClause
@@ -774,7 +783,7 @@ export function createCharactersStorage(db: DB) {
         aboutMe?: string;
         convoBehavior?: string;
         avatarCrop?: string;
-      },
+      } & PersonaEntitySummaryUpdate,
       timestampOverrides?: TimestampOverrides | null,
     ) {
       const id = newId();
@@ -805,6 +814,11 @@ export function createCharactersStorage(db: DB) {
         convoDisplayName: extra?.convoDisplayName ?? "",
         aboutMe: extra?.aboutMe ?? "",
         convoBehavior: extra?.convoBehavior ?? "",
+        entitySummary: extra?.entitySummary ?? "",
+        entitySummaryGeneratedAt: extra?.entitySummaryGeneratedAt ?? null,
+        entitySummarySource: extra?.entitySummarySource ?? null,
+        entitySummaryContentHash: extra?.entitySummaryContentHash ?? null,
+        entitySummaryProjectionVersion: extra?.entitySummaryProjectionVersion ?? null,
         createdAt: timestamp.createdAt,
         updatedAt: timestamp.updatedAt,
       });
@@ -872,6 +886,11 @@ export function createCharactersStorage(db: DB) {
         convoDisplayName: source.convoDisplayName ?? "",
         aboutMe: source.aboutMe ?? "",
         convoBehavior: source.convoBehavior ?? "",
+        entitySummary: source.entitySummary ?? "",
+        entitySummaryGeneratedAt: source.entitySummaryGeneratedAt ?? null,
+        entitySummarySource: source.entitySummarySource ?? null,
+        entitySummaryContentHash: source.entitySummaryContentHash ?? null,
+        entitySummaryProjectionVersion: source.entitySummaryProjectionVersion ?? null,
         createdAt: timestamp,
         updatedAt: timestamp,
       });
@@ -904,7 +923,7 @@ export function createCharactersStorage(db: DB) {
         convoDisplayName?: string;
         aboutMe?: string;
         convoBehavior?: string;
-      },
+      } & PersonaEntitySummaryUpdate,
       options?: {
         versionSource?: string | null;
         versionReason?: string | null;
@@ -976,6 +995,14 @@ export function createCharactersStorage(db: DB) {
       if (updates.convoDisplayName !== undefined) sets.convoDisplayName = updates.convoDisplayName;
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
+      if (updates.entitySummary !== undefined) sets.entitySummary = updates.entitySummary;
+      if (updates.entitySummaryGeneratedAt !== undefined)
+        sets.entitySummaryGeneratedAt = updates.entitySummaryGeneratedAt;
+      if (updates.entitySummarySource !== undefined) sets.entitySummarySource = updates.entitySummarySource;
+      if (updates.entitySummaryContentHash !== undefined)
+        sets.entitySummaryContentHash = updates.entitySummaryContentHash;
+      if (updates.entitySummaryProjectionVersion !== undefined)
+        sets.entitySummaryProjectionVersion = updates.entitySummaryProjectionVersion;
       await db.update(personas).set(sets).where(eq(personas.id, id));
       return this.getPersona(id);
     },

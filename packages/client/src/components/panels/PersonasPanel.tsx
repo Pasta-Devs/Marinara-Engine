@@ -65,6 +65,7 @@ type PersonaRow = {
   personaVersion?: string;
   creatorNotes?: string;
   description: string;
+  entitySummary?: string | null;
   personality: string;
   scenario: string;
   backstory: string;
@@ -459,7 +460,7 @@ export function PersonasPanel() {
           name: p.name,
           title: p.comment,
           meta: formatCardLibraryMeta(p.creator, p.personaVersion),
-          summary: getCardLibrarySummary([p.creatorNotes, p.description, p.personality, p.backstory]),
+          summary: getCardLibrarySummary([p.entitySummary, p.creatorNotes, p.description, p.personality, p.backstory]),
           tags,
           sections: [
             { content: p.description },
@@ -1206,10 +1207,7 @@ export function PersonasPanel() {
 
               {/* Info */}
               <div
-                className={cn(
-                  "min-w-0 flex-1",
-                  !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32",
-                )}
+                className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32")}
               >
                 <div className="w-fit max-w-full truncate text-sm font-medium">{persona.name}</div>
                 {persona.comment && (

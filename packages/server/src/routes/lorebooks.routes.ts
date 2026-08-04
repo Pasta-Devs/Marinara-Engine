@@ -340,6 +340,19 @@ function buildCompatibleLorebookExport(lb: Record<string, unknown>, entries: Arr
   };
 }
 
+export function buildNativeLorebookEnvelope(
+  lorebook: Record<string, unknown>,
+  entries: Array<Record<string, unknown>>,
+  folders: Array<Record<string, unknown>>,
+): ExportEnvelope {
+  return {
+    type: "marinara_lorebook",
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: { lorebook, entries, folders },
+  };
+}
+
 function buildTransferredEntryInput(
   entry: LorebookEntry,
   targetLorebookId: string,
@@ -523,12 +536,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         )
         .send(buildCompatibleLorebookExport(lb, entries));
     }
-    const envelope: ExportEnvelope = {
-      type: "marinara_lorebook",
-      version: 1,
-      exportedAt: new Date().toISOString(),
-      data: { lorebook: lb, entries, folders },
-    };
+    const envelope = buildNativeLorebookEnvelope(lb, entries, folders as Array<Record<string, unknown>>);
     return reply
       .header(
         "Content-Disposition",
@@ -558,12 +566,7 @@ export async function lorebooksRoutes(app: FastifyInstance) {
         exportedCount++;
         continue;
       }
-      const envelope: ExportEnvelope = {
-        type: "marinara_lorebook",
-        version: 1,
-        exportedAt: new Date().toISOString(),
-        data: { lorebook: lb, entries, folders },
-      };
+      const envelope = buildNativeLorebookEnvelope(lb, entries, folders as Array<Record<string, unknown>>);
       zip.addFile(
         `${toSafeExportName(String(lb.name || "lorebook"), `lorebook-${exportedCount + 1}`)}.marinara.json`,
         Buffer.from(JSON.stringify(envelope, null, 2), "utf-8"),

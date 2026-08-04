@@ -1,3 +1,5 @@
+import type { LorebookEntitySummaryFields } from "./entity-summary.js";
+
 // ──────────────────────────────────────────────
 // Lorebook / World Info Types
 // ──────────────────────────────────────────────
@@ -43,7 +45,7 @@ export type LorebookMatchingSource =
   | "persona_tags";
 
 /** A complete lorebook (collection of entries). */
-export interface Lorebook {
+export interface Lorebook extends LorebookEntitySummaryFields {
   id: string;
   name: string;
   description: string;

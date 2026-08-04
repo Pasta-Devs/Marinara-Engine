@@ -2,6 +2,7 @@
 // Character Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { characterEntitySummaryFieldsSchema } from "./entity-summary.schema.js";
 
 export const depthPromptSchema = z.object({
   prompt: z.string().default(""),
@@ -56,6 +57,7 @@ export const characterExtensionsSchema = z
     convoDisplayNameInCard: z.boolean().optional(),
     aboutMe: z.string().optional(),
     convoBehavior: convoBehaviorConfigSchema.optional(),
+    ...characterEntitySummaryFieldsSchema.shape,
   })
   .passthrough();
 

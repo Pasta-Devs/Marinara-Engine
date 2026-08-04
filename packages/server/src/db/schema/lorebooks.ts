@@ -31,6 +31,11 @@ export const lorebooks = fileTable("lorebooks", {
   tags: text("tags").notNull().default("[]"),
   generatedBy: text("generated_by"),
   sourceAgentId: text("source_agent_id"),
+  entitySummary: text("entity_summary").notNull().default(""),
+  entitySummaryGeneratedAt: text("entity_summary_generated_at"),
+  entitySummarySource: text("entity_summary_source", { enum: ["ai", "manual"] }),
+  entitySummaryContentHash: text("entity_summary_content_hash"),
+  entitySummaryProjectionVersion: integer("entity_summary_projection_version"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

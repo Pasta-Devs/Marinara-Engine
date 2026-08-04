@@ -414,6 +414,7 @@ export function createLorebooksStorage(db: DB) {
             like(lorebooks.category, pattern),
             like(lorebooks.tags, pattern),
             like(lorebooks.generatedBy, pattern),
+            like(lorebooks.entitySummary, pattern),
           ),
         );
       }
@@ -522,6 +523,11 @@ export function createLorebooksStorage(db: DB) {
           tags: input.tags ? JSON.stringify(input.tags) : "[]",
           generatedBy: input.generatedBy ?? null,
           sourceAgentId: input.sourceAgentId ?? null,
+          entitySummary: input.entitySummary ?? "",
+          entitySummaryGeneratedAt: input.entitySummaryGeneratedAt ?? null,
+          entitySummarySource: input.entitySummarySource ?? null,
+          entitySummaryContentHash: input.entitySummaryContentHash ?? null,
+          entitySummaryProjectionVersion: input.entitySummaryProjectionVersion ?? null,
           createdAt: timestamp.createdAt,
           updatedAt: timestamp.updatedAt,
         });
@@ -569,6 +575,14 @@ export function createLorebooksStorage(db: DB) {
       if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
       if (input.generatedBy !== undefined) updates.generatedBy = input.generatedBy;
       if (input.sourceAgentId !== undefined) updates.sourceAgentId = input.sourceAgentId;
+      if (input.entitySummary !== undefined) updates.entitySummary = input.entitySummary;
+      if (input.entitySummaryGeneratedAt !== undefined)
+        updates.entitySummaryGeneratedAt = input.entitySummaryGeneratedAt;
+      if (input.entitySummarySource !== undefined) updates.entitySummarySource = input.entitySummarySource;
+      if (input.entitySummaryContentHash !== undefined)
+        updates.entitySummaryContentHash = input.entitySummaryContentHash;
+      if (input.entitySummaryProjectionVersion !== undefined)
+        updates.entitySummaryProjectionVersion = input.entitySummaryProjectionVersion;
 
       await db.transaction(async (tx) => {
         await tx.update(lorebooks).set(updates).where(eq(lorebooks.id, id));

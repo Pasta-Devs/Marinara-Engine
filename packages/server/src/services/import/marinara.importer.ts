@@ -454,6 +454,15 @@ async function importPersona(data: unknown, db: DB) {
       savedStatusOptions: stringifyJsonField(d.savedStatusOptions, "[]"),
       convoDisplayName: firstStringField(d.convoDisplayName),
       aboutMe: firstStringField(d.aboutMe),
+      entitySummary: firstStringField(d.entitySummary),
+      entitySummaryGeneratedAt: typeof d.entitySummaryGeneratedAt === "string" ? d.entitySummaryGeneratedAt : null,
+      entitySummarySource:
+        d.entitySummarySource === "ai" || d.entitySummarySource === "manual" ? d.entitySummarySource : null,
+      entitySummaryContentHash: typeof d.entitySummaryContentHash === "string" ? d.entitySummaryContentHash : null,
+      entitySummaryProjectionVersion:
+        typeof d.entitySummaryProjectionVersion === "number" && Number.isInteger(d.entitySummaryProjectionVersion)
+          ? d.entitySummaryProjectionVersion
+          : null,
       // convoBehavior is stored as a JSON string; re-stringify objects on import.
       convoBehavior: stringifyJsonField(d.convoBehavior, ""),
       // avatarCrop is stored as a JSON string in the DB; the export round-trips it
@@ -532,6 +541,15 @@ async function importLorebookPayload(data: unknown, db: DB) {
       tags: Array.isArray(lb.tags) ? lb.tags.map(String) : [],
       generatedBy: "import",
       sourceAgentId: typeof lb.sourceAgentId === "string" ? lb.sourceAgentId : null,
+      entitySummary: typeof lb.entitySummary === "string" ? lb.entitySummary : "",
+      entitySummaryGeneratedAt: typeof lb.entitySummaryGeneratedAt === "string" ? lb.entitySummaryGeneratedAt : null,
+      entitySummarySource:
+        lb.entitySummarySource === "ai" || lb.entitySummarySource === "manual" ? lb.entitySummarySource : null,
+      entitySummaryContentHash: typeof lb.entitySummaryContentHash === "string" ? lb.entitySummaryContentHash : null,
+      entitySummaryProjectionVersion:
+        typeof lb.entitySummaryProjectionVersion === "number" && Number.isInteger(lb.entitySummaryProjectionVersion)
+          ? lb.entitySummaryProjectionVersion
+          : null,
     },
     readTimestampOverrides(lb),
   )) as Record<string, unknown> | null;

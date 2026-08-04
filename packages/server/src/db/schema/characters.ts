@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Schema: Characters, Personas & Character Groups
 // ──────────────────────────────────────────────
-import { fileTable, text } from "../file-schema.js";
+import { fileTable, integer, text } from "../file-schema.js";
 
 export const characters = fileTable("characters", {
   id: text("id").primaryKey(),
@@ -75,6 +75,11 @@ export const personas = fileTable("personas", {
   aboutMe: text("about_me").notNull().default(""),
   /** Conversation mode ONLY: behavior directive + insertion strategy (JSON, empty = unset) */
   convoBehavior: text("convo_behavior").notNull().default(""),
+  entitySummary: text("entity_summary").notNull().default(""),
+  entitySummaryGeneratedAt: text("entity_summary_generated_at"),
+  entitySummarySource: text("entity_summary_source", { enum: ["ai", "manual"] }),
+  entitySummaryContentHash: text("entity_summary_content_hash"),
+  entitySummaryProjectionVersion: integer("entity_summary_projection_version"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

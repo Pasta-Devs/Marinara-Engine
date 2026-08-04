@@ -3,9 +3,10 @@
 // ──────────────────────────────────────────────
 import type { ConvoBehaviorConfig } from "./character.js";
 import type { AvatarCrop } from "./avatar-crop.js";
+import type { PersonaEntitySummaryFields } from "./entity-summary.js";
 
 /** A user persona (the player's character/identity). */
-export interface Persona {
+export interface Persona extends PersonaEntitySummaryFields {
   id: string;
   name: string;
   /** Short comment shown under the name (for disambiguation) */

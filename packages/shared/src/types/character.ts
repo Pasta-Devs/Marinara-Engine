@@ -1,3 +1,5 @@
+import type { CharacterEntitySummaryFields } from "./entity-summary.js";
+
 // ──────────────────────────────────────────────
 // Character Card V2 Types (compatible with ST / Chub)
 // ──────────────────────────────────────────────
@@ -29,7 +31,7 @@ export interface CharacterData {
 }
 
 /** ST-compatible extension fields. */
-export interface CharacterExtensions {
+export interface CharacterExtensions extends CharacterEntitySummaryFields {
   talkativeness: number;
   fav: boolean;
   world: string;

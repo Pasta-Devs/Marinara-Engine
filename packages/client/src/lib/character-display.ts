@@ -7,6 +7,7 @@ export interface CharacterDisplayInfo {
   description?: string | null;
   tags?: string[];
   creator?: string | null;
+  entitySummary?: string | null;
   /** Normalized avatar crop from `extensions.avatarCrop` (either shape, or
    *  null when unset/malformed). Populated by parseCharacterDisplayData so
    *  consumers never re-parse the character data for the crop. */
@@ -58,14 +59,12 @@ export function getCharacterLookupAliases(character: CharacterDisplayInfo | null
   return aliases;
 }
 
-export function characterMatchesSearch(
-  character: CharacterDisplayInfo | null | undefined,
-  search: string,
-): boolean {
+export function characterMatchesSearch(character: CharacterDisplayInfo | null | undefined, search: string): boolean {
   const query = search.trim().toLowerCase();
   if (!query) return true;
   return [
     ...getCharacterLookupAliases(character),
+    character?.entitySummary ?? "",
     character?.description ?? "",
     character?.creator ?? "",
     ...(character?.tags ?? []),
@@ -93,5 +92,11 @@ export function parseCharacterDisplayData(raw: { data: unknown; comment?: string
     extensions && typeof extensions === "object" && !Array.isArray(extensions)
       ? (extensions as Record<string, unknown>).avatarCrop
       : undefined;
-  return { name, comment, description, tags, creator, avatarCrop: normalizeAvatarCrop(rawAvatarCrop) };
+  const entitySummary =
+    extensions && typeof extensions === "object" && !Array.isArray(extensions)
+      ? typeof (extensions as Record<string, unknown>).entitySummary === "string"
+        ? ((extensions as Record<string, unknown>).entitySummary as string)
+        : ""
+      : "";
+  return { name, comment, description, tags, creator, entitySummary, avatarCrop: normalizeAvatarCrop(rawAvatarCrop) };
 }

@@ -3,6 +3,7 @@
 // ──────────────────────────────────────────────
 import { z } from "zod";
 import { LIMITS } from "../constants/defaults.js";
+import { lorebookEntitySummaryFieldsSchema } from "./entity-summary.schema.js";
 
 export const LOREBOOK_CATEGORY_VALUES = ["world", "character", "npc", "spellbook", "uncategorized"] as const;
 export type LorebookCategoryValue = (typeof LOREBOOK_CATEGORY_VALUES)[number];
@@ -148,6 +149,7 @@ const lorebookBaseSchema = z.object({
   tags: z.array(z.string()).default([]),
   generatedBy: lorebookGeneratedBySchema.default(null),
   sourceAgentId: z.string().nullable().default(null),
+  ...lorebookEntitySummaryFieldsSchema.shape,
 });
 
 export const createLorebookSchema = lorebookBaseSchema.superRefine(addLorebookScopeConflictIssues);
