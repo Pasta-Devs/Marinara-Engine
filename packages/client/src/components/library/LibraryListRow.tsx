@@ -6,8 +6,11 @@ import { cn, getAvatarCropStyle } from "../../lib/utils";
 
 type LibraryListRowProps = {
   item: LibraryItem;
-  selected: boolean;
+  previewSelected: boolean;
+  selectionMode?: boolean;
+  bulkSelected?: boolean;
   onSelect: (id: string) => void;
+  onToggleSelected?: (id: string) => void;
   onEdit: (id: string) => void;
   onChat?: (item: LibraryItem) => void;
 };
@@ -18,7 +21,16 @@ function formatUpdatedAt(value: string, locale: string) {
   return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
 }
 
-export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: LibraryListRowProps) {
+export function LibraryListRow({
+  item,
+  previewSelected,
+  selectionMode = false,
+  bulkSelected = false,
+  onSelect,
+  onToggleSelected,
+  onEdit,
+  onChat,
+}: LibraryListRowProps) {
   const { t, i18n } = useTranslation();
   const singular = item.kind === "character" ? "character" : "persona";
   const updatedAt = formatUpdatedAt(item.updatedAt, i18n.resolvedLanguage ?? i18n.language);
@@ -29,7 +41,7 @@ export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: Lib
     <article
       className={cn(
         "group relative overflow-hidden rounded-xl border bg-[var(--card)]/78 shadow-[0_16px_40px_-32px_rgba(15,23,42,0.9)] transition-[border-color,box-shadow,background-color] duration-150",
-        selected
+        (selectionMode ? bulkSelected : previewSelected)
           ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] shadow-[0_18px_44px_-30px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_38%,transparent)]"
           : "border-[var(--marinara-chat-chrome-panel-border)] hover:border-[var(--marinara-chat-chrome-button-border-hover)]",
       )}
@@ -37,10 +49,40 @@ export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: Lib
       <div className="flex min-w-0 items-stretch">
         <button
           type="button"
-          onClick={() => onSelect(item.id)}
-          aria-pressed={selected}
-          className="grid min-w-0 flex-1 grid-cols-[4.5rem_minmax(0,1fr)] gap-3 p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:grid-cols-[5rem_minmax(11rem,0.85fr)_minmax(14rem,1.45fr)] sm:gap-4 sm:p-3 lg:grid-cols-[5rem_minmax(12rem,0.9fr)_minmax(16rem,1.5fr)_9rem]"
+          onClick={() => (selectionMode ? onToggleSelected?.(item.id) : onSelect(item.id))}
+          role={selectionMode ? "checkbox" : undefined}
+          aria-checked={selectionMode ? bulkSelected : undefined}
+          aria-pressed={selectionMode ? undefined : previewSelected}
+          aria-label={
+            selectionMode
+              ? t(
+                  bulkSelected
+                    ? "ui.characters.characterlibraryview.deselectValue1"
+                    : "ui.characters.characterlibraryview.selectValue1",
+                  { value1: item.name },
+                )
+              : undefined
+          }
+          className={cn(
+            "grid min-w-0 flex-1 gap-3 p-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--marinara-chat-chrome-focus-ring)] sm:gap-4 sm:p-3",
+            selectionMode
+              ? "grid-cols-[1.25rem_4.5rem_minmax(0,1fr)] sm:grid-cols-[1.25rem_5rem_minmax(11rem,0.85fr)_minmax(14rem,1.45fr)] lg:grid-cols-[1.25rem_5rem_minmax(12rem,0.9fr)_minmax(16rem,1.5fr)_9rem]"
+              : "grid-cols-[4.5rem_minmax(0,1fr)] sm:grid-cols-[5rem_minmax(11rem,0.85fr)_minmax(14rem,1.45fr)] lg:grid-cols-[5rem_minmax(12rem,0.9fr)_minmax(16rem,1.5fr)_9rem]",
+          )}
         >
+          {selectionMode && (
+            <span
+              aria-hidden="true"
+              className={cn(
+                "flex h-5 w-5 self-center items-center justify-center rounded border-2 transition-colors",
+                bulkSelected
+                  ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
+                  : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+              )}
+            >
+              <Check size="0.75rem" />
+            </span>
+          )}
           <div
             className={cn(
               "mari-avatar-placeholder relative h-[4.5rem] w-[4.5rem] overflow-hidden rounded-lg sm:h-20 sm:w-20",
@@ -81,7 +123,7 @@ export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: Lib
               <h2 className="truncate text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)] sm:text-base">
                 {item.name}
               </h2>
-              {selected && (
+              {!selectionMode && previewSelected && (
                 <Check
                   size="0.875rem"
                   className="shrink-0 text-[var(--marinara-chat-chrome-accent)]"
@@ -112,7 +154,12 @@ export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: Lib
             </div>
           </div>
 
-          <div className="col-span-2 min-w-0 self-center border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2.5 sm:col-span-1 sm:border-t-0 sm:pt-0">
+          <div
+            className={cn(
+              "min-w-0 self-center border-t border-[var(--marinara-chat-chrome-panel-divider)] pt-2.5 sm:col-span-1 sm:border-t-0 sm:pt-0",
+              selectionMode ? "col-span-3" : "col-span-2",
+            )}
+          >
             <p className="line-clamp-2 text-xs leading-5 text-[var(--marinara-chat-chrome-panel-text)] sm:line-clamp-3 sm:text-[0.8125rem]">
               {item.summary}
             </p>
@@ -146,31 +193,33 @@ export function LibraryListRow({ item, selected, onSelect, onEdit, onChat }: Lib
           </div>
         </button>
 
-        <div className="flex w-12 shrink-0 flex-col items-center justify-center gap-1 border-l border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--background)]/35 p-1 sm:w-14">
-          {onChat && (
+        {!selectionMode && (
+          <div className="flex w-12 shrink-0 flex-col items-center justify-center gap-1 border-l border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--background)]/35 p-1 sm:w-14">
+            {onChat && (
+              <button
+                type="button"
+                onClick={() => onChat(item)}
+                className="mari-chrome-control mari-chrome-control--primary h-10 w-10 rounded-lg p-0 transition-transform active:scale-[0.96]"
+                aria-label={t("ui.characters.characterlibraryview.chatWithValue1", { value1: item.name })}
+                title={t("ui.characters.characterlibraryview.chatNow")}
+              >
+                <MessageCircle size="0.875rem" aria-hidden="true" />
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => onChat(item)}
-              className="mari-chrome-control mari-chrome-control--primary h-10 w-10 rounded-lg p-0 transition-transform active:scale-[0.96]"
-              aria-label={t("ui.characters.characterlibraryview.chatWithValue1", { value1: item.name })}
-              title={t("ui.characters.characterlibraryview.chatNow")}
+              onClick={() => onEdit(item.id)}
+              className="mari-chrome-control h-10 w-10 rounded-lg p-0 transition-transform active:scale-[0.96]"
+              aria-label={t("ui.characters.characterlibraryview.editValue1Value2", {
+                value1: singular,
+                value2: item.name,
+              })}
+              title={t("ui.characters.characterlibraryview.editValue1", { value1: singular })}
             >
-              <MessageCircle size="0.875rem" aria-hidden="true" />
+              <Pencil size="0.875rem" aria-hidden="true" />
             </button>
-          )}
-          <button
-            type="button"
-            onClick={() => onEdit(item.id)}
-            className="mari-chrome-control h-10 w-10 rounded-lg p-0 transition-transform active:scale-[0.96]"
-            aria-label={t("ui.characters.characterlibraryview.editValue1Value2", {
-              value1: singular,
-              value2: item.name,
-            })}
-            title={t("ui.characters.characterlibraryview.editValue1", { value1: singular })}
-          >
-            <Pencil size="0.875rem" aria-hidden="true" />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
     </article>
   );

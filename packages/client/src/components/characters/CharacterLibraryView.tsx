@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   Check,
+  CheckSquare2,
   Download,
   Grid3X3,
   Hash,
@@ -13,15 +14,22 @@ import {
   Search,
   Star,
   User,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { LibraryListRow } from "../library/LibraryListRow";
 import {
   flattenCharacterPages,
   flattenPersonaPages,
   useCharacterPages,
+  useDeleteCharacter,
+  useDeletePersona,
   usePersonaPages,
 } from "../../hooks/use-characters";
+import { useLibrarySelection } from "../../hooks/use-library-selection";
+import { api } from "../../lib/api-client";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
 import { formatEstimatedTokens } from "../../lib/character-token-count";
 import {
@@ -34,6 +42,7 @@ import {
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
+import { SelectionActionBar } from "../ui/SelectionActionBar";
 import {
   useUIStore,
   type CardLibraryKind,
@@ -216,10 +225,18 @@ export function CharacterLibraryView() {
   const kind = useUIStore((s) => s.cardLibraryKind);
   const copy = LIBRARY_COPY[kind];
   const isPersonaLibrary = kind === "personas";
+  const resourceSingular = localizeUi(
+    isPersonaLibrary ? "ui.characters.cardlibrarydetailcard.persona" : "ui.characters.cardlibrarydetailcard.character",
+  );
+  const resourcePlural = localizeUi(
+    isPersonaLibrary ? "ui.characters.characterlibraryview.personas" : "ui.characters.characterlibraryview.characters",
+  );
   const closeLibrary = useUIStore((s) => s.closeCharacterLibrary);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openModal = useUIStore((s) => s.openModal);
+  const viewMode = useUIStore((s) => s.cardLibraryViewMode);
+  const setViewMode = useUIStore((s) => s.setCardLibraryViewMode);
   const characterSelectedId = useUIStore((s) => s.characterLibrarySelectedId);
   const personaSelectedId = useUIStore((s) => s.personaLibrarySelectedId);
   const setCharacterSelectedId = useUIStore((s) => s.setCharacterLibrarySelectedId);
@@ -234,7 +251,9 @@ export function CharacterLibraryView() {
   const selectedId = isPersonaLibrary ? personaSelectedId : characterSelectedId;
   const sort = isPersonaLibrary ? personaSort : characterSort;
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  const [exportingSelected, setExportingSelected] = useState(false);
+  const deleteCharacter = useDeleteCharacter();
+  const deletePersona = useDeletePersona();
   const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
   const characterPages = useCharacterPages({ enabled: !isPersonaLibrary, search: serverSearch, sort: characterSort });
   const personaPages = usePersonaPages({ enabled: isPersonaLibrary, search: serverSearch, sort: personaSort });
@@ -277,6 +296,11 @@ export function CharacterLibraryView() {
         return list;
     }
   }, [filteredCards, sort]);
+
+  const selection = useLibrarySelection(useMemo(() => sortedCards.map((card) => card.id), [sortedCards]));
+  const exitSelectionMode = selection.exitSelectionMode;
+
+  useEffect(() => exitSelectionMode(), [exitSelectionMode, kind]);
 
   const setSelectedId = useCallback(
     (id: string | null) => {
@@ -388,6 +412,72 @@ export function CharacterLibraryView() {
     else void characterPages.fetchNextPage();
   };
 
+  const handleExportSelected = useCallback(async () => {
+    if (selection.selectedIds.size === 0) return;
+    setExportingSelected(true);
+    try {
+      await api.downloadPost(
+        isPersonaLibrary ? "/characters/personas/export-bulk" : "/characters/export-bulk",
+        { ids: [...selection.selectedIds], format: "native" },
+        isPersonaLibrary ? "marinara-personas.zip" : "marinara-characters.zip",
+      );
+      toast.success(
+        localizeUi("ui.characters.characterlibraryview.exportedSelected", {
+          count: selection.selectedIds.size,
+          resource: resourcePlural,
+        }),
+      );
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : localizeUi("ui.characters.characterlibraryview.failedToExportSelected", { resource: resourcePlural }),
+      );
+    } finally {
+      setExportingSelected(false);
+    }
+  }, [isPersonaLibrary, localizeUi, resourcePlural, selection.selectedIds]);
+
+  const handleDeleteSelected = useCallback(async () => {
+    const ids = [...selection.selectedIds];
+    if (ids.length === 0) return;
+    const confirmed = await showConfirmDialog({
+      title: localizeUi("ui.characters.characterlibraryview.deleteSelectedTitle", { resource: resourcePlural }),
+      message: localizeUi("ui.characters.characterlibraryview.deleteSelectedMessage", {
+        count: ids.length,
+        resource: ids.length === 1 ? resourceSingular : resourcePlural,
+      }),
+      confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+      tone: "destructive",
+    });
+    if (!confirmed) return;
+
+    const results = await Promise.allSettled(
+      ids.map((id) => (isPersonaLibrary ? deletePersona.mutateAsync(id) : deleteCharacter.mutateAsync(id))),
+    );
+    const failedIds = ids.filter((_, index) => results[index]?.status === "rejected");
+    const deletedCount = ids.length - failedIds.length;
+    if (deletedCount > 0) {
+      toast.success(
+        localizeUi("ui.characters.characterlibraryview.deletedSelected", {
+          count: deletedCount,
+          resource: deletedCount === 1 ? resourceSingular : resourcePlural,
+        }),
+      );
+    }
+    if (failedIds.length > 0) {
+      selection.setSelectedIds(new Set(failedIds));
+      toast.error(
+        localizeUi("ui.characters.characterlibraryview.failedToDeleteSelected", {
+          count: failedIds.length,
+          resource: failedIds.length === 1 ? resourceSingular : resourcePlural,
+        }),
+      );
+      return;
+    }
+    selection.exitSelectionMode();
+  }, [deleteCharacter, deletePersona, isPersonaLibrary, localizeUi, resourcePlural, resourceSingular, selection]);
+
   const placeholderClass = isPersonaLibrary ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
   const newCardButtonClass = cn(
     "mari-panel-gradient-button h-10 min-h-10 min-w-0 px-3 text-[0.75rem]",
@@ -426,7 +516,7 @@ export function CharacterLibraryView() {
             </div>
           </div>
 
-          <div className="grid w-full grid-cols-[auto_1fr_1fr] gap-1.5 sm:ml-auto sm:w-[24rem] lg:w-[28rem]">
+          <div className="grid w-full grid-cols-[auto_repeat(3,1fr)] gap-1.5 sm:ml-auto sm:w-[24rem] lg:w-[28rem]">
             <div
               role="group"
               aria-label={localizeUi("ui.characters.characterlibraryview.viewMode")}
@@ -464,6 +554,24 @@ export function CharacterLibraryView() {
               </button>
             </div>
             <button
+              type="button"
+              onClick={selection.selectionMode ? selection.exitSelectionMode : selection.enterSelectionMode}
+              aria-pressed={selection.selectionMode}
+              className={cn(libraryToolbarButtonClass, selection.selectionMode && "mari-chrome-control--selected")}
+              title={localizeUi(
+                selection.selectionMode
+                  ? "ui.characters.characterlibraryview.exitSelectionMode"
+                  : "ui.characters.characterlibraryview.selectCards",
+              )}
+              aria-label={localizeUi(
+                selection.selectionMode
+                  ? "ui.characters.characterlibraryview.exitSelectionMode"
+                  : "ui.characters.characterlibraryview.selectCards",
+              )}
+            >
+              {selection.selectionMode ? <X size="0.75rem" /> : <CheckSquare2 size="0.75rem" />}
+            </button>
+            <button
               onClick={() => openModal(isPersonaLibrary ? "create-persona" : "create-character")}
               className={newCardButtonClass}
               title={localizeUi("ui.characters.characterlibraryview.newValue1", { value1: copy.singular })}
@@ -480,7 +588,7 @@ export function CharacterLibraryView() {
               <Download size="0.75rem" />
             </button>
 
-            <div className="relative col-span-2 min-w-0">
+            <div className="relative col-span-3 min-w-0">
               <Search
                 size="0.75rem"
                 className="mari-chrome-field-icon pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2"
@@ -521,6 +629,26 @@ export function CharacterLibraryView() {
             </div>
           </div>
         </div>
+        {selection.selectionMode && (
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--marinara-chat-chrome-panel-divider)] px-3 py-2 md:px-6">
+            <span role="status" className="text-xs font-medium text-[var(--marinara-chat-chrome-panel-muted)]">
+              {localizeUi("ui.characters.characterlibraryview.selectedCount", { count: selection.selectedIds.size })}
+            </span>
+            <button
+              type="button"
+              onClick={selection.toggleAllVisible}
+              aria-pressed={selection.allVisibleSelected}
+              className="mari-chrome-control min-h-9 px-3 text-xs"
+            >
+              <CheckSquare2 size="0.75rem" />
+              {localizeUi(
+                selection.allVisibleSelected
+                  ? "ui.characters.characterlibraryview.deselectAllVisible"
+                  : "ui.characters.characterlibraryview.selectAllVisible",
+              )}
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-0 xl:grid-cols-[minmax(0,1.1fr)_28rem]">
@@ -564,8 +692,11 @@ export function CharacterLibraryView() {
                 <LibraryListRow
                   key={card.id}
                   item={card}
-                  selected={selectedId === card.id}
+                  previewSelected={selectedId === card.id}
+                  selectionMode={selection.selectionMode}
+                  bulkSelected={selection.selectedIds.has(card.id)}
                   onSelect={setSelectedId}
+                  onToggleSelected={selection.toggleSelected}
                   onEdit={openDetailFromLibrary}
                   onChat={isPersonaLibrary ? undefined : openCharacterChat}
                 />
@@ -577,19 +708,67 @@ export function CharacterLibraryView() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-3 xl:grid-cols-3 2xl:grid-cols-4">
               {sortedCards.map((card) => {
                 const cardSummary = truncateText(card.summary, 180);
-                const isSelected = selectedId === card.id;
+                const isPreviewSelected = selectedId === card.id;
+                const isBulkSelected = selection.selectedIds.has(card.id);
                 return (
                   <Fragment key={card.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId(card.id)}
+                    <article
+                      onClick={() => {
+                        if (selection.selectionMode) selection.toggleSelected(card.id);
+                      }}
                       className={cn(
-                        "group flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_35%,transparent)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
-                        isSelected
+                        "group relative flex h-full items-stretch overflow-hidden rounded-[1.25rem] border bg-[var(--card)]/70 text-left shadow-[0_20px_50px_-32px_rgba(15,23,42,0.75)] transition-all hover:border-[var(--marinara-chat-chrome-button-border-hover)] hover:shadow-[0_24px_60px_-32px_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_35%,transparent)] sm:flex-col sm:rounded-[1.75rem] sm:hover:-translate-y-0.5",
+                        (selection.selectionMode ? isBulkSelected : isPreviewSelected)
                           ? "border-[var(--marinara-chat-chrome-button-border-active)] ring-1 ring-[var(--marinara-chat-chrome-focus-ring)]"
                           : "border-[var(--marinara-chat-chrome-panel-border)]",
                       )}
                     >
+                      {selection.selectionMode ? (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            selection.toggleSelected(card.id);
+                          }}
+                          role="checkbox"
+                          aria-checked={isBulkSelected}
+                          aria-label={localizeUi(
+                            isBulkSelected
+                              ? "ui.characters.characterlibraryview.deselectValue1"
+                              : "ui.characters.characterlibraryview.selectValue1",
+                            { value1: card.name },
+                          )}
+                          className="absolute inset-0 z-[2] flex items-start justify-start rounded-[inherit] p-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--marinara-chat-chrome-focus-ring)] sm:p-3"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--card)] shadow-sm ring-1 ring-[var(--marinara-chat-chrome-panel-border)]",
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "flex h-5 w-5 items-center justify-center rounded border-2",
+                                isBulkSelected
+                                  ? "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-button-text-active)]"
+                                  : "border-[var(--muted-foreground)]/40 bg-[var(--secondary)] text-transparent",
+                              )}
+                            >
+                              <Check size="0.75rem" />
+                            </span>
+                          </span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(card.id)}
+                          aria-label={localizeUi("ui.characters.characterlibraryview.previewValue1", {
+                            value1: card.name,
+                          })}
+                          aria-pressed={isPreviewSelected}
+                          className="absolute inset-0 z-[1] rounded-[inherit] text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--marinara-chat-chrome-focus-ring)]"
+                        />
+                      )}
                       <div
                         className={cn(
                           "mari-avatar-placeholder relative h-24 w-24 shrink-0 overflow-hidden sm:h-auto sm:w-full sm:aspect-square",
@@ -669,9 +848,9 @@ export function CharacterLibraryView() {
                           )}
                         </div>
                       </div>
-                    </button>
+                    </article>
 
-                    {isSelected && (
+                    {!selection.selectionMode && isPreviewSelected && (
                       <div className="col-span-full lg:hidden">
                         <CardLibraryDetailCard
                           card={card}
@@ -736,6 +915,15 @@ export function CharacterLibraryView() {
           </div>
         </aside>
       </div>
+      {selection.selectionMode && (
+        <SelectionActionBar
+          selectedCount={selection.selectedIds.size}
+          onExport={() => void handleExportSelected()}
+          onDelete={() => void handleDeleteSelected()}
+          exporting={exportingSelected}
+          className="mx-0 px-4 md:px-6"
+        />
+      )}
     </div>
   );
 }

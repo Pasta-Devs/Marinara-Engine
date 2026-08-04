@@ -36,6 +36,7 @@ export type ChatModeShortcut = "conversation" | "roleplay" | "game";
 export const CHARACTER_LIBRARY_SORT_OPTIONS = ["name-asc", "name-desc", "newest", "oldest", "favorites"] as const;
 export type CharacterLibrarySort = (typeof CHARACTER_LIBRARY_SORT_OPTIONS)[number];
 export type CardLibraryKind = "characters" | "personas";
+export type CardLibraryViewMode = "grid" | "list";
 export const CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS = ["all", "favorites", "non-favorites"] as const;
 export type CharacterPanelFavoriteFilter = (typeof CHARACTER_PANEL_FAVORITE_FILTER_OPTIONS)[number];
 export const LOREBOOK_PANEL_CATEGORY_OPTIONS = [
@@ -191,8 +192,7 @@ function shouldFlushUiStorageImmediately(previousValue: string | null, nextValue
   const previous = readImmediateUiStorageSnapshot(previousValue);
   const next = readImmediateUiStorageSnapshot(nextValue);
   return (
-    previous.customCursorEnabled !== next.customCursorEnabled ||
-    previous.echoChamberSizes !== next.echoChamberSizes
+    previous.customCursorEnabled !== next.customCursorEnabled || previous.echoChamberSizes !== next.echoChamberSizes
   );
 }
 export const TRACKER_PANEL_WIDTH_DEFAULT = TRACKER_PANEL_SIZE_PROFILE_WIDTHS.standard;
@@ -585,6 +585,8 @@ interface UIState {
   characterLibraryOpen: boolean;
   /** Which resource collection the shared full-page card library displays */
   cardLibraryKind: CardLibraryKind;
+  /** Last selected layout for the full-page card library */
+  cardLibraryViewMode: CardLibraryViewMode;
   /** When true, the main area shows the full-page downloadable agent catalog */
   agentCatalogOpen: boolean;
   /** Last selected character card inside the full-page character library */
@@ -912,6 +914,7 @@ interface UIState {
   setChatBackgroundBlur: (v: number) => void;
   setCharacterLibrarySelectedId: (id: string | null) => void;
   setPersonaLibrarySelectedId: (id: string | null) => void;
+  setCardLibraryViewMode: (mode: CardLibraryViewMode) => void;
   setCharacterLibrarySort: (sort: CharacterLibrarySort) => void;
   setPersonaLibrarySort: (sort: ResourcePanelSort) => void;
   setCharacterPanelSearch: (search: string) => void;
@@ -1349,6 +1352,7 @@ export const useUIStore = create<UIState>()(
       noodleNavigation: { mode: "public", view: "home" },
       characterLibraryOpen: false,
       cardLibraryKind: "characters" as CardLibraryKind,
+      cardLibraryViewMode: "list" as CardLibraryViewMode,
       agentCatalogOpen: false,
       characterLibrarySelectedId: null,
       personaLibrarySelectedId: null,
@@ -1565,8 +1569,7 @@ export const useUIStore = create<UIState>()(
       setTrackerPanelUseExpressionSprites: (enabled) => set({ trackerPanelUseExpressionSprites: enabled }),
       setTrackerPanelThoughtBubbleDisplay: (display) =>
         set({ trackerPanelThoughtBubbleDisplay: normalizeTrackerThoughtBubbleDisplay(display) }),
-      setTrackerStatDisplayMode: (display) =>
-        set({ trackerStatDisplayMode: normalizeTrackerStatDisplayMode(display) }),
+      setTrackerStatDisplayMode: (display) => set({ trackerStatDisplayMode: normalizeTrackerStatDisplayMode(display) }),
       setTrackerPanelDockedThoughtsAlwaysVisible: (visible) =>
         set({ trackerPanelDockedThoughtsAlwaysVisible: visible }),
       setTrackerPanelSizeProfile: (profile) =>
@@ -1626,6 +1629,7 @@ export const useUIStore = create<UIState>()(
       setChatBackgroundBlur: (v) => set({ chatBackgroundBlur: Math.max(0, Math.min(24, Math.round(v))) }),
       setCharacterLibrarySelectedId: (id) => set({ characterLibrarySelectedId: id }),
       setPersonaLibrarySelectedId: (id) => set({ personaLibrarySelectedId: id }),
+      setCardLibraryViewMode: (mode) => set({ cardLibraryViewMode: mode === "grid" ? "grid" : "list" }),
       setCharacterLibrarySort: (sort) => set({ characterLibrarySort: normalizeCharacterLibrarySort(sort) }),
       setPersonaLibrarySort: (sort) => set({ personaLibrarySort: normalizeBasicPanelSort(sort) }),
       setCharacterPanelSearch: (search) => set({ characterPanelSearch: normalizePanelText(search) }),
@@ -2411,7 +2415,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 88,
+      version: 89,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2873,6 +2877,11 @@ export const useUIStore = create<UIState>()(
         delete persisted.appAccentColorBeforeRgbMode;
         persisted.characterLibrarySort = normalizeCharacterLibrarySort(persisted.characterLibrarySort);
         persisted.cardLibraryKind = persisted.cardLibraryKind === "personas" ? "personas" : "characters";
+        // v88 -> v89: persist the full-page card library layout.
+        if (version <= 88 && persisted.cardLibraryViewMode === undefined) {
+          persisted.cardLibraryViewMode = "list";
+        }
+        persisted.cardLibraryViewMode = persisted.cardLibraryViewMode === "grid" ? "grid" : "list";
         persisted.personaLibrarySort = normalizeBasicPanelSort(persisted.personaLibrarySort);
         persisted.characterPanelSearch = normalizePanelText(persisted.characterPanelSearch);
         persisted.characterPanelIncludedTags = normalizePanelStringArray(persisted.characterPanelIncludedTags);
@@ -3043,6 +3052,7 @@ export const useUIStore = create<UIState>()(
         noodleNavigation: state.noodleNavigation,
         characterLibraryOpen: state.characterLibraryOpen,
         cardLibraryKind: state.cardLibraryKind,
+        cardLibraryViewMode: state.cardLibraryViewMode,
         agentCatalogOpen: state.agentCatalogOpen,
         characterLibrarySelectedId: state.characterLibrarySelectedId,
         personaLibrarySelectedId: state.personaLibrarySelectedId,
