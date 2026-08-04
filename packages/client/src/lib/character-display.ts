@@ -1,9 +1,16 @@
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+
 export interface CharacterDisplayInfo {
   name: string;
   comment?: string | null;
   description?: string | null;
   tags?: string[];
   creator?: string | null;
+  /** Normalized avatar crop from `extensions.avatarCrop` (either shape, or
+   *  null when unset/malformed). Populated by parseCharacterDisplayData so
+   *  consumers never re-parse the character data for the crop. */
+  avatarCrop?: AvatarCrop | null;
 }
 
 const LOOKUP_ALIAS_SEPARATOR = /\s+(?:-|\/|\||:|\u2013|\u2014)\s+/;
@@ -68,17 +75,23 @@ export function characterMatchesSearch(
 export function parseCharacterDisplayData(raw: { data: unknown; comment?: string | null }): CharacterDisplayInfo {
   const comment = typeof raw.comment === "string" ? raw.comment.trim() : "";
 
+  let record: Record<string, unknown> | null = null;
   try {
     const parsed = typeof raw.data === "string" ? JSON.parse(raw.data) : raw.data;
-    const record = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
-    const name = typeof record?.name === "string" && record.name.trim() ? record.name.trim() : "Unknown";
-    const description = typeof record?.description === "string" ? record.description : "";
-    const creator = typeof record?.creator === "string" ? record.creator : "";
-    const tags = Array.isArray(record?.tags)
-      ? record.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-      : [];
-    return { name, comment, description, tags, creator };
+    record = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : null;
   } catch {
-    return { name: "Unknown", comment, description: "", tags: [], creator: "" };
+    record = null;
   }
+  const name = typeof record?.name === "string" && record.name.trim() ? record.name.trim() : "Unknown";
+  const description = typeof record?.description === "string" ? record.description : "";
+  const creator = typeof record?.creator === "string" ? record.creator : "";
+  const tags = Array.isArray(record?.tags)
+    ? record.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+    : [];
+  const extensions = record?.extensions;
+  const rawAvatarCrop =
+    extensions && typeof extensions === "object" && !Array.isArray(extensions)
+      ? (extensions as Record<string, unknown>).avatarCrop
+      : undefined;
+  return { name, comment, description, tags, creator, avatarCrop: normalizeAvatarCrop(rawAvatarCrop) };
 }

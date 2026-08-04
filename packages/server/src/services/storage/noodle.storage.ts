@@ -12,6 +12,7 @@ import {
   noodleAccountPrivacySettingsSchema,
   noodleAccountSocialSettingsSchema,
   noodleSettingsSchema,
+  normalizeAvatarCrop,
   readNoodlePollFromMetadata,
   type NoodleAccount,
   type NoodleAccountKind,
@@ -22,7 +23,7 @@ import {
   type NoodleAccountSubscription,
   type NoodleAccountUpdateInput,
   type NoodlerReserveStatus,
-  type NoodleAvatarCrop,
+  type AvatarCrop,
   type NoodleAuthorSnapshot,
   type NoodleBootstrap,
   type NoodleCreateInteractionInput,
@@ -311,11 +312,10 @@ export function normalizeNoodleAccountSettings(value: unknown): NoodleAccountSet
   const rawIdentityDisclosure = nestedOrLegacy(rawPrivacy, raw, "identityDisclosure");
   const rawStagePersonality = nestedOrLegacy(rawPrivacy, raw, "stagePersonality");
   const rawAccess = parseRecord(rawPrivacy.access);
-  const normalizedAvatarCrop = rawAvatarCrop === null ? null : parseNoodleAvatarCrop(rawAvatarCrop);
+  const normalizedAvatarCrop = rawAvatarCrop === null ? null : normalizeAvatarCrop(rawAvatarCrop);
   const profile = {
     ...(rawAvatarCrop !== undefined &&
-      (rawAvatarCrop === null || normalizedAvatarCrop !== null) &&
-      validProfileField("avatarCrop", normalizedAvatarCrop)),
+      (rawAvatarCrop === null || normalizedAvatarCrop !== null) && { avatarCrop: normalizedAvatarCrop }),
     ...(rawBannerUrl !== undefined && validProfileField("bannerUrl", rawBannerUrl)),
     ...(rawLocation !== undefined && validProfileField("location", rawLocation)),
     ...(rawProfileGenerated !== undefined &&
@@ -391,38 +391,8 @@ function parseRefreshAttempts(value: unknown): NoodleRefreshAttempt[] {
   });
 }
 
-export function parseNoodleAvatarCrop(value: unknown): NoodleAvatarCrop | null {
-  let parsed = value;
-  if (typeof parsed === "string") {
-    if (!parsed.trim()) return null;
-    try {
-      parsed = JSON.parse(parsed);
-    } catch {
-      return null;
-    }
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
-  const crop = parsed as Record<string, unknown>;
-  const finite = (entry: unknown): entry is number => typeof entry === "number" && Number.isFinite(entry);
-  if (
-    finite(crop.srcX) &&
-    finite(crop.srcY) &&
-    finite(crop.srcWidth) &&
-    finite(crop.srcHeight) &&
-    crop.srcWidth > 0 &&
-    crop.srcHeight > 0
-  ) {
-    return { srcX: crop.srcX, srcY: crop.srcY, srcWidth: crop.srcWidth, srcHeight: crop.srcHeight };
-  }
-  if (finite(crop.zoom) && finite(crop.offsetX) && finite(crop.offsetY) && crop.zoom > 0) {
-    return {
-      zoom: crop.zoom,
-      offsetX: crop.offsetX,
-      offsetY: crop.offsetY,
-      ...(crop.fullImage === true ? { fullImage: true } : {}),
-    };
-  }
-  return null;
+export function parseNoodleAvatarCrop(value: unknown): AvatarCrop | null {
+  return normalizeAvatarCrop(value);
 }
 
 function parseStringArray(value: unknown): string[] {
@@ -454,7 +424,7 @@ function parseAuthorSnapshot(value: unknown): NoodleAuthorSnapshot | null {
     handle,
     displayName,
     avatarUrl: typeof parsed.avatarUrl === "string" && parsed.avatarUrl ? parsed.avatarUrl : null,
-    avatarCrop: parseNoodleAvatarCrop(parsed.avatarCrop),
+    avatarCrop: normalizeAvatarCrop(parsed.avatarCrop),
   };
 }
 
@@ -1392,7 +1362,7 @@ export function createNoodleStorage(db: DB) {
       entityId: string;
       displayName: string;
       avatarUrl?: string | null;
-      avatarCrop?: NoodleAvatarCrop | null;
+      avatarCrop?: AvatarCrop | null;
       bio?: string | null;
       invited?: boolean;
       /** Keep entity-owned identity fields current without replacing generated profile copy. */

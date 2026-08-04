@@ -8,6 +8,8 @@ import { api } from "../lib/api-client";
 import { useUIStore } from "../stores/ui.store";
 import type {
   NoodleAccount,
+  NoodleAmbientProfileRerollInput,
+  NoodleAmbientProfileRerollOutcome,
   NoodleAccountFollowUpdateInput,
   NoodleAccountKind,
   NoodleAccountProfileUpdateInput,
@@ -81,6 +83,28 @@ export function useNoodle(enabled = true) {
     refetchIntervalInBackground: false,
     structuralSharing: (current, next) =>
       preservePollVotes(current as NoodleBootstrap | undefined, next as NoodleBootstrap),
+  });
+}
+
+export function useRerollAmbientNoodleProfiles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NoodleAmbientProfileRerollInput) =>
+      api.post<{
+        accounts: NoodleAccount[];
+        outcomes: NoodleAmbientProfileRerollOutcome[];
+      }>("/noodle/ambient-profiles/reroll", input),
+    onSuccess: ({ accounts }) => {
+      qc.setQueryData<NoodleBootstrap | undefined>(noodleKeys.bootstrap(), (current) => {
+        if (!current) return current;
+        const updatedById = new Map(accounts.map((account) => [account.id, account]));
+        return {
+          ...current,
+          accounts: current.accounts.map((account) => updatedById.get(account.id) ?? account),
+        };
+      });
+      return qc.invalidateQueries({ queryKey: noodleKeys.bootstrap() });
+    },
   });
 }
 
@@ -398,7 +422,15 @@ export function useToggleNoodlerSubscription() {
 export function useToggleNoodlerFollow() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ creatorAccountId, personaId, followed }: { creatorAccountId: string; personaId: string; followed: boolean }) =>
+    mutationFn: ({
+      creatorAccountId,
+      personaId,
+      followed,
+    }: {
+      creatorAccountId: string;
+      personaId: string;
+      followed: boolean;
+    }) =>
       api.patch<NoodlerViewerScope>(`/noodle/noodler/accounts/${encodeURIComponent(creatorAccountId)}/follow`, {
         personaId,
         followed,

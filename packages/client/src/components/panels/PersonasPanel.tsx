@@ -39,7 +39,8 @@ import {
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
@@ -983,7 +984,7 @@ export function PersonasPanel() {
                                 src={p.avatarPath}
                                 alt=""
                                 className="h-full w-full rounded-lg object-cover"
-                                style={getAvatarCropStyle(parseAvatarCropJson(p.avatarCrop))}
+                                style={getAvatarCropStyle(normalizeAvatarCrop(p.avatarCrop))}
                               />
                             ) : (
                               <User size="0.625rem" />
@@ -1187,7 +1188,7 @@ export function PersonasPanel() {
                       alt=""
                       loading="lazy"
                       className="h-full w-full rounded-xl object-cover"
-                      style={getAvatarCropStyle(parseAvatarCropJson(persona.avatarCrop))}
+                      style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
                     />
                   ) : (
                     <User size="1rem" />

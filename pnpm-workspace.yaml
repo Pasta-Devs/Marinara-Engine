@@ -1,6 +1,11 @@
 packages:
   - "packages/*"
 
+# Let plain pnpm fallbacks delegate to the exact repo pin. The pnpm engine floor
+# makes an already-running older launcher fail closed before dependency install;
+# the refreshed launcher then obtains the hash-pinned version on relaunch.
+managePackageManagerVersions: true
+
 # Supply-chain guardrails: delay newly published package versions long enough for
 # registry takedowns and advisory systems to catch common compromise waves.
 minimumReleaseAge: 1440

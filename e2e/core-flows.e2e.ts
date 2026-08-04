@@ -8600,6 +8600,181 @@ test("Conversation Chat Settings can attach and retain custom agents", async ({ 
   }
 });
 
+test("Conversation Chat Settings exposes and persists Long-Term Memory activation", async ({
+  page,
+  request,
+}, testInfo) => {
+  const suffix = Date.now().toString(36);
+  const callsPackage = {
+    id: "conversation-calls",
+    version: "1.0.1",
+    manifest: {
+      schemaVersion: 1,
+      id: "conversation-calls",
+      name: "Conversation Calls",
+      version: "1.0.1",
+      description: "Audio and video calls for Conversation chats.",
+      engine: { min: "2.3.0", maxExclusive: "3.0.0" },
+      kind: ["agent", "conversation-calls"],
+      entrypoints: { client: "client.js", agents: "agents.json" },
+      files: [],
+      permissions: ["ui"],
+      restartRequired: true,
+    },
+    installedAt: "2026-07-14T00:00:00.000Z",
+    status: "active",
+    error: null,
+    readiness: "ready",
+    readinessError: null,
+    legacy: false,
+  };
+  let chatId: string | null = null;
+  try {
+    const chatResponse = await request.post("/api/chats", {
+      data: { name: `Conversation Long-Term Memory Smoke ${suffix}`, mode: "conversation", characterIds: [] },
+    });
+    expect(chatResponse.ok()).toBeTruthy();
+    const chat = (await chatResponse.json()) as { id: string };
+    chatId = chat.id;
+    const metadataResponse = await request.patch(`/api/chats/${chat.id}/metadata`, {
+      data: { enableAgents: true, activeAgentIds: ["sibling-agent"] },
+    });
+    expect(metadataResponse.ok()).toBeTruthy();
+
+    const readMetadata = async () => {
+      const response = await request.get(`/api/chats/${chat.id}`);
+      if (!response.ok()) return null;
+      const current = (await response.json()) as { metadata?: unknown };
+      return typeof current.metadata === "string"
+        ? (JSON.parse(current.metadata) as Record<string, unknown>)
+        : ((current.metadata ?? {}) as Record<string, unknown>);
+    };
+    const openAgentsSection = async (drawer: Locator) => {
+      const section = drawer.locator('[role="button"][aria-expanded]').filter({ hasText: /^Agents/ });
+      if ((await section.getAttribute("aria-expanded")) !== "true") await section.click();
+      await expect(section).toHaveAttribute("aria-expanded", "true");
+    };
+    const openSettings = async () => {
+      if (testInfo.project.name.includes("mobile")) {
+        await page.getByRole("button", { name: "More options", exact: true }).click();
+      }
+      await page.getByRole("button", { name: "Chat Settings", exact: true }).filter({ visible: true }).click();
+    };
+
+    await page.route("**/api/capability-packages/installed", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          callsPackage,
+          {
+            id: "long-term-memory",
+            version: "1.1.4",
+            manifest: {
+              schemaVersion: 2,
+              id: "long-term-memory",
+              name: "Long-Term Memory",
+              version: "1.1.4",
+              description: "Long-Term Memory fixture.",
+              engine: { min: "2.4.1", maxExclusive: "4.0.0" },
+              kind: ["agent"],
+              entrypoints: { agents: "agents.json", client: "client.js" },
+              files: [{ path: "client.js", sha256: "0".repeat(64), bytes: 1 }],
+              permissions: ["ui"],
+              restartRequired: false,
+            },
+            installedAt: "2026-01-01T00:00:00.000Z",
+            status: "active",
+            error: null,
+            readiness: "ready",
+            readinessError: null,
+            legacy: false,
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/capability-packages/long-term-memory/client*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: `customElements.define("marinara-capability-long-term-memory", class extends HTMLElement {
+          connectedCallback() {
+            this.innerHTML = '<div data-ltm-surface="chat-settings"><label>Recall style<select data-ltm-control="select"><option>Balanced</option></select></label><label>Recall context budget<input data-ltm-control="budget" type="number" value="4096"></label><label>Maximum memories<input data-ltm-control="max-chunks" type="number" value="20"></label></div>';
+          }
+        });`,
+      });
+    });
+    await page.route("**/api/capability-packages/conversation-calls/client*", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/javascript",
+        body: 'customElements.define("marinara-capability-conversation-calls", class extends HTMLElement {});',
+      });
+    });
+    await page.route("**/api/capability-packages/agents", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: "long-term-memory",
+            name: "Long-Term Memory",
+            description: "Long-Term Memory fixture.",
+            phase: "pre_generation",
+            enabledByDefault: false,
+            category: "misc",
+            defaultPromptTemplate: "",
+          },
+        ]),
+      });
+    });
+    await page.route("**/api/agents", async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: "[]" });
+    });
+    await page.addInitScript((id) => localStorage.setItem("marinara-active-chat-id", id), chat.id);
+
+    await page.goto("/");
+    await openSettings();
+    const drawer = page.locator(".mari-chat-settings-drawer");
+    await openAgentsSection(drawer);
+    const agentsSection = drawer.locator('[data-chat-settings-section="conversation-agents"]');
+    const toggle = agentsSection.getByRole("checkbox", { name: "Long-Term Memory", exact: true });
+    await expect(toggle).toBeVisible();
+    await expect(toggle).not.toBeChecked();
+    const calls = drawer.locator("marinara-capability-conversation-calls");
+    const ltm = drawer.locator("marinara-capability-long-term-memory");
+    await expect(calls).toBeVisible();
+    await expect(ltm).toBeVisible();
+    const callsBox = await calls.boundingBox();
+    const ltmBox = await ltm.boundingBox();
+    expect(callsBox).not.toBeNull();
+    expect(ltmBox).not.toBeNull();
+    expect(ltmBox!.y).toBeGreaterThan(callsBox!.y);
+    await expect(drawer.locator('[data-ltm-control="select"]')).toBeVisible();
+    await expect(drawer.locator('[data-ltm-control="budget"]')).toBeVisible();
+    await expect(drawer.locator('[data-ltm-control="max-chunks"]')).toBeVisible();
+
+    await toggle.check();
+    await expect
+      .poll(readMetadata)
+      .toMatchObject({ enableAgents: true, activeAgentIds: ["sibling-agent", "long-term-memory"] });
+    await expect(toggle).toBeChecked();
+
+    await page.reload();
+    await openSettings();
+    const reloadedDrawer = page.locator(".mari-chat-settings-drawer");
+    await openAgentsSection(reloadedDrawer);
+    const reloadedAgentsSection = reloadedDrawer.locator('[data-chat-settings-section="conversation-agents"]');
+    const reloadedToggle = reloadedAgentsSection.getByRole("checkbox", { name: "Long-Term Memory", exact: true });
+    await expect(reloadedToggle).toBeChecked();
+    await reloadedToggle.uncheck();
+    await expect.poll(readMetadata).toMatchObject({ enableAgents: true, activeAgentIds: ["sibling-agent"] });
+    await expect(reloadedToggle).not.toBeChecked();
+  } finally {
+    if (chatId) await request.delete(`/api/chats/${chatId}`);
+  }
+});
+
 test("Secret Plot run interval stays editable across repeated commits", async ({ page, request }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Secret Plot interval editing is covered on desktop.");
 

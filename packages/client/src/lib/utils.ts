@@ -1,7 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import type { CSSProperties } from "react";
-import type { LegacyPersonaAvatarCrop, PersonaAvatarCrop } from "@marinara-engine/shared";
+import type { AvatarCrop, LegacyAvatarCrop } from "@marinara-engine/shared";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -42,63 +42,9 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** Client-facing name for the shared current avatar crop contract. */
-export type AvatarCrop = PersonaAvatarCrop;
-
-/** Client-facing name for the shared legacy avatar crop contract. */
-export type LegacyAvatarCrop = LegacyPersonaAvatarCrop;
-
-/** Union alias for either crop shape — handy when threading a value through
- *  type-narrow interfaces that just need "a crop, either format". */
-export type AvatarCropValue = AvatarCrop | LegacyAvatarCrop;
-
 /** Discriminator: legacy crops have `zoom`, current crops have `srcWidth`. */
-export function isLegacyAvatarCrop(c: AvatarCrop | LegacyAvatarCrop): c is LegacyAvatarCrop {
-  return typeof (c as LegacyAvatarCrop).zoom === "number" && typeof (c as AvatarCrop).srcWidth !== "number";
-}
-
-/** Parses a JSON-encoded avatarCrop string (as stored on persona rows and as
- *  emitted from extensions on character rows when serialized) with defensive
- *  shape validation. Accepts either the current source-relative shape
- *  (srcX/Y/W/H) or the legacy zoom+offset shape, so a malformed cell never
- *  breaks rendering — returns null and the caller falls back to the uncropped
- *  render. */
-export function parseAvatarCropJson(raw: string | undefined | null): AvatarCrop | LegacyAvatarCrop | null {
-  if (!raw) return null;
-  try {
-    const obj = JSON.parse(raw);
-    if (!obj || typeof obj !== "object") return null;
-    if (
-      Number.isFinite(obj.srcX) &&
-      Number.isFinite(obj.srcY) &&
-      Number.isFinite(obj.srcWidth) &&
-      Number.isFinite(obj.srcHeight) &&
-      obj.srcWidth > 0 &&
-      obj.srcHeight > 0 &&
-      obj.srcX >= 0 &&
-      obj.srcY >= 0 &&
-      obj.srcX + obj.srcWidth <= 1.001 &&
-      obj.srcY + obj.srcHeight <= 1.001
-    ) {
-      return {
-        srcX: obj.srcX,
-        srcY: obj.srcY,
-        srcWidth: obj.srcWidth,
-        srcHeight: obj.srcHeight,
-      };
-    }
-    if (Number.isFinite(obj.zoom) && Number.isFinite(obj.offsetX) && Number.isFinite(obj.offsetY) && obj.zoom > 0) {
-      return {
-        zoom: obj.zoom,
-        offsetX: obj.offsetX,
-        offsetY: obj.offsetY,
-        ...(obj.fullImage ? { fullImage: true } : {}),
-      };
-    }
-  } catch {
-    /* fall through to null */
-  }
-  return null;
+export function isLegacyAvatarCrop(c: AvatarCrop): c is LegacyAvatarCrop {
+  return "zoom" in c;
 }
 
 /** Returns inline styles for a cropped avatar image. Container must have
@@ -116,7 +62,7 @@ export function parseAvatarCropJson(raw: string | undefined | null): AvatarCrop 
  *    the image, because a square-in-source-pixels crop makes the `<img>` element
  *    box take the source's aspect ratio, and `object-fit: fill` then fills that
  *    box undistorted. */
-export function getAvatarCropStyle(crop?: AvatarCrop | LegacyAvatarCrop | null): CSSProperties {
+export function getAvatarCropStyle(crop?: AvatarCrop | null): CSSProperties {
   if (!crop) return {};
 
   if (isLegacyAvatarCrop(crop)) {

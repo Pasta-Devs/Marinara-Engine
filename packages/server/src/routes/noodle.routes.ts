@@ -10,6 +10,7 @@ import {
   createNoodlePoll,
   canManageNoodleReply,
   noodleAccountFollowUpdateSchema,
+  noodleAmbientProfileRerollSchema,
   noodleAccountProfileUpdateSchema,
   noodleAccountSettingsPatchSchema,
   noodleAccountUpdateSchema,
@@ -59,6 +60,8 @@ import { resolveNoodleAvatarCropAfterProfileUpdate } from "../services/noodle/no
 import { isAllowedImageBuffer, safeFetch } from "../utils/security.js";
 
 import { createPublicNoodleGenerationService } from "../services/noodle/noodle-public-generation.service.js";
+import { rerollAmbientNoodleProfiles } from "../services/noodle/noodle-ambient-profile-generation.service.js";
+import { ensureAmbientNoodleAccounts, isAmbientNoodleAccount } from "../services/noodle/noodle-ambient-profiles.js";
 import { createPublicNoodleImagesService } from "../services/noodle/noodle-public-images.service.js";
 import {
   buildNoodlerPublicIdentity,
@@ -73,13 +76,11 @@ import {
 } from "../services/noodle/noodle-noodler-post.operation.js";
 import { tryNoodlerAccountOperation } from "../services/noodle/noodle-noodler-account-operation-lock.js";
 import { generateAndApplyNoodlerCreatorReply } from "../services/noodle/noodle-noodler-creator-reply.operation.js";
-import {
-  admissionModeForRequest,
-  isConnectionAdmissionFailure,
-} from "../services/generation/connection-admission.js";
+import { admissionModeForRequest, isConnectionAdmissionFailure } from "../services/generation/connection-admission.js";
 import { generateNoodlerStageProfileDraft } from "../services/noodle/noodle-stage-profile-draft.service.js";
 import { canViewNoodlerPost, isNoodlerHiddenFromViewer } from "../services/noodle/noodler-access.js";
 import { createNoodlerNoodleImagesService } from "../services/noodle/noodle-noodler-images.service.js";
+import { claimNoodleOperation } from "../services/noodle/noodle-operation-lock.js";
 import {
   NOODLER_MEDIA_URL_PREFIX,
   noodlerPostMediaUrlForPersona,
@@ -117,6 +118,8 @@ const noodleImagePromptConfirmationSchema = z.object({
   debugMode: z.boolean().optional(),
 });
 
+/** The `identity` lock is shared by refresh, reroll, and profile edits, so the 409 stays operation-neutral. */
+const NOODLE_IDENTITY_LOCK_BUSY = "Another Noodle identity operation is already running. Wait for it to finish.";
 const NOODLER_MEDIA_MAX_BYTES = 20 * 1024 * 1024;
 const NOODLER_MEDIA_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".avif"]);
 
@@ -270,7 +273,6 @@ export async function noodleRoutes(app: FastifyInstance) {
   const publicGeneration = createPublicNoodleGenerationService(app.db);
   const publicImages = createPublicNoodleImagesService(app.db);
   const noodlerImages = createNoodlerNoodleImagesService(app.db);
-  let refreshInFlight = false;
 
   async function resolveNoodlerPublicIdentity(publicAccount: NoodleAccount) {
     const sourceCharacter =
@@ -286,6 +288,43 @@ export async function noodleRoutes(app: FastifyInstance) {
     const parsed = noodleSettingsUpdateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
     return noodle.updateSettings(parsed.data);
+  });
+
+  app.post("/ambient-profiles/reroll", async (req, reply) => {
+    const parsed = noodleAmbientProfileRerollSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
+    const releaseOperation = claimNoodleOperation("identity");
+    if (!releaseOperation) return reply.code(409).send({ error: NOODLE_IDENTITY_LOCK_BUSY });
+    try {
+      const settings = await noodle.getSettings();
+      const connectionId = settings.generationConnectionId;
+      if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
+      const connection = await connections.getWithKey(connectionId);
+      if (!connection) return reply.code(404).send({ error: "Noodle generation connection not found" });
+      await ensureAmbientNoodleAccounts(noodle, settings.allowRandomUsers);
+      const accounts = (
+        await Promise.all(parsed.data.accountIds.map((accountId) => noodle.getAccountById(accountId)))
+      ).filter((account): account is NoodleAccount => account !== null);
+      if (
+        accounts.length !== parsed.data.accountIds.length ||
+        accounts.some((account) => !isAmbientNoodleAccount(account))
+      ) {
+        return reply.code(400).send({ error: "Only managed Ambient Noodle profiles can be rerolled." });
+      }
+      return await rerollAmbientNoodleProfiles({
+        db: app.db,
+        noodle,
+        accounts,
+        connection,
+        debugMode: parsed.data.debugMode,
+      });
+    } catch (error) {
+      if (isConnectionAdmissionFailure(error)) return reply.code(409).send({ error: getErrorMessage(error) });
+      logger.error(error, "[noodle] Ambient profile reroll failed");
+      return reply.code(500).send({ error: getErrorMessage(error) });
+    } finally {
+      releaseOperation();
+    }
   });
 
   app.get("/noodler/accounts", async (_req, reply) => {
@@ -990,15 +1029,20 @@ export async function noodleRoutes(app: FastifyInstance) {
   app.put("/refresh-schedule", async (req, reply) => {
     const parsed = noodleRescheduleRefreshSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    if (refreshInFlight) return reply.code(409).send({ error: "Wait for the current Noodle refresh to finish." });
+    // Hold the lock across the read-modify-write: a bare check leaves a window for a refresh
+    // to claim in between and have its schedule overwritten.
+    const releaseOperation = claimNoodleOperation("identity");
+    if (!releaseOperation) return reply.code(409).send({ error: NOODLE_IDENTITY_LOCK_BUSY });
     const at = new Date();
-    const schedule = await noodle.ensureRefreshSchedule(at);
     try {
+      const schedule = await noodle.ensureRefreshSchedule(at);
       const rescheduled = rescheduleNoodleRefreshTime(schedule, parsed.data.scheduledTime, parsed.data.time, at);
       await noodle.saveRefreshSchedule(rescheduled);
       return noodleRefreshSchedulerStatus(rescheduled, at);
     } catch (error) {
       return reply.code(400).send({ error: error instanceof Error ? error.message : "Could not reschedule refresh." });
+    } finally {
+      releaseOperation();
     }
   });
 
@@ -1006,42 +1050,46 @@ export async function noodleRoutes(app: FastifyInstance) {
     const { id } = req.params as { id: string };
     const parsed = noodleAccountUpdateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    let updated: NoodleAccount | null;
+    const releaseOperation = claimNoodleOperation("identity");
+    if (!releaseOperation) return reply.code(409).send({ error: NOODLE_IDENTITY_LOCK_BUSY });
     try {
-      updated = await noodle.updateAccount(id, parsed.data);
+      const updated = await noodle.updateAccount(id, parsed.data);
+      if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
+      return updated;
     } catch (error) {
       if (isFileUniqueConstraintError(error, "noodle_accounts", ["handle"])) {
         return reply.code(409).send({ code: "NOODLE_HANDLE_TAKEN", error: "That Noodle handle is already in use." });
       }
       throw error;
+    } finally {
+      releaseOperation();
     }
-    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
-    return updated;
   });
 
   app.put("/accounts/:id/profile", async (req, reply) => {
     const { id } = req.params as { id: string };
     const parsed = noodleAccountProfileUpdateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: parsed.error.flatten() });
-    const existing = await noodle.getAccountById(id);
-    if (!existing) return reply.code(404).send({ error: "Noodle account not found" });
-    const sourceCharacter = existing.kind === "character" ? await characters.getById(existing.entityId) : null;
-    const avatarCrop = resolveNoodleAvatarCropAfterProfileUpdate({
-      currentAvatarUrl: existing.avatarUrl,
-      nextAvatarUrl: parsed.data.avatarUrl,
-      currentCrop: existing.avatarCrop,
-      sourceAvatarUrl: sourceCharacter?.avatarPath,
-      sourceCrop: sourceCharacter ? characterAvatarCrop(sourceCharacter) : null,
-    });
-    const profileFieldsChanged =
-      existing.kind === "character" &&
-      (parsed.data.handle !== undefined ||
-        parsed.data.displayName !== undefined ||
-        parsed.data.bio !== undefined ||
-        parsed.data.avatarUrl !== undefined);
-    let updated: NoodleAccount | null;
+    const releaseOperation = claimNoodleOperation("identity");
+    if (!releaseOperation) return reply.code(409).send({ error: NOODLE_IDENTITY_LOCK_BUSY });
     try {
-      updated = await noodle.updateAccountProfile(id, {
+      const existing = await noodle.getAccountById(id);
+      if (!existing) return reply.code(404).send({ error: "Noodle account not found" });
+      const sourceCharacter = existing.kind === "character" ? await characters.getById(existing.entityId) : null;
+      const avatarCrop = resolveNoodleAvatarCropAfterProfileUpdate({
+        currentAvatarUrl: existing.avatarUrl,
+        nextAvatarUrl: parsed.data.avatarUrl,
+        currentCrop: existing.avatarCrop,
+        sourceAvatarUrl: sourceCharacter?.avatarPath,
+        sourceCrop: sourceCharacter ? characterAvatarCrop(sourceCharacter) : null,
+      });
+      const profileFieldsChanged =
+        (existing.kind === "character" || isAmbientNoodleAccount(existing)) &&
+        (parsed.data.handle !== undefined ||
+          parsed.data.displayName !== undefined ||
+          parsed.data.bio !== undefined ||
+          parsed.data.avatarUrl !== undefined);
+      const updated = await noodle.updateAccountProfile(id, {
         ...parsed.data,
         ...((profileFieldsChanged || parsed.data.profile) && {
           profile: {
@@ -1051,14 +1099,16 @@ export async function noodleRoutes(app: FastifyInstance) {
           },
         }),
       });
+      if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
+      return updated;
     } catch (error) {
       if (isFileUniqueConstraintError(error, "noodle_accounts", ["handle"])) {
         return reply.code(409).send({ code: "NOODLE_HANDLE_TAKEN", error: "That Noodle handle is already in use." });
       }
       throw error;
+    } finally {
+      releaseOperation();
     }
-    if (!updated) return reply.code(404).send({ error: "Noodle account not found" });
-    return updated;
   });
 
   app.patch("/accounts/:id/settings", async (req, reply) => {
@@ -1505,35 +1555,32 @@ export async function noodleRoutes(app: FastifyInstance) {
         return reply.code(500).send({ error: getErrorMessage(error) });
       }
     }
-    const settings = await noodle.getSettings();
-    const connectionId = decoded.data.connectionId ?? settings.generationConnectionId;
-    if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
-    const conn = await connections.getWithKey(connectionId);
-    if (!conn) return reply.code(404).send({ error: "Noodle generation connection not found" });
-    const imageCaptioning = await resolveImageCaptioningRuntime({
-      chatMeta: settings.imageCaptioningUseConnectionDefault
-        ? {}
-        : {
-            imageCaptioningEnabled: settings.imageCaptioningEnabled,
-            imageCaptioningConnectionId: settings.imageCaptioningConnectionId,
-          },
-      fallbackConnectionId: connectionId,
-      connections,
-    });
-    const imageConnection = settings.enableImagePrompts
-      ? settings.imageGenerationConnectionId
-        ? await connections.getWithKey(settings.imageGenerationConnectionId)
-        : await connections.getDefaultForImageGeneration()
-      : null;
-    if (settings.enableImagePrompts && !imageConnection) {
-      return reply.code(400).send({ error: "Select a Noodle image generation connection first." });
-    }
-    if (refreshInFlight) {
-      return reply.code(409).send({ error: "A Noodle timeline refresh is already running." });
-    }
-    refreshInFlight = true;
-
+    const releaseOperation = claimNoodleOperation("identity");
+    if (!releaseOperation) return reply.code(409).send({ error: NOODLE_IDENTITY_LOCK_BUSY });
     try {
+      const settings = await noodle.getSettings();
+      const connectionId = decoded.data.connectionId ?? settings.generationConnectionId;
+      if (!connectionId) return reply.code(400).send({ error: "Select a Noodle generation connection first." });
+      const conn = await connections.getWithKey(connectionId);
+      if (!conn) return reply.code(404).send({ error: "Noodle generation connection not found" });
+      const imageCaptioning = await resolveImageCaptioningRuntime({
+        chatMeta: settings.imageCaptioningUseConnectionDefault
+          ? {}
+          : {
+              imageCaptioningEnabled: settings.imageCaptioningEnabled,
+              imageCaptioningConnectionId: settings.imageCaptioningConnectionId,
+            },
+        fallbackConnectionId: connectionId,
+        connections,
+      });
+      const imageConnection = settings.enableImagePrompts
+        ? settings.imageGenerationConnectionId
+          ? await connections.getWithKey(settings.imageGenerationConnectionId)
+          : await connections.getDefaultForImageGeneration()
+        : null;
+      if (settings.enableImagePrompts && !imageConnection) {
+        return reply.code(400).send({ error: "Select a Noodle image generation connection first." });
+      }
       const generated = await publicGeneration.generate({
         connection: conn,
         imageConnection,
@@ -1551,7 +1598,7 @@ export async function noodleRoutes(app: FastifyInstance) {
       if (isConnectionAdmissionFailure(error)) return reply.code(409).send({ error: getErrorMessage(error) });
       return reply.code(500).send({ error: getErrorMessage(error) });
     } finally {
-      refreshInFlight = false;
+      releaseOperation();
     }
   });
 }

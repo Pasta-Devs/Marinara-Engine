@@ -18,7 +18,8 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
 import {
@@ -50,7 +51,7 @@ export interface CharacterSheetCard {
   status?: string;
   level?: number;
   avatarUrl?: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
   stats?: Array<{ name: string; value: number; max?: number; color?: string }>;
   inventory?: Array<{ name: string; quantity?: number; location?: string }>;
   customFields?: Record<string, string>;

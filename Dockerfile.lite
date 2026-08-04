@@ -21,7 +21,7 @@ ARG BUILD_BRANCH
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24 npm && \
-    npm install -g pnpm@10.33.2
+    npm install -g pnpm@10.34.5
 
 ENV MARINARA_LITE=true
 ENV VITE_MARINARA_LITE=true
@@ -61,7 +61,7 @@ FROM cgr.dev/chainguard/wolfi-base AS deps
 WORKDIR /app
 
 RUN apk add --no-cache nodejs-24 npm && \
-    npm install -g pnpm@10.33.2
+    npm install -g pnpm@10.34.5
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
 COPY packages/shared/package.json packages/shared/

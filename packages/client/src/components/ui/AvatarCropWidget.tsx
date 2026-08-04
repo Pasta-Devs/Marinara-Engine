@@ -13,7 +13,8 @@
 // ratio without distortion.
 import { useEffect, useRef, useState } from "react";
 import { Crop, Maximize2, RotateCcw, Trash2, X } from "lucide-react";
-import { type AvatarCrop, type LegacyAvatarCrop, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
+import type { AvatarCrop, SourceRectAvatarCrop } from "@marinara-engine/shared";
+import { getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface CropPx {
@@ -30,10 +31,10 @@ export interface AvatarCropWidgetProps {
   alt: string;
   /** Currently saved crop. Pass null when none has been set. Accepts the legacy
    *  shape for read; on first interaction the widget writes the current shape. */
-  crop: AvatarCrop | LegacyAvatarCrop | null;
+  crop: AvatarCrop | null;
   /** Fired on every change (drag, corner resize, reset). Always emits the
-   *  current AvatarCrop shape. */
-  onChange: (next: AvatarCrop) => void;
+   *  current source-rectangle shape. */
+  onChange: (next: SourceRectAvatarCrop) => void;
   onRemove?: () => void;
   removing?: boolean;
 }
@@ -204,7 +205,7 @@ export function AvatarCropWidget({ src, alt, crop, onChange, onRemove, removing 
 
   // Live preview reads cropPx (instant) rather than the saved crop prop, so the
   // preview stays in sync with the overlay even between onChange ticks.
-  const previewCrop: AvatarCrop | null =
+  const previewCrop: SourceRectAvatarCrop | null =
     imgRect && cropPx
       ? {
           srcX: cropPx.x / imgRect.w,

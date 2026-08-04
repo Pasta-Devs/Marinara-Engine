@@ -6,8 +6,7 @@
 // The active chat's autonomous messaging is handled by ConversationView.
 
 import { useEffect, useRef } from "react";
-import type { Chat, Message } from "@marinara-engine/shared";
-import type { AvatarCropValue } from "../lib/utils";
+import { normalizeAvatarCrop, type AvatarCrop, type Chat, type Message } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "../lib/api-client";
@@ -255,14 +254,14 @@ export function useBackgroundAutonomousPolling() {
                 // Resolve character name for the notification
                 let charName = "Someone";
                 let charAvatar: string | null = null;
-                let charAvatarCrop: AvatarCropValue | null = null;
+                let charAvatarCrop: AvatarCrop | null = null;
                 try {
                   // Find the triggering character's name
                   const charRow = await api.get<RawCharacter>(`/characters/${characterId}`);
                   if (charRow) {
                     const data = typeof charRow.data === "string" ? JSON.parse(charRow.data) : charRow.data;
                     if (data?.name) charName = data.name;
-                    charAvatarCrop = data?.extensions?.avatarCrop ?? null;
+                    charAvatarCrop = normalizeAvatarCrop(data?.extensions?.avatarCrop);
                     charAvatar = charRow.avatarPath ?? null;
                   }
                 } catch {

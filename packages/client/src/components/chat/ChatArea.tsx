@@ -64,6 +64,7 @@ import {
   BUILT_IN_AGENTS,
   PROFESSOR_MARI_ID,
   buildGuidedGenerationInstructionMessage,
+  normalizeAvatarCrop,
   normalizeManualTrackerAgentTypes,
   type AchievementEvent,
   type GeneratedSceneVideo,
@@ -75,7 +76,7 @@ import { resolveLiveConversationStatus } from "../../lib/conversation-presence-s
 import { useUIStore } from "../../stores/ui.store";
 import { useAgentStore, EMPTY_AGENT_TYPES } from "../../stores/agent.store";
 import { illustratorRetryTargetsForFailures } from "../../lib/agent-failures";
-import { cn, parseAvatarCropJson } from "../../lib/utils";
+import { cn } from "../../lib/utils";
 import { Modal } from "../ui/Modal";
 import { useEncounter } from "../../hooks/use-encounter";
 import { useScene } from "../../hooks/use-scene";
@@ -362,7 +363,7 @@ function toCharacterMapValue(char: CharacterRow): CharacterMapValue {
       nameColor: extensions.nameColor || undefined,
       dialogueColor: extensions.dialogueColor || undefined,
       boxColor: extensions.boxColor || undefined,
-      avatarCrop: extensions.avatarCrop || null,
+      avatarCrop: normalizeAvatarCrop(extensions.avatarCrop),
       conversationStatus: extensions.conversationStatus || undefined,
       conversationActivity: extensions.conversationActivity || undefined,
     };
@@ -937,7 +938,7 @@ export function ChatArea() {
           scenario: snapshot.scenario ?? "",
           example: snapshot.example ?? "",
           avatarUrl: snapshot.avatarUrl ?? null,
-          avatarCrop: snapshot.avatarCrop ?? null,
+          avatarCrop: normalizeAvatarCrop(snapshot.avatarCrop),
           nameColor: snapshot.nameColor,
           dialogueColor: snapshot.dialogueColor,
           boxColor: snapshot.boxColor,
@@ -1020,14 +1021,14 @@ export function ChatArea() {
       if (c.id === PROFESSOR_MARI_ID) return [];
       try {
         const parsed = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
-        const display = parseCharacterDisplayData(c);
+        const display = parseCharacterDisplayData({ data: parsed, comment: c.comment });
         return [
           {
             id: c.id,
             name: display.name,
             comment: display.comment,
             avatarUrl: c.avatarPath ?? undefined,
-            avatarCrop: parsed.extensions?.avatarCrop || null,
+            avatarCrop: display.avatarCrop ?? null,
             nameColor: parsed.extensions?.nameColor || undefined,
             dialogueColor: parsed.extensions?.dialogueColor || undefined,
             description: parsed.description ?? "",
@@ -1049,8 +1050,7 @@ export function ChatArea() {
     // falls back to the globally active account Persona.
     const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
     if (!persona) return undefined;
-    const avatarCrop =
-      typeof persona.avatarCrop === "string" ? parseAvatarCropJson(persona.avatarCrop) : (persona.avatarCrop ?? null);
+    const avatarCrop = normalizeAvatarCrop(persona.avatarCrop);
     return {
       id: persona.id,
       name: persona.name,

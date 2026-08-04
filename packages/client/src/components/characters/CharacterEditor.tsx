@@ -99,14 +99,8 @@ import {
   MessageCircle,
   Pencil,
 } from "lucide-react";
-import {
-  cn,
-  copyToClipboard,
-  generateClientId,
-  getAvatarCropStyle,
-  type AvatarCrop,
-  type LegacyAvatarCrop,
-} from "../../lib/utils";
+import { cn, copyToClipboard, generateClientId, getAvatarCropStyle } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
 import { buildCardAssetMarkdown } from "../../lib/card-asset-links";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -999,7 +993,7 @@ export function CharacterEditor() {
                 src={avatarPreview}
                 alt={formData.name}
                 className="pointer-events-none h-full w-full object-cover"
-                style={getAvatarCropStyle(formData.extensions.avatarCrop as AvatarCrop | LegacyAvatarCrop | undefined)}
+                style={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
               />
             ) : (
               <User size="1.375rem" className="text-white" />
@@ -1445,7 +1439,7 @@ function MetadataTab({
   const { t } = useTranslation();
   // Read existing crop in either current or legacy shape; the widget handles both
   // and writes back the current shape on first interaction.
-  const savedCrop = (formData.extensions.avatarCrop as AvatarCrop | LegacyAvatarCrop | undefined) ?? null;
+  const savedCrop = normalizeAvatarCrop(formData.extensions.avatarCrop);
 
   return (
     <div className="space-y-5">
@@ -4730,7 +4724,7 @@ function ColorsTab({
                   value1: formData.name || localizeUi("ui.characters.cardlibrarydetailcard.character"),
                 })}
                 className="h-full w-full object-cover"
-                style={getAvatarCropStyle(formData.extensions.avatarCrop as AvatarCrop | LegacyAvatarCrop | undefined)}
+                style={getAvatarCropStyle(normalizeAvatarCrop(formData.extensions.avatarCrop))}
               />
             ) : (
               <User size="1rem" className="text-white" />

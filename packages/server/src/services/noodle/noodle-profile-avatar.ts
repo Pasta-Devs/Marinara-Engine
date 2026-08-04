@@ -1,12 +1,12 @@
-import type { NoodleAvatarCrop } from "@marinara-engine/shared";
+import type { AvatarCrop } from "@marinara-engine/shared";
 
 export function resolveNoodleAvatarCropAfterProfileUpdate(input: {
   currentAvatarUrl: string | null;
   nextAvatarUrl: string | null | undefined;
-  currentCrop: NoodleAvatarCrop | null;
+  currentCrop: AvatarCrop | null;
   sourceAvatarUrl?: string | null;
-  sourceCrop?: NoodleAvatarCrop | null;
-}): NoodleAvatarCrop | null | undefined {
+  sourceCrop?: AvatarCrop | null;
+}): AvatarCrop | null | undefined {
   if (input.nextAvatarUrl === undefined) {
     if (input.currentCrop) return undefined;
     return input.currentAvatarUrl && input.currentAvatarUrl === input.sourceAvatarUrl

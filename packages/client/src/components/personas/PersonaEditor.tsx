@@ -66,7 +66,9 @@ import {
   MessageCircle,
   Pencil,
 } from "lucide-react";
-import { cn, generateClientId, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, generateClientId, getAvatarCropStyle } from "../../lib/utils";
 import { showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { formatCardVersionTimestamp, getCardVersionTitle } from "../../lib/card-version-history";
 import { extractColorsFromImage } from "../../lib/avatar-color-extraction";
@@ -218,7 +220,7 @@ interface PersonaFormData {
   /** Avatar crop region (parsed from the persona row's JSON-encoded `avatarCrop`).
    *  May be the current source-relative shape, the legacy zoom+offset shape (held
    *  through until the user re-edits via the cropper), or null when unset. */
-  avatarCrop: AvatarCrop | LegacyAvatarCrop | null;
+  avatarCrop: AvatarCrop | null;
 }
 
 interface PersonaRow {
@@ -1061,54 +1063,11 @@ export function PersonaEditor() {
 
     loadedPersonaIdRef.current = rawPersona.id;
 
-    let parsedAvatarCrop: AvatarCrop | LegacyAvatarCrop | null = null;
-    try {
-      const raw = rawPersona.avatarCrop;
-      if (raw) {
-        const obj = JSON.parse(raw);
-        // Defensive: accept either the current source-relative shape or the
-        // legacy zoom+offset shape. Anything else is silently dropped so a
-        // malformed cell can't break the editor with NaN transforms.
-        if (obj && typeof obj === "object") {
-          // Validate geometry — finite, positive, within normalized bounds.
-          // Anything malformed is dropped so the editor falls back to defaults
-          // instead of producing NaN transforms or an off-screen overlay.
-          if (
-            Number.isFinite(obj.srcX) &&
-            Number.isFinite(obj.srcY) &&
-            Number.isFinite(obj.srcWidth) &&
-            Number.isFinite(obj.srcHeight) &&
-            obj.srcWidth > 0 &&
-            obj.srcHeight > 0 &&
-            obj.srcX >= 0 &&
-            obj.srcY >= 0 &&
-            obj.srcX + obj.srcWidth <= 1.001 &&
-            obj.srcY + obj.srcHeight <= 1.001
-          ) {
-            parsedAvatarCrop = {
-              srcX: obj.srcX,
-              srcY: obj.srcY,
-              srcWidth: obj.srcWidth,
-              srcHeight: obj.srcHeight,
-            };
-          } else if (
-            Number.isFinite(obj.zoom) &&
-            Number.isFinite(obj.offsetX) &&
-            Number.isFinite(obj.offsetY) &&
-            obj.zoom > 0
-          ) {
-            parsedAvatarCrop = {
-              zoom: obj.zoom,
-              offsetX: obj.offsetX,
-              offsetY: obj.offsetY,
-              ...(obj.fullImage ? { fullImage: true } : {}),
-            };
-          }
-        }
-      }
-    } catch {
-      /* ignore — empty / malformed crop just stays null */
-    }
+    // Defensive: accept either the current source-relative shape or the legacy
+    // zoom+offset shape (JSON-encoded on the persona row). Anything malformed
+    // is silently dropped so the editor falls back to defaults instead of
+    // producing NaN transforms or an off-screen overlay.
+    const parsedAvatarCrop = normalizeAvatarCrop(rawPersona.avatarCrop);
 
     const trackerCardColors = parseTrackerCardColorConfig(rawPersona.trackerCardColors);
     loadedTrackerCardColorsRef.current = serializeTrackerCardColorConfig(trackerCardColors);

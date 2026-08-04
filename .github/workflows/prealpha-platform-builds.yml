@@ -14,7 +14,7 @@ concurrency:
 
 env:
   NODE_VERSION: "22"
-  PNPM_VERSION: "10.33.2"
+  PNPM_VERSION: "10.34.5"
   PREALPHA_CONFIG: src-tauri/tauri.prealpha.conf.json
   PREALPHA_PRODUCT_NAME: Marinara Engine Pre-Alpha
   PREALPHA_ANDROID_APPLICATION_ID: com.marinara_engine.prealpha

@@ -8,8 +8,8 @@ import { useChats } from "../../hooks/use-chats";
 import { useCharacterSummaries } from "../../hooks/use-characters";
 import { useChatStore } from "../../stores/chat.store";
 import { compareChatsByActivityDesc } from "../../lib/chat-recency";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
-import type { Chat } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, type AvatarCrop, type Chat } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 
 const MODE_BADGE: Record<string, { icon: React.ReactNode; label: string; logoModeClass: string }> = {
@@ -58,13 +58,13 @@ export function RecentChats() {
   }, [recentChats]);
   const { data: characterSummaries } = useCharacterSummaries(recentCharacterIds);
   const charLookup = useMemo(() => {
-    const map = new Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>();
+    const map = new Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCrop | null }>();
     if (!characterSummaries) return map;
     for (const character of characterSummaries) {
       map.set(character.id, {
         name: character.name,
         avatarUrl: character.avatarUrl,
-        avatarCrop: (character.avatarCrop as AvatarCropValue | undefined) ?? null,
+        avatarCrop: normalizeAvatarCrop(character.avatarCrop),
       });
     }
     return map;
@@ -101,7 +101,7 @@ function RecentChatChip({
   onClick,
 }: {
   chat: Chat;
-  charLookup: Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCropValue | null }>;
+  charLookup: Map<string, { name: string; avatarUrl: string | null; avatarCrop?: AvatarCrop | null }>;
   onClick: () => void;
 }) {
   const localize = useLocalizedUiText();

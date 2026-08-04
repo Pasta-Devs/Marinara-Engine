@@ -125,11 +125,6 @@ echo  [OK] Node.js installed successfully
 echo  [OK] Node.js found:
 node -v
 
-set "PNPM_VERSION=10.33.2"
-for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'"`) do set "PNPM_VERSION=%%i"
-set "PNPM_RUNNER=pnpm"
-set "CURRENT_PNPM_VERSION="
-
 :: -- Git --
 where git >nul 2>&1
 if errorlevel 1 goto :install_git
@@ -172,49 +167,6 @@ echo  [OK] Git installed successfully
 
 :git_ok
 echo  [OK] Git found
-
-:: -- Resolve pinned pnpm without changing global state --
-where corepack >nul 2>&1
-if not errorlevel 1 (
-    echo  [..] Aligning pnpm to %PNPM_VERSION% via Corepack...
-    for /f "usebackq delims=" %%i in (`corepack pnpm@%PNPM_VERSION% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-    if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-        set "PNPM_RUNNER=corepack"
-    ) else (
-        set "CURRENT_PNPM_VERSION="
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    where pnpm >nul 2>&1
-    if not errorlevel 1 (
-        for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-            set "PNPM_RUNNER=pnpm"
-        ) else (
-            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required %PNPM_VERSION%; trying a pinned temporary runner...
-            set "CURRENT_PNPM_VERSION="
-        )
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    echo  [..] Using temporary pnpm %PNPM_VERSION% via npx...
-    for /f "usebackq delims=" %%i in (`npx --yes pnpm@%PNPM_VERSION% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-    if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-        set "PNPM_RUNNER=npx"
-    ) else (
-        set "CURRENT_PNPM_VERSION="
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    set "INSTALL_ERROR=Failed to start pnpm %PNPM_VERSION%. Enable Corepack or install pnpm manually before running the installer."
-    goto :fatal
-)
-
-:pnpm_ok
-echo  [OK] pnpm !CURRENT_PNPM_VERSION! ready
 
 :: -- Clone repository --
 echo.
@@ -308,10 +260,66 @@ echo  [OK] Repository updated
 
 :deps
 
+:: -- Resolve the exact pnpm descriptor from the checked-out release --
+set "PNPM_DESCRIPTOR="
+for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.replace(/^^pnpm@/, '') || ''"`) do set "PNPM_DESCRIPTOR=%%i"
+if not defined PNPM_DESCRIPTOR (
+    set "INSTALL_ERROR=Could not read the pinned pnpm descriptor from the checked-out package.json."
+    goto :fatal
+)
+set "PNPM_VERSION="
+for /f "tokens=1 delims=+" %%i in ("!PNPM_DESCRIPTOR!") do set "PNPM_VERSION=%%i"
+if not defined PNPM_VERSION (
+    set "INSTALL_ERROR=The pinned pnpm descriptor in the checked-out package.json has no version."
+    goto :fatal
+)
+set "PNPM_RUNNER=pnpm"
+set "CURRENT_PNPM_VERSION="
+
+where corepack >nul 2>&1
+if not errorlevel 1 (
+    echo  [..] Aligning pnpm to !PNPM_VERSION! via Corepack...
+    for /f "usebackq delims=" %%i in (`corepack pnpm@!PNPM_DESCRIPTOR! --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+    if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+        set "PNPM_RUNNER=corepack"
+    ) else (
+        set "CURRENT_PNPM_VERSION="
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    where pnpm >nul 2>&1
+    if not errorlevel 1 (
+        for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+        if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+            set "PNPM_RUNNER=pnpm"
+        ) else (
+            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required !PNPM_VERSION!; trying a pinned temporary runner...
+            set "CURRENT_PNPM_VERSION="
+        )
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    echo  [..] Using temporary pnpm !PNPM_VERSION! via npx...
+    for /f "usebackq delims=" %%i in (`npx --yes pnpm@!PNPM_VERSION! --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+    if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+        set "PNPM_RUNNER=npx"
+    ) else (
+        set "CURRENT_PNPM_VERSION="
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    set "INSTALL_ERROR=Failed to start pnpm !PNPM_VERSION!. Enable Corepack or install pnpm manually before running the installer."
+    goto :fatal
+)
+echo  [OK] pnpm !CURRENT_PNPM_VERSION! ready
+
 :: -- Install dependencies --
 echo.
 echo  [..] Installing dependencies (this may take a few minutes)...
-call :run_pnpm install --force
+call :run_pnpm install --force --frozen-lockfile
 if %errorlevel% neq 0 (
     set "INSTALL_ERROR=Failed to install dependencies."
     goto :fatal
@@ -371,7 +379,7 @@ goto :eof
 
 :run_pnpm
 if /I "%PNPM_RUNNER%"=="corepack" (
-    call corepack pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
+    call corepack pnpm@%PNPM_DESCRIPTOR% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else if /I "%PNPM_RUNNER%"=="npx" (
     call npx --yes pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else (

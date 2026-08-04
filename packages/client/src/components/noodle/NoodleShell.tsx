@@ -7,7 +7,8 @@ import { AtSign, Bell, Home, MoreHorizontal, Pencil, Search, Settings2, User, Us
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { createContext, type CSSProperties, type ReactNode, type RefObject, useContext, useRef } from "react";
 import type { NoodleAccount } from "@marinara-engine/shared";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useDialogFocusScope } from "../../hooks/use-dialog-focus-scope";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -131,7 +132,7 @@ export function Avatar({
   size = "md",
   solid = false,
 }: {
-  account: Pick<NoodleAccount, "displayName" | "avatarUrl"> & { avatarCrop?: AvatarCropValue | null };
+  account: Pick<NoodleAccount, "displayName" | "avatarUrl"> & { avatarCrop?: AvatarCrop | null };
   size?: "sm" | "md" | "lg";
   solid?: boolean;
 }) {
@@ -171,7 +172,7 @@ export function ProfileInitial({
   profile,
   large = false,
 }: {
-  profile: { displayName: string; avatarUrl?: string | null; avatarCrop?: AvatarCropValue | null };
+  profile: { displayName: string; avatarUrl?: string | null; avatarCrop?: AvatarCrop | null };
   large?: boolean;
 }) {
   if (profile.avatarUrl)

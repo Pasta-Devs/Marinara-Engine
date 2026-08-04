@@ -18,7 +18,8 @@
 !define APP_URL "https://github.com/Pasta-Devs/Marinara-Engine"
 !define REPO_URL "https://github.com/Pasta-Devs/Marinara-Engine.git"
 !define DEFAULT_DIR "$LOCALAPPDATA\Marinara-Engine"
-!define PNPM_VERSION "10.33.2"
+!define PNPM_VERSION "10.34.5"
+!define PNPM_DESCRIPTOR "10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e"
 
 ; ── Prerequisite download URLs ──
 ; Pin to known-good versions so the installer is deterministic and doesn't
@@ -349,7 +350,7 @@ Please restart your computer and run this installer again."
   Pop $1
   ${If} $0 == 0
     DetailPrint "Trying pinned pnpm ${PNPM_VERSION} via Corepack..."
-    nsExec::ExecToStack 'cmd /c corepack pnpm@${PNPM_VERSION} --version'
+    nsExec::ExecToStack 'cmd /c corepack pnpm@${PNPM_DESCRIPTOR} --version | %SystemRoot%\System32\findstr.exe /x /l /c:${PNPM_VERSION}'
     Pop $PNPM_OK
     Pop $1
     ${If} $PNPM_OK == 0
@@ -358,7 +359,7 @@ Please restart your computer and run this installer again."
   ${EndIf}
   ${If} $PNPM_RUNNER == ""
     DetailPrint "Corepack pnpm ${PNPM_VERSION} unavailable; trying installed pnpm..."
-    nsExec::ExecToStack 'cmd /c pnpm --version'
+    nsExec::ExecToStack 'cmd /c pnpm --version | %SystemRoot%\System32\findstr.exe /x /l /c:${PNPM_VERSION}'
     Pop $PNPM_OK
     Pop $1
     ${If} $PNPM_OK == 0
@@ -367,7 +368,7 @@ Please restart your computer and run this installer again."
   ${EndIf}
   ${If} $PNPM_RUNNER == ""
     DetailPrint "Installed pnpm unavailable; trying temporary pnpm ${PNPM_VERSION} via npx..."
-    nsExec::ExecToStack 'cmd /c npx --yes pnpm@${PNPM_VERSION} --version'
+    nsExec::ExecToStack 'cmd /c npx --yes pnpm@${PNPM_VERSION} --version | %SystemRoot%\System32\findstr.exe /x /l /c:${PNPM_VERSION}'
     Pop $PNPM_OK
     Pop $1
     ${If} $PNPM_OK == 0
@@ -671,17 +672,17 @@ ${APP_URL}"
   DetailPrint ""
   DetailPrint "═══ Step 3/6: Installing dependencies ═══"
   DetailPrint ""
-  DetailPrint "Running pnpm install --force (this may take 2-5 minutes and creates dependency folders)..."
+  DetailPrint "Running pnpm install --force --frozen-lockfile (this may take 2-5 minutes and creates dependency folders)..."
   ${If} $PNPM_RUNNER == "corepack"
-    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_DESCRIPTOR} --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
     Pop $0
   ${EndIf}
   ${If} $PNPM_RUNNER == "npx"
-    nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+    nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
     Pop $0
   ${EndIf}
   ${If} $PNPM_RUNNER == "pnpm"
-    nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+    nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
     Pop $0
   ${EndIf}
   ${If} $0 != 0
@@ -693,15 +694,15 @@ Would you like to retry?" IDYES retryInstall IDNO skipRetryInstall
     retryInstall:
       DetailPrint "Retrying pnpm install..."
       ${If} $PNPM_RUNNER == "corepack"
-        nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+        nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_DESCRIPTOR} --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
         Pop $0
       ${EndIf}
       ${If} $PNPM_RUNNER == "npx"
-        nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+        nsExec::ExecToLog 'cmd /c npx --yes pnpm@${PNPM_VERSION} --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
         Pop $0
       ${EndIf}
       ${If} $PNPM_RUNNER == "pnpm"
-        nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --force'
+        nsExec::ExecToLog 'cmd /c pnpm --config.trustPolicy=off --config.confirmModulesPurge=false install --force --frozen-lockfile'
         Pop $0
       ${EndIf}
     skipRetryInstall:
@@ -718,10 +719,10 @@ Would you like to retry?" IDYES retryInstall IDNO skipRetryInstall
   DetailPrint ""
   DetailPrint "Building ${APP_NAME} (this may take 1-3 minutes)..."
   ${If} $PNPM_RUNNER == "corepack"
-    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --filter @marinara-engine/shared build'
+    nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_DESCRIPTOR} --filter @marinara-engine/shared build'
     Pop $0
     ${If} $0 == 0
-      nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_VERSION} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build'
+      nsExec::ExecToLog 'cmd /c corepack pnpm@${PNPM_DESCRIPTOR} --filter @marinara-engine/server --filter @marinara-engine/client --parallel run build'
       Pop $0
     ${EndIf}
   ${EndIf}

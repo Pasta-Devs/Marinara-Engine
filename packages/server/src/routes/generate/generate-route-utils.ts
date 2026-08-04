@@ -568,6 +568,22 @@ export function computeSummaryHideIds(args: {
     .map((message) => message.id);
 }
 
+/** Return the one-based range covered by selected messages in the full chat order. */
+export function computeSummaryMessageRange(
+  allMessages: readonly { id: string }[],
+  selectedMessages: readonly { id: string }[],
+): { startIndex: number; endIndex: number } | null {
+  const messageIndexes = new Map(allMessages.map((message, index) => [message.id, index + 1]));
+  const selectedIndexes = selectedMessages
+    .map((message) => messageIndexes.get(message.id))
+    .filter((index): index is number => index !== undefined);
+  if (selectedIndexes.length === 0) return null;
+  return {
+    startIndex: Math.min(...selectedIndexes),
+    endIndex: Math.max(...selectedIndexes),
+  };
+}
+
 /**
  * Select the messages a non-range rolling summary should cover. Normally the most
  * recent `contextSize` *visible* messages (the historical `visible.slice(-contextSize)`

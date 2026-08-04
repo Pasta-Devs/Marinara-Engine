@@ -84,13 +84,15 @@ import { PromptPresetSection } from "../../features/chat-settings/sections/Promp
 import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
+import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { HelpTooltip } from "../ui/HelpTooltip";
 import { ExpandedTextarea } from "../ui/ExpandedTextarea";
 import { Modal } from "../ui/Modal";
 import { DraftNumberInput } from "../ui/DraftNumberInput";
 import {
+  AGENT_SETTINGS_SURFACE_CLASS,
   AgentCategorySection,
   AgentDefaultStatus,
   AgentSettingsCard,
@@ -640,6 +642,35 @@ type DrawerPersona = {
   avatarCrop?: AvatarCrop | string | null;
 };
 
+function DrawerPersonaAvatar({ persona, size = "sm" }: { persona: DrawerPersona; size?: "sm" | "md" }) {
+  const sizeClass = size === "md" ? "h-7 w-7" : "h-6 w-6";
+
+  if (!persona.avatarPath) {
+    return (
+      <div
+        className={cn(
+          "mari-avatar-placeholder mari-avatar-placeholder--persona flex shrink-0 items-center justify-center rounded-full",
+          sizeClass,
+        )}
+      >
+        <User size={size === "md" ? "0.75rem" : "0.625rem"} />
+      </div>
+    );
+  }
+
+  return (
+    <span className={cn("relative block shrink-0 overflow-hidden rounded-full", sizeClass)}>
+      <img
+        src={persona.avatarPath}
+        alt={persona.name}
+        loading="lazy"
+        className="h-full w-full object-cover"
+        style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+      />
+    </span>
+  );
+}
+
 type AgentAddPreview = {
   agent: AvailableAgent;
   config: AgentConfigRow | null;
@@ -1184,6 +1215,7 @@ export function ChatSettingsDrawer({
   const ltmPackage = installedCapabilities.find(
     (item) => item.status === "active" && item.id === "long-term-memory" && item.manifest.entrypoints.client,
   );
+  const ltmPackageId = ltmPackage?.id;
   const callsPackage = installedCapabilities.find(
     (item) =>
       item.status === "active" && item.manifest.kind.includes("conversation-calls") && item.manifest.entrypoints.client,
@@ -1201,6 +1233,20 @@ export function ChatSettingsDrawer({
     const ids = latestChat ? getChatActiveAgentIds(latestChat) : [...activeAgentIds];
     return ids.filter((id) => !deletedBuiltInAgentTypes.has(id));
   }, [activeAgentIds, chat.id, deletedBuiltInAgentTypes, qc]);
+  const setLtmEnabledForChat = useCallback(
+    async (enabled: boolean) => {
+      if (!ltmPackageId) return;
+      const current = readLatestActiveAgentIds();
+      await updateMeta.mutateAsync({
+        id: chat.id,
+        ...(enabled ? { enableAgents: true } : {}),
+        activeAgentIds: enabled
+          ? Array.from(new Set([...current, ltmPackageId]))
+          : current.filter((id) => id !== ltmPackageId),
+      });
+    },
+    [chat.id, ltmPackageId, readLatestActiveAgentIds, updateMeta],
+  );
   const activeToolIds: string[] = metadata.activeToolIds ?? [];
   const spotifyActive = activeAgentIds.includes("spotify");
   const gameLorebookKeeperLorebook = gameLorebookKeeperLorebookId
@@ -2258,20 +2304,6 @@ export function ChatSettingsDrawer({
       return null;
     });
   }, [spriteLayoutSubjects]);
-
-  const charAvatarCrop = useCallback((c: { data: unknown }) => {
-    try {
-      const parsed = typeof c.data === "string" ? JSON.parse(c.data) : c.data;
-      return (
-        ((parsed as { extensions?: { avatarCrop?: AvatarCrop | null } } | null)?.extensions?.avatarCrop as
-          | AvatarCrop
-          | null
-          | undefined) ?? null
-      );
-    } catch {
-      return null;
-    }
-  }, []);
 
   // ── First message confirm state ──
   const [firstMesConfirm, setFirstMesConfirm] = useState<{
@@ -4324,18 +4356,7 @@ export function ChatSettingsDrawer({
                         const p = personas.find((persona) => persona.id === chat.personaId);
                         return p ? (
                           <>
-                            {p.avatarPath ? (
-                              <img
-                                src={p.avatarPath}
-                                alt={p.name}
-                                loading="lazy"
-                                className="h-7 w-7 shrink-0 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="mari-avatar-placeholder mari-avatar-placeholder--persona flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
-                                <User size="0.75rem" />
-                              </div>
-                            )}
+                            <DrawerPersonaAvatar persona={p} size="md" />
                             <div className="min-w-0 flex-1">
                               <span className="block truncate text-xs">{p.name}</span>
                               {p.comment && (
@@ -4439,18 +4460,7 @@ export function ChatSettingsDrawer({
                             chat.personaId === p.id && "bg-[var(--primary)]/10",
                           )}
                         >
-                          {p.avatarPath ? (
-                            <img
-                              src={p.avatarPath}
-                              alt={p.name}
-                              loading="lazy"
-                              className="h-6 w-6 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="mari-avatar-placeholder mari-avatar-placeholder--persona flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                              <User size="0.625rem" />
-                            </div>
-                          )}
+                          <DrawerPersonaAvatar persona={p} />
                           <div className="min-w-0 flex-1">
                             <span className="block truncate text-xs">{p.name}</span>
                             {p.comment && (
@@ -4512,7 +4522,7 @@ export function ChatSettingsDrawer({
                                     alt={name}
                                     loading="lazy"
                                     className="h-full w-full object-cover"
-                                    style={getAvatarCropStyle(charAvatarCrop(c))}
+                                    style={getAvatarCropStyle(getCharacterInfo(c).avatarCrop)}
                                   />
                                 </span>
                               ) : (
@@ -4621,18 +4631,7 @@ export function ChatSettingsDrawer({
                       const p = personas.find((p) => p.id === chat.personaId);
                       return p ? (
                         <>
-                          {p.avatarPath ? (
-                            <img
-                              src={p.avatarPath}
-                              alt={p.name}
-                              loading="lazy"
-                              className="h-7 w-7 shrink-0 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="mari-avatar-placeholder mari-avatar-placeholder--persona flex h-7 w-7 shrink-0 items-center justify-center rounded-full">
-                              <User size="0.75rem" />
-                            </div>
-                          )}
+                          <DrawerPersonaAvatar persona={p} size="md" />
                           <div className="min-w-0 flex-1">
                             <span className="block truncate text-xs">{p.name}</span>
                             {p.comment && (
@@ -4738,18 +4737,7 @@ export function ChatSettingsDrawer({
                           chat.personaId === p.id && "bg-[var(--primary)]/10",
                         )}
                       >
-                        {p.avatarPath ? (
-                          <img
-                            src={p.avatarPath}
-                            alt={p.name}
-                            loading="lazy"
-                            className="h-6 w-6 shrink-0 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="mari-avatar-placeholder mari-avatar-placeholder--persona flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                            <User size="0.625rem" />
-                          </div>
-                        )}
+                        <DrawerPersonaAvatar persona={p} />
                         <div className="min-w-0 flex-1">
                           <span className="block truncate text-xs">{p.name}</span>
                           {p.comment && (
@@ -4861,7 +4849,7 @@ export function ChatSettingsDrawer({
                                   alt={name}
                                   loading="lazy"
                                   className="h-full w-full object-cover"
-                                  style={getAvatarCropStyle(charAvatarCrop(c))}
+                                  style={getAvatarCropStyle(getCharacterInfo(c).avatarCrop)}
                                 />
                               </span>
                             ) : (
@@ -4966,7 +4954,7 @@ export function ChatSettingsDrawer({
                                 alt={name}
                                 loading="lazy"
                                 className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(charAvatarCrop(c))}
+                                style={getAvatarCropStyle(getCharacterInfo(c).avatarCrop)}
                               />
                             </span>
                           ) : (
@@ -5796,7 +5784,7 @@ export function ChatSettingsDrawer({
                         "justify-between rounded-lg px-3 py-2.5 text-left",
                         conversationCommandsEnabled
                           ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                          : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                          : cn(AGENT_SETTINGS_SURFACE_CLASS, "hover:bg-[var(--accent)]"),
                       )}
                       labelClassName="text-xs font-medium"
                     />
@@ -5825,7 +5813,7 @@ export function ChatSettingsDrawer({
                                 "h-full min-h-[4.125rem] items-center justify-between rounded-lg px-3 py-2.5 text-left",
                                 enabled
                                   ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
-                                  : "bg-[var(--secondary)] hover:bg-[var(--accent)]",
+                                  : cn(AGENT_SETTINGS_SURFACE_CLASS, "hover:bg-[var(--accent)]"),
                               )}
                               labelClassName="text-[0.6875rem] font-medium"
                             />
@@ -5837,8 +5825,10 @@ export function ChatSettingsDrawer({
                     {illustratorInstalled && (
                       <div
                         className={cn(
-                          "mari-chat-option-field space-y-3 rounded-lg px-3 py-2.5 transition-all",
-                          selfieFeatureEnabled && "mari-chat-option-field--active",
+                          "space-y-3 rounded-xl px-3 py-2.5 transition-all",
+                          selfieFeatureEnabled
+                            ? "border border-[var(--primary)]/30 bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                            : AGENT_SETTINGS_SURFACE_CLASS,
                         )}
                       >
                         <div className="flex items-start gap-2">
@@ -5999,6 +5989,63 @@ export function ChatSettingsDrawer({
                           className="block"
                         />
                       </div>
+                    ) : null}
+
+                    {ltmPackage ? (
+                      <AgentSettingsCard
+                        icon={<Brain size="0.75rem" className="mt-0.5 text-[var(--primary)]" />}
+                        title={localizeUi("ui.chat.chatsettingsdrawer.longTermMemory")}
+                        description={localizeUi("ui.chat.chatsettingsdrawer.enableLongTermMemoryForThisConversation")}
+                      >
+                        <SettingsSwitch
+                          label={localizeUi("ui.chat.chatsettingsdrawer.longTermMemory")}
+                          description={localizeUi("ui.chat.chatsettingsdrawer.enableLongTermMemoryForThisConversation")}
+                          checked={metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)}
+                          onChange={(enabled) => {
+                            void setLtmEnabledForChat(enabled).catch((error) => {
+                              void showAlertDialog({
+                                title: localizeUi("ui.chat.chatsettingsdrawer.longTermMemory"),
+                                message:
+                                  error instanceof Error
+                                    ? error.message
+                                    : localizeUi("ui.chat.chatsettingsdrawer.failedToUpdateLongTermMemory"),
+                              });
+                            });
+                          }}
+                          labelPosition="start"
+                          className={cn(
+                            "justify-between rounded-lg px-3 py-2.5 text-left",
+                            metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id)
+                              ? "bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/30"
+                              : "bg-[var(--background)]/75 ring-1 ring-[var(--border)] hover:bg-[var(--accent)]",
+                          )}
+                          labelClassName="text-xs font-medium"
+                        />
+                        <CapabilityElement
+                          packageId={ltmPackage.id}
+                          view="settings"
+                          capabilityProps={{
+                            chatId: chat.id,
+                            enabledForChat: metadata.enableAgents === true && activeAgentIds.includes(ltmPackage.id),
+                            chatSettings: {
+                              longTermMemoryRecallStyle: metadata.longTermMemoryRecallStyle,
+                              longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
+                              longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
+                            },
+                            onEnabledForChatChange: setLtmEnabledForChat,
+                            onChatSettingsChange: async (patch: Record<string, unknown>) => {
+                              await updateMeta.mutateAsync({ id: chat.id, ...patch });
+                            },
+                            onOpenAgentSettings: () => {
+                              void requestClose().then((closed) => {
+                                if (closed) useUIStore.getState().openAgentDetail("long-term-memory");
+                              });
+                            },
+                            onDirtyChange: setEditorDirty,
+                          }}
+                          className="block overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--background)]/45"
+                        />
+                      </AgentSettingsCard>
                     ) : null}
 
                     {/* Schedule generation preferences — free-form authorial guidance */}
@@ -7238,7 +7285,9 @@ export function ChatSettingsDrawer({
                                 name: isPersona ? subject.persona.name : charName(subject.character),
                                 title: isPersona ? subject.persona.comment || "Persona" : charTitle(subject.character),
                                 avatarPath: isPersona ? subject.persona.avatarPath : subject.character.avatarPath,
-                                avatarCrop: isPersona ? null : charAvatarCrop(subject.character),
+                                avatarCrop: isPersona
+                                  ? normalizeAvatarCrop(subject.persona.avatarCrop)
+                                  : (getCharacterInfo(subject.character).avatarCrop ?? null),
                                 active: spriteCharacterIds.includes(subject.id),
                               };
                             })}
@@ -8090,16 +8139,7 @@ export function ChatSettingsDrawer({
                                               longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
                                               longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
                                             },
-                                            onEnabledForChatChange: async (enabled: boolean) => {
-                                              const current = readLatestActiveAgentIds();
-                                              await updateMeta.mutateAsync({
-                                                id: chat.id,
-                                                ...(enabled ? { enableAgents: true } : {}),
-                                                activeAgentIds: enabled
-                                                  ? Array.from(new Set([...current, ltmPackage.id]))
-                                                  : current.filter((id) => id !== ltmPackage.id),
-                                              });
-                                            },
+                                            onEnabledForChatChange: setLtmEnabledForChat,
                                             onChatSettingsChange: async (patch: Record<string, unknown>) => {
                                               await updateMeta.mutateAsync({ id: chat.id, ...patch });
                                             },
@@ -8405,16 +8445,7 @@ export function ChatSettingsDrawer({
                                                   longTermMemoryBudgetTokens: metadata.longTermMemoryBudgetTokens,
                                                   longTermMemoryMaxChunks: metadata.longTermMemoryMaxChunks,
                                                 },
-                                                onEnabledForChatChange: async (enabled: boolean) => {
-                                                  const current = readLatestActiveAgentIds();
-                                                  await updateMeta.mutateAsync({
-                                                    id: chat.id,
-                                                    ...(enabled ? { enableAgents: true } : {}),
-                                                    activeAgentIds: enabled
-                                                      ? Array.from(new Set([...current, ltmPackage.id]))
-                                                      : current.filter((id) => id !== ltmPackage.id),
-                                                  });
-                                                },
+                                                onEnabledForChatChange: setLtmEnabledForChat,
                                                 onChatSettingsChange: async (patch: Record<string, unknown>) => {
                                                   await updateMeta.mutateAsync({ id: chat.id, ...patch });
                                                 },

@@ -2,6 +2,7 @@
 // User Persona Types
 // ──────────────────────────────────────────────
 import type { ConvoBehaviorConfig } from "./character.js";
+import type { AvatarCrop } from "./avatar-crop.js";
 
 /** A user persona (the player's character/identity). */
 export interface Persona {
@@ -21,7 +22,7 @@ export interface Persona {
   /** Avatar crop settings for the circle avatar. Accepts both the current
    *  source-rectangle shape and the legacy zoom+offset shape (kept readable so
    *  previously saved crops display unchanged until the user re-edits). */
-  avatarCrop?: PersonaAvatarCrop | LegacyPersonaAvatarCrop | null;
+  avatarCrop?: AvatarCrop | null;
   /** Whether this is the currently active persona */
   isActive: boolean;
   /** Name display color/gradient (CSS value) */
@@ -89,25 +90,6 @@ export interface TrackerCardColorConfig {
   portraitFocusY?: number;
   /** Tracker portrait zoom multiplier. */
   portraitZoom?: number;
-}
-
-/** Avatar crop — current source-rectangle format. A square region of the source
- *  image (`srcWidth * sourceW === srcHeight * sourceH` in editor-enforced data),
- *  expressed in coordinates normalized to the source's intrinsic dimensions. */
-export interface PersonaAvatarCrop {
-  srcX: number;
-  srcY: number;
-  srcWidth: number;
-  srcHeight: number;
-}
-
-/** Avatar crop — legacy zoom + offset format. Render-only compatibility path so
- *  previously saved crops display unchanged until the user re-edits them. */
-export interface LegacyPersonaAvatarCrop {
-  zoom: number;
-  offsetX: number;
-  offsetY: number;
-  fullImage?: boolean;
 }
 
 /** A single persona status bar definition. */

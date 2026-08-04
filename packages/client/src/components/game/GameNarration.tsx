@@ -40,7 +40,8 @@ import {
   GitBranch,
   Languages,
 } from "lucide-react";
-import { cn, copyToClipboard, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { findNamedMapValue } from "../../lib/game-character-name-match";
 import type { GameSegmentEdit } from "../../lib/game-segment-edits";
@@ -276,7 +277,7 @@ function narrationSegmentAnchorKey(segment: NarrationSegment): string {
 
 type SpeakerAvatarInfo = {
   url: string;
-  crop?: AvatarCrop | LegacyAvatarCrop | null;
+  crop?: AvatarCrop | null;
   nameColor?: string;
   dialogueColor?: string;
 };
@@ -5842,7 +5843,7 @@ function CroppedAvatar({
 }: {
   src: string;
   alt: string;
-  crop?: AvatarCrop | LegacyAvatarCrop | null;
+  crop?: AvatarCrop | null;
   className?: string;
   onLoadError?: () => void;
 }) {

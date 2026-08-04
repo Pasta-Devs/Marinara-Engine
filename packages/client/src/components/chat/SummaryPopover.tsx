@@ -268,7 +268,7 @@ function formatTokenCount(tokens: number): string {
 }
 
 function getSummaryEntrySourceLabel(entry: ChatSummaryEntry, t: TFunction): string | null {
-  if (entry.sourceMode === "range" && entry.rangeStartIndex && entry.rangeEndIndex) {
+  if (entry.rangeStartIndex && entry.rangeEndIndex) {
     return t("chat.summary.source.range", {
       start: entry.rangeStartIndex,
       end: entry.rangeEndIndex,
@@ -1517,9 +1517,11 @@ export function SummaryPopover({
                   </div>
                 </div>
 
-                <div className="h-36 overflow-y-auto whitespace-pre-wrap rounded-md bg-[var(--background)]/25 px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                  {activeSummaryPrompt}
-                </div>
+                {!templateEditorOpen && (
+                  <div className="h-36 overflow-y-auto whitespace-pre-wrap rounded-md bg-[var(--background)]/25 px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                    {activeSummaryPrompt}
+                  </div>
+                )}
 
                 {templateEditorOpen && (
                   <div className="space-y-2 border-t border-[var(--border)] pt-2">
@@ -1571,14 +1573,6 @@ export function SummaryPopover({
 
                     {(templateNameDraft || templatePromptDraft) && (
                       <div className="space-y-1.5 rounded-lg bg-[var(--background)]/30 p-2 ring-1 ring-[var(--border)]">
-                        <div className="space-y-1">
-                          <p className="text-[0.625rem] font-semibold text-[var(--muted-foreground)]">
-                            {localizeUi("ui.chat.summarypopover.currentChatSummaryPrompt")}
-                          </p>
-                          <div className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded-md bg-[var(--card)] px-2 py-1.5 font-mono text-[0.625rem] leading-relaxed text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
-                            {activeSummaryPrompt}
-                          </div>
-                        </div>
                         <input
                           value={templateNameDraft}
                           onChange={(event) => setTemplateNameDraft(event.target.value)}

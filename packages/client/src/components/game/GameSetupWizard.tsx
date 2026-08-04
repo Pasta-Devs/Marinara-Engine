@@ -47,7 +47,9 @@ import {
 } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
-import { cn, getAvatarCropStyle, parseAvatarCropJson, type AvatarCropValue } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import {
   GenerationParametersFields,
   getEditableGenerationParameters,
@@ -128,7 +130,7 @@ interface GameSetupWizardProps {
     name: string;
     comment?: string | null;
     avatarUrl?: string | null;
-    avatarCrop?: AvatarCropValue | null;
+    avatarCrop?: AvatarCrop | null;
   }>;
   initialPartyCharacterIds?: string[];
 }
@@ -154,7 +156,7 @@ function CharacterAvatar({
   character: {
     name: string;
     avatarUrl?: string | null;
-    avatarCrop?: AvatarCropValue | null;
+    avatarCrop?: AvatarCrop | null;
   };
   className?: string;
 }) {
@@ -639,13 +641,16 @@ export function GameSetupWizard({
   );
   const personas = useMemo(
     () =>
-      (personasList as Array<{
+      ((personasList as Array<{
         id: string;
         name: string;
         avatarPath?: string | null;
-        avatarCrop?: string | null;
+        avatarCrop?: AvatarCrop | string | null;
         comment?: string;
-      }>) ?? [],
+      }>) ?? []).map((persona) => ({
+        ...persona,
+        avatarCrop: normalizeAvatarCrop(persona.avatarCrop),
+      })),
     [personasList],
   );
   const characterFolders = useMemo(
@@ -1858,7 +1863,7 @@ export function GameSetupWizard({
                         character={{
                           name: p.name,
                           avatarUrl: p.avatarPath ?? null,
-                          avatarCrop: parseAvatarCropJson(p.avatarCrop),
+                          avatarCrop: p.avatarCrop,
                         }}
                       />
                       <div className="min-w-0 flex-1">
@@ -1903,7 +1908,7 @@ export function GameSetupWizard({
                           character={{
                             name: p.name,
                             avatarUrl: p.avatarPath ?? null,
-                            avatarCrop: parseAvatarCropJson(p.avatarCrop),
+                            avatarCrop: p.avatarCrop,
                           }}
                         />
                         <div className="min-w-0 flex-1">

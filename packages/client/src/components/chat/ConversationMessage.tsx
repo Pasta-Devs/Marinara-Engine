@@ -16,7 +16,8 @@ import {
 } from "@marinara-engine/shared";
 import { toast } from "sonner";
 import { useUIStore, type ConversationMessageStyle } from "../../stores/ui.store";
-import { cn, copyToClipboard, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
+import { cn, copyToClipboard, getAvatarCropStyle } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { resolveMessageMacros } from "../../lib/chat-macros";
 import { useTranslate } from "../../hooks/use-translate";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
@@ -279,7 +280,7 @@ export const ConversationMessage = memo(function ConversationMessage({
   const personaAvatarCrop = isUser
     ? plainUserMessages
       ? null
-      : (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+      : (normalizeAvatarCrop(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = isUser
     ? getAvatarCropStyle(personaAvatarCrop)

@@ -1,14 +1,8 @@
 // ──────────────────────────────────────────────
 // Chat: Message — mode-aware rendering
 // ──────────────────────────────────────────────
-import {
-  cn,
-  copyToClipboard,
-  getAvatarCropStyle,
-  isLegacyAvatarCrop,
-  parseAvatarCropJson,
-  type AvatarCropValue,
-} from "../../lib/utils";
+import { cn, copyToClipboard, getAvatarCropStyle, isLegacyAvatarCrop } from "../../lib/utils";
+import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { normalizeCardAssetImageSyntax, resolveCardAssetUrl, resolveSelfCardAssets, type ChatGalleryIndex } from "../../lib/card-asset-links";
 import { useChatGalleryFilenameIndex } from "../../hooks/use-characters";
@@ -210,7 +204,7 @@ type AIVisibilityCharacter = {
   id: string;
   name: string;
   avatarUrl: string | null;
-  avatarCrop: AvatarCropValue | null | undefined;
+  avatarCrop: AvatarCrop | null | undefined;
 };
 
 type ToggleHiddenFromAI = (messageId: string, hiddenFromAll: boolean, hiddenFromAICharacterIds?: string[]) => void;
@@ -1949,7 +1943,7 @@ export const ChatMessage = memo(function ChatMessage({
         : null;
   const displayAvatarUrl = expressionAvatarUrl ?? avatarUrl;
   const personaAvatarCrop = isUser
-    ? (parseAvatarCropJson(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
+    ? (normalizeAvatarCrop(msgPersona?.avatarCrop) ?? personaInfo?.avatarCrop ?? null)
     : null;
   const avatarCropStyle = expressionAvatarUrl
     ? {}
@@ -2023,7 +2017,7 @@ export const ChatMessage = memo(function ChatMessage({
       .filter(Boolean) as {
         id: string;
         url: string;
-        crop?: AvatarCropValue | null;
+        crop?: AvatarCrop | null;
         nameColor: string;
       }[];
   }, [isMergedGroup, characterMap, mergedCharacterIds, expressionAvatarResolver, message]);
@@ -2153,14 +2147,14 @@ export const ChatMessage = memo(function ChatMessage({
   // Legacy {zoom, offsetX, offsetY} crops compose fine with object-cover
   // (they're a CSS transform) so they pass through unchanged.
   const rectangleSafeCropStyle = (
-    crop: AvatarCropValue | null | undefined,
+    crop: AvatarCrop | null | undefined,
     fallback: React.CSSProperties,
   ): React.CSSProperties => {
     if (!crop) return fallback;
     if (isLegacyAvatarCrop(crop)) return fallback;
     return {};
   };
-  const compactAvatarCrop: AvatarCropValue | null = isUser
+  const compactAvatarCrop: AvatarCrop | null = isUser
     ? (personaAvatarCrop ?? null)
     : expressionAvatarUrl
       ? null
@@ -2168,12 +2162,12 @@ export const ChatMessage = memo(function ChatMessage({
   const compactAvatarCropStyle: React.CSSProperties = useCompactRectangleAvatar
     ? rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle)
     : avatarCropStyle;
-  const compactMergedAvatarCropStyle = (avatar: { crop?: AvatarCropValue | null }): React.CSSProperties =>
+  const compactMergedAvatarCropStyle = (avatar: { crop?: AvatarCrop | null }): React.CSSProperties =>
     useCompactRectangleAvatar || !cycleMergedNarratorAvatars
       ? rectangleSafeCropStyle(avatar.crop, getAvatarCropStyle(avatar.crop))
       : getAvatarCropStyle(avatar.crop);
   const panelAvatarCropStyle: React.CSSProperties = rectangleSafeCropStyle(compactAvatarCrop, avatarCropStyle);
-  const panelMergedAvatarCropStyle = (avatar: { crop?: AvatarCropValue | null }): React.CSSProperties =>
+  const panelMergedAvatarCropStyle = (avatar: { crop?: AvatarCrop | null }): React.CSSProperties =>
     rectangleSafeCropStyle(avatar.crop, getAvatarCropStyle(avatar.crop));
   const compactAvatarSpacerClass = useCompactRectangleAvatar
     ? "w-[calc(2.75rem*var(--roleplay-avatar-scale))]"

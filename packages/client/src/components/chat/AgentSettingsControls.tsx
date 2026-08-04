@@ -3,7 +3,11 @@ import { ChevronDown, ChevronRight, Settings2, Trash2 } from "lucide-react";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import type { AgentPromptTemplateOption } from "@marinara-engine/shared";
 import { cn } from "../../lib/utils";
+import { useUIStore } from "../../stores/ui.store";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
+
+export const AGENT_SETTINGS_SURFACE_CLASS =
+  "border border-[var(--border)] bg-[var(--secondary)]/70";
 
 export function AgentCategorySection({
   label,
@@ -170,24 +174,35 @@ export function AgentSettingsCard({
   children?: ReactNode;
 }) {
   const { t: localizeUi } = useUiTranslation();
-  const [open, setOpen] = useState(true);
+  const rememberedOpen = useUIStore((state) => (id ? state.chatSettingsExpandedSections[id] : undefined));
+  const setSectionExpanded = useUIStore((state) => state.setChatSettingsSectionExpanded);
+  const [localOpen, setLocalOpen] = useState(true);
+  const open = id ? (rememberedOpen ?? true) : localOpen;
   const contentId = useId();
   const toggleLabel = localizeUi(
     open ? "ui.chat.agentsettingscard.collapseValue1" : "ui.chat.agentsettingscard.expandValue1",
     { value1: title },
   );
+  const toggleOpen = () => {
+    const next = !open;
+    if (id) setSectionExpanded(id, next);
+    else setLocalOpen(next);
+  };
 
   return (
     <div
       id={id}
       tabIndex={id ? -1 : undefined}
-      className="scroll-mt-3 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/70 focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/45"
+      className={cn(
+        "scroll-mt-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-[var(--primary)]/45",
+        AGENT_SETTINGS_SURFACE_CLASS,
+      )}
       style={order == null ? undefined : { order }}
     >
       <div className="flex items-start p-3">
         <button
           type="button"
-          onClick={() => setOpen((current) => !current)}
+          onClick={toggleOpen}
           aria-expanded={open}
           aria-controls={contentId}
           aria-label={toggleLabel}

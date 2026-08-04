@@ -45,7 +45,7 @@ import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/u
 import { useChatStore } from "../../stores/chat.store";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { useUIStore, type UserStatus } from "../../stores/ui.store";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { chatBackgroundMetadataToUrl } from "../../lib/backgrounds";
 import { formatRelativeContact } from "../../lib/relative-time";
 import { ChatRowPeek } from "./ChatRowPeek";
@@ -55,7 +55,9 @@ import { toast } from "sonner";
 import {
   BACKGROUND_THUMBNAIL_WIDTH,
   includesTextForMatch,
+  normalizeAvatarCrop,
   normalizeTextForMatch,
+  type AvatarCrop,
   type Chat,
   type ChatFolder,
   type ChatMode,
@@ -353,7 +355,7 @@ export function ChatSidebar() {
       {
         name: string;
         avatarUrl: string | null;
-        avatarCrop?: AvatarCropValue | null;
+        avatarCrop?: AvatarCrop | null;
         conversationStatus?: string;
       }
     >();
@@ -362,7 +364,7 @@ export function ChatSidebar() {
       map.set(character.id, {
         name: character.name,
         avatarUrl: character.avatarUrl,
-        avatarCrop: (character.avatarCrop as AvatarCropValue | undefined) ?? null,
+        avatarCrop: normalizeAvatarCrop(character.avatarCrop),
         conversationStatus: character.conversationStatus,
       });
     }
@@ -1075,7 +1077,7 @@ export function ChatSidebar() {
               .filter(Boolean) as {
               name: string;
               avatarUrl: string | null;
-              avatarCrop?: AvatarCropValue | null;
+              avatarCrop?: AvatarCrop | null;
               conversationStatus?: string;
             }[];
 

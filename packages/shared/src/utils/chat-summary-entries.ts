@@ -66,14 +66,10 @@ export function estimateChatSummaryTokens(content: string): number {
 
 /** Generate a concise default title from an entry's origin and source metadata. */
 export function generateChatSummaryEntryTitle(
-  entry: Pick<ChatSummaryEntry, "origin" | "sourceMode" | "messageCount" | "rangeStartIndex" | "rangeEndIndex">,
+  entry: Pick<ChatSummaryEntry, "origin">,
 ): string {
   if (entry.origin === "legacy") return "Legacy summary";
   if (entry.origin === "automated") return "Automated summary";
-  if (entry.sourceMode === "range" && entry.rangeStartIndex && entry.rangeEndIndex) {
-    return `Summary messages ${entry.rangeStartIndex}-${entry.rangeEndIndex}`;
-  }
-  if (entry.messageCount) return `Summary of ${entry.messageCount} messages`;
   return "Manual summary";
 }
 

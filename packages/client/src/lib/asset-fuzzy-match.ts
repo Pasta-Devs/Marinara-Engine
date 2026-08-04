@@ -50,16 +50,19 @@ function tagScore(prose: string, tag: string, category: string): number {
 function bestMatch(prose: string, tags: string[], category: string): string | null {
   if (!tags.length) return null;
   const minOverlap = category === "backgrounds" ? 2 : 1;
-  let best: string | null = null;
+  let best: string[] = [];
   let bestScore = minOverlap - 1;
   for (const tag of tags) {
     const s = tagScore(prose, tag, category);
+    if (s < minOverlap) continue;
     if (s > bestScore) {
       bestScore = s;
-      best = tag;
+      best = [tag];
+    } else if (s === bestScore) {
+      best.push(tag);
     }
   }
-  return best;
+  return best.length > 0 ? best[Math.floor(Math.random() * best.length)]! : null;
 }
 
 /**

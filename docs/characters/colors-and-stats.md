@@ -59,12 +59,13 @@ The second block is **RPG Attributes**, turned on with **Enable RPG Attributes**
 
 ## How agents update your stats
 
-The values on the **Stats** tab are only the starting defaults. To make stats change during a chat, you turn on the matching agent. An agent is an AI helper that runs alongside your chat.
+The values on the **Stats** tab become the chat's starting state. Agents can update the tracker-owned values described below. RPG Attributes such as STR and DEX are card context rather than agent-managed tracker values.
 
-- The **Character Tracker** agent adjusts character RPG stats and persona **RPG Attributes** based on combat, healing, and story events.
+- The **Character Tracker** agent adjusts tracked character Stats, including Pools such as HP, based on combat, healing, and story events. It does not track the player's persona.
 - The **Persona Stats** agent adjusts your **Persona Status Bars** after each message, based on what happens in the story.
+- Character and persona **RPG Attributes** are sent with their card for Combat and Game Mode, and for optional rolls in Roleplay or Game Mode. Agents do not update those Attributes.
 
-If you do not enable the matching agent, the values stay at the defaults you set. The **Stats** tab by itself does not update anything on its own. See the built-in agents guide to turn these agents on.
+If you do not enable the matching tracker agent, tracker-owned values stay at the defaults you set. The **Stats** tab by itself does not update anything on its own. See the built-in agents guide to turn these agents on.
 
 ## How stats show in the HUD
 

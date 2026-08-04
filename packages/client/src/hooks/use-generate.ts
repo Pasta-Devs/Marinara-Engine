@@ -2,7 +2,7 @@
 // React Query: Generation (streaming + agent pipeline)
 // ──────────────────────────────────────────────
 import { useCallback, useRef } from "react";
-import type { AvatarCropValue } from "../lib/utils";
+import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import { toast, type ExternalToast } from "sonner";
 import { api, ApiError } from "../lib/api-client";
@@ -255,7 +255,7 @@ function resolveCachedCharacterIdentity(
 ): {
   name: string | null;
   avatarUrl: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
 } {
   if (!characterId) return { name: fallbackName, avatarUrl: null };
 
@@ -270,7 +270,7 @@ function resolveCachedCharacterIdentity(
     "Character";
   const avatarCrop =
     parsed && typeof parsed.extensions === "object" && parsed.extensions && "avatarCrop" in parsed.extensions
-      ? ((parsed.extensions as { avatarCrop?: AvatarCropValue | null }).avatarCrop ?? null)
+      ? normalizeAvatarCrop((parsed.extensions as { avatarCrop?: unknown }).avatarCrop)
       : null;
 
   return {

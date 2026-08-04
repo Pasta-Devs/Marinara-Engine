@@ -36,15 +36,27 @@ if !NODE_MAJOR! LSS 24 (
     exit /b 1
 )
 
-set "PNPM_VERSION=10.33.2"
-for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'"`) do set "PNPM_VERSION=%%i"
+set "PNPM_DESCRIPTOR="
+for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.replace(/^^pnpm@/, '') || ''"`) do set "PNPM_DESCRIPTOR=%%i"
+if not defined PNPM_DESCRIPTOR (
+    echo  [ERROR] Could not read the pinned pnpm descriptor from package.json.
+    pause
+    exit /b 1
+)
+set "PNPM_VERSION="
+for /f "tokens=1 delims=+" %%i in ("!PNPM_DESCRIPTOR!") do set "PNPM_VERSION=%%i"
+if not defined PNPM_VERSION (
+    echo  [ERROR] The pinned pnpm descriptor in package.json has no version.
+    pause
+    exit /b 1
+)
 set "PNPM_RUNNER=pnpm"
 set "CURRENT_PNPM_VERSION="
 
 where corepack >nul 2>&1
 if not errorlevel 1 (
     echo  [..] Aligning pnpm to %PNPM_VERSION% via Corepack...
-    for /f "usebackq delims=" %%i in (`corepack pnpm@%PNPM_VERSION% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+    for /f "usebackq delims=" %%i in (`corepack pnpm@%PNPM_DESCRIPTOR% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
     if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
         set "PNPM_RUNNER=corepack"
     ) else (
@@ -78,7 +90,7 @@ if not defined CURRENT_PNPM_VERSION (
 if not defined CURRENT_PNPM_VERSION (
     echo  [ERROR] Failed to make pnpm %PNPM_VERSION% available.
     echo          Node.js must provide Corepack or npx/npm.
-    echo          Reinstall Node.js 24 LTS with npm enabled, or run: npm install -g pnpm
+    echo          Reinstall Node.js 24 LTS with npm enabled, or run: npm install -g pnpm@%PNPM_VERSION%
     pause
     exit /b 1
 )
@@ -182,7 +194,7 @@ goto :eof
 
 :run_pnpm
 if /I "%PNPM_RUNNER%"=="corepack" (
-    call corepack pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
+    call corepack pnpm@%PNPM_DESCRIPTOR% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else (
     if /I "%PNPM_RUNNER%"=="npx" (
         call npx --yes pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*

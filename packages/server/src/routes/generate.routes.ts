@@ -107,7 +107,10 @@ import {
 } from "../services/lorebook/game-lorebook-scope.js";
 import { lorebookEntryPassesContextFilters, type GameStateForScanning } from "../services/lorebook/keyword-scanner.js";
 import { injectAtDepth } from "../services/lorebook/prompt-injector.js";
-import { resolveChatSummaryConnection } from "../services/chat-summary/connection-resolution.js";
+import {
+  resolveChatSummaryConnection,
+  resolveChatSummaryTemperatureOptions,
+} from "../services/chat-summary/connection-resolution.js";
 import { resolveConnectionImageDefaults } from "../services/image/image-generation-defaults.js";
 import { generateIllustratorImageVariants } from "../services/image/illustrator-image-variants.js";
 import {
@@ -226,6 +229,7 @@ import {
   appendNonLeadingSystemMessagesToLastUser,
   appendSeparateAgentInjectionMessage,
   computeSummaryHideIds,
+  computeSummaryMessageRange,
   selectRollingSummaryMessages,
   injectIntoOutputFormatOrLastUser,
   getMessageHiddenFromAICharacterIds,
@@ -390,7 +394,7 @@ import {
   clampRoleplaySummaryMaxTokens,
   formatRoleplaySummaryChatLog,
   isAutomaticRoleplaySummaryEnabled,
-  parseChatSummaryText,
+  parseChatSummaryResult,
   resolveChatSummaryPrompt,
   withoutRetiredChatSummaryAgentIds,
 } from "../services/generation/roleplay-summary-runtime.js";
@@ -7117,6 +7121,7 @@ export async function generateRoutes(app: FastifyInstance) {
           }
           const summaryProvider = resolvedSummaryConnection.provider;
           const summaryModel = resolvedSummaryConnection.model;
+          const summaryTemperatureOptions = resolveChatSummaryTemperatureOptions(resolvedSummaryConnection);
 
           const chatLog = formatRoleplaySummaryChatLog(selectedMessages);
           const previousSummary = typeof chatMeta.summary === "string" ? chatMeta.summary.trim() : "";
@@ -7139,18 +7144,22 @@ export async function generateRoutes(app: FastifyInstance) {
             ],
             {
               model: summaryModel,
-              temperature: 0.5,
+              ...summaryTemperatureOptions,
               maxTokens: summaryMaxTokens,
               signal: abortController.signal,
             },
           );
           if (abortController.signal.aborted) return;
-          const newText = result.content ? parseChatSummaryText(result.content) : "";
+          const parsedSummary = result.content ? parseChatSummaryResult(result.content) : { summary: "", title: "" };
+          const newText = parsedSummary.summary;
 
           let createdEntry: ChatSummaryEntry | null = null;
           let summaryEntries: ChatSummaryEntry[] = [];
           const shouldReviewSummary = requireAgentWriteApproval && !!newText;
           const autoEntryMessageIds = selectedMessages.map((message: any) => message.id);
+          const autoRange = computeSummaryMessageRange(freshMessages, selectedMessages);
+          const autoRangeStartIndex = autoRange?.startIndex;
+          const autoRangeEndIndex = autoRange?.endIndex;
           // Compute the hide subset up front so it can be persisted on the entry
           // (deletion restores exactly this set) and reused for the actual hide.
           const autoHideIds =
@@ -7179,9 +7188,12 @@ export async function generateRoutes(app: FastifyInstance) {
                   kind: "rolling",
                   origin: "automated",
                   sourceMode: "agent",
+                  ...(parsedSummary.title ? { title: parsedSummary.title } : {}),
                   content: newText,
                   enabled: true,
                   messageCount: selectedMessages.length,
+                  rangeStartIndex: autoRangeStartIndex,
+                  rangeEndIndex: autoRangeEndIndex,
                   messageIds: autoEntryMessageIds,
                   ...(autoHideIds.length > 0 ? { hiddenMessageIds: autoHideIds } : {}),
                   promptTemplateId:
@@ -7215,6 +7227,9 @@ export async function generateRoutes(app: FastifyInstance) {
                   payload: {
                     messageIds: selectedMessages.map((message: any) => message.id),
                     messageCount: selectedMessages.length,
+                    summaryTitle: parsedSummary.title,
+                    rangeStartIndex: autoRangeStartIndex,
+                    rangeEndIndex: autoRangeEndIndex,
                     promptTemplateId:
                       typeof chatMeta.activeSummaryPromptTemplateId === "string"
                         ? chatMeta.activeSummaryPromptTemplateId

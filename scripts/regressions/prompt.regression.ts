@@ -18,6 +18,7 @@ import {
   createDefaultImageStyleProfileSettings,
   characterTrackerCustomFieldDefaultsToRecord,
   getDefaultBuiltInAgentSettings,
+  generateChatSummaryEntryTitle,
   isAgentAvailableInChatMode,
   isPatternSafe,
   normalizeChatSummaryEntries,
@@ -648,6 +649,7 @@ import {
   appendContinuationMessageContent,
   CONTINUE_ASSISTANT_MESSAGE_DIRECT_PROMPT,
   formatRoleplaySummaryChatLog,
+  parseChatSummaryResult,
   resolveChatSummaryCombinePrompt,
   resolveChatSummaryPrompt,
 } from "../../packages/server/src/services/generation/roleplay-summary-runtime.js";
@@ -6985,6 +6987,27 @@ Use HTML sparingly and diegetically. Do not replace normal prose/dialogue unless
         compiledLargeSummary,
         largeSummary.trim(),
         "Compiled chat metadata must preserve summaries larger than the former 64 KiB ceiling",
+      );
+
+      assert.deepEqual(
+        parseChatSummaryResult('```json\n{"name":"  Moonlit   promise  ","summary":"They promised to return."}\n```'),
+        { title: "Moonlit promise", summary: "They promised to return." },
+        "Summary JSON should preserve the summary and normalize its generated name",
+      );
+      assert.deepEqual(
+        parseChatSummaryResult('{"title":"Legacy title field","summary":"Old clients remain compatible."}'),
+        { title: "Legacy title field", summary: "Old clients remain compatible." },
+        "The parser should accept title as an alias for name",
+      );
+      assert.deepEqual(parseChatSummaryResult("Plain-text summary"), {
+        title: "",
+        summary: "Plain-text summary",
+      });
+      assert.match(DEFAULT_CHAT_SUMMARY_PROMPT, /"name": "short one-line title/u);
+      assert.equal(
+        generateChatSummaryEntryTitle({ origin: "manual" }),
+        "Manual summary",
+        "Fallback titles should not duplicate the message range shown in metadata",
       );
     },
   },

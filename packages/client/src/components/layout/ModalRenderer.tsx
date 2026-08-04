@@ -2,9 +2,13 @@
 // ModalRenderer: Maps store modal types → components
 // ──────────────────────────────────────────────
 import { lazy, Suspense } from "react";
-import type { AvatarCropValue } from "../../lib/utils";
 import { useUIStore } from "../../stores/ui.store";
-import type { LorebookCategory, LorebookScope, ScenePromptPreferences } from "@marinara-engine/shared";
+import {
+  normalizeAvatarCrop,
+  type LorebookCategory,
+  type LorebookScope,
+  type ScenePromptPreferences,
+} from "@marinara-engine/shared";
 
 const CreateCharacterModal = lazy(() =>
   import("../modals/CreateCharacterModal").then((module) => ({ default: module.CreateCharacterModal })),
@@ -142,7 +146,7 @@ export function ModalRenderer() {
             } | null) ?? null
           }
           avatarUrl={(modal?.props?.avatarUrl as string | null) ?? null}
-          avatarCrop={(modal?.props?.avatarCrop as AvatarCropValue | null) ?? null}
+          avatarCrop={normalizeAvatarCrop(modal?.props?.avatarCrop)}
           displayName={(modal?.props?.displayName as string | null) ?? null}
           nameColor={(modal?.props?.nameColor as string | null) ?? null}
           status={(modal?.props?.status as "online" | "idle" | "dnd" | "offline" | null) ?? null}

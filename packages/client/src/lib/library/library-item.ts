@@ -1,8 +1,7 @@
-import type { CharacterData } from "@marinara-engine/shared";
+import { normalizeAvatarCrop, type AvatarCrop, type CharacterData } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../character-display";
 import { formatCardLibraryMeta, getCardLibrarySummary } from "../card-library-search";
 import { estimateCharacterCardTokens } from "../character-token-count";
-import { parseAvatarCropJson, type AvatarCropValue } from "../utils";
 
 export type LibraryResourceKind = "character" | "persona";
 
@@ -28,7 +27,7 @@ export type PersonaLibraryRow = {
   backstory?: string | null;
   appearance?: string | null;
   avatarPath: string | null;
-  avatarCrop?: string | AvatarCropValue | null;
+  avatarCrop?: string | AvatarCrop | null;
   isActive?: boolean | string;
   tags?: string | string[] | null;
   createdAt: string;
@@ -45,7 +44,7 @@ export type LibraryItem = {
   meta: string | null;
   summary: string;
   avatarPath: string | null;
-  avatarCrop?: AvatarCropValue;
+  avatarCrop?: AvatarCrop;
   createdAt: string;
   updatedAt: string;
   tags: string[];
@@ -121,12 +120,6 @@ function estimatePersonaTokens(persona: PersonaLibraryRow) {
   );
 }
 
-function parsePersonaAvatarCrop(value: PersonaLibraryRow["avatarCrop"]): AvatarCropValue | undefined {
-  if (!value) return undefined;
-  if (typeof value === "string") return parseAvatarCropJson(value) ?? undefined;
-  return value;
-}
-
 export function characterToLibraryItem(characterRow: CharacterLibraryRow): LibraryItem {
   const character = parseCharacterRow(characterRow);
   const name = getText(character.parsed.name) || "Unnamed";
@@ -142,7 +135,7 @@ export function characterToLibraryItem(characterRow: CharacterLibraryRow): Libra
       character.parsed.personality,
     ]),
     avatarPath: character.avatarPath,
-    avatarCrop: character.parsed.extensions?.avatarCrop as AvatarCropValue | undefined,
+    avatarCrop: normalizeAvatarCrop(character.parsed.extensions?.avatarCrop) ?? undefined,
     createdAt: character.createdAt,
     updatedAt: character.updatedAt,
     tags: getCharacterTags(character),
@@ -163,7 +156,7 @@ export function personaToLibraryItem(persona: PersonaLibraryRow): LibraryItem {
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
     summary: getCardLibrarySummary([persona.creatorNotes, persona.description, persona.personality, persona.backstory]),
     avatarPath: persona.avatarPath,
-    avatarCrop: parsePersonaAvatarCrop(persona.avatarCrop),
+    avatarCrop: normalizeAvatarCrop(persona.avatarCrop) ?? undefined,
     createdAt: persona.createdAt,
     updatedAt: persona.updatedAt,
     tags: getPersonaTags(persona),

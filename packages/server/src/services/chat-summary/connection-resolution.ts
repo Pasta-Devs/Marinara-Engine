@@ -1,9 +1,10 @@
 import { LOCAL_SIDECAR_CONNECTION_ID } from "@marinara-engine/shared";
 import type { createConnectionsStorage } from "../storage/connections.storage.js";
-import type { BaseLLMProvider } from "../llm/base-provider.js";
+import type { BaseLLMProvider, ChatOptions } from "../llm/base-provider.js";
 import { getLocalSidecarProvider, LOCAL_SIDECAR_MODEL } from "../llm/local-sidecar.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
+import { resolveStoredChatOptions } from "../generation/generation-parameters.js";
 
 type ConnectionsStorage = ReturnType<typeof createConnectionsStorage>;
 type ConnectionWithKey = NonNullable<Awaited<ReturnType<ConnectionsStorage["getWithKey"]>>>;
@@ -22,6 +23,8 @@ export type ResolvedChatSummaryConnection =
       connectionId: string;
       source: SummaryConnectionSource;
       warnings: string[];
+      temperature?: number;
+      enabledParameters?: ChatOptions["enabledParameters"];
     }
   | {
       ok: false;
@@ -37,6 +40,20 @@ function pushUniqueCandidate(candidates: SummaryConnectionCandidate[], candidate
   if (!candidate) return;
   if (candidates.some((entry) => entry.id === candidate.id)) return;
   candidates.push(candidate);
+}
+
+export function resolveChatSummaryTemperatureOptions(connection: {
+  temperature?: number;
+  enabledParameters?: ChatOptions["enabledParameters"];
+}): Pick<ChatOptions, "temperature" | "enabledParameters"> {
+  const hasTemperature = typeof connection.temperature === "number";
+  return {
+    ...(hasTemperature ? { temperature: connection.temperature } : {}),
+    enabledParameters: {
+      ...connection.enabledParameters,
+      temperature: hasTemperature,
+    },
+  };
 }
 
 async function resolveRandomConnection(
@@ -121,6 +138,9 @@ export async function resolveChatSummaryConnection(args: {
       warnings.push(`Connection ${conn.id} has no base URL`);
       continue;
     }
+    const storedOptions = resolveStoredChatOptions(conn.defaultParameters, conn.provider, conn.model);
+    const temperature =
+      storedOptions.enabledParameters?.temperature === false ? undefined : storedOptions.temperature;
 
     return {
       ok: true,
@@ -142,6 +162,8 @@ export async function resolveChatSummaryConnection(args: {
       connectionId: conn.id,
       source: candidate.source,
       warnings,
+      ...(typeof temperature === "number" ? { temperature } : {}),
+      ...(storedOptions.enabledParameters ? { enabledParameters: storedOptions.enabledParameters } : {}),
     };
   }
 

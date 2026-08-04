@@ -2,7 +2,7 @@
 // Zustand Store: Chat Slice
 // ──────────────────────────────────────────────
 import { create } from "zustand";
-import type { AvatarCropValue } from "../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
 import { subscribeWithSelector } from "zustand/middleware";
 import type {
   Chat,
@@ -43,7 +43,7 @@ function clearCurrentInputPresenceTimer(): void {
   currentInputPresenceTimer = null;
 }
 
-type NotificationAvatarCrop = AvatarCropValue | null;
+type NotificationAvatarCrop = AvatarCrop | null;
 type ChatNotificationKind = "message" | "call";
 type ChatNotification = {
   chatId: string;

@@ -23,7 +23,7 @@ Pick one fix:
 2. Install pnpm yourself. Run this command, then run the launcher again:
 
 ```bash
-npm install -g pnpm
+npm install -g pnpm@10.34.5
 ```
 
 3. Update corepack in an administrator terminal, then run the launcher again:
@@ -39,7 +39,17 @@ Marinara v2.3.0 could start pnpm through Corepack successfully and then fail dur
 If the checkout itself cannot update, run `git pull` in the Marinara folder and start it again. As a temporary v2.3.0 workaround, install the pinned package manager globally, rerun the launcher, and then update normally:
 
 ```bash
-npm install -g pnpm@10.33.2
+npm install -g pnpm@10.34.5
+```
+
+### Launcher stops once after the pnpm 10.34.5 security update
+
+If an update prints `Expected version: >=10.34.5` and `Got: 10.33.2`, close the launcher and run it again. This one-time stop is intentional: the old launcher has already downloaded the updated Marinara files, but the new engine requirement prevents the affected pnpm version from installing dependencies. On the second launch, the refreshed launcher selects pnpm 10.34.5 before continuing. Corepack verifies the release against the SHA-512 digest pinned in `package.json`; the npm fallback also requests exactly 10.34.5 rather than an unpinned latest version.
+
+Do not use the generic unpinned command suggested by pnpm's engine error. If the second launch cannot obtain the pinned release automatically, install the same exact version and rerun the launcher:
+
+```bash
+npm install -g pnpm@10.34.5
 ```
 
 ### Linux: ERR_PNPM_ENAMETOOLONG during install

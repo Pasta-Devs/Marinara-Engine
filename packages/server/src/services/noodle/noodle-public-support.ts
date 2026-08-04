@@ -11,6 +11,7 @@ import { logger } from "../../lib/logger.js";
 import { createCharactersStorage } from "../storage/characters.storage.js";
 import { createNoodleStorage, parseNoodleAvatarCrop } from "../storage/noodle.storage.js";
 import { isNoodleProfileGenerated } from "./noodle-profile-selection.js";
+import { ensureAmbientNoodleAccounts } from "./noodle-ambient-profiles.js";
 
 const PROFESSOR_MARI_NOODLE_BIO =
   "She/Her | 18+ | Skill Issue | Your Assistant After Hours (hey, I get to do fun stuff, too!) | Simp for Il Dottore 24/7 | LLMs Fan";
@@ -141,6 +142,7 @@ export async function bootstrapVisibleNoodle(
 ) {
   const settings = await noodle.getSettings();
   const livePersonaIds = await ensurePersonaAccounts(noodle, characters);
+  await ensureAmbientNoodleAccounts(noodle, settings.allowRandomUsers);
   if (settings.allowProfessorMari) await ensureProfessorMariAccount(noodle, characters);
   const existingCharacterAccounts = (await noodle.listAccounts()).filter(
     (account) => account.kind === "character" && account.entityId !== PROFESSOR_MARI_ID,

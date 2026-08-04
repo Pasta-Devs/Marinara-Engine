@@ -9,7 +9,8 @@ import {
 } from "@marinara-engine/shared";
 import { Modal } from "../ui/Modal";
 import { api } from "../../lib/api-client";
-import { cn, getAvatarCropStyle, type AvatarCrop, type LegacyAvatarCrop } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { toast } from "sonner";
 import { useUIStore } from "../../stores/ui.store";
 import { ConversationTimeZoneSelect } from "./ConversationTimeZoneSelect";
@@ -28,7 +29,7 @@ type CharacterScheduleEditorModalProps = {
   characterId: string;
   characterName: string;
   characterAvatarUrl?: string | null;
-  characterAvatarCrop?: AvatarCrop | LegacyAvatarCrop | null;
+  characterAvatarCrop?: AvatarCrop | null;
   schedule?: WeekSchedule;
   initialDay?: string | null;
   onClose: () => void;

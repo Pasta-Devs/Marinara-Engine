@@ -9,6 +9,8 @@ export type NoodlePublicNavigationState =
       view: "profile";
       accountId: string | null;
       connection: NoodleProfileConnection | null;
+      edit?: boolean;
+      returnToSettings?: NoodleSettingsNavigationState;
     };
 
 export type NoodleSettingsReturnState =

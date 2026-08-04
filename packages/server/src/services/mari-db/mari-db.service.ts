@@ -68,9 +68,11 @@ type Plan = {
   request: ParsedMutationRequest;
 };
 type ParsedMutationRequest = {
-  kind: "insert" | "patch" | "replace" | "delete" | "transform" | "theme-create" | "theme-update" | "theme-set-active";
+  kind: "insert" | "patch" | "replace" | "delete" | "transform" | "theme-create" | "theme-update" | "theme-set-active" | "character-move-folder";
   table: string | "all";
   id?: string;
+  characterId?: string;
+  folderId?: string;
   where?: string;
   row?: Row;
   patch?: Row;
@@ -1630,6 +1632,7 @@ export class MariDbService {
   private pending = new Map<string, PendingRecord>();
   private history: MariDbHistoryEntry[] = [];
   private writeQueue: Promise<unknown> = Promise.resolve();
+  private characterFolderMutationQueue: Promise<void> = Promise.resolve();
 
   constructor(private readonly db: DB) {}
 
@@ -1723,6 +1726,22 @@ export class MariDbService {
     context: { command: string; sessionId: string; cwd?: string },
   ): Promise<MariDbCommandResult> {
     switch (sub) {
+      case "folder.list": {
+        const rows = (await this.rawRows("character_groups"))
+          .map((row) => parseRow("character_groups", row))
+          .sort((a, b) => String(a.name ?? "").localeCompare(String(b.name ?? "")));
+        return {
+          ok: true,
+          mode: "read",
+          command: context.command,
+          output: rows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            characterIds: row.characterIds,
+          })),
+        };
+      }
       case "list": {
         const limit = normalizeLimit(firstNumber(args, ["limit"]), 50, 1000);
         const search = firstString(args, ["search", "query"])?.toLowerCase();
@@ -1852,6 +1871,53 @@ export class MariDbService {
           context.command,
           context.sessionId,
         );
+      }
+      case "movetofolder": {
+        return this.withCharacterFolderMutationLock(async () => {
+          const characterId = requiredString(args, ["characterId", "id"], "character id");
+          const character = await this.getRawById(getMeta("characters"), characterId);
+          if (!character) throw new Error(`Character ${characterId} not found`);
+
+          const requestedFolderId = firstString(args, ["folderId"]);
+          const requestedFolderName = firstString(args, ["folderName", "folder"]);
+          if (!requestedFolderId && !requestedFolderName) {
+            throw new Error("character.moveToFolder needs folderId or folderName");
+          }
+
+          const groups = await this.rawRows("character_groups");
+          const matches = requestedFolderId
+            ? groups.filter((group) => group.id === requestedFolderId)
+            : groups.filter(
+                (group) =>
+                  typeof group.name === "string" &&
+                  group.name.trim().toLowerCase() === requestedFolderName!.trim().toLowerCase(),
+              );
+          if (matches.length === 0) {
+            throw new Error(
+              requestedFolderId
+                ? `Character folder ${requestedFolderId} not found`
+                : `Character folder ${requestedFolderName} not found`,
+            );
+          }
+          if (matches.length > 1) {
+            throw new Error(`More than one character folder is named ${requestedFolderName}; use folderId instead`);
+          }
+
+          return this.executeMutation(
+            {
+              kind: "character-move-folder",
+              table: "character_groups",
+              characterId,
+              folderId: String(matches[0]!.id),
+              apply: firstBoolean(args, ["apply"]) === true,
+              cascade: false,
+              reason: firstString(args, ["reason"]) ?? null,
+              cwd: context.cwd,
+            },
+            context.command,
+            context.sessionId,
+          );
+        });
       }
       default:
         return { ok: false, mode: "read", command: context.command, error: "Unsupported character app_data action." };
@@ -4402,6 +4468,7 @@ export class MariDbService {
     else if (request.kind === "theme-create") changes = await this.planThemeCreate(request, timestamp, issues);
     else if (request.kind === "theme-update") changes = await this.planThemeUpdate(request, timestamp, issues);
     else if (request.kind === "theme-set-active") changes = await this.planThemeSetActive(request, timestamp, issues);
+    else if (request.kind === "character-move-folder") changes = await this.planCharacterMoveFolder(request, timestamp);
     else changes = await this.planTransform(request, timestamp, allocateId);
 
     const personalExtensionChanges = changes.filter((change) => change.table === "installed_extensions");
@@ -4520,6 +4587,61 @@ export class MariDbService {
     this.fillTimestamps(meta, next, false, timestamp);
     const afterRaw = serializeRow(meta.name, next);
     return [{ table: meta.name, id: rowId(meta, existing), action: "replace", before: parseRow(meta.name, existing), after: parseRow(meta.name, afterRaw), beforeRaw: existing, afterRaw, apply: true }];
+  }
+
+  private async planCharacterMoveFolder(request: ParsedMutationRequest, timestamp: string): Promise<PlanChange[]> {
+    const characterId = String(request.characterId ?? "");
+    const targetFolderId = String(request.folderId ?? "");
+    const meta = getMeta("character_groups");
+    const groups = await this.rawRows(meta.name);
+    if (!groups.some((group) => group.id === targetFolderId)) {
+      throw new Error(`Character folder ${targetFolderId} not found`);
+    }
+
+    return groups
+      .map((group): PlanChange | null => {
+        const parsed = parseRow(meta.name, group);
+        if (!Array.isArray(parsed.characterIds)) {
+          throw new Error(`Character folder ${String(group.id)} has invalid membership data`);
+        }
+        const currentIds = parsed.characterIds.filter((id): id is string => typeof id === "string" && !!id);
+        const matchingIdCount = currentIds.filter((id) => id === characterId).length;
+        const withoutCharacter = currentIds.filter((id) => id !== characterId);
+        const nextIds =
+          group.id === targetFolderId
+            ? matchingIdCount === 1
+              ? currentIds
+              : [...withoutCharacter, characterId]
+            : withoutCharacter;
+        if (nextIds.length === currentIds.length && nextIds.every((id, index) => id === currentIds[index])) {
+          return null;
+        }
+        const afterRaw = serializeRow(meta.name, {
+          ...parsed,
+          characterIds: nextIds,
+          updatedAt: timestamp,
+        });
+        return {
+          table: meta.name,
+          id: rowId(meta, group),
+          action: "update",
+          before: parsed,
+          after: parseRow(meta.name, afterRaw),
+          beforeRaw: group,
+          afterRaw,
+          apply: true,
+        };
+      })
+      .filter((change): change is PlanChange => change !== null);
+  }
+
+  private withCharacterFolderMutationLock<T>(operation: () => Promise<T>): Promise<T> {
+    const run = this.characterFolderMutationQueue.then(operation);
+    this.characterFolderMutationQueue = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private async planDelete(request: ParsedMutationRequest, issues: MariDbValidationIssue[]): Promise<PlanChange[]> {

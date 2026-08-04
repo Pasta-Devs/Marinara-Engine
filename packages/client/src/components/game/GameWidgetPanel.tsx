@@ -12,6 +12,7 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { HudWidget } from "@marinara-engine/shared";
 import { useUpdateGameWidgets } from "../../hooks/use-game";
+import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useRenderTimer } from "../../lib/perf-diagnostics";
@@ -819,14 +820,21 @@ export function GameWidgetSessionPrepModal({
   );
 
   const handleRemoveWidget = useCallback(
-    (widgetId: string) => {
+    async (widgetId: string) => {
       const target = draftWidgets.find((widget) => widget.id === widgetId);
       if (!target) return;
-      if (!window.confirm(copy.removeConfirm.replace("{label}", target.label))) return;
+      const confirmed = await showConfirmDialog({
+        title: localizeUi("ui.game.gamewidgetsessionprepmodal.removeWidget"),
+        message: copy.removeConfirm.replace("{label}", target.label),
+        confirmLabel: localizeUi("settings.notifications.customSound.actions.remove"),
+        cancelLabel: localizeUi("chat.delete.dialog.cancel"),
+        tone: "destructive",
+      });
+      if (!confirmed) return;
 
       setDraftWidgets((current) => current.filter((widget) => widget.id !== widgetId));
     },
-    [copy.removeConfirm, draftWidgets],
+    [copy.removeConfirm, draftWidgets, localizeUi],
   );
 
   const handleSaveWidget = useCallback(
@@ -896,7 +904,7 @@ export function GameWidgetSessionPrepModal({
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleRemoveWidget(widget.id)}
+                      onClick={() => void handleRemoveWidget(widget.id)}
                       disabled={interactionsLocked}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--destructive)]/25 px-3 py-1.5 text-xs font-medium text-[var(--destructive)] transition-colors hover:bg-[var(--destructive)]/10 disabled:opacity-50"
                     >

@@ -1,6 +1,7 @@
 import { Image } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { SpriteRangeSlider } from "./AgentSettingsControls";
 import {
   SPRITE_DISPLAY_OPACITY_PERCENT_MAX,

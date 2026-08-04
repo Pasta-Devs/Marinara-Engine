@@ -2,6 +2,7 @@
 // Noodle Zod Schemas
 // ──────────────────────────────────────────────
 import { z } from "zod";
+import { avatarCropSchema } from "./avatar-crop.schema.js";
 
 export const noodleAccountKindSchema = z.enum(["persona", "character", "random_user"]);
 export const noodleInteractionTypeSchema = z.enum(["like", "repost", "reply", "vote"]);
@@ -21,6 +22,14 @@ export const NOODLER_POSTS_PER_DAY_MAX = 24;
 /** Per-request cap on bulk creator creation and targeted refresh. The wizard enforces the same
  *  ceiling so a selection larger than this is prevented rather than rejected as a whole request. */
 export const NOODLER_BULK_ACCOUNT_MAX = 100;
+export const AMBIENT_NOODLE_ENTITY_IDS = [
+  "random_user:thread-countess",
+  "random_user:packet-soup",
+  "random_user:orbit-notice",
+  "random_user:glass-bulletin",
+  "random_user:moth-hour",
+  "random_user:brine-index",
+] as const;
 // Exact `Title:\n` + `\n\n` + `Body:\n` framing overhead from serializeNoodlerPostGuide.
 export const NOODLER_POST_GUIDE_MAX_LENGTH = NOODLER_POST_TITLE_MAX_LENGTH + NOODLER_POST_CONTENT_MAX_LENGTH + 15;
 
@@ -125,28 +134,9 @@ export const noodleSettingsSchema = z.object({
 
 export const noodleSettingsUpdateSchema = noodleSettingsSchema.partial();
 
-const noodleAvatarCropSchema = z.union([
-  z
-    .object({
-      srcX: z.number().finite(),
-      srcY: z.number().finite(),
-      srcWidth: z.number().finite().positive(),
-      srcHeight: z.number().finite().positive(),
-    })
-    .strict(),
-  z
-    .object({
-      zoom: z.number().finite().positive(),
-      offsetX: z.number().finite(),
-      offsetY: z.number().finite(),
-      fullImage: z.boolean().optional(),
-    })
-    .strict(),
-]);
-
 export const noodleAccountProfileSettingsSchema = z
   .object({
-    avatarCrop: noodleAvatarCropSchema.nullable().optional(),
+    avatarCrop: avatarCropSchema.nullable().optional(),
     bannerUrl: z.string().max(2000).optional(),
     location: z.string().max(120).optional(),
     profileGenerated: z.boolean().optional(),
@@ -242,6 +232,17 @@ export const noodleAccountProfileUpdateSchema = z
   .strict();
 
 export const noodleAccountFollowUpdateSchema = z.object({ followed: z.boolean() }).strict();
+
+export const noodleAmbientProfileRerollSchema = z
+  .object({
+    accountIds: z
+      .array(z.string().min(1).max(64))
+      .min(1)
+      .max(AMBIENT_NOODLE_ENTITY_IDS.length)
+      .refine((ids) => new Set(ids).size === ids.length, { message: "Duplicate account IDs are not allowed." }),
+    debugMode: z.boolean().default(false),
+  })
+  .strict();
 
 const noodleStageProfileShape = {
   displayName: z.string().trim().min(1, "Enter a stage name.").max(120),
@@ -714,6 +715,11 @@ export type NoodleAccountUpdateInput = z.infer<typeof noodleAccountUpdateSchema>
 export type NoodleAccountProfileUpdateInput = z.infer<typeof noodleAccountProfileUpdateSchema>;
 export type NoodleAccountSettingsPatchInput = z.infer<typeof noodleAccountSettingsPatchSchema>;
 export type NoodleAccountFollowUpdateInput = z.infer<typeof noodleAccountFollowUpdateSchema>;
+export type NoodleAmbientProfileRerollInput = z.infer<typeof noodleAmbientProfileRerollSchema>;
+export type NoodleAmbientProfileRerollOutcome = {
+  accountId: string;
+  status: "updated" | "invalid_response" | "error";
+};
 export type NoodlerAccountCreateInput = z.infer<typeof noodlerAccountCreateSchema>;
 export type NoodleBulkNoodlerAccountCreateInput = z.infer<typeof noodleBulkNoodlerAccountCreateSchema>;
 export type NoodleStageProfileInput = z.infer<typeof noodleStageProfileSchema>;

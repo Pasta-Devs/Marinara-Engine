@@ -37,8 +37,8 @@ import { resolveAssetTag } from "../../lib/asset-fuzzy-match";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { findReplayableGameSessionChat } from "../../lib/game-session-resolution";
 import { findReplayStoryboardKeyframe } from "../../lib/game-storyboard-keyframes";
+import type { AvatarCrop } from "@marinara-engine/shared";
 import type { CharacterMap, PersonaInfo } from "../chat/chat-area.types";
-import type { AvatarCrop, LegacyAvatarCrop } from "../../lib/utils";
 import { buildGameSessionReplayTurns, type GameReplayPresentationCue } from "../../lib/game-session-replay";
 import { useGameAssetStore } from "../../stores/game-asset.store";
 import { useChatStore } from "../../stores/chat.store";
@@ -50,7 +50,7 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface SpeakerAvatarInfo {
   url: string;
-  crop?: AvatarCrop | LegacyAvatarCrop | null;
+  crop?: AvatarCrop | null;
   nameColor?: string;
   dialogueColor?: string;
 }

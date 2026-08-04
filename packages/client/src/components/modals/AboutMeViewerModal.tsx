@@ -13,7 +13,8 @@ import { useChat, useUpdateChatMetadata } from "../../hooks/use-chats";
 import { useCharacter, usePersonas } from "../../hooks/use-characters";
 import { useConversationCustomEmojis } from "../../hooks/use-conversation-custom-emojis";
 import { useChatStore } from "../../stores/chat.store";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
 import { renderInlineWithCustomEmojis } from "../../lib/custom-emoji-render";
 import { EmojiPicker } from "../ui/EmojiPicker";
@@ -36,7 +37,7 @@ interface AboutMeViewerModalProps {
   id: string;
   anchorRect?: AnchorRect | null;
   avatarUrl?: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
   displayName?: string | null;
   nameColor?: string | null;
   status?: "online" | "idle" | "dnd" | "offline" | null;

@@ -12,7 +12,8 @@ import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { appendLocalSidecarConnectionOption, isLocalSidecarConnectionOption } from "../../lib/connection-filters";
-import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface Persona {
@@ -232,7 +233,7 @@ export function QuickSwitcherMobile() {
               src={persona.avatarPath}
               alt={persona.name}
               className="h-full w-full object-cover"
-              style={getAvatarCropStyle(parseAvatarCropJson(persona.avatarCrop))}
+              style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
             />
           </div>
         ) : (
@@ -405,7 +406,7 @@ export function QuickSwitcherMobile() {
                                 src={firstMember.avatarPath}
                                 alt={group.name}
                                 className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(parseAvatarCropJson(firstMember.avatarCrop))}
+                                style={getAvatarCropStyle(normalizeAvatarCrop(firstMember.avatarCrop))}
                               />
                             </div>
                           ) : (

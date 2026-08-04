@@ -24,7 +24,7 @@ import {
   Dices,
   FolderOpen,
 } from "lucide-react";
-import { cn, getAvatarCropStyle, type AvatarCrop } from "../../lib/utils";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useConnections } from "../../hooks/use-connections";
 import { usePresets, usePresetFull, useDefaultPreset } from "../../hooks/use-presets";
 import { useCharacterGroups, useCharacters, usePersonas } from "../../hooks/use-characters";
@@ -66,8 +66,10 @@ import {
   type ChatPreset,
   type CharacterGroup,
   type ConversationCommandKey,
+  type AvatarCrop,
   type Lorebook,
   type Message,
+  normalizeAvatarCrop,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -203,6 +205,7 @@ interface PersonaDisplayInfo {
   id?: string;
   name: string;
   avatarPath?: string | null;
+  avatarCrop?: AvatarCrop | string | null;
   comment?: string | null;
 }
 
@@ -461,35 +464,20 @@ function formatPersonaLabel(persona: PersonaDisplayInfo): string {
   return title ? `${persona.name} - ${title}` : persona.name;
 }
 
-function getCharacterAvatarCrop(character: { data: unknown }): AvatarCrop | null {
-  try {
-    const parsed = typeof character.data === "string" ? JSON.parse(character.data) : character.data;
-    return (parsed as { extensions?: { avatarCrop?: AvatarCrop | null } } | null)?.extensions?.avatarCrop ?? null;
-  } catch {
-    return null;
-  }
-}
-
-function CharacterAvatarImage({
-  character,
+function CroppedAvatarImage({
   src,
   alt,
   className,
+  crop,
 }: {
-  character: { data: unknown };
   src: string;
   alt: string;
   className: string;
+  crop: AvatarCrop | null;
 }) {
   return (
     <span className={cn("relative block shrink-0 overflow-hidden", className)}>
-      <img
-        src={src}
-        alt={alt}
-        loading="lazy"
-        className="h-full w-full object-cover"
-        style={getAvatarCropStyle(getCharacterAvatarCrop(character))}
-      />
+      <img src={src} alt={alt} loading="lazy" className="h-full w-full object-cover" style={getAvatarCropStyle(crop)} />
     </span>
   );
 }
@@ -497,7 +485,12 @@ function CharacterAvatarImage({
 function PersonaAvatar({ persona }: { persona: PersonaDisplayInfo | null }) {
   if (persona?.avatarPath) {
     return (
-      <img src={persona.avatarPath} alt={persona.name} loading="lazy" className="h-7 w-7 rounded-full object-cover" />
+      <CroppedAvatarImage
+        src={persona.avatarPath}
+        alt={persona.name}
+        className="h-7 w-7 rounded-full"
+        crop={normalizeAvatarCrop(persona.avatarCrop)}
+      />
     );
   }
 
@@ -756,6 +749,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
         id: string;
         name: string;
         avatarPath: string | null;
+        avatarCrop?: AvatarCrop | string | null;
         comment?: string | null;
       }>,
     [allPersonas],
@@ -1328,11 +1322,11 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                   }
                 >
                   {character.avatarPath ? (
-                    <CharacterAvatarImage
-                      character={character}
+                    <CroppedAvatarImage
                       src={character.avatarPath}
                       alt={name}
                       className="h-5 w-5 rounded-md"
+                      crop={getCharacterInfo(character).avatarCrop ?? null}
                     />
                   ) : (
                     <div className="flex h-5 w-5 items-center justify-center rounded-md bg-[var(--accent)] text-[0.5rem] font-bold">
@@ -1419,11 +1413,11 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
                   className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
                 >
                   {character.avatarPath ? (
-                    <CharacterAvatarImage
-                      character={character}
+                    <CroppedAvatarImage
                       src={character.avatarPath}
                       alt={info.name}
                       className="h-7 w-7 rounded-md"
+                      crop={info.avatarCrop ?? null}
                     />
                   ) : (
                     <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--accent)] text-[0.5625rem] font-bold">
@@ -1755,6 +1749,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
         id: string;
         name: string;
         avatarPath: string | null;
+        avatarCrop?: AvatarCrop | string | null;
         comment?: string | null;
       }>,
     [allPersonas],
@@ -2446,11 +2441,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30"
                 >
                   {c.avatarPath ? (
-                    <CharacterAvatarImage
-                      character={c}
+                    <CroppedAvatarImage
                       src={c.avatarPath}
                       alt={name}
                       className="h-6 w-6 rounded-full"
+                      crop={getCharacterInfo(c).avatarCrop ?? null}
                     />
                   ) : (
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">
@@ -2554,11 +2549,11 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
                   className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-all hover:bg-[var(--accent)]"
                 >
                   {c.avatarPath ? (
-                    <CharacterAvatarImage
-                      character={c}
+                    <CroppedAvatarImage
                       src={c.avatarPath}
                       alt={name}
                       className="h-6 w-6 rounded-full"
+                      crop={getCharacterInfo(c).avatarCrop ?? null}
                     />
                   ) : (
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent)] text-[0.5625rem] font-bold">

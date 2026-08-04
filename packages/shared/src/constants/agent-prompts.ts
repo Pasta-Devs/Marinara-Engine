@@ -12,6 +12,7 @@ Focus on plot turns, character developments, relationships, current situation, l
 Write an appendable continuation. Do not rewrite or repeat the previous summary. If nothing durable changed, return an empty summary. Match the existing summary style.
 Return only valid JSON:
 {
+  "name": "short one-line title for this summary, or empty string",
   "summary": "new summary text to append, or empty string"
 }`;
 
@@ -97,6 +98,7 @@ Use \`[CRITICAL]\`, \`[MAJOR]\`, \`[MODERATE]\`, or \`[MINOR]\` according to fut
 ## Output
 Return only valid JSON using the summary endpoint contract:
 {
+  "name": "short one-line title for this summary",
   "summary": "the concise LTM report using the exact headings and field labels above"
 }
 Put the complete report inside the \`summary\` string. Omit optional fields when unsupported. Be concise but complete.`;

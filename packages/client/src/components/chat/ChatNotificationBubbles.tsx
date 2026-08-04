@@ -14,7 +14,8 @@ import { useChatStore } from "../../stores/chat.store";
 import { useGameModeStore } from "../../stores/game-mode.store";
 import { useUIStore } from "../../stores/ui.store";
 import { api } from "../../lib/api-client";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import type { AvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
@@ -22,7 +23,7 @@ type ChatNotification = {
   chatId: string;
   characterName: string;
   avatarUrl: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
   count: number;
   kind?: "message" | "call";
   callId?: string | null;

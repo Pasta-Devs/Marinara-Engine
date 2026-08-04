@@ -13,6 +13,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Updated the pinned pnpm toolchain to 10.34.5 across launchers, installers, update commands, containers, and CI to pick up upstream security fixes. The Corepack pin includes the release tarball's SHA-512 digest, mismatched global versions are rejected, and launchers reselect the repository pin after pulling future updates. The first launcher update from an older pin intentionally stops before dependency installation; relaunch once so the refreshed launcher can obtain and verify 10.34.5 (#4581).
 - Preserved full JannyAI definition fields by falling back to recovered page data when the original PNG is blocked, and stopped incomplete search metadata from masquerading as a complete character import (#4497).
 - Matched PocketTTS's official `localhost:8000` multipart `/tts` API and built-in voice catalog while retaining automatic compatibility with existing OpenAI-style PocketTTS wrapper URLs (#4499).
 - Let custom post-processing agents evaluate activation keywords against the completed assistant response, so Scan Depth 1 now sees the message the agent is meant to process (#4498).

@@ -8,7 +8,8 @@ import { ChevronDown, ChevronRight, FolderOpen, Folder } from "lucide-react";
 import { usePersonas, usePersonaGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
-import { cn, getAvatarCropStyle, parseAvatarCropJson } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface Persona {
@@ -191,7 +192,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
               src={persona.avatarPath}
               alt={persona.name}
               className="h-full w-full object-cover"
-              style={getAvatarCropStyle(parseAvatarCropJson(persona.avatarCrop))}
+              style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
             />
           </div>
         ) : (
@@ -236,7 +237,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             src={activePersona.avatarPath}
             alt={activePersona.name}
             className="h-full w-full object-cover rounded-full"
-            style={getAvatarCropStyle(parseAvatarCropJson(activePersona.avatarCrop))}
+            style={getAvatarCropStyle(normalizeAvatarCrop(activePersona.avatarCrop))}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45">
@@ -312,7 +313,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                             src={firstMember.avatarPath}
                             alt={group.name}
                             className="h-full w-full object-cover"
-                            style={getAvatarCropStyle(parseAvatarCropJson(firstMember.avatarCrop))}
+                            style={getAvatarCropStyle(normalizeAvatarCrop(firstMember.avatarCrop))}
                           />
                         </div>
                       ) : (

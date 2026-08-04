@@ -51,51 +51,9 @@ if !NODE_MAJOR! LSS 24 (
     exit /b 1
 )
 
-:: Resolve the repo-pinned pnpm version from package.json
-set "PNPM_VERSION=10.33.2"
-for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'"`) do set "PNPM_VERSION=%%i"
-set "PNPM_RUNNER=pnpm"
-set "CURRENT_PNPM_VERSION="
-
-:: Ensure pnpm is available before any update/install path uses it
-where corepack >nul 2>&1
-if not errorlevel 1 (
-    echo  [..] Aligning pnpm to %PNPM_VERSION% via Corepack...
-    for /f "usebackq delims=" %%i in (`corepack pnpm@%PNPM_VERSION% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-    if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-        set "PNPM_RUNNER=corepack"
-    ) else (
-        set "CURRENT_PNPM_VERSION="
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    where pnpm >nul 2>&1
-    if not errorlevel 1 (
-        for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-        if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-            echo  [..] Using installed pnpm !CURRENT_PNPM_VERSION!
-        ) else (
-            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required %PNPM_VERSION%; trying a pinned temporary runner...
-            set "CURRENT_PNPM_VERSION="
-        )
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    echo  [..] Using temporary pnpm %PNPM_VERSION% via npx...
-    for /f "usebackq delims=" %%i in (`npx --yes pnpm@%PNPM_VERSION% --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
-    if /I "!CURRENT_PNPM_VERSION!"=="%PNPM_VERSION%" (
-        set "PNPM_RUNNER=npx"
-    ) else (
-        set "CURRENT_PNPM_VERSION="
-    )
-)
-
-if not defined CURRENT_PNPM_VERSION (
-    echo  [ERROR] Failed to make pnpm %PNPM_VERSION% available.
-    echo          Marinara can run without a global pnpm install, but Node.js must provide Corepack or npx/npm.
-    echo          Reinstall Node.js 24 LTS with npm enabled, or run: npm install -g pnpm
+:: Resolve the exact repo-pinned pnpm before any install path uses it.
+call :resolve_pnpm_runner
+if errorlevel 1 (
     pause
     exit /b 1
 )
@@ -121,6 +79,7 @@ goto :eof
 set "INSTALL_REQUIRED=0"
 set "BUILD_REQUIRED=0"
 set "DATA_SNAPSHOT_READY=0"
+set "PNPM_RESOLUTION_FAILED=0"
 
 :: Drop untracked leftovers in the source trees (e.g. files a failed Windows
 :: checkout could not delete after a channel switch); they break tsc. This is
@@ -258,8 +217,13 @@ if "!STASHED!"=="1" call :restore_stashed_changes
 if exist "!UPDATE_LOG!" del /q "!UPDATE_LOG!" >nul 2>&1
 echo  [OK] Updated to latest version
 echo  [..] Dependencies and build will be refreshed before startup.
-set "INSTALL_REQUIRED=1"
-set "BUILD_REQUIRED=1"
+call :resolve_pnpm_runner
+if errorlevel 1 (
+    set "PNPM_RESOLUTION_FAILED=1"
+) else (
+    set "INSTALL_REQUIRED=1"
+    set "BUILD_REQUIRED=1"
+)
 
 :skip_update
 if "!DATA_SNAPSHOT_READY!"=="1" (
@@ -270,6 +234,10 @@ if "!DATA_SNAPSHOT_READY!"=="1" (
         pause
         exit /b 1
     )
+)
+if "!PNPM_RESOLUTION_FAILED!"=="1" (
+    pause
+    exit /b 1
 )
 echo  [OK] Node.js found:
 node -v
@@ -402,7 +370,7 @@ goto :eof
 
 :run_pnpm
 if /I "%PNPM_RUNNER%"=="corepack" (
-    call corepack pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
+    call corepack pnpm@%PNPM_DESCRIPTOR% --config.trustPolicy=off --config.confirmModulesPurge=false %*
 ) else (
     if /I "%PNPM_RUNNER%"=="npx" (
         call npx --yes pnpm@%PNPM_VERSION% --config.trustPolicy=off --config.confirmModulesPurge=false %*
@@ -411,3 +379,62 @@ if /I "%PNPM_RUNNER%"=="corepack" (
     )
 )
 exit /b %errorlevel%
+
+:resolve_pnpm_runner
+set "PNPM_DESCRIPTOR="
+for /f "usebackq delims=" %%i in (`node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.replace(/^^pnpm@/, '') || ''"`) do set "PNPM_DESCRIPTOR=%%i"
+if not defined PNPM_DESCRIPTOR (
+    echo  [ERROR] Could not read the pinned pnpm descriptor from package.json.
+    exit /b 1
+)
+set "PNPM_VERSION="
+for /f "tokens=1 delims=+" %%i in ("!PNPM_DESCRIPTOR!") do set "PNPM_VERSION=%%i"
+if not defined PNPM_VERSION (
+    echo  [ERROR] The pinned pnpm descriptor in package.json has no version.
+    exit /b 1
+)
+set "PNPM_RUNNER=pnpm"
+set "CURRENT_PNPM_VERSION="
+
+where corepack >nul 2>&1
+if not errorlevel 1 (
+    echo  [..] Aligning pnpm to !PNPM_VERSION! via Corepack...
+    for /f "usebackq delims=" %%i in (`corepack pnpm@!PNPM_DESCRIPTOR! --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+    if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+        set "PNPM_RUNNER=corepack"
+    ) else (
+        set "CURRENT_PNPM_VERSION="
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    where pnpm >nul 2>&1
+    if not errorlevel 1 (
+        for /f "usebackq delims=" %%i in (`pnpm --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+        if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+            echo  [..] Using installed pnpm !CURRENT_PNPM_VERSION!
+        ) else (
+            if defined CURRENT_PNPM_VERSION echo  [..] Installed pnpm !CURRENT_PNPM_VERSION! does not match required !PNPM_VERSION!; trying a pinned temporary runner...
+            set "CURRENT_PNPM_VERSION="
+        )
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    echo  [..] Using temporary pnpm !PNPM_VERSION! via npx...
+    for /f "usebackq delims=" %%i in (`npx --yes pnpm@!PNPM_VERSION! --version 2^>nul`) do set "CURRENT_PNPM_VERSION=%%i"
+    if /I "!CURRENT_PNPM_VERSION!"=="!PNPM_VERSION!" (
+        set "PNPM_RUNNER=npx"
+    ) else (
+        set "CURRENT_PNPM_VERSION="
+    )
+)
+
+if not defined CURRENT_PNPM_VERSION (
+    echo  [ERROR] Failed to make pnpm !PNPM_VERSION! available.
+    echo          Marinara can run without a global pnpm install, but Node.js must provide Corepack or npx/npm.
+    echo          Reinstall Node.js 24 LTS with npm enabled, or run: npm install -g pnpm@!PNPM_VERSION!
+    exit /b 1
+)
+echo  [OK] pnpm !CURRENT_PNPM_VERSION! ready
+exit /b 0

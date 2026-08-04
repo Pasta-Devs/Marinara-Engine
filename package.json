@@ -6,10 +6,10 @@
   "author": "Marianna",
   "license": "AGPL-3.0",
   "type": "module",
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@10.34.5+sha512.a4ee05f2f73658255bd6a89859c065a45c28a57daefae2c893a168ee2b73168c37b91e83e57ea67654ad03f03031746430e8bce38e362e042605fb8abc80192e",
   "engines": {
     "node": ">=24 <27",
-    "pnpm": ">=10.33.2"
+    "pnpm": ">=10.34.5"
   },
   "scripts": {
     "preinstall": "node ./scripts/clean-stale-client-artifacts.mjs",
@@ -36,6 +36,7 @@
     "regression:timezone": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/timezone.regression.ts",
     "regression:conversation-summary": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/conversation-summary.regression.ts",
     "regression:character-schedule-transfer": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/character-schedule-transfer.regression.ts",
+    "regression:avatar-crop-contract": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/avatar-crop-contract.regression.ts",
     "regression:noodle": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-scheduler.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-settings.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-context.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-platform-migration.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-mentions.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-polls.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-prompt.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-creator-reply.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-deletion.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-image-retry.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-image-claim.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-vision.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-refresh-transaction.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-autopost.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-autopost-image.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-autopost-image-lifecycle.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-locked-teaser.regression.ts && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/noodle-feed-seen.regression.ts",
     "regression:emoji": "pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/emoji-catalog.regression.ts",
     "regression:providers": "pnpm build:shared && pnpm --filter @marinara-engine/server exec tsx ../../scripts/regressions/provider-compat.regression.ts",

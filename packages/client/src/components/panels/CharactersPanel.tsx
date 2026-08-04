@@ -49,7 +49,8 @@ import {
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { cn, getAvatarCropStyle, type AvatarCropValue } from "../../lib/utils";
+import { normalizeAvatarCrop } from "@marinara-engine/shared";
+import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
@@ -1050,7 +1051,7 @@ export function CharactersPanel() {
                   const memberTags = fullMember ? getCharacterTags(fullMember) : [];
                   const memberTokenEstimate = fullMember ? estimateCharacterCardTokens(fullMember.parsed) : null;
                   const memberNameColor = (fullMember?.parsed.extensions?.nameColor as string) || undefined;
-                  const memberAvatarCrop = fullMember?.parsed.extensions?.avatarCrop as AvatarCropValue | undefined;
+                  const memberAvatarCrop = normalizeAvatarCrop(fullMember?.parsed.extensions?.avatarCrop) ?? undefined;
                   return (
                     <div
                       key={memberId}
@@ -1491,7 +1492,7 @@ export function CharactersPanel() {
                       src={avatarUrl}
                       alt={charName}
                       className="h-full w-full object-cover"
-                      style={getAvatarCropStyle(char.parsed.extensions?.avatarCrop as AvatarCropValue | undefined)}
+                      style={getAvatarCropStyle(normalizeAvatarCrop(char.parsed.extensions?.avatarCrop))}
                     />
                   </div>
                 ) : (

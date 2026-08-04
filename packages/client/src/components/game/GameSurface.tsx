@@ -89,14 +89,7 @@ import { useRenderTimer } from "../../lib/perf-diagnostics";
 import { isGenerationSendBlocked } from "../../lib/generation-stream-policy";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { CHAT_FLOATING_UI_DISMISS_EVENT } from "../../lib/chat-floating-ui-events";
-import {
-  cn,
-  generateClientId,
-  parseAvatarCropJson,
-  type AvatarCrop,
-  type LegacyAvatarCrop,
-  type AvatarCropValue,
-} from "../../lib/utils";
+import { cn, generateClientId } from "../../lib/utils";
 import { filterLanguageGenerationConnections } from "../../lib/connection-filters";
 import { gameAssetFileUrl } from "../../lib/game-asset-urls";
 import { audioManager } from "../../lib/game-audio";
@@ -147,13 +140,14 @@ import type {
   SpatialMapDraftSize,
   PendingSpatialTransition,
 } from "@marinara-engine/shared";
-import type { SceneSegmentEffect } from "@marinara-engine/shared";
+import type { AvatarCrop, SceneSegmentEffect } from "@marinara-engine/shared";
 import {
   PROFESSOR_MARI_ID,
   SPOTIFY_RECENT_TRACK_HISTORY_LIMIT,
   STORYBOARD_AGENT_ID,
   formatTextQuotes,
   mergeBuiltInAgentSettings,
+  normalizeAvatarCrop,
   normalizeStoryboardAgentSettings,
   normalizeRpgStatPools,
   normalizeTextForMatch,
@@ -553,7 +547,7 @@ type SceneAssetPresentCharacter = {
   name?: string | null;
   appearance?: string | null;
   avatarPath?: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
 };
 
 type SpeakingLibraryCharacter = {
@@ -565,57 +559,11 @@ type GamePartyMemberInfo = {
   id: string;
   name: string;
   avatarUrl: string | null;
-  avatarCrop?: AvatarCropValue | null;
+  avatarCrop?: AvatarCrop | null;
   nameColor?: string;
   dialogueColor?: string;
   canRemove?: boolean;
 };
-
-function normalizeAvatarCropValue(raw: unknown): AvatarCropValue | null {
-  if (typeof raw === "string") return parseAvatarCropJson(raw);
-  if (!raw || typeof raw !== "object") return null;
-  const obj = raw as Record<string, unknown>;
-  if (
-    typeof obj.srcX === "number" &&
-    typeof obj.srcY === "number" &&
-    typeof obj.srcWidth === "number" &&
-    typeof obj.srcHeight === "number" &&
-    Number.isFinite(obj.srcX) &&
-    Number.isFinite(obj.srcY) &&
-    Number.isFinite(obj.srcWidth) &&
-    Number.isFinite(obj.srcHeight) &&
-    obj.srcWidth > 0 &&
-    obj.srcHeight > 0 &&
-    obj.srcX >= 0 &&
-    obj.srcY >= 0 &&
-    obj.srcX + obj.srcWidth <= 1.001 &&
-    obj.srcY + obj.srcHeight <= 1.001
-  ) {
-    return {
-      srcX: obj.srcX,
-      srcY: obj.srcY,
-      srcWidth: obj.srcWidth,
-      srcHeight: obj.srcHeight,
-    };
-  }
-  if (
-    typeof obj.zoom === "number" &&
-    typeof obj.offsetX === "number" &&
-    typeof obj.offsetY === "number" &&
-    Number.isFinite(obj.zoom) &&
-    Number.isFinite(obj.offsetX) &&
-    Number.isFinite(obj.offsetY) &&
-    obj.zoom > 0
-  ) {
-    return {
-      zoom: obj.zoom,
-      offsetX: obj.offsetX,
-      offsetY: obj.offsetY,
-      ...(obj.fullImage ? { fullImage: true } : {}),
-    };
-  }
-  return null;
-}
 
 const NARRATION_NPC_SPEECH_VERB_PATTERN =
   "(?:said|says|whispered|whispers|muttered|mutters|replied|replies|called|calls|shouted|shouts|asked|asks|warned|warns|growled|growls|hissed|hisses|exclaimed|exclaims|murmured|murmurs|sighed|sighs|snapped|snaps|barked|barks|declared|declares|continued|continues|added|adds|spoke|speaks|began|begins|remarked|remarks|chuckled|chuckles|laughed|laughs|cried|cries)";
@@ -2097,7 +2045,7 @@ interface GameSurfaceProps {
     backstory?: string;
     appearance?: string;
     tags?: string[];
-    avatarCrop?: AvatarCropValue | null;
+    avatarCrop?: AvatarCrop | null;
     nameColor?: string;
     dialogueColor?: string;
   }>;
@@ -3456,7 +3404,7 @@ function GameSurfaceComponent({
       string,
       {
         url: string;
-        crop?: AvatarCrop | LegacyAvatarCrop | null;
+        crop?: AvatarCrop | null;
         nameColor?: string;
         dialogueColor?: string;
       }
@@ -7802,7 +7750,7 @@ function GameSurfaceComponent({
           typeof presentCharacter.avatarPath === "string" && presentCharacter.avatarPath.trim()
             ? presentCharacter.avatarPath
             : null,
-        avatarCrop: normalizeAvatarCropValue(presentCharacter.avatarCrop),
+        avatarCrop: normalizeAvatarCrop(presentCharacter.avatarCrop),
         canRemove: false,
       });
     }
@@ -8534,7 +8482,7 @@ function GameSurfaceComponent({
               typeof presentCharacter?.avatarPath === "string" && presentCharacter.avatarPath.trim()
                 ? presentCharacter.avatarPath
                 : null,
-            avatarCrop: normalizeAvatarCropValue(presentCharacter?.avatarCrop),
+            avatarCrop: normalizeAvatarCrop(presentCharacter?.avatarCrop),
             canRemove: false,
           }
         : null;
@@ -8663,7 +8611,7 @@ function GameSurfaceComponent({
         status?: string;
         level?: number;
         avatarUrl?: string | null;
-        avatarCrop?: AvatarCropValue | null;
+        avatarCrop?: AvatarCrop | null;
         stats?: Array<{ name: string; value: number; max?: number; color?: string }>;
         inventory?: Array<{ name: string; quantity?: number; location?: string }>;
         customFields?: Record<string, string>;
@@ -8739,7 +8687,7 @@ function GameSurfaceComponent({
         mood: pc.mood || existing?.mood || undefined,
         status: pc.thoughts || existing?.status || undefined,
         avatarUrl: pc.avatarPath || existing?.avatarUrl || null,
-        avatarCrop: normalizeAvatarCropValue(pc.avatarCrop) ?? existing?.avatarCrop ?? null,
+        avatarCrop: normalizeAvatarCrop(pc.avatarCrop) ?? existing?.avatarCrop ?? null,
         stats:
           (pc.stats ?? []).length > 0
             ? (pc.stats ?? []).map((s) => ({ name: s.name, value: s.value, max: s.max, color: s.color }))

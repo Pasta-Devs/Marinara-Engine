@@ -131,12 +131,14 @@ case "$AUTO_UPDATE_ENABLED_NORMALIZED" in
 esac
 
 # ── Check pnpm ──
-PNPM_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.split('@')[1] || '10.33.2'")
+PNPM_VERSION=""
+PNPM_DESCRIPTOR=""
 PNPM_RUNNER="pnpm"
+CURRENT_PNPM_VERSION=""
 
 run_pnpm() {
     if [ "$PNPM_RUNNER" = "corepack" ]; then
-        corepack "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
+        corepack "pnpm@${PNPM_DESCRIPTOR}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     elif [ "$PNPM_RUNNER" = "npx" ]; then
         npx --yes "pnpm@${PNPM_VERSION}" --config.trustPolicy=off --config.confirmModulesPurge=false "$@"
     else
@@ -162,34 +164,60 @@ install_workspace_dependencies() {
     SHARP_IGNORE_GLOBAL_LIBVIPS=1 run_pnpm install --frozen-lockfile --prefer-offline
 }
 
-if command -v corepack &> /dev/null; then
-    echo "  [..] Aligning pnpm to ${PNPM_VERSION} via Corepack..."
-    CURRENT_PNPM_VERSION=$(corepack "pnpm@${PNPM_VERSION}" --version 2>/dev/null || true)
-    if [ "$CURRENT_PNPM_VERSION" = "$PNPM_VERSION" ]; then
-        PNPM_RUNNER="corepack"
+resolve_pnpm_runner() {
+    PNPM_DESCRIPTOR=$(node -p "JSON.parse(require('fs').readFileSync('package.json','utf8')).packageManager?.replace(/^pnpm@/, '') || ''" 2>/dev/null || true)
+    if [ -z "$PNPM_DESCRIPTOR" ]; then
+        echo "  [ERROR] Could not read the pinned pnpm descriptor from package.json."
+        return 1
     fi
-fi
-
-if [ "$PNPM_RUNNER" = "pnpm" ]; then
-    CURRENT_PNPM_VERSION=$(pnpm --version 2>/dev/null || true)
-    if [ -n "$CURRENT_PNPM_VERSION" ]; then
-        echo "  [..] Using installed pnpm ${CURRENT_PNPM_VERSION}"
+    PNPM_VERSION=${PNPM_DESCRIPTOR%%+*}
+    if [ -z "$PNPM_VERSION" ]; then
+        echo "  [ERROR] The pinned pnpm descriptor in package.json has no version."
+        return 1
     fi
-fi
+    PNPM_RUNNER="pnpm"
+    CURRENT_PNPM_VERSION=""
 
-if [ -z "$CURRENT_PNPM_VERSION" ]; then
-    echo "  [..] Using temporary pnpm ${PNPM_VERSION} via npx..."
-    CURRENT_PNPM_VERSION=$(npx --yes "pnpm@${PNPM_VERSION}" --version 2>/dev/null || true)
-    if [ "$CURRENT_PNPM_VERSION" = "$PNPM_VERSION" ]; then
-        PNPM_RUNNER="npx"
+    if command -v corepack &> /dev/null; then
+        echo "  [..] Aligning pnpm to ${PNPM_VERSION} via Corepack..."
+        CURRENT_PNPM_VERSION=$(corepack "pnpm@${PNPM_DESCRIPTOR}" --version 2>/dev/null || true)
+        if [ "$CURRENT_PNPM_VERSION" = "$PNPM_VERSION" ]; then
+            PNPM_RUNNER="corepack"
+        else
+            CURRENT_PNPM_VERSION=""
+        fi
     fi
-fi
 
-if [ -z "$CURRENT_PNPM_VERSION" ]; then
-    echo "  [ERROR] Failed to make pnpm ${PNPM_VERSION} available."
-    exit 1
-fi
-echo "  [OK] pnpm ${CURRENT_PNPM_VERSION} ready"
+    if [ -z "$CURRENT_PNPM_VERSION" ] && command -v pnpm &> /dev/null; then
+        CURRENT_PNPM_VERSION=$(pnpm --version 2>/dev/null || true)
+        if [ "$CURRENT_PNPM_VERSION" = "$PNPM_VERSION" ]; then
+            echo "  [..] Using installed pnpm ${CURRENT_PNPM_VERSION}"
+        else
+            if [ -n "$CURRENT_PNPM_VERSION" ]; then
+                echo "  [..] Installed pnpm ${CURRENT_PNPM_VERSION} does not match required ${PNPM_VERSION}; trying a pinned temporary runner..."
+            fi
+            CURRENT_PNPM_VERSION=""
+        fi
+    fi
+
+    if [ -z "$CURRENT_PNPM_VERSION" ]; then
+        echo "  [..] Using temporary pnpm ${PNPM_VERSION} via npx..."
+        CURRENT_PNPM_VERSION=$(npx --yes "pnpm@${PNPM_VERSION}" --version 2>/dev/null || true)
+        if [ "$CURRENT_PNPM_VERSION" = "$PNPM_VERSION" ]; then
+            PNPM_RUNNER="npx"
+        else
+            CURRENT_PNPM_VERSION=""
+        fi
+    fi
+
+    if [ -z "$CURRENT_PNPM_VERSION" ]; then
+        echo "  [ERROR] Failed to make pnpm ${PNPM_VERSION} available."
+        return 1
+    fi
+    echo "  [OK] pnpm ${CURRENT_PNPM_VERSION} ready"
+}
+
+resolve_pnpm_runner || exit 1
 
 restore_stashed_changes() {
     if [ "$STASHED" != "1" ] || [ -z "$STASH_REF" ]; then
@@ -311,11 +339,15 @@ elif [ -d ".git" ]; then
                 echo "  [WARN] Update did not land on ${TARGET_REF}. Continuing with current version."
             else
                 echo "  [OK] Updated to $(git log -1 --format='%h %s' 2>/dev/null)"
-                prune_pnpm_store
-                echo "  [..] Refreshing dependencies..."
-                install_workspace_dependencies
-                rm -rf packages/shared/dist packages/server/dist packages/client/dist
-                rm -f packages/shared/tsconfig.tsbuildinfo packages/server/tsconfig.tsbuildinfo packages/client/tsconfig.tsbuildinfo
+                if ! resolve_pnpm_runner; then
+                    PNPM_RESOLUTION_FAILED=1
+                else
+                    prune_pnpm_store
+                    echo "  [..] Refreshing dependencies..."
+                    install_workspace_dependencies
+                    rm -rf packages/shared/dist packages/server/dist packages/client/dist
+                    rm -f packages/shared/tsconfig.tsbuildinfo packages/server/tsconfig.tsbuildinfo packages/client/tsconfig.tsbuildinfo
+                fi
             fi
         elif [ "$SKIP_UPDATE_FOR_LOCAL_CHANGES" != "1" ]; then
             echo "  [WARN] Could not update to ${TARGET_REF}. Continuing with current version."
@@ -333,6 +365,9 @@ fi
 
 if [ "${DATA_SNAPSHOT_READY:-0}" = "1" ] && ! node scripts/protect-launcher-data.mjs restore-if-missing; then
     echo "  [ERROR] User data verification failed after the update attempt. Startup stopped to avoid creating empty data."
+    exit 1
+fi
+if [ "${PNPM_RESOLUTION_FAILED:-0}" = "1" ]; then
     exit 1
 fi
 
@@ -395,7 +430,7 @@ if [ ! -d "packages/client/dist" ]; then
     if ! SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build 2>&1; then
         echo "  [WARN] Vite build failed — native binaries may not match Node.js $(node -v)."
         echo "  [..] Ensuring WASM fallback for rollup is installed and retrying..."
-        run_pnpm install --filter @marinara-engine/client 2>/dev/null || true
+        run_pnpm install --frozen-lockfile --prefer-offline --filter @marinara-engine/client 2>/dev/null || true
         SKIP_PWA=1 run_pnpm --filter @marinara-engine/client exec vite build
     fi
 fi
