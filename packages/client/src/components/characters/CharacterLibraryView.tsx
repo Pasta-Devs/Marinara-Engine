@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Star,
   User,
   X,
@@ -28,6 +29,7 @@ import {
   usePersonaPages,
 } from "../../hooks/use-characters";
 import { useLibrarySelection } from "../../hooks/use-library-selection";
+import { getStoredEntitySummaryBatch, useStartEntitySummaryBatch } from "../../hooks/use-entity-summary-batch";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
@@ -254,6 +256,7 @@ export function CharacterLibraryView() {
   const sort = isPersonaLibrary ? personaSort : characterSort;
   const [search, setSearch] = useState("");
   const [exportingSelected, setExportingSelected] = useState(false);
+  const startSummaryBatch = useStartEntitySummaryBatch();
   const deleteCharacter = useDeleteCharacter();
   const deletePersona = useDeletePersona();
   const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
@@ -443,6 +446,11 @@ export function CharacterLibraryView() {
     }
   }, [isPersonaLibrary, localizeUi, resourcePlural, selection.selectedIds]);
 
+  const handleComposeChat = useCallback(() => {
+    if (isPersonaLibrary || selection.selectedIds.size < 2) return;
+    openModal("compose-library-chat", { characterIds: [...selection.selectedIds] });
+  }, [isPersonaLibrary, openModal, selection.selectedIds]);
+
   const handleDeleteSelected = useCallback(async () => {
     const ids = [...selection.selectedIds];
     if (ids.length === 0) return;
@@ -482,6 +490,27 @@ export function CharacterLibraryView() {
     }
     selection.exitSelectionMode();
   }, [deleteCharacter, deletePersona, isPersonaLibrary, localizeUi, resourcePlural, resourceSingular, selection]);
+
+  const handleSummarizeSelected = useCallback(async () => {
+    const stored = getStoredEntitySummaryBatch();
+    if (stored) {
+      openModal("entity-summary-batch", { batchId: stored.batchId });
+      return;
+    }
+    const selectedCards = cards.filter((card) => selection.selectedIds.has(card.id));
+    if (selectedCards.length === 0) return;
+    try {
+      const entityKind = isPersonaLibrary ? "persona" : "character";
+      const batch = await startSummaryBatch.mutateAsync({
+        items: selectedCards.map((card) => ({ kind: entityKind, entityId: card.id })),
+        names: Object.fromEntries(selectedCards.map((card) => [`${entityKind}:${card.id}`, card.name])),
+      });
+      selection.exitSelectionMode();
+      openModal("entity-summary-batch", { batchId: batch.id });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : localizeUi("entitySummary.batch.error.start"));
+    }
+  }, [cards, isPersonaLibrary, localizeUi, openModal, selection, startSummaryBatch]);
 
   const placeholderClass = isPersonaLibrary ? "mari-avatar-placeholder--persona" : "mari-avatar-placeholder--character";
   const newCardButtonClass = cn(
@@ -923,6 +952,36 @@ export function CharacterLibraryView() {
       {selection.selectionMode && (
         <SelectionActionBar
           selectedCount={selection.selectedIds.size}
+          extraAction={
+            <>
+              {!isPersonaLibrary && (
+                <button
+                  type="button"
+                  onClick={handleComposeChat}
+                  disabled={selection.selectedIds.size < 2}
+                  className="mari-chrome-control mari-chrome-control--primary flex-1 px-3 py-2 text-xs disabled:opacity-50"
+                >
+                  <MessageCircle size="0.75rem" aria-hidden="true" />
+                  {localizeUi("ui.characters.characterlibraryview.startGroupChat")}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleSummarizeSelected()}
+                disabled={
+                  (!getStoredEntitySummaryBatch() && selection.selectedIds.size === 0) || startSummaryBatch.isPending
+                }
+                className="mari-chrome-control mari-chrome-control--primary flex-1 px-3 py-2 text-xs"
+              >
+                <Sparkles size="0.75rem" aria-hidden="true" />
+                {localizeUi(
+                  getStoredEntitySummaryBatch()
+                    ? "entitySummary.batch.viewBatch"
+                    : "entitySummary.batch.summarizeSelected",
+                )}
+              </button>
+            </>
+          }
           onExport={() => void handleExportSelected()}
           onDelete={() => void handleDeleteSelected()}
           exporting={exportingSelected}

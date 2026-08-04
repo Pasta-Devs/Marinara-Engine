@@ -15,6 +15,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Tag,
   UserRound,
   UsersRound,
@@ -29,6 +30,7 @@ import {
   useLorebookPages,
 } from "../../hooks/use-lorebooks";
 import { useLibrarySelection } from "../../hooks/use-library-selection";
+import { getStoredEntitySummaryBatch, useStartEntitySummaryBatch } from "../../hooks/use-entity-summary-batch";
 import { api } from "../../lib/api-client";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { getChatCharacterIds } from "../../lib/chat-macros";
@@ -234,6 +236,7 @@ export function LorebookLibraryView() {
   const setScrollTop = useUIStore((state) => state.setLorebookLibraryScrollTop);
   const deleteLorebook = useDeleteLorebook();
   const createLorebook = useCreateLorebook();
+  const startSummaryBatch = useStartEntitySummaryBatch();
   const [exporting, setExporting] = useState(false);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLElement | null>(null);
@@ -359,6 +362,25 @@ export function LorebookLibraryView() {
       selection.setSelectedIds(new Set(failedIds));
       toast.error(t("ui.lorebooks.lorebooklibraryview.deleteFailed", { count: failedIds.length }));
     } else selection.exitSelectionMode();
+  };
+  const summarizeSelected = async () => {
+    const stored = getStoredEntitySummaryBatch();
+    if (stored) {
+      openModal("entity-summary-batch", { batchId: stored.batchId });
+      return;
+    }
+    const selectedResources = resources.filter((resource) => selection.selectedIds.has(resource.id));
+    if (selectedResources.length === 0) return;
+    try {
+      const batch = await startSummaryBatch.mutateAsync({
+        items: selectedResources.map((resource) => ({ kind: "lorebook", entityId: resource.id })),
+        names: Object.fromEntries(selectedResources.map((resource) => [`lorebook:${resource.id}`, resource.name])),
+      });
+      selection.exitSelectionMode();
+      openModal("entity-summary-batch", { batchId: batch.id });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("entitySummary.batch.error.start"));
+    }
   };
 
   const renderResource = (resource: LorebookResource, grid: boolean) => {
@@ -745,6 +767,23 @@ export function LorebookLibraryView() {
       {selection.selectionMode && (
         <SelectionActionBar
           selectedCount={selection.selectedIds.size}
+          extraAction={
+            <button
+              type="button"
+              onClick={() => void summarizeSelected()}
+              disabled={
+                (!getStoredEntitySummaryBatch() && selection.selectedIds.size === 0) || startSummaryBatch.isPending
+              }
+              className="mari-chrome-control mari-chrome-control--primary flex-1 px-3 py-2 text-xs"
+            >
+              <Sparkles size="0.75rem" aria-hidden="true" />
+              {t(
+                getStoredEntitySummaryBatch()
+                  ? "entitySummary.batch.viewBatch"
+                  : "entitySummary.batch.summarizeSelected",
+              )}
+            </button>
+          }
           onExport={() => void exportSelected()}
           onDelete={() => void deleteSelected()}
           exporting={exporting}

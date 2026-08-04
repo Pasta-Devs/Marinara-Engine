@@ -1,12 +1,6 @@
-import { useCallback } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api-client";
-import { useChatStore } from "../stores/chat.store";
-import { chatKeys, useCreateChat } from "./use-chats";
-import { useApplyChatPreset, useChatPresets } from "./use-chat-presets";
-import { addSilentGreetingSwipes } from "../lib/message-swipes";
-
-type ChatMode = "roleplay" | "conversation" | "game";
+import { useCallback, useState } from "react";
+import type { ChatMode } from "@marinara-engine/shared";
+import { useCreateChatDraft } from "./use-create-chat-draft";
 
 interface StartChatFromCharacterOptions {
   characterId: string;
@@ -19,10 +13,8 @@ interface StartChatFromCharacterOptions {
 }
 
 export function useStartChatFromCharacter() {
-  const createChat = useCreateChat();
-  const queryClient = useQueryClient();
-  const { data: chatPresetsData } = useChatPresets();
-  const applyChatPreset = useApplyChatPreset();
+  const { createChatDraft, isCreatingChatDraft } = useCreateChatDraft();
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const startChatFromCharacter = useCallback(
     ({
@@ -35,65 +27,23 @@ export function useStartChatFromCharacter() {
       onSuccess,
     }: StartChatFromCharacterOptions) => {
       const label = mode === "conversation" ? "Conversation" : mode === "game" ? "Game" : "Roleplay";
-      const presets = chatPresetsData ?? [];
-      const presetMode = mode === "conversation" || mode === "roleplay" ? mode : null;
-      const starred = presetMode
-        ? presets.find((preset) => preset.mode === presetMode && preset.isActive && !preset.isDefault)
-        : null;
-
-      createChat.mutate(
-        {
-          name: characterName ? `${characterName} - ${label}` : `New ${label}`,
-          mode,
-          characterIds: [characterId],
-          connectionId: starred?.settings.connectionId ?? undefined,
-          promptPresetId: starred?.settings.promptPresetId ?? undefined,
-        },
-        {
-          onSuccess: (chat) => {
-            const store = useChatStore.getState();
-            store.setActiveChatId(chat.id);
-            store.setShouldOpenSettings(true);
-            store.setShouldOpenWizard(true);
-            store.setShouldOpenWizardInShortcutMode(shortcutMode && mode === "roleplay");
-            onSuccess?.(chat.id);
-
-            void (async () => {
-              if (starred) {
-                try {
-                  await applyChatPreset.mutateAsync({ presetId: starred.id, chatId: chat.id });
-                } catch {
-                  /* non-fatal: chat still opens with system defaults */
-                }
-              }
-
-              if (shortcutMode && mode === "roleplay" && firstMessage?.trim()) {
-                try {
-                  const msg = await api.post<{ id: string }>(`/chats/${chat.id}/messages`, {
-                    role: "assistant",
-                    content: firstMessage,
-                    characterId,
-                  });
-
-                  if (msg?.id && alternateGreetings?.length) {
-                    await addSilentGreetingSwipes(chat.id, msg.id, alternateGreetings);
-                  }
-
-                  queryClient.invalidateQueries({ queryKey: chatKeys.messages(chat.id) });
-                } catch {
-                  /* non-fatal: don't block the new chat if greeting injection fails */
-                }
-              }
-            })();
-          },
-        },
-      );
+      setIsStartingChat(true);
+      void createChatDraft({
+        name: characterName ? `${characterName} - ${label}` : `New ${label}`,
+        mode,
+        characterIds: [characterId],
+        shortcutMode,
+        greeting: firstMessage?.trim() ? { characterId, firstMessage, alternateGreetings } : undefined,
+      })
+        .then(({ chat }) => onSuccess?.(chat.id))
+        .catch(() => undefined)
+        .finally(() => setIsStartingChat(false));
     },
-    [applyChatPreset, chatPresetsData, createChat, queryClient],
+    [createChatDraft],
   );
 
   return {
     startChatFromCharacter,
-    isStartingChat: createChat.isPending,
+    isStartingChat: isStartingChat || isCreatingChatDraft,
   };
 }

@@ -39,19 +39,13 @@ import {
   Star,
   MessageCircle,
 } from "lucide-react";
-import { getCharacterTitle } from "../../lib/character-display";
-import {
-  formatCardLibraryMeta,
-  getCardLibrarySummary,
-  matchesCardLibrarySearch,
-  parseCardLibrarySearchQuery,
-} from "../../lib/card-library-search";
+import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
+import { characterToLibraryItem, type CharacterLibraryRow, type LibraryItem } from "../../lib/library/library-item";
 import { useUIStore, type CharacterLibrarySort } from "../../stores/ui.store";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
-import { estimateCharacterCardTokens, formatEstimatedTokens } from "../../lib/character-token-count";
+import { formatEstimatedTokens } from "../../lib/character-token-count";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
 import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { TouchDragHandle } from "../ui/TouchDragHandle";
@@ -68,7 +62,7 @@ type CharacterRow = {
   updatedAt: string;
 };
 type GroupRow = { id: string; name: string; description: string; characterIds: string; avatarPath: string | null };
-type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any> };
+type ParsedCharacterRow = CharacterRow & { parsed: Record<string, any>; libraryItem: LibraryItem };
 type ParsedGroupRow = GroupRow & { memberIds: string[] };
 
 function getNextUnnamedFolderName(folders: Array<{ name: string }>) {
@@ -89,22 +83,26 @@ function parseDroppedCharacterIds(payload: string): unknown {
 }
 
 function getCharacterTags(char: ParsedCharacterRow): string[] {
-  return Array.isArray(char.parsed.tags) ? (char.parsed.tags as string[]).filter(Boolean) : [];
+  return char.libraryItem.tags;
 }
 
 function parseCharacterRow(char: CharacterRow): ParsedCharacterRow {
+  let parsed: Record<string, any>;
   try {
-    const parsed = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
-    return { ...char, parsed: (parsed as ParsedCharacterRow["parsed"]) ?? {} };
+    const value = typeof char.data === "string" ? JSON.parse(char.data) : char.data;
+    parsed = (value as ParsedCharacterRow["parsed"]) ?? {};
   } catch {
-    return { ...char, parsed: { name: "Unknown", description: "" } };
+    parsed = { name: "Unknown", description: "" };
   }
+  return {
+    ...char,
+    parsed,
+    libraryItem: characterToLibraryItem({ ...char, data: parsed } as CharacterLibraryRow),
+  };
 }
 
 function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
   const parts: string[] = [];
-  const creator = typeof char.parsed.creator === "string" ? char.parsed.creator.trim() : "";
-  const version = typeof char.parsed.character_version === "string" ? char.parsed.character_version.trim() : "";
   const importMetadata =
     char.parsed.extensions?.importMetadata && typeof char.parsed.extensions.importMetadata === "object"
       ? (char.parsed.extensions.importMetadata as Record<string, unknown>)
@@ -115,10 +113,12 @@ function getCharacterPreviewMetadata(char: ParsedCharacterRow): string | null {
       : {};
   const spec = typeof cardMetadata.spec === "string" ? cardMetadata.spec.trim() : "";
   const specVersion = typeof cardMetadata.specVersion === "string" ? cardMetadata.specVersion.trim() : "";
-  const tags = getCharacterTags(char);
+  const tags = char.libraryItem.tags;
 
-  if (creator) parts.push(`by ${creator}`);
-  if (version) parts.push(`v${version}`);
+  if (char.libraryItem.meta) {
+    const hasCreator = typeof char.parsed.creator === "string" && char.parsed.creator.trim().length > 0;
+    parts.push(`${hasCreator ? "by " : ""}${char.libraryItem.meta.replace(" · ", ", ")}`);
+  }
   if (spec) parts.push(spec);
   if (specVersion) parts.push(`spec ${specVersion}`);
   if (parts.length > 0) return parts.join(", ");
@@ -205,10 +205,10 @@ export function CharactersPanel() {
     >();
     for (const c of parsedCharacters) {
       map.set(c.id, {
-        name: c.parsed.name ?? "Unknown",
+        name: c.libraryItem.name,
         comment: c.comment,
         avatarPath: c.avatarPath,
-        isFavorite: !!c.parsed.extensions?.fav,
+        isFavorite: c.libraryItem.favorite,
       });
     }
     return map;
@@ -224,9 +224,9 @@ export function CharactersPanel() {
     const query = parseCardLibrarySearchQuery(search);
     // Filter by favorites
     if (favFilter === "favorites") {
-      list = list.filter((c) => c.parsed.extensions?.fav);
+      list = list.filter((c) => c.libraryItem.favorite);
     } else if (favFilter === "non-favorites") {
-      list = list.filter((c) => !c.parsed.extensions?.fav);
+      list = list.filter((c) => !c.libraryItem.favorite);
     }
     // Filter by included tags (OR logic)
     if (includedTags.size > 0) {
@@ -246,30 +246,7 @@ export function CharactersPanel() {
         return true;
       });
     }
-    list = list.filter((c) => {
-      const tags = getCharacterTags(c);
-      return matchesCardLibrarySearch(
-        {
-          name: c.parsed.name,
-          title: getCharacterTitle({ name: c.parsed.name ?? "", comment: c.comment }),
-          meta: formatCardLibraryMeta(c.parsed.creator, c.parsed.character_version),
-          summary: getCardLibrarySummary([
-            c.parsed.extensions?.entitySummary,
-            c.parsed.creator_notes,
-            c.parsed.description,
-            c.parsed.personality,
-          ]),
-          tags,
-          sections: [
-            { content: c.parsed.description },
-            { content: c.parsed.personality },
-            { content: c.parsed.scenario },
-            { content: c.parsed.first_mes },
-          ],
-        },
-        query,
-      );
-    });
+    list = list.filter((c) => matchesCardLibrarySearch(c.libraryItem, query));
     return list;
   }, [parsedCharacters, search, includedTags, excludedTags, favFilter]);
 
@@ -372,7 +349,7 @@ export function CharactersPanel() {
             const countDiff = (matchCounts!.get(b.id) ?? 0) - (matchCounts!.get(a.id) ?? 0);
             if (countDiff !== 0) return countDiff;
           }
-          return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
+          return a.libraryItem.name.localeCompare(b.libraryItem.name);
         });
       case "name-desc":
         return list.sort((a, b) => {
@@ -380,7 +357,7 @@ export function CharactersPanel() {
             const countDiff = (matchCounts!.get(b.id) ?? 0) - (matchCounts!.get(a.id) ?? 0);
             if (countDiff !== 0) return countDiff;
           }
-          return (b.parsed.name ?? "").localeCompare(a.parsed.name ?? "");
+          return b.libraryItem.name.localeCompare(a.libraryItem.name);
         });
       case "newest":
         return list.sort((a, b) => {
@@ -400,21 +377,21 @@ export function CharactersPanel() {
         });
       case "favorites":
         return list.sort((a, b) => {
-          const aFav = a.parsed.extensions?.fav ? 1 : 0;
-          const bFav = b.parsed.extensions?.fav ? 1 : 0;
+          const aFav = a.libraryItem.favorite ? 1 : 0;
+          const bFav = b.libraryItem.favorite ? 1 : 0;
           if (bFav !== aFav) return bFav - aFav;
           if (hasIncludedTags) {
             const countDiff = (matchCounts!.get(b.id) ?? 0) - (matchCounts!.get(a.id) ?? 0);
             if (countDiff !== 0) return countDiff;
           }
-          return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
+          return a.libraryItem.name.localeCompare(b.libraryItem.name);
         });
       default:
         if (hasIncludedTags) {
           return list.sort((a, b) => {
             const countDiff = (matchCounts!.get(b.id) ?? 0) - (matchCounts!.get(a.id) ?? 0);
             if (countDiff !== 0) return countDiff;
-            return (a.parsed.name ?? "").localeCompare(b.parsed.name ?? "");
+            return a.libraryItem.name.localeCompare(b.libraryItem.name);
           });
         }
         return list;
@@ -1044,15 +1021,13 @@ export function CharactersPanel() {
                   if (!member) return null;
                   const fullMember = parsedCharacterMap.get(memberId);
                   const isBulkSelected = selectedCharacterIds.has(memberId);
-                  const memberName = fullMember?.parsed.name ?? member.name;
-                  const memberTitle = fullMember
-                    ? getCharacterTitle({ name: memberName, comment: fullMember.comment })
-                    : getCharacterTitle(member);
+                  const memberName = fullMember?.libraryItem.name ?? member.name;
+                  const memberTitle = fullMember?.libraryItem.title ?? member.comment ?? null;
                   const memberPreviewMetadata = fullMember ? getCharacterPreviewMetadata(fullMember) : null;
                   const memberTags = fullMember ? getCharacterTags(fullMember) : [];
-                  const memberTokenEstimate = fullMember ? estimateCharacterCardTokens(fullMember.parsed) : null;
+                  const memberTokenEstimate = fullMember?.libraryItem.tokenEstimate ?? null;
                   const memberNameColor = (fullMember?.parsed.extensions?.nameColor as string) || undefined;
-                  const memberAvatarCrop = normalizeAvatarCrop(fullMember?.parsed.extensions?.avatarCrop) ?? undefined;
+                  const memberAvatarCrop = fullMember?.libraryItem.avatarCrop;
                   return (
                     <div
                       key={memberId}
@@ -1391,15 +1366,15 @@ export function CharactersPanel() {
 
       <div className="flex min-h-8 shrink-0 flex-col gap-1 rounded-xl transition-colors">
         {visibleRootCharacters.map((char) => {
-          const charName = char.parsed.name ?? "Unnamed";
-          const charTitle = getCharacterTitle({ name: charName, comment: char.comment });
-          const charTags = getCharacterTags(char);
+          const charName = char.libraryItem.name;
+          const charTitle = char.libraryItem.title;
+          const charTags = char.libraryItem.tags;
           const charNameColor = (char.parsed.extensions?.nameColor as string) || undefined;
           const isBulkSelected = selectedCharacterIds.has(char.id);
-          const isFavorite = !!char.parsed.extensions?.fav;
-          const avatarUrl = char.avatarPath;
+          const isFavorite = char.libraryItem.favorite;
+          const avatarUrl = char.libraryItem.avatarPath;
           const previewMetadata = getCharacterPreviewMetadata(char);
-          const tokenEstimate = estimateCharacterCardTokens(char.parsed);
+          const tokenEstimate = char.libraryItem.tokenEstimate;
 
           return (
             <div
@@ -1493,7 +1468,7 @@ export function CharactersPanel() {
                       src={avatarUrl}
                       alt={charName}
                       className="h-full w-full object-cover"
-                      style={getAvatarCropStyle(normalizeAvatarCrop(char.parsed.extensions?.avatarCrop))}
+                      style={getAvatarCropStyle(char.libraryItem.avatarCrop)}
                     />
                   </div>
                 ) : (
@@ -1592,7 +1567,7 @@ export function CharactersPanel() {
                         onSuccess: () => {
                           toast.success(
                             localizeUi("ui.panels.characterspanel.duplicatedValue1", {
-                              value1: char.parsed?.name ?? localizeUi("ui.noodle.noodlehome.character"),
+                              value1: char.libraryItem.name || localizeUi("ui.noodle.noodlehome.character"),
                             }),
                           );
                         },
@@ -1612,7 +1587,7 @@ export function CharactersPanel() {
                         !(await showConfirmDialog({
                           title: localizeUi("ui.panels.characterspanel.deleteCharacter"),
                           message: localizeUi("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", {
-                            value1: char.parsed?.name ?? localizeUi("ui.panels.characterspanel.thisCharacter"),
+                            value1: char.libraryItem.name || localizeUi("ui.panels.characterspanel.thisCharacter"),
                           }),
                           confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                           tone: "destructive",

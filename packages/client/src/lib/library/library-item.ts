@@ -14,7 +14,7 @@ export type LibraryResourceKind = "character" | "persona";
 
 export type CharacterLibraryRow = {
   id: string;
-  data: string;
+  data: string | (Partial<CharacterData> & { extensions?: Record<string, unknown> });
   comment?: string | null;
   avatarPath: string | null;
   createdAt: string;

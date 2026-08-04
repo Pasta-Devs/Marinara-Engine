@@ -39,7 +39,6 @@ import {
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -48,12 +47,8 @@ import { TouchDragHandle } from "../ui/TouchDragHandle";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
 import { PanelLoadMoreBar } from "./PanelLoadMoreBar";
-import {
-  formatCardLibraryMeta,
-  getCardLibrarySummary,
-  matchesCardLibrarySearch,
-  parseCardLibrarySearchQuery,
-} from "../../lib/card-library-search";
+import { matchesCardLibrarySearch, parseCardLibrarySearchQuery } from "../../lib/card-library-search";
+import { personaToLibraryItem, type LibraryItem, type PersonaLibraryRow } from "../../lib/library/library-item";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
 
@@ -75,8 +70,10 @@ type PersonaRow = {
   avatarCrop?: string;
   isActive: string | boolean;
   createdAt: string;
+  updatedAt?: string;
   tags?: string;
 };
+type CompactPersonaRow = PersonaRow & { libraryItem: LibraryItem };
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
@@ -100,20 +97,20 @@ function parseDroppedPersonaIds(payload: string): unknown {
   }
 }
 
-function estimateTokens(p: PersonaRow): number {
-  const text = [p.description, p.personality, p.scenario, p.backstory, p.appearance].join("");
-  return Math.ceil(text.length / 4);
+function projectPersonaRow(persona: PersonaRow): CompactPersonaRow {
+  return {
+    ...persona,
+    libraryItem: personaToLibraryItem({
+      ...persona,
+      updatedAt: persona.updatedAt ?? persona.createdAt,
+    } as PersonaLibraryRow),
+  };
 }
 
-function getPersonaPreviewMetadata(p: PersonaRow): string | null {
-  const parts: string[] = [];
-  const creator = p.creator?.trim() ?? "";
-  const version = p.personaVersion?.trim() ?? "";
-
-  if (creator) parts.push(`by ${creator}`);
-  if (version) parts.push(`v${version}`);
-
-  return parts.length > 0 ? parts.join(", ") : null;
+function getPersonaPreviewMetadata(persona: CompactPersonaRow): string | null {
+  if (!persona.libraryItem.meta) return null;
+  const hasCreator = !!persona.creator?.trim();
+  return `${hasCreator ? "by " : ""}${persona.libraryItem.meta.replace(" · ", ", ")}`;
 }
 
 function useTouchSafePersonaDragMode() {
@@ -190,8 +187,6 @@ export function PersonasPanel() {
   const touchSafePersonaDragMode = useTouchSafePersonaDragMode();
   const nativePersonaDragEnabled = !touchSafePersonaDragMode;
 
-  const isActive = (p: PersonaRow) => p.isActive === true || p.isActive === "true";
-
   useEffect(() => {
     let cancelled = false;
     if (!clientOnlyPersonaFilterActive) {
@@ -251,20 +246,12 @@ export function PersonasPanel() {
     [avatarTargetId, uploadAvatar],
   );
 
-  const rawList = useMemo(() => (personas as PersonaRow[] | undefined) ?? [], [personas]);
-
-  const parseTags = (p: PersonaRow): string[] => {
-    try {
-      return p.tags ? JSON.parse(p.tags) : [];
-    } catch {
-      return [];
-    }
-  };
+  const rawList = useMemo(() => ((personas as PersonaRow[] | undefined) ?? []).map(projectPersonaRow), [personas]);
 
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
     for (const p of rawList) {
-      for (const t of parseTags(p)) tagSet.add(t);
+      for (const t of p.libraryItem.tags) tagSet.add(t);
     }
     return [...tagSet].sort((a, b) => a.localeCompare(b));
   }, [rawList]);
@@ -282,10 +269,10 @@ export function PersonasPanel() {
         return;
       }
       try {
-        const allPersonas = (await fetchAllPersonaPages({ sort })) as PersonaRow[];
-        const affected = allPersonas.filter((p) => parseTags(p).includes(tag));
+        const allPersonas = ((await fetchAllPersonaPages({ sort })) as PersonaRow[]).map(projectPersonaRow);
+        const affected = allPersonas.filter((p) => p.libraryItem.tags.includes(tag));
         for (const p of affected) {
-          const newTags = parseTags(p).filter((t) => t !== tag);
+          const newTags = p.libraryItem.tags.filter((t) => t !== tag);
           await updatePersona.mutateAsync({ id: p.id, tags: JSON.stringify(newTags) });
         }
         if (activeTag === tag) setActiveTag(null);
@@ -297,7 +284,7 @@ export function PersonasPanel() {
   );
 
   const personaMap = useMemo(() => {
-    const map = new Map<string, PersonaRow>();
+    const map = new Map<string, CompactPersonaRow>();
     for (const p of rawList) map.set(p.id, p);
     return map;
   }, [rawList]);
@@ -449,33 +436,14 @@ export function PersonasPanel() {
     const query = parseCardLibrarySearchQuery(search);
     // Filter by active status
     if (favFilter === "active") {
-      arr = arr.filter((p) => p.isActive === true || p.isActive === "true");
+      arr = arr.filter((p) => p.libraryItem.active);
     } else if (favFilter === "inactive") {
-      arr = arr.filter((p) => p.isActive !== true && p.isActive !== "true");
+      arr = arr.filter((p) => !p.libraryItem.active);
     }
-    arr = arr.filter((p) => {
-      const tags = parseTags(p);
-      return matchesCardLibrarySearch(
-        {
-          name: p.name,
-          title: p.comment,
-          meta: formatCardLibraryMeta(p.creator, p.personaVersion),
-          summary: getCardLibrarySummary([p.entitySummary, p.creatorNotes, p.description, p.personality, p.backstory]),
-          tags,
-          sections: [
-            { content: p.description },
-            { content: p.personality },
-            { content: p.scenario },
-            { content: p.backstory },
-            { content: p.appearance },
-          ],
-        },
-        query,
-      );
-    });
+    arr = arr.filter((p) => matchesCardLibrarySearch(p.libraryItem, query));
     // Filter by active tag
     if (activeTag) {
-      arr = arr.filter((p) => parseTags(p).includes(activeTag));
+      arr = arr.filter((p) => p.libraryItem.tags.includes(activeTag));
     }
     return arr;
   }, [rawList, favFilter, search, activeTag]);
@@ -484,15 +452,15 @@ export function PersonasPanel() {
     const arr = [...filteredList];
     switch (sort) {
       case "name-asc":
-        return arr.sort((a, b) => a.name.localeCompare(b.name));
+        return arr.sort((a, b) => a.libraryItem.name.localeCompare(b.libraryItem.name));
       case "name-desc":
-        return arr.sort((a, b) => b.name.localeCompare(a.name));
+        return arr.sort((a, b) => b.libraryItem.name.localeCompare(a.libraryItem.name));
       case "newest":
         return arr.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? ""));
       case "oldest":
         return arr.sort((a, b) => (a.createdAt ?? "").localeCompare(b.createdAt ?? ""));
       case "tokens":
-        return arr.sort((a, b) => estimateTokens(b) - estimateTokens(a));
+        return arr.sort((a, b) => b.libraryItem.tokenEstimate - a.libraryItem.tokenEstimate);
       default:
         return arr;
     }
@@ -885,6 +853,7 @@ export function PersonasPanel() {
                       if (!p) return null;
                       const isBulkSelected = selectedPersonaIds.has(pid);
                       const personaMetadata = getPersonaPreviewMetadata(p);
+                      const personaName = p.libraryItem.name;
                       return (
                         <div
                           key={pid}
@@ -926,7 +895,7 @@ export function PersonasPanel() {
                               version: 1,
                               kind: "persona",
                               ids: [pid],
-                              label: p.name,
+                              label: personaName,
                             });
                           }}
                           onDragEnd={() => {
@@ -972,7 +941,7 @@ export function PersonasPanel() {
                             onTouchStart={(event) => {
                               startPersonaTouchDrag(event, pid, {
                                 allowInteractiveTarget: true,
-                                chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: p.name },
+                                chatResourcePayload: { version: 1, kind: "persona", ids: [pid], label: personaName },
                                 sourceElement: event.currentTarget.closest<HTMLElement>(
                                   '[data-touch-drag-card="persona"]',
                                 ),
@@ -985,7 +954,7 @@ export function PersonasPanel() {
                                 src={p.avatarPath}
                                 alt=""
                                 className="h-full w-full rounded-lg object-cover"
-                                style={getAvatarCropStyle(normalizeAvatarCrop(p.avatarCrop))}
+                                style={getAvatarCropStyle(p.libraryItem.avatarCrop)}
                               />
                             ) : (
                               <User size="0.625rem" />
@@ -997,10 +966,10 @@ export function PersonasPanel() {
                               !selectionMode && "pr-0 max-md:pr-14 [@media(pointer:coarse)]:pr-14",
                             )}
                           >
-                            <div className="truncate text-[0.75rem] font-medium">{p.name}</div>
-                            {p.comment && (
+                            <div className="truncate text-[0.75rem] font-medium">{personaName}</div>
+                            {p.libraryItem.title && (
                               <div className="truncate text-[0.5625rem] italic text-[var(--muted-foreground)]">
-                                {p.comment}
+                                {p.libraryItem.title}
                               </div>
                             )}
                             {personaMetadata && (
@@ -1015,7 +984,7 @@ export function PersonasPanel() {
                           {!selectionMode && (
                             <div className="pointer-events-none absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] p-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover/member:opacity-100 [@media(pointer:fine)]:group-focus-within/member:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover/member:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within/member:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
                               <ChatResourceActionButton
-                                payload={{ version: 1, kind: "persona", ids: [pid], label: p.name }}
+                                payload={{ version: 1, kind: "persona", ids: [pid], label: personaName }}
                                 className="flex h-6 min-h-6 w-6 items-center justify-center p-0"
                               />
                               <button
@@ -1080,9 +1049,10 @@ export function PersonasPanel() {
 
       <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
         {visibleRootPersonas.map((persona) => {
-          const active = isActive(persona);
+          const active = persona.libraryItem.active;
           const isBulkSelected = selectedPersonaIds.has(persona.id);
           const personaMetadata = getPersonaPreviewMetadata(persona);
+          const personaName = persona.libraryItem.name;
 
           return (
             <div
@@ -1124,7 +1094,7 @@ export function PersonasPanel() {
                   version: 1,
                   kind: "persona",
                   ids: [persona.id],
-                  label: persona.name,
+                  label: personaName,
                 });
               }}
               onDragEnd={() => {
@@ -1163,7 +1133,7 @@ export function PersonasPanel() {
                       version: 1,
                       kind: "persona",
                       ids: [persona.id],
-                      label: persona.name,
+                      label: personaName,
                     },
                     sourceElement: event.currentTarget.closest<HTMLElement>('[data-touch-drag-card="persona"]'),
                   });
@@ -1189,7 +1159,7 @@ export function PersonasPanel() {
                       alt=""
                       loading="lazy"
                       className="h-full w-full rounded-xl object-cover"
-                      style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+                      style={getAvatarCropStyle(persona.libraryItem.avatarCrop)}
                     />
                   ) : (
                     <User size="1rem" />
@@ -1209,10 +1179,10 @@ export function PersonasPanel() {
               <div
                 className={cn("min-w-0 flex-1", !selectionMode && "pr-0 max-md:pr-32 [@media(pointer:coarse)]:pr-32")}
               >
-                <div className="w-fit max-w-full truncate text-sm font-medium">{persona.name}</div>
-                {persona.comment && (
+                <div className="w-fit max-w-full truncate text-sm font-medium">{personaName}</div>
+                {persona.libraryItem.title && (
                   <div className="truncate text-[0.625rem] italic text-[var(--muted-foreground)]">
-                    {persona.comment}
+                    {persona.libraryItem.title}
                   </div>
                 )}
                 {personaMetadata && (
@@ -1227,7 +1197,7 @@ export function PersonasPanel() {
               {!selectionMode && (
                 <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 rounded-lg bg-[var(--sidebar)] px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-[var(--border)] transition-opacity group-hover:opacity-100 [@media(pointer:fine)]:group-focus-within:opacity-100 max-md:opacity-100 [@media(pointer:coarse)]:opacity-100 group-hover:[&_button]:pointer-events-auto [@media(pointer:fine)]:group-focus-within:[&_button]:pointer-events-auto max-md:[&_button]:pointer-events-auto [@media(pointer:coarse)]:[&_button]:pointer-events-auto">
                   <ChatResourceActionButton
-                    payload={{ version: 1, kind: "persona", ids: [persona.id], label: persona.name }}
+                    payload={{ version: 1, kind: "persona", ids: [persona.id], label: personaName }}
                   />
                   {!active && (
                     <button
@@ -1247,7 +1217,7 @@ export function PersonasPanel() {
                       duplicatePersona.mutate(persona.id, {
                         onSuccess: () => {
                           toast.success(
-                            localizeUi("ui.panels.characterspanel.duplicatedValue1", { value1: persona.name }),
+                            localizeUi("ui.panels.characterspanel.duplicatedValue1", { value1: personaName }),
                           );
                         },
                       });
@@ -1264,7 +1234,7 @@ export function PersonasPanel() {
                         !(await showConfirmDialog({
                           title: localizeUi("ui.panels.personaspanel.deletePersona"),
                           message: localizeUi("ui.panels.characterspanel.deleteValue1ThisCannotBeUndone", {
-                            value1: persona.name,
+                            value1: personaName,
                           }),
                           confirmLabel: localizeUi("lorebook.editor.batch.delete"),
                           tone: "destructive",

@@ -1,8 +1,9 @@
 // ──────────────────────────────────────────────
 // ModalRenderer: Maps store modal types → components
 // ──────────────────────────────────────────────
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { useUIStore } from "../../stores/ui.store";
+import { getStoredEntitySummaryBatch } from "../../hooks/use-entity-summary-batch";
 import {
   normalizeAvatarCrop,
   type LorebookCategory,
@@ -65,10 +66,28 @@ const StartCharacterChatModal = lazy(() =>
     default: module.StartCharacterChatModal,
   })),
 );
+const ComposeLibraryChatModal = lazy(() =>
+  import("../modals/ComposeLibraryChatModal").then((module) => ({
+    default: module.ComposeLibraryChatModal,
+  })),
+);
+const EntitySummaryBatchModal = lazy(() =>
+  import("../modals/EntitySummaryBatchModal").then((module) => ({ default: module.EntitySummaryBatchModal })),
+);
 
 export function ModalRenderer() {
   const modal = useUIStore((s) => s.modal);
   const closeModal = useUIStore((s) => s.closeModal);
+  const openModal = useUIStore((s) => s.openModal);
+  const recoveredBatchRef = useRef(false);
+
+  useEffect(() => {
+    if (recoveredBatchRef.current) return;
+    if (modal) return;
+    recoveredBatchRef.current = true;
+    const stored = getStoredEntitySummaryBatch();
+    if (stored) openModal("entity-summary-batch", { batchId: stored.batchId });
+  }, [modal, openModal]);
 
   const type = modal?.type ?? null;
   if (!type) return null;
@@ -175,6 +194,18 @@ export function ModalRenderer() {
           characterName={(modal?.props?.characterName as string) ?? ""}
         />
       );
+      break;
+    case "compose-library-chat":
+      content = (
+        <ComposeLibraryChatModal
+          open
+          onClose={closeModal}
+          characterIds={(modal?.props?.characterIds as string[] | undefined) ?? []}
+        />
+      );
+      break;
+    case "entity-summary-batch":
+      content = <EntitySummaryBatchModal open onClose={closeModal} batchId={(modal?.props?.batchId as string) ?? ""} />;
       break;
     default:
       content = null;

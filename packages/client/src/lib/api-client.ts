@@ -428,11 +428,11 @@ export const api = {
     path: string,
     body?: unknown,
     signal?: AbortSignal,
-    options?: { disconnectOnResume?: boolean; resumeDisconnectGraceMs?: number },
+    options?: { disconnectOnResume?: boolean; resumeDisconnectGraceMs?: number; method?: "GET" | "POST" },
   ): AsyncGenerator<{ type: string; data: unknown } & Record<string, unknown>> {
     const res = await apiFetch(path, {
-      method: "POST",
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      method: options?.method ?? "POST",
+      body: options?.method === "GET" ? undefined : body !== undefined ? JSON.stringify(body) : undefined,
       signal,
     });
     showGenerationFallbackHeader(res);
