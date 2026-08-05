@@ -156,6 +156,33 @@ const summaryPopoverSource = readFileSync(
   new URL("../../packages/client/src/components/chat/SummaryPopover.tsx", import.meta.url),
   "utf8",
 );
+const professorMariHomeSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/HomeProfessorMariChat.tsx", import.meta.url),
+  "utf8",
+);
+const personalExtensionsHookSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-personal-extensions.ts", import.meta.url),
+  "utf8",
+);
+const chatSettingsDrawerSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatSettingsDrawer.tsx", import.meta.url),
+  "utf8",
+);
+const reducedAmbientEffectsHookSource = readFileSync(
+  new URL("../../packages/client/src/hooks/use-reduced-ambient-effects.ts", import.meta.url),
+  "utf8",
+);
+const professorMariTokenBranch =
+  professorMariHomeSource.match(/if \(event\.type === "token"[\s\S]*?continue;/u)?.[0] ?? "";
+assert.match(professorMariHomeSource, /rafThrottle<void>\(appendPendingWorkspaceText\)/u);
+assert.doesNotMatch(professorMariTokenBranch, /setWorkspaceTimeline/u);
+assert.match(professorMariHomeSource, /void refreshAfterWorkspaceRun\(chat\.id, runId\)/u);
+assert.match(professorMariHomeSource, /WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS/u);
+assert.doesNotMatch(personalExtensionsHookSource, /refetchInterval/u);
+assert.match(chatSettingsDrawerSource, /active && agent\.id !== "illustrator"[\s\S]*?<AgentPromptTemplateSelect/u);
+assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);
+assert.match(uiStoreSource, /version: 89/u);
+assert.match(globalStylesSource, /data-marinara-reduced-effects/u);
 assert.match(
   chatRoleplaySurfaceSource,
   /function RoleplayLiveStreamText[\s\S]*?textContent = next[\s\S]*?requestAnimationFrame\(apply\)/u,
@@ -477,8 +504,6 @@ try {
     value: { type: "token", data: "Before hiding" },
   });
   const stalledRead = stalledEvents.next();
-  visibilityDocument.setVisibility("hidden");
-  visibilityDocument.setVisibility("visible");
   await assert.rejects(stalledRead, StreamResumeDisconnectError);
 } finally {
   globalThis.fetch = originalFetch;

@@ -13,6 +13,9 @@ import {
 
 const NOODLE_SCHEDULER_INITIAL_DELAY_MS = 20_000;
 const NOODLE_SCHEDULER_MAX_POLL_MS = 60_000;
+// Nothing is scheduled while automatic refresh is off, so the poll only needs to notice that the
+// setting changed. A minute-by-minute wake for that costs battery on phone installs for nothing.
+const NOODLE_SCHEDULER_DISABLED_POLL_MS = 15 * 60_000;
 const NOODLE_SCHEDULER_CONFIGURATION_RETRY_MS = 15 * 60_000;
 const NOODLE_SCHEDULER_BUSY_RETRY_MS = 60_000;
 const NOODLE_SCHEDULER_RATE_LIMIT_RETRY_MS = 5 * 60_000;
@@ -42,7 +45,7 @@ export function noodleRefreshRetryDelayMs(statusCode: number, failureAttempts: n
 }
 
 export function nextNoodleSchedulerPollDelayMs(schedule: PersistedNoodleRefreshSchedule, at: Date): number {
-  if (schedule.refreshesPerDay === 0) return NOODLE_SCHEDULER_MAX_POLL_MS;
+  if (schedule.refreshesPerDay === 0) return NOODLE_SCHEDULER_DISABLED_POLL_MS;
   const now = at.getTime();
   const retryAt = schedule.nextAttemptAt ? Date.parse(schedule.nextAttemptAt) : Number.NaN;
   if (Number.isFinite(retryAt) && retryAt > now) {

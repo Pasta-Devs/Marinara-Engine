@@ -43,6 +43,7 @@ import {
   type SpriteInfo,
 } from "../../hooks/use-characters";
 import { usePageActivity } from "../../hooks/use-page-activity";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useRenderTimer, useWhyRender } from "../../lib/perf-diagnostics";
 import { usePresenceClock } from "../../hooks/use-presence-clock";
 import { useKeepLatestChatMessageVisible } from "../../hooks/use-visual-viewport-chat-bottom";
@@ -520,6 +521,7 @@ export function ChatArea() {
   );
   const isTextStreaming = isStreaming && !isBackgroundIllustration;
   const isPageActive = usePageActivity();
+  const reduceAmbientEffects = useReducedAmbientEffects();
   const regenerateMessageId = useChatStore((s) => s.regenerateMessageId);
   const chatBackground = useUIStore((s) => s.chatBackground);
   const weatherEffects = useUIStore((s) => s.weatherEffects);
@@ -2873,7 +2875,7 @@ export function ChatArea() {
   // Empty state (no active chat)
   // ═══════════════════════════════════════════════
   if (!activeChatId) {
-    const showEmptyStateEffects = isPageActive;
+    const showEmptyStateEffects = isPageActive && !reduceAmbientEffects;
 
     return (
       <>
@@ -2928,7 +2930,7 @@ export function ChatArea() {
                   <h3
                     className={cn(
                       "mari-logo-gradient-text text-base font-bold sm:text-xl",
-                      isPageActive && "mari-logo-gradient-text--active",
+                      showEmptyStateEffects && "mari-logo-gradient-text--active",
                     )}
                   >
                     {localizeUi("app.documentTitle")}

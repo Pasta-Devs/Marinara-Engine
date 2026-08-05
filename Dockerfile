@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────
 
 # ── Stage 1: Build ──
-FROM node:24-slim AS builder
+FROM node:24-trixie-slim AS builder
 ARG BUILD_COMMIT
 ARG BUILD_BRANCH
 WORKDIR /app
@@ -40,7 +40,7 @@ RUN pnpm build
 RUN BUILD_COMMIT="$BUILD_COMMIT" BUILD_BRANCH="$BUILD_BRANCH" node -e 'const fs = require("node:fs"); const meta = {}; if (process.env.BUILD_COMMIT) meta.commit = process.env.BUILD_COMMIT; if (process.env.BUILD_BRANCH) meta.branch = process.env.BUILD_BRANCH; if (Object.keys(meta).length > 0) fs.writeFileSync("packages/server/dist/config/build-meta.json", JSON.stringify(meta));'
 
 # ── Stage 2: Production ──
-FROM node:24-slim AS production
+FROM node:24-trixie-slim AS production
 WORKDIR /app
 
 # llama-server dynamically links these at runtime

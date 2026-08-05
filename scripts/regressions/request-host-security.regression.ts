@@ -127,6 +127,11 @@ try {
 
   const dockerfileSource = readFileSync(join(repositoryRoot, "Dockerfile"), "utf8");
   assert.match(dockerfileSource, /apt-get install[\s\S]*\bbubblewrap\b/u, "The official image must install Bubblewrap");
+  assert.equal(
+    dockerfileSource.match(/^FROM node:24-trixie-slim(?: AS \w+)?$/gmu)?.length,
+    2,
+    "Both full-image stages must use Debian Trixie for ARM64 sidecar compatibility",
+  );
 } finally {
   delete process.env.TRUSTED_HOSTS;
   delete process.env.CSRF_TRUSTED_ORIGINS;

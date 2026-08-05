@@ -1854,6 +1854,12 @@ export function createNoodleStorage(db: DB) {
       }));
     },
 
+    /** Existence check for the idle scheduler poll, so it never materializes or parses rows. */
+    async hasNoodlerPreparedPosts(): Promise<boolean> {
+      const rows = await db.select({ id: noodlerPreparedPosts.id }).from(noodlerPreparedPosts).limit(1);
+      return rows.length > 0;
+    },
+
     /**
      * Unlinking media before the discard is durable can leave a still-publishable row whose
      * image bytes are gone, so the state is committed first and the file removed afterwards.

@@ -2683,6 +2683,58 @@ body {
   }
 }
 
+html[data-marinara-reduced-effects="true"] .retro-card,
+html[data-marinara-reduced-effects="true"] .y2k-star,
+html[data-marinara-reduced-effects="true"] .y2k-star-md,
+html[data-marinara-reduced-effects="true"] .y2k-star-lg,
+html[data-marinara-reduced-effects="true"] .pulse-glow,
+html[data-marinara-reduced-effects="true"] .mari-logo-gradient-text--active,
+html[data-marinara-reduced-effects="true"] .mari-rgb-toggle-track,
+html[data-marinara-reduced-effects="true"] .bunny-glow,
+html[data-marinara-reduced-effects="true"] .gradient-border::before,
+html[data-marinara-reduced-effects="true"] .pastel-gradient,
+html[data-marinara-reduced-effects="true"] .retro-divider,
+html[data-marinara-reduced-effects="true"] .roleplay-hud-scroll-track,
+html[data-marinara-reduced-effects="true"] .game-expression-reaction__halo,
+html[data-marinara-reduced-effects="true"] .game-expression-reaction__symbol,
+html[data-marinara-reduced-effects="true"] .shimmer,
+html[data-marinara-reduced-effects="true"] .animate-ping,
+html[data-marinara-reduced-effects="true"] .animate-pulse,
+html[data-marinara-reduced-effects="true"] .animate-float,
+html[data-marinara-reduced-effects="true"] .animate-pulse-ring,
+html[data-marinara-reduced-effects="true"] .glimmer-streaming,
+html[data-marinara-reduced-effects="true"] .rpg-streaming::after,
+html[data-marinara-reduced-effects="true"] .game-map-fog,
+html[data-marinara-reduced-effects="true"] .game-map-marquee-track,
+html[data-marinara-reduced-effects="true"] .game-party-marker,
+html[data-marinara-reduced-effects="true"] .game-campfire,
+html[data-marinara-reduced-effects="true"] .game-combat-border,
+html[data-marinara-reduced-effects="true"] .game-expression-reaction__bubble,
+html[data-marinara-reduced-effects="true"] .game-expression-reaction__drop,
+html[data-marinara-reduced-effects="true"] [class^="anim-text-"],
+html[data-marinara-reduced-effects="true"] [class*=" anim-text-"],
+html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="sprite"],
+html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="screen"] span,
+html[data-marinara-reduced-effects="true"] .mari-professor-pixel-scene [data-part="base"] i {
+  animation: none !important;
+}
+
+html[data-marinara-reduced-effects="true"] .bunny-glow,
+html[data-marinara-reduced-effects="true"] .pulse-glow,
+html[data-marinara-reduced-effects="true"] .glimmer-streaming {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+@media (max-width: 767px) {
+  html[data-marinara-reduced-effects="true"] [class*="backdrop-blur"],
+  html[data-marinara-reduced-effects="true"] .retro-card,
+  html[data-marinara-reduced-effects="true"] .os-window {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
 /* Tailwind v4 preflight does not restore italic/bold for semantic elements.
    Explicit rules ensure *italic* and **bold** markdown renders correctly
    across all browsers (fixes Opera GX and others). */

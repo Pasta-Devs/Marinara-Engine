@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -79,6 +80,7 @@ import { useUIStore } from "../../stores/ui.store";
 import { showLocalMessageNotification, showNativeMessageNotification } from "../../lib/local-notifications";
 import { scrollProfessorMariTranscriptToBottom } from "../../lib/professor-mari-transcript-scroll";
 import { applyInlineMarkdown, renderMarkdownBlocks } from "../../lib/markdown";
+import { rafThrottle } from "../../lib/raf-throttle";
 import { prepareImageAttachment } from "../../lib/chat-attachment-images";
 import { cn } from "../../lib/utils";
 import { ProfessorMariWorkingWindow } from "../ui/ProfessorMariWorkingWindow";
@@ -101,6 +103,7 @@ const MARI_CONNECTION_STORAGE_KEY = "marinara:home-professor-mari-connection-id"
 const PROFESSOR_MARI_ERROR_TOAST_DURATION_MS = 120_000;
 const WORKSPACE_SETTLE_POLL_MS = 1_500;
 const WORKSPACE_SETTLE_MAX_WAIT_MS = 30 * 60_000;
+const WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS = 10_000;
 
 // After the SSE stream detaches on tab resume, the run keeps going server-side.
 // Poll the workspace status until it is no longer active so the caller reloads
@@ -109,12 +112,22 @@ async function waitForWorkspaceRunToSettle(connectionId: string | null, signal: 
   const query = connectionId ? `?connectionId=${encodeURIComponent(connectionId)}` : "";
   const startedAt = Date.now();
   while (!signal.aborted && Date.now() - startedAt < WORKSPACE_SETTLE_MAX_WAIT_MS) {
+    const pollController = new AbortController();
+    const abortPoll = () => pollController.abort();
+    const pollTimeout = window.setTimeout(abortPoll, WORKSPACE_SETTLE_REQUEST_TIMEOUT_MS);
+    signal.addEventListener("abort", abortPoll, { once: true });
     try {
-      const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query}`);
+      const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query}`, {
+        signal: pollController.signal,
+      });
       if (!status.active) return;
     } catch {
       // The resumed tab may still be restoring network access; keep polling.
+    } finally {
+      window.clearTimeout(pollTimeout);
+      signal.removeEventListener("abort", abortPoll);
     }
+    if (signal.aborted) return;
     await new Promise<void>((resolve) => {
       const timer = window.setTimeout(resolve, WORKSPACE_SETTLE_POLL_MS);
       signal.addEventListener(
@@ -1146,18 +1159,22 @@ function renderCompactInline(text: string, keyPrefix: string): ReactNode[] {
   });
 }
 
-function CompactMarkdown({ content, streaming }: { content: string; streaming?: boolean }) {
+const CompactMarkdown = memo(function CompactMarkdown({ content, streaming }: { content: string; streaming?: boolean }) {
   const trimmed = content.trim().replace(/\n{3,}/g, "\n\n");
+  const rendered = useMemo(
+    () => (trimmed ? renderMarkdownBlocks(trimmed, renderCompactInline, "home-mari") : null),
+    [trimmed],
+  );
   if (!trimmed) return null;
   return (
     <div className="mari-message-content text-[0.8125rem] leading-[1.42] text-[var(--foreground)] [&_.mari-md-codeblock]:my-1.5 [&_.mari-md-codeblock]:max-h-44 [&_.mari-md-heading]:mb-0.5 [&_.mari-md-heading]:mt-1 [&_.mari-md-ol]:my-1 [&_.mari-md-ul]:my-1">
-      {renderMarkdownBlocks(trimmed, renderCompactInline, "home-mari")}
+      {rendered}
       {streaming && (
         <span className="ml-1 inline-block h-3 w-1 translate-y-0.5 rounded-full bg-[var(--primary)] opacity-80 animate-pulse" />
       )}
     </div>
   );
-}
+});
 
 function ProfessorMariAttachedFiles({ attachments, onRemove }: { attachments: ProfessorMariAttachment[]; onRemove?: (index: number) => void }) {
   const { t: localizeUi } = useUiTranslation();
@@ -1424,7 +1441,7 @@ function WorkspaceStatusEvent({ content, active }: { content: string; active?: b
   );
 }
 
-function WorkspaceTimelineEvent({
+const WorkspaceTimelineEvent = memo(function WorkspaceTimelineEvent({
   item,
   active,
   forceOpenThinking,
@@ -1449,7 +1466,7 @@ function WorkspaceTimelineEvent({
   }
   if (item.type === "tool") return <WorkspaceToolEvent tool={item.tool} />;
   return <WorkspaceStatusEvent content={item.content} active={active} />;
-}
+});
 
 function getActiveTimelineIndex(items: WorkspaceTimelineItem[], active: boolean) {
   if (!active) return -1;
@@ -1491,7 +1508,7 @@ const MARI_MESSAGE_ACTIONS_CLASS =
 const MARI_MESSAGE_ACTION_BUTTON_CLASS =
   "rounded p-1 text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--primary)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary)] focus-visible:text-[var(--primary)]";
 
-function CompactMariMessage({
+const CompactMariMessage = memo(function CompactMariMessage({
   message,
   thinking,
   onDelete,
@@ -1659,7 +1676,7 @@ function CompactMariMessage({
       )}
     </>
   );
-}
+});
 
 function LoadingHistoryState() {
   return (
@@ -2294,6 +2311,8 @@ export function HomeProfessorMariChat({
   const embeddedTextareaRef = useRef<HTMLTextAreaElement>(null);
   const floatingTextareaRef = useRef<HTMLTextAreaElement>(null);
   const workspaceAbortRef = useRef<AbortController | null>(null);
+  const workspaceRunIdRef = useRef(0);
+  const pendingWorkspaceTextRef = useRef("");
   const handledWorkspaceRefreshIdsRef = useRef<Set<string>>(new Set());
   const workspaceStatusErrorToastShownRef = useRef(false);
   const latestConnectionSelectionRef = useRef<string | null>(selectedConnectionId);
@@ -2302,6 +2321,18 @@ export function HomeProfessorMariChat({
   const attachmentRemovalInFlightRef = useRef<Set<string>>(new Set());
   const regenerationInFlightRef = useRef(false);
   const messageMutationBusyRef = useRef(false);
+
+  const appendPendingWorkspaceText = useCallback(() => {
+    const pendingText = pendingWorkspaceTextRef.current;
+    pendingWorkspaceTextRef.current = "";
+    if (pendingText) setWorkspaceTimeline((current) => appendTextTimeline(current, pendingText));
+  }, []);
+  const workspaceTextThrottle = useMemo(
+    () => rafThrottle<void>(appendPendingWorkspaceText),
+    [appendPendingWorkspaceText],
+  );
+
+  useEffect(() => () => workspaceTextThrottle.cancel(), [workspaceTextThrottle]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -2435,7 +2466,10 @@ export function HomeProfessorMariChat({
   }, [floatingMode]);
 
   const loadMessages = useCallback(
-    async (id: string, options: { clearSuggestions?: boolean } = {}) => {
+    async (
+      id: string,
+      options: { clearSuggestions?: boolean; shouldApply?: () => boolean } = {},
+    ) => {
       messageLoadAbortRef.current?.abort();
       const controller = new AbortController();
       messageLoadAbortRef.current = controller;
@@ -2446,7 +2480,8 @@ export function HomeProfessorMariChat({
         if (
           controller.signal.aborted ||
           messageLoadAbortRef.current !== controller ||
-          activeChatIdRef.current !== id
+          activeChatIdRef.current !== id ||
+          options.shouldApply?.() === false
         ) {
           return;
         }
@@ -2505,11 +2540,12 @@ export function HomeProfessorMariChat({
     [qc, setActiveChatId],
   );
 
-  const refreshWorkspaceStatus = useCallback(async () => {
+  const refreshWorkspaceStatus = useCallback(async (shouldApply?: () => boolean) => {
     const params = new URLSearchParams();
     if (effectiveConnectionId) params.set("connectionId", effectiveConnectionId);
     const query = params.toString();
     const status = await api.get<MariWorkspaceStatus>(`/professor-mari/workspace/status${query ? `?${query}` : ""}`);
+    if (shouldApply?.() === false) return status;
     setWorkspaceStatus(status);
     workspaceStatusErrorToastShownRef.current = false;
     return status;
@@ -3355,8 +3391,11 @@ export function HomeProfessorMariChat({
       attachments: ProfessorMariAttachment[] = [],
       existingUserMessageId?: string,
     ) => {
+      const runId = ++workspaceRunIdRef.current;
       const controller = new AbortController();
       workspaceAbortRef.current = controller;
+      workspaceTextThrottle.cancel();
+      pendingWorkspaceTextRef.current = "";
       setWorkspaceActive(true);
       setWorkspaceActivity("Thinking...");
       setWorkspaceTimeline([]);
@@ -3385,9 +3424,13 @@ export function HomeProfessorMariChat({
           if (event.type === "token" && typeof event.data === "string") {
             received = true;
             setWorkspaceActivity(null);
-            setWorkspaceTimeline((current) => appendTextTimeline(current, event.data as string));
+            pendingWorkspaceTextRef.current += event.data;
+            workspaceTextThrottle.call(undefined);
             useChatStore.getState().appendStreamBuffer(event.data, chat.id);
-          } else if (event.type === "thinking" && typeof event.data === "string") {
+            continue;
+          }
+          workspaceTextThrottle.flush();
+          if (event.type === "thinking" && typeof event.data === "string") {
             setWorkspaceTimeline((current) => appendThinkingTimeline(current, event.data as string));
             useChatStore.getState().appendThinkingBuffer(event.data, chat.id);
           } else if (event.type === "status") {
@@ -3467,16 +3510,47 @@ export function HomeProfessorMariChat({
         await waitForWorkspaceRunToSettle(effectiveConnectionId, controller.signal);
         received = true;
       } finally {
+        workspaceTextThrottle.flush();
         workspaceAbortRef.current = null;
         setWorkspaceActive(false);
         setWorkspaceActivity(null);
         useChatStore.getState().setAbortController(chat.id, null);
         useChatStore.getState().setMariPhase(chat.id, "idle");
       }
-      return received;
+      return { received, runId };
     },
-    [clearMariPlan, effectiveConnectionId, setMariChips, setMariPlan],
+    [clearMariPlan, effectiveConnectionId, setMariChips, setMariPlan, workspaceTextThrottle],
   );
+
+  const refreshAfterWorkspaceRun = useCallback(
+    async (completedChatId: string, runId: number) => {
+      let messagesReloaded = false;
+      try {
+        if (workspaceRunIdRef.current !== runId || activeChatIdRef.current !== completedChatId) return;
+        await loadMessages(completedChatId, {
+          shouldApply: () =>
+            workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
+        });
+        messagesReloaded = true;
+      } catch (error) {
+        console.error("[Professor Mari] Failed to reload messages after completed workspace run", error);
+      }
+      if (workspaceRunIdRef.current !== runId || activeChatIdRef.current !== completedChatId) return;
+      if (messagesReloaded) {
+        useChatStore.getState().clearStreamBuffer(completedChatId);
+        useChatStore.getState().clearThinkingBuffer(completedChatId);
+        setWorkspaceTimeline([]);
+      }
+      await Promise.allSettled([
+        refreshWorkspaceStatus(
+          () => workspaceRunIdRef.current === runId && activeChatIdRef.current === completedChatId,
+        ),
+        invalidateWorkspaceData(),
+      ]);
+    },
+    [invalidateWorkspaceData, loadMessages, refreshWorkspaceStatus],
+  );
+
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     if (!chatId || isBusy) return;
     const confirmed = await showConfirmDialog({
@@ -3486,6 +3560,7 @@ export function HomeProfessorMariChat({
       tone: "destructive",
     });
     if (!confirmed || messageMutationBusyRef.current) return;
+    messageLoadAbortRef.current?.abort();
     // Optimistic update from local state
     setMessages((current) => current.filter((m) => m.id !== messageId));
     try {
@@ -3498,6 +3573,7 @@ export function HomeProfessorMariChat({
 
   const handleEditMessage = useCallback(async (messageId: string, content: string) => {
     if (!chatId || isBusy || messageMutationBusyRef.current) return;
+    messageLoadAbortRef.current?.abort();
     setMessages((current) =>
       current.map((m) => m.id === messageId ? { ...m, content } : m)
     );
@@ -3543,27 +3619,33 @@ export function HomeProfessorMariChat({
       const userMessage = currentMessages[index - 1];
       if (userMessage.role !== "user") return;
 
+      messageLoadAbortRef.current?.abort();
       setMessages((current) => current.filter((message) => message.id !== messageId));
       await api.delete(`/chats/${chatId}/messages/${messageId}`);
-      const received = await sendWorkspaceMessage(
+      const { received, runId } = await sendWorkspaceMessage(
         { id: chatId } as Chat,
         userMessage.content,
         getProfessorMariAttachments(userMessage),
         userMessage.id,
       );
       if (!received) throw new Error("Professor Mari did not return a regenerated response");
-      await loadMessages(chatId);
-      useChatStore.getState().clearStreamBuffer(chatId);
-      useChatStore.getState().clearThinkingBuffer(chatId);
-      setWorkspaceTimeline([]);
+      void refreshAfterWorkspaceRun(chatId, runId);
     } catch {
-      await loadMessages(chatId).catch(() => undefined);
+      void loadMessages(chatId).catch(() => undefined);
       toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariCouldNotRegenerateThatResponse"));
     } finally {
       regenerationInFlightRef.current = false;
       setSending(false);
     }
-  }, [chatId, effectiveConnectionId, isBusy, loadMessages, localizeUi, sendWorkspaceMessage]);
+  }, [
+    chatId,
+    effectiveConnectionId,
+    isBusy,
+    loadMessages,
+    localizeUi,
+    refreshAfterWorkspaceRun,
+    sendWorkspaceMessage,
+  ]);
 
   const handleRemoveAttachment = useCallback(async (messageId: string, attachmentIndex: number) => {
     if (!chatId || isBusy || attachmentRemovalInFlightRef.current.has(messageId)) return;
@@ -3581,6 +3663,7 @@ export function HomeProfessorMariChat({
       const currentAttachments = getProfessorMariAttachments(message);
       const updated = currentAttachments.filter((_, index) => index !== attachmentIndex);
       if (updated.length === currentAttachments.length) return;
+      messageLoadAbortRef.current?.abort();
       setMessages((current) =>
         current.map((item) => {
           if (item.id !== messageId) return item;
@@ -3624,13 +3707,8 @@ export function HomeProfessorMariChat({
       setAttachments([]);
       setMessages((current) => [...current, createLocalUserMessage(chat.id, messageText, submittedAttachments)]);
       trackAchievement.mutate("prof_mari_message_sent");
-      const received = await sendWorkspaceMessage(chat, messageText, submittedAttachments);
-      await loadMessages(chat.id);
-      useChatStore.getState().clearStreamBuffer(chat.id);
-      useChatStore.getState().clearThinkingBuffer(chat.id);
-      setWorkspaceTimeline([]);
-      await refreshWorkspaceStatus().catch(() => undefined);
-      await invalidateWorkspaceData();
+      const { received, runId } = await sendWorkspaceMessage(chat, messageText, submittedAttachments);
+      void refreshAfterWorkspaceRun(chat.id, runId);
       if (!received) {
         toast.error(localizeUi("ui.chat.homeprofessormarichat.professorMariDidNotReceiveAReplyFromThe"), {
           description:localizeUi("ui.chat.homeprofessormarichat.theModelOrServerMayStillBeBusyThis"),

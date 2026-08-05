@@ -27,9 +27,7 @@ export function usePersonalExtensionRuntime() {
   return useQuery({
     queryKey: personalExtensionKeys.runtime(),
     queryFn: () => api.get<PersonalClientExtensionRuntime[]>("/personal-extensions/runtime/client"),
-    staleTime: 1_000,
-    refetchInterval: 2_000,
-    refetchIntervalInBackground: true,
+    staleTime: 30_000,
   });
 }
 
@@ -37,8 +35,7 @@ export function usePersonalExtensionPolicy() {
   return useQuery({
     queryKey: personalExtensionKeys.policy(),
     queryFn: () => api.get<PersonalExtensionPolicy>("/personal-extensions/policy"),
-    staleTime: 5_000,
-    refetchInterval: 10_000,
+    staleTime: 30_000,
   });
 }
 

@@ -23,10 +23,11 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "./import-timestamps.js";
 import { resolveLorebookEntryRole } from "./lorebook-role.js";
-import { access, mkdir, writeFile } from "fs/promises";
+import { access, mkdir, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
+import { logger } from "../../lib/logger.js";
 
 function resolveNativeSelectiveLogic(value: unknown): "and" | "and_all" | "or" | "not" | "not_all" {
   return value === "and_all" || value === "or" || value === "not" || value === "not_all" ? value : "and";
@@ -81,19 +82,27 @@ function decodeImageDataUrl(dataUrl: unknown): { buffer: Buffer; ext: string } |
   return { buffer, ext: extensionFromImageMime(info.mimeType) };
 }
 
+interface SavedAvatar {
+  avatarPath: string;
+  filePath: string;
+}
+
 // Decode an `avatar` data URL carried in a native export, validate it as a
-// real image, write it under data/avatars/, and return the URL path the row
-// should store. Returns null on any failure so the import still succeeds
-// without an avatar rather than 500-ing.
-async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: string): Promise<string | null> {
+// real image, and write it under data/avatars/. The filesystem path lets a
+// caller remove the file if attaching it to the imported row fails.
+async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: string): Promise<SavedAvatar | null> {
+  if (dataUrl === undefined || dataUrl === null || dataUrl === "") return null;
   const decoded = decodeImageDataUrl(dataUrl);
-  if (!decoded) return null;
+  if (!decoded) {
+    logger.warn("Skipped invalid %s avatar data for %s", prefix, id);
+    return null;
+  }
   const avatarsDir = join(DATA_DIR, "avatars");
   await mkdir(avatarsDir, { recursive: true });
   const filename = `${prefix}-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${decoded.ext}`;
   const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
   await writeFile(filepath, decoded.buffer);
-  return `/api/avatars/file/${filename}`;
+  return { avatarPath: `/api/avatars/file/${filename}`, filePath: filepath };
 }
 
 function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specific"; chatIds: string[] } {
@@ -111,18 +120,29 @@ function readLorebookScope(value: unknown): { mode: "all" | "disabled" | "specif
 // just an expression stem + an extension matching the actual image bytes, so
 // a malicious export can't traverse out of the sprites dir.
 async function restoreSprites(sprites: unknown, id: string): Promise<void> {
-  if (!Array.isArray(sprites) || sprites.length === 0) return;
+  if (sprites === undefined || sprites === null) return;
+  if (!Array.isArray(sprites)) {
+    logger.warn("Skipped invalid sprite collection for %s", id);
+    return;
+  }
+  if (sprites.length === 0) return;
   const dir = join(DATA_DIR, "sprites", id);
   await mkdir(dir, { recursive: true });
   // Track names we've already written this batch so two exported sprites
   // whose stems sanitize to the same string (e.g. "happy!" and "happy?" both
   // collapsing to "happy_") don't silently overwrite each other.
   const usedNames = new Set<string>();
-  for (const sprite of sprites) {
-    if (!sprite || typeof sprite !== "object") continue;
+  for (const [index, sprite] of sprites.entries()) {
+    if (!sprite || typeof sprite !== "object") {
+      logger.warn("Skipped invalid sprite entry %d for %s", index, id);
+      continue;
+    }
     const entry = sprite as Record<string, unknown>;
     const decoded = decodeImageDataUrl(entry.data);
-    if (!decoded) continue;
+    if (!decoded) {
+      logger.warn("Skipped sprite %d with invalid image data for %s", index, id);
+      continue;
+    }
     const rawName = typeof entry.filename === "string" ? entry.filename : "";
     const stem =
       rawName
@@ -142,8 +162,8 @@ async function restoreSprites(sprites: unknown, id: string): Promise<void> {
     try {
       const filepath = assertInsideDir(dir, join(dir, safeName));
       await writeFile(filepath, decoded.buffer);
-    } catch {
-      // skip this sprite
+    } catch (err) {
+      logger.warn(err, "Failed to restore sprite %d for %s", index, id);
     }
   }
 }
@@ -393,9 +413,9 @@ async function importCharacter(data: unknown, db: DB) {
 
   const result = await storage.create(normalizedCharacterData, undefined, readTimestampOverrides(d), comment);
   if (result?.id) {
-    const avatarPath = await saveAvatarFromDataUrl(d.avatar, "character", result.id);
-    if (avatarPath) {
-      await storage.updateAvatar(result.id, avatarPath);
+    const avatar = await saveAvatarFromDataUrl(d.avatar, "character", result.id);
+    if (avatar) {
+      await storage.updateAvatar(result.id, avatar.avatarPath);
     }
     await restoreSprites(d.sprites, result.id);
     await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
@@ -438,6 +458,7 @@ async function importPersona(data: unknown, db: DB) {
       creator: firstStringField(d.creator),
       personaVersion: firstStringField(d.personaVersion, d.persona_version, d.character_version),
       creatorNotes: firstStringField(d.creatorNotes, d.creator_notes),
+      phoneticName: firstStringField(d.phoneticName),
       personality: String(d.personality ?? ""),
       scenario: String(d.scenario ?? ""),
       backstory: String(d.backstory ?? ""),
@@ -468,11 +489,31 @@ async function importPersona(data: unknown, db: DB) {
     readTimestampOverrides(d),
   );
   if (result?.id) {
-    const avatarPath = await saveAvatarFromDataUrl(d.avatar, "persona", result.id);
-    if (avatarPath) {
-      await storage.updatePersona(result.id, { avatarPath });
+    let avatar: SavedAvatar | null = null;
+    try {
+      avatar = await saveAvatarFromDataUrl(d.avatar, "persona", result.id);
+      if (avatar) {
+        const updated = await storage.updatePersona(result.id, { avatarPath: avatar.avatarPath });
+        if (!updated) throw new Error("Imported Persona disappeared before its avatar could be attached");
+      }
+    } catch (err) {
+      if (avatar) {
+        try {
+          await unlink(avatar.filePath);
+        } catch (cleanupErr) {
+          const cleanupError = cleanupErr as NodeJS.ErrnoException;
+          if (cleanupError.code !== "ENOENT") {
+            logger.warn(cleanupError, "Failed to remove unattached persona avatar for %s", result.id);
+          }
+        }
+      }
+      logger.warn(err, "Skipped optional persona avatar restore for %s; persona row is already imported", result.id);
     }
-    await restoreSprites(d.sprites, result.id);
+    try {
+      await restoreSprites(d.sprites, result.id);
+    } catch (err) {
+      logger.warn(err, "Skipped optional persona sprite restore for %s; persona row is already imported", result.id);
+    }
   }
   return {
     success: true,

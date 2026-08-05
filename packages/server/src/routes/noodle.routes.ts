@@ -1642,6 +1642,7 @@ export async function noodleRoutes(app: FastifyInstance) {
             },
         fallbackConnectionId: connectionId,
         connections,
+        admissionMode: admissionModeForRequest(req.headers),
       });
       const imageConnection = settings.enableImagePrompts
         ? settings.imageGenerationConnectionId

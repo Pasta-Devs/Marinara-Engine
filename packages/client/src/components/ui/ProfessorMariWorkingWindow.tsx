@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 const DOTTOR_SUPPORT_GIF = "/sprites/dottore/dottore_jumping.gif";
@@ -13,6 +14,7 @@ interface ProfessorMariWorkingWindowProps {
 
 export function ProfessorMariWorkingWindow({ visible, onDismiss, className }: ProfessorMariWorkingWindowProps) {
   const { t: localizeUi } = useUiTranslation();
+  const reduceAmbientEffects = useReducedAmbientEffects();
   const [imageFailed, setImageFailed] = useState(false);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function ProfessorMariWorkingWindow({ visible, onDismiss, className }: Pr
       role="status"
       aria-live="polite"
     >
-      {!imageFailed && (
+      {!reduceAmbientEffects && !imageFailed && (
         <img
           src={DOTTOR_SUPPORT_GIF}
           alt=""

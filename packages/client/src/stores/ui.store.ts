@@ -536,6 +536,7 @@ interface UIState {
   appAccentPulseMode: boolean;
   appAccentRgbMode: boolean;
   customCursorEnabled: boolean;
+  reduceAmbientEffects: boolean;
   chatBackground: string | null;
   /** Default background applied when a Roleplay chat has no saved background yet. */
   defaultRoleplayBackground: string;
@@ -907,6 +908,7 @@ interface UIState {
   setAppAccentPulseMode: (enabled: boolean) => void;
   setAppAccentRgbMode: (enabled: boolean) => void;
   setCustomCursorEnabled: (enabled: boolean) => void;
+  setReduceAmbientEffects: (enabled: boolean) => void;
   setChatBackground: (url: string | null) => void;
   setDefaultRoleplayBackground: (url: string) => void;
   setChatBackgroundBlur: (v: number) => void;
@@ -1179,6 +1181,7 @@ export function pickSyncedSettings(state: UIState) {
     theme: state.theme,
     appBackgroundColor: state.appBackgroundColor,
     appAccentColor: state.appAccentColor,
+    reduceAmbientEffects: state.reduceAmbientEffects,
     chatBackground: state.chatBackground,
     defaultRoleplayBackground: state.defaultRoleplayBackground,
     chatBackgroundBlur: state.chatBackgroundBlur,
@@ -1324,6 +1327,7 @@ export const useUIStore = create<UIState>()(
       appAccentPulseMode: false,
       appAccentRgbMode: false,
       customCursorEnabled: true,
+      reduceAmbientEffects: false,
       chatBackground: null,
       defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
       chatBackgroundBlur: 0,
@@ -1620,6 +1624,7 @@ export const useUIStore = create<UIState>()(
       setAppAccentPulseMode: (enabled) => set({ appAccentPulseMode: enabled }),
       setAppAccentRgbMode: (enabled) => set({ appAccentRgbMode: enabled }),
       setCustomCursorEnabled: (enabled) => set({ customCursorEnabled: enabled }),
+      setReduceAmbientEffects: (enabled) => set({ reduceAmbientEffects: enabled }),
       setChatBackground: (url) => set({ chatBackground: url }),
       setDefaultRoleplayBackground: (url) =>
         set({ defaultRoleplayBackground: normalizeDefaultRoleplayBackground(url) }),
@@ -2281,6 +2286,7 @@ export const useUIStore = create<UIState>()(
           appAccentColor: "",
           appAccentRgbMode: false,
           customCursorEnabled: true,
+          reduceAmbientEffects: false,
           chatBackground: null,
           defaultRoleplayBackground: DEFAULT_ROLEPLAY_BACKGROUND_URL,
           chatBackgroundBlur: 0,
@@ -2411,7 +2417,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 88,
+      version: 89,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -3002,12 +3008,18 @@ export const useUIStore = create<UIState>()(
         if (version <= 87 && persisted.roleplayNarratorAvatarCycling === undefined) {
           persisted.roleplayNarratorAvatarCycling = true;
         }
+        // v88 -> v89: add the manual ambient-effects preference. The system
+        // reduced-motion preference is evaluated live and is not persisted.
+        if (version <= 88 && persisted.reduceAmbientEffects === undefined) {
+          persisted.reduceAmbientEffects = false;
+        }
         // v84 -> v85: keep the historical blank-line behavior for /continue by default.
         if (version <= 84 && persisted.continueAddsNewline === undefined) {
           persisted.continueAddsNewline = true;
         }
         persisted.appAccentRgbMode = persisted.appAccentRgbMode === true;
         persisted.customCursorEnabled = persisted.customCursorEnabled !== false;
+        persisted.reduceAmbientEffects = persisted.reduceAmbientEffects === true;
         persisted.professorMariSuggestionsEnabled = persisted.professorMariSuggestionsEnabled !== false;
         persisted.includeReasoningInExports = persisted.includeReasoningInExports === true;
         persisted.roleplayReducedPaintEffects = persisted.roleplayReducedPaintEffects === true;
@@ -3079,6 +3091,7 @@ export const useUIStore = create<UIState>()(
         appAccentPulseMode: state.appAccentPulseMode,
         appAccentRgbMode: state.appAccentRgbMode,
         customCursorEnabled: state.customCursorEnabled,
+        reduceAmbientEffects: state.reduceAmbientEffects,
         chatBackground: state.chatBackground,
         defaultRoleplayBackground: state.defaultRoleplayBackground,
         chatBackgroundBlur: state.chatBackgroundBlur,

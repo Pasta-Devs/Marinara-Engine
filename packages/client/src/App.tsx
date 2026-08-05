@@ -45,6 +45,7 @@ import { normalizeThemeCss } from "./lib/theme-css";
 import { useLegacyThemeMigration, useThemes } from "./hooks/use-themes";
 import { useSettingsSync } from "./hooks/use-settings-sync";
 import { useCustomNotificationSoundStatus } from "./hooks/use-custom-notification-sound";
+import { useReducedAmbientEffects } from "./hooks/use-reduced-ambient-effects";
 import { installLongTaskWarner } from "./lib/perf-diagnostics";
 import { setCustomNotificationSoundUrl } from "./lib/notification-sound";
 
@@ -482,6 +483,7 @@ export function App() {
   const appAccentPulseMode = useUIStore((s) => s.appAccentPulseMode);
   const appAccentRgbMode = useUIStore((s) => s.appAccentRgbMode);
   const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
+  const reduceAmbientEffects = useReducedAmbientEffects();
   const chatChromeTextColor = useUIStore((s) => s.chatChromeTextColor);
   const hasModalOpen = useUIStore((s) => s.modal !== null);
   const rightPanelOpen = useUIStore((s) => s.rightPanelOpen);
@@ -578,6 +580,15 @@ export function App() {
 
   useEffect(() => {
     const root = document.documentElement;
+    if (reduceAmbientEffects) root.dataset.marinaraReducedEffects = "true";
+    else delete root.dataset.marinaraReducedEffects;
+    return () => {
+      delete root.dataset.marinaraReducedEffects;
+    };
+  }, [reduceAmbientEffects]);
+
+  useEffect(() => {
+    const root = document.documentElement;
     const background = appBackgroundColor.trim();
     const defaultBackground = getDefaultAppBackgroundColor(theme);
     const resolvedBackground = getCssColorFallback(background, defaultBackground);
@@ -609,7 +620,12 @@ export function App() {
   useEffect(() => {
     const root = document.documentElement;
     const syncEffectsPausedState = () => {
-      if (document.visibilityState === "visible" && document.hasFocus() && !pauseChromeEffectsForAppearance) {
+      if (
+        document.visibilityState === "visible" &&
+        document.hasFocus() &&
+        !pauseChromeEffectsForAppearance &&
+        !reduceAmbientEffects
+      ) {
         delete root.dataset.marinaraEffectsPaused;
       } else {
         root.dataset.marinaraEffectsPaused = "true";
@@ -631,7 +647,7 @@ export function App() {
       window.removeEventListener("pagehide", syncEffectsPausedState);
       delete root.dataset.marinaraEffectsPaused;
     };
-  }, [pauseChromeEffectsForAppearance]);
+  }, [pauseChromeEffectsForAppearance, reduceAmbientEffects]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -788,7 +804,10 @@ export function App() {
 
       accentAnimationTimer = window.setTimeout(() => {
         accentAnimationTimer = null;
-        if (!accentAnimationEnabled || !canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance)) {
+        if (
+          !accentAnimationEnabled ||
+          !canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance || reduceAmbientEffects)
+        ) {
           stopAccentAnimation();
           return;
         }
@@ -807,7 +826,10 @@ export function App() {
     };
 
     const syncAccentAnimationState = () => {
-      if (accentAnimationEnabled && canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance)) {
+      if (
+        accentAnimationEnabled &&
+        canRunAccentAnimation(reducedMotionQuery, pauseChromeEffectsForAppearance || reduceAmbientEffects)
+      ) {
         if (isTextEntryFocused()) {
           // Root accent ticks invalidate styles across the entire Roleplay
           // surface in Firefox. Freeze the current accent while the user is
@@ -868,6 +890,7 @@ export function App() {
     appAccentRgbMode,
     customCursorEnabled,
     pauseChromeEffectsForAppearance,
+    reduceAmbientEffects,
     theme,
     themeAccentPulseConfig.enabled,
     themeAccentPulseConfig.source,

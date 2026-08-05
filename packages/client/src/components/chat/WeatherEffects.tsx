@@ -4,6 +4,7 @@
 // ──────────────────────────────────────────────
 import { useEffect, useRef, useMemo, useState } from "react";
 import { advanceWeatherFrameClock } from "../../lib/weather-frame-clock";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import {
   createWeatherParticle,
   drawWeatherMoon,
@@ -35,6 +36,7 @@ interface WeatherEffectsProps {
 // ═══════════════════════════════════════════════
 
 export function WeatherEffects({ weather, timeOfDay, showCelestial = true, paused = false }: WeatherEffectsProps) {
+  const reduceAmbientEffects = useReducedAmbientEffects();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<WeatherParticle[]>([]);
   const frameRef = useRef<number>(0);
@@ -56,7 +58,8 @@ export function WeatherEffects({ weather, timeOfDay, showCelestial = true, pause
   // Render when we have particles, celestial bodies, or time-based ambient effects
   const shouldDrawCelestial = showCelestial && config.celestial !== "none";
   const shouldRender =
-    config.count > 0 || config.addFireflies || config.addStars || shouldDrawCelestial || config.sunsetGlow;
+    !reduceAmbientEffects &&
+    (config.count > 0 || config.addFireflies || config.addStars || shouldDrawCelestial || config.sunsetGlow);
 
   useEffect(() => {
     if (!shouldRender) return;

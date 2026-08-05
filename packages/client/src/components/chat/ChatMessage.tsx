@@ -6,6 +6,7 @@ import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { applyInlineMarkdown, renderMarkdownBlocks, applyInlineMarkdownHTML } from "../../lib/markdown";
 import { normalizeCardAssetImageSyntax, resolveCardAssetUrl, resolveSelfCardAssets, type ChatGalleryIndex } from "../../lib/card-asset-links";
 import { useChatGalleryFilenameIndex } from "../../hooks/use-characters";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { PendingTypingDots } from "./PendingTypingDots";
 import { isDiceRollResult } from "../dice/AnimatedDiceRoll";
 import { DiceMessageContent } from "./ConversationMessageShared";
@@ -1990,7 +1991,8 @@ export const ChatMessage = memo(function ChatMessage({
     [chatCharacterIds, mergedGroupCharacterIds],
   );
   const mergedCycleKey = JSON.stringify(mergedCharacterIds);
-  const cycleMergedNarratorAvatars = !isRoleplay || roleplayNarratorAvatarCycling;
+  const reduceAmbientEffects = useReducedAmbientEffects();
+  const cycleMergedNarratorAvatars = (!isRoleplay || roleplayNarratorAvatarCycling) && !reduceAmbientEffects;
   const mergedAvatars = useMemo(() => {
     if (!isMergedGroup || !characterMap) return [];
     const fallbackPalette = [

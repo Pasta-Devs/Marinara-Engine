@@ -239,7 +239,8 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
   // ── Serve client build in production ──
   const __dirname = dirname(fileURLToPath(import.meta.url));
   const clientDist = resolve(__dirname, "..", "..", "client", "dist");
-  if (existsSync(clientDist)) {
+  const clientIndex = resolve(clientDist, "index.html");
+  if (existsSync(clientIndex)) {
     await app.register(fastifyStatic, createClientStaticOptions(clientDist));
 
     // SPA fallback — serve index.html for non-API routes
@@ -254,7 +255,10 @@ export async function buildApp(https?: { cert: Buffer; key: Buffer }) {
       return reply.sendFile("index.html", clientDist);
     });
   } else {
-    app.log.warn("Client build not found at %s; serving API only. Run `pnpm build` to build the frontend.", clientDist);
+    app.log.warn(
+      "Client build entry not found at %s; serving API only. Run `pnpm build` to build the frontend.",
+      clientIndex,
+    );
   }
 
   // ── Health Check ──

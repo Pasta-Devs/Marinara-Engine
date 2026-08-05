@@ -7,6 +7,7 @@ import { useGameModeStore } from "../../stores/game-mode.store";
 import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { NEUTRAL_SURFACE_VARIABLES } from "../ui/neutral-surface-styles";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { useTranslation as useUiTranslation } from "react-i18next";
 
 interface PartyBarMember {
@@ -86,6 +87,7 @@ export function GamePartyBar({
 }: GamePartyBarProps) {
   const { t: localizeUi } = useUiTranslation();
   const openCharacterSheet = useGameModeStore((s) => s.openCharacterSheet);
+  const reduceAmbientEffects = useReducedAmbientEffects();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [previewIndex, setPreviewIndex] = useState(0);
   const mobileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -109,12 +111,12 @@ export function GamePartyBar({
   }, [memberVisuals.length]);
 
   useEffect(() => {
-    if (memberVisuals.length <= 1) return undefined;
+    if (reduceAmbientEffects || memberVisuals.length <= 1) return undefined;
     const intervalId = window.setInterval(() => {
       setPreviewIndex((index) => (index + 1) % memberVisuals.length);
     }, 2500);
     return () => window.clearInterval(intervalId);
-  }, [memberVisuals.length]);
+  }, [memberVisuals.length, reduceAmbientEffects]);
 
   useEffect(() => {
     if (!mobileMenuOpen) return undefined;

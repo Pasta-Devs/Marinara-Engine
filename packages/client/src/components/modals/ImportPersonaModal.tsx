@@ -104,6 +104,7 @@ export function ImportPersonaModal({ open, onClose }: Props) {
           creator: firstStringField(json.creator),
           personaVersion: firstStringField(json.personaVersion, json.persona_version, json.character_version),
           creatorNotes: firstStringField(json.creatorNotes, json.creator_notes),
+          phoneticName: stringField(json.phoneticName),
           personality: stringField(json.personality),
           scenario: stringField(json.scenario),
           backstory: stringField(json.backstory),

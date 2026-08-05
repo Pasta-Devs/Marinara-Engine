@@ -4026,6 +4026,8 @@ function AppearanceSettings() {
   const setAppAccentRgbMode = useUIStore((s) => s.setAppAccentRgbMode);
   const customCursorEnabled = useUIStore((s) => s.customCursorEnabled);
   const setCustomCursorEnabled = useUIStore((s) => s.setCustomCursorEnabled);
+  const reduceAmbientEffects = useUIStore((s) => s.reduceAmbientEffects);
+  const setReduceAmbientEffects = useUIStore((s) => s.setReduceAmbientEffects);
   const defaultAppBackgroundColor = getDefaultAppBackgroundColor(theme);
   const displayedAppBackgroundColor =
     appBackgroundColor.trim().toLowerCase() === defaultAppBackgroundColor.toLowerCase() ? "" : appBackgroundColor;
@@ -4397,6 +4399,14 @@ function AppearanceSettings() {
             checked={customCursorEnabled}
             onChange={setCustomCursorEnabled}
             help={localizeUi("settings.controls.customPointer.help")}
+          />
+
+          <ToggleSetting
+            anchorId={getSettingsControlAnchorId("reduce-ambient-effects")}
+            label={localizeUi("settings.controls.reduceAmbientEffects.label")}
+            checked={reduceAmbientEffects}
+            onChange={setReduceAmbientEffects}
+            help={localizeUi("settings.controls.reduceAmbientEffects.help")}
           />
 
           <SearchableSettingTarget controlId="app-background-color">

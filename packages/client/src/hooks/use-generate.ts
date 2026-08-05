@@ -1435,7 +1435,10 @@ export function useGenerate() {
         typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
       const getCharsPerSecond = () => {
         const speed = useUIStore.getState().streamingSpeed;
-        return getStreamingCharsPerSecond(speed, reducedMotionMedia?.matches === true);
+        return getStreamingCharsPerSecond(
+          speed,
+          reducedMotionMedia?.matches === true || useUIStore.getState().reduceAmbientEffects,
+        );
       };
 
       const TYPEWRITER_MAX_FRAME_MS = 120;

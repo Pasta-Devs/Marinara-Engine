@@ -22,7 +22,13 @@ export type ConnectionAdmissionMode =
   | {
       kind: "background";
       beforeAttempt?: () => void | ConnectionAttemptFinalizer | Promise<void | ConnectionAttemptFinalizer>;
-    };
+    }
+  /**
+   * A call that is a step inside someone else's attempt rather than an attempt of its own. It
+   * takes no slot and leaves no foreground stamp, because the work it feeds is already admitted
+   * and would otherwise be refused by its own preparation.
+   */
+  | { kind: "none" };
 
 /**
  * Marks a request the server issued to itself on a scheduler's behalf. Background admission is
@@ -113,6 +119,7 @@ async function beginConnectionAttempt(
   connectionId: string,
   mode: ConnectionAdmissionMode,
 ): Promise<{ release: () => void; finalize?: ConnectionAttemptFinalizer }> {
+  if (mode.kind === "none") return { release: () => undefined };
   if (mode.kind === "foreground") return { release: beginForegroundConnection(connectionId) };
 
   const admission = tryBackgroundConnection(connectionId, new Date());
@@ -259,5 +266,5 @@ export function withConnectionAdmissionProvider(
   connectionId: string,
   mode: ConnectionAdmissionMode = { kind: "foreground" },
 ): BaseLLMProvider {
-  return new ConnectionAdmissionProvider(provider, connectionId, mode);
+  return mode.kind === "none" ? provider : new ConnectionAdmissionProvider(provider, connectionId, mode);
 }

@@ -63,6 +63,7 @@ import { useTranslate } from "../../hooks/use-translate";
 import { useTTSConfig } from "../../hooks/use-tts";
 import { useApplyRegex } from "../../hooks/use-apply-regex";
 import { useBackdropDismiss } from "../../hooks/use-backdrop-dismiss";
+import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import {
   CHAT_VISUAL_VIEWPORT_CHANGE_EVENT,
   type ChatVisualViewportChangeDetail,
@@ -2886,6 +2887,8 @@ export function GameNarration({
   const segmentEnterReady = useRef(false);
   const narrationMessageChanged = Boolean(latestAssistant?.id && latestAssistant.id !== lastNarrationMsgIdRef.current);
   const gameInstantTextReveal = useUIStore((s) => s.gameInstantTextReveal);
+  const reduceAmbientEffects = useReducedAmbientEffects();
+  const revealTextInstantly = gameInstantTextReveal || reduceAmbientEffects;
   const gameTextSpeed = useUIStore((s) => s.gameTextSpeed);
   const gameAutoPlayDelay = useUIStore((s) => s.gameAutoPlayDelay);
   const chatFontColor = useUIStore((s) => s.chatFontColor);
@@ -2905,10 +2908,10 @@ export function GameNarration({
   const getSegmentStartVisibleChars = useCallback(
     (index: number) => {
       const segment = segments[index];
-      if (!segment || !gameInstantTextReveal || directionsActive || scenePreparing) return 0;
+      if (!segment || !revealTextInstantly || directionsActive || scenePreparing) return 0;
       return effectDisplayLength(segment.content);
     },
-    [segments, gameInstantTextReveal, directionsActive, scenePreparing],
+    [segments, revealTextInstantly, directionsActive, scenePreparing],
   );
 
   useEffect(() => {
@@ -3319,7 +3322,7 @@ export function GameNarration({
     tw.pos = visibleChars;
 
     if (tw.pos >= dispLen) return;
-    if (gameInstantTextReveal || gameTextSpeed >= 100) {
+    if (revealTextInstantly || gameTextSpeed >= 100) {
       // Instant
       tw.pos = dispLen;
       setVisibleChars(dispLen);
@@ -3341,7 +3344,7 @@ export function GameNarration({
     }, TICK_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, gameInstantTextReveal, gameTextSpeed, directionsActive, scenePreparing, logsOpen]); // visibleChars intentionally excluded — managed internally
+  }, [active, revealTextInstantly, gameTextSpeed, directionsActive, scenePreparing, logsOpen]); // visibleChars intentionally excluded — managed internally
 
   const { data: assetManifest } = useGameAssetManifest();
 

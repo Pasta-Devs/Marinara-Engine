@@ -56,6 +56,7 @@ import {
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
 import { generateImage, imageAdmissionKey } from "../../packages/server/src/services/image/image-generation.js";
+import { resolveImageCaptioningRuntime } from "../../packages/server/src/services/generation/image-captioning-runtime.js";
 import {
   BACKGROUND_CONNECTION_IDLE_MS,
   ConnectionAttemptRejectedError,
@@ -1528,6 +1529,90 @@ assert.equal(abortedFallback.calls, 0, "user cancellation must not trigger a fal
   } finally {
     await new Promise<void>((resolve, reject) =>
       responsesReasoningServer.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+}
+
+// A background refresh captions its prompt images on the same connection it then generates with.
+// Booking that captioning call as foreground stamps the connection foreground-active, and the
+// refresh's own generation is refused for the whole idle window — every scheduled run, forever,
+// while manual (foreground) refreshes keep working. Issue #4642.
+{
+  const captionServer = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ choices: [{ message: { content: "a caption" }, finish_reason: "stop" }] }));
+  });
+  await new Promise<void>((resolve) => captionServer.listen(0, "127.0.0.1", resolve));
+  try {
+    const address = captionServer.address();
+    assert.ok(address && typeof address === "object");
+    const captionConnection = {
+      id: "noodle-generation-connection",
+      provider: "custom",
+      apiKey: "test",
+      model: "caption-model",
+      baseUrl: `http://127.0.0.1:${address.port}/v1`,
+    };
+    // A captioning connection the caller never admitted is separate background work and must
+    // stay accounted; only the caller's own connection is exempt.
+    const separateCaptionConnection = { ...captionConnection, id: "separate-caption-connection" };
+    const connectionsStub = {
+      listRandomPool: async () => [],
+      getWithKey: async (id: string) =>
+        id === captionConnection.id
+          ? captionConnection
+          : id === separateCaptionConnection.id
+            ? separateCaptionConnection
+            : null,
+      getFallbackForAgents: async () => null,
+    };
+
+    for (const [mode, expectedAdmission] of [
+      [{ kind: "background" } as ConnectionAdmissionMode, true],
+      [{ kind: "foreground" } as ConnectionAdmissionMode, false],
+    ] as const) {
+      resetConnectionAdmissionForTests();
+      const runtime = await resolveImageCaptioningRuntime({
+        chatMeta: { imageCaptioningEnabled: true, imageCaptioningConnectionId: captionConnection.id },
+        fallbackConnectionId: captionConnection.id,
+        connections: connectionsStub,
+        admissionMode: mode,
+      });
+      assert.ok(runtime.provider, "captioning runtime must resolve a provider");
+      await runtime.provider.chatComplete([{ role: "user", content: "describe" }], { model: "caption-model" });
+      assert.equal(
+        tryBackgroundConnection(captionConnection.id, new Date()).acquired,
+        expectedAdmission,
+        `captioning under ${mode.kind} admission must ${expectedAdmission ? "leave" : "block"} the connection's background slot`,
+      );
+    }
+
+    resetConnectionAdmissionForTests();
+    const separateRuntime = await resolveImageCaptioningRuntime({
+      chatMeta: { imageCaptioningEnabled: true, imageCaptioningConnectionId: separateCaptionConnection.id },
+      fallbackConnectionId: captionConnection.id,
+      connections: connectionsStub,
+      admissionMode: { kind: "background" },
+    });
+    assert.ok(separateRuntime.provider, "captioning runtime must resolve a provider");
+    const separateCaption = separateRuntime.provider.chatComplete([{ role: "user", content: "describe" }], {
+      model: "caption-model",
+    });
+    assert.equal(
+      tryBackgroundConnection(separateCaptionConnection.id, new Date()).acquired,
+      false,
+      "captioning on a connection the caller never admitted must still hold its own background slot",
+    );
+    await separateCaption;
+    assert.equal(
+      tryBackgroundConnection(captionConnection.id, new Date()).acquired,
+      true,
+      "captioning elsewhere must not consume the caller's generation connection",
+    );
+  } finally {
+    resetConnectionAdmissionForTests();
+    await new Promise<void>((resolve, reject) =>
+      captionServer.close((error) => (error ? reject(error) : resolve())),
     );
   }
 }

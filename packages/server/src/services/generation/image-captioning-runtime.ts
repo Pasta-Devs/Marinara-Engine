@@ -10,6 +10,7 @@ import { getLocalSidecarProvider } from "../llm/local-sidecar.js";
 import type { BaseLLMProvider, ChatMessage } from "../llm/base-provider.js";
 import { createLLMProvider } from "../llm/provider-registry.js";
 import { withConnectionFallbackProvider } from "../llm/connection-fallback-provider.js";
+import type { ConnectionAdmissionMode } from "./connection-admission.js";
 import {
   appendReadableAttachmentsToContent,
   escapeXmlAttribute,
@@ -91,6 +92,8 @@ export async function resolveImageCaptioningRuntime(args: {
     getWithKey(connectionId: string): Promise<ImageCaptionConnection | null>;
     getFallbackForAgents(): Promise<ImageCaptionConnection | null>;
   };
+  /** Admission mode of the work this captioning run feeds. */
+  admissionMode?: ConnectionAdmissionMode;
 }): Promise<ImageCaptioningRuntime> {
   const { chatMeta, connections } = args;
   try {
@@ -181,6 +184,16 @@ export async function resolveImageCaptioningRuntime(args: {
       fallbackConnection,
       fallbackBaseUrl: fallbackConnection ? resolveBaseUrl(fallbackConnection) : "",
       category: "agents",
+      // On the caller's own connection, captioning is a step inside the caller's attempt, not a
+      // separate one. Booking it as foreground during a background run stamps the connection
+      // foreground-active and the caller's real generation is then refused for the whole idle
+      // window — the run blocks itself. That attempt is already admitted, so the step is not
+      // accounted twice. A captioning connection the caller did not admit gets no such exemption
+      // and stays under background admission.
+      admissionMode:
+        args.admissionMode?.kind === "background" && captionConnectionId === args.fallbackConnectionId
+          ? { kind: "none" }
+          : args.admissionMode,
     });
 
     return {

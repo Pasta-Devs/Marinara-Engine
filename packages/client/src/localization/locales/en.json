@@ -650,6 +650,8 @@
   "settings.controls.quoteStyle.help": "Choose how straight and smart quotation marks are unified in chat inputs and displayed AI output.",
   "settings.controls.quoteStyle.label": "Quote style",
   "settings.controls.rainbowAccent.help": "Cycles the app accent through Marinara's rainbow palette while enabled. Your saved Accent Color stays unchanged. Reduced-motion preferences are respected.",
+  "settings.controls.reduceAmbientEffects.help": "Stops decorative animation, ambient particles, rotating previews, and gradual text reveal. Marinara also applies this automatically when your device requests reduced motion.",
+  "settings.controls.reduceAmbientEffects.label": "Reduce Ambient Animations & Effects",
   "settings.controls.reducedPaintEffects.help": "Flattens costly Roleplay transparency, shadows, and scene overlays to keep navigation responsive, especially in Firefox. Applies immediately in every browser.",
   "settings.controls.reducedPaintEffects.label": "Reduced paint effects",
   "settings.controls.replaceTrackerIcons.help": "Hides the old world/player tracker icon strip so the Tracker panel can dock to the edge. The Agents button stays visible.",

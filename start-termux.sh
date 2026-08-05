@@ -414,15 +414,15 @@ if [ ! -d "node_modules" ] || [ "$TERMUX_FORCE_INSTALL" = "1" ] || ! node script
 fi
 
 # ── Build if needed ──
-if [ ! -d "packages/shared/dist" ]; then
+if [ ! -f "packages/shared/dist/constants/defaults.js" ]; then
     echo "  [..] Building shared types..."
     run_pnpm --filter @marinara-engine/shared build
 fi
-if [ ! -d "packages/server/dist" ]; then
+if [ ! -f "packages/server/dist/index.js" ]; then
     echo "  [..] Building server..."
     run_pnpm --filter @marinara-engine/server build
 fi
-if [ ! -d "packages/client/dist" ]; then
+if [ ! -f "packages/client/dist/index.html" ]; then
     echo "  [..] Building client..."
     # Skip tsc type-check on Termux — it OOMs on low-memory devices.
     # Skip PWA service worker — terser minifier OOMs on low-memory devices.

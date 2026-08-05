@@ -25,6 +25,14 @@ export async function withNoodleAutoPostPaused<T>(run: () => Promise<T>): Promis
   }
 }
 
+/** True when nothing can be prepared or published, so the poll only has existing rows to tidy. */
+export function noodlerReservePollIsIdle(settings: {
+  enableNoodler: boolean;
+  autoPostingScheduleEnabled: boolean;
+}): boolean {
+  return !settings.enableNoodler || !settings.autoPostingScheduleEnabled;
+}
+
 export function startNoodleAutoPostScheduler(app: FastifyInstance) {
   let stopped = false;
   let running: Promise<void> = Promise.resolve();
@@ -47,6 +55,12 @@ export function startNoodleAutoPostScheduler(app: FastifyInstance) {
       return;
     }
     try {
+      // Reconciliation walks every prepared post and every Noodle post. With posting off and no
+      // reserve rows there is nothing for it to repair or publish, so skip the scan entirely
+      // rather than materializing both tables once a minute for the server's lifetime.
+      const noodle = createNoodleStorage(app.db);
+      const settings = await noodle.getSettings();
+      if (noodlerReservePollIsIdle(settings) && !(await noodle.hasNoodlerPreparedPosts())) return;
       await reconcileNoodlerReserve(app.db);
       const outcome = await prepareNextNoodlerReservePost(app.db);
       if (outcome === "prepared") logger.info("[noodle-autopost] Prepared one future NoodleR post");

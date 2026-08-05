@@ -20,7 +20,9 @@ function normalizePool(value: unknown, fallback: RPGStatPool): RPGStatPool | nul
   const max = finiteNumber(raw.max, fallback.max, 1);
   const valueNumber = Math.min(max, finiteNumber(raw.value, fallback.value, 0));
   const color = typeof raw.color === "string" && /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : fallback.color;
-  return { name, value: valueNumber, max, color };
+  // Canonical known fields win, but valid extension metadata is part of the
+  // accepted persisted shape and must survive routine pool edits.
+  return { ...raw, name, value: valueNumber, max, color };
 }
 
 export function createDefaultRpgStatPools(): RPGStatPool[] {
@@ -46,6 +48,7 @@ export function syncRpgHpFromPools(
   const hpPool = pools.find((pool) => HP_NAME_RE.test(pool.name.trim())) ?? pools[0];
   if (!hpPool) return fallbackHp;
   return {
+    ...fallbackHp,
     value: Math.max(0, Math.min(Math.max(1, Number(hpPool.max) || 1), Number(hpPool.value) || 0)),
     max: Math.max(1, Number(hpPool.max) || 1),
   };
