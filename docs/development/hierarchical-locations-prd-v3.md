@@ -6,6 +6,12 @@ Audience: Product, design, and Marinara Engine contributors
 
 Supersedes: `hierarchical-locations-prd-v2.md`
 
+Movement continuation: [`hierarchical-maps-movement-v4.md`](./hierarchical-maps-movement-v4.md)
+extends the shipped V3 foundation with the focused `Step by step` and
+`Travel now` contract tracked by issue #4618. It supersedes this document's
+deferred assumptions about multi-step and model-requested movement, but not the
+rest of the V3 architecture.
+
 ## Architecture boundary
 
 This plan treats spatial orientation as a focused product capability with a narrow state boundary.
