@@ -8,19 +8,9 @@ import { ChevronDown, ChevronRight, FolderOpen, Folder } from "lucide-react";
 import { usePersonas, usePersonaGroups } from "../../hooks/use-characters";
 import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-
-interface Persona {
-  id: string;
-  name: string;
-  avatarPath?: string | null;
-  /** JSON-encoded AvatarCrop from the persona row. */
-  avatarCrop?: string;
-  comment?: string | null;
-  description?: string | null;
-}
+import type { Persona } from "@marinara-engine/shared";
 
 interface PersonaGroupRow {
   id: string;
@@ -50,11 +40,11 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
   const { data: chat } = useChat(activeChatId);
   const updateChat = useUpdateChat();
 
-  const personas = ((rawPersonas ?? []) as Persona[])
+  const personas = (rawPersonas ?? [])
     .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const activePersonaId = (chat as unknown as Record<string, unknown>)?.personaId as string | null;
+  const activePersonaId = chat?.personaId ?? null;
   const activePersona = personas.find((p) => p.id === activePersonaId) ?? null;
 
   // Build a map for quick lookups
@@ -192,7 +182,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
               src={persona.avatarPath}
               alt={persona.name}
               className="h-full w-full object-cover"
-              style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+              style={getAvatarCropStyle(persona.avatarCrop)}
             />
           </div>
         ) : (
@@ -237,7 +227,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
             src={activePersona.avatarPath}
             alt={activePersona.name}
             className="h-full w-full object-cover rounded-full"
-            style={getAvatarCropStyle(normalizeAvatarCrop(activePersona.avatarCrop))}
+            style={getAvatarCropStyle(activePersona.avatarCrop)}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-full bg-foreground/10 text-[0.75rem] font-semibold text-foreground/45">
@@ -313,7 +303,7 @@ export function QuickPersonaSwitcher({ className }: { className?: string }) {
                             src={firstMember.avatarPath}
                             alt={group.name}
                             className="h-full w-full object-cover"
-                            style={getAvatarCropStyle(normalizeAvatarCrop(firstMember.avatarCrop))}
+                            style={getAvatarCropStyle(firstMember.avatarCrop)}
                           />
                         </div>
                       ) : (

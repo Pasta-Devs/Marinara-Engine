@@ -463,9 +463,9 @@ export function LorebookEditor() {
     () => Array.from(new Set(characters.flatMap((character) => character.tags))).sort((a, b) => a.localeCompare(b)),
     [characters],
   );
-  const personas = useMemo(() => {
-    if (!rawPersonas) return [] as Array<{ id: string; name: string; comment?: string | null }>;
-    return (rawPersonas as Array<{ id: string; name: string; comment?: string | null }>).map((p) => ({
+  const personas = useMemo<Array<{ id: string; name: string; comment?: string | null }>>(() => {
+    if (!rawPersonas) return [];
+    return rawPersonas.map((p) => ({
       id: p.id,
       name: p.name || "Unknown",
       comment: p.comment ?? null,

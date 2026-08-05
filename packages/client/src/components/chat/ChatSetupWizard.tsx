@@ -69,7 +69,7 @@ import {
   type AvatarCrop,
   type Lorebook,
   type Message,
-  normalizeAvatarCrop,
+  type Persona,
 } from "@marinara-engine/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -200,19 +200,6 @@ interface ChatSetupWizardProps {
   chat: Chat;
   onFinish: () => void;
 }
-
-interface PersonaDisplayInfo {
-  id?: string;
-  name: string;
-  avatarPath?: string | null;
-  avatarCrop?: AvatarCrop | string | null;
-  comment?: string | null;
-}
-
-type PersonaSetupOption = PersonaDisplayInfo & {
-  id: string;
-  avatarPath: string | null;
-};
 
 type ConnectionSetupOption = {
   id: string;
@@ -454,12 +441,12 @@ function SetupWizardShell({
   );
 }
 
-function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
-  const title = persona.comment?.trim();
+function getPersonaTitle(persona: Persona): string | null {
+  const title = persona.comment.trim();
   return title ? title : null;
 }
 
-function formatPersonaLabel(persona: PersonaDisplayInfo): string {
+function formatPersonaLabel(persona: Persona): string {
   const title = getPersonaTitle(persona);
   return title ? `${persona.name} - ${title}` : persona.name;
 }
@@ -482,14 +469,14 @@ function CroppedAvatarImage({
   );
 }
 
-function PersonaAvatar({ persona }: { persona: PersonaDisplayInfo | null }) {
+function PersonaAvatar({ persona }: { persona: Persona | null }) {
   if (persona?.avatarPath) {
     return (
       <CroppedAvatarImage
         src={persona.avatarPath}
         alt={persona.name}
         className="h-7 w-7 rounded-full"
-        crop={normalizeAvatarCrop(persona.avatarCrop)}
+        crop={persona.avatarCrop ?? null}
       />
     );
   }
@@ -507,7 +494,7 @@ function PersonaPicker({
   onChange,
   searchable = true,
 }: {
-  personas: PersonaSetupOption[];
+  personas: Persona[];
   value: string | null;
   onChange: (personaId: string | null) => void;
   searchable?: boolean;
@@ -743,17 +730,7 @@ function ConversationQuickSetup({ chat, onFinish }: ChatSetupWizardProps) {
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,
     [allCharacters],
   );
-  const personas = useMemo(
-    () =>
-      (allPersonas ?? []) as Array<{
-        id: string;
-        name: string;
-        avatarPath: string | null;
-        avatarCrop?: AvatarCrop | string | null;
-        comment?: string | null;
-      }>,
-    [allPersonas],
-  );
+  const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
   const promptPresetOptions = useMemo(
     () =>
       (presets ?? []) as Array<{
@@ -1743,17 +1720,7 @@ function RoleplaySetupWizard({ chat, onFinish }: ChatSetupWizardProps) {
   const chatPresetList = useMemo(() => (chatPresetsData ?? []) as ChatPreset[], [chatPresetsData]);
   const applyChatPreset = useApplyChatPreset();
 
-  const personas = useMemo(
-    () =>
-      (allPersonas ?? []) as Array<{
-        id: string;
-        name: string;
-        avatarPath: string | null;
-        avatarCrop?: AvatarCrop | string | null;
-        comment?: string | null;
-      }>,
-    [allPersonas],
-  );
+  const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
   const characters = useMemo(
     () =>
       (allCharacters ?? []) as Array<{ id: string; data: string; comment?: string | null; avatarPath: string | null }>,

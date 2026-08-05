@@ -293,7 +293,7 @@ export function NoodlerHome({ navigation, onNavigate }: NoodlerHomeProps) {
   const activePersonaQuery = useActivePersona(enabled);
   const storedPersonaId = useUIStore((state) => state.noodleSelectedPersonaId);
   const setStoredPersonaId = useUIStore((state) => state.setNoodleSelectedPersonaId);
-  const personas = (personasQuery.data ?? []) as Persona[];
+  const personas = personasQuery.data ?? [];
   const viewerPersonaId =
     (storedPersonaId && personas.some((persona) => persona.id === storedPersonaId) ? storedPersonaId : null) ??
     activePersonaQuery.data?.id ??

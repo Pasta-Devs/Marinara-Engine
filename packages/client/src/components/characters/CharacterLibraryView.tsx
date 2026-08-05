@@ -12,7 +12,7 @@ import {
   Star,
   User,
 } from "lucide-react";
-import { type CharacterData } from "@marinara-engine/shared";
+import { type CharacterData, type Persona } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import {
   flattenCharacterPages,
@@ -56,26 +56,6 @@ type ParsedCharacterRow = CharacterRow & {
   parsed: Partial<CharacterData> & {
     extensions?: Record<string, unknown>;
   };
-};
-
-type PersonaRow = {
-  id: string;
-  name: string;
-  comment?: string | null;
-  creator?: string | null;
-  personaVersion?: string | null;
-  creatorNotes?: string | null;
-  description?: string | null;
-  personality?: string | null;
-  scenario?: string | null;
-  backstory?: string | null;
-  appearance?: string | null;
-  avatarPath: string | null;
-  avatarCrop?: string | AvatarCrop | null;
-  isActive?: boolean | string;
-  tags?: string | string[] | null;
-  createdAt: string;
-  updatedAt: string;
 };
 
 type LibrarySection = { title: string; content: string };
@@ -139,26 +119,11 @@ function getCharacterTags(char: ParsedCharacterRow): string[] {
   );
 }
 
-function getPersonaTags(persona: PersonaRow): string[] {
-  if (Array.isArray(persona.tags)) {
-    return persona.tags.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0);
-  }
-  if (!persona.tags) return [];
-  try {
-    const parsed = JSON.parse(persona.tags);
-    return Array.isArray(parsed)
-      ? parsed.filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
-      : [];
-  } catch {
-    return [];
-  }
-}
-
 function getCharacterSummary(char: ParsedCharacterRow) {
   return getCardLibrarySummary([char.parsed.creator_notes, char.parsed.description, char.parsed.personality]);
 }
 
-function getPersonaSummary(persona: PersonaRow) {
+function getPersonaSummary(persona: Persona) {
   return getCardLibrarySummary([persona.creatorNotes, persona.description, persona.personality, persona.backstory]);
 }
 
@@ -176,7 +141,7 @@ function getCharacterSections(char: ParsedCharacterRow): LibrarySection[] {
   ].filter((section) => section.content);
 }
 
-function getPersonaSections(persona: PersonaRow): LibrarySection[] {
+function getPersonaSections(persona: Persona): LibrarySection[] {
   return [
     { title: "Description", content: getText(persona.description) },
     { title: "Personality", content: getText(persona.personality) },
@@ -186,7 +151,7 @@ function getPersonaSections(persona: PersonaRow): LibrarySection[] {
   ].filter((section) => section.content);
 }
 
-function estimatePersonaTokens(persona: PersonaRow) {
+function estimatePersonaTokens(persona: Persona) {
   return Math.ceil(
     [persona.description, persona.personality, persona.scenario, persona.backstory, persona.appearance]
       .map(getText)
@@ -215,7 +180,7 @@ function toCharacterLibraryCard(char: ParsedCharacterRow): LibraryCard {
   };
 }
 
-function toPersonaLibraryCard(persona: PersonaRow): LibraryCard {
+function toPersonaLibraryCard(persona: Persona): LibraryCard {
   return {
     id: persona.id,
     name: getText(persona.name) || "Unnamed",
@@ -223,13 +188,13 @@ function toPersonaLibraryCard(persona: PersonaRow): LibraryCard {
     meta: formatCardLibraryMeta(persona.creator, persona.personaVersion),
     summary: getPersonaSummary(persona),
     avatarPath: persona.avatarPath,
-    avatarCrop: normalizeAvatarCrop(persona.avatarCrop) ?? undefined,
+    avatarCrop: persona.avatarCrop ?? undefined,
     createdAt: persona.createdAt,
     updatedAt: persona.updatedAt,
-    tags: getPersonaTags(persona),
+    tags: persona.tags.filter((tag) => tag.trim().length > 0),
     tokenEstimate: estimatePersonaTokens(persona),
     favorite: false,
-    active: persona.isActive === true || persona.isActive === "true",
+    active: persona.isActive,
     creatorNotes: getText(persona.creatorNotes),
     sections: getPersonaSections(persona),
   };
@@ -411,7 +376,7 @@ export function CharacterLibraryView() {
   const libraryScrollFrameRef = useRef<number | null>(null);
 
   const cards = useMemo<LibraryCard[]>(() => {
-    if (isPersonaLibrary) return (personas as PersonaRow[]).map(toPersonaLibraryCard);
+    if (isPersonaLibrary) return personas.map(toPersonaLibraryCard);
     return (characters as CharacterRow[]).map(parseCharacterRow).map(toCharacterLibraryCard);
   }, [characters, isPersonaLibrary, personas]);
 

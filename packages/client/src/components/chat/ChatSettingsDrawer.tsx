@@ -84,7 +84,7 @@ import { PromptPresetSection } from "../../features/chat-settings/sections/Promp
 import { SceneInstructionsSection } from "../../features/chat-settings/sections/SceneInstructionsSection";
 import { TranslationSection } from "../../features/chat-settings/sections/TranslationSection";
 import { CapabilityElement } from "../capabilities/CapabilityElement";
-import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
+import type { AvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { showAlertDialog, showConfirmDialog, showPromptDialog } from "../../lib/app-dialogs";
 import { HelpTooltip } from "../ui/HelpTooltip";
@@ -614,7 +614,7 @@ type DrawerPersona = {
   name: string;
   comment: string;
   avatarPath: string | null;
-  avatarCrop?: AvatarCrop | string | null;
+  avatarCrop?: AvatarCrop | null;
 };
 
 function DrawerPersonaAvatar({ persona, size = "sm" }: { persona: DrawerPersona; size?: "sm" | "md" }) {
@@ -640,7 +640,7 @@ function DrawerPersonaAvatar({ persona, size = "sm" }: { persona: DrawerPersona;
         alt={persona.name}
         loading="lazy"
         className="h-full w-full object-cover"
-        style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+        style={getAvatarCropStyle(persona.avatarCrop)}
       />
     </span>
   );
@@ -974,7 +974,7 @@ export function ChatSettingsDrawer({
   const { data: customTools } = useCustomTools();
   const { data: customToolCapabilities } = useCustomToolCapabilities();
   const { data: allChats } = useChats({ refetchOnMount: false });
-  const personas = useMemo(() => (allPersonas ?? []) as DrawerPersona[], [allPersonas]);
+  const personas = useMemo(() => allPersonas ?? [], [allPersonas]);
 
   const chatCharIds: string[] = useMemo(
     () => getChatCharacterIds({ characterIds: chat.characterIds }),
@@ -7278,7 +7278,7 @@ export function ChatSettingsDrawer({
                                 title: isPersona ? subject.persona.comment || "Persona" : charTitle(subject.character),
                                 avatarPath: isPersona ? subject.persona.avatarPath : subject.character.avatarPath,
                                 avatarCrop: isPersona
-                                  ? normalizeAvatarCrop(subject.persona.avatarCrop)
+                                  ? (subject.persona.avatarCrop ?? null)
                                   : (getCharacterInfo(subject.character).avatarCrop ?? null),
                                 active: spriteCharacterIds.includes(subject.id),
                               };

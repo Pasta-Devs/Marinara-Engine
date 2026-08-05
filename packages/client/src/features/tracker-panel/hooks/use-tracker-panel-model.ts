@@ -40,10 +40,7 @@ export function useTrackerPanelModel({
     () => normalizeMaybeJsonStringArray((chat as unknown as { characterIds?: unknown } | undefined)?.characterIds),
     [chat],
   );
-  const chatPersonaId = useMemo(() => {
-    const rawPersonaId = (chat as unknown as { personaId?: unknown } | undefined)?.personaId;
-    return typeof rawPersonaId === "string" && rawPersonaId.trim() ? rawPersonaId.trim() : null;
-  }, [chat]);
+  const chatPersonaId = chat?.personaId?.trim() || null;
   const enabledAgentTypes = useMemo(() => {
     const set = new Set<string>();
     if (!chatMeta.enableAgents) return set;

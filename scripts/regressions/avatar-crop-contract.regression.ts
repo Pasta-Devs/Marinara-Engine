@@ -278,7 +278,7 @@ for (const [path, pattern] of [
   assert.match(readFileSync(join(repoRoot, "packages/client/src", path), "utf8"), pattern);
 }
 
-// ── 10. Drawer/wizard reuse parseCharacterDisplayData (no duplicate parsing) ──
+// ── 10. Drawer/wizard reuse decoded crop boundaries ──
 const drawerSource = readFileSync(join(repoRoot, "packages/client/src/components/chat/ChatSettingsDrawer.tsx"), "utf8");
 const wizardSource = readFileSync(join(repoRoot, "packages/client/src/components/chat/ChatSetupWizard.tsx"), "utf8");
 for (const [source, removedParsing, sharedCrop] of [
@@ -294,14 +294,14 @@ for (const [source, removedParsing, sharedCrop] of [
 }
 assert.match(
   drawerSource,
-  /getAvatarCropStyle\(normalizeAvatarCrop\(persona\.avatarCrop\)\)/u,
-  "Drawer persona pickers must render normalized stored crops",
+  /getAvatarCropStyle\(persona\.avatarCrop\)/u,
+  "Drawer persona pickers must render decoded crops",
 );
 assert.doesNotMatch(drawerSource, /avatarCrop: isPersona \? null/u, "Drawer must not discard persona crops");
 assert.match(
   wizardSource,
-  /crop=\{normalizeAvatarCrop\(persona\.avatarCrop\)\}/u,
-  "Wizard persona pickers must render normalized stored crops",
+  /crop=\{persona\.avatarCrop \?\? null\}/u,
+  "Wizard persona pickers must render decoded crops",
 );
 
 // ── 11. Removed names stay gone from packages and regression scripts ──

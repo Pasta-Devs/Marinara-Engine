@@ -36,6 +36,7 @@ import {
   PROFESSOR_MARI_ID,
   type MariSuggestionChip,
   type Message,
+  type Persona,
 } from "@marinara-engine/shared";
 import {
   matchSlashCommand,
@@ -979,7 +980,7 @@ export const ChatInput = memo(function ChatInput({
     }
 
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Persona[]>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     const chatMeta = parseChatMetadata(chat?.metadata);
     let message = applyToUserInput(normalized, {
@@ -1225,7 +1226,7 @@ export const ChatInput = memo(function ChatInput({
 
     const chat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Persona[]>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(chat, cachedCharacters, cachedPersonas, normalized);
     const chatMeta = parseChatMetadata(chat?.metadata);
     let message = applyToUserInput(normalized, {

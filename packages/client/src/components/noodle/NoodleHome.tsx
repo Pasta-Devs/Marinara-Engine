@@ -166,7 +166,6 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 
 type RawCharacter = { id?: unknown; data?: unknown; avatarPath?: unknown };
 type RawCharacterGroup = { id?: unknown; name?: unknown; description?: unknown; characterIds?: unknown };
-type RawPersona = { id?: unknown; createdAt?: unknown; updatedAt?: unknown };
 type NoodleComposerImage = { url: string; crop: NoodlePostImageCrop | null };
 type NoodlePendingComposerImage = { source: File | string; crop: NoodlePostImageCrop | null };
 type SocialSettingsTab = "noodle" | "noodler";
@@ -195,10 +194,6 @@ function isRawCharacter(value: unknown): value is RawCharacter {
 }
 
 function isRawCharacterGroup(value: unknown): value is RawCharacterGroup {
-  return isRecord(value);
-}
-
-function isRawPersona(value: unknown): value is RawPersona {
   return isRecord(value);
 }
 
@@ -617,7 +612,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
           automating: noodlerAutomatingCount,
         });
   const { data: activePersona } = useActivePersona();
-  const { data: personasRaw } = usePersonas();
+  const { data: personasData } = usePersonas();
   const { data: charactersRaw } = useCharacters();
   const { data: characterGroupsRaw } = useCharacterGroups();
   const { data: connectionsRaw } = useConnections();
@@ -677,7 +672,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     () => (Array.isArray(charactersRaw) ? charactersRaw.filter(isRawCharacter) : []),
     [charactersRaw],
   );
-  const personas = useMemo(() => (Array.isArray(personasRaw) ? personasRaw.filter(isRawPersona) : null), [personasRaw]);
+  const personas = personasData ?? null;
   const characterGroups = useMemo(
     () => (Array.isArray(characterGroupsRaw) ? characterGroupsRaw.filter(isRawCharacterGroup) : []),
     [characterGroupsRaw],
@@ -825,17 +820,14 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
   const livePersonaIds = useMemo(() => {
     const ids = new Set<string>();
     for (const persona of personas ?? []) {
-      const id = readString(persona.id);
-      if (id) ids.add(id);
+      ids.add(persona.id);
     }
     return ids;
   }, [personas]);
   const personaRecencyById = useMemo(() => {
     const recency = new Map<string, number>();
     for (const persona of personas ?? []) {
-      const id = readString(persona.id);
-      if (!id) continue;
-      recency.set(id, Date.parse(readString(persona.updatedAt) || readString(persona.createdAt)) || 0);
+      recency.set(persona.id, Date.parse(persona.updatedAt || persona.createdAt) || 0);
     }
     return recency;
   }, [personas]);
@@ -980,7 +972,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
     // still empty during initial hydration.
     if (!data || personas === null) return;
     if (selectedPersonaId && personaAccounts.some((account) => account.entityId === selectedPersonaId)) return;
-    const activeId = readString(activePersona?.id);
+    const activeId = activePersona?.id;
     const activeAccount = personaAccounts.find((account) => account.entityId === activeId);
     const nextPersonaId = activeAccount?.entityId ?? sortedPersonaAccounts[0]?.entityId ?? "";
     if (selectedPersonaId !== nextPersonaId) setSelectedPersonaId(nextPersonaId);

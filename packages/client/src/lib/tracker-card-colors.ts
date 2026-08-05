@@ -4,6 +4,7 @@ import type {
   TrackerCardColorMode,
   TrackerCardPortraitStageBackground,
 } from "@marinara-engine/shared";
+import { normalizeTrackerCardColorConfig as normalizeSharedTrackerCardColorConfig } from "@marinara-engine/shared";
 import { normalizeStatIconAssignments } from "./stat-icon-assignments";
 
 export const DEFAULT_TRACKER_CARD_COLOR_MODE: TrackerCardColorMode = "chat";
@@ -300,10 +301,6 @@ export function normalizeTrackerCardPortraitStageBackground(value: unknown): Tra
     : DEFAULT_TRACKER_CARD_PORTRAIT_STAGE_BACKGROUND;
 }
 
-function getString(value: unknown) {
-  return typeof value === "string" ? value : "";
-}
-
 function getBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
 }
@@ -327,35 +324,16 @@ function getClampedPortraitZoomValue(value: unknown): number | undefined {
   return Math.round(clamped * 100) / 100;
 }
 
-function parseRecord(value: unknown): Record<string, unknown> | null {
-  if (!value) return null;
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-        ? (parsed as Record<string, unknown>)
-        : null;
-    } catch {
-      return null;
-    }
-  }
-
-  return typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
-
-export function cleanTrackerCardColorConfig(config: TrackerCardColorConfig | null | undefined): TrackerCardColorConfig {
-  const displayEnabled = getBoolean(config?.displayEnabled);
-  const accentEnabled = getBoolean(config?.accentEnabled);
-  const surfaceEnabled = getBoolean(config?.surfaceEnabled);
-  const nameColorOpacity = getClampedFinishValue(config?.nameColorOpacity);
-  const dialogueColorOpacity = getClampedFinishValue(config?.dialogueColorOpacity);
-  const rawBoxColorOpacity = getClampedFinishValue(config?.boxColorOpacity);
-  const legacyTintIntensity = getClampedFinishValue(config?.tintIntensity);
-  const materialBrightness = getClampedFinishValue(config?.materialBrightness);
+export function cleanTrackerCardColorConfig(config: unknown): TrackerCardColorConfig {
+  const normalized = normalizeSharedTrackerCardColorConfig(config);
+  const displayEnabled = normalized.displayEnabled;
+  const accentEnabled = normalized.accentEnabled;
+  const surfaceEnabled = normalized.surfaceEnabled;
+  const nameColorOpacity = normalized.nameColorOpacity;
+  const dialogueColorOpacity = normalized.dialogueColorOpacity;
+  const rawBoxColorOpacity = normalized.boxColorOpacity;
+  const legacyTintIntensity = normalized.tintIntensity;
+  const materialBrightness = normalized.materialBrightness;
   // Legacy Tint controlled how much Surface paint entered material; preserve that as Surface strength.
   const boxColorOpacity =
     materialBrightness === undefined && legacyTintIntensity !== undefined
@@ -363,25 +341,26 @@ export function cleanTrackerCardColorConfig(config: TrackerCardColorConfig | nul
           ((rawBoxColorOpacity ?? TRACKER_CARD_PAINT_OPACITY_DEFAULTS.boxColorOpacity) * legacyTintIntensity) / 100,
         )
       : rawBoxColorOpacity;
-  const glowIntensity = getClampedFinishValue(config?.glowIntensity);
-  const contrastIntensity = getClampedFinishValue(config?.contrastIntensity);
-  const portraitStageBackground = normalizeTrackerCardPortraitStageBackground(config?.portraitStageBackground);
-  const portraitFocusX = getClampedFinishValue(config?.portraitFocusX);
-  const portraitFocusY = getClampedPortraitFocusYValue(config?.portraitFocusY);
-  const portraitZoom = getClampedPortraitZoomValue(config?.portraitZoom);
-  const statIcons = normalizeStatIconAssignments(config?.statIcons);
+  const glowIntensity = normalized.glowIntensity;
+  const contrastIntensity = normalized.contrastIntensity;
+  const portraitStageBackground =
+    normalized.portraitStageBackground ?? DEFAULT_TRACKER_CARD_PORTRAIT_STAGE_BACKGROUND;
+  const portraitFocusX = normalized.portraitFocusX;
+  const portraitFocusY = normalized.portraitFocusY;
+  const portraitZoom = normalized.portraitZoom;
+  const statIcons = normalizeStatIconAssignments(normalized.statIcons);
 
   return {
-    mode: normalizeTrackerCardColorMode(config?.mode),
+    mode: normalized.mode ?? DEFAULT_TRACKER_CARD_COLOR_MODE,
     ...(statIcons.length > 0 && { statIcons }),
     ...(displayEnabled === false && { displayEnabled }),
-    ...(config?.nameColor ? { nameColor: config.nameColor } : {}),
+    ...(normalized.nameColor ? { nameColor: normalized.nameColor } : {}),
     ...(nameColorOpacity !== undefined && { nameColorOpacity }),
     ...(accentEnabled === false && { accentEnabled }),
-    ...(config?.dialogueColor ? { dialogueColor: config.dialogueColor } : {}),
+    ...(normalized.dialogueColor ? { dialogueColor: normalized.dialogueColor } : {}),
     ...(dialogueColorOpacity !== undefined && { dialogueColorOpacity }),
     ...(surfaceEnabled === false && { surfaceEnabled }),
-    ...(config?.boxColor ? { boxColor: config.boxColor } : {}),
+    ...(normalized.boxColor ? { boxColor: normalized.boxColor } : {}),
     ...(boxColorOpacity !== undefined && { boxColorOpacity }),
     ...(materialBrightness !== undefined && { materialBrightness }),
     ...(glowIntensity !== undefined && { glowIntensity }),
@@ -394,30 +373,7 @@ export function cleanTrackerCardColorConfig(config: TrackerCardColorConfig | nul
 }
 
 export function parseTrackerCardColorConfig(raw: unknown): TrackerCardColorConfig {
-  const record = parseRecord(raw);
-  if (!record) return { mode: DEFAULT_TRACKER_CARD_COLOR_MODE };
-
-  return cleanTrackerCardColorConfig({
-    mode: normalizeTrackerCardColorMode(record.mode),
-    displayEnabled: getBoolean(record.displayEnabled),
-    nameColor: getString(record.nameColor),
-    nameColorOpacity: getClampedFinishValue(record.nameColorOpacity),
-    accentEnabled: getBoolean(record.accentEnabled),
-    dialogueColor: getString(record.dialogueColor),
-    dialogueColorOpacity: getClampedFinishValue(record.dialogueColorOpacity),
-    surfaceEnabled: getBoolean(record.surfaceEnabled),
-    boxColor: getString(record.boxColor),
-    boxColorOpacity: getClampedFinishValue(record.boxColorOpacity),
-    tintIntensity: getClampedFinishValue(record.tintIntensity),
-    materialBrightness: getClampedFinishValue(record.materialBrightness),
-    glowIntensity: getClampedFinishValue(record.glowIntensity),
-    contrastIntensity: getClampedFinishValue(record.contrastIntensity),
-    portraitStageBackground: normalizeTrackerCardPortraitStageBackground(record.portraitStageBackground),
-    portraitFocusX: getClampedFinishValue(record.portraitFocusX),
-    portraitFocusY: getClampedPortraitFocusYValue(record.portraitFocusY),
-    portraitZoom: getClampedPortraitZoomValue(record.portraitZoom),
-    statIcons: normalizeStatIconAssignments(record.statIcons),
-  });
+  return cleanTrackerCardColorConfig(raw);
 }
 
 export function serializeTrackerCardColorConfig(config: TrackerCardColorConfig): string {

@@ -1052,19 +1052,18 @@ export function ChatArea() {
     // falls back to the globally active account Persona.
     const persona = chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null);
     if (!persona) return undefined;
-    const avatarCrop = normalizeAvatarCrop(persona.avatarCrop);
     return {
       id: persona.id,
       name: persona.name,
       convoDisplayName: persona.convoDisplayName || undefined,
       phoneticName: persona.phoneticName || undefined,
-      description: persona.description ?? "",
+      description: persona.description,
       personality: persona.personality || undefined,
       scenario: persona.scenario || undefined,
       backstory: persona.backstory || undefined,
       appearance: persona.appearance || undefined,
       avatarUrl: persona.avatarPath || undefined,
-      avatarCrop,
+      avatarCrop: persona.avatarCrop ?? null,
       nameColor: persona.nameColor || undefined,
       dialogueColor: persona.dialogueColor || undefined,
       boxColor: persona.boxColor || undefined,
@@ -1438,12 +1437,9 @@ export function ChatArea() {
   // (personas have no other data-card-css hook), so only feed it in Convo mode.
   const cardCssPersonas = useMemo<PersonaCssRow[] | undefined>(() => {
     if (chatMode !== "conversation") return undefined;
-    const persona = (chatPersona ?? (chatMode === "conversation" ? activePersonaFallback : null)) as
-      | { id?: string; creatorNotes?: string | null }
-      | null
-      | undefined;
+    const persona = chatPersona ?? activePersonaFallback;
     return persona?.id
-      ? [{ id: persona.id, creatorNotes: typeof persona.creatorNotes === "string" ? persona.creatorNotes : null }]
+      ? [{ id: persona.id, creatorNotes: persona.creatorNotes }]
       : undefined;
   }, [chatMode, chatPersona, activePersonaFallback]);
   const cardCssInjector = (

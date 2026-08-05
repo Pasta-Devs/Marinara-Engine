@@ -72,6 +72,7 @@ import {
   startsWithTextForMatch,
   type MariSuggestionChip,
   type Message,
+  type Persona,
   isInstalledCapabilityReady,
 } from "@marinara-engine/shared";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
@@ -1098,7 +1099,7 @@ export function ConversationInput({
 
     const activeChat = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Persona[]>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(activeChat, cachedCharacters, cachedPersonas, raw);
     const chatMeta = parseChatMetadata(activeChat?.metadata);
     // First pass: resolve macros against raw input, so {{input}} uses the pre-translation text.
@@ -1332,7 +1333,7 @@ export function ConversationInput({
 
     const activeChatData = useChatStore.getState().activeChat;
     const cachedCharacters = qc.getQueryData<Array<{ id: string; data: unknown }>>(characterKeys.list());
-    const cachedPersonas = qc.getQueryData<Array<Record<string, unknown>>>(characterKeys.personas);
+    const cachedPersonas = qc.getQueryData<Persona[]>(characterKeys.personas);
     const resolveInputMacros = createInputMacroResolverForChat(activeChatData, cachedCharacters, cachedPersonas, raw);
     const chatMeta = parseChatMetadata(activeChatData?.metadata);
     let message = applyToUserInput(raw, {

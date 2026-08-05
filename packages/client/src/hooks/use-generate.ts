@@ -55,6 +55,7 @@ import {
   type MariGuidedPlanStep,
   type MariSuggestionChip,
   type PendingSpatialTransition,
+  type Persona,
   type ResolvedSpatialTravel,
   type ThinkingTagPair,
 } from "@marinara-engine/shared";
@@ -1257,23 +1258,7 @@ export function useGenerate() {
       // Optimistically show the user message in the chat immediately
       if (hasVisibleUserMessagePayload(params.userMessage, pendingAttachments) && !params.impersonate) {
         // Build persona snapshot for per-message persona tracking
-        const cachedPersonas = qc.getQueryData<
-          Array<{
-            id: string;
-            isActive: string | boolean;
-            name: string;
-            description?: string;
-            personality?: string;
-            scenario?: string;
-            backstory?: string;
-            appearance?: string;
-            avatarPath?: string | null;
-            avatarCrop?: string;
-            nameColor?: string;
-            dialogueColor?: string;
-            boxColor?: string;
-          }>
-        >(characterKeys.personas);
+        const cachedPersonas = qc.getQueryData<Persona[]>(characterKeys.personas);
         const activeChat =
           qc.getQueryData<any>(chatKeys.detail(params.chatId)) ??
           (qc.getQueryData<any[]>(chatKeys.list()) ?? []).find((c: any) => c.id === params.chatId);
@@ -1293,7 +1278,7 @@ export function useGenerate() {
               backstory: snapshotPersona.backstory || "",
               appearance: snapshotPersona.appearance || "",
               avatarUrl: snapshotPersona.avatarPath || null,
-              avatarCrop: snapshotPersona.avatarCrop || null,
+              avatarCrop: snapshotPersona.avatarCrop ? JSON.stringify(snapshotPersona.avatarCrop) : null,
               nameColor: snapshotPersona.nameColor || null,
               dialogueColor: snapshotPersona.dialogueColor || null,
               boxColor: snapshotPersona.boxColor || null,

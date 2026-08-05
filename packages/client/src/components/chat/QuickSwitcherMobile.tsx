@@ -12,18 +12,9 @@ import { useUpdateChat, useChat } from "../../hooks/use-chats";
 import { useChatStore } from "../../stores/chat.store";
 import { useSidecarStore } from "../../stores/sidecar.store";
 import { appendLocalSidecarConnectionOption, isLocalSidecarConnectionOption } from "../../lib/connection-filters";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
-
-interface Persona {
-  id: string;
-  name: string;
-  avatarPath?: string | null;
-  /** JSON-encoded AvatarCrop from the persona row. */
-  avatarCrop?: string;
-  comment?: string | null;
-}
+import type { Persona } from "@marinara-engine/shared";
 
 interface PersonaGroupRow {
   id: string;
@@ -59,7 +50,7 @@ export function QuickSwitcherMobile() {
   const sidecarModelDisplayName = useSidecarStore((state) => state.modelDisplayName);
 
   const activeConnectionId = (chat as unknown as Record<string, unknown>)?.connectionId as string | null;
-  const activePersonaId = (chat as unknown as Record<string, unknown>)?.personaId as string | null;
+  const activePersonaId = chat?.personaId ?? null;
   const chatMode = (chat as unknown as { mode?: string } | null | undefined)?.mode;
   const isRandom = activeConnectionId === "random";
 
@@ -71,9 +62,9 @@ export function QuickSwitcherMobile() {
     .filter((connection) => !isRandom || !isLocalSidecarConnectionOption(connection))
     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 
-  const sortedPersonas = ((rawPersonas ?? []) as Persona[])
+  const sortedPersonas = (rawPersonas ?? [])
     .slice()
-    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const personaMap = useMemo(() => {
     const map = new Map<string, Persona>();
@@ -233,7 +224,7 @@ export function QuickSwitcherMobile() {
               src={persona.avatarPath}
               alt={persona.name}
               className="h-full w-full object-cover"
-              style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+              style={getAvatarCropStyle(persona.avatarCrop)}
             />
           </div>
         ) : (
@@ -406,7 +397,7 @@ export function QuickSwitcherMobile() {
                                 src={firstMember.avatarPath}
                                 alt={group.name}
                                 className="h-full w-full object-cover"
-                                style={getAvatarCropStyle(normalizeAvatarCrop(firstMember.avatarCrop))}
+                                style={getAvatarCropStyle(firstMember.avatarCrop)}
                               />
                             </div>
                           ) : (

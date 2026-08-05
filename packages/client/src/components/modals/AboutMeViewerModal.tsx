@@ -139,14 +139,13 @@ export function AboutMeViewerModal({
     kind === "character"
       ? parseCharacterConvo((character as { data?: unknown } | undefined)?.data)
       : (() => {
-          const persona = ((personas ?? []) as Array<Record<string, unknown>>).find((p) => p.id === id);
-          const name = typeof persona?.name === "string" ? persona.name : "";
-          const dn =
-            typeof persona?.convoDisplayName === "string" && persona.convoDisplayName ? persona.convoDisplayName : name;
+          const persona = personas?.find((candidate) => candidate.id === id);
+          const name = persona?.name ?? "";
+          const dn = persona?.convoDisplayName || name;
           return {
             name,
             displayName: dn,
-            aboutMe: typeof persona?.aboutMe === "string" ? persona.aboutMe : "",
+            aboutMe: persona?.aboutMe ?? "",
           };
         })();
 

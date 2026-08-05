@@ -40,7 +40,7 @@ export function useConversationCustomEmojis(): { list: ConversationCustomEmoji[]
   const stableResultRef = useRef<{ list: ConversationCustomEmoji[]; map: Map<string, string> } | null>(null);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const { data: activeChat } = useChat(activeChatId);
-  const personaId = (activeChat as { personaId?: string | null } | undefined)?.personaId ?? null;
+  const personaId = activeChat?.personaId ?? null;
   const characterIds = getChatCharacterIds(activeChat);
 
   const { data: globalEmojis } = useCustomEmojis();

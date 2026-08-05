@@ -44,11 +44,11 @@ import {
   type SpatialMapGroundingMode,
   type SpatialMapDraftSize,
   type GameCombatStyle,
+  type Persona,
+  type AvatarCrop,
 } from "@marinara-engine/shared";
 import { getCharacterTitle } from "../../lib/character-display";
 import { api } from "../../lib/api-client";
-import type { AvatarCrop } from "@marinara-engine/shared";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import {
   GenerationParametersFields,
@@ -135,11 +135,6 @@ interface GameSetupWizardProps {
   initialPartyCharacterIds?: string[];
 }
 
-interface PersonaDisplayInfo {
-  name: string;
-  comment?: string | null;
-}
-
 interface WizardConnection {
   id: string;
   name: string;
@@ -180,8 +175,8 @@ function CharacterAvatar({
   );
 }
 
-function getPersonaTitle(persona: PersonaDisplayInfo): string | null {
-  const title = persona.comment?.trim();
+function getPersonaTitle(persona: Persona): string | null {
+  const title = persona.comment.trim();
   return title ? title : null;
 }
 
@@ -639,20 +634,7 @@ export function GameSetupWizard({
         : selectedPromptPreset?.gamePrompt?.trim() || DEFAULT_GAME_SYSTEM_PROMPT,
     [gamePresentation, selectedPromptPreset?.gamePrompt],
   );
-  const personas = useMemo(
-    () =>
-      ((personasList as Array<{
-        id: string;
-        name: string;
-        avatarPath?: string | null;
-        avatarCrop?: AvatarCrop | string | null;
-        comment?: string;
-      }>) ?? []).map((persona) => ({
-        ...persona,
-        avatarCrop: normalizeAvatarCrop(persona.avatarCrop),
-      })),
-    [personasList],
-  );
+  const personas = useMemo(() => personasList ?? [], [personasList]);
   const characterFolders = useMemo(
     () =>
       ((characterGroupsList ?? []) as CharacterGroup[]).map((group) => ({
