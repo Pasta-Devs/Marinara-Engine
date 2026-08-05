@@ -216,10 +216,10 @@ export async function generateNoodlerStageProfileDraft(
   });
   const unwrapped = parseGameJsonish(response.content ?? "");
   const unwrappedObj = Array.isArray(unwrapped) && unwrapped.length === 1 ? unwrapped[0] : unwrapped;
-  const raw = noodleStageProfileDraftResponseSchema.omit({ disclosureMode: true }).passthrough().parse(
+  const raw = noodleStageProfileDraftResponseSchema.omit({ disclosureMode: true }).strip().parse(
     unwrappedObj as Record<string, unknown>,
   );
-  const parsed = { ...raw, handle: (raw.handle as string)?.replace(/^@/, "") ?? "" };
+  const parsed = { ...raw, handle: (raw.handle as string).replace(/^@/, "") };
   const draft = { ...parsed, disclosureMode: input.request.disclosureMode };
   if (stageProfileContainsPublicIdentity(draft, identity)) {
     throw new Error("Generated stage draft included the linked public identity. Try again with different guidance.");
