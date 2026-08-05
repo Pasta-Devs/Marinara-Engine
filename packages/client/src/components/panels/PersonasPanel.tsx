@@ -39,7 +39,6 @@ import {
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
 import { useTouchFolderDrag } from "../../hooks/use-touch-folder-drag";
-import { normalizeAvatarCrop } from "@marinara-engine/shared";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { api } from "../../lib/api-client";
 import { SelectionActionBar } from "../ui/SelectionActionBar";
@@ -56,26 +55,7 @@ import {
 } from "../../lib/card-library-search";
 import { clearActiveChatResourceDrag, writeChatResourceDragPayload } from "../../lib/chat-resource-drag";
 import { ChatResourceActionButton } from "../chat/ChatResourceActionButton";
-
-type PersonaRow = {
-  id: string;
-  name: string;
-  comment?: string;
-  creator?: string;
-  personaVersion?: string;
-  creatorNotes?: string;
-  description: string;
-  personality: string;
-  scenario: string;
-  backstory: string;
-  appearance: string;
-  avatarPath: string | null;
-  /** JSON-encoded AvatarCrop, or empty string when unset. */
-  avatarCrop?: string;
-  isActive: string | boolean;
-  createdAt: string;
-  tags?: string;
-};
+import type { Persona } from "@marinara-engine/shared";
 
 type PersonaGroupRow = { id: string; name: string; description: string; personaIds: string };
 type ParsedPersonaGroupRow = PersonaGroupRow & { memberIds: string[] };
@@ -99,15 +79,15 @@ function parseDroppedPersonaIds(payload: string): unknown {
   }
 }
 
-function estimateTokens(p: PersonaRow): number {
+function estimateTokens(p: Persona): number {
   const text = [p.description, p.personality, p.scenario, p.backstory, p.appearance].join("");
   return Math.ceil(text.length / 4);
 }
 
-function getPersonaPreviewMetadata(p: PersonaRow): string | null {
+function getPersonaPreviewMetadata(p: Persona): string | null {
   const parts: string[] = [];
-  const creator = p.creator?.trim() ?? "";
-  const version = p.personaVersion?.trim() ?? "";
+  const creator = p.creator.trim();
+  const version = p.personaVersion.trim();
 
   if (creator) parts.push(`by ${creator}`);
   if (version) parts.push(`v${version}`);
@@ -167,7 +147,7 @@ export function PersonasPanel() {
   const [selectedPersonaIds, setSelectedPersonaIds] = useState<Set<string>>(new Set());
   const [exportingSelected, setExportingSelected] = useState(false);
   const clientOnlyPersonaFilterActive = favFilter !== "all" || activeTag !== null;
-  const [completeFilteredPersonas, setCompleteFilteredPersonas] = useState<PersonaRow[] | null>(null);
+  const [completeFilteredPersonas, setCompleteFilteredPersonas] = useState<Persona[] | null>(null);
   const [completePersonasLoading, setCompletePersonasLoading] = useState(false);
   const serverSearch = useMemo(() => parseCardLibrarySearchQuery(search).text, [search]);
   const personaPages = usePersonaPages({ search: serverSearch, sort });
@@ -189,8 +169,6 @@ export function PersonasPanel() {
   const touchSafePersonaDragMode = useTouchSafePersonaDragMode();
   const nativePersonaDragEnabled = !touchSafePersonaDragMode;
 
-  const isActive = (p: PersonaRow) => p.isActive === true || p.isActive === "true";
-
   useEffect(() => {
     let cancelled = false;
     if (!clientOnlyPersonaFilterActive) {
@@ -204,7 +182,7 @@ export function PersonasPanel() {
     setCompletePersonasLoading(true);
     fetchAllPersonaPages({ search: serverSearch, sort })
       .then((rows) => {
-        if (!cancelled) setCompleteFilteredPersonas(rows as PersonaRow[]);
+        if (!cancelled) setCompleteFilteredPersonas(rows);
       })
       .catch(() => {
         if (!cancelled) {
@@ -219,7 +197,7 @@ export function PersonasPanel() {
     return () => {
       cancelled = true;
     };
-  }, [clientOnlyPersonaFilterActive, serverSearch, sort, localizeUi]);
+  }, [clientOnlyPersonaFilterActive, serverSearch, sort, localizeUi, personaPages.dataUpdatedAt]);
 
   const handleCreate = () => {
     openModal("create-persona");
@@ -250,23 +228,13 @@ export function PersonasPanel() {
     [avatarTargetId, uploadAvatar],
   );
 
-  const rawList = useMemo(() => (personas as PersonaRow[] | undefined) ?? [], [personas]);
-
-  const parseTags = (p: PersonaRow): string[] => {
-    try {
-      return p.tags ? JSON.parse(p.tags) : [];
-    } catch {
-      return [];
-    }
-  };
-
   const allTags = useMemo(() => {
     const tagSet = new Set<string>();
-    for (const p of rawList) {
-      for (const t of parseTags(p)) tagSet.add(t);
+    for (const p of personas) {
+      for (const t of p.tags) tagSet.add(t);
     }
     return [...tagSet].sort((a, b) => a.localeCompare(b));
-  }, [rawList]);
+  }, [personas]);
 
   const handleDeleteTag = useCallback(
     async (tag: string) => {
@@ -281,10 +249,10 @@ export function PersonasPanel() {
         return;
       }
       try {
-        const allPersonas = (await fetchAllPersonaPages({ sort })) as PersonaRow[];
-        const affected = allPersonas.filter((p) => parseTags(p).includes(tag));
+        const allPersonas = await fetchAllPersonaPages({ sort });
+        const affected = allPersonas.filter((p) => p.tags.includes(tag));
         for (const p of affected) {
-          const newTags = parseTags(p).filter((t) => t !== tag);
+          const newTags = p.tags.filter((t) => t !== tag);
           await updatePersona.mutateAsync({ id: p.id, tags: JSON.stringify(newTags) });
         }
         if (activeTag === tag) setActiveTag(null);
@@ -296,10 +264,10 @@ export function PersonasPanel() {
   );
 
   const personaMap = useMemo(() => {
-    const map = new Map<string, PersonaRow>();
-    for (const p of rawList) map.set(p.id, p);
+    const map = new Map<string, Persona>();
+    for (const p of personas) map.set(p.id, p);
     return map;
-  }, [rawList]);
+  }, [personas]);
 
   const parsedGroups = useMemo<ParsedPersonaGroupRow[]>(() => {
     if (!personaGroupsRaw) return [];
@@ -444,16 +412,16 @@ export function PersonasPanel() {
   });
 
   const filteredList = useMemo(() => {
-    let arr = rawList;
+    let arr = personas;
     const query = parseCardLibrarySearchQuery(search);
     // Filter by active status
     if (favFilter === "active") {
-      arr = arr.filter((p) => p.isActive === true || p.isActive === "true");
+      arr = arr.filter((p) => p.isActive);
     } else if (favFilter === "inactive") {
-      arr = arr.filter((p) => p.isActive !== true && p.isActive !== "true");
+      arr = arr.filter((p) => !p.isActive);
     }
     arr = arr.filter((p) => {
-      const tags = parseTags(p);
+      const tags = p.tags;
       return matchesCardLibrarySearch(
         {
           name: p.name,
@@ -474,10 +442,10 @@ export function PersonasPanel() {
     });
     // Filter by active tag
     if (activeTag) {
-      arr = arr.filter((p) => parseTags(p).includes(activeTag));
+      arr = arr.filter((p) => p.tags.includes(activeTag));
     }
     return arr;
-  }, [rawList, favFilter, search, activeTag]);
+  }, [personas, favFilter, search, activeTag]);
 
   const list = useMemo(() => {
     const arr = [...filteredList];
@@ -998,7 +966,7 @@ export function PersonasPanel() {
                                 src={p.avatarPath}
                                 alt=""
                                 className="h-full w-full rounded-lg object-cover"
-                                style={getAvatarCropStyle(normalizeAvatarCrop(p.avatarCrop))}
+                                style={getAvatarCropStyle(p.avatarCrop)}
                               />
                             ) : (
                               <User size="0.625rem" />
@@ -1093,7 +1061,7 @@ export function PersonasPanel() {
 
       <div className="stagger-children flex min-h-8 flex-col gap-1 rounded-xl transition-colors">
         {visibleRootPersonas.map((persona) => {
-          const active = isActive(persona);
+          const active = persona.isActive;
           const isBulkSelected = selectedPersonaIds.has(persona.id);
           const personaMetadata = getPersonaPreviewMetadata(persona);
 
@@ -1202,7 +1170,7 @@ export function PersonasPanel() {
                       alt=""
                       loading="lazy"
                       className="h-full w-full rounded-xl object-cover"
-                      style={getAvatarCropStyle(normalizeAvatarCrop(persona.avatarCrop))}
+                      style={getAvatarCropStyle(persona.avatarCrop)}
                     />
                   ) : (
                     <User size="1rem" />
@@ -1309,7 +1277,7 @@ export function PersonasPanel() {
         >
           {personaPages.isFetchingNextPage
             ? localizeUi("ui.characters.characterlibraryview.loading")
-            : localizeUi("ui.panels.characterspanel.loadMoreValue1Loaded", { value1: rawList.length })}
+            : localizeUi("ui.panels.characterspanel.loadMoreValue1Loaded", { value1: personas.length })}
         </PanelLoadMoreBar>
       )}
 

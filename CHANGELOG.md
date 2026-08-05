@@ -12,6 +12,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 ### Fixed
 
 - Retried one transient Roleplay message-edit save failure so remote sessions persist the edit without requiring another manual Save action (#4678).
+- Kept Persona tags, stats, saved statuses, avatar crops, tracker colors, and conversation settings intact across loading, editing, duplicating, restoring, and switching Personas by returning one consistent Persona API shape (#4646).
 - Included the active Conversation cast's avatar references and appearance descriptions in guided group selfies (#4676).
 - Added native Arli.ai image generation with authenticated text-to-image and image-to-image requests (#4672).
 - Let Professor Mari read complete lorebook entry bodies through her structured app-data tools instead of receiving only truncated entry previews (#4673).

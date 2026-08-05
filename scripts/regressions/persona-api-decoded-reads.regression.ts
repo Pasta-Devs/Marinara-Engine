@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cleanTrackerCardColorConfig } from "../../packages/client/src/lib/tracker-card-colors.js";
@@ -25,6 +25,39 @@ assert.deepEqual(
   "decoded and serialized tracker colors must share one normalization path",
 );
 assert.deepEqual(cleanTrackerCardColorConfig("{bad"), { mode: "chat" });
+
+// ── Bounded PersonaEditor read/write boundary guard ──
+// The editor must hydrate from the shared decoded Persona (no private
+// serialized-row adapter, no JSON.parse of raw row fields) and must keep the
+// Part 2 PATCH/storage boundary serialized. These source-level assertions fail
+// fast if the stale serialized-row read adapter is reintroduced or the write
+// boundary stops serializing JSON-backed values.
+const personaEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/personas/PersonaEditor.tsx", import.meta.url),
+  "utf8",
+);
+assert.equal(
+  /allPersonas\s+as\s+PersonaRow/.test(personaEditorSource),
+  false,
+  "PersonaEditor must not cast the decoded usePersonas list to PersonaRow[]",
+);
+assert.equal(
+  /JSON\.parse\(\s*rawPersona\./.test(personaEditorSource),
+  false,
+  "PersonaEditor must hydrate from decoded Persona values instead of JSON.parse on raw row fields",
+);
+assert.match(personaEditorSource, /personaStats:\s*rawPersona\.personaStats\s*\?\?\s*null/);
+assert.match(personaEditorSource, /tags:\s*rawPersona\.tags\s*\?\?\s*\[\]/);
+assert.match(personaEditorSource, /savedStatusOptions:\s*rawPersona\.savedStatusOptions\s*\?\?\s*\[\]/);
+assert.match(personaEditorSource, /convoBehavior:\s*rawPersona\.convoBehavior\s*\?\?\s*null/);
+assert.match(personaEditorSource, /tags:\s*JSON\.stringify\(tags\)/);
+assert.match(personaEditorSource, /personaStats:\s*personaStats\s*\?\s*JSON\.stringify\(personaStats\)\s*:\s*""/);
+assert.match(personaEditorSource, /savedStatusOptions:\s*JSON\.stringify\(savedStatusOptions\)/);
+assert.match(personaEditorSource, /avatarCrop:\s*avatarCrop\s*\?\s*JSON\.stringify\(avatarCrop\)\s*:\s*""/);
+assert.match(
+  personaEditorSource,
+  /convoBehavior:\s*convoBehavior\s*&&\s*convoBehavior\.instruction\?\.trim\(\)\s*\?\s*JSON\.stringify\(convoBehavior\)\s*:\s*""/,
+);
 
 const dataDir = mkdtempSync(join(tmpdir(), "marinara-persona-decoded-reads-"));
 const previousDataDir = process.env.DATA_DIR;
