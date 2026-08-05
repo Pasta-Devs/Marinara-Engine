@@ -118,7 +118,9 @@ export function buildNoodlerStageProfileDraftMessages(input: {
       role: "system",
       content: [
         "Create one editable NoodleR stage profile draft.",
-        "Return JSON only with displayName, handle, bio, stagePersonality, and disclosureMode.",
+        "Return a single JSON object only — no arrays, no wrapping brackets.",
+        "Keys: displayName, handle, bio, stagePersonality, disclosureMode.",
+        "disclosureMode must be one of: \"open\", \"hinted\", or \"secret\" — use only these exact values.",
         "Make the stage identity distinct, concise, and usable for future NoodleR post generation.",
         disclosureRules(input.request.disclosureMode, identity),
       ].join("\n"),
@@ -212,7 +214,10 @@ export async function generateNoodlerStageProfileDraft(
     debugMode,
     responseFormat: noodleResponseFormat(input.connection.model, "noodler_profile"),
   });
-  const parsed = noodleStageProfileDraftResponseSchema.parse(parseGameJsonish(response.content ?? ""));
+  const unwrapped = parseGameJsonish(response.content ?? "");
+  const parsed = noodleStageProfileDraftResponseSchema.parse(
+    Array.isArray(unwrapped) && unwrapped.length === 1 ? unwrapped[0] : unwrapped,
+  );
   const draft = { ...parsed, disclosureMode: input.request.disclosureMode };
   if (stageProfileContainsPublicIdentity(draft, identity)) {
     throw new Error("Generated stage draft included the linked public identity. Try again with different guidance.");
