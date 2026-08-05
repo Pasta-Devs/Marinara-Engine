@@ -958,7 +958,7 @@ export function useTagPersonaGalleryImage(personaId: string) {
 export function usePersonas(enabled = true) {
   return useQuery({
     queryKey: characterKeys.personas,
-    queryFn: () => api.get<unknown[]>("/characters/personas/list"),
+    queryFn: () => api.get<Persona[]>("/characters/personas/list"),
     enabled,
     staleTime: 5 * 60_000,
   });
@@ -979,7 +979,7 @@ export function usePersonaPages(options: { enabled?: boolean; search?: string; s
       });
       if (search) params.set("search", search);
       if (sort) params.set("sort", sort);
-      return api.get<PaginatedList<unknown>>(`/characters/personas/list?${params.toString()}`);
+      return api.get<PaginatedList<Persona>>(`/characters/personas/list?${params.toString()}`);
     },
     getNextPageParam: getNextPageOffset,
     enabled,
@@ -987,7 +987,7 @@ export function usePersonaPages(options: { enabled?: boolean; search?: string; s
   });
 }
 
-export function flattenPersonaPages(data: { pages?: Array<PaginatedList<unknown>> } | undefined) {
+export function flattenPersonaPages(data: { pages?: Array<PaginatedList<Persona>> } | undefined) {
   return flattenPaginatedItems(data?.pages);
 }
 
@@ -995,14 +995,14 @@ export function fetchAllPersonaPages(options: { search?: string; sort?: string }
   const search = (options.search ?? "").trim();
   const sort = options.sort ?? "";
 
-  return collectAllPaginatedItems<Record<string, unknown>>((offset) => {
+  return collectAllPaginatedItems<Persona>((offset) => {
     const params = new URLSearchParams({
       limit: String(LIBRARY_PAGE_SIZE),
       offset: String(offset),
     });
     if (search) params.set("search", search);
     if (sort) params.set("sort", sort);
-    return api.get<PaginatedList<Record<string, unknown>>>(`/characters/personas/list?${params.toString()}`);
+    return api.get<PaginatedList<Persona>>(`/characters/personas/list?${params.toString()}`);
   });
 }
 
@@ -1052,7 +1052,7 @@ export function useCreatePersona() {
       aboutMe?: string;
       convoBehavior?: string;
       avatarCrop?: string;
-    }) => api.post("/characters/personas", data),
+    }) => api.post<Persona>("/characters/personas", data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       void trackAchievementEvent("library_changed")
@@ -1104,38 +1104,29 @@ export function useUpdatePersona() {
       };
     }) =>
       trackerCardPaint || trackerCardPortrait
-        ? api.patch<Persona | null>(
+        ? api.patch<Persona>(
             `/characters/personas/${id}/tracker-card-colors`,
             trackerCardPaint
               ? { paint: cleanTrackerCardPaintConfig(trackerCardPaint) }
               : { portrait: trackerCardPortrait },
             keepalive ? { keepalive: true } : undefined,
           )
-        : api.patch<Persona | null>(
+        : api.patch<Persona>(
             `/characters/personas/${id}`,
             requestedData,
             keepalive ? { keepalive: true } : undefined,
           ),
-    onSuccess: (updatedPersona, variables) => {
-      if (updatedPersona) {
-        qc.setQueryData<Persona>(characterKeys.personaDetail(updatedPersona.id), updatedPersona);
-        qc.setQueryData<unknown[] | undefined>(characterKeys.personas, (old) => {
-          if (!Array.isArray(old)) return old;
-          return old.map((persona) => {
-            if (!isRecord(persona) || persona.id !== updatedPersona.id) return persona;
-            return { ...persona, ...updatedPersona };
-          });
-        });
-      }
-
-      const updatedId = updatedPersona?.id ?? variables.id;
+    onSuccess: (updatedPersona) => {
+      qc.setQueryData<Persona>(characterKeys.personaDetail(updatedPersona.id), updatedPersona);
+      qc.setQueryData<Persona[] | undefined>(characterKeys.personas, (old) => {
+        if (!old) return old;
+        return old.map((persona) => (persona.id === updatedPersona.id ? updatedPersona : persona));
+      });
 
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
-      if (updatedId) {
-        qc.invalidateQueries({ queryKey: characterKeys.personaDetail(updatedId) });
-        qc.invalidateQueries({ queryKey: characterKeys.personaVersions(updatedId) });
-      }
+      qc.invalidateQueries({ queryKey: characterKeys.personaDetail(updatedPersona.id) });
+      qc.invalidateQueries({ queryKey: characterKeys.personaVersions(updatedPersona.id) });
     },
   });
 }
@@ -1153,7 +1144,7 @@ export function useRestorePersonaVersion() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, versionId }: { id: string; versionId: string }) =>
-      api.post(`/characters/personas/${id}/versions/${versionId}/restore`, {}),
+      api.post<Persona>(`/characters/personas/${id}/versions/${versionId}/restore`, {}),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
@@ -1188,7 +1179,7 @@ export function useRenamePersonaVersion() {
 export function useResetPersonaVersions() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/characters/personas/${id}/versions/reset`, {}),
+    mutationFn: (id: string) => api.post<Persona>(`/characters/personas/${id}/versions/reset`, {}),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
@@ -1213,7 +1204,7 @@ export function useDeletePersona() {
 export function useDuplicatePersona() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.post(`/characters/personas/${id}/duplicate`, {}),
+    mutationFn: (id: string) => api.post<Persona>(`/characters/personas/${id}/duplicate`, {}),
     onSuccess: () => qc.invalidateQueries({ queryKey: characterKeys.personas }),
   });
 }
@@ -1221,7 +1212,7 @@ export function useDuplicatePersona() {
 export function useActivatePersona() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.put(`/characters/personas/${id}/activate`, {}),
+    mutationFn: (id: string) => api.put<{ success: true }>(`/characters/personas/${id}/activate`, {}),
     onSuccess: (_data, id) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
@@ -1234,7 +1225,7 @@ export function useUploadPersonaAvatar() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, avatar, filename }: { id: string; avatar: string; filename?: string }) =>
-      api.post(`/characters/personas/${id}/avatar`, { avatar, filename }),
+      api.post<Persona>(`/characters/personas/${id}/avatar`, { avatar, filename }),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: characterKeys.personas });
       qc.invalidateQueries({ queryKey: characterKeys.personaActive() });
