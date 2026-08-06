@@ -2436,6 +2436,22 @@ const roleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
   "utf8",
 );
+const chatFloatingUiEventsSource = readFileSync(
+  new URL("../../packages/client/src/lib/chat-floating-ui-events.ts", import.meta.url),
+  "utf8",
+);
+const appShellSource = readFileSync(
+  new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url),
+  "utf8",
+);
+const guidedPresetEditorSource = readFileSync(
+  new URL("../../packages/client/src/components/presets/PresetEditor.tsx", import.meta.url),
+  "utf8",
+);
+const presetPanelSource = readFileSync(
+  new URL("../../packages/client/src/components/panels/PresetsPanel.tsx", import.meta.url),
+  "utf8",
+);
 const chatMessageSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatMessage.tsx", import.meta.url),
   "utf8",
@@ -2451,6 +2467,41 @@ const roleplayHudSource = readFileSync(
 const narratorUiStoreSource = readFileSync(
   new URL("../../packages/client/src/stores/ui.store.ts", import.meta.url),
   "utf8",
+);
+assert.match(
+  appShellSource,
+  /onOpenChatSummarySettings:[\s\S]{0,180}onOpenActivePromptPresetEditor:/u,
+  "Feature detail capability props must expose both guided onboarding navigation callbacks",
+);
+assert.match(
+  chatFloatingUiEventsSource,
+  /CHAT_SUMMARY_OPEN_REQUEST_EVENT[\s\S]{0,240}detail:\s*\{\s*chatId\s*\}/u,
+  "Summary requests must carry the target chat ID",
+);
+assert.match(
+  roleplaySurfaceSource,
+  /requestedChatId !== chatId/u,
+  "SummaryButton must filter requests by chat and only open visible instances",
+);
+assert.match(
+  roleplaySurfaceSource,
+  /rect\.width <= 0 \|\| rect\.height <= 0[\s\S]{0,180}setOpen\(true\)/u,
+  "SummaryButton must only open a measurable visible instance",
+);
+assert.match(
+  narratorUiStoreSource,
+  /openPresetDetail: \(id, options\)[\s\S]{0,180}presetDetailInitialTab: options\?\.initialTab \?\? null/u,
+  "Preset navigation must retain an optional initial tab request",
+);
+assert.match(
+  guidedPresetEditorSource,
+  /presetDetailInitialTab[\s\S]{0,260}setActiveTab\(presetDetailInitialTab \?\? "overview"\)/u,
+  "PresetEditor must consume the requested initial tab and retain Overview by default",
+);
+assert.match(
+  presetPanelSource,
+  /openPresetDetail\(preset\.id\)/u,
+  "Ordinary preset-panel navigation must continue using the default Overview tab",
 );
 assert.match(
   roleplaySurfaceSource,
