@@ -2436,6 +2436,10 @@ const roleplaySurfaceSource = readFileSync(
   new URL("../../packages/client/src/components/chat/ChatRoleplaySurface.tsx", import.meta.url),
   "utf8",
 );
+const chatToolbarControlsSource = readFileSync(
+  new URL("../../packages/client/src/components/chat/ChatToolbarControls.tsx", import.meta.url),
+  "utf8",
+);
 const chatFloatingUiEventsSource = readFileSync(
   new URL("../../packages/client/src/lib/chat-floating-ui-events.ts", import.meta.url),
   "utf8",
@@ -2487,6 +2491,16 @@ assert.match(
   roleplaySurfaceSource,
   /rect\.width <= 0 \|\| rect\.height <= 0[\s\S]{0,180}setOpen\(true\)/u,
   "SummaryButton must only open a measurable visible instance",
+);
+assert.match(
+  chatToolbarControlsSource,
+  /pendingSummaryChatIdRef\.current = chatId[\s\S]{0,80}setOpen\(true\)/u,
+  "Compact and mobile Summary requests must queue the target chat and open the overflow menu",
+);
+assert.match(
+  chatToolbarControlsSource,
+  /if \(!open \|\| !chatId\) return;[\s\S]{0,140}requestAnimationFrame\(\(\) => requestChatSummaryOpen\(chatId\)\)/u,
+  "Compact and mobile Summary requests must forward only after the overflow menu mounts",
 );
 assert.match(
   narratorUiStoreSource,
