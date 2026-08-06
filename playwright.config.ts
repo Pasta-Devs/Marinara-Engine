@@ -2,7 +2,10 @@ import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
 
 const callerDisabledColors = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
-const shouldPreventPlaywrightColorOverride = callerDisabledColors && process.env.FORCE_COLOR === undefined;
+const callerForceColor = process.env.FORCE_COLOR?.toLowerCase();
+const shouldPreventPlaywrightColorOverride =
+  callerDisabledColors &&
+  (callerForceColor === undefined || callerForceColor === "0" || callerForceColor === "false");
 if (shouldPreventPlaywrightColorOverride) {
   const noColorPreload = `--require=${JSON.stringify(fileURLToPath(new URL("./e2e/respect-no-color.cjs", import.meta.url)))}`;
   const nodeOptions = process.env.NODE_OPTIONS?.trim();
