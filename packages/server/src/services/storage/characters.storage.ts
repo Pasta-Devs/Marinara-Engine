@@ -955,39 +955,6 @@ export function createCharactersStorage(db: DB) {
           this.updatePersona(id, updates, { ...options, _avatarLifecycleLocked: true }),
         );
       }
-      const existing = await this.getPersona(id);
-      if (!existing) return null;
-      const currentData = buildPersonaSnapshot(existing);
-      const nextData = mergePersonaSnapshot(currentData, {
-        ...(updates.name !== undefined && { name: updates.name }),
-        ...(updates.creator !== undefined && { creator: updates.creator }),
-        ...(updates.personaVersion !== undefined && { personaVersion: updates.personaVersion }),
-        ...(updates.creatorNotes !== undefined && { creatorNotes: updates.creatorNotes }),
-        ...(updates.phoneticName !== undefined && { phoneticName: updates.phoneticName }),
-        ...(updates.description !== undefined && { description: updates.description }),
-        ...(updates.personality !== undefined && { personality: updates.personality }),
-        ...(updates.scenario !== undefined && { scenario: updates.scenario }),
-        ...(updates.backstory !== undefined && { backstory: updates.backstory }),
-        ...(updates.appearance !== undefined && { appearance: updates.appearance }),
-        ...(updates.avatarCrop !== undefined && { avatarCrop: updates.avatarCrop }),
-        ...(updates.nameColor !== undefined && { nameColor: updates.nameColor }),
-        ...(updates.dialogueColor !== undefined && { dialogueColor: updates.dialogueColor }),
-        ...(updates.boxColor !== undefined && { boxColor: updates.boxColor }),
-        ...(updates.trackerCardColors !== undefined && { trackerCardColors: updates.trackerCardColors }),
-        ...(updates.personaStats !== undefined && { personaStats: updates.personaStats }),
-        ...(updates.tags !== undefined && { tags: updates.tags }),
-        ...(updates.savedStatusOptions !== undefined && { savedStatusOptions: updates.savedStatusOptions }),
-        ...(updates.convoDisplayName !== undefined && { convoDisplayName: updates.convoDisplayName }),
-        ...(updates.aboutMe !== undefined && { aboutMe: updates.aboutMe }),
-        ...(updates.convoBehavior !== undefined && { convoBehavior: updates.convoBehavior }),
-      });
-      const nextComment = updates.comment !== undefined ? updates.comment : (existing.comment ?? "");
-      const nextAvatarPath = updates.avatarPath !== undefined ? updates.avatarPath : existing.avatarPath;
-      const shouldSnapshot =
-        !options?.skipVersionSnapshot &&
-        (personaSnapshotChanged(currentData, nextData) ||
-          nextComment !== (existing.comment ?? "") ||
-          nextAvatarPath !== existing.avatarPath);
       const sets: Record<string, unknown> = { updatedAt: now() };
       if (updates.name !== undefined) sets.name = updates.name;
       if (updates.comment !== undefined) sets.comment = updates.comment;
@@ -1013,12 +980,46 @@ export function createCharactersStorage(db: DB) {
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
       const persistUpdate = async (database: DB) => {
+        const currentRows = await database.select().from(personas).where(eq(personas.id, id));
+        const current = currentRows[0];
+        if (!current) return null;
+        const currentData = buildPersonaSnapshot(current);
+        const nextData = mergePersonaSnapshot(currentData, {
+          ...(updates.name !== undefined && { name: updates.name }),
+          ...(updates.creator !== undefined && { creator: updates.creator }),
+          ...(updates.personaVersion !== undefined && { personaVersion: updates.personaVersion }),
+          ...(updates.creatorNotes !== undefined && { creatorNotes: updates.creatorNotes }),
+          ...(updates.phoneticName !== undefined && { phoneticName: updates.phoneticName }),
+          ...(updates.description !== undefined && { description: updates.description }),
+          ...(updates.personality !== undefined && { personality: updates.personality }),
+          ...(updates.scenario !== undefined && { scenario: updates.scenario }),
+          ...(updates.backstory !== undefined && { backstory: updates.backstory }),
+          ...(updates.appearance !== undefined && { appearance: updates.appearance }),
+          ...(updates.avatarCrop !== undefined && { avatarCrop: updates.avatarCrop }),
+          ...(updates.nameColor !== undefined && { nameColor: updates.nameColor }),
+          ...(updates.dialogueColor !== undefined && { dialogueColor: updates.dialogueColor }),
+          ...(updates.boxColor !== undefined && { boxColor: updates.boxColor }),
+          ...(updates.trackerCardColors !== undefined && { trackerCardColors: updates.trackerCardColors }),
+          ...(updates.personaStats !== undefined && { personaStats: updates.personaStats }),
+          ...(updates.tags !== undefined && { tags: updates.tags }),
+          ...(updates.savedStatusOptions !== undefined && { savedStatusOptions: updates.savedStatusOptions }),
+          ...(updates.convoDisplayName !== undefined && { convoDisplayName: updates.convoDisplayName }),
+          ...(updates.aboutMe !== undefined && { aboutMe: updates.aboutMe }),
+          ...(updates.convoBehavior !== undefined && { convoBehavior: updates.convoBehavior }),
+        });
+        const nextComment = updates.comment !== undefined ? updates.comment : (current.comment ?? "");
+        const nextAvatarPath = updates.avatarPath !== undefined ? updates.avatarPath : current.avatarPath;
+        const shouldSnapshot =
+          !options?.skipVersionSnapshot &&
+          (personaSnapshotChanged(currentData, nextData) ||
+            nextComment !== (current.comment ?? "") ||
+            nextAvatarPath !== current.avatarPath);
         if (shouldSnapshot) {
-          await insertPersonaVersionSnapshot(database, existing, {
+          await insertPersonaVersionSnapshot(database, current, {
             source: options?.versionSource ?? "manual",
             reason: options?.versionReason ?? "",
             // Keep the replaced card's own edit time in history (#4040).
-            createdAt: existing.updatedAt ?? null,
+            createdAt: current.updatedAt ?? null,
           });
         }
         await database.update(personas).set(sets).where(eq(personas.id, id));
