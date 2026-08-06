@@ -65,12 +65,23 @@ const recentMessageContentEdits = new Map<string, RecentMessageContentEdit>();
 let recentMessageContentEditRevision = 0;
 const messageContentUpdateQueues = new Map<string, Promise<void>>();
 
-function shouldRetryMessageContentUpdate(failureCount: number, error: unknown) {
-  if (failureCount >= 1) return false;
+function shouldRetryMessageContentUpdate(error: unknown) {
   if (error instanceof ApiError) {
     return error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
   }
   return error instanceof TypeError;
+}
+
+async function patchMessageContent(chatId: string | null, messageId: string, content: string) {
+  try {
+    return await api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+  } catch (error) {
+    if (!shouldRetryMessageContentUpdate(error)) throw error;
+    // Keep the retry inside the queued operation so a newer edit cannot be
+    // persisted first and then overwritten by this older content.
+    await new Promise((resolve) => setTimeout(resolve, MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS));
+    return api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+  }
 }
 
 function enqueueMessageContentUpdate(chatId: string | null, messageId: string, content: string) {
@@ -78,7 +89,7 @@ function enqueueMessageContentUpdate(chatId: string | null, messageId: string, c
   const previous = messageContentUpdateQueues.get(queueKey) ?? Promise.resolve();
   const request = previous
     .catch(() => undefined)
-    .then(() => api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content }));
+    .then(() => patchMessageContent(chatId, messageId, content));
   const settled = request.then(
     () => undefined,
     () => undefined,
@@ -1072,10 +1083,6 @@ export function useUpdateMessage(chatId: string | null) {
   return useMutation({
     mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
       enqueueMessageContentUpdate(chatId, messageId, content),
-    // Message content PATCHes are idempotent. Retry one transient transport or
-    // server failure so remote sessions do not require a second manual save.
-    retry: shouldRetryMessageContentUpdate,
-    retryDelay: MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS,
     onMutate: async ({ messageId, content }) => {
       if (!chatId) return;
       // Cancel in-flight refetches (e.g. from generation events) so they
