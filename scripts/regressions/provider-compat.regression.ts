@@ -1104,6 +1104,22 @@ try {
   assert.equal(arliRequest?.body.negative_prompt, "blurry");
   assert.equal(arliRequest?.body.width, 768);
   assert.equal(arliRequest?.body.height, 512);
+
+  const imageEditResult = await generateImage(
+    "arli",
+    `http://127.0.0.1:${address.port}/v1`,
+    "arli-secret",
+    "arli",
+    {
+      prompt: "add blue light",
+      model: "Arli/FluxModel",
+      referenceImage: `data:image/png;base64,${onePixelPng}`,
+      allowLocalUrls: true,
+    },
+  );
+  assert.equal(imageEditResult.base64, onePixelPng);
+  assert.equal(arliRequest?.url, "/v1/img2img");
+  assert.deepEqual(arliRequest?.body.init_images, [onePixelPng]);
 } finally {
   await new Promise<void>((resolve, reject) => arliImageServer.close((error) => (error ? reject(error) : resolve())));
 }

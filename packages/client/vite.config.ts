@@ -90,7 +90,7 @@ export default defineConfig({
       babel: {
         // Keep Babel from auto-compacting large components and printing a noisy
         // 500 kB deoptimisation warning during local development and UI tests.
-        generatorOpts: { compact: false },
+        generatorOpts: process.env.NODE_ENV === "production" ? undefined : { compact: false },
       },
     }),
     tailwindcss(),
