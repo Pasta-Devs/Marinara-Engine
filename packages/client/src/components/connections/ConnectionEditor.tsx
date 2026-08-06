@@ -536,7 +536,9 @@ export function ConnectionEditor() {
       (selectedImageService === "comfyui" || selectedImageService === "runpod_comfyui")) ||
     (localProvider === "video_generation" && selectedVideoProvider === "comfyui");
   const apiKeyLink =
-    localProvider === "image_generation" && selectedImageService === "venice"
+    localProvider === "image_generation" && selectedImageService === "arli"
+      ? { label: t("connections.mediaSources.arli.apiKeyLink"), url: "https://www.arliai.com/docs/api?lang=en" }
+      : localProvider === "image_generation" && selectedImageService === "venice"
       ? { label: "Get your Venice API key", url: "https://venice.ai/settings/api" }
       : localProvider === "image_generation" && selectedImageService === "zai"
         ? { label: t("connections.mediaSources.zai.apiKeyLink"), url: "https://z.ai/manage-apikey/apikey-list" }
@@ -1549,13 +1551,17 @@ export function ConnectionEditor() {
                       ? t("connections.mediaSources.atlas.name")
                       : src.id === "zai"
                         ? t("connections.mediaSources.zai.name")
-                        : src.name;
+                        : src.id === "arli"
+                          ? t("connections.mediaSources.arli.name")
+                          : src.name;
                   const sourceDescription =
                     src.id === "atlas"
                       ? t("connections.mediaSources.atlas.imageDescription")
                       : src.id === "zai"
                         ? t("connections.mediaSources.zai.imageDescription")
-                        : src.description;
+                        : src.id === "arli"
+                          ? t("connections.mediaSources.arli.imageDescription")
+                          : src.description;
                   return (
                     <button
                       key={src.id}

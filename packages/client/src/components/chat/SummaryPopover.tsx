@@ -782,6 +782,7 @@ export function SummaryPopover({
       {
         onSuccess: (data) => {
           setSelectedEntryIds(new Set());
+          setShowInactiveSummaries(true);
           const entryId = data.entry?.id;
           if (entryId) setExpandedEntryIds((current) => new Set(current).add(entryId));
         },

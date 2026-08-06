@@ -579,7 +579,7 @@ export function ConversationView({
     },
     [scrollToMessagesBottom],
   );
-  useKeepLatestChatMessageVisible(scrollRef, isNearBottomRef, scheduleScrollToMessagesBottom);
+  useKeepLatestChatMessageVisible(scrollRef, scheduleScrollToMessagesBottom);
 
   useEffect(() => {
     if (shouldKeepMobileComposerOpen) setMobileHistoryComposerCollapsed(false);

@@ -79,7 +79,6 @@ export function useChatComposerFocused(): boolean {
  */
 export function useKeepLatestChatMessageVisible(
   scrollRef: RefObject<HTMLElement | null>,
-  isNearBottomRef: RefObject<boolean>,
   scrollToBottom: (behavior?: ScrollBehavior) => void,
 ): void {
   useEffect(() => {
@@ -91,9 +90,10 @@ export function useKeepLatestChatMessageVisible(
     const captureAnchor = () => {
       const scrollElement = scrollRef.current;
       if (!scrollElement) return null;
+      const distanceFromBottom = scrollElement.scrollHeight - scrollElement.scrollTop - scrollElement.clientHeight;
       return {
         scrollTop: scrollElement.scrollTop,
-        pinnedToBottom: isNearBottomRef.current,
+        pinnedToBottom: distanceFromBottom < 150,
       };
     };
 
@@ -118,8 +118,9 @@ export function useKeepLatestChatMessageVisible(
     const handleViewportChange = (event: Event) => {
       const detail = (event as CustomEvent<ChatVisualViewportChangeDetail>).detail;
       if (!detail?.keyboardOpen) {
+        const wasKeyboardOpen = keyboardOpen;
         keyboardOpen = false;
-        pendingAnchor = null;
+        if (wasKeyboardOpen || !focusedChatComposerAcceptsText()) pendingAnchor = null;
         if (restoreFrame) cancelAnimationFrame(restoreFrame);
         if (settleFrame) cancelAnimationFrame(settleFrame);
         restoreFrame = 0;
@@ -167,5 +168,5 @@ export function useKeepLatestChatMessageVisible(
       document.removeEventListener("focusout", handleComposerBlur, true);
       window.removeEventListener(CHAT_VISUAL_VIEWPORT_CHANGE_EVENT, handleViewportChange);
     };
-  }, [isNearBottomRef, scrollRef, scrollToBottom]);
+  }, [scrollRef, scrollToBottom]);
 }

@@ -11,14 +11,13 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "../lib/api-client";
+import { api, ApiError } from "../lib/api-client";
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
-import { ApiError } from "../lib/api-client";
 import { lorebookKeys } from "./use-lorebooks";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
 import type {
@@ -50,6 +49,7 @@ export const chatKeys = {
 };
 
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
+const MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS = 300;
 const chatMetadataMutationVersions = new Map<string, number>();
 const chatMetadataFieldVersions = new Map<string, Map<string, number>>();
 
@@ -65,12 +65,31 @@ const recentMessageContentEdits = new Map<string, RecentMessageContentEdit>();
 let recentMessageContentEditRevision = 0;
 const messageContentUpdateQueues = new Map<string, Promise<void>>();
 
+function shouldRetryMessageContentUpdate(error: unknown) {
+  if (error instanceof ApiError) {
+    return error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
+
+async function patchMessageContent(chatId: string | null, messageId: string, content: string) {
+  try {
+    return await api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+  } catch (error) {
+    if (!shouldRetryMessageContentUpdate(error)) throw error;
+    // Keep the retry inside the queued operation so a newer edit cannot be
+    // persisted first and then overwritten by this older content.
+    await new Promise((resolve) => setTimeout(resolve, MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS));
+    return api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content });
+  }
+}
+
 function enqueueMessageContentUpdate(chatId: string | null, messageId: string, content: string) {
   const queueKey = `${chatId ?? ""}:${messageId}`;
   const previous = messageContentUpdateQueues.get(queueKey) ?? Promise.resolve();
   const request = previous
     .catch(() => undefined)
-    .then(() => api.patch<Message>(`/chats/${chatId}/messages/${messageId}`, { content }));
+    .then(() => patchMessageContent(chatId, messageId, content));
   const settled = request.then(
     () => undefined,
     () => undefined,

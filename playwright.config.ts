@@ -1,4 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
+import { fileURLToPath } from "node:url";
+import { forceColorValueEnablesColor } from "./e2e/playwright-color-environment.js";
+
+const callerDisabledColors = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
+const shouldPreventPlaywrightColorOverride =
+  callerDisabledColors && !forceColorValueEnablesColor(process.env.FORCE_COLOR);
+if (shouldPreventPlaywrightColorOverride) {
+  const noColorPreload = `--require=${JSON.stringify(fileURLToPath(new URL("./e2e/respect-no-color.cjs", import.meta.url)))}`;
+  const nodeOptions = process.env.NODE_OPTIONS?.trim();
+  if (!nodeOptions?.includes(noColorPreload)) {
+    process.env.NODE_OPTIONS = nodeOptions ? `${nodeOptions} ${noColorPreload}` : noColorPreload;
+  }
+}
 
 function parsePort(name: string, fallback: number) {
   const raw = process.env[name]?.trim();
@@ -51,6 +64,9 @@ export default defineConfig({
             PLAYWRIGHT_MOBILE_SERVER_PORT: String(mobileServerPort),
             PLAYWRIGHT_SERVER_PORT: String(serverPort),
             SKIP_PWA: "true",
+            // Playwright defaults web servers to FORCE_COLOR=1. Honor an
+            // inherited NO_COLOR preference instead of creating a conflict.
+            ...(shouldPreventPlaywrightColorOverride ? { FORCE_COLOR: "0" } : {}),
             VITE_HOST: "127.0.0.1",
             VITE_OPEN_BROWSER: "false",
           },

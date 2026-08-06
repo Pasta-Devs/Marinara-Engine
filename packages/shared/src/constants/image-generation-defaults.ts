@@ -147,7 +147,7 @@ export interface NormalizeImageGenerationProfileResult {
 export function imageSourceToDefaultsService(value: unknown): ImageDefaultsService | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "drawthings") return "automatic1111";
+  if (normalized === "drawthings" || normalized === "arli") return "automatic1111";
   return isImageDefaultsService(normalized) ? normalized : null;
 }
 
