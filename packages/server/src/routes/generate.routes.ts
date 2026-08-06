@@ -1617,6 +1617,8 @@ export async function generateRoutes(app: FastifyInstance) {
         // (#3448) — set where each is computed, read after all are known.
         let conversationContextBlockValue = "";
         let conversationContextBlocksByCharacterId = new Map<string, string>();
+        let conversationCrossChatAwarenessEnabled = false;
+        let conversationScopesAwarenessToResponder = false;
         let conversationLorebookBlockValue = "";
         let conversationMemoriesBlockValue = "";
         let conversationReplyRulesBlockValue = "";
@@ -2392,6 +2394,7 @@ export async function generateRoutes(app: FastifyInstance) {
           identityFallbackPromptTemplateSources.push(conversationPromptTemplate);
           conversationContextMacroSlots = resolveConversationContextMacroSlots(conversationPromptTemplate);
           const individualConversationGroup = isGroup && promptGroupChatMode === "individual";
+          conversationScopesAwarenessToResponder = individualConversationGroup && !input.impersonate;
           const aliasedConversationPrompt = (
             individualConversationGroup
               ? conversationPromptTemplate
@@ -2503,7 +2506,8 @@ export async function generateRoutes(app: FastifyInstance) {
           // ── Cross-chat awareness: show messages from other chats this character is in ──
           // (awarenessBlock is injected later, after persona info)
           const crossChatEnabled = chatMeta.crossChatAwareness !== false; // on by default
-          if (crossChatEnabled && !input.regenerateMessageId) {
+          conversationCrossChatAwarenessEnabled = crossChatEnabled;
+          if (crossChatEnabled && !input.regenerateMessageId && !conversationScopesAwarenessToResponder) {
             const { buildAwarenessBlock } = await import("../services/conversation/awareness.service.js");
             const charNameMap = new Map<string, string>();
             for (let ci = 0; ci < characterIds.length; ci++) {
@@ -3168,7 +3172,7 @@ export async function generateRoutes(app: FastifyInstance) {
           );
         }
 
-        if (chatMode === "conversation") {
+        if (chatMode === "conversation" && !conversationScopesAwarenessToResponder) {
           convoAwarenessBlock = await mergeConversationCharacterMemories({
             chars,
             characterIds,
@@ -5274,6 +5278,40 @@ export async function generateRoutes(app: FastifyInstance) {
           // and a merged generation that may voice several characters at once
           // stays on the hand-free spectator view.
           let gameAwareMessagesForGen = await prepareConversationLorebookForResponder(targetCharId, messagesForGen);
+          if (conversationScopesAwarenessToResponder && targetCharId) {
+            let responderAwarenessBlock: string | null = null;
+            if (conversationCrossChatAwarenessEnabled && !input.regenerateMessageId) {
+              const { buildAwarenessBlock } = await import("../services/conversation/awareness.service.js");
+              responderAwarenessBlock = await buildAwarenessBlock(
+                app.db,
+                input.chatId,
+                [targetCharId],
+                new Map(charInfo.map((character) => [character.id, character.name])),
+                personaName,
+                input.userMessage ?? "",
+                1500,
+                promptTimeZone,
+                wrapFormat,
+              );
+            }
+            responderAwarenessBlock = await mergeConversationCharacterMemories({
+              chars,
+              characterIds: [targetCharId],
+              awarenessBlock: responderAwarenessBlock,
+              timeZone: promptTimeZone,
+              wrapFormat,
+            });
+            if (responderAwarenessBlock) {
+              gameAwareMessagesForGen = [...gameAwareMessagesForGen];
+              const firstUserIdx = gameAwareMessagesForGen.findIndex(
+                (message) => message.role === "user" || message.role === "assistant",
+              );
+              gameAwareMessagesForGen.splice(firstUserIdx >= 0 ? firstUserIdx : gameAwareMessagesForGen.length, 0, {
+                role: "system",
+                content: responderAwarenessBlock,
+              });
+            }
+          }
           if (turnGameContextForSeat) {
             const viewerSeatId = input.impersonate
               ? chat.personaId || "human"

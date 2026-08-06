@@ -3003,6 +3003,139 @@ test("provider concurrency errors appear in generation toasts", async ({ page },
   }
 });
 
+test("individual group awareness includes only the replying character's sibling chats", async ({
+  page,
+  request,
+}, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Individual group prompt scoping is covered on desktop.");
+
+  const suffix = Date.now().toString(36);
+  const providerRequests: Array<Record<string, unknown>> = [];
+  const providerServer = createServer((incoming, response) => {
+    const chunks: Buffer[] = [];
+    incoming.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    incoming.on("end", () => {
+      if (incoming.method !== "POST" || incoming.url !== "/v1/chat/completions") {
+        response.writeHead(404, { "content-type": "application/json" });
+        response.end(JSON.stringify({ error: "Unexpected individual-group provider request" }));
+        return;
+      }
+      providerRequests.push(JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>);
+      response.writeHead(200, {
+        "content-type": "text/event-stream",
+        connection: "close",
+        "cache-control": "no-cache",
+      });
+      response.end(
+        [
+          `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: "Scoped reply." }, finish_reason: null }] })}`,
+          `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}`,
+          "data: [DONE]",
+          "",
+        ].join("\n\n"),
+      );
+    });
+  });
+  await new Promise<void>((resolve) => providerServer.listen(0, "127.0.0.1", resolve));
+
+  const characterIds: string[] = [];
+  const chatIds: string[] = [];
+  let connectionId = "";
+  try {
+    const address = providerServer.address();
+    if (!address || typeof address === "string") throw new Error("Individual-group provider fixture did not bind");
+
+    const connectionResponse = await request.post("/api/connections", {
+      data: {
+        name: `Individual Awareness Provider ${suffix}`,
+        provider: "custom",
+        baseUrl: `http://127.0.0.1:${address.port}/v1`,
+        apiKey: "e2e-individual-awareness",
+        model: "individual-awareness-model",
+        maxContext: 32_768,
+      },
+    });
+    expect(connectionResponse.ok(), await connectionResponse.text()).toBeTruthy();
+    connectionId = ((await connectionResponse.json()) as { id: string }).id;
+
+    const characterNames = [`Awareness Alpha ${suffix}`, `Awareness Beta ${suffix}`];
+    for (const name of characterNames) {
+      const characterResponse = await request.post("/api/characters", {
+        data: { data: { name, description: `${name} keeps their own conversation history.` } },
+      });
+      expect(characterResponse.ok(), await characterResponse.text()).toBeTruthy();
+      characterIds.push(((await characterResponse.json()) as { id: string }).id);
+    }
+
+    const groupChatResponse = await request.post("/api/chats", {
+      data: {
+        name: `Individual Awareness Group ${suffix}`,
+        mode: "conversation",
+        characterIds,
+        connectionId,
+      },
+    });
+    expect(groupChatResponse.ok(), await groupChatResponse.text()).toBeTruthy();
+    const groupChatId = ((await groupChatResponse.json()) as { id: string }).id;
+    chatIds.push(groupChatId);
+    const metadataResponse = await request.patch(`/api/chats/${groupChatId}/metadata`, {
+      data: {
+        conversationSetupComplete: true,
+        crossChatAwareness: true,
+        enableAgents: false,
+        groupChatMode: "individual",
+        groupResponseOrder: "sequential",
+      },
+    });
+    expect(metadataResponse.ok(), await metadataResponse.text()).toBeTruthy();
+
+    const siblingSecrets = [`ALPHA_SIBLING_SECRET_${suffix}`, `BETA_SIBLING_SECRET_${suffix}`];
+    for (let index = 0; index < characterIds.length; index += 1) {
+      const siblingChatResponse = await request.post("/api/chats", {
+        data: {
+          name: `Sibling ${characterNames[index]}`,
+          mode: "conversation",
+          characterIds: [characterIds[index]],
+        },
+      });
+      expect(siblingChatResponse.ok(), await siblingChatResponse.text()).toBeTruthy();
+      const siblingChatId = ((await siblingChatResponse.json()) as { id: string }).id;
+      chatIds.push(siblingChatId);
+      const siblingMessageResponse = await request.post(`/api/chats/${siblingChatId}/messages`, {
+        data: { role: "user", content: siblingSecrets[index] },
+      });
+      expect(siblingMessageResponse.ok(), await siblingMessageResponse.text()).toBeTruthy();
+    }
+
+    await page.addInitScript(
+      (activeChatId) => localStorage.setItem("marinara-active-chat-id", activeChatId),
+      groupChatId,
+    );
+    await page.goto("/");
+    await page.locator('textarea[placeholder*="/ for commands"]').fill("What happened recently?");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    await expect.poll(() => providerRequests.length).toBe(2);
+    await expect(page.getByRole("button", { name: "Stop generating", exact: true })).toHaveCount(0);
+
+    for (let index = 0; index < characterNames.length; index += 1) {
+      const responderPrompt = providerRequests.find((providerRequest) =>
+        JSON.stringify(providerRequest).includes(`Respond only as ${characterNames[index]}.`),
+      );
+      expect(responderPrompt, `Missing provider prompt for ${characterNames[index]}`).toBeTruthy();
+      const serializedPrompt = JSON.stringify(responderPrompt);
+      expect(serializedPrompt).toContain(siblingSecrets[index]);
+      expect(serializedPrompt).not.toContain(siblingSecrets[index === 0 ? 1 : 0]);
+    }
+  } finally {
+    await Promise.allSettled(chatIds.map((chatId) => request.delete(`/api/chats/${chatId}`)));
+    await Promise.allSettled(characterIds.map((characterId) => request.delete(`/api/characters/${characterId}`)));
+    if (connectionId) await request.delete(`/api/connections/${connectionId}`).catch(() => undefined);
+    await new Promise<void>((resolve, reject) => {
+      providerServer.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+});
+
 test("stopped and refused generations keep sent text cleared and accept the first edit", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   const mobile = testInfo.project.name.includes("mobile");
