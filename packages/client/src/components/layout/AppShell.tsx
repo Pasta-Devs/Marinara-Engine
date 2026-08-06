@@ -607,10 +607,9 @@ export function AppShell() {
   const openChatSummarySettings = useCallback(() => {
     if (!activeChatId || activeChat?.mode !== "roleplay") return;
     const chatId = activeChatId;
-    closeAgentDetail();
-    closeRightPanel();
+    closeFeatureDetail();
     window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
-  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
+  }, [activeChat?.mode, activeChatId, closeFeatureDetail]);
   const openActivePromptPresetEditor = useCallback(() => {
     const presetId = activeChat?.promptPresetId;
     if (!activeChat || !presetId) return;
@@ -779,7 +778,9 @@ export function AppShell() {
           onOpenLorebook: openSpatialLorebook,
           onLorebooksChanged: refreshLorebooks,
           onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
-          onOpenActivePromptPresetEditor: activeChat?.promptPresetId ? openActivePromptPresetEditor : undefined,
+          onOpenActivePromptPresetEditor: activeChat?.promptPresetId
+            ? openActivePromptPresetEditor
+            : undefined,
         }}
       />
     ) : (
