@@ -1734,7 +1734,15 @@ export async function charactersRoutes(app: FastifyInstance) {
     await writeFile(filepath, imageBuffer);
 
     const avatarPath = `/api/avatars/file/${filename}`;
-    return storage.updateAvatar(id, avatarPath);
+    const updated = await storage.updateAvatar(id, avatarPath).catch(async (error: unknown) => {
+      await removeCopiedAvatarFile(avatarPath);
+      throw error;
+    });
+    if (!updated) {
+      await removeCopiedAvatarFile(avatarPath);
+      return reply.status(404).send({ error: "Character not found" });
+    }
+    return updated;
   });
 
   app.delete<{ Params: { id: string } }>("/:id/avatar", async (req, reply) => {
@@ -1967,7 +1975,17 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
     await writeFile(filepath, imageBuffer);
     const avatarPath = `/api/avatars/file/${filename}`;
-    return storage.updatePersona(req.params.id, { avatarPath }, { versionReason: "Avatar update" });
+    const updated = await storage
+      .updatePersona(req.params.id, { avatarPath }, { versionReason: "Avatar update" })
+      .catch(async (error: unknown) => {
+        await removeCopiedAvatarFile(avatarPath);
+        throw error;
+      });
+    if (!updated) {
+      await removeCopiedAvatarFile(avatarPath);
+      return reply.status(404).send({ error: "Persona not found" });
+    }
+    return updated;
   });
 
   app.put<{ Params: { id: string } }>("/personas/:id/activate", async (req, reply) => {

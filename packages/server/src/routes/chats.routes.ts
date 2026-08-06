@@ -10,6 +10,7 @@ import {
   createMessageSchema,
   appendChatSummaryEntryToMetadata,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
+  combineChatSummaryEntryHistory,
   compileChatSummaryEntries,
   createChatSummaryEntry,
   DEFAULT_CONVERSATION_PROMPT,
@@ -3998,7 +3999,6 @@ export async function chatsRoutes(app: FastifyInstance) {
         const starts = selected.flatMap((entry) => entry.rangeStartIndex ?? []);
         const ends = selected.flatMap((entry) => entry.rangeEndIndex ?? []);
         const now = new Date().toISOString();
-        const firstIndex = entries.findIndex((entry) => requestedIds.has(entry.id));
         combinedEntry = createChatSummaryEntry(
           {
             kind: "rolling",
@@ -4021,11 +4021,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           },
           { createId: newId, now },
         );
-        const nextEntries = entries.map((entry) =>
-          requestedIds.has(entry.id) ? { ...entry, enabled: false, updatedAt: now } : entry,
-        );
-        nextEntries.splice(Math.max(0, firstIndex), 0, combinedEntry);
-        combinedEntries = normalizeChatSummaryEntries(nextEntries);
+        combinedEntries = combineChatSummaryEntryHistory(entries, requestedIds, combinedEntry, now);
         combinedSummary = compileChatSummaryEntries(combinedEntries);
         return {
           summary: combinedSummary,

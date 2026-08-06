@@ -247,6 +247,20 @@ export function compileChatSummaryEntries(entries: ChatSummaryEntry[]): string |
   return compiled;
 }
 
+export function combineChatSummaryEntryHistory(
+  entries: ChatSummaryEntry[],
+  sourceEntryIds: ReadonlySet<string>,
+  combinedEntry: ChatSummaryEntry,
+  now: string,
+): ChatSummaryEntry[] {
+  const firstIndex = entries.findIndex((entry) => sourceEntryIds.has(entry.id));
+  const nextEntries = entries.map((entry) =>
+    sourceEntryIds.has(entry.id) ? { ...entry, enabled: false, updatedAt: now } : entry,
+  );
+  nextEntries.splice(Math.max(0, firstIndex), 0, combinedEntry);
+  return normalizeChatSummaryEntries(nextEntries);
+}
+
 export function appendChatSummaryEntryToMetadata(
   metadata: Record<string, unknown>,
   input: ChatSummaryEntryInput,

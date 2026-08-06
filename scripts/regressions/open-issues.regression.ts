@@ -4,8 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import AdmZip from "adm-zip";
-import type { Chat, ChatMode, Message } from "../../packages/shared/src/types/chat.js";
+import type { Chat, ChatMode, ChatSummaryEntry, Message } from "../../packages/shared/src/types/chat.js";
 import { chatModeSchema } from "../../packages/shared/src/schemas/chat.schema.js";
+import {
+  combineChatSummaryEntryHistory,
+  compileChatSummaryEntries,
+  createChatSummaryEntry,
+} from "../../packages/shared/src/utils/chat-summary-entries.js";
 import playwrightConfig from "../../playwright.config.js";
 import { resolveDevSharedBuildScript } from "../dev-shared-build.mjs";
 import { validatePullRequestTriage } from "../validate-pr-triage.mjs";
@@ -4409,8 +4414,73 @@ assert.match(
 );
 assert.match(
   chatRoutesSource,
-  /const nextEntries = entries\.map\(\(entry\) =>\s*requestedIds\.has\(entry\.id\) \? \{ \.\.\.entry, enabled: false, updatedAt: now \} : entry,[\s\S]{0,160}nextEntries\.splice/u,
-  "Combining Chat Summaries must retain the selected source entries as inactive history",
+  /combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
+  "The Chat Summary combine route must retain source history through the tested helper",
+);
+const summaryCombineNow = "2026-08-06T09:00:00.000Z";
+const summaryCombineEntries: ChatSummaryEntry[] = [
+  createChatSummaryEntry({
+    id: "source-a",
+    content: "Source A",
+    title: "Source A",
+    enabled: true,
+    rangeStartIndex: 1,
+    rangeEndIndex: 2,
+    createdAt: "2026-08-01T09:00:00.000Z",
+    updatedAt: "2026-08-01T09:00:00.000Z",
+  }),
+  createChatSummaryEntry({
+    id: "source-b",
+    content: "Source B",
+    title: "Source B",
+    enabled: true,
+    rangeStartIndex: 3,
+    rangeEndIndex: 4,
+    createdAt: "2026-08-02T09:00:00.000Z",
+    updatedAt: "2026-08-02T09:00:00.000Z",
+  }),
+  createChatSummaryEntry({
+    id: "untouched",
+    content: "Untouched",
+    title: "Untouched",
+    enabled: true,
+    rangeStartIndex: 5,
+    rangeEndIndex: 6,
+    createdAt: "2026-08-03T09:00:00.000Z",
+    updatedAt: "2026-08-03T09:00:00.000Z",
+  }),
+];
+const combinedSummaryEntry = createChatSummaryEntry({
+  id: "combined",
+  content: "Combined A and B",
+  title: "Combined",
+  enabled: true,
+  rangeStartIndex: 1,
+  rangeEndIndex: 4,
+  createdAt: summaryCombineEntries[0]!.createdAt,
+  updatedAt: summaryCombineNow,
+});
+const retainedSummaryEntries = combineChatSummaryEntryHistory(
+  summaryCombineEntries,
+  new Set(["source-a", "source-b"]),
+  combinedSummaryEntry,
+  summaryCombineNow,
+);
+assert.deepEqual(
+  retainedSummaryEntries.map((entry) => entry.id),
+  ["combined", "source-a", "source-b", "untouched"],
+  "The combined entry must be inserted at the first selected chronological position",
+);
+for (const sourceId of ["source-a", "source-b"]) {
+  const retainedSource = retainedSummaryEntries.find((entry) => entry.id === sourceId);
+  assert.equal(retainedSource?.enabled, false, `${sourceId} must remain as inactive history`);
+  assert.equal(retainedSource?.updatedAt, summaryCombineNow, `${sourceId} must record when it was combined`);
+}
+assert.equal(retainedSummaryEntries.find((entry) => entry.id === "untouched")?.enabled, true);
+assert.equal(
+  compileChatSummaryEntries(retainedSummaryEntries),
+  "Combined A and B\n\nUntouched",
+  "Compiled Chat Summary output must exclude deactivated source entries",
 );
 assert.match(
   summaryPopoverSource,
@@ -4543,7 +4613,7 @@ assert.match(
 );
 assert.match(
   chatRoutesSource,
-  /requestedSummaryEntryIds[\s\S]{0,6500}nextEntries\.splice\(Math\.max\(0, firstIndex\), 0, combinedEntry\)/u,
+  /requestedSummaryEntryIds[\s\S]{0,6500}combineChatSummaryEntryHistory\(entries, requestedIds, combinedEntry, now\)/u,
   "Combined summaries must replace their selected entries at the first selected chronological position",
 );
 assert.match(
