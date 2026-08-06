@@ -3008,11 +3008,19 @@ for (const editorSource of [characterEditorSource, personaEditorSource]) {
   assert.match(editorSource, /grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4/u);
   assert.match(editorSource, /onClick=\{\(\) => void handleDelete\(lightbox\)\}/u);
   assert.match(editorSource, /loading="lazy"\s+decoding="async"/u);
+  assert.match(editorSource, /group-\[&:focus-within\]:opacity-100/u);
 }
+assert.match(characterEditorSource, /await remove\.mutateAsync\(image\.id\)/u);
+assert.match(characterEditorSource, /ui\.characters\.charactergallerytab\.failedToDeleteCharacterImage/u);
 assert.doesNotMatch(chatGallerySource, /bg-red-500/u);
+assert.match(chatGallerySource, /ui\.chat\.chatgallery\.deleteGalleryImage[\s\S]{0,180}mari-chrome-accent-surface/u);
 assert.match(
   chatGallerySource,
-  /ui\.chat\.chatgallery\.deleteGalleryImage[\s\S]{0,180}mari-chrome-accent-surface/u,
+  /handleDeleteVideo\(video\)[\s\S]{0,240}ui\.chat\.chatgallery\.deleteSceneVideo[\s\S]{0,240}mari-chrome-accent-surface/u,
+);
+assert.match(
+  chatGallerySource,
+  /onClick=\{\(\) => handleDelete\(confirmDeleteId\)\}[\s\S]{0,180}mari-chrome-accent-surface/u,
 );
 assert.match(globalStyles, /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u);
 assert.match(characterEditorSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);

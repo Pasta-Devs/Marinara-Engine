@@ -8939,13 +8939,43 @@ export async function generateRoutes(app: FastifyInstance) {
                           imagePromptAgent?.promptTemplate ?? "",
                         ),
                       });
-                      fullPrompt = compiledPrompt.prompt;
                       const finalNegativePrompt = mergeIllustratorNegativePrompt(
                         compiledPrompt.prompt,
                         compiledPrompt.negativePrompt,
                         requestedNegativePrompt,
                         imgConnFull,
                       );
+                      const fallbackCompiledPrompt = imageFallback
+                        ? compileImagePrompt({
+                            kind: "illustration",
+                            prompt: fullPrompt,
+                            negativePrompt: requestedNegativePrompt || undefined,
+                            styleProfiles: imageSettings.styleProfiles,
+                            styleProfileId,
+                            imageDefaults: imageFallback.imageDefaults,
+                            generatedStyle: style,
+                            omitProfileStyleText:
+                              typeof agentContext.memory._illustratorImageStyleInstruction === "string",
+                            omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
+                              imagePromptAgent?.promptTemplate ?? "",
+                            ),
+                          })
+                        : null;
+                      const providerAwareImageFallback =
+                        imageFallback && fallbackCompiledPrompt
+                          ? {
+                              ...imageFallback,
+                              prompt: fallbackCompiledPrompt.prompt,
+                              negativePrompt:
+                                mergeIllustratorNegativePrompt(
+                                  fallbackCompiledPrompt.prompt,
+                                  fallbackCompiledPrompt.negativePrompt,
+                                  requestedNegativePrompt,
+                                  imageFallback,
+                                ) || null,
+                            }
+                          : undefined;
+                      fullPrompt = compiledPrompt.prompt;
 
                       const imageResults = await generateIllustratorImageVariants({
                         count: chatMeta.illustratorImagesPerGeneration,
@@ -8961,7 +8991,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             imageDefaults,
                             referenceImages: illustratorRefImages,
                             debugMode: input.debugMode,
-                            fallback: imageFallback,
+                            fallback: providerAwareImageFallback,
                             onFallback,
                           }),
                         onVariantError: (error, index) =>
@@ -8969,6 +8999,7 @@ export async function generateRoutes(app: FastifyInstance) {
                       });
 
                       for (const [variantIndex, imageResult] of imageResults.entries()) {
+                        const renderedPrompt = imageResult.effectivePrompt ?? fullPrompt;
                         // Save to disk
                         const filePath = saveImageToDisk(input.chatId, imageResult.base64, imageResult.ext, {
                           shared: true,
@@ -8984,7 +9015,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         const galleryEntry = await galleryStore.create({
                           chatId: input.chatId,
                           filePath,
-                          prompt: fullPrompt,
+                          prompt: renderedPrompt,
                           provider: effectiveImageProvider,
                           model: effectiveImageModel,
                           width: imgWidth,
@@ -8997,7 +9028,7 @@ export async function generateRoutes(app: FastifyInstance) {
                           personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                           characterGallery,
                           personaGallery,
-                          prompt: fullPrompt,
+                          prompt: renderedPrompt,
                           provider: effectiveImageProvider,
                           model: effectiveImageModel,
                           width: imgWidth,
@@ -9012,7 +9043,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             type: "image",
                             url: imageUrl,
                             filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
-                            prompt: fullPrompt,
+                            prompt: renderedPrompt,
                             galleryId: (galleryEntry as any)?.id,
                           };
 
@@ -9035,7 +9066,7 @@ export async function generateRoutes(app: FastifyInstance) {
                             data: {
                               messageId,
                               imageUrl,
-                              prompt: fullPrompt,
+                              prompt: renderedPrompt,
                               reason: illData.reason,
                               galleryId: (galleryEntry as any)?.id,
                             },

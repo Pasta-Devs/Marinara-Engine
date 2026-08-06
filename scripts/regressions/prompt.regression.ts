@@ -3870,6 +3870,13 @@ const cases: RegressionCase[] = [
           /mergeIllustratorNegativePrompt\([\s\S]*?requestedNegativePrompt,\s*imgConnFull,\s*\)/u,
           "every Illustrator route should identify NovelAI when merging the negative prompt",
         );
+        assert.match(source, /imageDefaults:\s*imageFallback\.imageDefaults/u);
+        assert.match(source, /fallback:\s*providerAwareImageFallback/u);
+        assert.match(
+          source,
+          /mergeIllustratorNegativePrompt\([\s\S]{0,500}?requestedNegativePrompt,\s*imageFallback,\s*\)/u,
+          "every Illustrator route should compile a provider-aware prompt for its fallback connection",
+        );
       }
 
       assert.equal(

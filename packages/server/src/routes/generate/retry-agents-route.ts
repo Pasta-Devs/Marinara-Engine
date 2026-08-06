@@ -3418,6 +3418,44 @@ async function applyRetryResultEffects(args: {
               generatedNegativePrompt: finalNegativePrompt,
               reviewOverride: illustratorPromptReviewOverride,
             });
+            const fallbackCompiledPrompt = imageFallback
+              ? compileImagePrompt({
+                  kind: "illustration",
+                  prompt: fullPrompt,
+                  negativePrompt: requestedNegativePrompt || undefined,
+                  styleProfiles: imageSettings.styleProfiles,
+                  styleProfileId,
+                  imageDefaults: imageFallback.imageDefaults,
+                  generatedStyle: style,
+                  omitProfileStyleText:
+                    illData._styleProfileInstructionApplied === true ||
+                    typeof agentContext.memory._illustratorImageStyleInstruction === "string",
+                  omitProfileSubjectTags: illustratorPromptTemplateOwnsComposition(
+                    imagePromptAgent?.resolved.promptTemplate ?? "",
+                  ),
+                })
+              : null;
+            const fallbackPromptSubmission =
+              imageFallback && fallbackCompiledPrompt
+                ? resolveIllustratorPromptSubmission({
+                    generatedPrompt: fallbackCompiledPrompt.prompt,
+                    generatedNegativePrompt: mergeIllustratorNegativePrompt(
+                      fallbackCompiledPrompt.prompt,
+                      fallbackCompiledPrompt.negativePrompt,
+                      requestedNegativePrompt,
+                      imageFallback,
+                    ),
+                    reviewOverride: illustratorPromptReviewOverride,
+                  })
+                : null;
+            const providerAwareImageFallback =
+              imageFallback && fallbackPromptSubmission
+                ? {
+                    ...imageFallback,
+                    prompt: fallbackPromptSubmission.prompt,
+                    negativePrompt: fallbackPromptSubmission.negativePrompt || null,
+                  }
+                : undefined;
 
             if (reviewImagePromptsBeforeSend && !illustratorPromptReviewOverride) {
               const previewSize = resolveImagePromptReviewSize({
@@ -3488,7 +3526,7 @@ async function applyRetryResultEffects(args: {
                       imageDefaults,
                       referenceImages,
                       signal: agentContext.signal,
-                      fallback: imageFallback,
+                      fallback: providerAwareImageFallback,
                       onFallback: createReplyFallbackNotifier(reply),
                     }),
                 }),
@@ -3497,6 +3535,7 @@ async function applyRetryResultEffects(args: {
             });
 
             for (const [variantIndex, imageResult] of imageResults.entries()) {
+              const renderedPrompt = imageResult.effectivePrompt ?? promptSubmission.prompt;
               const filePath = saveImageToDisk(chatId, imageResult.base64, imageResult.ext, { shared: true });
               // A fallback connection may have rendered this variant; record
               // the connection that actually produced it.
@@ -3506,7 +3545,7 @@ async function applyRetryResultEffects(args: {
               const galleryEntry = await galleryStore.create({
                 chatId,
                 filePath,
-                prompt: promptSubmission.prompt,
+                prompt: renderedPrompt,
                 provider: effectiveImageProvider,
                 model: effectiveImageModel,
                 width: imgWidth,
@@ -3519,7 +3558,7 @@ async function applyRetryResultEffects(args: {
                 personaIds: referenceResolution.personaId ? [referenceResolution.personaId] : [],
                 characterGallery: createCharacterGalleryStorage(app.db),
                 personaGallery: createPersonaGalleryStorage(app.db),
-                prompt: promptSubmission.prompt,
+                prompt: renderedPrompt,
                 provider: effectiveImageProvider,
                 model: effectiveImageModel,
                 width: imgWidth,
@@ -3536,7 +3575,7 @@ async function applyRetryResultEffects(args: {
                   type: "image",
                   url: imageUrl,
                   filename: `illustration_${variantIndex + 1}.${imageResult.ext}`,
-                  prompt: promptSubmission.prompt,
+                  prompt: renderedPrompt,
                   galleryId: (galleryEntry as any)?.id,
                 };
                 await chatsDb.appendSwipeAttachment(retryMessageId, retrySwipeIndex, attachment);
@@ -3548,7 +3587,7 @@ async function applyRetryResultEffects(args: {
                 data: {
                   messageId: retryMessageId,
                   imageUrl,
-                  prompt: promptSubmission.prompt,
+                  prompt: renderedPrompt,
                   reason: illData.reason,
                   galleryId: (galleryEntry as any)?.id,
                 },

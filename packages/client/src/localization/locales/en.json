@@ -1799,6 +1799,7 @@
   "ui.characters.charactergallerytab.deleteThisCharacterGalleryImage": "Delete this character gallery image?",
   "ui.characters.charactergallerytab.download": "Download",
   "ui.characters.charactergallerytab.failedToCopyReference": "Failed to copy the image reference.",
+  "ui.characters.charactergallerytab.failedToDeleteCharacterImage": "Failed to delete character image.",
   "ui.characters.charactergallerytab.failedToUpdateCharacterAvatar": "Failed to update character avatar.",
   "ui.characters.charactergallerytab.insteadOfASpecificChat": "instead of a specific chat.",
   "ui.characters.charactergallerytab.keepCharacterImagesAndGeneratedVideosAttachedToThis": "Keep character images and generated videos attached to this character even if chats get deleted.",

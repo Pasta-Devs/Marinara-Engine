@@ -3,6 +3,7 @@ import {
   assertSafeRedirect,
   isWikipediaHost,
   pageRefFromUrl,
+  serviceUrl,
   wikiApiUrl,
   wikiRefFromInput,
 } from "../../packages/server/src/services/professor-mari/fandom-mediawiki/fandom-url.js";
@@ -25,6 +26,14 @@ assert.throws(() => wikiRefFromInput("http://en.wikipedia.org/wiki/Test"), /Only
 assert.throws(() => wikiRefFromInput("https://wikipedia.org/wiki/Test"), /Only \*\.fandom\.com and \*\.wikipedia\.org/u);
 assert.throws(() => wikiRefFromInput("https://example.com/wiki/Test"), /Only \*\.fandom\.com and \*\.wikipedia\.org/u);
 assert.throws(() => wikiRefFromInput("https://127.0.0.1/wiki/Test"), /IP literal/u);
+assert.equal(
+  serviceUrl("/unified-search/page-search", { query: "Teyvat" }).toString(),
+  "https://services.fandom.com/unified-search/page-search?query=Teyvat",
+);
+assert.throws(
+  () => serviceUrl("https://en.wikipedia.org/w/api.php", { action: "query" }),
+  /must stay on services\.fandom\.com/u,
+);
 assert.throws(
   () => assertSafeRedirect(new URL(wikipedia.apiUrl), new URL("https://fr.wikipedia.org/w/api.php")),
   /crossed to a different host/u,

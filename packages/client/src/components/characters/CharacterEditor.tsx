@@ -2471,8 +2471,16 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
       ) {
         return;
       }
-      remove.mutate(image.id);
-      if (lightbox?.id === image.id) setLightbox(null);
+      try {
+        await remove.mutateAsync(image.id);
+        if (lightbox?.id === image.id) setLightbox(null);
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : localizeUi("ui.characters.charactergallerytab.failedToDeleteCharacterImage"),
+        );
+      }
     },
     [lightbox?.id, remove, localizeUi],
   );
@@ -2584,7 +2592,7 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
                       className="h-full w-full object-cover"
                     />
                   </button>
-                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
+                  <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 group-[&:focus-within]:opacity-100 max-md:opacity-100">
                     <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85 max-md:hidden">
                       {new Date(image.createdAt).toLocaleDateString()}
                     </span>

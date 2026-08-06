@@ -76,6 +76,9 @@ export function wikiRefFromInput(input: string): FandomWikiRef {
 
 export function serviceUrl(path: string, params: Record<string, string | number | boolean | undefined>) {
   const url = new URL(path, `https://${SERVICES_HOST}`);
+  if (url.host.toLowerCase() !== SERVICES_HOST) {
+    throw new Error(`Service URL must stay on ${SERVICES_HOST}.`);
+  }
   assertHttpsWikiUrl(url, true);
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, String(value));

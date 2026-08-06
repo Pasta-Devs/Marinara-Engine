@@ -61,6 +61,7 @@ import {
   resolveNovelAiStyleReferenceSecondaryStrength,
 } from "../../packages/server/src/services/image/image-generation.js";
 import { resolveImageCaptioningRuntime } from "../../packages/server/src/services/generation/image-captioning-runtime.js";
+import { resolveImageConnectionFallback } from "../../packages/server/src/services/generation/media-connection-fallback.js";
 import {
   BACKGROUND_CONNECTION_IDLE_MS,
   ConnectionAttemptRejectedError,
@@ -1136,9 +1137,31 @@ const failingImageServer = createServer((_request, response) => {
   response.writeHead(500, { "content-type": "application/json" });
   response.end(JSON.stringify({ error: "primary image backend down" }));
 });
-const succeedingImageServer = createServer((_request, response) => {
+const resolvedProviderFallback = await resolveImageConnectionFallback(
+  {
+    getFallbackForImageGeneration: async () => ({
+      id: "novelai-fallback",
+      name: "NovelAI fallback",
+      provider: "novelai",
+      model: "nai-diffusion-4-5-full",
+      baseUrl: "https://image.novelai.net",
+      imageGenerationSource: "novelai",
+      imageService: "novelai",
+    }),
+  },
+  "primary-image-connection",
+);
+assert.equal(resolvedProviderFallback?.imageGenerationSource, "novelai");
+assert.equal(resolvedProviderFallback?.imageService, "novelai");
+assert.equal(resolvedProviderFallback?.model, "nai-diffusion-4-5-full");
+assert.equal(resolvedProviderFallback?.baseUrl, "https://image.novelai.net");
+let fallbackImageRequest: Record<string, unknown> | undefined;
+const succeedingImageServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  fallbackImageRequest = JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>;
   response.writeHead(200, { "content-type": "application/json" });
-  response.end(JSON.stringify({ data: [{ b64_json: onePixelPng }] }));
+  response.end(JSON.stringify({ images: [onePixelPng] }));
 });
 await new Promise<void>((resolve) => failingImageServer.listen(0, "127.0.0.1", resolve));
 await new Promise<void>((resolve) => succeedingImageServer.listen(0, "127.0.0.1", resolve));
@@ -1172,17 +1195,25 @@ try {
       fallback: {
         connectionId: "image-fallback-connection",
         connectionName: "Image Fallback",
-        provider: "openai",
-        source: "openai",
+        provider: "arli",
+        source: "arli",
         baseUrl: `http://127.0.0.1:${succeedingAddress.port}/v1`,
         apiKey: "fallback-key",
-        serviceHint: "openai",
-        model: "fallback-image-model",
+        serviceHint: "arli",
+        model: "Arli/FallbackModel",
+        prompt: "a provider-specific fallback laboratory",
+        negativePrompt: "fallback blur",
       },
     },
   );
   assert.equal(imageResult.base64, onePixelPng, "the image fallback must supply the returned image");
   assert.equal(imageResult.effectiveConnection?.connectionId, "image-fallback-connection");
+  assert.equal(imageResult.effectiveConnection?.provider, "arli");
+  assert.equal(imageResult.effectivePrompt, "a provider-specific fallback laboratory");
+  assert.equal(imageResult.effectiveNegativePrompt, "fallback blur");
+  assert.equal(fallbackImageRequest?.prompt, "a provider-specific fallback laboratory");
+  assert.equal(fallbackImageRequest?.negative_prompt, "fallback blur");
+  assert.equal(fallbackImageRequest?.sd_model_checkpoint, "Arli/FallbackModel");
   assert.equal(imageBookings, 1, "the image attempt must be booked exactly once across the chain");
   assert.deepEqual(imageOutcomes, ["completed"], "a successful image fallback must be recorded completed");
 } finally {
