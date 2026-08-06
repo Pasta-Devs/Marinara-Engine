@@ -1068,6 +1068,46 @@ assert.equal(
 // must be recorded completed rather than leaving the primary's failure as the attempt's result.
 const onePixelPng =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+let arliRequest:
+  | { url: string; authorization: string | undefined; contentType: string | undefined; body: Record<string, unknown> }
+  | undefined;
+const arliImageServer = createServer(async (request, response) => {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  arliRequest = {
+    url: request.url ?? "",
+    authorization: request.headers.authorization,
+    contentType: request.headers["content-type"],
+    body: JSON.parse(Buffer.concat(chunks).toString("utf8")) as Record<string, unknown>,
+  };
+  response.writeHead(200, { "content-type": "application/json" });
+  response.end(JSON.stringify({ images: [onePixelPng] }));
+});
+await new Promise<void>((resolve) => arliImageServer.listen(0, "127.0.0.1", resolve));
+try {
+  const address = arliImageServer.address();
+  assert.ok(address && typeof address === "object");
+  const imageResult = await generateImage("arli", `http://127.0.0.1:${address.port}/v1`, "arli-secret", "arli", {
+    prompt: "a red laboratory",
+    negativePrompt: "blurry",
+    model: "Arli/FluxModel",
+    width: 768,
+    height: 512,
+    allowLocalUrls: true,
+  });
+  assert.equal(imageResult.base64, onePixelPng);
+  assert.equal(arliRequest?.url, "/v1/txt2img");
+  assert.equal(arliRequest?.authorization, "Bearer arli-secret");
+  assert.equal(arliRequest?.contentType, "application/json");
+  assert.equal(arliRequest?.body.sd_model_checkpoint, "Arli/FluxModel");
+  assert.equal(arliRequest?.body.prompt, "a red laboratory");
+  assert.equal(arliRequest?.body.negative_prompt, "blurry");
+  assert.equal(arliRequest?.body.width, 768);
+  assert.equal(arliRequest?.body.height, 512);
+} finally {
+  await new Promise<void>((resolve, reject) => arliImageServer.close((error) => (error ? reject(error) : resolve())));
+}
+
 const failingImageServer = createServer((_request, response) => {
   response.writeHead(500, { "content-type": "application/json" });
   response.end(JSON.stringify({ error: "primary image backend down" }));

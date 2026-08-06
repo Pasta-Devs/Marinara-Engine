@@ -458,6 +458,7 @@ export function TopBar() {
           onClick={() => handleRightPanelClick("settings")}
           data-tour="panel-settings"
           data-topbar-hover-key="settings"
+          aria-pressed={rightPanelOpen && rightPanel === "settings"}
           className={cn(
             TOPBAR_PANEL_BUTTON_CLASS,
             rightPanelOpen && rightPanel === "settings"

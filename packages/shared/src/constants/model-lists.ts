@@ -655,6 +655,13 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
     requiresApiKey: true,
   },
   {
+    id: "arli",
+    name: "Arli.ai",
+    description: "Hosted Stable Diffusion models through Arli.ai's native image API.",
+    defaultBaseUrl: "https://api.arliai.com/v1",
+    requiresApiKey: true,
+  },
+  {
     id: "novelai",
     name: "NovelAI",
     description: "NovelAI Diffusion anime-style image generation.",
@@ -893,6 +900,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
     m === "openai" ||
     m === "stability" ||
     m === "togetherai" ||
+    m === "arli" ||
     m === "novelai" ||
     m === "pollinations" ||
     m === "horde" ||
@@ -916,6 +924,7 @@ export function inferImageSource(model: string, baseUrl: string): string {
   if (u.includes("venice.ai")) return "venice";
   if (u.includes("api.z.ai")) return "zai";
   if (u.includes("atlascloud.ai")) return "atlas";
+  if (u.includes("arliai.com")) return "arli";
   if (m === "glm-image" || m.startsWith("cogview")) return "zai";
   if (m.startsWith("grok-") && m.includes("image")) return "xai";
   if (m.includes("grok") && m.includes("imagine")) return "xai";

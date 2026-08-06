@@ -86,7 +86,13 @@ function pwaStub(): Plugin {
 
 export default defineConfig({
   plugins: [
-    react(),
+    react({
+      babel: {
+        // Keep Babel from auto-compacting large components and printing a noisy
+        // 500 kB deoptimisation warning during local development and UI tests.
+        generatorOpts: { compact: false },
+      },
+    }),
     tailwindcss(),
     bundleBudget(),
     !PWA_DISABLED

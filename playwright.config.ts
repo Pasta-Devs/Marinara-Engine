@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+// Playwright enables colored output after loading this config. Drop an inherited
+// NO_COLOR first so Node does not warn in every worker and web-server process.
+delete process.env.NO_COLOR;
+
 function parsePort(name: string, fallback: number) {
   const raw = process.env[name]?.trim();
   if (!raw || !/^\d+$/.test(raw)) return fallback;

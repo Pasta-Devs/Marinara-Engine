@@ -9,17 +9,9 @@ export default tseslint.config(
   {
     plugins: { "react-hooks": reactHooks },
     rules: {
-      ...reactHooks.configs.recommended.rules,
-      // React Compiler rules — not using React Compiler yet
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/preserve-manual-memoization": "off",
-      "react-hooks/no-access-state-in-render-ref-callback": "off",
-      "react-hooks/no-direct-set-state-in-use-effect": "off",
-      "react-hooks/no-access-during-render": "off",
-      "react-hooks/no-use-before-mount": "off",
-      "react-hooks/refs": "off",
-      "react-hooks/immutability": "off",
-      // Keep core hooks rules
+      // The project does not use React Compiler yet. Its lint rules run the
+      // compiler over every component and make Babel rewrite oversized TSX
+      // files solely for analysis, so keep the two core Hooks checks only.
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],

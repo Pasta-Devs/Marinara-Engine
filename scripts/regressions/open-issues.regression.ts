@@ -184,6 +184,7 @@ import {
   buildComfyUiLoraWorkflowReplacements,
   COMFYUI_PLACEHOLDER_REFERENCE_BASE64,
   DEFAULT_NOVELAI_DEFAULTS,
+  imageSourceToDefaultsService,
   normalizeComfyUiLoraSettings,
 } from "../../packages/shared/src/constants/image-generation-defaults.js";
 import type { ImageGenerationDefaultsProfile } from "../../packages/shared/src/types/image-generation-defaults.js";
@@ -268,6 +269,7 @@ import {
   MariDbService,
   normalizeCharacterActionData,
 } from "../../packages/server/src/services/mari-db/mari-db.service.js";
+import { PROFESSOR_MARI_APP_DATA_ACTIONS } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 import {
   checkAutonomousMessaging,
   clearChatActivity,
@@ -1240,19 +1242,43 @@ try {
 
   const mariDb = new MariDbService(db);
   const professorMariLorebookId = "professor-mari-lorebook-create-regression";
+  const professorMariFullEntryContent = `The entry starts here. ${"Full lorebook body segment. ".repeat(20)}The entry ends here.`;
   const professorMariLorebookResult = await mariDb.executeAction({
     action: "lorebook.create",
     lorebookId: professorMariLorebookId,
     data: {
       name: "Professor Mari lorebook regression",
-      entries: [{ name: "Verified entry", content: "Saved with the lorebook.", keys: ["verified"] }],
+      entries: [{ name: "Verified entry", content: professorMariFullEntryContent, keys: ["verified"] }],
     },
     apply: true,
   });
   assert.equal(professorMariLorebookResult.ok, true, "Professor Mari must create lorebooks after visibility was added");
   const professorMariLorebook = await lorebookStorage.getById(professorMariLorebookId);
   assert.equal(professorMariLorebook?.hiddenFromLibrary, false);
-  assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 1);
+  const professorMariEntries = await lorebookStorage.listEntries(professorMariLorebookId);
+  assert.equal(professorMariEntries.length, 1);
+  const professorMariEntryId = professorMariEntries[0]?.id;
+  assert.ok(professorMariEntryId);
+  assert.ok(PROFESSOR_MARI_APP_DATA_ACTIONS.includes("lorebook.getEntry"));
+  const professorMariEntryIndex = await mariDb.executeAction({
+    action: "lorebook.entries",
+    lorebookId: professorMariLorebookId,
+  });
+  assert.equal(
+    (professorMariEntryIndex.output as Array<{ content: string }>)[0]?.content.endsWith("…"),
+    true,
+    "the lorebook entry index should remain compact",
+  );
+  const professorMariFullEntry = await mariDb.executeAction({
+    action: "lorebook.getEntry",
+    entryId: professorMariEntryId,
+  });
+  assert.equal(professorMariFullEntry.ok, true);
+  assert.equal(
+    (professorMariFullEntry.output as { content?: string }).content,
+    professorMariFullEntryContent,
+    "Professor Mari's full-entry reader must preserve the complete lorebook body",
+  );
   await lorebookStorage.remove(professorMariLorebookId);
   assert.equal(await lorebookStorage.getById(professorMariLorebookId), null);
   assert.equal((await lorebookStorage.listEntries(professorMariLorebookId)).length, 0);
@@ -1953,6 +1979,9 @@ assert.deepEqual(buildZaiImageRequest({ model: "glm-image", prompt: "canal", wid
 assert.equal(parseZaiImageUrl({ data: [{ url: "https://cdn.example/zai.png" }] }), "https://cdn.example/zai.png");
 assert.equal(inferImageSource("", "https://api.z.ai/api/paas/v4"), "zai");
 assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "zai"));
+assert.equal(inferImageSource("flux-model", "https://api.arliai.com/v1"), "arli");
+assert.ok(IMAGE_GENERATION_SOURCES.some((source) => source.id === "arli"));
+assert.equal(imageSourceToDefaultsService("arli"), "automatic1111");
 assert.deepEqual(
   ZAI_IMAGE_MODELS.map((model) => model.id),
   ["glm-image", "cogview-4-250304"],
@@ -2950,7 +2979,17 @@ for (const [name, source] of [
   assert.match(source, /text-foreground\/45/u, `${name} search icon must match GIF search`);
   assert.match(source, /placeholder:text-foreground\/35/u, `${name} search placeholder must match GIF search`);
 }
-assert.match(visualViewportChatBottomSource, /detail\?\.keyboardOpen[\s\S]{0,500}scrollToBottom\("auto"\)/u);
+assert.match(visualViewportChatBottomSource, /const anchor = pendingAnchor \?\? captureAnchor\(\);/u);
+assert.match(
+  visualViewportChatBottomSource,
+  /if \(anchor\.pinnedToBottom\) \{\s*scrollToBottom\("auto"\);/u,
+  "Keyboard opening should keep a composer that was already pinned at the latest message pinned",
+);
+assert.match(
+  visualViewportChatBottomSource,
+  /scrollElement\.scrollTo\(\{ top: Math\.min\(anchor\.scrollTop, maxScrollTop\), behavior: "auto" \}\);/u,
+  "Keyboard opening should restore an intentionally scrolled transcript to its captured position",
+);
 assert.match(characterEditorSource, /if \(uploading \|\| !expression\) return;/u);
 assert.match(personaEditorSource, /if \(uploading \|\| !expression\) return;/u);
 assert.match(characterEditorSource, /className="flex flex-col gap-2 sm:flex-row"/u);

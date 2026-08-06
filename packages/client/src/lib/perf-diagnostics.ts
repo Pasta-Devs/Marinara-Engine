@@ -45,9 +45,7 @@ const ENABLED = readVerboseFlag();
  * top level of a component body (it is a hook).
  */
 export function useRenderTimer(label: string): void {
-  // Clock is only read when enabled; the purity heuristic flags the potential
-  // render-phase read, but it is measurement-only and gated behind ENABLED.
-  // eslint-disable-next-line react-hooks/purity
+  // Clock is only read when enabled; it is measurement-only and gated behind ENABLED.
   const start = ENABLED ? performance.now() : 0;
   useLayoutEffect(() => {
     if (!ENABLED) return;

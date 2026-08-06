@@ -171,6 +171,52 @@ const SKIPPED_DIRS = new Set([
   ".gradle",
 ]);
 
+export const PROFESSOR_MARI_APP_DATA_ACTIONS = [
+  "character.list",
+  "character.get",
+  "character.search",
+  "character.create",
+  "character.update",
+  "character.folder.list",
+  "character.moveToFolder",
+  "persona.list",
+  "persona.active",
+  "persona.get",
+  "persona.search",
+  "persona.create",
+  "persona.update",
+  "lorebook.list",
+  "lorebook.get",
+  "lorebook.entries",
+  "lorebook.getEntry",
+  "lorebook.search",
+  "lorebook.create",
+  "lorebook.update",
+  "lorebook.addEntry",
+  "lorebook.updateEntry",
+  "theme.list",
+  "theme.active",
+  "theme.get",
+  "theme.create",
+  "theme.update",
+  "theme.setActive",
+  "personal_extension.list",
+  "personal_extension.get",
+  "personal_extension.search",
+  "personal_extension.create",
+  "personal_extension.update",
+  "agent.list",
+  "agent.get",
+  "agent.search",
+  "agent.create",
+  "agent.update",
+  "preset.list",
+  "preset.get",
+  "preset.search",
+  "preset.create",
+  "preset.update",
+] as const;
+
 const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "docs_search",
@@ -311,56 +357,13 @@ const WORKSPACE_TOOL_DEFINITIONS: WorkspaceToolDefinition[] = [
   {
     name: "app_data",
     description:
-      "Read or change live app data through structured actions, without shell commands. Use this for characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, and prompt presets.",
+      "Read or change live app data through structured actions, without shell commands. Use this for characters, character folders, personas, lorebooks, lorebook entries, themes, Personal Extension drafts, agents, and prompt presets. lorebook.entries returns entry summaries; call lorebook.getEntry with entryId to read one complete entry body.",
     parameters: {
       type: "object",
       properties: {
         action: {
           type: "string",
-          enum: [
-            "character.list",
-            "character.get",
-            "character.search",
-            "character.create",
-            "character.update",
-            "character.folder.list",
-            "character.moveToFolder",
-            "persona.list",
-            "persona.active",
-            "persona.get",
-            "persona.search",
-            "persona.create",
-            "persona.update",
-            "lorebook.list",
-            "lorebook.get",
-            "lorebook.entries",
-            "lorebook.search",
-            "lorebook.create",
-            "lorebook.update",
-            "lorebook.addEntry",
-            "lorebook.updateEntry",
-            "theme.list",
-            "theme.active",
-            "theme.get",
-            "theme.create",
-            "theme.update",
-            "theme.setActive",
-            "personal_extension.list",
-            "personal_extension.get",
-            "personal_extension.search",
-            "personal_extension.create",
-            "personal_extension.update",
-            "agent.list",
-            "agent.get",
-            "agent.search",
-            "agent.create",
-            "agent.update",
-            "preset.list",
-            "preset.get",
-            "preset.search",
-            "preset.create",
-            "preset.update",
-          ],
+          enum: PROFESSOR_MARI_APP_DATA_ACTIONS,
         },
         id: { type: "string" },
         characterId: { type: "string" },
@@ -493,7 +496,7 @@ Command families:
 - \`mari wiki\`: read-only Fandom/MediaWiki discovery and page reads.
 - \`mari characters\`: list, get, search, create, update, delete. Prefer this helper for character edits, including backstory, appearance, and About Me changes. Use \`app_data\` \`character.folder.list\` and \`character.moveToFolder\` for character folders.
 - \`mari personas\`: list, active, get, search, create, update, delete. Prefer this helper for persona edits.
-- \`mari lorebooks\`: list, get, entries <lorebook-id>, search, create, update <lorebook-id>, add-entry <lorebook-id>, update-entry <entry-id>, delete-entry <entry-id>, link-character, unlink-character, delete.
+- \`mari lorebooks\`: list, get, entries <lorebook-id>, get-entry <entry-id>, search, create, update <lorebook-id>, add-entry <lorebook-id>, update-entry <entry-id>, delete-entry <entry-id>, link-character, unlink-character, delete.
 - \`mari presets\`: no dedicated shell helper — use \`app_data\` \`preset.*\` for preset reads/writes. \`preset.create\` and \`preset.update\` can include \`groups\`, \`sections\`, and \`choiceBlocks\` for preset variables. Use \`mari db\` only for advanced raw-table repairs after inspecting schemas.
 - \`mari chats\`: read-only list/get/messages/search.
 - When the user limits chat evidence, preserve that boundary in every retrieval call. For "the last N messages", use \`mari chats messages <chat-id> --last N\`. For "after post #N", use \`mari chats messages <chat-id> --after-post N\`; post numbers are 1-indexed and match the numbers shown in chat. For a large requested range, page only inside it with \`--limit <page-size> --offset <already-read>\`. Never replace a requested recent/post-number range with an unbounded chat read.
@@ -554,7 +557,7 @@ Field rules:
 ${MARI_GUIDED_SEQUENCES}
 
 \`app_data\` quick reference:
-- Reads: \`character.list|get|search|folder.list\`, \`persona.list|active|get|search\`, \`lorebook.list|get|entries|search\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search\`, \`preset.list|get|search\`.
+- Reads: \`character.list|get|search|folder.list\`, \`persona.list|active|get|search\`, \`lorebook.list|get|entries|getEntry|search\`, \`theme.list|active|get\`, \`personal_extension.list|get|search\`, \`agent.list|get|search\`, \`preset.list|get|search\`.
 - Writes: \`character.create|update|moveToFolder\`, \`persona.create|update\`, \`lorebook.create|update|addEntry|updateEntry\`, \`theme.create|update|setActive\`, \`personal_extension.create|update\`, \`agent.create|update\`, \`preset.create|update\`.
 - Character folders: call \`character.folder.list\` to resolve the destination, then \`character.moveToFolder\` with \`characterId\` and either \`folderId\` or \`folderName\`. A move removes the character from its previous folder. When the user explicitly asks for the move, set \`apply:true\`, then verify with \`character.folder.list\`.
 - Put write fields in \`data\` for creates and \`patch\` for updates. Use \`entryId\` for \`lorebook.updateEntry\`; use \`lorebookId\` only for a lorebook or for \`lorebook.addEntry\`.
@@ -562,6 +565,7 @@ ${MARI_GUIDED_SEQUENCES}
 - Character generation: put the full card in \`data\`; do not create a name-only placeholder. \`firstMes\` and \`firstMessage\` both map to the opening message.
 - About Me writing: read the target character or persona first, write the bio in their own voice, then put it in \`patch.aboutMe\` on the matching update action with \`apply:true\`.
 - Lorebook generation: put the complete \`entries\` array inside \`data\` on \`lorebook.create\`. Marinara saves the lorebook and its entries together, so do not create an empty lorebook and promise to fill it later.
+- Lorebook reading: \`lorebook.entries\` is a compact index with entry IDs and content previews. Call \`lorebook.getEntry\` with each relevant \`entryId\` before reviewing or rewriting its full content.
 - For \`preset.create\`, put prompt sections in \`data.sections\` and preset variables in \`data.choiceBlocks\`. Each choice block needs \`variableName\`, \`question\`, and \`options\` with \`label\`/\`value\` pairs.
 - Custom image agents are supported by the live runtime. Use \`data.resultType: "image_prompt"\`, enable \`settings.customCapabilities.trigger_image_generation\`, and have the agent return \`shouldGenerate\` plus \`prompt\`. Marker-triggered agents should also set \`activationKeywords\`. Do not claim that only Illustrator can generate image prompts.
 - Existing-data changes: use \`apply:true\` for requested \`*.update\`, \`lorebook.updateEntry\`, and \`theme.setActive\`. Marinara will save first and show the user an in-chat Keep/Restore review card for reversible changes.
@@ -572,6 +576,7 @@ ${MARI_GUIDED_SEQUENCES}
 Examples:
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"lorebook.list","limit":50}}],"stop":false}
 {"say":"I found the lorebook. I'll read its entries now.","commands":[{"name":"app_data","arguments":{"action":"lorebook.entries","lorebookId":"lorebook-id","limit":100}}],"stop":false}
+{"say":"I found the relevant entry. I'll read its complete body now.","commands":[{"name":"app_data","arguments":{"action":"lorebook.getEntry","entryId":"entry-id"}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"persona.create","data":{"name":"Dr. Marisia Voss","description":"A successful alternate version of Mari.","personality":"Confident, witty, organized, still warmly sarcastic."},"reason":"User requested a test persona","apply":true}}],"stop":false}
 {"say":"","commands":[{"name":"app_data","arguments":{"action":"character.create","data":{"name":"Dr. Voss","description":"A brilliant field researcher.","personality":"Exacting, curious, dryly funny.","firstMes":"You are late. Sit down.","appearance":"Silver hair and a white laboratory coat."},"reason":"User requested a character","apply":true}}],"stop":false}
 Verified lorebook creation sequence (three turns):
@@ -1443,7 +1448,7 @@ function appDataActionLooksReadOnly(action: unknown): boolean {
     .trim()
     .toLowerCase()
     .replace(/[-_\s]+/g, "");
-  return /\.(list|get|search|active|entries)$/.test(normalized);
+  return /\.(list|get|getentry|search|active|entries)$/.test(normalized);
 }
 
 function visibleTextRequestsUserApproval(text: string): boolean {

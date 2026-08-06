@@ -160,6 +160,7 @@ export interface ImageGenResult {
 
 const EXPLICIT_IMAGE_SOURCES = new Set([
   "openai",
+  "arli",
   "nanogpt",
   "openrouter",
   "pollinations",
@@ -267,6 +268,8 @@ export async function generateImage(
       switch (resolvedSource) {
         case "openai":
           return generateOpenAI(normalizedBaseUrl, apiKey, scopedRequest);
+        case "arli":
+          return generateArli(normalizedBaseUrl, apiKey, scopedRequest);
         case "nanogpt":
           return generateNanoGPT(normalizedBaseUrl, apiKey, scopedRequest);
         case "openrouter":
@@ -1691,6 +1694,91 @@ async function generateTogetherAI(baseUrl: string, apiKey: string, request: Imag
   if (!b64) throw new Error("No image data in Together AI response");
 
   return { base64: b64, mimeType: "image/png", ext: "png" };
+}
+
+export function buildArliImageUrl(baseUrl: string, endpoint: "txt2img" | "img2img"): string {
+  const trimmed = baseUrl.replace(/\/+$/, "");
+  try {
+    const parsed = new URL(trimmed);
+    const path = parsed.pathname.replace(/\/+$/, "");
+    if (/\/(?:txt2img|img2img)$/i.test(path)) {
+      parsed.pathname = path.replace(/\/(?:txt2img|img2img)$/i, `/${endpoint}`);
+    } else if (path === "" || path === "/") {
+      parsed.pathname = `/v1/${endpoint}`;
+    } else {
+      parsed.pathname = `${path}/${endpoint}`;
+    }
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    return `${trimmed}/${endpoint}`;
+  }
+}
+
+export function buildArliImageRequest(request: ImageGenRequest): Record<string, unknown> {
+  const model = request.model?.trim();
+  if (!model) throw new Error("Arli.ai image generation requires a model");
+
+  const defaults = resolveAutomatic1111Defaults(request);
+  const body: Record<string, unknown> = {
+    sd_model_checkpoint: model,
+    prompt: mergePromptPrefix(defaults.promptPrefix, request.prompt),
+    negative_prompt: mergeNegativePrompt(defaults.negativePromptPrefix, request.negativePrompt),
+    width: request.width ?? 512,
+    height: request.height ?? 768,
+    steps: defaults.steps,
+    sampler_name: defaults.sampler || DEFAULT_AUTOMATIC1111_DEFAULTS.sampler,
+    cfg_scale: defaults.cfgScale,
+    seed: resolveSeed(request.imageDefaults),
+    batch_size: 1,
+    stream: false,
+  };
+  if (defaults.clipSkip) body.clip_skip = defaults.clipSkip;
+
+  const reference = request.referenceImage ?? request.referenceImages?.[0];
+  if (reference) {
+    body.init_images = [decodeReferenceImage(reference).base64];
+    body.denoising_strength = defaults.denoisingStrength;
+  }
+  return body;
+}
+
+async function generateArli(baseUrl: string, apiKey: string, request: ImageGenRequest): Promise<ImageGenResult> {
+  if (!apiKey.trim()) throw new Error("Arli.ai image generation requires an API key");
+  const body = buildArliImageRequest(request);
+  const useImg2Img = Array.isArray(body.init_images);
+  logDebugOverride(
+    request.debugMode === true,
+    "[debug/image/arli] final request payload:\n%s",
+    JSON.stringify({ ...body, ...(useImg2Img ? { init_images: "[1 reference image]" } : {}) }, null, 2),
+  );
+  const resp = await imageFetch(
+    buildArliImageUrl(baseUrl, useImg2Img ? "img2img" : "txt2img"),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: imageRequestSignal(request),
+    },
+    { allowLocal: request.allowLocalUrls },
+  );
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => "Unknown error");
+    throw new Error(`Arli.ai image generation failed (${resp.status}): ${sanitizeErrorText(errText)}`);
+  }
+
+  const data = (await resp.json()) as { images?: string[] };
+  const image = data.images?.[0];
+  if (!image) throw new Error("No image data in Arli.ai response");
+  if (image.trim().startsWith("data:")) return decodeImageDataUrl(image);
+  const base64 = normalizeBase64ImagePayload(image, "Arli.ai image response");
+  const mimeType = detectImageMimeType(base64) ?? "image/png";
+  return { base64, mimeType, ext: imageExtensionFromMimeType(mimeType) };
 }
 
 const NOVELAI_V4_PROMPT_HINT =
