@@ -3139,7 +3139,12 @@ assert.match(
 );
 assert.match(
   conversationSelfieRuntimeSource,
-  /resolveIllustratorCharacterReferences\(\{[\s\S]{0,800}persona: null,[\s\S]{0,800}maxReferences: 6/u,
+  /resolveConversationSelfieRequestedNames\(\{[\s\S]{0,400}generationGuide: args\.generationGuide/u,
+  "Conversation group selfies must carry the guided request into reference selection",
+);
+assert.match(
+  conversationSelfieRuntimeSource,
+  /resolveIllustratorCharacterReferences\(\{[\s\S]{0,800}persona: null,[\s\S]{0,200}requestedNames,[\s\S]{0,300}maxReferences: 6/u,
   "Conversation group selfies must keep all depicted character references without attaching the photographer persona",
 );
 assert.match(
@@ -4520,6 +4525,39 @@ assert.equal(
   compileChatSummaryEntries(retainedSummaryEntries),
   "Combined A and B\n\nUntouched",
   "Compiled Chat Summary output must exclude deactivated source entries",
+);
+const secondCombinedSummaryEntry = createChatSummaryEntry({
+  id: "combined-again",
+  content: "Combined summary of summaries",
+  title: "Combined again",
+  enabled: true,
+  rangeStartIndex: 1,
+  rangeEndIndex: 6,
+  createdAt: summaryCombineEntries[0]!.createdAt,
+  updatedAt: "2026-08-06T10:00:00.000Z",
+});
+const retainedSecondGenerationEntries = combineChatSummaryEntryHistory(
+  retainedSummaryEntries,
+  new Set(["combined", "untouched"]),
+  secondCombinedSummaryEntry,
+  secondCombinedSummaryEntry.updatedAt,
+);
+assert.deepEqual(
+  retainedSecondGenerationEntries.map((entry) => entry.id),
+  ["combined-again", "combined", "source-a", "source-b", "untouched"],
+  "A summary of summaries must retain both generations of source history",
+);
+for (const sourceId of ["combined", "source-a", "source-b", "untouched"]) {
+  assert.equal(
+    retainedSecondGenerationEntries.find((entry) => entry.id === sourceId)?.enabled,
+    false,
+    `${sourceId} must remain as inactive history after combining summaries again`,
+  );
+}
+assert.match(
+  summaryPopoverSource,
+  /onSuccess: \(data\) => \{\s*setSelectedEntryIds\(new Set\(\)\);\s*setShowInactiveSummaries\(true\)/u,
+  "The Chat Summary popover must reveal retained inactive sources after combining",
 );
 assert.match(
   summaryPopoverSource,

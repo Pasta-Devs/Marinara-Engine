@@ -58,6 +58,25 @@ type PersonaReference = {
   appearance?: string | null;
 } | null;
 
+const GROUP_SELFIE_REQUEST_RE =
+  /\bgroup\s+(?:selfie|photo|picture)\b|\b(?:selfie|photo|picture)\b[^\n.!?]{0,80}\b(?:together|everyone|everybody|all (?:of us|participants|characters))\b/iu;
+
+export function resolveConversationSelfieRequestedNames(args: {
+  speakerName: string;
+  chatCharacters: ReadonlyArray<{ name: string }>;
+  generationGuide?: string | null;
+  commandContext?: string | null;
+  imagePrompt?: string | null;
+}): string[] {
+  const requestText = [args.generationGuide, args.commandContext, args.imagePrompt]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join("\n");
+  const names = GROUP_SELFIE_REQUEST_RE.test(requestText)
+    ? args.chatCharacters.map((character) => character.name)
+    : [args.speakerName];
+  return Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)));
+}
+
 export async function handleConversationSelfieCommand(args: {
   command: CharacterCommand;
   characterId: string | null;
@@ -69,6 +88,7 @@ export async function handleConversationSelfieCommand(args: {
   persona: PersonaReference;
   promptConnection: IllustratorPromptConnection;
   promptConnectionId: string;
+  generationGuide?: string | null;
   debugMode?: boolean;
   serviceTier: "flex" | "priority" | null;
   db: DB;
@@ -230,6 +250,13 @@ async function generateSelfie(
   const selfieUseAvatarReferences = args.chatMeta.selfieUseAvatarReferences === true;
   const selfieIncludeCharacterAppearance = args.chatMeta.selfieIncludeCharacterAppearance === true;
   if (selfieUseAvatarReferences || selfieIncludeCharacterAppearance) {
+    const requestedNames = resolveConversationSelfieRequestedNames({
+      speakerName: args.charName,
+      chatCharacters: args.charInfo,
+      generationGuide: args.generationGuide,
+      commandContext: args.command.context,
+      imagePrompt,
+    });
     const referenceResolution = await resolveIllustratorCharacterReferences({
       charactersStore: args.chars,
       chatCharacters: args.charInfo.map((character) => ({
@@ -239,7 +266,7 @@ async function generateSelfie(
         appearance: character.appearance,
       })),
       persona: null,
-      requestedNames: [args.charName],
+      requestedNames,
       promptText: [args.charName, args.command.context ?? "", imagePrompt].join("\n"),
       fallbackToChatCharacters: false,
       maxReferences: 6,

@@ -69,6 +69,7 @@ import {
   buildGmFormatReminder,
   buildPartyRecruitCardPrompt,
 } from "../../packages/server/src/services/game/gm-prompts.js";
+import { resolveConversationSelfieRequestedNames } from "../../packages/server/src/services/generation/conversation-selfie-command-runtime.js";
 import {
   normalizeCyoaChoiceOutput,
   normalizeCyoaDialogueQuotes,
@@ -3961,6 +3962,23 @@ const cases: RegressionCase[] = [
       });
       assert.deepEqual(groupSelfieResolution.characterIds, ["character-maukie", "character-dottore"]);
       assert.equal(groupSelfieResolution.personaId, null);
+      assert.deepEqual(
+        resolveConversationSelfieRequestedNames({
+          speakerName: "Maukie",
+          chatCharacters: [{ name: "Maukie" }, { name: "Dottore" }],
+          generationGuide: buildNarratorInstructionMessage("group selfie"),
+          imagePrompt: "Two friends crowd into the frame.",
+        }),
+        ["Maukie", "Dottore"],
+      );
+      assert.deepEqual(
+        resolveConversationSelfieRequestedNames({
+          speakerName: "Maukie",
+          chatCharacters: [{ name: "Maukie" }, { name: "Dottore" }],
+          imagePrompt: "Maukie takes a casual selfie at home.",
+        }),
+        ["Maukie"],
+      );
     },
   },
   {
