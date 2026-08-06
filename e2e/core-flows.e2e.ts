@@ -3192,7 +3192,9 @@ test("stopped and refused generations keep sent text cleared and accept the firs
     await page.route(messagesRouteMatcher, stoppedRefreshHandler);
     try {
       await page.evaluate((messageId) => {
-        document.querySelector<HTMLButtonElement>("button.mari-chat-send-btn")?.click();
+        const stopButton = document.querySelector<HTMLButtonElement>("button.mari-chat-send-btn");
+        if (!stopButton) throw new Error("Stop generation control is unavailable");
+        stopButton.click();
         window.dispatchEvent(new CustomEvent("marinara:start-edit-message", { detail: { messageId } }));
       }, justSentMessageId);
       const justSentEditor = justSentMessage.locator("textarea");
