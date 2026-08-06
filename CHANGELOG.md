@@ -6,6 +6,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Guided package onboarding can open the active Roleplay chat's Summary popover and assigned prompt preset Sections editor directly.
 - Added explicit step-by-step and immediate World Maps travel modes, with one committed movement per accepted Roleplay or Game turn and recoverable queued routes (#4618).
 - Added a single setting that reduces ambient animations and effects throughout the interface, including automatic support for the operating system's reduced-motion preference (#4631).
 

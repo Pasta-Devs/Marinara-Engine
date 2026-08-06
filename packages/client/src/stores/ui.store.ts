@@ -548,6 +548,8 @@ interface UIState {
   lorebookDetailId: string | null;
   /** When set, the main area shows the full-page preset editor instead of chat */
   presetDetailId: string | null;
+  /** One-shot tab the preset editor should open to. */
+  presetDetailInitialTab: string | null;
   /** When set, the main area shows the full-page connection editor instead of chat */
   connectionDetailId: string | null;
   /** When set, the main area shows the full-page agent editor. Value is the agent *type* id (e.g. "world-state") */
@@ -939,7 +941,7 @@ interface UIState {
   closeCharacterDetail: () => void;
   openLorebookDetail: (id: string, options?: { initialTab?: string }) => void;
   closeLorebookDetail: () => void;
-  openPresetDetail: (id: string) => void;
+  openPresetDetail: (id: string, options?: { initialTab?: string }) => void;
   closePresetDetail: () => void;
   openConnectionDetail: (id: string) => void;
   closeConnectionDetail: () => void;
@@ -1339,6 +1341,7 @@ export const useUIStore = create<UIState>()(
       characterDetailId: null,
       lorebookDetailId: null,
       presetDetailId: null,
+      presetDetailInitialTab: null,
       connectionDetailId: null,
       agentDetailId: null,
       toolDetailId: null,
@@ -1713,9 +1716,10 @@ export const useUIStore = create<UIState>()(
           editorDirty: false,
           ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
         })),
-      openPresetDetail: (id) =>
+      openPresetDetail: (id, options) =>
         set((s) => ({
           presetDetailId: id,
+          presetDetailInitialTab: options?.initialTab ?? null,
           characterLibraryOpen: false,
           agentCatalogOpen: false,
           botBrowserOpen: false,
@@ -1734,6 +1738,7 @@ export const useUIStore = create<UIState>()(
       closePresetDetail: () =>
         set((s) => ({
           presetDetailId: null,
+          presetDetailInitialTab: null,
           editorDirty: false,
           ...restoreMobileDetailReturnPanel(s.detailReturnRightPanel),
         })),

@@ -249,6 +249,7 @@ function readMarkerConfig(value: unknown) {
 export function PresetEditor() {
   const { t: localizeUi } = useUiTranslation();
   const presetDetailId = useUIStore((s) => s.presetDetailId);
+  const presetDetailInitialTab = useUIStore((s) => s.presetDetailInitialTab) as TabId | null;
   const closePresetDetail = useUIStore((s) => s.closePresetDetail);
   const activeChatId = useChatStore((s) => s.activeChatId);
 
@@ -268,7 +269,10 @@ export function PresetEditor() {
   const deleteVariable = useDeleteVariable();
   const reorderVariables = useReorderVariables();
 
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [activeTab, setActiveTab] = useState<TabId>(() => presetDetailInitialTab ?? "overview");
+  useEffect(() => {
+    setActiveTab(presetDetailInitialTab ?? "overview");
+  }, [presetDetailId, presetDetailInitialTab]);
   const [dirty, setDirty] = useState(false);
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   useEffect(() => {

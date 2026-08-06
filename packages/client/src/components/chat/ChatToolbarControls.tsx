@@ -9,6 +9,7 @@ import {
 } from "react";
 import { MoreHorizontal } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { CHAT_SUMMARY_OPEN_REQUEST_EVENT, requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { ROLEPLAY_POPOVER_SHELL } from "./roleplay-popover-styles";
 import { useTranslation as useUiTranslation } from "react-i18next";
@@ -166,11 +167,13 @@ export function ChatToolbarMenu({
   className,
   desktopChildren,
   mobileChildren,
+  openSummaryOnRequest = false,
 }: {
   children?: ReactNode;
   className?: string;
   desktopChildren?: ReactNode;
   mobileChildren?: ReactNode;
+  openSummaryOnRequest?: boolean;
 }) {
   const { t: localizeUi } = useUiTranslation();
   const [open, setOpen] = useState(false);
@@ -179,6 +182,7 @@ export function ChatToolbarMenu({
   const desktopRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const pendingSummaryChatIdRef = useRef<string | null>(null);
   const neededDesktopWidthRef = useRef(0);
   const lastViewportWidthRef = useRef(typeof window === "undefined" ? 0 : window.innerWidth);
   const [pos, setPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
@@ -255,6 +259,30 @@ export function ChatToolbarMenu({
     };
     document.addEventListener("mousedown", handle);
     return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  useEffect(() => {
+    const handleSummaryOpenRequest = (event: Event) => {
+      if (!openSummaryOnRequest || !(event instanceof CustomEvent)) return;
+      const chatId = (event.detail as { chatId?: unknown } | null)?.chatId;
+      const root = rootRef.current;
+      if (typeof chatId !== "string" || !root || root.getBoundingClientRect().width <= 0) return;
+      const hasVisibleSummaryAction = Array.from(
+        document.querySelectorAll<HTMLElement>('[data-chat-toolbar-panel-action="summary"]'),
+      ).some((action) => action.getBoundingClientRect().width > 0);
+      if (hasVisibleSummaryAction) return;
+      pendingSummaryChatIdRef.current = chatId;
+      setOpen(true);
+    };
+    window.addEventListener(CHAT_SUMMARY_OPEN_REQUEST_EVENT, handleSummaryOpenRequest);
+    return () => window.removeEventListener(CHAT_SUMMARY_OPEN_REQUEST_EVENT, handleSummaryOpenRequest);
+  }, [openSummaryOnRequest]);
+
+  useEffect(() => {
+    const chatId = pendingSummaryChatIdRef.current;
+    if (!open || !chatId) return;
+    pendingSummaryChatIdRef.current = null;
+    requestAnimationFrame(() => requestChatSummaryOpen(chatId));
   }, [open]);
 
   return (

@@ -34,6 +34,7 @@ import { getCssBackgroundStyle } from "../../lib/css-colors";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { cn } from "../../lib/utils";
 import { parseChatMetadata } from "../../lib/chat-display";
+import { requestChatSummaryOpen } from "../../lib/chat-floating-ui-events";
 import { resolveTrackerPanelContentScale, resolveTrackerPanelDesktopWidth } from "../../lib/tracker-panel-layout";
 import {
   closeTrackerPanelWindow,
@@ -353,6 +354,7 @@ export function AppShell() {
   const setEditorDirty = useUIStore((s) => s.setEditorDirty);
   const openLorebookDetail = useUIStore((s) => s.openLorebookDetail);
   const closeAgentDetail = useUIStore((s) => s.closeAgentDetail);
+  const openPresetDetail = useUIStore((s) => s.openPresetDetail);
   const openRightPanel = useUIStore((s) => s.openRightPanel);
   const openAgentCatalog = useUIStore((s) => s.openAgentCatalog);
   const setTrackerPanelOpen = useUIStore((s) => s.setTrackerPanelOpen);
@@ -368,6 +370,10 @@ export function AppShell() {
     },
     [openLorebookDetail, refreshLorebooks],
   );
+  const closeFeatureDetail = useCallback(() => {
+    closeAgentDetail();
+    openRightPanel("agents");
+  }, [closeAgentDetail, openRightPanel]);
   const [sidebarDragWidth, setSidebarDragWidth] = useState<number | null>(null);
   const [rightPanelDragWidth, setRightPanelDragWidth] = useState<number | null>(null);
   const sidebarDragWidthRef = useRef<number | null>(null);
@@ -604,6 +610,18 @@ export function AppShell() {
     },
     [activeChat?.metadata, activeChatId, selectedFeatureAgent, selectedFeatureSupportsActiveChat, updateChatMetadata],
   );
+  const openChatSummarySettings = useCallback(() => {
+    if (!activeChatId || activeChat?.mode !== "roleplay") return;
+    const chatId = activeChatId;
+    closeAgentDetail();
+    closeRightPanel();
+    window.requestAnimationFrame(() => requestChatSummaryOpen(chatId));
+  }, [activeChat?.mode, activeChatId, closeAgentDetail, closeRightPanel]);
+  const openActivePromptPresetEditor = useCallback(() => {
+    const presetId = activeChat?.promptPresetId;
+    if (!activeChat || !presetId) return;
+    openPresetDetail(presetId, { initialTab: "sections" });
+  }, [activeChat, openPresetDetail]);
 
   useEffect(() => {
     if (!activeChatId || isClearingAutonomousUnread) return;
@@ -758,10 +776,7 @@ export function AppShell() {
         activeChatSupported={selectedFeatureSupportsActiveChat}
         enabledForChat={selectedFeatureEnabledForChat}
         onEnabledForChatChange={setSelectedFeatureEnabledForChat}
-        onClose={() => {
-          closeAgentDetail();
-          openRightPanel("agents");
-        }}
+        onClose={closeFeatureDetail}
         onManagePackage={openAgentCatalog}
         capabilityProps={{
           debugMode,
@@ -769,6 +784,10 @@ export function AppShell() {
           onDirtyChange: setEditorDirty,
           onOpenLorebook: openSpatialLorebook,
           onLorebooksChanged: refreshLorebooks,
+          onOpenChatSummarySettings: activeChat?.mode === "roleplay" ? openChatSummarySettings : undefined,
+          onOpenActivePromptPresetEditor: activeChat?.promptPresetId
+            ? openActivePromptPresetEditor
+            : undefined,
         }}
       />
     ) : (
