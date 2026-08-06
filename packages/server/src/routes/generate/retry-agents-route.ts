@@ -3411,6 +3411,7 @@ async function applyRetryResultEffects(args: {
               compiledPrompt.prompt,
               compiledPrompt.negativePrompt,
               requestedNegativePrompt,
+              imgConnFull,
             );
             const promptSubmission = resolveIllustratorPromptSubmission({
               generatedPrompt: compiledPrompt.prompt,

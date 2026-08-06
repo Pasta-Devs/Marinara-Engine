@@ -108,6 +108,7 @@ const appShellSource = readFileSync(
   new URL("../../packages/client/src/components/layout/AppShell.tsx", import.meta.url),
   "utf8",
 );
+const appSource = readFileSync(new URL("../../packages/client/src/App.tsx", import.meta.url), "utf8");
 const peekPromptModalSource = readFileSync(
   new URL("../../packages/client/src/components/chat/PeekPromptModal.tsx", import.meta.url),
   "utf8",
@@ -207,6 +208,22 @@ assert.match(
 assert.match(reducedAmbientEffectsHookSource, /manualPreference \|\| systemPreference/u);
 assert.match(uiStoreSource, /version: 90/u);
 assert.match(globalStylesSource, /data-marinara-reduced-effects/u);
+const accentTransitionStyles =
+  globalStylesSource.match(
+    /\[data-marinara-accent-animation\][\s\S]*?:where\([\s\S]*?\.mari-topbar-button[\s\S]*?\)\s*\{([\s\S]*?)\}/u,
+  )?.[1] ?? "";
+assert.match(accentTransitionStyles, /opacity 180ms linear/u);
+assert.match(accentTransitionStyles, /transform 180ms linear/u);
+assert.doesNotMatch(
+  accentTransitionStyles,
+  /background-color|border-color|\bcolor\s+180ms|\bstroke\s+180ms/u,
+  "root accent ticks must not start color transitions throughout the mounted UI",
+);
+assert.doesNotMatch(
+  appSource,
+  /applyCursorAccent\(liveAccent/u,
+  "animated accent ticks must not force synchronous custom-cursor color resolution",
+);
 assert.match(
   chatRoleplaySurfaceSource,
   /function RoleplayLiveStreamText[\s\S]*?document\.createTextNode\(""\)[\s\S]*?textNode\.appendData[\s\S]*?requestAnimationFrame\(apply\)/u,
@@ -308,18 +325,18 @@ assert.doesNotMatch(
 );
 assert.match(
   echoChamberPanelSource,
-  /const HUD_EDGE_GAP = 24;[^\n]*native chat scrollbar/u,
+  /const FLOATING_EDGE_GAP = 16;/u,
   "Echo Chamber should leave the native Roleplay scrollbar reachable",
 );
 assert.match(
   echoChamberPanelSource,
-  /rightEdgeOffset =[\s\S]{0,420}Math\.max\(HUD_EDGE_GAP, Math\.round\(containerRect\.right - alignmentRect\.right\)\)/u,
-  "Echo Chamber alignment anchors must not pull it back across the scrollbar clearance",
+  /\.\.\.\(!isLeft && \{ right: FLOATING_EDGE_GAP \}\)/u,
+  "Echo Chamber should keep a fixed clearance from the right edge",
 );
 assert.match(
   appShellSource,
-  /right: \(rightPanelOpen \? liveRightPanelWidth : 0\) \+ CHAT_SCROLLBAR_CLEARANCE/u,
-  "the right-side Trackers Panel should leave the native Roleplay scrollbar reachable",
+  /right: rightPanelOpen \? liveRightPanelWidth : 0/u,
+  "the right-side Trackers Panel should stay outside the open settings panel",
 );
 assert.doesNotMatch(
   peekPromptModalSource.match(/<div\s+className="fixed inset-0 z-\[100\][^\n]*/u)?.[0] ?? "",
@@ -561,8 +578,8 @@ assert.match(
 );
 assert.match(
   generateHookSource,
-  /const submittedUserTurn = params\.userMessage !== undefined;/u,
-  "generation should remember whether the stopped request already submitted a user turn",
+  /const submittedUserTurn = hasVisibleUserMessagePayload\(params\.userMessage, pendingAttachments\);/u,
+  "generation should remember whether the stopped request submitted visible text or attachments",
 );
 assert.equal(
   generateHookSource.match(/submittedUserTurn \|\| receivedContent \|\| spatialTransitionCommitted/gu)?.length,
@@ -936,6 +953,17 @@ assert.equal(
   simulatedThirtyFpsCharacters,
   50,
   "a 30 FPS animation cadence must preserve the configured 50 characters-per-second reveal rate",
+);
+const delayedFrameBudget = getTypewriterFrameBudget(90, 120, 0);
+assert.ok(delayedFrameBudget.accruedCharacters > 10, "a delayed frame should retain its reveal debt");
+assert.ok(
+  delayedFrameBudget.maxCharacters <= 3,
+  "a delayed frame must not dump its entire reveal debt as one chunky typewriter burst",
+);
+assert.match(
+  echoChamberPanelSource,
+  /behavior: streamingChatId === activeChatId \? "auto" : "smooth"/u,
+  "Echo Chamber should avoid competing smooth-scroll animation while the same Roleplay chat is streaming",
 );
 
 assert.equal(

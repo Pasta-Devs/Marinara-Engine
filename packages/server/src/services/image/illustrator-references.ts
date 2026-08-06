@@ -179,7 +179,22 @@ export function mergeIllustratorNegativePrompt(
   prompt: string,
   negativePrompt?: string | null,
   authoredNegativePrompt?: string | null,
+  provider?: ReferencePromptImageProvider | null,
 ): string {
+  if (provider && isNovelAiImageConnection(provider)) {
+    const seen = new Set<string>();
+    return (negativePrompt ?? "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => {
+        const key = item.toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .join(", ");
+  }
+
   const requestsRenderedText = illustratorPromptRequestsRenderedText(prompt);
   const authoredItems = new Set(
     (authoredNegativePrompt ?? "")

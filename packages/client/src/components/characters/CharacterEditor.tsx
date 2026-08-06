@@ -2558,17 +2558,17 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
           />
 
           {isLoading ? (
-            <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="shimmer aspect-square rounded-xl" />
               ))}
             </div>
           ) : images && images.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4">
               {images.map((image) => (
                 <div
                   key={image.id}
-                  className="group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
+                  className="mari-gallery-card group relative overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--card)] transition-all hover:border-[var(--primary)]/30 hover:shadow-md"
                 >
                   <CustomEmojiTagButton image={image} onApply={(patch) => tag.mutate({ imageId: image.id, patch })} />
                   <button
@@ -2579,14 +2579,16 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
                     <img
                       src={image.url}
                       alt={image.prompt || characterName || "Character image"}
+                      loading="lazy"
+                      decoding="async"
                       className="h-full w-full object-cover"
                     />
                   </button>
                   <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/75 via-black/25 to-transparent p-2 opacity-0 transition-opacity group-hover:opacity-100 max-md:opacity-100">
-                    <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85">
+                    <span className="max-w-[8rem] truncate text-[0.6875rem] font-medium text-white/85 max-md:hidden">
                       {new Date(image.createdAt).toLocaleDateString()}
                     </span>
-                    <div className="flex gap-1">
+                    <div className="ml-auto flex gap-1">
                       <button
                         type="button"
                         onClick={() => void handleCopyReference(image)}
@@ -2678,6 +2680,15 @@ function CharacterGalleryTab({ characterId, characterName }: { characterId: stri
               >
                 <Download size="0.875rem" />
               </a>
+              <button
+                type="button"
+                onClick={() => void handleDelete(lightbox)}
+                className="rounded-lg bg-black/60 p-2 text-white transition-colors hover:bg-black/80"
+                title={localizeUi("lorebook.editor.batch.delete")}
+                aria-label={localizeUi("lorebook.editor.batch.delete")}
+              >
+                <Trash2 size="0.875rem" />
+              </button>
               <button
                 type="button"
                 onClick={() => setLightbox(null)}

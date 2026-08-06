@@ -1450,8 +1450,8 @@
   color: var(--marinara-chat-chrome-button-text-active);
   stroke: currentColor;
   transition:
-    color 180ms linear,
-    stroke 180ms linear;
+    opacity 180ms linear,
+    transform 180ms linear;
 }
 
 .mari-topbar-active-underline {
@@ -1468,6 +1468,11 @@
     color-mix(in srgb, var(--marinara-app-accent-solid) 24%, transparent),
     color-mix(in srgb, var(--marinara-app-accent-solid) 12%, transparent)
   );
+}
+
+.mari-gallery-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 12rem;
 }
 
 .mari-settings-accent-dot {
@@ -1512,9 +1517,8 @@
     .mari-topbar-button
   ) {
   transition:
-    background-color 180ms linear,
-    border-color 180ms linear,
-    color 180ms linear;
+    opacity 180ms linear,
+    transform 180ms linear;
 }
 
 /* ─────────────────────────────────────────────

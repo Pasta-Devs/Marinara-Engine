@@ -3004,6 +3004,17 @@ assert.match(
 assert.match(galleryHooksSource, /api\.delete\(`\/gallery\/scene-videos\/\$\{chatId\}\/\$\{videoId\}`\)/u);
 assert.match(chatGallerySource, /handleDeleteVideo\(video\)/u);
 assert.match(chatGallerySource, /ui\.chat\.chatgallery\.deleteSceneVideo/u);
+for (const editorSource of [characterEditorSource, personaEditorSource]) {
+  assert.match(editorSource, /grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4/u);
+  assert.match(editorSource, /onClick=\{\(\) => void handleDelete\(lightbox\)\}/u);
+  assert.match(editorSource, /loading="lazy"\s+decoding="async"/u);
+}
+assert.doesNotMatch(chatGallerySource, /bg-red-500/u);
+assert.match(
+  chatGallerySource,
+  /ui\.chat\.chatgallery\.deleteGalleryImage[\s\S]{0,180}mari-chrome-accent-surface/u,
+);
+assert.match(globalStyles, /\.mari-gallery-card \{\s*content-visibility: auto;\s*contain-intrinsic-size: auto 12rem;\s*\}/u);
 assert.match(characterEditorSource, /ui\.characters\.colorstab\.value1AvatarPreview/u);
 assert.match(characterEditorSource, /getAvatarCropStyle/u);
 assert.match(characterEditorSource, /downloadSpriteFile/u);
@@ -4631,8 +4642,8 @@ assert.match(
 );
 assert.match(
   summaryPopoverSource,
-  /currentChatSummaryPrompt[\s\S]{0,900}\{activeSummaryPrompt\}[\s\S]{0,1500}<textarea/u,
-  "The active Chat Summary prompt must remain visible above its template editor",
+  /!templateEditorOpen[\s\S]{0,500}\{activeSummaryPrompt\}[\s\S]{0,500}templateEditorOpen/u,
+  "The active Chat Summary prompt must remain visible until its template editor opens",
 );
 assert.doesNotMatch(
   summaryPopoverSource,
@@ -5518,7 +5529,7 @@ try {
       )?.length ?? 0;
     const focusInteractiveOverlayCount =
       source.match(
-        /pointer-events-none[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:\[&_button\]:pointer-events-auto/gu,
+        /pointer-events-none[^"\n]*\[@media\(pointer:fine\)\]:group-focus-within(?:\/member)?:(?:\[&_button\]:)?pointer-events-auto/gu,
       )?.length ?? 0;
     assert.equal(
       focusVisibleOverlayCount,
@@ -5544,7 +5555,7 @@ try {
   }
   assert.match(
     charactersPanelSource,
-    /max-md:pr-20 \[@media\(pointer:coarse\)\]:pr-24/u,
+    /pr-0 max-md:pr-32 \[@media\(pointer:coarse\)\]:pr-32/u,
     "Character rows must match their coarse-pointer padding to the desktop-width action toolbar",
   );
   assert.match(

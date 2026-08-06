@@ -8944,6 +8944,7 @@ export async function generateRoutes(app: FastifyInstance) {
                         compiledPrompt.prompt,
                         compiledPrompt.negativePrompt,
                         requestedNegativePrompt,
+                        imgConnFull,
                       );
 
                       const imageResults = await generateIllustratorImageVariants({

@@ -55,7 +55,11 @@ import {
 } from "../../packages/server/src/services/generation/fallback-notification.js";
 import { resolveStoredChatOptions } from "../../packages/server/src/services/generation/generation-parameters.js";
 import { resolveMainGenerationToolChoice } from "../../packages/server/src/services/generation/tool-resolution-runtime.js";
-import { generateImage, imageAdmissionKey } from "../../packages/server/src/services/image/image-generation.js";
+import {
+  generateImage,
+  imageAdmissionKey,
+  resolveNovelAiStyleReferenceSecondaryStrength,
+} from "../../packages/server/src/services/image/image-generation.js";
 import { resolveImageCaptioningRuntime } from "../../packages/server/src/services/generation/image-captioning-runtime.js";
 import {
   BACKGROUND_CONNECTION_IDLE_MS,
@@ -115,6 +119,10 @@ const gatewaySseBody = [
   'data: {"choices":[{"message":{"content":"recovered final message"},"finish_reason":"stop"}]}',
   "data: [DONE]",
 ].join("\n");
+
+assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(1), 0);
+assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(0.75), 0.25);
+assert.equal(resolveNovelAiStyleReferenceSecondaryStrength(0), 1);
 const gatewayServer = createServer((_request, response) => {
   response.writeHead(200, { "content-type": "text/event-stream" });
   response.end(gatewaySseBody);

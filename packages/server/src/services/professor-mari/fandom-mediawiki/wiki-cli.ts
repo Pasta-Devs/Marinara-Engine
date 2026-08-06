@@ -110,6 +110,7 @@ export function wikiHelpText() {
     "  mari wiki find-wikis genshin",
     "  mari wiki search genshin-impact Nahida",
     "  mari wiki get-page --page-url https://genshin-impact.fandom.com/wiki/Nahida",
+    "  mari wiki get-page --page-url https://en.wikipedia.org/wiki/Artificial_intelligence",
     "  mari wiki sections --wiki genshin-impact --title Nahida",
     "  mari wiki get-page --wiki genshin-impact --title Nahida --content source --section 3",
   ].join("\n");
@@ -132,13 +133,13 @@ export function wikiCommandHelpText(command: string) {
     case "search-wiki":
       return [
         "Usage: mari wiki search <wiki> <query> [--limit 10] [--continue <token>]",
-        "Search inside one Fandom wiki. Wiki may be a slug or URL.",
+        "Search inside one Fandom or Wikipedia wiki. Wiki may be a Fandom slug or trusted URL.",
       ].join("\n");
     case "get-page":
     case "get":
       return [
         "Usage: mari wiki get-page (--wiki <wiki> --title <title> | --page-url <url>) [--content summary|source|html|none] [--section <n>]",
-        "Read one Fandom wiki page. Defaults to summary.",
+        "Read one Fandom or Wikipedia page. Defaults to summary.",
       ].join("\n");
     case "pages":
       return [
@@ -159,7 +160,7 @@ export function wikiCommandHelpText(command: string) {
     case "site-info":
       return [
         "Usage: mari wiki site-info <wiki> [--include-statistics]",
-        "Resolve and inspect one Fandom wiki.",
+        "Resolve and inspect one Fandom or Wikipedia wiki.",
       ].join("\n");
     case "search-in-page":
       return [

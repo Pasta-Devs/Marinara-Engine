@@ -493,7 +493,7 @@ Command families:
 - \`mari db\`: generic live app data and storage-backed rows, including customization tables such as \`agent_configs\` and \`custom_tools\` when no narrower helper exists.
 - \`mari themes\`: synced custom themes and active theme state.
 - \`mari images\`: image-generation connections, HITL image prompt previews, generated/edited preview assets, and assignment/deletion for avatars, personas, lorebooks, sprites, backgrounds, and galleries.
-- \`mari wiki\`: read-only Fandom/MediaWiki discovery and page reads.
+- \`mari wiki\`: read-only Fandom and Wikipedia/MediaWiki discovery and page reads. Use it for trusted Wikipedia links instead of raw shell networking.
 - \`mari characters\`: list, get, search, create, update, delete. Prefer this helper for character edits, including backstory, appearance, and About Me changes. Use \`app_data\` \`character.folder.list\` and \`character.moveToFolder\` for character folders.
 - \`mari personas\`: list, active, get, search, create, update, delete. Prefer this helper for persona edits.
 - \`mari lorebooks\`: list, get, entries <lorebook-id>, get-entry <entry-id>, search, create, update <lorebook-id>, add-entry <lorebook-id>, update-entry <entry-id>, delete-entry <entry-id>, link-character, unlink-character, delete.

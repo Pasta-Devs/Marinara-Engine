@@ -2,20 +2,23 @@ import { isIP } from "node:net";
 import type { FandomWikiRef } from "./types.js";
 
 const FANDOM_HOST_SUFFIX = ".fandom.com";
+const WIKIPEDIA_HOST_SUFFIX = ".wikipedia.org";
 const SERVICES_HOST = "services.fandom.com";
 
 function trimTrailingSlash(value: string) {
   return value.replace(/\/+$/, "");
 }
 
-function assertHttpsFandomUrl(url: URL, allowServices = false) {
-  if (url.protocol !== "https:") throw new Error("Only HTTPS Fandom URLs are allowed.");
-  if (url.username || url.password) throw new Error("Fandom URLs with embedded credentials are not allowed.");
+function assertHttpsWikiUrl(url: URL, allowServices = false) {
+  if (url.protocol !== "https:") throw new Error("Only HTTPS Fandom and Wikipedia URLs are allowed.");
+  if (url.username || url.password) throw new Error("Wiki URLs with embedded credentials are not allowed.");
   const host = url.hostname.toLowerCase();
   if (isIP(host)) throw new Error("IP literal hosts are not allowed.");
   if (host === SERVICES_HOST && allowServices) return host;
   if (host === SERVICES_HOST) throw new Error("services.fandom.com is only allowed for shared search APIs.");
-  if (!host.endsWith(FANDOM_HOST_SUFFIX)) throw new Error("Only *.fandom.com hosts are allowed.");
+  if (!isFandomHost(host) && !isWikipediaHost(host)) {
+    throw new Error("Only *.fandom.com and *.wikipedia.org hosts are allowed.");
+  }
   return host;
 }
 
@@ -26,7 +29,11 @@ function normalizeHostInput(value: string) {
   if (trimmed.includes("/") || trimmed.includes("?") || trimmed.includes("#")) {
     return new URL(`https://${trimmed}`);
   }
-  const host = trimmed.endsWith(FANDOM_HOST_SUFFIX) ? trimmed : `${trimmed}${FANDOM_HOST_SUFFIX}`;
+  const normalized = trimmed.toLowerCase();
+  const host =
+    normalized.endsWith(FANDOM_HOST_SUFFIX) || normalized.endsWith(WIKIPEDIA_HOST_SUFFIX)
+      ? trimmed
+      : `${trimmed}${FANDOM_HOST_SUFFIX}`;
   return new URL(`https://${host}`);
 }
 
@@ -39,6 +46,10 @@ export function isFandomHost(host: string) {
   return normalized !== SERVICES_HOST && normalized.endsWith(FANDOM_HOST_SUFFIX);
 }
 
+export function isWikipediaHost(host: string) {
+  return host.toLowerCase().endsWith(WIKIPEDIA_HOST_SUFFIX);
+}
+
 export function wikiRefFromHost(host: string, details: Partial<FandomWikiRef> = {}): FandomWikiRef {
   const normalizedHost = host.toLowerCase();
   const slug = keyFromHost(normalizedHost);
@@ -46,7 +57,7 @@ export function wikiRefFromHost(host: string, details: Partial<FandomWikiRef> = 
     key: details.key ?? details.wikiId ?? slug,
     source: "fandom",
     url: details.url ? trimTrailingSlash(details.url) : `https://${normalizedHost}`,
-    apiUrl: details.apiUrl ?? `https://${normalizedHost}/api.php`,
+    apiUrl: details.apiUrl ?? `https://${normalizedHost}${isWikipediaHost(normalizedHost) ? "/w/api.php" : "/api.php"}`,
     host: normalizedHost,
     slug,
     wikiId: details.wikiId,
@@ -59,13 +70,13 @@ export function wikiRefFromHost(host: string, details: Partial<FandomWikiRef> = 
 
 export function wikiRefFromInput(input: string): FandomWikiRef {
   const url = normalizeHostInput(input);
-  const host = assertHttpsFandomUrl(url);
+  const host = assertHttpsWikiUrl(url);
   return wikiRefFromHost(host);
 }
 
 export function serviceUrl(path: string, params: Record<string, string | number | boolean | undefined>) {
   const url = new URL(path, `https://${SERVICES_HOST}`);
-  assertHttpsFandomUrl(url, true);
+  assertHttpsWikiUrl(url, true);
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
@@ -74,7 +85,7 @@ export function serviceUrl(path: string, params: Record<string, string | number 
 
 export function wikiApiUrl(wiki: FandomWikiRef, params: Record<string, string | number | boolean | undefined>) {
   const url = new URL(wiki.apiUrl);
-  const host = assertHttpsFandomUrl(url);
+  const host = assertHttpsWikiUrl(url);
   if (host !== wiki.host) throw new Error("Wiki API URL host does not match the resolved wiki host.");
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
@@ -99,7 +110,7 @@ export function pageUrlForTitle(wiki: FandomWikiRef, title: string) {
 
 export function pageRefFromUrl(pageUrl: string): { wiki: FandomWikiRef; title?: string; url: string } {
   const url = new URL(pageUrl);
-  const host = assertHttpsFandomUrl(url);
+  const host = assertHttpsWikiUrl(url);
   const wiki = wikiRefFromHost(host);
   let title: string | undefined;
   const marker = "/wiki/";
@@ -119,7 +130,7 @@ export function wikiRefFromCommunityResult(value: Record<string, unknown>): Fand
   if (!rawUrl) return null;
   try {
     const url = new URL(rawUrl);
-    const host = assertHttpsFandomUrl(url);
+    const host = assertHttpsWikiUrl(url);
     return wikiRefFromHost(host, {
       key: typeof value.id === "string" || typeof value.id === "number" ? String(value.id) : undefined,
       wikiId: typeof value.id === "string" || typeof value.id === "number" ? String(value.id) : undefined,
@@ -133,7 +144,7 @@ export function wikiRefFromCommunityResult(value: Record<string, unknown>): Fand
 }
 
 export function assertSafeRedirect(original: URL, next: URL) {
-  const originalHost = assertHttpsFandomUrl(original, original.hostname === SERVICES_HOST);
-  const nextHost = assertHttpsFandomUrl(next, next.hostname === SERVICES_HOST);
-  if (originalHost !== nextHost) throw new Error("Fandom API redirect crossed to a different host.");
+  const originalHost = assertHttpsWikiUrl(original, original.hostname === SERVICES_HOST);
+  const nextHost = assertHttpsWikiUrl(next, next.hostname === SERVICES_HOST);
+  if (originalHost !== nextHost) throw new Error("Wiki API redirect crossed to a different host.");
 }

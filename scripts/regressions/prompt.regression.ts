@@ -3854,6 +3854,23 @@ const cases: RegressionCase[] = [
       assert.equal(illustratorPromptRequestsRenderedText(ordinaryPrompt), false);
       assert.match(mergeIllustratorNegativePrompt(ordinaryPrompt), /speech bubbles/iu);
       assert.match(mergeIllustratorNegativePrompt(ordinaryPrompt), /SFX lettering/iu);
+      assert.equal(
+        mergeIllustratorNegativePrompt(
+          ordinaryPrompt,
+          "low quality, text, low quality",
+          "text",
+          { imageService: "novelai" },
+        ),
+        "low quality, text",
+        "NovelAI should receive only the compiled explicit negative prompt without Illustrator's built-in anti-text list",
+      );
+      for (const source of [generateRouteSource, retryRouteSource]) {
+        assert.match(
+          source,
+          /mergeIllustratorNegativePrompt\([\s\S]*?requestedNegativePrompt,\s*imgConnFull,\s*\)/u,
+          "every Illustrator route should identify NovelAI when merging the negative prompt",
+        );
+      }
 
       assert.equal(
         illustratorPromptRequestsRenderedText("Avoid captions, speech bubbles, subtitles, logos, and watermarks."),

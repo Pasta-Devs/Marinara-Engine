@@ -294,9 +294,12 @@ export function EchoChamberPanel({ hiddenOnMobile = false }: EchoChamberPanelPro
   // Auto-scroll when a new message becomes visible
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: streamingChatId === activeChatId ? "auto" : "smooth",
+      });
     }
-  }, [visibleCount]);
+  }, [activeChatId, streamingChatId, visibleCount]);
 
   // Name → color map
   const nameColorMap = useMemo(() => {

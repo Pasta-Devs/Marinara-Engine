@@ -1851,6 +1851,10 @@ export function resolveNovelAiRequestSize(
   return resolveNovelAiSize(request, scenePrompt, defaults);
 }
 
+export function resolveNovelAiStyleReferenceSecondaryStrength(fidelity: number): number {
+  return 1 - Math.max(0, Math.min(1, fidelity));
+}
+
 function isNovelAiV4Model(model: string): boolean {
   return /^nai-diffusion-(?:4(?:-(?:curated-preview|full))?|4-5(?:-(?:curated|full))?)$/i.test(model.trim());
 }
@@ -2163,7 +2167,9 @@ async function generateNovelAI(baseUrl: string, apiKey: string, request: ImageGe
       index < styleReferenceOffset ? defaults.styleReferenceStrength : 1,
     );
     parameters.director_reference_secondary_strength_values = directorReferenceImages.map((_, index) =>
-      index < styleReferenceOffset ? defaults.styleReferenceFidelity : 0,
+      index < styleReferenceOffset
+        ? resolveNovelAiStyleReferenceSecondaryStrength(defaults.styleReferenceFidelity)
+        : 0,
     );
   }
 

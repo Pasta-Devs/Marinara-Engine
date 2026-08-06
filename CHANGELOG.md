@@ -12,6 +12,12 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Let Professor Mari read trusted Wikipedia links through her structured wiki tools on Android while keeping raw shell networking sandboxed (#4691).
+- Stopped Illustrator from appending its generic anti-text list to NovelAI negative prompts, preserving the prompt supplied by the agent (#4692).
+- Converted NovelAI style-reference fidelity to the provider's inverse secondary-strength scale before sending the request (#4693).
+- Bounded delayed Roleplay typewriter catch-up and disabled competing Echo Chamber smooth scrolling during the main stream, keeping parallel-agent output fluid (#4694).
+- Kept Character and Persona gallery controls inside mobile cards, added deletion to their expanded image views, and matched Chat gallery delete actions to the configured accent (#4695).
+- Removed app-wide color-transition storms and synchronous cursor recoloring from animated accent ticks, and deferred offscreen gallery rendering to keep long sessions responsive (#4696).
 - Scoped cross-chat awareness in individual group conversations to the character currently replying (#4688).
 - Reconciled just-sent Roleplay messages with their saved IDs before editing so the first edit after stopping generation persists (#4678).
 - Retried one transient Roleplay message-edit save failure so remote sessions persist the edit without requiring another manual Save action (#4678).

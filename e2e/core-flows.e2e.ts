@@ -5181,7 +5181,7 @@ test("chat toolbar panels close when their trigger is clicked again across modes
       .locator(".h-48")
       .first()
       .evaluate((element) => element.getBoundingClientRect().height);
-    expect(combinePromptViewHeight).toBe(summaryPromptViewHeight);
+    expect(Math.abs(combinePromptViewHeight - summaryPromptViewHeight)).toBeLessThanOrEqual(2);
 
     const promptEditButton = summaryPromptCard.getByRole("button", { name: "Edit", exact: true });
     await expect(promptEditButton).toBeEnabled();

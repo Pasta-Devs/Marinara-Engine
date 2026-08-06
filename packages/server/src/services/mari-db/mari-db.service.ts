@@ -5181,7 +5181,7 @@ export class MariDbService {
       "Creative data:       mari personas list|active|get|search|create|update|delete",
       "Creative data:       mari lorebooks list|get|get-entry <entry-id>|entries <lorebook-id>|search|create|update <lorebook-id>|add-entry <lorebook-id>|update-entry <entry-id>|delete-entry <entry-id>|link-character|unlink-character|delete",
       "Chats (read-only):   mari chats list|get|messages|search",
-      "Fandom/wiki reads:   mari wiki find-wikis|search-all|search|get-page|sections|category|site-info",
+      "Fandom/Wikipedia:    mari wiki find-wikis|search-all|search|get-page|sections|category|site-info",
       "Discovery:           mari <group> --help or mari <group> <command> --help",
       "Writes dry-run by default where supported; --apply saves reversible changes and shows a Keep/Restore review card.",
     ].join("\n");

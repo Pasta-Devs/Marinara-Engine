@@ -685,7 +685,7 @@ export function ChatGallery({
                 {images!.map((img) => (
                   <div
                     key={img.id}
-                    className="group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
+                    className="mari-gallery-card group relative overflow-hidden rounded-lg bg-[var(--secondary)] ring-1 ring-transparent transition-all hover:ring-[var(--primary)]/40 hover:shadow-lg focus-within:ring-2 focus-within:ring-[var(--primary)]"
                   >
                     <button
                       type="button"
@@ -758,7 +758,7 @@ export function ChatGallery({
                           type="button"
                           onClick={() => setConfirmDeleteId(img.id)}
                           aria-label={localizeUi("ui.chat.chatgallery.deleteGalleryImage")}
-                          className="pointer-events-auto rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60"
+                          className="mari-chrome-accent-surface mari-accent-animated pointer-events-auto rounded-md border p-1.5 transition-colors"
                         >
                           <Trash2 size="0.75rem" />
                         </button>
@@ -844,7 +844,7 @@ export function ChatGallery({
                               onClick={() => void handleDeleteVideo(video)}
                               disabled={deleteVideo.isPending}
                               aria-label={localizeUi("ui.chat.chatgallery.deleteSceneVideo")}
-                              className="pointer-events-auto rounded-md bg-red-500/40 p-1.5 text-white transition-colors hover:bg-red-500/60 disabled:cursor-wait disabled:opacity-60"
+                              className="mari-chrome-accent-surface mari-accent-animated pointer-events-auto rounded-md border p-1.5 transition-colors disabled:cursor-wait disabled:opacity-60"
                               title={localizeUi("ui.chat.chatgallery.deleteSceneVideo")}
                             >
                               {deletingVideoId === video.id ? (
@@ -882,7 +882,7 @@ export function ChatGallery({
                 >{localizeUi("chat.delete.dialog.cancel")}</button>
                 <button
                   onClick={() => handleDelete(confirmDeleteId)}
-                  className="flex-1 rounded-lg bg-red-500/20 px-4 py-2 text-xs text-red-400 transition-colors hover:bg-red-500/30"
+                  className="mari-chrome-accent-surface mari-accent-animated flex-1 rounded-lg border px-4 py-2 text-xs transition-colors"
                 >{localizeUi("lorebook.editor.batch.delete")}</button>
               </div>
             </div>

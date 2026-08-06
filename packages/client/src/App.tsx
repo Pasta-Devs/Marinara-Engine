@@ -89,7 +89,6 @@ const APP_ACCENT_CUSTOM_VARIABLES = [
 const ACCENT_RGB_TICK_MS = 500;
 const ACCENT_RGB_SOLID_CYCLE_MS = 7_200;
 const ACCENT_RGB_GRADIENT_STOP_MS = 6_000;
-const CUSTOM_CURSOR_ANIMATED_RECOLOR_MS = 6_000;
 const CUSTOM_CURSOR_RECOLOR_SCROLL_FREEZE_MS = 360;
 const TOAST_DURATION_MS = 6_000;
 const TOAST_VISIBLE_LIMIT = 3;
@@ -676,9 +675,8 @@ export function App() {
     let cursorRecolorFreezeTimer: ReturnType<typeof window.setTimeout> | null = null;
     let cursorRecolorFrozen = false;
     let pendingCursorAccent: string | null = null;
-    let lastCursorRecolorAt = 0;
 
-    const applyCursorAccent = (cursorAccent: string, options: { slow?: boolean } = {}) => {
+    const applyCursorAccent = (cursorAccent: string) => {
       if (!customCursorEnabled) {
         pendingCursorAccent = null;
         return;
@@ -687,15 +685,7 @@ export function App() {
         pendingCursorAccent = cursorAccent;
         return;
       }
-      if (customCursorEnabled && options.slow && lastCursorRecolorAt > 0) {
-        const now = performance.now();
-        if (now - lastCursorRecolorAt < CUSTOM_CURSOR_ANIMATED_RECOLOR_MS) {
-          pendingCursorAccent = cursorAccent;
-          return;
-        }
-      }
       pendingCursorAccent = null;
-      lastCursorRecolorAt = performance.now();
       setAccentCursorVariable(root, cursorAccent, theme);
     };
 
@@ -709,7 +699,7 @@ export function App() {
       if (pendingCursorAccent !== null) {
         const nextCursorAccent = pendingCursorAccent;
         pendingCursorAccent = null;
-        applyCursorAccent(nextCursorAccent, { slow: accentAnimationEnabled });
+        applyCursorAccent(nextCursorAccent);
       }
     };
 
@@ -778,7 +768,6 @@ export function App() {
         root.style.setProperty("--marinara-chat-chrome-accent", liveAccent);
         root.style.setProperty("--marinara-chat-chrome-accent-gradient", liveGradient);
       }
-      applyCursorAccent(liveAccent, { slow: true });
       setAccentModeDataset();
     };
 
@@ -847,7 +836,13 @@ export function App() {
       syncAccentAnimationState();
     };
 
-    if (!accentAnimationEnabled) {
+    if (accentAnimationEnabled) {
+      // Keep the custom cursor on the selected solid accent. Resolving a
+      // color-mix() cursor through getComputedStyle on every live accent tick
+      // causes a synchronous style flush that becomes noticeable in long sessions.
+      applyCursorAccent(solidAccent);
+      setAccentModeDataset();
+    } else {
       applyStaticAccent();
     }
     syncAccentAnimationState();
