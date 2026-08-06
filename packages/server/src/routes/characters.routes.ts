@@ -68,6 +68,11 @@ import {
   resolveStoredGalleryFile,
   unlinkGalleryFileIfUnreferenced,
 } from "../services/image/gallery-file-lifecycle.js";
+import {
+  collectCharacterAvatarPaths,
+  collectPersonaAvatarPaths,
+  unlinkAvatarFilesIfUnreferenced,
+} from "../services/image/avatar-file-lifecycle.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
 const PERSONA_GALLERY_ROOT = join(DATA_DIR, "gallery", "personas");
@@ -914,6 +919,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (req.params.id === PROFESSOR_MARI_ID) {
       return reply.status(403).send({ error: "Professor Mari is a built-in character and cannot be deleted" });
     }
+    const avatarPaths = await collectCharacterAvatarPaths(app.db, [req.params.id]);
     const galleryImages = await characterGallery.listByCharacterId(req.params.id);
     await storage.remove(req.params.id);
     // Cascade the character's Noodle presence, otherwise its account and posts stay
@@ -938,6 +944,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
+    await unlinkAvatarFilesIfUnreferenced({ db: app.db, avatarPaths });
     return reply.status(204).send();
   });
 
@@ -1979,6 +1986,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const persona = await storage.getPersona(id);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
 
+    const avatarPaths = await collectPersonaAvatarPaths(app.db, [id]);
     const galleryImages = await personaGallery.listByPersonaId(id);
     await storage.removePersona(id);
     for (const image of galleryImages) {
@@ -1996,6 +2004,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
+    await unlinkAvatarFilesIfUnreferenced({ db: app.db, avatarPaths });
     return reply.status(204).send();
   });
 

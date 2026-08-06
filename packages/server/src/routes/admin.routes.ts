@@ -9,6 +9,11 @@ import { PROFESSOR_MARI_ID, TTS_SETTINGS_KEY } from "@marinara-engine/shared";
 import { DATA_DIR } from "../utils/data-dir.js";
 import * as schema from "../db/schema/index.js";
 import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
+import {
+  collectCharacterAvatarPaths,
+  collectPersonaAvatarPaths,
+  unlinkAvatarFilesIfUnreferenced,
+} from "../services/image/avatar-file-lifecycle.js";
 
 type ExpungeScope =
   | "chats"
@@ -87,15 +92,36 @@ export async function adminRoutes(app: FastifyInstance) {
     }
 
     if (requestedScopes.includes("characters")) {
+      const deletedCharacters = await db
+        .select({ id: schema.characters.id })
+        .from(schema.characters)
+        .where(ne(schema.characters.id, PROFESSOR_MARI_ID));
+      const avatarPaths = await collectCharacterAvatarPaths(
+        db,
+        deletedCharacters.map((row) => row.id),
+      );
       await runDelete("character_groups", () => db.delete(schema.characterGroups).run());
       await runDelete("characters", () =>
         db.delete(schema.characters).where(ne(schema.characters.id, PROFESSOR_MARI_ID)).run(),
       );
+      if (!requestedScopes.includes("media")) {
+        filesDeleted.avatars =
+          (filesDeleted.avatars ?? 0) + (await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths }));
+      }
     }
 
     if (requestedScopes.includes("personas")) {
+      const deletedPersonas = await db.select({ id: schema.personas.id }).from(schema.personas);
+      const avatarPaths = await collectPersonaAvatarPaths(
+        db,
+        deletedPersonas.map((row) => row.id),
+      );
       await runDelete("persona_groups", () => db.delete(schema.personaGroups).run());
       await runDelete("personas", () => db.delete(schema.personas).run());
+      if (!requestedScopes.includes("media")) {
+        filesDeleted.avatars =
+          (filesDeleted.avatars ?? 0) + (await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths }));
+      }
     }
 
     if (requestedScopes.includes("lorebooks")) {
