@@ -22,6 +22,7 @@ import {
 } from "@marinara-engine/shared";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "../import/import-timestamps.js";
 import { toPaginatedList } from "../../utils/list-pagination.js";
+import { withAvatarFileLifecycleLock } from "../image/avatar-file-lifecycle.js";
 
 function resolveTimestamps(overrides?: TimestampOverrides | null) {
   const normalized = normalizeTimestampOverrides(overrides);
@@ -424,20 +425,23 @@ export function createCharactersStorage(db: DB) {
       avatarPath?: string,
       timestampOverrides?: TimestampOverrides | null,
       comment?: string | null,
-    ) {
-      const id = newId();
-      const timestamp = resolveTimestamps(timestampOverrides);
-      const normalizedData = normalizeCharacterData(data);
-      await db.insert(characters).values({
-        id,
-        data: JSON.stringify(normalizedData),
-        comment: comment ?? "",
-        avatarPath: avatarPath ?? null,
-        spriteFolderPath: null,
-        createdAt: timestamp.createdAt,
-        updatedAt: timestamp.updatedAt,
-      });
-      return this.getById(id);
+    ): Promise<CharacterRow | null> {
+      const create = async () => {
+        const id = newId();
+        const timestamp = resolveTimestamps(timestampOverrides);
+        const normalizedData = normalizeCharacterData(data);
+        await db.insert(characters).values({
+          id,
+          data: JSON.stringify(normalizedData),
+          comment: comment ?? "",
+          avatarPath: avatarPath ?? null,
+          spriteFolderPath: null,
+          createdAt: timestamp.createdAt,
+          updatedAt: timestamp.updatedAt,
+        });
+        return this.getById(id);
+      };
+      return avatarPath ? withAvatarFileLifecycleLock(create) : create();
     },
 
     async update(
@@ -451,8 +455,15 @@ export function createCharactersStorage(db: DB) {
         versionReason?: string | null;
         skipVersionSnapshot?: boolean;
         mergeExtensions?: boolean;
+        /** Internal recursion guard for avatar-reference lifecycle serialization. */
+        _avatarLifecycleLocked?: boolean;
       },
-    ) {
+    ): Promise<CharacterRow | null> {
+      if (avatarPath !== undefined && !options?._avatarLifecycleLocked) {
+        return withAvatarFileLifecycleLock(() =>
+          this.update(id, data, avatarPath, { ...options, _avatarLifecycleLocked: true }),
+        );
+      }
       const existing = await this.getById(id);
       if (!existing) return null;
       const currentData = parseCharacterData(existing.data);
@@ -493,16 +504,18 @@ export function createCharactersStorage(db: DB) {
     },
 
     async updateAvatar(id: string, avatarPath: string | null) {
-      const existing = await this.getById(id);
-      if (!existing) return null;
-      if (existing.avatarPath !== avatarPath) {
-        await this.createVersionSnapshot(id, {
-          source: "manual",
-          reason: avatarPath ? "Avatar update" : "Avatar removed",
-        });
-      }
-      await db.update(characters).set({ avatarPath, updatedAt: now() }).where(eq(characters.id, id));
-      return this.getById(id);
+      return withAvatarFileLifecycleLock(async () => {
+        const existing = await this.getById(id);
+        if (!existing) return null;
+        if (existing.avatarPath !== avatarPath) {
+          await this.createVersionSnapshot(id, {
+            source: "manual",
+            reason: avatarPath ? "Avatar update" : "Avatar removed",
+          });
+        }
+        await db.update(characters).set({ avatarPath, updatedAt: now() }).where(eq(characters.id, id));
+        return this.getById(id);
+      });
     },
 
     async restoreVersion(characterId: string, versionId: string) {
@@ -614,23 +627,25 @@ export function createCharactersStorage(db: DB) {
     },
 
     async duplicateCharacter(id: string) {
-      const source = await this.getById(id);
-      if (!source) return null;
-      const newCharId = newId();
-      const timestamp = now();
-      const sourceData = JSON.parse(source.data) as Record<string, unknown>;
-      const sourceName = typeof sourceData.name === "string" ? sourceData.name.trim() : "";
-      sourceData.name = `${sourceName || "Character"} (Copy)`;
-      await db.insert(characters).values({
-        id: newCharId,
-        data: JSON.stringify(sourceData),
-        comment: source.comment ?? "",
-        avatarPath: source.avatarPath,
-        spriteFolderPath: source.spriteFolderPath,
-        createdAt: timestamp,
-        updatedAt: timestamp,
+      return withAvatarFileLifecycleLock(async () => {
+        const source = await this.getById(id);
+        if (!source) return null;
+        const newCharId = newId();
+        const timestamp = now();
+        const sourceData = JSON.parse(source.data) as Record<string, unknown>;
+        const sourceName = typeof sourceData.name === "string" ? sourceData.name.trim() : "";
+        sourceData.name = `${sourceName || "Character"} (Copy)`;
+        await db.insert(characters).values({
+          id: newCharId,
+          data: JSON.stringify(sourceData),
+          comment: source.comment ?? "",
+          avatarPath: source.avatarPath,
+          spriteFolderPath: source.spriteFolderPath,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        return this.getById(newCharId);
       });
-      return this.getById(newCharId);
     },
 
     // ── Personas ──
@@ -776,7 +791,13 @@ export function createCharactersStorage(db: DB) {
         avatarCrop?: string;
       },
       timestampOverrides?: TimestampOverrides | null,
-    ) {
+      _avatarLifecycleLocked = false,
+    ): Promise<PersonaRow | null> {
+      if (avatarPath && !_avatarLifecycleLocked) {
+        return withAvatarFileLifecycleLock(() =>
+          this.createPersona(name, description, avatarPath, extra, timestampOverrides, true),
+        );
+      }
       const id = newId();
       const timestamp = resolveTimestamps(timestampOverrides);
       await db.insert(personas).values({
@@ -842,40 +863,42 @@ export function createCharactersStorage(db: DB) {
     },
 
     async duplicatePersona(id: string) {
-      const source = await this.getPersona(id);
-      if (!source) return null;
-      const newPId = newId();
-      const timestamp = now();
-      await db.insert(personas).values({
-        id: newPId,
-        name: `${source.name || "Persona"} (Copy)`,
-        comment: source.comment ?? "",
-        creator: source.creator ?? "",
-        personaVersion: source.personaVersion?.trim() ? source.personaVersion : "1.0",
-        creatorNotes: source.creatorNotes ?? "",
-        phoneticName: source.phoneticName ?? "",
-        description: source.description ?? "",
-        personality: source.personality ?? "",
-        scenario: source.scenario ?? "",
-        backstory: source.backstory ?? "",
-        appearance: source.appearance ?? "",
-        avatarPath: source.avatarPath,
-        avatarCrop: source.avatarCrop ?? "",
-        isActive: "false",
-        nameColor: source.nameColor ?? "",
-        dialogueColor: source.dialogueColor ?? "",
-        boxColor: source.boxColor ?? "",
-        trackerCardColors: source.trackerCardColors ?? '{"mode":"chat"}',
-        personaStats: source.personaStats ?? "",
-        tags: source.tags ?? "[]",
-        savedStatusOptions: source.savedStatusOptions ?? "[]",
-        convoDisplayName: source.convoDisplayName ?? "",
-        aboutMe: source.aboutMe ?? "",
-        convoBehavior: source.convoBehavior ?? "",
-        createdAt: timestamp,
-        updatedAt: timestamp,
+      return withAvatarFileLifecycleLock(async () => {
+        const source = await this.getPersona(id);
+        if (!source) return null;
+        const newPId = newId();
+        const timestamp = now();
+        await db.insert(personas).values({
+          id: newPId,
+          name: `${source.name || "Persona"} (Copy)`,
+          comment: source.comment ?? "",
+          creator: source.creator ?? "",
+          personaVersion: source.personaVersion?.trim() ? source.personaVersion : "1.0",
+          creatorNotes: source.creatorNotes ?? "",
+          phoneticName: source.phoneticName ?? "",
+          description: source.description ?? "",
+          personality: source.personality ?? "",
+          scenario: source.scenario ?? "",
+          backstory: source.backstory ?? "",
+          appearance: source.appearance ?? "",
+          avatarPath: source.avatarPath,
+          avatarCrop: source.avatarCrop ?? "",
+          isActive: "false",
+          nameColor: source.nameColor ?? "",
+          dialogueColor: source.dialogueColor ?? "",
+          boxColor: source.boxColor ?? "",
+          trackerCardColors: source.trackerCardColors ?? '{"mode":"chat"}',
+          personaStats: source.personaStats ?? "",
+          tags: source.tags ?? "[]",
+          savedStatusOptions: source.savedStatusOptions ?? "[]",
+          convoDisplayName: source.convoDisplayName ?? "",
+          aboutMe: source.aboutMe ?? "",
+          convoBehavior: source.convoBehavior ?? "",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        });
+        return this.getPersona(newPId);
       });
-      return this.getPersona(newPId);
     },
 
     async updatePersona(
@@ -909,8 +932,15 @@ export function createCharactersStorage(db: DB) {
         versionSource?: string | null;
         versionReason?: string | null;
         skipVersionSnapshot?: boolean;
+        /** Internal recursion guard for avatar-reference lifecycle serialization. */
+        _avatarLifecycleLocked?: boolean;
       },
-    ) {
+    ): Promise<PersonaRow | null> {
+      if (updates.avatarPath !== undefined && !options?._avatarLifecycleLocked) {
+        return withAvatarFileLifecycleLock(() =>
+          this.updatePersona(id, updates, { ...options, _avatarLifecycleLocked: true }),
+        );
+      }
       const existing = await this.getPersona(id);
       if (!existing) return null;
       const currentData = buildPersonaSnapshot(existing);
@@ -1105,19 +1135,22 @@ export function createCharactersStorage(db: DB) {
       id: string,
       updates: { name?: string; description?: string; characterIds?: string[]; avatarPath?: string | null },
     ) {
-      const existing = await this.getGroupById(id);
-      if (!existing) return null;
-      await db
-        .update(characterGroups)
-        .set({
-          ...(updates.name !== undefined && { name: updates.name }),
-          ...(updates.description !== undefined && { description: updates.description }),
-          ...(updates.characterIds !== undefined && { characterIds: JSON.stringify(updates.characterIds) }),
-          ...(updates.avatarPath !== undefined && { avatarPath: updates.avatarPath }),
-          updatedAt: now(),
-        })
-        .where(eq(characterGroups.id, id));
-      return this.getGroupById(id);
+      const update = async () => {
+        const existing = await this.getGroupById(id);
+        if (!existing) return null;
+        await db
+          .update(characterGroups)
+          .set({
+            ...(updates.name !== undefined && { name: updates.name }),
+            ...(updates.description !== undefined && { description: updates.description }),
+            ...(updates.characterIds !== undefined && { characterIds: JSON.stringify(updates.characterIds) }),
+            ...(updates.avatarPath !== undefined && { avatarPath: updates.avatarPath }),
+            updatedAt: now(),
+          })
+          .where(eq(characterGroups.id, id));
+        return this.getGroupById(id);
+      };
+      return updates.avatarPath !== undefined ? withAvatarFileLifecycleLock(update) : update();
     },
 
     async removeGroup(id: string) {

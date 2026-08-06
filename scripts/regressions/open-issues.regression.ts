@@ -4408,6 +4408,11 @@ assert.match(
   "The summary UI must submit every selected entry to the combine endpoint",
 );
 assert.match(
+  chatRoutesSource,
+  /const nextEntries = entries\.map\(\(entry\) =>\s*requestedIds\.has\(entry\.id\) \? \{ \.\.\.entry, enabled: false, updatedAt: now \} : entry,[\s\S]{0,160}nextEntries\.splice/u,
+  "Combining Chat Summaries must retain the selected source entries as inactive history",
+);
+assert.match(
   summaryPopoverSource,
   /role="tablist"[\s\S]{0,900}summaryPromptView === "summary"[\s\S]{0,900}summaryPromptView === "combine"/u,
   "The Summary Prompt card must switch between Chat Summary and Combine prompt views",

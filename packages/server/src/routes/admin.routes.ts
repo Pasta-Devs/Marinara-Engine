@@ -12,7 +12,7 @@ import { requirePrivilegedAccess } from "../middleware/privileged-gate.js";
 import {
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
-  unlinkAvatarFilesIfUnreferenced,
+  mutateAvatarReferencesAndCleanup,
 } from "../services/image/avatar-file-lifecycle.js";
 
 type ExpungeScope =
@@ -92,36 +92,53 @@ export async function adminRoutes(app: FastifyInstance) {
     }
 
     if (requestedScopes.includes("characters")) {
-      const deletedCharacters = await db
-        .select({ id: schema.characters.id })
-        .from(schema.characters)
-        .where(ne(schema.characters.id, PROFESSOR_MARI_ID));
-      const avatarPaths = await collectCharacterAvatarPaths(
+      const cleanup = await mutateAvatarReferencesAndCleanup({
         db,
-        deletedCharacters.map((row) => row.id),
-      );
-      await runDelete("character_groups", () => db.delete(schema.characterGroups).run());
-      await runDelete("characters", () =>
-        db.delete(schema.characters).where(ne(schema.characters.id, PROFESSOR_MARI_ID)).run(),
-      );
-      if (!requestedScopes.includes("media")) {
-        filesDeleted.avatars =
-          (filesDeleted.avatars ?? 0) + (await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths }));
-      }
+        collectAvatarPaths: async () => {
+          const [deletedCharacters, deletedGroups] = await Promise.all([
+            db
+              .select({ id: schema.characters.id })
+              .from(schema.characters)
+              .where(ne(schema.characters.id, PROFESSOR_MARI_ID)),
+            db.select({ avatarPath: schema.characterGroups.avatarPath }).from(schema.characterGroups),
+          ]);
+          const characterAvatarPaths = await collectCharacterAvatarPaths(
+            db,
+            deletedCharacters.map((row) => row.id),
+          );
+          return [
+            ...characterAvatarPaths,
+            ...deletedGroups.flatMap((row) => (row.avatarPath ? [row.avatarPath] : [])),
+          ];
+        },
+        mutateReferences: async () => {
+          await runDelete("character_groups", () => db.delete(schema.characterGroups).run());
+          await runDelete("characters", () =>
+            db.delete(schema.characters).where(ne(schema.characters.id, PROFESSOR_MARI_ID)).run(),
+          );
+        },
+        cleanupFiles: !requestedScopes.includes("media"),
+      });
+      filesDeleted.avatars = (filesDeleted.avatars ?? 0) + cleanup.filesDeleted;
     }
 
     if (requestedScopes.includes("personas")) {
-      const deletedPersonas = await db.select({ id: schema.personas.id }).from(schema.personas);
-      const avatarPaths = await collectPersonaAvatarPaths(
+      const cleanup = await mutateAvatarReferencesAndCleanup({
         db,
-        deletedPersonas.map((row) => row.id),
-      );
-      await runDelete("persona_groups", () => db.delete(schema.personaGroups).run());
-      await runDelete("personas", () => db.delete(schema.personas).run());
-      if (!requestedScopes.includes("media")) {
-        filesDeleted.avatars =
-          (filesDeleted.avatars ?? 0) + (await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths }));
-      }
+        collectAvatarPaths: async () => {
+          const deletedPersonas = await db.select({ id: schema.personas.id }).from(schema.personas);
+          return collectPersonaAvatarPaths(
+            db,
+            deletedPersonas.map((row) => row.id),
+          );
+        },
+        mutateReferences: async () => {
+          await runDelete("persona_groups", () => db.delete(schema.personaGroups).run());
+          await runDelete("personas", () => db.delete(schema.personas).run());
+        },
+        cleanupFiles: !requestedScopes.includes("media"),
+      });
+      filesDeleted.avatars = (filesDeleted.avatars ?? 0) + cleanup.filesDeleted;
     }
 
     if (requestedScopes.includes("lorebooks")) {

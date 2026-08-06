@@ -71,7 +71,7 @@ import {
 import {
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
-  unlinkAvatarFilesIfUnreferenced,
+  mutateAvatarReferencesAndCleanup,
 } from "../services/image/avatar-file-lifecycle.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
@@ -919,9 +919,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (req.params.id === PROFESSOR_MARI_ID) {
       return reply.status(403).send({ error: "Professor Mari is a built-in character and cannot be deleted" });
     }
-    const avatarPaths = await collectCharacterAvatarPaths(app.db, [req.params.id]);
     const galleryImages = await characterGallery.listByCharacterId(req.params.id);
-    await storage.remove(req.params.id);
+    await mutateAvatarReferencesAndCleanup({
+      db: app.db,
+      collectAvatarPaths: () => collectCharacterAvatarPaths(app.db, [req.params.id]),
+      mutateReferences: () => storage.remove(req.params.id),
+    });
     // Cascade the character's Noodle presence, otherwise its account and posts stay
     // in the timeline forever as a ghost (issue #4295).
     try {
@@ -944,7 +947,6 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
-    await unlinkAvatarFilesIfUnreferenced({ db: app.db, avatarPaths });
     return reply.status(204).send();
   });
 
@@ -1986,9 +1988,12 @@ export async function charactersRoutes(app: FastifyInstance) {
     const persona = await storage.getPersona(id);
     if (!persona) return reply.status(404).send({ error: "Persona not found" });
 
-    const avatarPaths = await collectPersonaAvatarPaths(app.db, [id]);
     const galleryImages = await personaGallery.listByPersonaId(id);
-    await storage.removePersona(id);
+    await mutateAvatarReferencesAndCleanup({
+      db: app.db,
+      collectAvatarPaths: () => collectPersonaAvatarPaths(app.db, [id]),
+      mutateReferences: () => storage.removePersona(id),
+    });
     for (const image of galleryImages) {
       await unlinkGalleryFileIfUnreferenced({ db: app.db, filePath: image.filePath });
     }
@@ -2004,7 +2009,6 @@ export async function charactersRoutes(app: FastifyInstance) {
     if (!hasSharedLocalFile && existsSync(galleryDir)) {
       rmSync(galleryDir, { recursive: true, force: true });
     }
-    await unlinkAvatarFilesIfUnreferenced({ db: app.db, avatarPaths });
     return reply.status(204).send();
   });
 

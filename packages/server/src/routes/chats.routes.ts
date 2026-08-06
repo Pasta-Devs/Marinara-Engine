@@ -4021,7 +4021,9 @@ export async function chatsRoutes(app: FastifyInstance) {
           },
           { createId: newId, now },
         );
-        const nextEntries = entries.filter((entry) => !requestedIds.has(entry.id));
+        const nextEntries = entries.map((entry) =>
+          requestedIds.has(entry.id) ? { ...entry, enabled: false, updatedAt: now } : entry,
+        );
         nextEntries.splice(Math.max(0, firstIndex), 0, combinedEntry);
         combinedEntries = normalizeChatSummaryEntries(nextEntries);
         combinedSummary = compileChatSummaryEntries(combinedEntries);

@@ -11,6 +11,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept source Chat Summary entries as inactive history after combining summaries in Roleplay mode instead of deleting them.
 - Removed local Character and Persona avatar files when their cards are deleted individually or through Danger Zone, including avatars retained only by deleted card-version history (#4668).
 - Installed the pinned pnpm automatically when the Windows installer cannot use Corepack, an existing pnpm, or its temporary runner (#4662).
 - Exposed saved prompt choices for active Roleplay tracker agents in Chat Settings, matching the existing Game-mode selector (#4663).

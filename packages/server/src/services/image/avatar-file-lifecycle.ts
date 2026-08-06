@@ -14,6 +14,23 @@ import { DATA_DIR } from "../../utils/data-dir.js";
 import { assertInsideDir } from "../../utils/security.js";
 
 const LOCAL_AVATAR_PREFIX = "/api/avatars/file/";
+let avatarLifecycleQueue = Promise.resolve();
+
+/** Serialize avatar-reference mutations with final-reference file cleanup. */
+export async function withAvatarFileLifecycleLock<T>(operation: () => Promise<T> | T): Promise<T> {
+  const previous = avatarLifecycleQueue;
+  let release!: () => void;
+  avatarLifecycleQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
 
 /** Resolve a stored app avatar URL without permitting nested paths or root escape. */
 export function resolveStoredAvatarFile(
@@ -99,13 +116,12 @@ async function referencedAvatarFiles(db: DB, avatarRoot: string): Promise<Set<st
 }
 
 /** Remove local avatar files after their final database reference has been deleted. */
-export async function unlinkAvatarFilesIfUnreferenced(input: {
+async function unlinkAvatarFilesIfUnreferencedUnlocked(input: {
   db: DB;
   avatarPaths: readonly string[];
-  /** Test-only filesystem override. */
-  avatarRoot?: string;
+  avatarRoot: string;
 }): Promise<number> {
-  const avatarRoot = input.avatarRoot ?? join(DATA_DIR, "avatars");
+  const avatarRoot = input.avatarRoot;
   const referenced = await referencedAvatarFiles(input.db, avatarRoot);
   const candidates = new Set<string>();
   for (const avatarPath of input.avatarPaths) {
@@ -126,4 +142,43 @@ export async function unlinkAvatarFilesIfUnreferenced(input: {
     }
   }
   return deleted;
+}
+
+/** Remove local avatar files after their final database reference has been deleted. */
+export async function unlinkAvatarFilesIfUnreferenced(input: {
+  db: DB;
+  avatarPaths: readonly string[];
+  /** Test-only filesystem override. */
+  avatarRoot?: string;
+}): Promise<number> {
+  return withAvatarFileLifecycleLock(() =>
+    unlinkAvatarFilesIfUnreferencedUnlocked({
+      ...input,
+      avatarRoot: input.avatarRoot ?? join(DATA_DIR, "avatars"),
+    }),
+  );
+}
+
+/** Hold the lifecycle lock from reference capture through mutation and cleanup. */
+export async function mutateAvatarReferencesAndCleanup<T>(input: {
+  db: DB;
+  collectAvatarPaths: () => Promise<string[]>;
+  mutateReferences: () => Promise<T>;
+  cleanupFiles?: boolean;
+  /** Test-only filesystem override. */
+  avatarRoot?: string;
+}): Promise<{ result: T; filesDeleted: number }> {
+  return withAvatarFileLifecycleLock(async () => {
+    const avatarPaths = await input.collectAvatarPaths();
+    const result = await input.mutateReferences();
+    const filesDeleted =
+      input.cleanupFiles === false
+        ? 0
+        : await unlinkAvatarFilesIfUnreferencedUnlocked({
+            db: input.db,
+            avatarPaths,
+            avatarRoot: input.avatarRoot ?? join(DATA_DIR, "avatars"),
+          });
+    return { result, filesDeleted };
+  });
 }

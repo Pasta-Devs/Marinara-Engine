@@ -9,14 +9,17 @@ import {
   characterCardVersions,
   characterGroups,
   characters,
+  personaCardVersions,
   personas,
 } from "../../packages/server/src/db/schema/index.js";
 import {
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
+  mutateAvatarReferencesAndCleanup,
   resolveStoredAvatarFile,
   unlinkAvatarFilesIfUnreferenced,
 } from "../../packages/server/src/services/image/avatar-file-lifecycle.js";
+import { createCharactersStorage } from "../../packages/server/src/services/storage/characters.storage.js";
 
 const storageRoot = mkdtempSync(join(tmpdir(), "marinara-avatar-delete-storage-"));
 const avatarRoot = mkdtempSync(join(tmpdir(), "marinara-avatar-delete-files-"));
@@ -73,6 +76,7 @@ try {
   assert.equal(existsSync(historicalFile), false);
 
   const sharedFile = writeAvatar("shared.png");
+  const personaHistoryFile = writeAvatar("persona-history.png");
   await db.insert(characters).values({
     id: "shared-character",
     data: characterData("Shared"),
@@ -89,15 +93,31 @@ try {
     createdAt: now,
     updatedAt: now,
   });
+  await db.insert(personaCardVersions).values({
+    id: "shared-persona-version",
+    personaId: "shared-persona",
+    data: JSON.stringify({ name: "Shared Persona" }),
+    comment: "",
+    avatarPath: localAvatar("persona-history.png"),
+    version: "1.0",
+    source: "manual",
+    reason: "Avatar update",
+    createdAt: now,
+  });
   const sharedCharacterPaths = await collectCharacterAvatarPaths(db, ["shared-character"]);
   await db.delete(characters).where(eq(characters.id, "shared-character"));
   assert.equal(await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths: sharedCharacterPaths, avatarRoot }), 0);
   assert.equal(existsSync(sharedFile), true, "a surviving persona reference must preserve a shared avatar file");
 
   const sharedPersonaPaths = await collectPersonaAvatarPaths(db, ["shared-persona"]);
+  assert.deepEqual(
+    new Set(sharedPersonaPaths),
+    new Set([localAvatar("shared.png", "?v=new"), localAvatar("persona-history.png")]),
+  );
   await db.delete(personas).where(eq(personas.id, "shared-persona"));
-  assert.equal(await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths: sharedPersonaPaths, avatarRoot }), 1);
+  assert.equal(await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths: sharedPersonaPaths, avatarRoot }), 2);
   assert.equal(existsSync(sharedFile), false, "the final database reference must release a shared avatar file");
+  assert.equal(existsSync(personaHistoryFile), false, "Persona card-version avatars must be released with the Persona");
 
   const groupFile = writeAvatar("group.png");
   await db.insert(characters).values({
@@ -124,6 +144,47 @@ try {
   assert.equal(existsSync(groupFile), true, "a surviving character-group reference must preserve its avatar file");
   await db.delete(characterGroups).where(eq(characterGroups.id, "avatar-group"));
   assert.equal(await unlinkAvatarFilesIfUnreferenced({ db, avatarPaths: groupCharacterPaths, avatarRoot }), 1);
+
+  const raceFile = writeAvatar("delete-race.png");
+  await db.insert(characters).values({
+    id: "delete-race-character",
+    data: characterData("Delete Race"),
+    comment: "",
+    avatarPath: localAvatar("delete-race.png"),
+    spriteFolderPath: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  let signalDeletionStarted!: () => void;
+  const deletionStarted = new Promise<void>((resolve) => {
+    signalDeletionStarted = resolve;
+  });
+  let allowDeletion!: () => void;
+  const deletionMayFinish = new Promise<void>((resolve) => {
+    allowDeletion = resolve;
+  });
+  const racingDeletion = mutateAvatarReferencesAndCleanup({
+    db,
+    avatarRoot,
+    collectAvatarPaths: () => collectCharacterAvatarPaths(db, ["delete-race-character"]),
+    mutateReferences: async () => {
+      signalDeletionStarted();
+      await deletionMayFinish;
+      await db.delete(characters).where(eq(characters.id, "delete-race-character"));
+    },
+  });
+  await deletionStarted;
+  let duplicateSettled = false;
+  const racingDuplicate = createCharactersStorage(db).duplicateCharacter("delete-race-character").then((result) => {
+    duplicateSettled = true;
+    return result;
+  });
+  await Promise.resolve();
+  assert.equal(duplicateSettled, false, "avatar reference creation must wait for in-flight cleanup");
+  allowDeletion();
+  assert.equal((await racingDeletion).filesDeleted, 1);
+  assert.equal(await racingDuplicate, null, "a duplicate must not retain a reference after its source was deleted");
+  assert.equal(existsSync(raceFile), false);
 
   const mariFile = writeAvatar("professor-mari.png");
   const dangerZoneFile = writeAvatar("danger-zone.png");
