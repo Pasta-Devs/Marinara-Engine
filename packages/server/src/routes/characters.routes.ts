@@ -473,8 +473,10 @@ async function removeCopiedAvatarFile(avatarPath: string) {
   if (!filename) return;
   try {
     await unlink(assertInsideDir(AVATAR_ROOT, join(AVATAR_ROOT, filename)));
-  } catch {
-    // The copy may not exist if the failure happened before the write.
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      logger.warn(error, "Failed to remove copied avatar file %s", filename);
+    }
   }
 }
 
@@ -1734,10 +1736,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     await writeFile(filepath, imageBuffer);
 
     const avatarPath = `/api/avatars/file/${filename}`;
-    const updated = await storage.updateAvatar(id, avatarPath).catch(async (error: unknown) => {
-      await removeCopiedAvatarFile(avatarPath);
-      throw error;
-    });
+    const updated = await storage.updateAvatar(id, avatarPath);
     if (!updated) {
       await removeCopiedAvatarFile(avatarPath);
       return reply.status(404).send({ error: "Character not found" });
@@ -1975,12 +1974,7 @@ export async function charactersRoutes(app: FastifyInstance) {
     const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
     await writeFile(filepath, imageBuffer);
     const avatarPath = `/api/avatars/file/${filename}`;
-    const updated = await storage
-      .updatePersona(req.params.id, { avatarPath }, { versionReason: "Avatar update" })
-      .catch(async (error: unknown) => {
-        await removeCopiedAvatarFile(avatarPath);
-        throw error;
-      });
+    const updated = await storage.updatePersona(req.params.id, { avatarPath }, { versionReason: "Avatar update" });
     if (!updated) {
       await removeCopiedAvatarFile(avatarPath);
       return reply.status(404).send({ error: "Persona not found" });

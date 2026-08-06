@@ -266,6 +266,42 @@ function normalizePersonaSnapshot(data: PersonaCardSnapshot): PersonaCardSnapsho
   };
 }
 
+type VersionSnapshotOptions = { source?: string; reason?: string; createdAt?: string | null };
+
+async function insertCharacterVersionSnapshot(database: DB, existing: CharacterRow, options?: VersionSnapshotOptions) {
+  const currentData = normalizeCharacterData(parseCharacterData(existing.data));
+  const id = newId();
+  await database.insert(characterCardVersions).values({
+    id,
+    characterId: existing.id,
+    data: JSON.stringify(currentData),
+    comment: existing.comment ?? "",
+    avatarPath: existing.avatarPath ?? null,
+    version: currentData.character_version ?? "",
+    source: options?.source ?? "manual",
+    reason: options?.reason ?? "",
+    createdAt: options?.createdAt ?? existing.updatedAt ?? now(),
+  });
+  return id;
+}
+
+async function insertPersonaVersionSnapshot(database: DB, existing: PersonaRow, options?: VersionSnapshotOptions) {
+  const currentData = buildPersonaSnapshot(existing);
+  const id = newId();
+  await database.insert(personaCardVersions).values({
+    id,
+    personaId: existing.id,
+    data: JSON.stringify(currentData),
+    comment: existing.comment ?? "",
+    avatarPath: existing.avatarPath ?? null,
+    version: currentData.personaVersion ?? "",
+    source: options?.source ?? "manual",
+    reason: options?.reason ?? "",
+    createdAt: options?.createdAt ?? existing.updatedAt ?? now(),
+  });
+  return id;
+}
+
 export function createCharactersStorage(db: DB) {
   return {
     // ── Characters ──
@@ -403,20 +439,7 @@ export function createCharactersStorage(db: DB) {
     ) {
       const existing = await this.getById(characterId);
       if (!existing) return null;
-      const currentData = normalizeCharacterData(parseCharacterData(existing.data));
-      const timestamp = options?.createdAt ?? existing.updatedAt ?? now();
-      const id = newId();
-      await db.insert(characterCardVersions).values({
-        id,
-        characterId,
-        data: JSON.stringify(currentData),
-        comment: existing.comment ?? "",
-        avatarPath: existing.avatarPath ?? null,
-        version: currentData.character_version ?? "",
-        source: options?.source ?? "manual",
-        reason: options?.reason ?? "",
-        createdAt: timestamp,
-      });
+      const id = await insertCharacterVersionSnapshot(db, existing, options);
       return this.getVersionById(characterId, id);
     },
 
@@ -504,18 +527,22 @@ export function createCharactersStorage(db: DB) {
     },
 
     async updateAvatar(id: string, avatarPath: string | null) {
-      return withAvatarFileLifecycleLock(async () => {
-        const existing = await this.getById(id);
-        if (!existing) return null;
-        if (existing.avatarPath !== avatarPath) {
-          await this.createVersionSnapshot(id, {
-            source: "manual",
-            reason: avatarPath ? "Avatar update" : "Avatar removed",
-          });
-        }
-        await db.update(characters).set({ avatarPath, updatedAt: now() }).where(eq(characters.id, id));
-        return this.getById(id);
-      });
+      return withAvatarFileLifecycleLock(() =>
+        db.transaction(async (tx) => {
+          const rows = await tx.select().from(characters).where(eq(characters.id, id));
+          const existing = rows[0];
+          if (!existing) return null;
+          if (existing.avatarPath !== avatarPath) {
+            await insertCharacterVersionSnapshot(tx, existing, {
+              source: "manual",
+              reason: avatarPath ? "Avatar update" : "Avatar removed",
+            });
+          }
+          await tx.update(characters).set({ avatarPath, updatedAt: now() }).where(eq(characters.id, id));
+          const updatedRows = await tx.select().from(characters).where(eq(characters.id, id));
+          return updatedRows[0] ?? null;
+        }),
+      );
     },
 
     async restoreVersion(characterId: string, versionId: string) {
@@ -747,20 +774,7 @@ export function createCharactersStorage(db: DB) {
     ) {
       const existing = await this.getPersona(personaId);
       if (!existing) return null;
-      const currentData = buildPersonaSnapshot(existing);
-      const timestamp = options?.createdAt ?? existing.updatedAt ?? now();
-      const id = newId();
-      await db.insert(personaCardVersions).values({
-        id,
-        personaId,
-        data: JSON.stringify(currentData),
-        comment: existing.comment ?? "",
-        avatarPath: existing.avatarPath ?? null,
-        version: currentData.personaVersion ?? "",
-        source: options?.source ?? "manual",
-        reason: options?.reason ?? "",
-        createdAt: timestamp,
-      });
+      const id = await insertPersonaVersionSnapshot(db, existing, options);
       return this.getPersonaVersionById(personaId, id);
     },
 
@@ -974,14 +988,6 @@ export function createCharactersStorage(db: DB) {
         (personaSnapshotChanged(currentData, nextData) ||
           nextComment !== (existing.comment ?? "") ||
           nextAvatarPath !== existing.avatarPath);
-      if (shouldSnapshot) {
-        await this.createPersonaVersionSnapshot(id, {
-          source: options?.versionSource ?? "manual",
-          reason: options?.versionReason ?? "",
-          // Keep the replaced card's own edit time in history (#4040).
-          createdAt: existing.updatedAt ?? null,
-        });
-      }
       const sets: Record<string, unknown> = { updatedAt: now() };
       if (updates.name !== undefined) sets.name = updates.name;
       if (updates.comment !== undefined) sets.comment = updates.comment;
@@ -1006,8 +1012,20 @@ export function createCharactersStorage(db: DB) {
       if (updates.convoDisplayName !== undefined) sets.convoDisplayName = updates.convoDisplayName;
       if (updates.aboutMe !== undefined) sets.aboutMe = updates.aboutMe;
       if (updates.convoBehavior !== undefined) sets.convoBehavior = updates.convoBehavior;
-      await db.update(personas).set(sets).where(eq(personas.id, id));
-      return this.getPersona(id);
+      const persistUpdate = async (database: DB) => {
+        if (shouldSnapshot) {
+          await insertPersonaVersionSnapshot(database, existing, {
+            source: options?.versionSource ?? "manual",
+            reason: options?.versionReason ?? "",
+            // Keep the replaced card's own edit time in history (#4040).
+            createdAt: existing.updatedAt ?? null,
+          });
+        }
+        await database.update(personas).set(sets).where(eq(personas.id, id));
+        const rows = await database.select().from(personas).where(eq(personas.id, id));
+        return rows[0] ?? null;
+      };
+      return updates.avatarPath !== undefined ? db.transaction(persistUpdate) : persistUpdate(db);
     },
 
     async restorePersonaVersion(personaId: string, versionId: string) {
