@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from "@
 import AdmZip from "adm-zip";
 import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
+import { forceColorValueEnablesColor } from "./playwright-color-environment.js";
 
 const TRANSPARENT_GIF_BASE64 = "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const WHATS_NEW_SEEN_VERSION_KEY = "marinara:whats-new:seen-version";
@@ -162,6 +163,15 @@ test.beforeEach(async ({ page }) => {
   const resetUiSettings = await page.request.put("/api/app-settings/ui", { data: { value: "" } });
   expect(resetUiSettings.ok()).toBeTruthy();
   await prepareFreshClient(page);
+});
+
+test("Playwright color parsing preserves supported force values only", () => {
+  for (const value of ["", "1", "2", "3", "true", "TRUE"]) {
+    expect(forceColorValueEnablesColor(value), `${JSON.stringify(value)} should force color`).toBe(true);
+  }
+  for (const value of [undefined, "0", "false", "off", "no", "never", "invalid", "4"]) {
+    expect(forceColorValueEnablesColor(value), `${JSON.stringify(value)} should not force color`).toBe(false);
+  }
 });
 
 test("What's New opens once for each Marinara Engine version", async ({ page }) => {

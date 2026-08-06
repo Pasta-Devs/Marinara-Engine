@@ -1,11 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import { fileURLToPath } from "node:url";
+import { forceColorValueEnablesColor } from "./e2e/playwright-color-environment.js";
 
 const callerDisabledColors = process.env.NO_COLOR !== undefined && process.env.NO_COLOR !== "";
-const callerForceColor = process.env.FORCE_COLOR?.toLowerCase();
 const shouldPreventPlaywrightColorOverride =
-  callerDisabledColors &&
-  (callerForceColor === undefined || callerForceColor === "0" || callerForceColor === "false");
+  callerDisabledColors && !forceColorValueEnablesColor(process.env.FORCE_COLOR);
 if (shouldPreventPlaywrightColorOverride) {
   const noColorPreload = `--require=${JSON.stringify(fileURLToPath(new URL("./e2e/respect-no-color.cjs", import.meta.url)))}`;
   const nodeOptions = process.env.NODE_OPTIONS?.trim();
