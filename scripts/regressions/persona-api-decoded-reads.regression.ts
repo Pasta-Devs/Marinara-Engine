@@ -104,7 +104,21 @@ try {
     assert.equal(typeof value.isActive, "boolean");
     assert.equal(Array.isArray(value.tags), true);
     assert.equal(Array.isArray(value.savedStatusOptions), true);
-    assert.equal(typeof value.trackerCardColors, "object");
+    assert.equal(value.avatarCrop === null || (typeof value.avatarCrop === "object" && !Array.isArray(value.avatarCrop)), true);
+    assert.equal(
+      value.personaStats == null || (typeof value.personaStats === "object" && !Array.isArray(value.personaStats)),
+      true,
+    );
+    assert.equal(
+      value.convoBehavior == null || (typeof value.convoBehavior === "object" && !Array.isArray(value.convoBehavior)),
+      true,
+    );
+    assert.equal(
+      value.trackerCardColors !== null &&
+        typeof value.trackerCardColors === "object" &&
+        !Array.isArray(value.trackerCardColors),
+      true,
+    );
   }
 
   /** Exact valid decoded fixture values for the seeded "decoded-read-active" persona. */

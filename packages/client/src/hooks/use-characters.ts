@@ -1117,6 +1117,8 @@ export function useUpdatePersona() {
             keepalive ? { keepalive: true } : undefined,
           ),
     onSuccess: (updatedPersona) => {
+      if (!updatedPersona || typeof updatedPersona.id !== "string" || !updatedPersona.id) return;
+
       qc.setQueryData<Persona>(characterKeys.personaDetail(updatedPersona.id), updatedPersona);
       qc.setQueryData<Persona[] | undefined>(characterKeys.personas, (old) => {
         if (!old) return old;
