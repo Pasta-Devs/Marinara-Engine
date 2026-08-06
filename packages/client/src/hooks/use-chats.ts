@@ -11,14 +11,13 @@ import {
   type QueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { api } from "../lib/api-client";
+import { api, ApiError } from "../lib/api-client";
 import { useChatStore } from "../stores/chat.store";
 import { useAgentStore } from "../stores/agent.store";
 import { useGameStateStore } from "../stores/game-state.store";
 import { useEncounterStore } from "../stores/encounter.store";
 import { useUIStore } from "../stores/ui.store";
 import { clearBrowserRuntimeCaches } from "../lib/browser-runtime";
-import { ApiError } from "../lib/api-client";
 import { lorebookKeys } from "./use-lorebooks";
 import { achievementKeys, trackAchievementEvent } from "./use-achievements";
 import type {
@@ -50,6 +49,7 @@ export const chatKeys = {
 };
 
 const RECENT_MESSAGE_CONTENT_EDIT_TTL_MS = 5 * 60 * 1000;
+const MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS = 300;
 const chatMetadataMutationVersions = new Map<string, number>();
 const chatMetadataFieldVersions = new Map<string, Map<string, number>>();
 
@@ -64,6 +64,14 @@ interface RecentMessageContentEdit {
 const recentMessageContentEdits = new Map<string, RecentMessageContentEdit>();
 let recentMessageContentEditRevision = 0;
 const messageContentUpdateQueues = new Map<string, Promise<void>>();
+
+function shouldRetryMessageContentUpdate(failureCount: number, error: unknown) {
+  if (failureCount >= 1) return false;
+  if (error instanceof ApiError) {
+    return error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
+  }
+  return error instanceof TypeError;
+}
 
 function enqueueMessageContentUpdate(chatId: string | null, messageId: string, content: string) {
   const queueKey = `${chatId ?? ""}:${messageId}`;
@@ -1064,6 +1072,10 @@ export function useUpdateMessage(chatId: string | null) {
   return useMutation({
     mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
       enqueueMessageContentUpdate(chatId, messageId, content),
+    // Message content PATCHes are idempotent. Retry one transient transport or
+    // server failure so remote sessions do not require a second manual save.
+    retry: shouldRetryMessageContentUpdate,
+    retryDelay: MESSAGE_CONTENT_UPDATE_RETRY_DELAY_MS,
     onMutate: async ({ messageId, content }) => {
       if (!chatId) return;
       // Cancel in-flight refetches (e.g. from generation events) so they
