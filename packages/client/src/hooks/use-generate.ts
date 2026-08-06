@@ -639,13 +639,33 @@ export function upsertPersistedMessages(qc: QueryClient, chatId: string, incomin
     }
 
     const persistedById = new Map(sortedIncoming.map((msg) => [msg.id, msg]));
+    // A just-sent user row starts with a temporary ID. Match its submission ID
+    // once the server returns the durable row so edits cannot target the temporary ID.
+    const persistedUserBySubmissionId = new Map(
+      sortedIncoming.flatMap((msg) => {
+        const submissionId = parseMessageExtraRecord(msg.extra).submissionId;
+        return msg.role === "user" &&
+          !msg.id.startsWith("__optimistic_") &&
+          typeof submissionId === "string" &&
+          submissionId
+          ? [[submissionId, msg] as const]
+          : [];
+      }),
+    );
     const existingIds = new Set<string>();
 
     const pages = old.pages.map((page) =>
-      page.map((msg) => {
-        existingIds.add(msg.id);
-        const persisted = persistedById.get(msg.id);
-        return persisted ? mergeCachedGeneratedMessage(msg, persisted) : msg;
+      page.flatMap((msg) => {
+        const submissionId = parseMessageExtraRecord(msg.extra).submissionId;
+        const persisted =
+          persistedById.get(msg.id) ??
+          (msg.id.startsWith("__optimistic_") && typeof submissionId === "string"
+            ? persistedUserBySubmissionId.get(submissionId)
+            : undefined);
+        const nextMessage = persisted ? mergeCachedGeneratedMessage(msg, persisted) : msg;
+        if (existingIds.has(nextMessage.id)) return [];
+        existingIds.add(nextMessage.id);
+        return [nextMessage];
       }),
     );
 
