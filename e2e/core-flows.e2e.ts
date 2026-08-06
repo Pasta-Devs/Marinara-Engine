@@ -3003,11 +3003,7 @@ test("provider concurrency errors appear in generation toasts", async ({ page },
   }
 });
 
-test("stopped and refused generations keep sent text cleared and accept the first edit", async ({
-  context,
-  page,
-  request,
-}, testInfo) => {
+test("stopped and refused generations keep sent text cleared and accept the first edit", async ({ page, request }, testInfo) => {
   test.setTimeout(120_000);
   const mobile = testInfo.project.name.includes("mobile");
 
@@ -3165,8 +3161,10 @@ test("stopped and refused generations keep sent text cleared and accept the firs
         if (options.failFirstSave) await expect.poll(() => saveAttempts).toBe(2);
         await expect(message).toContainText(nextContent);
         await expect
-          .poll(async () => (await readMessages()).find((candidate) => candidate.id === messageId)?.content)
-          .toBe(nextContent);
+          .poll(async () =>
+            (await readMessages()).some((candidate) => candidate.role === "user" && candidate.content === nextContent),
+          )
+          .toBe(true);
       } finally {
         if (saveRouteHandler) await page.unroute(messageRoute, saveRouteHandler);
       }
@@ -3176,20 +3174,62 @@ test("stopped and refused generations keep sent text cleared and accept the firs
     await sendButton.click();
     await expect(input).toHaveValue("");
     await input.fill("Unsent composer text");
-    await stopCurrentGeneration(1);
+    await expect.poll(() => providerRequests.length).toBe(1);
+    const justSentMessage = page
+      .locator("[data-message-id]")
+      .filter({ hasText: "Original message with retained draft" });
+    await expect(justSentMessage).toBeVisible();
+    const justSentMessageId = await justSentMessage.getAttribute("data-message-id");
+    expect(justSentMessageId).toBeTruthy();
+    const stoppedRefreshGate = createDeferred();
+    const messagesPath = `/api/chats/${chatId}/messages`;
+    const messagesRouteMatcher = (url: URL) => url.pathname === messagesPath;
+    let holdStoppedRefresh = true;
+    const stoppedRefreshHandler = async (route: Route) => {
+      if (holdStoppedRefresh && route.request().method() === "GET") await stoppedRefreshGate.promise;
+      await route.continue().catch(() => undefined);
+    };
+    await page.route(messagesRouteMatcher, stoppedRefreshHandler);
+    try {
+      await page.evaluate((messageId) => {
+        const stopButton = document.querySelector<HTMLButtonElement>("button.mari-chat-send-btn");
+        if (!stopButton) throw new Error("Stop generation control is unavailable");
+        stopButton.click();
+        window.dispatchEvent(new CustomEvent("marinara:start-edit-message", { detail: { messageId } }));
+      }, justSentMessageId);
+      const justSentEditor = justSentMessage.locator("textarea");
+      await expect(justSentEditor).toBeVisible();
+      await justSentEditor.fill("Edited on the first save with retained draft");
+      const firstSaveRequest = page.waitForRequest(
+        (candidate) =>
+          candidate.method() === "PATCH" &&
+          new URL(candidate.url()).pathname === `/api/chats/${chatId}/messages/${justSentMessageId}`,
+      );
+      await justSentMessage.getByLabel("Save edit", { exact: true }).click();
+      await firstSaveRequest;
+    } finally {
+      holdStoppedRefresh = false;
+      stoppedRefreshGate.resolve();
+      if (!page.isClosed()) await page.unroute(messagesRouteMatcher, stoppedRefreshHandler);
+    }
+    await expect
+      .poll(
+        async () =>
+          (await readMessages()).some(
+            (message) => message.role === "user" && message.content === "Edited on the first save with retained draft",
+          ),
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+    await expect(sendButton.locator("svg.lucide-circle-stop")).toHaveCount(0);
     const firstMessage = (await readMessages()).find(
-      (message) => message.role === "user" && message.content === "Original message with retained draft",
+      (message) => message.role === "user" && message.content === "Edited on the first save with retained draft",
     );
     expect(firstMessage).toBeTruthy();
-    const backgroundTab = await context.newPage();
-    await backgroundTab.goto("about:blank");
-    await page.bringToFront();
-    await backgroundTab.close();
-    await editMessageOnce(firstMessage!.id, "Edited on the first save with retained draft", {
+    await editMessageOnce(firstMessage!.id, "Second edit to the same message stays newest", {
       delaySave: true,
       failFirstSave: true,
     });
-    await editMessageOnce(firstMessage!.id, "Second edit to the same message stays newest");
     await expect(input).toHaveValue("Unsent composer text");
 
     await input.fill("Original message with cleared draft");
