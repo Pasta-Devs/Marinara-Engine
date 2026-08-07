@@ -1612,7 +1612,21 @@ function SectionsTab({
                         )}
                       </button>
                       <button
-                        onClick={() => onDeleteSection.mutate({ presetId, sectionId: section.id })}
+                        onClick={async () => {
+                          if (
+                            !(await showConfirmDialog({
+                              title: localizeUi("ui.presets.sectionstab.deletePromptBlock"),
+                              message: localizeUi("dialog.delete.namedPermanent", {
+                                name: section.name || localizeUi("ui.presets.sectionstab.promptBlock"),
+                              }),
+                              confirmLabel: localizeUi("lorebook.editor.batch.delete"),
+                              tone: "destructive",
+                            }))
+                          ) {
+                            return;
+                          }
+                          onDeleteSection.mutate({ presetId, sectionId: section.id });
+                        }}
                         className="rounded-lg p-1 text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
                         title={localizeUi("lorebook.editor.batch.delete")}
                       >
