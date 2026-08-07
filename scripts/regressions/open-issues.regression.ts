@@ -5484,20 +5484,6 @@ try {
   );
 }
 
-// Issue #4698 — deleting a prompt block requires an explicit destructive
-// confirmation because its control sits beside the visibility toggle.
-{
-  const presetEditorSource = readFileSync(
-    join(REPOSITORY_ROOT, "packages/client/src/components/presets/PresetEditor.tsx"),
-    "utf8",
-  );
-  assert.match(
-    presetEditorSource,
-    /showConfirmDialog\(\{[\s\S]{0,150}ui\.presets\.sectionstab\.deletePromptBlock[\s\S]{0,700}onDeleteSection\.mutate\(\{ presetId, sectionId: section\.id \}\)/u,
-    "Prompt block deletion must wait for destructive confirmation",
-  );
-}
-
 // Issue #4277 — the Secret Plot interval remains editable after Narrative
 // Director is installed instead of passing a string through a number-only
 // normalizer and immediately restoring the previous value.

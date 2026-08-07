@@ -5485,7 +5485,10 @@ test("preset pictures can be uploaded from the panel and replaced in the Overvie
   }
 });
 
-test("roleplay quick preset editor uses chat settings spacing and surfaces", async ({ page, request }, testInfo) => {
+test("roleplay quick preset editor uses chat settings spacing, surfaces, and safe deletion", async ({
+  page,
+  request,
+}, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Desktop Chat Settings compact-editor regression.");
 
   const suffix = Date.now().toString(36);
@@ -5503,6 +5506,7 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
     },
   });
   expect(sectionResponse.ok()).toBeTruthy();
+  const section = (await sectionResponse.json()) as { id: string };
   const groupResponse = await request.post(`/api/prompts/${preset.id}/groups`, {
     data: { name: "Quick Group" },
   });
@@ -5521,6 +5525,13 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
   await page.addInitScript((chatId) => {
     localStorage.setItem("marinara-active-chat-id", chatId);
   }, chat.id);
+  const deletePath = `/api/prompts/${preset.id}/sections/${section.id}`;
+  const deleteRequests: string[] = [];
+  page.on("request", (outgoingRequest) => {
+    if (outgoingRequest.method() === "DELETE" && new URL(outgoingRequest.url()).pathname === deletePath) {
+      deleteRequests.push(deletePath);
+    }
+  });
 
   try {
     await page.goto("/");
@@ -5573,6 +5584,29 @@ test("roleplay quick preset editor uses chat settings spacing and surfaces", asy
         }),
       )
       .toBe(true);
+
+    // Issue #4698 — canceling must leave the prompt block untouched, while
+    // confirming must issue exactly one delete for the selected block.
+    const deleteButton = sectionCard.getByTitle("Delete");
+    const deleteDialog = page.getByRole("dialog", { name: "Delete Prompt Block" });
+    await deleteButton.click();
+    await expect(deleteDialog).toContainText(
+      "Are you sure you want to delete Quick Section? This cannot be undone.",
+    );
+    await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(deleteDialog).toBeHidden();
+    expect(deleteRequests).toEqual([]);
+    const sectionsAfterCancel = await request.get(`/api/prompts/${preset.id}/sections`);
+    expect(await sectionsAfterCancel.json()).toContainEqual(expect.objectContaining({ id: section.id }));
+
+    const deleteResponsePromise = page.waitForResponse(
+      (response) => response.request().method() === "DELETE" && new URL(response.url()).pathname === deletePath,
+    );
+    await deleteButton.click();
+    await deleteDialog.getByRole("button", { name: "Delete", exact: true }).click();
+    expect((await deleteResponsePromise).ok()).toBeTruthy();
+    expect(deleteRequests).toEqual([deletePath]);
+    await expect(sectionCard).toHaveCount(0);
 
     await drawer.getByRole("button", { name: "Close chat settings", exact: true }).click();
     await expect(drawer).toHaveCount(0);
