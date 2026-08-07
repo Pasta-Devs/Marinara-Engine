@@ -5596,6 +5596,7 @@ test("roleplay quick preset editor uses chat settings spacing, surfaces, and saf
     await deleteDialog.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(deleteDialog).toBeHidden();
     expect(deleteRequests).toEqual([]);
+    await expect(sectionCard).toHaveCount(1);
     const sectionsAfterCancel = await request.get(`/api/prompts/${preset.id}/sections`);
     expect(await sectionsAfterCancel.json()).toContainEqual(expect.objectContaining({ id: section.id }));
 
