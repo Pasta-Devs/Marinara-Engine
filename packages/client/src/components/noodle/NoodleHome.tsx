@@ -5171,6 +5171,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
       <ExpandedTextarea
         open={imageInstructionsEditorOpen}
         onClose={() => {
+          if (updateSettings.isPending) return;
           setImageGenerationPromptDraft(settings?.imageGenerationPrompt ?? "");
           setImageInstructionsEditorOpen(false);
         }}
@@ -5198,7 +5199,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                   setImageGenerationPromptDraft(settings?.imageGenerationPrompt ?? "");
                   setImageInstructionsEditorOpen(false);
                 }}
-                className="min-h-10 flex-1 rounded-md border border-[var(--border)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] sm:flex-none"
+                disabled={updateSettings.isPending}
+                className="min-h-10 flex-1 rounded-md border border-[var(--border)] px-4 text-xs font-semibold text-[var(--foreground)] transition-colors hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
               >
                 {localizeUi("chat.delete.dialog.cancel")}
               </button>
