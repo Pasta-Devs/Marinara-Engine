@@ -5178,7 +5178,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         value={imageGenerationPromptDraft}
         onChange={setImageGenerationPromptDraft}
         placeholder={DEFAULT_NOODLE_SETTINGS.imageGenerationPrompt}
-        closeLabel="Cancel"
+        closeLabel={localizeUi("chat.delete.dialog.cancel")}
         overlayStyle={getNoodleAccentStyle(NOODLE_BLUE)}
         footer={
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -5205,8 +5205,18 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
               <button
                 type="button"
                 onClick={() => {
-                  saveSettings({ imageGenerationPrompt: imageGenerationPromptDraft });
-                  setImageInstructionsEditorOpen(false);
+                  updateSettings.mutate(
+                    { imageGenerationPrompt: imageGenerationPromptDraft },
+                    {
+                      onSuccess: () => setImageInstructionsEditorOpen(false),
+                      onError: (error) =>
+                        toast.error(
+                          error instanceof Error
+                            ? error.message
+                            : localizeUi("ui.noodle.noodlehome.couldNotUpdateNoodleSettings"),
+                        ),
+                    },
+                  );
                 }}
                 disabled={updateSettings.isPending || imageGenerationPromptDraft === settings?.imageGenerationPrompt}
                 className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-md bg-[var(--noodle-accent)] px-4 text-xs font-bold text-zinc-950 [&_svg]:!text-zinc-950 transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-45 sm:flex-none"
