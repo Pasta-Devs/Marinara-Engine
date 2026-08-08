@@ -3573,7 +3573,8 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
                           setImageGenerationPromptDraft(settings.imageGenerationPrompt);
                           setImageInstructionsEditorOpen(true);
                         }}
-                        className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--noodle-accent)]/60 hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]/70"
+                        disabled={updateSettings.isPending}
+                        className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--background)] px-3 py-2 text-xs font-semibold text-[var(--foreground)] transition-colors hover:border-[var(--noodle-accent)]/60 hover:bg-[var(--noodle-accent)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--noodle-accent)]/70 disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         <Pencil size={14} aria-hidden="true" className="shrink-0 text-[var(--noodle-accent)]" />
                         <span>{localizeUi("ui.noodle.noodlehome.editPrompt")}</span>
