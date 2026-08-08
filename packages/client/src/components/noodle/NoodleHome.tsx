@@ -5179,6 +5179,7 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
         title={localizeUi("ui.noodle.noodlehome.promptInstructions")}
         value={imageGenerationPromptDraft}
         onChange={setImageGenerationPromptDraft}
+        readOnly={updateSettings.isPending}
         placeholder={DEFAULT_NOODLE_SETTINGS.imageGenerationPrompt}
         closeLabel={localizeUi("chat.delete.dialog.cancel")}
         overlayStyle={getNoodleAccentStyle(NOODLE_BLUE)}
@@ -5187,7 +5188,9 @@ export function NoodleHome({ navigation, onNavigate }: NoodleHomeProps) {
             <button
               type="button"
               onClick={() => setImageGenerationPromptDraft(DEFAULT_NOODLE_SETTINGS.imageGenerationPrompt)}
-              disabled={imageGenerationPromptDraft === DEFAULT_NOODLE_SETTINGS.imageGenerationPrompt}
+              disabled={
+                updateSettings.isPending || imageGenerationPromptDraft === DEFAULT_NOODLE_SETTINGS.imageGenerationPrompt
+              }
               className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-[var(--noodle-accent)]/35 px-3 text-xs font-semibold text-[var(--noodle-accent)] transition-colors hover:bg-[var(--noodle-accent)]/10 disabled:cursor-not-allowed disabled:opacity-45"
             >
               <RotateCcw size={13} />
