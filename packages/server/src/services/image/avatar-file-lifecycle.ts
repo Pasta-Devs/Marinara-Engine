@@ -60,6 +60,21 @@ export function resolveStoredAvatarFile(
   }
 }
 
+/** Remove an avatar file created before its database reference could be saved. */
+export async function removeUnattachedAvatarFile(
+  target: { filePath: string } | { avatarPath: string | null | undefined },
+): Promise<void> {
+  const filePath = "filePath" in target ? target.filePath : resolveStoredAvatarFile(target.avatarPath);
+  if (!filePath) return;
+  try {
+    await unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      logger.warn(error, "Could not remove unattached avatar file %s", filePath);
+    }
+  }
+}
+
 function avatarPaths(rows: Array<{ avatarPath: string | null }>) {
   return rows.flatMap((row) => (row.avatarPath ? [row.avatarPath] : []));
 }
@@ -169,16 +184,16 @@ export async function mutateAvatarReferencesAndCleanup<T>(input: {
   avatarRoot?: string;
 }): Promise<{ result: T; filesDeleted: number }> {
   return withAvatarFileLifecycleLock(async () => {
-    const avatarPaths = await input.collectAvatarPaths();
+    const shouldCleanup = input.cleanupFiles !== false;
+    const avatarPaths = shouldCleanup ? await input.collectAvatarPaths() : [];
     const result = await input.mutateReferences();
-    const filesDeleted =
-      input.cleanupFiles === false
-        ? 0
-        : await unlinkAvatarFilesIfUnreferencedUnlocked({
-            db: input.db,
-            avatarPaths,
-            avatarRoot: input.avatarRoot ?? join(DATA_DIR, "avatars"),
-          });
+    const filesDeleted = shouldCleanup
+      ? await unlinkAvatarFilesIfUnreferencedUnlocked({
+          db: input.db,
+          avatarPaths,
+          avatarRoot: input.avatarRoot ?? join(DATA_DIR, "avatars"),
+        })
+      : 0;
     return { result, filesDeleted };
   });
 }
