@@ -12957,6 +12957,219 @@ test("Home widgets lift and brighten on fine-pointer hover", async ({ page }, te
   await expect(surface).toHaveCSS("filter", "none");
 });
 
+test("Home lifecycle stays bounded across repeated tab and chat navigation", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Chromium lifecycle counters are sampled on desktop.");
+  await page.addInitScript(() => {
+    const activeIntervals = new Set<number>();
+    const activeTimeouts = new Map<number, { delay: number; homeSurface: boolean }>();
+    const activeAnimationFrames = new Set<number>();
+    let activeResizeObservers = 0;
+    const nativeSetInterval = window.setInterval.bind(window);
+    const nativeClearInterval = window.clearInterval.bind(window);
+    const nativeSetTimeout = window.setTimeout.bind(window);
+    const nativeClearTimeout = window.clearTimeout.bind(window);
+    const nativeRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+    const nativeCancelAnimationFrame = window.cancelAnimationFrame.bind(window);
+    const NativeResizeObserver = window.ResizeObserver;
+
+    window.setInterval = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      const id = nativeSetInterval(handler, timeout, ...args);
+      activeIntervals.add(id);
+      return id;
+    }) as typeof window.setInterval;
+    window.clearInterval = ((id?: number) => {
+      if (typeof id === "number") activeIntervals.delete(id);
+      nativeClearInterval(id);
+    }) as typeof window.clearInterval;
+    window.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (typeof handler !== "function") return nativeSetTimeout(handler, timeout, ...args);
+      let id = 0;
+      id = nativeSetTimeout(() => {
+        activeTimeouts.delete(id);
+        handler(...args);
+      }, timeout);
+      const stack = new Error().stack ?? "";
+      activeTimeouts.set(id, {
+        delay: timeout ?? 0,
+        homeSurface: stack.includes("HomeBrowserHub.tsx") || stack.includes("HomeProfessorMariChat.tsx"),
+      });
+      return id;
+    }) as typeof window.setTimeout;
+    window.clearTimeout = ((id?: number) => {
+      if (typeof id === "number") activeTimeouts.delete(id);
+      nativeClearTimeout(id);
+    }) as typeof window.clearTimeout;
+    window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+      let id = 0;
+      id = nativeRequestAnimationFrame((time) => {
+        activeAnimationFrames.delete(id);
+        callback(time);
+      });
+      activeAnimationFrames.add(id);
+      return id;
+    }) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = ((id: number) => {
+      activeAnimationFrames.delete(id);
+      nativeCancelAnimationFrame(id);
+    }) as typeof window.cancelAnimationFrame;
+    window.ResizeObserver = class TrackedResizeObserver extends NativeResizeObserver {
+      private auditConnected = true;
+
+      constructor(callback: ResizeObserverCallback) {
+        super(callback);
+        activeResizeObservers += 1;
+      }
+
+      override disconnect() {
+        if (this.auditConnected) {
+          this.auditConnected = false;
+          activeResizeObservers -= 1;
+        }
+        super.disconnect();
+      }
+    };
+    Object.defineProperty(window, "__homeLifecycleAudit", {
+      value: {
+        snapshot: () => ({
+          intervals: activeIntervals.size,
+          timeouts: activeTimeouts.size,
+          homeSurfaceTimeouts: Array.from(activeTimeouts.values()).filter((timeout) => timeout.homeSurface).length,
+          timeoutDelays: Array.from(activeTimeouts.values()).reduce<Record<string, number>>((counts, timeout) => {
+            const key = String(timeout.delay);
+            counts[key] = (counts[key] ?? 0) + 1;
+            return counts;
+          }, {}),
+          animationFrames: activeAnimationFrames.size,
+          resizeObservers: activeResizeObservers,
+        }),
+      },
+      configurable: true,
+    });
+    localStorage.setItem(
+      "marinara:home:widget-visibility:v2",
+      JSON.stringify([
+        "professor",
+        "whats-new",
+        "recent",
+        "discovery",
+        "character",
+        "learn",
+        "community",
+        "clock",
+        "achievements",
+      ]),
+    );
+  });
+  const auditChatResponse = await page.request.post("/api/chats", {
+    data: { name: "Home lifecycle audit", mode: "conversation", characterIds: [] },
+  });
+  expect(auditChatResponse.ok()).toBeTruthy();
+  const auditChat = (await auditChatResponse.json()) as { id: string };
+  await page.goto("/");
+  await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible({ timeout: 30_000 });
+  await page.waitForTimeout(3_000);
+
+  const cdp = await page.context().newCDPSession(page);
+  const collect = async () => {
+    await cdp.send("HeapProfiler.collectGarbage");
+    await page.waitForTimeout(150);
+    const [dom, heap, runtime] = await Promise.all([
+      cdp.send("Memory.getDOMCounters"),
+      cdp.send("Runtime.getHeapUsage"),
+      page.evaluate(() => ({
+        animations: document.getAnimations().filter((animation) => animation.playState === "running").length,
+        homePages: document.querySelectorAll('[data-component="HomeBrowserHub.HomePage"]').length,
+        professorPages: document.querySelectorAll('[data-component="HomeProfessorMariChat"]').length,
+        lifecycle: (
+          window as unknown as {
+            __homeLifecycleAudit: {
+              snapshot: () => {
+                intervals: number;
+                timeouts: number;
+                homeSurfaceTimeouts: number;
+                timeoutDelays: Record<string, number>;
+                animationFrames: number;
+                resizeObservers: number;
+              };
+            };
+          }
+        ).__homeLifecycleAudit.snapshot(),
+      })),
+    ]);
+    return {
+      documents: dom.documents,
+      nodes: dom.nodes,
+      listeners: dom.jsEventListeners,
+      heap: heap.usedSize,
+      ...runtime,
+    };
+  };
+
+  const cycleInternalTabs = async (count: number) => {
+    for (let index = 0; index < count; index += 1) {
+      await page.getByRole("tab", { name: "Professor", exact: true }).click();
+      await expect(page.locator('[data-component="HomeBrowserHub.Address"]')).toContainText("marinara/professor");
+      await page.getByRole("tab", { name: "Home", exact: true }).click();
+      await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible();
+    }
+  };
+  const cycleHomeMount = async (count: number) => {
+    for (let index = 0; index < count; index += 1) {
+      await page.evaluate(async (chatId) => {
+        const module = await import("/src/stores/chat.store.ts");
+        module.useChatStore.getState().setActiveChatId(chatId);
+      }, auditChat.id);
+      await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toHaveCount(0);
+      await page.evaluate(async () => {
+        const module = await import("/src/stores/chat.store.ts");
+        module.useChatStore.getState().setActiveChatId(null);
+      });
+      await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible();
+    }
+  };
+
+  await cycleInternalTabs(2);
+  await cycleHomeMount(2);
+  await page.waitForTimeout(1_750);
+  const baseline = await collect();
+
+  await page.getByRole("tab", { name: "Professor", exact: true }).click();
+  await expect(page.locator('[data-component="HomeBrowserHub.Address"]')).toContainText("marinara/professor");
+  const professorTabIntervals = await page.evaluate(
+    () =>
+      (
+        window as unknown as {
+          __homeLifecycleAudit: { snapshot: () => { intervals: number } };
+        }
+      ).__homeLifecycleAudit.snapshot().intervals,
+  );
+  expect(professorTabIntervals).toBeLessThan(baseline.lifecycle.intervals);
+  await page.getByRole("tab", { name: "Home", exact: true }).click();
+  await expect(page.locator('[data-component="HomeBrowserHub.HomePage"]')).toBeVisible();
+
+  await cycleInternalTabs(10);
+  await cycleHomeMount(10);
+  await page.waitForTimeout(1_750);
+  const after = await collect();
+
+  await testInfo.attach("home-lifecycle-counters", {
+    body: JSON.stringify({ baseline, after }, null, 2),
+    contentType: "application/json",
+  });
+  expect(after.documents).toBeLessThanOrEqual(baseline.documents + 1);
+  expect(after.nodes).toBeLessThanOrEqual(baseline.nodes + 80);
+  expect(after.listeners).toBeLessThanOrEqual(baseline.listeners + 8);
+  expect(after.heap).toBeLessThanOrEqual(baseline.heap + 3 * 1024 * 1024);
+  expect(after.animations).toBeLessThanOrEqual(baseline.animations + 2);
+  expect(after.lifecycle.intervals).toBe(baseline.lifecycle.intervals);
+  expect(after.lifecycle.resizeObservers).toBe(baseline.lifecycle.resizeObservers);
+  expect(after.lifecycle.homeSurfaceTimeouts).toBe(baseline.lifecycle.homeSurfaceTimeouts);
+  expect(after.lifecycle.animationFrames).toBeLessThanOrEqual(baseline.lifecycle.animationFrames + 1);
+  expect(after.homePages).toBe(1);
+  expect(after.professorPages).toBe(0);
+  await page.request.delete(`/api/chats/${auditChat.id}?force=true`);
+});
+
 test("Home widget order can be dragged and persists across reloads", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Desktop native dragging complements the touch-pointer path.");
   const errors = collectUnexpectedErrors(page);

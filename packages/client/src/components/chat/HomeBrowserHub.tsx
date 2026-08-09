@@ -749,6 +749,7 @@ function FloatingProfessorMari({
   const arrivalCompleteTimerRef = useRef<number | null>(null);
   const navigationTimerRef = useRef<number | null>(null);
   const resetTimerRef = useRef<number | null>(null);
+  const focusFrameRef = useRef<number | null>(null);
   const overlayRef = useRef<HTMLElement | null>(null);
   const spriteRef = useRef<HTMLDivElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
@@ -786,6 +787,14 @@ function FloatingProfessorMari({
     setQuery("");
   }, [clearTimers]);
 
+  const queueInputFocus = useCallback(() => {
+    if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = window.requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      inputRef.current?.focus();
+    });
+  }, []);
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 640px) and (pointer: fine)");
     const syncDesktopDrag = () => setDesktopDragEnabled(mediaQuery.matches);
@@ -795,7 +804,7 @@ function FloatingProfessorMari({
   }, []);
 
   useEffect(() => {
-    if (!desktopDragEnabled) return;
+    if (!pageActive || !enabled || minimized || !desktopDragEnabled || dragSpriteReady) return;
     let active = true;
     let settled = false;
     const image = new Image();
@@ -815,7 +824,7 @@ function FloatingProfessorMari({
       active = false;
       image.removeEventListener("load", decode);
     };
-  }, [desktopDragEnabled]);
+  }, [desktopDragEnabled, dragSpriteReady, enabled, minimized, pageActive]);
 
   const syncDragLayout = useCallback(() => {
     if (!desktopDragEnabled || dragRef.current) return;
@@ -882,13 +891,21 @@ function FloatingProfessorMari({
 
   useEffect(
     () => () => {
+      clearTimers();
+      if (focusFrameRef.current !== null) window.cancelAnimationFrame(focusFrameRef.current);
+      focusFrameRef.current = null;
+      dragRef.current = null;
       document.documentElement.classList.remove("mari-home-professor-drag-active");
     },
-    [],
+    [clearTimers],
   );
 
   useEffect(() => {
     if (!pageActive || !enabled) {
+      clearTimers();
+      dragRef.current = null;
+      document.documentElement.classList.remove("mari-home-professor-drag-active");
+      setDragging(false);
       setVisible(false);
       return;
     }
@@ -1047,7 +1064,7 @@ function FloatingProfessorMari({
           setPhase("idle");
           setQuery("");
           setVisible(true);
-          window.requestAnimationFrame(() => inputRef.current?.focus());
+          queueInputFocus();
         }}
         aria-label={t("home.assistant.navigate")}
         title={t("home.assistant.navigate")}
@@ -1073,14 +1090,14 @@ function FloatingProfessorMari({
     clearTimers();
     setMode("input");
     setPhase("idle");
-    window.requestAnimationFrame(() => inputRef.current?.focus());
+    queueInputFocus();
   };
   const returnToSearch = () => {
     clearTimers();
     setMode("input");
     setPhase("idle");
     setQuery("");
-    window.requestAnimationFrame(() => inputRef.current?.focus());
+    queueInputFocus();
   };
   const submitNavigation = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1131,7 +1148,7 @@ function FloatingProfessorMari({
             title={t("home.assistant.drag")}
             data-component="HomeBrowserHub.ProfessorDragHandle"
             className={cn(
-              "absolute z-[8] flex h-7 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center text-[var(--muted-foreground)] opacity-0 drop-shadow-[0_2px_4px_var(--background)] transition-[opacity,color,transform] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:text-[var(--marinara-app-accent-solid)] focus-visible:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100",
+              "pointer-events-auto absolute z-[8] flex h-7 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center text-[var(--muted-foreground)] opacity-0 drop-shadow-[0_2px_4px_var(--background)] transition-[opacity,color,transform] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:text-[var(--marinara-app-accent-solid)] focus-visible:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100",
               dragging && "!cursor-grabbing !text-[var(--marinara-app-accent-solid)] !opacity-100",
             )}
             style={{
@@ -1204,7 +1221,7 @@ function FloatingProfessorMari({
       <div
         ref={bubbleRef}
         className={cn(
-          "mari-home-professor-popup__bubble pointer-events-auto z-[1] rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_48%,var(--border))] bg-[var(--card)] px-4 py-3.5 pr-10 shadow-[0_18px_48px_-18px_oklch(0.73_0.21_345/0.7)]",
+          "mari-home-professor-popup__bubble pointer-events-auto z-[3] rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_48%,var(--border))] bg-[var(--card)] px-4 py-3.5 pr-10 shadow-[0_18px_48px_-18px_oklch(0.73_0.21_345/0.7)]",
           desktopDragEnabled
             ? "absolute w-[min(22rem,calc(100%_-_2rem))]"
             : "relative mb-[5.5rem] -ml-2 w-[min(22rem,calc(100%_-_6.5rem))] sm:mb-[6.5rem] sm:-ml-3",
@@ -1477,14 +1494,17 @@ export function HomeBrowserHub({
   const activeRecommendation =
     recommendations.length > 0 ? recommendations[discoveryIndex % recommendations.length] : null;
 
+  const discoveryRotationActive =
+    pageActive && activeTab === "home" && visibleWidgets.includes("discovery") && recommendations.length >= 2;
+
   useEffect(() => {
-    if (reduceMotion || recommendations.length < 2) return;
+    if (!discoveryRotationActive || reduceMotion) return;
     const timer = window.setInterval(
       () => setDiscoveryIndex((current) => (current + 1) % recommendations.length),
       6_500,
     );
     return () => window.clearInterval(timer);
-  }, [recommendations.length, reduceMotion]);
+  }, [discoveryRotationActive, recommendations.length, reduceMotion]);
 
   const moveDiscovery = (direction: -1 | 1) => {
     if (recommendations.length < 2) return;

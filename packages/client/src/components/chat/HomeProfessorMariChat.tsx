@@ -2446,6 +2446,7 @@ export function HomeProfessorMariChat({
   const messageLoadAbortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const transcriptScrollFrameRef = useRef<number | null>(null);
+  const suggestionFocusFrameRef = useRef<number | null>(null);
   const transcriptFollowOutputRef = useRef(true);
   const floatingSurfaceRef = useRef<HTMLDivElement>(null);
   const floatingButtonRef = useRef<HTMLDivElement>(null);
@@ -2482,6 +2483,22 @@ export function HomeProfessorMariChat({
 
   useEffect(() => () => workspaceTextThrottle.cancel(), [workspaceTextThrottle]);
 
+  useEffect(
+    () => () => {
+      messageLoadAbortRef.current?.abort();
+      messageLoadAbortRef.current = null;
+      if (transcriptScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(transcriptScrollFrameRef.current);
+        transcriptScrollFrameRef.current = null;
+      }
+      if (suggestionFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(suggestionFocusFrameRef.current);
+        suggestionFocusFrameRef.current = null;
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -2512,6 +2529,17 @@ export function HomeProfessorMariChat({
     if (!textarea) return;
     textarea.style.height = "auto";
     textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+  }, []);
+
+  const focusComposer = useCallback(() => {
+    if (suggestionFocusFrameRef.current !== null) {
+      window.cancelAnimationFrame(suggestionFocusFrameRef.current);
+    }
+    suggestionFocusFrameRef.current = window.requestAnimationFrame(() => {
+      suggestionFocusFrameRef.current = null;
+      const textarea = floatingTextareaRef.current ?? embeddedTextareaRef.current;
+      textarea?.focus();
+    });
   }, []);
 
   useLayoutEffect(() => {
@@ -2772,6 +2800,7 @@ export function HomeProfessorMariChat({
   }, [connectionOptions, connectionsLoading, ensureProfessorMariChat, loadMessages, selectedConnectionId, localizeUi]);
 
   useEffect(() => {
+    if (!pageActive) return;
     void refreshWorkspaceStatus().catch(() => {
       setWorkspaceStatus((current) => current && { ...current, error: "Workspace status unavailable" });
       if (!workspaceStatusErrorToastShownRef.current) {
@@ -2792,7 +2821,7 @@ export function HomeProfessorMariChat({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refreshVisibleWorkspaceStatus);
     };
-  }, [refreshWorkspaceStatus, localizeUi]);
+  }, [pageActive, refreshWorkspaceStatus, localizeUi]);
 
   useEffect(() => {
     void loadSkills().catch((error) => {
@@ -3129,20 +3158,14 @@ export function HomeProfessorMariChat({
             .join("; ");
           clearMariPlan();
           setDraft(`Create it - ${summary}`);
-          requestAnimationFrame(() => {
-            const textarea = floatingTextareaRef.current ?? embeddedTextareaRef.current;
-            textarea?.focus();
-          });
+          focusComposer();
         }
         return;
       }
       setDraft((current) => (current.trim() ? `${current.trimEnd()} ${chip.prompt}` : chip.prompt));
-      requestAnimationFrame(() => {
-        const textarea = floatingTextareaRef.current ?? embeddedTextareaRef.current;
-        textarea?.focus();
-      });
+      focusComposer();
     },
-    [clearMariPlan, guidedPlanStep, recordMariPlanAnswer],
+    [clearMariPlan, focusComposer, guidedPlanStep, recordMariPlanAnswer],
   );
 
   const runRestart = useCallback(async () => {
