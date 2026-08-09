@@ -12771,6 +12771,134 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   expect(errors).toEqual([]);
 });
 
+test("Professor Mari navigation can be repositioned within Home on desktop", async ({ page }, testInfo) => {
+  const mobile = testInfo.project.name.includes("mobile");
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("marinara:e2e:professor-position-cleared") === "true") return;
+    localStorage.removeItem("marinara:home:professor-position:v1");
+    sessionStorage.setItem("marinara:e2e:professor-position-cleared", "true");
+  });
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
+  await page.evaluate(async () => {
+    const module = await import("/src/stores/ui.store.ts");
+    module.useUIStore.getState().setHasCompletedOnboarding(true);
+    module.useUIStore.getState().setProfessorMariNavigationEnabled(true);
+  });
+
+  const handle = page.locator('[data-component="HomeBrowserHub.ProfessorDragHandle"]');
+  if (mobile) {
+    await expect(handle).toHaveCount(0);
+    return;
+  }
+
+  const assistant = page.locator('aside[aria-label="Professor Mari assistant"]');
+  const content = page.locator('[data-component="HomeBrowserHub.Content"]');
+  const sprite = page.locator('[data-component="HomeBrowserHub.ProfessorAssistantSprite"]');
+  const bubble = page.locator('[data-component="HomeBrowserHub.ProfessorAssistantBubble"]');
+  await expect(assistant).toBeVisible({ timeout: 6_000 });
+  await expect(sprite).toBeVisible();
+  await sprite.hover();
+  await expect(handle).toBeVisible();
+  await expect(handle).toHaveCSS("opacity", "1");
+
+  const [handleBounds, initialSpriteBounds, contentBounds] = await Promise.all([
+    handle.boundingBox(),
+    sprite.boundingBox(),
+    content.boundingBox(),
+  ]);
+  expect(handleBounds).not.toBeNull();
+  expect(initialSpriteBounds).not.toBeNull();
+  expect(contentBounds).not.toBeNull();
+  await page.mouse.move(handleBounds!.x + handleBounds!.width / 2, handleBounds!.y + handleBounds!.height / 2);
+  await page.mouse.down();
+  await expect(assistant).toHaveAttribute("data-dragging", "true");
+  const dragAnimation = page.locator('[data-component="HomeBrowserHub.ProfessorDragAnimation"]');
+  await expect(dragAnimation).toBeVisible();
+  await expect(bubble).toContainText("W-What are you doing? Put me down! (˶>⩊<˶)");
+  const dragAnimationBounds = await dragAnimation.boundingBox();
+  expect(dragAnimationBounds).not.toBeNull();
+  const dragScaleX = dragAnimationBounds!.width / initialSpriteBounds!.width;
+  const dragScaleY = dragAnimationBounds!.height / initialSpriteBounds!.height;
+  expect(dragScaleX).toBeGreaterThan(1.1);
+  expect(Math.abs(dragScaleX - dragScaleY)).toBeLessThanOrEqual(0.02);
+
+  const rightEdgeGrabX =
+    contentBounds!.x + contentBounds!.width - 16 - initialSpriteBounds!.width * (1 - 0.45);
+  await page.mouse.move(rightEdgeGrabX, contentBounds!.y + 220, { steps: 6 });
+  await expect(bubble).toHaveAttribute("data-tail-side", "right");
+  expect(
+    await bubble.evaluate((element) => {
+      const tail = getComputedStyle(element, "::before");
+      return Number.parseFloat(tail.right) < 0;
+    }),
+  ).toBe(true);
+  await page.mouse.up();
+  await expect(assistant).toHaveAttribute("data-dragging", "false");
+  await expect(bubble).toHaveAttribute("data-tail-side", "right");
+
+  await sprite.hover();
+  const repositionedHandleBounds = await handle.boundingBox();
+  expect(repositionedHandleBounds).not.toBeNull();
+  await page.mouse.move(
+    repositionedHandleBounds!.x + repositionedHandleBounds!.width / 2,
+    repositionedHandleBounds!.y + repositionedHandleBounds!.height / 2,
+  );
+  await page.mouse.down();
+  await expect(assistant).toHaveAttribute("data-dragging", "true");
+  await expect(dragAnimation).toBeVisible();
+
+  const dragTarget = {
+    x: contentBounds!.x + contentBounds!.width * 0.35,
+    y: contentBounds!.y + Math.min(220, contentBounds!.height * 0.35),
+  };
+  await page.mouse.move(dragTarget.x, dragTarget.y, { steps: 10 });
+  await expect(bubble).toHaveAttribute("data-tail-side", "left");
+  expect(
+    await bubble.evaluate((element) => {
+      const tail = getComputedStyle(element, "::before");
+      return Number.parseFloat(tail.left) < 0;
+    }),
+  ).toBe(true);
+  const movedSpriteBounds = await sprite.boundingBox();
+  expect(movedSpriteBounds).not.toBeNull();
+  expect(Math.abs(movedSpriteBounds!.x - initialSpriteBounds!.x)).toBeGreaterThan(100);
+  expect(Math.abs(movedSpriteBounds!.x + movedSpriteBounds!.width * 0.45 - dragTarget.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(movedSpriteBounds!.y + movedSpriteBounds!.height * 0.09 - dragTarget.y)).toBeLessThanOrEqual(1);
+  expect(movedSpriteBounds!.x).toBeGreaterThanOrEqual(contentBounds!.x + 15);
+  expect(movedSpriteBounds!.y).toBeGreaterThanOrEqual(contentBounds!.y + 27);
+  expect(movedSpriteBounds!.x + movedSpriteBounds!.width).toBeLessThanOrEqual(
+    contentBounds!.x + contentBounds!.width - 15,
+  );
+  expect(movedSpriteBounds!.y + movedSpriteBounds!.height).toBeLessThanOrEqual(
+    contentBounds!.y + contentBounds!.height - 15,
+  );
+  await page.mouse.up();
+  await expect(assistant).toHaveAttribute("data-dragging", "false");
+  await expect(dragAnimation).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const position = JSON.parse(localStorage.getItem("marinara:home:professor-position:v1") ?? "null") as {
+          x?: number;
+          y?: number;
+        } | null;
+        return Boolean(position && position.x! >= 0 && position.x! <= 1 && position.y! >= 0 && position.y! <= 1);
+      }),
+    )
+    .toBe(true);
+
+  const droppedPosition = await sprite.boundingBox();
+  await page.reload();
+  await expect(sprite).toBeVisible({ timeout: 6_000 });
+  await expect(sprite.locator(".mari-home-professor-popup__idle-stage--active")).toBeVisible({ timeout: 3_000 });
+  const restoredPosition = await sprite.boundingBox();
+  expect(droppedPosition).not.toBeNull();
+  expect(restoredPosition).not.toBeNull();
+  expect(Math.abs(restoredPosition!.x - droppedPosition!.x)).toBeLessThanOrEqual(8);
+  expect(Math.abs(restoredPosition!.y - droppedPosition!.y)).toBeLessThanOrEqual(8);
+});
+
 test("Home widget order can be dragged and persists across reloads", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Desktop native dragging complements the touch-pointer path.");
   const errors = collectUnexpectedErrors(page);

@@ -360,6 +360,8 @@
   "home.assistant.askProfessor": "Ask Professor Mari",
   "home.assistant.back": "Back to search",
   "home.assistant.dismiss": "Minimize Professor Mari navigation",
+  "home.assistant.drag": "Move Professor Mari",
+  "home.assistant.dragPrompt": "W-What are you doing? Put me down! (˶>⩊<˶)",
   "home.assistant.found": "Here, found it!",
   "home.assistant.greeting": "Psst, I found you.",
   "home.assistant.landmark": "Professor Mari assistant",

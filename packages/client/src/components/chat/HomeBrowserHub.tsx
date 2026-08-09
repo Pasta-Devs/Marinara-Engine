@@ -7,7 +7,9 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,6 +70,7 @@ const MARI_ASSISTANT_IDLE = "/sprites/mari/generated/professor-mari-assistant-id
 const MARI_ASSISTANT_BLINK = "/sprites/mari/generated/professor-mari-assistant-blink-v3.png";
 const MARI_ASSISTANT_MAP = "/sprites/mari/generated/professor-mari-assistant-map.png";
 const MARI_ASSISTANT_SHRUG = "/sprites/mari/generated/professor-mari-assistant-shrug.png";
+const MARI_ASSISTANT_DRAG_SHEET = "/sprites/mari/generated/professor-mari-assistant-drag-sheet-v3.png";
 const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
 
 function homeBrowserTabId(tabId: string) {
@@ -76,6 +79,11 @@ function homeBrowserTabId(tabId: string) {
 const HOME_CARD_ART_CLASS = "-right-5 -top-5 h-36 w-44 object-contain object-right-top opacity-30 sm:h-40 sm:w-48";
 let professorAssistantMinimizedForRuntime = false;
 let professorAssistantHasAppearedForRuntime = false;
+const PROFESSOR_ASSISTANT_POSITION_STORAGE_KEY = "marinara:home:professor-position:v1";
+const PROFESSOR_ASSISTANT_EDGE_MARGIN = 16;
+const PROFESSOR_ASSISTANT_HANDLE_CLEARANCE = 12;
+const PROFESSOR_ASSISTANT_HOOD_GRAB_X = 0.45;
+const PROFESSOR_ASSISTANT_HOOD_GRAB_Y = 0.09;
 const HOME_WIDGET_ORDER_STORAGE_KEY = "marinara:home:widget-order:v1";
 const HOME_WIDGET_LAYOUT_STORAGE_KEY = "marinara:home:widget-layout:v2";
 const HOME_WIDGET_VISIBILITY_STORAGE_KEY = "marinara:home:widget-visibility:v2";
@@ -92,6 +100,59 @@ const HOME_WIDGET_IDS = [
   "achievements",
 ] as const;
 type HomeWidgetId = (typeof HOME_WIDGET_IDS)[number];
+
+type ProfessorAssistantPosition = { x: number; y: number };
+
+type ProfessorAssistantDragLayout = {
+  boundaryLeft: number;
+  boundaryTop: number;
+  boundaryRight: number;
+  boundaryBottom: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  spriteWidth: number;
+  spriteHeight: number;
+  bubbleWidth: number;
+  bubbleHeight: number;
+};
+
+function clampProfessorAssistantPosition(value: number) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function readProfessorAssistantPosition(): ProfessorAssistantPosition | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(PROFESSOR_ASSISTANT_POSITION_STORAGE_KEY) ?? "null") as {
+      x?: unknown;
+      y?: unknown;
+    } | null;
+    if (
+      !parsed ||
+      typeof parsed.x !== "number" ||
+      !Number.isFinite(parsed.x) ||
+      typeof parsed.y !== "number" ||
+      !Number.isFinite(parsed.y)
+    )
+      return null;
+    return {
+      x: clampProfessorAssistantPosition(parsed.x),
+      y: clampProfessorAssistantPosition(parsed.y),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function rememberProfessorAssistantPosition(position: ProfessorAssistantPosition) {
+  try {
+    window.localStorage.setItem(PROFESSOR_ASSISTANT_POSITION_STORAGE_KEY, JSON.stringify(position));
+  } catch {
+    /* Local storage is optional; dragging still works for the current mount. */
+  }
+}
 
 function capabilityPackageAssetUrl(packageId: string, version: string, assetPath: string): string {
   const encodedPath = assetPath
@@ -658,6 +719,7 @@ function HomeStarfield() {
 function FloatingProfessorMari({
   pageActive,
   enabled,
+  boundaryRef,
   onResolve,
   onNavigate,
   onOpenProfessor,
@@ -665,6 +727,7 @@ function FloatingProfessorMari({
 }: {
   pageActive: boolean;
   enabled: boolean;
+  boundaryRef: RefObject<HTMLElement | null>;
   onResolve: (query: string) => ProfessorMariNavigationTarget | null;
   onNavigate: (target: ProfessorMariNavigationTarget) => void;
   onOpenProfessor: () => void;
@@ -686,6 +749,24 @@ function FloatingProfessorMari({
   const arrivalCompleteTimerRef = useRef<number | null>(null);
   const navigationTimerRef = useRef<number | null>(null);
   const resetTimerRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLElement | null>(null);
+  const spriteRef = useRef<HTMLDivElement | null>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const normalizedPositionRef = useRef<ProfessorAssistantPosition | null>(readProfessorAssistantPosition());
+  const positionRef = useRef<ProfessorAssistantPosition | null>(null);
+  const dragLayoutRef = useRef<ProfessorAssistantDragLayout | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
+  const [desktopDragEnabled, setDesktopDragEnabled] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(min-width: 640px) and (pointer: fine)").matches,
+  );
+  const [dragSpriteReady, setDragSpriteReady] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragPosition, setDragPosition] = useState<ProfessorAssistantPosition | null>(null);
+  const [dragLayout, setDragLayout] = useState<ProfessorAssistantDragLayout | null>(null);
 
   const clearTimers = useCallback(() => {
     if (appearanceTimerRef.current !== null) window.clearTimeout(appearanceTimerRef.current);
@@ -704,6 +785,107 @@ function FloatingProfessorMari({
     setPhase("idle");
     setQuery("");
   }, [clearTimers]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 640px) and (pointer: fine)");
+    const syncDesktopDrag = () => setDesktopDragEnabled(mediaQuery.matches);
+    syncDesktopDrag();
+    mediaQuery.addEventListener("change", syncDesktopDrag);
+    return () => mediaQuery.removeEventListener("change", syncDesktopDrag);
+  }, []);
+
+  useEffect(() => {
+    if (!desktopDragEnabled) return;
+    let active = true;
+    let settled = false;
+    const image = new Image();
+    const markReady = () => {
+      if (settled) return;
+      settled = true;
+      if (active) setDragSpriteReady(true);
+    };
+    const decode = () => {
+      if (typeof image.decode === "function") void image.decode().then(markReady, markReady);
+      else markReady();
+    };
+    image.addEventListener("load", decode, { once: true });
+    image.src = MARI_ASSISTANT_DRAG_SHEET;
+    if (image.complete) decode();
+    return () => {
+      active = false;
+      image.removeEventListener("load", decode);
+    };
+  }, [desktopDragEnabled]);
+
+  const syncDragLayout = useCallback(() => {
+    if (!desktopDragEnabled || dragRef.current) return;
+    const overlay = overlayRef.current;
+    const boundary = boundaryRef.current;
+    const sprite = spriteRef.current;
+    const bubble = bubbleRef.current;
+    if (!overlay || !boundary || !sprite || !bubble) return;
+    const overlayBounds = overlay.getBoundingClientRect();
+    const boundaryBounds = boundary.getBoundingClientRect();
+    const spriteBounds = sprite.getBoundingClientRect();
+    const bubbleBounds = bubble.getBoundingClientRect();
+    const boundaryLeft = boundaryBounds.left - overlayBounds.left + PROFESSOR_ASSISTANT_EDGE_MARGIN;
+    const boundaryTop = boundaryBounds.top - overlayBounds.top + PROFESSOR_ASSISTANT_EDGE_MARGIN;
+    const boundaryRight = boundaryBounds.right - overlayBounds.left - PROFESSOR_ASSISTANT_EDGE_MARGIN;
+    const boundaryBottom = boundaryBounds.bottom - overlayBounds.top - PROFESSOR_ASSISTANT_EDGE_MARGIN;
+    const minX = boundaryLeft;
+    const minY = boundaryTop + PROFESSOR_ASSISTANT_HANDLE_CLEARANCE;
+    const maxX = Math.max(minX, boundaryRight - spriteBounds.width);
+    const maxY = Math.max(minY, boundaryBottom - spriteBounds.height);
+    let normalized = normalizedPositionRef.current;
+    if (!normalized) {
+      const defaultX = Math.max(minX, boundaryRight - spriteBounds.width - bubbleBounds.width + 12);
+      normalized = {
+        x: maxX === minX ? 0 : (Math.min(maxX, defaultX) - minX) / (maxX - minX),
+        y: 1,
+      };
+      normalizedPositionRef.current = normalized;
+    }
+    const nextLayout = {
+      boundaryLeft,
+      boundaryTop,
+      boundaryRight,
+      boundaryBottom,
+      minX,
+      minY,
+      maxX,
+      maxY,
+      spriteWidth: spriteBounds.width,
+      spriteHeight: spriteBounds.height,
+      bubbleWidth: bubbleBounds.width,
+      bubbleHeight: bubbleBounds.height,
+    };
+    const nextPosition = {
+      x: minX + normalized.x * (maxX - minX),
+      y: minY + normalized.y * (maxY - minY),
+    };
+    dragLayoutRef.current = nextLayout;
+    positionRef.current = nextPosition;
+    setDragLayout(nextLayout);
+    setDragPosition(nextPosition);
+  }, [boundaryRef, desktopDragEnabled]);
+
+  useLayoutEffect(() => {
+    if (!visible || minimized || !desktopDragEnabled) return;
+    syncDragLayout();
+    const observer = new ResizeObserver(syncDragLayout);
+    if (overlayRef.current) observer.observe(overlayRef.current);
+    if (boundaryRef.current) observer.observe(boundaryRef.current);
+    if (spriteRef.current) observer.observe(spriteRef.current);
+    if (bubbleRef.current) observer.observe(bubbleRef.current);
+    return () => observer.disconnect();
+  }, [boundaryRef, desktopDragEnabled, minimized, mode, syncDragLayout, visible]);
+
+  useEffect(
+    () => () => {
+      document.documentElement.classList.remove("mari-home-professor-drag-active");
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!pageActive || !enabled) {
@@ -738,6 +920,117 @@ function FloatingProfessorMari({
     );
     return clearTimers;
   }, [clearTimers, enabled, pageActive, reduceMotion]);
+
+  const beginProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    if (!desktopDragEnabled || !dragSpriteReady || !dragLayoutRef.current || !positionRef.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const spriteBounds = spriteRef.current?.getBoundingClientRect();
+    if (!spriteBounds) return;
+    dragRef.current = {
+      pointerId: event.pointerId,
+      offsetX: spriteBounds.width * PROFESSOR_ASSISTANT_HOOD_GRAB_X,
+      offsetY: spriteBounds.height * PROFESSOR_ASSISTANT_HOOD_GRAB_Y,
+    };
+    document.documentElement.classList.add("mari-home-professor-drag-active");
+    setDragging(true);
+  };
+
+  const moveProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    const drag = dragRef.current;
+    const layout = dragLayoutRef.current;
+    const overlay = overlayRef.current;
+    if (!drag || !layout || !overlay || drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const overlayBounds = overlay.getBoundingClientRect();
+    const nextPosition = {
+      x: Math.max(layout.minX, Math.min(layout.maxX, event.clientX - overlayBounds.left - drag.offsetX)),
+      y: Math.max(layout.minY, Math.min(layout.maxY, event.clientY - overlayBounds.top - drag.offsetY)),
+    };
+    positionRef.current = nextPosition;
+    setDragPosition(nextPosition);
+  };
+
+  const finishProfessorDrag = (event: ReactPointerEvent<HTMLSpanElement>) => {
+    const drag = dragRef.current;
+    const layout = dragLayoutRef.current;
+    const position = positionRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    document.documentElement.classList.remove("mari-home-professor-drag-active");
+    setDragging(false);
+    if (!layout || !position) return;
+    const normalized = {
+      x: layout.maxX === layout.minX ? 0 : (position.x - layout.minX) / (layout.maxX - layout.minX),
+      y: layout.maxY === layout.minY ? 0 : (position.y - layout.minY) / (layout.maxY - layout.minY),
+    };
+    normalizedPositionRef.current = normalized;
+    rememberProfessorAssistantPosition(normalized);
+  };
+
+  const nudgeProfessor = (event: ReactKeyboardEvent<HTMLSpanElement>) => {
+    if (!desktopDragEnabled || !dragLayout || !dragPosition) return;
+    const directions: Record<string, ProfessorAssistantPosition> = {
+      ArrowLeft: { x: -16, y: 0 },
+      ArrowRight: { x: 16, y: 0 },
+      ArrowUp: { x: 0, y: -16 },
+      ArrowDown: { x: 0, y: 16 },
+    };
+    const direction = directions[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const nextPosition = {
+      x: Math.max(dragLayout.minX, Math.min(dragLayout.maxX, dragPosition.x + direction.x)),
+      y: Math.max(dragLayout.minY, Math.min(dragLayout.maxY, dragPosition.y + direction.y)),
+    };
+    const normalized = {
+      x:
+        dragLayout.maxX === dragLayout.minX
+          ? 0
+          : (nextPosition.x - dragLayout.minX) / (dragLayout.maxX - dragLayout.minX),
+      y:
+        dragLayout.maxY === dragLayout.minY
+          ? 0
+          : (nextPosition.y - dragLayout.minY) / (dragLayout.maxY - dragLayout.minY),
+    };
+    normalizedPositionRef.current = normalized;
+    positionRef.current = nextPosition;
+    setDragPosition(nextPosition);
+    rememberProfessorAssistantPosition(normalized);
+  };
+
+  const desktopSpriteStyle = useMemo<CSSProperties | undefined>(() => {
+    if (!desktopDragEnabled) return undefined;
+    if (!dragPosition) return { visibility: "hidden" };
+    return { left: dragPosition.x, top: dragPosition.y };
+  }, [desktopDragEnabled, dragPosition]);
+
+  const desktopBubblePlacement = useMemo(() => {
+    if (!desktopDragEnabled || !dragLayout || !dragPosition) return null;
+    const overlap = 12;
+    const availableRight = dragLayout.boundaryRight - (dragPosition.x + dragLayout.spriteWidth);
+    const preferBubbleOnLeft = availableRight < dragLayout.bubbleWidth - overlap;
+    const preferredLeft = preferBubbleOnLeft
+      ? dragPosition.x - dragLayout.bubbleWidth + overlap
+      : dragPosition.x + dragLayout.spriteWidth - overlap;
+    const maxBubbleLeft = Math.max(dragLayout.boundaryLeft, dragLayout.boundaryRight - dragLayout.bubbleWidth);
+    const bubbleLeft = Math.max(dragLayout.boundaryLeft, Math.min(maxBubbleLeft, preferredLeft));
+    const preferredTop = dragPosition.y + dragLayout.spriteHeight * 0.6 - dragLayout.bubbleHeight / 2;
+    const maxBubbleTop = Math.max(dragLayout.boundaryTop, dragLayout.boundaryBottom - dragLayout.bubbleHeight);
+    const bubbleOnLeft =
+      bubbleLeft + dragLayout.bubbleWidth / 2 < dragPosition.x + dragLayout.spriteWidth / 2;
+    return {
+      bubbleOnLeft,
+      style: {
+        left: bubbleLeft,
+        top: Math.max(dragLayout.boundaryTop, Math.min(maxBubbleTop, preferredTop)),
+      } satisfies CSSProperties,
+    };
+  }, [desktopDragEnabled, dragLayout, dragPosition]);
 
   if (!pageActive || !enabled) return null;
   if (!visible) {
@@ -809,52 +1102,121 @@ function FloatingProfessorMari({
   };
   return (
     <aside
-      className="mari-home-professor-popup pointer-events-none absolute bottom-[max(0rem,env(safe-area-inset-bottom))] left-2 right-2 z-[30] flex items-end justify-end sm:left-5 sm:right-5"
+      ref={overlayRef}
+      className={cn(
+        "mari-home-professor-popup pointer-events-none absolute z-[30]",
+        desktopDragEnabled
+          ? "inset-0"
+          : "bottom-[max(0rem,env(safe-area-inset-bottom))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
+      )}
       aria-label={t("home.assistant.landmark")}
       data-tour="home-navigation"
+      data-dragging={dragging ? "true" : "false"}
     >
       <div
-        className="mari-home-professor-popup__sprite relative z-[2] h-[11.5rem] w-[7.65rem] shrink-0 sm:h-[14rem] sm:w-[9.3rem]"
-        aria-hidden="true"
+        ref={spriteRef}
+        className={cn(
+          "mari-home-professor-popup__sprite group relative z-[2] h-[11.5rem] w-[7.65rem] shrink-0 sm:h-[14rem] sm:w-[9.3rem]",
+          desktopDragEnabled && "pointer-events-auto absolute touch-none select-none",
+        )}
+        style={desktopSpriteStyle}
+        data-component="HomeBrowserHub.ProfessorAssistantSprite"
       >
-        <span
-          className={cn(
-            "mari-home-professor-popup__arrival-frame absolute inset-0 z-[2] bg-no-repeat opacity-0 [background-size:400%_100%]",
-            phase === "arriving" && "opacity-100",
-          )}
-          style={{ backgroundImage: `url(${MARI_ASSISTANT_ARRIVAL_SHEET})` }}
-        />
-        <span
-          className={cn(
-            "mari-home-professor-popup__idle-stage absolute inset-0 z-[1] opacity-0",
-            phase === "idle" && "mari-home-professor-popup__idle-stage--active opacity-100",
-          )}
-        >
-          <img
-            src={MARI_ASSISTANT_IDLE}
-            alt=""
-            className="mari-home-professor-popup__idle absolute inset-0 h-full w-full object-contain object-bottom"
-          />
-          <img
-            src={MARI_ASSISTANT_BLINK}
-            alt=""
-            className="mari-home-professor-popup__blink absolute inset-0 h-full w-full object-contain object-bottom"
-          />
-        </span>
-        {phase === "map" || phase === "shrug" ? (
-          <img
-            src={phase === "map" ? MARI_ASSISTANT_MAP : MARI_ASSISTANT_SHRUG}
-            alt=""
+        {desktopDragEnabled && dragSpriteReady ? (
+          <span
+            role="button"
+            tabIndex={0}
+            aria-grabbed={dragging}
+            aria-label={t("home.assistant.drag")}
+            title={t("home.assistant.drag")}
+            data-component="HomeBrowserHub.ProfessorDragHandle"
             className={cn(
-              "mari-home-professor-popup__state-image absolute inset-0 z-[3] h-full w-full object-contain object-bottom",
-              phase === "map"
-                ? "mari-home-professor-popup__state-image--map"
-                : "mari-home-professor-popup__state-image--shrug",
+              "absolute z-[8] flex h-7 w-5 -translate-x-1/2 -translate-y-1/2 cursor-grab items-center justify-center text-[var(--muted-foreground)] opacity-0 drop-shadow-[0_2px_4px_var(--background)] transition-[opacity,color,transform] hover:text-[var(--foreground)] focus-visible:outline-none focus-visible:text-[var(--marinara-app-accent-solid)] focus-visible:opacity-100 [@media(pointer:fine)]:group-hover:opacity-100",
+              dragging && "!cursor-grabbing !text-[var(--marinara-app-accent-solid)] !opacity-100",
             )}
-          />
+            style={{
+              left: `${PROFESSOR_ASSISTANT_HOOD_GRAB_X * 100}%`,
+              top: `${PROFESSOR_ASSISTANT_HOOD_GRAB_Y * 100}%`,
+            }}
+            onKeyDown={nudgeProfessor}
+            onPointerDown={beginProfessorDrag}
+            onPointerMove={moveProfessorDrag}
+            onPointerUp={finishProfessorDrag}
+            onPointerCancel={finishProfessorDrag}
+            onLostPointerCapture={finishProfessorDrag}
+          >
+            <GripVertical size="0.9rem" />
+          </span>
         ) : null}
+        {dragging ? (
+          <span
+            className="mari-home-professor-popup__drag-frame absolute z-[5] bg-no-repeat [background-size:400%_100%]"
+            style={{ backgroundImage: `url(${MARI_ASSISTANT_DRAG_SHEET})` }}
+            aria-hidden="true"
+            data-component="HomeBrowserHub.ProfessorDragAnimation"
+          />
+        ) : (
+          <>
+            <span
+              className={cn(
+                "mari-home-professor-popup__arrival-frame absolute inset-0 z-[2] bg-no-repeat opacity-0 [background-size:400%_100%]",
+                phase === "arriving" && "opacity-100",
+              )}
+              style={{ backgroundImage: `url(${MARI_ASSISTANT_ARRIVAL_SHEET})` }}
+              aria-hidden="true"
+            />
+            <span
+              className={cn(
+                "mari-home-professor-popup__idle-stage absolute inset-0 z-[1] opacity-0",
+                phase === "idle" && "mari-home-professor-popup__idle-stage--active opacity-100",
+              )}
+              aria-hidden="true"
+            >
+              <img
+                src={MARI_ASSISTANT_IDLE}
+                alt=""
+                draggable={false}
+                className="mari-home-professor-popup__idle absolute inset-0 h-full w-full object-contain object-bottom"
+              />
+              <img
+                src={MARI_ASSISTANT_BLINK}
+                alt=""
+                draggable={false}
+                className="mari-home-professor-popup__blink absolute inset-0 h-full w-full object-contain object-bottom"
+              />
+            </span>
+            {phase === "map" || phase === "shrug" ? (
+              <img
+                src={phase === "map" ? MARI_ASSISTANT_MAP : MARI_ASSISTANT_SHRUG}
+                alt=""
+                draggable={false}
+                className={cn(
+                  "mari-home-professor-popup__state-image absolute inset-0 z-[3] h-full w-full object-contain object-bottom",
+                  phase === "map"
+                    ? "mari-home-professor-popup__state-image--map"
+                    : "mari-home-professor-popup__state-image--shrug",
+                )}
+              />
+            ) : null}
+          </>
+        )}
       </div>
-      <div className="mari-home-professor-popup__bubble pointer-events-auto relative z-[1] mb-[5.5rem] -ml-2 w-[min(22rem,calc(100%_-_6.5rem))] rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_48%,var(--border))] bg-[var(--card)] px-4 py-3.5 pr-10 shadow-[0_18px_48px_-18px_oklch(0.73_0.21_345/0.7)] sm:mb-[6.5rem] sm:-ml-3">
+      <div
+        ref={bubbleRef}
+        className={cn(
+          "mari-home-professor-popup__bubble pointer-events-auto z-[1] rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_48%,var(--border))] bg-[var(--card)] px-4 py-3.5 pr-10 shadow-[0_18px_48px_-18px_oklch(0.73_0.21_345/0.7)]",
+          desktopDragEnabled
+            ? "absolute w-[min(22rem,calc(100%_-_2rem))]"
+            : "relative mb-[5.5rem] -ml-2 w-[min(22rem,calc(100%_-_6.5rem))] sm:mb-[6.5rem] sm:-ml-3",
+          desktopDragEnabled && !desktopBubblePlacement && "invisible",
+          dragging && desktopDragEnabled && "pointer-events-none",
+        )}
+        style={desktopBubblePlacement?.style}
+        data-component="HomeBrowserHub.ProfessorAssistantBubble"
+        data-tail-side={
+          desktopBubblePlacement ? (desktopBubblePlacement.bubbleOnLeft ? "right" : "left") : undefined
+        }
+      >
         <button
           type="button"
           onClick={minimize}
@@ -864,13 +1226,15 @@ function FloatingProfessorMari({
           <X size="0.72rem" />
         </button>
         <p className="text-xs font-bold leading-relaxed text-[var(--foreground)] sm:text-sm">
-          {mode === "success"
-            ? t("home.assistant.found")
-            : mode === "failure"
-              ? t("home.assistant.notFound")
-              : t("home.assistant.prompt")}
+          {dragging
+            ? t("home.assistant.dragPrompt")
+            : mode === "success"
+              ? t("home.assistant.found")
+              : mode === "failure"
+                ? t("home.assistant.notFound")
+                : t("home.assistant.prompt")}
         </p>
-        {mode === "prompt" ? (
+        {!dragging && mode === "prompt" ? (
           <button
             type="button"
             onClick={openInput}
@@ -878,7 +1242,7 @@ function FloatingProfessorMari({
           >
             {t("home.assistant.navigate")}
           </button>
-        ) : mode === "input" ? (
+        ) : !dragging && mode === "input" ? (
           <form onSubmit={submitNavigation} className="relative mt-2">
             <input
               ref={inputRef}
@@ -899,7 +1263,7 @@ function FloatingProfessorMari({
               <Search size="0.8rem" />
             </button>
           </form>
-        ) : mode === "failure" ? (
+        ) : !dragging && mode === "failure" ? (
           <div className="mt-2 flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -2251,6 +2615,7 @@ export function HomeBrowserHub({
         <FloatingProfessorMari
           pageActive={pageActive}
           enabled={professorMariNavigationEnabled || !hasCompletedOnboarding}
+          boundaryRef={contentRef}
           onResolve={resolveWithProfessorMari}
           onNavigate={openProfessorMariTarget}
           onOpenProfessor={openProfessor}
