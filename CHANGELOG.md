@@ -27,9 +27,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 - Kept blank messages and hidden command anchors out of Home's Recent Chats previews, counted paginated chat histories without materializing every message ID, and rejected malformed history cursors.
 - Applied the selected tag-import mode when a downloaded character card is imported as a persona.
-- Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with equal halves, fixed icon sizing, and single-line labels.
+- Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with an exact centered split, fixed icon sizing, and single-line labels.
 - Kept Professor Mari's held navigation animation mounted, frame-snapped, and paint-batched so repeated grabs no longer flash the wrong sprite frame or stutter under pointer movement.
-- Mirrored Professor Mari's navigation speech-bubble tail from one canonical shape when her dialog switches sides.
+- Mirrored Professor Mari's navigation speech-bubble tail from one canonical shape when her dialog switches sides and seated it flush against either dialog edge.
 - Standardized chat-mode icons across Home, Chats, creation flows, shortcuts, and linked chats: Conversation keeps its message bubble, Roleplay uses theater masks, and Game uses a gamepad without colliding with Lorebooks.
 - Kept mobile Chats, Settings, and tracker panels above the Home browser chrome so their controls remain tappable.
 - Stopped hidden Home and Professor surfaces from retaining navigation timers, pending focus frames, message-history requests, Discovery rotation, and workspace-status polling after their lifecycle ended.

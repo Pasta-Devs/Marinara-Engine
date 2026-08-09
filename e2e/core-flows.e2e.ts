@@ -8354,24 +8354,31 @@ test("Character and Persona panels launch card downloads and their local librari
   });
   const expectLibraryActionGeometry = async (component: "CharacterLibraryActions" | "PersonaLibraryActions") => {
     const actions = page.locator(`[data-component="${component}"]`);
-    const geometry = await actions.locator("button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const bounds = button.getBoundingClientRect();
-        const iconBounds = button.querySelector("svg")?.getBoundingClientRect();
-        const label = button.querySelector("span:last-child") as HTMLElement | null;
-        return {
-          width: bounds.width,
-          height: bounds.height,
-          iconWidth: iconBounds?.width ?? 0,
-          iconHeight: iconBounds?.height ?? 0,
-          labelFits: Boolean(label && label.scrollWidth <= label.clientWidth + 1),
-          labelWhiteSpace: label ? getComputedStyle(label).whiteSpace : "",
-        };
-      }),
-    );
-    expect(geometry).toHaveLength(2);
-    expect(Math.abs(geometry[0]!.width - geometry[1]!.width)).toBeLessThanOrEqual(1);
-    for (const button of geometry) {
+    const geometry = await actions.evaluate((container) => {
+      const containerBounds = container.getBoundingClientRect();
+      const buttons = Array.from(container.querySelectorAll("button"));
+      return {
+        centerX: containerBounds.left + containerBounds.width / 2,
+        buttons: buttons.map((button) => {
+          const bounds = button.getBoundingClientRect();
+          const iconBounds = button.querySelector("svg")?.getBoundingClientRect();
+          const label = button.querySelector("span:last-child") as HTMLElement | null;
+          return {
+            left: bounds.left,
+            width: bounds.width,
+            height: bounds.height,
+            iconWidth: iconBounds?.width ?? 0,
+            iconHeight: iconBounds?.height ?? 0,
+            labelFits: Boolean(label && label.scrollWidth <= label.clientWidth + 1),
+            labelWhiteSpace: label ? getComputedStyle(label).whiteSpace : "",
+          };
+        }),
+      };
+    });
+    expect(geometry.buttons).toHaveLength(2);
+    expect(Math.abs(geometry.buttons[0]!.width - geometry.buttons[1]!.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.buttons[1]!.left - geometry.centerX)).toBeLessThanOrEqual(1);
+    for (const button of geometry.buttons) {
       expect(Math.abs(button.height - chatControlGeometry.buttonHeight)).toBeLessThanOrEqual(1);
       expect(Math.abs(button.iconWidth - chatControlGeometry.iconWidth)).toBeLessThanOrEqual(0.5);
       expect(Math.abs(button.iconHeight - chatControlGeometry.iconHeight)).toBeLessThanOrEqual(0.5);
@@ -13027,16 +13034,21 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   expect(["3.1%", "34.48%", "66.12%", "98.15%"]).toContain(movedDragTimeline.frame);
   const rightTailStyle = await bubble.evaluate((element) => {
     const tail = getComputedStyle(element, "::before");
+    const innerTail = getComputedStyle(element, "::after");
+    const bubbleStyle = getComputedStyle(element);
     return {
       clipPath: tail.clipPath,
       height: tail.height,
+      innerOverlap: Number.parseFloat(innerTail.width) + Number.parseFloat(innerTail.right),
+      borderWidth: Number.parseFloat(bubbleStyle.borderRightWidth),
       right: Number.parseFloat(tail.right),
       transform: tail.transform,
       width: tail.width,
     };
   });
   expect(rightTailStyle.right).toBeLessThan(0);
-  expect(rightTailStyle.transform).toBe("matrix(-1, 0, 0, 1, 0, 0)");
+  expect(rightTailStyle.innerOverlap).toBeGreaterThan(rightTailStyle.borderWidth);
+  expect(rightTailStyle.transform).toBe("none");
   await page.mouse.up();
   await expect(assistant).toHaveAttribute("data-dragging", "false");
   await expect(dragAnimation).toBeHidden();
@@ -13064,17 +13076,21 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   await expect(bubble).toHaveAttribute("data-tail-side", "left");
   const leftTailStyle = await bubble.evaluate((element) => {
     const tail = getComputedStyle(element, "::before");
+    const innerTail = getComputedStyle(element, "::after");
+    const bubbleStyle = getComputedStyle(element);
     return {
       clipPath: tail.clipPath,
       height: tail.height,
+      innerOverlap: Number.parseFloat(innerTail.width) + Number.parseFloat(innerTail.left),
+      borderWidth: Number.parseFloat(bubbleStyle.borderLeftWidth),
       left: Number.parseFloat(tail.left),
       transform: tail.transform,
       width: tail.width,
     };
   });
   expect(leftTailStyle.left).toBeLessThan(0);
-  expect(leftTailStyle.transform).toBe("none");
-  expect(rightTailStyle.clipPath).toBe(leftTailStyle.clipPath);
+  expect(leftTailStyle.innerOverlap).toBeGreaterThan(leftTailStyle.borderWidth);
+  expect(rightTailStyle.clipPath).not.toBe(leftTailStyle.clipPath);
   expect(rightTailStyle.width).toBe(leftTailStyle.width);
   expect(rightTailStyle.height).toBe(leftTailStyle.height);
   const movedSpriteBounds = await sprite.boundingBox();

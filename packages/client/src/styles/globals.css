@@ -1098,7 +1098,12 @@
 }
 
 .mari-chrome-segmented--two {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.mari-chrome-segmented--two > .mari-chrome-segmented__button {
+  width: auto;
+  justify-self: stretch;
 }
 
 .mari-chrome-segmented__button {
@@ -2922,7 +2927,7 @@ html.mari-home-widget-drag-active * {
 }
 
 .mari-home-professor-popup__bubble::after {
-  left: -0.68rem;
+  left: -0.62rem;
   bottom: 1.19rem;
   width: 0.72rem;
   height: 1.05rem;
@@ -2934,11 +2939,12 @@ html.mari-home-widget-drag-active * {
 .mari-home-professor-popup__bubble[data-tail-side="right"]::after {
   right: -0.82rem;
   left: auto;
-  transform: scaleX(-1);
+  clip-path: polygon(100% 50%, 0 0, 0 100%);
+  transform: none;
 }
 
 .mari-home-professor-popup__bubble[data-tail-side="right"]::after {
-  right: -0.68rem;
+  right: -0.62rem;
   left: auto;
 }
 

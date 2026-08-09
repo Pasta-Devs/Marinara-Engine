@@ -559,11 +559,15 @@ export function PersonasPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <div className="mari-chrome-segmented mari-chrome-segmented--two" data-component="PersonaLibraryActions">
+      <div
+        className="mari-chrome-segmented mari-chrome-segmented--two"
+        data-component="PersonaLibraryActions"
+        style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
+      >
         <button
           type="button"
           onClick={openBotBrowser}
-          className="mari-chrome-segmented__button w-full gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
+          className="mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
         >
           <span className="shrink-0 leading-none">
@@ -576,7 +580,7 @@ export function PersonasPanel() {
         <button
           type="button"
           onClick={openPersonaLibrary}
-          className="mari-chrome-segmented__button w-full gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
+          className="mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
         >
           <span className="shrink-0 leading-none">
