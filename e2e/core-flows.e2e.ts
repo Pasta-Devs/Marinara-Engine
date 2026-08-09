@@ -12340,6 +12340,64 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   await page.keyboard.press("Escape");
 });
 
+test("Character of the Day stays vertically centered inside its mobile widget", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Mobile-only character widget composition.");
+
+  const characterResponse = await page.request.post("/api/characters", {
+    data: {
+      data: {
+        name: `Mobile Character of the Day ${Date.now()}`,
+        description:
+          "A deliberately long character summary that verifies the mobile card keeps its portrait and copy comfortably inside the widget.",
+      },
+    },
+  });
+  expect(characterResponse.ok()).toBeTruthy();
+  const character = (await characterResponse.json()) as { id: string };
+
+  try {
+    await page.addInitScript(() => {
+      localStorage.setItem("marinara:home:widget-visibility:v2", JSON.stringify(["character"]));
+      localStorage.removeItem("marinara:home:widget-layout:v2");
+      localStorage.removeItem("marinara:home:widget-order:v1");
+    });
+    await page.goto("/");
+
+    const characterWidget = page.locator('[data-home-widget-id="character"]');
+    await expect(characterWidget).toBeVisible({ timeout: 30_000 });
+    const characterLayout = await characterWidget.evaluate((element) => {
+      const content = element.querySelector<HTMLElement>(
+        '[data-component="HomeBrowserHub.CharacterOfDayContent"]',
+      );
+      const avatar = element.querySelector<HTMLElement>(
+        '[data-component="HomeBrowserHub.CharacterOfDayAvatar"]',
+      );
+      const details = element.querySelector<HTMLElement>(
+        '[data-component="HomeBrowserHub.CharacterOfDayDetails"]',
+      );
+      if (!content || !avatar || !details) return null;
+      const contentBounds = content.getBoundingClientRect();
+      const avatarBounds = avatar.getBoundingClientRect();
+      const detailsBounds = details.getBoundingClientRect();
+      return {
+        avatarCenterOffset: Math.abs(
+          avatarBounds.top + avatarBounds.height / 2 - (contentBounds.top + contentBounds.height / 2),
+        ),
+        avatarBottomOverflow: avatarBounds.bottom - contentBounds.bottom,
+        detailsBottomOverflow: detailsBounds.bottom - contentBounds.bottom,
+        widgetOverflow: element.scrollHeight - element.clientHeight,
+      };
+    });
+    expect(characterLayout).not.toBeNull();
+    expect(characterLayout!.avatarCenterOffset).toBeLessThanOrEqual(1);
+    expect(characterLayout!.avatarBottomOverflow).toBeLessThanOrEqual(1);
+    expect(characterLayout!.detailsBottomOverflow).toBeLessThanOrEqual(1);
+    expect(characterLayout!.widgetOverflow).toBeLessThanOrEqual(1);
+  } finally {
+    await page.request.delete(`/api/characters/${character.id}`).catch(() => undefined);
+  }
+});
+
 test("home browser hub scales cleanly and opens FAQ as a bookmark window", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const mobile = testInfo.project.name.includes("mobile");

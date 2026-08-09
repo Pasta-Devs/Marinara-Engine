@@ -2066,8 +2066,14 @@ export function HomeBrowserHub({
                         className="h-full"
                       >
                         {characterOfDay ? (
-                          <div className="flex min-h-36 items-center gap-3">
-                            <div className="relative h-28 w-28 shrink-0 sm:h-32 sm:w-32">
+                          <div
+                            className="flex h-full min-h-0 items-center gap-3"
+                            data-component="HomeBrowserHub.CharacterOfDayContent"
+                          >
+                            <div
+                              className="relative h-24 w-24 shrink-0 sm:h-32 sm:w-32"
+                              data-component="HomeBrowserHub.CharacterOfDayAvatar"
+                            >
                               <span className="absolute inset-[15%] flex items-center justify-center overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--home-module-accent)_12%,var(--secondary))] text-2xl font-black text-[var(--home-module-accent)]">
                                 {characterOfDay.avatarPath ? (
                                   <img
@@ -2088,11 +2094,11 @@ export function HomeBrowserHub({
                                 aria-hidden="true"
                               />
                             </div>
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1" data-component="HomeBrowserHub.CharacterOfDayDetails">
                               <h3 className="truncate text-base font-bold text-[var(--foreground)]">
                                 {characterOfDay.name}
                               </h3>
-                              <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-[var(--muted-foreground)] sm:line-clamp-3">
                                 {characterOfDay.comment ||
                                   characterOfDay.description ||
                                   t("home.characterOfDay.fallback")}
