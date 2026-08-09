@@ -7238,8 +7238,10 @@ test("home shell and primary topbar panels open without client errors", async ({
   expect(errors).toEqual([]);
 });
 
-test("installed Home destinations appear as browser tabs without returning to the topbar", async ({ page }) => {
+test("installed Home destinations appear as browser tabs without returning to the topbar", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
+  const mobile = testInfo.project.name.includes("mobile");
+  if (mobile) await page.setViewportSize({ width: 320, height: 844 });
   const manifest = {
     schemaVersion: 1,
     id: "noodle",
@@ -7306,6 +7308,30 @@ test("installed Home destinations appear as browser tabs without returning to th
   await expect(noodleTab.locator("img")).toHaveCount(2);
   await expect(noodleTab.locator("img").first()).toHaveAttribute("src", /noodle-klusek\.png/u);
   await expect(noodleTab.locator("img").last()).toHaveAttribute("src", /noodler-klusek\.png/u);
+  if (mobile) {
+    const tabList = page.locator('[data-component="HomeBrowserHub.TabList"]');
+    await expect(tabList.getByRole("tab")).toHaveCount(3);
+    const tabLayout = await tabList.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const tabs = Array.from(element.querySelectorAll<HTMLElement>('[role="tab"]'));
+      return {
+        overflow: element.scrollWidth - element.clientWidth,
+        tabsOutsideRail: tabs.filter((tab) => {
+          const tabBounds = tab.getBoundingClientRect();
+          return tabBounds.left < bounds.left - 1 || tabBounds.right > bounds.right + 1;
+        }).length,
+        tabsWithClippedContent: tabs.filter((tab) => tab.scrollWidth > tab.clientWidth + 1).length,
+        labelsWithClippedContent: tabs.filter((tab) => {
+          const label = tab.querySelector<HTMLElement>("span:last-child");
+          return Boolean(label && label.scrollWidth > label.clientWidth + 1);
+        }).length,
+      };
+    });
+    expect(tabLayout.overflow).toBeLessThanOrEqual(1);
+    expect(tabLayout.tabsOutsideRail).toBe(0);
+    expect(tabLayout.tabsWithClippedContent).toBe(0);
+    expect(tabLayout.labelsWithClippedContent).toBe(0);
+  }
   await noodleTab.click();
   await expect(page.getByRole("region", { name: "Noodle package surface" })).toHaveText("Familiar Noodle interface");
   await expect(noodleTab).toHaveAttribute("aria-selected", "true");

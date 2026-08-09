@@ -1449,7 +1449,7 @@ export function HomeBrowserHub({
     >
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden border border-[var(--border)]/75 bg-[var(--card)]/65 shadow-2xl shadow-black/25 sm:rounded-xl">
         <header className="mari-home-browser-chrome relative z-40 shrink-0 border-b border-[var(--marinara-topbar-border)] bg-[var(--marinara-topbar-surface)] shadow-[0_8px_28px_-26px_rgba(0,0,0,0.8)] backdrop-blur-sm">
-          <div className="flex h-10 min-w-0 items-end gap-2 border-b border-[var(--border)]/45 px-2 sm:px-3">
+          <div className="flex h-10 min-w-0 items-end gap-1 border-b border-[var(--border)]/45 px-2 sm:gap-2 sm:px-3">
             <div
               className="relative z-10 flex shrink-0 self-center items-center gap-2 pr-1 sm:pr-3"
               data-component="HomeBrowserHub.Brand"
@@ -1468,9 +1468,10 @@ export function HomeBrowserHub({
               </div>
             </div>
             <div
-              className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto"
+              className="flex min-w-0 flex-1 items-end gap-0.5 overflow-hidden sm:gap-1 sm:overflow-x-auto"
               role="tablist"
               aria-label={t("home.browser.tabsLabel")}
+              data-component="HomeBrowserHub.TabList"
             >
               <button
                 id={homeBrowserTabId("home")}
@@ -1480,14 +1481,14 @@ export function HomeBrowserHub({
                 aria-selected={activeTab === "home"}
                 onClick={() => selectTab("home")}
                 className={cn(
-                  "flex min-h-9 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-t-lg border border-b-0 px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)]",
+                  "flex min-h-9 min-w-0 flex-[0.8] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.79_0.16_205)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                   activeTab === "home"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                 )}
               >
                 <img src="/home/tab-icons/home.png" alt="" className="h-[1.125rem] w-[1.125rem] object-contain" />
-                {t("home.browser.homeTab")}
+                <span className="min-w-0 truncate">{t("home.browser.homeTab")}</span>
               </button>
               <button
                 id={homeBrowserTabId("professor")}
@@ -1497,14 +1498,14 @@ export function HomeBrowserHub({
                 aria-selected={activeTab === "professor"}
                 onClick={openProfessor}
                 className={cn(
-                  "flex min-h-9 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-t-lg border border-b-0 px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)]",
+                  "flex min-h-9 min-w-0 flex-[1.1] items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                   activeTab === "professor"
                     ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                     : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                 )}
               >
                 <img src="/sprites/mari/Mari_profile.png" alt="" className="h-4 w-4 rounded-sm object-cover" />
-                {t("home.browser.professorTab")}
+                <span className="min-w-0 truncate">{t("home.browser.professorTab")}</span>
               </button>
               {browserPackages.map((item) => {
                 const tab = item.manifest.contributions?.homeBrowserTab;
@@ -1519,14 +1520,14 @@ export function HomeBrowserHub({
                     aria-selected={activeTab === item.id}
                     onClick={() => selectTab(item.id)}
                     className={cn(
-                      "flex min-h-9 min-w-[6.5rem] items-center justify-center gap-1.5 rounded-t-lg border border-b-0 px-3 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)]",
+                      "flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                       activeTab === item.id
                         ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                         : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
                     )}
                   >
                     <BrowserPackageTabIcon packageId={item.id} version={item.version} iconPaths={tab?.iconPaths} />
-                    {tab?.label ?? item.manifest.name}
+                    <span className="min-w-0 truncate">{tab?.label ?? item.manifest.name}</span>
                   </button>
                 );
               })}
