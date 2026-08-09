@@ -7265,6 +7265,8 @@ test("home shell and primary topbar panels open without client errors", async ({
 test("installed Home destinations appear as browser tabs without returning to the topbar", async ({ page }, testInfo) => {
   const errors = collectUnexpectedErrors(page);
   const mobile = testInfo.project.name.includes("mobile");
+  const refreshMarker = "refresh-fixture:2026-08-09T16:00:00.000Z";
+  await page.addInitScript((storageKey) => localStorage.removeItem(storageKey), "marinara:home:noodle-refresh-seen:v1");
   if (mobile) await page.setViewportSize({ width: 320, height: 844 });
   const manifest = {
     schemaVersion: 1,
@@ -7324,6 +7326,12 @@ test("installed Home destinations appear as browser tabs without returning to th
       ),
     }),
   );
+  await page.route("**/api/noodle/refresh-indicator", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ marker: refreshMarker }),
+    }),
+  );
 
   await page.goto("/");
   await expect(page.locator('[data-tour="noodle-tab"]')).toHaveCount(0);
@@ -7332,6 +7340,8 @@ test("installed Home destinations appear as browser tabs without returning to th
   await expect(noodleTab.locator("img")).toHaveCount(2);
   await expect(noodleTab.locator("img").first()).toHaveAttribute("src", /noodle-klusek\.png/u);
   await expect(noodleTab.locator("img").last()).toHaveAttribute("src", /noodler-klusek\.png/u);
+  const refreshBadge = noodleTab.locator('[data-component="HomeBrowserHub.NoodleRefreshBadge"]');
+  await expect(refreshBadge).toHaveText("1");
   if (mobile) {
     const tabList = page.locator('[data-component="HomeBrowserHub.TabList"]');
     await expect(tabList.getByRole("tab")).toHaveCount(3);
@@ -7357,6 +7367,10 @@ test("installed Home destinations appear as browser tabs without returning to th
     expect(tabLayout.labelsWithClippedContent).toBe(0);
   }
   await noodleTab.click();
+  await expect(refreshBadge).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => localStorage.getItem("marinara:home:noodle-refresh-seen:v1")))
+    .toBe(refreshMarker);
   await expect(page.getByRole("region", { name: "Noodle package surface" })).toHaveText("Familiar Noodle interface");
   await expect(noodleTab).toHaveAttribute("aria-selected", "true");
   await expect(page.locator('[data-component="HomeBrowserHub.Address"]')).toContainText("marinara/noodle");

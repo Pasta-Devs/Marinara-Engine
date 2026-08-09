@@ -12,7 +12,7 @@ import {
   type RefObject,
   type ReactNode,
 } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import {
   ArrowLeft,
@@ -46,6 +46,7 @@ import { useLorebooks } from "../../hooks/use-lorebooks";
 import { usePresets } from "../../hooks/use-presets";
 import { useReducedAmbientEffects } from "../../hooks/use-reduced-ambient-effects";
 import { achievementKeys, trackAchievementEvent } from "../../hooks/use-achievements";
+import { api } from "../../lib/api-client";
 import { parseCharacterDisplayData } from "../../lib/character-display";
 import {
   resolveProfessorMariNavigation,
@@ -80,6 +81,7 @@ const HOME_CARD_ART_CLASS = "-right-5 -top-5 h-36 w-44 object-contain object-rig
 let professorAssistantMinimizedForRuntime = false;
 let professorAssistantHasAppearedForRuntime = false;
 const PROFESSOR_ASSISTANT_POSITION_STORAGE_KEY = "marinara:home:professor-position:v1";
+const NOODLE_REFRESH_SEEN_STORAGE_KEY = "marinara:home:noodle-refresh-seen:v1";
 const PROFESSOR_ASSISTANT_EDGE_MARGIN = 16;
 const PROFESSOR_ASSISTANT_HANDLE_CLEARANCE = 12;
 const PROFESSOR_ASSISTANT_HOOD_GRAB_X = 0.45;
@@ -172,6 +174,23 @@ function rememberProfessorAssistantPosition(position: ProfessorAssistantPosition
     window.localStorage.setItem(PROFESSOR_ASSISTANT_POSITION_STORAGE_KEY, JSON.stringify(position));
   } catch {
     /* Local storage is optional; dragging still works for the current mount. */
+  }
+}
+
+function readSeenNoodleRefreshMarker(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(NOODLE_REFRESH_SEEN_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function rememberSeenNoodleRefreshMarker(marker: string) {
+  try {
+    window.localStorage.setItem(NOODLE_REFRESH_SEEN_STORAGE_KEY, marker);
+  } catch {
+    /* Local storage is optional; the badge still clears for the current mount. */
   }
 }
 
@@ -1404,7 +1423,12 @@ export function HomeBrowserHub({
   const professorMariNavigationEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
   const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
+  const noodleBrowserPackage = useMemo(
+    () => browserPackages.find((item) => item.id === "noodle") ?? null,
+    [browserPackages],
+  );
   const [activeTab, setActiveTab] = useState("home");
+  const [seenNoodleRefreshMarker, setSeenNoodleRefreshMarker] = useState(readSeenNoodleRefreshMarker);
   const [browserRevision, setBrowserRevision] = useState(0);
   const [faqOpen, setFaqOpen] = useState(false);
   const [achievementsOpen, setAchievementsOpen] = useState(false);
@@ -1431,6 +1455,21 @@ export function HomeBrowserHub({
   } | null>(null);
   const dragPreviewRemovalTimerRef = useRef<number | null>(null);
   const [discoveryIndex, setDiscoveryIndex] = useState(0);
+  const noodleRefreshIndicator = useQuery({
+    queryKey: ["home-browser", "noodle-refresh-indicator", noodleBrowserPackage?.version ?? "unavailable"],
+    queryFn: () => api.get<{ marker: string | null }>("/noodle/refresh-indicator"),
+    enabled: pageActive && Boolean(noodleBrowserPackage),
+    staleTime: 10_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+  const latestNoodleRefreshMarker = noodleRefreshIndicator.data?.marker ?? null;
+  const noodleRefreshUnread = Boolean(
+    latestNoodleRefreshMarker &&
+      latestNoodleRefreshMarker !== seenNoodleRefreshMarker &&
+      activeTab !== "noodle",
+  );
   const activeWidgetSlots = widgetLayouts[gridColumns];
   const availableWidgetIds: readonly HomeWidgetId[] = achievementsEnabled
     ? HOME_WIDGET_IDS
@@ -1520,6 +1559,15 @@ export function HomeBrowserHub({
     if (activeTab === "home" || activeTab === "professor") return;
     if (!browserPackages.some((item) => item.id === activeTab)) setActiveTab("home");
   }, [activeTab, browserPackages]);
+
+  useEffect(() => {
+    if (activeTab !== "noodle" || !latestNoodleRefreshMarker) return;
+    setSeenNoodleRefreshMarker((current) => {
+      if (current === latestNoodleRefreshMarker) return current;
+      rememberSeenNoodleRefreshMarker(latestNoodleRefreshMarker);
+      return latestNoodleRefreshMarker;
+    });
+  }, [activeTab, latestNoodleRefreshMarker]);
 
   useEffect(() => {
     try {
@@ -1946,6 +1994,8 @@ export function HomeBrowserHub({
               </button>
               {browserPackages.map((item) => {
                 const tab = item.manifest.contributions?.homeBrowserTab;
+                const hasUnreadRefresh = item.id === "noodle" && noodleRefreshUnread;
+                const activityDescriptionId = `${homeBrowserTabId(item.id)}-activity`;
                 return (
                   <button
                     key={item.id}
@@ -1954,10 +2004,11 @@ export function HomeBrowserHub({
                     role="tab"
                     aria-controls={HOME_BROWSER_PANEL_ID}
                     aria-label={tab?.ariaLabel ?? tab?.label}
+                    aria-describedby={hasUnreadRefresh ? activityDescriptionId : undefined}
                     aria-selected={activeTab === item.id}
                     onClick={() => selectTab(item.id)}
                     className={cn(
-                      "flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
+                      "relative flex min-h-9 min-w-0 flex-1 items-center justify-center gap-1 rounded-t-lg border border-b-0 px-1 text-[0.65rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[oklch(0.73_0.21_345)] sm:min-w-[6.5rem] sm:flex-none sm:gap-1.5 sm:px-3 sm:text-xs",
                       activeTab === item.id
                         ? "border-[var(--border)] bg-[var(--card)] text-[var(--foreground)]"
                         : "border-transparent text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
@@ -1965,6 +2016,16 @@ export function HomeBrowserHub({
                   >
                     <BrowserPackageTabIcon packageId={item.id} version={item.version} iconPaths={tab?.iconPaths} />
                     <span className="min-w-0 truncate">{tab?.label ?? item.manifest.name}</span>
+                    {hasUnreadRefresh ? (
+                      <span
+                        id={activityDescriptionId}
+                        aria-label={t("home.browser.newTimelineRefresh")}
+                        data-component="HomeBrowserHub.NoodleRefreshBadge"
+                        className="absolute right-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF7EC1] px-1 text-[0.58rem] font-black leading-none text-[#1a1025] ring-1 ring-[#7EA7FF] sm:-right-1 sm:-top-1"
+                      >
+                        <span aria-hidden="true">1</span>
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
