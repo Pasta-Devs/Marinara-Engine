@@ -235,6 +235,13 @@ export function parseMessageCursor(before?: string): { createdAt: string; rowid:
   };
 }
 
+export class InvalidMessageCursorError extends Error {
+  constructor() {
+    super("Invalid message cursor");
+    this.name = "InvalidMessageCursorError";
+  }
+}
+
 async function invalidateMemoryChunksFrom(db: DB, chatId: string, createdAt: string) {
   await db
     .delete(memoryChunks)
@@ -953,26 +960,29 @@ export function createChatsStorage(db: DB) {
     /** Paginated: returns the latest `limit` messages (optionally before a cursor). */
     async listMessagesPaginated(chatId: string, limit: number, before?: string) {
       const cursor = parseMessageCursor(before);
-      if (before && !cursor) throw new Error("Invalid message cursor");
-      const condition = eq(messages.chatId, chatId);
-      const totalCount = db.count(messages, condition);
-      const offset = cursor ? Math.max(0, totalCount - cursor.rowid + 1) : 0;
-      const rowsDescending = await db
-        .select()
-        .from(messages)
-        .where(condition)
-        .orderBy(desc(messages.createdAt), desc(messages.id))
-        .offset(offset)
-        .limit(Math.max(1, Math.floor(limit)));
-      const reversed = rowsDescending.reverse().map((message, index) => ({
-        ...message,
-        rowid: totalCount - offset - rowsDescending.length + index + 1,
-      }));
-      const countMap = await countSwipesByMessageId(
-        db,
-        reversed.map((m) => m.id),
-      );
-      return reversed.map((m) => ({ ...m, swipeCount: countMap.get(m.id) ?? 0 }));
+      if (before && !cursor) throw new InvalidMessageCursorError();
+      return db.transaction(async (tx) => {
+        const condition = eq(messages.chatId, chatId);
+        const totalCount = tx.count(messages, condition);
+        if (cursor && cursor.rowid > totalCount) throw new InvalidMessageCursorError();
+        const offset = cursor ? Math.max(0, totalCount - cursor.rowid + 1) : 0;
+        const rowsDescending = await tx
+          .select()
+          .from(messages)
+          .where(condition)
+          .orderBy(desc(messages.createdAt), desc(messages.id))
+          .offset(offset)
+          .limit(Math.max(1, Math.floor(limit)));
+        const reversed = rowsDescending.reverse().map((message, index) => ({
+          ...message,
+          rowid: totalCount - offset - rowsDescending.length + index + 1,
+        }));
+        const countMap = await countSwipesByMessageId(
+          tx,
+          reversed.map((m) => m.id),
+        );
+        return reversed.map((m) => ({ ...m, swipeCount: countMap.get(m.id) ?? 0 }));
+      });
     },
 
     /** Bounded message snapshots for surfaces that do not need cursors or swipe metadata. */

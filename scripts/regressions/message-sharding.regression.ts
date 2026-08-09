@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { and, eq, jsonFlagsNotTrue, ne, stringIsNonBlank } from "../../packages/server/src/db/file-query.js";
+import { and, desc, eq, jsonFlagsNotTrue, ne, stringIsNonBlank } from "../../packages/server/src/db/file-query.js";
 import {
   createFileNativeDB,
   encodeShardKey,
@@ -35,6 +35,7 @@ import {
   oocInfluences,
   spatialContextSnapshots,
 } from "../../packages/server/src/db/schema/index.js";
+import { createChatsStorage } from "../../packages/server/src/services/storage/chats.storage.js";
 
 function tempStorageDir() {
   const dir = mkdtempSync(join(tmpdir(), "marinara-shards-"));
@@ -1091,11 +1092,18 @@ assert.equal(
           jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
         ),
       )
+      .orderBy(desc(messages.createdAt), desc(messages.id))
       .limit(1);
     assert.deepEqual(
       previews,
       [{ id: "preview-visible" }],
       "blank and hidden command anchors cannot consume preview slots",
+    );
+    const storage = createChatsStorage(db);
+    await assert.rejects(
+      storage.listMessagesPaginated("preview-chat", 1, "2026-08-08T10:00:00.000Z|6"),
+      /Invalid message cursor/u,
+      "history cursors cannot point beyond the current snapshot",
     );
   } finally {
     await db._fileStore.close();
