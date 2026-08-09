@@ -45,6 +45,8 @@ interface TourStep {
   openSidebar?: boolean;
   /** Return to the unobstructed Home hub while this step is active */
   openHome?: boolean;
+  /** Keep the tutorial card centered while still spotlighting its target */
+  centerCard?: boolean;
   /** Optional settings tab to show when the Settings panel is open */
   settingsTab?: string;
   /** Render the documentation-language picker inside this step's card */
@@ -161,8 +163,8 @@ const STEPS: TourStep[] = [
     target: "home-navigation",
     titleKey: "onboarding.homeNavigation.title",
     bodyKey: "onboarding.homeNavigation.body",
-    side: "left",
     openHome: true,
+    centerCard: true,
     sprite: { src: "/sprites/mari/Mari_point_middle_left.png" },
   },
   {
@@ -702,7 +704,7 @@ function OnboardingTutorialInner() {
     }
   }, [isLast, commitDocsLanguage, finish]);
 
-  const isCentered = isMobileViewport || !currentStep.target || !targetRect;
+  const isCentered = isMobileViewport || currentStep.centerCard || !currentStep.target || !targetRect;
   const centeredTopOffset = getTutorialTopOffset();
   const centeredCardMaxHeight = Math.max(220, getViewportHeight() - centeredTopOffset - 16);
 
@@ -762,6 +764,7 @@ function OnboardingTutorialInner() {
       {/* Centered steps use a flex wrapper so Framer Motion transforms don't override CSS centering */}
       {isCentered ? (
         <div
+          data-component="OnboardingTutorial.CenteredStage"
           className="pointer-events-none fixed inset-x-0 bottom-3 flex items-center justify-center px-3"
           style={{ top: centeredTopOffset }}
         >
@@ -773,6 +776,7 @@ function OnboardingTutorialInner() {
               exit={{ opacity: 0, y: -8, scale: 0.96 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className={TUTORIAL_CARD_CLASS}
+              data-component="OnboardingTutorial.Card"
               style={{ width: Math.min(380, getViewportWidth() - 32), maxHeight: centeredCardMaxHeight }}
             >
               <TourCardContent step={step} currentStep={currentStep} isLast={isLast} onNext={next} onSkip={finish} pickerSlot={pickerSlot} />
@@ -788,6 +792,7 @@ function OnboardingTutorialInner() {
             exit={{ opacity: 0, y: -8, scale: 0.96 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             className={TUTORIAL_CARD_CLASS}
+            data-component="OnboardingTutorial.Card"
             style={computeTooltipStyle(targetRect!, currentStep)}
           >
             <TourCardContent step={step} currentStep={currentStep} isLast={isLast} onNext={next} onSkip={finish} pickerSlot={pickerSlot} />

@@ -2912,40 +2912,46 @@ html.mari-home-widget-drag-active * {
 
 .mari-home-professor-popup__bubble::before,
 .mari-home-professor-popup__bubble::after {
-  content: "";
+  content: none;
+  display: none;
+}
+
+.mari-home-professor-popup__bubble-tail {
+  display: block;
   position: absolute;
   left: -0.82rem;
   bottom: 1.1rem;
   width: 0.9rem;
   height: 1.25rem;
+  z-index: -1;
+  transform-origin: center;
+}
+
+.mari-home-professor-popup__bubble-tail::before,
+.mari-home-professor-popup__bubble-tail::after {
+  content: "";
+  position: absolute;
   clip-path: polygon(0 50%, 100% 0, 100% 100%);
 }
 
-.mari-home-professor-popup__bubble::before {
-  z-index: -2;
+.mari-home-professor-popup__bubble-tail::before {
+  inset: 0;
   background: color-mix(in srgb, oklch(0.73 0.21 345) 48%, var(--border));
 }
 
-.mari-home-professor-popup__bubble::after {
-  left: -0.62rem;
-  bottom: 1.19rem;
+.mari-home-professor-popup__bubble-tail::after {
+  left: 0.2rem;
+  bottom: 0.09rem;
   width: 0.72rem;
   height: 1.05rem;
-  z-index: -1;
   background: var(--card);
 }
 
-.mari-home-professor-popup__bubble[data-tail-side="right"]::before,
-.mari-home-professor-popup__bubble[data-tail-side="right"]::after {
+.mari-home-professor-popup__bubble[data-tail-side="right"]
+  .mari-home-professor-popup__bubble-tail {
   right: -0.82rem;
   left: auto;
-  clip-path: polygon(100% 50%, 0 0, 0 100%);
-  transform: none;
-}
-
-.mari-home-professor-popup__bubble[data-tail-side="right"]::after {
-  right: -0.62rem;
-  left: auto;
+  transform: scaleX(-1);
 }
 
 .mari-home-professor-popup__arrival-frame {
@@ -2957,7 +2963,7 @@ html.mari-home-widget-drag-active * {
 .mari-home-professor-popup__drag-frame {
   left: 45%;
   top: 9%;
-  width: 114%;
+  width: 120%;
   height: 114%;
   background-position: 3.1% 0;
   animation:

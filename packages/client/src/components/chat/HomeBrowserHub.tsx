@@ -1176,7 +1176,6 @@ function FloatingProfessorMari({
           : "bottom-[max(0rem,env(safe-area-inset-bottom))] left-2 right-2 flex items-end justify-end sm:left-5 sm:right-5",
       )}
       aria-label={t("home.assistant.landmark")}
-      data-tour="home-navigation"
       data-dragging={dragging ? "true" : "false"}
     >
       <div
@@ -1277,10 +1276,16 @@ function FloatingProfessorMari({
         )}
         style={desktopBubblePlacement?.style}
         data-component="HomeBrowserHub.ProfessorAssistantBubble"
+        data-tour="home-navigation"
         data-tail-side={
           desktopBubblePlacement ? (desktopBubblePlacement.bubbleOnLeft ? "right" : "left") : undefined
         }
       >
+        <span
+          className="mari-home-professor-popup__bubble-tail"
+          aria-hidden="true"
+          data-component="HomeBrowserHub.ProfessorAssistantBubbleTail"
+        />
         <button
           type="button"
           onClick={minimize}
