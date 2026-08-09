@@ -26,6 +26,7 @@ import {
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocks,
   normalizeTrackerHiddenFields,
+  HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
   characterTrackerCustomFieldDefaultsToRecord,
@@ -638,8 +639,12 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Bounded Home data. This deliberately returns one short visible-message
   // glimpse per chat instead of making the browser load recent transcripts.
   app.get("/home-feed", async (): Promise<HomeFeedSnapshot> => {
-    await cleanupEmptyRoleplayDmChats();
-    const recentChats = (await storage.list()).filter((chat) => !shouldHideProfessorMariChat(chat)).slice(0, 6);
+    void cleanupEmptyRoleplayDmChats().catch((err) => logger.warn(err, "Background chat cleanup failed"));
+    // A small over-fetch leaves room for internal Professor Mari threads while
+    // keeping Home independent from the size of the user's complete chat library.
+    const recentChats = (await storage.listRecent(24))
+      .filter((chat) => !shouldHideProfessorMariChat(chat))
+      .slice(0, 6);
     return {
       generatedAt: new Date().toISOString(),
       recentChats: await Promise.all(
@@ -671,7 +676,9 @@ export async function chatsRoutes(app: FastifyInstance) {
                 typeof expression === "string" &&
                 expression.trim()
               ) {
-                spriteExpressions[characterId] = expression.trim();
+                spriteExpressions[characterId] = expression
+                  .trim()
+                  .slice(0, HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH);
               }
             }
           }
@@ -684,7 +691,9 @@ export async function chatsRoutes(app: FastifyInstance) {
                 typeof expression === "string" &&
                 expression.trim()
               ) {
-                spriteExpressions[characterId] = expression.trim();
+                spriteExpressions[characterId] = expression
+                  .trim()
+                  .slice(0, HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH);
               }
             }
           }

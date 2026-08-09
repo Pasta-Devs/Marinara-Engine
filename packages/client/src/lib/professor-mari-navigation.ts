@@ -288,7 +288,7 @@ export function normalizeProfessorMariNavigationQuery(value: string) {
   return value
     .normalize("NFKD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLocaleLowerCase()
+    .toLowerCase()
     .replace(/[^\p{Letter}\p{Number}]+/gu, " ")
     .trim();
 }

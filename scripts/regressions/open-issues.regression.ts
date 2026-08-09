@@ -376,6 +376,12 @@ assert.deepEqual(resolveProfessorMariNavigation("edit the Echo persona", [], pro
   resource: "persona",
   id: "persona-echo",
 });
+// An ambiguous name resolves to the first matching resource in supply order.
+assert.deepEqual(resolveProfessorMariNavigation("Echo", [], professorMariNamedResources), {
+  kind: "resource",
+  resource: "persona",
+  id: "persona-echo",
+});
 assert.deepEqual(resolveProfessorMariNavigation("open Cinematic RP preset", [], professorMariNamedResources), {
   kind: "resource",
   resource: "preset",

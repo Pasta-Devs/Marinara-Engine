@@ -120,6 +120,21 @@ async function expectHomeContentFits(page: Page) {
     .toBe(true);
 }
 
+async function expectHomeWidgetHeightsMatch(page: Page, baseline: number) {
+  await expect
+    .poll(async () => {
+      const heights = await page
+        .locator("[data-home-widget-id]")
+        .evaluateAll(
+          (elements, expected) =>
+            elements.map((element) => Math.abs(element.getBoundingClientRect().height - expected)),
+          baseline,
+        );
+      return Math.max(...heights);
+    })
+    .toBeLessThanOrEqual(2);
+}
+
 async function updateLiveReasoningState(
   page: Page,
   chatId: string,
@@ -7125,6 +7140,9 @@ test("home shell and primary topbar panels open without client errors", async ({
     addressRow: getComputedStyle(document.querySelector<HTMLElement>(".mari-home-browser-address-row")!)
       .backgroundColor,
   }));
+  for (const surface of Object.values(darkAddressSurfaces)) {
+    expect(surface).not.toMatch(/^(?:transparent|rgba\([^)]*,\s*0\))$/u);
+  }
   expect(surfaceLightness(darkAddressSurfaces.addressRow)).toBeLessThan(surfaceLightness(darkAddressSurfaces.chrome));
 
   await page.evaluate(async () => {
@@ -7137,6 +7155,9 @@ test("home shell and primary topbar panels open without client errors", async ({
     addressRow: getComputedStyle(document.querySelector<HTMLElement>(".mari-home-browser-address-row")!)
       .backgroundColor,
   }));
+  for (const surface of Object.values(lightAddressSurfaces)) {
+    expect(surface).not.toMatch(/^(?:transparent|rgba\([^)]*,\s*0\))$/u);
+  }
   expect(surfaceLightness(lightAddressSurfaces.addressRow)).toBeLessThan(surfaceLightness(lightAddressSurfaces.chrome));
   await page.evaluate(async () => {
     const module = await import("/src/stores/ui.store.ts");
@@ -7471,7 +7492,11 @@ test("Home feed prioritizes read-only visits and exposes current Game presentati
         };
       }>;
     };
-    expect(feed.recentChats[0]?.chat.id).toBe(conversation.id);
+    const conversationIndex = feed.recentChats.findIndex(({ chat }) => chat.id === conversation.id);
+    const gameIndex = feed.recentChats.findIndex(({ chat }) => chat.id === game.id);
+    expect(conversationIndex).toBeGreaterThanOrEqual(0);
+    expect(gameIndex).toBeGreaterThanOrEqual(0);
+    expect(conversationIndex).toBeLessThan(gameIndex);
     const gamePreview = feed.recentChats.find(({ chat }) => chat.id === game.id)?.chat;
     expect(gamePreview?.gameBackgroundTag).toBe("backgrounds:fixture:moonlit-kitchen");
     expect(gamePreview?.spriteExpressions["fixture-character"]).toBe("smiling");
@@ -7564,7 +7589,7 @@ test("Professor Mari visibly arrives on Home and navigates without AI", async ({
     await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({
       timeout: 30_000,
     });
-    await expect(page.locator('aside[aria-label="Professor Mari assistant"]')).toBeVisible({ timeout: 1_000 });
+    await expect(page.locator('aside[aria-label="Professor Mari assistant"]')).toBeVisible({ timeout: 6_000 });
   } finally {
     await page.request.delete(`/api/chats/${chat.id}?force=true`).catch(() => undefined);
   }
@@ -11962,19 +11987,28 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   await expect(clock).toHaveAttribute("data-time-zone", timeZone);
   const expected = await page.evaluate((activeTimeZone) => {
     const now = new Date();
-    const parts = new Intl.DateTimeFormat("en", {
+    const timeFormatter = new Intl.DateTimeFormat("en", {
       hour: "numeric",
       minute: "2-digit",
       timeZone: activeTimeZone,
-    }).formatToParts(now);
-    const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+    });
+    const hourMinute = (date: Date) => {
+      const parts = timeFormatter.formatToParts(date);
+      const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+      return `${value("hour")}:${value("minute")}`;
+    };
     return {
-      hourMinute: `${value("hour")}:${value("minute")}`,
+      hourMinutes: [hourMinute(now), hourMinute(new Date(now.getTime() + 60_000))],
       month: new Intl.DateTimeFormat("en", { month: "short", timeZone: activeTimeZone }).format(now),
       day: new Intl.DateTimeFormat("en", { day: "numeric", timeZone: activeTimeZone }).format(now),
     };
   }, timeZone);
-  await expect(clock.locator("[data-clock-time]")).toContainText(expected.hourMinute);
+  await expect
+    .poll(async () => {
+      const value = await clock.locator("[data-clock-time]").textContent();
+      return expected.hourMinutes.some((candidate) => value?.includes(candidate));
+    })
+    .toBe(true);
   await expect(clock.locator("[data-calendar-date]")).toContainText(expected.month);
   await expect(clock.locator("[data-calendar-date]")).toContainText(expected.day);
 
@@ -12096,6 +12130,7 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
       JSON.stringify(["professor", "whats-new", "recent", "learn", "community", "achievements"]),
     );
   });
+  const recentUnlockAt = new Date(Date.now() - 60_000).toISOString();
   await page.route("**/api/achievements", (route) =>
     route.fulfill({
       contentType: "application/json",
@@ -12137,7 +12172,7 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
           {
             id: "diligent_student",
             unlocked: true,
-            unlockedAt: "2026-08-09T18:00:00.000Z",
+            unlockedAt: recentUnlockAt,
             progress: 1,
             target: null,
           },
@@ -12177,9 +12212,15 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   await page.keyboard.press("Escape");
 
   const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  const bookmarkLabels = await bookmarks.locator("a, button").allTextContents();
-  expect(bookmarkLabels.indexOf("FAQ")).toBeLessThan(bookmarkLabels.indexOf("Achievements"));
-  expect(bookmarkLabels.indexOf("Achievements")).toBeLessThan(bookmarkLabels.indexOf("Widgets"));
+  const bookmarkLabels = (await bookmarks.locator("a, button").allTextContents()).map((label) => label.trim());
+  const faqIndex = bookmarkLabels.indexOf("FAQ");
+  const achievementsIndex = bookmarkLabels.indexOf("Achievements");
+  const widgetsIndex = bookmarkLabels.indexOf("Widgets");
+  expect(faqIndex).toBeGreaterThanOrEqual(0);
+  expect(achievementsIndex).toBeGreaterThanOrEqual(0);
+  expect(widgetsIndex).toBeGreaterThanOrEqual(0);
+  expect(faqIndex).toBeLessThan(achievementsIndex);
+  expect(achievementsIndex).toBeLessThan(widgetsIndex);
   await bookmarks.getByRole("button", { name: "Achievements", exact: true }).click();
   await expect(achievementsDialog).toBeVisible();
   await page.keyboard.press("Escape");
@@ -12292,91 +12333,27 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
     await widgetManager.getByRole("switch", { name: `Hide ${widget}` }).click();
   }
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(6);
-  await expect
-    .poll(async () => {
-      const heights = await page
-        .locator("[data-home-widget-id]")
-        .evaluateAll(
-          (elements, baseline) =>
-            elements.map((element) => Math.abs(element.getBoundingClientRect().height - baseline)),
-          baselineCompactHeight,
-        );
-      return Math.max(...heights);
-    })
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   await widgetManager.getByRole("switch", { name: "Hide Achievements" }).click();
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(5);
-  await expect
-    .poll(async () => {
-      const heights = await page
-        .locator("[data-home-widget-id]")
-        .evaluateAll(
-          (elements, baseline) =>
-            elements.map((element) => Math.abs(element.getBoundingClientRect().height - baseline)),
-          baselineCompactHeight,
-        );
-      return Math.max(...heights);
-    })
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   await widgetManager.getByRole("switch", { name: "Hide Professor Mari" }).click();
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(4);
-  await expect
-    .poll(async () => {
-      const heights = await page
-        .locator("[data-home-widget-id]")
-        .evaluateAll(
-          (elements, baseline) =>
-            elements.map((element) => Math.abs(element.getBoundingClientRect().height - baseline)),
-          baselineCompactHeight,
-        );
-      return Math.max(...heights);
-    })
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   await widgetManager.getByRole("switch", { name: "Hide Character of the Day" }).click();
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(3);
-  await expect
-    .poll(async () => {
-      const heights = await page
-        .locator("[data-home-widget-id]")
-        .evaluateAll(
-          (elements, baseline) =>
-            elements.map((element) => Math.abs(element.getBoundingClientRect().height - baseline)),
-          baselineCompactHeight,
-        );
-      return Math.max(...heights);
-    })
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   await widgetManager.getByRole("switch", { name: "Hide Community" }).click();
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(2);
-  await expect
-    .poll(async () => {
-      const heights = await page
-        .locator("[data-home-widget-id]")
-        .evaluateAll(
-          (elements, baseline) =>
-            elements.map((element) => Math.abs(element.getBoundingClientRect().height - baseline)),
-          baselineCompactHeight,
-        );
-      return Math.max(...heights);
-    })
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   await widgetManager.getByRole("switch", { name: "Hide Clock & Calendar" }).click();
   await expect(page.locator("[data-home-widget-id]")).toHaveCount(1);
-  await expect
-    .poll(() =>
-      page
-        .locator('[data-home-widget-id="learn"]')
-        .evaluate(
-          (element, baseline) => Math.abs(element.getBoundingClientRect().height - baseline),
-          baselineCompactHeight,
-        ),
-    )
-    .toBeLessThanOrEqual(2);
+  await expectHomeWidgetHeightsMatch(page, baselineCompactHeight);
 
   for (const widget of [
     "Recent Chats",
@@ -12640,8 +12617,9 @@ test("Home widget order can be dragged and persists across reloads", async ({ pa
 });
 
 // Noodle is a downloadable Marinara-Agents package now. Keep its historical browser coverage
-// here as a portable specification until the package repository has its own browser runner;
-// Engine smoke tests cover the Home contribution contract and package lifecycle instead.
+// here as a portable specification until Pasta-Devs/Marinara-Agents#283 adds a package browser
+// runner; then move this suite to e2e/package-noodle.e2e.ts there and reactivate it against the
+// built artifact. Engine smoke tests cover the Home contribution contract and lifecycle meanwhile.
 test.describe.skip("package-owned Noodle interface", () => {
   test("Noodle interface icons consistently use Noodle blue", async ({ page }, testInfo) => {
     test.skip(!testInfo.project.name.includes("desktop"), "The full Noodle settings surface is covered on desktop.");

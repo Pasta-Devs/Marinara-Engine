@@ -548,6 +548,7 @@ export const ChatArea = memo(function ChatArea() {
 
   useEffect(() => {
     if (!activeChatId) return;
+    homeProfessorChatOpenRef.current = false;
     setHomeProfessorChatOpen(false);
     setHomeProfessorChatActive(false);
   }, [activeChatId]);

@@ -2735,15 +2735,20 @@ export async function generateRoutes(app: FastifyInstance) {
             wrapFormat: typeof wrapFormat;
           }): Promise<string | null>;
         }>("noodle:prompt-context");
-        const recentSocialMediaActivityBlock = noodlePromptContext
-          ? await noodlePromptContext.build({
+        let recentSocialMediaActivityBlock: string | null = null;
+        if (noodlePromptContext) {
+          try {
+            recentSocialMediaActivityBlock = await noodlePromptContext.build({
               db: app.db,
               chatMode,
               characterIds: promptCharacterIds,
               personaId,
               wrapFormat,
-            })
-          : null;
+            });
+          } catch (err) {
+            logger.warn(err, "Optional Noodle prompt context failed; continuing without social activity");
+          }
+        }
         if (recentSocialMediaActivityBlock) {
           const firstUserIdx = finalMessages.findIndex((m) => m.role === "user" || m.role === "assistant");
           const insertAt = firstUserIdx >= 0 ? firstUserIdx : finalMessages.length;

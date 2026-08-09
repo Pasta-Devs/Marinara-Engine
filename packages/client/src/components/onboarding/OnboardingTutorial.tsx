@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUIStore, type ChatModeShortcut } from "../../stores/ui.store";
+import { useChatStore } from "../../stores/chat.store";
 import { useTrackAchievement } from "../../hooks/use-achievements";
 import { docsLanguageKeys, useDocsLanguage, type DocsLanguageStatus } from "../../hooks/use-docs-language";
 import { api } from "../../lib/api-client";
@@ -30,8 +31,11 @@ interface TourStep {
   target: string | null;
   /** Additional data-tour targets highlighted alongside the primary target */
   highlightTargets?: string[];
-  title: string;
-  body: string;
+  title?: string;
+  body?: string;
+  /** Semantic localization keys for newly authored tutorial copy. */
+  titleKey?: string;
+  bodyKey?: string;
   /** Preferred side for the tooltip relative to the highlighted element */
   side?: "top" | "bottom" | "left" | "right";
   /** Right-side panel to open while this step is active */
@@ -156,16 +160,16 @@ const STEPS: TourStep[] = [
   },
   {
     target: "home-hub",
-    title: "Home: Your Story Hub",
-    body: "Home is your launchpad for Marinara. Continue a recent chat, begin a new Conversation, Roleplay, or Game, and arrange the widgets around the things you use most.",
+    titleKey: "onboarding.homeHub.title",
+    bodyKey: "onboarding.homeHub.body",
     side: "bottom",
     openHome: true,
     sprite: { src: "/sprites/mari/Mari_explaining.png" },
   },
   {
     target: "home-navigation",
-    title: "Ask Me Where Things Are",
-    body: "My navigation helper can find tabs, settings, and even specific characters, personas, presets, lorebooks, and agents. Tell me what you are looking for and I will point the way without using AI.",
+    titleKey: "onboarding.homeNavigation.title",
+    bodyKey: "onboarding.homeNavigation.body",
     side: "left",
     openHome: true,
     sprite: { src: "/sprites/mari/Mari_point_middle_left.png" },
@@ -173,8 +177,8 @@ const STEPS: TourStep[] = [
   {
     target: "home-documentation",
     highlightTargets: ["home-tutorial", "home-faq", "home-widgets"],
-    title: "Guides and Home Controls",
-    body: "These bookmarks keep the essentials close. Open Documentation for official guides, replay this Tutorial, check the FAQ for quick answers, or use Widgets to choose what appears on your Home desk.",
+    titleKey: "onboarding.homeTools.title",
+    bodyKey: "onboarding.homeTools.body",
     side: "bottom",
     openHome: true,
     sprite: { src: "/sprites/mari/Mari_point_up_left.png", flip: true },
@@ -458,7 +462,12 @@ function TourCardContent({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const localize = useLocalizedUiText();
-  const localizedBody = localize(currentStep.body);
+  const localizedBody = currentStep.bodyKey
+    ? localizeUi(currentStep.bodyKey)
+    : localize(currentStep.body ?? "");
+  const localizedTitle = currentStep.titleKey
+    ? localizeUi(currentStep.titleKey)
+    : localize(currentStep.title ?? "");
   return (
     <>
       {/* Professor Mari sprite */}
@@ -477,7 +486,7 @@ function TourCardContent({
       {/* Header */}
       <div className="mb-3">
         <h3 className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
-          {localize(currentStep.title)}
+          {localizedTitle}
         </h3>
       </div>
 
@@ -546,6 +555,7 @@ function OnboardingTutorialInner() {
   const setSettingsTab = useUIStore((s) => s.setSettingsTab);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const requestChatModeShortcut = useUIStore((s) => s.requestChatModeShortcut);
+  const setActiveChatId = useChatStore((s) => s.setActiveChatId);
   const uiLanguage = useUIStore((s) => s.language);
   const trackAchievement = useTrackAchievement();
   const { t: localizeUi } = useUiTranslation();
@@ -623,6 +633,7 @@ function OnboardingTutorialInner() {
   // ── Side-effects when step changes ──
   useEffect(() => {
     if (currentStep.openHome) {
+      setActiveChatId(null);
       closeRightPanel();
       setSidebarOpen(false);
       return;
@@ -652,6 +663,7 @@ function OnboardingTutorialInner() {
     currentStep,
     openRightPanel,
     requestChatModeShortcut,
+    setActiveChatId,
     setSettingsTab,
     setSidebarOpen,
   ]);

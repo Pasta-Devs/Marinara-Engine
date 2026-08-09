@@ -29,8 +29,23 @@ export function HomeClockCalendar() {
   );
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 1_000);
-    return () => window.clearInterval(timer);
+    let timer: number | null = null;
+    const stop = () => {
+      if (timer !== null) window.clearInterval(timer);
+      timer = null;
+    };
+    const start = () => {
+      stop();
+      setNow(new Date());
+      if (!document.hidden) timer = window.setInterval(() => setNow(new Date()), 1_000);
+    };
+    const handleVisibilityChange = () => (document.hidden ? stop() : start());
+    start();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const timeParts = formatters.time.formatToParts(now);

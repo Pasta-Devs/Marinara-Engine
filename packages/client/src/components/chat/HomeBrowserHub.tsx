@@ -69,6 +69,11 @@ const MARI_ASSISTANT_IDLE = "/sprites/mari/generated/professor-mari-assistant-id
 const MARI_ASSISTANT_BLINK = "/sprites/mari/generated/professor-mari-assistant-blink-v3.png";
 const MARI_ASSISTANT_MAP = "/sprites/mari/generated/professor-mari-assistant-map.png";
 const MARI_ASSISTANT_SHRUG = "/sprites/mari/generated/professor-mari-assistant-shrug.png";
+const HOME_BROWSER_PANEL_ID = "marinara-home-browser-panel";
+
+function homeBrowserTabId(tabId: string) {
+  return `marinara-home-tab-${tabId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
 const HOME_CARD_ART_CLASS = "-right-5 -top-5 h-36 w-44 object-contain object-right-top opacity-30 sm:h-40 sm:w-48";
 let professorAssistantMinimizedForRuntime = false;
 let professorAssistantHasAppearedForRuntime = false;
@@ -949,6 +954,7 @@ export function HomeBrowserHub({
     offsetX: number;
     offsetY: number;
   } | null>(null);
+  const dragPreviewRemovalTimerRef = useRef<number | null>(null);
   const [discoveryIndex, setDiscoveryIndex] = useState(0);
   const activeWidgetSlots = widgetLayouts[gridColumns];
 
@@ -988,6 +994,9 @@ export function HomeBrowserHub({
 
   useEffect(
     () => () => {
+      if (dragPreviewRemovalTimerRef.current !== null) {
+        window.clearTimeout(dragPreviewRemovalTimerRef.current);
+      }
       dragPreviewRef.current?.element.remove();
       document.documentElement.classList.remove("mari-home-widget-drag-active");
     },
@@ -1139,7 +1148,12 @@ export function HomeBrowserHub({
     event.preventDefault();
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (dragPreviewRemovalTimerRef.current !== null) {
+      window.clearTimeout(dragPreviewRemovalTimerRef.current);
+      dragPreviewRemovalTimerRef.current = null;
+    }
     dragPreviewRef.current?.element.remove();
+    dragPreviewRef.current = null;
     const widget = event.currentTarget.closest<HTMLElement>("[data-home-widget-id]");
     if (widget) {
       const bounds = widget.getBoundingClientRect();
@@ -1198,7 +1212,6 @@ export function HomeBrowserHub({
     setDraggedWidgetId(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId))
       event.currentTarget.releasePointerCapture(event.pointerId);
-    dragPreviewRef.current = null;
     if (preview) {
       const target = draggedId ? document.querySelector<HTMLElement>(`[data-home-widget-id="${draggedId}"]`) : null;
       const bounds = target?.getBoundingClientRect();
@@ -1206,7 +1219,11 @@ export function HomeBrowserHub({
       preview.element.style.opacity = "0";
       if (bounds)
         preview.element.style.transform = `translate3d(${bounds.left}px, ${bounds.top}px, 0) rotate(0deg) scale(1)`;
-      window.setTimeout(() => preview.element.remove(), 190);
+      dragPreviewRemovalTimerRef.current = window.setTimeout(() => {
+        preview.element.remove();
+        if (dragPreviewRef.current === preview) dragPreviewRef.current = null;
+        dragPreviewRemovalTimerRef.current = null;
+      }, 190);
     }
     lastDragTargetRef.current = null;
     document.documentElement.classList.remove("mari-home-widget-drag-active");
@@ -1356,8 +1373,10 @@ export function HomeBrowserHub({
               aria-label={t("home.browser.tabsLabel")}
             >
               <button
+                id={homeBrowserTabId("home")}
                 type="button"
                 role="tab"
+                aria-controls={HOME_BROWSER_PANEL_ID}
                 aria-selected={activeTab === "home"}
                 onClick={() => selectTab("home")}
                 className={cn(
@@ -1371,8 +1390,10 @@ export function HomeBrowserHub({
                 {t("home.browser.homeTab")}
               </button>
               <button
+                id={homeBrowserTabId("professor")}
                 type="button"
                 role="tab"
+                aria-controls={HOME_BROWSER_PANEL_ID}
                 aria-selected={activeTab === "professor"}
                 onClick={openProfessor}
                 className={cn(
@@ -1390,8 +1411,10 @@ export function HomeBrowserHub({
                 return (
                   <button
                     key={item.id}
+                    id={homeBrowserTabId(item.id)}
                     type="button"
                     role="tab"
+                    aria-controls={HOME_BROWSER_PANEL_ID}
                     aria-label={tab?.ariaLabel ?? tab?.label}
                     aria-selected={activeTab === item.id}
                     onClick={() => selectTab(item.id)}
@@ -1530,7 +1553,11 @@ export function HomeBrowserHub({
         </header>
 
         <main
+          id={HOME_BROWSER_PANEL_ID}
           ref={contentRef}
+          role="tabpanel"
+          aria-labelledby={homeBrowserTabId(activeTab)}
+          tabIndex={0}
           className={cn("min-h-0 flex-1", activeTab === "professor" ? "overflow-hidden" : "overflow-y-auto")}
           data-component="HomeBrowserHub.Content"
         >

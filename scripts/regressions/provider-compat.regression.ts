@@ -698,6 +698,16 @@ assert.deepEqual(normalizeOpenAIChatCompletionsResponseFormat(strictSchemaFormat
 assert.deepEqual(normalizeOpenAIChatCompletionsResponseFormat({ type: "json_object" }), {
   type: "json_object",
 });
+assert.equal(normalizeOpenAIChatCompletionsResponseFormat(undefined), undefined);
+const nestedStrictSchemaFormat = {
+  type: "json_schema" as const,
+  json_schema: {
+    name: "nested_provider_contract",
+    schema: strictSchemaFormat.schema,
+    strict: true,
+  },
+};
+assert.equal(normalizeOpenAIChatCompletionsResponseFormat(nestedStrictSchemaFormat), nestedStrictSchemaFormat);
 const glm52 = findKnownModel("custom", "glm-5.2");
 assert.equal(glm52?.context, 1_000_000);
 assert.equal(glm52?.maxOutput, 128_000);

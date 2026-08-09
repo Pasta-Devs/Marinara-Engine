@@ -1,5 +1,5 @@
 import { useMemo, type CSSProperties } from "react";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, RefreshCw } from "lucide-react";
 import { normalizeAvatarCrop, type AvatarCrop } from "@marinara-engine/shared";
 import { useCharacterSpritePreviews, useCharacterSummaries, type SpriteInfo } from "../../hooks/use-characters";
 import { useHomeFeed } from "../../hooks/use-home-feed";
@@ -27,15 +27,6 @@ const MODE_BADGE = {
     accent: "oklch(0.73 0.21 345)",
   },
 } as const;
-
-function parseCharacterIds(value: unknown): string[] {
-  try {
-    const parsed = typeof value === "string" ? JSON.parse(value) : value;
-    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 function messagePreview(role: string, content: string, fallback: string, youLabel: string) {
   const normalized = content.replace(/\s+/g, " ").trim();
@@ -93,11 +84,10 @@ export function RecentChats() {
   const setActiveChatId = useChatStore((state) => state.setActiveChatId);
   const recentChats = useMemo(() => feed.data?.recentChats ?? [], [feed.data?.recentChats]);
   const characterIds = useMemo(
-    () => Array.from(new Set(recentChats.flatMap(({ chat }) => parseCharacterIds(chat.characterIds)))),
+    () => Array.from(new Set(recentChats.flatMap(({ chat }) => chat.characterIds))),
     [recentChats],
   );
   const summaries = useCharacterSummaries(characterIds);
-  const spritePreviews = useCharacterSpritePreviews(characterIds);
   const gameBackgrounds = useMemo(
     () =>
       new Map(
@@ -119,6 +109,23 @@ export function RecentChats() {
     }
     return lookup;
   }, [summaries.data]);
+  const previewCharacterIds = useMemo(
+    () =>
+      recentChats.flatMap(({ chat }) => {
+        const stagedCharacterIds =
+          chat.spriteCharacterIds.length > 0
+            ? chat.spriteCharacterIds.filter((id) => chat.characterIds.includes(id))
+            : chat.characterIds;
+        const characterId =
+          stagedCharacterIds.find((id) => characterLookup.has(id)) ??
+          stagedCharacterIds[0] ??
+          chat.characterIds.find((id) => characterLookup.has(id)) ??
+          chat.characterIds[0];
+        return characterId ? [characterId] : [];
+      }),
+    [characterLookup, recentChats],
+  );
+  const spritePreviews = useCharacterSpritePreviews(previewCharacterIds);
 
   if (feed.isPending) {
     return (
@@ -130,6 +137,29 @@ export function RecentChats() {
         {[0, 1, 2].map((item) => (
           <div key={item} className="h-36 animate-pulse rounded-2xl bg-[var(--muted)]/45" />
         ))}
+      </div>
+    );
+  }
+
+  if (feed.isError) {
+    return (
+      <div
+        className="flex h-full min-h-36 flex-col justify-end rounded-2xl border border-dashed border-[color-mix(in_srgb,var(--destructive)_55%,var(--border))] p-4"
+        role="alert"
+      >
+        <MessageSquare className="mb-3 text-[var(--destructive)]" size="1.25rem" aria-hidden="true" />
+        <p className="text-sm font-semibold text-[var(--foreground)]">{t("home.recentChats.errorTitle")}</p>
+        <p className="mt-1 text-xs leading-relaxed text-[var(--muted-foreground)]">
+          {t("home.recentChats.errorDescription")}
+        </p>
+        <button
+          type="button"
+          onClick={() => void feed.refetch()}
+          className="mt-3 inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs font-bold text-[var(--foreground)] hover:bg-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--marinara-app-accent-solid)]"
+        >
+          <RefreshCw size="0.78rem" aria-hidden="true" />
+          {t("home.recentChats.retry")}
+        </button>
       </div>
     );
   }
@@ -149,12 +179,12 @@ export function RecentChats() {
   return (
     <div className="grid h-full auto-rows-fr gap-2.5 md:grid-cols-2 xl:grid-cols-3" data-component="RecentChats">
       {recentChats.map(({ chat, latestMessage }) => {
-        const chatMode = chat.mode === "roleplay" || chat.mode === "game" ? chat.mode : "conversation";
+        const chatMode = chat.mode;
         const mode = MODE_BADGE[chatMode];
-        const chatCharacterIds = parseCharacterIds(chat.characterIds);
-        const spriteCharacterIds = Array.isArray(chat.spriteCharacterIds) ? chat.spriteCharacterIds : [];
-        const spriteDisplayModes = Array.isArray(chat.spriteDisplayModes) ? chat.spriteDisplayModes : [];
-        const spriteExpressions = chat.spriteExpressions ?? {};
+        const chatCharacterIds = chat.characterIds;
+        const spriteCharacterIds = chat.spriteCharacterIds;
+        const spriteDisplayModes = chat.spriteDisplayModes;
+        const spriteExpressions = chat.spriteExpressions;
         const stagedCharacterIds =
           spriteCharacterIds.length > 0
             ? spriteCharacterIds.filter((id) => chatCharacterIds.includes(id))

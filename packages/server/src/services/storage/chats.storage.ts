@@ -464,6 +464,15 @@ export function createChatsStorage(db: DB) {
       return db.select().from(chats).orderBy(desc(chats.updatedAt));
     },
 
+    async listRecent(limit: number) {
+      await ensureChatLastMessageAtBackfilled();
+      return db
+        .select()
+        .from(chats)
+        .orderBy(desc(chats.updatedAt))
+        .limit(Math.max(1, Math.min(100, Math.floor(limit))));
+    },
+
     async getById(id: string) {
       const rows = await db.select().from(chats).where(eq(chats.id, id));
       return rows[0] ?? null;
