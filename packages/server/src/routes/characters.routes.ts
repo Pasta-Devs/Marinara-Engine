@@ -73,6 +73,7 @@ import {
   collectCharacterAvatarPaths,
   collectPersonaAvatarPaths,
   mutateAvatarReferencesAndCleanup,
+  removeUnattachedAvatarFile,
 } from "../services/image/avatar-file-lifecycle.js";
 
 const CHARACTER_GALLERY_ROOT = join(DATA_DIR, "gallery", "characters");
@@ -462,23 +463,13 @@ async function copyGalleryImageToAvatar(
   await mkdir(AVATAR_ROOT, { recursive: true });
   const filename = `${entityKind}-${entityId}-${newId()}.${imageInfo.ext}`;
   const avatarFilePath = assertInsideDir(AVATAR_ROOT, join(AVATAR_ROOT, filename));
-  await writeFile(avatarFilePath, imageBuffer);
-  return `/api/avatars/file/${filename}`;
-}
-
-// Remove an avatar file created by copyGalleryImageToAvatar when the record
-// update it was copied for did not go through, so failures cannot strand
-// orphaned files in the avatars directory.
-async function removeCopiedAvatarFile(avatarPath: string) {
-  const filename = avatarPath.split("/").pop();
-  if (!filename) return;
   try {
-    await unlink(assertInsideDir(AVATAR_ROOT, join(AVATAR_ROOT, filename)));
+    await writeFile(avatarFilePath, imageBuffer);
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      logger.warn(error, "Failed to remove copied avatar file %s", filename);
-    }
+    await removeUnattachedAvatarFile({ filePath: avatarFilePath });
+    throw error;
   }
+  return `/api/avatars/file/${filename}`;
 }
 
 // Read every sprite file in data/sprites/<id>/ and return it as
@@ -1410,12 +1401,12 @@ export async function charactersRoutes(app: FastifyInstance) {
       avatarPath = await copyGalleryImageToAvatar("character", id, image.filePath);
       const updated = await storage.updateAvatar(id, avatarPath);
       if (!updated) {
-        await removeCopiedAvatarFile(avatarPath);
+        await removeUnattachedAvatarFile({ avatarPath });
         return reply.status(404).send({ error: "Character not found" });
       }
       return updated;
     } catch (error) {
-      if (avatarPath) await removeCopiedAvatarFile(avatarPath);
+      if (avatarPath) await removeUnattachedAvatarFile({ avatarPath });
       logger.warn(error, "Failed to set character %s avatar from gallery image %s", id, imageId);
       return reply.status(400).send({ error: "Gallery image could not be used as an avatar" });
     }
@@ -1731,18 +1722,22 @@ export async function charactersRoutes(app: FastifyInstance) {
     ext = extensionFromImageMime(imageInfo.mimeType);
 
     const avatarsDir = join(DATA_DIR, "avatars");
-    await mkdir(avatarsDir, { recursive: true });
     const filename = `character-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
-    await writeFile(filepath, imageBuffer);
-
     const avatarPath = `/api/avatars/file/${filename}`;
-    const updated = await storage.updateAvatar(id, avatarPath);
-    if (!updated) {
-      await removeCopiedAvatarFile(avatarPath);
-      return reply.status(404).send({ error: "Character not found" });
+    try {
+      await mkdir(avatarsDir, { recursive: true });
+      await writeFile(filepath, imageBuffer);
+      const updated = await storage.updateAvatar(id, avatarPath);
+      if (!updated) {
+        await removeUnattachedAvatarFile({ avatarPath });
+        return reply.status(404).send({ error: "Character not found" });
+      }
+      return updated;
+    } catch (error) {
+      await removeUnattachedAvatarFile({ filePath: filepath });
+      throw error;
     }
-    return updated;
   });
 
   app.delete<{ Params: { id: string } }>("/:id/avatar", async (req, reply) => {
@@ -1973,18 +1968,28 @@ export async function charactersRoutes(app: FastifyInstance) {
     const imageBuffer = Buffer.from(base64, "base64");
     const imageInfo = isAllowedImageBuffer(imageBuffer, hintedExt);
     if (!imageInfo) return reply.status(400).send({ error: "Unsupported or invalid avatar image" });
-    const filename = `persona-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${imageInfo.ext}`;
-    const avatarsDir = join(DATA_DIR, "avatars");
-    await mkdir(avatarsDir, { recursive: true });
-    const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
-    await writeFile(filepath, imageBuffer);
-    const avatarPath = `/api/avatars/file/${filename}`;
-    const updated = await storage.updatePersona(req.params.id, { avatarPath }, { versionReason: "Avatar update" });
-    if (!updated) {
-      await removeCopiedAvatarFile(avatarPath);
+    if (!(await storage.getPersona(req.params.id))) {
       return reply.status(404).send({ error: "Persona not found" });
     }
-    return projectPersona(updated);
+    const filename = `persona-${req.params.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${imageInfo.ext}`;
+    const avatarsDir = join(DATA_DIR, "avatars");
+    const avatarPath = `/api/avatars/file/${filename}`;
+    try {
+      await mkdir(avatarsDir, { recursive: true });
+      const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
+      await writeFile(filepath, imageBuffer);
+      const updated = await enqueueUpdate(personaUpdateQueues, req.params.id, () =>
+        storage.updatePersona(req.params.id, { avatarPath, avatarCrop: "" }, { versionReason: "Avatar update" }),
+      );
+      if (!updated) {
+        await removeUnattachedAvatarFile({ avatarPath });
+        return reply.status(404).send({ error: "Persona not found" });
+      }
+      return projectPersona(updated);
+    } catch (error) {
+      await removeUnattachedAvatarFile({ avatarPath });
+      throw error;
+    }
   });
 
   app.put<{ Params: { id: string } }>("/personas/:id/activate", async (req, reply) => {
@@ -2492,18 +2497,16 @@ export async function charactersRoutes(app: FastifyInstance) {
         avatarPath = await copyGalleryImageToAvatar("persona", id, image.filePath);
         // The previous crop was normalized against the old image's framing, so
         // it must not carry over to the replacement avatar.
-        const updated = await storage.updatePersona(
-          id,
-          { avatarPath, avatarCrop: "" },
-          { versionReason: "Avatar update" },
+        const updated = await enqueueUpdate(personaUpdateQueues, id, () =>
+          storage.updatePersona(id, { avatarPath, avatarCrop: "" }, { versionReason: "Avatar update" }),
         );
         if (!updated) {
-          await removeCopiedAvatarFile(avatarPath);
+          await removeUnattachedAvatarFile({ avatarPath });
           return reply.status(404).send({ error: "Persona not found" });
         }
         return projectPersona(updated);
       } catch (error) {
-        if (avatarPath) await removeCopiedAvatarFile(avatarPath);
+        if (avatarPath) await removeUnattachedAvatarFile({ avatarPath });
         logger.warn(error, "Failed to set persona %s avatar from gallery image %s", id, imageId);
         return reply.status(400).send({ error: "Gallery image could not be used as an avatar" });
       }

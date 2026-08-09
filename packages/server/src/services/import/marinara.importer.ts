@@ -23,11 +23,12 @@ import { createLorebooksStorage } from "../storage/lorebooks.storage.js";
 import { createPromptsStorage } from "../storage/prompts.storage.js";
 import { normalizeTimestampOverrides, type TimestampOverrides } from "./import-timestamps.js";
 import { resolveLorebookEntryRole } from "./lorebook-role.js";
-import { access, mkdir, unlink, writeFile } from "fs/promises";
+import { access, mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { DATA_DIR } from "../../utils/data-dir.js";
 import { assertInsideDir, extensionFromImageMime, isAllowedImageBuffer } from "../../utils/security.js";
 import { logger } from "../../lib/logger.js";
+import { removeUnattachedAvatarFile } from "../image/avatar-file-lifecycle.js";
 
 function resolveNativeSelectiveLogic(value: unknown): "and" | "and_all" | "or" | "not" | "not_all" {
   return value === "and_all" || value === "or" || value === "not" || value === "not_all" ? value : "and";
@@ -101,7 +102,12 @@ async function saveAvatarFromDataUrl(dataUrl: unknown, prefix: string, id: strin
   await mkdir(avatarsDir, { recursive: true });
   const filename = `${prefix}-${id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${decoded.ext}`;
   const filepath = assertInsideDir(avatarsDir, join(avatarsDir, filename));
-  await writeFile(filepath, decoded.buffer);
+  try {
+    await writeFile(filepath, decoded.buffer);
+  } catch (error) {
+    await removeUnattachedAvatarFile({ filePath: filepath });
+    throw error;
+  }
   return { avatarPath: `/api/avatars/file/${filename}`, filePath: filepath };
 }
 
@@ -415,7 +421,13 @@ async function importCharacter(data: unknown, db: DB) {
   if (result?.id) {
     const avatar = await saveAvatarFromDataUrl(d.avatar, "character", result.id);
     if (avatar) {
-      await storage.updateAvatar(result.id, avatar.avatarPath);
+      try {
+        const updated = await storage.updateAvatar(result.id, avatar.avatarPath);
+        if (!updated) await removeUnattachedAvatarFile({ filePath: avatar.filePath });
+      } catch (error) {
+        await removeUnattachedAvatarFile({ filePath: avatar.filePath });
+        throw error;
+      }
     }
     await restoreSprites(d.sprites, result.id);
     await restoreCharacterGallery(d.gallery, result.id, galleryStorage);
@@ -497,16 +509,7 @@ async function importPersona(data: unknown, db: DB) {
         if (!updated) throw new Error("Imported Persona disappeared before its avatar could be attached");
       }
     } catch (err) {
-      if (avatar) {
-        try {
-          await unlink(avatar.filePath);
-        } catch (cleanupErr) {
-          const cleanupError = cleanupErr as NodeJS.ErrnoException;
-          if (cleanupError.code !== "ENOENT") {
-            logger.warn(cleanupError, "Failed to remove unattached persona avatar for %s", result.id);
-          }
-        }
-      }
+      if (avatar) await removeUnattachedAvatarFile({ filePath: avatar.filePath });
       logger.warn(err, "Skipped optional persona avatar restore for %s; persona row is already imported", result.id);
     }
     try {
