@@ -947,6 +947,7 @@ export function HomeBrowserHub({
   const heroRef = useRef<HTMLElement | null>(null);
   const feedShellRef = useRef<HTMLDivElement | null>(null);
   const [draggedWidgetId, setDraggedWidgetId] = useState<HomeWidgetId | null>(null);
+  const pendingProfessorExitTabRef = useRef<string | null>(null);
   const draggedWidgetIdRef = useRef<HomeWidgetId | null>(null);
   const lastDragTargetRef = useRef<string | null>(null);
   const dragPreviewRef = useRef<{
@@ -1065,10 +1066,26 @@ export function HomeBrowserHub({
 
   const address = `marinara/${activeTab}`;
   const selectTab = (tab: string) => {
-    setActiveTab(tab);
     const professorSelected = tab === "professor";
+    if (professorSelected) {
+      pendingProfessorExitTabRef.current = null;
+      setActiveTab(tab);
+      onProfessorChatOpenChange(true);
+      return;
+    }
+    if (activeTab === "professor") {
+      pendingProfessorExitTabRef.current = tab;
+      onProfessorChatOpenChange(false);
+      return;
+    }
+    setActiveTab(tab);
     onProfessorChatOpenChange(professorSelected);
-    if (!professorSelected) onProfessorChatExitComplete();
+  };
+  const completeProfessorExit = () => {
+    const target = pendingProfessorExitTabRef.current;
+    pendingProfessorExitTabRef.current = null;
+    onProfessorChatExitComplete();
+    if (target) setActiveTab(target);
   };
   const openProfessor = () => selectTab("professor");
   const closeProfessor = () => selectTab("home");
@@ -1586,7 +1603,7 @@ export function HomeBrowserHub({
                   embeddedTab
                   launchHidden
                   onChatWindowOpenChange={(open) => (open ? onProfessorChatOpenChange(true) : closeProfessor())}
-                  onChatWindowExitComplete={onProfessorChatExitComplete}
+                  onChatWindowExitComplete={completeProfessorExit}
                 />
               </div>
             </div>

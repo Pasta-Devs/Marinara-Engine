@@ -1,7 +1,7 @@
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
-import { eq, desc, and, gt, inArray, isNull, isNotNull } from "../../db/file-query.js";
+import { eq, desc, and, gt, inArray, isNull, isNotNull, lt } from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
   chats,
@@ -464,12 +464,12 @@ export function createChatsStorage(db: DB) {
       return db.select().from(chats).orderBy(desc(chats.updatedAt));
     },
 
-    async listRecent(limit: number) {
-      await ensureChatLastMessageAtBackfilled();
+    async listRecent(limit: number, offset = 0) {
       return db
         .select()
         .from(chats)
         .orderBy(desc(chats.updatedAt))
+        .offset(Math.max(0, Math.floor(offset)))
         .limit(Math.max(1, Math.min(100, Math.floor(limit))));
     },
 
@@ -793,6 +793,21 @@ export function createChatsStorage(db: DB) {
       await db.delete(chats).where(eq(chats.id, id));
     },
 
+    /** Atomically remove a marked Roleplay DM thread only while it is still empty. */
+    async removeEmptyRoleplayDmChat(id: string): Promise<boolean> {
+      return db.transaction(async () => {
+        const rows = await db.select().from(chats).where(eq(chats.id, id)).limit(1);
+        const chat = rows[0];
+        if (!chat) return false;
+        const metadata = parseMetadata(chat.metadata);
+        if (metadata.roleplayDmThread !== true && typeof metadata.dmOriginChatId !== "string") return false;
+        const existingMessages = await db.select({ id: messages.id }).from(messages).where(eq(messages.chatId, id)).limit(1);
+        if (existingMessages.length > 0) return false;
+        await this.remove(id);
+        return true;
+      });
+    },
+
     /** Delete all chats in a group (all branches). */
     async removeGroup(groupId: string) {
       // Find all chat IDs in this group, then clean up their data
@@ -876,20 +891,23 @@ export function createChatsStorage(db: DB) {
     /** Paginated: returns the latest `limit` messages (optionally before a cursor). */
     async listMessagesPaginated(chatId: string, limit: number, before?: string) {
       const cursor = parseMessageCursor(before);
-      const allRows = await db
+      const condition = and(
+        eq(messages.chatId, chatId),
+        !cursor && before ? lt(messages.createdAt, before) : undefined,
+      );
+      const countRows = await db.select({ id: messages.id }).from(messages).where(condition);
+      const offset = cursor ? Math.max(0, countRows.length - cursor.rowid + 1) : 0;
+      const rowsDescending = await db
         .select()
         .from(messages)
-        .where(eq(messages.chatId, chatId))
-        .orderBy(messages.createdAt, messages.id);
-      let candidates = allRows.map((m, index) => ({ ...m, rowid: index + 1 }));
-      if (cursor) {
-        candidates = candidates.filter(
-          (m) => m.createdAt < cursor.createdAt || (m.createdAt === cursor.createdAt && m.rowid < cursor.rowid),
-        );
-      } else if (before) {
-        candidates = candidates.filter((m) => m.createdAt < before);
-      }
-      const reversed = candidates.slice(-limit);
+        .where(condition)
+        .orderBy(desc(messages.createdAt), desc(messages.id))
+        .offset(offset)
+        .limit(Math.max(1, Math.floor(limit)));
+      const reversed = rowsDescending.reverse().map((message, index) => ({
+        ...message,
+        rowid: countRows.length - offset - rowsDescending.length + index + 1,
+      }));
       const countMap = await countSwipesByMessageId(
         db,
         reversed.map((m) => m.id),

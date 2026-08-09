@@ -589,10 +589,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const metadata = parseChatMetadata(chat.metadata);
       const isRoleplayDmThread = metadata.roleplayDmThread === true || typeof metadata.dmOriginChatId === "string";
       if (!isRoleplayDmThread) continue;
-      if ((await storage.countMessages(chat.id)) > 0) continue;
-
-      await storage.remove(chat.id);
-      removed += 1;
+      if (await storage.removeEmptyRoleplayDmChat(chat.id)) removed += 1;
     }
     if (removed > 0) {
       logger.warn("[chats] Removed %d empty orphaned Roleplay DM chat(s)", removed);
@@ -639,12 +636,19 @@ export async function chatsRoutes(app: FastifyInstance) {
   // Bounded Home data. This deliberately returns one short visible-message
   // glimpse per chat instead of making the browser load recent transcripts.
   app.get("/home-feed", async (): Promise<HomeFeedSnapshot> => {
-    void cleanupEmptyRoleplayDmChats().catch((err) => logger.warn(err, "Background chat cleanup failed"));
-    // A small over-fetch leaves room for internal Professor Mari threads while
-    // keeping Home independent from the size of the user's complete chat library.
-    const recentChats = (await storage.listRecent(24))
-      .filter((chat) => !shouldHideProfessorMariChat(chat))
-      .slice(0, 6);
+    const recentChats = [];
+    const pageSize = 24;
+    let offset = 0;
+    while (recentChats.length < 6) {
+      const page = await storage.listRecent(pageSize, offset);
+      if (page.length === 0) break;
+      for (const chat of page) {
+        if (!shouldHideProfessorMariChat(chat)) recentChats.push(chat);
+        if (recentChats.length === 6) break;
+      }
+      offset += page.length;
+      if (page.length < pageSize) break;
+    }
     return {
       generatedAt: new Date().toISOString(),
       recentChats: await Promise.all(
@@ -665,7 +669,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           const spriteDisplayModes = Array.isArray(metadata.spriteDisplayModes)
             ? metadata.spriteDisplayModes.filter(
                 (mode): mode is "expressions" | "full-body" => mode === "expressions" || mode === "full-body",
-              )
+              ).slice(0, 12)
             : [];
           const spriteExpressionCharacterIds = new Set([...spriteCharacterIds, ...chatCharacterIds].slice(0, 12));
           const spriteExpressions: Record<string, string> = {};
