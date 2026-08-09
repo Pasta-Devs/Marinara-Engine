@@ -135,6 +135,16 @@ async function expectHomeWidgetHeightsMatch(page: Page, baseline: number) {
     .toBeLessThanOrEqual(2);
 }
 
+async function openHomeBookmark(page: Page, name: string) {
+  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
+  let action = bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true });
+  if ((await action.count()) === 0) {
+    await bookmarks.getByRole("button", { name: "Bookmarks", exact: true }).click();
+    action = bookmarks.getByRole("button", { name, exact: true }).filter({ visible: true });
+  }
+  await action.click();
+}
+
 async function updateLiveReasoningState(
   page: Page,
   chatId: string,
@@ -12045,8 +12055,7 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   await expect(clock.locator("[data-calendar-date]")).toContainText(expected.month);
   await expect(clock.locator("[data-calendar-date]")).toContainText(expected.day);
 
-  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager.getByRole("switch")).toHaveCount(9);
   await widgetManager.getByRole("switch", { name: "Hide Community" }).click();
@@ -12058,6 +12067,52 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('[data-home-widget-id="community"]')).toHaveCount(0);
   await expect(page.locator('[data-home-widget-id="clock"]')).toHaveCount(0);
+});
+
+test("mobile Home collects its bookmarks into a Marinara-colored menu", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("mobile"), "Mobile-only bookmark menu.");
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
+
+  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
+  const trigger = bookmarks.getByRole("button", { name: "Bookmarks", exact: true });
+  const menu = page.locator('[data-component="HomeBrowserHub.MobileBookmarksMenu"]');
+  const addressRow = page.locator('[data-component="HomeBrowserHub.AddressRow"]');
+  expect((await addressRow.boundingBox())?.height).toBeLessThanOrEqual(35);
+  expect((await bookmarks.boundingBox())?.height).toBeLessThanOrEqual(35);
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  await expect(trigger.locator("[data-bookmark-dot]")).toHaveCount(3);
+  const dotColors = await trigger
+    .locator("[data-bookmark-dot]")
+    .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).backgroundColor));
+  expect(new Set(dotColors).size).toBe(3);
+  await expect(menu).toHaveCount(0);
+  await expect(bookmarks.getByRole("link", { name: "Discord", exact: true })).toBeHidden();
+
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(menu).toBeVisible();
+  await expect(menu.locator(":scope > a, :scope > button")).toHaveCount(8);
+  await expect(menu.locator(":scope > a img, :scope > button img")).toHaveCount(8);
+  expect(await menu.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true);
+  for (const label of [
+    "Discord",
+    "Support",
+    "Credits",
+    "Documentation",
+    "Tutorial",
+    "FAQ",
+    "Achievements",
+    "Widgets",
+  ]) {
+    await expect(menu.getByText(label, { exact: true })).toBeVisible();
+  }
+
+  await menu.getByRole("button", { name: "FAQ", exact: true }).click();
+  await expect(menu).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Professor Mari's FAQ" })).toBeVisible();
 });
 
 test("enabling Recent Chats anchors its 2 by 2 footprint and repacks smaller widgets", async ({ page }, testInfo) => {
@@ -12075,8 +12130,7 @@ test("enabling Recent Chats anchors its 2 by 2 footprint and repacks smaller wid
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('[data-home-widget-id="recent"]')).toHaveCount(0);
 
-  const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await widgetManager.getByRole("switch", { name: "Show Recent Chats" }).click();
   const recent = page.locator('[data-home-widget-id="recent"]');
@@ -12143,7 +12197,7 @@ test("enabling Recent Chats anchors its 2 by 2 footprint and repacks smaller wid
     ).toBeLessThanOrEqual(2);
   }
 
-  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  await openHomeBookmark(page, "Widgets");
   for (const widget of ["Discovery Desk", "Character of the Day", "Clock & Calendar", "Achievements"]) {
     await widgetManager.getByRole("switch", { name: `Show ${widget}` }).click();
   }
@@ -12328,6 +12382,13 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
     "src",
     "/logo-splash.gif",
   );
+  await expect(page.locator('[data-component="HomeBrowserHub.AnimatedLogo"]')).toBeVisible();
+  expect(
+    await page.locator('[data-component="HomeBrowserHub.AnimatedLogo"]').evaluate((image) => {
+      const element = image as HTMLImageElement;
+      return element.complete && element.naturalWidth > 0 && element.naturalHeight > 0;
+    }),
+  ).toBe(true);
   await expect(page.locator(".mari-home-hero img")).toHaveAttribute("src", "/logo.png");
   await expect(page.locator('.mari-home-hero [data-chat-mode-icon="conversation"]')).toHaveClass(
     /lucide-message-square/,
@@ -12338,10 +12399,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(page.locator('[data-component="HomeFaq.Compact"]')).toHaveCount(0);
   await expect(page.locator('[data-component="HomeFaq.MobileLauncher"]')).toHaveCount(0);
   await expect(page.getByRole("tab", { name: "FAQ", exact: true })).toHaveCount(0);
-  await page
-    .getByRole("navigation", { name: "Home bookmarks" })
-    .getByRole("button", { name: "FAQ", exact: true })
-    .click();
+  await openHomeBookmark(page, "FAQ");
   const faqWindow = page.getByRole("dialog", { name: "Professor Mari's FAQ" });
   await expect(faqWindow).toBeVisible();
   await expect(faqWindow.getByRole("searchbox", { name: "Search FAQ" })).toBeVisible();
@@ -12349,7 +12407,7 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(faqWindow).toBeHidden();
 
   const bookmarks = page.getByRole("navigation", { name: "Home bookmarks" });
-  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  await openHomeBookmark(page, "Widgets");
   const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
   await expect(widgetManager).toBeVisible();
   await expect(widgetManager.getByRole("switch")).toHaveCount(9);
@@ -12367,12 +12425,12 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await page.reload();
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
   await expect(page.locator('[data-home-widget-id="achievements"]')).toHaveCount(0);
-  await bookmarks.getByRole("button", { name: "Achievements", exact: true }).click();
+  await openHomeBookmark(page, "Achievements");
   const achievementsWindow = page.getByRole("dialog", { name: "Achievements", exact: true });
   await expect(achievementsWindow).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(achievementsWindow).toBeHidden();
-  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  await openHomeBookmark(page, "Widgets");
   await widgetManager.getByRole("switch", { name: "Show Achievements" }).click();
   const restoredAchievements = page.locator('[data-home-widget-id="achievements"]');
   await expect(restoredAchievements).toBeVisible();

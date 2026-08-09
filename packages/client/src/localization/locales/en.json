@@ -372,6 +372,7 @@
   "home.browser.address": "marinara/home",
   "home.browser.addressLabel": "Current Marinara address: {{address}}",
   "home.browser.back": "Back to Marinara Home",
+  "home.browser.bookmarks": "Bookmarks",
   "home.browser.bookmarks.discord": "Discord",
   "home.browser.bookmarks.tutorial": "Tutorial",
   "home.browser.bookmarksLabel": "Home bookmarks",
