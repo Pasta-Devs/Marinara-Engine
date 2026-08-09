@@ -567,26 +567,26 @@ export function PersonasPanel() {
         <button
           type="button"
           onClick={openBotBrowser}
-          className="mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal"
+          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
         >
           <span className="shrink-0 leading-none">
             <Bot size="0.875rem" />
           </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center whitespace-nowrap pb-px leading-normal">
+          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
             {localizeUi("ui.panels.resourceLibraryLauncher.download")}
           </span>
         </button>
         <button
           type="button"
           onClick={openPersonaLibrary}
-          className="mari-chrome-segmented__button gap-1 overflow-visible px-1.5 py-2 text-[0.625rem] leading-normal"
+          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
         >
           <span className="shrink-0 leading-none">
             <VenetianMask size="0.875rem" />
           </span>
-          <span className="inline-flex min-h-4 min-w-0 items-center whitespace-nowrap pb-px leading-normal">
+          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
             {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
           </span>
         </button>

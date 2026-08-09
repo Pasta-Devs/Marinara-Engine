@@ -7,6 +7,8 @@ import {
   desc,
   and,
   gt,
+  lt,
+  or,
   inArray,
   isNull,
   isNotNull,
@@ -221,17 +223,22 @@ function isUsableTimestamp(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0 && !Number.isNaN(Date.parse(value));
 }
 
-export function parseMessageCursor(before?: string): { createdAt: string; rowid: number } | null {
+export function parseMessageCursor(before?: string): { createdAt: string; id: string } | null {
   if (!before) return null;
   const separatorIndex = before.indexOf("|");
   if (separatorIndex <= 0 || separatorIndex === before.length - 1) return null;
   const createdAt = before.slice(0, separatorIndex);
   if (!isUsableTimestamp(createdAt)) return null;
-  const rowid = Number(before.slice(separatorIndex + 1));
-  if (!Number.isSafeInteger(rowid) || rowid < 1) return null;
+  let id: string;
+  try {
+    id = decodeURIComponent(before.slice(separatorIndex + 1));
+  } catch {
+    return null;
+  }
+  if (!id.trim() || id.length > 512) return null;
   return {
     createdAt,
-    rowid,
+    id,
   };
 }
 
@@ -962,20 +969,37 @@ export function createChatsStorage(db: DB) {
       const cursor = parseMessageCursor(before);
       if (before && !cursor) throw new InvalidMessageCursorError();
       return db.transaction(async (tx) => {
-        const condition = eq(messages.chatId, chatId);
-        const totalCount = tx.count(messages, condition);
-        if (cursor && cursor.rowid > totalCount) throw new InvalidMessageCursorError();
-        const offset = cursor ? Math.max(0, totalCount - cursor.rowid + 1) : 0;
+        const chatCondition = eq(messages.chatId, chatId);
+        const cursorBoundary = cursor
+          ? or(
+              lt(messages.createdAt, cursor.createdAt),
+              and(eq(messages.createdAt, cursor.createdAt), lt(messages.id, cursor.id)),
+            )
+          : undefined;
+        if (
+          cursor &&
+          tx.count(
+            messages,
+            and(
+              chatCondition,
+              eq(messages.createdAt, cursor.createdAt),
+              eq(messages.id, cursor.id),
+            ),
+          ) !== 1
+        ) {
+          throw new InvalidMessageCursorError();
+        }
+        const pageCondition = cursorBoundary ? and(chatCondition, cursorBoundary) : chatCondition;
+        const upperRowid = cursorBoundary ? tx.count(messages, pageCondition) : tx.count(messages, chatCondition);
         const rowsDescending = await tx
           .select()
           .from(messages)
-          .where(condition)
+          .where(pageCondition)
           .orderBy(desc(messages.createdAt), desc(messages.id))
-          .offset(offset)
           .limit(Math.max(1, Math.floor(limit)));
         const reversed = rowsDescending.reverse().map((message, index) => ({
           ...message,
-          rowid: totalCount - offset - rowsDescending.length + index + 1,
+          rowid: upperRowid - rowsDescending.length + index + 1,
         }));
         const countMap = await countSwipesByMessageId(
           tx,

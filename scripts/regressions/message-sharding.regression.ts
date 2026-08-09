@@ -1100,10 +1100,28 @@ assert.equal(
       "blank and hidden command anchors cannot consume preview slots",
     );
     const storage = createChatsStorage(db);
+    const firstPage = await storage.listMessagesPaginated("preview-chat", 2);
+    assert.deepEqual(
+      firstPage.map((message) => message.id),
+      ["preview-hidden", "preview-command"],
+      "the newest history page keeps chronological display order",
+    );
+    const historyCursor = `${firstPage[0]!.createdAt}|${encodeURIComponent(firstPage[0]!.id)}`;
+    await db.delete(messages).where(eq(messages.id, "preview-visible"));
+    const secondPage = await storage.listMessagesPaginated("preview-chat", 2, historyCursor);
+    assert.deepEqual(
+      secondPage.map((message) => message.id),
+      ["preview-empty", "preview-whitespace"],
+      "deleting an older message between pages cannot repeat the cursor page",
+    );
     await assert.rejects(
-      storage.listMessagesPaginated("preview-chat", 1, "2026-08-08T10:00:00.000Z|6"),
+      storage.listMessagesPaginated(
+        "preview-chat",
+        1,
+        `${firstPage[0]!.createdAt}|${encodeURIComponent("missing-message")}`,
+      ),
       /Invalid message cursor/u,
-      "history cursors cannot point beyond the current snapshot",
+      "history cursors must identify a message in the current snapshot",
     );
   } finally {
     await db._fileStore.close();

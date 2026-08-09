@@ -6505,13 +6505,13 @@ try {
 
 {
   const { parseMessageCursor } = await import("../../packages/server/src/services/storage/chats.storage.js");
-  assert.deepEqual(parseMessageCursor("2026-08-09T12:00:00.000Z|42"), {
+  assert.deepEqual(parseMessageCursor("2026-08-09T12:00:00.000Z|message%7C42"), {
     createdAt: "2026-08-09T12:00:00.000Z",
-    rowid: 42,
+    id: "message|42",
   });
   assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z"), null, "bare timestamps are not cursors");
   assert.equal(parseMessageCursor("not-a-date|42"), null, "cursor timestamps must be valid");
-  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|0"), null, "cursor row ids are one-based");
+  assert.equal(parseMessageCursor("2026-08-09T12:00:00.000Z|%"), null, "cursor ids must be valid URI components");
 }
 
 console.info("Open-issue regressions passed.");

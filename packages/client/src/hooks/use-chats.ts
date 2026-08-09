@@ -286,9 +286,7 @@ export function useChatMessages(chatId: string | null, pageSize: number = 0, ena
       if (pageSize <= 0 || lastPage.length < pageSize) return undefined;
       const oldestLoaded = lastPage[0];
       if (!oldestLoaded) return undefined;
-      return typeof oldestLoaded.rowid === "number"
-        ? `${oldestLoaded.createdAt}|${oldestLoaded.rowid}`
-        : undefined;
+      return `${oldestLoaded.createdAt}|${encodeURIComponent(oldestLoaded.id)}`;
     },
     enabled: !!chatId && enabled,
     // #4703: a reconnect refetch re-drains every loaded page back-to-back, so
