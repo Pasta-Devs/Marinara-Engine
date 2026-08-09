@@ -12899,6 +12899,49 @@ test("Professor Mari navigation can be repositioned within Home on desktop", asy
   expect(Math.abs(restoredPosition!.y - droppedPosition!.y)).toBeLessThanOrEqual(8);
 });
 
+test("Home widgets lift and brighten on fine-pointer hover", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Hover feedback is intentionally desktop-only.");
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.addInitScript(() => {
+    localStorage.setItem("marinara:home:widget-visibility:v2", JSON.stringify(["professor"]));
+    localStorage.removeItem("marinara:home:widget-layout:v2");
+  });
+  await page.goto("/");
+
+  const widget = page.locator('[data-home-widget-id="professor"]');
+  const surface = widget.locator(":scope > :not([data-home-drag-handle])");
+  await expect(surface).toBeVisible({ timeout: 30_000 });
+  const [widgetBefore, surfaceBefore] = await Promise.all([widget.boundingBox(), surface.boundingBox()]);
+  expect(widgetBefore).not.toBeNull();
+  expect(surfaceBefore).not.toBeNull();
+
+  await surface.hover();
+  await expect
+    .poll(() =>
+      surface.evaluate((element) => {
+        const transform = new DOMMatrixReadOnly(getComputedStyle(element).transform);
+        return { scale: transform.a, filter: getComputedStyle(element).filter };
+      }),
+    )
+    .toMatchObject({ scale: 1.015 });
+  const hoveredStyle = await surface.evaluate((element) => getComputedStyle(element).filter);
+  expect(hoveredStyle).not.toBe("none");
+
+  const [widgetAfter, surfaceAfter] = await Promise.all([widget.boundingBox(), surface.boundingBox()]);
+  expect(widgetAfter).not.toBeNull();
+  expect(surfaceAfter).not.toBeNull();
+  expect(Math.abs(widgetAfter!.width - widgetBefore!.width)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(widgetAfter!.height - widgetBefore!.height)).toBeLessThanOrEqual(0.5);
+  expect(surfaceAfter!.width).toBeGreaterThan(surfaceBefore!.width);
+  expect(surfaceAfter!.height).toBeGreaterThan(surfaceBefore!.height);
+
+  await page.evaluate(() => document.documentElement.classList.add("mari-home-widget-drag-active"));
+  await expect
+    .poll(() => surface.evaluate((element) => new DOMMatrixReadOnly(getComputedStyle(element).transform).a))
+    .toBe(1);
+  await expect(surface).toHaveCSS("filter", "none");
+});
+
 test("Home widget order can be dragged and persists across reloads", async ({ page }, testInfo) => {
   test.skip(!testInfo.project.name.includes("desktop"), "Desktop native dragging complements the touch-pointer path.");
   const errors = collectUnexpectedErrors(page);
