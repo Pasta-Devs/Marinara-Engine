@@ -752,20 +752,28 @@ export function CharactersPanel() {
         <button
           type="button"
           onClick={openBotBrowser}
-          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          className="mari-chrome-segmented__button w-full gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
         >
-          <Bot size="0.875rem" />
-          {localizeUi("ui.panels.resourceLibraryLauncher.download")}
+          <span className="shrink-0 leading-none">
+            <Bot size="0.875rem" />
+          </span>
+          <span className="inline-flex min-h-4 min-w-0 items-center whitespace-nowrap pb-px leading-normal">
+            {localizeUi("ui.panels.resourceLibraryLauncher.download")}
+          </span>
         </button>
         <button
           type="button"
           onClick={openCharacterLibrary}
-          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          className="mari-chrome-segmented__button w-full gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
           title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
         >
-          <Users size="0.875rem" />
-          {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
+          <span className="shrink-0 leading-none">
+            <Users size="0.875rem" />
+          </span>
+          <span className="inline-flex min-h-4 min-w-0 items-center whitespace-nowrap pb-px leading-normal">
+            {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
+          </span>
         </button>
       </div>
 

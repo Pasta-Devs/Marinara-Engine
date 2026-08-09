@@ -24,6 +24,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with equal halves, fixed icon sizing, and single-line labels.
 - Kept Professor Mari's held navigation animation mounted, frame-snapped, and paint-batched so repeated grabs no longer flash the wrong sprite frame or stutter under pointer movement.
 - Mirrored Professor Mari's navigation speech-bubble tail from one canonical shape when her dialog switches sides.
 - Standardized chat-mode icons across Home, Chats, creation flows, shortcuts, and linked chats: Conversation keeps its message bubble, Roleplay uses theater masks, and Game uses a gamepad without colliding with Lorebooks.

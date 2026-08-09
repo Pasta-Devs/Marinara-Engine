@@ -8335,12 +8335,57 @@ test("Character and Persona panels launch card downloads and their local librari
     });
   });
   await page.goto("/");
+  await page.evaluate(async () => {
+    const module = await import("/src/stores/ui.store.ts");
+    module.useUIStore.getState().setSidebarOpen(true);
+  });
+
+  const chatModeButton = page.locator('[data-chat-mode-tab="conversation"]');
+  await expect(chatModeButton).toBeVisible();
+  const chatControlGeometry = await chatModeButton.evaluate((button) => {
+    const icon = button.querySelector("svg");
+    const buttonBounds = button.getBoundingClientRect();
+    const iconBounds = icon?.getBoundingClientRect();
+    return {
+      buttonHeight: buttonBounds.height,
+      iconHeight: iconBounds?.height ?? 0,
+      iconWidth: iconBounds?.width ?? 0,
+    };
+  });
+  const expectLibraryActionGeometry = async (component: "CharacterLibraryActions" | "PersonaLibraryActions") => {
+    const actions = page.locator(`[data-component="${component}"]`);
+    const geometry = await actions.locator("button").evaluateAll((buttons) =>
+      buttons.map((button) => {
+        const bounds = button.getBoundingClientRect();
+        const iconBounds = button.querySelector("svg")?.getBoundingClientRect();
+        const label = button.querySelector("span:last-child") as HTMLElement | null;
+        return {
+          width: bounds.width,
+          height: bounds.height,
+          iconWidth: iconBounds?.width ?? 0,
+          iconHeight: iconBounds?.height ?? 0,
+          labelFits: Boolean(label && label.scrollWidth <= label.clientWidth + 1),
+          labelWhiteSpace: label ? getComputedStyle(label).whiteSpace : "",
+        };
+      }),
+    );
+    expect(geometry).toHaveLength(2);
+    expect(Math.abs(geometry[0]!.width - geometry[1]!.width)).toBeLessThanOrEqual(1);
+    for (const button of geometry) {
+      expect(Math.abs(button.height - chatControlGeometry.buttonHeight)).toBeLessThanOrEqual(1);
+      expect(Math.abs(button.iconWidth - chatControlGeometry.iconWidth)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(button.iconHeight - chatControlGeometry.iconHeight)).toBeLessThanOrEqual(0.5);
+      expect(button.labelFits).toBe(true);
+      expect(button.labelWhiteSpace).toBe("nowrap");
+    }
+  };
 
   await expect(page.locator('[data-tour="panel-bot-browser"]')).toHaveCount(0);
   await page.locator('[data-tour="panel-characters"]').click();
   const characterActions = page.locator('[data-component="CharacterLibraryActions"]');
   await expect(characterActions.getByRole("button", { name: "Download", exact: true })).toBeVisible();
   await expect(characterActions.getByRole("button", { name: "Open Library", exact: true })).toBeVisible();
+  await expectLibraryActionGeometry("CharacterLibraryActions");
   await characterActions.getByRole("button", { name: "Download", exact: true }).click();
 
   const cardLibrary = page.locator('[data-component="BotBrowserView"]');
@@ -8373,6 +8418,7 @@ test("Character and Persona panels launch card downloads and their local librari
   await expect(personaActions.getByRole("button", { name: "Download", exact: true })).toBeVisible();
   const openPersonaLibrary = personaActions.getByRole("button", { name: "Open Library", exact: true });
   await expect(openPersonaLibrary).toBeVisible();
+  await expectLibraryActionGeometry("PersonaLibraryActions");
   await openPersonaLibrary.click();
 
   await expect(page.getByText("Persona Library", { exact: true })).toBeVisible();
