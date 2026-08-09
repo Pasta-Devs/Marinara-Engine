@@ -150,6 +150,15 @@ export const PROVIDERS: Record<APIProvider, ProviderDefinition> = {
     usesAuthHeader: true,
     apiKeyHeader: null,
   },
+  arli: {
+    id: "arli",
+    name: "Arli AI",
+    defaultBaseUrl: "https://api.arliai.com/v1",
+    modelsEndpoint: "/models",
+    supportsStreaming: true,
+    usesAuthHeader: true,
+    apiKeyHeader: null,
+  },
   custom: {
     id: "custom",
     name: "Custom (OAI-Compatible)",

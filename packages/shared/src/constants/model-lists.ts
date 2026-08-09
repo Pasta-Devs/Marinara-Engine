@@ -666,8 +666,8 @@ export const IMAGE_GENERATION_SOURCES: ImageGenSource[] = [
   },
   {
     id: "arli",
-    name: "Arli.ai",
-    description: "Hosted Stable Diffusion models through Arli.ai's native image API.",
+    name: "Arli AI",
+    description: "Hosted Stable Diffusion models through Arli AI's native image API.",
     defaultBaseUrl: "https://api.arliai.com/v1",
     requiresApiKey: true,
   },
@@ -979,6 +979,7 @@ export const MODEL_LISTS: Record<APIProvider, KnownModel[]> = {
   openrouter: OPENROUTER_MODELS,
   nanogpt: [], // NanoGPT aggregator — models fetched dynamically via API
   xai: XAI_MODELS,
+  arli: [], // Arli AI — models fetched dynamically via the /models endpoint
   // Seed OAI-compatible endpoints with the OpenAI catalog; remote /models still merge on top.
   custom: [...OPENAI_MODELS, ...ZAI_MODELS],
   image_generation: IMAGE_GEN_MODELS,

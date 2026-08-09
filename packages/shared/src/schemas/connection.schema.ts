@@ -16,6 +16,7 @@ export const apiProviderSchema = z.enum([
   "openrouter",
   "nanogpt",
   "xai",
+  "arli",
   "custom",
   "image_generation",
   "video_generation",

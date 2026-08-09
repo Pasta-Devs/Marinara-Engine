@@ -20,6 +20,7 @@ export const apiConnections = fileTable("api_connections", {
       "openrouter",
       "nanogpt",
       "xai",
+      "arli",
       "custom",
       "image_generation",
       "video_generation",

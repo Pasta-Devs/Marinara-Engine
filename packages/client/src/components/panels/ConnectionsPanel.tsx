@@ -117,6 +117,7 @@ const PROVIDER_COLORS: Record<string, { from: string; to: string; ring: string; 
   openrouter: CONNECTION_ICON_COLORS,
   nanogpt: CONNECTION_ICON_COLORS,
   xai: CONNECTION_ICON_COLORS,
+  arli: CONNECTION_ICON_COLORS,
   custom: CONNECTION_ICON_COLORS,
   image_generation: CONNECTION_ICON_COLORS,
   video_generation: CONNECTION_ICON_COLORS,
