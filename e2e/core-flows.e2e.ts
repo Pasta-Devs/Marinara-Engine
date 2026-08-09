@@ -12013,7 +12013,9 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   const clock = page.locator('[data-component="HomeClockCalendar"]');
   await expect(clock).toHaveAttribute("data-time-zone", timeZone);
   const clockAccentColors = await clock
-    .locator("[data-clock-accent-reference], [data-clock-eyebrow], [data-clock-seconds]")
+    .locator(
+      "[data-clock-accent-reference], [data-clock-eyebrow], [data-clock-seconds], [data-calendar-accent], [data-calendar-icon]",
+    )
     .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color));
   expect(new Set(clockAccentColors).size).toBe(1);
   const expected = await page.evaluate((activeTimeZone) => {

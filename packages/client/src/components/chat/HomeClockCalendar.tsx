@@ -116,10 +116,13 @@ export function HomeClockCalendar() {
         <time
           dateTime={now.toISOString()}
           aria-label={spokenDate}
-          className="flex w-[4.4rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-[color-mix(in_srgb,oklch(0.76_0.19_52)_46%,var(--border))] bg-[var(--card)] text-center shadow-[0_12px_26px_-20px_oklch(0.76_0.19_52/0.9)]"
+          className="flex w-[4.4rem] shrink-0 flex-col overflow-hidden rounded-2xl border border-[color-mix(in_srgb,oklch(0.79_0.16_205)_46%,var(--border))] bg-[var(--card)] text-center shadow-[0_12px_26px_-20px_oklch(0.79_0.16_205/0.9)]"
           data-calendar-date
         >
-          <span className="bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_20%,var(--card))] px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.16em] text-[oklch(0.76_0.19_52)]">
+          <span
+            className="bg-[color-mix(in_srgb,oklch(0.79_0.16_205)_20%,var(--card))] px-2 py-1 text-[0.58rem] font-black uppercase tracking-[0.16em] text-[oklch(0.79_0.16_205)]"
+            data-calendar-accent
+          >
             {formatters.month.format(now)}
           </span>
           <span className="py-1.5 text-[1.65rem] font-black leading-none tabular-nums text-[var(--foreground)]">
@@ -133,7 +136,12 @@ export function HomeClockCalendar() {
         <span className="truncate" title={timeZone}>
           {timeZone}
         </span>
-        <CalendarDays size="0.72rem" className="ml-auto shrink-0 text-[oklch(0.76_0.19_52)]" aria-hidden="true" />
+        <CalendarDays
+          size="0.72rem"
+          className="ml-auto shrink-0 text-[oklch(0.79_0.16_205)]"
+          data-calendar-icon
+          aria-hidden="true"
+        />
       </footer>
     </section>
   );
