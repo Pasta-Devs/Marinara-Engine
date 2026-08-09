@@ -11231,6 +11231,45 @@ test("Professor Mari chat fills the mobile home viewport and keeps its composer 
     .toBe(true);
 });
 
+test("Professor Mari suggestions stay visible after chat history loads", async ({ page }) => {
+  const chatResponse = await page.request.get("/api/chats/internal/professor-mari");
+  expect(chatResponse.ok()).toBeTruthy();
+  const chat = (await chatResponse.json()) as { id: string };
+  const messageContent = `Professor Mari suggestion stability ${Date.now()}`;
+  const messageResponse = await page.request.post(`/api/chats/${chat.id}/messages`, {
+    data: {
+      role: "assistant",
+      characterId: "__professor_mari__",
+      content: messageContent,
+    },
+  });
+  expect(messageResponse.ok()).toBeTruthy();
+  const message = (await messageResponse.json()) as { id: string };
+
+  try {
+    await page.goto("/");
+    await page.evaluate(async () => {
+      const [{ useAgentStore }, { useUIStore }] = await Promise.all([
+        import("/src/stores/agent.store.ts"),
+        import("/src/stores/ui.store.ts"),
+      ]);
+      useAgentStore.getState().clearMariChips();
+      useAgentStore.getState().clearMariPlan();
+      useUIStore.getState().setProfessorMariSuggestionsEnabled(true);
+    });
+
+    await page.getByRole("tab", { name: "Professor", exact: true }).click();
+    const window = page.locator('[data-component="HomeProfessorMariChat.Window"]');
+    await expect(window.getByText(messageContent, { exact: true })).toBeVisible();
+
+    const suggestions = window.getByRole("group", { name: "Suggested replies" });
+    await expect(suggestions).toBeVisible();
+    await expect(suggestions.getByRole("button", { name: "Create a character" })).toBeVisible();
+  } finally {
+    await bestEffortDelete(page.request, `/api/chats/${chat.id}/messages/${message.id}`);
+  }
+});
+
 test("Professor Mari shows the latest context budget when token usage is enabled", async ({ page }) => {
   const chatResponse = await page.request.get("/api/chats/internal/professor-mari");
   expect(chatResponse.ok()).toBeTruthy();

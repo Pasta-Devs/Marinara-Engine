@@ -2570,7 +2570,7 @@ export function HomeProfessorMariChat({
   const visibleSuggestionChips =
     professorMariSuggestionsEnabled && mariChipsChatId === chatId && mariChips.length > 0
       ? mariChips
-      : professorMariSuggestionsEnabled && messages.length === 0
+      : professorMariSuggestionsEnabled && chatId !== null && loadedMessagesChatId === chatId && !isBusy
         ? MARI_STARTER_CHIPS
         : [];
   const selectedSkill = useMemo(
