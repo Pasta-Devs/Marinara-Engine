@@ -26,22 +26,29 @@ import {
   LogOut,
   KeyRound,
   Cookie,
+  BookOpen,
+  Users,
+  VenetianMask,
+  Bot,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { characterKeys } from "../../hooks/use-characters";
 import { lorebookKeys } from "../../hooks/use-lorebooks";
+import { api } from "../../lib/api-client";
 import { parsePngCharacterCard } from "../../lib/png-parser";
 import { useUIStore } from "../../stores/ui.store";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import {
-  confirmEmbeddedLorebookImport,
+  countLorebookEntries,
   hasLorebookEntries,
+  readCharacterCardData,
   readCharacterCardDetailFields,
   readEmbeddedLorebookFromCharacterPayload,
 } from "../../lib/character-import";
 import { mergeChubDetailIntoCharacterJson } from "../../lib/chub-character-card";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { Modal } from "../ui/Modal";
 
 // ════════════════════════════════════════════════
 // Types
@@ -192,6 +199,20 @@ interface CardDetail {
   extra?: { title: string; content: string }[];
 }
 
+type BrowserCardImportTarget = "character" | "persona";
+
+interface PreparedBrowserCardImport {
+  card: BrowseCard;
+  payload: Record<string, unknown>;
+  embeddedLorebook?: unknown;
+}
+
+interface PendingBrowserCardImport {
+  card: BrowseCard;
+  target?: BrowserCardImportTarget;
+  prepared?: PreparedBrowserCardImport;
+}
+
 function hasJannyCharacterDefinition(detail: CardDetail | null | undefined): boolean {
   return Boolean(
     detail?.description ||
@@ -246,6 +267,12 @@ function attachEmbeddedLorebookToCharacterJson(raw: Record<string, unknown>, emb
   return cloned;
 }
 
+function readCardTags(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).map((tag) => tag.trim()).filter(Boolean);
+  if (typeof value === "string") return value.split(",").map((tag) => tag.trim()).filter(Boolean);
+  return [];
+}
+
 function optionalString(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
@@ -260,6 +287,17 @@ function optionalStringArray(value: unknown): string[] | undefined {
 
 function optionalRecord(value: unknown): Record<string, unknown> | undefined {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
+}
+
+async function filterPersonaImportTags(sourceTags: string[], mode: TagImportMode): Promise<string[]> {
+  if (mode === "all" || sourceTags.length === 0) return sourceTags;
+  if (mode === "none") return [];
+
+  const characters = await api.get<Array<{ data?: unknown }>>("/characters");
+  const existingTagKeys = new Set(
+    characters.flatMap((character) => readCardTags(optionalRecord(character.data)?.tags)).map((tag) => tag.toLocaleLowerCase()),
+  );
+  return sourceTags.filter((tag) => existingTagKeys.has(tag.toLocaleLowerCase()));
 }
 
 // ════════════════════════════════════════════════
@@ -1164,6 +1202,7 @@ const wyvernProvider: ProviderConfig = {
     if (!res.ok) return null;
     const c = await res.json();
     if (!c) return null;
+    const embeddedLorebook = c.embedded_lorebook ?? c.character_book;
     return {
       description: c.description || undefined,
       personality: c.personality || undefined,
@@ -1175,7 +1214,8 @@ const wyvernProvider: ProviderConfig = {
       postHistoryInstructions: optionalString(c.postHistoryInstructions ?? c.post_history_instructions),
       characterVersion: optionalString(c.characterVersion ?? c.character_version),
       alternateGreetings: Array.isArray(c.alternate_greetings) ? c.alternate_greetings.filter(Boolean) : [],
-      hasLorebook: !!(c.lorebooks?.length > 0),
+      hasLorebook: hasLorebookEntries(embeddedLorebook) || !!(c.lorebooks?.length > 0),
+      embeddedLorebook,
     };
   },
 };
@@ -1429,34 +1469,39 @@ export function BotBrowserView() {
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const closeBotBrowser = useUIStore((s) => s.closeBotBrowser);
 
+  const browserRootRef = useRef<HTMLDivElement | null>(null);
   const [sourceId, setSourceId] = useState("chub");
   const [sourceOpen, setSourceOpen] = useState(false);
   const sourceButtonRef = useRef<HTMLButtonElement | null>(null);
   const [sourceMenuPosition, setSourceMenuPosition] = useState<{
     left: number;
     top: number;
+    width: number;
     maxHeight: number;
   } | null>(null);
   const provider = useMemo(() => getProvider(sourceId), [sourceId]);
 
   const updateSourceMenuPosition = useCallback(() => {
     const button = sourceButtonRef.current;
-    if (!button) {
+    const browserRoot = browserRootRef.current;
+    if (!button || !browserRoot) {
       setSourceMenuPosition(null);
       return;
     }
 
     const rect = button.getBoundingClientRect();
+    const browserRect = browserRoot.getBoundingClientRect();
     const width = Math.max(SOURCE_MENU_MIN_WIDTH, rect.width);
-    const left = Math.min(
-      Math.max(SOURCE_MENU_MARGIN, rect.left),
-      Math.max(SOURCE_MENU_MARGIN, window.innerWidth - width - SOURCE_MENU_MARGIN),
-    );
+    const minimumLeft = browserRect.left + SOURCE_MENU_MARGIN;
+    const maximumLeft = Math.max(minimumLeft, browserRect.right - width - SOURCE_MENU_MARGIN);
+    const left = Math.min(Math.max(minimumLeft, rect.right - width), maximumLeft);
     const top = rect.bottom + 4;
+    const availableBottom = Math.min(window.innerHeight, browserRect.bottom);
     setSourceMenuPosition({
       left,
       top,
-      maxHeight: Math.max(96, window.innerHeight - top - SOURCE_MENU_MARGIN),
+      width,
+      maxHeight: Math.max(96, availableBottom - top - SOURCE_MENU_MARGIN),
     });
   }, []);
 
@@ -1467,9 +1512,13 @@ export function BotBrowserView() {
     }
 
     updateSourceMenuPosition();
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateSourceMenuPosition);
+    if (browserRootRef.current) resizeObserver?.observe(browserRootRef.current);
+    if (sourceButtonRef.current) resizeObserver?.observe(sourceButtonRef.current);
     window.addEventListener("resize", updateSourceMenuPosition);
     window.addEventListener("scroll", updateSourceMenuPosition, true);
     return () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", updateSourceMenuPosition);
       window.removeEventListener("scroll", updateSourceMenuPosition, true);
     };
@@ -1512,6 +1561,7 @@ export function BotBrowserView() {
   const [detail, setDetail] = useState<CardDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [pendingImport, setPendingImport] = useState<PendingBrowserCardImport | null>(null);
   const [tagImportMode, setTagImportMode] = useState<TagImportMode>("all");
   const mainScrollRef = useRef<HTMLDivElement | null>(null);
   const resultsScrollTopRef = useRef(0);
@@ -1728,142 +1778,251 @@ export function BotBrowserView() {
     }
   };
 
-  const handleImport = async (card: BrowseCard) => {
-    setImporting(true);
-    try {
-      let downloadUrl = "";
-      if (sourceId === "chub") downloadUrl = `/api/bot-browser/chub/download/${card.id}`;
-      else if (sourceId === "chartavern") downloadUrl = `/api/bot-browser/chartavern/download/${card.id}`;
-      else if (sourceId === "janny") downloadUrl = `/api/bot-browser/janny/download/${encodeURIComponent(card.id)}`;
+  const prepareCardImport = async (card: BrowseCard): Promise<PreparedBrowserCardImport> => {
+    let downloadUrl = "";
+    if (sourceId === "chub") downloadUrl = `/api/bot-browser/chub/download/${card.id}`;
+    else if (sourceId === "chartavern") downloadUrl = `/api/bot-browser/chartavern/download/${card.id}`;
+    else if (sourceId === "janny") downloadUrl = `/api/bot-browser/janny/download/${encodeURIComponent(card.id)}`;
 
-      let prefetchedJannyCard: Awaited<ReturnType<typeof parsePngCharacterCard>> | null = null;
-      if (sourceId === "janny") {
-        try {
-          const cardResponse = await fetchCompleteJannyCard(card.id);
-          if (!cardResponse.ok) throw new Error("JannyAI character-card download failed");
-          const cardFile = new File([await cardResponse.blob()], "character.png", { type: "image/png" });
-          const parsedCard = await parsePngCharacterCard(cardFile);
-          if (!hasJannyCharacterDefinition(readCharacterCardDetailFields(parsedCard.json))) {
-            throw new Error("JannyAI character-card definition is incomplete");
-          }
-          prefetchedJannyCard = parsedCard;
-        } catch {
-          downloadUrl = "";
+    let prefetchedJannyCard: Awaited<ReturnType<typeof parsePngCharacterCard>> | null = null;
+    if (sourceId === "janny") {
+      try {
+        const cardResponse = await fetchCompleteJannyCard(card.id);
+        if (!cardResponse.ok) throw new Error("JannyAI character-card download failed");
+        const cardFile = new File([await cardResponse.blob()], "character.png", { type: "image/png" });
+        const parsedCard = await parsePngCharacterCard(cardFile);
+        if (!hasJannyCharacterDefinition(readCharacterCardDetailFields(parsedCard.json))) {
+          throw new Error("JannyAI character-card definition is incomplete");
         }
+        prefetchedJannyCard = parsedCard;
+      } catch {
+        downloadUrl = "";
       }
+    }
 
-      if (downloadUrl) {
-        let parsedCard = prefetchedJannyCard;
-        if (sourceId !== "janny") {
-          const res = await fetch(downloadUrl);
-          if (!res.ok) throw new Error(localizeUi("ui.botBrowser.botbrowserview.importFailed"));
-          const blob = await res.blob();
-          const file = new File([blob], "character.png", { type: "image/png" });
-          parsedCard = await parsePngCharacterCard(file);
+    if (downloadUrl) {
+      let parsedCard = prefetchedJannyCard;
+      if (sourceId !== "janny") {
+        const response = await fetch(downloadUrl);
+        if (!response.ok) throw new Error(localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+        const file = new File([await response.blob()], "character.png", { type: "image/png" });
+        parsedCard = await parsePngCharacterCard(file);
+      }
+      if (!parsedCard) throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
+
+      const { json, imageDataUrl } = parsedCard;
+      const cardDetail = sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card))) : detail;
+      const importJsonWithLorebook = attachEmbeddedLorebookToCharacterJson(
+        json as Record<string, unknown>,
+        cardDetail?.embeddedLorebook,
+      );
+      const importJson =
+        sourceId === "chub"
+          ? mergeChubDetailIntoCharacterJson(
+              importJsonWithLorebook,
+              { name: card.name, creator: card.creator, tags: card.tags },
+              cardDetail,
+            )
+          : importJsonWithLorebook;
+      const embeddedLorebook =
+        cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson);
+
+      return {
+        card,
+        embeddedLorebook,
+        payload: {
+          ...importJson,
+          _avatarDataUrl: imageDataUrl,
+          _botBrowserSource: `${sourceId}:${card.id}`,
+        },
+      };
+    }
+
+    let cardDetail = detail;
+    if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
+      cardDetail = await provider.fetchDetail(card, { skipCompleteCard: true });
+    } else if (!cardDetail) {
+      cardDetail = await provider.fetchDetail(card);
+    }
+    if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
+      throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
+    }
+
+    const descriptionText = cardDetail?.description || "";
+    const personalityText = cardDetail?.personality || "";
+    const payload: Record<string, unknown> = {
+      name: card.name,
+      description: descriptionText || personalityText,
+      personality: personalityText && descriptionText ? personalityText : "",
+      scenario: cardDetail?.scenario || "",
+      first_mes: cardDetail?.firstMessage || "",
+      mes_example: cardDetail?.exampleDialogs || "",
+      creator_notes: cardDetail?.creatorNotes || "",
+      system_prompt: cardDetail?.systemPrompt || "",
+      post_history_instructions: cardDetail?.postHistoryInstructions || "",
+      character_version: cardDetail?.characterVersion || "",
+      tags: card.tags,
+      creator: card.creator,
+      alternate_greetings: cardDetail?.alternateGreetings || [],
+      extensions: { [`${sourceId}`]: { id: card.id } },
+      _botBrowserSource: `${sourceId}:${card.id}`,
+    };
+    if (hasLorebookEntries(cardDetail?.embeddedLorebook)) payload.character_book = cardDetail?.embeddedLorebook;
+
+    if (card.avatarUrl) {
+      try {
+        const avatarResponse = await fetch(card.avatarUrl);
+        if (avatarResponse.ok) {
+          const avatarBlob = await avatarResponse.blob();
+          const reader = new FileReader();
+          payload._avatarDataUrl = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(reader.error ?? new Error("Failed to read avatar"));
+            reader.readAsDataURL(avatarBlob);
+          });
         }
-        if (!parsedCard) throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
-        const { json, imageDataUrl } = parsedCard;
-        const cardDetail = sourceId === "chub" ? (detail ?? (await provider.fetchDetail(card))) : detail;
-        const importJsonWithLorebook = attachEmbeddedLorebookToCharacterJson(
-          json as Record<string, unknown>,
-          cardDetail?.embeddedLorebook,
-        );
-        const importJson =
-          sourceId === "chub"
-            ? mergeChubDetailIntoCharacterJson(
-                importJsonWithLorebook,
-                { name: card.name, creator: card.creator, tags: card.tags },
-                cardDetail,
-              )
-            : importJsonWithLorebook;
-        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(
-          card.name,
-          cardDetail?.embeddedLorebook ?? readEmbeddedLorebookFromCharacterPayload(importJson),
-        );
-        const importRes = await fetch("/api/import/st-character", {
+      } catch {
+        // The card remains importable when a provider blocks its avatar URL.
+      }
+    }
+
+    return { card, payload, embeddedLorebook: cardDetail?.embeddedLorebook };
+  };
+
+  const importPreparedCard = async (
+    prepared: PreparedBrowserCardImport,
+    target: BrowserCardImportTarget,
+    importEmbeddedLorebook: boolean,
+  ) => {
+    if (target === "character") {
+      const response = await fetch("/api/import/st-character", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...prepared.payload,
+          importEmbeddedLorebook,
+          tagImportMode,
+        }),
+      });
+      const data = (await response.json()) as { success?: boolean; name?: string; error?: string; lorebook?: unknown };
+      if (!response.ok || !data.success) throw new Error(data.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+
+      toast.success(
+        localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", {
+          value1: data.name ?? prepared.card.name,
+        }),
+      );
+      void qc.invalidateQueries({ queryKey: characterKeys.list() });
+      if (data.lorebook) void qc.invalidateQueries({ queryKey: lorebookKeys.all });
+      return;
+    }
+
+    const cardData = readCharacterCardData(prepared.payload);
+    const extensions = optionalRecord(cardData.extensions) ?? {};
+    const personaName = optionalString(cardData.name) ?? prepared.card.name;
+    const sourceTags = readCardTags(cardData.tags);
+    const personaTags = await filterPersonaImportTags(sourceTags, tagImportMode);
+    const personaResponse = await fetch("/api/characters/personas", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: personaName,
+        description: optionalString(cardData.description) ?? optionalString(cardData.personality) ?? "",
+        personality: optionalString(cardData.personality) ?? "",
+        scenario: optionalString(cardData.scenario) ?? "",
+        backstory: optionalString(extensions.backstory) ?? "",
+        appearance: optionalString(extensions.appearance) ?? "",
+        creator: optionalString(cardData.creator) ?? prepared.card.creator,
+        creatorNotes: optionalString(cardData.creator_notes) ?? "",
+        personaVersion: optionalString(cardData.character_version) ?? "",
+        tags: JSON.stringify(personaTags),
+      }),
+    });
+    const persona = (await personaResponse.json()) as { id?: string; error?: string };
+    if (!personaResponse.ok || !persona.id) {
+      throw new Error(persona.error ?? localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+    }
+
+    const avatarDataUrl = optionalString(prepared.payload._avatarDataUrl);
+    if (avatarDataUrl?.startsWith("data:image/")) {
+      try {
+        const avatarResponse = await fetch(`/api/characters/personas/${persona.id}/avatar`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ avatar: avatarDataUrl, filename: `persona-${persona.id}.png` }),
+        });
+        if (!avatarResponse.ok) throw new Error("Persona avatar upload failed");
+      } catch {
+        toast.warning(localizeUi("ui.botBrowser.importDialog.personaImportedWithoutAvatar"));
+      }
+    }
+
+    if (importEmbeddedLorebook && hasLorebookEntries(prepared.embeddedLorebook)) {
+      try {
+        const embedded = prepared.embeddedLorebook as Record<string, unknown>;
+        const lorebookResponse = await fetch("/api/import/st-lorebook", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ...importJson,
-            _avatarDataUrl: imageDataUrl,
-            _botBrowserSource: `${sourceId}:${card.id}`,
-            importEmbeddedLorebook,
-            tagImportMode,
+            ...embedded,
+            name: optionalString(embedded.name) ?? `${personaName}'s Lorebook`,
+            __filename: `${personaName}'s Lorebook`,
           }),
         });
-        const data = await importRes.json();
-        if (data.success) {
-          toast.success(localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", { value1: data.name ??localizeUi("ui.noodle.noodlehome.character") }));
-          qc.invalidateQueries({ queryKey: characterKeys.list() });
-          if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
-        } else throw new Error(data.error ?? "Import failed");
-      } else {
-        let cardDetail = detail;
-        if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
-          cardDetail = await provider.fetchDetail(card, { skipCompleteCard: true });
-        } else if (!cardDetail) {
-          cardDetail = await provider.fetchDetail(card);
+        const lorebook = (await lorebookResponse.json()) as { success?: boolean; error?: string };
+        if (!lorebookResponse.ok || !lorebook.success) {
+          throw new Error(lorebook.error ?? "Lorebook import failed");
         }
-        if (sourceId === "janny" && !hasJannyCharacterDefinition(cardDetail)) {
-          throw new Error(localizeUi("ui.botBrowser.botbrowserview.jannyCompleteCardUnavailable"));
-        }
-        const importEmbeddedLorebook = confirmEmbeddedLorebookImport(card.name, cardDetail?.embeddedLorebook);
-        // For extracted JanitorAI data, description contains the full personality definition
-        const descriptionText = cardDetail?.description || "";
-        const personalityText = cardDetail?.personality || "";
-        const v2: Record<string, unknown> = {
-          name: card.name,
-          description: descriptionText || personalityText,
-          personality: personalityText && descriptionText ? personalityText : "",
-          scenario: cardDetail?.scenario || "",
-          first_mes: cardDetail?.firstMessage || "",
-          mes_example: cardDetail?.exampleDialogs || "",
-          creator_notes: cardDetail?.creatorNotes || "",
-          system_prompt: cardDetail?.systemPrompt || "",
-          post_history_instructions: cardDetail?.postHistoryInstructions || "",
-          character_version: cardDetail?.characterVersion || "",
-          tags: card.tags,
-          creator: card.creator,
-          alternate_greetings: cardDetail?.alternateGreetings || [],
-          extensions: { [`${sourceId}`]: { id: card.id } },
-          _botBrowserSource: `${sourceId}:${card.id}`,
-          tagImportMode,
-          importEmbeddedLorebook,
-        };
-        if (hasLorebookEntries(cardDetail?.embeddedLorebook)) {
-          v2.character_book = cardDetail?.embeddedLorebook;
-        }
-        const avatarSrc = card.avatarUrl;
-        if (avatarSrc) {
-          try {
-            const avatarRes = await fetch(avatarSrc);
-            if (avatarRes.ok) {
-              const avatarBlob = await avatarRes.blob();
-              const reader = new FileReader();
-              const dataUrl = await new Promise<string>((resolve) => {
-                reader.onload = () => resolve(reader.result as string);
-                reader.readAsDataURL(avatarBlob);
-              });
-              v2._avatarDataUrl = dataUrl;
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-        const importRes = await fetch("/api/import/st-character", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(v2),
-        });
-        const data = await importRes.json();
-        if (data.success) {
-          toast.success(localizeUi("ui.botBrowser.botbrowserview.importedValue1Successfully", { value1: data.name ?? card.name }));
-          qc.invalidateQueries({ queryKey: characterKeys.list() });
-          if (data.lorebook) qc.invalidateQueries({ queryKey: lorebookKeys.all });
-        } else throw new Error(data.error ?? "Import failed");
+        void qc.invalidateQueries({ queryKey: lorebookKeys.all });
+      } catch {
+        toast.warning(localizeUi("ui.botBrowser.importDialog.personaImportedWithoutLorebook"));
       }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message :localizeUi("ui.botBrowser.botbrowserview.importFailed"));
+    }
+
+    toast.success(
+      localizeUi("ui.characters.charactereditor.importedValue1AsAPersona", { value1: personaName }),
+    );
+    void qc.invalidateQueries({ queryKey: characterKeys.personas });
+  };
+
+  const handleImport = (card: BrowseCard) => {
+    setSourceOpen(false);
+    setPendingImport({ card });
+  };
+
+  const chooseImportTarget = async (target: BrowserCardImportTarget) => {
+    if (!pendingImport) return;
+    const { card } = pendingImport;
+    setPendingImport({ card, target });
+    setImporting(true);
+    try {
+      const prepared = await prepareCardImport(card);
+      if (hasLorebookEntries(prepared.embeddedLorebook)) {
+        setPendingImport({ card, target, prepared });
+        return;
+      }
+      await importPreparedCard(prepared, target, false);
+      setPendingImport(null);
+    } catch (error) {
+      setPendingImport({ card });
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.botBrowser.botbrowserview.importFailed"),
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const finishImport = async (importEmbeddedLorebook: boolean) => {
+    if (!pendingImport?.target || !pendingImport.prepared) return;
+    setImporting(true);
+    try {
+      await importPreparedCard(pendingImport.prepared, pendingImport.target, importEmbeddedLorebook);
+      setPendingImport(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : localizeUi("ui.botBrowser.botbrowserview.importFailed"),
+      );
     } finally {
       setImporting(false);
     }
@@ -2018,6 +2177,7 @@ export function BotBrowserView() {
 
   return (
     <div
+      ref={browserRootRef}
       data-component="BotBrowserView"
       className="mari-chrome-token-scope flex h-full min-h-0 flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_color-mix(in_srgb,var(--marinara-chat-chrome-accent)_14%,transparent),_transparent_30%),radial-gradient(circle_at_top_right,_color-mix(in_srgb,var(--marinara-chat-chrome-text)_10%,transparent),_transparent_26%),var(--background)] text-[var(--marinara-chat-chrome-panel-text)]"
     >
@@ -2044,7 +2204,7 @@ export function BotBrowserView() {
           </div>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:ml-auto">
+        <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-2 sm:ml-auto lg:w-auto">
           <div className="relative">
             <button
               ref={sourceButtonRef}
@@ -2071,6 +2231,7 @@ export function BotBrowserView() {
                   style={{
                     left: sourceMenuPosition.left,
                     top: sourceMenuPosition.top,
+                    width: sourceMenuPosition.width,
                     maxHeight: sourceMenuPosition.maxHeight,
                   }}
                 >
@@ -2562,6 +2723,150 @@ export function BotBrowserView() {
           )}
         </div>
       </div>
+
+      <Modal
+        open={pendingImport !== null}
+        onClose={() => {
+          if (!importing) setPendingImport(null);
+        }}
+        title={localizeUi("ui.botBrowser.importDialog.importCard")}
+        width="max-w-lg"
+        closeDisabled={importing}
+      >
+        {pendingImport && (
+          <div className="flex flex-col gap-4" data-component="BotBrowserImportDialog">
+            <div className="flex items-center gap-3 rounded-xl border border-[var(--marinara-chat-chrome-panel-divider)] bg-[var(--marinara-chat-chrome-panel-bg)]/70 p-3">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-[var(--marinara-chat-chrome-panel-border)] bg-[var(--secondary)]">
+                {pendingImport.card.avatarUrl ? (
+                  <img
+                    src={pendingImport.card.avatarUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-[var(--marinara-chat-chrome-panel-muted)]">
+                    <Bot size="1.25rem" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                  {pendingImport.card.name}
+                </p>
+                <p className="truncate text-xs text-[var(--marinara-chat-chrome-panel-muted)]">
+                  {pendingImport.card.creator
+                    ? localizeUi("ui.botBrowser.importDialog.byValue1", { value1: pendingImport.card.creator })
+                    : provider.name}
+                </p>
+              </div>
+            </div>
+
+            {!pendingImport.target ? (
+              <>
+                <div>
+                  <p className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                    {localizeUi("ui.botBrowser.importDialog.chooseDestination")}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+                    {localizeUi("ui.botBrowser.importDialog.chooseDestinationDescription")}
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    data-import-target="character"
+                    onClick={() => void chooseImportTarget("character")}
+                    className="mari-chrome-control group min-h-24 items-start justify-start gap-3 p-4 text-left"
+                  >
+                    <span className="mari-panel-gradient-surface mari-panel-gradient--characters flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                      <Users size="1rem" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">
+                        {localizeUi("ui.botBrowser.importDialog.importAsCharacter")}
+                      </span>
+                      <span className="mt-1 block text-[0.6875rem] font-normal leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+                        {localizeUi("ui.botBrowser.importDialog.characterDestinationDescription")}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    data-import-target="persona"
+                    onClick={() => void chooseImportTarget("persona")}
+                    className="mari-chrome-control group min-h-24 items-start justify-start gap-3 p-4 text-left"
+                  >
+                    <span className="mari-panel-gradient-surface mari-panel-gradient--personas flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
+                      <VenetianMask size="1rem" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold">
+                        {localizeUi("ui.botBrowser.importDialog.importAsPersona")}
+                      </span>
+                      <span className="mt-1 block text-[0.6875rem] font-normal leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+                        {localizeUi("ui.botBrowser.importDialog.personaDestinationDescription")}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : !pendingImport.prepared ? (
+              <div className="flex min-h-28 items-center justify-center gap-2 text-sm text-[var(--marinara-chat-chrome-panel-muted)]">
+                <Loader2 size="1rem" className="animate-spin text-[var(--marinara-chat-chrome-accent)]" />
+                {localizeUi("ui.botBrowser.importDialog.preparingCard")}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <BookOpen size="1.125rem" className="mt-0.5 shrink-0 text-amber-400" />
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--marinara-chat-chrome-panel-title)]">
+                        {localizeUi("ui.modals.importcharactermodal.embeddedLorebookFound")}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-[var(--marinara-chat-chrome-panel-muted)]">
+                        {localizeUi("ui.botBrowser.importDialog.embeddedLorebookDescription", {
+                          count: countLorebookEntries(pendingImport.prepared.embeddedLorebook),
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="button"
+                    disabled={importing}
+                    onClick={() => setPendingImport({ card: pendingImport.card })}
+                    className="mari-chrome-control px-3 py-2 text-xs"
+                  >
+                    <ArrowLeft size="0.75rem" />
+                    {localizeUi("ui.botBrowser.importDialog.back")}
+                  </button>
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                    <button
+                      type="button"
+                      disabled={importing}
+                      onClick={() => void finishImport(false)}
+                      className="mari-chrome-control px-3 py-2 text-xs"
+                    >
+                      {localizeUi("ui.modals.importcharactermodal.noImport")}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={importing}
+                      onClick={() => void finishImport(true)}
+                      className="mari-panel-gradient-button mari-panel-gradient--lorebooks px-3 py-2 text-xs"
+                    >
+                      {importing ? <Loader2 size="0.75rem" className="animate-spin" /> : <BookOpen size="0.75rem" />}
+                      {localizeUi("ui.modals.importcharactermodal.importLorebook")}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* ═══ Login Modal ═══ */}
       {showLoginModal && (

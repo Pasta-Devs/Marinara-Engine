@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq } from "../../packages/server/src/db/file-query.js";
+import { and, desc, eq, jsonFlagsNotTrue, ne, stringIsNonBlank } from "../../packages/server/src/db/file-query.js";
 import {
   createFileNativeDB,
   encodeShardKey,
@@ -35,6 +35,7 @@ import {
   oocInfluences,
   spatialContextSnapshots,
 } from "../../packages/server/src/db/schema/index.js";
+import { createChatsStorage } from "../../packages/server/src/services/storage/chats.storage.js";
 
 function tempStorageDir() {
   const dir = mkdtempSync(join(tmpdir(), "marinara-shards-"));
@@ -1049,6 +1050,78 @@ assert.equal(
     assert.ok(
       notice.migratedTables.includes("messages") && notice.migratedTables.includes("memory_chunks"),
       "the migrated-table lists union across the merged notices",
+    );
+  } finally {
+    await db._fileStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+// Home previews apply metadata filtering before LIMIT, while count() returns
+// the aggregate without projecting one row per message.
+{
+  const dir = tempStorageDir();
+  const db = await createFileNativeDB();
+  try {
+    await db.insert(chats).values({ id: "preview-chat", name: "Preview", mode: "conversation" });
+    await db.insert(messages).values([
+      messageRow("preview-visible", "preview-chat", "Visible"),
+      { ...messageRow("preview-empty", "preview-chat", ""), role: "assistant" },
+      { ...messageRow("preview-whitespace", "preview-chat", " \n\t "), role: "assistant" },
+      {
+        ...messageRow("preview-hidden", "preview-chat", "Hidden"),
+        role: "assistant",
+        extra: JSON.stringify({ hiddenFromUser: true }),
+      },
+      {
+        ...messageRow("preview-command", "preview-chat", "Command"),
+        role: "assistant",
+        extra: JSON.stringify({ commandOnly: true }),
+      },
+    ]);
+
+    assert.equal(db.count(messages, eq(messages.chatId, "preview-chat")), 5, "aggregate count covers every row");
+    const previews = await db
+      .select({ id: messages.id })
+      .from(messages)
+      .where(
+        and(
+          eq(messages.chatId, "preview-chat"),
+          ne(messages.role, "system"),
+          stringIsNonBlank(messages.content),
+          jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
+        ),
+      )
+      .orderBy(desc(messages.createdAt), desc(messages.id))
+      .limit(1);
+    assert.deepEqual(
+      previews,
+      [{ id: "preview-visible" }],
+      "blank and hidden command anchors cannot consume preview slots",
+    );
+    const storage = createChatsStorage(db);
+    const firstPage = await storage.listMessagesPaginated("preview-chat", 2);
+    assert.deepEqual(
+      firstPage.map((message) => message.id),
+      ["preview-hidden", "preview-command"],
+      "the newest history page keeps chronological display order",
+    );
+    const historyCursor = `${firstPage[0]!.createdAt}|${encodeURIComponent(firstPage[0]!.id)}`;
+    await db.delete(messages).where(eq(messages.id, "preview-visible"));
+    const secondPage = await storage.listMessagesPaginated("preview-chat", 2, historyCursor);
+    assert.deepEqual(
+      secondPage.map((message) => message.id),
+      ["preview-empty", "preview-whitespace"],
+      "deleting an older message between pages cannot repeat the cursor page",
+    );
+    await assert.rejects(
+      storage.listMessagesPaginated(
+        "preview-chat",
+        1,
+        `${firstPage[0]!.createdAt}|${encodeURIComponent("missing-message")}`,
+      ),
+      /Invalid message cursor/u,
+      "history cursors must identify a message in the current snapshot",
     );
   } finally {
     await db._fileStore.close();

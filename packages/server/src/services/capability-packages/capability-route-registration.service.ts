@@ -72,7 +72,8 @@ export async function registerCapabilityPrivilegedRoutes(
   const slots = slotsByApp.get(app) ?? new Map<string, RouteSlot>();
   slotsByApp.set(app, slots);
   const prepared: PreparedRoute[] = definitions.map((definition) => {
-    const path = `${options.prefix}${definition.path.startsWith("/") ? definition.path : `/${definition.path}`}`;
+    const suffix = definition.path === "/" ? "" : definition.path.startsWith("/") ? definition.path : `/${definition.path}`;
+    const path = `${options.prefix}${suffix}`;
     const key = routeKey(definition.method, path);
     const existing = slots.get(key);
     if (existing && existing.packageId !== installed.id) {

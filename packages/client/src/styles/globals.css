@@ -1097,6 +1097,15 @@
   color: var(--marinara-chat-chrome-button-text-active);
 }
 
+.mari-chrome-segmented--two {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.mari-chrome-segmented--two > .mari-chrome-segmented__button {
+  width: auto;
+  justify-self: stretch;
+}
+
 .mari-chrome-segmented__button {
   position: relative;
   display: inline-flex;
@@ -2701,6 +2710,553 @@ body {
   }
 }
 
+.mari-home-browser-starfield {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  opacity: 0.86;
+}
+
+.mari-home-browser-chrome {
+  background-color: var(--marinara-topbar-surface);
+}
+
+.mari-home-browser-address-row {
+  background-color: color-mix(in srgb, var(--marinara-topbar-surface) 96%, black 4%);
+}
+
+.mari-home-browser-address {
+  background-color: color-mix(in srgb, var(--marinara-topbar-surface) 90%, black 10%);
+}
+
+.mari-home-feed-shell {
+  width: 100%;
+  container-type: inline-size;
+}
+
+.mari-home-feed-grid {
+  display: grid;
+  gap: clamp(0.65rem, 0.8vw, 0.95rem);
+  grid-auto-flow: dense;
+  grid-auto-rows: var(--home-grid-row-height, 13rem);
+  align-items: stretch;
+}
+
+.mari-home-widget,
+.mari-home-widget > :not(.mari-home-widget__drag-handle) {
+  min-width: 0;
+  height: 100%;
+}
+
+.mari-home-widget {
+  --mari-home-widget-hover-transform: translate3d(0, -0.18rem, 0) scale(1.015);
+  --mari-home-widget-hover-filter: brightness(1.055) saturate(1.045)
+    drop-shadow(
+      0 0.7rem 0.9rem
+        color-mix(
+          in srgb,
+          var(--home-module-accent, var(--marinara-app-accent-solid)) 22%,
+          transparent
+        )
+    );
+  grid-column: span 1;
+  grid-row: span 1;
+
+  isolation: isolate;
+}
+
+[data-theme="light"] .mari-home-widget {
+  --mari-home-widget-hover-filter: brightness(1.012) saturate(1.035)
+    drop-shadow(
+      0 0.7rem 0.9rem
+        color-mix(
+          in srgb,
+          var(--home-module-accent, var(--marinara-app-accent-solid)) 16%,
+          transparent
+        )
+    );
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mari-home-widget > :not(.mari-home-widget__drag-handle) {
+    transform-origin: center;
+    transition:
+      transform 190ms cubic-bezier(0.16, 1, 0.3, 1),
+      filter 190ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  html:not(.mari-home-widget-drag-active) .mari-home-widget:not(.mari-home-widget--dragging):hover {
+    z-index: 6;
+  }
+
+  html:not(.mari-home-widget-drag-active)
+    .mari-home-widget:not(.mari-home-widget--dragging):hover
+    > :not(.mari-home-widget__drag-handle) {
+    filter: var(--mari-home-widget-hover-filter);
+    transform: var(--mari-home-widget-hover-transform);
+  }
+}
+
+.mari-home-feed-grid[data-home-grid-columns="1"] .mari-home-widget--recent {
+  grid-column: span 1;
+  grid-row: span 2;
+}
+
+.mari-home-feed-grid:not([data-home-grid-columns="1"]) .mari-home-widget--recent {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.mari-home-empty-slot {
+  pointer-events: none;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  border: 1px dashed transparent;
+  border-radius: 1rem;
+  transition:
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html.mari-home-widget-drag-active .mari-home-empty-slot {
+  pointer-events: auto;
+  border-color: color-mix(in srgb, var(--marinara-app-accent-solid) 46%, var(--border));
+  background-color: color-mix(in srgb, var(--marinara-app-accent-solid) 5%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--marinara-app-accent-solid) 8%, transparent);
+}
+
+.mari-home-widget--dragging > :not(.mari-home-widget__drag-handle) {
+  opacity: 0.12;
+  filter: saturate(0.55);
+  transition:
+    opacity 140ms ease,
+    filter 140ms ease;
+}
+
+.mari-home-widget--dragging::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  border: 2px dashed color-mix(in srgb, var(--marinara-app-accent-solid) 78%, white 8%);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--marinara-app-accent-solid) 8%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--marinara-app-accent-solid) 18%, transparent),
+    0 0 1.35rem -0.75rem var(--marinara-app-accent-solid);
+}
+
+.mari-home-widget-drag-preview {
+  pointer-events: none;
+  position: fixed;
+  inset: 0 auto auto 0;
+  z-index: 9999;
+  overflow: visible;
+  opacity: 0.96;
+  filter: drop-shadow(0 1.25rem 1.25rem rgb(0 0 0 / 0.34));
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.mari-home-widget-drag-preview > * {
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
+html.mari-home-widget-drag-active,
+html.mari-home-widget-drag-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.mari-home-browser-star {
+  position: absolute;
+  display: block;
+  border-radius: 999px;
+  background: currentcolor;
+  box-shadow:
+    0 0 0.35rem currentcolor,
+    0 0 0.9rem color-mix(in srgb, currentcolor 48%, transparent);
+  opacity: 0.12;
+  transform: translate3d(-50%, -50%, 0) scale(0.58);
+  animation: mari-home-browser-twinkle 6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  contain: strict;
+}
+
+.mari-home-browser-star:nth-child(5n) {
+  border-radius: 0;
+  transform: translate3d(-50%, -50%, 0) rotate(45deg) scale(0.6);
+}
+
+.mari-home-professor-popup {
+  transform-origin: bottom right;
+}
+
+.mari-home-professor-popup__sprite {
+  animation: mari-home-professor-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: bottom center;
+}
+
+.mari-home-professor-popup__bubble {
+  animation: mari-home-professor-bubble-arrive 650ms 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: opacity 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mari-home-professor-popup__bubble::before,
+.mari-home-professor-popup__bubble::after {
+  content: none;
+  display: none;
+}
+
+.mari-home-professor-popup__bubble-tail {
+  display: block;
+  position: absolute;
+  left: -0.82rem;
+  bottom: 1.1rem;
+  width: 0.9rem;
+  height: 1.25rem;
+  z-index: -1;
+  transform-origin: center;
+}
+
+.mari-home-professor-popup__bubble-tail::before,
+.mari-home-professor-popup__bubble-tail::after {
+  content: "";
+  position: absolute;
+  clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+
+.mari-home-professor-popup__bubble-tail::before {
+  inset: 0;
+  background: color-mix(in srgb, oklch(0.73 0.21 345) 48%, var(--border));
+}
+
+.mari-home-professor-popup__bubble-tail::after {
+  left: 0.2rem;
+  bottom: 0.09rem;
+  width: 0.72rem;
+  height: 1.05rem;
+  background: var(--card);
+}
+
+.mari-home-professor-popup__bubble[data-tail-side="right"]
+  .mari-home-professor-popup__bubble-tail {
+  right: -0.82rem;
+  left: auto;
+  transform: scaleX(-1);
+}
+
+.mari-home-professor-popup__arrival-frame {
+  background-position: 0% 0;
+  animation: mari-home-professor-frame-cycle 1.45s steps(3, end) 80ms both;
+  will-change: background-position;
+}
+
+.mari-home-professor-popup__drag-frame {
+  left: 45%;
+  top: 9%;
+  width: 120%;
+  height: 114%;
+  background-position: 3.1% 0;
+  animation:
+    mari-home-professor-drag-frame-cycle 680ms steps(1, end) infinite,
+    mari-home-professor-dangle-sway 680ms cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation-play-state: paused;
+  backface-visibility: hidden;
+  contain: paint;
+  filter: brightness(0.97) saturate(0.66) hue-rotate(1deg) contrast(1.1);
+  image-rendering: pixelated;
+  opacity: 0;
+  transform-origin: 45% 12.2%;
+  transform: translate3d(-45%, -12.2%, 0);
+  visibility: hidden;
+  will-change: background-position, transform;
+}
+
+.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__drag-frame {
+  animation-play-state: running;
+  opacity: 1;
+  visibility: visible;
+}
+
+.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__rest-frame {
+  visibility: hidden;
+}
+
+.mari-home-professor-popup[data-dragging="true"] .mari-home-professor-popup__bubble {
+  pointer-events: none;
+}
+
+html.mari-home-professor-drag-active,
+html.mari-home-professor-drag-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.mari-home-professor-popup__idle-stage {
+  animation: mari-home-professor-idle 5.6s ease-in-out infinite;
+  animation-play-state: paused;
+  transform-origin: bottom center;
+}
+
+.mari-home-professor-popup__idle-stage--active {
+  animation-play-state: running;
+}
+
+.mari-home-professor-popup__idle {
+  opacity: 1;
+}
+
+.mari-home-professor-popup__blink {
+  opacity: 0;
+  animation: mari-home-professor-blink 5.6s steps(1, end) infinite;
+  animation-play-state: paused;
+}
+
+.mari-home-professor-popup__idle-stage--active .mari-home-professor-popup__blink {
+  animation-play-state: running;
+}
+
+.mari-home-professor-popup__state-image {
+  transform-origin: bottom center;
+  will-change: transform, opacity;
+}
+
+.mari-home-professor-popup__state-image--map {
+  animation: mari-home-professor-map 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-home-professor-popup__state-image--shrug {
+  animation: mari-home-professor-shrug 480ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.mari-home-discovery-card {
+  animation: mari-home-discovery-swap 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes mari-home-browser-twinkle {
+  0%,
+  100% {
+    opacity: 0.08;
+    transform: translate3d(-50%, -50%, 0) scale(0.5);
+  }
+  48% {
+    opacity: 0.82;
+    transform: translate3d(-50%, -50%, 0) scale(1.28);
+  }
+  62% {
+    opacity: 0.3;
+    transform: translate3d(-50%, -50%, 0) scale(0.86);
+  }
+}
+
+@keyframes mari-home-professor-drag-frame-cycle {
+  0%,
+  24.99% {
+    background-position: 3.1% 0;
+  }
+  25%,
+  49.99% {
+    background-position: 34.48% 0;
+  }
+  50%,
+  74.99% {
+    background-position: 66.12% 0;
+  }
+  75%,
+  100% {
+    background-position: 98.15% 0;
+  }
+}
+
+@keyframes mari-home-professor-dangle-sway {
+  0%,
+  100% {
+    transform: translate3d(-45%, -12.2%, 0) rotate(-0.7deg);
+  }
+  50% {
+    transform: translate3d(-45%, -12.2%, 0) rotate(0.7deg);
+  }
+}
+
+@keyframes mari-home-professor-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4.5rem, 0) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mari-home-professor-bubble-arrive {
+  from {
+    opacity: 0;
+    transform: translate3d(0.75rem, 0.5rem, 0) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mari-home-professor-frame-cycle {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+@keyframes mari-home-professor-idle {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scaleY(1);
+  }
+  50% {
+    transform: translate3d(0, -0.12rem, 0) scaleY(1.006);
+  }
+}
+
+@keyframes mari-home-professor-blink {
+  0%,
+  72%,
+  76%,
+  100% {
+    opacity: 0;
+  }
+  73%,
+  75% {
+    opacity: 1;
+  }
+}
+
+@keyframes mari-home-professor-map {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0.5rem, 0) scale(0.9, 0.96);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(0, -0.12rem, 0) scale(1.018, 1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mari-home-professor-shrug {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0.4rem, 0) scale(0.94);
+  }
+  62% {
+    opacity: 1;
+    transform: translate3d(0, -0.16rem, 0) scale(1.015);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes mari-home-discovery-swap {
+  from {
+    opacity: 0;
+    transform: translate3d(0.35rem, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mari-home-widget {
+    --mari-home-widget-hover-filter: none;
+    --mari-home-widget-hover-transform: none;
+  }
+
+  .mari-home-widget > :not(.mari-home-widget__drag-handle) {
+    transition: none;
+  }
+
+  .mari-home-browser-star {
+    animation: none;
+    opacity: 0.24;
+  }
+
+  .mari-home-professor-popup {
+    animation: none;
+  }
+
+  .mari-home-professor-popup__sprite,
+  .mari-home-professor-popup__bubble,
+  .mari-home-professor-popup__arrival-frame,
+  .mari-home-professor-popup__drag-frame,
+  .mari-home-professor-popup__idle-stage,
+  .mari-home-professor-popup__blink,
+  .mari-home-professor-popup__state-image,
+  .mari-home-discovery-card {
+    animation: none;
+  }
+
+  .mari-home-professor-popup__arrival-frame {
+    background-position: 100% 0;
+  }
+}
+
+html[data-marinara-reduced-effects="true"] .mari-home-browser-star,
+html[data-marinara-effects-paused="true"] .mari-home-browser-star {
+  animation: none;
+  opacity: 0.18;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-home-widget,
+html[data-marinara-effects-paused="true"] .mari-home-widget {
+  --mari-home-widget-hover-filter: none;
+  --mari-home-widget-hover-transform: none;
+}
+
+html[data-marinara-reduced-effects="true"]
+  .mari-home-widget
+  > :not(.mari-home-widget__drag-handle),
+html[data-marinara-effects-paused="true"]
+  .mari-home-widget
+  > :not(.mari-home-widget__drag-handle) {
+  transition: none;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup {
+  animation: none;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__sprite,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__bubble,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__drag-frame,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__idle-stage,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__blink,
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__state-image,
+html[data-marinara-reduced-effects="true"] .mari-home-discovery-card {
+  animation: none;
+}
+
+html[data-marinara-reduced-effects="true"] .mari-home-professor-popup__arrival-frame {
+  background-position: 100% 0;
+}
+
 html[data-marinara-reduced-effects="true"] .retro-card,
 html[data-marinara-reduced-effects="true"] .y2k-star,
 html[data-marinara-reduced-effects="true"] .y2k-star-md,
@@ -4009,7 +4565,9 @@ strong {
   border-color: color-mix(in srgb, var(--mari-chat-drop-accent) 70%, transparent);
   background: color-mix(in srgb, var(--card) 92%, transparent);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 30%);
-  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out;
   animation: mari-chat-drop-card-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

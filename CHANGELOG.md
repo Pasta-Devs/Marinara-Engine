@@ -6,6 +6,8 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
+- Rebuilt Home as a full-width, Firefox-inspired Marinara browser with theme-matched chrome, generated bookmark and tab artwork, a responsive draggable and hideable widget desk with equal spatial slots, space-aware large-widget packing, fine-pointer hover lift and illumination, and a focused five-widget first-run composition, Community shortcuts, compact mobile chrome with fitted destination tabs and a Bookmarks menu, a live timezone-aware cyan-accented clock and calendar, visit-ordered mode-colored recent chats with band-free scene backgrounds, expression sprites, and a fitted three-card mobile view, latest-unlock and nearest-goal achievement previews with distinct shelf and launcher copy, a generated trophy bookmark that follows the master Achievements setting, separate FAQ and widget-manager windows, a highlighted Home onboarding tour, mobile-fitted Guide and Character of the Day cards, and an optional Professor Mari navigator that finds Engine destinations and named resource editors locally without AI, remembers its bounded desktop position, and dangles by her hoodie in a generated pixel animation while dragged (#4763).
+- Moved Noodle into an optional downloadable package that keeps its familiar interface in a Home tab with its paired Noodle/NoodleR logo, blue/pink mobile navigation, and a persistent new-refresh badge, automatically preserves availability for existing profiles, follows the staging Agent catalog during feature review, and leaves timeline data ready for reinstall after removal (#4763, Pasta-Devs/Marinara-Agents#278).
 - Added Arli AI as a built-in text provider for chat connections, using OpenAI-compatible chat completions with models loaded from the Arli AI `/models` endpoint.
 - Added a custom 1–40 place target to the New Game wizard's AI world-map draft options (#4783).
 - Added a compact context-budget indicator to Professor Mari Workspace when message token usage is enabled (#4752).
@@ -17,8 +19,23 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 - Added explicit step-by-step and immediate World Maps travel modes, with one committed movement per accepted Roleplay or Game turn and recoverable queued routes (#4618).
 - Added a single setting that reduces ambient animations and effects throughout the interface, including automatic support for the operating system's reduced-motion preference (#4631).
 
+### Changed
+
+- Removed the standalone Browser tab and its tutorial step, moved card downloads into split Download/Open Library controls in Characters and Personas, and replaced browser-native card destination and embedded-lorebook prompts with a themed Marinara import flow.
+
 ### Fixed
 
+- Kept blank messages and hidden command anchors out of Home's Recent Chats previews, counted paginated chat histories without materializing every message ID, stabilized history cursors across deletions, and rejected malformed cursors.
+- Applied the selected tag-import mode when a downloaded character card is imported as a persona.
+- Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with an exact centered split, fixed icon sizing, and single-line labels.
+- Kept Professor Mari's held navigation animation mounted, frame-snapped, paint-batched, and slightly wider so repeated grabs no longer flash the wrong sprite frame, stutter under pointer movement, or squash her proportions.
+- Mirrored Professor Mari's navigation speech-bubble tail from one canonical shape when her dialog switches sides and seated it flush against either dialog edge.
+- Centered the desktop **Ask Me Where Things Are** tutorial card and spotlighted Professor Mari's actual navigation bubble instead of her full-screen drag surface.
+- Standardized chat-mode icons across Home, Chats, creation flows, shortcuts, and linked chats: Conversation keeps its message bubble, Roleplay uses theater masks, and Game uses a gamepad without colliding with Lorebooks.
+- Kept mobile Chats, Settings, and tracker panels above the Home browser chrome so their controls remain tappable.
+- Stopped hidden Home and Professor surfaces from retaining navigation timers, pending focus frames, message-history requests, Discovery rotation, and workspace-status polling after their lifecycle ended.
+- Kept Professor Mari's navigation dialog controls clickable when her draggable sprite overlaps the dialog.
+- Kept Professor Mari suggestion chips visible after entering her Home tab instead of briefly showing them before loaded chat history made the composer jump.
 - Kept NovelAI V4.5 style-plate file selection inside the Connection editor across Chromium platforms (#4777).
 - Deactivated and revealed lorebooks that lose their final owner, replaced Lorebook Keeper entry bodies without stacking duplicates, and added sandbox-safe structured file copy, move, and removal tools for Android/Termux (#4775).
 - Let readers scroll through Professor Mari history while her response is still streaming (#4774).

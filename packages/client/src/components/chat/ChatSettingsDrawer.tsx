@@ -16,7 +16,6 @@ import {
   Check,
   Plus,
   Trash2,
-  MessageSquare,
   Sparkles,
   Image,
   Pencil,
@@ -106,6 +105,7 @@ import {
 import { ExpressionSpriteSettings } from "./ExpressionSpriteSettings";
 import { AgentPromptTemplateSelect } from "./AgentPromptTemplateSelect";
 import { HapticConnectionPanel } from "./HapticConnectionPanel";
+import { ChatModeIcon } from "./ChatModeIcon";
 import { SettingsSwitch } from "../panels/settings/SettingControls";
 import { ChoiceSelectionModal } from "../presets/ChoiceSelectionModal";
 import { SecretPlotPanel } from "../agents/SecretPlotPanel";
@@ -6389,9 +6389,17 @@ export function ChatSettingsDrawer({
                 {chat.connectedChatId ? (
                   (() => {
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
+                    const linkedMode =
+                      linked?.mode === "conversation" || linked?.mode === "roleplay" || linked?.mode === "game"
+                        ? linked.mode
+                        : "roleplay";
                     return (
                       <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                        <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
+                        {linked ? (
+                          <ChatModeIcon mode={linkedMode} size="0.875rem" className="text-[var(--primary)]" />
+                        ) : (
+                          <ArrowRightLeft size="0.875rem" className="text-[var(--primary)]" />
+                        )}
                         <div className="min-w-0 flex-1">
                           <span className="truncate text-xs font-medium">
                             {linked
@@ -6400,9 +6408,9 @@ export function ChatSettingsDrawer({
                           </span>
                           <p className="text-[0.625rem] text-[var(--muted-foreground)]">
                             {linked
-                              ? linked.mode === "roleplay"
+                              ? linkedMode === "roleplay"
                                 ? localizeUi("settings.modes.roleplay")
-                                : linked.mode
+                                : linkedMode
                               : localizeUi("ui.chat.chatsettingsdrawer.deleted")}
                           </p>
                         </div>
@@ -6450,7 +6458,11 @@ export function ChatSettingsDrawer({
                           }}
                           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
                         >
-                          <MessageSquare size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                          <ChatModeIcon
+                            mode={c.mode}
+                            size="0.75rem"
+                            className="shrink-0 text-[var(--muted-foreground)]"
+                          />
                           <span className="truncate">{getConnectedChatDisplayName(c)}</span>
                         </button>
                       ))}
@@ -6480,7 +6492,7 @@ export function ChatSettingsDrawer({
                     const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
                     return (
                       <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                        <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
+                        <ChatModeIcon mode="conversation" size="0.875rem" className="text-[var(--primary)]" />
                         <div className="flex-1 min-w-0">
                           <span className="truncate text-xs font-medium">
                             {linked
@@ -6571,7 +6583,7 @@ export function ChatSettingsDrawer({
                   const linked = (allChats ?? []).find((c: Chat) => c.id === chat.connectedChatId);
                   return (
                     <div className="flex items-center gap-2.5 rounded-lg bg-[var(--primary)]/10 px-3 py-2 ring-1 ring-[var(--primary)]/30">
-                      <MessageCircle size="0.875rem" className="text-[var(--primary)]" />
+                      <ChatModeIcon mode="conversation" size="0.875rem" className="text-[var(--primary)]" />
                       <div className="min-w-0 flex-1">
                         <span className="truncate text-xs font-medium">
                           {linked
@@ -6652,7 +6664,11 @@ export function ChatSettingsDrawer({
                           }}
                           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent)]"
                         >
-                          <MessageSquare size="0.75rem" className="shrink-0 text-[var(--muted-foreground)]" />
+                          <ChatModeIcon
+                            mode="conversation"
+                            size="0.75rem"
+                            className="shrink-0 text-[var(--muted-foreground)]"
+                          />
                           <span className="truncate">{getConnectedChatDisplayName(c)}</span>
                         </button>
                       ))}

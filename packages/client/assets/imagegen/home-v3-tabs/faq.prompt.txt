@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: 20px browser bookmark favicon for Marinara Engine FAQ
+Primary request: a modern minimal speech bubble containing one bold question mark, clean contemporary app-icon silhouette, no enclosing badge or frame
+Scene/backdrop: perfectly flat solid #00ff00 chroma-key background for background removal
+Style/medium: crisp flat 2D UI icon with subtle two-tone depth, rounded geometry, high legibility at 20px, aligned with a modern playful AI chat app
+Composition/framing: one centered compact icon, square canvas, balanced padding, no loose particles
+Color palette: deep violet base with cyan and hot-pink accents, one small coral-orange accent; no yellow and no green
+Text (verbatim): "?"
+Constraints: exactly one question mark and no other text, no watermark, no ornate filigree, no circle badge, no cast shadow, no floor, no background variation; fully separated from uniform #00ff00

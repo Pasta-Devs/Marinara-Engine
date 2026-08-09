@@ -35,6 +35,7 @@ import {
   Check,
   UserMinus,
   Tag,
+  Bot,
 } from "lucide-react";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
@@ -134,6 +135,7 @@ export function PersonasPanel() {
   const deletePGroup = useDeletePersonaGroup();
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openPersonaLibrary = useUIStore((s) => s.openPersonaLibrary);
+  const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const openModal = useUIStore((s) => s.openModal);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -557,14 +559,38 @@ export function PersonasPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <button
-        onClick={openPersonaLibrary}
-        className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
-        title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
+      <div
+        className="mari-chrome-segmented mari-chrome-segmented--two"
+        data-component="PersonaLibraryActions"
+        style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}
       >
-        <VenetianMask size="0.875rem" />
-        {localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
-      </button>
+        <button
+          type="button"
+          onClick={openBotBrowser}
+          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
+          title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
+        >
+          <span className="shrink-0 leading-none">
+            <Bot size="0.875rem" />
+          </span>
+          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
+            {localizeUi("ui.panels.resourceLibraryLauncher.download")}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={openPersonaLibrary}
+          className="mari-chrome-segmented__button min-w-0 justify-center gap-1 overflow-hidden px-1.5 py-2 text-[0.625rem] leading-normal"
+          title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
+        >
+          <span className="shrink-0 leading-none">
+            <VenetianMask size="0.875rem" />
+          </span>
+          <span className="inline-flex min-h-4 min-w-0 items-center justify-center truncate whitespace-nowrap pb-px leading-normal">
+            {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
+          </span>
+        </button>
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2">

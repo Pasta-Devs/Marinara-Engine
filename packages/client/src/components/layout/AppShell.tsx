@@ -93,7 +93,6 @@ const BotBrowserView = lazy(() =>
 const GameAssetsBrowserView = lazy(() =>
   import("../game-assets/GameAssetsBrowserView").then((module) => ({ default: module.GameAssetsBrowserView })),
 );
-const NoodleView = lazy(() => import("../noodle/NoodleView").then((module) => ({ default: module.NoodleView })));
 const RightPanel = lazy(() => import("./RightPanel").then((module) => ({ default: module.RightPanel })));
 const TrackerDataSidebar = lazy(() =>
   import("./TrackerDataSidebar").then((module) => ({ default: module.TrackerDataSidebar })),
@@ -547,7 +546,6 @@ export function AppShell() {
   const regexDetailId = useUIStore((s) => s.regexDetailId);
   const botBrowserOpen = useUIStore((s) => s.botBrowserOpen);
   const gameAssetsBrowserOpen = useUIStore((s) => s.gameAssetsBrowserOpen);
-  const noodleOpen = useUIStore((s) => s.noodleOpen);
   const hasCompletedOnboarding = useUIStore((s) => s.hasCompletedOnboarding);
   const activeChatId = useChatStore((s) => s.activeChatId);
   const activeChat = useChatStore((s) => s.activeChat);
@@ -809,19 +807,17 @@ export function AppShell() {
     <LorebookEditor />
   ) : null;
 
-  const showAmbientDecor =
-    isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen && !noodleOpen;
+  const showAmbientDecor = isPageActive && !activeChatId && !detailView && !botBrowserOpen && !gameAssetsBrowserOpen;
   const hasDetailView = detailView != null;
   const trackerPanelModeAvailable = activeChat?.mode === "roleplay";
   const trackerPanelActive = trackerPanelEnabled && trackerPanelOpen;
   const trackerPanelDetached = trackerPanelWindowTarget !== null;
   const trackerPanelSurfaceAvailable =
-    trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !noodleOpen && !hasDetailView;
+    trackerPanelModeAvailable && !botBrowserOpen && !gameAssetsBrowserOpen && !hasDetailView;
   const trackerPanelVisible = trackerPanelActive && trackerPanelSurfaceAvailable && !trackerPanelDetached;
   const chatSurfaceActive =
     !botBrowserOpen &&
     !gameAssetsBrowserOpen &&
-    !noodleOpen &&
     !hasDetailView &&
     (!shellOverlayMode || (!sidebarOpen && !rightPanelOpen && !trackerPanelVisible));
   const trackerWindowHost = trackerPanelWindowTarget?.popup ?? window;
@@ -1248,7 +1244,10 @@ export function AppShell() {
       {/* Overlay sidebar backdrop */}
       {sidebarOpen && shellOverlayMode && (
         <div
-          className={cn("fixed inset-x-0 bottom-0 z-30 bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
+            MOBILE_SHELL_PANEL_TOP_CLASS,
+          )}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -1266,7 +1265,7 @@ export function AppShell() {
           !sidebarOpen && "pointer-events-none",
           shellOverlayMode &&
             cn(
-              "fixed bottom-0 left-0 z-40 max-h-none pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl",
+              "fixed bottom-0 left-0 z-50 max-h-none pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl",
               MOBILE_SHELL_PANEL_TOP_CLASS,
             ),
         )}
@@ -1333,7 +1332,7 @@ export function AppShell() {
           <div
             className={cn(
               "mari-app-background-paint flex flex-1 flex-col overflow-hidden",
-              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView && !noodleOpen)) &&
+              (botBrowserOpen || gameAssetsBrowserOpen || (!shellOverlayMode && hasDetailView)) &&
                 "hidden",
             )}
             style={
@@ -1345,14 +1344,14 @@ export function AppShell() {
             }
           >
             <Suspense fallback={<MainPaneFallback />}>
-              {noodleOpen ? <NoodleView /> : (shellOverlayMode || !hasDetailView) && <ChatArea />}
+              {(shellOverlayMode || !hasDetailView) && <ChatArea />}
             </Suspense>
           </div>
           {/* Keep the detail host at one React tree position across the mobile breakpoint.
               Moving an editor between separate desktop/mobile branches remounts it and
               discards component-local unsaved form state. */}
           <AnimatePresence mode="wait">
-            {detailView && (shellOverlayMode || !noodleOpen) && (
+            {detailView && (
               <motion.aside
                 key="detail-editor"
                 initial={shellOverlayMode ? { opacity: 0, x: 24 } : false}
@@ -1398,7 +1397,10 @@ export function AppShell() {
       {/* Overlay tracker panel backdrop */}
       {trackerPanelVisible && shellOverlayMode && (
         <div
-          className={cn("fixed inset-x-0 bottom-0 z-30 bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
+            MOBILE_SHELL_PANEL_TOP_CLASS,
+          )}
           onClick={() => setTrackerPanelOpen(false, activeChatId)}
         />
       )}
@@ -1416,7 +1418,7 @@ export function AppShell() {
               data-component="TrackerDataSidebarMobile"
               aria-label={localizeUi("ui.layout.appshell.trackerDataPanel")}
               className={cn(
-                "mari-tracker-panel !fixed bottom-0 z-40 w-screen max-w-none overflow-hidden bg-zinc-950/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl ring-1 ring-zinc-700/80 backdrop-blur-xl",
+                "mari-tracker-panel !fixed bottom-0 z-50 w-screen max-w-none overflow-hidden bg-zinc-950/95 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl ring-1 ring-zinc-700/80 backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
                 trackerPanelSide === "left" ? "left-0" : "right-0",
               )}
@@ -1431,7 +1433,10 @@ export function AppShell() {
       {/* Overlay right panel backdrop */}
       {rightPanelOpen && shellOverlayMode && (
         <div
-          className={cn("fixed inset-x-0 bottom-0 z-30 bg-black/50 backdrop-blur-sm", MOBILE_SHELL_PANEL_TOP_CLASS)}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-[45] bg-black/50 backdrop-blur-sm",
+            MOBILE_SHELL_PANEL_TOP_CLASS,
+          )}
           onClick={() => closeRightPanel()}
         />
       )}
@@ -1451,7 +1456,7 @@ export function AppShell() {
               data-component="RightPanelMobile"
               aria-label={localizeUi("ui.layout.appshell.settingsAndToolsPanel")}
               className={cn(
-                "mari-right-panel !fixed bottom-0 right-0 z-40 !w-full overflow-hidden bg-[var(--background)]/80 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
+                "mari-right-panel !fixed bottom-0 right-0 z-50 !w-full overflow-hidden bg-[var(--background)]/80 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-2xl backdrop-blur-xl",
                 MOBILE_SHELL_PANEL_TOP_CLASS,
               )}
               style={{ "--mari-right-panel-width": "100vw" } as CSSProperties}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="shell" x1="5" y1="4" x2="27" y2="28" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6FE4E8"/>
+      <stop offset=".5" stop-color="#FF9A55"/>
+      <stop offset="1" stop-color="#F06BAE"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="8" fill="#151321" stroke="url(#shell)" stroke-width="1.5"/>
+  <rect x="7" y="7" width="8" height="8" rx="2.25" fill="#69DCE4"/>
+  <rect x="17" y="7" width="8" height="8" rx="2.25" fill="#FF9651"/>
+  <rect x="7" y="17" width="8" height="8" rx="2.25" fill="#ED6BAA"/>
+  <rect x="17" y="17" width="8" height="8" rx="2.25" fill="url(#shell)"/>
+  <path d="M9.5 9.5h3M19.5 9.5h3M9.5 19.5h3M19.5 19.5h3" stroke="white" stroke-opacity=".68" stroke-linecap="round"/>
+</svg>

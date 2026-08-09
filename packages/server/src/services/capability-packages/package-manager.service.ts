@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, extname, join, resolve, sep } from "node:path";
 import AdmZip from "adm-zip";
 import {
   APP_VERSION,
@@ -29,12 +29,14 @@ const VERSIONS = join(ROOT, "versions");
 const REGISTRY = join(ROOT, "installed.json");
 const UPDATE_DECISIONS = join(ROOT, "update-decisions-v1.json");
 const AVAILABILITY_MIGRATION = join(ROOT, "availability-migration-v1.json");
+const NOODLE_EXTRACTION_MIGRATION = join(ROOT, "noodle-extraction-migration-v1.json");
 const HIERARCHICAL_MAPS_SELECTION_CORRECTION = join(ROOT, "hierarchical-maps-selection-correction-v1.json");
 const NON_DOWNLOADABLE_CORE_PACKAGE_IDS = new Set(["about-me-keeper"]);
 const OFFICIAL_AGENT_RAW_ROOT = "https://raw.githubusercontent.com/Pasta-Devs/Marinara-Agents";
 type OfficialAgentBranch = "main" | "staging";
 export function resolveOfficialAgentBranch(engineBranch: string | null = getBuildBranch()): OfficialAgentBranch {
-  return engineBranch === "staging" || engineBranch?.startsWith("release/") ? "staging" : "main";
+  if (!engineBranch || engineBranch === "main" || engineBranch.startsWith("hotfix/")) return "main";
+  return "staging";
 }
 function officialCatalogRoot(branch: OfficialAgentBranch): string {
   return `${OFFICIAL_AGENT_RAW_ROOT}/${branch}/catalog`;
@@ -63,6 +65,13 @@ const CATALOG_URL = resolveCapabilityCatalogUrl();
 const MAX_ARTIFACT_BYTES = 100 * 1024 * 1024;
 const MAX_EXPANDED_BYTES = 250 * 1024 * 1024;
 const MAX_MANIFEST_BYTES = 1024 * 1024;
+const BROWSER_TAB_ASSET_CONTENT_TYPES = new Map([
+  [".gif", "image/gif"],
+  [".jpeg", "image/jpeg"],
+  [".jpg", "image/jpeg"],
+  [".png", "image/png"],
+  [".webp", "image/webp"],
+]);
 const KNOWN_INCOMPATIBLE_RUNTIMES = new Map<string, string>([
   ...["1.0.0", "1.0.3", "1.0.6"].map(
     (version) =>
@@ -219,6 +228,30 @@ async function readAvailabilityMigrationKind(): Promise<"fresh" | "legacy" | nul
   } catch {
     return null;
   }
+}
+
+async function readNoodleExtractionMigrationKind(): Promise<"fresh" | "legacy" | null> {
+  try {
+    const parsed = JSON.parse(await readFile(NOODLE_EXTRACTION_MIGRATION, "utf8")) as Record<string, unknown>;
+    return parsed.schemaVersion === 1 &&
+      (parsed.kind === "fresh" || parsed.kind === "legacy") &&
+      hasValidCompletionTimestamp(parsed.completedAt)
+      ? parsed.kind
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeNoodleExtractionMigration(kind: "fresh" | "legacy") {
+  await mkdir(ROOT, { recursive: true });
+  const temporary = `${NOODLE_EXTRACTION_MIGRATION}.tmp-${process.pid}-${Date.now()}`;
+  await writeFile(
+    temporary,
+    JSON.stringify({ schemaVersion: 1, kind, completedAt: new Date().toISOString() }, null, 2),
+    { mode: 0o600 },
+  );
+  await rename(temporary, NOODLE_EXTRACTION_MIGRATION);
 }
 
 async function writeHierarchicalMapsSelectionCorrection() {
@@ -589,6 +622,27 @@ export const capabilityPackageManager = {
     };
   },
 
+  async browserTabAsset(packageId: string, assetPath: string) {
+    const installed = (await readRegistry()).packages.find((item) => item.id === packageId);
+    if (!installed || !isInstalledCapabilityReady(installed)) return null;
+    let normalizedPath: string;
+    try {
+      normalizedPath = normalizeArchivePath(assetPath);
+    } catch {
+      return null;
+    }
+    const iconPaths = installed.manifest.contributions?.homeBrowserTab?.iconPaths ?? [];
+    if (!iconPaths.some((path) => normalizeArchivePath(path) === normalizedPath)) return null;
+    if (!installed.manifest.files.some((item) => normalizeArchivePath(item.path) === normalizedPath)) return null;
+    const contentType = BROWSER_TAB_ASSET_CONTENT_TYPES.get(extname(normalizedPath).toLowerCase());
+    if (!contentType) return null;
+    return {
+      installed,
+      contentType,
+      file: inside(VERSIONS, join(VERSIONS, installed.id, installed.version, normalizedPath)),
+    };
+  },
+
   async markRuntimeStatus(
     packageId: string,
     status: InstalledCapabilityPackage["status"],
@@ -673,6 +727,33 @@ export const capabilityPackageManager = {
 
   async completeLegacyAvailabilityMigration() {
     await writeAvailabilityMigration("legacy");
+  },
+
+  /** Keep the formerly built-in social timelines available only to upgraded profiles. */
+  async migrateExtractedNoodleAvailability(existingProfile: boolean) {
+    const completedKind = await readNoodleExtractionMigrationKind();
+    if (completedKind) return { migrated: false, legacy: completedKind === "legacy" };
+    if (!existingProfile) {
+      await writeNoodleExtractionMigration("fresh");
+      return { migrated: false, legacy: false };
+    }
+
+    const alreadyInstalled = (await this.installed()).some((item) => item.id === "noodle");
+    if (!alreadyInstalled) {
+      const catalog = await this.catalog();
+      const entry = catalog.packages.find((candidate) => candidate.manifest.id === "noodle");
+      if (!entry) {
+        // Engine and Agents are published independently. Do not turn the short
+        // catalog propagation window into a startup warning or mark migration
+        // complete: a later startup must still install Noodle once it appears.
+        return { migrated: false, legacy: true, pending: true as const };
+      }
+      await installCatalogPackage(entry, true);
+    }
+    // This marker also records the user's right to uninstall without the next
+    // startup treating that choice as an incomplete upgrade.
+    await writeNoodleExtractionMigration("legacy");
+    return { migrated: !alreadyInstalled, legacy: true };
   },
 
   async isHierarchicalMapsSelectionCorrectionComplete() {

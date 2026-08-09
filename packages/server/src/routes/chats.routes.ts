@@ -26,6 +26,7 @@ import {
   normalizeWorldCustomFields,
   normalizeTrackerFieldLocks,
   normalizeTrackerHiddenFields,
+  HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH,
   parseTrackerFieldLocks,
   parseTrackerHiddenFields,
   characterTrackerCustomFieldDefaultsToRecord,
@@ -46,8 +47,13 @@ import type {
   PresentCharacter,
   RPGStatsConfig,
   WorldCustomField,
+  HomeFeedSnapshot,
 } from "@marinara-engine/shared";
-import { createChatsStorage } from "../services/storage/chats.storage.js";
+import {
+  createChatsStorage,
+  InvalidMessageCursorError,
+  parseMessageCursor,
+} from "../services/storage/chats.storage.js";
 import { createAppSettingsStorage } from "../services/storage/app-settings.storage.js";
 import { createCharactersStorage } from "../services/storage/characters.storage.js";
 import { createConnectionsStorage } from "../services/storage/connections.storage.js";
@@ -587,10 +593,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       const metadata = parseChatMetadata(chat.metadata);
       const isRoleplayDmThread = metadata.roleplayDmThread === true || typeof metadata.dmOriginChatId === "string";
       if (!isRoleplayDmThread) continue;
-      if ((await storage.countMessages(chat.id)) > 0) continue;
-
-      await storage.remove(chat.id);
-      removed += 1;
+      if (await storage.removeEmptyRoleplayDmChat(chat.id)) removed += 1;
     }
     if (removed > 0) {
       logger.warn("[chats] Removed %d empty orphaned Roleplay DM chat(s)", removed);
@@ -632,6 +635,109 @@ export async function chatsRoutes(app: FastifyInstance) {
     await cleanupEmptyRoleplayDmChats();
     const chats = await storage.list();
     return chats.filter((chat) => !shouldHideProfessorMariChat(chat)).map(normalizeChatForResponse);
+  });
+
+  // Bounded Home data. This deliberately returns one short visible-message
+  // glimpse per chat instead of making the browser load recent transcripts.
+  app.get("/home-feed", async (): Promise<HomeFeedSnapshot> => {
+    const recentChats = [];
+    const seenRecentChatIds = new Set<string>();
+    const pageSize = 24;
+    let offset = 0;
+    while (recentChats.length < 6) {
+      const page = await storage.listRecent(pageSize, offset);
+      if (page.length === 0) break;
+      for (const chat of page) {
+        if (!shouldHideProfessorMariChat(chat) && !seenRecentChatIds.has(chat.id)) {
+          seenRecentChatIds.add(chat.id);
+          recentChats.push(chat);
+        }
+        if (recentChats.length === 6) break;
+      }
+      offset += page.length;
+      if (page.length < pageSize) break;
+    }
+    return {
+      generatedAt: new Date().toISOString(),
+      recentChats: await Promise.all(
+        recentChats.map(async (chat) => {
+          const messages = await storage.listMessagePreviews(chat.id, 12);
+          const metadata = parseChatMetadata(chat.metadata);
+          const background = typeof metadata.background === "string" ? metadata.background.trim() : "";
+          const gameBackgroundTag =
+            chat.mode === "game" && typeof metadata.gameSceneBackground === "string"
+              ? metadata.gameSceneBackground.trim()
+              : "";
+          const chatCharacterIds = resolveChatCharacterIds(chat.characterIds).slice(0, 12);
+          const spriteCharacterIds = Array.isArray(metadata.spriteCharacterIds)
+            ? metadata.spriteCharacterIds
+                .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+                .slice(0, 12)
+            : [];
+          const spriteDisplayModes = Array.isArray(metadata.spriteDisplayModes)
+            ? metadata.spriteDisplayModes.filter(
+                (mode): mode is "expressions" | "full-body" => mode === "expressions" || mode === "full-body",
+              ).slice(0, 12)
+            : [];
+          const spriteExpressionCharacterIds = new Set([...spriteCharacterIds, ...chatCharacterIds].slice(0, 12));
+          const spriteExpressions: Record<string, string> = {};
+          if (isRecord(metadata.spriteExpressions)) {
+            for (const [characterId, expression] of Object.entries(metadata.spriteExpressions)) {
+              if (
+                spriteExpressionCharacterIds.has(characterId) &&
+                typeof expression === "string" &&
+                expression.trim()
+              ) {
+                spriteExpressions[characterId] = expression
+                  .trim()
+                  .slice(0, HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH);
+              }
+            }
+          }
+          for (const message of messages) {
+            const extra = parseSnapshotJson<Record<string, unknown>>(message.extra, {});
+            if (!isRecord(extra.spriteExpressions)) continue;
+            for (const [characterId, expression] of Object.entries(extra.spriteExpressions)) {
+              if (
+                spriteExpressionCharacterIds.has(characterId) &&
+                typeof expression === "string" &&
+                expression.trim()
+              ) {
+                spriteExpressions[characterId] = expression
+                  .trim()
+                  .slice(0, HOME_FEED_SPRITE_EXPRESSION_MAX_LENGTH);
+              }
+            }
+          }
+          const latest = [...messages]
+            .reverse()
+            .find((message) => message.role !== "system" && message.content.trim().length > 0);
+          return {
+            chat: {
+              id: chat.id,
+              name: chat.name.slice(0, 160),
+              mode: chat.mode,
+              characterIds: chatCharacterIds,
+              background: background.length > 0 && background.length <= 2_048 ? background : null,
+              gameBackgroundTag:
+                gameBackgroundTag.length > 0 && gameBackgroundTag.length <= 2_048 ? gameBackgroundTag : null,
+              spriteCharacterIds,
+              spriteDisplayModes,
+              spriteExpressions,
+            },
+            latestMessage: latest
+              ? {
+                  id: latest.id,
+                  role: latest.role,
+                  characterId: latest.characterId,
+                  content: latest.content.trim().replace(/\s+/gu, " ").slice(0, 280),
+                  createdAt: latest.createdAt,
+                }
+              : null,
+          };
+        }),
+      ),
+    };
   });
 
   // Lightweight candidate ids for the background-autonomous poller (#4704):
@@ -1583,10 +1689,20 @@ export async function chatsRoutes(app: FastifyInstance) {
   // List messages for a chat (supports pagination via ?limit=N&before=CURSOR)
   app.get<{ Params: { id: string }; Querystring: { limit?: string; before?: string } }>(
     "/:id/messages",
-    async (req) => {
+    async (req, reply) => {
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 0;
       if (limit > 0) {
-        return storage.listMessagesPaginated(req.params.id, limit, req.query.before || undefined);
+        if (req.query.before && !parseMessageCursor(req.query.before)) {
+          return reply.status(400).send({ error: "Invalid message cursor" });
+        }
+        try {
+          return await storage.listMessagesPaginated(req.params.id, limit, req.query.before || undefined);
+        } catch (error) {
+          if (error instanceof InvalidMessageCursorError) {
+            return reply.status(400).send({ error: error.message });
+          }
+          throw error;
+        }
       }
       return storage.listMessages(req.params.id);
     },
@@ -2389,12 +2505,7 @@ export async function chatsRoutes(app: FastifyInstance) {
         : typeof chatMeta.presetId === "string" && chatMeta.presetId
           ? chatMeta.presetId
           : null;
-    if (
-      presetId ||
-      chatMode === "conversation" ||
-      chatMode === "game" ||
-      chatMode === "roleplay"
-    ) {
+    if (presetId || chatMode === "conversation" || chatMode === "game" || chatMode === "roleplay") {
       try {
         const { createPromptsStorage } = await import("../services/storage/prompts.storage.js");
         const { createCharactersStorage } = await import("../services/storage/characters.storage.js");
@@ -2405,12 +2516,7 @@ export async function chatsRoutes(app: FastifyInstance) {
 
         const preset = presetId ? await presetStore.getById(presetId) : null;
         const chatMode = (chat.mode as string) ?? "roleplay";
-        if (
-          preset ||
-          chatMode === "conversation" ||
-          chatMode === "game" ||
-          chatMode === "roleplay"
-        ) {
+        if (preset || chatMode === "conversation" || chatMode === "game" || chatMode === "roleplay") {
           // Apply conversation-start filter
           let scopedMessages = chatMessages;
           for (let i = chatMessages.length - 1; i >= 0; i--) {
@@ -2535,8 +2641,7 @@ export async function chatsRoutes(app: FastifyInstance) {
           const generationTriggers = Array.from(new Set([chatMode, "chat"]));
           const lorebookTokenBudget = resolveLorebookTokenBudget(chatMeta);
           const forcedLorebookEntryIds =
-            ownerSpatialProjection &&
-            ownerSpatialProjection.ownerMode === chatMode
+            ownerSpatialProjection && ownerSpatialProjection.ownerMode === chatMode
               ? ownerSpatialProjection.lorebookEntryIds
               : [];
           if (chatMode === "conversation") {
@@ -3708,7 +3813,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       branchName: "New Branch",
       branchParentChatId: sourceChat.id,
       branchParentMessageId: forkSourceMessage?.id ?? null,
-      branchMessageId: forkSourceMessage ? sourceToBranchedMessageId.get(forkSourceMessage.id) ?? null : null,
+      branchMessageId: forkSourceMessage ? (sourceToBranchedMessageId.get(forkSourceMessage.id) ?? null) : null,
       summary: compileChatSummaryEntries(inheritedEntries),
       summaryEntries: inheritedEntries,
       ...(inheritedLastAutomaticSummaryMessageId
@@ -3954,10 +4059,7 @@ export async function chatsRoutes(app: FastifyInstance) {
       if (selectedEntries.length !== requestedIds.size) {
         return reply.status(400).send({ error: "One or more selected summary entries no longer exist" });
       }
-      const effectiveSummaryMaxTokens = Math.min(
-        summaryMaxTokens,
-        provider.maxTokensOverrideValue ?? summaryMaxTokens,
-      );
+      const effectiveSummaryMaxTokens = Math.min(summaryMaxTokens, provider.maxTokensOverrideValue ?? summaryMaxTokens);
       const requestedPromptTemplateId =
         typeof body.promptTemplateId === "string" && body.promptTemplateId.trim()
           ? body.promptTemplateId.trim()

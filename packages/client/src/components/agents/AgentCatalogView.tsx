@@ -68,6 +68,7 @@ const OFFICIAL_PACKAGE_MODES: Readonly<Record<string, readonly CatalogMode[]>> =
   storyboard: ["roleplay", "game"],
   html: ["roleplay"],
   "lorebook-keeper": ["roleplay", "game"],
+  noodle: ["conversation", "roleplay", "game"],
   spotify: ["conversation", "roleplay", "game"],
   poker: ["conversation"],
   "rock-paper-scissors": ["conversation"],
@@ -385,7 +386,7 @@ export function AgentCatalogView() {
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
                 type="button"
-                className="mari-chrome-control mari-chrome-control--primary h-9 min-w-0 px-2 text-xs"
+                className="mari-chrome-control mari-chrome-control--primary h-9 min-h-9! min-w-0 px-2! text-xs"
                 onClick={() => void handleInstallAll()}
                 disabled={
                   installablePackageIds.length === 0 || packageActionPending || catalog.isLoading || installed.isLoading

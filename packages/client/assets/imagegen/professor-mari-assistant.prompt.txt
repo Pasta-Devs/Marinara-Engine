@@ -1,0 +1,20 @@
+Use case: stylized-concept
+Asset type: transparent pixel-art UI sprite strip for Marinara Engine's Home assistant
+Input images: Mari_explaining.png is the approved full-body Professor Mari appearance reference; chibi-professor-mari.png is the approved chibi proportion and face reference.
+Primary request: Create a single horizontal four-frame pixel-art sprite strip of Professor Mari popping up from the bottom edge of a browser-like app home screen. Frame 1 peeks up curiously with only head and hands visible; frame 2 waves warmly; frame 3 points downward toward a help button beneath her; frame 4 is a calm friendly static pose suitable for reduced motion.
+Subject: Professor Mari, an adult woman with long voluminous golden-blonde curls, bright blue eyes, black rectangular glasses, navy blue hoodie, loose charcoal trousers, black boots. Preserve her recognizable appearance and warm playful confidence. No animal ears or tail.
+Style/medium: deliberate hand-pixeled visual-novel sprite art, crisp 1-bit-like edges with a restrained 32-color palette, chunky readable clusters, nearest-neighbor aesthetic, consistent proportions and lighting across all four frames. Pixel art, not smooth vector art, not painted anime.
+Composition/framing: one horizontal sprite sheet, four equal square cells, same baseline and scale in every cell, generous padding between cells, full character contained within each cell except the intentional bottom-edge pop-up crop in frame 1. No grid lines, labels, text, UI, or borders.
+Color palette: navy, charcoal, warm honey gold, light peach skin, icy blue eyes, subtle Marinara blush pink highlights. Avoid neon green in the subject.
+Scene/backdrop: perfectly flat solid #00ff00 chroma-key background for background removal. The background must be one uniform color with no shadows, gradients, texture, reflections, floor plane, or lighting variation.
+Constraints: preserve her human appearance, glasses, golden curls, hoodie, trousers, and boots; exactly four frames; consistent anatomy and outfit; crisp pixel edges; no cast shadow; no contact shadow; no watermark; no text.
+Avoid: cat ears, animal ears, tail, extra limbs, duplicated hands, malformed fingers, anti-aliased painterly edges, gradients, 3D rendering, smooth vector outlines, inconsistent costumes, transparent checkerboard pattern.
+
+Generated with the built-in image generation tool, then converted from chroma key to alpha with the imagegen skill's remove_chroma_key.py helper using border sampling, a soft matte, and despill.
+
+Derived outputs used by Home navigation:
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-sheet.png` — the generated four-frame entrance strip.
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-idle.png` — the final calm pose.
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-blink-v3.png` — the corrected closed-eye blink frame.
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-map.png` — Mari holding Marinara's pixel map after a successful search.
+- `packages/client/public/sprites/mari/generated/professor-mari-assistant-shrug.png` — Mari shrugging after an unsuccessful search.

@@ -1,0 +1,9 @@
+Use case: stylized-concept
+Asset type: transparent decorative PNG for Marinara Engine Character of the Day widget
+Primary request: Create an empty magical portrait portal frame for displaying a character avatar, shaped as a clean circular ring with two small pasta curls, tomato leaves, and tiny stars decorating the outside. The center must remain completely empty flat green so a real avatar can be placed behind it.
+Style/medium: polished 2D game UI ornament, crisp bold silhouette, softly painted highlights, elegant visual-novel charm
+Composition/framing: front-facing circular frame centered in a square, large clear circular opening, generous padding, no cropped edges
+Lighting/mood: warm spotlight with nocturnal cyan and violet glints
+Color palette: Marinara logo colors, pasta gold, coral pink, tomato orange, electric cyan, violet, tiny muted green leaves
+Constraints: no face, no person, no text, no letters, no watermark, no external shadow. Create on a perfectly flat solid #00ff00 chroma-key background. The area inside the portal opening and outside the ornament must be the exact same uniform #00ff00 with no gradients or texture. Do not use #00ff00 in ornament.
+Avoid: square frame, lopsided opening, photorealism, gothic frame, excessive detail

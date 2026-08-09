@@ -11,10 +11,6 @@ import {
   isNativeGlmEndpoint,
 } from "../../packages/server/src/services/llm/providers/glm-request-compat.js";
 import {
-  NOODLE_JSON_OUTPUT_HEADING,
-  noodleResponseFormat,
-} from "../../packages/server/src/services/noodle/noodle-response-format.js";
-import {
   AnthropicProvider,
   supportsAnthropicThinkingDisable,
 } from "../../packages/server/src/services/llm/providers/anthropic.provider.js";
@@ -680,38 +676,38 @@ try {
   );
 }
 
-function assertStrictObjects(value: unknown): void {
-  if (!value || typeof value !== "object") return;
-  const record = value as Record<string, unknown>;
-  if (record.type === "object") assert.equal(record.additionalProperties, false);
-  for (const nested of Object.values(record)) {
-    if (Array.isArray(nested)) nested.forEach(assertStrictObjects);
-    else assertStrictObjects(nested);
-  }
-}
-
-assert.match(NOODLE_JSON_OUTPUT_HEADING, /JSON/u);
-assert.deepEqual(noodleResponseFormat("gpt-4o", "timeline"), { type: "json_object" });
-const solTimelineFormat = noodleResponseFormat("gpt-5.6-sol", "timeline");
-assert.equal(solTimelineFormat.type, "json_schema");
-assert.equal(solTimelineFormat.name, "noodle_timeline");
-assert.equal(solTimelineFormat.strict, true);
-assertStrictObjects(solTimelineFormat.schema);
-assert.deepEqual(normalizeOpenAIChatCompletionsResponseFormat(solTimelineFormat), {
+const strictSchemaFormat = {
+  type: "json_schema" as const,
+  name: "provider_contract",
+  strict: true,
+  schema: {
+    type: "object",
+    properties: { value: { type: "string" } },
+    required: ["value"],
+    additionalProperties: false,
+  },
+};
+assert.deepEqual(normalizeOpenAIChatCompletionsResponseFormat(strictSchemaFormat), {
   type: "json_schema",
   json_schema: {
-    name: "noodle_timeline",
-    schema: solTimelineFormat.schema,
+    name: "provider_contract",
+    schema: strictSchemaFormat.schema,
     strict: true,
   },
 });
 assert.deepEqual(normalizeOpenAIChatCompletionsResponseFormat({ type: "json_object" }), {
   type: "json_object",
 });
-const solProfileFormat = noodleResponseFormat("gpt-5.6-sol", "profiles");
-assert.equal(solProfileFormat.name, "noodle_profiles");
-assertStrictObjects(solProfileFormat.schema);
-
+assert.equal(normalizeOpenAIChatCompletionsResponseFormat(undefined), undefined);
+const nestedStrictSchemaFormat = {
+  type: "json_schema" as const,
+  json_schema: {
+    name: "nested_provider_contract",
+    schema: strictSchemaFormat.schema,
+    strict: true,
+  },
+};
+assert.equal(normalizeOpenAIChatCompletionsResponseFormat(nestedStrictSchemaFormat), nestedStrictSchemaFormat);
 const glm52 = findKnownModel("custom", "glm-5.2");
 assert.equal(glm52?.context, 1_000_000);
 assert.equal(glm52?.maxOutput, 128_000);

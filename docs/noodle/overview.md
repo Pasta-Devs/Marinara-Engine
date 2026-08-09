@@ -1,6 +1,6 @@
 # Noodle: The In-App Social Timeline
 
-Noodle is a pretend social media feed built into Marinara Engine. It looks like a Twitter or X style timeline. But every account and post belongs to your own world: your persona, your characters, and Professor Mari. This guide covers what Noodle is, how to open it, and how to post, follow, and refresh the timeline.
+Noodle is an optional pretend social media feed for Marinara Engine. It looks like a Twitter or X style timeline, but every account and post belongs to your own world: your persona, your characters, and Professor Mari. This guide covers how to install and open Noodle, and how to post, follow, and refresh the timeline.
 
 ## What Noodle is
 
@@ -21,15 +21,15 @@ Note on content: the built-in instructions Noodle sends to the AI treat every ac
 
 ## Opening Noodle
 
-Noodle lives in the top bar, not in a settings panel.
+Noodle is a downloadable agent package. Install it once before looking for its Home tab:
 
-1. Look at the top bar for the **Noodle** button (an @ symbol icon).
-2. Click **Noodle**.
-3. The main chat area is replaced by the Noodle timeline.
+1. Open **Agents**, choose **Download Agents**, and install **Noodle & NoodleR**.
+2. Restart Marinara Engine when prompted so its server and Home contributions can load.
+3. Open **Home** and click the **Noodle** tab beside **Home** and **Professor**.
 
-You should see a fake browser address bar reading `https://noodle.local` with a small **Noodle** badge. This is just for flavor. Opening Noodle closes any other open panel, such as the character library or the Card Browser.
+You should see the familiar fake browser interface and Noodle timeline inside Marinara's Home browser. The Home address row reads `marinara/noodle`; Noodle's own browser styling remains part of the page.
 
-To leave Noodle, click the **Noodle** button again or open any other panel.
+To leave Noodle, choose another Home browser tab or open a chat.
 
 On a phone or a narrow window, Noodle switches to a mobile layout with its own navigation. See the "Noodle on a phone" section below.
 

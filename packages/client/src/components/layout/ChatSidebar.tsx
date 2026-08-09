@@ -2,12 +2,9 @@
 // Layout: Chat Sidebar (polished with rich buttons)
 // ──────────────────────────────────────────────
 import {
-  MessageSquare,
   MessageSquareText,
   Search,
   Trash2,
-  BookOpen,
-  Theater,
   Plus,
   Check,
   Download,
@@ -79,6 +76,7 @@ import { SmoothFolderContent } from "../ui/SmoothFolderContent";
 import { useTranslation, useTranslation as useUiTranslation } from "react-i18next";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { PersonalExtensionContributionSlot } from "../extensions/PersonalExtensionContributionSlot";
+import { ChatModeIcon } from "../chat/ChatModeIcon";
 
 type ChatSortOption = "recent" | "newest" | "oldest" | "name-asc" | "name-desc";
 const CHAT_LIST_PAGE_SIZE = 100;
@@ -186,21 +184,21 @@ const MODE_CONFIG: Record<
   }
 > = {
   conversation: {
-    icon: <MessageSquare size="0.875rem" />,
+    icon: <ChatModeIcon mode="conversation" size="0.875rem" />,
     label: "Conversation",
     shortLabel: "CONVO",
     description: "A straightforward AI conversation — no roleplay elements.",
     logoModeClass: "mari-chat-logo-mode--conversation",
   },
   roleplay: {
-    icon: <BookOpen size="0.875rem" />,
+    icon: <ChatModeIcon mode="roleplay" size="0.875rem" />,
     label: "Roleplay",
     shortLabel: "RP",
     description: "Immersive roleplay with characters, game state tracking, and world simulation.",
     logoModeClass: "mari-chat-logo-mode--roleplay",
   },
   game: {
-    icon: <Theater size="0.875rem" />,
+    icon: <ChatModeIcon mode="game" size="0.875rem" />,
     label: "Game",
     shortLabel: "GM",
     description: "AI-managed singleplayer RPG with a Game Master, party, dice, maps, and quests.",
@@ -1534,13 +1532,7 @@ export function ChatSidebar() {
         {displayChats.length === 0 && !isLoading && !chatsError && (
           <div className="flex flex-col items-center gap-2 px-3 py-12 text-center">
             <div className="mari-chrome-accent-soft-tile mari-accent-animated animate-float flex h-12 w-12 items-center justify-center rounded-2xl">
-              {activeTab === "conversation" ? (
-                <MessageSquare size="1.25rem" />
-              ) : activeTab === "game" ? (
-                <Theater size="1.25rem" />
-              ) : (
-                <BookOpen size="1.25rem" />
-              )}
+              <ChatModeIcon mode={activeTab} size="1.25rem" />
             </div>
             <p className="mari-chrome-text-muted text-xs">
               {t(
