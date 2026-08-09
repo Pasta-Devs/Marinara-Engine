@@ -12337,6 +12337,11 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
     }),
   );
   await page.goto("/");
+  await page.evaluate(async () => {
+    const module = await import("/src/stores/ui.store.ts");
+    module.useUIStore.getState().setHasCompletedOnboarding(true);
+    module.useUIStore.getState().setProfessorMariNavigationEnabled(false);
+  });
   await expect(page.getByRole("heading", { name: "What shall we cook tonight?" })).toBeVisible({ timeout: 30_000 });
 
   const achievementsWidget = page.locator(".mari-home-widget--achievements");
@@ -12354,6 +12359,16 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   );
   await expect(achievementsWidget.locator("[data-achievement-open-label]")).toHaveText("Achievements");
   await expect(achievementsWidget.locator("[data-achievement-open-description]")).toHaveText("Gotta catch them all!");
+  await expect(
+    achievementsWidget.getByText("Show off your achievements! … Or maybe it's better if you don't.", { exact: true }),
+  ).toBeVisible();
+  await expect(achievementsWidget.getByText("Gotta catch them all!", { exact: true })).toHaveCount(1);
+  const achievementsLauncher = achievementsWidget.getByRole("button", { name: "Open Achievements" });
+  const launcherBackground = await achievementsLauncher.evaluate((element) => getComputedStyle(element).backgroundColor);
+  await achievementsLauncher.hover();
+  await expect
+    .poll(() => achievementsLauncher.evaluate((element) => getComputedStyle(element).backgroundColor))
+    .not.toBe(launcherBackground);
   await expect(achievementsWidget.getByRole("button", { name: "Open Achievements" }).locator("img")).toHaveAttribute(
     "src",
     "/home/tab-icons/achievements.png",

@@ -281,7 +281,7 @@ export function HomeAchievements({
           className={cn(
             "group text-left",
             compact
-              ? "w-full max-w-full rounded-xl px-2 py-0 transition-colors hover:bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.76_0.19_52)]"
+              ? "w-full max-w-full rounded-xl px-2 py-0 transition-colors hover:bg-[color-mix(in_srgb,var(--home-module-accent)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-module-accent)]"
               : "mari-chrome-control flex w-full max-w-5xl items-center justify-start gap-2 px-3 py-2.5 shadow-lg shadow-black/10 sm:gap-3 sm:px-4 sm:py-3",
             attached ? "-mt-px !rounded-b-xl !rounded-t-none !border-t-0" : "!rounded-xl",
             className,
@@ -323,7 +323,7 @@ export function HomeAchievements({
                         data-achievement-open-description
                         className="block truncate text-[0.62rem] text-[var(--muted-foreground)]"
                       >
-                        {t("home.achievements.description")}
+                        {t("home.achievements.launcherDescription")}
                       </span>
                       <span className="mari-chrome-text-muted block truncate text-[0.56rem]">{summary}</span>
                     </span>

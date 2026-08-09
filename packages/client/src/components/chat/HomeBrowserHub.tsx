@@ -2589,7 +2589,7 @@ export function HomeBrowserHub({
                           open={achievementsOpen}
                           onOpenChange={setAchievementsOpen}
                           showModal={false}
-                          className="!h-auto !w-full !border-0 !bg-transparent !px-2 !shadow-none"
+                          className="!h-auto !w-full !border-0 !px-2"
                         />
                       </FeedModule>
                     </HomeWidgetFrame>
