@@ -116,6 +116,7 @@ interface GameSetupWizardProps {
       | {
           mode: "ai";
           size: SpatialMapDraftSize;
+          targetLocationCount: number;
           groundingMode: SpatialMapGroundingMode;
           sourceLorebookIds: string[];
           instructions?: string;
@@ -209,13 +210,27 @@ const PREFERENCE_SUGGESTIONS = [
 
 const SPATIAL_MAP_DRAFT_SIZE_OPTIONS: Array<{
   value: SpatialMapDraftSize;
+  targetLocationCount: number;
   label: string;
   detail: string;
 }> = [
-  { value: "small", label: "Small", detail: "About 8 places" },
-  { value: "medium", label: "Medium", detail: "About 16 places" },
-  { value: "large", label: "Large", detail: "About 28 places" },
+  { value: "small", targetLocationCount: 8, label: "Small", detail: "About 8 places" },
+  { value: "medium", targetLocationCount: 16, label: "Medium", detail: "About 16 places" },
+  { value: "large", targetLocationCount: 28, label: "Large", detail: "About 28 places" },
 ];
+const SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT = 40;
+
+function spatialMapDraftSizeForTargetLocationCount(targetLocationCount: number): SpatialMapDraftSize {
+  if (targetLocationCount <= 8) return "small";
+  if (targetLocationCount <= 16) return "medium";
+  return "large";
+}
+
+function normalizeSpatialMapTargetLocationCount(value: string): number | null {
+  const parsed = Number(value);
+  if (!value.trim() || !Number.isInteger(parsed) || !Number.isFinite(parsed)) return null;
+  return Math.max(1, Math.min(SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT, parsed));
+}
 
 const GAME_SETUP_FIELD_LABEL = "mb-1.5 block text-xs font-medium text-[var(--foreground)]";
 const GAME_SETUP_INPUT_CLASS =
@@ -504,6 +519,8 @@ export function GameSetupWizard({
   const [spatialTemplatePickerOpen, setSpatialTemplatePickerOpen] = useState(false);
   const [spatialTemplateSelection, setSpatialTemplateSelection] = useState<CapabilitySetupSelection | null>(null);
   const [spatialMapDraftSize, setSpatialMapDraftSize] = useState<SpatialMapDraftSize>("medium");
+  const [spatialMapTargetLocationCount, setSpatialMapTargetLocationCount] = useState(16);
+  const [spatialMapTargetLocationCountInput, setSpatialMapTargetLocationCountInput] = useState("16");
   const [spatialMapGroundingMode, setSpatialMapGroundingMode] = useState<SpatialMapGroundingMode>("setup");
   const [spatialMapInstructions, setSpatialMapInstructions] = useState("");
   const [expandedLearnedOptions, setExpandedLearnedOptions] = useState<Record<LearnedOptionGroup, boolean>>({
@@ -865,7 +882,18 @@ export function GameSetupWizard({
     setPromptPresetId(presetId);
   }, []);
 
-  const canStart = !!gmConnectionId;
+  const spatialMapTargetLocationCountValid =
+    normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput) !== null;
+  const canStart =
+    !!gmConnectionId &&
+    (!enableAgents || !hierarchicalMapsInstalled || !draftSpatialMap || spatialMapTargetLocationCountValid);
+  const canStartMessage = !gmConnectionId
+    ? localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")
+    : !spatialMapTargetLocationCountValid && enableAgents && hierarchicalMapsInstalled && draftSpatialMap
+      ? localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
+          value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
+        })
+      : null;
   const normalizedLanguage = normalizeGameLanguage(language);
   const illustratorEnabled = enableAgents && illustratorInstalled && enableSpriteGeneration;
   const musicDjEnabled = enableAgents && musicDjInstalled && enableSpotifyDj;
@@ -1023,6 +1051,8 @@ export function GameSetupWizard({
       setSpatialTemplateSelection(null);
       setSpatialTemplatePickerOpen(false);
       setSpatialMapDraftSize("medium");
+      setSpatialMapTargetLocationCount(16);
+      setSpatialMapTargetLocationCountInput("16");
       setSpatialMapGroundingMode("setup");
       setSpatialMapInstructions(importedSpatialMapInstructions);
 
@@ -1154,6 +1184,7 @@ export function GameSetupWizard({
         ? {
             mode: "ai" as const,
             size: spatialMapDraftSize,
+            targetLocationCount: spatialMapTargetLocationCount,
             groundingMode: spatialMapGroundingMode,
             sourceLorebookIds: spatialMapGroundingMode === "setup" ? [] : activeLorebookIds,
             instructions: spatialMapInstructions.trim() || undefined,
@@ -2625,11 +2656,15 @@ export function GameSetupWizard({
                         <button
                           key={option.value}
                           type="button"
-                          aria-pressed={spatialMapDraftSize === option.value}
-                          onClick={() => setSpatialMapDraftSize(option.value)}
+                          aria-pressed={spatialMapTargetLocationCount === option.targetLocationCount}
+                          onClick={() => {
+                            setSpatialMapDraftSize(option.value);
+                            setSpatialMapTargetLocationCount(option.targetLocationCount);
+                            setSpatialMapTargetLocationCountInput(String(option.targetLocationCount));
+                          }}
                           className={cn(
                             "min-h-12 rounded-lg px-2 py-2 text-left transition-colors",
-                            spatialMapDraftSize === option.value
+                            spatialMapTargetLocationCount === option.targetLocationCount
                               ? "bg-[var(--primary)]/12 text-[var(--foreground)] ring-1 ring-[var(--primary)]/35"
                               : "bg-[var(--secondary)] text-[var(--muted-foreground)] ring-1 ring-[var(--border)] hover:text-[var(--foreground)]",
                           )}
@@ -2639,6 +2674,58 @@ export function GameSetupWizard({
                         </button>
                       ))}
                     </div>
+                    <label
+                      className="mt-3 block text-[0.625rem] font-medium text-[var(--foreground)]"
+                      htmlFor="game-setup-spatial-map-target-count"
+                    >
+                      {localizeUi("ui.game.gamesetupwizard.customPlaceTarget")}
+                      <input
+                        id="game-setup-spatial-map-target-count"
+                        type="number"
+                        min={1}
+                        max={SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT}
+                        step={1}
+                        value={spatialMapTargetLocationCountInput}
+                        aria-invalid={!spatialMapTargetLocationCountValid}
+                        aria-describedby="game-setup-spatial-map-target-count-help"
+                        onChange={(event) => {
+                          const raw = event.target.value;
+                          setSpatialMapTargetLocationCountInput(raw);
+                          const normalized = normalizeSpatialMapTargetLocationCount(raw);
+                          if (normalized !== null) {
+                            setSpatialMapTargetLocationCount(normalized);
+                            setSpatialMapDraftSize(spatialMapDraftSizeForTargetLocationCount(normalized));
+                          }
+                        }}
+                        onBlur={() => {
+                          const normalized = normalizeSpatialMapTargetLocationCount(spatialMapTargetLocationCountInput);
+                          if (normalized !== null) {
+                            setSpatialMapTargetLocationCount(normalized);
+                            setSpatialMapTargetLocationCountInput(String(normalized));
+                            setSpatialMapDraftSize(spatialMapDraftSizeForTargetLocationCount(normalized));
+                          }
+                        }}
+                        className={cn(
+                          "mt-1 min-h-11 w-full rounded-lg bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none ring-1 transition-all",
+                          spatialMapTargetLocationCountValid
+                            ? "ring-[var(--border)] focus:ring-[var(--primary)]/40"
+                            : "ring-[var(--destructive)] focus:ring-[var(--destructive)]",
+                        )}
+                      />
+                      <span
+                        id="game-setup-spatial-map-target-count-help"
+                        className={cn(
+                          "mt-1 block text-[0.5625rem] leading-relaxed",
+                          spatialMapTargetLocationCountValid
+                            ? "text-[var(--muted-foreground)]"
+                            : "text-[var(--destructive)]",
+                        )}
+                      >
+                        {localizeUi("ui.game.gamesetupwizard.chooseAnyWholeNumberFrom1ToValue1Places", {
+                          value1: SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT,
+                        })}
+                      </span>
+                    </label>
                   </fieldset>
 
                   <fieldset>
@@ -2961,8 +3048,8 @@ export function GameSetupWizard({
                 ))}
               </div>
 
-              {step === steps.length - 1 && !canStart && (
-                <p className="mb-3 text-center text-[0.6875rem] text-[var(--destructive)]">{localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStepBeforeStarting")}</p>
+              {step === steps.length - 1 && canStartMessage && (
+                <p className="mb-3 text-center text-[0.6875rem] text-[var(--destructive)]">{canStartMessage}</p>
               )}
 
               <div className="flex items-center justify-between">
@@ -2990,7 +3077,7 @@ export function GameSetupWizard({
                     onClick={handleComplete}
                     disabled={isLoading || !canStart}
                     className={GAME_SETUP_PRIMARY_BUTTON_CLASS}
-                    title={!canStart ?localizeUi("ui.game.gamesetupwizard.selectAConnectionOnTheFirstStep") : undefined}
+                    title={canStartMessage ?? undefined}
                   >
                     {isLoading ? (
                       <>

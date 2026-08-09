@@ -21,9 +21,13 @@ import {
 } from "../../packages/server/src/services/storage/noodle.storage.js";
 import { isNoodlerNightQuietTime } from "../../packages/server/src/services/noodle/noodle-noodler-reserve.operation.js";
 import {
+  BACKGROUND_CONNECTION_FAILURE_COOLDOWN_MS,
+  BACKGROUND_CONNECTION_FAILURE_THRESHOLD,
+  BACKGROUND_CONNECTION_IDLE_MS,
   beginForegroundConnection,
   resetConnectionAdmissionForTests,
   tryBackgroundConnection,
+  withConnectionAdmission,
 } from "../../packages/server/src/services/generation/connection-admission.js";
 
 assert.deepEqual(noodleAutoPostingSettingsSchema.parse({}), { enabled: false, imagesEnabled: false });
@@ -62,6 +66,66 @@ assert.equal(tryBackgroundConnection("connection-1", new Date(Date.now() + 29_99
 const admitted = tryBackgroundConnection("connection-1", new Date(Date.now() + 30_001));
 assert.equal(admitted.acquired, true);
 if (admitted.acquired) admitted.release();
+
+resetConnectionAdmissionForTests();
+const duplicateRelease = tryBackgroundConnection("duplicate-release-connection", new Date());
+assert.equal(duplicateRelease.acquired, true);
+if (duplicateRelease.acquired) {
+  duplicateRelease.release("failed");
+  duplicateRelease.release("failed");
+}
+await assert.rejects(
+  withConnectionAdmission("duplicate-release-connection", { kind: "background" }, async () => {
+    throw new Error("second provider failure");
+  }),
+  /second provider failure/u,
+);
+const beforeThreshold = tryBackgroundConnection("duplicate-release-connection", new Date());
+assert.equal(beforeThreshold.acquired, true, "Releasing one attempt twice must record only one provider failure");
+if (beforeThreshold.acquired) beforeThreshold.release("completed");
+
+resetConnectionAdmissionForTests();
+const recordBackgroundFailures = async (connectionId: string) => {
+  for (let attempt = 0; attempt < BACKGROUND_CONNECTION_FAILURE_THRESHOLD; attempt += 1) {
+    await assert.rejects(
+      withConnectionAdmission(connectionId, { kind: "background" }, async () => {
+        throw new Error("provider unavailable");
+      }),
+      /provider unavailable/u,
+    );
+  }
+};
+await recordBackgroundFailures("failing-background-connection");
+assert.equal(
+  tryBackgroundConnection("failing-background-connection", new Date()).acquired,
+  false,
+  "Repeated automatic provider failures must quarantine the connection",
+);
+const foregroundResult = await withConnectionAdmission(
+  "failing-background-connection",
+  { kind: "foreground" },
+  async () => "foreground-ok",
+);
+assert.equal(foregroundResult, "foreground-ok", "Background quarantine must not reject foreground chats");
+const admittedAfterForegroundRecovery = tryBackgroundConnection(
+  "failing-background-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_IDLE_MS + 1),
+);
+assert.equal(
+  admittedAfterForegroundRecovery.acquired,
+  true,
+  "A successful foreground chat must clear the longer background quarantine",
+);
+if (admittedAfterForegroundRecovery.acquired) admittedAfterForegroundRecovery.release("completed");
+
+resetConnectionAdmissionForTests();
+await recordBackgroundFailures("failing-background-connection");
+const recoveredAdmission = tryBackgroundConnection(
+  "failing-background-connection",
+  new Date(Date.now() + BACKGROUND_CONNECTION_FAILURE_COOLDOWN_MS + 1),
+);
+assert.equal(recoveredAdmission.acquired, true, "The automatic connection must be probed again after its cooldown");
+if (recoveredAdmission.acquired) recoveredAdmission.release("completed");
 
 const storageDir = mkdtempSync(join(tmpdir(), "marinara-noodler-reserve-"));
 process.env.FILE_STORAGE_DIR = storageDir;

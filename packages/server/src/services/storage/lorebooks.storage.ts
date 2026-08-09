@@ -551,16 +551,6 @@ export function createLorebooksStorage(db: DB) {
         updates.vectorMaxResults = normalizeLorebookVectorMaxResults(input.vectorMaxResults);
       const shouldUpdateCharacterLinks = input.characterIds !== undefined || input.characterId !== undefined;
       const shouldUpdatePersonaLinks = input.personaIds !== undefined || input.personaId !== undefined;
-      const current = shouldUpdateCharacterLinks || shouldUpdatePersonaLinks ? ((await this.getById(id)) as any) : null;
-      if ((shouldUpdateCharacterLinks || shouldUpdatePersonaLinks) && !current) return null;
-      const nextCharacterIds = shouldUpdateCharacterLinks
-        ? resolveLinkIds(input.characterIds, input.characterId)
-        : ((current?.characterIds as string[] | undefined) ?? []);
-      const nextPersonaIds = shouldUpdatePersonaLinks
-        ? resolveLinkIds(input.personaIds, input.personaId)
-        : ((current?.personaIds as string[] | undefined) ?? []);
-      if (shouldUpdateCharacterLinks) updates.characterId = nextCharacterIds[0] ?? null;
-      if (shouldUpdatePersonaLinks) updates.personaId = nextPersonaIds[0] ?? null;
       if (input.chatId !== undefined) updates.chatId = input.chatId;
       if (input.isGlobal !== undefined) updates.isGlobal = String(input.isGlobal);
       if (input.enabled !== undefined) updates.enabled = String(input.enabled);
@@ -570,12 +560,60 @@ export function createLorebooksStorage(db: DB) {
       if (input.generatedBy !== undefined) updates.generatedBy = input.generatedBy;
       if (input.sourceAgentId !== undefined) updates.sourceAgentId = input.sourceAgentId;
 
-      await db.transaction(async (tx) => {
-        await tx.update(lorebooks).set(updates).where(eq(lorebooks.id, id));
+      const updated = await db.transaction(async (tx) => {
+        const transactionalUpdates = { ...updates };
+        let nextCharacterIds: string[] = [];
+        let nextPersonaIds: string[] = [];
+        if (shouldUpdateCharacterLinks || shouldUpdatePersonaLinks) {
+          const currentRows = await tx.select().from(lorebooks).where(eq(lorebooks.id, id));
+          const current = currentRows[0];
+          if (!current) return false;
+          const currentCharacterLinks = await tx
+            .select()
+            .from(lorebookCharacterLinks)
+            .where(eq(lorebookCharacterLinks.lorebookId, id));
+          const currentPersonaLinks = await tx
+            .select()
+            .from(lorebookPersonaLinks)
+            .where(eq(lorebookPersonaLinks.lorebookId, id));
+          const currentCharacterIds = resolveLinkIds(
+            currentCharacterLinks.map((link) => link.characterId),
+            current.characterId,
+          );
+          const currentPersonaIds = resolveLinkIds(
+            currentPersonaLinks.map((link) => link.personaId),
+            current.personaId,
+          );
+          nextCharacterIds = shouldUpdateCharacterLinks
+            ? resolveLinkIds(input.characterIds, input.characterId)
+            : currentCharacterIds;
+          nextPersonaIds = shouldUpdatePersonaLinks
+            ? resolveLinkIds(input.personaIds, input.personaId)
+            : currentPersonaIds;
+          if (shouldUpdateCharacterLinks) transactionalUpdates.characterId = nextCharacterIds[0] ?? null;
+          if (shouldUpdatePersonaLinks) transactionalUpdates.personaId = nextPersonaIds[0] ?? null;
+
+          const nextChatId = input.chatId !== undefined ? input.chatId : current.chatId;
+          const nextIsGlobal = input.isGlobal !== undefined ? input.isGlobal : current.isGlobal === "true";
+          const lostFinalOwner =
+            (currentCharacterIds.length > 0 || currentPersonaIds.length > 0) &&
+            nextCharacterIds.length === 0 &&
+            nextPersonaIds.length === 0 &&
+            !nextChatId &&
+            !nextIsGlobal;
+          if (lostFinalOwner) {
+            if (input.enabled === undefined) transactionalUpdates.enabled = "false";
+            if (input.hiddenFromLibrary === undefined) transactionalUpdates.hiddenFromLibrary = "false";
+          }
+        }
+
+        await tx.update(lorebooks).set(transactionalUpdates).where(eq(lorebooks.id, id));
         if (shouldUpdateCharacterLinks || shouldUpdatePersonaLinks) {
           await syncLorebookLinks(tx, id, nextCharacterIds, nextPersonaIds);
         }
+        return true;
       });
+      if (!updated) return null;
       return this.getById(id);
     },
 

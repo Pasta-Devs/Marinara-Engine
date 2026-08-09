@@ -6,8 +6,9 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Added
 
-- Rebuilt Home as a full-width, Firefox-inspired Marinara browser with theme-matched chrome, generated bookmark and tab artwork, a responsive draggable and hideable widget desk with equal spatial slots, space-aware large-widget packing, and a focused five-widget first-run composition, Community shortcuts, a live timezone-aware clock and calendar, visit-ordered mode-colored recent chats with scene backgrounds and expression sprites, latest-unlock and nearest-goal achievement previews with a dedicated trophy bookmark, separate FAQ and widget-manager windows, a highlighted Home onboarding tour, and an optional Professor Mari navigator with an optically centered recall control that finds Engine destinations and named resource editors locally without AI (#4763).
+- Rebuilt Home as a full-width, Firefox-inspired Marinara browser with theme-matched chrome, generated bookmark and tab artwork, a responsive draggable and hideable widget desk with equal spatial slots, space-aware large-widget packing, and a focused five-widget first-run composition, Community shortcuts, a live timezone-aware cyan-accented clock and calendar, visit-ordered mode-colored recent chats with band-free scene backgrounds, expression sprites, and a fitted three-card mobile view, latest-unlock and nearest-goal achievement previews with a generated trophy bookmark that follows the master Achievements setting, separate FAQ and widget-manager windows, a highlighted Home onboarding tour, a mobile-fitted Guide card, and an optional Professor Mari navigator with a corner-anchored recall control that finds Engine destinations and named resource editors locally without AI (#4763).
 - Moved Noodle into an optional downloadable package that keeps its familiar interface in a Home tab with its paired Noodle/NoodleR logo, automatically preserves availability for existing profiles, follows the staging Agent catalog during feature review, and leaves timeline data ready for reinstall after removal (#4763, Pasta-Devs/Marinara-Agents#278).
+- Added a custom 1–40 place target to the New Game wizard's AI world-map draft options (#4783).
 - Added a compact context-budget indicator to Professor Mari Workspace when message token usage is enabled (#4752).
 - Added per-chat image style overrides for custom image agents, alongside their existing connection overrides (#4718).
 - Added attributed `marinara.fetch` traffic totals and sustained-rate warnings for full-page extensions (#4720).
@@ -19,6 +20,14 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
+- Kept NovelAI V4.5 style-plate file selection inside the Connection editor across Chromium platforms (#4777).
+- Deactivated and revealed lorebooks that lose their final owner, replaced Lorebook Keeper entry bodies without stacking duplicates, and added sandbox-safe structured file copy, move, and removal tools for Android/Termux (#4775).
+- Let readers scroll through Professor Mari history while her response is still streaming (#4774).
+- Replaced the browser-native single-chat deletion prompt in Professor Mari with Marinara's confirmation dialog (#4773).
+- Preserved Tracker panel controls at their configured width, kept the panel aligned beside the right sidebar, and made closing its detached window close the panel (#4772).
+- Displayed the actual error output beneath failed Professor Mari workspace tool events (#4770).
+- Quarantined an automatic-generation connection for six hours after three consecutive provider failures while keeping foreground chats available (#4769).
+- Moved smart group responder selection to the default Agent connection with Agent fallback and the connection's saved generation parameters instead of a fixed 512-token chat-connection call (#4765).
 - Shared Professor Mari's robust JSON repair waterfall with structured agents so repairable malformed or truncated output no longer wastes retries (#4753).
 - Revalidated replaceable user backgrounds so re-importing a different image under a deleted filename no longer displays stale browser-cached pixels (#4757).
 - Kept NovelAI V4.5 style-plate uploads inside the Connection editor by decoding oversized images directly to a bounded preview and avoiding redundant copies of their encoded data (#4748).

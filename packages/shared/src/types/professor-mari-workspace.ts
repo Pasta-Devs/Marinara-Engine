@@ -11,6 +11,9 @@ export type MariWorkspaceToolName =
   | "ls"
   | "edit"
   | "write"
+  | "copy"
+  | "move"
+  | "remove"
   | "bash"
   | "dependency"
   | "app_data";

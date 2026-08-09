@@ -2832,6 +2832,7 @@ function ImageGenerationDefaultsPanel({
 }) {
   const { t: localizeUi } = useUiTranslation();
   const activeServiceRef = useRef(service);
+  const novelAiStylePlateInputRef = useRef<HTMLInputElement>(null);
   activeServiceRef.current = service;
   const updateSeed = (seed: number) => {
     onChange({ ...value, seed });
@@ -3204,16 +3205,22 @@ function ImageGenerationDefaultsPanel({
                       <p className="text-[0.55rem] text-[var(--muted-foreground)]">{localizeUi("ui.connections.imagegenerationdefaultspanel.aPersistentStyleOnlyReferenceAppliedFirstToEvery")}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]">
+                      <button
+                        type="button"
+                        onClick={() => novelAiStylePlateInputRef.current?.click()}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--secondary)] px-2.5 py-1.5 text-[0.625rem] font-medium text-[var(--foreground)] ring-1 ring-[var(--border)] transition-colors hover:bg-[var(--accent)]"
+                      >
                         <Upload size="0.6875rem" />
                         {novelai.styleReferenceImage ?localizeUi("settings.notifications.customSound.actions.replace") :localizeUi("ui.connections.imagegenerationdefaultspanel.chooseImage")}
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          className="sr-only"
-                          onChange={handleNovelAiStylePlateUpload}
-                        />
-                      </label>
+                      </button>
+                      <input
+                        ref={novelAiStylePlateInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        tabIndex={-1}
+                        onChange={handleNovelAiStylePlateUpload}
+                      />
                       {novelai.styleReferenceImage && (
                         <button
                           type="button"

@@ -73,11 +73,17 @@ export function HomeClockCalendar() {
       />
 
       <header className="relative z-[1] flex items-center gap-2.5 pr-7">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[color-mix(in_srgb,oklch(0.79_0.16_205)_44%,var(--border))] bg-[color-mix(in_srgb,oklch(0.79_0.16_205)_15%,var(--card))] text-[oklch(0.79_0.16_205)]">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-[color-mix(in_srgb,oklch(0.79_0.16_205)_44%,var(--border))] bg-[color-mix(in_srgb,oklch(0.79_0.16_205)_15%,var(--card))] text-[oklch(0.79_0.16_205)]"
+          data-clock-accent-reference
+        >
           <Clock3 size="1rem" strokeWidth={2.2} aria-hidden="true" />
         </span>
         <span className="min-w-0">
-          <span className="block text-[0.62rem] font-black uppercase tracking-[0.18em] text-[oklch(0.73_0.21_345)]">
+          <span
+            className="block text-[0.62rem] font-black uppercase tracking-[0.18em] text-[oklch(0.79_0.16_205)]"
+            data-clock-eyebrow
+          >
             {t("home.clock.eyebrow")}
           </span>
           <span className="block truncate text-sm font-bold text-[var(--foreground)]">{t("home.clock.title")}</span>
@@ -90,7 +96,12 @@ export function HomeClockCalendar() {
             <span className="text-[clamp(2rem,3.3vw,3.3rem)] font-black leading-none tracking-[-0.07em] text-[var(--foreground)]">
               {hour}:{minute}
             </span>
-            <span className="ml-1 text-[0.68rem] font-bold text-[oklch(0.73_0.21_345)]">:{second}</span>
+            <span
+              className="ml-1 text-[0.68rem] font-bold text-[oklch(0.79_0.16_205)]"
+              data-clock-seconds
+            >
+              :{second}
+            </span>
             {dayPeriod ? (
               <span className="ml-1 text-[0.56rem] font-black uppercase tracking-[0.08em] text-[var(--muted-foreground)]">
                 {dayPeriod}

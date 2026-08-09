@@ -20,6 +20,8 @@ import {
   characters,
   chatPresets,
   chats,
+  lorebookCharacterLinks,
+  lorebooks,
   messages,
 } from "../../packages/server/src/db/schema/index.js";
 import { eq } from "../../packages/server/src/db/file-query.js";
@@ -77,7 +79,10 @@ import {
   getPersonalExtensionTraffic,
   recordPersonalExtensionRequest,
 } from "../../packages/client/src/lib/personal-extension-traffic.js";
-import { scrollProfessorMariTranscriptToBottom } from "../../packages/client/src/lib/professor-mari-transcript-scroll.js";
+import {
+  isProfessorMariTranscriptNearBottom,
+  scrollProfessorMariTranscriptToBottom,
+} from "../../packages/client/src/lib/professor-mari-transcript-scroll.js";
 import {
   formatCompactTokenCount,
   resolveProfessorMariContextBudget,
@@ -184,6 +189,7 @@ import {
   formatLorebookWriteApprovalText,
   parseLorebookWriteApprovalText,
 } from "../../packages/server/src/routes/generate/agent-write-approval.js";
+import { mergeLorebookKeeperUpdateContent } from "../../packages/server/src/routes/generate/lorebook-keeper-utils.js";
 import { runImageGenerationRequest } from "../../packages/server/src/services/image/image-generation-queue.js";
 import {
   buildSwarmUiGenerationBody,
@@ -952,6 +958,77 @@ try {
     (await lorebookStorage.listPage({ limit: 100, offset: 0, search: "Susie's private memories" })).items.length,
     0,
     "Hidden embedded lorebooks must not appear in general library searches",
+  );
+
+  const removedOwner = await characterStorage.create(characterDataSchema.parse({ name: "Removed owner" }));
+  const removedOwnerLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({
+      name: "Formerly private notes",
+      characterIds: [removedOwner.id],
+      hiddenFromLibrary: true,
+    }),
+  );
+  await characterStorage.remove(removedOwner.id);
+  assert.equal(
+    (
+      await db
+        .select()
+        .from(lorebookCharacterLinks)
+        .where(eq(lorebookCharacterLinks.lorebookId, removedOwnerLorebook.id))
+    ).length,
+    0,
+    "Deleting a Character must remove its lorebook ownership link",
+  );
+  const retainedOrphan = (await db.select().from(lorebooks).where(eq(lorebooks.id, removedOwnerLorebook.id)))[0];
+  assert.ok(retainedOrphan, "An orphaned lorebook must remain available for recovery and management");
+  assert.equal(retainedOrphan.enabled, "false");
+  assert.equal(retainedOrphan.hiddenFromLibrary, "false");
+
+  const legacyOwner = await characterStorage.create(characterDataSchema.parse({ name: "Legacy owner" }));
+  const legacyLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({ name: "Legacy notes", characterIds: [legacyOwner.id], hiddenFromLibrary: true }),
+  );
+  await db
+    .delete(lorebookCharacterLinks)
+    .where(eq(lorebookCharacterLinks.lorebookId, legacyLorebook.id));
+  await characterStorage.remove(legacyOwner.id);
+  const retainedLegacyOrphan = (await db.select().from(lorebooks).where(eq(lorebooks.id, legacyLorebook.id)))[0];
+  assert.equal(retainedLegacyOrphan.characterId, null, "Deleting a Character must clear legacy direct ownership");
+  assert.equal(retainedLegacyOrphan.enabled, "false", "Legacy orphaned lorebooks must be deactivated");
+  assert.equal(retainedLegacyOrphan.hiddenFromLibrary, "false", "Legacy orphaned lorebooks must be manageable");
+
+  const unlinkedOwner = await characterStorage.create(characterDataSchema.parse({ name: "Unlinked owner" }));
+  const unlinkedLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({ name: "Unlinked notes", characterIds: [unlinkedOwner.id], hiddenFromLibrary: true }),
+  );
+  const unlinked = await lorebookStorage.update(unlinkedLorebook.id, { characterIds: [] });
+  assert.equal(unlinked?.enabled, false, "Unlinking the final owner must deactivate the lorebook");
+  assert.equal(unlinked?.hiddenFromLibrary, false, "An unlinked lorebook must return to the manageable library");
+
+  const concurrentCharacterOwner = await characterStorage.create(
+    characterDataSchema.parse({ name: "Concurrent owner" }),
+  );
+  const concurrentPersonaOwner = await characterStorage.createPersona("Concurrent persona", "Regression fixture");
+  const concurrentlyUnlinkedLorebook = await lorebookStorage.create(
+    createLorebookSchema.parse({
+      name: "Concurrently unlinked notes",
+      characterIds: [concurrentCharacterOwner.id],
+      personaIds: [concurrentPersonaOwner.id],
+      hiddenFromLibrary: true,
+    }),
+  );
+  await Promise.all([
+    lorebookStorage.update(concurrentlyUnlinkedLorebook.id, { characterIds: [] }),
+    lorebookStorage.update(concurrentlyUnlinkedLorebook.id, { personaIds: [] }),
+  ]);
+  const concurrentlyUnlinked = await lorebookStorage.getById(concurrentlyUnlinkedLorebook.id);
+  assert.deepEqual(concurrentlyUnlinked?.characterIds, [], "Concurrent unlinking must not restore a Character owner");
+  assert.deepEqual(concurrentlyUnlinked?.personaIds, [], "Concurrent unlinking must not restore a Persona owner");
+  assert.equal(concurrentlyUnlinked?.enabled, false, "Concurrent final-owner unlinking must deactivate the lorebook");
+  assert.equal(
+    concurrentlyUnlinked?.hiddenFromLibrary,
+    false,
+    "Concurrent final-owner unlinking must leave the lorebook manageable",
   );
 
   const referencedContext = await buildReferencedCharacterContext({
@@ -2072,6 +2149,25 @@ assert.deepEqual(generatedLorebookEntry.secondaryKeys, ["rain"]);
   );
 }
 
+assert.equal(
+  mergeLorebookKeeperUpdateContent({
+    existingContent: "Old timeline that must be replaced.",
+    replacementContent: "Corrected timeline.",
+    newFacts: [],
+  }),
+  "Corrected timeline.",
+  "Lorebook Keeper updates must replace an existing body instead of stacking another copy",
+);
+assert.equal(
+  mergeLorebookKeeperUpdateContent({
+    existingContent: "Stable scene state.",
+    replacementContent: "",
+    newFacts: ["A new clue appeared."],
+  }),
+  "Stable scene state.\n\n- A new clue appeared.",
+  "Fact-only Lorebook Keeper updates must preserve the current body",
+);
+
 const completeProfessorMariPersona = buildPersonaCreateRow(
   {
     name: "Complete helper persona",
@@ -2718,6 +2814,21 @@ const conversationGenerationSource = readFileSync(
   new URL("../../packages/server/src/routes/generate.routes.ts", import.meta.url),
   "utf8",
 );
+assert.match(
+  conversationGenerationSource,
+  /const selectorConnection = \(await connections\.getDefaultForAgents\(\)\) \?\? conn/u,
+  "Smart group responder selection must prefer the default Agent connection and fall back to the chat connection",
+);
+assert.match(
+  conversationGenerationSource,
+  /resolveStoredMaxTokens\(selectorConnection\.defaultParameters, DEFAULT_AGENT_MAX_TOKENS\)/u,
+  "Smart group responder selection must respect the Agent connection token default instead of a 512-token cap",
+);
+assert.match(
+  conversationGenerationSource,
+  /resolveStoredChatOptions\([\s\S]{0,180}selectorConnection\.defaultParameters/u,
+  "Smart group responder selection must inherit the Agent connection generation parameters",
+);
 const foregroundAutonomousSource = readFileSync(
   new URL("../../packages/client/src/hooks/use-autonomous-messaging.ts", import.meta.url),
   "utf8",
@@ -2771,12 +2882,29 @@ assert.equal(resolveProfessorMariContextBudget([], 128_000), null);
 assert.match(professorMariHomeSource, /chatHistorySelectionMode/u);
 assert.match(professorMariHomeSource, /toggleProfessorChatSelection/u);
 assert.match(professorMariHomeSource, /handleBulkDeleteProfessorChats/u);
-const professorMariTranscript = { scrollHeight: 720, scrollTop: 0 };
+assert.match(
+  professorMariHomeSource,
+  /handleDeleteProfessorChat[\s\S]{0,500}showConfirmDialog/u,
+  "Deleting one Professor Mari chat must use the app confirmation dialog",
+);
+assert.match(
+  professorMariHomeSource,
+  /isError && tool\.output\?\.trim\(\)[\s\S]{0,200}<pre/u,
+  "Failed workspace tools must reveal their provider output in the transcript",
+);
+const professorMariTranscript = { clientHeight: 240, scrollHeight: 720, scrollTop: 0 };
 scrollProfessorMariTranscriptToBottom(professorMariTranscript);
 assert.equal(
   professorMariTranscript.scrollTop,
   professorMariTranscript.scrollHeight,
   "Professor Mari transcript scrolling must align a mounted pane with its newest message",
+);
+assert.equal(isProfessorMariTranscriptNearBottom(professorMariTranscript), true);
+professorMariTranscript.scrollTop = 200;
+assert.equal(
+  isProfessorMariTranscriptNearBottom(professorMariTranscript),
+  false,
+  "Professor Mari streaming must stop following output after the reader scrolls away from the bottom",
 );
 assert.match(
   professorMariHomeSource,
@@ -3486,6 +3614,21 @@ assert.match(gameSurfaceSource, /h-\[min\(42rem,calc\(100dvh-6rem\)\)\]/u);
 assert.match(gameSetupWizardSource, /ui\.game\.gamesetupwizard\.adjustGameAssetsForThisGame/u);
 assert.match(gameSetupWizardSource, /selectFoldersByDefault/u);
 assert.match(gameSetupWizardSource, /enableAgents: enableAgents \|\| undefined/u);
+assert.match(
+  gameSetupWizardSource,
+  /id="game-setup-spatial-map-target-count"[\s\S]{0,180}min=\{1\}[\s\S]{0,120}max=\{SPATIAL_CUSTOM_TARGET_LOCATION_LIMIT\}/u,
+  "New Game AI map setup must expose the bounded custom place target from World Maps",
+);
+assert.match(
+  gameSetupWizardSource,
+  /targetLocationCount:\s*spatialMapTargetLocationCount/u,
+  "New Game setup must preserve the selected custom place target in its post-setup map plan",
+);
+assert.match(
+  gameSurfaceSource,
+  /targetLocationCount:\s*plan\.targetLocationCount/u,
+  "Game setup must send the custom place target to World Maps draft generation",
+);
 assert.match(gameTypesSource, /enableAgents\?: boolean;/u);
 assert.match(gameRoutesSource, /enableAgents: z\.boolean\(\)\.optional\(\)/u);
 assert.match(gameRoutesSource, /enableAgents: setupConfig\.enableAgents === true/u);
@@ -5383,8 +5526,8 @@ assert.equal(
     side: "left",
     gap: 8,
   }),
-  128,
-  "The Tracker should shrink to the narrower left chat gutter",
+  420,
+  "The Tracker may overlap the chat instead of crushing its controls into a narrow gutter",
 );
 assert.equal(
   resolveTrackerPanelDesktopWidth({
@@ -5396,8 +5539,8 @@ assert.equal(
     side: "right",
     gap: 8,
   }),
-  128,
-  "The Tracker should use the matching right chat gutter",
+  340,
+  "The right-side Tracker should preserve its selected width when the main viewport can hold it",
 );
 assert.equal(resolveTrackerPanelContentScale(340, 340), 1);
 assert.equal(resolveTrackerPanelContentScale(340, 255), 0.75);
@@ -5405,6 +5548,11 @@ assert.equal(
   resolveTrackerPanelContentScale(420, 128),
   0.65,
   "Severely constrained Tracker contents should reflow before their text becomes unreadably small",
+);
+assert.match(
+  appShellSource,
+  /handleTrackerPanelWindowClosed[\s\S]{0,500}trackerPanelWindowTargetRef\.current\?\.popup !== closedTarget\.popup[\s\S]{0,300}setTrackerPanelOpen\(false, activeChatId\)/u,
+  "Closing a detached Tracker window must close the Tracker instead of silently docking it",
 );
 const backgroundSeedRoot = mkdtempSync(join(tmpdir(), "marinara-default-background-"));
 const backgroundSeedDir = join(backgroundSeedRoot, "backgrounds");
@@ -5644,6 +5792,11 @@ try {
     "SwarmUI workflow validation must reject backend-local reference-image filenames before save",
   );
   assert.match(connectionEditorSource, /if \(swarmUiWorkflowError\) \{[\s\S]{0,180}throw new Error/u);
+  assert.match(
+    connectionEditorSource,
+    /type="button"[\s\S]{0,180}novelAiStylePlateInputRef\.current\?\.click\(\)[\s\S]{0,1000}type="file"/u,
+    "NovelAI style-plate selection must use an explicit non-submitting button instead of label navigation",
+  );
 
   const backgroundAutonomousSource = readFileSync(
     join(REPOSITORY_ROOT, "packages/client/src/hooks/use-background-autonomous.ts"),

@@ -279,21 +279,10 @@ export function mergeLorebookKeeperUpdateContent(args: {
   const replacement =
     typeof args.replacementContent === "string" ? dedupeKeeperContentParagraphs(args.replacementContent) : "";
   const facts = normalizeKeeperFacts(args.newFacts);
-
-  if (facts.length === 0) {
-    if (!existing) return replacement;
-    if (!replacement) return existing;
-
-    const existingComparable = normalizeKeeperFactForComparison(existing);
-    const replacementComparable = normalizeKeeperFactForComparison(replacement);
-    if (replacementComparable.includes(existingComparable)) return replacement;
-    if (existingComparable.includes(replacementComparable)) return existing;
-
-    return dedupeKeeperContentParagraphs(`${existing}\n\n${replacement}`);
-  }
-
-  const baseContent =
-    existing && replacement ? dedupeKeeperContentParagraphs(`${existing}\n\n${replacement}`) : existing || replacement;
+  // A supplied content body is an update, not an appendix. Retain the old body only
+  // when Lorebook Keeper supplied facts without a replacement.
+  const baseContent = replacement || existing;
+  if (facts.length === 0) return baseContent;
   const existingComparable = normalizeKeeperFactForComparison(baseContent);
   const novelFacts = facts.filter((fact) => {
     const comparable = normalizeKeeperFactForComparison(fact);

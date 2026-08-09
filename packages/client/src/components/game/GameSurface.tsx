@@ -6556,6 +6556,7 @@ function GameSurfaceComponent({
     | {
         mode: "ai";
         size: SpatialMapDraftSize;
+        targetLocationCount: number;
         groundingMode: SpatialMapGroundingMode;
         sourceLorebookIds: string[];
         instructions?: string;
@@ -6622,6 +6623,7 @@ function GameSurfaceComponent({
           chatId,
           operation: "create",
           size: plan.size,
+          targetLocationCount: plan.targetLocationCount,
           groundingMode: plan.groundingMode,
           sourceLorebookIds: plan.sourceLorebookIds,
           instructions: plan.instructions,

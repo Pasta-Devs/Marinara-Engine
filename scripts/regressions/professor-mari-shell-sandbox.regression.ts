@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -12,6 +12,7 @@ import {
   WorkspaceChangeReviewService,
   workspacePathAccessPolicy,
 } from "../../packages/server/src/services/professor-mari/workspace-change-review.service.js";
+import { ProfessorMariWorkspaceService } from "../../packages/server/src/services/professor-mari/workspace-agent.service.js";
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, "'\\''")}'`;
@@ -41,7 +42,77 @@ assert.match(sandboxSource, /--unshare-all/u);
 assert.match(sandboxSource, /throw new Error\(\s*`\$\{status\.reason\}/u);
 assert.match(workspaceSource, /spawnWorkspaceSandboxedShell/u);
 assert.match(workspaceSource, /Use the dependency tool/u);
+assert.match(workspaceSource, /name: "copy"/u);
+assert.match(workspaceSource, /name: "move"/u);
+assert.match(workspaceSource, /name: "remove"/u);
+assert.match(workspaceSource, /write\|copy\|move\|remove\|bash/u);
+assert.match(workspaceSource, /Final prompt messages/u);
+assert.match(sandboxSource, /copy, move, remove/u);
 assert.doesNotMatch(workspaceSource, /spawn\(shell,\s*shellArgs/u);
+
+const structuredWorkspace = mkdtempSync(join(tmpdir(), "marinara-mari-structured-workspace-"));
+try {
+  const service = new ProfessorMariWorkspaceService({} as never);
+  service.setEnabled(true, structuredWorkspace);
+  const commandRunner = service as unknown as {
+    executeWorkspaceCommand(
+      command: {
+        id: string;
+        name: "copy" | "move" | "remove";
+        arguments: Record<string, unknown>;
+      },
+      signal: AbortSignal,
+      trace: unknown[],
+      onEvent: () => void,
+    ): Promise<{ output: string; success: boolean }>;
+  };
+  let commandId = 0;
+  const runFileCommand = (name: "copy" | "move" | "remove", args: Record<string, unknown>) =>
+    commandRunner.executeWorkspaceCommand(
+      { id: `structured-${commandId++}`, name, arguments: args },
+      new AbortController().signal,
+      [],
+      () => undefined,
+    );
+
+  writeFileSync(join(structuredWorkspace, "source.txt"), "source-content", "utf8");
+  writeFileSync(join(structuredWorkspace, "existing.txt"), "existing-content", "utf8");
+
+  const blockedCopy = await runFileCommand("copy", { source: "source.txt", destination: "existing.txt" });
+  assert.equal(blockedCopy.success, false);
+  assert.match(blockedCopy.output, /copy destination already exists/u);
+  assert.equal(readFileSync(join(structuredWorkspace, "source.txt"), "utf8"), "source-content");
+  assert.equal(readFileSync(join(structuredWorkspace, "existing.txt"), "utf8"), "existing-content");
+
+  const blockedMove = await runFileCommand("move", { source: "source.txt", destination: "existing.txt" });
+  assert.equal(blockedMove.success, false);
+  assert.match(blockedMove.output, /move destination already exists/u);
+  assert.equal(readFileSync(join(structuredWorkspace, "source.txt"), "utf8"), "source-content");
+  assert.equal(readFileSync(join(structuredWorkspace, "existing.txt"), "utf8"), "existing-content");
+
+  mkdirSync(join(structuredWorkspace, "non-empty"));
+  writeFileSync(join(structuredWorkspace, "non-empty", "child.txt"), "keep-me", "utf8");
+  const blockedDirectoryMove = await runFileCommand("move", {
+    source: "non-empty",
+    destination: "moved-directory",
+  });
+  assert.equal(blockedDirectoryMove.success, false);
+  assert.match(blockedDirectoryMove.output, /move source must be a file/u);
+  assert.equal(readFileSync(join(structuredWorkspace, "non-empty", "child.txt"), "utf8"), "keep-me");
+
+  await runFileCommand("copy", { source: "source.txt", destination: "copied.txt" });
+  assert.equal(readFileSync(join(structuredWorkspace, "copied.txt"), "utf8"), "source-content");
+  await runFileCommand("move", { source: "copied.txt", destination: "moved.txt" });
+  assert.equal(existsSync(join(structuredWorkspace, "copied.txt")), false);
+  assert.equal(readFileSync(join(structuredWorkspace, "moved.txt"), "utf8"), "source-content");
+  await runFileCommand("remove", { path: "moved.txt" });
+  assert.equal(existsSync(join(structuredWorkspace, "moved.txt")), false);
+  const blockedDirectoryRemove = await runFileCommand("remove", { path: "non-empty" });
+  assert.equal(blockedDirectoryRemove.success, false);
+  assert.match(blockedDirectoryRemove.output, /not empty|ENOTEMPTY/iu);
+} finally {
+  rmSync(structuredWorkspace, { recursive: true, force: true });
+}
 
 const reviewWorkspace = mkdtempSync(join(tmpdir(), "marinara-mari-review-workspace-"));
 const fakeIntegrity = "sha512-regression-integrity";

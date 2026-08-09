@@ -29,7 +29,6 @@ import {
   RefreshCw,
   Search,
   Star,
-  Trophy,
   X,
 } from "lucide-react";
 import { APP_VERSION, type AchievementEvent } from "@marinara-engine/shared";
@@ -720,7 +719,7 @@ function FloatingProfessorMari({
         }}
         aria-label={t("home.assistant.navigate")}
         title={t("home.assistant.navigate")}
-        className="mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] left-1/2 z-[30] flex h-14 w-14 -translate-x-1/2 items-end justify-center overflow-hidden rounded-full border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_54%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_12%,var(--card))] p-0.5 shadow-[0_16px_36px_-18px_oklch(0.73_0.21_345/0.72)] transition-[transform,box-shadow,background-color] hover:-translate-x-1/2 hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_18%,var(--card))] hover:shadow-[0_20px_42px_-16px_oklch(0.73_0.21_345/0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.73_0.21_345)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:left-auto sm:right-4 sm:translate-x-0 sm:hover:translate-x-0"
+        className="mari-home-professor-recall absolute bottom-[max(0.65rem,env(safe-area-inset-bottom))] right-[max(0.75rem,env(safe-area-inset-right))] z-[30] flex h-14 w-14 items-end justify-center overflow-hidden rounded-full border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_54%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_12%,var(--card))] p-0.5 shadow-[0_16px_36px_-18px_oklch(0.73_0.21_345/0.72)] transition-[transform,box-shadow,background-color] hover:-translate-y-0.5 hover:bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_18%,var(--card))] hover:shadow-[0_20px_42px_-16px_oklch(0.73_0.21_345/0.78)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.73_0.21_345)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--background)] active:scale-95 motion-reduce:transition-none sm:bottom-4 sm:right-4"
       >
         <img
           src={MARI_ASSISTANT_IDLE}
@@ -929,6 +928,7 @@ export function HomeBrowserHub({
   const debugMode = useUIStore((state) => state.debugMode);
   const reviewImagePromptsBeforeSend = useUIStore((state) => state.reviewImagePromptsBeforeSend);
   const conversationTimeZone = useUIStore((state) => state.conversationTimeZone);
+  const achievementsEnabled = useUIStore((state) => state.achievementsEnabled);
   const professorMariNavigationEnabled = useUIStore((state) => state.professorMariNavigationEnabled);
   const hasCompletedOnboarding = useUIStore((state) => state.hasCompletedOnboarding);
   const browserPackages = useMemo(() => selectHomeBrowserPackages(installed.data), [installed.data]);
@@ -958,6 +958,28 @@ export function HomeBrowserHub({
   const dragPreviewRemovalTimerRef = useRef<number | null>(null);
   const [discoveryIndex, setDiscoveryIndex] = useState(0);
   const activeWidgetSlots = widgetLayouts[gridColumns];
+  const availableWidgetIds: readonly HomeWidgetId[] = achievementsEnabled
+    ? HOME_WIDGET_IDS
+    : HOME_WIDGET_IDS.filter((id) => id !== "achievements");
+
+  useEffect(() => {
+    if (!achievementsEnabled) setAchievementsOpen(false);
+    const availableVisibleWidgets = achievementsEnabled
+      ? visibleWidgets
+      : visibleWidgets.filter((id) => id !== "achievements");
+    setWidgetLayouts((current) => {
+      const next = {} as HomeWidgetLayouts;
+      for (const columns of [1, 2, 3, 4] as const) {
+        next[columns] = normalizeHomeWidgetSlots(
+          current[columns],
+          columns,
+          widgetOrderFromSlots(current[columns]),
+          availableVisibleWidgets,
+        );
+      }
+      return next;
+    });
+  }, [achievementsEnabled, visibleWidgets]);
 
   useLayoutEffect(() => {
     const feedShell = feedShellRef.current;
@@ -1248,7 +1270,7 @@ export function HomeBrowserHub({
   const widgetFrameProps = (id: HomeWidgetId) => ({
     id,
     order: activeWidgetSlots.indexOf(id),
-    visible: visibleWidgets.includes(id),
+    visible: availableWidgetIds.includes(id) && visibleWidgets.includes(id),
     dragging: draggedWidgetId === id,
     onPointerDragStart: beginPointerWidgetDrag,
     onPointerDragMove: movePointerWidgetDrag,
@@ -1551,13 +1573,15 @@ export function HomeBrowserHub({
             >
               {t("home.browser.faqTab")}
             </BrowserBookmark>
-            <BrowserBookmark
-              onClick={() => setAchievementsOpen(true)}
-              icon={<Trophy size="1rem" strokeWidth={2.35} aria-hidden="true" />}
-              tone={HOME_MODULE_ACCENTS.orange}
-            >
-              {t("home.browser.achievements")}
-            </BrowserBookmark>
+            {achievementsEnabled ? (
+              <BrowserBookmark
+                onClick={() => setAchievementsOpen(true)}
+                icon={<img src="/home/tab-icons/achievements.png" alt="" className="h-4 w-4 object-contain" />}
+                tone={HOME_MODULE_ACCENTS.orange}
+              >
+                {t("home.browser.achievements")}
+              </BrowserBookmark>
+            ) : null}
             <BrowserBookmark
               onClick={() => setWidgetManagerOpen(true)}
               icon={<img src="/home/tab-icons/widgets.svg" alt="" className="h-4 w-4 object-contain" />}
@@ -1692,27 +1716,31 @@ export function HomeBrowserHub({
                     }
                   >
                     <HomeWidgetFrame {...widgetFrameProps("professor")}>
-                      <section className="relative h-full min-h-52 min-w-0 overflow-visible rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_40%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_8%,var(--card))] p-[clamp(1rem,1.2vw,1.35rem)] shadow-[0_18px_42px_-32px_oklch(0.73_0.21_345/0.7)]">
-                        <div className="relative z-[2] max-w-[58%]">
+                      <section className="relative h-full min-h-52 min-w-0 overflow-visible rounded-2xl border border-[color-mix(in_srgb,oklch(0.73_0.21_345)_40%,var(--border))] bg-[color-mix(in_srgb,oklch(0.73_0.21_345)_8%,var(--card))] p-3 shadow-[0_18px_42px_-32px_oklch(0.73_0.21_345/0.7)] sm:p-[clamp(1rem,1.2vw,1.35rem)]">
+                        <div className="relative z-[2] max-w-[70%] sm:max-w-[58%]">
                           <p className="text-[0.625rem] font-extrabold uppercase tracking-[0.16em] text-[oklch(0.73_0.21_345)]">
                             {t("home.professorMari.eyebrow")}
                           </p>
-                          <h2 className="mt-0.5 text-base font-bold text-[var(--foreground)]">
+                          <h2 className="mt-0.5 text-sm font-bold text-[var(--foreground)] sm:text-base">
                             {t("home.shortcuts.professorMari")}
                           </h2>
-                          <p className="mt-2 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                          <p
+                            className="mt-1 text-[0.625rem] leading-[1.35] text-[var(--muted-foreground)] sm:mt-2 sm:text-xs sm:leading-relaxed"
+                            data-home-professor-description
+                          >
                             {t("home.professorMari.widgetDescription")}
                           </p>
                           <button
                             type="button"
                             onClick={openProfessor}
-                            className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[oklch(0.73_0.21_345)] px-3 text-xs font-bold text-[oklch(0.98_0.01_345)] shadow-[0_10px_24px_-14px_oklch(0.73_0.21_345)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] motion-reduce:transform-none"
+                            className="mt-2 inline-flex min-h-8 items-center gap-1 rounded-lg bg-[oklch(0.73_0.21_345)] px-2.5 text-[0.625rem] font-bold text-[oklch(0.98_0.01_345)] shadow-[0_10px_24px_-14px_oklch(0.73_0.21_345)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.79_0.16_205)] motion-reduce:transform-none sm:mt-3 sm:min-h-9 sm:gap-1.5 sm:px-3 sm:text-xs"
+                            data-home-professor-action
                           >
                             <MessageCircle size="0.8rem" /> {t("home.professorMari.ask")}
                           </button>
                         </div>
                         <div
-                          className="pointer-events-none absolute -right-3 bottom-1 z-[1] w-[54%] max-w-sm"
+                          className="pointer-events-none absolute -right-2 bottom-1 z-[1] w-[43%] max-w-sm sm:-right-3 sm:w-[54%]"
                           aria-hidden="true"
                         >
                           <ProfessorMariPixelScene active={false} />
@@ -2001,7 +2029,7 @@ export function HomeBrowserHub({
                           open={achievementsOpen}
                           onOpenChange={setAchievementsOpen}
                           showModal={false}
-                          className="!h-auto !w-full !items-start !justify-start !border-0 !bg-transparent !px-0 !shadow-none"
+                          className="!h-auto !w-full !border-0 !bg-transparent !px-2 !shadow-none"
                         />
                       </FeedModule>
                     </HomeWidgetFrame>
@@ -2033,7 +2061,9 @@ export function HomeBrowserHub({
           onOpenDocumentation={() => useUIStore.getState().openModal("docs-viewer")}
         />
       ) : null}
-      <HomeAchievements open={achievementsOpen} onOpenChange={setAchievementsOpen} showLauncher={false} />
+      {achievementsEnabled ? (
+        <HomeAchievements open={achievementsOpen} onOpenChange={setAchievementsOpen} showLauncher={false} />
+      ) : null}
       <Modal
         open={faqOpen}
         onClose={() => setFaqOpen(false)}
@@ -2053,7 +2083,7 @@ export function HomeBrowserHub({
             {t("home.browser.widgetsWindowDescription")}
           </p>
           <div className="grid gap-2">
-            {HOME_WIDGET_IDS.map((id, index) => {
+            {availableWidgetIds.map((id, index) => {
               const enabled = visibleWidgets.includes(id);
               const label = t(HOME_WIDGET_LABEL_KEYS[id]);
               const tones = [

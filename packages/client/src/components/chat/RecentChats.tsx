@@ -130,12 +130,12 @@ export function RecentChats() {
   if (feed.isPending) {
     return (
       <div
-        className="grid h-full auto-rows-fr gap-2.5 md:grid-cols-2 xl:grid-cols-3"
+        className="grid h-full min-h-0 grid-rows-3 gap-1.5 md:auto-rows-fr md:grid-rows-none md:gap-2.5 md:grid-cols-2 xl:grid-cols-3"
         role="status"
         aria-label={t("home.recentChats.loading")}
       >
         {[0, 1, 2].map((item) => (
-          <div key={item} className="h-36 animate-pulse rounded-2xl bg-[var(--muted)]/45" />
+          <div key={item} className="min-h-0 animate-pulse rounded-xl bg-[var(--muted)]/45 md:h-36 md:rounded-2xl" />
         ))}
       </div>
     );
@@ -177,8 +177,12 @@ export function RecentChats() {
   }
 
   return (
-    <div className="grid h-full auto-rows-fr gap-2.5 md:grid-cols-2 xl:grid-cols-3" data-component="RecentChats">
-      {recentChats.map(({ chat, latestMessage }) => {
+    <div
+      className="grid h-full min-h-0 grid-rows-3 gap-1.5 md:auto-rows-fr md:grid-rows-none md:gap-2.5 md:grid-cols-2 xl:grid-cols-3"
+      data-component="RecentChats"
+      data-mobile-limit="3"
+    >
+      {recentChats.map(({ chat, latestMessage }, index) => {
         const chatMode = chat.mode;
         const mode = MODE_BADGE[chatMode];
         const chatCharacterIds = chat.characterIds;
@@ -214,7 +218,10 @@ export function RecentChats() {
             style={style}
             data-has-sprite={sprite ? "true" : "false"}
             data-sprite-layout={sprite?.layout}
-            className="group relative min-h-36 overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--recent-chat-accent)_45%,var(--border))] bg-[color-mix(in_srgb,var(--recent-chat-accent)_10%,var(--card))] p-3.5 text-left shadow-[0_16px_34px_-28px_color-mix(in_srgb,var(--recent-chat-accent)_60%,transparent)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--recent-chat-accent)_76%,var(--border))] hover:bg-[color-mix(in_srgb,var(--recent-chat-accent)_15%,var(--card))] hover:shadow-[0_19px_36px_-25px_color-mix(in_srgb,var(--recent-chat-accent)_72%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--recent-chat-accent)] motion-reduce:transform-none"
+            className={cn(
+              "group relative min-h-0 overflow-hidden rounded-xl border border-[color-mix(in_srgb,var(--recent-chat-accent)_45%,var(--border))] bg-[color-mix(in_srgb,var(--recent-chat-accent)_10%,var(--card))] p-2 text-left shadow-[0_16px_34px_-28px_color-mix(in_srgb,var(--recent-chat-accent)_60%,transparent)] transition-[border-color,background-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-[color-mix(in_srgb,var(--recent-chat-accent)_76%,var(--border))] hover:bg-[color-mix(in_srgb,var(--recent-chat-accent)_15%,var(--card))] hover:shadow-[0_19px_36px_-25px_color-mix(in_srgb,var(--recent-chat-accent)_72%,transparent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--recent-chat-accent)] motion-reduce:transform-none md:min-h-36 md:rounded-2xl md:p-3.5",
+              index >= 3 && "hidden md:block",
+            )}
           >
             {background ? (
               <img
@@ -222,10 +229,14 @@ export function RecentChats() {
                 alt=""
                 loading="lazy"
                 decoding="async"
-                className="absolute inset-0 h-full w-full object-cover opacity-20 transition-opacity duration-300 group-hover:opacity-30"
+                className="absolute inset-0 h-full w-full scale-[1.02] object-cover opacity-20 blur-[0.75px] saturate-[0.9] transition-opacity duration-300 group-hover:opacity-30"
+                data-recent-chat-background
               />
             ) : null}
-            <span className="absolute inset-0 bg-[linear-gradient(90deg,color-mix(in_srgb,var(--card)_96%,transparent)_0%,color-mix(in_srgb,var(--card)_86%,transparent)_48%,color-mix(in_srgb,var(--recent-chat-accent)_18%,transparent)_100%)]" />
+            <span
+              className="absolute inset-0 bg-[color-mix(in_srgb,var(--card)_68%,transparent)]"
+              data-recent-chat-veil
+            />
             <span className="absolute inset-y-0 left-0 w-1 bg-[var(--recent-chat-accent)] shadow-[0_0_20px_color-mix(in_srgb,var(--recent-chat-accent)_72%,transparent)]" />
 
             {sprite ? (
@@ -242,7 +253,7 @@ export function RecentChats() {
                 )}
               />
             ) : character?.avatarUrl ? (
-              <span className="absolute bottom-3 right-3 h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--recent-chat-accent)]/60 bg-[var(--card)] shadow-lg shadow-black/30">
+              <span className="absolute bottom-2 right-2 h-14 w-14 overflow-hidden rounded-full border-2 border-[var(--recent-chat-accent)]/60 bg-[var(--card)] shadow-lg shadow-black/30 md:bottom-3 md:right-3 md:h-20 md:w-20">
                 <img
                   src={character.avatarUrl}
                   alt=""
@@ -254,20 +265,25 @@ export function RecentChats() {
             ) : (
               <ChatModeIcon
                 mode={chatMode}
-                size="4.5rem"
-                className="absolute -bottom-2 right-1 text-[var(--recent-chat-accent)] opacity-15"
+                size="3rem"
+                className="absolute -bottom-1 right-1 text-[var(--recent-chat-accent)] opacity-15 md:-bottom-2 md:[width:4.5rem] md:[height:4.5rem]"
                 aria-hidden="true"
               />
             )}
 
-            <span className={cn("relative z-10 block min-w-0", sprite || character?.avatarUrl ? "pr-[30%]" : "pr-3")}>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_srgb,var(--recent-chat-accent)_48%,transparent)] bg-[color-mix(in_srgb,var(--recent-chat-accent)_14%,var(--card))] px-2 py-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-[var(--recent-chat-accent)]">
+            <span
+              className={cn(
+                "relative z-10 block min-w-0",
+                sprite || character?.avatarUrl ? "pr-[25%] md:pr-[30%]" : "pr-2 md:pr-3",
+              )}
+            >
+              <span className="inline-flex items-center gap-1 rounded-full border border-[color-mix(in_srgb,var(--recent-chat-accent)_48%,transparent)] bg-[color-mix(in_srgb,var(--recent-chat-accent)_14%,var(--card))] px-1.5 py-0.5 text-[0.52rem] font-bold uppercase tracking-[0.1em] text-[var(--recent-chat-accent)] md:gap-1.5 md:px-2 md:py-1 md:text-[0.625rem] md:tracking-[0.12em]">
                 <ChatModeIcon mode={chatMode} size="0.7rem" aria-hidden="true" /> {t(mode.labelKey)}
               </span>
-              <span className="mt-2 block line-clamp-2 text-sm font-semibold leading-tight text-[var(--foreground)]">
+              <span className="mt-1 block truncate text-xs font-semibold leading-tight text-[var(--foreground)] md:mt-2 md:line-clamp-2 md:whitespace-normal md:text-sm">
                 {chat.name}
               </span>
-              <span className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-[var(--muted-foreground)]">
+              <span className="mt-0.5 line-clamp-1 text-[0.625rem] leading-snug text-[var(--muted-foreground)] md:mt-1.5 md:line-clamp-3 md:text-xs md:leading-relaxed">
                 {latestMessage
                   ? messagePreview(
                       latestMessage.role,

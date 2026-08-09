@@ -159,7 +159,7 @@ export function TrackerPanelDetachedWindow({
   target,
 }: {
   host: HTMLElement;
-  onClosed: () => void;
+  onClosed: (target: TrackerPanelWindowTarget) => void;
   target: TrackerPanelWindowTarget;
 }) {
   useLayoutEffect(() => {
@@ -178,7 +178,7 @@ export function TrackerPanelDetachedWindow({
     const syncStyles = () => mirrorStyles(document, popupDocument, mirroredStyles);
     const handlePopupClose = () => {
       target.removeOpenerPageHideListener();
-      onClosed();
+      onClosed(target);
     };
 
     syncDocumentPresentation();

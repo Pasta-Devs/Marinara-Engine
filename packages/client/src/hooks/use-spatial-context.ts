@@ -26,6 +26,8 @@ export const spatialContextKeys = {
 
 export interface GenerateSpatialMapDraftInput extends GenerateSpatialMapDraftRequest {
   chatId: string;
+  /** Optional World Maps package extension for an exact AI-generated place target. */
+  targetLocationCount?: number;
 }
 
 export interface CommitSpatialOwnerTurnInput {

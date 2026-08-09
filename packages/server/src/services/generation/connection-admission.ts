@@ -10,10 +10,14 @@ type ConnectionState = {
   foregroundActive: number;
   backgroundActive: boolean;
   lastForegroundFinishedAt: number;
+  consecutiveBackgroundFailures: number;
+  backgroundQuarantinedUntil: number;
 };
 
 const states = new Map<string, ConnectionState>();
 export const BACKGROUND_CONNECTION_IDLE_MS = 30_000;
+export const BACKGROUND_CONNECTION_FAILURE_THRESHOLD = 3;
+export const BACKGROUND_CONNECTION_FAILURE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 
 export type ConnectionAttemptOutcome = "completed" | "failed";
 export type ConnectionAttemptFinalizer = (outcome: ConnectionAttemptOutcome) => void | Promise<void>;
@@ -73,40 +77,65 @@ export function isConnectionAdmissionFailure(error: unknown): boolean {
 function stateFor(connectionId: string): ConnectionState {
   const existing = states.get(connectionId);
   if (existing) return existing;
-  const state = { foregroundActive: 0, backgroundActive: false, lastForegroundFinishedAt: 0 };
+  const state = {
+    foregroundActive: 0,
+    backgroundActive: false,
+    lastForegroundFinishedAt: 0,
+    consecutiveBackgroundFailures: 0,
+    backgroundQuarantinedUntil: 0,
+  };
   states.set(connectionId, state);
   return state;
 }
 
-export function beginForegroundConnection(connectionId: string): () => void {
+function recordConnectionOutcome(state: ConnectionState, outcome: ConnectionAttemptOutcome | undefined) {
+  if (outcome === "completed") {
+    state.consecutiveBackgroundFailures = 0;
+    state.backgroundQuarantinedUntil = 0;
+    return;
+  }
+  if (outcome !== "failed") return;
+  state.consecutiveBackgroundFailures += 1;
+  if (state.consecutiveBackgroundFailures >= BACKGROUND_CONNECTION_FAILURE_THRESHOLD) {
+    state.backgroundQuarantinedUntil = Date.now() + BACKGROUND_CONNECTION_FAILURE_COOLDOWN_MS;
+  }
+}
+
+export function beginForegroundConnection(connectionId: string): (outcome?: ConnectionAttemptOutcome) => void {
   const state = stateFor(connectionId);
   state.foregroundActive += 1;
   let released = false;
-  return () => {
+  return (outcome) => {
     if (released) return;
     released = true;
     state.foregroundActive -= 1;
     state.lastForegroundFinishedAt = Date.now();
+    if (outcome === "completed") recordConnectionOutcome(state, outcome);
   };
 }
 
 export function tryBackgroundConnection(
   connectionId: string,
   at: Date,
-): { acquired: false } | { acquired: true; release: () => void } {
+): { acquired: false } | { acquired: true; release: (outcome?: ConnectionAttemptOutcome) => void } {
   const state = stateFor(connectionId);
   if (
     state.backgroundActive ||
     state.foregroundActive > 0 ||
+    at.getTime() < state.backgroundQuarantinedUntil ||
     at.getTime() - state.lastForegroundFinishedAt < BACKGROUND_CONNECTION_IDLE_MS
   ) {
     return { acquired: false };
   }
   state.backgroundActive = true;
+  let released = false;
   return {
     acquired: true,
-    release: () => {
+    release: (outcome) => {
+      if (released) return;
+      released = true;
       state.backgroundActive = false;
+      recordConnectionOutcome(state, outcome);
     },
   };
 }
@@ -118,7 +147,7 @@ export function resetConnectionAdmissionForTests(): void {
 async function beginConnectionAttempt(
   connectionId: string,
   mode: ConnectionAdmissionMode,
-): Promise<{ release: () => void; finalize?: ConnectionAttemptFinalizer }> {
+): Promise<{ release: (outcome?: ConnectionAttemptOutcome) => void; finalize?: ConnectionAttemptFinalizer }> {
   if (mode.kind === "none") return { release: () => undefined };
   if (mode.kind === "foreground") return { release: beginForegroundConnection(connectionId) };
 
@@ -138,7 +167,7 @@ async function beginConnectionAttempt(
  * see. A finalization failure only surfaces when the operation itself succeeded.
  */
 async function finalizeConnectionAttempt(
-  attempt: { release: () => void; finalize?: ConnectionAttemptFinalizer },
+  attempt: { release: (outcome?: ConnectionAttemptOutcome) => void; finalize?: ConnectionAttemptFinalizer },
   outcome: ConnectionAttemptOutcome,
 ): Promise<void> {
   try {
@@ -147,7 +176,7 @@ async function finalizeConnectionAttempt(
     if (outcome === "completed") throw new ConnectionAttemptFinalizationError(error);
     logger.error(error, "[connection-admission] Attempt accounting failed after a failed provider call");
   } finally {
-    attempt.release();
+    attempt.release(outcome);
   }
 }
 

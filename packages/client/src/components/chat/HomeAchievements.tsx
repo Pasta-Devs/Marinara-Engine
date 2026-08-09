@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import {
   BookOpen,
   Bot,
@@ -43,12 +43,14 @@ const CATEGORY_LABELS: Record<AchievementDefinition["category"], string> = {
   milestone: "Milestone",
 };
 
-function rankClasses(achievement: AchievementDefinition, locked: boolean) {
-  if (locked) return "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]";
-  if (achievement.rank === "bronze") return "border-amber-700/50 bg-amber-900/35 text-amber-200";
-  if (achievement.rank === "silver") return "border-slate-300/45 bg-slate-300/18 text-slate-100";
-  if (achievement.rank === "gold") return "border-yellow-400/55 bg-yellow-500/20 text-yellow-100";
-  return "border-[var(--marinara-chat-chrome-button-border-active)] bg-[var(--marinara-chat-chrome-highlight-bg)] text-[var(--marinara-chat-chrome-panel-title)]";
+function achievementTone(achievement: AchievementDefinition) {
+  if (achievement.rank === "bronze") return "oklch(0.65 0.15 55)";
+  if (achievement.rank === "silver") return "oklch(0.66 0.055 245)";
+  if (achievement.rank === "gold") return "oklch(0.72 0.17 82)";
+  if (achievement.category === "collection") return "oklch(0.7 0.16 205)";
+  if (achievement.category === "community") return "oklch(0.68 0.2 345)";
+  if (achievement.category === "creation") return "oklch(0.7 0.18 52)";
+  return "oklch(0.64 0.19 295)";
 }
 
 function AchievementBadge({ achievement, locked }: { achievement: AchievementDefinition; locked: boolean }) {
@@ -56,9 +58,12 @@ function AchievementBadge({ achievement, locked }: { achievement: AchievementDef
 
   return (
     <div
+      style={locked ? undefined : ({ "--achievement-tone": achievementTone(achievement) } as CSSProperties)}
       className={cn(
         "relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border shadow-[inset_0_1px_0_color-mix(in_srgb,var(--foreground)_14%,transparent)] sm:h-16 sm:w-16 sm:rounded-xl",
-        rankClasses(achievement, locked),
+        locked
+          ? "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"
+          : "border-[color-mix(in_srgb,var(--achievement-tone)_48%,var(--border))] bg-[color-mix(in_srgb,var(--achievement-tone)_17%,var(--card))] text-[var(--achievement-tone)]",
       )}
       aria-hidden="true"
     >
@@ -103,16 +108,19 @@ function CompactAchievementHighlight({
 }) {
   const Icon = achievement ? (ICONS[achievement.icon] ?? Trophy) : Trophy;
   const target = progress?.target ?? null;
+  const tone = achievement
+    ? achievementTone(achievement)
+    : kind === "latest"
+      ? "oklch(0.76 0.19 52)"
+      : "oklch(0.79 0.16 205)";
 
   return (
     <span data-achievement-highlight={kind} className="flex min-w-0 items-center gap-2 py-0.5">
       <span
-        className={cn(
-          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md border",
-          kind === "latest"
-            ? "border-[color-mix(in_srgb,oklch(0.76_0.19_52)_44%,var(--border))] bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_16%,var(--card))] text-[oklch(0.76_0.19_52)]"
-            : "border-[color-mix(in_srgb,oklch(0.79_0.16_205)_44%,var(--border))] bg-[color-mix(in_srgb,oklch(0.79_0.16_205)_14%,var(--card))] text-[oklch(0.79_0.16_205)]",
-        )}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[color-mix(in_srgb,var(--achievement-tone)_44%,var(--border))] bg-[color-mix(in_srgb,var(--achievement-tone)_15%,var(--card))] text-[var(--achievement-tone)]"
+        style={{ "--achievement-tone": tone } as CSSProperties}
+        data-achievement-icon={achievement?.icon ?? "trophy"}
+        data-achievement-rank={achievement?.rank ?? "unranked"}
         aria-hidden="true"
       >
         <Icon size="0.72rem" strokeWidth={2.35} />
@@ -271,10 +279,10 @@ export function HomeAchievements({
           type="button"
           onClick={() => setOpen(true)}
           className={cn(
-            "mari-chrome-control group flex justify-start gap-2 text-left",
+            "group text-left",
             compact
-              ? "w-full max-w-full !items-start !justify-start px-0 py-0 shadow-none"
-              : "w-full max-w-5xl items-center px-3 py-2.5 shadow-lg shadow-black/10 sm:gap-3 sm:px-4 sm:py-3",
+              ? "w-full max-w-full rounded-xl px-2 py-0 transition-colors hover:bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_10%,var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[oklch(0.76_0.19_52)]"
+              : "mari-chrome-control flex w-full max-w-5xl items-center justify-start gap-2 px-3 py-2.5 shadow-lg shadow-black/10 sm:gap-3 sm:px-4 sm:py-3",
             attached ? "-mt-px !rounded-b-xl !rounded-t-none !border-t-0" : "!rounded-xl",
             className,
           )}
@@ -286,7 +294,7 @@ export function HomeAchievements({
                 className="mari-chrome-accent-surface mari-accent-animated flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border shadow-sm sm:h-10 sm:w-10"
                 aria-hidden="true"
               >
-                <Trophy size="1.15rem" strokeWidth={2.25} />
+                <img src="/home/tab-icons/achievements.png" alt="" className="h-8 w-8 object-contain" />
               </span>
             ) : null}
             <span className="min-w-0 flex-1">
@@ -297,13 +305,13 @@ export function HomeAchievements({
               ) : null}
               {compact ? (
                 <span className="block w-full">
-                  <span className="flex min-h-12 w-full items-center gap-2.5 rounded-xl px-2 text-left transition-colors group-hover:bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_10%,var(--accent))]">
-                    <span
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[color-mix(in_srgb,oklch(0.76_0.19_52)_42%,var(--border))] bg-[color-mix(in_srgb,oklch(0.76_0.19_52)_16%,var(--card))] text-[oklch(0.76_0.19_52)]"
+                  <span className="flex min-h-10 w-full items-center gap-2.5 text-left">
+                    <img
+                      src="/home/tab-icons/achievements.png"
+                      alt=""
+                      className="h-7 w-7 shrink-0 object-contain"
                       aria-hidden="true"
-                    >
-                      <Trophy size="1rem" strokeWidth={2.3} />
-                    </span>
+                    />
                     <span className="min-w-0 flex-1">
                       <span
                         data-achievement-open-label

@@ -4586,8 +4586,8 @@ test("new Roleplay chats seed character Tracker custom-field defaults without re
   }
 });
 
-test("desktop Tracker stays in the Roleplay gutter without shifting the chat column", async ({ page }, testInfo) => {
-  test.skip(!testInfo.project.name.includes("desktop"), "Desktop Tracker gutter behavior is covered on desktop.");
+test("desktop Tracker preserves its controls without shifting the chat column", async ({ page }, testInfo) => {
+  test.skip(!testInfo.project.name.includes("desktop"), "Desktop Tracker overlap behavior is covered on desktop.");
 
   // Keep this device-local layout test isolated from the shared settings
   // record used by the parallel browser project.
@@ -4655,9 +4655,11 @@ test("desktop Tracker stays in the Roleplay gutter without shifting the chat col
     expect(Math.abs(chatColumnAfter!.x - chatColumnBefore!.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(chatColumnAfter!.width - chatColumnBefore!.width)).toBeLessThanOrEqual(1);
 
-    const expectedWidth = Math.min(420, Math.floor(chatColumnAfter!.x - mainBox!.x - 8));
+    const expectedWidth = Math.min(420, Math.floor(mainBox!.width - 8));
     expect(Math.abs(trackerBox!.width - expectedWidth)).toBeLessThanOrEqual(1);
-    expect(trackerBox!.x + trackerBox!.width).toBeLessThanOrEqual(chatColumnAfter!.x - 7);
+    expect(trackerBox!.x).toBeGreaterThanOrEqual(mainBox!.x - 1);
+    expect(trackerBox!.x).toBeLessThanOrEqual(mainBox!.x + 1);
+    expect(trackerBox!.x + trackerBox!.width).toBeGreaterThan(chatColumnAfter!.x);
 
     const trackerContent = tracker.locator(".mari-tracker-panel-scroll");
     const expectedScale = Math.max(0.65, expectedWidth / 420);
@@ -7305,13 +7307,14 @@ test("installed Home destinations appear as browser tabs without returning to th
   expect(errors).toEqual([]);
 });
 
-test("Home recent chats use mode colors and show character sprites", async ({ page }) => {
+test("Home recent chats use mode colors and show character sprites", async ({ page }, testInfo) => {
   await page.addInitScript(() => localStorage.removeItem("marinara-active-chat-id"));
   const now = new Date().toISOString();
   const chatFixtures = [
     { id: "home-conversation", name: "Cyan chat", mode: "conversation", characterId: "char-cyan" },
     { id: "home-roleplay", name: "Orange story", mode: "roleplay", characterId: "char-orange" },
     { id: "home-game", name: "Pink game", mode: "game", characterId: "char-pink" },
+    { id: "home-fourth", name: "Fourth recent chat", mode: "conversation", characterId: "char-fourth" },
   ];
   await page.route("**/api/chats/home-feed", (route) =>
     route.fulfill({
@@ -7421,6 +7424,30 @@ test("Home recent chats use mode colors and show character sprites", async ({ pa
   }
   const gameCard = page.getByRole("button", { name: /Pink game/ });
   await expect(gameCard.locator('img[src*="moonlit-kitchen.svg"]')).toBeVisible();
+  const roleplayCard = page.getByRole("button", { name: /Orange story/ });
+  await expect(roleplayCard.locator("[data-recent-chat-veil]")).toHaveCSS("background-image", "none");
+  const fourthCard = page.getByRole("button", { name: /Fourth recent chat/ });
+  if (testInfo.project.name.includes("mobile")) {
+    await expect(fourthCard).toBeHidden();
+    const recentCards = page.locator('[data-component="RecentChats"] > button:visible');
+    await expect(recentCards).toHaveCount(3);
+    const recentWidgetBounds = await page.locator('[data-home-widget-id="recent"]').boundingBox();
+    const recentCardBounds = await recentCards.evaluateAll((elements) =>
+      elements.map((element) => {
+        const bounds = element.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+      }),
+    );
+    expect(recentWidgetBounds).not.toBeNull();
+    for (const bounds of recentCardBounds) {
+      expect(bounds.left).toBeGreaterThanOrEqual(recentWidgetBounds!.x - 1);
+      expect(bounds.right).toBeLessThanOrEqual(recentWidgetBounds!.x + recentWidgetBounds!.width + 1);
+      expect(bounds.top).toBeGreaterThanOrEqual(recentWidgetBounds!.y - 1);
+      expect(bounds.bottom).toBeLessThanOrEqual(recentWidgetBounds!.y + recentWidgetBounds!.height + 1);
+    }
+  } else {
+    await expect(fourthCard).toBeVisible();
+  }
 
   const visitRequest = page.waitForRequest(
     (request) =>
@@ -7538,7 +7565,7 @@ test("Professor Mari visibly arrives on Home and navigates without AI", async ({
   expect(recallBounds).not.toBeNull();
   expect(Math.abs(recallBounds!.width - recallBounds!.height)).toBeLessThanOrEqual(1);
   if (testInfo.project.name.includes("mobile")) {
-    expect(Math.abs(recallBounds!.x + recallBounds!.width / 2 - viewportWidth / 2)).toBeLessThanOrEqual(2);
+    expect(viewportWidth - (recallBounds!.x + recallBounds!.width)).toBeLessThanOrEqual(16);
   } else {
     expect(viewportWidth - (recallBounds!.x + recallBounds!.width)).toBeLessThanOrEqual(20);
   }
@@ -11985,6 +12012,10 @@ test("Home Community and clock widgets are useful, timezone-aware, and optional"
   }, timeZone);
   const clock = page.locator('[data-component="HomeClockCalendar"]');
   await expect(clock).toHaveAttribute("data-time-zone", timeZone);
+  const clockAccentColors = await clock
+    .locator("[data-clock-accent-reference], [data-clock-eyebrow], [data-clock-seconds]")
+    .evaluateAll((elements) => elements.map((element) => getComputedStyle(element).color));
+  expect(new Set(clockAccentColors).size).toBe(1);
   const expected = await page.evaluate((activeTimeZone) => {
     const now = new Date();
     const timeFormatter = new Intl.DateTimeFormat("en", {
@@ -12195,8 +12226,17 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   await expect(closestAchievement).toContainText("Closest next");
   await expect(closestAchievement).toContainText("Hoarder I");
   await expect(closestAchievement).toContainText("4 / 5");
+  await expect(latestAchievement.locator('[data-achievement-icon="graduation"]')).toBeVisible();
+  await expect(closestAchievement.locator('[data-achievement-icon="character"]')).toHaveAttribute(
+    "data-achievement-rank",
+    "bronze",
+  );
   await expect(achievementsWidget.locator("[data-achievement-open-label]")).toHaveText("Achievements");
   await expect(achievementsWidget.locator("[data-achievement-open-description]")).toHaveText("Gotta catch them all!");
+  await expect(achievementsWidget.getByRole("button", { name: "Open Achievements" }).locator("img")).toHaveAttribute(
+    "src",
+    "/home/tab-icons/achievements.png",
+  );
 
   const [widgetBounds, closestBounds] = await Promise.all([
     achievementsWidget.boundingBox(),
@@ -12221,8 +12261,26 @@ test("Home achievements preview the latest unlock and nearest measurable goal", 
   expect(widgetsIndex).toBeGreaterThanOrEqual(0);
   expect(faqIndex).toBeLessThan(achievementsIndex);
   expect(achievementsIndex).toBeLessThan(widgetsIndex);
+  await expect(
+    bookmarks.getByRole("button", { name: "Achievements", exact: true }).locator("img"),
+  ).toHaveAttribute("src", "/home/tab-icons/achievements.png");
   await bookmarks.getByRole("button", { name: "Achievements", exact: true }).click();
   await expect(achievementsDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.locator('[data-tour="panel-settings"]').click();
+  const achievementsToggle = page.getByRole("checkbox", { name: "Achievements", exact: true });
+  await expect(achievementsToggle).toBeChecked();
+  const achievementsToggleId = await achievementsToggle.getAttribute("id");
+  expect(achievementsToggleId).toBeTruthy();
+  await page.locator(`label[for="${achievementsToggleId}"]`).last().click();
+  await expect(achievementsToggle).not.toBeChecked();
+  await expect(bookmarks.getByRole("button", { name: "Achievements", exact: true })).toHaveCount(0);
+  await expect(achievementsWidget).toHaveCount(0);
+  await page.locator('[data-tour="panel-settings"]').click();
+  await bookmarks.getByRole("button", { name: "Widgets", exact: true }).click();
+  const widgetManager = page.getByRole("dialog", { name: "Home Widgets" });
+  await expect(widgetManager.getByText("Achievements", { exact: true })).toHaveCount(0);
   await page.keyboard.press("Escape");
 });
 
@@ -12374,6 +12432,26 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await page.setViewportSize({ width: mobile ? 390 : 1024, height: mobile ? 650 : 700 });
   expect(await content.evaluate((element) => element.scrollWidth <= element.clientWidth + 1)).toBeTruthy();
   await expect(home).toBeVisible();
+
+  if (mobile) {
+    const professorWidget = page.locator('[data-home-widget-id="professor"]');
+    const professorDescription = professorWidget.locator("[data-home-professor-description]");
+    const professorAction = professorWidget.locator("[data-home-professor-action]");
+    const [widgetBounds, descriptionBounds, actionBounds, descriptionFontSize] = await Promise.all([
+      professorWidget.boundingBox(),
+      professorDescription.boundingBox(),
+      professorAction.boundingBox(),
+      professorDescription.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+    ]);
+    expect(widgetBounds).not.toBeNull();
+    expect(descriptionBounds).not.toBeNull();
+    expect(actionBounds).not.toBeNull();
+    expect(descriptionFontSize).toBeLessThan(12);
+    expect(descriptionBounds!.y + descriptionBounds!.height).toBeLessThanOrEqual(
+      widgetBounds!.y + widgetBounds!.height + 1,
+    );
+    expect(actionBounds!.y + actionBounds!.height).toBeLessThanOrEqual(widgetBounds!.y + widgetBounds!.height + 1);
+  }
 
   if (!mobile) {
     const professorWidget = page.locator(".mari-home-widget--professor");

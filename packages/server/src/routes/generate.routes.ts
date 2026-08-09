@@ -37,6 +37,7 @@ import {
   customAgentHasCapability,
   CHAT_SUMMARY_PROMPT_SETTINGS_KEY,
   CUSTOM_GENERATION_PARAMETERS_SETTINGS_KEY,
+  DEFAULT_AGENT_MAX_TOKENS,
   DEFAULT_CONVERSATION_PROMPT,
   DEFAULT_GENERATION_PARAMS,
   unwrapConversationInstructions,
@@ -470,10 +471,14 @@ import {
   type GenerationPromptMessage,
 } from "../services/generation/prompt-message-scope.js";
 import {
-  applyProviderMaxTokensOverride,
   readChatCompletionsReasoningMetadata,
+  resolveStoredChatOptions,
+  resolveStoredMaxTokens,
   shouldReplayStoredChatCompletionsReasoning,
 } from "../services/generation/generation-parameters.js";
+import { clampGenerationMaxOutputTokens } from "../services/generation/output-token-limits.js";
+import { createLLMProvider } from "../services/llm/provider-registry.js";
+import { withConnectionFallbackProvider } from "../services/llm/connection-fallback-provider.js";
 import {
   fitMessagesForModelAccess,
   mergeModelContextLimit,
@@ -5124,23 +5129,59 @@ export async function generateRoutes(app: FastifyInstance) {
           ];
 
           try {
-            const selectorProvider = provider;
-            const selectorModel = conn.model;
-            const selectorMaxTokens = applyProviderMaxTokensOverride(selectorProvider, 512);
+            const selectorConnection = (await connections.getDefaultForAgents()) ?? conn;
+            const selectorFallbackConnection = await connections.getFallbackForAgents();
+            const selectorBaseUrl = resolveBaseUrl(selectorConnection);
+            if (!selectorBaseUrl) throw new Error("The group responder connection has no base URL");
+            const selectorProvider = withConnectionFallbackProvider({
+              primary: createLLMProvider(
+                selectorConnection.provider,
+                selectorBaseUrl,
+                selectorConnection.apiKey,
+                selectorConnection.maxContext,
+                selectorConnection.openrouterProvider,
+                selectorConnection.maxTokensOverride,
+                selectorConnection.claudeFastMode === "true",
+                selectorConnection.treatAsLocalEndpoint === "true",
+                selectorConnection.defaultParameters,
+              ),
+              primaryConnectionId: selectorConnection.id,
+              fallbackConnection: selectorFallbackConnection,
+              fallbackBaseUrl: selectorFallbackConnection ? resolveBaseUrl(selectorFallbackConnection) : "",
+              category: "agents",
+              onFallback,
+            });
+            const selectorModel = selectorConnection.model;
+            const selectorPolicy = resolveModelAccessPolicy({
+              provider: selectorConnection.provider,
+              model: selectorModel,
+              maxContext: selectorConnection.maxContext,
+            });
+            const selectorMaxTokens = clampGenerationMaxOutputTokens({
+              provider: selectorConnection.provider,
+              model: selectorModel,
+              maxTokens: resolveStoredMaxTokens(selectorConnection.defaultParameters, DEFAULT_AGENT_MAX_TOKENS),
+              maxTokensOverride: selectorConnection.maxTokensOverride,
+            });
+            const selectorDefaults = resolveStoredChatOptions(
+              selectorConnection.defaultParameters,
+              selectorConnection.provider,
+              selectorModel,
+            );
 
             const result = await withLlmRequestTimeout(chatGenerationTimeoutMs, () =>
               selectorProvider.chatComplete(selectionPrompt, {
                 model: selectorModel,
-                ...(suppressModelParameters
+                ...(selectorPolicy.suppressModelParameters
                   ? {}
                   : {
-                      temperature: 0.2,
+                      ...selectorDefaults,
+                      temperature: selectorDefaults.temperature ?? 0.2,
+                      topP: selectorDefaults.topP ?? 1,
                       maxTokens: selectorMaxTokens,
-                      maxContext: effectiveMaxContext,
-                      topP: 1,
-                      serviceTier,
+                      maxContext: selectorPolicy.effectiveMaxContext,
                     }),
-                suppressModelParameters,
+                suppressModelParameters: selectorPolicy.suppressModelParameters,
                 stream: false,
                 signal: abortController.signal,
               }),

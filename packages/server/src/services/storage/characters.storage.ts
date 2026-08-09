@@ -10,6 +10,8 @@ import {
   personaCardVersions,
   characterGroups,
   personaGroups,
+  lorebooks,
+  lorebookCharacterLinks,
 } from "../../db/schema/index.js";
 import { newId, now } from "../../utils/id-generator.js";
 import {
@@ -633,6 +635,35 @@ export function createCharactersStorage(db: DB) {
 
     async remove(id: string) {
       await db.transaction(async (tx) => {
+        const affectedLorebookLinks = await tx
+          .select()
+          .from(lorebookCharacterLinks)
+          .where(eq(lorebookCharacterLinks.characterId, id));
+        const legacyLorebooks = await tx.select().from(lorebooks).where(eq(lorebooks.characterId, id));
+        await tx.delete(lorebookCharacterLinks).where(eq(lorebookCharacterLinks.characterId, id));
+        const affectedLorebookIds = new Set([
+          ...affectedLorebookLinks.map((link) => link.lorebookId),
+          ...legacyLorebooks.map((lorebook) => lorebook.id),
+        ]);
+        for (const lorebookId of affectedLorebookIds) {
+          const remainingLinks = await tx
+            .select()
+            .from(lorebookCharacterLinks)
+            .where(eq(lorebookCharacterLinks.lorebookId, lorebookId))
+            .orderBy(asc(lorebookCharacterLinks.createdAt));
+          const lorebookRows = await tx.select().from(lorebooks).where(eq(lorebooks.id, lorebookId));
+          const lorebook = lorebookRows[0];
+          const becameUnowned =
+            remainingLinks.length === 0 && !lorebook?.personaId && !lorebook?.chatId && lorebook?.isGlobal !== "true";
+          await tx
+            .update(lorebooks)
+            .set({
+              characterId: remainingLinks[0]?.characterId ?? null,
+              ...(becameUnowned ? { enabled: "false", hiddenFromLibrary: "false" } : {}),
+              updatedAt: now(),
+            })
+            .where(eq(lorebooks.id, lorebookId));
+        }
         await tx.delete(characters).where(eq(characters.id, id));
         const groups = await tx.select().from(characterGroups);
         for (const group of groups) {

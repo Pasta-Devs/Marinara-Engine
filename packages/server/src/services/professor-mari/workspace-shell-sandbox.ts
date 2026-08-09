@@ -259,7 +259,7 @@ export async function spawnWorkspaceSandboxedShell(
   const status = getWorkspaceShellSandboxStatus();
   if (!status.available) {
     throw new Error(
-      `${status.reason} Use Professor Mari's structured read, grep, find, ls, edit, write, and app_data tools instead.`,
+      `${status.reason} Use Professor Mari's structured read, grep, find, ls, edit, write, copy, move, remove, and app_data tools instead.`,
     );
   }
 
