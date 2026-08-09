@@ -1044,6 +1044,10 @@ function evaluateCondition(condition: Condition, ctx: RowContext): boolean {
   if (condition.kind === "file-pattern") {
     return matchesLike(resolveValue(condition.value, ctx), resolveValue(condition.pattern, ctx));
   }
+  if (condition.kind === "file-string-nonblank") {
+    const value = resolveValue(condition.value, ctx);
+    return typeof value === "string" && value.trim().length > 0;
+  }
   if (condition.kind === "file-json-flags-not-true") {
     const record = parseJsonRecord(resolveValue(condition.value, ctx));
     return condition.flags.every((flag) => record[flag] !== true);

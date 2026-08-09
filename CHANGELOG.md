@@ -24,7 +24,7 @@ This file is the release-notes source of truth for Marinara Engine. Reuse these 
 
 ### Fixed
 
-- Kept hidden command anchors out of Home's Recent Chats previews, counted paginated chat histories without materializing every message ID, and rejected malformed history cursors.
+- Kept blank messages and hidden command anchors out of Home's Recent Chats previews, counted paginated chat histories without materializing every message ID, and rejected malformed history cursors.
 - Applied the selected tag-import mode when a downloaded character card is imported as a persona.
 - Matched the Character and Persona Download/Open Library launchers to the Chats segmented controls with equal halves, fixed icon sizing, and single-line labels.
 - Kept Professor Mari's held navigation animation mounted, frame-snapped, and paint-batched so repeated grabs no longer flash the wrong sprite frame or stutter under pointer movement.

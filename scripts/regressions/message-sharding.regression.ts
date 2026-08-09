@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { and, eq, jsonFlagsNotTrue, ne } from "../../packages/server/src/db/file-query.js";
+import { and, eq, jsonFlagsNotTrue, ne, stringIsNonBlank } from "../../packages/server/src/db/file-query.js";
 import {
   createFileNativeDB,
   encodeShardKey,
@@ -1066,6 +1066,7 @@ assert.equal(
     await db.insert(messages).values([
       messageRow("preview-visible", "preview-chat", "Visible"),
       { ...messageRow("preview-empty", "preview-chat", ""), role: "assistant" },
+      { ...messageRow("preview-whitespace", "preview-chat", " \n\t "), role: "assistant" },
       {
         ...messageRow("preview-hidden", "preview-chat", "Hidden"),
         role: "assistant",
@@ -1078,7 +1079,7 @@ assert.equal(
       },
     ]);
 
-    assert.equal(db.count(messages, eq(messages.chatId, "preview-chat")), 4, "aggregate count covers every row");
+    assert.equal(db.count(messages, eq(messages.chatId, "preview-chat")), 5, "aggregate count covers every row");
     const previews = await db
       .select({ id: messages.id })
       .from(messages)
@@ -1086,12 +1087,16 @@ assert.equal(
         and(
           eq(messages.chatId, "preview-chat"),
           ne(messages.role, "system"),
-          ne(messages.content, ""),
+          stringIsNonBlank(messages.content),
           jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
         ),
       )
       .limit(1);
-    assert.deepEqual(previews, [{ id: "preview-visible" }], "hidden command anchors cannot consume preview slots");
+    assert.deepEqual(
+      previews,
+      [{ id: "preview-visible" }],
+      "blank and hidden command anchors cannot consume preview slots",
+    );
   } finally {
     await db._fileStore.close();
     rmSync(dir, { recursive: true, force: true });

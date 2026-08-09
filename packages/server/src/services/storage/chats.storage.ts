@@ -1,7 +1,18 @@
 // ──────────────────────────────────────────────
 // Storage: Chats
 // ──────────────────────────────────────────────
-import { eq, ne, desc, and, gt, inArray, isNull, isNotNull, jsonFlagsNotTrue } from "../../db/file-query.js";
+import {
+  eq,
+  ne,
+  desc,
+  and,
+  gt,
+  inArray,
+  isNull,
+  isNotNull,
+  jsonFlagsNotTrue,
+  stringIsNonBlank,
+} from "../../db/file-query.js";
 import type { DB } from "../../db/connection.js";
 import {
   chats,
@@ -973,7 +984,7 @@ export function createChatsStorage(db: DB) {
           and(
             eq(messages.chatId, chatId),
             ne(messages.role, "system"),
-            ne(messages.content, ""),
+            stringIsNonBlank(messages.content),
             jsonFlagsNotTrue(messages.extra, ["hiddenFromUser", "commandOnly"]),
           ),
         )
