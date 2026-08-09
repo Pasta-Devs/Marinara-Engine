@@ -1,11 +1,11 @@
 import type { ComponentType } from "react";
-import { BookOpen, MessageSquare, Theater, type LucideProps } from "lucide-react";
+import { Gamepad2, MessageSquare, Theater, type LucideProps } from "lucide-react";
 import type { ChatMode } from "@marinara-engine/shared";
 
-const CHAT_MODE_ICON_COMPONENTS = {
+export const CHAT_MODE_ICON_COMPONENTS = {
   conversation: MessageSquare,
-  roleplay: BookOpen,
-  game: Theater,
+  roleplay: Theater,
+  game: Gamepad2,
 } satisfies Record<ChatMode, ComponentType<LucideProps>>;
 
 type ChatModeIconProps = LucideProps & {

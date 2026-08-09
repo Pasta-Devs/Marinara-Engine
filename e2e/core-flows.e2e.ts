@@ -2149,9 +2149,15 @@ test("Character Chat actions reuse mode selection and seed the chosen setup wiza
   const expectModeSelector = async () => {
     const selector = page.locator('[data-component="ChatModeSelectorModal"]');
     await expect(selector).toBeVisible();
-    await expect(selector.getByRole("button", { name: /^Conversation/u })).toBeVisible();
-    await expect(selector.getByRole("button", { name: /^Roleplay/u })).toBeVisible();
-    await expect(selector.getByRole("button", { name: /^Game/u })).toBeVisible();
+    const conversation = selector.getByRole("button", { name: /^Conversation/u });
+    const roleplay = selector.getByRole("button", { name: /^Roleplay/u });
+    const game = selector.getByRole("button", { name: /^Game/u });
+    await expect(conversation).toBeVisible();
+    await expect(roleplay).toBeVisible();
+    await expect(game).toBeVisible();
+    await expect(conversation.locator('[data-chat-mode-icon="conversation"]')).toHaveClass(/lucide-message-square/);
+    await expect(roleplay.locator('[data-chat-mode-icon="roleplay"]')).toHaveClass(/lucide-theater/);
+    await expect(game.locator('[data-chat-mode-icon="game"]')).toHaveClass(/lucide-gamepad-2/);
     return selector;
   };
 
@@ -9718,7 +9724,11 @@ test("Conversation setup commands follow the installed agent library", async ({ 
     const wizardHeading = page.getByRole("heading", { name: "New Conversation", exact: true });
     await expect(connectionGate.or(wizardHeading)).toBeVisible();
     if (await connectionGate.isVisible()) {
-      await page.getByRole("button", { name: "Create Chat", exact: true }).click();
+      const createChatButton = page.getByRole("button", { name: "Create Chat", exact: true });
+      await expect(createChatButton.locator('[data-chat-mode-icon="conversation"]')).toHaveClass(
+        /lucide-message-square/,
+      );
+      await createChatButton.click();
     }
     expect((await chatCreated).ok()).toBeTruthy();
     await expect(wizardHeading).toBeVisible();
@@ -10962,12 +10972,14 @@ test("Roleplay setup points empty agent libraries to the Agents tab", async ({ p
     await page.goto("/");
     await page.locator('[data-tour="sidebar-toggle"]').click();
     await page.locator('[data-tour="chat-mode-roleplay"]').click();
-    await page.getByLabel("New Roleplay").click();
+    await page.getByLabel("New Roleplay", { exact: true }).click();
     const connectionGate = page.getByRole("heading", { name: "Set Up Roleplay", exact: true });
     const wizardHeading = page.getByRole("heading", { name: "New Roleplay", exact: true });
     await expect(connectionGate.or(wizardHeading)).toBeVisible();
     if (await connectionGate.isVisible()) {
-      await page.getByRole("button", { name: "Create Chat", exact: true }).click();
+      const createChatButton = page.getByRole("button", { name: "Create Chat", exact: true });
+      await expect(createChatButton.locator('[data-chat-mode-icon="roleplay"]')).toHaveClass(/lucide-theater/);
+      await createChatButton.click();
     }
     await expect(wizardHeading).toBeVisible();
     const nextButton = page.getByRole("button", { name: "Next", exact: true });
@@ -12531,8 +12543,8 @@ test("home browser hub scales cleanly and opens FAQ as a bookmark window", async
   await expect(page.locator('.mari-home-hero [data-chat-mode-icon="conversation"]')).toHaveClass(
     /lucide-message-square/,
   );
-  await expect(page.locator('.mari-home-hero [data-chat-mode-icon="roleplay"]')).toHaveClass(/lucide-book-open/);
-  await expect(page.locator('.mari-home-hero [data-chat-mode-icon="game"]')).toHaveClass(/lucide-theater/);
+  await expect(page.locator('.mari-home-hero [data-chat-mode-icon="roleplay"]')).toHaveClass(/lucide-theater/);
+  await expect(page.locator('.mari-home-hero [data-chat-mode-icon="game"]')).toHaveClass(/lucide-gamepad-2/);
 
   await expect(page.locator('[data-component="HomeFaq.Compact"]')).toHaveCount(0);
   await expect(page.locator('[data-component="HomeFaq.MobileLauncher"]')).toHaveCount(0);
@@ -14796,23 +14808,50 @@ test("Noodle mobile shell keeps navigation usable across every view", async ({ p
 
 test("chat mode tabs and new-chat actions stay reachable", async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
-  await page.goto("/");
-
-  await page.locator('[data-tour="sidebar-toggle"]').click();
-  await expect(page.locator('[data-component="ChatSidebar"]')).toBeVisible();
-
   const modes = [
-    { tour: "chat-mode-conversation", label: "New Conversation" },
-    { tour: "chat-mode-roleplay", label: "New Roleplay" },
-    { tour: "chat-mode-game", label: "New Game" },
-  ];
+    {
+      mode: "conversation",
+      tour: "chat-mode-conversation",
+      label: "New Conversation",
+      iconClass: /lucide-message-square/,
+    },
+    { mode: "roleplay", tour: "chat-mode-roleplay", label: "New Roleplay", iconClass: /lucide-theater/ },
+    { mode: "game", tour: "chat-mode-game", label: "New Game", iconClass: /lucide-gamepad-2/ },
+  ] as const;
+  const characterlessChats = await Promise.all(
+    modes.map(async (mode) => {
+      const response = await page.request.post("/api/chats", {
+        data: { name: `Icon check ${mode.mode} ${Date.now()}`, mode: mode.mode, characterIds: [] },
+      });
+      expect(response.ok()).toBeTruthy();
+      return (await response.json()) as { id: string };
+    }),
+  );
 
-  for (const mode of modes) {
-    await page.locator(`[data-tour="${mode.tour}"]`).click();
-    await expect(page.getByLabel(mode.label, { exact: true })).toBeVisible();
+  try {
+    await page.goto("/");
+    await page.locator('[data-tour="sidebar-toggle"]').click();
+    const sidebar = page.locator('[data-component="ChatSidebar"]');
+    await expect(sidebar).toBeVisible();
+
+    for (const [index, mode] of modes.entries()) {
+      const modeTab = page.locator(`[data-tour="${mode.tour}"]`);
+      await expect(modeTab.locator(`[data-chat-mode-icon="${mode.mode}"]`)).toHaveClass(mode.iconClass);
+      await modeTab.click();
+      await expect(page.getByLabel(mode.label, { exact: true })).toBeVisible();
+      await expect(
+        sidebar
+          .locator(`[data-chat-id="${characterlessChats[index]!.id}"]`)
+          .locator(`[data-chat-mode-icon="${mode.mode}"]`),
+      ).toHaveClass(mode.iconClass);
+    }
+
+    expect(errors).toEqual([]);
+  } finally {
+    await Promise.allSettled(
+      characterlessChats.map((chat) => page.request.delete(`/api/chats/${chat.id}?force=true`)),
+    );
   }
-
-  expect(errors).toEqual([]);
 });
 
 test("Roleplay reduced paint effects preserve semantic and custom styling", async ({ page }, testInfo) => {

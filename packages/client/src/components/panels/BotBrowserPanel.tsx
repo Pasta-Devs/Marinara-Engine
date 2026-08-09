@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { useCharacters, useDeleteCharacter } from "../../hooks/use-characters";
 import { useStartChatFromCharacter } from "../../hooks/use-start-chat-from-character";
 import { useUIStore, type ResourcePanelSort } from "../../stores/ui.store";
-import { Search, User, Bot, Wand2, MessageCircle, Trash2, ArrowUpDown } from "lucide-react";
+import { Search, User, Bot, Trash2, ArrowUpDown } from "lucide-react";
 import { cn, getAvatarCropStyle } from "../../lib/utils";
 import { sortBasicPanelItems } from "../../lib/panel-sort";
 import { ContextMenu, type ContextMenuItem } from "../ui/ContextMenu";
 import { showConfirmDialog } from "../../lib/app-dialogs";
 import { useLocalizedUiText } from "../../localization/use-localized-ui-text";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ChatModeIcon } from "../chat/ChatModeIcon";
 
 type CharacterRow = { id: string; data: string; avatarPath: string | null; createdAt: string; updatedAt: string };
 
@@ -235,7 +236,7 @@ export function BotBrowserPanel() {
           const items: ContextMenuItem[] = [
             {
               label: "Quick Start Roleplay",
-              icon: <Wand2 size="0.75rem" />,
+              icon: <ChatModeIcon mode="roleplay" size="0.75rem" />,
               onSelect: () =>
                 startChatFromCharacter({
                   characterId: contextMenu.charId,
@@ -247,7 +248,7 @@ export function BotBrowserPanel() {
             },
             {
               label: "Quick Start Conversation",
-              icon: <MessageCircle size="0.75rem" />,
+              icon: <ChatModeIcon mode="conversation" size="0.75rem" />,
               onSelect: () =>
                 startChatFromCharacter({
                   characterId: contextMenu.charId,

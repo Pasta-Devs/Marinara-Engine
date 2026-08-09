@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, MessageCircle, Plug, X, BookOpen } from "lucide-react";
+import { Loader2, Plug, X } from "lucide-react";
 import { useConnections } from "../../hooks/use-connections";
 import { useCreateChat } from "../../hooks/use-chats";
 import { useChatPresets, useApplyChatPreset } from "../../hooks/use-chat-presets";
@@ -9,13 +9,14 @@ import { useSidecarStore } from "../../stores/sidecar.store";
 import { appendLocalSidecarConnectionOption } from "../../lib/connection-filters";
 import { cn } from "../../lib/utils";
 import { useTranslation as useUiTranslation } from "react-i18next";
+import { ChatModeIcon } from "./ChatModeIcon";
 
 type Mode = "conversation" | "roleplay" | "game";
 
 const MODE_META: Record<Mode, { label: string; icon: React.ReactNode }> = {
-  conversation: { label: "Conversation", icon: <MessageCircle size="0.875rem" /> },
-  roleplay: { label: "Roleplay", icon: <BookOpen size="0.875rem" /> },
-  game: { label: "Game", icon: <BookOpen size="0.875rem" /> },
+  conversation: { label: "Conversation", icon: <ChatModeIcon mode="conversation" size="0.875rem" /> },
+  roleplay: { label: "Roleplay", icon: <ChatModeIcon mode="roleplay" size="0.875rem" /> },
+  game: { label: "Game", icon: <ChatModeIcon mode="game" size="0.875rem" /> },
 };
 
 interface NewChatConnectionGateProps {
