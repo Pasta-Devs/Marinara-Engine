@@ -11,7 +11,6 @@ import {
   Sparkles,
   FileText,
   VenetianMask,
-  Bot,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -126,7 +125,6 @@ export function TopBar() {
   const showMusicDjUnavailablePlayer =
     spotifyDesktopViewport && musicPlayerEnabled && !installedCapabilitiesLoading && !musicDjInstalled;
 
-  const isBotBrowserActive = (rightPanelOpen && rightPanel === "bot-browser") || botBrowserOpen;
   const isCharactersPanelActive =
     (rightPanelOpen && rightPanel === "characters") ||
     Boolean(characterDetailId) ||
@@ -348,28 +346,6 @@ export function TopBar() {
         aria-label={localize("Panel navigation")}
         className="mari-topbar-panel-nav mari-rgb-icon-scope flex shrink-0 items-center justify-end gap-0.5 rounded-xl p-1 max-sm:gap-0 max-sm:p-0.5"
       >
-        {/* Browser */}
-        <button
-          onClick={() => handleRightPanelClick("bot-browser")}
-          data-tour="panel-bot-browser"
-          data-topbar-hover-key="browser"
-          className={cn(
-            TOPBAR_PANEL_BUTTON_CLASS,
-            isBotBrowserActive
-              ? cn(TOPBAR_ACTIVE_BUTTON_CLASS, "text-lime-300")
-              : cn(
-                  "text-[var(--muted-foreground)] hover:text-lime-300",
-                  isTopbarHovered("browser") && cn(TOPBAR_FORCE_HOVER_CLASS, "text-lime-300"),
-                ),
-          )}
-          title={localize("Browser")}
-        >
-          <Bot size={15} className={TOPBAR_ACCENT_ICON_CLASS} />
-          {isBotBrowserActive && (
-            <span className="absolute -bottom-0.5 left-1/2 h-0.5 w-3 -translate-x-1/2 rounded-full bg-gradient-to-r from-lime-400 via-green-500 to-cyan-500" />
-          )}
-        </button>
-
         <button
           onClick={() => handleRightPanelClick("characters")}
           data-tour="panel-characters"

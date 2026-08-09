@@ -38,6 +38,7 @@ import {
   Hash,
   Star,
   MessageCircle,
+  Bot,
 } from "lucide-react";
 import { getCharacterTitle } from "../../lib/character-display";
 import {
@@ -156,6 +157,7 @@ export function CharactersPanel() {
   const openModal = useUIStore((s) => s.openModal);
   const openCharacterDetail = useUIStore((s) => s.openCharacterDetail);
   const openCharacterLibrary = useUIStore((s) => s.openCharacterLibrary);
+  const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const sort = useUIStore((s) => s.characterLibrarySort);
   const setCharacterLibrarySort = useUIStore((s) => s.setCharacterLibrarySort);
   const search = useUIStore((s) => s.characterPanelSearch);
@@ -746,14 +748,26 @@ export function CharactersPanel() {
       data-component="CharactersPanelScroll"
       className="flex h-full min-h-0 flex-col gap-2 overflow-y-auto p-3 [scrollbar-gutter:stable]"
     >
-      <button
-        onClick={openCharacterLibrary}
-        className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
-        title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
-      >
-        <Users size="0.875rem" />
-        {localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
-      </button>
+      <div className="mari-chrome-segmented mari-chrome-segmented--two" data-component="CharacterLibraryActions">
+        <button
+          type="button"
+          onClick={openBotBrowser}
+          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
+        >
+          <Bot size="0.875rem" />
+          {localizeUi("ui.panels.resourceLibraryLauncher.download")}
+        </button>
+        <button
+          type="button"
+          onClick={openCharacterLibrary}
+          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          title={localizeUi("ui.panels.characterspanel.openCharactersLibrary")}
+        >
+          <Users size="0.875rem" />
+          {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
+        </button>
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2">

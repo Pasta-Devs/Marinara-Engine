@@ -17,7 +17,6 @@ import { useTranslation as useUiTranslation } from "react-i18next";
 // ─── Step definitions ─────────────────────────
 
 type TourPanel =
-  | "bot-browser"
   | "characters"
   | "lorebooks"
   | "presets"
@@ -60,14 +59,6 @@ const STEPS: TourStep[] = [
     title: "Welcome to Marinara Engine!",
     body: "Hi! I'm Professor Mari, your assistant and guide! First time around? Allow me to show you around. This is a quick orientation tour, so you can skip it if you already know your way around, but skipping will make me sad a little.",
     sprite: { src: "/sprites/mari/Mari_wave.png" },
-  },
-  {
-    target: "panel-bot-browser",
-    title: "Browser",
-    body: "The Browser lets you find and import downloadable character cards. Start here when you want new characters to add to your library.",
-    side: "bottom",
-    openPanel: "bot-browser",
-    sprite: { src: "/sprites/mari/Mari_point_up_left.png", flip: true },
   },
   {
     target: "panel-characters",

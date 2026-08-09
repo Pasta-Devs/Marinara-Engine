@@ -91,15 +91,6 @@ export function readEmbeddedLorebookFromCharacterPayload(raw: Record<string, unk
   return target.character_book;
 }
 
-export function confirmEmbeddedLorebookImport(characterName: string, embeddedLorebook: unknown): boolean {
-  const entryCount = countLorebookEntries(embeddedLorebook);
-  if (entryCount === 0) return true;
-
-  return window.confirm(
-    `${characterName} includes an embedded lorebook with ${entryCount} entr${entryCount === 1 ? "y" : "ies"}.\n\nImport it as a standalone Marinara lorebook too?`,
-  );
-}
-
 export async function inspectCharacterFilesForEmbeddedLorebooks(
   files: File[],
 ): Promise<EmbeddedLorebookImportPreview[]> {

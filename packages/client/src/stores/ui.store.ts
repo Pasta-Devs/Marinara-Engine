@@ -2438,7 +2438,7 @@ export const useUIStore = create<UIState>()(
     }),
     {
       name: "marinara-engine-ui",
-      version: 91,
+      version: 92,
       // Debounce localStorage writes to avoid sync I/O on every state change
       storage: createJSONStorage(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -2483,6 +2483,10 @@ export const useUIStore = create<UIState>()(
         };
       }),
       migrate: (persisted: any, version: number) => {
+        if (version <= 91 && persisted.rightPanel === "bot-browser") {
+          persisted.rightPanel = "characters";
+          persisted.rightPanelOpen = false;
+        }
         if (version === 0 && persisted.fontSize === 14) {
           persisted.fontSize = 17;
         }

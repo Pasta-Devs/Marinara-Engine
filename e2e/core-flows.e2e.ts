@@ -7191,7 +7191,6 @@ test("home shell and primary topbar panels open without client errors", async ({
     .locator('[data-tour="panel-buttons"] > button[data-tour^="panel-"]')
     .evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-tour")));
   expect(corePanelOrder).toEqual([
-    "panel-bot-browser",
     "panel-characters",
     "panel-personas",
     "panel-lorebooks",
@@ -7218,7 +7217,6 @@ test("home shell and primary topbar panels open without client errors", async ({
 
   for (const selector of [
     '[data-tour="sidebar-toggle"]',
-    '[data-tour="panel-bot-browser"]',
     '[data-tour="panel-characters"]',
     '[data-tour="panel-personas"]',
     '[data-tour="panel-lorebooks"]',
@@ -7697,7 +7695,7 @@ test("Professor Mari opens a named character directly in its editor", async ({ p
   }
 });
 
-test("Professor Mari introduces Browser, Characters, and Personas in topbar order", async ({ page }) => {
+test("Professor Mari introduces Characters and Personas in topbar order without a Browser step", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(async () => {
     const module = await import("/src/stores/ui.store.ts");
@@ -7707,9 +7705,8 @@ test("Professor Mari introduces Browser, Characters, and Personas in topbar orde
   const next = page.getByRole("button", { name: "Next", exact: true });
   await expect(page.getByRole("heading", { name: "Welcome to Marinara Engine!", exact: true })).toBeVisible();
   await next.click();
-  await expect(page.locator("h3").filter({ hasText: /^Browser$/ })).toBeVisible();
-  await next.click();
   await expect(page.locator("h3").filter({ hasText: /^Characters$/ })).toBeVisible();
+  await expect(page.locator("h3").filter({ hasText: /^Browser$/ })).toHaveCount(0);
   await next.click();
   await expect(page.locator("h3").filter({ hasText: /^Personas$/ })).toBeVisible();
 });
@@ -7725,7 +7722,6 @@ test("Professor Mari replaces the Noodle tour with highlighted Home guidance", a
 
   const next = page.getByRole("button", { name: "Next", exact: true });
   const stepsBeforeHome = [
-    "Browser",
     "Characters",
     "Personas",
     "Lorebooks",
@@ -8330,7 +8326,7 @@ test("incomplete synced settings preserve disabled Game text effects and repair 
     .toBe(false);
 });
 
-test("Browser labels and the Persona full library stay available across viewports", async ({ page }) => {
+test("Character and Persona panels launch card downloads and their local libraries", async ({ page }) => {
   const errors = collectUnexpectedErrors(page);
   await page.route("**/api/bot-browser/chub/search?*", async (route) => {
     await route.fulfill({
@@ -8340,12 +8336,12 @@ test("Browser labels and the Persona full library stay available across viewport
   });
   await page.goto("/");
 
-  await page.locator('[data-tour="panel-bot-browser"]').click();
-  await expect(page.getByText("Browser", { exact: true })).toBeVisible();
-  await expect(page.getByText("Card Browser", { exact: true })).toHaveCount(0);
-  const downloadCards = page.getByRole("button", { name: "Download Cards" });
-  await expect(downloadCards).toBeVisible();
-  await downloadCards.click();
+  await expect(page.locator('[data-tour="panel-bot-browser"]')).toHaveCount(0);
+  await page.locator('[data-tour="panel-characters"]').click();
+  const characterActions = page.locator('[data-component="CharacterLibraryActions"]');
+  await expect(characterActions.getByRole("button", { name: "Download", exact: true })).toBeVisible();
+  await expect(characterActions.getByRole("button", { name: "Open Library", exact: true })).toBeVisible();
+  await characterActions.getByRole("button", { name: "Download", exact: true }).click();
 
   const cardLibrary = page.locator('[data-component="BotBrowserView"]');
   await expect(cardLibrary.getByText("Cards Library", { exact: true })).toBeVisible();
@@ -8353,12 +8349,29 @@ test("Browser labels and the Persona full library stay available across viewport
   const searchError = cardLibrary.getByText("Search failed", { exact: true });
   await expect(searchError).toBeVisible();
   await expect(searchError).toHaveClass(/marinara-chat-chrome-panel-title/);
+  const sourceButton = cardLibrary.getByRole("button", { name: /ChubAI/u });
+  await sourceButton.evaluate((button: HTMLButtonElement) => button.click());
+  const sourceMenu = page.locator('.mari-chrome-selection-bar--opaque').filter({ hasText: "JannyAI" });
+  await expect(sourceMenu).toBeVisible();
+  const [sourceButtonBox, sourceMenuBox, browserBox] = await Promise.all([
+    sourceButton.boundingBox(),
+    sourceMenu.boundingBox(),
+    cardLibrary.boundingBox(),
+  ]);
+  expect(sourceButtonBox).not.toBeNull();
+  expect(sourceMenuBox).not.toBeNull();
+  expect(browserBox).not.toBeNull();
+  expect(Math.abs(sourceMenuBox!.x + sourceMenuBox!.width - (sourceButtonBox!.x + sourceButtonBox!.width))).toBeLessThanOrEqual(1);
+  expect(sourceMenuBox!.x + sourceMenuBox!.width).toBeLessThanOrEqual(browserBox!.x + browserBox!.width);
+  await page.getByRole("button", { name: "Close provider menu" }).click();
   const closeCardLibrary = cardLibrary.getByRole("button", { name: "Close library" });
   await expect(closeCardLibrary).toBeVisible();
   await closeCardLibrary.click();
 
   await page.locator('[data-tour="panel-personas"]').click();
-  const openPersonaLibrary = page.getByRole("button", { name: "Open Personas Library" });
+  const personaActions = page.locator('[data-component="PersonaLibraryActions"]');
+  await expect(personaActions.getByRole("button", { name: "Download", exact: true })).toBeVisible();
+  const openPersonaLibrary = personaActions.getByRole("button", { name: "Open Library", exact: true });
   await expect(openPersonaLibrary).toBeVisible();
   await openPersonaLibrary.click();
 
@@ -8371,6 +8384,102 @@ test("Browser labels and the Persona full library stay available across viewport
   await expect(page.locator('[data-tour="panel-personas"]')).toHaveClass(/mari-topbar-panel-icon--active/);
   await expect(page.locator('[data-tour="panel-characters"]')).not.toHaveClass(/bg-\[var\(--accent\)\]/);
   expect(errors.filter((error) => !error.includes("status of 503 (Service Unavailable)"))).toEqual([]);
+});
+
+test("Downloaded cards use Marinara destination and lorebook choices", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name.includes("mobile"), "The import contract is covered once on desktop.");
+
+  const cardName = `Native Import ${Date.now().toString(36)}`;
+  let importedPersona: Record<string, unknown> | null = null;
+  let importedLorebook: Record<string, unknown> | null = null;
+  await page.route("**/api/bot-browser/chub/search?*", async (route) => {
+    await route.fulfill({ json: { data: { count: 0, nodes: [] } } });
+  });
+  await page.route("**/api/bot-browser/wyvern/search?*", async (route) => {
+    await route.fulfill({
+      json: {
+        total: 1,
+        results: [
+          {
+            id: "native-import-card",
+            name: cardName,
+            creator: { displayName: "Marinara Tester" },
+            tagline: "A card with an attached lorebook",
+            tags: ["testing", "native"],
+            rating: "none",
+          },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/bot-browser/wyvern/character/native-import-card", async (route) => {
+    await route.fulfill({
+      json: {
+        name: cardName,
+        description: "A detailed imported persona.",
+        personality: "Curious and precise.",
+        scenario: "Inside the Marinara test kitchen.",
+        creator: "Marinara Tester",
+        character_book: {
+          name: `${cardName} Lore`,
+          entries: [
+            { name: "Kitchen", keys: ["kitchen"], content: "A very serious kitchen." },
+            { name: "Recipe", keys: ["recipe"], content: "The secret recipe." },
+          ],
+        },
+      },
+    });
+  });
+  await page.route("**/api/characters/personas", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
+    importedPersona = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ json: { id: "native-import-persona" } });
+  });
+  await page.route("**/api/import/st-lorebook", async (route) => {
+    importedLorebook = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ json: { success: true, lorebookId: "native-import-lorebook" } });
+  });
+
+  await page.goto("/");
+  await page.locator('[data-tour="panel-characters"]').click();
+  await page
+    .locator('[data-component="CharacterLibraryActions"]')
+    .getByRole("button", { name: "Download", exact: true })
+    .click();
+
+  const library = page.locator('[data-component="BotBrowserView"]');
+  await library.getByRole("button", { name: /ChubAI/u }).click();
+  await page.getByRole("button", { name: /Wyvern/u }).click();
+  await library.getByRole("button", { name: new RegExp(cardName, "u") }).click();
+  await library.getByRole("button", { name: "Import", exact: true }).click();
+
+  const importDialog = page.locator('[data-component="BotBrowserImportDialog"]');
+  await expect(importDialog).toBeVisible();
+  await expect(importDialog.getByRole("button", { name: /Import as Character/u })).toBeVisible();
+  await importDialog.getByRole("button", { name: /Import as Persona/u }).click();
+  await expect(importDialog.getByText("Embedded lorebook found", { exact: true })).toBeVisible();
+  await expect(importDialog.getByText(/includes 2 lorebook entries/u)).toBeVisible();
+  await expect(importDialog.getByRole("button", { name: "No Import", exact: true })).toBeVisible();
+  await importDialog.getByRole("button", { name: "Import Lorebook", exact: true }).click();
+
+  await expect(page.getByText(`Imported "${cardName}" as a persona.`, { exact: true })).toBeVisible();
+  expect(importedPersona).toMatchObject({
+    name: cardName,
+    description: "A detailed imported persona.",
+    personality: "Curious and precise.",
+    scenario: "Inside the Marinara test kitchen.",
+    creator: "Marinara Tester",
+  });
+  expect(importedLorebook).toMatchObject({
+    name: `${cardName} Lore`,
+    entries: [
+      { name: "Kitchen", keys: ["kitchen"], content: "A very serious kitchen." },
+      { name: "Recipe", keys: ["recipe"], content: "The secret recipe." },
+    ],
+  });
 });
 
 test("Chub NSFW search uses filtered totals and spaced pagination", async ({ page }, testInfo) => {
@@ -8417,8 +8526,11 @@ test("Chub NSFW search uses filtered totals and spaced pagination", async ({ pag
   });
 
   await page.goto("/");
-  await page.locator('[data-tour="panel-bot-browser"]').click();
-  await page.getByRole("button", { name: "Download Cards" }).click();
+  await page.locator('[data-tour="panel-characters"]').click();
+  await page
+    .locator('[data-component="CharacterLibraryActions"]')
+    .getByRole("button", { name: "Download", exact: true })
+    .click();
   const library = page.locator('[data-component="BotBrowserView"]');
   await expect(library.getByText("96 cards from ChubAI", { exact: true })).toBeVisible();
   await expect(library.getByText("Page 1 of 2", { exact: true })).toBeVisible();

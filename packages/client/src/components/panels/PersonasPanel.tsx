@@ -35,6 +35,7 @@ import {
   Check,
   UserMinus,
   Tag,
+  Bot,
 } from "lucide-react";
 import { confirmNonEmptyFolderDelete, showConfirmDialog } from "../../lib/app-dialogs";
 import { handleFolderRenameKeyDown, useFolderRenameGesture } from "../../hooks/use-folder-rename-gesture";
@@ -134,6 +135,7 @@ export function PersonasPanel() {
   const deletePGroup = useDeletePersonaGroup();
   const openPersonaDetail = useUIStore((s) => s.openPersonaDetail);
   const openPersonaLibrary = useUIStore((s) => s.openPersonaLibrary);
+  const openBotBrowser = useUIStore((s) => s.openBotBrowser);
   const openModal = useUIStore((s) => s.openModal);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -557,14 +559,26 @@ export function PersonasPanel() {
 
   return (
     <div className="flex min-h-full flex-col gap-2 p-3">
-      <button
-        onClick={openPersonaLibrary}
-        className="mari-chrome-control mari-chrome-control--primary w-full text-xs"
-        title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
-      >
-        <VenetianMask size="0.875rem" />
-        {localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
-      </button>
+      <div className="mari-chrome-segmented mari-chrome-segmented--two" data-component="PersonaLibraryActions">
+        <button
+          type="button"
+          onClick={openBotBrowser}
+          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          title={localizeUi("ui.panels.resourceLibraryLauncher.downloadCards")}
+        >
+          <Bot size="0.875rem" />
+          {localizeUi("ui.panels.resourceLibraryLauncher.download")}
+        </button>
+        <button
+          type="button"
+          onClick={openPersonaLibrary}
+          className="mari-chrome-segmented__button px-2 py-2 text-xs"
+          title={localizeUi("ui.panels.personaspanel.openPersonasLibrary")}
+        >
+          <VenetianMask size="0.875rem" />
+          {localizeUi("ui.panels.resourceLibraryLauncher.openLibrary")}
+        </button>
+      </div>
 
       {/* Actions */}
       <div className="flex gap-2">

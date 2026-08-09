@@ -8,7 +8,6 @@ export type ProfessorMariNavigationTarget =
   | {
       kind: "panel";
       panel:
-        | "bot-browser"
         | "characters"
         | "personas"
         | "lorebooks"
@@ -18,7 +17,10 @@ export type ProfessorMariNavigationTarget =
         | "extensions";
     }
   | { kind: "settings"; tab: ProfessorMariSettingsTab; controlId?: string }
-  | { kind: "surface"; surface: "character-library" | "persona-library" | "agent-catalog" | "game-assets" }
+  | {
+      kind: "surface";
+      surface: "card-downloads" | "character-library" | "persona-library" | "agent-catalog" | "game-assets";
+    }
   | {
       kind: "window";
       window: "discord" | "support" | "documentation" | "faq" | "widgets" | "tutorial" | "credits";
@@ -188,7 +190,7 @@ const RULES: readonly NavigationRule[] = [
     patterns: [/\b(?:extensions?|extension manager)\b/],
   },
   {
-    target: { kind: "panel", panel: "bot-browser" },
+    target: { kind: "surface", surface: "card-downloads" },
     priority: 64,
     patterns: [/\b(?:browser|character browser|browse bots?|download characters?)\b/],
   },
